@@ -1,0 +1,29 @@
+# Claude Code: personal/local files (shared .claude/settings.json and .claude/skills are committed)
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+
+# Dependencies
+node_modules/
+
+# Build output and caches
+dist/
+.angular/
+coverage/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
