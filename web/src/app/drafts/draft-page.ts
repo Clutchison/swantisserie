@@ -52,7 +52,7 @@ export class DraftPage {
 
   constructor() {
     effect((onCleanup) => {
-      if (this.draft()?.pool.state !== 'Running') return;
+      if (this.draft()?.snapshot.state !== 'Running') return;
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });

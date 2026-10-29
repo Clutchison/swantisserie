@@ -5,6 +5,7 @@ import { PoolSnapshotService } from './pool-snapshot.service.js';
 import {
   ScryfallClient,
   ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
   type ScryfallSearchPage,
 } from '../scryfall/scryfall-client.js';
 
@@ -44,19 +45,7 @@ export class PoolQueryError extends Error {
   }
 }
 
-/** The pool snapshot is complete, so the pool can't change any more. */
-export class PoolFrozenError extends Error {
-  constructor() {
-    super('The pool is complete and can’t be changed.');
-  }
-}
-
-/** Scryfall failed for reasons of its own, not the pool query's. */
-export class ScryfallUnavailableError extends Error {
-  constructor(cause: unknown) {
-    super('Scryfall search failed', { cause });
-  }
-}
+export { ScryfallUnavailableError };
 
 export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
 
@@ -94,9 +83,8 @@ export class DraftsService {
    * Starts the draft's pool snapshot over, e.g. after a failure. Throws
    * PoolFrozenError if the snapshot is already complete.
    */
-  async restartSnapshot(draft: DraftWithOrganizer): Promise<void> {
-    if (draft.snapshotState === 'Complete') throw new PoolFrozenError();
-    await this.snapshots.start(draft.id);
+  async restartSnapshot(draftId: string): Promise<void> {
+    await this.snapshots.start(draftId);
   }
 
   /** The draft's pool so far, by name. */
@@ -157,7 +145,7 @@ export class DraftsService {
           warnings: err.warnings,
         });
       }
-      throw new ScryfallUnavailableError(err);
+      throw err;
     }
   }
 }

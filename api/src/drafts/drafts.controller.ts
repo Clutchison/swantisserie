@@ -28,11 +28,10 @@ import {
   DraftsService,
   type DraftWithOrganizer,
   type NewDraft,
-  PoolFrozenError,
   PoolQueryError,
   ScryfallUnavailableError,
 } from './drafts.service.js';
-import type { CardImages } from './pool-snapshot.service.js';
+import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
 const MAX_PICKS_PER_PLAYER = 100;
@@ -58,7 +57,7 @@ export interface DraftView {
   picksPerPlayer: number;
   state: DraftState;
   organizer: { id: string; name: string };
-  pool: PoolSnapshotView;
+  snapshot: PoolSnapshotView;
   createdAt: Date;
 }
 
@@ -101,7 +100,7 @@ export class DraftsController {
   /** Starts the pool snapshot over; for the organizer, after a failure. */
   @Post(':id/snapshot')
   @HttpCode(202)
-  async retrySnapshot(
+  async restartSnapshot(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
@@ -110,7 +109,7 @@ export class DraftsController {
       throw new ForbiddenException();
     }
     try {
-      await this.drafts.restartSnapshot(draft);
+      await this.drafts.restartSnapshot(draft.id);
     } catch (err) {
       if (err instanceof PoolFrozenError) {
         throw new ConflictException({
@@ -142,7 +141,7 @@ export class DraftsController {
         throw new UnprocessableEntityException(err.problem);
       }
       if (err instanceof ScryfallUnavailableError) {
-        this.logger.error(err.message, err.cause);
+        this.logger.error(err.message);
         throw new BadGatewayException({
           error: 'scryfall-unavailable',
           message: 'Scryfall could not be reached. Try again in a moment.',
@@ -201,7 +200,7 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
     picksPerPlayer: draft.picksPerPlayer,
     state: draft.state,
     organizer: draft.organizer,
-    pool: {
+    snapshot: {
       state: draft.snapshotState,
       cards: draft._count.pool,
       total: draft.poolTotal,

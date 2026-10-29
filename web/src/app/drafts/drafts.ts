@@ -20,7 +20,7 @@ export interface DraftView {
   picksPerPlayer: number;
   state: DraftState;
   organizer: { id: string; name: string };
-  pool: PoolSnapshotView;
+  snapshot: PoolSnapshotView;
   createdAt: string;
 }
 

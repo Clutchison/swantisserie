@@ -13,26 +13,26 @@
 
     <section class="pool">
       <h2>Pool</h2>
-      @switch (draft.pool.state) {
+      @switch (draft.snapshot.state) {
         @case ('Running') {
           <p>
             Snapshotting the pool from Scryfall…
-            @if (draft.pool.total !== null) {
-              {{ draft.pool.cards }} of {{ draft.pool.total }} cards
+            @if (draft.snapshot.total !== null) {
+              {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
             }
           </p>
-          @if (draft.pool.total !== null) {
-            <progress [value]="draft.pool.cards" [max]="draft.pool.total"></progress>
+          @if (draft.snapshot.total !== null) {
+            <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
           } @else {
             <progress></progress>
           }
         }
         @case ('Complete') {
-          <p>{{ draft.pool.cards }} cards in the pool.</p>
+          <p>{{ draft.snapshot.cards }} cards in the pool.</p>
         }
         @case ('Failed') {
           <div class="error" role="alert">
-            <p>Snapshotting the pool failed: {{ draft.pool.error }}</p>
+            <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
             @if (canRetry()) {
               <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
                 {{ retrying() ? 'Retrying…' : 'Retry' }}

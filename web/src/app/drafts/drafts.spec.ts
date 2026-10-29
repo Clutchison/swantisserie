@@ -22,7 +22,7 @@ function draft(fields: Partial<DraftView>): DraftView {
     picksPerPlayer: 40,
     state: 'Lobby',
     organizer: { id: alice.id, name: alice.name },
-    pool: { state: 'Complete', cards: 540, total: 540 },
+    snapshot: { state: 'Complete', cards: 540, total: 540 },
     createdAt: '2026-10-29T12:00:00.000Z',
     ...fields,
   };
@@ -119,14 +119,16 @@ describe('drafts', () => {
     /** Opens draft-1's page with the first GET answered by `pool`. */
     async function openDraft(pool: PoolSnapshotView, fields: Partial<DraftView> = {}) {
       const { fixture, page } = await open('/drafts/draft-1');
-      http.expectOne('/api/drafts/draft-1').flush(draft({ pool, ...fields }));
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: pool, ...fields }));
       await fixture.whenStable();
       return { fixture, page };
     }
 
     /** The next poll of the draft, answered with `pool`. */
     async function poll(fixture: { whenStable(): Promise<unknown> }, pool: PoolSnapshotView) {
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft({ pool }));
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft({ snapshot: pool }),
+      );
       await fixture.whenStable();
     }
 
@@ -172,7 +174,7 @@ describe('drafts', () => {
       retry.click();
       const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'));
       expect(req.request.method).toBe('POST');
-      req.flush(draft({ pool: { state: 'Running', cards: 0, total: null } }), {
+      req.flush(draft({ snapshot: { state: 'Running', cards: 0, total: null } }), {
         status: 202,
         statusText: 'Accepted',
       });

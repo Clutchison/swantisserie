@@ -72,11 +72,19 @@ export class ScryfallRejectedSearchError extends Error {
   }
 }
 
+/** Scryfall failed for reasons of its own, not the query's: an outage or rate limiting. */
+export class ScryfallUnavailableError extends Error {
+  constructor(readonly status: number) {
+    super(`Scryfall search failed: ${status}`);
+  }
+}
+
 /** Scryfall's search API: the boundary faked in tests. */
 export abstract class ScryfallClient {
   /**
    * The cards matching `query`, page by page (from 1), or null if none do.
-   * Throws ScryfallRejectedSearchError if Scryfall can't run the query.
+   * Throws ScryfallRejectedSearchError if Scryfall can't run the query, and
+   * ScryfallUnavailableError if Scryfall itself is in trouble.
    */
   abstract search(
     query: string,
@@ -99,7 +107,7 @@ export class FetchScryfallClient extends ScryfallClient {
       const res = await fetch(url.toString(), { headers: HEADERS });
       if (res.status !== 429) return this.parse(res);
       if (rateLimited === MAX_RATE_LIMITED_RETRIES) {
-        throw new Error(`Scryfall search failed: ${res.status}`);
+        throw new ScryfallUnavailableError(res.status);
       }
       this.backOff();
     }
@@ -114,7 +122,7 @@ export class FetchScryfallClient extends ScryfallClient {
         error.warnings ?? [],
       );
     }
-    if (!res.ok) throw new Error(`Scryfall search failed: ${res.status}`);
+    if (!res.ok) throw new ScryfallUnavailableError(res.status);
     const body = (await res.json()) as {
       total_cards: number;
       has_more: boolean;

@@ -35,7 +35,7 @@ The Scryfall search the organizer enters to define a draft's pool.
 _Avoid_: Search, filter, Scryfall query (in code)
 
 **Pool snapshot**:
-The copy of a pool query's cards taken from Scryfall right after a draft is created. The pool is frozen once it completes.
+The copy of a pool query's cards taken from Scryfall right after a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:

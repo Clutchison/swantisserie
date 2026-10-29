@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallClient,
   ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
   type ScryfallCard,
   type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
@@ -18,6 +19,16 @@ export interface CardImages extends ScryfallImageUris {
   /** Keeps the type a Prisma InputJsonObject. */
   [key: string]: string;
 }
+
+/** The pool snapshot is complete, so the pool can't change any more. */
+export class PoolFrozenError extends Error {
+  constructor() {
+    super('The pool is complete and can’t be changed.');
+  }
+}
+
+/** A snapshot failure with an explanation fit to show the organizer. */
+class PoolSnapshotError extends Error {}
 
 /**
  * Copies each draft's pool from Scryfall in the background: the pool
@@ -63,43 +74,38 @@ export class PoolSnapshotService
    * Starts the draft's snapshot over. Resolves once the draft is marked
    * Running and its old cards are gone; the paging carries on in the
    * background. Does nothing if this process is already snapshotting it.
+   * Rejects with PoolFrozenError if the snapshot is already complete.
    */
   start(draftId: string): Promise<void> {
     if (this.running.has(draftId)) return Promise.resolve();
-    let markStarted!: () => void;
-    const started = new Promise<void>((resolve) => (markStarted = resolve));
-    const job = this.run(draftId, markStarted)
+    let started!: { resolve: () => void; reject: (err: unknown) => void };
+    const startedPromise = new Promise<void>((resolve, reject) => {
+      started = { resolve, reject };
+    });
+    const job = this.run(draftId, started)
       .catch((err: unknown) => {
         this.logger.error(`Pool snapshot for draft ${draftId} crashed`, err);
       })
-      .finally(() => {
-        markStarted();
-        this.running.delete(draftId);
-      });
+      .finally(() => this.running.delete(draftId));
     this.running.set(draftId, job);
-    return started;
+    return startedPromise;
   }
 
-  private async run(draftId: string, markStarted: () => void): Promise<void> {
-    const draft = await this.prisma.draft.findUniqueOrThrow({
-      where: { id: draftId },
-      select: { poolQuery: true },
-    });
-    await this.prisma.$transaction([
-      this.prisma.poolCard.deleteMany({ where: { draftId } }),
-      this.prisma.draft.update({
-        where: { id: draftId },
-        data: {
-          snapshotState: 'Running',
-          poolTotal: null,
-          snapshotError: null,
-        },
-      }),
-    ]);
-    markStarted();
+  private async run(
+    draftId: string,
+    started: { resolve: () => void; reject: (err: unknown) => void },
+  ): Promise<void> {
+    let poolQuery: string;
+    try {
+      poolQuery = await this.reset(draftId);
+    } catch (err) {
+      started.reject(err);
+      return;
+    }
+    started.resolve();
 
     try {
-      await this.pageThrough(draftId, draft.poolQuery);
+      await this.pageThrough(draftId, poolQuery);
       await this.prisma.draft.update({
         where: { id: draftId },
         data: { snapshotState: 'Complete' },
@@ -113,6 +119,32 @@ export class PoolSnapshotService
     }
   }
 
+  /**
+   * Marks the draft Running and drops its cards, unless its pool is already
+   * frozen. Returns its pool query.
+   */
+  private async reset(draftId: string): Promise<string> {
+    return this.prisma.$transaction(async (tx) => {
+      // The state check and the reset are one statement, so a snapshot that
+      // completes in the meantime can't be wiped.
+      const { count } = await tx.draft.updateMany({
+        where: { id: draftId, snapshotState: { not: 'Complete' } },
+        data: {
+          snapshotState: 'Running',
+          poolTotal: null,
+          snapshotError: null,
+        },
+      });
+      if (count === 0) throw new PoolFrozenError();
+      await tx.poolCard.deleteMany({ where: { draftId } });
+      const { poolQuery } = await tx.draft.findUniqueOrThrow({
+        where: { id: draftId },
+        select: { poolQuery: true },
+      });
+      return poolQuery;
+    });
+  }
+
   private async pageThrough(draftId: string, poolQuery: string): Promise<void> {
     // game:arena picks the Arena printing of each card; the pool query was
     // already checked to have no cards off Arena.
@@ -120,8 +152,11 @@ export class PoolSnapshotService
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
       if (!result) {
-        if (page > 1) return;
-        throw new Error('The pool query no longer matches any cards on Arena.');
+        throw new PoolSnapshotError(
+          page === 1
+            ? 'The pool query no longer matches any cards on Arena.'
+            : 'Scryfall stopped returning cards before the pool was complete.',
+        );
       }
       await this.prisma.$transaction([
         this.prisma.poolCard.createMany({
@@ -140,13 +175,14 @@ export class PoolSnapshotService
 
 /** A failure's explanation, fit to show the organizer. */
 function explain(err: unknown): string {
+  if (err instanceof PoolSnapshotError) return err.message;
   if (err instanceof ScryfallRejectedSearchError) {
     return `Scryfall rejected the pool query: ${err.details}`;
   }
-  return err instanceof Error &&
-    !err.message.startsWith('Scryfall search failed')
-    ? err.message
-    : 'Scryfall could not be reached.';
+  if (err instanceof ScryfallUnavailableError) {
+    return 'Scryfall could not be reached.';
+  }
+  return 'Snapshotting the pool failed unexpectedly.';
 }
 
 function toPoolCard(
@@ -154,6 +190,8 @@ function toPoolCard(
   card: ScryfallCard,
 ): Prisma.PoolCardCreateManyInput {
   const faces = card.card_faces ?? [];
+  const oracleId = card.oracle_id ?? faces[0]?.oracle_id;
+  if (!oracleId) throw new PoolSnapshotError(`${card.name} has no oracle id.`);
   const images: CardImages[] = (
     card.image_uris ? [card.image_uris] : faces.map((face) => face.image_uris)
   )
@@ -162,7 +200,7 @@ function toPoolCard(
   return {
     draftId,
     scryfallId: card.id,
-    oracleId: card.oracle_id ?? faces[0]?.oracle_id ?? card.id,
+    oracleId,
     name: card.name,
     set: card.set,
     collectorNumber: card.collector_number,
