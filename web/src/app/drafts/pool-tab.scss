@@ -1,3 +1,10 @@
+/*
+ * A printed card's corner radius, as a share of its width and height.
+ * Scryfall's JPGs have square corners filled with background colour, so
+ * rounding them away shows the card's own shape; nothing else is cut.
+ */
+$card-corners: #{4.75% / 3.5%};
+
 /* Sits inside the draft page, which has the padding. */
 :host {
   padding: 0;
@@ -26,6 +33,7 @@
   aspect-ratio: 488 / 680;
   padding: 0;
   border: 0;
+  border-radius: $card-corners;
   background: #eee;
   font: inherit;
   cursor: pointer;
@@ -42,12 +50,13 @@
     text-align: center;
   }
 
-  /* Scaled to fit, never cropped. */
+  /* Scaled to fit; only the corners are rounded. */
   img {
     position: relative;
     display: block;
     width: 100%;
     height: 100%;
+    border-radius: $card-corners;
     object-fit: contain;
   }
 }
@@ -70,10 +79,11 @@
   gap: 0.75rem;
   max-height: 100%;
 
-  /* Scaled to fit the screen, never cropped. */
+  /* Scaled to fit the screen; only the corners are rounded. */
   img {
     display: block;
     min-height: 0;
+    border-radius: $card-corners;
     max-width: min(100%, 672px);
     height: auto;
     max-height: calc(100dvh - 6rem);
