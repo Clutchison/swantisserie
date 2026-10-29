@@ -40,6 +40,7 @@ import {
   ScryfallUnavailableError,
   StartRefusedError,
 } from './drafts.service.js';
+import { DraftsGateway } from './drafts.gateway.js';
 import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
@@ -115,7 +116,10 @@ export interface PoolCardView {
 export class DraftsController {
   private readonly logger = new Logger(DraftsController.name);
 
-  constructor(private readonly drafts: DraftsService) {}
+  constructor(
+    private readonly drafts: DraftsService,
+    private readonly gateway: DraftsGateway,
+  ) {}
 
   @Get()
   async list(): Promise<DraftView[]> {
@@ -219,8 +223,9 @@ export class DraftsController {
   }
 
   /**
-   * Applies `change` to the draft and answers with the draft as it now is.
-   * A change the draft's state no longer allows is a 409 naming why.
+   * Applies `change` to the draft and answers with the draft as it now is,
+   * which everyone viewing it is sent too. A change the draft's state no
+   * longer allows is a 409 naming why.
    */
   private async change(
     id: string,
@@ -247,7 +252,9 @@ export class DraftsController {
       }
       throw err;
     }
-    return toDraftView(await this.findOr404(id));
+    const draft = toDraftView(await this.findOr404(id));
+    this.gateway.changed(draft);
+    return draft;
   }
 
   /** The draft, if `user` is its organizer or an app admin. */

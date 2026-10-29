@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import type { DraftView, PickView } from './drafts';
+import { DraftUpdates } from './draft-updates';
 import { PoolTab } from './pool-tab';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -33,6 +34,7 @@ export class DraftPage {
   private readonly http = inject(HttpClient);
   private readonly pollMs = inject(DRAFT_POLL_MS);
   private readonly user = inject(Auth).user;
+  private readonly updates = inject(DraftUpdates);
 
   readonly id = input.required<string>();
 
@@ -128,6 +130,17 @@ export class DraftPage {
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
+    // Everyone viewing sees each change as it happens.
+    effect((onCleanup) => {
+      const watching = this.updates.watch(this.id()).subscribe((event) => {
+        if (event.type === 'changed') {
+          this.showDraft(event.draft);
+        } else {
+          this.catchUp();
+        }
+      });
+      onCleanup(() => watching.unsubscribe());
+    });
   }
 
   /** Opens the Picks panel on one player's picks. */
@@ -147,12 +160,22 @@ export class DraftPage {
   }
 
   protected pickMade(draft: DraftView) {
-    this.resource.set(draft);
-    this.picksResource.reload();
+    this.showDraft(draft);
   }
 
   /** A refused pick means the draft has moved on: catch up with it. */
   protected pickRefused() {
+    this.catchUp();
+  }
+
+  /** Shows the draft as it now is, with its picks re-read to match. */
+  private showDraft(draft: DraftView) {
+    this.resource.set(draft);
+    this.picksResource.reload();
+  }
+
+  /** Re-reads the draft and its picks, which may have moved on unseen. */
+  private catchUp() {
     this.resource.reload();
     this.picksResource.reload();
   }
