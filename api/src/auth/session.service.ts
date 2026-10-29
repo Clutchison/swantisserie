@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface NewSession {
   /** Goes in the cookie; only its hash is stored. */
@@ -17,10 +17,15 @@ export class SessionService {
 
   async create(userId: string): Promise<NewSession> {
     const token = randomBytes(32).toString('base64url');
-    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-    await this.prisma.session.create({
-      data: { id: hash(token), userId, expiresAt },
-    });
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+    await this.prisma.$transaction([
+      // Sign-ins are rare enough to double as the sweep for dead sessions.
+      this.prisma.session.deleteMany({ where: { expiresAt: { lte: now } } }),
+      this.prisma.session.create({
+        data: { id: hash(token), userId, expiresAt },
+      }),
+    ]);
     return { token, expiresAt };
   }
 

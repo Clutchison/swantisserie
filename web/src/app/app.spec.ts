@@ -65,10 +65,7 @@ describe('App', () => {
   it('logs out and returns to the sign-in page', async () => {
     const page = await open('/', (req) => req.flush(alice));
 
-    const logOut = [...page.querySelectorAll('header button')].find((b) =>
-      b.textContent?.includes('Log out'),
-    ) as HTMLButtonElement;
-    logOut.click();
+    clickLogOut(page);
     const logout = await vi.waitFor(() => http.expectOne('/api/auth/logout'));
     expect(logout.request.method).toBe('POST');
     logout.flush(null, { status: 204, statusText: 'No Content' });
@@ -76,4 +73,27 @@ describe('App', () => {
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
     expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
   });
+
+  it('signs the user out locally even when the logout request fails', async () => {
+    const page = await open('/', (req) => req.flush(alice));
+
+    clickLogOut(page);
+    (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).error(new ProgressEvent('error'));
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+  });
+
+  it('sends signed-out users on any page to the sign-in page', async () => {
+    await open('/drafts/42', (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }));
+
+    expect(router.url).toBe('/sign-in');
+  });
 });
+
+function clickLogOut(page: HTMLElement) {
+  const button = [...page.querySelectorAll('header button')].find((b) =>
+    b.textContent?.includes('Log out'),
+  ) as HTMLButtonElement;
+  button.click();
+}

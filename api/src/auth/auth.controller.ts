@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { User } from '../generated/prisma/client.js';
 import { AuthService } from './auth.service.js';
 import { DiscordConfig } from './discord-config.js';
@@ -25,6 +25,8 @@ import {
 const STATE_COOKIE = 'oauth_state';
 const SCOPES = 'identify guilds.members.read';
 const SIGN_IN_FAILED = '/sign-in?error=failed';
+/** Discord names itself in ?iss= on the callback (RFC 9207). */
+const DISCORD_ISSUER = 'https://discord.com';
 
 export interface UserView {
   id: string;
@@ -64,6 +66,7 @@ export class AuthController {
   async callback(
     @Query('code') code: unknown,
     @Query('state') state: unknown,
+    @Query('iss') issuer: unknown,
     @Req() req: Request,
     @Res() res: Response,
   ) {
@@ -71,8 +74,8 @@ export class AuthController {
     res.clearCookie(STATE_COOKIE, this.cookieOptions());
     // Discord sends ?error=… instead of a code when the user cancels.
     if (
-      typeof expectedState !== 'string' ||
-      state !== expectedState ||
+      !sameSecret(state, expectedState) ||
+      (issuer !== undefined && issuer !== DISCORD_ISSUER) ||
       typeof code !== 'string'
     ) {
       return res.redirect(SIGN_IN_FAILED);
@@ -111,7 +114,7 @@ export class AuthController {
       httpOnly: true,
       // Lax so the cookies ride along on Discord's top-level redirect back to us.
       sameSite: 'lax',
-      secure: this.config.redirectUri.startsWith('https:'),
+      secure: this.config.secureCookies,
       path: '/',
     };
   }
@@ -123,4 +126,11 @@ function avatarUrl({ id, avatar }: User): string {
   // Default avatar for users on the new (discriminator-less) username system.
   const index = (BigInt(id) >> 22n) % 6n;
   return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+}
+
+function sameSecret(given: unknown, expected: unknown): boolean {
+  if (typeof given !== 'string' || typeof expected !== 'string') return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

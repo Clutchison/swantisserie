@@ -8,11 +8,11 @@ import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
 import { DiscordClient, DiscordProfile } from './discord-client.js';
 import { DiscordConfig } from './discord-config.js';
 
-const config: DiscordConfig = {
-  clientId: 'client-123',
-  clientSecret: 'shh',
-  redirectUri: 'http://localhost:4200/api/auth/discord/callback',
-};
+const config = new DiscordConfig({
+  DISCORD_CLIENT_ID: 'client-123',
+  DISCORD_CLIENT_SECRET: 'shh',
+  DISCORD_REDIRECT_URI: 'http://localhost:4200/api/auth/discord/callback',
+});
 
 describe('Discord sign-in', () => {
   let database: TestDatabase;
@@ -85,7 +85,7 @@ describe('Discord sign-in', () => {
     const state = new URL(start.headers.location).searchParams.get('state');
     const callback = await agent
       .get('/api/auth/discord/callback')
-      .query({ code: 'auth-code', state });
+      .query({ code: 'auth-code', state, iss: 'https://discord.com' });
     return { agent, callback };
   }
 
@@ -198,6 +198,20 @@ describe('Discord sign-in', () => {
     const callback = await request(app.getHttpServer())
       .get('/api/auth/discord/callback')
       .query({ code: 'auth-code', state: 'anything' })
+      .expect(302);
+
+    expect(callback.headers.location).toBe('/sign-in?error=failed');
+    expect(discord.exchangeCode).not.toHaveBeenCalled();
+  });
+
+  it('rejects a callback whose issuer is not Discord', async () => {
+    const agent = request.agent(app.getHttpServer());
+    const start = await agent.get('/api/auth/discord');
+    const state = new URL(start.headers.location).searchParams.get('state');
+
+    const callback = await agent
+      .get('/api/auth/discord/callback')
+      .query({ code: 'auth-code', state, iss: 'https://evil.example' })
       .expect(302);
 
     expect(callback.headers.location).toBe('/sign-in?error=failed');

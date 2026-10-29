@@ -3,7 +3,10 @@ import { inject, Injectable, signal } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-export interface User {
+export const SIGN_IN_PATH = 'sign-in';
+
+/** The signed-in user, as GET /api/auth/me reports them. */
+export interface UserView {
   id: string;
   name: string;
   avatarUrl: string;
@@ -16,13 +19,13 @@ export class Auth {
   private readonly router = inject(Router);
 
   /** undefined until first checked; null when signed out. */
-  readonly user = signal<User | null | undefined>(undefined);
+  readonly user = signal<UserView | null | undefined>(undefined);
 
-  async currentUser(): Promise<User | null> {
+  async currentUser(): Promise<UserView | null> {
     const known = this.user();
     if (known !== undefined) return known;
     try {
-      this.user.set(await firstValueFrom(this.http.get<User>('/api/auth/me')));
+      this.user.set(await firstValueFrom(this.http.get<UserView>('/api/auth/me')));
     } catch (err) {
       if (!(err instanceof HttpErrorResponse && err.status === 401)) throw err;
       this.user.set(null);
@@ -31,9 +34,14 @@ export class Auth {
   }
 
   async logout(): Promise<void> {
-    await firstValueFrom(this.http.post('/api/auth/logout', null));
+    try {
+      await firstValueFrom(this.http.post('/api/auth/logout', null));
+    } catch {
+      // Sign out here anyway: a dead button is worse than a session that
+      // outlives this tab (a reload would sign the user back in).
+    }
     this.user.set(null);
-    await this.router.navigateByUrl('/sign-in');
+    await this.router.navigate([SIGN_IN_PATH]);
   }
 }
 
@@ -42,5 +50,5 @@ export const signedIn: CanActivateFn = async () => {
   // Both injected up front: the injection context ends at the first await.
   const auth = inject(Auth);
   const router = inject(Router);
-  return (await auth.currentUser()) ? true : router.parseUrl('/sign-in');
+  return (await auth.currentUser()) ? true : router.createUrlTree([SIGN_IN_PATH]);
 };
