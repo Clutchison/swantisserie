@@ -47,8 +47,12 @@ Describes a card with at least one printing on MTG Arena. Every card in a pool m
 _Avoid_: Arena-legal (legality is per format), Arena card
 
 **Player**:
-A role-holder who has joined a particular draft.
+A role-holder or bot who has joined a particular draft.
 _Avoid_: Drafter, participant, user
+
+**Bot**:
+A player the app controls, which picks a random available card on its turn. Only app admins add bots, for testing.
+_Avoid_: AI, dummy, CPU
 
 **Seat**:
 A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts.
