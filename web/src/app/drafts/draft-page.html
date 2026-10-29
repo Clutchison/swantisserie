@@ -13,33 +13,84 @@
 
     <section class="players">
       <h2>Players</h2>
-      <ul>
-        @for (player of draft.players; track player.id) {
-          <li>
+      @if (turn(); as turn) {
+        <p class="turn">{{ turn.text }}</p>
+      }
+      <ol>
+        @for (
+          player of draft.players;
+          track player.id;
+          let i = $index, first = $first, last = $last
+        ) {
+          <li [attr.aria-current]="turn()?.playerId === player.id ? 'true' : null">
+            <span class="seat">{{ i + 1 }}</span>
             <img class="avatar" [src]="player.avatarUrl" alt="" width="32" height="32" />
             <span class="name">{{ player.name }}</span>
+            @if (inLobby() && canOrganize()) {
+              <span class="move">
+                <button
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="'Move ' + player.name + ' up'"
+                  (click)="moveSeat(i, -1)"
+                  [disabled]="first || changingLobby()"
+                >
+                  ↑
+                </button>
+                <button
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="'Move ' + player.name + ' down'"
+                  (click)="moveSeat(i, 1)"
+                  [disabled]="last || changingLobby()"
+                >
+                  ↓
+                </button>
+              </span>
+            }
           </li>
         } @empty {
           <li class="empty">Nobody has joined yet.</li>
         }
-      </ul>
+      </ol>
       @if (inLobby()) {
         @if (joined()) {
           <button
             class="button secondary"
             type="button"
             (click)="leave()"
-            [disabled]="changingPlayers()"
+            [disabled]="changingLobby()"
           >
             Leave
           </button>
         } @else {
-          <button class="button" type="button" (click)="join()" [disabled]="changingPlayers()">
+          <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
             Join
           </button>
         }
+        @if (canOrganize()) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="randomizeSeats()"
+            [disabled]="changingLobby()"
+          >
+            Randomize seats
+          </button>
+          <button
+            class="button"
+            type="button"
+            (click)="start()"
+            [disabled]="!poolReady() || changingLobby()"
+          >
+            Start draft
+          </button>
+          @if (!poolReady()) {
+            <p class="detail">You can start the draft once the pool snapshot is complete.</p>
+          }
+        }
       }
-      @if (playersError(); as message) {
+      @if (lobbyError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
     </section>
@@ -66,7 +117,7 @@
         @case ('Failed') {
           <div class="error" role="alert">
             <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
-            @if (canRetry()) {
+            @if (canOrganize()) {
               <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
                 {{ retrying() ? 'Retrying…' : 'Retry' }}
               </button>

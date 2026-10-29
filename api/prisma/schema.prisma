@@ -102,6 +102,8 @@ model Player {
   userId   String
   user     User     @relation(fields: [userId], references: [id])
   joinedAt DateTime @default(now())
+  /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
+  seat     Int?
 
   @@unique([draftId, userId])
   @@index([userId])

@@ -44,8 +44,8 @@ export class DraftPage {
   protected readonly retrying = signal(false);
   protected readonly retryFailed = signal(false);
 
-  /** The organizer, or an app admin, may retry a failed snapshot. */
-  protected readonly canRetry = computed(() => {
+  /** The organizer, or an app admin: they may retry a failed snapshot, change seats and start. */
+  protected readonly canOrganize = computed(() => {
     const user = this.user();
     const draft = this.draft();
     return !!user && !!draft && (user.isAdmin || user.id === draft.organizer.id);
@@ -58,8 +58,21 @@ export class DraftPage {
   });
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft()?.state === 'Lobby');
-  protected readonly changingPlayers = signal(false);
-  protected readonly playersError = signal<string | null>(null);
+  /** The start needs the pool's size, so waits for the snapshot. */
+  protected readonly poolReady = computed(() => this.draft()?.snapshot.state === 'Complete');
+  protected readonly changingLobby = signal(false);
+  protected readonly lobbyError = signal<string | null>(null);
+
+  /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
+  protected readonly turn = computed(() => {
+    const turn = this.draft()?.turn;
+    if (!turn) return null;
+    const whose =
+      turn.playerId === this.user()?.id
+        ? 'Your'
+        : `${this.draft()?.players.find((player) => player.id === turn.playerId)?.name}’s`;
+    return { ...turn, text: `${whose} turn: pick ${turn.pick}, round ${turn.round}` };
+  });
 
   constructor() {
     effect((onCleanup) => {
@@ -70,21 +83,46 @@ export class DraftPage {
   }
 
   protected join() {
-    return this.changePlayers(this.http.post<DraftView>(`/api/drafts/${this.id()}/players`, null));
+    return this.changeLobby(this.http.post<DraftView>(`/api/drafts/${this.id()}/players`, null));
   }
 
   protected leave() {
-    return this.changePlayers(this.http.delete<DraftView>(`/api/drafts/${this.id()}/players/me`));
+    return this.changeLobby(this.http.delete<DraftView>(`/api/drafts/${this.id()}/players/me`));
   }
 
-  private changePlayers(request: Observable<DraftView>) {
-    return this.apply(request, this.changingPlayers, (err) => {
+  protected randomizeSeats() {
+    return this.changeLobby(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/seats/randomize`, null),
+    );
+  }
+
+  /** Swaps the player in seat `index` with the one `by` seats along. */
+  protected moveSeat(index: number, by: -1 | 1) {
+    const userIds = this.draft()!.players.map((player) => player.id);
+    [userIds[index], userIds[index + by]] = [userIds[index + by], userIds[index]];
+    return this.changeLobby(
+      this.http.put<DraftView>(`/api/drafts/${this.id()}/seats`, { userIds }),
+    );
+  }
+
+  protected start() {
+    return this.changeLobby(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/start`, null),
+      "Couldn't start the draft. Try again in a moment.",
+    );
+  }
+
+  private changeLobby(
+    request: Observable<DraftView>,
+    failure = "Couldn't update the players. Try again in a moment.",
+  ) {
+    return this.apply(request, this.changingLobby, (err) => {
       if (err instanceof HttpErrorResponse && err.status === 409) {
-        // The draft started under us: show why, and catch up with it.
-        this.playersError.set(err.error?.message ?? 'This draft has started.');
+        // The draft's state no longer allows this: show why, and catch up with it.
+        this.lobbyError.set(err.error?.message ?? failure);
         this.resource.reload();
       } else {
-        this.playersError.set("Couldn't update the players. Try again in a moment.");
+        this.lobbyError.set(failure);
       }
     });
   }
@@ -107,7 +145,7 @@ export class DraftPage {
     onError: (err: unknown) => void,
   ) {
     busy.set(true);
-    this.playersError.set(null);
+    this.lobbyError.set(null);
     this.retryFailed.set(false);
     try {
       this.resource.set(await firstValueFrom(request));

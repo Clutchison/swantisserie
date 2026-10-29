@@ -51,8 +51,16 @@ A role-holder who has joined a particular draft.
 _Avoid_: Drafter, participant, user
 
 **Seat**:
-A player's position in a draft's pick order.
+A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts.
 _Avoid_: Slot, position
+
+**Snake order**:
+The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
+_Avoid_: Serpentine, wheel
+
+**Turn**:
+A player's chance to make the next pick. The draft says whose turn it is and which pick and round it is.
+_Avoid_: Go, move
 
 **Pick**:
 One card taken by one player on their turn. Each card in the pool can be picked once.

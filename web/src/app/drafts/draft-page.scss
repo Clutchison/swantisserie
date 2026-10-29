@@ -7,9 +7,52 @@ h1 {
   margin-top: 1.5rem;
 }
 
-.players li {
-  align-items: center;
-  gap: 0.5rem;
+.players {
+  ol {
+    list-style: none;
+    padding: 0;
+  }
+
+  li {
+    align-items: center;
+    gap: 0.5rem;
+
+    &[aria-current='true'] {
+      background: #eef;
+    }
+  }
+
+  .seat {
+    min-width: 1.5rem;
+    color: #666;
+    text-align: right;
+  }
+
+  .move {
+    margin-left: auto;
+  }
+
+  .button + .button {
+    margin-left: 0.5rem;
+  }
+}
+
+.turn {
+  font-weight: 600;
+}
+
+.icon {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 }
 
 .avatar {
