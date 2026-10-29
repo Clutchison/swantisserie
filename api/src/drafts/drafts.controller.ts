@@ -4,6 +4,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -19,12 +20,14 @@ import type {
   PoolCard,
   PoolSnapshotState,
 } from '../generated/prisma/client.js';
+import { avatarUrl } from '../auth/avatar-url.js';
 import {
   CurrentUser,
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
 import {
+  DraftStartedError,
   DraftsService,
   type DraftWithOrganizer,
   type NewDraft,
@@ -50,6 +53,12 @@ export interface PoolSnapshotView {
   error?: string;
 }
 
+export interface PlayerView {
+  id: string;
+  name: string;
+  avatarUrl: string;
+}
+
 export interface DraftView {
   id: string;
   name: string;
@@ -58,6 +67,8 @@ export interface DraftView {
   state: DraftState;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
+  /** In join order. */
+  players: PlayerView[];
   createdAt: Date;
 }
 
@@ -108,14 +119,43 @@ export class DraftsController {
     if (draft.organizerId !== user.id && !user.isAdmin) {
       throw new ForbiddenException();
     }
+    return this.change(id, () => this.drafts.restartSnapshot(id));
+  }
+
+  /** The signed-in role-holder joins the draft. */
+  @Post(':id/players')
+  async join(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findOr404(id);
+    return this.change(id, () => this.drafts.join(id, user.id));
+  }
+
+  /** The signed-in role-holder leaves the draft. */
+  @Delete(':id/players/me')
+  async leave(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findOr404(id);
+    return this.change(id, () => this.drafts.leave(id, user.id));
+  }
+
+  /**
+   * Applies `change` to the draft and answers with the draft as it now is.
+   * A change the draft's state no longer allows is a 409 naming why.
+   */
+  private async change(
+    id: string,
+    change: () => Promise<void>,
+  ): Promise<DraftView> {
     try {
-      await this.drafts.restartSnapshot(draft.id);
+      await change();
     } catch (err) {
-      if (err instanceof PoolFrozenError) {
-        throw new ConflictException({
-          error: 'pool-frozen',
-          message: err.message,
-        });
+      if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
+      if (err instanceof DraftStartedError) {
+        throw conflict('draft-started', err);
       }
       throw err;
     }
@@ -150,6 +190,10 @@ export class DraftsController {
       throw err;
     }
   }
+}
+
+function conflict(error: string, cause: Error): ConflictException {
+  return new ConflictException({ error, message: cause.message });
 }
 
 /** The create form's fields, or a 400 saying which one to fix. */
@@ -206,6 +250,11 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
       total: draft.poolTotal,
       ...(draft.snapshotError === null ? {} : { error: draft.snapshotError }),
     },
+    players: draft.players.map(({ user }) => ({
+      id: user.id,
+      name: user.name,
+      avatarUrl: avatarUrl(user),
+    })),
     createdAt: draft.createdAt,
   };
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PoolCard, Prisma } from '../generated/prisma/client.js';
+import { type PoolCard, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import {
@@ -18,6 +18,10 @@ export interface NewDraft {
 const WITH_ORGANIZER = {
   include: {
     organizer: { select: { id: true, name: true } },
+    players: {
+      orderBy: { joinedAt: 'asc' },
+      select: { user: { select: { id: true, name: true, avatar: true } } },
+    },
     _count: { select: { pool: true } },
   },
 } satisfies Prisma.DraftDefaultArgs;
@@ -46,6 +50,13 @@ export class PoolQueryError extends Error {
 }
 
 export { ScryfallUnavailableError };
+
+/** Thrown when a change only allowed in Lobby is tried after the draft started. */
+export class DraftStartedError extends Error {
+  constructor() {
+    super('This draft has started.');
+  }
+}
 
 export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
 
@@ -85,6 +96,52 @@ export class DraftsService {
    */
   async restartSnapshot(draftId: string): Promise<void> {
     await this.snapshots.start(draftId);
+  }
+
+  /**
+   * Adds the user to the draft's players; a no-op if they're already in.
+   * Throws DraftStartedError once the draft has left Lobby.
+   */
+  async join(draftId: string, userId: string): Promise<void> {
+    await this.updateInLobby(draftId, {
+      connectOrCreate: {
+        where: { draftId_userId: { draftId, userId } },
+        create: { userId },
+      },
+    });
+  }
+
+  /**
+   * Removes the user from the draft's players; a no-op if they're not in.
+   * Throws DraftStartedError once the draft has left Lobby.
+   */
+  async leave(draftId: string, userId: string): Promise<void> {
+    await this.updateInLobby(draftId, { deleteMany: { userId } });
+  }
+
+  /**
+   * Applies `players` to the draft in the same statement that checks it's
+   * still in Lobby, so a start can't race the change.
+   */
+  private async updateInLobby(
+    draftId: string,
+    players: Prisma.PlayerUpdateManyWithoutDraftNestedInput,
+  ): Promise<void> {
+    try {
+      await this.prisma.draft.update({
+        where: { id: draftId, state: 'Lobby' },
+        data: { players },
+        select: { id: true },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        throw new DraftStartedError();
+      }
+      throw err;
+    }
   }
 
   /** The draft's pool so far, by name. */

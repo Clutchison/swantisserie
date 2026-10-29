@@ -21,6 +21,8 @@ model User {
   sessions  Session[]
   /// Drafts this user organizes.
   drafts    Draft[]
+  /// Drafts this user has joined.
+  players   Player[]
 }
 
 model Session {
@@ -57,6 +59,7 @@ model Draft {
   /// Why the last snapshot attempt failed; null otherwise.
   snapshotError  String?
   pool           PoolCard[]
+  players        Player[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -89,4 +92,17 @@ model PoolCard {
   images          Json
 
   @@unique([draftId, oracleId])
+}
+
+/// A role-holder who has joined a draft.
+model Player {
+  id       String   @id @default(uuid())
+  draftId  String
+  draft    Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@unique([draftId, userId])
+  @@index([userId])
 }

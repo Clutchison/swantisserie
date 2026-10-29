@@ -11,6 +11,39 @@
       <span class="detail">Organized by {{ draft.organizer.name }}</span>
     </p>
 
+    <section class="players">
+      <h2>Players</h2>
+      <ul>
+        @for (player of draft.players; track player.id) {
+          <li>
+            <img class="avatar" [src]="player.avatarUrl" alt="" width="32" height="32" />
+            <span class="name">{{ player.name }}</span>
+          </li>
+        } @empty {
+          <li class="empty">Nobody has joined yet.</li>
+        }
+      </ul>
+      @if (inLobby()) {
+        @if (joined()) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="leave()"
+            [disabled]="changingPlayers()"
+          >
+            Leave
+          </button>
+        } @else {
+          <button class="button" type="button" (click)="join()" [disabled]="changingPlayers()">
+            Join
+          </button>
+        }
+      }
+      @if (playersError(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+    </section>
+
     <section class="pool">
       <h2>Pool</h2>
       @switch (draft.snapshot.state) {

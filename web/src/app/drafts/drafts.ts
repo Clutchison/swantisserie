@@ -12,6 +12,13 @@ export interface PoolSnapshotView {
   error?: string;
 }
 
+/** A role-holder who has joined a draft. */
+export interface PlayerView {
+  id: string;
+  name: string;
+  avatarUrl: string;
+}
+
 /** A draft, as the drafts API reports it. */
 export interface DraftView {
   id: string;
@@ -21,6 +28,8 @@ export interface DraftView {
   state: DraftState;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
+  /** In join order. */
+  players: PlayerView[];
   createdAt: string;
 }
 
