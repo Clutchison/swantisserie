@@ -161,7 +161,11 @@
       <div class="player-picks">
         @for (player of board(); track player.id) {
           <section>
-            <h3>{{ player.name }}</h3>
+            <h3>
+              <button class="link" type="button" (click)="showPicks(player.id)">
+                {{ player.name }}
+              </button>
+            </h3>
             <ol>
               @for (pick of player.picks; track pick.pick) {
                 <li>{{ pick.name }}</li>
@@ -188,6 +192,32 @@
       </section>
     </section>
 
+    <!-- Styled like the Board, which it opens from. -->
+    <section
+      id="picks-panel"
+      class="board"
+      role="tabpanel"
+      aria-labelledby="picks-heading"
+      [hidden]="tab() !== 'Picks'"
+    >
+      @if (shownPlayer(); as player) {
+        <h2 id="picks-heading">{{ onMeTab() ? 'Your picks' : player.name + '’s picks' }}</h2>
+        @if (!onMeTab()) {
+          <button class="button secondary" type="button" (click)="tab.set('Board')">← Board</button>
+        }
+        <ol class="picks">
+          @for (pick of player.picks; track pick.pick) {
+            <li>
+              <span class="number">{{ pick.pick }}</span>
+              <span class="card">{{ pick.name }}</span>
+            </li>
+          } @empty {
+            <li class="empty">No picks yet.</li>
+          }
+        </ol>
+      }
+    </section>
+
     <div class="tabs" role="tablist" aria-label="Draft">
       <button
         id="pool-tab"
@@ -205,14 +235,24 @@
         id="board-tab"
         type="button"
         role="tab"
-        [attr.aria-selected]="tab() === 'Board'"
+        [attr.aria-selected]="onBoardTab()"
         aria-controls="board-panel"
         (click)="tab.set('Board')"
       >
         Board
       </button>
-      <!-- Not built yet. -->
-      <button type="button" role="tab" aria-selected="false" disabled>Me</button>
+      <!-- Only players have picks to show. -->
+      <button
+        id="me-tab"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="onMeTab()"
+        aria-controls="picks-panel"
+        (click)="showMyPicks()"
+        [disabled]="!joined()"
+      >
+        Me
+      </button>
     </div>
   }
 </main>

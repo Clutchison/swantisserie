@@ -25,6 +25,38 @@ h1 {
   }
 }
 
+/* A player's name on the Board, which opens their picks. */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #5865f2;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* One player's picks, numbered as in the pick log. */
+ol.picks {
+  margin-top: 1rem;
+  padding-left: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .number {
+    min-width: 2rem;
+    color: #666;
+    text-align: right;
+  }
+}
+
 /* One column of picks per player, as many across as fit. */
 .player-picks {
   display: grid;

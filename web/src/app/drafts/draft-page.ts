@@ -93,7 +93,23 @@ export class DraftPage {
     })),
   );
 
-  protected readonly tab = signal<'Pool' | 'Board'>('Pool');
+  protected readonly tab = signal<'Pool' | 'Board' | 'Picks'>('Pool');
+  /** The player whose picks the Picks panel shows. */
+  private readonly picksPlayerId = signal<string | null>(null);
+  /** The Picks panel's player, with their picks in pick order. */
+  protected readonly shownPlayer = computed(
+    () => this.board().find((player) => player.id === this.picksPlayerId()) ?? null,
+  );
+  /**
+   * The Me tab is the Picks panel showing the signed-in player; any other
+   * player's picks are opened from the Board, so it stays selected.
+   */
+  protected readonly onMeTab = computed(
+    () => this.tab() === 'Picks' && this.picksPlayerId() === this.user()?.id,
+  );
+  protected readonly onBoardTab = computed(
+    () => this.tab() === 'Board' || (this.tab() === 'Picks' && !this.onMeTab()),
+  );
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
@@ -112,6 +128,17 @@ export class DraftPage {
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
+  }
+
+  /** Opens the Picks panel on one player's picks. */
+  protected showPicks(playerId: string) {
+    this.picksPlayerId.set(playerId);
+    this.tab.set('Picks');
+  }
+
+  /** Opens the Picks panel on the signed-in player's picks: the Me tab. */
+  protected showMyPicks() {
+    this.showPicks(this.user()!.id);
   }
 
   /** A player's name, by their id. */

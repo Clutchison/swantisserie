@@ -1203,6 +1203,33 @@ describe('drafts', () => {
       });
     });
 
+    it('completes the draft with the last pick, and keeps it viewable', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await startedDraft(bobCookie);
+      await pick(id, 'shock-oracle').expect(200);
+
+      const last = await pick(id, 'lightning-bolt-oracle', bobCookie).expect(
+        200,
+      );
+
+      expect(last.body).toMatchObject({ state: 'Complete', turn: null });
+      expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
+      const listed = await request(app.getHttpServer())
+        .get('/api/drafts')
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      expect(
+        listed.body.find((draft: { id: string }) => draft.id === id).state,
+      ).toBe('Complete');
+      expect(
+        (await picks(id).expect(200)).body.map(
+          (logged: { name: string }) => logged.name,
+        ),
+      ).toEqual(['Shock', 'Lightning Bolt']);
+      const refused = await pick(id, 'lava-spike-oracle').expect(409);
+      expect(refused.body.error).toBe('not-drafting');
+    });
+
     it('makes concurrent picks one at a time, so only one of a player’s double pick lands', async () => {
       const id = await startedDraft(await signIn(bob));
 

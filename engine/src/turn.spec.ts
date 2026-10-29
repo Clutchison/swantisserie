@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentTurn } from './turn.js';
+import { currentTurn, draftComplete } from './turn.js';
 
 describe('currentTurn', () => {
   it('starts with the first seat taking pick 1 of round 1', () => {
@@ -29,5 +29,16 @@ describe('currentTurn', () => {
 
   it('is null once every player has all their picks', () => {
     expect(currentTurn({ players: 3, picksPerPlayer: 2 }, 6)).toBeNull();
+  });
+});
+
+describe('draftComplete', () => {
+  it('is false while any player still has picks to make', () => {
+    expect(draftComplete({ players: 3, picksPerPlayer: 2 }, 0)).toBe(false);
+    expect(draftComplete({ players: 3, picksPerPlayer: 2 }, 5)).toBe(false);
+  });
+
+  it('is true once every player has all their picks', () => {
+    expect(draftComplete({ players: 3, picksPerPlayer: 2 }, 6)).toBe(true);
   });
 });
