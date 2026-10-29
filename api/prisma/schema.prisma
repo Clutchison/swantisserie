@@ -19,6 +19,8 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sessions  Session[]
+  /// Drafts this user organizes.
+  drafts    Draft[]
 }
 
 model Session {
@@ -30,4 +32,26 @@ model Session {
   expiresAt DateTime
 
   @@index([userId])
+}
+
+enum DraftState {
+  Lobby
+  Drafting
+  Paused
+  Complete
+}
+
+model Draft {
+  id             String     @id @default(uuid())
+  name           String
+  /// The Scryfall search that defines the pool.
+  poolQuery      String
+  picksPerPlayer Int
+  state          DraftState @default(Lobby)
+  organizerId    String
+  organizer      User       @relation(fields: [organizerId], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([organizerId])
 }

@@ -34,9 +34,9 @@ describe('App', () => {
     // The guard asks asynchronously, once navigation has started.
     respond(await vi.waitFor(() => http.expectOne('/api/auth/me')));
     await navigation;
-    // The home page checks API health; answer it so the app can settle.
+    // The home page lists drafts; answer it so the app can settle.
     TestBed.tick();
-    for (const req of http.match('/api/health')) req.flush({ api: 'ok', db: 'ok' });
+    for (const req of http.match('/api/drafts')) req.flush([]);
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
