@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { DRAFT_POLL_MS } from './draft-page';
-import type { DraftView, PickView, PoolCardView, PoolSnapshotView } from './drafts';
+import type { DraftView, PickView, PoolCardView, PoolSnapshotView, WebhookView } from './drafts';
 import { type DraftUpdate, DraftUpdates } from './draft-updates';
 
 const alice = {
@@ -27,6 +27,7 @@ function draft(fields: Partial<DraftView>): DraftView {
     snapshot: { state: 'Complete', cards: 540, total: 540 },
     players: [],
     turn: null,
+    webhook: null,
     version: 0,
     createdAt: '2026-10-29T12:00:00.000Z',
     ...fields,
@@ -971,8 +972,13 @@ describe('drafts', () => {
   });
 
   describe('create form', () => {
-    async function openForm() {
+    const main = { id: 'webhook-main', name: '#roto-main' };
+    const side = { id: 'webhook-side', name: '#roto-side' };
+
+    /** Opens the form with GET /api/webhooks answered by `webhooks`. */
+    async function openForm(webhooks: WebhookView[] = []) {
       const { fixture, page } = await open('/drafts/new');
+      http.expectOne('/api/webhooks').flush(webhooks);
       await fixture.whenStable();
       return { fixture, page };
     }
@@ -984,6 +990,24 @@ describe('drafts', () => {
       input.value = value;
       input.dispatchEvent(new Event('input'));
     }
+
+    const webhookOptions = (page: HTMLElement) => [
+      ...page.querySelectorAll<HTMLOptionElement>('[name="webhookId"] option'),
+    ];
+
+    /** Chooses the webhook option labelled `label`. */
+    function chooseWebhook(page: HTMLElement, label: string) {
+      const select = page.querySelector<HTMLSelectElement>('[name="webhookId"]')!;
+      select.selectedIndex = webhookOptions(page).findIndex(
+        (option) => option.textContent?.trim() === label,
+      );
+      select.dispatchEvent(new Event('change'));
+    }
+
+    const chosenWebhook = (page: HTMLElement) =>
+      page
+        .querySelector<HTMLSelectElement>('[name="webhookId"]')!
+        .selectedOptions[0]?.textContent?.trim();
 
     function submit(page: HTMLElement) {
       page.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
@@ -1014,6 +1038,7 @@ describe('drafts', () => {
         name: 'Red dragons',
         poolQuery: 't:dragon c:r',
         picksPerPlayer: 30,
+        webhookId: null,
       });
       req.flush(draft({ id: 'draft-9', picksPerPlayer: 30 }), {
         status: 201,
@@ -1023,6 +1048,51 @@ describe('drafts', () => {
       await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-9'));
       http.expectOne('/api/drafts/draft-9').flush(draft({ id: 'draft-9' }));
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
+    });
+
+    it('offers the webhooks by name, starting on the first, and sends the one chosen', async () => {
+      const form = await openForm([main, side]);
+
+      expect(webhookOptions(form.page).map((option) => option.textContent?.trim())).toEqual([
+        '#roto-main',
+        '#roto-side',
+        'None',
+      ]);
+      expect(chosenWebhook(form.page)).toBe('#roto-main');
+      chooseWebhook(form.page, '#roto-side');
+
+      const req = await create(form);
+      expect(req.request.body.webhookId).toBe(side.id);
+      req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+    });
+
+    it('can post nowhere', async () => {
+      const form = await openForm([main]);
+      chooseWebhook(form.page, 'None');
+
+      const req = await create(form);
+      expect(req.request.body.webhookId).toBeNull();
+      req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+    });
+
+    it('offers only None when no webhooks are registered', async () => {
+      const { page } = await openForm([]);
+
+      expect(webhookOptions(page).map((option) => option.textContent?.trim())).toEqual(['None']);
+      expect(chosenWebhook(page)).toBe('None');
+    });
+
+    it('still creates a draft, posting nowhere, when the webhooks fail to load', async () => {
+      const { fixture, page } = await open('/drafts/new');
+      http
+        .expectOne('/api/webhooks')
+        .flush(null, { status: 500, statusText: 'Internal Server Error' });
+      await fixture.whenStable();
+
+      expect(chosenWebhook(page)).toBe('None');
+      const req = await create({ fixture, page });
+      expect(req.request.body.webhookId).toBeNull();
+      req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
     });
 
     function fail(

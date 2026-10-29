@@ -34,6 +34,17 @@
       />
     </label>
 
+    <label>
+      Announcements
+      <select name="webhookId" formControlName="webhookId">
+        @for (webhook of webhooks(); track webhook.id) {
+          <option [ngValue]="webhook.id">{{ webhook.name }}</option>
+        }
+        <option [ngValue]="null">None</option>
+      </select>
+      <span class="hint">The Discord channel where picks and turns are announced.</span>
+    </label>
+
     @if (problem(); as problem) {
       <div class="error" role="alert">
         <p>{{ problem.message }}</p>
