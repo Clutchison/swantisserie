@@ -42,16 +42,51 @@ enum DraftState {
 }
 
 model Draft {
-  id             String     @id @default(uuid())
+  id             String            @id @default(uuid())
   name           String
   /// The Scryfall search that defines the pool.
   poolQuery      String
   picksPerPlayer Int
-  state          DraftState @default(Lobby)
+  state          DraftState        @default(Lobby)
   organizerId    String
-  organizer      User       @relation(fields: [organizerId], references: [id])
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  organizer      User              @relation(fields: [organizerId], references: [id])
+  /// Progress of copying the pool from Scryfall. The pool is frozen once Complete.
+  snapshotState  PoolSnapshotState @default(Running)
+  /// How many cards Scryfall says the pool query matches; null until the first page arrives.
+  poolTotal      Int?
+  /// Why the last snapshot attempt failed; null otherwise.
+  snapshotError  String?
+  pool           PoolCard[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@index([organizerId])
+}
+
+/// Progress of the pool snapshot: copying the pool query's cards from Scryfall.
+enum PoolSnapshotState {
+  Running
+  Complete
+  Failed
+}
+
+/// One card in a draft's pool, as snapshotted from Scryfall.
+model PoolCard {
+  id              String   @id @default(uuid())
+  draftId         String
+  draft           Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  /// Scryfall id of the Arena printing.
+  scryfallId      String
+  /// Identity shared by every printing; the pick identity.
+  oracleId        String
+  name            String
+  set             String
+  collectorNumber String
+  typeLine        String
+  colors          String[]
+  manaValue       Float
+  /// Image URLs per face, as CardImages[]: one entry for single-faced cards, two when each face has its own image.
+  images          Json
+
+  @@unique([draftId, oracleId])
 }

@@ -62,11 +62,78 @@ describe('FetchScryfallClient', () => {
 
     expect(await scryfall.search('c:r foo:bar')).toEqual({
       totalCards: 7156,
+      hasMore: true,
       cards: [balefire],
       warnings: [
         'Invalid expression “foo:bar” was ignored. Unknown keyword “foo”.',
       ],
     });
+  });
+
+  it('asks for a later page by number, leaving the first page’s URL alone', async () => {
+    respond(200, {
+      object: 'list',
+      total_cards: 7156,
+      has_more: false,
+      data: [balefire],
+    });
+
+    const page = await scryfall.search('c:r', 41);
+
+    const sent = new URL(fetch.mock.calls[0][0] as string);
+    expect(sent.searchParams.get('q')).toBe('c:r');
+    expect(sent.searchParams.get('page')).toBe('41');
+    expect(page).toMatchObject({ hasMore: false });
+  });
+
+  it('backs off for 30 seconds after a 429, then tries again', async () => {
+    vi.useFakeTimers();
+    try {
+      respond(429, {
+        object: 'error',
+        status: 429,
+        details: 'Too many requests',
+      });
+      respond(200, {
+        object: 'list',
+        total_cards: 1,
+        has_more: false,
+        data: [balefire],
+      });
+
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(await search).toMatchObject({ cards: [balefire] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives up after repeated 429s rather than hammering Scryfall', async () => {
+    vi.useFakeTimers();
+    try {
+      for (let i = 0; i < 4; i++) {
+        respond(429, { object: 'error', status: 429, details: 'Too many' });
+      }
+
+      const search = scryfall.search('c:r');
+      const outcome = search.then(
+        () => 'resolved',
+        (err: Error) => err.message,
+      );
+      await vi.advanceTimersByTimeAsync(4 * 30_000);
+
+      expect(fetch).toHaveBeenCalledTimes(4);
+      expect(await outcome).toBe('Scryfall search failed: 429');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns null when nothing matches', async () => {

@@ -34,6 +34,14 @@ _Avoid_: Card list, cube
 The Scryfall search the organizer enters to define a draft's pool.
 _Avoid_: Search, filter, Scryfall query (in code)
 
+**Pool snapshot**:
+The copy of a pool query's cards taken from Scryfall right after a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
+_Avoid_: Import, sync, card fetch
+
+**Pool card**:
+One card in a pool, with the Arena printing the snapshot took.
+_Avoid_: Card entry, catalog card
+
 **On Arena**:
 Describes a card with at least one printing on MTG Arena. Every card in a pool must be on Arena.
 _Avoid_: Arena-legal (legality is per format), Arena card

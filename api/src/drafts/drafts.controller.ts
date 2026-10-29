@@ -2,14 +2,23 @@ import {
   BadGatewayException,
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
+  ForbiddenException,
   Get,
+  HttpCode,
   Logger,
+  NotFoundException,
+  Param,
   Post,
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
-import type { DraftState } from '../generated/prisma/client.js';
+import type {
+  DraftState,
+  PoolCard,
+  PoolSnapshotState,
+} from '../generated/prisma/client.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -22,12 +31,24 @@ import {
   PoolQueryError,
   ScryfallUnavailableError,
 } from './drafts.service.js';
+import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
 const MAX_PICKS_PER_PLAYER = 100;
 const MAX_NAME_LENGTH = 100;
 /** Scryfall takes up to 1000 characters, and we wrap the query in more terms. */
 const MAX_POOL_QUERY_LENGTH = 900;
+
+/** How far the pool snapshot has got. */
+export interface PoolSnapshotView {
+  state: PoolSnapshotState;
+  /** Cards snapshotted so far: the pool size once Complete. */
+  cards: number;
+  /** Cards Scryfall says the pool query matches; null until the first page arrives. */
+  total: number | null;
+  /** Why the snapshot failed, when it has. */
+  error?: string;
+}
 
 export interface DraftView {
   id: string;
@@ -36,7 +57,21 @@ export interface DraftView {
   picksPerPlayer: number;
   state: DraftState;
   organizer: { id: string; name: string };
+  snapshot: PoolSnapshotView;
   createdAt: Date;
+}
+
+export interface PoolCardView {
+  scryfallId: string;
+  oracleId: string;
+  name: string;
+  set: string;
+  collectorNumber: string;
+  typeLine: string;
+  colors: string[];
+  manaValue: number;
+  /** One entry per face with its own image. */
+  images: CardImages[];
 }
 
 @Controller('drafts')
@@ -49,6 +84,48 @@ export class DraftsController {
   @Get()
   async list(): Promise<DraftView[]> {
     return (await this.drafts.list()).map(toDraftView);
+  }
+
+  @Get(':id')
+  async get(@Param('id') id: string): Promise<DraftView> {
+    return toDraftView(await this.findOr404(id));
+  }
+
+  @Get(':id/pool')
+  async pool(@Param('id') id: string): Promise<PoolCardView[]> {
+    await this.findOr404(id);
+    return (await this.drafts.pool(id)).map(toPoolCardView);
+  }
+
+  /** Starts the pool snapshot over; for the organizer, after a failure. */
+  @Post(':id/snapshot')
+  @HttpCode(202)
+  async restartSnapshot(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    const draft = await this.findOr404(id);
+    if (draft.organizerId !== user.id && !user.isAdmin) {
+      throw new ForbiddenException();
+    }
+    try {
+      await this.drafts.restartSnapshot(draft.id);
+    } catch (err) {
+      if (err instanceof PoolFrozenError) {
+        throw new ConflictException({
+          error: 'pool-frozen',
+          message: err.message,
+        });
+      }
+      throw err;
+    }
+    return toDraftView(await this.findOr404(id));
+  }
+
+  private async findOr404(id: string): Promise<DraftWithOrganizer> {
+    const draft = await this.drafts.find(id);
+    if (!draft) throw new NotFoundException();
+    return draft;
   }
 
   @Post()
@@ -64,7 +141,7 @@ export class DraftsController {
         throw new UnprocessableEntityException(err.problem);
       }
       if (err instanceof ScryfallUnavailableError) {
-        this.logger.error(err.message, err.cause);
+        this.logger.error(err.message);
         throw new BadGatewayException({
           error: 'scryfall-unavailable',
           message: 'Scryfall could not be reached. Try again in a moment.',
@@ -123,6 +200,26 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
     picksPerPlayer: draft.picksPerPlayer,
     state: draft.state,
     organizer: draft.organizer,
+    snapshot: {
+      state: draft.snapshotState,
+      cards: draft._count.pool,
+      total: draft.poolTotal,
+      ...(draft.snapshotError === null ? {} : { error: draft.snapshotError }),
+    },
     createdAt: draft.createdAt,
+  };
+}
+
+function toPoolCardView(card: PoolCard): PoolCardView {
+  return {
+    scryfallId: card.scryfallId,
+    oracleId: card.oracleId,
+    name: card.name,
+    set: card.set,
+    collectorNumber: card.collectorNumber,
+    typeLine: card.typeLine,
+    colors: card.colors,
+    manaValue: card.manaValue,
+    images: card.images as unknown as CardImages[],
   };
 }
