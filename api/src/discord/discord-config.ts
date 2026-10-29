@@ -1,4 +1,4 @@
-/** The Discord application's OAuth2 settings (see .env.example). */
+/** The Discord application and our guild (see .env.example). */
 export class DiscordConfig {
   // Read lazily so the app (and tests that don't sign in) can boot without them.
   constructor(private readonly env: Record<string, string | undefined>) {}
@@ -14,6 +14,16 @@ export class DiscordConfig {
   /** Must exactly match a redirect URI registered on the Discord app. */
   get redirectUri(): string {
     return this.required('DISCORD_REDIRECT_URI');
+  }
+
+  /** Our server: only its members may sign in. */
+  get guildId(): string {
+    return this.required('DISCORD_GUILD_ID');
+  }
+
+  /** The role (roto-draft) a guild member needs to sign in. */
+  get roleId(): string {
+    return this.required('DISCORD_ROLE_ID');
   }
 
   /**

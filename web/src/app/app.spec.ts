@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from './app';
 import { routes } from './app.routes';
 
@@ -12,7 +12,11 @@ describe('App', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter(routes, withComponentInputBinding()),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     router = TestBed.inject(Router);
@@ -47,10 +51,20 @@ describe('App', () => {
     expect(signIn?.textContent).toContain('Sign in with Discord');
   });
 
+  it('tells users turned away at sign-in why', async () => {
+    const fixture = TestBed.createComponent(App);
+    await router.navigateByUrl('/sign-in?error=not-allowed');
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('.error')?.textContent).toContain('roto-draft role');
+  });
+
   const alice = {
     id: '80351110224678912',
     name: 'Alice',
     avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
+    isAdmin: false,
   };
 
   it('shows the signed-in user’s avatar and name in the header', async () => {
