@@ -1,0 +1,46 @@
+@if (failed()) {
+  <p class="error">Couldn't load the pool's cards. Try reloading the page.</p>
+}
+<ul class="grid">
+  @for (card of cards(); track card.oracleId) {
+    <li>
+      <button type="button" class="tile" (click)="open(card)">
+        <span class="placeholder">{{ card.name }}</span>
+        <img
+          [src]="image(card, 'normal')"
+          [alt]="card.name"
+          loading="lazy"
+          width="488"
+          height="680"
+          (error)="imageFailed(card, 'normal')"
+        />
+      </button>
+    </li>
+  }
+</ul>
+
+@if (detail(); as card) {
+  <div class="backdrop" (click)="close()">
+    <div
+      class="card-detail"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="card.name"
+      (click)="$event.stopPropagation()"
+    >
+      <img
+        [src]="image(card, 'large', face())"
+        [alt]="card.name"
+        width="672"
+        height="936"
+        (error)="imageFailed(card, 'large', face())"
+      />
+      <div class="actions">
+        @if (card.images.length > 1) {
+          <button class="button secondary" type="button" (click)="flip()">Flip</button>
+        }
+        <button #closeButton class="button secondary" type="button" (click)="close()">Close</button>
+      </div>
+    </div>
+  </div>
+}

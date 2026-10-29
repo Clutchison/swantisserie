@@ -59,11 +59,6 @@ h1 {
   border-radius: 50%;
 }
 
-.button.secondary {
-  background: #eee;
-  color: #333;
-}
-
 progress {
   display: block;
   width: 100%;
@@ -72,4 +67,40 @@ progress {
 
 code {
   font-size: 0.875rem;
+}
+
+/* Room for the tab bar, so it never covers the end of the page. */
+main {
+  padding-bottom: 4rem;
+}
+
+.tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  border-top: 1px solid #ddd;
+  background: #fff;
+
+  [role='tab'] {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border: 0;
+    border-top: 2px solid transparent;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+
+    &[aria-selected='true'] {
+      border-top-color: #5865f2;
+      color: #5865f2;
+      font-weight: 600;
+    }
+
+    &:disabled {
+      color: #999;
+      cursor: default;
+    }
+  }
 }

@@ -77,7 +77,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - Load directly from Scryfall's CDN (`cards.scryfall.io`): no rate limit, CORS `*`, one-year cache. Don't download, store or proxy them.
 - URLs are captured in the pool snapshot.
 - Pool grid uses `normal` with `loading="lazy"` and a card-name placeholder. Card detail uses `large`, with a flip button for double-faced cards.
-- **Fallback:** if an image fails to load, use `https://api.scryfall.com/cards/{id}?format=image&version=normal`.
+- **Fallback:** if an image fails to load, use `https://api.scryfall.com/cards/{id}?format=image&version=normal` (`version=large` in card detail, plus `&face=back` for a back face).
 - Don't crop or alter images. Credit the artist if `art_crop` is ever used.
 - Later, not v1: a nightly refresh of URLs for cards whose `image_status` is `lowres`, in active drafts only.
 

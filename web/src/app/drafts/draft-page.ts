@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import type { DraftView } from './drafts';
+import { PoolTab } from './pool-tab';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -23,7 +24,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 
 @Component({
   selector: 'app-draft-page',
-  imports: [RouterLink],
+  imports: [PoolTab, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
   styleUrls: ['./drafts.scss', './draft-page.scss'],

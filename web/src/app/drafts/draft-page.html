@@ -95,7 +95,7 @@
       }
     </section>
 
-    <section class="pool">
+    <section id="pool-panel" class="pool" role="tabpanel" aria-labelledby="pool-tab">
       <h2>Pool</h2>
       @switch (draft.snapshot.state) {
         @case ('Running') {
@@ -113,6 +113,7 @@
         }
         @case ('Complete') {
           <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+          <app-pool-tab [draftId]="draft.id" />
         }
         @case ('Failed') {
           <div class="error" role="alert">
@@ -132,5 +133,21 @@
         Pool query: <code>{{ draft.poolQuery }}</code>
       </p>
     </section>
+
+    <div class="tabs" role="tablist" aria-label="Draft">
+      <button
+        id="pool-tab"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="pool-panel"
+      >
+        Pool
+      </button>
+      <!-- Not built yet. -->
+      @for (tab of ['Queue', 'Board', 'Me']; track tab) {
+        <button type="button" role="tab" aria-selected="false" disabled>{{ tab }}</button>
+      }
+    </div>
   }
 </main>
