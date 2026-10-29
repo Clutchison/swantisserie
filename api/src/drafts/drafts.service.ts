@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { shuffle, startProblem, type StartProblem } from 'engine';
+import {
+  pickProblem,
+  type PickProblem,
+  shuffle,
+  startProblem,
+  type StartProblem,
+} from 'engine';
 import {
   type Draft,
   type PoolCard,
@@ -33,7 +39,7 @@ const WITH_ORGANIZER = {
       orderBy: SEAT_ORDER,
       select: { user: { select: { id: true, name: true, avatar: true } } },
     },
-    _count: { select: { pool: true } },
+    _count: { select: { pool: true, picks: true } },
   },
 } satisfies Prisma.DraftDefaultArgs;
 
@@ -86,9 +92,30 @@ export class StartRefusedError extends Error {
   }
 }
 
+/** Why a player can't make a pick; sent to them as is. */
+export type PickRefusal =
+  PickProblem | { error: 'not-drafting' | 'not-in-pool'; message: string };
+
+export class PickRefusedError extends Error {
+  constructor(readonly refusal: PickRefusal) {
+    super(refusal.message);
+  }
+}
+
+const PICK_LOG = {
+  orderBy: { number: 'asc' },
+  select: {
+    number: true,
+    player: { select: { userId: true } },
+    poolCard: { select: { oracleId: true, name: true } },
+  },
+} satisfies Prisma.PickFindManyArgs;
+
+export type LoggedPick = Prisma.PickGetPayload<typeof PICK_LOG>;
+
 type Transaction = Prisma.TransactionClient;
 
-/** What a change in Lobby reads from the draft row it locks. */
+/** What a change reads from the draft row it locks. */
 type LockedDraft = Pick<Draft, 'state' | 'picksPerPlayer' | 'snapshotState'>;
 
 export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
@@ -212,6 +239,66 @@ export class DraftsService {
     });
   }
 
+  /**
+   * The user picks the pool card with `oracleId` on their turn. Throws
+   * PickRefusedError if they can't.
+   */
+  async pick(draftId: string, userId: string, oracleId: string): Promise<void> {
+    // Locked so picks happen one at a time: each sees every pick before it.
+    await this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Drafting') {
+        throw new PickRefusedError({
+          error: 'not-drafting',
+          message: 'This draft isn’t taking picks.',
+        });
+      }
+      const card = await tx.poolCard.findUnique({
+        where: { draftId_oracleId: { draftId, oracleId } },
+        select: { id: true },
+      });
+      if (!card) {
+        throw new PickRefusedError({
+          error: 'not-in-pool',
+          message: 'That card isn’t in this pool.',
+        });
+      }
+      // Seats are 0..n-1 once started, so indexes here are the engine's seats.
+      const players = await tx.player.findMany({
+        where: { draftId },
+        orderBy: SEAT_ORDER,
+        select: { id: true, userId: true },
+      });
+      const pickLog = await tx.pick.findMany({
+        where: { draftId },
+        ...PICK_LOG,
+      });
+      const seat = players.findIndex((player) => player.userId === userId);
+      const problem = pickProblem(
+        {
+          players: players.length,
+          picksPerPlayer: draft.picksPerPlayer,
+          picked: pickLog.map((pick) => pick.poolCard.oracleId),
+        },
+        seat,
+        oracleId,
+      );
+      if (problem) throw new PickRefusedError(problem);
+      await tx.pick.create({
+        data: {
+          draftId,
+          number: pickLog.length + 1,
+          playerId: players[seat].id,
+          poolCardId: card.id,
+        },
+      });
+    });
+  }
+
+  /** The draft's picks, in the order they were made. */
+  async picks(draftId: string): Promise<LoggedPick[]> {
+    return this.prisma.pick.findMany({ where: { draftId }, ...PICK_LOG });
+  }
+
   /** The user ids of the draft's players, in seat order. */
   private async seatOrder(tx: Transaction, draftId: string): Promise<string[]> {
     const players = await tx.player.findMany({
@@ -245,13 +332,27 @@ export class DraftsService {
     draftId: string,
     change: (tx: Transaction, draft: LockedDraft) => Promise<void>,
   ): Promise<void> {
+    await this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Lobby') throw new DraftStartedError();
+      await change(tx, draft);
+    });
+  }
+
+  /**
+   * Runs `change` in a transaction with the draft's row locked; `draft` is
+   * undefined if there is no such draft.
+   */
+  private async locked(
+    draftId: string,
+    change: (tx: Transaction, draft: LockedDraft | undefined) => Promise<void>,
+  ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // FOR UPDATE, not a conditional update: Prisma writes a draft's
-      // players after a plain SELECT of the draft, which takes no lock.
+      // players and picks after a plain SELECT of the draft, which takes no
+      // lock.
       const [draft] = await tx.$queryRaw<LockedDraft[]>`
         SELECT "state", "picksPerPlayer", "snapshotState"
         FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
-      if (draft?.state !== 'Lobby') throw new DraftStartedError();
       await change(tx, draft);
     });
   }

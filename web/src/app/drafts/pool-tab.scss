@@ -61,6 +61,24 @@ $card-corners: #{4.75% / 3.5%};
   }
 }
 
+/* A picked card stays in the grid, dimmed and labelled. */
+.tile.picked img {
+  opacity: 0.35;
+}
+
+.badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 0.75);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translate(-50%, -50%);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -94,4 +112,13 @@ $card-corners: #{4.75% / 3.5%};
 .actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.note {
+  margin: 0;
+  color: #fff;
+
+  &.error {
+    color: #ffb4b4;
+  }
 }

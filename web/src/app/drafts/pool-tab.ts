@@ -1,15 +1,18 @@
-import { httpResource } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
   effect,
   type ElementRef,
+  inject,
   input,
+  output,
   signal,
   viewChild,
 } from '@angular/core';
-import type { CardImages, PoolCardView } from './drafts';
+import { firstValueFrom } from 'rxjs';
+import type { CardImages, DraftView, PoolCardView } from './drafts';
 
 /** The draft view's Pool tab: a grid of the pool's cards, and a detail view of one. */
 @Component({
@@ -20,8 +23,20 @@ import type { CardImages, PoolCardView } from './drafts';
   host: { '(document:keydown.escape)': 'close()' },
 })
 export class PoolTab {
+  private readonly http = inject(HttpClient);
+
   /** A draft whose pool snapshot is complete. */
   readonly draftId = input.required<string>();
+  /** The oracle ids of the cards picked so far. */
+  readonly picked = input<ReadonlySet<string>>(new Set());
+  /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
+  readonly offerPick = input(false);
+  /** Whether it's the signed-in player's turn, so Pick is enabled for available cards. */
+  readonly yourTurn = input(false);
+  /** A pick was made: the draft as it now is. */
+  readonly pickMade = output<DraftView>();
+  /** A pick was refused because the draft has changed; it should be reloaded. */
+  readonly pickRefused = output<void>();
 
   private readonly resource = httpResource<PoolCardView[]>(
     () => `/api/drafts/${this.draftId()}/pool`,
@@ -38,6 +53,8 @@ export class PoolTab {
   protected readonly detail = signal<PoolCardView | null>(null);
   /** Which face the detail view shows: 0 is the front. */
   protected readonly face = signal(0);
+  protected readonly picking = signal(false);
+  protected readonly pickError = signal<string | null>(null);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
 
   constructor() {
@@ -66,6 +83,31 @@ export class PoolTab {
   protected open(card: PoolCardView) {
     this.detail.set(card);
     this.face.set(0);
+    this.pickError.set(null);
+  }
+
+  protected async pick(card: PoolCardView) {
+    this.picking.set(true);
+    this.pickError.set(null);
+    try {
+      const draft = await firstValueFrom(
+        this.http.post<DraftView>(`/api/drafts/${this.draftId()}/picks`, {
+          oracleId: card.oracleId,
+        }),
+      );
+      this.close();
+      this.pickMade.emit(draft);
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 409) {
+        // The draft has moved on, e.g. another pick was made: show why, and catch up with it.
+        this.pickError.set(err.error?.message ?? PICK_FAILED);
+        this.pickRefused.emit();
+      } else {
+        this.pickError.set(PICK_FAILED);
+      }
+    } finally {
+      this.picking.set(false);
+    }
   }
 
   protected close() {
@@ -76,6 +118,8 @@ export class PoolTab {
     this.face.update((face) => (face + 1) % this.detail()!.images.length);
   }
 }
+
+const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
 
 type ImageVersion = Exclude<keyof CardImages, 'small'>;
 

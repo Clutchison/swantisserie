@@ -95,7 +95,13 @@
       }
     </section>
 
-    <section id="pool-panel" class="pool" role="tabpanel" aria-labelledby="pool-tab">
+    <section
+      id="pool-panel"
+      class="pool"
+      role="tabpanel"
+      aria-labelledby="pool-tab"
+      [hidden]="tab() !== 'Pool'"
+    >
       <h2>Pool</h2>
       @switch (draft.snapshot.state) {
         @case ('Running') {
@@ -113,7 +119,14 @@
         }
         @case ('Complete') {
           <p>{{ draft.snapshot.cards }} cards in the pool.</p>
-          <app-pool-tab [draftId]="draft.id" />
+          <app-pool-tab
+            [draftId]="draft.id"
+            [picked]="picked()"
+            [offerPick]="offerPick()"
+            [yourTurn]="yourTurn()"
+            (pickMade)="pickMade($event)"
+            (pickRefused)="pickRefused()"
+          />
         }
         @case ('Failed') {
           <div class="error" role="alert">
@@ -134,20 +147,72 @@
       </p>
     </section>
 
+    <section
+      id="board-panel"
+      class="board"
+      role="tabpanel"
+      aria-labelledby="board-tab"
+      [hidden]="tab() !== 'Board'"
+    >
+      <h2>Board</h2>
+      @if (picksFailed()) {
+        <p class="error">Couldn't load the picks. Try reloading the page.</p>
+      }
+      <div class="player-picks">
+        @for (player of board(); track player.id) {
+          <section>
+            <h3>{{ player.name }}</h3>
+            <ol>
+              @for (pick of player.picks; track pick.pick) {
+                <li>{{ pick.name }}</li>
+              } @empty {
+                <li class="empty">No picks yet.</li>
+              }
+            </ol>
+          </section>
+        }
+      </div>
+      <section class="log">
+        <h3>Pick log</h3>
+        <ol>
+          @for (pick of picks(); track pick.pick) {
+            <li>
+              <span class="number">{{ pick.pick }}</span>
+              <span class="player">{{ playerName(pick.playerId) }}</span>
+              <span class="card">{{ pick.name }}</span>
+            </li>
+          } @empty {
+            <li class="empty">No picks yet.</li>
+          }
+        </ol>
+      </section>
+    </section>
+
     <div class="tabs" role="tablist" aria-label="Draft">
       <button
         id="pool-tab"
         type="button"
         role="tab"
-        aria-selected="true"
+        [attr.aria-selected]="tab() === 'Pool'"
         aria-controls="pool-panel"
+        (click)="tab.set('Pool')"
       >
         Pool
       </button>
       <!-- Not built yet. -->
-      @for (tab of ['Queue', 'Board', 'Me']; track tab) {
-        <button type="button" role="tab" aria-selected="false" disabled>{{ tab }}</button>
-      }
+      <button type="button" role="tab" aria-selected="false" disabled>Queue</button>
+      <button
+        id="board-tab"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="tab() === 'Board'"
+        aria-controls="board-panel"
+        (click)="tab.set('Board')"
+      >
+        Board
+      </button>
+      <!-- Not built yet. -->
+      <button type="button" role="tab" aria-selected="false" disabled>Me</button>
     </div>
   }
 </main>
