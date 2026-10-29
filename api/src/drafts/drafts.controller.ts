@@ -12,9 +12,11 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
+import { currentTurn } from 'engine';
 import type {
   DraftState,
   PoolCard,
@@ -31,8 +33,10 @@ import {
   DraftsService,
   type DraftWithOrganizer,
   type NewDraft,
+  PlayersChangedError,
   PoolQueryError,
   ScryfallUnavailableError,
+  StartRefusedError,
 } from './drafts.service.js';
 import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
 
@@ -59,6 +63,14 @@ export interface PlayerView {
   avatarUrl: string;
 }
 
+/** Whose turn it is. */
+export interface TurnView {
+  /** 1-based, counting every pick in the draft. */
+  pick: number;
+  round: number;
+  playerId: string;
+}
+
 export interface DraftView {
   id: string;
   name: string;
@@ -67,8 +79,10 @@ export interface DraftView {
   state: DraftState;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
-  /** In join order. */
+  /** In seat order. */
   players: PlayerView[];
+  /** Null unless the draft is Drafting or Paused. */
+  turn: TurnView | null;
   createdAt: Date;
 }
 
@@ -115,11 +129,42 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    const draft = await this.findOr404(id);
-    if (draft.organizerId !== user.id && !user.isAdmin) {
-      throw new ForbiddenException();
-    }
+    await this.findAsOrganizer(user, id);
     return this.change(id, () => this.drafts.restartSnapshot(id));
+  }
+
+  /** Seats the players in a random order; for the organizer. */
+  @Post(':id/seats/randomize')
+  @HttpCode(200)
+  async randomizeSeats(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.randomizeSeats(id));
+  }
+
+  /** Sets the seat order, as every player's id; for the organizer. */
+  @Put(':id/seats')
+  async reorderSeats(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<DraftView> {
+    const players = parseSeatOrder(body);
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.reorderSeats(id, players));
+  }
+
+  /** Starts the draft with its seats as they are; for the organizer. */
+  @Post(':id/start')
+  @HttpCode(200)
+  async start(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.start(id));
   }
 
   /** The signed-in role-holder joins the draft. */
@@ -154,12 +199,30 @@ export class DraftsController {
       await change();
     } catch (err) {
       if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
+      if (err instanceof StartRefusedError) {
+        throw new ConflictException(err.refusal);
+      }
+      if (err instanceof PlayersChangedError) {
+        throw conflict('players-changed', err);
+      }
       if (err instanceof DraftStartedError) {
         throw conflict('draft-started', err);
       }
       throw err;
     }
     return toDraftView(await this.findOr404(id));
+  }
+
+  /** The draft, if `user` is its organizer or an app admin. */
+  private async findAsOrganizer(
+    user: SessionUser,
+    id: string,
+  ): Promise<DraftWithOrganizer> {
+    const draft = await this.findOr404(id);
+    if (draft.organizerId !== user.id && !user.isAdmin) {
+      throw new ForbiddenException();
+    }
+    return draft;
   }
 
   private async findOr404(id: string): Promise<DraftWithOrganizer> {
@@ -236,6 +299,22 @@ function parseNewDraft(body: unknown): NewDraft {
   return { name: trimmedName, poolQuery: trimmedQuery, picksPerPlayer: picks };
 }
 
+/** The seat order's user ids, or a 400 if it isn't a list of distinct ids. */
+function parseSeatOrder(body: unknown): string[] {
+  const { players } = (body ?? {}) as Record<string, unknown>;
+  if (
+    !Array.isArray(players) ||
+    !players.every((id) => typeof id === 'string') ||
+    new Set(players).size !== players.length
+  ) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'List each player once, in seat order.',
+    });
+  }
+  return players;
+}
+
 function toDraftView(draft: DraftWithOrganizer): DraftView {
   return {
     id: draft.id,
@@ -255,7 +334,24 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
       name: user.name,
       avatarUrl: avatarUrl(user),
     })),
+    turn: toTurnView(draft),
     createdAt: draft.createdAt,
+  };
+}
+
+function toTurnView(draft: DraftWithOrganizer): TurnView | null {
+  if (draft.state !== 'Drafting' && draft.state !== 'Paused') return null;
+  const turn = currentTurn({
+    seats: draft.players.length,
+    picksPerPlayer: draft.picksPerPlayer,
+    // Nothing is picked yet: picks arrive with the pick flow.
+    picksMade: 0,
+  });
+  if (!turn) return null;
+  return {
+    pick: turn.pick,
+    round: turn.round,
+    playerId: draft.players[turn.seat].user.id,
   };
 }
 

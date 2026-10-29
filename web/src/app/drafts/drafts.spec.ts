@@ -24,6 +24,7 @@ function draft(fields: Partial<DraftView>): DraftView {
     organizer: { id: alice.id, name: alice.name },
     snapshot: { state: 'Complete', cards: 540, total: 540 },
     players: [],
+    turn: null,
     createdAt: '2026-10-29T12:00:00.000Z',
     ...fields,
   };
@@ -216,7 +217,7 @@ describe('drafts', () => {
 
         const players = section(page, 'Players');
         const items = [...players.querySelectorAll('li')];
-        expect(items.map((li) => li.textContent?.trim())).toEqual(['Bob', 'Alice']);
+        expect(items.map((li) => li.querySelector('.name')?.textContent)).toEqual(['Bob', 'Alice']);
         expect(items[0].querySelector('img')?.getAttribute('src')).toBe(bob.avatarUrl);
       });
 
@@ -272,6 +273,125 @@ describe('drafts', () => {
         expect(page.querySelector('.error')?.textContent).toContain('This draft has started.');
         expect(page.textContent).toContain('Drafting');
         expect(button(page, 'Join')).toBeUndefined();
+      });
+    });
+
+    describe('seats and start', () => {
+      const bob = {
+        id: 'bob',
+        name: 'Bob',
+        avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png',
+      };
+      const alicePlayer = { id: alice.id, name: alice.name, avatarUrl: alice.avatarUrl };
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+
+      function button(page: HTMLElement, label: string) {
+        return [...page.querySelectorAll('button')].find(
+          (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
+        );
+      }
+
+      const seatNames = (page: HTMLElement) =>
+        [...section(page, 'Players').querySelectorAll('li .name')].map((n) => n.textContent);
+
+      it('shows the seat order and whose turn it is', async () => {
+        const { page } = await openDraft(complete, {
+          state: 'Drafting',
+          players: [bob, alicePlayer],
+          turn: { pick: 1, round: 1, playerId: bob.id },
+        });
+
+        expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+        expect(page.textContent).toContain('Bob’s turn: pick 1, round 1');
+        const current = section(page, 'Players').querySelector('li[aria-current="true"]');
+        expect(current?.querySelector('.name')?.textContent).toBe('Bob');
+      });
+
+      it('tells the signed-in player when it is their turn', async () => {
+        const { page } = await openDraft(complete, {
+          state: 'Drafting',
+          players: [alicePlayer, bob],
+          turn: { pick: 1, round: 1, playerId: alice.id },
+        });
+
+        expect(page.textContent).toContain('Your turn: pick 1, round 1');
+      });
+
+      it('lets the organizer randomize the seats', async () => {
+        const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+
+        button(page, 'Randomize seats')!.click();
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'));
+        expect(req.request.method).toBe('POST');
+        req.flush(draft({ players: [bob, alicePlayer] }));
+        await fixture.whenStable();
+
+        expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+      });
+
+      it('lets the organizer move a player up or down the seat order', async () => {
+        const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+        expect(button(page, 'Move Alice up')?.disabled).toBe(true);
+        expect(button(page, 'Move Bob down')?.disabled).toBe(true);
+
+        button(page, 'Move Bob up')!.click();
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'));
+        expect(req.request.method).toBe('PUT');
+        expect(req.request.body).toEqual({ players: [bob.id, alice.id] });
+        req.flush(draft({ players: [bob, alicePlayer] }));
+        await fixture.whenStable();
+
+        expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+      });
+
+      it('starts the draft for the organizer', async () => {
+        const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+
+        button(page, 'Start draft')!.click();
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'));
+        expect(req.request.method).toBe('POST');
+        req.flush(
+          draft({
+            state: 'Drafting',
+            players: [alicePlayer, bob],
+            turn: { pick: 1, round: 1, playerId: alice.id },
+          }),
+        );
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain('Your turn: pick 1, round 1');
+        expect(button(page, 'Start draft')).toBeUndefined();
+        expect(button(page, 'Randomize seats')).toBeUndefined();
+        expect(button(page, 'Move Bob up')).toBeUndefined();
+      });
+
+      it('says why a start was refused', async () => {
+        const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+
+        button(page, 'Start draft')!.click();
+        const message = '2 players × 300 picks needs 600 cards, but the pool has 540.';
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(
+          { error: 'pool-too-small', message },
+          { status: 409, statusText: 'Conflict' },
+        );
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft({ players: [alicePlayer, bob] }),
+        );
+        await fixture.whenStable();
+
+        expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
+        expect(button(page, 'Start draft')).toBeDefined();
+      });
+
+      it('offers seat changes and the start only to the organizer or an app admin', async () => {
+        const { page } = await openDraft(complete, {
+          players: [alicePlayer, bob],
+          organizer: { id: bob.id, name: bob.name },
+        });
+
+        expect(button(page, 'Start draft')).toBeUndefined();
+        expect(button(page, 'Randomize seats')).toBeUndefined();
+        expect(button(page, 'Move Bob up')).toBeUndefined();
       });
     });
 

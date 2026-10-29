@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { shuffle, startProblem, type StartProblem } from 'engine';
 import { type PoolCard, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
@@ -15,11 +16,17 @@ export interface NewDraft {
   picksPerPlayer: number;
 }
 
+/** Seated players by seat, then the rest in join order. */
+const SEAT_ORDER = [
+  { seat: { sort: 'asc', nulls: 'last' } },
+  { joinedAt: 'asc' },
+] satisfies Prisma.PlayerOrderByWithRelationInput[];
+
 const WITH_ORGANIZER = {
   include: {
     organizer: { select: { id: true, name: true } },
     players: {
-      orderBy: { joinedAt: 'asc' },
+      orderBy: SEAT_ORDER,
       select: { user: { select: { id: true, name: true, avatar: true } } },
     },
     _count: { select: { pool: true } },
@@ -57,6 +64,25 @@ export class DraftStartedError extends Error {
     super('This draft has started.');
   }
 }
+
+/** Thrown when a seat order doesn't list exactly the draft's players. */
+export class PlayersChangedError extends Error {
+  constructor() {
+    super('The players have changed. Reload and try again.');
+  }
+}
+
+/** Why the organizer can't start the draft; sent to them as is. */
+export type StartRefusal =
+  StartProblem | { error: 'pool-not-ready'; message: string };
+
+export class StartRefusedError extends Error {
+  constructor(readonly refusal: StartRefusal) {
+    super(refusal.message);
+  }
+}
+
+type Transaction = Prisma.TransactionClient;
 
 export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
 
@@ -117,6 +143,103 @@ export class DraftsService {
    */
   async leave(draftId: string, userId: string): Promise<void> {
     await this.updateInLobby(draftId, { deleteMany: { userId } });
+  }
+
+  /**
+   * Seats the players in a random order. Throws DraftStartedError once the
+   * draft has left Lobby.
+   */
+  async randomizeSeats(draftId: string): Promise<void> {
+    await this.inLobby(draftId, async (tx) => {
+      await this.seat(tx, shuffle(await this.seatOrder(tx, draftId)));
+    });
+  }
+
+  /**
+   * Seats the players in the order of `userIds`, which must list each of
+   * them once; throws PlayersChangedError if it doesn't. Throws
+   * DraftStartedError once the draft has left Lobby.
+   */
+  async reorderSeats(draftId: string, userIds: string[]): Promise<void> {
+    await this.inLobby(draftId, async (tx) => {
+      const players = await tx.player.findMany({
+        where: { draftId },
+        select: { id: true, userId: true },
+      });
+      const playerIds = new Map(players.map((p) => [p.userId, p.id]));
+      const order = userIds.map((userId) => playerIds.get(userId));
+      // The controller has checked the ids are distinct.
+      if (players.length !== userIds.length || order.includes(undefined)) {
+        throw new PlayersChangedError();
+      }
+      await this.seat(tx, order as string[]);
+    });
+  }
+
+  /**
+   * Moves the draft to Drafting with its seats as they are. Throws
+   * StartRefusedError if it can't start yet, and DraftStartedError if it
+   * already has.
+   */
+  async start(draftId: string): Promise<void> {
+    await this.inLobby(draftId, async (tx, draft) => {
+      if (draft.snapshotState !== 'Complete') {
+        throw new StartRefusedError({
+          error: 'pool-not-ready',
+          message: 'The pool snapshot isn’t complete yet.',
+        });
+      }
+      const players = await this.seatOrder(tx, draftId);
+      const problem = startProblem({
+        players: players.length,
+        picksPerPlayer: draft.picksPerPlayer,
+        poolSize: await tx.poolCard.count({ where: { draftId } }),
+      });
+      if (problem) throw new StartRefusedError(problem);
+      // Seats become 0..n-1 so the engine's seat indexes match them.
+      await this.seat(tx, players);
+      await tx.draft.update({
+        where: { id: draftId },
+        data: { state: 'Drafting' },
+      });
+    });
+  }
+
+  /** The ids of the draft's players, in seat order. */
+  private async seatOrder(tx: Transaction, draftId: string): Promise<string[]> {
+    const players = await tx.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: { id: true },
+    });
+    return players.map((player) => player.id);
+  }
+
+  /** Seats the players in the order given. */
+  private async seat(tx: Transaction, playerIds: string[]): Promise<void> {
+    for (const [seat, id] of playerIds.entries()) {
+      await tx.player.update({ where: { id }, data: { seat } });
+    }
+  }
+
+  /**
+   * Runs `change` with the draft's row locked, so joins, leaves and other
+   * changes wait for it. Throws DraftStartedError if the draft has left Lobby.
+   */
+  private async inLobby(
+    draftId: string,
+    change: (
+      tx: Transaction,
+      draft: { picksPerPlayer: number; snapshotState: string },
+    ) => Promise<void>,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const [draft] = await tx.$queryRaw<
+        { state: string; picksPerPlayer: number; snapshotState: string }[]
+      >`SELECT "state", "picksPerPlayer", "snapshotState" FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
+      if (draft?.state !== 'Lobby') throw new DraftStartedError();
+      await change(tx, draft);
+    });
   }
 
   /**

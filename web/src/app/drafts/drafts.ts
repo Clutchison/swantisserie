@@ -19,6 +19,14 @@ export interface PlayerView {
   avatarUrl: string;
 }
 
+/** Whose turn it is in a started draft. */
+export interface TurnView {
+  /** 1-based, counting every pick in the draft. */
+  pick: number;
+  round: number;
+  playerId: string;
+}
+
 /** A draft, as the drafts API reports it. */
 export interface DraftView {
   id: string;
@@ -28,8 +36,10 @@ export interface DraftView {
   state: DraftState;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
-  /** In join order. */
+  /** In seat order. */
   players: PlayerView[];
+  /** Null unless the draft is Drafting or Paused. */
+  turn: TurnView | null;
   createdAt: string;
 }
 
