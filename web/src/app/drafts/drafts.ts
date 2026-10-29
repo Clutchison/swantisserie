@@ -50,3 +50,24 @@ export type DraftProblem =
   | { error: 'no-cards' | 'invalid' | 'scryfall-unavailable'; message: string }
   /** Set by the web app when the API gave no explanation, e.g. offline. */
   | { error: 'request-failed'; message: string };
+
+/** Scryfall image URLs of one card face. */
+export interface CardImages {
+  small: string;
+  normal: string;
+  large: string;
+}
+
+/** One card in a pool, with the Arena printing the snapshot took. */
+export interface PoolCardView {
+  scryfallId: string;
+  oracleId: string;
+  name: string;
+  set: string;
+  collectorNumber: string;
+  typeLine: string;
+  colors: string[];
+  manaValue: number;
+  /** One entry per face with its own image. */
+  images: CardImages[];
+}

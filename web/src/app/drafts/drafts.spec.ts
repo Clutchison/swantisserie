@@ -5,7 +5,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { DRAFT_POLL_MS } from './draft-page';
-import type { DraftView, PoolSnapshotView } from './drafts';
+import type { DraftView, PoolCardView, PoolSnapshotView } from './drafts';
 
 const alice = {
   id: '80351110224678912',
@@ -118,12 +118,28 @@ describe('drafts', () => {
   });
 
   describe('draft page', () => {
-    /** Opens draft-1's page with the first GET answered by `pool`. */
-    async function openDraft(pool: PoolSnapshotView, fields: Partial<DraftView> = {}) {
+    /**
+     * Opens draft-1's page with the first GET answered by `pool`, and its
+     * pool cards by `cards` once the snapshot is complete.
+     */
+    async function openDraft(
+      pool: PoolSnapshotView,
+      fields: Partial<DraftView> = {},
+      cards: PoolCardView[] = [],
+    ) {
       const { fixture, page } = await open('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: pool, ...fields }));
+      if (pool.state === 'Complete') await flushPool(cards);
       await fixture.whenStable();
       return { fixture, page };
+    }
+
+    /**
+     * Answers the page's GET of draft-1's pool cards with `cards`. The page
+     * isn't stable until it's answered.
+     */
+    async function flushPool(cards: PoolCardView[] = []) {
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(cards);
     }
 
     /** The next poll of the draft, answered with `pool`. */
@@ -131,6 +147,7 @@ describe('drafts', () => {
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
         draft({ snapshot: pool }),
       );
+      if (pool.state === 'Complete') await flushPool();
       await fixture.whenStable();
     }
 
@@ -397,6 +414,7 @@ describe('drafts', () => {
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
           draft({ players: [alicePlayer, bob] }),
         );
+        await flushPool();
         await fixture.whenStable();
         expect(button(page, 'Start draft')?.disabled).toBe(false);
         expect(section(page, 'Players').textContent).not.toContain('You can start the draft once');
@@ -411,6 +429,158 @@ describe('drafts', () => {
         expect(button(page, 'Start draft')).toBeUndefined();
         expect(button(page, 'Randomize seats')).toBeUndefined();
         expect(button(page, 'Move Bob up')).toBeUndefined();
+      });
+    });
+
+    describe('pool tab', () => {
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 2, total: 2 };
+
+      /** Scryfall's image URL for one face of a printing. */
+      const image = (version: string, id: string, face = 'front') =>
+        `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
+      const card = (fields: Partial<PoolCardView>): PoolCardView => ({
+        scryfallId: 'shivan-id',
+        oracleId: 'shivan-oracle',
+        name: 'Shivan Dragon',
+        set: 'm20',
+        collectorNumber: '332',
+        typeLine: 'Creature — Dragon',
+        colors: ['R'],
+        manaValue: 6,
+        images: [
+          {
+            small: image('small', 'shivan-id'),
+            normal: image('normal', 'shivan-id'),
+            large: image('large', 'shivan-id'),
+          },
+        ],
+        ...fields,
+      });
+      const shivan = card({});
+      const brightclimb = card({
+        scryfallId: 'brightclimb-id',
+        oracleId: 'brightclimb-oracle',
+        name: 'Brightclimb Pathway // Grimclimb Pathway',
+        typeLine: 'Land // Land',
+        colors: [],
+        manaValue: 0,
+        images: (['front', 'back'] as const).map((face) => ({
+          small: image('small', 'brightclimb-id', face),
+          normal: image('normal', 'brightclimb-id', face),
+          large: image('large', 'brightclimb-id', face),
+        })),
+      });
+
+      /** The grid's tiles, one per pool card. */
+      const tiles = (page: HTMLElement) => [
+        ...page.querySelectorAll<HTMLButtonElement>('[role="tabpanel"] .grid button'),
+      ];
+
+      it('has a bottom tab bar where only Pool works for now', async () => {
+        const { page } = await openDraft(complete);
+
+        const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+        expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+          'Pool',
+          'Queue',
+          'Board',
+          'Me',
+        ]);
+        expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual([
+          'true',
+          'false',
+          'false',
+          'false',
+        ]);
+        expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, true, true]);
+        expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain(
+          '2 cards in the pool',
+        );
+      });
+
+      it('shows the pool as a grid of lazily loaded normal images with name placeholders', async () => {
+        const { page } = await openDraft(complete, {}, [brightclimb, shivan]);
+
+        expect(tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+        const images = tiles(page).map((tile) => tile.querySelector('img')!);
+        expect(images.map((img) => img.getAttribute('src'))).toEqual([
+          image('normal', 'brightclimb-id'),
+          image('normal', 'shivan-id'),
+        ]);
+        expect(images.map((img) => img.getAttribute('loading'))).toEqual(['lazy', 'lazy']);
+        expect(images[1].getAttribute('alt')).toBe('Shivan Dragon');
+      });
+
+      it('falls back to Scryfall’s API image when a grid image fails to load', async () => {
+        const { fixture, page } = await openDraft(complete, {}, [shivan]);
+
+        const img = tiles(page)[0].querySelector('img')!;
+        img.dispatchEvent(new Event('error'));
+        await fixture.whenStable();
+
+        expect(img.getAttribute('src')).toBe(
+          'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
+        );
+      });
+
+      /** Taps the grid's `index`th card and returns the detail view it opens. */
+      async function openDetail(
+        fixture: { whenStable(): Promise<unknown> },
+        page: HTMLElement,
+        index: number,
+      ) {
+        tiles(page)[index].click();
+        await fixture.whenStable();
+        return page.querySelector<HTMLElement>('[role="dialog"]')!;
+      }
+
+      const buttonIn = (root: HTMLElement, label: string) =>
+        [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
+
+      it('opens a card’s large image when it is tapped, and closes it again', async () => {
+        const { fixture, page } = await openDraft(complete, {}, [brightclimb, shivan]);
+
+        const detail = await openDetail(fixture, page, 1);
+        expect(detail.getAttribute('aria-label')).toBe('Shivan Dragon');
+        expect(detail.querySelector('img')?.getAttribute('src')).toBe(image('large', 'shivan-id'));
+        expect(buttonIn(detail, 'Flip')).toBeUndefined();
+
+        buttonIn(detail, 'Close')!.click();
+        await fixture.whenStable();
+        expect(page.querySelector('[role="dialog"]')).toBeNull();
+      });
+
+      it('flips a double-faced card between its faces', async () => {
+        const { fixture, page } = await openDraft(complete, {}, [brightclimb, shivan]);
+
+        const detail = await openDetail(fixture, page, 0);
+        const img = () => detail.querySelector('img')?.getAttribute('src');
+        expect(img()).toBe(image('large', 'brightclimb-id', 'front'));
+
+        buttonIn(detail, 'Flip')!.click();
+        await fixture.whenStable();
+        expect(img()).toBe(image('large', 'brightclimb-id', 'back'));
+
+        buttonIn(detail, 'Flip')!.click();
+        await fixture.whenStable();
+        expect(img()).toBe(image('large', 'brightclimb-id', 'front'));
+      });
+
+      it('falls back to Scryfall’s API image of the face shown when a detail image fails to load', async () => {
+        const { fixture, page } = await openDraft(complete, {}, [brightclimb]);
+
+        const detail = await openDetail(fixture, page, 0);
+        buttonIn(detail, 'Flip')!.click();
+        await fixture.whenStable();
+        detail.querySelector('img')!.dispatchEvent(new Event('error'));
+        await fixture.whenStable();
+
+        expect(detail.querySelector('img')?.getAttribute('src')).toBe(
+          'https://api.scryfall.com/cards/brightclimb-id?format=image&version=large&face=back',
+        );
       });
     });
 
@@ -475,6 +645,7 @@ describe('drafts', () => {
 
       await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-9'));
       http.expectOne('/api/drafts/draft-9').flush(draft({ id: 'draft-9' }));
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
     });
 
     function fail(
