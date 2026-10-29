@@ -186,6 +186,7 @@ describe('drafts', () => {
       snapshot: expect.any(Object),
       players: [],
       turn: null,
+      version: 0,
       createdAt: expect.any(String),
     };
     expect(created.body).toEqual(draft);
@@ -1338,6 +1339,24 @@ describe('drafts', () => {
           }),
         ]),
       );
+    });
+
+    it('numbers each version of a draft, so viewers can tell which is newest', async () => {
+      const id = await readyDraft([]);
+      const bobCookie = await signIn(bob);
+      const before = (await getDraft(id).expect(200)).body.version as number;
+
+      const joined = await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/players`)
+        .set('Cookie', bobCookie)
+        .expect(201);
+      const left = await request(app.getHttpServer())
+        .delete(`/api/drafts/${id}/players/me`)
+        .set('Cookie', bobCookie)
+        .expect(200);
+
+      expect(joined.body.version).toBeGreaterThan(before);
+      expect(left.body.version).toBeGreaterThan(joined.body.version);
     });
 
     it('pushes lobby changes, but only to that draft’s viewers', async () => {

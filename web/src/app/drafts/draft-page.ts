@@ -130,7 +130,9 @@ export class DraftPage {
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
-    // Everyone viewing sees each change as it happens.
+    // Everyone viewing sees each change as it happens. Every connect
+    // catches up, the first too: a change made after the page's first read
+    // but before the socket joined the draft's room would otherwise be lost.
     effect((onCleanup) => {
       const watching = this.updates.watch(this.id()).subscribe((event) => {
         if (event.type === 'changed') {
@@ -168,8 +170,12 @@ export class DraftPage {
     this.catchUp();
   }
 
-  /** Shows the draft as it now is, with its picks re-read to match. */
+  /**
+   * Shows the draft as it now is, with its picks re-read to match, unless
+   * the page already shows a newer copy: a pick's answer and its push race.
+   */
   private showDraft(draft: DraftView) {
+    if (draft.version < (this.draft()?.version ?? -1)) return;
     this.resource.set(draft);
     this.picksResource.reload();
   }

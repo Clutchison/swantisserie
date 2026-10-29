@@ -40,6 +40,8 @@ export interface DraftView {
   players: PlayerView[];
   /** Null unless the draft is Drafting or Paused. */
   turn: TurnView | null;
+  /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
+  version: number;
   createdAt: string;
 }
 

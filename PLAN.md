@@ -53,7 +53,9 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 ### Live updates
 
-- Socket.IO room per draft. Picks, undos, queue-lost and state changes are pushed to everyone viewing.
+- Socket.IO room per draft. After each change (a pick, a lobby change, a state change) the draft as it now is is pushed to everyone viewing, and they re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
+- On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, so nothing missed while it was away stays missing.
+- Undos and queue-lost will need their own events, alongside the pushed draft.
 
 ## Discord (webhooks, no bot)
 
@@ -125,7 +127,7 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 2. The engine validates the pick (your turn, card available, draft is Drafting), applies it, resolves the cascade, and prunes queues.
 3. Persist the picks and queue changes, then commit.
 4. **After commit**, pass the engine's events to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
-5. Broadcast the events to the draft's Socket.IO room.
+5. Push the draft as it now is to the draft's Socket.IO room.
 
 ### Where the Discord code lives
 

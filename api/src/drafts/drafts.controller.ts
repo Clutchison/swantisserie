@@ -86,6 +86,8 @@ export interface DraftView {
   players: PlayerView[];
   /** Null unless the draft is Drafting or Paused. */
   turn: TurnView | null;
+  /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
+  version: number;
   createdAt: Date;
 }
 
@@ -391,6 +393,7 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
       avatarUrl: avatarUrl(user),
     })),
     turn: toTurnView(draft),
+    version: draft.version,
     createdAt: draft.createdAt,
   };
 }

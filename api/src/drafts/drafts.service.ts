@@ -347,8 +347,8 @@ export class DraftsService {
   }
 
   /**
-   * Runs `change` in a transaction with the draft's row locked; `draft` is
-   * undefined if there is no such draft.
+   * Runs `change` in a transaction with the draft's row locked, and bumps
+   * the draft's version; `draft` is undefined if there is no such draft.
    */
   private async locked(
     draftId: string,
@@ -362,6 +362,8 @@ export class DraftsService {
         SELECT "state", "picksPerPlayer", "snapshotState"
         FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
       await change(tx, draft);
+      await tx.$executeRaw`
+        UPDATE "Draft" SET "version" = "version" + 1 WHERE "id" = ${draftId}`;
     });
   }
 

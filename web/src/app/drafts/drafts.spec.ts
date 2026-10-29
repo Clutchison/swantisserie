@@ -27,6 +27,7 @@ function draft(fields: Partial<DraftView>): DraftView {
     snapshot: { state: 'Complete', cards: 540, total: 540 },
     players: [],
     turn: null,
+    version: 0,
     createdAt: '2026-10-29T12:00:00.000Z',
     ...fields,
   };
@@ -918,6 +919,31 @@ describe('drafts', () => {
 
         expect(page.textContent).toContain('Drafting');
         expect(page.textContent).toContain('Your turn: pick 1, round 1');
+      });
+
+      it('ignores a pushed draft older than the one it shows', async () => {
+        const { fixture, page } = await openDraft(
+          complete,
+          drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 5 }),
+          [shivan],
+          [shivanPick],
+        );
+
+        updates.events.next({ type: 'changed', draft: drafting({ version: 4 }) });
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+        http.expectNone('/api/drafts/draft-1/picks');
+      });
+
+      it('stops watching when the page closes', async () => {
+        await openDraft(complete, drafting());
+        expect(updates.events.observed).toBe(true);
+
+        await router.navigateByUrl('/');
+        (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+
+        expect(updates.events.observed).toBe(false);
       });
 
       it('catches up with the draft and its picks when it reconnects', async () => {
