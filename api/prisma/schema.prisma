@@ -84,9 +84,9 @@ enum PoolSnapshotState {
 
 /// One card in a draft's pool, as snapshotted from Scryfall.
 model PoolCard {
-  id              String   @id @default(uuid())
+  id              String       @id @default(uuid())
   draftId         String
-  draft           Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft           Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Scryfall id of the Arena printing.
   scryfallId      String
   /// Identity shared by every printing; the pick identity.
@@ -101,21 +101,24 @@ model PoolCard {
   images          Json
   /// Null until a player picks this card.
   pick            Pick?
+  queued          QueuedCard[]
 
   @@unique([draftId, oracleId])
 }
 
 /// A role-holder or bot who has joined a draft.
 model Player {
-  id       String   @id @default(uuid())
+  id       String       @id @default(uuid())
   draftId  String
-  draft    Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft    Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
   userId   String
-  user     User     @relation(fields: [userId], references: [id])
-  joinedAt DateTime @default(now())
+  user     User         @relation(fields: [userId], references: [id])
+  joinedAt DateTime     @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
   seat     Int?
   picks    Pick[]
+  /// Bots have none.
+  queue    QueuedCard[]
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -137,6 +140,22 @@ model Pick {
 
   @@unique([draftId, number])
   @@index([playerId])
+}
+
+/// A card in a player's queue, or one lost from it.
+model QueuedCard {
+  id         String    @id @default(uuid())
+  playerId   String
+  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  poolCardId String
+  poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  /// Order in the queue, lowest first; not necessarily consecutive.
+  position   Int
+  /// When another player picked this card, taking it out of the queue; null while it is queued.
+  lostAt     DateTime?
+
+  @@unique([playerId, poolCardId])
+  @@index([poolCardId])
 }
 
 /// A named Discord webhook an app admin registered, which organizers choose for a draft's announcements.

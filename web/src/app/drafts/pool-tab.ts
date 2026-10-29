@@ -12,7 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { CardImages, DraftView, PoolCardView } from './drafts';
+import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
 
 /** The draft view's Pool tab: a grid of the pool's cards, and a detail view of one. */
 @Component({
@@ -31,6 +31,8 @@ export class PoolTab {
   readonly picked = input<ReadonlySet<string>>(new Set());
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
   readonly offerPick = input(false);
+  /** Whether the card detail offers Add to queue: for players until the draft is complete. */
+  readonly offerQueue = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards. */
   readonly yourTurn = input(false);
   /** A pick was made: the draft as it now is. */
@@ -55,6 +57,9 @@ export class PoolTab {
   protected readonly face = signal(0);
   protected readonly picking = signal(false);
   protected readonly pickError = signal<string | null>(null);
+  protected readonly queueing = signal(false);
+  /** What came of adding the card in the detail view to the queue. */
+  protected readonly queueNote = signal<string | null>(null);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
 
   constructor() {
@@ -84,6 +89,7 @@ export class PoolTab {
     this.detail.set(card);
     this.face.set(0);
     this.pickError.set(null);
+    this.queueNote.set(null);
   }
 
   protected async pick(card: PoolCardView) {
@@ -107,6 +113,26 @@ export class PoolTab {
       }
     } finally {
       this.picking.set(false);
+    }
+  }
+
+  protected async addToQueue(card: PoolCardView) {
+    this.queueing.set(true);
+    this.queueNote.set(null);
+    try {
+      await firstValueFrom(
+        this.http.post<QueueView>(`/api/drafts/${this.draftId()}/queue`, {
+          oracleId: card.oracleId,
+        }),
+      );
+      this.queueNote.set('Added to your queue.');
+    } catch (err) {
+      this.queueNote.set(
+        (err instanceof HttpErrorResponse && err.status === 409 && err.error?.message) ||
+          "Couldn't add the card to your queue. Try again in a moment.",
+      );
+    } finally {
+      this.queueing.set(false);
     }
   }
 

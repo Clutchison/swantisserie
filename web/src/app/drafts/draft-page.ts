@@ -16,6 +16,7 @@ import { Auth } from '../auth/auth';
 import type { DraftView, PickView, PlayerView } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { PoolTab } from './pool-tab';
+import { QueueTab } from './queue-tab';
 
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;
@@ -28,7 +29,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 
 @Component({
   selector: 'app-draft-page',
-  imports: [PoolTab, RouterLink],
+  imports: [PoolTab, QueueTab, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
   styleUrls: ['./drafts.scss', './draft-page.scss'],
@@ -93,6 +94,10 @@ export class DraftPage {
   protected readonly offerPick = computed(
     () => this.joined() && this.draft()?.state === 'Drafting',
   );
+  /** Players may queue cards until the draft is complete. */
+  protected readonly offerQueue = computed(
+    () => this.joined() && this.draft()?.state !== 'Complete',
+  );
   protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
   /** Each player, in seat order, with their picks in pick order. */
@@ -103,7 +108,7 @@ export class DraftPage {
     })),
   );
 
-  protected readonly tab = signal<'Pool' | 'Board' | 'Picks'>('Pool');
+  protected readonly tab = signal<'Pool' | 'Queue' | 'Board' | 'Picks'>('Pool');
   /** The player whose picks the Picks panel shows. */
   private readonly picksPlayerId = signal<string | null>(null);
   /** The Picks panel's player, with their picks in pick order. */

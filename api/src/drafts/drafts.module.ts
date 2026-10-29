@@ -8,15 +8,18 @@ import { DraftsController } from './drafts.controller.js';
 import { DraftsGateway } from './drafts.gateway.js';
 import { DraftsService } from './drafts.service.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
+import { QueuesController } from './queues.controller.js';
+import { QueuesService } from './queues.service.js';
 
 @Module({
   imports: [AuthModule, DiscordModule, ScryfallModule],
-  controllers: [DraftsController],
+  controllers: [DraftsController, QueuesController],
   providers: [
     DraftsService,
     DraftsGateway,
     PoolSnapshotService,
     DraftPublisher,
+    QueuesService,
     { provide: BotPickDelay, useValue: new BotPickDelay(1500) },
     BotPlayers,
   ],

@@ -475,6 +475,14 @@ export class DraftsService {
         poolCardId: card.id,
       },
     });
+    // The card leaves the picker's queue, and is lost from everyone else's.
+    await tx.queuedCard.deleteMany({
+      where: { poolCardId: card.id, playerId: players[seat].id },
+    });
+    await tx.queuedCard.updateMany({
+      where: { poolCardId: card.id, lostAt: null },
+      data: { lostAt: new Date() },
+    });
     // pickLog was read before this pick, so count it too.
     const picked = pickLog.length + 1;
     const next = currentTurn(size, picked);
