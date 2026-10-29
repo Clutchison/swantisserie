@@ -12,11 +12,13 @@ export interface PoolSnapshotView {
   error?: string;
 }
 
-/** A role-holder who has joined a draft. */
+/** A role-holder or bot who has joined a draft. */
 export interface PlayerView {
   id: string;
   name: string;
   avatarUrl: string;
+  /** A player the app controls, which an app admin added for testing. */
+  isBot: boolean;
 }
 
 /** Whose turn it is in a started draft. */

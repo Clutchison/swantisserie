@@ -10,7 +10,7 @@ import type { Server, Socket } from 'socket.io';
 import { API_PREFIX } from '../app.setup.js';
 import { sessionToken } from '../auth/session.guard.js';
 import { SessionService } from '../auth/session.service.js';
-import type { DraftView } from './drafts.controller.js';
+import type { DraftView } from './draft-view.js';
 
 const parseCookies = cookieParser();
 

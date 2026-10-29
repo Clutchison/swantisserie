@@ -58,16 +58,21 @@ export function pickMessage(
   );
 }
 
-/** `lines`, then a ping for `pinged` if there is one, then the draft's link. */
+/**
+ * `lines`, then who is `up` if anyone is, then the draft's link. Only a
+ * player who isn't a bot is pinged.
+ */
 function announcement(
   lines: string[],
   draft: AnnouncedDraft,
-  pinged: AnnouncedPlayer | null,
+  up: AnnouncedPlayer | null,
 ): WebhookMessage {
+  const pinged = up && !up.isBot ? up : null;
   return {
     content: [
       ...lines,
       ...(pinged ? [`<@${pinged.id}> you’re up`] : []),
+      ...(up?.isBot ? [`${bold(up.name)} is up`] : []),
       link(draft),
     ].join('\n'),
     allowed_mentions: { parse: [], users: pinged ? [pinged.id] : [] },

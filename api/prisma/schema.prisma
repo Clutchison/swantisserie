@@ -8,14 +8,16 @@ datasource db {
   provider = "postgresql"
 }
 
-/// A Discord account that has signed in.
+/// A Discord account that has signed in, or a bot an app admin added to a draft.
 model User {
-  /// Discord user ID (snowflake).
+  /// Discord user ID (snowflake); `bot:<uuid>` for a bot.
   id        String    @id
   /// Discord display name: global_name, falling back to username.
   name      String
   /// Discord avatar hash; null means the default avatar.
   avatar    String?
+  /// A player the app controls. Bots can't sign in: they have no Discord account.
+  isBot     Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sessions  Session[]
@@ -103,7 +105,7 @@ model PoolCard {
   @@unique([draftId, oracleId])
 }
 
-/// A role-holder who has joined a draft.
+/// A role-holder or bot who has joined a draft.
 model Player {
   id       String   @id @default(uuid())
   draftId  String

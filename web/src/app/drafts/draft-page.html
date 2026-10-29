@@ -14,7 +14,12 @@
     <section class="players">
       <h2>Players</h2>
       @if (turn(); as turn) {
-        <p class="turn">{{ turn.text }}</p>
+        <p class="turn">
+          {{ turn.text }}
+          @if (turn.isBot) {
+            <span class="badge">Bot</span>
+          }
+        </p>
       }
       <ol>
         @for (
@@ -26,6 +31,20 @@
             <span class="seat">{{ i + 1 }}</span>
             <img class="avatar" [src]="player.avatarUrl" alt="" width="32" height="32" />
             <span class="name">{{ player.name }}</span>
+            @if (player.isBot) {
+              <span class="badge">Bot</span>
+            }
+            @if (inLobby() && isAdmin() && player.isBot) {
+              <button
+                class="icon"
+                type="button"
+                [attr.aria-label]="'Remove ' + player.name"
+                (click)="removeBot(player.id)"
+                [disabled]="changingLobby()"
+              >
+                Remove
+              </button>
+            }
             @if (inLobby() && canOrganize()) {
               <span class="move">
                 <button
@@ -77,6 +96,16 @@
           >
             Randomize seats
           </button>
+          @if (isAdmin()) {
+            <button
+              class="button secondary"
+              type="button"
+              (click)="addBot()"
+              [disabled]="draftFull() || changingLobby()"
+            >
+              Add bot
+            </button>
+          }
           <button
             class="button"
             type="button"
@@ -165,6 +194,9 @@
               <button class="link" type="button" (click)="showPicks(player.id)">
                 {{ player.name }}
               </button>
+              @if (player.isBot) {
+                <span class="badge">Bot</span>
+              }
             </h3>
             <ol>
               @for (pick of player.picks; track pick.pick) {
@@ -182,7 +214,13 @@
           @for (pick of picks(); track pick.pick) {
             <li>
               <span class="number">{{ pick.pick }}</span>
-              <span class="player">{{ playerName(pick.playerId) }}</span>
+              @let picker = player(pick.playerId);
+              <span class="player">
+                {{ picker?.name }}
+                @if (picker?.isBot) {
+                  <span class="badge">Bot</span>
+                }
+              </span>
               <span class="card">{{ pick.name }}</span>
             </li>
           } @empty {
