@@ -66,6 +66,10 @@ _Avoid_: Go, move
 One card taken by one player on their turn. Each card in the pool can be picked once.
 _Avoid_: Selection, draft (as a verb)
 
+**Pick log**:
+A draft's picks in the order they were made, each with its pick number, player and card.
+_Avoid_: History, pick history, feed
+
 **Queue**:
 A player's private, ordered list of cards to pick automatically when their turn comes.
 _Avoid_: Wishlist, preload list, autopick list

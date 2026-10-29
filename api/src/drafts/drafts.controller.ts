@@ -32,7 +32,9 @@ import {
   DraftStartedError,
   DraftsService,
   type DraftWithOrganizer,
+  type LoggedPick,
   type NewDraft,
+  PickRefusedError,
   PlayersChangedError,
   PoolQueryError,
   ScryfallUnavailableError,
@@ -86,6 +88,15 @@ export interface DraftView {
   createdAt: Date;
 }
 
+/** One pick in a draft's pick log. */
+export interface PickView {
+  /** 1-based, counting every pick in the draft. */
+  pick: number;
+  playerId: string;
+  oracleId: string;
+  name: string;
+}
+
 export interface PoolCardView {
   scryfallId: string;
   oracleId: string;
@@ -120,6 +131,26 @@ export class DraftsController {
   async pool(@Param('id') id: string): Promise<PoolCardView[]> {
     await this.findOr404(id);
     return (await this.drafts.pool(id)).map(toPoolCardView);
+  }
+
+  /** The draft's pick log, in pick order. */
+  @Get(':id/picks')
+  async picks(@Param('id') id: string): Promise<PickView[]> {
+    await this.findOr404(id);
+    return (await this.drafts.picks(id)).map(toPickView);
+  }
+
+  /** The signed-in player picks a pool card on their turn. */
+  @Post(':id/picks')
+  @HttpCode(200)
+  async pick(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<DraftView> {
+    const oracleId = parsePick(body);
+    await this.findOr404(id);
+    return this.change(id, () => this.drafts.pick(id, user.id, oracleId));
   }
 
   /** Starts the pool snapshot over; for the organizer, after a failure. */
@@ -200,6 +231,12 @@ export class DraftsController {
     } catch (err) {
       if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
       if (err instanceof StartRefusedError) {
+        throw new ConflictException(err.refusal);
+      }
+      if (err instanceof PickRefusedError) {
+        if (err.refusal.error === 'not-in-pool') {
+          throw new NotFoundException(err.refusal);
+        }
         throw new ConflictException(err.refusal);
       }
       if (err instanceof PlayersChangedError) {
@@ -315,6 +352,18 @@ function parseSeatOrder(body: unknown): string[] {
   return userIds;
 }
 
+/** The picked card's oracle id, or a 400 if there isn't one. */
+function parsePick(body: unknown): string {
+  const { oracleId } = (body ?? {}) as Record<string, unknown>;
+  if (typeof oracleId !== 'string' || !oracleId) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Say which card to pick.',
+    });
+  }
+  return oracleId;
+}
+
 function toDraftView(draft: DraftWithOrganizer): DraftView {
   return {
     id: draft.id,
@@ -343,14 +392,22 @@ function toTurnView(draft: DraftWithOrganizer): TurnView | null {
   if (draft.state !== 'Drafting' && draft.state !== 'Paused') return null;
   const turn = currentTurn(
     { players: draft.players.length, picksPerPlayer: draft.picksPerPlayer },
-    // Nothing is picked yet: picks arrive with the pick flow.
-    0,
+    draft._count.picks,
   );
   if (!turn) return null;
   return {
     pick: turn.pick,
     round: turn.round,
     playerId: draft.players[turn.seat].user.id,
+  };
+}
+
+function toPickView(pick: LoggedPick): PickView {
+  return {
+    pick: pick.number,
+    playerId: pick.player.userId,
+    oracleId: pick.poolCard.oracleId,
+    name: pick.poolCard.name,
   };
 }
 

@@ -60,6 +60,7 @@ model Draft {
   snapshotError  String?
   pool           PoolCard[]
   players        Player[]
+  picks          Pick[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -90,6 +91,8 @@ model PoolCard {
   manaValue       Float
   /// Image URLs per face, as CardImages[]: one entry for single-faced cards, two when each face has its own image.
   images          Json
+  /// Null until a player picks this card.
+  pick            Pick?
 
   @@unique([draftId, oracleId])
 }
@@ -104,7 +107,26 @@ model Player {
   joinedAt DateTime @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
   seat     Int?
+  picks    Pick[]
 
   @@unique([draftId, userId])
   @@index([userId])
+}
+
+/// One card taken by one player on their turn.
+model Pick {
+  id         String   @id @default(uuid())
+  draftId    String
+  draft      Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  /// 1-based, counting every pick in the draft.
+  number     Int
+  playerId   String
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  /// Unique: each card in the pool can be picked once.
+  poolCardId String   @unique
+  poolCard   PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([draftId, number])
+  @@index([playerId])
 }

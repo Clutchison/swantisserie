@@ -5,7 +5,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { DRAFT_POLL_MS } from './draft-page';
-import type { DraftView, PoolCardView, PoolSnapshotView } from './drafts';
+import type { DraftView, PickView, PoolCardView, PoolSnapshotView } from './drafts';
 
 const alice = {
   id: '80351110224678912',
@@ -118,20 +118,36 @@ describe('drafts', () => {
   });
 
   describe('draft page', () => {
+    const bob = {
+      id: 'bob',
+      name: 'Bob',
+      avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png',
+    };
+    const alicePlayer = { id: alice.id, name: alice.name, avatarUrl: alice.avatarUrl };
+
     /**
-     * Opens draft-1's page with the first GET answered by `pool`, and its
-     * pool cards by `cards` once the snapshot is complete.
+     * Opens draft-1's page with the first GET answered by `pool`, its pool
+     * cards by `cards` once the snapshot is complete, and its picks by
+     * `picks` once the draft has started.
      */
     async function openDraft(
       pool: PoolSnapshotView,
       fields: Partial<DraftView> = {},
       cards: PoolCardView[] = [],
+      picks: PickView[] = [],
     ) {
       const { fixture, page } = await open('/drafts/draft-1');
-      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: pool, ...fields }));
+      const opened = draft({ snapshot: pool, ...fields });
+      http.expectOne('/api/drafts/draft-1').flush(opened);
       if (pool.state === 'Complete') await flushPool(cards);
+      if (opened.state !== 'Lobby') await flushPicks(picks);
       await fixture.whenStable();
       return { fixture, page };
+    }
+
+    /** Answers the page's GET of draft-1's pick log with `picks`. */
+    async function flushPicks(picks: PickView[]) {
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(picks);
     }
 
     /**
@@ -217,12 +233,6 @@ describe('drafts', () => {
     });
 
     describe('lobby', () => {
-      const bob = {
-        id: 'bob',
-        name: 'Bob',
-        avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png',
-      };
-      const alicePlayer = { id: alice.id, name: alice.name, avatarUrl: alice.avatarUrl };
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
       function button(page: HTMLElement, label: string) {
@@ -285,6 +295,7 @@ describe('drafts', () => {
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
           draft({ state: 'Drafting', players: [bob] }),
         );
+        await flushPicks([]);
         await fixture.whenStable();
 
         expect(page.querySelector('.error')?.textContent).toContain('This draft has started.');
@@ -294,12 +305,6 @@ describe('drafts', () => {
     });
 
     describe('seats and start', () => {
-      const bob = {
-        id: 'bob',
-        name: 'Bob',
-        avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png',
-      };
-      const alicePlayer = { id: alice.id, name: alice.name, avatarUrl: alice.avatarUrl };
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
       function button(page: HTMLElement, label: string) {
@@ -374,6 +379,8 @@ describe('drafts', () => {
             turn: { pick: 1, round: 1, playerId: alice.id },
           }),
         );
+        // A started draft has picks to show.
+        await flushPicks([]);
         await fixture.whenStable();
 
         expect(page.textContent).toContain('Your turn: pick 1, round 1');
@@ -476,7 +483,7 @@ describe('drafts', () => {
         ...page.querySelectorAll<HTMLButtonElement>('[role="tabpanel"] .grid button'),
       ];
 
-      it('has a bottom tab bar where only Pool works for now', async () => {
+      it('has a bottom tab bar where Pool and Board work for now', async () => {
         const { page } = await openDraft(complete);
 
         const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -492,7 +499,7 @@ describe('drafts', () => {
           'false',
           'false',
         ]);
-        expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, true, true]);
+        expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, false, true]);
         expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain(
           '2 cards in the pool',
         );
@@ -569,6 +576,108 @@ describe('drafts', () => {
         expect(img()).toBe(image('large', 'brightclimb-id', 'front'));
       });
 
+      describe('picking', () => {
+        /** Started, with Alice then Bob; Alice is up unless told otherwise. */
+        const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+          state: 'Drafting',
+          players: [alicePlayer, bob],
+          turn: { pick: 1, round: 1, playerId: alice.id },
+          ...fields,
+        });
+        const shivanPick: PickView = {
+          pick: 1,
+          playerId: alice.id,
+          oracleId: 'shivan-oracle',
+          name: 'Shivan Dragon',
+        };
+
+        it('lets the player whose turn it is pick a card from its detail', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
+
+          const detail = await openDetail(fixture, page, 1);
+          buttonIn(detail, 'Pick')!.click();
+          const req = http.expectOne('/api/drafts/draft-1/picks');
+          expect(req.request.method).toBe('POST');
+          expect(req.request.body).toEqual({ oracleId: 'shivan-oracle' });
+          req.flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+          await flushPicks([shivanPick]);
+          await fixture.whenStable();
+
+          expect(page.querySelector('[role="dialog"]')).toBeNull();
+          expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+          expect(tiles(page)[1].classList).toContain('picked');
+          expect(tiles(page)[1].textContent).toContain('Picked');
+          expect(tiles(page)[0].classList).not.toContain('picked');
+        });
+
+        it('disables Pick when it is not your turn', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting({ turn: { pick: 1, round: 1, playerId: bob.id } }),
+            [shivan],
+          );
+
+          const detail = await openDetail(fixture, page, 0);
+
+          expect(buttonIn(detail, 'Pick')!.disabled).toBe(true);
+          expect(detail.textContent).toContain('You can pick on your turn.');
+        });
+
+        it('disables Pick for a card that has been picked', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+            [brightclimb, shivan],
+            [{ ...shivanPick, playerId: bob.id }],
+          );
+
+          expect(tiles(page)[1].textContent).toContain('Picked');
+          const detail = await openDetail(fixture, page, 1);
+          expect(buttonIn(detail, 'Pick')!.disabled).toBe(true);
+          expect(detail.textContent).toContain('Already picked.');
+        });
+
+        it('offers no Pick to someone who is not a player', async () => {
+          const { fixture, page } = await openDraft(complete, drafting({ players: [bob] }), [
+            shivan,
+          ]);
+
+          expect(buttonIn(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
+        });
+
+        it('offers no Pick before the draft starts', async () => {
+          const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] }, [
+            shivan,
+          ]);
+
+          expect(buttonIn(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
+        });
+
+        it('says why a pick was refused, and catches up with the draft', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), [shivan]);
+
+          const detail = await openDetail(fixture, page, 0);
+          buttonIn(detail, 'Pick')!.click();
+          http
+            .expectOne('/api/drafts/draft-1/picks')
+            .flush(
+              { error: 'not-your-turn', message: 'It’s not your turn.' },
+              { status: 409, statusText: 'Conflict' },
+            );
+          // The page re-reads the draft and its picks to catch up.
+          (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+            draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
+          );
+          await flushPicks([{ ...shivanPick, oracleId: 'other-oracle', name: 'Other' }]);
+          await fixture.whenStable();
+
+          expect(detail.querySelector('[role="alert"]')?.textContent).toContain(
+            'It’s not your turn.',
+          );
+          expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+        });
+      });
+
       it('falls back to Scryfall’s API image of the face shown when a detail image fails to load', async () => {
         const { fixture, page } = await openDraft(complete, {}, [brightclimb]);
 
@@ -581,6 +690,85 @@ describe('drafts', () => {
         expect(detail.querySelector('img')?.getAttribute('src')).toBe(
           'https://api.scryfall.com/cards/brightclimb-id?format=image&version=large&face=back',
         );
+      });
+    });
+
+    describe('board tab', () => {
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+      const picks: PickView[] = [
+        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock' },
+        { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
+        { pick: 3, playerId: alice.id, oracleId: 'spike-oracle', name: 'Lava Spike' },
+      ];
+
+      async function openBoard(picks: PickView[]) {
+        const opened = await openDraft(
+          complete,
+          {
+            state: 'Drafting',
+            players: [bob, alicePlayer],
+            turn: { pick: 4, round: 2, playerId: bob.id },
+          },
+          [],
+          picks,
+        );
+        tabButton(opened.page, 'Board').click();
+        await opened.fixture.whenStable();
+        return opened;
+      }
+
+      const tabButton = (root: HTMLElement, tab: string) =>
+        [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+          (button) => button.textContent?.trim() === tab,
+        )!;
+      const pickLog = (root: HTMLElement) => panel(root).querySelector<HTMLElement>('.log')!;
+      const panel = (root: HTMLElement) =>
+        root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
+
+      it('switches between the Pool and Board tabs', async () => {
+        const { fixture, page } = await openBoard(picks);
+
+        expect(tabButton(page, 'Board').getAttribute('aria-selected')).toBe('true');
+        expect(tabButton(page, 'Pool').getAttribute('aria-selected')).toBe('false');
+        expect(panel(page).querySelector('h2')?.textContent).toBe('Board');
+
+        tabButton(page, 'Pool').click();
+        await fixture.whenStable();
+        expect(panel(page).querySelector('h2')?.textContent).toBe('Pool');
+      });
+
+      it('shows the pick log: pick number, player and card', async () => {
+        const { page } = await openBoard(picks);
+
+        const log = [...pickLog(page).querySelectorAll('li')].map((li) =>
+          [...li.querySelectorAll('span')].map((span) => span.textContent?.trim()),
+        );
+        expect(log).toEqual([
+          ['1', 'Bob', 'Shock'],
+          ['2', 'Alice', 'Lightning Bolt'],
+          ['3', 'Alice', 'Lava Spike'],
+        ]);
+      });
+
+      it('lists every player’s picks, in seat order', async () => {
+        const { page } = await openBoard(picks);
+
+        const players = [...panel(page).querySelectorAll('.player-picks section')].map(
+          (player) => ({
+            name: player.querySelector('h3')?.textContent,
+            picks: [...player.querySelectorAll('li')].map((li) => li.textContent?.trim()),
+          }),
+        );
+        expect(players).toEqual([
+          { name: 'Bob', picks: ['Shock'] },
+          { name: 'Alice', picks: ['Lightning Bolt', 'Lava Spike'] },
+        ]);
+      });
+
+      it('says when nobody has picked yet', async () => {
+        const { page } = await openBoard([]);
+
+        expect(pickLog(page).textContent).toContain('No picks yet.');
       });
     });
 

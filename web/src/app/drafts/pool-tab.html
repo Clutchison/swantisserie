@@ -4,7 +4,12 @@
 <ul class="grid">
   @for (card of cards(); track card.oracleId) {
     <li>
-      <button type="button" class="tile" (click)="open(card)">
+      <button
+        type="button"
+        class="tile"
+        [class.picked]="picked().has(card.oracleId)"
+        (click)="open(card)"
+      >
         <span class="placeholder">{{ card.name }}</span>
         <img
           [src]="image(card, 'normal')"
@@ -14,6 +19,9 @@
           height="680"
           (error)="imageFailed(card, 'normal')"
         />
+        @if (picked().has(card.oracleId)) {
+          <span class="badge">Picked</span>
+        }
       </button>
     </li>
   }
@@ -36,11 +44,29 @@
         (error)="imageFailed(card, 'large', face())"
       />
       <div class="actions">
+        @if (offerPick()) {
+          <button
+            class="button"
+            type="button"
+            (click)="pick(card)"
+            [disabled]="!yourTurn() || picked().has(card.oracleId) || picking()"
+          >
+            {{ picking() ? 'Picking…' : 'Pick' }}
+          </button>
+        }
         @if (card.images.length > 1) {
           <button class="button secondary" type="button" (click)="flip()">Flip</button>
         }
         <button #closeButton class="button secondary" type="button" (click)="close()">Close</button>
       </div>
+      @if (picked().has(card.oracleId)) {
+        <p class="note">Already picked.</p>
+      } @else if (offerPick() && !yourTurn()) {
+        <p class="note">You can pick on your turn.</p>
+      }
+      @if (pickError(); as message) {
+        <p class="note error" role="alert">{{ message }}</p>
+      }
     </div>
   </div>
 }

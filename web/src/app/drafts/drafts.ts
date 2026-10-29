@@ -71,3 +71,12 @@ export interface PoolCardView {
   /** One entry per face with its own image. */
   images: CardImages[];
 }
+
+/** One pick in a draft's pick log. */
+export interface PickView {
+  /** 1-based, counting every pick in the draft. */
+  pick: number;
+  playerId: string;
+  oracleId: string;
+  name: string;
+}

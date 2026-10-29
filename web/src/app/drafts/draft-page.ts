@@ -13,7 +13,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import type { DraftView } from './drafts';
+import type { DraftView, PickView } from './drafts';
 import { PoolTab } from './pool-tab';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -64,6 +64,37 @@ export class DraftPage {
   protected readonly changingLobby = signal(false);
   protected readonly lobbyError = signal<string | null>(null);
 
+  /** Started drafts have picks; the lobby doesn't. */
+  private readonly started = computed(() => {
+    const state = this.draft()?.state;
+    return !!state && state !== 'Lobby';
+  });
+  private readonly picksResource = httpResource<PickView[]>(() =>
+    this.started() ? `/api/drafts/${this.id()}/picks` : undefined,
+  );
+  /** The pick log, in pick order. */
+  protected readonly picks = computed(() =>
+    this.picksResource.hasValue() ? this.picksResource.value() : [],
+  );
+  protected readonly picksFailed = computed(() => !!this.picksResource.error());
+  /** The oracle ids of the cards picked so far. */
+  protected readonly picked = computed(() => new Set(this.picks().map((pick) => pick.oracleId)));
+  /** Players may pick while the draft is Drafting. */
+  protected readonly offerPick = computed(
+    () => this.joined() && this.draft()?.state === 'Drafting',
+  );
+  protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
+
+  /** Each player, in seat order, with their picks in pick order. */
+  protected readonly board = computed(() =>
+    (this.draft()?.players ?? []).map((player) => ({
+      ...player,
+      picks: this.picks().filter((pick) => pick.playerId === player.id),
+    })),
+  );
+
+  protected readonly tab = signal<'Pool' | 'Board'>('Pool');
+
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
     const turn = this.draft()?.turn;
@@ -81,6 +112,22 @@ export class DraftPage {
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
+  }
+
+  /** A player's name, by their id. */
+  protected playerName(id: string): string | undefined {
+    return this.draft()?.players.find((player) => player.id === id)?.name;
+  }
+
+  protected pickMade(draft: DraftView) {
+    this.resource.set(draft);
+    this.picksResource.reload();
+  }
+
+  /** A refused pick means the draft has moved on: catch up with it. */
+  protected pickRefused() {
+    this.resource.reload();
+    this.picksResource.reload();
   }
 
   protected join() {
