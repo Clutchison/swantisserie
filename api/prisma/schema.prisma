@@ -58,6 +58,9 @@ model Draft {
   poolTotal      Int?
   /// Why the last snapshot attempt failed; null otherwise.
   snapshotError  String?
+  /// Where the draft's announcements are posted; null for none.
+  webhookId      String?
+  webhook        Webhook?          @relation(fields: [webhookId], references: [id], onDelete: SetNull)
   /// Goes up with every change to the draft's players, seats, state or picks, so viewers can tell which copy is newest.
   version        Int               @default(0)
   pool           PoolCard[]
@@ -67,6 +70,7 @@ model Draft {
   updatedAt      DateTime          @updatedAt
 
   @@index([organizerId])
+  @@index([webhookId])
 }
 
 /// Progress of the pool snapshot: copying the pool query's cards from Scryfall.
@@ -131,4 +135,16 @@ model Pick {
 
   @@unique([draftId, number])
   @@index([playerId])
+}
+
+/// A named Discord webhook an app admin registered, which organizers choose for a draft's announcements.
+model Webhook {
+  id        String   @id @default(uuid())
+  /// What organizers choose it by, e.g. "#roto-main".
+  name      String   @unique
+  /// A secret: only app admins may see it.
+  url       String
+  drafts    Draft[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

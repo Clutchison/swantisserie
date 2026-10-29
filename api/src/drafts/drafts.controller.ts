@@ -23,6 +23,7 @@ import type {
   PoolSnapshotState,
 } from '../generated/prisma/client.js';
 import { avatarUrl } from '../auth/avatar-url.js';
+import type { WebhookView } from '../discord/webhooks.service.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -39,6 +40,7 @@ import {
   PoolQueryError,
   ScryfallUnavailableError,
   StartRefusedError,
+  UnknownWebhookError,
 } from './drafts.service.js';
 import { DraftsGateway } from './drafts.gateway.js';
 import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
@@ -86,6 +88,8 @@ export interface DraftView {
   players: PlayerView[];
   /** Null unless the draft is Drafting or Paused. */
   turn: TurnView | null;
+  /** Where the draft's announcements are posted; null for none. */
+  webhook: WebhookView | null;
   /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
   version: number;
   createdAt: Date;
@@ -286,6 +290,12 @@ export class DraftsController {
     try {
       return toDraftView(await this.drafts.create(user.id, draft));
     } catch (err) {
+      if (err instanceof UnknownWebhookError) {
+        throw new BadRequestException({
+          error: 'invalid',
+          message: err.message,
+        });
+      }
       if (err instanceof PoolQueryError) {
         throw new UnprocessableEntityException(err.problem);
       }
@@ -307,7 +317,7 @@ function conflict(error: string, cause: Error): ConflictException {
 
 /** The create form's fields, or a 400 saying which one to fix. */
 function parseNewDraft(body: unknown): NewDraft {
-  const { name, poolQuery, picksPerPlayer } = (body ?? {}) as Record<
+  const { name, poolQuery, picksPerPlayer, webhookId } = (body ?? {}) as Record<
     string,
     unknown
   >;
@@ -342,7 +352,17 @@ function parseNewDraft(body: unknown): NewDraft {
     );
   }
 
-  return { name: trimmedName, poolQuery: trimmedQuery, picksPerPlayer: picks };
+  // Missing or null: the draft posts nowhere.
+  if (webhookId != null && (typeof webhookId !== 'string' || !webhookId)) {
+    throw invalid('Choose a webhook from the list.');
+  }
+
+  return {
+    name: trimmedName,
+    poolQuery: trimmedQuery,
+    picksPerPlayer: picks,
+    webhookId: webhookId ?? null,
+  };
 }
 
 /** The seat order's user ids, or a 400 if it isn't a list of distinct ids. */
@@ -393,6 +413,12 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
       avatarUrl: avatarUrl(user),
     })),
     turn: toTurnView(draft),
+    // Built field by field, so nothing else about the webhook (its URL above
+    // all) can slip into what every viewer is sent.
+    webhook: draft.webhook && {
+      id: draft.webhook.id,
+      name: draft.webhook.name,
+    },
     version: draft.version,
     createdAt: draft.createdAt,
   };

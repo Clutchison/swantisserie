@@ -186,6 +186,7 @@ describe('drafts', () => {
       snapshot: expect.any(Object),
       players: [],
       turn: null,
+      webhook: null,
       version: 0,
       createdAt: expect.any(String),
     };
@@ -696,6 +697,11 @@ describe('drafts', () => {
       { name: 'Red', poolQuery: 'c:r', picksPerPlayer: '40' },
       'Picks per player must be a whole number from 1 to 100.',
     ],
+    [
+      'a webhook that is not an id',
+      { name: 'Red', poolQuery: 'c:r', webhookId: 7 },
+      'Choose a webhook from the list.',
+    ],
   ])('rejects a draft with %s', async (_, body, message) => {
     const res = await createDraft(body).expect(400);
 
@@ -745,6 +751,91 @@ describe('drafts', () => {
         createdAt: '2026-09-01T00:00:00.000Z',
       }),
     ]);
+  });
+
+  describe('webhook', () => {
+    const webhookUrl =
+      'https://discord.com/api/webhooks/1234567890/secret-token';
+    let carolCookie: string;
+    let webhookId: string;
+
+    beforeEach(async () => {
+      carolCookie = await signIn(carol);
+      const res = await request(app.getHttpServer())
+        .post('/api/admin/webhooks')
+        .set('Cookie', carolCookie)
+        .send({ name: '#roto-main', url: webhookUrl })
+        .expect(201);
+      webhookId = res.body.id;
+      allOnArena('t:dragon c:r');
+    });
+
+    it('posts to the webhook the organizer chose, shown by name only', async () => {
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+        webhookId,
+      }).expect(201);
+
+      const webhook = { id: webhookId, name: '#roto-main' };
+      expect(created.body.webhook).toEqual(webhook);
+      const shown = await getDraft(created.body.id).expect(200);
+      expect(shown.body.webhook).toEqual(webhook);
+      const listed = await listDrafts().expect(200);
+      expect(listed.body[0].webhook).toEqual(webhook);
+      for (const res of [created, shown, listed]) {
+        expect(res.text).not.toContain('secret-token');
+      }
+    });
+
+    it('posts nowhere when the organizer chose no webhook', async () => {
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+        webhookId: null,
+      }).expect(201);
+
+      expect(created.body.webhook).toBeNull();
+    });
+
+    it('refuses a webhook that does not exist', async () => {
+      const res = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+        webhookId: 'no-such-webhook',
+      }).expect(400);
+
+      expect(res.body).toEqual({
+        error: 'invalid',
+        message: 'That webhook has been removed. Choose another.',
+      });
+      expect(scryfall.search).not.toHaveBeenCalled();
+      await listDrafts().expect(200).expect([]);
+    });
+
+    it('shows a webhook’s new name, and posts nowhere once it is removed', async () => {
+      const { body } = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+        webhookId,
+      }).expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/admin/webhooks/${webhookId}`)
+        .set('Cookie', carolCookie)
+        .send({ name: '#roto-league' })
+        .expect(200);
+      expect((await getDraft(body.id).expect(200)).body.webhook).toEqual({
+        id: webhookId,
+        name: '#roto-league',
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/api/admin/webhooks/${webhookId}`)
+        .set('Cookie', carolCookie)
+        .expect(204);
+      expect((await getDraft(body.id).expect(200)).body.webhook).toBeNull();
+    });
   });
 
   describe('lobby', () => {
@@ -1339,6 +1430,36 @@ describe('drafts', () => {
           }),
         ]),
       );
+    });
+
+    it('pushes the draft’s webhook by name only', async () => {
+      const webhook = await request(app.getHttpServer())
+        .post('/api/admin/webhooks')
+        .set('Cookie', await signIn(carol))
+        .send({
+          name: '#roto-main',
+          url: 'https://discord.com/api/webhooks/1234567890/secret-token',
+        })
+        .expect(201);
+      allOnArena('t:dragon c:r');
+      const { body } = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+        webhookId: webhook.body.id,
+      }).expect(201);
+      const aliceSees = await watch(body.id, aliceCookie);
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${body.id}/players`)
+        .set('Cookie', await signIn(bob))
+        .expect(201);
+
+      await vi.waitFor(() => expect(aliceSees).toHaveLength(1));
+      expect(aliceSees[0].webhook).toEqual({
+        id: webhook.body.id,
+        name: '#roto-main',
+      });
+      expect(JSON.stringify(aliceSees)).not.toContain('secret-token');
     });
 
     it('numbers each version of a draft, so viewers can tell which is newest', async () => {

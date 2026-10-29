@@ -3,6 +3,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { HealthController } from './health/health.controller.js';
 import { API_PREFIX } from './app.setup.js';
 import { AuthModule } from './auth/auth.module.js';
+import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
@@ -20,6 +21,7 @@ export class AppModule {
         PrismaModule,
         AuthModule,
         DraftsModule,
+        WebhooksModule,
         ServeStaticModule.forRoot({
           rootPath: webRoot,
           exclude: [`/${API_PREFIX}/{*path}`],

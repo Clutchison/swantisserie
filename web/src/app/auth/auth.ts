@@ -54,3 +54,10 @@ export const signedIn: CanActivateFn = async () => {
   const router = inject(Router);
   return (await auth.currentUser()) ? true : router.createUrlTree([SIGN_IN_PATH]);
 };
+
+/** Sends anyone but app admins to the draft list. */
+export const appAdmin: CanActivateFn = async () => {
+  const auth = inject(Auth);
+  const router = inject(Router);
+  return (await auth.currentUser())?.isAdmin ? true : router.createUrlTree(['/']);
+};

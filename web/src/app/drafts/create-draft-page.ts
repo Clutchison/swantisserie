@@ -1,9 +1,16 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import type { DraftProblem, DraftView } from './drafts';
+import type { DraftProblem, DraftView, WebhookView } from './drafts';
 
 @Component({
   selector: 'app-create-draft-page',
@@ -21,9 +28,23 @@ export class CreateDraftPage {
     name: '',
     poolQuery: '',
     picksPerPlayer: 40,
+    webhookId: null as string | null,
   });
+  private readonly webhookResource = httpResource<WebhookView[]>(() => '/api/webhooks');
+  // If they fail to load, the draft can still be created to post nowhere.
+  protected readonly webhooks = computed(() =>
+    this.webhookResource.hasValue() ? this.webhookResource.value() : [],
+  );
   protected readonly saving = signal(false);
   protected readonly problem = signal<DraftProblem | null>(null);
+
+  constructor() {
+    // Most drafts post to the usual channel, so start on the first.
+    effect(() => {
+      const [first] = this.webhooks();
+      if (first) this.form.controls.webhookId.setValue(first.id);
+    });
+  }
 
   protected async create() {
     this.saving.set(true);

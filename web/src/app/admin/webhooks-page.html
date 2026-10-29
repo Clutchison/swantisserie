@@ -1,0 +1,67 @@
+<main>
+  <h1>Webhooks</h1>
+  <p class="hint">
+    Organizers choose one of these by name for each draft's announcements. Only app admins see the
+    URLs.
+  </p>
+
+  @if (problem(); as problem) {
+    <p class="error" role="alert">{{ problem }}</p>
+  }
+
+  @if (webhooks.isLoading() && !webhooks.hasValue()) {
+    <p>Loading…</p>
+  } @else if (webhooks.error()) {
+    <p class="error">Couldn't load the webhooks. Try reloading the page.</p>
+  } @else if (webhooks.hasValue()) {
+    <ul>
+      @for (webhook of webhooks.value(); track webhook.id) {
+        <li>
+          <input #name [value]="webhook.name" maxlength="100" aria-label="Name" />
+          <button
+            class="button secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="rename(webhook, name.value)"
+          >
+            Rename
+          </button>
+          <button
+            class="button secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="remove(webhook)"
+          >
+            Remove
+          </button>
+          <span class="url">{{ webhook.url }}</span>
+        </li>
+      } @empty {
+        <li class="empty">No webhooks yet.</li>
+      }
+    </ul>
+  }
+
+  <h2>Add a webhook</h2>
+  <form class="add" [formGroup]="form" (ngSubmit)="add()">
+    <label>
+      Name
+      <input name="name" formControlName="name" maxlength="100" placeholder="e.g. #roto-main" />
+    </label>
+    <label>
+      URL
+      <input
+        name="url"
+        formControlName="url"
+        type="url"
+        placeholder="https://discord.com/api/webhooks/…"
+      />
+      <span class="hint">
+        In Discord: channel settings → Integrations → Webhooks → Copy Webhook URL.
+      </span>
+    </label>
+    <div>
+      <button class="button" type="submit" [disabled]="saving()">Add</button>
+    </div>
+  </form>
+</main>

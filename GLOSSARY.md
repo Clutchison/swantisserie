@@ -103,3 +103,9 @@ _Avoid_: Finished, done, closed, past
 **Active draft**:
 Any draft that is not complete.
 _Avoid_: Open draft, current draft
+
+## Discord
+
+**Webhook**:
+A named Discord channel destination that an app admin registers. An organizer chooses one per draft, and that draft's announcements are posted to it. Its URL is secret: only app admins see it.
+_Avoid_: Channel, hook, integration

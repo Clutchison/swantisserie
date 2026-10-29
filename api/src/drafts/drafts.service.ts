@@ -25,6 +25,8 @@ export interface NewDraft {
   name: string;
   poolQuery: string;
   picksPerPlayer: number;
+  /** Where its announcements are posted; null for none. */
+  webhookId: string | null;
 }
 
 /** Seated players by seat, then the rest in join order. */
@@ -36,6 +38,8 @@ const SEAT_ORDER = [
 const WITH_ORGANIZER = {
   include: {
     organizer: { select: { id: true, name: true } },
+    // Never the URL: it is a secret only app admins may see.
+    webhook: { select: { id: true, name: true } },
     players: {
       orderBy: SEAT_ORDER,
       select: { user: { select: { id: true, name: true, avatar: true } } },
@@ -68,6 +72,13 @@ export class PoolQueryError extends Error {
 }
 
 export { ScryfallUnavailableError };
+
+/** Thrown when a new draft names a webhook that doesn't exist, e.g. one just removed. */
+export class UnknownWebhookError extends Error {
+  constructor() {
+    super('That webhook has been removed. Choose another.');
+  }
+}
 
 /** Thrown when a change only allowed in Lobby is tried after the draft started. */
 export class DraftStartedError extends Error {
@@ -131,18 +142,35 @@ export class DraftsService {
 
   /**
    * Saves a new draft in Lobby, organized by `organizerId`, and starts its
-   * pool snapshot. Throws PoolQueryError if its pool query can't make a
-   * pool, and ScryfallUnavailableError if that can't be checked.
+   * pool snapshot. Throws UnknownWebhookError if its webhook doesn't exist,
+   * PoolQueryError if its pool query can't make a pool, and
+   * ScryfallUnavailableError if that can't be checked.
    */
   async create(
     organizerId: string,
     draft: NewDraft,
   ): Promise<DraftWithOrganizer> {
+    if (
+      draft.webhookId !== null &&
+      !(await this.prisma.webhook.findUnique({
+        where: { id: draft.webhookId },
+      }))
+    ) {
+      throw new UnknownWebhookError();
+    }
     await this.checkPoolQuery(draft.poolQuery);
-    const created = await this.prisma.draft.create({
-      data: { ...draft, organizerId },
-      ...WITH_ORGANIZER,
-    });
+    const created = await this.prisma.draft
+      .create({ data: { ...draft, organizerId }, ...WITH_ORGANIZER })
+      .catch((err: unknown) => {
+        // The webhook was removed while the pool query was being checked.
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2003'
+        ) {
+          throw new UnknownWebhookError();
+        }
+        throw err;
+      });
     await this.snapshots.start(created.id);
     return created;
   }

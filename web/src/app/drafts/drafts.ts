@@ -27,6 +27,12 @@ export interface TurnView {
   playerId: string;
 }
 
+/** A webhook as organizers choose it: by name, its URL kept secret. */
+export interface WebhookView {
+  id: string;
+  name: string;
+}
+
 /** A draft, as the drafts API reports it. */
 export interface DraftView {
   id: string;
@@ -40,6 +46,8 @@ export interface DraftView {
   players: PlayerView[];
   /** Null unless the draft is Drafting or Paused. */
   turn: TurnView | null;
+  /** Where the draft's announcements are posted; null for none. */
+  webhook: WebhookView | null;
   /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
   version: number;
   createdAt: string;
