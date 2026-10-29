@@ -144,16 +144,16 @@ export class DraftsController {
     return this.change(id, () => this.drafts.randomizeSeats(id));
   }
 
-  /** Sets the seat order, as every player's id; for the organizer. */
+  /** Sets the seat order, as every player's user id; for the organizer. */
   @Put(':id/seats')
   async reorderSeats(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const players = parseSeatOrder(body);
+    const userIds = parseSeatOrder(body);
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.reorderSeats(id, players));
+    return this.change(id, () => this.drafts.reorderSeats(id, userIds));
   }
 
   /** Starts the draft with its seats as they are; for the organizer. */
@@ -301,18 +301,18 @@ function parseNewDraft(body: unknown): NewDraft {
 
 /** The seat order's user ids, or a 400 if it isn't a list of distinct ids. */
 function parseSeatOrder(body: unknown): string[] {
-  const { players } = (body ?? {}) as Record<string, unknown>;
+  const { userIds } = (body ?? {}) as Record<string, unknown>;
   if (
-    !Array.isArray(players) ||
-    !players.every((id) => typeof id === 'string') ||
-    new Set(players).size !== players.length
+    !Array.isArray(userIds) ||
+    !userIds.every((id) => typeof id === 'string') ||
+    new Set(userIds).size !== userIds.length
   ) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'List each player once, in seat order.',
     });
   }
-  return players;
+  return userIds;
 }
 
 function toDraftView(draft: DraftWithOrganizer): DraftView {
@@ -341,12 +341,11 @@ function toDraftView(draft: DraftWithOrganizer): DraftView {
 
 function toTurnView(draft: DraftWithOrganizer): TurnView | null {
   if (draft.state !== 'Drafting' && draft.state !== 'Paused') return null;
-  const turn = currentTurn({
-    seats: draft.players.length,
-    picksPerPlayer: draft.picksPerPlayer,
+  const turn = currentTurn(
+    { players: draft.players.length, picksPerPlayer: draft.picksPerPlayer },
     // Nothing is picked yet: picks arrive with the pick flow.
-    picksMade: 0,
-  });
+    0,
+  );
   if (!turn) return null;
   return {
     pick: turn.pick,

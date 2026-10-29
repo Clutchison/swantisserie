@@ -337,7 +337,7 @@ describe('drafts', () => {
         button(page, 'Move Bob up')!.click();
         const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'));
         expect(req.request.method).toBe('PUT');
-        expect(req.request.body).toEqual({ players: [bob.id, alice.id] });
+        expect(req.request.body).toEqual({ userIds: [bob.id, alice.id] });
         req.flush(draft({ players: [bob, alicePlayer] }));
         await fixture.whenStable();
 
@@ -381,6 +381,25 @@ describe('drafts', () => {
 
         expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
         expect(button(page, 'Start draft')).toBeDefined();
+      });
+
+      it('holds the start until the pool snapshot is complete', async () => {
+        const { fixture, page } = await openDraft(
+          { state: 'Running', cards: 175, total: 540 },
+          { players: [alicePlayer, bob] },
+        );
+
+        expect(button(page, 'Start draft')?.disabled).toBe(true);
+        expect(section(page, 'Players').textContent).toContain(
+          'You can start the draft once the pool snapshot is complete.',
+        );
+
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft({ players: [alicePlayer, bob] }),
+        );
+        await fixture.whenStable();
+        expect(button(page, 'Start draft')?.disabled).toBe(false);
+        expect(section(page, 'Players').textContent).not.toContain('You can start the draft once');
       });
 
       it('offers seat changes and the start only to the organizer or an app admin', async () => {

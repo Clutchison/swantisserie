@@ -58,8 +58,10 @@ export class DraftPage {
   });
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft()?.state === 'Lobby');
-  protected readonly changingPlayers = signal(false);
-  protected readonly playersError = signal<string | null>(null);
+  /** The start needs the pool's size, so waits for the snapshot. */
+  protected readonly poolReady = computed(() => this.draft()?.snapshot.state === 'Complete');
+  protected readonly changingLobby = signal(false);
+  protected readonly lobbyError = signal<string | null>(null);
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
@@ -81,46 +83,46 @@ export class DraftPage {
   }
 
   protected join() {
-    return this.changePlayers(this.http.post<DraftView>(`/api/drafts/${this.id()}/players`, null));
+    return this.changeLobby(this.http.post<DraftView>(`/api/drafts/${this.id()}/players`, null));
   }
 
   protected leave() {
-    return this.changePlayers(this.http.delete<DraftView>(`/api/drafts/${this.id()}/players/me`));
+    return this.changeLobby(this.http.delete<DraftView>(`/api/drafts/${this.id()}/players/me`));
   }
 
   protected randomizeSeats() {
-    return this.changePlayers(
+    return this.changeLobby(
       this.http.post<DraftView>(`/api/drafts/${this.id()}/seats/randomize`, null),
     );
   }
 
   /** Swaps the player in seat `index` with the one `by` seats along. */
   protected moveSeat(index: number, by: -1 | 1) {
-    const players = this.draft()!.players.map((player) => player.id);
-    [players[index], players[index + by]] = [players[index + by], players[index]];
-    return this.changePlayers(
-      this.http.put<DraftView>(`/api/drafts/${this.id()}/seats`, { players }),
+    const userIds = this.draft()!.players.map((player) => player.id);
+    [userIds[index], userIds[index + by]] = [userIds[index + by], userIds[index]];
+    return this.changeLobby(
+      this.http.put<DraftView>(`/api/drafts/${this.id()}/seats`, { userIds }),
     );
   }
 
   protected start() {
-    return this.changePlayers(
+    return this.changeLobby(
       this.http.post<DraftView>(`/api/drafts/${this.id()}/start`, null),
       "Couldn't start the draft. Try again in a moment.",
     );
   }
 
-  private changePlayers(
+  private changeLobby(
     request: Observable<DraftView>,
     failure = "Couldn't update the players. Try again in a moment.",
   ) {
-    return this.apply(request, this.changingPlayers, (err) => {
+    return this.apply(request, this.changingLobby, (err) => {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         // The draft's state no longer allows this: show why, and catch up with it.
-        this.playersError.set(err.error?.message ?? failure);
+        this.lobbyError.set(err.error?.message ?? failure);
         this.resource.reload();
       } else {
-        this.playersError.set(failure);
+        this.lobbyError.set(failure);
       }
     });
   }
@@ -143,7 +145,7 @@ export class DraftPage {
     onError: (err: unknown) => void,
   ) {
     busy.set(true);
-    this.playersError.set(null);
+    this.lobbyError.set(null);
     this.retryFailed.set(false);
     try {
       this.resource.set(await firstValueFrom(request));

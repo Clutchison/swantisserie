@@ -1,13 +1,7 @@
+import type { DraftSize } from './draft-size.js';
+
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 12;
-
-/** What a draft would start with. */
-export interface StartState {
-  players: number;
-  picksPerPlayer: number;
-  /** Cards in the frozen pool. */
-  poolSize: number;
-}
 
 /** Why a draft can't start; the message is for the organizer. */
 export interface StartProblem {
@@ -15,12 +9,14 @@ export interface StartProblem {
   message: string;
 }
 
-/** Why the draft can't start as it is, or null if it can. */
-export function startProblem({
-  players,
-  picksPerPlayer,
-  poolSize,
-}: StartState): StartProblem | null {
+/**
+ * Why a draft of this size can't start with `poolSize` cards in its pool,
+ * or null if it can.
+ */
+export function startProblem(
+  { players, picksPerPlayer }: DraftSize,
+  poolSize: number,
+): StartProblem | null {
   if (players < MIN_PLAYERS || players > MAX_PLAYERS) {
     return {
       error: 'player-count',

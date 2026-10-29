@@ -33,7 +33,7 @@
                   type="button"
                   [attr.aria-label]="'Move ' + player.name + ' up'"
                   (click)="moveSeat(i, -1)"
-                  [disabled]="first || changingPlayers()"
+                  [disabled]="first || changingLobby()"
                 >
                   ↑
                 </button>
@@ -42,7 +42,7 @@
                   type="button"
                   [attr.aria-label]="'Move ' + player.name + ' down'"
                   (click)="moveSeat(i, 1)"
-                  [disabled]="last || changingPlayers()"
+                  [disabled]="last || changingLobby()"
                 >
                   ↓
                 </button>
@@ -59,12 +59,12 @@
             class="button secondary"
             type="button"
             (click)="leave()"
-            [disabled]="changingPlayers()"
+            [disabled]="changingLobby()"
           >
             Leave
           </button>
         } @else {
-          <button class="button" type="button" (click)="join()" [disabled]="changingPlayers()">
+          <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
             Join
           </button>
         }
@@ -73,16 +73,24 @@
             class="button secondary"
             type="button"
             (click)="randomizeSeats()"
-            [disabled]="changingPlayers()"
+            [disabled]="changingLobby()"
           >
             Randomize seats
           </button>
-          <button class="button" type="button" (click)="start()" [disabled]="changingPlayers()">
+          <button
+            class="button"
+            type="button"
+            (click)="start()"
+            [disabled]="!poolReady() || changingLobby()"
+          >
             Start draft
           </button>
+          @if (!poolReady()) {
+            <p class="detail">You can start the draft once the pool snapshot is complete.</p>
+          }
         }
       }
-      @if (playersError(); as message) {
+      @if (lobbyError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
     </section>

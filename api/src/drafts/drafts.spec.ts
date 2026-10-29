@@ -895,6 +895,23 @@ describe('drafts', () => {
       });
     });
 
+    it('refuses a start with more than 12 players', async () => {
+      const cookies = [aliceCookie];
+      for (let i = 1; i < 13; i++) {
+        cookies.push(
+          await signIn({ id: `8035111022467900${i}`, name: `Player ${i}` }),
+        );
+      }
+      const id = await readyDraft(cookies);
+
+      const refused = await start(id).expect(409);
+
+      expect(refused.body).toEqual({
+        error: 'player-count',
+        message: 'A draft needs 2 to 12 players to start.',
+      });
+    });
+
     it('refuses a start before the pool snapshot is complete', async () => {
       const query = snapshotQuery('c:r');
       scryfallAnswers({
@@ -975,11 +992,11 @@ describe('drafts', () => {
       expect(refused.body.error).toBe('draft-started');
     });
 
-    function reorder(id: string, players: unknown, cookie = aliceCookie) {
+    function reorder(id: string, userIds: unknown, cookie = aliceCookie) {
       return request(app.getHttpServer())
         .put(`/api/drafts/${id}/seats`)
         .set('Cookie', cookie)
-        .send({ players });
+        .send({ userIds });
     }
 
     it('lets the organizer set the seat order, which the start keeps', async () => {
