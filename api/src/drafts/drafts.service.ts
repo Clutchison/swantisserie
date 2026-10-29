@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   currentTurn,
   draftComplete,
+  MAX_PLAYERS,
   pickProblem,
   type PickProblem,
   shuffle,
@@ -44,7 +46,9 @@ const WITH_ORGANIZER = {
     webhook: { select: { id: true, name: true } },
     players: {
       orderBy: SEAT_ORDER,
-      select: { user: { select: { id: true, name: true, avatar: true } } },
+      select: {
+        user: { select: { id: true, name: true, avatar: true, isBot: true } },
+      },
     },
     _count: { select: { pool: true, picks: true } },
   },
@@ -96,6 +100,20 @@ export class PlayersChangedError extends Error {
   }
 }
 
+/** Thrown when a player is added to a draft that has as many as it can. */
+export class DraftFullError extends Error {
+  constructor() {
+    super(`A draft can have at most ${MAX_PLAYERS} players.`);
+  }
+}
+
+/** Thrown when removing a bot the draft doesn't have. */
+export class UnknownBotError extends Error {
+  constructor() {
+    super('That bot isn’t in this draft.');
+  }
+}
+
 /** Why the organizer can't start the draft; sent to them as is. */
 export type StartRefusal =
   StartProblem | { error: 'pool-not-ready'; message: string };
@@ -131,13 +149,22 @@ type Transaction = Prisma.TransactionClient;
 
 /** What a draft event needs of a player. */
 const EVENT_PLAYER = {
-  user: { select: { id: true, name: true } },
+  user: { select: { id: true, name: true, isBot: true } },
 } satisfies Prisma.PlayerSelect;
 
 function toEventPlayer({
   user,
 }: Prisma.PlayerGetPayload<{ select: typeof EVENT_PLAYER }>): EventPlayer {
-  return { id: user.id, name: user.name };
+  return { id: user.id, name: user.name, isBot: user.isBot };
+}
+
+/** A bot's turn: the pick it is to make in a draft. */
+export interface BotTurn {
+  draftId: string;
+  /** The bot's user id. */
+  userId: string;
+  /** 1-based, counting every pick in the draft. */
+  pick: number;
 }
 
 /** What a change reads from the draft row it locks. */
@@ -224,6 +251,48 @@ export class DraftsService {
   }
 
   /**
+   * Adds a new bot to the draft's players, named after the highest-numbered
+   * bot it has had. Throws DraftFullError if the draft has as many players
+   * as it can, and DraftStartedError once it has left Lobby.
+   */
+  async addBot(draftId: string): Promise<void> {
+    await this.inLobby(draftId, async (tx) => {
+      const players = await tx.player.findMany({
+        where: { draftId },
+        select: { user: { select: { name: true, isBot: true } } },
+      });
+      if (players.length >= MAX_PLAYERS) throw new DraftFullError();
+      const numbers = players
+        .filter(({ user }) => user.isBot)
+        .map(({ user }) => Number(user.name.replace(/^Bot /, '')) || 0);
+      const user = await tx.user.create({
+        data: {
+          id: `bot:${randomUUID()}`,
+          name: `Bot ${Math.max(0, ...numbers) + 1}`,
+          isBot: true,
+        },
+      });
+      await tx.player.create({ data: { draftId, userId: user.id } });
+    });
+  }
+
+  /**
+   * Removes the bot from the draft's players and deletes it. Throws
+   * UnknownBotError if the draft has no such bot, and DraftStartedError
+   * once it has left Lobby.
+   */
+  async removeBot(draftId: string, userId: string): Promise<void> {
+    await this.inLobby(draftId, async (tx) => {
+      const { count } = await tx.player.deleteMany({
+        where: { draftId, userId, user: { isBot: true } },
+      });
+      if (count === 0) throw new UnknownBotError();
+      // A bot only ever plays in the draft it was added to.
+      await tx.user.delete({ where: { id: userId } });
+    });
+  }
+
+  /**
    * Seats the players in a random order. Throws DraftStartedError once the
    * draft has left Lobby.
    */
@@ -304,66 +373,128 @@ export class DraftsService {
           message: 'This draft isn’t taking picks.',
         });
       }
-      const card = await tx.poolCard.findUnique({
-        where: { draftId_oracleId: { draftId, oracleId } },
-        select: { id: true, name: true },
-      });
-      if (!card) {
-        throw new PickRefusedError({
-          error: 'not-in-pool',
-          message: 'That card isn’t in this pool.',
-        });
-      }
-      // Seats are 0..n-1 once started, so indexes here are the engine's seats.
-      const players = await tx.player.findMany({
-        where: { draftId },
-        orderBy: SEAT_ORDER,
-        select: { id: true, userId: true, ...EVENT_PLAYER },
-      });
-      const pickLog = await tx.pick.findMany({
-        where: { draftId },
-        ...PICK_LOG,
-      });
-      const seat = players.findIndex((player) => player.userId === userId);
-      const size = {
-        players: players.length,
-        picksPerPlayer: draft.picksPerPlayer,
-      };
-      const problem = pickProblem(
-        { ...size, picked: pickLog.map((pick) => pick.poolCard.oracleId) },
-        seat,
-        oracleId,
-      );
-      if (problem) throw new PickRefusedError(problem);
-      await tx.pick.create({
-        data: {
-          draftId,
-          number: pickLog.length + 1,
-          playerId: players[seat].id,
-          poolCardId: card.id,
-        },
-      });
-      // pickLog was read before this pick, so count it too.
-      const picked = pickLog.length + 1;
-      const next = currentTurn(size, picked);
-      const events: DraftEvent[] = [
-        {
-          type: 'picked',
-          number: picked,
-          player: toEventPlayer(players[seat]),
-          card: card.name,
-          next: next ? toEventPlayer(players[next.seat]) : null,
-        },
-      ];
-      if (draftComplete(size, picked)) {
-        await tx.draft.update({
-          where: { id: draftId },
-          data: { state: 'Complete' },
-        });
-        events.push({ type: 'completed' });
-      }
-      return events;
+      return this.takeTurn(tx, draftId, draft, userId, oracleId);
     });
+  }
+
+  /**
+   * The bot makes its turn's pick: a card chosen at random from those not
+   * yet picked. Returns no events, and picks nothing, if the draft is no
+   * longer Drafting or has moved on from that turn.
+   */
+  async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
+    return this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Drafting') return [];
+      if ((await tx.pick.count({ where: { draftId } })) !== pick - 1) {
+        return [];
+      }
+      const available = await tx.poolCard.findMany({
+        where: { draftId, pick: null },
+        orderBy: { name: 'asc' },
+        select: { oracleId: true },
+      });
+      const card = available[Math.floor(Math.random() * available.length)];
+      return this.takeTurn(tx, draftId, draft, userId, card.oracleId);
+    });
+  }
+
+  /** Every Drafting draft whose turn is a bot's. */
+  async botTurns(): Promise<BotTurn[]> {
+    const drafts = await this.prisma.draft.findMany({
+      where: { state: 'Drafting' },
+      select: {
+        id: true,
+        picksPerPlayer: true,
+        players: {
+          orderBy: SEAT_ORDER,
+          select: { user: { select: { id: true, isBot: true } } },
+        },
+        _count: { select: { picks: true } },
+      },
+    });
+    return drafts.flatMap((draft) => {
+      const turn = currentTurn(
+        { players: draft.players.length, picksPerPlayer: draft.picksPerPlayer },
+        draft._count.picks,
+      );
+      if (!turn) return [];
+      const { user } = draft.players[turn.seat];
+      return user.isBot
+        ? [{ draftId: draft.id, userId: user.id, pick: turn.pick }]
+        : [];
+    });
+  }
+
+  /**
+   * The user picks the pool card with `oracleId` on their turn, in a draft
+   * that is Drafting. Throws PickRefusedError if they can't.
+   */
+  private async takeTurn(
+    tx: Transaction,
+    draftId: string,
+    draft: LockedDraft,
+    userId: string,
+    oracleId: string,
+  ): Promise<DraftEvent[]> {
+    const card = await tx.poolCard.findUnique({
+      where: { draftId_oracleId: { draftId, oracleId } },
+      select: { id: true, name: true },
+    });
+    if (!card) {
+      throw new PickRefusedError({
+        error: 'not-in-pool',
+        message: 'That card isn’t in this pool.',
+      });
+    }
+    // Seats are 0..n-1 once started, so indexes here are the engine's seats.
+    const players = await tx.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: { id: true, userId: true, ...EVENT_PLAYER },
+    });
+    const pickLog = await tx.pick.findMany({
+      where: { draftId },
+      ...PICK_LOG,
+    });
+    const seat = players.findIndex((player) => player.userId === userId);
+    const size = {
+      players: players.length,
+      picksPerPlayer: draft.picksPerPlayer,
+    };
+    const problem = pickProblem(
+      { ...size, picked: pickLog.map((pick) => pick.poolCard.oracleId) },
+      seat,
+      oracleId,
+    );
+    if (problem) throw new PickRefusedError(problem);
+    await tx.pick.create({
+      data: {
+        draftId,
+        number: pickLog.length + 1,
+        playerId: players[seat].id,
+        poolCardId: card.id,
+      },
+    });
+    // pickLog was read before this pick, so count it too.
+    const picked = pickLog.length + 1;
+    const next = currentTurn(size, picked);
+    const events: DraftEvent[] = [
+      {
+        type: 'picked',
+        number: picked,
+        player: toEventPlayer(players[seat]),
+        card: card.name,
+        next: next ? toEventPlayer(players[next.seat]) : null,
+      },
+    ];
+    if (draftComplete(size, picked)) {
+      await tx.draft.update({
+        where: { id: draftId },
+        data: { state: 'Complete' },
+      });
+      events.push({ type: 'completed' });
+    }
+    return events;
   }
 
   /** The draft's picks, in the order they were made. */

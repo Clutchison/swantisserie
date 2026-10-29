@@ -1,8 +1,10 @@
 /** A player as a draft event names them. */
 export interface EventPlayer {
-  /** Their Discord user id. */
+  /** Their Discord user id, or a bot's synthetic one. */
   id: string;
   name: string;
+  /** Bots are named, never pinged: they have no Discord account. */
+  isBot: boolean;
 }
 
 /** Something that happened to a draft, for announcing once it is saved. */

@@ -59,11 +59,11 @@ describe('drafts', () => {
 
   afterEach(() => http.verify());
 
-  /** Opens `url` as Alice. */
-  async function open(url: string) {
+  /** Opens `url` as `user`: Alice, unless told otherwise. */
+  async function open(url: string, user = alice) {
     const fixture = TestBed.createComponent(App);
     const navigation = router.navigateByUrl(url);
-    (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(alice);
+    (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
     await navigation;
     TestBed.tick();
     return { fixture, page: fixture.nativeElement as HTMLElement };
@@ -131,8 +131,14 @@ describe('drafts', () => {
       id: 'bob',
       name: 'Bob',
       avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png',
+      isBot: false,
     };
-    const alicePlayer = { id: alice.id, name: alice.name, avatarUrl: alice.avatarUrl };
+    const alicePlayer = {
+      id: alice.id,
+      name: alice.name,
+      avatarUrl: alice.avatarUrl,
+      isBot: false,
+    };
 
     /** A button in the bottom tab bar, by its label. */
     const tabButton = (root: HTMLElement, tab: string) =>
@@ -146,15 +152,16 @@ describe('drafts', () => {
     /**
      * Opens draft-1's page with the first GET answered by `pool`, its pool
      * cards by `cards` once the snapshot is complete, and its picks by
-     * `picks` once the draft has started.
+     * `picks` once the draft has started, signed in as `user`.
      */
     async function openDraft(
       pool: PoolSnapshotView,
       fields: Partial<DraftView> = {},
       cards: PoolCardView[] = [],
       picks: PickView[] = [],
+      user = alice,
     ) {
-      const { fixture, page } = await open('/drafts/draft-1');
+      const { fixture, page } = await open('/drafts/draft-1', user);
       const opened = draft({ snapshot: pool, ...fields });
       http.expectOne('/api/drafts/draft-1').flush(opened);
       if (pool.state === 'Complete') await flushPool(cards);
@@ -852,6 +859,119 @@ describe('drafts', () => {
 
           expect(tabButton(page, 'Me').disabled).toBe(true);
         });
+      });
+    });
+
+    describe('bots', () => {
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+      const bot = {
+        id: 'bot:1',
+        name: 'Bot 1',
+        avatarUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
+        isBot: true,
+      };
+      const admin = { ...alice, isAdmin: true };
+
+      function button(page: HTMLElement, label: string) {
+        return [...page.querySelectorAll<HTMLButtonElement>('button')].find(
+          (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
+        );
+      }
+
+      /** The text of each badge in `root`. */
+      const badges = (root: Element | null) =>
+        [...(root?.querySelectorAll('.badge') ?? [])].map((badge) => badge.textContent?.trim());
+
+      it('marks bots with a badge in the players, turn, board and pick log', async () => {
+        const { fixture, page } = await openDraft(
+          complete,
+          {
+            state: 'Drafting',
+            players: [bot, alicePlayer],
+            turn: { pick: 3, round: 2, playerId: bot.id },
+          },
+          [],
+          [
+            { pick: 1, playerId: bot.id, oracleId: 'shock-oracle', name: 'Shock' },
+            { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
+          ],
+        );
+
+        const seats = section(page, 'Players').querySelectorAll('li');
+        expect(badges(seats[0])).toEqual(['Bot']);
+        expect(badges(seats[1])).toEqual([]);
+        expect(page.querySelector('.turn')?.textContent).toContain('Bot 1’s turn');
+        expect(badges(page.querySelector('.turn'))).toEqual(['Bot']);
+
+        tabButton(page, 'Board').click();
+        await fixture.whenStable();
+        const columns = panel(page).querySelectorAll('.player-picks h3');
+        expect(badges(columns[0])).toEqual(['Bot']);
+        expect(badges(columns[1])).toEqual([]);
+        const log = panel(page).querySelectorAll('.log li');
+        expect(log[0].textContent).toContain('Bot 1');
+        expect(badges(log[0])).toEqual(['Bot']);
+        expect(badges(log[1])).toEqual([]);
+      });
+
+      it('lets an app admin add a bot, then remove it', async () => {
+        const { fixture, page } = await openDraft(
+          complete,
+          { players: [alicePlayer] },
+          [],
+          [],
+          admin,
+        );
+
+        button(page, 'Add bot')!.click();
+        const added = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'));
+        expect(added.request.method).toBe('POST');
+        added.flush(draft({ players: [alicePlayer, bot] }), { status: 201, statusText: 'Created' });
+        await fixture.whenStable();
+        expect(section(page, 'Players').textContent).toContain('Bot 1');
+        expect(button(page, 'Remove Alice')).toBeUndefined();
+
+        button(page, 'Remove Bot 1')!.click();
+        const removed = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots/bot%3A1'));
+        expect(removed.request.method).toBe('DELETE');
+        removed.flush(draft({ players: [alicePlayer] }));
+        await fixture.whenStable();
+        expect(section(page, 'Players').textContent).not.toContain('Bot 1');
+      });
+
+      it('offers no more bots once the draft has 12 players', async () => {
+        const bots = Array.from({ length: 12 }, (_, i) => ({
+          ...bot,
+          id: `bot:${i}`,
+          name: `Bot ${i + 1}`,
+        }));
+        const { page } = await openDraft(complete, { players: bots }, [], [], admin);
+
+        expect(button(page, 'Add bot')?.disabled).toBe(true);
+      });
+
+      it('offers bot controls only to app admins, not the organizer', async () => {
+        const { page } = await openDraft(complete, { players: [alicePlayer, bot] });
+
+        expect(button(page, 'Add bot')).toBeUndefined();
+        expect(button(page, 'Remove Bot 1')).toBeUndefined();
+      });
+
+      it('offers no bot controls once the draft has started', async () => {
+        const { page } = await openDraft(
+          complete,
+          {
+            state: 'Drafting',
+            players: [alicePlayer, bot],
+            turn: { pick: 1, round: 1, playerId: alice.id },
+          },
+          [],
+          [],
+          admin,
+        );
+
+        expect(button(page, 'Add bot')).toBeUndefined();
+        expect(button(page, 'Remove Bot 1')).toBeUndefined();
       });
     });
 

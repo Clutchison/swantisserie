@@ -9,8 +9,9 @@ import { AdminConfig } from '../auth/admin-config.js';
 import { SessionService } from '../auth/session.service.js';
 import { DiscordConfig } from '../discord/discord-config.js';
 import { DraftNotifierRetries } from '../discord/draft-notifier.js';
+import { BotPickDelay } from './bot-players.js';
 import { WebhookClient, WebhookGoneError } from '../discord/webhook-client.js';
-import type { DraftView } from './drafts.controller.js';
+import type { DraftView } from './draft-view.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallCard,
@@ -48,7 +49,8 @@ describe('drafts', () => {
     await database.stop();
   });
 
-  async function startApp() {
+  /** `botDelayMs` is how long bots wait before picking: at once, unless told otherwise. */
+  async function startApp(botDelayMs = 0) {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.register({ webRoot: import.meta.dirname })],
     })
@@ -63,6 +65,8 @@ describe('drafts', () => {
       // Retried at once, so tests needn't wait.
       .overrideProvider(DraftNotifierRetries)
       .useValue(new DraftNotifierRetries([0, 0]))
+      .overrideProvider(BotPickDelay)
+      .useValue(new BotPickDelay(botDelayMs))
       .compile();
 
     const started = configureApp(moduleRef.createNestApplication());
@@ -858,6 +862,7 @@ describe('drafts', () => {
     const player = (user: { id: string; name: string }) => ({
       ...user,
       avatarUrl: defaultAvatar,
+      isBot: false,
     });
 
     async function lobbyDraft() {
@@ -889,6 +894,7 @@ describe('drafts', () => {
       const bobWithAvatar = {
         ...bob,
         avatarUrl: `https://cdn.discordapp.com/avatars/${bob.id}/a1b2c3.png`,
+        isBot: false,
       };
       expect(joined.body.players).toEqual([bobWithAvatar]);
       await join(id).expect(201);
@@ -929,6 +935,130 @@ describe('drafts', () => {
     it('is 404 for a draft that does not exist', async () => {
       await join('no-such-draft').expect(404);
       await leave('no-such-draft').expect(404);
+    });
+
+    describe('bots', () => {
+      let carolCookie: string;
+
+      beforeEach(async () => {
+        carolCookie = await signIn(carol);
+      });
+
+      function addBot(id: string, cookie = carolCookie) {
+        return request(app.getHttpServer())
+          .post(`/api/drafts/${id}/bots`)
+          .set('Cookie', cookie);
+      }
+
+      function removeBot(id: string, userId: string, cookie = carolCookie) {
+        return request(app.getHttpServer())
+          .delete(`/api/drafts/${id}/bots/${encodeURIComponent(userId)}`)
+          .set('Cookie', cookie);
+      }
+
+      const bot = (name: string) => ({
+        id: expect.stringMatching(/^bot:/),
+        name,
+        avatarUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
+        isBot: true,
+      });
+
+      it('lets an app admin add bots, named Bot 1, Bot 2 and so on', async () => {
+        const id = await lobbyDraft();
+        await join(id).expect(201);
+
+        await addBot(id).expect(201);
+        const added = await addBot(id).expect(201);
+
+        expect(added.body.players).toEqual([
+          player(alice),
+          bot('Bot 1'),
+          bot('Bot 2'),
+        ]);
+        expect(added.body.players[1].id).not.toBe(added.body.players[2].id);
+      });
+
+      it('numbers bots within each draft', async () => {
+        const first = await lobbyDraft();
+        const second = await lobbyDraft();
+        await addBot(first).expect(201);
+
+        const added = await addBot(second).expect(201);
+
+        expect(added.body.players).toEqual([bot('Bot 1')]);
+      });
+
+      it('refuses bot changes from anyone but an app admin, the organizer too', async () => {
+        const id = await lobbyDraft();
+        const added = await addBot(id).expect(201);
+
+        await addBot(id, aliceCookie).expect(403);
+        await removeBot(id, added.body.players[0].id, aliceCookie).expect(403);
+        const draft = await getDraft(id).expect(200);
+        expect(draft.body.players).toEqual([bot('Bot 1')]);
+      });
+
+      it('refuses a bot once the draft has 12 players', async () => {
+        const id = await lobbyDraft();
+        for (let i = 0; i < 12; i++) await addBot(id).expect(201);
+
+        const refused = await addBot(id).expect(409);
+
+        expect(refused.body).toEqual({
+          error: 'draft-full',
+          message: 'A draft can have at most 12 players.',
+        });
+        expect((await getDraft(id).expect(200)).body.players).toHaveLength(12);
+      });
+
+      it('lets an app admin remove a bot, deleting it', async () => {
+        const id = await lobbyDraft();
+        await addBot(id).expect(201);
+        const added = await addBot(id).expect(201);
+        const botId = added.body.players[0].id;
+
+        const removed = await removeBot(id, botId).expect(200);
+
+        expect(removed.body.players).toEqual([bot('Bot 2')]);
+        expect(
+          await app
+            .get(PrismaService)
+            .user.findUnique({ where: { id: botId } }),
+        ).toBeNull();
+      });
+
+      it('removes only bots', async () => {
+        const id = await lobbyDraft();
+        await join(id).expect(201);
+
+        await removeBot(id, alice.id).expect(404);
+
+        expect((await getDraft(id).expect(200)).body.players).toEqual([
+          player(alice),
+        ]);
+      });
+
+      it('refuses adding or removing bots once the draft has started', async () => {
+        const id = await lobbyDraft();
+        const added = await addBot(id).expect(201);
+        await app
+          .get(PrismaService)
+          .draft.update({ where: { id }, data: { state: 'Drafting' } });
+
+        await addBot(id).expect(409);
+        const refused = await removeBot(id, added.body.players[0].id).expect(
+          409,
+        );
+        expect(refused.body.error).toBe('draft-started');
+        expect((await getDraft(id).expect(200)).body.players).toEqual([
+          bot('Bot 1'),
+        ]);
+      });
+
+      it('is 404 for a draft that does not exist', async () => {
+        await addBot('no-such-draft').expect(404);
+        await removeBot('no-such-draft', 'bot:x').expect(404);
+      });
     });
   });
 
@@ -1537,6 +1667,240 @@ describe('drafts', () => {
 
       await vi.waitFor(() => expect(logged).toHaveBeenCalled());
       expect(webhookClient.post).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('bot players', () => {
+    const cards = [
+      'Shock',
+      'Lightning Bolt',
+      'Lava Spike',
+      'Skewer the Critics',
+      'Play with Fire',
+      'Burst Lightning',
+      'Firebolt',
+      'Fireblast',
+    ];
+
+    /**
+     * A draft of Alice then `bots` bots, each making `picksPerPlayer` picks
+     * from `cards`, ready to start.
+     */
+    async function draftWithBots(
+      bots: number,
+      picksPerPlayer = 1,
+      webhookId: string | null = null,
+    ) {
+      const id = await readyDraft(
+        [aliceCookie],
+        picksPerPlayer,
+        cards,
+        webhookId,
+      );
+      const carolCookie = await signIn(carol);
+      let draft!: DraftView;
+      for (let i = 0; i < bots; i++) {
+        const res = await request(app.getHttpServer())
+          .post(`/api/drafts/${id}/bots`)
+          .set('Cookie', carolCookie)
+          .expect(201);
+        draft = res.body;
+      }
+      return { id, botIds: draft.players.slice(1).map((player) => player.id) };
+    }
+
+    function pick(id: string, oracleId: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', cookie)
+        .send({ oracleId });
+    }
+
+    async function pickLog(id: string) {
+      const res = await request(app.getHttpServer())
+        .get(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      return res.body as { pick: number; playerId: string; name: string }[];
+    }
+
+    /** The draft once its turn is pick `number`. */
+    function atPick(id: string, number: number) {
+      return vi.waitFor(async () => {
+        const draft = (await getDraft(id).expect(200)).body as DraftView;
+        expect(draft.turn?.pick).toBe(number);
+        return draft;
+      });
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Lets any bot timers that are due fire, and their picks land. */
+    const settle = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    it('has bots pick available cards on their turns until it is yours, through to the end', async () => {
+      const { id, botIds } = await draftWithBots(3, 2);
+      await start(id).expect(200);
+
+      await pick(id, 'shock-oracle').expect(200);
+
+      // Snake order: Alice, bots 1-3, then bots 3-1 and Alice again.
+      const draft = await atPick(id, 8);
+      expect(draft.turn).toEqual({ pick: 8, round: 2, playerId: alice.id });
+      const log = await pickLog(id);
+      expect(log.map((logged) => logged.playerId)).toEqual([
+        alice.id,
+        botIds[0],
+        botIds[1],
+        botIds[2],
+        botIds[2],
+        botIds[1],
+        botIds[0],
+      ]);
+      const picked = log.map((logged) => logged.name);
+      expect(new Set(picked).size).toBe(7);
+      const [last] = cards.filter((name) => !picked.includes(name));
+      const oracleId = `${last.toLowerCase().replace(/\W+/g, '-')}-oracle`;
+      const final = await pick(id, oracleId).expect(200);
+      expect(final.body.state).toBe('Complete');
+    });
+
+    it('has a bot in the first seat pick once the draft starts', async () => {
+      const { id, botIds } = await draftWithBots(1);
+      await request(app.getHttpServer())
+        .put(`/api/drafts/${id}/seats`)
+        .set('Cookie', aliceCookie)
+        .send({ userIds: [botIds[0], alice.id] })
+        .expect(200);
+
+      await start(id).expect(200);
+
+      expect((await atPick(id, 2)).turn?.playerId).toBe(alice.id);
+      expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
+        botIds[0],
+      ]);
+    });
+
+    it('picks uniformly at random from the cards not yet picked', async () => {
+      const { id } = await draftWithBots(1);
+      await start(id).expect(200);
+      // Of the seven cards left, by name, the last but one.
+      vi.spyOn(Math, 'random').mockReturnValue(5.5 / 7);
+
+      await pick(id, 'fireblast-oracle').expect(200);
+
+      await vi.waitFor(async () => {
+        expect((await pickLog(id)).map((logged) => logged.name)).toEqual([
+          'Fireblast',
+          'Shock',
+        ]);
+      });
+    });
+
+    it('does nothing when its timer fires after the turn has moved on', async () => {
+      await app.close();
+      app = await startApp(100);
+      aliceCookie = await signIn(alice);
+      const { id, botIds } = await draftWithBots(1, 2);
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+
+      // Pick 2 is made some other way before the bot's timer fires.
+      const prisma = app.get(PrismaService);
+      const player = await prisma.player.findFirstOrThrow({
+        where: { draftId: id, userId: botIds[0] },
+      });
+      const card = await prisma.poolCard.findFirstOrThrow({
+        where: { draftId: id, name: 'Firebolt' },
+      });
+      await prisma.pick.create({
+        data: {
+          draftId: id,
+          number: 2,
+          playerId: player.id,
+          poolCardId: card.id,
+        },
+      });
+      await settle(300);
+
+      expect((await pickLog(id)).map((logged) => logged.name)).toEqual([
+        'Shock',
+        'Firebolt',
+      ]);
+    });
+
+    it('does nothing when its timer fires once the draft is no longer Drafting', async () => {
+      await app.close();
+      app = await startApp(100);
+      aliceCookie = await signIn(alice);
+      const { id } = await draftWithBots(1);
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+
+      await app
+        .get(PrismaService)
+        .draft.update({ where: { id }, data: { state: 'Paused' } });
+      await settle(300);
+
+      expect(await pickLog(id)).toHaveLength(1);
+    });
+
+    it('picks after a restart that left it its turn', async () => {
+      await app.close();
+      // Too slow to pick before the restart.
+      app = await startApp(60_000);
+      aliceCookie = await signIn(alice);
+      const { id, botIds } = await draftWithBots(1);
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+      await app.close();
+
+      app = await startApp();
+
+      await vi.waitFor(async () => {
+        expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
+          alice.id,
+          botIds[0],
+        ]);
+      });
+    });
+
+    describe('announcements', () => {
+      const webhookUrl =
+        'https://discord.com/api/webhooks/1234567890/secret-token';
+
+      it('names a bot whose turn it is without pinging it, and pings you after it picks', async () => {
+        const res = await request(app.getHttpServer())
+          .post('/api/admin/webhooks')
+          .set('Cookie', await signIn(carol))
+          .send({ name: '#roto-test', url: webhookUrl })
+          .expect(201);
+        const { id } = await draftWithBots(1, 2, res.body.id);
+        await start(id).expect(200);
+        const link = `<https://roto.example/drafts/${id}>`;
+
+        await pick(id, 'shock-oracle').expect(200);
+
+        const messages = await vi.waitFor(() => {
+          expect(webhookClient.post).toHaveBeenCalledTimes(4);
+          return webhookClient.post.mock.calls.map(([, message]) => message);
+        });
+        expect(messages[1]).toEqual({
+          content: `**Alice** picked **Shock** (pick 1)\n**Bot 1** is up\n${link}`,
+          allowed_mentions: { parse: [], users: [] },
+        });
+        expect(messages[2].content).toMatch(
+          /^\*\*Bot 1\*\* picked .* \(pick 2\)\n\*\*Bot 1\*\* is up\n/,
+        );
+        expect(messages[2].allowed_mentions.users).toEqual([]);
+        expect(messages[3].content).toMatch(
+          new RegExp(`\\(pick 3\\)\\n<@${alice.id}> you’re up\\n`),
+        );
+        expect(messages[3].allowed_mentions.users).toEqual([alice.id]);
+      });
     });
   });
 

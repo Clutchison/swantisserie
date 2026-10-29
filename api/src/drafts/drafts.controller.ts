@@ -16,20 +16,14 @@ import {
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
-import { currentTurn } from 'engine';
-import type {
-  DraftState,
-  PoolCard,
-  PoolSnapshotState,
-} from '../generated/prisma/client.js';
-import { avatarUrl } from '../auth/avatar-url.js';
-import type { WebhookView } from '../discord/webhooks.service.js';
+import type { PoolCard } from '../generated/prisma/client.js';
 import {
   CurrentUser,
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
 import {
+  DraftFullError,
   DraftStartedError,
   DraftsService,
   type DraftWithOrganizer,
@@ -40,11 +34,13 @@ import {
   PoolQueryError,
   ScryfallUnavailableError,
   StartRefusedError,
+  UnknownBotError,
   UnknownWebhookError,
 } from './drafts.service.js';
-import { DraftsGateway } from './drafts.gateway.js';
 import type { DraftEvent } from './draft-events.js';
-import { DraftNotifier } from '../discord/draft-notifier.js';
+import { DraftPublisher } from './draft-publisher.js';
+import { type DraftView, toDraftView } from './draft-view.js';
+import { BotPlayers } from './bot-players.js';
 import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
@@ -52,50 +48,6 @@ const MAX_PICKS_PER_PLAYER = 100;
 const MAX_NAME_LENGTH = 100;
 /** Scryfall takes up to 1000 characters, and we wrap the query in more terms. */
 const MAX_POOL_QUERY_LENGTH = 900;
-
-/** How far the pool snapshot has got. */
-export interface PoolSnapshotView {
-  state: PoolSnapshotState;
-  /** Cards snapshotted so far: the pool size once Complete. */
-  cards: number;
-  /** Cards Scryfall says the pool query matches; null until the first page arrives. */
-  total: number | null;
-  /** Why the snapshot failed, when it has. */
-  error?: string;
-}
-
-export interface PlayerView {
-  id: string;
-  name: string;
-  avatarUrl: string;
-}
-
-/** Whose turn it is. */
-export interface TurnView {
-  /** 1-based, counting every pick in the draft. */
-  pick: number;
-  round: number;
-  playerId: string;
-}
-
-export interface DraftView {
-  id: string;
-  name: string;
-  poolQuery: string;
-  picksPerPlayer: number;
-  state: DraftState;
-  organizer: { id: string; name: string };
-  snapshot: PoolSnapshotView;
-  /** In seat order. */
-  players: PlayerView[];
-  /** Null unless the draft is Drafting or Paused. */
-  turn: TurnView | null;
-  /** Where the draft's announcements are posted; null for none. */
-  webhook: WebhookView | null;
-  /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
-  version: number;
-  createdAt: Date;
-}
 
 /** One pick in a draft's pick log. */
 export interface PickView {
@@ -126,8 +78,8 @@ export class DraftsController {
 
   constructor(
     private readonly drafts: DraftsService,
-    private readonly gateway: DraftsGateway,
-    private readonly notifier: DraftNotifier,
+    private readonly publisher: DraftPublisher,
+    private readonly bots: BotPlayers,
   ) {}
 
   @Get()
@@ -231,11 +183,32 @@ export class DraftsController {
     return this.change(id, () => this.drafts.leave(id, user.id));
   }
 
+  /** Adds a bot to the draft's players; for app admins. */
+  @Post(':id/bots')
+  async addBot(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsAppAdmin(user, id);
+    return this.change(id, () => this.drafts.addBot(id));
+  }
+
+  /** Removes a bot from the draft and deletes it; for app admins. */
+  @Delete(':id/bots/:userId')
+  async removeBot(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+  ): Promise<DraftView> {
+    await this.findAsAppAdmin(user, id);
+    return this.change(id, () => this.drafts.removeBot(id, userId));
+  }
+
   /**
    * Applies `change` to the draft and answers with the draft as it now is,
-   * which everyone viewing it is sent too. Any events the change returns
-   * are announced on the draft's webhook, without waiting for Discord. A
-   * change the draft's state no longer allows is a 409 naming why.
+   * which is published as DraftPublisher says. If the change makes it a
+   * bot's turn, the bot then picks. A change the draft's state no longer
+   * allows is a 409 naming why.
    */
   private async change(
     id: string,
@@ -261,12 +234,18 @@ export class DraftsController {
       if (err instanceof DraftStartedError) {
         throw conflict('draft-started', err);
       }
+      if (err instanceof DraftFullError) throw conflict('draft-full', err);
+      if (err instanceof UnknownBotError) {
+        throw new NotFoundException({
+          error: 'no-such-bot',
+          message: err.message,
+        });
+      }
       throw err;
     }
-    // Committed by now, so a failed post can't undo the change.
-    if (events) void this.notifier.notify(id, events);
-    const draft = toDraftView(await this.findOr404(id));
-    this.gateway.changed(draft);
+    const draft = await this.publisher.publish(id, events ?? []);
+    if (!draft) throw new NotFoundException();
+    if (events) this.bots.scheduleNextPick(id, events);
     return draft;
   }
 
@@ -279,6 +258,16 @@ export class DraftsController {
     if (draft.organizerId !== user.id && !user.isAdmin) {
       throw new ForbiddenException();
     }
+    return draft;
+  }
+
+  /** The draft, if `user` is an app admin. */
+  private async findAsAppAdmin(
+    user: SessionUser,
+    id: string,
+  ): Promise<DraftWithOrganizer> {
+    const draft = await this.findOr404(id);
+    if (!user.isAdmin) throw new ForbiddenException();
     return draft;
   }
 
@@ -398,51 +387,6 @@ function parsePick(body: unknown): string {
     });
   }
   return oracleId;
-}
-
-function toDraftView(draft: DraftWithOrganizer): DraftView {
-  return {
-    id: draft.id,
-    name: draft.name,
-    poolQuery: draft.poolQuery,
-    picksPerPlayer: draft.picksPerPlayer,
-    state: draft.state,
-    organizer: draft.organizer,
-    snapshot: {
-      state: draft.snapshotState,
-      cards: draft._count.pool,
-      total: draft.poolTotal,
-      ...(draft.snapshotError === null ? {} : { error: draft.snapshotError }),
-    },
-    players: draft.players.map(({ user }) => ({
-      id: user.id,
-      name: user.name,
-      avatarUrl: avatarUrl(user),
-    })),
-    turn: toTurnView(draft),
-    // Built field by field, so nothing else about the webhook (its URL above
-    // all) can slip into what every viewer is sent.
-    webhook: draft.webhook && {
-      id: draft.webhook.id,
-      name: draft.webhook.name,
-    },
-    version: draft.version,
-    createdAt: draft.createdAt,
-  };
-}
-
-function toTurnView(draft: DraftWithOrganizer): TurnView | null {
-  if (draft.state !== 'Drafting' && draft.state !== 'Paused') return null;
-  const turn = currentTurn(
-    { players: draft.players.length, picksPerPlayer: draft.picksPerPlayer },
-    draft._count.picks,
-  );
-  if (!turn) return null;
-  return {
-    pick: turn.pick,
-    round: turn.round,
-    playerId: draft.players[turn.seat].user.id,
-  };
 }
 
 function toPickView(pick: LoggedPick): PickView {

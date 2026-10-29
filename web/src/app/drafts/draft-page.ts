@@ -13,9 +13,12 @@ import {
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import type { DraftView, PickView } from './drafts';
+import type { DraftView, PickView, PlayerView } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { PoolTab } from './pool-tab';
+
+/** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
+const MAX_PLAYERS = 12;
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -53,6 +56,11 @@ export class DraftPage {
     const draft = this.draft();
     return !!user && !!draft && (user.isAdmin || user.id === draft.organizer.id);
   });
+
+  /** App admins may add and remove bots in the lobby. */
+  protected readonly isAdmin = computed(() => !!this.user()?.isAdmin);
+  /** A full draft takes no more bots. */
+  protected readonly draftFull = computed(() => (this.draft()?.players.length ?? 0) >= MAX_PLAYERS);
 
   /** Whether the signed-in user has joined this draft. */
   protected readonly joined = computed(() => {
@@ -117,11 +125,13 @@ export class DraftPage {
   protected readonly turn = computed(() => {
     const turn = this.draft()?.turn;
     if (!turn) return null;
-    const whose =
-      turn.playerId === this.user()?.id
-        ? 'Your'
-        : `${this.draft()?.players.find((player) => player.id === turn.playerId)?.name}’s`;
-    return { ...turn, text: `${whose} turn: pick ${turn.pick}, round ${turn.round}` };
+    const player = this.player(turn.playerId);
+    const whose = turn.playerId === this.user()?.id ? 'Your' : `${player?.name}’s`;
+    return {
+      ...turn,
+      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}`,
+      isBot: !!player?.isBot,
+    };
   });
 
   constructor() {
@@ -156,9 +166,9 @@ export class DraftPage {
     this.showPicks(this.user()!.id);
   }
 
-  /** A player's name, by their id. */
-  protected playerName(id: string): string | undefined {
-    return this.draft()?.players.find((player) => player.id === id)?.name;
+  /** A player, by their id. */
+  protected player(id: string): PlayerView | undefined {
+    return this.draft()?.players.find((player) => player.id === id);
   }
 
   protected pickMade(draft: DraftView) {
@@ -197,6 +207,16 @@ export class DraftPage {
   protected randomizeSeats() {
     return this.changeLobby(
       this.http.post<DraftView>(`/api/drafts/${this.id()}/seats/randomize`, null),
+    );
+  }
+
+  protected addBot() {
+    return this.changeLobby(this.http.post<DraftView>(`/api/drafts/${this.id()}/bots`, null));
+  }
+
+  protected removeBot(userId: string) {
+    return this.changeLobby(
+      this.http.delete<DraftView>(`/api/drafts/${this.id()}/bots/${encodeURIComponent(userId)}`),
     );
   }
 
