@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  draftComplete,
   pickProblem,
   type PickProblem,
   shuffle,
@@ -240,8 +241,8 @@ export class DraftsService {
   }
 
   /**
-   * The user picks the pool card with `oracleId` on their turn. Throws
-   * PickRefusedError if they can't.
+   * The user picks the pool card with `oracleId` on their turn; the last
+   * pick moves the draft to Complete. Throws PickRefusedError if they can't.
    */
   async pick(draftId: string, userId: string, oracleId: string): Promise<void> {
     // Locked so picks happen one at a time: each sees every pick before it.
@@ -273,12 +274,12 @@ export class DraftsService {
         ...PICK_LOG,
       });
       const seat = players.findIndex((player) => player.userId === userId);
+      const size = {
+        players: players.length,
+        picksPerPlayer: draft.picksPerPlayer,
+      };
       const problem = pickProblem(
-        {
-          players: players.length,
-          picksPerPlayer: draft.picksPerPlayer,
-          picked: pickLog.map((pick) => pick.poolCard.oracleId),
-        },
+        { ...size, picked: pickLog.map((pick) => pick.poolCard.oracleId) },
         seat,
         oracleId,
       );
@@ -291,6 +292,13 @@ export class DraftsService {
           poolCardId: card.id,
         },
       });
+      // pickLog was read before this pick, so count it too.
+      if (draftComplete(size, pickLog.length + 1)) {
+        await tx.draft.update({
+          where: { id: draftId },
+          data: { state: 'Complete' },
+        });
+      }
     });
   }
 

@@ -22,3 +22,11 @@ export function currentTurn(
   const seat = round % 2 === 0 ? place : players - 1 - place;
   return { pick: picksMade + 1, round: round + 1, seat };
 }
+
+/**
+ * Whether the draft is complete after `picksMade` picks: every player has
+ * all their picks.
+ */
+export function draftComplete(size: DraftSize, picksMade: number): boolean {
+  return currentTurn(size, picksMade) === null;
+}

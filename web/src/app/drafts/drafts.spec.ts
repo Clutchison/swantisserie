@@ -483,7 +483,7 @@ describe('drafts', () => {
         ...page.querySelectorAll<HTMLButtonElement>('[role="tabpanel"] .grid button'),
       ];
 
-      it('has a bottom tab bar where Pool and Board work for now', async () => {
+      it('has a bottom tab bar where Pool and Board work, and Me for players', async () => {
         const { page } = await openDraft(complete);
 
         const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -755,7 +755,7 @@ describe('drafts', () => {
 
         const players = [...panel(page).querySelectorAll('.player-picks section')].map(
           (player) => ({
-            name: player.querySelector('h3')?.textContent,
+            name: player.querySelector('h3')?.textContent?.trim(),
             picks: [...player.querySelectorAll('li')].map((li) => li.textContent?.trim()),
           }),
         );
@@ -769,6 +769,77 @@ describe('drafts', () => {
         const { page } = await openBoard([]);
 
         expect(pickLog(page).textContent).toContain('No picks yet.');
+      });
+
+      describe('a player’s picks', () => {
+        /** The open panel's heading and its picks: pick number and card. */
+        const shownPlayer = (root: HTMLElement) => ({
+          heading: panel(root).querySelector('h2')?.textContent,
+          picks: [...panel(root).querySelectorAll('li')].map((li) =>
+            [...li.querySelectorAll('span')].map((span) => span.textContent?.trim()),
+          ),
+        });
+
+        it('lists your picks on the Me tab', async () => {
+          const { fixture, page } = await openBoard(picks);
+
+          tabButton(page, 'Me').click();
+          await fixture.whenStable();
+
+          expect(tabButton(page, 'Me').getAttribute('aria-selected')).toBe('true');
+          expect(shownPlayer(page)).toEqual({
+            heading: 'Your picks',
+            picks: [
+              ['2', 'Lightning Bolt'],
+              ['3', 'Lava Spike'],
+            ],
+          });
+        });
+
+        it('opens any player’s picks from the Board, and goes back', async () => {
+          const { fixture, page } = await openBoard(picks);
+          const bobsColumn = panel(page).querySelector('.player-picks section')!;
+
+          bobsColumn.querySelector<HTMLButtonElement>('h3 button')!.click();
+          await fixture.whenStable();
+
+          expect(shownPlayer(page)).toEqual({ heading: 'Bob’s picks', picks: [['1', 'Shock']] });
+          expect(tabButton(page, 'Board').getAttribute('aria-selected')).toBe('true');
+          expect(tabButton(page, 'Me').getAttribute('aria-selected')).toBe('false');
+          [...panel(page).querySelectorAll('button')]
+            .find((button) => button.textContent?.includes('Board'))!
+            .click();
+          await fixture.whenStable();
+          expect(panel(page).querySelector('h2')?.textContent).toBe('Board');
+        });
+
+        it('still shows a complete draft’s picks, with no turn', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            { state: 'Complete', players: [bob, alicePlayer], turn: null },
+            [],
+            picks,
+          );
+
+          expect(page.querySelector('.state')?.textContent).toBe('Complete');
+          expect(page.querySelector('.turn')).toBeNull();
+          tabButton(page, 'Me').click();
+          await fixture.whenStable();
+          expect(shownPlayer(page).picks).toEqual([
+            ['2', 'Lightning Bolt'],
+            ['3', 'Lava Spike'],
+          ]);
+        });
+
+        it('offers the Me tab only to players', async () => {
+          const { page } = await openDraft(complete, {
+            state: 'Drafting',
+            players: [bob],
+            turn: { pick: 1, round: 1, playerId: bob.id },
+          });
+
+          expect(tabButton(page, 'Me').disabled).toBe(true);
+        });
       });
     });
 
