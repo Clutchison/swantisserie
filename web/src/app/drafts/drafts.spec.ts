@@ -4,7 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import type { DraftView } from './drafts';
+import { DRAFT_POLL_MS } from './draft-page';
+import type { DraftView, PoolSnapshotView } from './drafts';
 
 const alice = {
   id: '80351110224678912',
@@ -21,6 +22,7 @@ function draft(fields: Partial<DraftView>): DraftView {
     picksPerPlayer: 40,
     state: 'Lobby',
     organizer: { id: alice.id, name: alice.name },
+    pool: { state: 'Complete', cards: 540, total: 540 },
     createdAt: '2026-10-29T12:00:00.000Z',
     ...fields,
   };
@@ -37,6 +39,7 @@ describe('drafts', () => {
         provideRouter(routes, withComponentInputBinding()),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: DRAFT_POLL_MS, useValue: 5 },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -103,6 +106,102 @@ describe('drafts', () => {
       const link = page.querySelector<HTMLAnchorElement>('a[href="/drafts/new"]');
       expect(link?.textContent).toContain('New draft');
     });
+
+    it('links each draft to its page', async () => {
+      const page = await openList([draft({ id: 'a', name: 'Red dragons' })]);
+
+      const link = page.querySelector<HTMLAnchorElement>('a[href="/drafts/a"]');
+      expect(link?.textContent).toContain('Red dragons');
+    });
+  });
+
+  describe('draft page', () => {
+    /** Opens draft-1's page with the first GET answered by `pool`. */
+    async function openDraft(pool: PoolSnapshotView, fields: Partial<DraftView> = {}) {
+      const { fixture, page } = await open('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ pool, ...fields }));
+      await fixture.whenStable();
+      return { fixture, page };
+    }
+
+    /** The next poll of the draft, answered with `pool`. */
+    async function poll(fixture: { whenStable(): Promise<unknown> }, pool: PoolSnapshotView) {
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft({ pool }));
+      await fixture.whenStable();
+    }
+
+    it('shows the draft and its pool size once the snapshot is complete', async () => {
+      const { page } = await openDraft({ state: 'Complete', cards: 540, total: 540 });
+
+      expect(page.querySelector('h1')?.textContent).toContain('Red dragons');
+      expect(page.textContent).toContain('Lobby');
+      expect(page.textContent).toContain('Organized by Alice');
+      expect(page.textContent).toContain('540 cards in the pool');
+      expect(page.querySelector('progress')).toBeNull();
+    });
+
+    it('shows snapshot progress and keeps polling until it is complete', async () => {
+      const { fixture, page } = await openDraft({ state: 'Running', cards: 0, total: null });
+      expect(page.textContent).toContain('Snapshotting the pool');
+      expect(page.querySelector('progress')?.hasAttribute('value')).toBe(false);
+
+      await poll(fixture, { state: 'Running', cards: 175, total: 540 });
+      expect(page.textContent).toContain('175 of 540 cards');
+      const bar = page.querySelector<HTMLProgressElement>('progress')!;
+      expect(bar.value).toBe(175);
+      expect(bar.max).toBe(540);
+
+      await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
+      expect(page.textContent).toContain('540 cards in the pool');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      http.expectNone('/api/drafts/draft-1');
+    });
+
+    it('shows why the snapshot failed and lets the organizer retry', async () => {
+      const { fixture, page } = await openDraft({
+        state: 'Failed',
+        cards: 0,
+        total: null,
+        error: 'Scryfall could not be reached.',
+      });
+      expect(page.querySelector('.error')?.textContent).toContain('Scryfall could not be reached.');
+
+      const retry = [...page.querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('Retry'),
+      )!;
+      retry.click();
+      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'));
+      expect(req.request.method).toBe('POST');
+      req.flush(draft({ pool: { state: 'Running', cards: 0, total: null } }), {
+        status: 202,
+        statusText: 'Accepted',
+      });
+      await fixture.whenStable();
+      expect(page.textContent).toContain('Snapshotting the pool');
+
+      await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
+      expect(page.textContent).toContain('540 cards in the pool');
+    });
+
+    it('offers retry only to the organizer or an app admin', async () => {
+      const { page } = await openDraft(
+        { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
+        { organizer: { id: 'someone-else', name: 'Bob' } },
+      );
+
+      expect(page.querySelector('.error')?.textContent).toContain('Scryfall could not be reached.');
+      expect(
+        [...page.querySelectorAll('button')].some((b) => b.textContent?.includes('Retry')),
+      ).toBe(false);
+    });
+
+    it('says when the draft cannot be loaded', async () => {
+      const { fixture, page } = await open('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush({}, { status: 404, statusText: 'Not Found' });
+      await fixture.whenStable();
+
+      expect(page.querySelector('.error')?.textContent).toContain("Couldn't load this draft");
+    });
   });
 
   describe('create form', () => {
@@ -113,7 +212,9 @@ describe('drafts', () => {
     }
 
     function fill(page: HTMLElement, field: string, value: string) {
-      const input = page.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${field}"]`)!;
+      const input = page.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        `[name="${field}"]`,
+      )!;
       input.value = value;
       input.dispatchEvent(new Event('input'));
     }
@@ -137,7 +238,7 @@ describe('drafts', () => {
       expect(page.querySelector<HTMLInputElement>('[name="picksPerPlayer"]')?.value).toBe('40');
     });
 
-    it('creates the draft and goes back to the draft list', async () => {
+    it('creates the draft and goes to its page', async () => {
       const form = await openForm();
       fill(form.page, 'picksPerPlayer', '30');
 
@@ -148,13 +249,20 @@ describe('drafts', () => {
         poolQuery: 't:dragon c:r',
         picksPerPlayer: 30,
       });
-      req.flush(draft({ picksPerPlayer: 30 }), { status: 201, statusText: 'Created' });
+      req.flush(draft({ id: 'draft-9', picksPerPlayer: 30 }), {
+        status: 201,
+        statusText: 'Created',
+      });
 
-      await vi.waitFor(() => expect(router.url).toBe('/'));
-      http.expectOne('/api/drafts').flush([draft({})]);
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-9'));
+      http.expectOne('/api/drafts/draft-9').flush(draft({ id: 'draft-9' }));
     });
 
-    function fail(req: ReturnType<HttpTestingController['expectOne']>, status: number, body: object) {
+    function fail(
+      req: ReturnType<HttpTestingController['expectOne']>,
+      status: number,
+      body: object,
+    ) {
       req.flush(body, { status, statusText: 'Error' });
     }
 

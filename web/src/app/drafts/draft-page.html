@@ -1,0 +1,52 @@
+<main>
+  <a routerLink="/">← Drafts</a>
+  @if (loading() && !draft()) {
+    <p>Loading…</p>
+  } @else if (failed()) {
+    <p class="error">Couldn't load this draft. Try reloading the page.</p>
+  } @else if (draft(); as draft) {
+    <h1>{{ draft.name }}</h1>
+    <p>
+      <span class="state">{{ draft.state }}</span>
+      <span class="detail">Organized by {{ draft.organizer.name }}</span>
+    </p>
+
+    <section class="pool">
+      <h2>Pool</h2>
+      @switch (draft.pool.state) {
+        @case ('Running') {
+          <p>
+            Snapshotting the pool from Scryfall…
+            @if (draft.pool.total !== null) {
+              {{ draft.pool.cards }} of {{ draft.pool.total }} cards
+            }
+          </p>
+          @if (draft.pool.total !== null) {
+            <progress [value]="draft.pool.cards" [max]="draft.pool.total"></progress>
+          } @else {
+            <progress></progress>
+          }
+        }
+        @case ('Complete') {
+          <p>{{ draft.pool.cards }} cards in the pool.</p>
+        }
+        @case ('Failed') {
+          <div class="error" role="alert">
+            <p>Snapshotting the pool failed: {{ draft.pool.error }}</p>
+            @if (canRetry()) {
+              <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
+                {{ retrying() ? 'Retrying…' : 'Retry' }}
+              </button>
+              @if (retryFailed()) {
+                <p>Couldn't restart the snapshot. Try again in a moment.</p>
+              }
+            }
+          </div>
+        }
+      }
+      <p class="detail">
+        Pool query: <code>{{ draft.poolQuery }}</code>
+      </p>
+    </section>
+  }
+</main>

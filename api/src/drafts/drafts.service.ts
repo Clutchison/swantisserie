@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { PoolCard, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PoolSnapshotService } from './pool-snapshot.service.js';
 import {
   ScryfallClient,
   ScryfallRejectedSearchError,
@@ -14,7 +15,10 @@ export interface NewDraft {
 }
 
 const WITH_ORGANIZER = {
-  include: { organizer: { select: { id: true, name: true } } },
+  include: {
+    organizer: { select: { id: true, name: true } },
+    _count: { select: { pool: true } },
+  },
 } satisfies Prisma.DraftDefaultArgs;
 
 /** Why a pool query can't make a pool; sent to the organizer as is. */
@@ -40,6 +44,13 @@ export class PoolQueryError extends Error {
   }
 }
 
+/** The pool snapshot is complete, so the pool can't change any more. */
+export class PoolFrozenError extends Error {
+  constructor() {
+    super('The pool is complete and can’t be changed.');
+  }
+}
+
 /** Scryfall failed for reasons of its own, not the pool query's. */
 export class ScryfallUnavailableError extends Error {
   constructor(cause: unknown) {
@@ -54,21 +65,45 @@ export class DraftsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scryfall: ScryfallClient,
+    private readonly snapshots: PoolSnapshotService,
   ) {}
 
   /**
-   * Saves a new draft in Lobby, organized by `organizerId`. Throws
-   * PoolQueryError if its pool query can't make a pool, and
-   * ScryfallUnavailableError if that can't be checked.
+   * Saves a new draft in Lobby, organized by `organizerId`, and starts its
+   * pool snapshot. Throws PoolQueryError if its pool query can't make a
+   * pool, and ScryfallUnavailableError if that can't be checked.
    */
   async create(
     organizerId: string,
     draft: NewDraft,
   ): Promise<DraftWithOrganizer> {
     await this.checkPoolQuery(draft.poolQuery);
-    return this.prisma.draft.create({
+    const created = await this.prisma.draft.create({
       data: { ...draft, organizerId },
       ...WITH_ORGANIZER,
+    });
+    await this.snapshots.start(created.id);
+    return created;
+  }
+
+  async find(id: string): Promise<DraftWithOrganizer | null> {
+    return this.prisma.draft.findUnique({ where: { id }, ...WITH_ORGANIZER });
+  }
+
+  /**
+   * Starts the draft's pool snapshot over, e.g. after a failure. Throws
+   * PoolFrozenError if the snapshot is already complete.
+   */
+  async restartSnapshot(draft: DraftWithOrganizer): Promise<void> {
+    if (draft.snapshotState === 'Complete') throw new PoolFrozenError();
+    await this.snapshots.start(draft.id);
+  }
+
+  /** The draft's pool so far, by name. */
+  async pool(draftId: string): Promise<PoolCard[]> {
+    return this.prisma.poolCard.findMany({
+      where: { draftId },
+      orderBy: { name: 'asc' },
     });
   }
 

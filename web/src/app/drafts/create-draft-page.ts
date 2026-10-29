@@ -30,8 +30,10 @@ export class CreateDraftPage {
     this.problem.set(null);
     try {
       // The API checks the pool query with Scryfall, which can take a moment.
-      await firstValueFrom(this.http.post<DraftView>('/api/drafts', this.form.getRawValue()));
-      await this.router.navigateByUrl('/');
+      const draft = await firstValueFrom(
+        this.http.post<DraftView>('/api/drafts', this.form.getRawValue()),
+      );
+      await this.router.navigate(['/drafts', draft.id]);
     } catch (err) {
       this.problem.set(problemFrom(err));
     } finally {

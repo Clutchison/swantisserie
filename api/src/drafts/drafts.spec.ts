@@ -4,9 +4,11 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
+import { AdminConfig } from '../auth/admin-config.js';
 import { SessionService } from '../auth/session.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  ScryfallCard,
   ScryfallClient,
   ScryfallRejectedSearchError,
   ScryfallSearchPage,
@@ -14,6 +16,10 @@ import {
 import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
 
 const alice = { id: '80351110224678912', name: 'Alice' };
+const bob = { id: '80351110224678913', name: 'Bob' };
+const carol = { id: '80351110224678914', name: 'Carol' };
+/** Carol is an app admin. */
+const admins = new AdminConfig(carol.id);
 
 describe('drafts', () => {
   let database: TestDatabase;
@@ -31,55 +37,102 @@ describe('drafts', () => {
     await database.stop();
   });
 
-  beforeEach(async () => {
-    await database.reset();
-    vi.resetAllMocks();
-
+  async function startApp() {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.register({ webRoot: import.meta.dirname })],
     })
       .overrideProvider(ScryfallClient)
       .useValue(scryfall)
+      .overrideProvider(AdminConfig)
+      .useValue(admins)
       .compile();
 
-    app = configureApp(moduleRef.createNestApplication());
-    await app.init();
+    const started = configureApp(moduleRef.createNestApplication());
+    await started.init();
+    return started;
+  }
 
-    // Signing in through Discord is covered by the auth tests.
-    await app.get(PrismaService).user.create({ data: alice });
-    const { token } = await app.get(SessionService).create(alice.id);
-    aliceCookie = `session=${token}`;
+  /** Signing in through Discord is covered by the auth tests. */
+  async function signIn(user: { id: string; name: string }) {
+    await app.get(PrismaService).user.upsert({
+      where: { id: user.id },
+      create: user,
+      update: {},
+    });
+    const { token } = await app.get(SessionService).create(user.id);
+    return `session=${token}`;
+  }
+
+  beforeEach(async () => {
+    await database.reset();
+    vi.resetAllMocks();
+    app = await startApp();
+    aliceCookie = await signIn(alice);
   });
 
   afterEach(async () => {
     await app.close();
   });
 
-  /** Answers searches from `results`, keyed by the exact query sent. */
+  /**
+   * Answers searches from `results`, keyed by the exact query sent, with
+   * ` page 2` etc. appended for pages after the first.
+   */
   function scryfallAnswers(
     results: Record<string, ScryfallSearchPage | null | Error>,
   ) {
-    scryfall.search.mockImplementation(async (query) => {
-      if (!(query in results)) throw new Error(`Unexpected search: ${query}`);
-      const result = results[query];
+    scryfall.search.mockImplementation(async (query, page = 1) => {
+      const key = page === 1 ? query : `${query} page ${page}`;
+      if (!(key in results)) throw new Error(`Unexpected search: ${key}`);
+      const result = results[key];
       if (result instanceof Error) throw result;
       return result;
     });
   }
 
+  /** A single-faced Scryfall card object with the fields we use. */
+  function card(
+    name: string,
+    fields: Partial<ScryfallCard> = {},
+  ): ScryfallCard {
+    const slug = name.toLowerCase().replace(/\W+/g, '-');
+    return {
+      id: `${slug}-id`,
+      oracle_id: `${slug}-oracle`,
+      name,
+      set: 'ima',
+      collector_number: '1',
+      type_line: 'Creature — Dragon',
+      colors: ['R'],
+      cmc: 7,
+      image_uris: {
+        small: `https://cards.scryfall.io/small/${slug}.jpg`,
+        normal: `https://cards.scryfall.io/normal/${slug}.jpg`,
+        large: `https://cards.scryfall.io/large/${slug}.jpg`,
+      },
+      ...fields,
+    };
+  }
+
   function page(...names: string[]): ScryfallSearchPage {
     return {
       totalCards: names.length,
-      cards: names.map((name) => ({ name })),
+      hasMore: false,
+      cards: names.map((name) => card(name)),
       warnings: [],
     };
   }
 
-  /** A pool query whose cards are all on Arena. */
+  /** The search the snapshot pages through for `poolQuery`. */
+  const snapshotQuery = (poolQuery: string) =>
+    `(${poolQuery}) game:arena unique:cards`;
+
+  /** A pool query whose cards are all on Arena, with a two-card pool. */
   function allOnArena(poolQuery: string) {
     scryfallAnswers({
       [poolQuery]: page('Balefire Dragon', 'Shivan Dragon'),
       [`(${poolQuery}) -in:arena`]: null,
+      [snapshotQuery(poolQuery)]: page('Balefire Dragon', 'Shivan Dragon'),
     });
   }
 
@@ -94,6 +147,21 @@ describe('drafts', () => {
     return request(app.getHttpServer())
       .get('/api/drafts')
       .set('Cookie', cookie);
+  }
+
+  function getDraft(id: string, cookie = aliceCookie) {
+    return request(app.getHttpServer())
+      .get(`/api/drafts/${id}`)
+      .set('Cookie', cookie);
+  }
+
+  /** The draft once its snapshot has finished, one way or the other. */
+  async function snapshotted(id: string) {
+    return vi.waitFor(async () => {
+      const res = await getDraft(id).expect(200);
+      expect(res.body.pool.state).not.toBe('Running');
+      return res.body;
+    });
   }
 
   it('creates a draft in Lobby with the signed-in role-holder as organizer', async () => {
@@ -112,11 +180,247 @@ describe('drafts', () => {
       picksPerPlayer: 30,
       state: 'Lobby',
       organizer: alice,
+      pool: expect.any(Object),
       createdAt: expect.any(String),
     };
     expect(created.body).toEqual(draft);
     const list = await listDrafts().expect(200);
     expect(list.body).toEqual([{ ...draft, id: created.body.id }]);
+  });
+
+  describe('pool snapshot', () => {
+    it('pages through the pool after creation, and the draft shows progress then the pool size', async () => {
+      const query = snapshotQuery('t:dragon c:r');
+      scryfallAnswers({
+        't:dragon c:r': page('Balefire Dragon'),
+        '(t:dragon c:r) -in:arena': null,
+        [query]: { ...page('Balefire Dragon'), totalCards: 2, hasMore: true },
+        [`${query} page 2`]: { ...page('Shivan Dragon'), totalCards: 2 },
+      });
+
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+      }).expect(201);
+
+      expect(created.body.pool).toEqual({
+        state: 'Running',
+        cards: 0,
+        total: null,
+      });
+      const draft = await snapshotted(created.body.id);
+      expect(draft.pool).toEqual({ state: 'Complete', cards: 2, total: 2 });
+      expect(scryfall.search).toHaveBeenCalledWith(query, 1);
+      expect(scryfall.search).toHaveBeenCalledWith(query, 2);
+    });
+
+    function retry(id: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/snapshot`)
+        .set('Cookie', cookie);
+    }
+
+    it('surfaces a failure on the draft, and the organizer can retry it', async () => {
+      const query = snapshotQuery('t:dragon c:r');
+      scryfallAnswers({
+        't:dragon c:r': page('Balefire Dragon'),
+        '(t:dragon c:r) -in:arena': null,
+        [query]: new Error('Scryfall search failed: 503'),
+      });
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+      }).expect(201);
+      expect((await snapshotted(created.body.id)).pool).toEqual({
+        state: 'Failed',
+        cards: 0,
+        total: null,
+        error: 'Scryfall could not be reached.',
+      });
+
+      scryfallAnswers({ [query]: page('Balefire Dragon', 'Shivan Dragon') });
+      const retried = await retry(created.body.id).expect(202);
+
+      expect(retried.body.pool).toEqual({
+        state: 'Running',
+        cards: 0,
+        total: null,
+      });
+      expect((await snapshotted(created.body.id)).pool).toEqual({
+        state: 'Complete',
+        cards: 2,
+        total: 2,
+      });
+    });
+
+    it('starts a retried snapshot over, dropping the cards of the failed one', async () => {
+      const query = snapshotQuery('t:dragon c:r');
+      scryfallAnswers({
+        't:dragon c:r': page('Balefire Dragon'),
+        '(t:dragon c:r) -in:arena': null,
+        [query]: { ...page('Balefire Dragon'), totalCards: 2, hasMore: true },
+        [`${query} page 2`]: new Error('Scryfall search failed: 503'),
+      });
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+      }).expect(201);
+      expect((await snapshotted(created.body.id)).pool).toMatchObject({
+        state: 'Failed',
+        cards: 1,
+        total: 2,
+      });
+
+      scryfallAnswers({ [query]: page('Shivan Dragon') });
+      await retry(created.body.id).expect(202);
+
+      expect((await snapshotted(created.body.id)).pool).toEqual({
+        state: 'Complete',
+        cards: 1,
+        total: 1,
+      });
+      const pool = await request(app.getHttpServer())
+        .get(`/api/drafts/${created.body.id}/pool`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      expect(pool.body.map((c: { name: string }) => c.name)).toEqual([
+        'Shivan Dragon',
+      ]);
+    });
+
+    it('explains a pool query Scryfall now rejects', async () => {
+      const query = snapshotQuery('c:r');
+      scryfallAnswers({
+        'c:r': page('Shock'),
+        '(c:r) -in:arena': null,
+        [query]: new ScryfallRejectedSearchError('Too many terms.', []),
+      });
+      const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+
+      expect((await snapshotted(created.body.id)).pool).toMatchObject({
+        state: 'Failed',
+        error: 'Scryfall rejected the pool query: Too many terms.',
+      });
+    });
+
+    it('keeps the pool frozen once the snapshot is complete', async () => {
+      allOnArena('t:dragon c:r');
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+      }).expect(201);
+      await snapshotted(created.body.id);
+
+      const res = await retry(created.body.id).expect(409);
+
+      expect(res.body).toEqual({
+        error: 'pool-frozen',
+        message: 'The pool is complete and can’t be changed.',
+      });
+      expect(scryfall.search).toHaveBeenCalledTimes(3);
+    });
+
+    it('lets an app admin retry, but not other role-holders', async () => {
+      const query = snapshotQuery('c:r');
+      scryfallAnswers({
+        'c:r': page('Shock'),
+        '(c:r) -in:arena': null,
+        [query]: new Error('Scryfall search failed: 503'),
+      });
+      const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+      await snapshotted(created.body.id);
+
+      await retry(created.body.id, await signIn(bob)).expect(403);
+      scryfallAnswers({ [query]: page('Shock') });
+      await retry(created.body.id, await signIn(carol)).expect(202);
+
+      expect((await snapshotted(created.body.id)).pool.state).toBe('Complete');
+    });
+
+    it('answers 404 for a draft that does not exist', async () => {
+      await getDraft('no-such-draft').expect(404);
+      await retry('no-such-draft').expect(404);
+      await request(app.getHttpServer())
+        .get('/api/drafts/no-such-draft/pool')
+        .set('Cookie', aliceCookie)
+        .expect(404);
+    });
+
+    it('resumes a snapshot a previous process left running', async () => {
+      const query = snapshotQuery('c:r');
+      scryfallAnswers({ [query]: page('Shock', 'Lightning Bolt') });
+      const { id } = await app.get(PrismaService).draft.create({
+        data: {
+          name: 'Red',
+          poolQuery: 'c:r',
+          picksPerPlayer: 40,
+          organizerId: alice.id,
+          snapshotState: 'Running',
+        },
+      });
+      await app.close();
+
+      app = await startApp();
+
+      expect((await snapshotted(id)).pool).toEqual({
+        state: 'Complete',
+        cards: 2,
+        total: 2,
+      });
+    });
+
+    it('stores each card’s identity, printing, type, colors, mana value and images', async () => {
+      const query = snapshotQuery('t:dragon c:r');
+      scryfallAnswers({
+        't:dragon c:r': page('Balefire Dragon'),
+        '(t:dragon c:r) -in:arena': null,
+        [query]: {
+          ...page(),
+          totalCards: 1,
+          cards: [
+            card('Balefire Dragon', {
+              id: '9f0a1c6e-id',
+              oracle_id: '9f0a1c6e-oracle',
+              set: 'ima',
+              collector_number: '119',
+              type_line: 'Creature — Dragon',
+              colors: ['R'],
+              cmc: 7,
+            }),
+          ],
+        },
+      });
+
+      const created = await createDraft({
+        name: 'Red dragons',
+        poolQuery: 't:dragon c:r',
+      }).expect(201);
+      await snapshotted(created.body.id);
+
+      const pool = await request(app.getHttpServer())
+        .get(`/api/drafts/${created.body.id}/pool`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      expect(pool.body).toEqual([
+        {
+          scryfallId: '9f0a1c6e-id',
+          oracleId: '9f0a1c6e-oracle',
+          name: 'Balefire Dragon',
+          set: 'ima',
+          collectorNumber: '119',
+          typeLine: 'Creature — Dragon',
+          colors: ['R'],
+          manaValue: 7,
+          images: [
+            {
+              small: 'https://cards.scryfall.io/small/balefire-dragon.jpg',
+              normal: 'https://cards.scryfall.io/normal/balefire-dragon.jpg',
+              large: 'https://cards.scryfall.io/large/balefire-dragon.jpg',
+            },
+          ],
+        },
+      ]);
+    });
   });
 
   it('refuses a pool query with cards not on Arena, and lists them', async () => {
