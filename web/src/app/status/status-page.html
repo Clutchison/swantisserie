@@ -2,10 +2,10 @@
   <h1>Swantisserie</h1>
   @if (loading()) {
     <p>Checking…</p>
-  } @else if (status(); as s) {
+  } @else if (status(); as health) {
     <ul>
-      <li [class.ok]="s.api === 'ok'">API {{ s.api }}</li>
-      <li [class.ok]="s.db === 'ok'">DB {{ s.db }}</li>
+      <li [class.ok]="health.api === 'ok'">API {{ health.api }}</li>
+      <li [class.ok]="health.db === 'ok'">DB {{ health.db }}</li>
     </ul>
   } @else {
     <ul>
