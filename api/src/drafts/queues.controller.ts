@@ -44,7 +44,7 @@ export class QueuesController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.change(id, () => this.queues.queue(id, user.id));
+    return this.answer(id, () => this.queues.queue(id, user.id));
   }
 
   /** Adds a pool card to the end of the queue. */
@@ -56,7 +56,7 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const oracleId = parseCard(body);
-    return this.change(id, () => this.queues.add(id, user.id, oracleId));
+    return this.answer(id, () => this.queues.add(id, user.id, oracleId));
   }
 
   /** Sets the queue's order, as every queued card's oracle id. */
@@ -67,7 +67,7 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const oracleIds = parseOrder(body);
-    return this.change(id, () => this.queues.reorder(id, user.id, oracleIds));
+    return this.answer(id, () => this.queues.reorder(id, user.id, oracleIds));
   }
 
   /** Forgets the cards lost from the queue. */
@@ -76,7 +76,7 @@ export class QueuesController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.change(id, () => this.queues.dismissLost(id, user.id));
+    return this.answer(id, () => this.queues.dismissLost(id, user.id));
   }
 
   /** Takes a card out of the queue. Declared after `lost`, which it would match. */
@@ -86,17 +86,17 @@ export class QueuesController {
     @Param('id') id: string,
     @Param('oracleId') oracleId: string,
   ): Promise<QueueView> {
-    return this.change(id, () => this.queues.remove(id, user.id, oracleId));
+    return this.answer(id, () => this.queues.remove(id, user.id, oracleId));
   }
 
-  /** Answers with what `change` does to the queue, or why it can't. */
-  private async change(
+  /** Answers with the queue as `request` leaves it, or why it can’t. */
+  private async answer(
     id: string,
-    change: () => Promise<QueueView>,
+    request: () => Promise<QueueView>,
   ): Promise<QueueView> {
     if (!(await this.drafts.find(id))) throw new NotFoundException();
     try {
-      return await change();
+      return await request();
     } catch (err) {
       if (err instanceof NotAPlayerError) {
         throw new ForbiddenException({

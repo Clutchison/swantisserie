@@ -16,7 +16,12 @@
   </div>
 }
 <p class="detail">Cards are picked for you in this order. Drag to reorder.</p>
-<ol class="queue" cdkDropList (cdkDropListDropped)="dropped($event)">
+<ol
+  class="queue"
+  cdkDropList
+  [cdkDropListDisabled]="changing()"
+  (cdkDropListDropped)="dropped($event)"
+>
   @for (card of queue().cards; track card.oracleId; let i = $index, first = $first, last = $last) {
     <li cdkDrag cdkDragLockAxis="y" cdkDragPreviewContainer="parent">
       <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
