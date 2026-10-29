@@ -43,6 +43,8 @@ import {
   UnknownWebhookError,
 } from './drafts.service.js';
 import { DraftsGateway } from './drafts.gateway.js';
+import type { DraftEvent } from './draft-events.js';
+import { DraftNotifier } from '../discord/draft-notifier.js';
 import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
@@ -125,6 +127,7 @@ export class DraftsController {
   constructor(
     private readonly drafts: DraftsService,
     private readonly gateway: DraftsGateway,
+    private readonly notifier: DraftNotifier,
   ) {}
 
   @Get()
@@ -230,15 +233,17 @@ export class DraftsController {
 
   /**
    * Applies `change` to the draft and answers with the draft as it now is,
-   * which everyone viewing it is sent too. A change the draft's state no
-   * longer allows is a 409 naming why.
+   * which everyone viewing it is sent too. Any events the change returns
+   * are announced on the draft's webhook, without waiting for Discord. A
+   * change the draft's state no longer allows is a 409 naming why.
    */
   private async change(
     id: string,
-    change: () => Promise<void>,
+    change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
+    let events: DraftEvent[] | void;
     try {
-      await change();
+      events = await change();
     } catch (err) {
       if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
       if (err instanceof StartRefusedError) {
@@ -258,6 +263,8 @@ export class DraftsController {
       }
       throw err;
     }
+    // Committed by now, so a failed post can't undo the change.
+    if (events) void this.notifier.notify(id, events);
     const draft = toDraftView(await this.findOr404(id));
     this.gateway.changed(draft);
     return draft;

@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { io, type Socket } from 'socket.io-client';
 import request from 'supertest';
@@ -7,6 +7,9 @@ import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
 import { AdminConfig } from '../auth/admin-config.js';
 import { SessionService } from '../auth/session.service.js';
+import { DiscordConfig } from '../discord/discord-config.js';
+import { DraftNotifierRetries } from '../discord/draft-notifier.js';
+import { WebhookClient, WebhookGoneError } from '../discord/webhook-client.js';
 import type { DraftView } from './drafts.controller.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -23,6 +26,10 @@ const bob = { id: '80351110224678913', name: 'Bob' };
 const carol = { id: '80351110224678914', name: 'Carol' };
 /** Carol is an app admin. */
 const admins = new AdminConfig(carol.id);
+/** Drafts' pages are at https://roto.example/drafts/:id. */
+const discordConfig = new DiscordConfig({
+  DISCORD_REDIRECT_URI: 'https://roto.example/api/auth/discord/callback',
+});
 
 describe('drafts', () => {
   let database: TestDatabase;
@@ -30,6 +37,7 @@ describe('drafts', () => {
   /** `session=<token>` for Alice, ready for a Cookie header. */
   let aliceCookie: string;
   const scryfall = { search: vi.fn<ScryfallClient['search']>() };
+  const webhookClient = { post: vi.fn<WebhookClient['post']>() };
 
   beforeAll(async () => {
     database = await startTestDatabase();
@@ -48,6 +56,13 @@ describe('drafts', () => {
       .useValue(scryfall)
       .overrideProvider(AdminConfig)
       .useValue(admins)
+      .overrideProvider(DiscordConfig)
+      .useValue(discordConfig)
+      .overrideProvider(WebhookClient)
+      .useValue(webhookClient)
+      // Retried at once, so tests needn't wait.
+      .overrideProvider(DraftNotifierRetries)
+      .useValue(new DraftNotifierRetries([0, 0]))
       .compile();
 
     const started = configureApp(moduleRef.createNestApplication());
@@ -925,6 +940,7 @@ describe('drafts', () => {
     cookies: string[],
     picksPerPlayer = 1,
     cards = ['Shock', 'Lightning Bolt', 'Lava Spike'],
+    webhookId: string | null = null,
   ) {
     scryfallAnswers({
       'c:r': page(...cards),
@@ -935,6 +951,7 @@ describe('drafts', () => {
       name: 'Red',
       poolQuery: 'c:r',
       picksPerPlayer,
+      webhookId,
     }).expect(201);
     const id = created.body.id as string;
     await snapshotted(id);
@@ -1357,6 +1374,169 @@ describe('drafts', () => {
     it('is 404 for a draft that does not exist', async () => {
       await pick('no-such-draft', 'shock-oracle').expect(404);
       await picks('no-such-draft').expect(404);
+    });
+  });
+
+  describe('announcements', () => {
+    const webhookUrl =
+      'https://discord.com/api/webhooks/1234567890/secret-token';
+    let bobCookie: string;
+    let webhookId: string;
+
+    beforeEach(async () => {
+      bobCookie = await signIn(bob);
+      const res = await request(app.getHttpServer())
+        .post('/api/admin/webhooks')
+        .set('Cookie', await signIn(carol))
+        .send({ name: '#roto-main', url: webhookUrl })
+        .expect(201);
+      webhookId = res.body.id;
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Each post's content, once `count` have been made. */
+    async function posted(count: number) {
+      return vi.waitFor(() => {
+        expect(webhookClient.post).toHaveBeenCalledTimes(count);
+        return webhookClient.post.mock.calls.map(
+          ([, message]) => message.content,
+        );
+      });
+    }
+
+    it('announces the start to the draft’s webhook, with the seat order', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+
+      await start(id).expect(200);
+
+      expect(await posted(1)).toEqual([
+        '**Red** has started. Seat order:\n' +
+          '1. **Alice**\n' +
+          '2. **Bob**\n' +
+          `<@${alice.id}> you’re up\n` +
+          `<https://roto.example/drafts/${id}>`,
+      ]);
+      expect(webhookClient.post).toHaveBeenCalledWith(webhookUrl, {
+        content: expect.any(String),
+        allowed_mentions: { parse: [], users: [alice.id] },
+      });
+    });
+    it('announces each pick, pinging the next player, then the draft’s end', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      await start(id).expect(200);
+      const link = `<https://roto.example/drafts/${id}>`;
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .send({ oracleId: 'shock-oracle' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', bobCookie)
+        .send({ oracleId: 'lava-spike-oracle' })
+        .expect(200);
+
+      expect((await posted(4)).slice(1)).toEqual([
+        `**Alice** picked **Shock** (pick 1)\n<@${bob.id}> you’re up\n${link}`,
+        `**Bob** picked **Lava Spike** (pick 2)\n${link}`,
+        `**Red** is complete. See everyone’s picks:\n${link}`,
+      ]);
+      expect(webhookClient.post.mock.calls[1][1].allowed_mentions).toEqual({
+        parse: [],
+        users: [bob.id],
+      });
+    });
+    it('posts nothing for a draft without a webhook', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      await start(id).expect(200);
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .send({ oracleId: 'shock-oracle' })
+        .expect(200);
+
+      // Give a stray post the chance to happen.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(webhookClient.post).not.toHaveBeenCalled();
+    });
+
+    it('retries a failed post, and keeps the pick when every try fails', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      await start(id).expect(200);
+      await posted(1);
+      webhookClient.post.mockRejectedValue(new Error('Discord is down'));
+      const logged = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .send({ oracleId: 'shock-oracle' })
+        .expect(200);
+
+      // The first try and two retries.
+      await posted(4);
+      await vi.waitFor(() =>
+        expect(logged).toHaveBeenCalledWith(
+          expect.stringContaining('Discord is down'),
+        ),
+      );
+      expect(JSON.stringify(logged.mock.calls)).not.toContain('secret-token');
+      expect((await getDraft(id).expect(200)).body.turn.playerId).toBe(bob.id);
+    });
+
+    it('gets a post through on a retry', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValueOnce(new Error('Discord is down'));
+
+      await start(id).expect(200);
+
+      const [first, retried] = await posted(2);
+      expect(retried).toBe(first);
+      expect(first).toContain('has started');
+    });
+
+    it('doesn’t retry a webhook Discord no longer has', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValue(new WebhookGoneError());
+      const logged = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+
+      await start(id).expect(200);
+
+      await vi.waitFor(() => expect(logged).toHaveBeenCalled());
+      expect(webhookClient.post).toHaveBeenCalledTimes(1);
     });
   });
 

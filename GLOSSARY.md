@@ -109,3 +109,7 @@ _Avoid_: Open draft, current draft
 **Webhook**:
 A named Discord channel destination that an app admin registers. An organizer chooses one per draft, and that draft's announcements are posted to it. Its URL is secret: only app admins see it.
 _Avoid_: Channel, hook, integration
+
+**Announcement**:
+A text post on a draft's webhook saying the draft has started, a pick was made or the draft is complete. Each links to the draft, and only the player whose turn it now is gets pinged.
+_Avoid_: Notification (in user-facing copy), alert, message (alone)

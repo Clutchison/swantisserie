@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  currentTurn,
   draftComplete,
   pickProblem,
   type PickProblem,
@@ -13,6 +14,7 @@ import {
   Prisma,
 } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { DraftEvent, EventPlayer } from './draft-events.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import {
   ScryfallClient,
@@ -126,6 +128,17 @@ const PICK_LOG = {
 export type LoggedPick = Prisma.PickGetPayload<typeof PICK_LOG>;
 
 type Transaction = Prisma.TransactionClient;
+
+/** What a draft event needs of a player. */
+const EVENT_PLAYER = {
+  user: { select: { id: true, name: true } },
+} satisfies Prisma.PlayerSelect;
+
+function toEventPlayer({
+  user,
+}: Prisma.PlayerGetPayload<{ select: typeof EVENT_PLAYER }>): EventPlayer {
+  return { id: user.id, name: user.name };
+}
 
 /** What a change reads from the draft row it locks. */
 type LockedDraft = Pick<Draft, 'state' | 'picksPerPlayer' | 'snapshotState'>;
@@ -245,8 +258,8 @@ export class DraftsService {
    * StartRefusedError if it can't start yet, and DraftStartedError if it
    * already has.
    */
-  async start(draftId: string): Promise<void> {
-    await this.inLobby(draftId, async (tx, draft) => {
+  async start(draftId: string): Promise<DraftEvent[]> {
+    return this.inLobby(draftId, async (tx, draft) => {
       if (draft.snapshotState !== 'Complete') {
         throw new StartRefusedError({
           error: 'pool-not-ready',
@@ -265,6 +278,12 @@ export class DraftsService {
         where: { id: draftId },
         data: { state: 'Drafting' },
       });
+      const seats = await tx.player.findMany({
+        where: { draftId },
+        orderBy: SEAT_ORDER,
+        select: EVENT_PLAYER,
+      });
+      return [{ type: 'started', seats: seats.map(toEventPlayer) }];
     });
   }
 
@@ -272,9 +291,13 @@ export class DraftsService {
    * The user picks the pool card with `oracleId` on their turn; the last
    * pick moves the draft to Complete. Throws PickRefusedError if they can't.
    */
-  async pick(draftId: string, userId: string, oracleId: string): Promise<void> {
+  async pick(
+    draftId: string,
+    userId: string,
+    oracleId: string,
+  ): Promise<DraftEvent[]> {
     // Locked so picks happen one at a time: each sees every pick before it.
-    await this.locked(draftId, async (tx, draft) => {
+    return this.locked(draftId, async (tx, draft) => {
       if (draft?.state !== 'Drafting') {
         throw new PickRefusedError({
           error: 'not-drafting',
@@ -283,7 +306,7 @@ export class DraftsService {
       }
       const card = await tx.poolCard.findUnique({
         where: { draftId_oracleId: { draftId, oracleId } },
-        select: { id: true },
+        select: { id: true, name: true },
       });
       if (!card) {
         throw new PickRefusedError({
@@ -295,7 +318,7 @@ export class DraftsService {
       const players = await tx.player.findMany({
         where: { draftId },
         orderBy: SEAT_ORDER,
-        select: { id: true, userId: true },
+        select: { id: true, userId: true, ...EVENT_PLAYER },
       });
       const pickLog = await tx.pick.findMany({
         where: { draftId },
@@ -321,12 +344,25 @@ export class DraftsService {
         },
       });
       // pickLog was read before this pick, so count it too.
-      if (draftComplete(size, pickLog.length + 1)) {
+      const picked = pickLog.length + 1;
+      const next = currentTurn(size, picked);
+      const events: DraftEvent[] = [
+        {
+          type: 'picked',
+          number: picked,
+          player: toEventPlayer(players[seat]),
+          card: card.name,
+          next: next ? toEventPlayer(players[next.seat]) : null,
+        },
+      ];
+      if (draftComplete(size, picked)) {
         await tx.draft.update({
           where: { id: draftId },
           data: { state: 'Complete' },
         });
+        events.push({ type: 'completed' });
       }
+      return events;
     });
   }
 
@@ -364,34 +400,36 @@ export class DraftsService {
    * players and seats, and its start, happens one at a time. Throws
    * DraftStartedError if the draft has left Lobby.
    */
-  private async inLobby(
+  private async inLobby<T>(
     draftId: string,
-    change: (tx: Transaction, draft: LockedDraft) => Promise<void>,
-  ): Promise<void> {
-    await this.locked(draftId, async (tx, draft) => {
+    change: (tx: Transaction, draft: LockedDraft) => Promise<T>,
+  ): Promise<T> {
+    return this.locked(draftId, async (tx, draft) => {
       if (draft?.state !== 'Lobby') throw new DraftStartedError();
-      await change(tx, draft);
+      return change(tx, draft);
     });
   }
 
   /**
    * Runs `change` in a transaction with the draft's row locked, and bumps
    * the draft's version; `draft` is undefined if there is no such draft.
+   * Returns what `change` does.
    */
-  private async locked(
+  private async locked<T>(
     draftId: string,
-    change: (tx: Transaction, draft: LockedDraft | undefined) => Promise<void>,
-  ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    change: (tx: Transaction, draft: LockedDraft | undefined) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
       // FOR UPDATE, not a conditional update: Prisma writes a draft's
       // players and picks after a plain SELECT of the draft, which takes no
       // lock.
       const [draft] = await tx.$queryRaw<LockedDraft[]>`
         SELECT "state", "picksPerPlayer", "snapshotState"
         FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
-      await change(tx, draft);
+      const result = await change(tx, draft);
       await tx.$executeRaw`
         UPDATE "Draft" SET "version" = "version" + 1 WHERE "id" = ${draftId}`;
+      return result;
     });
   }
 
