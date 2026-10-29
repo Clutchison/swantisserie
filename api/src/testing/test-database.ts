@@ -42,6 +42,11 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       );
     },
     async stop() {
+      // A client's socket closes a moment after the app disconnects, and the
+      // server's close handler queries PGlite, so it must outlive them all.
+      while (server.getStats().activeConnections > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
       await server.stop();
       await db.close();
     },

@@ -11,20 +11,21 @@ import {
 } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import type { User } from '../generated/prisma/client.js';
-import { AuthService } from './auth.service.js';
-import { DiscordConfig } from './discord-config.js';
+import { DiscordConfig } from '../discord/discord-config.js';
+import { AuthService, NotAllowedError } from './auth.service.js';
 import { NewSession, SessionService } from './session.service.js';
 import {
   CurrentUser,
   SESSION_COOKIE,
   SessionGuard,
   sessionToken,
+  type SessionUser,
 } from './session.guard.js';
 
 const STATE_COOKIE = 'oauth_state';
 const SCOPES = 'identify guilds.members.read';
 const SIGN_IN_FAILED = '/sign-in?error=failed';
+const SIGN_IN_NOT_ALLOWED = '/sign-in?error=not-allowed';
 /** Discord names itself in ?iss= on the callback (RFC 9207). */
 const DISCORD_ISSUER = 'https://discord.com';
 
@@ -32,6 +33,7 @@ export interface UserView {
   id: string;
   name: string;
   avatarUrl: string;
+  isAdmin: boolean;
 }
 
 @Controller('auth')
@@ -85,6 +87,10 @@ export class AuthController {
     try {
       session = await this.auth.signIn(code);
     } catch (err) {
+      if (err instanceof NotAllowedError) {
+        this.logger.log(err.message);
+        return res.redirect(SIGN_IN_NOT_ALLOWED);
+      }
       this.logger.error('Discord sign-in failed', err);
       return res.redirect(SIGN_IN_FAILED);
     }
@@ -97,8 +103,13 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(SessionGuard)
-  me(@CurrentUser() user: User): UserView {
-    return { id: user.id, name: user.name, avatarUrl: avatarUrl(user) };
+  me(@CurrentUser() user: SessionUser): UserView {
+    return {
+      id: user.id,
+      name: user.name,
+      avatarUrl: avatarUrl(user),
+      isAdmin: user.isAdmin,
+    };
   }
 
   @Post('logout')
@@ -121,7 +132,7 @@ export class AuthController {
 }
 
 /** https://docs.discord.com/developers/reference#image-formatting */
-function avatarUrl({ id, avatar }: User): string {
+function avatarUrl({ id, avatar }: SessionUser): string {
   if (avatar) return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`;
   // Default avatar for users on the new (discriminator-less) username system.
   const index = (BigInt(id) >> 22n) % 6n;

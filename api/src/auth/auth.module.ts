@@ -1,23 +1,23 @@
 import { Module } from '@nestjs/common';
+import { DiscordModule } from '../discord/discord.module.js';
+import { AdminConfig } from './admin-config.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
-import { DiscordClient, FetchDiscordClient } from './discord-client.js';
-import { DiscordConfig } from './discord-config.js';
-import { SessionGuard } from './session.guard.js';
 import { SessionService } from './session.service.js';
 
 @Module({
+  imports: [DiscordModule],
   controllers: [AuthController],
   providers: [
-    {
-      provide: DiscordConfig,
-      useFactory: () => new DiscordConfig(process.env),
-    },
-    { provide: DiscordClient, useClass: FetchDiscordClient },
     AuthService,
     SessionService,
-    SessionGuard,
+    {
+      provide: AdminConfig,
+      useFactory: () => new AdminConfig(process.env.ADMIN_DISCORD_IDS),
+    },
   ],
-  exports: [SessionGuard],
+  // What SessionGuard and AdminGuard need: Nest builds a guard inside each
+  // module that uses it, from that module's providers and imports.
+  exports: [SessionService, AdminConfig],
 })
 export class AuthModule {}

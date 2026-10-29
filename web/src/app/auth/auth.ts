@@ -10,6 +10,8 @@ export interface UserView {
   id: string;
   name: string;
   avatarUrl: string;
+  /** App admins have organizer powers on every draft. */
+  isAdmin: boolean;
 }
 
 /** The signed-in Discord user, as reported by the API's session cookie. */

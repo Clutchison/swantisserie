@@ -14,4 +14,7 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 ### Domain docs
 
-Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root (created lazily). See `docs/agents/domain.md`.
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root (ADRs created lazily). See `docs/agents/domain.md`.
+
+- **Read** `GLOSSARY.md` before naming a domain concept: in code, tests, tickets, PRs or UI copy. Use its terms, not the ones it lists under _Avoid_.
+- **Write** to it, via the `domain-modeling` skill, the moment a domain term is introduced, renamed or redefined. Keep it a glossary: definitions only, no implementation detail.
