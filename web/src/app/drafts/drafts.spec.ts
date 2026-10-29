@@ -2,10 +2,12 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { Subject } from 'rxjs';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { DRAFT_POLL_MS } from './draft-page';
 import type { DraftView, PickView, PoolCardView, PoolSnapshotView } from './drafts';
+import { type DraftUpdate, DraftUpdates } from './draft-updates';
 
 const alice = {
   id: '80351110224678912',
@@ -25,6 +27,7 @@ function draft(fields: Partial<DraftView>): DraftView {
     snapshot: { state: 'Complete', cards: 540, total: 540 },
     players: [],
     turn: null,
+    version: 0,
     createdAt: '2026-10-29T12:00:00.000Z',
     ...fields,
   };
@@ -33,8 +36,12 @@ function draft(fields: Partial<DraftView>): DraftView {
 describe('drafts', () => {
   let http: HttpTestingController;
   let router: Router;
+  /** Stands in for the API's Socket.IO gateway: push events through `events`. */
+  let updates: { events: Subject<DraftUpdate>; watch: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    const events = new Subject<DraftUpdate>();
+    updates = { events, watch: vi.fn(() => events) };
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -42,6 +49,7 @@ describe('drafts', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: DRAFT_POLL_MS, useValue: 5 },
+        { provide: DraftUpdates, useValue: updates },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -124,6 +132,15 @@ describe('drafts', () => {
       avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png',
     };
     const alicePlayer = { id: alice.id, name: alice.name, avatarUrl: alice.avatarUrl };
+
+    /** A button in the bottom tab bar, by its label. */
+    const tabButton = (root: HTMLElement, tab: string) =>
+      [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+        (button) => button.textContent?.trim() === tab,
+      )!;
+    /** The tab panel showing. */
+    const panel = (root: HTMLElement) =>
+      root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
 
     /**
      * Opens draft-1's page with the first GET answered by `pool`, its pool
@@ -717,13 +734,7 @@ describe('drafts', () => {
         return opened;
       }
 
-      const tabButton = (root: HTMLElement, tab: string) =>
-        [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
-          (button) => button.textContent?.trim() === tab,
-        )!;
       const pickLog = (root: HTMLElement) => panel(root).querySelector<HTMLElement>('.log')!;
-      const panel = (root: HTMLElement) =>
-        root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
 
       it('switches between the Pool and Board tabs', async () => {
         const { fixture, page } = await openBoard(picks);
@@ -840,6 +851,113 @@ describe('drafts', () => {
 
           expect(tabButton(page, 'Me').disabled).toBe(true);
         });
+      });
+    });
+
+    describe('live updates', () => {
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+      const drafting = (fields: Partial<DraftView> = {}) =>
+        draft({
+          state: 'Drafting',
+          players: [alicePlayer, bob],
+          turn: { pick: 1, round: 1, playerId: alice.id },
+          ...fields,
+        });
+      const shivan: PoolCardView = {
+        scryfallId: 'shivan-id',
+        oracleId: 'shivan-oracle',
+        name: 'Shivan Dragon',
+        set: 'm10',
+        collectorNumber: '155',
+        typeLine: 'Creature — Dragon',
+        colors: ['R'],
+        manaValue: 6,
+        images: [{ small: 's.jpg', normal: 'n.jpg', large: 'l.jpg' }],
+      };
+      const shivanPick: PickView = {
+        pick: 1,
+        playerId: alice.id,
+        oracleId: 'shivan-oracle',
+        name: 'Shivan Dragon',
+      };
+
+      it('watches the draft it shows', async () => {
+        await openDraft(complete, drafting());
+
+        expect(updates.watch).toHaveBeenCalledWith('draft-1');
+      });
+
+      it('shows another player’s pick on the Pool, Board and Me tabs, and the turn passing', async () => {
+        const { fixture, page } = await openDraft(complete, drafting(), [shivan]);
+        expect(page.textContent).toContain('Your turn: pick 1, round 1');
+
+        updates.events.next({
+          type: 'changed',
+          draft: drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+        });
+        await flushPicks([shivanPick]);
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+        expect(page.querySelector('.tile')?.classList).toContain('picked');
+        tabButton(page, 'Board').click();
+        await fixture.whenStable();
+        expect(panel(page).querySelector('.log')?.textContent).toContain('Shivan Dragon');
+        tabButton(page, 'Me').click();
+        await fixture.whenStable();
+        expect(panel(page).textContent).toContain('Shivan Dragon');
+      });
+
+      it('follows the draft out of the lobby when the organizer starts it', async () => {
+        const { fixture, page } = await openDraft(complete, {
+          players: [alicePlayer, bob],
+        });
+
+        updates.events.next({ type: 'changed', draft: drafting() });
+        await flushPicks([]);
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain('Drafting');
+        expect(page.textContent).toContain('Your turn: pick 1, round 1');
+      });
+
+      it('ignores a pushed draft older than the one it shows', async () => {
+        const { fixture, page } = await openDraft(
+          complete,
+          drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 5 }),
+          [shivan],
+          [shivanPick],
+        );
+
+        updates.events.next({ type: 'changed', draft: drafting({ version: 4 }) });
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+        http.expectNone('/api/drafts/draft-1/picks');
+      });
+
+      it('stops watching when the page closes', async () => {
+        await openDraft(complete, drafting());
+        expect(updates.events.observed).toBe(true);
+
+        await router.navigateByUrl('/');
+        (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+
+        expect(updates.events.observed).toBe(false);
+      });
+
+      it('catches up with the draft and its picks when it reconnects', async () => {
+        const { fixture, page } = await openDraft(complete, drafting(), [shivan]);
+
+        updates.events.next({ type: 'connected' });
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+        );
+        await flushPicks([shivanPick]);
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+        expect(page.querySelector('.tile')?.classList).toContain('picked');
       });
     });
 

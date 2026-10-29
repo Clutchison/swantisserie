@@ -1,11 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { io, type Socket } from 'socket.io-client';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
 import { AdminConfig } from '../auth/admin-config.js';
 import { SessionService } from '../auth/session.service.js';
+import type { DraftView } from './drafts.controller.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallCard,
@@ -184,6 +186,7 @@ describe('drafts', () => {
       snapshot: expect.any(Object),
       players: [],
       turn: null,
+      version: 0,
       createdAt: expect.any(String),
     };
     expect(created.body).toEqual(draft);
@@ -1263,6 +1266,120 @@ describe('drafts', () => {
     it('is 404 for a draft that does not exist', async () => {
       await pick('no-such-draft', 'shock-oracle').expect(404);
       await picks('no-such-draft').expect(404);
+    });
+  });
+
+  describe('live updates', () => {
+    const sockets: Socket[] = [];
+
+    beforeEach(async () => {
+      await app.listen(0);
+    });
+
+    afterEach(() => {
+      for (const socket of sockets.splice(0)) socket.disconnect();
+    });
+
+    /** A Socket.IO client for draft `draftId`, not yet connected. */
+    async function socketFor(
+      draftId: string,
+      cookie?: string,
+    ): Promise<Socket> {
+      const socket = io(await app.getUrl(), {
+        path: '/api/socket.io',
+        transports: ['websocket'],
+        auth: { draftId },
+        extraHeaders: cookie ? { Cookie: cookie } : {},
+        reconnection: false,
+      });
+      sockets.push(socket);
+      return socket;
+    }
+
+    /** A signed-in client viewing draft `draftId`, once connected. */
+    async function watch(draftId: string, cookie: string) {
+      const socket = await socketFor(draftId, cookie);
+      const changes: DraftView[] = [];
+      socket.on('changed', (draft) => changes.push(draft));
+      await new Promise<void>((resolve, reject) => {
+        socket.on('connect', resolve);
+        socket.on('connect_error', reject);
+      });
+      return changes;
+    }
+
+    it('refuses a socket without a live session', async () => {
+      const socket = await socketFor('any-draft');
+
+      const error = await new Promise<Error>((resolve) =>
+        socket.on('connect_error', resolve),
+      );
+      expect(error.message).toBe('unauthorized');
+      expect(socket.connected).toBe(false);
+    });
+
+    it('pushes the draft to its viewers after each pick', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      await start(id).expect(200);
+      const bobSees = await watch(id, bobCookie);
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .send({ oracleId: 'shock-oracle' })
+        .expect(200);
+
+      await vi.waitFor(() =>
+        expect(bobSees).toEqual([
+          expect.objectContaining({
+            id,
+            state: 'Drafting',
+            turn: { pick: 2, round: 1, playerId: bob.id },
+          }),
+        ]),
+      );
+    });
+
+    it('numbers each version of a draft, so viewers can tell which is newest', async () => {
+      const id = await readyDraft([]);
+      const bobCookie = await signIn(bob);
+      const before = (await getDraft(id).expect(200)).body.version as number;
+
+      const joined = await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/players`)
+        .set('Cookie', bobCookie)
+        .expect(201);
+      const left = await request(app.getHttpServer())
+        .delete(`/api/drafts/${id}/players/me`)
+        .set('Cookie', bobCookie)
+        .expect(200);
+
+      expect(joined.body.version).toBeGreaterThan(before);
+      expect(left.body.version).toBeGreaterThan(joined.body.version);
+    });
+
+    it('pushes lobby changes, but only to that draft’s viewers', async () => {
+      const id = await readyDraft([]);
+      const other = await readyDraft([]);
+      const bobCookie = await signIn(bob);
+      const bobSees = await watch(id, bobCookie);
+      const bobSeesOther = await watch(other, bobCookie);
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/players`)
+        .set('Cookie', aliceCookie)
+        .expect(201);
+
+      await vi.waitFor(() =>
+        expect(bobSees).toEqual([
+          expect.objectContaining({
+            id,
+            players: [expect.objectContaining({ id: alice.id })],
+          }),
+        ]),
+      );
+      expect(bobSeesOther).toEqual([]);
     });
   });
 

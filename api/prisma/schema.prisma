@@ -58,6 +58,8 @@ model Draft {
   poolTotal      Int?
   /// Why the last snapshot attempt failed; null otherwise.
   snapshotError  String?
+  /// Goes up with every change to the draft's players, seats, state or picks, so viewers can tell which copy is newest.
+  version        Int               @default(0)
   pool           PoolCard[]
   players        Player[]
   picks          Pick[]
