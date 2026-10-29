@@ -7,3 +7,27 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+/// A Discord account that has signed in.
+model User {
+  /// Discord user ID (snowflake).
+  id        String    @id
+  /// Discord display name: global_name, falling back to username.
+  name      String
+  /// Discord avatar hash; null means the default avatar.
+  avatar    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  sessions  Session[]
+}
+
+model Session {
+  /// SHA-256 of the token in the session cookie, so a database leak can't be replayed.
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+}
