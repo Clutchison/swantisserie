@@ -1,0 +1,23 @@
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller.js';
+import { AuthService } from './auth.service.js';
+import { DiscordClient, FetchDiscordClient } from './discord-client.js';
+import { DiscordConfig } from './discord-config.js';
+import { SessionGuard } from './session.guard.js';
+import { SessionService } from './session.service.js';
+
+@Module({
+  controllers: [AuthController],
+  providers: [
+    {
+      provide: DiscordConfig,
+      useFactory: () => new DiscordConfig(process.env),
+    },
+    { provide: DiscordClient, useClass: FetchDiscordClient },
+    AuthService,
+    SessionService,
+    SessionGuard,
+  ],
+  exports: [SessionGuard],
+})
+export class AuthModule {}

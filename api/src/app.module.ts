@@ -2,6 +2,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { HealthController } from './health/health.controller.js';
 import { API_PREFIX } from './app.setup.js';
+import { AuthModule } from './auth/auth.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
 export interface AppOptions {
@@ -16,6 +17,7 @@ export class AppModule {
       module: AppModule,
       imports: [
         PrismaModule,
+        AuthModule,
         ServeStaticModule.forRoot({
           rootPath: webRoot,
           exclude: [`/${API_PREFIX}/{*path}`],

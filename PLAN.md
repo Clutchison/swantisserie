@@ -113,7 +113,7 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 |---|---|
 | Repo | npm workspaces monorepo: `engine`, `api`, `web` |
 | `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turn calculation, cascade resolution, undo, queue pruning, drop/skip. Returns domain events. Built test-first. |
-| `api` | NestJS + Prisma (Postgres) + Socket.IO gateway + Passport Discord login with a session cookie |
+| `api` | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie |
 | `web` | Angular + Angular Material + CDK, mobile-first |
 | DB | Neon Postgres (free tier) |
 | Hosting | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers. |
