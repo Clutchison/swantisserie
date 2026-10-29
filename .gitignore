@@ -11,6 +11,7 @@ dist/
 .angular/
 coverage/
 *.tsbuildinfo
+api/src/generated/
 
 # Environment and secrets
 .env

@@ -1,0 +1,15 @@
+<main>
+  <h1>Swantisserie</h1>
+  @if (loading()) {
+    <p>Checking…</p>
+  } @else if (status(); as s) {
+    <ul>
+      <li [class.ok]="s.api === 'ok'">API {{ s.api }}</li>
+      <li [class.ok]="s.db === 'ok'">DB {{ s.db }}</li>
+    </ul>
+  } @else {
+    <ul>
+      <li>API unreachable</li>
+    </ul>
+  }
+</main>
