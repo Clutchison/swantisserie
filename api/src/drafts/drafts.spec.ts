@@ -54,7 +54,7 @@ describe('drafts', () => {
   }
 
   /** Signing in through Discord is covered by the auth tests. */
-  async function signIn(user: { id: string; name: string }) {
+  async function signIn(user: { id: string; name: string; avatar?: string }) {
     await app.get(PrismaService).user.upsert({
       where: { id: user.id },
       create: user,
@@ -773,14 +773,18 @@ describe('drafts', () => {
 
     it('lists players in join order, with their avatars', async () => {
       const id = await lobbyDraft();
-      const bobCookie = await signIn(bob);
+      const bobCookie = await signIn({ ...bob, avatar: 'a1b2c3' });
 
       const joined = await join(id, bobCookie).expect(201);
-      expect(joined.body.players).toEqual([player(bob)]);
+      const bobWithAvatar = {
+        ...bob,
+        avatarUrl: `https://cdn.discordapp.com/avatars/${bob.id}/a1b2c3.png`,
+      };
+      expect(joined.body.players).toEqual([bobWithAvatar]);
       await join(id).expect(201);
 
       const draft = await getDraft(id).expect(200);
-      expect(draft.body.players).toEqual([player(bob), player(alice)]);
+      expect(draft.body.players).toEqual([bobWithAvatar, player(alice)]);
     });
 
     it('lets a player leave, and joining or leaving twice changes nothing', async () => {

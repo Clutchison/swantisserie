@@ -8,6 +8,7 @@ import {
   InjectionToken,
   input,
   signal,
+  type WritableSignal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
@@ -76,12 +77,8 @@ export class DraftPage {
     return this.changePlayers(this.http.delete<DraftView>(`/api/drafts/${this.id()}/players/me`));
   }
 
-  private async changePlayers(request: Observable<DraftView>) {
-    this.changingPlayers.set(true);
-    this.playersError.set(null);
-    try {
-      this.resource.set(await firstValueFrom(request));
-    } catch (err) {
+  private changePlayers(request: Observable<DraftView>) {
+    return this.apply(request, this.changingPlayers, (err) => {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         // The draft started under us: show why, and catch up with it.
         this.playersError.set(err.error?.message ?? 'This draft has started.');
@@ -89,23 +86,35 @@ export class DraftPage {
       } else {
         this.playersError.set("Couldn't update the players. Try again in a moment.");
       }
-    } finally {
-      this.changingPlayers.set(false);
-    }
+    });
   }
 
-  protected async retry() {
-    this.retrying.set(true);
+  protected retry() {
+    return this.apply(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/snapshot`, null),
+      this.retrying,
+      () => this.retryFailed.set(true),
+    );
+  }
+
+  /**
+   * Sends a change to the draft and shows the draft it answers with, with
+   * `busy` set meanwhile. `onError` is told when it fails.
+   */
+  private async apply(
+    request: Observable<DraftView>,
+    busy: WritableSignal<boolean>,
+    onError: (err: unknown) => void,
+  ) {
+    busy.set(true);
+    this.playersError.set(null);
     this.retryFailed.set(false);
     try {
-      const draft = await firstValueFrom(
-        this.http.post<DraftView>(`/api/drafts/${this.id()}/snapshot`, null),
-      );
-      this.resource.set(draft);
-    } catch {
-      this.retryFailed.set(true);
+      this.resource.set(await firstValueFrom(request));
+    } catch (err) {
+      onError(err);
     } finally {
-      this.retrying.set(false);
+      busy.set(false);
     }
   }
 }

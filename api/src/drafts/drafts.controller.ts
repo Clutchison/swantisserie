@@ -20,6 +20,7 @@ import type {
   PoolCard,
   PoolSnapshotState,
 } from '../generated/prisma/client.js';
+import { avatarUrl } from '../auth/avatar-url.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -34,7 +35,6 @@ import {
   ScryfallUnavailableError,
 } from './drafts.service.js';
 import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
-import { avatarUrl } from '../auth/avatar-url.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
 const MAX_PICKS_PER_PLAYER = 100;
@@ -119,18 +119,7 @@ export class DraftsController {
     if (draft.organizerId !== user.id && !user.isAdmin) {
       throw new ForbiddenException();
     }
-    try {
-      await this.drafts.restartSnapshot(draft.id);
-    } catch (err) {
-      if (err instanceof PoolFrozenError) {
-        throw new ConflictException({
-          error: 'pool-frozen',
-          message: err.message,
-        });
-      }
-      throw err;
-    }
-    return toDraftView(await this.findOr404(id));
+    return this.change(id, () => this.drafts.restartSnapshot(id));
   }
 
   /** The signed-in role-holder joins the draft. */
@@ -140,8 +129,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findOr404(id);
-    await this.whileInLobby(() => this.drafts.join(id, user.id));
-    return toDraftView(await this.findOr404(id));
+    return this.change(id, () => this.drafts.join(id, user.id));
   }
 
   /** The signed-in role-holder leaves the draft. */
@@ -151,23 +139,27 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findOr404(id);
-    await this.whileInLobby(() => this.drafts.leave(id, user.id));
-    return toDraftView(await this.findOr404(id));
+    return this.change(id, () => this.drafts.leave(id, user.id));
   }
 
-  /** Turns a change refused because the draft has started into a 409. */
-  private async whileInLobby(change: () => Promise<void>): Promise<void> {
+  /**
+   * Applies `change` to the draft and answers with the draft as it now is.
+   * A change the draft's state no longer allows is a 409 naming why.
+   */
+  private async change(
+    id: string,
+    change: () => Promise<void>,
+  ): Promise<DraftView> {
     try {
       await change();
     } catch (err) {
+      if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
       if (err instanceof DraftStartedError) {
-        throw new ConflictException({
-          error: 'draft-started',
-          message: err.message,
-        });
+        throw conflict('draft-started', err);
       }
       throw err;
     }
+    return toDraftView(await this.findOr404(id));
   }
 
   private async findOr404(id: string): Promise<DraftWithOrganizer> {
@@ -198,6 +190,10 @@ export class DraftsController {
       throw err;
     }
   }
+}
+
+function conflict(error: string, cause: Error): ConflictException {
+  return new ConflictException({ error, message: cause.message });
 }
 
 /** The create form's fields, or a 400 saying which one to fix. */

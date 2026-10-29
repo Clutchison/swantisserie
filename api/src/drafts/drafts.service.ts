@@ -103,7 +103,7 @@ export class DraftsService {
    * Throws DraftStartedError once the draft has left Lobby.
    */
   async join(draftId: string, userId: string): Promise<void> {
-    await this.whileInLobby(draftId, {
+    await this.updateInLobby(draftId, {
       connectOrCreate: {
         where: { draftId_userId: { draftId, userId } },
         create: { userId },
@@ -116,14 +116,14 @@ export class DraftsService {
    * Throws DraftStartedError once the draft has left Lobby.
    */
   async leave(draftId: string, userId: string): Promise<void> {
-    await this.whileInLobby(draftId, { deleteMany: { userId } });
+    await this.updateInLobby(draftId, { deleteMany: { userId } });
   }
 
   /**
    * Applies `players` to the draft in the same statement that checks it's
    * still in Lobby, so a start can't race the change.
    */
-  private async whileInLobby(
+  private async updateInLobby(
     draftId: string,
     players: Prisma.PlayerUpdateManyWithoutDraftNestedInput,
   ): Promise<void> {
