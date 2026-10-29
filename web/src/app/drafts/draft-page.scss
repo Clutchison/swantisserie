@@ -2,8 +2,23 @@ h1 {
   margin-bottom: 0.25rem;
 }
 
+.players,
 .pool {
   margin-top: 1.5rem;
+}
+
+.players li {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.avatar {
+  border-radius: 50%;
+}
+
+.button.secondary {
+  background: #eee;
+  color: #333;
 }
 
 progress {

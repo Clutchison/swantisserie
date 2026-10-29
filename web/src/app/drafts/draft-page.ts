@@ -1,4 +1,4 @@
-import { HttpClient, httpResource } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import type { DraftView } from './drafts';
 
@@ -50,12 +50,48 @@ export class DraftPage {
     return !!user && !!draft && (user.isAdmin || user.id === draft.organizer.id);
   });
 
+  /** Whether the signed-in user has joined this draft. */
+  protected readonly joined = computed(() => {
+    const user = this.user();
+    return !!user && !!this.draft()?.players.some((player) => player.id === user.id);
+  });
+  /** Joining and leaving are only possible in Lobby. */
+  protected readonly inLobby = computed(() => this.draft()?.state === 'Lobby');
+  protected readonly changingPlayers = signal(false);
+  protected readonly playersError = signal<string | null>(null);
+
   constructor() {
     effect((onCleanup) => {
       if (this.draft()?.snapshot.state !== 'Running') return;
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
+  }
+
+  protected join() {
+    return this.changePlayers(this.http.post<DraftView>(`/api/drafts/${this.id()}/players`, null));
+  }
+
+  protected leave() {
+    return this.changePlayers(this.http.delete<DraftView>(`/api/drafts/${this.id()}/players/me`));
+  }
+
+  private async changePlayers(request: Observable<DraftView>) {
+    this.changingPlayers.set(true);
+    this.playersError.set(null);
+    try {
+      this.resource.set(await firstValueFrom(request));
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 409) {
+        // The draft started under us: show why, and catch up with it.
+        this.playersError.set(err.error?.message ?? 'This draft has started.');
+        this.resource.reload();
+      } else {
+        this.playersError.set("Couldn't update the players. Try again in a moment.");
+      }
+    } finally {
+      this.changingPlayers.set(false);
+    }
   }
 
   protected async retry() {

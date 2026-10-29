@@ -13,6 +13,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { DiscordConfig } from '../discord/discord-config.js';
 import { AuthService, NotAllowedError } from './auth.service.js';
+import { avatarUrl } from './avatar-url.js';
 import { NewSession, SessionService } from './session.service.js';
 import {
   CurrentUser,
@@ -129,14 +130,6 @@ export class AuthController {
       path: '/',
     };
   }
-}
-
-/** https://docs.discord.com/developers/reference#image-formatting */
-function avatarUrl({ id, avatar }: SessionUser): string {
-  if (avatar) return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`;
-  // Default avatar for users on the new (discriminator-less) username system.
-  const index = (BigInt(id) >> 22n) % 6n;
-  return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
 }
 
 function sameSecret(given: unknown, expected: unknown): boolean {
