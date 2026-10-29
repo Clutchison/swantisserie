@@ -65,11 +65,14 @@ The repo is an npm-workspaces monorepo with three packages: `engine`, `api` and 
 | `npm run build` | Builds `engine`, then `web`, then `api` (which runs `prisma generate` first) |
 | `npm test` | Runs every workspace's tests |
 | `npm run typecheck` | Type-checks every workspace |
+| `npm run lint` | Lints every workspace with oxlint |
 | `npm start` | Runs the built server (`api/dist/main.js`), serving `web/dist/web/browser` |
 
 To change the database schema, edit `api/prisma/schema.prisma` and run `npm run migrate:dev -w api -- --name <change>`.
 
 ### Deploy
+
+Every push and pull request runs [CI](.github/workflows/ci.yml): lint, build, typecheck and tests for all three workspaces. Heroku deploys `main` automatically once CI passes ("Wait for CI to pass" is on), so merging to `main` is the deploy. A red CI run means no deploy.
 
 Heroku app `swantisserie` builds with the Node buildpack (`npm run build`). The `Procfile` release phase runs `prisma migrate deploy` before each release goes live. Health check: `GET /api/health` returns `{"api":"ok","db":"ok"}`, or a 503 with `"db":"error"`. The status page at `/` shows the result.
 

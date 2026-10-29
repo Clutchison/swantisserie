@@ -6,7 +6,8 @@
     "start": "ng serve --proxy-config proxy.conf.json",
     "build": "ng build",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.spec.json --noEmit",
-    "test": "ng test --watch=false"
+    "test": "ng test --watch=false",
+    "lint": "oxlint --type-aware src/"
   },
   "private": true,
   "dependencies": {

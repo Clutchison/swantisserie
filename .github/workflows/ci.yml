@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # prisma.config.ts requires this to resolve, but nothing here connects to a database.
+      DIRECT_URL: postgresql://ci@localhost/ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # Build first: it compiles engine (which api and web import from dist) and catches
+      # anything that would break the Heroku build.
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test

@@ -14,10 +14,13 @@
     "build": "npm run build --workspaces",
     "test": "npm test --workspaces",
     "typecheck": "npm run typecheck --workspaces",
-    "start": "npm run start:prod -w api"
+    "start": "npm run start:prod -w api",
+    "lint": "npm run lint --workspaces"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6"
+    "concurrently": "^10.0.6",
+    "oxlint": "^1.90.0",
+    "oxlint-tsgolint": "^7.0.2005"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
