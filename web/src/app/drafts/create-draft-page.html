@@ -1,0 +1,65 @@
+<main>
+  <h1>New draft</h1>
+  <form [formGroup]="form" (ngSubmit)="create()">
+    <label>
+      Name
+      <input name="name" formControlName="name" maxlength="100" required />
+    </label>
+    <label>
+      Pool query
+      <textarea
+        name="poolQuery"
+        formControlName="poolQuery"
+        rows="3"
+        maxlength="900"
+        required
+        placeholder="e.g. cube:arena"
+      ></textarea>
+      <span class="hint">
+        A <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall search</a>.
+        Every card it finds goes in the pool, and they must all be on Arena.
+      </span>
+    </label>
+    <label>
+      Picks per player
+      <input
+        name="picksPerPlayer"
+        formControlName="picksPerPlayer"
+        type="number"
+        min="1"
+        max="100"
+        step="1"
+        required
+      />
+    </label>
+
+    @if (problem(); as problem) {
+      <div class="error" role="alert">
+        <p>{{ problem.message }}</p>
+        @if (problem.error === 'not-on-arena') {
+          <ul>
+            @for (card of problem.cards; track card) {
+              <li>{{ card }}</li>
+            }
+          </ul>
+          @if (problem.totalCards > problem.cards.length) {
+            <p>…and {{ problem.totalCards - problem.cards.length }} more.</p>
+          }
+        } @else if (problem.error === 'query-rejected') {
+          <ul>
+            @for (warning of problem.warnings; track warning) {
+              <li>{{ warning }}</li>
+            }
+          </ul>
+        }
+      </div>
+    }
+
+    <div class="actions">
+      <button class="button" type="submit" [disabled]="saving()">
+        {{ saving() ? 'Checking the pool…' : 'Create draft' }}
+      </button>
+      <a routerLink="/">Cancel</a>
+    </div>
+  </form>
+</main>

@@ -14,7 +14,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 ## Pool
 
 - The organizer pastes a **Scryfall query**. Every card in the results is in the pool.
-- **Arena-only validation:** the app runs `(q) -game:arena`. If that returns any cards, creation fails and lists the offending cards.
+- **Arena-only validation:** the app runs `(q) -in:arena`. If that returns any cards, creation fails and lists the offending cards. (Not `-game:arena`: `game:` matches printings, so it would also catch Arena cards that have a paper-only printing.)
 - **Snapshot:** a background job pages through `(q) game:arena unique:cards` (175/page, ≤2 req/s, progress bar) and stores per card:
   - name, `oracle_id`, Arena print `id`, set code, collector number
   - type line, colors, mana value

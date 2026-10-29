@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+
+.error {
+  color: #b3261e;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #5865f2;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ddd;
+
+  &.empty {
+    color: #666;
+  }
+}
+
+.name {
+  font-weight: 600;
+}
+
+.state {
+  padding: 0 0.4rem;
+  border-radius: 0.25rem;
+  background: #eef;
+  font-size: 0.875rem;
+}
+
+.detail {
+  flex-basis: 100%;
+  color: #666;
+  font-size: 0.875rem;
+}
