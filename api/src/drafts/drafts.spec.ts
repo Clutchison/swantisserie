@@ -1875,20 +1875,18 @@ describe('drafts', () => {
         .send({ oracleId: 'shock-oracle' })
         .expect(200);
 
-      expect(
-        (await enqueue(id, 'shock-oracle', bobCookie).expect(409)).body,
-      ).toEqual({
+      expect((await enqueue(id, 'shock-oracle').expect(409)).body).toEqual({
         error: 'already-picked',
         message: 'That card has already been picked.',
       });
       expect(
-        (await enqueue(id, 'shivan-dragon-oracle', bobCookie).expect(404)).body,
+        (await enqueue(id, 'shivan-dragon-oracle').expect(404)).body,
       ).toEqual({
         error: 'not-in-pool',
         message: 'That card isn’t in this pool.',
       });
-      await enqueue(id, '', bobCookie).expect(400);
-      await enqueue(id, 42, bobCookie).expect(400);
+      await enqueue(id, '').expect(400);
+      await enqueue(id, 42).expect(400);
     });
 
     function reorder(id: string, oracleIds: unknown, cookie = aliceCookie) {
@@ -2050,6 +2048,166 @@ describe('drafts', () => {
       });
     });
 
+    describe('on a player’s own turn', () => {
+      const cards = [
+        'Shock',
+        'Lightning Bolt',
+        'Lava Spike',
+        'Skewer the Critics',
+      ];
+      const yourTurn = {
+        error: 'your-turn',
+        message: 'You can’t add to your queue on your turn.',
+      };
+
+      function pick(id: string, oracleId: string, cookie = aliceCookie) {
+        return request(app.getHttpServer())
+          .post(`/api/drafts/${id}/picks`)
+          .set('Cookie', cookie)
+          .send({ oracleId });
+      }
+
+      function post(id: string, action: string) {
+        return request(app.getHttpServer())
+          .post(`/api/drafts/${id}/${action}`)
+          .set('Cookie', aliceCookie);
+      }
+
+      it('refuses an add from the player whose turn it is while drafting, but not from the others', async () => {
+        const bobCookie = await signIn(bob);
+        const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+        await start(id).expect(200);
+
+        expect((await enqueue(id, 'shock-oracle').expect(409)).body).toEqual(
+          yourTurn,
+        );
+
+        await enqueue(id, 'shock-oracle', bobCookie).expect(200);
+        expect((await queue(id).expect(200)).body.cards).toEqual([]);
+        expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
+          shock,
+        ]);
+      });
+
+      it('refuses an add from the player whose turn it is while paused, but not from the others', async () => {
+        const bobCookie = await signIn(bob);
+        const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+        await start(id).expect(200);
+        await post(id, 'pause').expect(200);
+
+        expect((await enqueue(id, 'shock-oracle').expect(409)).body).toEqual(
+          yourTurn,
+        );
+
+        await enqueue(id, 'shock-oracle', bobCookie).expect(200);
+      });
+
+      it('allows an add again once the turn has passed', async () => {
+        const bobCookie = await signIn(bob);
+        const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+        await start(id).expect(200);
+        await pick(id, 'shock-oracle').expect(200);
+
+        await enqueue(id, 'lava-spike-oracle').expect(200);
+        expect(
+          (await enqueue(id, 'lava-spike-oracle', bobCookie).expect(409)).body,
+        ).toEqual(yourTurn);
+      });
+
+      it('refuses the player on turn when the draft is closed or complete for that reason, not the turn', async () => {
+        const bobCookie = await signIn(bob);
+        const id = await readyDraft([aliceCookie, bobCookie]);
+        await start(id).expect(200);
+        await post(id, 'close').expect(200);
+
+        expect((await enqueue(id, 'shock-oracle').expect(409)).body.error).toBe(
+          'draft-closed',
+        );
+
+        await post(id, 'reopen').expect(200);
+        await pick(id, 'shock-oracle').expect(200);
+        await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+        expect(
+          (await enqueue(id, 'lava-spike-oracle').expect(409)).body.error,
+        ).toBe('draft-complete');
+      });
+
+      it('still lets the player on turn reorder and remove', async () => {
+        const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
+        for (const card of [shock, bolt, spike]) {
+          await enqueue(id, card.oracleId).expect(200);
+        }
+        await start(id).expect(200);
+        // Alice's turn came, so Shock was picked for her. Undoing it brings
+        // her turn back with the rest of her queue still waiting.
+        await request(app.getHttpServer())
+          .delete(`/api/drafts/${id}/picks/1`)
+          .set('Cookie', aliceCookie)
+          .expect(200);
+
+        const reordered = await reorder(id, [
+          'lava-spike-oracle',
+          'lightning-bolt-oracle',
+        ]).expect(200);
+        expect(reordered.body.cards).toEqual([spike, bolt]);
+
+        const removed = await remove(id, 'lava-spike-oracle').expect(200);
+        expect(removed.body.cards).toEqual([bolt]);
+      });
+
+      it('keeps a queued card after an undo, without picking it, and lets it be removed', async () => {
+        const bobCookie = await signIn(bob);
+        const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+        await enqueue(id, 'shock-oracle').expect(200);
+        await enqueue(id, 'lava-spike-oracle').expect(200);
+        await start(id).expect(200);
+
+        const undone = await request(app.getHttpServer())
+          .delete(`/api/drafts/${id}/picks/1`)
+          .set('Cookie', aliceCookie)
+          .expect(200);
+
+        expect(undone.body.turn).toEqual({
+          pick: 1,
+          round: 1,
+          playerId: alice.id,
+        });
+        expect((await queue(id).expect(200)).body.cards).toEqual([spike]);
+        const log = await request(app.getHttpServer())
+          .get(`/api/drafts/${id}/picks`)
+          .set('Cookie', aliceCookie)
+          .expect(200);
+        expect(log.body).toEqual([]);
+
+        const removed = await remove(id, 'lava-spike-oracle').expect(200);
+        expect(removed.body.cards).toEqual([]);
+      });
+
+      it('makes a player on the first of two turns in a row make the second by hand', async () => {
+        const bobCookie = await signIn(bob);
+        const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+        await start(id).expect(200);
+        await pick(id, 'shock-oracle').expect(200);
+
+        expect(
+          (
+            await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(
+              409,
+            )
+          ).body,
+        ).toEqual(yourTurn);
+
+        const first = await pick(id, 'lightning-bolt-oracle', bobCookie).expect(
+          200,
+        );
+        expect(first.body.turn).toEqual({
+          pick: 3,
+          round: 2,
+          playerId: bob.id,
+        });
+      });
+    });
+
     it('is 404 for a draft that does not exist', async () => {
       await queue('no-such-draft').expect(404);
       await enqueue('no-such-draft', 'shock-oracle').expect(404);
@@ -2170,12 +2328,12 @@ describe('drafts', () => {
         .expect(201);
       // The bot picks the first available card by name.
       vi.spyOn(Math, 'random').mockReturnValue(0);
-      await start(id).expect(200);
+      await enqueue(id, 'shock-oracle');
       await enqueue(id, 'skewer-the-critics-oracle');
 
-      const picked = await pick(id, 'shock-oracle').expect(200);
+      const started = await start(id).expect(200);
 
-      expect(picked.body.turn.pick).toBe(2);
+      expect(started.body.turn.pick).toBe(2);
       await vi.waitFor(async () => {
         expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
       });
@@ -2322,8 +2480,8 @@ describe('drafts', () => {
     it('returns the card to the queues it was lost from, to be picked on the next real pick', async () => {
       const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
       await start(id).expect(200);
-      await enqueue(id, 'skewer-the-critics-oracle');
       await pick(id, 'shock-oracle');
+      await enqueue(id, 'skewer-the-critics-oracle');
       await pick(id, 'skewer-the-critics-oracle', bobCookie);
 
       await undo(id, 2).expect(200);
@@ -2534,25 +2692,29 @@ describe('drafts', () => {
 
     it('makes the queued picks due on resume, cascading from whoever is up', async () => {
       const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-      await start(id).expect(200);
-      await pause(id).expect(200);
-      // Queued while paused: nothing is picked yet.
-      await enqueue(id, 'shock-oracle');
-      await enqueue(id, 'lightning-bolt-oracle', bobCookie);
       await enqueue(id, 'lava-spike-oracle', bobCookie);
-      expect(await pickLog(id)).toEqual([]);
+      await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
+      await enqueue(id, 'lightning-bolt-oracle', bobCookie);
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+      // Bob's cascade ran; undoing its last pick leaves his turn with a card waiting.
+      await request(app.getHttpServer())
+        .delete(`/api/drafts/${id}/picks/3`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      await pause(id).expect(200);
+      // Queued while paused, off turn: nothing is picked yet.
+      await enqueue(id, 'skewer-the-critics-oracle');
+      expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
 
       const resumed = await resume(id).expect(200);
 
-      expect(resumed.body.turn).toEqual({
-        pick: 4,
-        round: 2,
-        playerId: alice.id,
-      });
+      expect(resumed.body).toMatchObject({ state: 'Complete', turn: null });
       expect(await pickLog(id)).toEqual([
         'Alice: Shock',
-        'Bob: Lightning Bolt',
         'Bob: Lava Spike',
+        'Bob: Lightning Bolt',
+        'Alice: Skewer the Critics',
       ]);
     });
 
@@ -2600,18 +2762,24 @@ describe('drafts', () => {
         cards,
         webhook.body.id,
       );
-      await start(id).expect(200);
-      await pause(id).expect(200);
+      await enqueue(id, 'lava-spike-oracle');
       await enqueue(id, 'shock-oracle');
+      await start(id).expect(200);
+      // Lava Spike was picked for Alice; undoing it brings back her turn.
+      await request(app.getHttpServer())
+        .delete(`/api/drafts/${id}/picks/1`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      await pause(id).expect(200);
 
       await resume(id).expect(200);
 
       const messages = await vi.waitFor(() => {
-        expect(webhookClient.post).toHaveBeenCalledTimes(3);
+        expect(webhookClient.post).toHaveBeenCalledTimes(4);
         return webhookClient.post.mock.calls.map(([, message]) => message);
       });
       const link = `<https://roto.example/drafts/${id}>`;
-      expect(messages.slice(1)).toEqual([
+      expect(messages.slice(2)).toEqual([
         {
           content: `**Red** is paused\n${link}`,
           allowed_mentions: { parse: [], users: [] },
@@ -2801,9 +2969,15 @@ describe('drafts', () => {
 
     it('returns to Drafting even if it was paused, and cascades queued picks', async () => {
       const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-      await start(id).expect(200);
-      await post(id, 'pause').expect(200);
+      await enqueue(id, 'lava-spike-oracle').expect(200);
       await enqueue(id, 'shock-oracle').expect(200);
+      await start(id).expect(200);
+      // Lava Spike was picked for Alice; undoing it brings back her turn.
+      await request(app.getHttpServer())
+        .delete(`/api/drafts/${id}/picks/1`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      await post(id, 'pause').expect(200);
       await close(id).expect(200);
 
       const reopened = await reopen(id).expect(200);
@@ -2832,17 +3006,23 @@ describe('drafts', () => {
         cards,
         webhook.body.id,
       );
-      await start(id).expect(200);
+      await enqueue(id, 'lava-spike-oracle').expect(200);
       await enqueue(id, 'shock-oracle').expect(200);
+      await start(id).expect(200);
+      // Lava Spike was picked for Alice; undoing it brings back her turn.
+      await request(app.getHttpServer())
+        .delete(`/api/drafts/${id}/picks/1`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
       await close(id).expect(200);
       await reopen(id).expect(200);
 
       const messages = await vi.waitFor(() => {
-        expect(webhookClient.post).toHaveBeenCalledTimes(3);
+        expect(webhookClient.post).toHaveBeenCalledTimes(4);
         return webhookClient.post.mock.calls.map(([, message]) => message);
       });
       const link = `<https://roto.example/drafts/${id}>`;
-      expect(messages.slice(1)).toEqual([
+      expect(messages.slice(2)).toEqual([
         {
           content: `**Red** has been closed\n${link}`,
           allowed_mentions: { parse: [], users: [] },

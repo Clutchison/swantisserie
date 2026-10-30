@@ -17,6 +17,7 @@ import {
   linkedSignal,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
@@ -54,16 +55,19 @@ export class PoolTab {
   /** The oracle ids of the cards in the signed-in player's queue. */
   readonly queued = input<ReadonlySet<string>>(new Set());
   /**
-   * Whether the card detail offers Add to queue, or Remove from queue for a
-   * queued card: for players until the draft is complete.
+   * Whether the card detail offers Remove from queue for a queued card, or
+   * else Add to queue, except on the player's own turn: for players while the
+   * draft is active.
    */
   readonly offerQueue = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards. */
   readonly yourTurn = input(false);
+  /** The number of the pick whose turn it is, if any. */
+  readonly turnPick = input<number | null>(null);
   /** A pick was made: the draft as it now is. */
   readonly pickMade = output<DraftView>();
-  /** A pick was refused because the draft has changed; it should be reloaded. */
-  readonly pickRefused = output<void>();
+  /** A pick or a change to the queue was refused because the draft has changed; it should be re-read. */
+  readonly draftStale = output<void>();
   /** A card was added to or removed from the queue: the queue as it now is. */
   readonly queueChanged = output<QueueView>();
   /** Adding or removing a card failed, so the queue may have moved on unseen; it should be re-read. */
@@ -152,6 +156,13 @@ export class PoolTab {
 
   constructor() {
     effect(() => this.closeButton()?.nativeElement.focus());
+    // Only this note: a refusal must outlast the turn change its re-read reveals.
+    effect(() => {
+      this.turnPick();
+      untracked(() => {
+        if (this.queueNote() === ADDED_TO_QUEUE) this.queueNote.set(null);
+      });
+    });
     // Not in every test environment; the grid then lays out one column.
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
@@ -209,7 +220,7 @@ export class PoolTab {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         // The draft has moved on, e.g. another pick was made: show why, and catch up with it.
         this.pickError.set(err.error?.message ?? PICK_FAILED);
-        this.pickRefused.emit();
+        this.draftStale.emit();
       } else {
         this.pickError.set(PICK_FAILED);
       }
@@ -221,7 +232,7 @@ export class PoolTab {
   protected addToQueue(card: PoolCardView) {
     return this.changeQueue(
       this.queueApi.add(this.draftId(), card.oracleId),
-      'Added to your queue.',
+      ADDED_TO_QUEUE,
       "Couldn't add the card to your queue. Try again in a moment.",
     );
   }
@@ -236,7 +247,8 @@ export class PoolTab {
 
   /**
    * Sends a change to the queue, noting `done` once it's made. If it fails,
-   * notes why (`failure`, unless the API says) and has the queue re-read.
+   * notes why (`failure`, unless the API says) and has the queue re-read,
+   * and the draft too if it was refused: a stale page may not know whose turn it is.
    */
   private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
     this.queueing.set(true);
@@ -247,6 +259,7 @@ export class PoolTab {
     } catch (err) {
       this.queueNote.set(queueChangeFailure(err, failure));
       this.queueStale.emit();
+      if (err instanceof HttpErrorResponse && err.status === 409) this.draftStale.emit();
     } finally {
       this.queueing.set(false);
     }
@@ -269,6 +282,7 @@ const TILE_MIN_WIDTH = 144;
 const TILE_GAP = 8;
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
+const ADDED_TO_QUEUE = 'Added to your queue.';
 
 type ImageVersion = Exclude<keyof CardImages, 'small'>;
 
