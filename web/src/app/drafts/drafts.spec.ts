@@ -1113,6 +1113,42 @@ describe('drafts', () => {
         expect(queue.querySelector('button')).toBeNull();
         expect(queue.textContent).not.toContain('Drag to reorder');
       });
+
+      it('makes the queue read-only once complete, without promising a reopen', async () => {
+        const { page } = await openDraft(
+          complete,
+          { ...drafting, state: 'Complete', turn: null },
+          {
+            queue: {
+              cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
+              lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
+            },
+          },
+        );
+
+        const queue = page.querySelector('#queue-panel')!;
+        expect(queue.textContent).toContain('Shivan Dragon');
+        expect(queue.textContent).toContain('Lightning Bolt');
+        expect(queue.querySelector('button')).toBeNull();
+        expect(queue.textContent).not.toContain('Drag to reorder');
+        expect(queue.textContent).not.toContain('reopens');
+      });
+
+      it.each([
+        { state: 'Lobby', turn: null },
+        { state: 'Drafting', turn: drafting.turn },
+        { state: 'Paused', turn: drafting.turn },
+      ] as const)('keeps the queue controls in $state', async ({ state, turn }) => {
+        const { page } = await openDraft(
+          complete,
+          { ...drafting, state, turn },
+          { queue: { cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }], lost: [] } },
+        );
+
+        const queue = page.querySelector('#queue-panel')!;
+        expect(queue.querySelector('button[aria-label="Remove Shivan Dragon"]')).not.toBeNull();
+        expect(queue.textContent).toContain('Drag to reorder');
+      });
     });
 
     describe('pool tab', () => {

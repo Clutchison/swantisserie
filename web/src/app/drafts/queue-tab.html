@@ -19,9 +19,9 @@
     }
   </div>
 }
-@if (readOnly()) {
+@if (draftState() === 'Closed') {
   <p class="detail">Cards are picked for you in this order if the draft reopens.</p>
-} @else {
+} @else if (!readOnly()) {
   <p class="detail">Cards are picked for you in this order. Drag to reorder.</p>
 }
 <ol
