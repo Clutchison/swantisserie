@@ -1,6 +1,8 @@
 import {
   draftCompleteMessage,
   draftMessages,
+  draftPausedMessage,
+  draftResumedMessage,
   draftStartedMessage,
   picksMessage,
   undoneMessage,
@@ -270,6 +272,72 @@ describe('undoneMessage', () => {
       ]),
     ).toEqual([
       undoneMessage(draft, { number: 23, player: alice, card: 'Shock' }),
+    ]);
+  });
+});
+
+describe('draftPausedMessage', () => {
+  it('says the draft is paused, pinging no one', () => {
+    expect(draftPausedMessage(draft)).toEqual({
+      content: '**Red** is paused\n<https://roto.example/drafts/d1>',
+      allowed_mentions: { parse: [], users: [] },
+    });
+  });
+
+  it('is the one message for a pause', () => {
+    expect(draftMessages(draft, [{ type: 'paused' }])).toEqual([
+      draftPausedMessage(draft),
+    ]);
+  });
+});
+
+describe('draftResumedMessage', () => {
+  it('says the draft has resumed and pings whoever is up', () => {
+    expect(draftResumedMessage(draft, alice)).toEqual({
+      content:
+        '**Red** has resumed\n' +
+        '<@80351110224678912> you’re up\n' +
+        '<https://roto.example/drafts/d1>',
+      allowed_mentions: { parse: [], users: ['80351110224678912'] },
+    });
+  });
+
+  it('lists the cascade after the resume, pinging whoever is up after it', () => {
+    expect(
+      draftMessages(draft, [
+        { type: 'resumed', number: 5, player: alice },
+        {
+          type: 'picked',
+          number: 5,
+          player: alice,
+          card: 'Shock',
+          queued: true,
+          next: bob,
+        },
+      ]),
+    ).toEqual([
+      {
+        content:
+          '**Red** has resumed\n' +
+          '**Alice** picked **Shock** (pick 5, queued)\n' +
+          '<@80351110224678913> you’re up\n' +
+          '<https://roto.example/drafts/d1>',
+        allowed_mentions: { parse: [], users: ['80351110224678913'] },
+      },
+    ]);
+  });
+
+  it('names a bot that is up without pinging it', () => {
+    expect(
+      draftMessages(draft, [{ type: 'resumed', number: 2, player: bot }]),
+    ).toEqual([
+      {
+        content:
+          '**Red** has resumed\n' +
+          '**Bot 1** is up\n' +
+          '<https://roto.example/drafts/d1>',
+        allowed_mentions: { parse: [], users: [] },
+      },
     ]);
   });
 });

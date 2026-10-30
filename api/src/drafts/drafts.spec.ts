@@ -2094,10 +2094,10 @@ describe('drafts', () => {
       const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
       await start(id).expect(200);
       await pick(id, 'shock-oracle');
-      // Pausing has no endpoint yet.
-      await app
-        .get(PrismaService)
-        .draft.update({ where: { id }, data: { state: 'Paused' } });
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/pause`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
 
       const undone = await undo(id, 1).expect(200);
 
@@ -2158,6 +2158,177 @@ describe('drafts', () => {
 
       await undo(id, 'latest').expect(400);
       await undo('no-such-draft', 1).expect(404);
+    });
+  });
+
+  describe('pause and resume', () => {
+    const cards = [
+      'Shock',
+      'Lightning Bolt',
+      'Lava Spike',
+      'Skewer the Critics',
+    ];
+    let bobCookie: string;
+
+    beforeEach(async () => {
+      bobCookie = await signIn(bob);
+    });
+
+    function pick(id: string, oracleId: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', cookie)
+        .send({ oracleId });
+    }
+
+    function pause(id: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/pause`)
+        .set('Cookie', cookie);
+    }
+
+    function resume(id: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/resume`)
+        .set('Cookie', cookie);
+    }
+
+    function enqueue(id: string, oracleId: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/queue`)
+        .set('Cookie', cookie)
+        .send({ oracleId })
+        .expect(200);
+    }
+
+    /** The pick log as `Player: Card` lines. */
+    async function pickLog(id: string) {
+      const res = await request(app.getHttpServer())
+        .get(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
+      return (res.body as { playerId: string; name: string }[]).map(
+        (pick) => `${names[pick.playerId] ?? 'Bot'}: ${pick.name}`,
+      );
+    }
+
+    it('pauses the draft, refusing picks until it resumes', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      await start(id).expect(200);
+
+      const paused = await pause(id).expect(200);
+
+      expect(paused.body).toMatchObject({
+        state: 'Paused',
+        turn: { pick: 1, playerId: alice.id },
+      });
+      const refused = await pick(id, 'shock-oracle').expect(409);
+      expect(refused.body.error).toBe('not-drafting');
+      expect(await pickLog(id)).toEqual([]);
+
+      const resumed = await resume(id).expect(200);
+
+      expect(resumed.body).toMatchObject({
+        state: 'Drafting',
+        turn: { pick: 1, playerId: alice.id },
+      });
+      await pick(id, 'shock-oracle').expect(200);
+      expect(await pickLog(id)).toEqual(['Alice: Shock']);
+    });
+
+    it('makes the queued picks due on resume, cascading from whoever is up', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      await start(id).expect(200);
+      await pause(id).expect(200);
+      // Queued while paused: nothing is picked yet.
+      await enqueue(id, 'shock-oracle');
+      await enqueue(id, 'lightning-bolt-oracle', bobCookie);
+      await enqueue(id, 'lava-spike-oracle', bobCookie);
+      expect(await pickLog(id)).toEqual([]);
+
+      const resumed = await resume(id).expect(200);
+
+      expect(resumed.body.turn).toEqual({
+        pick: 4,
+        round: 2,
+        playerId: alice.id,
+      });
+      expect(await pickLog(id)).toEqual([
+        'Alice: Shock',
+        'Bob: Lightning Bolt',
+        'Bob: Lava Spike',
+      ]);
+    });
+
+    it('refuses to pause a draft that is not drafting, or resume one that is not paused', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+      expect((await pause(id).expect(409)).body.error).toBe('not-drafting');
+      expect((await resume(id).expect(409)).body.error).toBe('not-paused');
+      await start(id).expect(200);
+      expect((await resume(id).expect(409)).body.error).toBe('not-paused');
+      await pause(id).expect(200);
+      expect((await pause(id).expect(409)).body.error).toBe('not-drafting');
+      await resume(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+
+      const refused = await pause(id).expect(409);
+
+      expect(refused.body.error).toBe('not-drafting');
+    });
+
+    it('lets an app admin pause and resume, but not other players', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      await start(id).expect(200);
+      const carolCookie = await signIn(carol);
+
+      await pause(id, bobCookie).expect(403);
+      await pause(id, carolCookie).expect(200);
+      await resume(id, bobCookie).expect(403);
+      await resume(id, carolCookie).expect(200);
+      await pause('no-such-draft').expect(404);
+    });
+
+    it('announces a pause, and pings whoever is up on resume', async () => {
+      const webhook = await request(app.getHttpServer())
+        .post('/api/admin/webhooks')
+        .set('Cookie', await signIn(carol))
+        .send({
+          name: '#roto-main',
+          url: 'https://discord.com/api/webhooks/1234567890/secret-token',
+        })
+        .expect(201);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        2,
+        cards,
+        webhook.body.id,
+      );
+      await start(id).expect(200);
+      await pause(id).expect(200);
+      await enqueue(id, 'shock-oracle');
+
+      await resume(id).expect(200);
+
+      const messages = await vi.waitFor(() => {
+        expect(webhookClient.post).toHaveBeenCalledTimes(3);
+        return webhookClient.post.mock.calls.map(([, message]) => message);
+      });
+      const link = `<https://roto.example/drafts/${id}>`;
+      expect(messages.slice(1)).toEqual([
+        {
+          content: `**Red** is paused\n${link}`,
+          allowed_mentions: { parse: [], users: [] },
+        },
+        {
+          content:
+            '**Red** has resumed\n' +
+            '**Alice** picked **Shock** (pick 1, queued)\n' +
+            `<@${bob.id}> you’re up\n${link}`,
+          allowed_mentions: { parse: [], users: [bob.id] },
+        },
+      ]);
     });
   });
 
@@ -2486,20 +2657,33 @@ describe('drafts', () => {
       ]);
     });
 
-    it('does nothing when its timer fires once the draft is no longer Drafting', async () => {
+    it('does nothing when its timer fires while the draft is paused, and picks once it resumes', async () => {
       await app.close();
       app = await startApp(100);
       aliceCookie = await signIn(alice);
-      const { id } = await draftWithBots(1);
+      const { id, botIds } = await draftWithBots(1);
       await start(id).expect(200);
       await pick(id, 'shock-oracle').expect(200);
 
-      await app
-        .get(PrismaService)
-        .draft.update({ where: { id }, data: { state: 'Paused' } });
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/pause`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
       await settle(300);
 
       expect(await pickLog(id)).toHaveLength(1);
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/resume`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+
+      await vi.waitFor(async () => {
+        expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
+          alice.id,
+          botIds[0],
+        ]);
+      });
     });
 
     it('picks again when an undo gives it its turn back', async () => {
@@ -2676,6 +2860,30 @@ describe('drafts', () => {
             id,
             turn: { pick: 1, round: 1, playerId: alice.id },
           }),
+        ]),
+      );
+    });
+
+    it('pushes the draft to its viewers when it is paused and resumed', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      await start(id).expect(200);
+      const bobSees = await watch(id, bobCookie);
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/pause`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      await vi.waitFor(() => expect(bobSees).toHaveLength(1));
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/resume`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+
+      await vi.waitFor(() =>
+        expect(bobSees.map((draft) => draft.state)).toEqual([
+          'Paused',
+          'Drafting',
         ]),
       );
     });
