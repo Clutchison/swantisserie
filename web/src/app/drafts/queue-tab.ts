@@ -5,9 +5,17 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
-import type { QueueView } from './drafts';
+import { type DraftState, isActive, type QueueView } from './drafts';
 import { QueueApi, queueChangeFailure } from './queue-api';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
@@ -29,13 +37,15 @@ export class QueueTab {
   readonly queue = input.required<QueueView>();
   /** Whether the queue is still on its way, so `queue` says nothing yet. */
   readonly loading = input(false);
-  /** Whether the queue can only be looked at, as while the draft is closed. */
-  readonly readOnly = input(false);
+  /** The state of the draft this queue is in. */
+  readonly draftState = input.required<DraftState>();
   /** The queue as a change made it. */
   readonly queueChanged = output<QueueView>();
   /** A change failed, so the queue may have moved on unseen; it should be re-read. */
   readonly queueStale = output<void>();
 
+  /** While the draft is not active, the queue can only be looked at. */
+  protected readonly readOnly = computed(() => !isActive(this.draftState()));
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 

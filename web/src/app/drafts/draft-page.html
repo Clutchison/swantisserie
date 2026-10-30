@@ -355,7 +355,7 @@
           [draftId]="draft.id"
           [loading]="queueLoading()"
           [queue]="queue()"
-          [readOnly]="draft.state === 'Closed'"
+          [draftState]="draft.state"
           (queueChanged)="queueResource.set($event)"
           (queueStale)="queueResource.reload()"
         />
