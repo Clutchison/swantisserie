@@ -87,7 +87,7 @@
                       (click)="moveSeat(i, -1)"
                       [disabled]="first || changingLobby()"
                     >
-                      <span class="across">←</span><span class="down">↑</span>
+                      <span class="across">←</span><span class="stacked">↑</span>
                     </button>
                     <button
                       class="icon"
@@ -96,7 +96,7 @@
                       (click)="moveSeat(i, 1)"
                       [disabled]="last || changingLobby()"
                     >
-                      <span class="across">→</span><span class="down">↓</span>
+                      <span class="across">→</span><span class="stacked">↓</span>
                     </button>
                   </span>
                   @if (isAdmin() && player.isBot) {

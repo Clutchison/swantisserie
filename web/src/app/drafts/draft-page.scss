@@ -151,7 +151,7 @@ ol.picks {
     margin-left: auto;
   }
 
-  /* Each arrow has both directions, to show the way the seats run. */
+  /* Each arrow has a glyph for seats running across and for seats stacked, to show the way they run. */
   .across {
     display: none;
   }
@@ -262,7 +262,6 @@ main {
       grid-template-columns: auto auto minmax(0, 1fr) auto;
       /* A tall row's spare height stays on this line, keeping the row's buttons level. */
       grid-template-rows: 1fr;
-      gap: 0.5rem;
     }
 
     .seat-controls {
@@ -283,7 +282,7 @@ main {
       display: inline;
     }
 
-    .down {
+    .stacked {
       display: none;
     }
   }
