@@ -1,6 +1,3 @@
-@if (failed()) {
-  <p class="error">Couldn't load your queue. Try reloading the page.</p>
-}
 @if (queue().lost.length > 0) {
   <div class="lost" role="status">
     <p>

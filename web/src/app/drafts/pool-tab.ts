@@ -11,8 +11,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
+import { QueueApi, queueChangeFailure } from './queue-api';
 
 /** The draft view's Pool tab: a grid of the pool's cards, and a detail view of one. */
 @Component({
@@ -24,6 +25,7 @@ import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
 })
 export class PoolTab {
   private readonly http = inject(HttpClient);
+  private readonly queueApi = inject(QueueApi);
 
   /** A draft whose pool snapshot is complete. */
   readonly draftId = input.required<string>();
@@ -31,7 +33,12 @@ export class PoolTab {
   readonly picked = input<ReadonlySet<string>>(new Set());
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
   readonly offerPick = input(false);
-  /** Whether the card detail offers Add to queue: for players until the draft is complete. */
+  /** The oracle ids of the cards in the signed-in player's queue. */
+  readonly queued = input<ReadonlySet<string>>(new Set());
+  /**
+   * Whether the card detail offers Add to queue, or Remove from queue for a
+   * queued card: for players until the draft is complete.
+   */
   readonly offerQueue = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards. */
   readonly yourTurn = input(false);
@@ -39,6 +46,10 @@ export class PoolTab {
   readonly pickMade = output<DraftView>();
   /** A pick was refused because the draft has changed; it should be reloaded. */
   readonly pickRefused = output<void>();
+  /** A card was added to or removed from the queue: the queue as it now is. */
+  readonly queueChanged = output<QueueView>();
+  /** Adding or removing a card failed, so the queue may have moved on unseen; it should be re-read. */
+  readonly queueStale = output<void>();
 
   private readonly resource = httpResource<PoolCardView[]>(
     () => `/api/drafts/${this.draftId()}/pool`,
@@ -58,7 +69,7 @@ export class PoolTab {
   protected readonly picking = signal(false);
   protected readonly pickError = signal<string | null>(null);
   protected readonly queueing = signal(false);
-  /** What came of adding the card in the detail view to the queue. */
+  /** What came of adding the card in the detail view to the queue, or removing it. */
   protected readonly queueNote = signal<string | null>(null);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
 
@@ -116,21 +127,35 @@ export class PoolTab {
     }
   }
 
-  protected async addToQueue(card: PoolCardView) {
+  protected addToQueue(card: PoolCardView) {
+    return this.changeQueue(
+      this.queueApi.add(this.draftId(), card.oracleId),
+      'Added to your queue.',
+      "Couldn't add the card to your queue. Try again in a moment.",
+    );
+  }
+
+  protected removeFromQueue(card: PoolCardView) {
+    return this.changeQueue(
+      this.queueApi.remove(this.draftId(), card.oracleId),
+      'Removed from your queue.',
+      "Couldn't remove the card from your queue. Try again in a moment.",
+    );
+  }
+
+  /**
+   * Sends a change to the queue, noting `done` once it's made. If it fails,
+   * notes why (`failure`, unless the API says) and has the queue re-read.
+   */
+  private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
     this.queueing.set(true);
     this.queueNote.set(null);
     try {
-      await firstValueFrom(
-        this.http.post<QueueView>(`/api/drafts/${this.draftId()}/queue`, {
-          oracleId: card.oracleId,
-        }),
-      );
-      this.queueNote.set('Added to your queue.');
+      this.queueChanged.emit(await firstValueFrom(request));
+      this.queueNote.set(done);
     } catch (err) {
-      this.queueNote.set(
-        (err instanceof HttpErrorResponse && err.status === 409 && err.error?.message) ||
-          "Couldn't add the card to your queue. Try again in a moment.",
-      );
+      this.queueNote.set(queueChangeFailure(err, failure));
+      this.queueStale.emit();
     } finally {
       this.queueing.set(false);
     }

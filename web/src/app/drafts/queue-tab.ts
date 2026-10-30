@@ -5,19 +5,10 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  input,
-  signal,
-  untracked,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type { QueueView } from './drafts';
+import { QueueApi, queueChangeFailure } from './queue-api';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
@@ -30,35 +21,19 @@ const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
   styleUrls: ['./drafts.scss', './queue-tab.scss'],
 })
 export class QueueTab {
-  private readonly http = inject(HttpClient);
+  private readonly queueApi = inject(QueueApi);
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
-  /** The draft's version: the queue is re-read when it changes, as a pick may have lost a card. */
-  readonly version = input.required<number>();
+  /** The signed-in player's queue. */
+  readonly queue = input.required<QueueView>();
+  /** The queue as a change made it. */
+  readonly queueChanged = output<QueueView>();
+  /** A change failed, so the queue may have moved on unseen; it should be re-read. */
+  readonly queueStale = output<void>();
 
-  private readonly resource = httpResource<QueueView>(() => this.url());
-  protected readonly queue = computed<QueueView>(() =>
-    this.resource.hasValue() ? this.resource.value() : { cards: [], lost: [] },
-  );
-  protected readonly failed = computed(() => !!this.resource.error());
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
-
-  constructor() {
-    let shown: number | undefined;
-    effect(() => {
-      const version = this.version();
-      untracked(() => {
-        if (shown !== undefined && version !== shown) this.resource.reload();
-        shown = version;
-      });
-    });
-  }
-
-  private url() {
-    return `/api/drafts/${this.draftId()}/queue`;
-  }
 
   /** A card dragged to a new place in the queue. */
   protected dropped(event: CdkDragDrop<unknown>) {
@@ -70,21 +45,22 @@ export class QueueTab {
     if (from === to) return;
     const cards = [...this.queue().cards];
     moveItemInArray(cards, from, to);
-    this.resource.set({ ...this.queue(), cards });
+    this.queueChanged.emit({ ...this.queue(), cards });
     return this.change(
-      this.http.put<QueueView>(this.url(), { oracleIds: cards.map((card) => card.oracleId) }),
+      this.queueApi.reorder(
+        this.draftId(),
+        cards.map((card) => card.oracleId),
+      ),
     );
   }
 
   protected remove(oracleId: string) {
-    return this.change(
-      this.http.delete<QueueView>(`${this.url()}/${encodeURIComponent(oracleId)}`),
-    );
+    return this.change(this.queueApi.remove(this.draftId(), oracleId));
   }
 
   /** Forgets the cards lost to other players. */
   protected dismissLost() {
-    return this.change(this.http.delete<QueueView>(`${this.url()}/lost`));
+    return this.change(this.queueApi.dismissLost(this.draftId()));
   }
 
   /**
@@ -96,14 +72,10 @@ export class QueueTab {
     this.changing.set(true);
     this.error.set(null);
     try {
-      this.resource.set(await firstValueFrom(request));
+      this.queueChanged.emit(await firstValueFrom(request));
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
-        this.error.set(err.error?.message ?? CHANGE_FAILED);
-      } else {
-        this.error.set(CHANGE_FAILED);
-      }
-      this.resource.reload();
+      this.error.set(queueChangeFailure(err, CHANGE_FAILED));
+      this.queueStale.emit();
     } finally {
       this.changing.set(false);
     }

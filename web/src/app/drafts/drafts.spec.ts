@@ -6,13 +6,14 @@ import { Subject } from 'rxjs';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { DRAFT_POLL_MS } from './draft-page';
-import type {
-  DraftView,
-  PickView,
-  PoolCardView,
-  PoolSnapshotView,
-  QueueView,
-  WebhookView,
+import {
+  type DraftView,
+  EMPTY_QUEUE,
+  type PickView,
+  type PoolCardView,
+  type PoolSnapshotView,
+  type QueueView,
+  type WebhookView,
 } from './drafts';
 import { type DraftUpdate, DraftUpdates } from './draft-updates';
 
@@ -159,22 +160,37 @@ describe('drafts', () => {
     /**
      * Opens draft-1's page with the first GET answered by `pool`, its pool
      * cards by `cards` once the snapshot is complete, and its picks by
-     * `picks` once the draft has started, signed in as `user`.
+     * `picks` once the draft has started, and their queue by `queue` if
+     * they are a player, signed in as `user`.
      */
     async function openDraft(
       pool: PoolSnapshotView,
       fields: Partial<DraftView> = {},
-      cards: PoolCardView[] = [],
-      picks: PickView[] = [],
-      user = alice,
+      {
+        cards = [],
+        picks = [],
+        queue = EMPTY_QUEUE,
+        user = alice,
+      }: {
+        cards?: PoolCardView[];
+        picks?: PickView[];
+        queue?: QueueView;
+        user?: typeof alice;
+      } = {},
     ) {
       const { fixture, page } = await open('/drafts/draft-1', user);
       const opened = draft({ snapshot: pool, ...fields });
       http.expectOne('/api/drafts/draft-1').flush(opened);
       if (pool.state === 'Complete') await flushPool(cards);
       if (opened.state !== 'Lobby') await flushPicks(picks);
+      if (opened.players.some((player) => player.id === user.id)) await flushQueue(queue);
       await fixture.whenStable();
       return { fixture, page };
+    }
+
+    /** Answers the page's GET of the signed-in player's queue with `queue`. */
+    async function flushQueue(queue: QueueView) {
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queue);
     }
 
     /** Answers the page's GET of draft-1's pick log with `picks`. */
@@ -294,6 +310,7 @@ describe('drafts', () => {
         const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'));
         expect(req.request.method).toBe('POST');
         req.flush(draft({ players: [bob, alicePlayer] }), { status: 201, statusText: 'Created' });
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(section(page, 'Players').textContent).toContain('Alice');
@@ -440,10 +457,16 @@ describe('drafts', () => {
       });
 
       it('holds the start until the pool snapshot is complete', async () => {
-        const { fixture, page } = await openDraft(
-          { state: 'Running', cards: 175, total: 540 },
-          { players: [alicePlayer, bob] },
+        // Not openDraft: the snapshot's poll is due before the page settles.
+        const { fixture, page } = await open('/drafts/draft-1');
+        http.expectOne('/api/drafts/draft-1').flush(
+          draft({
+            snapshot: { state: 'Running', cards: 175, total: 540 },
+            players: [alicePlayer, bob],
+          }),
         );
+        await flushQueue(EMPTY_QUEUE);
+        TestBed.tick();
 
         expect(button(page, 'Start draft')?.disabled).toBe(true);
         expect(section(page, 'Players').textContent).toContain(
@@ -487,7 +510,7 @@ describe('drafts', () => {
         [...page.querySelectorAll('button')].find((b) => b.textContent?.includes('Undo'));
 
       it('lets the organizer undo the latest pick, handing the turn back', async () => {
-        const { fixture, page } = await openDraft(complete, drafting, [], picks);
+        const { fixture, page } = await openDraft(complete, drafting, { picks: picks });
         expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
 
         undoButton(page)!.click();
@@ -497,6 +520,7 @@ describe('drafts', () => {
           draft({ ...drafting, turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 }),
         );
         await flushPicks(picks.slice(0, 1));
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(page.textContent).toContain('Your turn: pick 2, round 1');
@@ -504,7 +528,7 @@ describe('drafts', () => {
       });
 
       it('says why an undo was refused, and catches up with the draft', async () => {
-        const { fixture, page } = await openDraft(complete, drafting, [], picks);
+        const { fixture, page } = await openDraft(complete, drafting, { picks: picks });
 
         undoButton(page)!.click();
         const message = 'Only the latest pick can be undone, and the picks have changed.';
@@ -519,6 +543,7 @@ describe('drafts', () => {
           ...picks,
           { pick: 3, playerId: alice.id, oracleId: 'spike-oracle', name: 'Lava Spike' },
         ]);
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
@@ -529,20 +554,17 @@ describe('drafts', () => {
         const { page } = await openDraft(
           complete,
           { ...drafting, organizer: { id: bob.id, name: bob.name } },
-          [],
-          picks,
+          { picks: picks },
         );
 
         expect(undoButton(page)).toBeUndefined();
       });
 
       it('offers no undo before the first pick', async () => {
-        const { page } = await openDraft(
-          complete,
-          { ...drafting, turn: { pick: 1, round: 1, playerId: bob.id } },
-          [],
-          [],
-        );
+        const { page } = await openDraft(complete, {
+          ...drafting,
+          turn: { pick: 1, round: 1, playerId: bob.id },
+        });
 
         expect(undoButton(page)).toBeUndefined();
       });
@@ -551,8 +573,7 @@ describe('drafts', () => {
         const { page } = await openDraft(
           complete,
           { ...drafting, state: 'Complete', turn: null },
-          [],
-          picks,
+          { picks: picks },
         );
 
         expect(undoButton(page)).toBeUndefined();
@@ -580,6 +601,7 @@ describe('drafts', () => {
         expect(req.request.method).toBe('POST');
         req.flush(draft({ ...paused, version: 1 }));
         await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(page.textContent).toContain('The draft is paused. No picks until it resumes.');
@@ -595,6 +617,7 @@ describe('drafts', () => {
         expect(req.request.method).toBe('POST');
         req.flush(draft({ ...drafting, version: 1 }));
         await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(page.textContent).not.toContain('The draft is paused');
@@ -614,6 +637,7 @@ describe('drafts', () => {
           draft({ ...paused, version: 1 }),
         );
         await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
@@ -641,6 +665,7 @@ describe('drafts', () => {
           draft: draft({ ...paused, organizer: { id: bob.id, name: bob.name }, version: 1 }),
         });
         await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(page.textContent).toContain('The draft is paused. No picks until it resumes.');
@@ -714,7 +739,7 @@ describe('drafts', () => {
       });
 
       it('shows the pool as a grid of lazily loaded normal images with name placeholders', async () => {
-        const { page } = await openDraft(complete, {}, [brightclimb, shivan]);
+        const { page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
 
         expect(tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent)).toEqual([
           'Brightclimb Pathway // Grimclimb Pathway',
@@ -730,7 +755,7 @@ describe('drafts', () => {
       });
 
       it('falls back to Scryfall’s API image when a grid image fails to load', async () => {
-        const { fixture, page } = await openDraft(complete, {}, [shivan]);
+        const { fixture, page } = await openDraft(complete, {}, { cards: [shivan] });
 
         const img = tiles(page)[0].querySelector('img')!;
         img.dispatchEvent(new Event('error'));
@@ -756,7 +781,7 @@ describe('drafts', () => {
         [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
 
       it('opens a card’s large image when it is tapped, and closes it again', async () => {
-        const { fixture, page } = await openDraft(complete, {}, [brightclimb, shivan]);
+        const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
 
         const detail = await openDetail(fixture, page, 1);
         expect(detail.getAttribute('aria-label')).toBe('Shivan Dragon');
@@ -769,7 +794,7 @@ describe('drafts', () => {
       });
 
       it('flips a double-faced card between its faces', async () => {
-        const { fixture, page } = await openDraft(complete, {}, [brightclimb, shivan]);
+        const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
 
         const detail = await openDetail(fixture, page, 0);
         const img = () => detail.querySelector('img')?.getAttribute('src');
@@ -800,7 +825,9 @@ describe('drafts', () => {
         };
 
         it('lets the player whose turn it is pick a card from its detail', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+          });
 
           const detail = await openDetail(fixture, page, 1);
           buttonIn(detail, 'Pick')!.click();
@@ -822,7 +849,7 @@ describe('drafts', () => {
           const { fixture, page } = await openDraft(
             complete,
             drafting({ turn: { pick: 1, round: 1, playerId: bob.id } }),
-            [shivan],
+            { cards: [shivan] },
           );
 
           const detail = await openDetail(fixture, page, 0);
@@ -835,8 +862,7 @@ describe('drafts', () => {
           const { fixture, page } = await openDraft(
             complete,
             drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
-            [brightclimb, shivan],
-            [{ ...shivanPick, playerId: bob.id }],
+            { cards: [brightclimb, shivan], picks: [{ ...shivanPick, playerId: bob.id }] },
           );
 
           expect(tiles(page)[1].textContent).toContain('Picked');
@@ -846,23 +872,25 @@ describe('drafts', () => {
         });
 
         it('offers no Pick to someone who is not a player', async () => {
-          const { fixture, page } = await openDraft(complete, drafting({ players: [bob] }), [
-            shivan,
-          ]);
+          const { fixture, page } = await openDraft(complete, drafting({ players: [bob] }), {
+            cards: [shivan],
+          });
 
           expect(buttonIn(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
         });
 
         it('offers no Pick before the draft starts', async () => {
-          const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] }, [
-            shivan,
-          ]);
+          const { fixture, page } = await openDraft(
+            complete,
+            { players: [alicePlayer, bob] },
+            { cards: [shivan] },
+          );
 
           expect(buttonIn(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
         });
 
         it('says why a pick was refused, and catches up with the draft', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [shivan]);
+          const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
 
           const detail = await openDetail(fixture, page, 0);
           buttonIn(detail, 'Pick')!.click();
@@ -896,20 +924,17 @@ describe('drafts', () => {
         });
         const queued = (card: PoolCardView) => ({ oracleId: card.oracleId, name: card.name });
 
-        /** Opens the Queue tab, answering its GET with `queue`, and returns its panel. */
-        async function openQueue(
-          fixture: { whenStable(): Promise<unknown> },
-          page: HTMLElement,
-          queue: QueueView,
-        ) {
+        /** Opens the Queue tab and returns its panel. */
+        async function openQueue(fixture: { whenStable(): Promise<unknown> }, page: HTMLElement) {
           tabButton(page, 'Queue').click();
-          (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queue);
           await fixture.whenStable();
           return panel(page);
         }
 
         it('adds a card to your queue from its detail, and lists it on the Queue tab', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+          });
 
           const detail = await openDetail(fixture, page, 1);
           buttonIn(detail, 'Add to queue')!.click();
@@ -919,24 +944,167 @@ describe('drafts', () => {
           req.flush({ cards: [queued(shivan)], lost: [] });
           await fixture.whenStable();
           expect(detail.textContent).toContain('Added to your queue.');
+          expect(buttonIn(detail, 'Add to queue')).toBeUndefined();
+          expect(buttonIn(detail, 'Remove from queue')).toBeDefined();
 
-          const queue = await openQueue(fixture, page, { cards: [queued(shivan)], lost: [] });
+          const queue = await openQueue(fixture, page);
           expect(queue.querySelector('h2')?.textContent).toContain('Queue');
           expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent)).toEqual([
             'Shivan Dragon',
           ]);
         });
 
+        it('offers to remove a queued card from its detail', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: {
+              cards: [queued(shivan)],
+              lost: [],
+            },
+          });
+
+          expect(buttonIn(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
+          buttonIn(page.querySelector('[role="dialog"]')!, 'Close')!.click();
+          await fixture.whenStable();
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
         /** The names in the Queue tab's list, in order. */
         const names = (queue: HTMLElement) =>
           [...queue.querySelectorAll('li .name')].map((name) => name.textContent);
 
-        it('removes a card from the Queue tab', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(shivan), queued(brightclimb)],
-            lost: [],
+        it('removes a queued card from its detail, then offers to add it again', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: { cards: [queued(shivan), queued(brightclimb)], lost: [] },
           });
+
+          const detail = await openDetail(fixture, page, 1);
+          buttonIn(detail, 'Remove from queue')!.click();
+          const req = http.expectOne('/api/drafts/draft-1/queue/shivan-oracle');
+          expect(req.request.method).toBe('DELETE');
+          req.flush({ cards: [queued(brightclimb)], lost: [] });
+          await fixture.whenStable();
+
+          expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+            'Removed from your queue.',
+          );
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+          expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          expect(names(await openQueue(fixture, page))).toEqual([
+            'Brightclimb Pathway // Grimclimb Pathway',
+          ]);
+        });
+
+        it('says when a card could not be removed from your queue, and re-reads it', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [shivan],
+            queue: {
+              cards: [queued(shivan)],
+              lost: [],
+            },
+          });
+
+          const detail = await openDetail(fixture, page, 0);
+          buttonIn(detail, 'Remove from queue')!.click();
+          http
+            .expectOne('/api/drafts/draft-1/queue/shivan-oracle')
+            .flush(null, { status: 500, statusText: 'Server Error' });
+          // The queue is re-read, as it may have moved on.
+          await flushQueue({ cards: [queued(shivan)], lost: [] });
+          await fixture.whenStable();
+
+          expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+            "Couldn't remove the card from your queue.",
+          );
+          expect(buttonIn(detail, 'Remove from queue')).toBeDefined();
+        });
+
+        it('offers only a disabled Add to queue for a picked card, even one still queued', async () => {
+          // Picked since the queue was read: it isn't lost from it yet.
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+            {
+              cards: [shivan],
+              picks: [
+                { pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' },
+              ],
+              queue: { cards: [queued(shivan)], lost: [] },
+            },
+          );
+
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')!.disabled).toBe(true);
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
+        it('offers only a disabled Add to queue for a card lost from the queue', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+            {
+              cards: [shivan],
+              picks: [
+                { pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' },
+              ],
+              queue: { cards: [], lost: [queued(shivan)] },
+            },
+          );
+
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')!.disabled).toBe(true);
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
+        it('says on the Pool tab when your queue could not be loaded', async () => {
+          const { fixture, page } = await open('/drafts/draft-1');
+          http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
+          await flushPool([shivan]);
+          await flushPicks([]);
+          (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(null, {
+            status: 500,
+            statusText: 'Server Error',
+          });
+          await fixture.whenStable();
+
+          expect(panel(page).querySelector('.error')?.textContent).toContain(
+            "Couldn't load your queue.",
+          );
+        });
+
+        it('offers to add a card again once it is removed on the Queue tab', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [shivan],
+            queue: {
+              cards: [queued(shivan)],
+              lost: [],
+            },
+          });
+
+          const queue = await openQueue(fixture, page);
+          queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
+          http.expectOne('/api/drafts/draft-1/queue/shivan-oracle').flush(EMPTY_QUEUE);
+          await fixture.whenStable();
+          tabButton(page, 'Pool').click();
+          await fixture.whenStable();
+
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
+        it('removes a card from the Queue tab', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: {
+              cards: [queued(shivan), queued(brightclimb)],
+              lost: [],
+            },
+          });
+          const queue = await openQueue(fixture, page);
 
           queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
           const req = http.expectOne('/api/drafts/draft-1/queue/shivan-oracle');
@@ -948,11 +1116,14 @@ describe('drafts', () => {
         });
 
         it('moves a card up or down the queue, saving the new order', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(shivan), queued(brightclimb)],
-            lost: [],
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: {
+              cards: [queued(shivan), queued(brightclimb)],
+              lost: [],
+            },
           });
+          const queue = await openQueue(fixture, page);
           expect(
             queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon up"]')!
               .disabled,
@@ -978,11 +1149,14 @@ describe('drafts', () => {
         });
 
         it('notes cards lost to other players, until dismissed', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(brightclimb)],
-            lost: [queued(shivan)],
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: {
+              cards: [queued(brightclimb)],
+              lost: [queued(shivan)],
+            },
           });
+          const queue = await openQueue(fixture, page);
 
           const note = queue.querySelector<HTMLElement>('.lost')!;
           expect(note.textContent).toContain('Lost to other players');
@@ -999,8 +1173,11 @@ describe('drafts', () => {
         });
 
         it('re-reads the queue when the draft changes, so a lost card shows', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, { cards: [queued(shivan)], lost: [] });
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: { cards: [queued(shivan)], lost: [] },
+          });
+          const queue = await openQueue(fixture, page);
 
           updates.events.next({
             type: 'changed',
@@ -1017,9 +1194,9 @@ describe('drafts', () => {
         });
 
         it('offers Add to queue and the Queue tab only to players', async () => {
-          const { fixture, page } = await openDraft(complete, drafting({ players: [bob] }), [
-            shivan,
-          ]);
+          const { fixture, page } = await openDraft(complete, drafting({ players: [bob] }), {
+            cards: [shivan],
+          });
 
           expect(buttonIn(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
           expect(tabButton(page, 'Queue').disabled).toBe(true);
@@ -1029,18 +1206,21 @@ describe('drafts', () => {
           const { fixture, page } = await openDraft(
             complete,
             drafting({ state: 'Complete', turn: null }),
-            [shivan],
+            { cards: [shivan] },
           );
 
           expect(buttonIn(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
         });
 
         it('says why a new order was refused, and re-reads the queue', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(shivan), queued(brightclimb)],
-            lost: [],
+          const { fixture, page } = await openDraft(complete, drafting(), {
+            cards: [brightclimb, shivan],
+            queue: {
+              cards: [queued(shivan), queued(brightclimb)],
+              lost: [],
+            },
           });
+          const queue = await openQueue(fixture, page);
 
           queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
           http
@@ -1063,7 +1243,7 @@ describe('drafts', () => {
       });
 
       it('falls back to Scryfall’s API image of the face shown when a detail image fails to load', async () => {
-        const { fixture, page } = await openDraft(complete, {}, [brightclimb]);
+        const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb] });
 
         const detail = await openDetail(fixture, page, 0);
         buttonIn(detail, 'Flip')!.click();
@@ -1093,8 +1273,7 @@ describe('drafts', () => {
             players: [bob, alicePlayer],
             turn: { pick: 4, round: 2, playerId: bob.id },
           },
-          [],
-          picks,
+          { picks: picks },
         );
         tabButton(opened.page, 'Board').click();
         await opened.fixture.whenStable();
@@ -1195,8 +1374,7 @@ describe('drafts', () => {
           const { fixture, page } = await openDraft(
             complete,
             { state: 'Complete', players: [bob, alicePlayer], turn: null },
-            [],
-            picks,
+            { picks: picks },
           );
 
           expect(page.querySelector('.state')?.textContent).toBe('Complete');
@@ -1249,11 +1427,12 @@ describe('drafts', () => {
             players: [bot, alicePlayer],
             turn: { pick: 3, round: 2, playerId: bot.id },
           },
-          [],
-          [
-            { pick: 1, playerId: bot.id, oracleId: 'shock-oracle', name: 'Shock' },
-            { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
-          ],
+          {
+            picks: [
+              { pick: 1, playerId: bot.id, oracleId: 'shock-oracle', name: 'Shock' },
+              { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
+            ],
+          },
         );
 
         const seats = section(page, 'Players').querySelectorAll('li');
@@ -1277,9 +1456,7 @@ describe('drafts', () => {
         const { fixture, page } = await openDraft(
           complete,
           { players: [alicePlayer] },
-          [],
-          [],
-          admin,
+          { user: admin },
         );
 
         button(page, 'Add bot')!.click();
@@ -1304,7 +1481,7 @@ describe('drafts', () => {
           id: `bot:${i}`,
           name: `Bot ${i + 1}`,
         }));
-        const { page } = await openDraft(complete, { players: bots }, [], [], admin);
+        const { page } = await openDraft(complete, { players: bots }, { user: admin });
 
         expect(button(page, 'Add bot')?.disabled).toBe(true);
       });
@@ -1324,9 +1501,7 @@ describe('drafts', () => {
             players: [alicePlayer, bot],
             turn: { pick: 1, round: 1, playerId: alice.id },
           },
-          [],
-          [],
-          admin,
+          { user: admin },
         );
 
         expect(button(page, 'Add bot')).toBeUndefined();
@@ -1368,7 +1543,7 @@ describe('drafts', () => {
       });
 
       it('shows another player’s pick on the Pool, Board and Me tabs, and the turn passing', async () => {
-        const { fixture, page } = await openDraft(complete, drafting(), [shivan]);
+        const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
         expect(page.textContent).toContain('Your turn: pick 1, round 1');
 
         updates.events.next({
@@ -1405,8 +1580,7 @@ describe('drafts', () => {
         const { fixture, page } = await openDraft(
           complete,
           drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 5 }),
-          [shivan],
-          [shivanPick],
+          { cards: [shivan], picks: [shivanPick] },
         );
 
         updates.events.next({ type: 'changed', draft: drafting({ version: 4 }) });
@@ -1427,7 +1601,7 @@ describe('drafts', () => {
       });
 
       it('catches up with the draft and its picks when it reconnects', async () => {
-        const { fixture, page } = await openDraft(complete, drafting(), [shivan]);
+        const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
 
         updates.events.next({ type: 'connected' });
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
