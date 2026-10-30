@@ -28,8 +28,8 @@ export interface WebhookMessage {
 
 /**
  * One message per announcement `events` make: a run of picks, such as a
- * pick and the cascade after it, is one message, and so is a start and the
- * cascade after it.
+ * pick and the cascade after it, is one message, and so is a start or a
+ * resume and the cascade after it.
  */
 export function draftMessages(
   draft: AnnouncedDraft,
@@ -56,6 +56,12 @@ export function draftMessages(
         break;
       case 'undone':
         messages.push(undoneMessage(draft, event));
+        break;
+      case 'paused':
+        messages.push(draftPausedMessage(draft));
+        break;
+      case 'resumed':
+        messages.push(draftResumedMessage(draft, event.player, picks));
         break;
       case 'completed':
         messages.push(draftCompleteMessage(draft));
@@ -90,6 +96,26 @@ export function draftCompleteMessage(draft: AnnouncedDraft): WebhookMessage {
     [`${bold(draft.name)} is complete. See everyone’s picks:`],
     draft,
     null,
+  );
+}
+
+export function draftPausedMessage(draft: AnnouncedDraft): WebhookMessage {
+  return announcement([`${bold(draft.name)} is paused`], draft, null);
+}
+
+/**
+ * `up` is whose turn it is on resuming, unless `picks` were made from
+ * queues straight after the resume.
+ */
+export function draftResumedMessage(
+  draft: AnnouncedDraft,
+  up: AnnouncedPlayer,
+  picks: AnnouncedPick[] = [],
+): WebhookMessage {
+  return announcement(
+    [`${bold(draft.name)} has resumed`, ...picks.map(pickLine)],
+    draft,
+    picks.length > 0 ? picks[picks.length - 1].next : up,
   );
 }
 

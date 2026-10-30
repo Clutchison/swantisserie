@@ -21,12 +21,25 @@
           }
         </p>
       }
+      @if (draft.state === 'Paused') {
+        <p class="paused" role="status">The draft is paused. No picks until it resumes.</p>
+      }
+      @if (offerPause()) {
+        <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
+          Pause draft
+        </button>
+      }
+      @if (offerResume()) {
+        <button class="button" type="button" (click)="resume()" [disabled]="sending()">
+          Resume draft
+        </button>
+      }
       @if (undoable(); as pick) {
-        <button class="button secondary" type="button" (click)="undo(pick)" [disabled]="undoing()">
+        <button class="button secondary" type="button" (click)="undo(pick)" [disabled]="sending()">
           Undo pick {{ pick.pick }} ({{ pick.name }})
         </button>
       }
-      @if (undoError(); as message) {
+      @if (sendError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
       <ol>

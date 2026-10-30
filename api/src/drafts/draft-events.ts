@@ -33,4 +33,12 @@ export type DraftEvent =
       player: EventPlayer;
       card: string;
     }
+  | { type: 'paused' }
+  | {
+      type: 'resumed';
+      /** The pick to be made next. */
+      number: number;
+      /** Whose turn it is. */
+      player: EventPlayer;
+    }
   | { type: 'completed' };

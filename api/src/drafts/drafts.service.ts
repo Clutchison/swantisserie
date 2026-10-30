@@ -147,6 +147,18 @@ export class UndoRefusedError extends Error {
   }
 }
 
+/** Why the organizer can't pause or resume the draft; sent to them as is. */
+export interface PauseRefusal {
+  error: 'not-drafting' | 'not-paused';
+  message: string;
+}
+
+export class PauseRefusedError extends Error {
+  constructor(readonly refusal: PauseRefusal) {
+    super(refusal.message);
+  }
+}
+
 const PICK_LOG = {
   orderBy: { number: 'asc' },
   select: {
@@ -640,6 +652,63 @@ export class DraftsService {
           player: toEventPlayer(latest.player),
           card: latest.poolCard.name,
         },
+      ];
+    });
+  }
+
+  /**
+   * Moves the draft from Drafting to Paused, so no picks, manual, queued or
+   * a bot's, can be made. Throws PauseRefusedError if it isn't Drafting.
+   */
+  async pause(draftId: string): Promise<DraftEvent[]> {
+    return this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Drafting') {
+        throw new PauseRefusedError({
+          error: 'not-drafting',
+          message: 'Only a drafting draft can be paused.',
+        });
+      }
+      await tx.draft.update({
+        where: { id: draftId },
+        data: { state: 'Paused' },
+      });
+      return [{ type: 'paused' }];
+    });
+  }
+
+  /**
+   * Moves the draft from Paused back to Drafting, and picks the cascade
+   * from its current turn. Throws PauseRefusedError if it isn't Paused.
+   */
+  async resume(draftId: string): Promise<DraftEvent[]> {
+    return this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Paused') {
+        throw new PauseRefusedError({
+          error: 'not-paused',
+          message: 'Only a paused draft can be resumed.',
+        });
+      }
+      await tx.draft.update({
+        where: { id: draftId },
+        data: { state: 'Drafting' },
+      });
+      // Paused, so not complete: there is a turn.
+      const players = await tx.player.findMany({
+        where: { draftId },
+        orderBy: SEAT_ORDER,
+        select: EVENT_PLAYER,
+      });
+      const turn = currentTurn(
+        { players: players.length, picksPerPlayer: draft.picksPerPlayer },
+        await tx.pick.count({ where: { draftId } }),
+      )!;
+      return [
+        {
+          type: 'resumed',
+          number: turn.pick,
+          player: toEventPlayer(players[turn.seat]),
+        },
+        ...(await this.cascade(tx, draftId, draft)),
       ];
     });
   }

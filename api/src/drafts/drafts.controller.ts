@@ -29,6 +29,7 @@ import {
   type DraftWithOrganizer,
   type LoggedPick,
   type NewDraft,
+  PauseRefusedError,
   PickRefusedError,
   PlayersChangedError,
   PoolQueryError,
@@ -132,6 +133,28 @@ export class DraftsController {
     const pickNumber = parsePickNumber(number);
     await this.findAsOrganizer(user, id);
     return this.change(id, () => this.drafts.undo(id, pickNumber));
+  }
+
+  /** Pauses the draft, so no picks can be made; for the organizer. */
+  @Post(':id/pause')
+  @HttpCode(200)
+  async pause(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.pause(id));
+  }
+
+  /** Resumes a paused draft, making any queued picks due; for the organizer. */
+  @Post(':id/resume')
+  @HttpCode(200)
+  async resume(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.resume(id));
   }
 
   /** Starts the pool snapshot over; for the organizer, after a failure. */
@@ -244,7 +267,7 @@ export class DraftsController {
         }
         throw new ConflictException(err.refusal);
       }
-      if (err instanceof UndoRefusedError) {
+      if (err instanceof UndoRefusedError || err instanceof PauseRefusedError) {
         throw new ConflictException(err.refusal);
       }
       if (err instanceof PlayersChangedError) {

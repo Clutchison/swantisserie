@@ -106,8 +106,16 @@ export class DraftPage {
     if (!this.canOrganize() || (state !== 'Drafting' && state !== 'Paused')) return null;
     return this.picks().at(-1) ?? null;
   });
-  protected readonly undoing = signal(false);
-  protected readonly undoError = signal<string | null>(null);
+  /** The organizer may pause a drafting draft and resume a paused one. */
+  protected readonly offerPause = computed(
+    () => this.canOrganize() && this.draft()?.state === 'Drafting',
+  );
+  protected readonly offerResume = computed(
+    () => this.canOrganize() && this.draft()?.state === 'Paused',
+  );
+  /** An undo, pause or resume is being sent. */
+  protected readonly sending = signal(false);
+  protected readonly sendError = signal<string | null>(null);
 
   /** Each player, in seat order, with their picks in pick order. */
   protected readonly board = computed(() =>
@@ -211,26 +219,46 @@ export class DraftPage {
   }
 
   /** Undoes `pick`, the latest; refused if the picks have moved on meanwhile. */
-  protected async undo(pick: PickView) {
-    const failure = "Couldn't undo the pick. Try again in a moment.";
-    this.undoing.set(true);
-    this.undoError.set(null);
+  protected undo(pick: PickView) {
+    return this.send(
+      this.http.delete<DraftView>(`/api/drafts/${this.id()}/picks/${pick.pick}`),
+      "Couldn't undo the pick. Try again in a moment.",
+    );
+  }
+
+  protected pause() {
+    return this.send(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/pause`, null),
+      "Couldn't pause the draft. Try again in a moment.",
+    );
+  }
+
+  protected resume() {
+    return this.send(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/resume`, null),
+      "Couldn't resume the draft. Try again in a moment.",
+    );
+  }
+
+  /**
+   * Sends an organizer's change to a started draft and shows the draft it
+   * answers with; `failure` is shown if it fails.
+   */
+  private async send(request: Observable<DraftView>, failure: string) {
+    this.sending.set(true);
+    this.sendError.set(null);
     try {
-      this.showDraft(
-        await firstValueFrom(
-          this.http.delete<DraftView>(`/api/drafts/${this.id()}/picks/${pick.pick}`),
-        ),
-      );
+      this.showDraft(await firstValueFrom(request));
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         // The draft has moved on: show why, and catch up with it.
-        this.undoError.set(err.error?.message ?? failure);
+        this.sendError.set(err.error?.message ?? failure);
         this.catchUp();
       } else {
-        this.undoError.set(failure);
+        this.sendError.set(failure);
       }
     } finally {
-      this.undoing.set(false);
+      this.sending.set(false);
     }
   }
 
