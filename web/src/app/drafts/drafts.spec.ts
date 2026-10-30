@@ -675,6 +675,19 @@ describe('drafts', () => {
     describe('pool tab', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 2, total: 2 };
 
+      // jsdom lays nothing out, so the window is 0px tall and the grid, which
+      // only renders the rows on screen, would render just a few. Give it a
+      // phone-sized screen instead.
+      beforeEach(() => {
+        Object.defineProperty(document.documentElement, 'clientHeight', {
+          configurable: true,
+          value: 800,
+        });
+      });
+      afterEach(() => {
+        delete (document.documentElement as { clientHeight?: number }).clientHeight;
+      });
+
       /** Scryfall's image URL for one face of a printing. */
       const image = (version: string, id: string, face = 'front') =>
         `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
@@ -819,6 +832,101 @@ describe('drafts', () => {
         buttonIn(detail, 'Flip')!.click();
         await fixture.whenStable();
         expect(img()).toBe(image('large', 'brightclimb-id', 'front'));
+      });
+
+      describe('search and hide picked', () => {
+        const names = (page: HTMLElement) =>
+          tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent);
+
+        /** Types `text` into the Pool tab's search box, as a keystroke would. */
+        async function search(
+          fixture: { whenStable(): Promise<unknown> },
+          page: HTMLElement,
+          text: string,
+        ) {
+          const box = page.querySelector<HTMLInputElement>('input[type="search"]')!;
+          box.value = text;
+          box.dispatchEvent(new Event('input'));
+          await fixture.whenStable();
+        }
+
+        it('narrows the grid to the cards matching the search as you type', async () => {
+          const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+
+          await search(fixture, page, 't:dragon');
+          expect(names(page)).toEqual(['Shivan Dragon']);
+
+          await search(fixture, page, 't:land');
+          expect(names(page)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
+        });
+
+        it('says why a search is bad, and keeps the grid as it was until it is fixed', async () => {
+          const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+          const note = () => page.querySelector('[role="tabpanel"] .search-error')?.textContent;
+
+          await search(fixture, page, 't:dragon');
+          await search(fixture, page, 't:dragon (');
+          expect(note()).toContain('The search ends too soon.');
+          expect(names(page)).toEqual(['Shivan Dragon']);
+
+          await search(fixture, page, 't:dragon usd<1');
+          expect(note()).toContain('usd< isn’t supported here.');
+          expect(names(page)).toEqual(['Shivan Dragon']);
+
+          await search(fixture, page, 't:land');
+          expect(note()).toBe('');
+          expect(names(page)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
+        });
+
+        it('shows the whole pool when the search is emptied', async () => {
+          const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+
+          await search(fixture, page, 't:dragon');
+          await search(fixture, page, '  ');
+
+          expect(names(page)).toEqual([
+            'Brightclimb Pathway // Grimclimb Pathway',
+            'Shivan Dragon',
+          ]);
+        });
+
+        it('hides picked cards when asked, together with the search', async () => {
+          const thundermaw = card({
+            scryfallId: 'thundermaw-id',
+            oracleId: 'thundermaw-oracle',
+            name: 'Thundermaw Hellkite',
+          });
+          const { fixture, page } = await openDraft(
+            complete,
+            { state: 'Drafting', players: [bob], turn: { pick: 2, round: 1, playerId: bob.id } },
+            {
+              cards: [brightclimb, shivan, thundermaw],
+              picks: [
+                { pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' },
+              ],
+            },
+          );
+          const hidePicked = page.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+          expect(hidePicked.closest('label')?.textContent).toContain('Hide picked');
+
+          await search(fixture, page, 't:dragon');
+          expect(names(page)).toEqual(['Shivan Dragon', 'Thundermaw Hellkite']);
+          expect(tiles(page)[0].textContent).toContain('Picked');
+
+          hidePicked.click();
+          await fixture.whenStable();
+          expect(names(page)).toEqual(['Thundermaw Hellkite']);
+
+          await search(fixture, page, '');
+          expect(names(page)).toEqual([
+            'Brightclimb Pathway // Grimclimb Pathway',
+            'Thundermaw Hellkite',
+          ]);
+
+          hidePicked.click();
+          await fixture.whenStable();
+          expect(names(page)).toHaveLength(3);
+        });
       });
 
       describe('picking', () => {

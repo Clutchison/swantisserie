@@ -1,31 +1,75 @@
 @if (failed()) {
   <p class="error">Couldn't load the pool's cards. Try reloading the page.</p>
 }
-<ul class="grid">
-  @for (card of cards(); track card.oracleId) {
-    <li>
-      <button
-        type="button"
-        class="tile"
-        [class.picked]="picked().has(card.oracleId)"
-        (click)="open(card)"
-      >
-        <span class="placeholder">{{ card.name }}</span>
-        <img
-          [src]="image(card, 'normal')"
-          [alt]="card.name"
-          loading="lazy"
-          width="488"
-          height="680"
-          (error)="imageFailed(card, 'normal')"
-        />
-        @if (picked().has(card.oracleId)) {
-          <span class="badge">Picked</span>
-        }
-      </button>
-    </li>
-  }
-</ul>
+<div class="search-bar">
+  <input
+    #searchBox
+    type="search"
+    class="search"
+    aria-label="Search the pool"
+    placeholder="Search, e.g. t:dragon c:r"
+    autocapitalize="off"
+    autocomplete="off"
+    spellcheck="false"
+    aria-describedby="pool-search-error"
+    [attr.aria-invalid]="!!searchError()"
+    [value]="search()"
+    (input)="search.set(searchBox.value)"
+  />
+  <label class="hide-picked">
+    <input
+      #hidePickedBox
+      type="checkbox"
+      [checked]="hidePicked()"
+      (change)="hidePicked.set(hidePickedBox.checked)"
+    />
+    Hide picked
+  </label>
+</div>
+<!-- Always there, so screen readers announce a message as it appears. -->
+<p id="pool-search-error" class="search-error error" role="status">{{ searchError() }}</p>
+<!-- One list of the cards shown, though it's laid out a row at a time. -->
+<cdk-virtual-scroll-viewport
+  scrollWindow
+  class="grid"
+  role="list"
+  [itemSize]="rowHeight()"
+  [minBufferPx]="rowHeight() * 2"
+  [maxBufferPx]="rowHeight() * 4"
+>
+  <div
+    *cdkVirtualFor="let row of rows(); trackBy: trackRow"
+    class="row"
+    [style.grid-template-columns]="'repeat(' + columns() + ', 1fr)'"
+    [style.gap.px]="tileGap"
+    [style.padding-bottom.px]="tileGap"
+    [style.height.px]="rowHeight()"
+  >
+    @for (card of row; track card.oracleId) {
+      <div class="cell" role="listitem">
+        <button
+          type="button"
+          class="tile"
+          [class.picked]="picked().has(card.oracleId)"
+          (click)="open(card)"
+        >
+          <span class="placeholder">{{ card.name }}</span>
+          <img
+            [src]="image(card, 'normal')"
+            [alt]="card.name"
+            loading="lazy"
+            width="488"
+            height="680"
+            (error)="imageFailed(card, 'normal')"
+          />
+          @if (picked().has(card.oracleId)) {
+            <span class="badge">Picked</span>
+          }
+        </button>
+      </div>
+    }
+  </div>
+</cdk-virtual-scroll-viewport>
 
 @if (detail(); as card) {
   <div class="backdrop" (click)="close()">

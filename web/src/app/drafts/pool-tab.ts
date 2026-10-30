@@ -1,23 +1,41 @@
+import {
+  CdkFixedSizeVirtualScroll,
+  CdkVirtualForOf,
+  CdkVirtualScrollableWindow,
+  CdkVirtualScrollViewport,
+} from '@angular/cdk/scrolling';
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
-  type ElementRef,
+  ElementRef,
   inject,
   input,
+  linkedSignal,
   output,
   signal,
   viewChild,
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
+import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
 
-/** The draft view's Pool tab: a grid of the pool's cards, and a detail view of one. */
+/**
+ * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
+ * search, and a detail view of one.
+ */
 @Component({
   selector: 'app-pool-tab',
+  imports: [
+    CdkVirtualScrollViewport,
+    CdkVirtualScrollableWindow,
+    CdkFixedSizeVirtualScroll,
+    CdkVirtualForOf,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pool-tab.html',
   styleUrls: ['./drafts.scss', './pool-tab.scss'],
@@ -59,6 +77,56 @@ export class PoolTab {
   );
   protected readonly failed = computed(() => !!this.resource.error());
 
+  /** The pool search typed into the search box. */
+  protected readonly search = signal('');
+  private readonly searchResult = computed(() => searchPool(this.cards(), this.search()));
+  /** Why the search can't be run, if it can't. */
+  protected readonly searchError = computed(() => {
+    const result = this.searchResult();
+    return result.ok ? null : result.error.message;
+  });
+  /** Whether the grid leaves out picked cards. */
+  protected readonly hidePicked = signal(false);
+  /** The cards the last good search matched. */
+  private readonly matched = linkedSignal<PoolSearchResult<PoolCardView>, PoolCardView[]>({
+    source: this.searchResult,
+    computation: (result, previous) => (result.ok ? result.cards : (previous?.value ?? [])),
+  });
+  /** The cards the grid shows. */
+  protected readonly shown = computed(() => {
+    const picked = this.picked();
+    return this.hidePicked()
+      ? this.matched().filter((card) => !picked.has(card.oracleId))
+      : this.matched();
+  });
+
+  /** The grid's width in px, once it has been measured. */
+  private readonly width = signal(0);
+  /** How many cards fit across the grid, each at least TILE_MIN_WIDTH wide. */
+  protected readonly columns = computed(() =>
+    Math.max(1, Math.floor((this.width() + TILE_GAP) / (TILE_MIN_WIDTH + TILE_GAP))),
+  );
+  /**
+   * The height of one row of the grid in px, gap included. The grid only
+   * renders the rows near the screen, so a big pool stays quick to search
+   * and scroll; it needs every row the same height to know where each is.
+   */
+  protected readonly rowHeight = computed(() => {
+    const columns = this.columns();
+    const tileWidth = this.width()
+      ? (this.width() - TILE_GAP * (columns - 1)) / columns
+      : TILE_MIN_WIDTH;
+    return (tileWidth * TILE_HEIGHT) / TILE_WIDTH + TILE_GAP;
+  });
+  /** The cards shown, a row of the grid at a time. */
+  protected readonly rows = computed(() => {
+    const cards = this.shown();
+    const columns = this.columns();
+    const rows: PoolCardView[][] = [];
+    for (let i = 0; i < cards.length; i += columns) rows.push(cards.slice(i, i + columns));
+    return rows;
+  });
+
   /** Scryfall CDN image URLs that failed to load. */
   private readonly brokenUrls = signal<ReadonlySet<string>>(new Set());
 
@@ -75,6 +143,20 @@ export class PoolTab {
 
   constructor() {
     effect(() => this.closeButton()?.nativeElement.focus());
+    // Not in every test environment; the grid then lays out one column.
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
+      observer.observe(inject<ElementRef<HTMLElement>>(ElementRef).nativeElement);
+      inject(DestroyRef).onDestroy(() => observer.disconnect());
+    }
+  }
+
+  /** The gap between tiles, across and down, in px. */
+  protected readonly tileGap = TILE_GAP;
+
+  /** Rows are rebuilt whenever the cards shown or the columns change, so they're tracked by position. */
+  protected trackRow(index: number) {
+    return index;
   }
 
   /**
@@ -169,6 +251,13 @@ export class PoolTab {
     this.face.update((face) => (face + 1) % this.detail()!.images.length);
   }
 }
+
+/** A tile's proportions: those of a card's normal image. */
+const TILE_WIDTH = 488;
+const TILE_HEIGHT = 680;
+/** The narrowest a tile gets, and the gap between tiles, in px. */
+const TILE_MIN_WIDTH = 144;
+const TILE_GAP = 8;
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
 
