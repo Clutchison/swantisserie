@@ -83,7 +83,10 @@ export class QueuesService {
           message: 'This draft is complete.',
         });
       }
-      if (state !== 'Lobby' && (await this.onTurn(tx, draftId, playerId))) {
+      if (
+        state !== 'Lobby' &&
+        (await this.isPlayersTurn(tx, draftId, playerId))
+      ) {
         throw new QueueRefusedError({
           error: 'your-turn',
           message: 'You can’t add to your queue on your turn.',
@@ -217,7 +220,7 @@ export class QueuesService {
   }
 
   /** Whether it's the player's turn, in a draft that has started. */
-  private async onTurn(
+  private async isPlayersTurn(
     tx: Transaction,
     draftId: string,
     playerId: string,

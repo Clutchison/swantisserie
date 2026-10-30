@@ -2064,6 +2064,73 @@ describe('drafts', () => {
             expect(buttonIn(detail, 'Pick')!.disabled).toBe(false);
           });
 
+          it('does not say "Added to your queue." when the turn changed before the add was answered', async () => {
+            const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
+            const detail = await openDetail(fixture, page, 0);
+            buttonIn(detail, 'Add to queue')!.click();
+            const add = http.expectOne('/api/drafts/draft-1/queue');
+
+            await turnChanges(fixture, { pick: 2, round: 1, playerId: bob.id });
+            add.flush({ cards: [queued(shivan)], lost: [] });
+            await vi.waitFor(() => {
+              TestBed.tick();
+              expect(buttonIn(detail, 'Remove from queue')).toBeDefined();
+            });
+
+            expect(detail.textContent).not.toContain('Added to your queue.');
+          });
+
+          it('clears a refusal once your turn has passed', async () => {
+            const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
+            const detail = await openDetail(fixture, page, 0);
+            buttonIn(detail, 'Add to queue')!.click();
+            http
+              .expectOne('/api/drafts/draft-1/queue')
+              .flush(
+                { error: 'your-turn', message: 'You can’t add to your queue on your turn.' },
+                { status: 409, statusText: 'Conflict' },
+              );
+            await flushQueue(EMPTY_QUEUE);
+            (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+              draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
+            );
+            await flushPicks([]);
+            await flushQueue(EMPTY_QUEUE);
+            await fixture.whenStable();
+            expect(detail.textContent).toContain('You can’t add to your queue on your turn.');
+
+            await turnChanges(fixture, { pick: 3, round: 2, playerId: bob.id }, 2);
+
+            expect(detail.textContent).not.toContain('You can’t add to your queue on your turn.');
+            expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          });
+
+          it('re-reads the draft when a removal is refused, too', async () => {
+            const { fixture, page } = await openDraft(complete, drafting(), {
+              cards: [shivan],
+              queue: { cards: [queued(shivan)], lost: [] },
+            });
+            const detail = await openDetail(fixture, page, 0);
+
+            buttonIn(detail, 'Remove from queue')!.click();
+            http
+              .expectOne('/api/drafts/draft-1/queue/shivan-oracle')
+              .flush(
+                { error: 'draft-closed', message: 'This draft is closed.' },
+                { status: 409, statusText: 'Conflict' },
+              );
+            await flushQueue({ cards: [queued(shivan)], lost: [] });
+            (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+              draft(drafting({ state: 'Closed', version: 1 })),
+            );
+            await flushPicks([]);
+            await flushQueue({ cards: [queued(shivan)], lost: [] });
+            await fixture.whenStable();
+
+            expect(detail.textContent).toContain('This draft is closed.');
+            expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+          });
+
           it('shows a queued card still available after an undo as removable, on your turn', async () => {
             const { fixture, page } = await openDraft(complete, drafting(), {
               cards: [shivan],

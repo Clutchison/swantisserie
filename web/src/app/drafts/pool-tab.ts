@@ -4,7 +4,7 @@ import {
   CdkVirtualScrollableWindow,
   CdkVirtualScrollViewport,
 } from '@angular/cdk/scrolling';
-import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
+import { HttpClient, httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -21,7 +21,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
-import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
+import {
+  type CardImages,
+  type DraftView,
+  isRefusal,
+  type PoolCardView,
+  type QueueView,
+} from './drafts';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
 
@@ -62,7 +68,7 @@ export class PoolTab {
   readonly offerQueue = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   readonly yourTurn = input(false);
-  /** The number of the pick whose turn it is, if any. */
+  /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */
   readonly turnPick = input<number | null>(null);
   /** A pick was made: the draft as it now is. */
   readonly pickMade = output<DraftView>();
@@ -156,12 +162,16 @@ export class PoolTab {
 
   constructor() {
     effect(() => this.closeButton()?.nativeElement.focus());
-    // Only this note: a refusal must outlast the turn change its re-read reveals.
+    // Only this note: a refusal must outlast the turn change its re-read reveals...
     effect(() => {
       this.turnPick();
       untracked(() => {
         if (this.queueNote() === ADDED_TO_QUEUE) this.queueNote.set(null);
       });
+    });
+    // ...until the player's own turn has passed, when it no longer holds.
+    effect(() => {
+      if (!this.yourTurn()) untracked(() => this.queueNote.set(null));
     });
     // Not in every test environment; the grid then lays out one column.
     if (typeof ResizeObserver !== 'undefined') {
@@ -217,7 +227,7 @@ export class PoolTab {
       this.close();
       this.pickMade.emit(draft);
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
+      if (isRefusal(err)) {
         // The draft has moved on, e.g. another pick was made: show why, and catch up with it.
         this.pickError.set(err.error?.message ?? PICK_FAILED);
         this.draftStale.emit();
@@ -246,20 +256,22 @@ export class PoolTab {
   }
 
   /**
-   * Sends a change to the queue, noting `done` once it's made. If it fails,
+   * Sends a change to the queue, noting `done` once it's made, unless the turn
+   * has moved on meanwhile. If it fails,
    * notes why (`failure`, unless the API says) and has the queue re-read,
    * and the draft too if it was refused: a stale page may not know whose turn it is.
    */
   private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
     this.queueing.set(true);
     this.queueNote.set(null);
+    const turnPick = this.turnPick();
     try {
       this.queueChanged.emit(await firstValueFrom(request));
-      this.queueNote.set(done);
+      if (this.turnPick() === turnPick) this.queueNote.set(done);
     } catch (err) {
       this.queueNote.set(queueChangeFailure(err, failure));
       this.queueStale.emit();
-      if (err instanceof HttpErrorResponse && err.status === 409) this.draftStale.emit();
+      if (isRefusal(err)) this.draftStale.emit();
     } finally {
       this.queueing.set(false);
     }

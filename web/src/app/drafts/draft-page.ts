@@ -20,6 +20,7 @@ import {
   type DraftView,
   EMPTY_QUEUE,
   isActive,
+  isRefusal,
   type PickImportPreview,
   type PickView,
   type PlayerView,
@@ -384,7 +385,7 @@ export class DraftPage {
     try {
       this.showDraft(await firstValueFrom(request));
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
+      if (isRefusal(err)) {
         // The draft has moved on: show why, and catch up with it.
         this.sendError.set(err.error?.message ?? failure);
         this.catchUp();
@@ -528,7 +529,7 @@ export class DraftPage {
   }
 
   private lobbyFailed(err: unknown, failure: string) {
-    if (err instanceof HttpErrorResponse && err.status === 409) {
+    if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       this.lobbyError.set(err.error?.message ?? failure);
       this.resource.reload();

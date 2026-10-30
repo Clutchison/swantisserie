@@ -2063,7 +2063,7 @@ describe('drafts', () => {
         'Lava Spike',
         'Skewer the Critics',
       ];
-      const yourTurn = {
+      const refusedOnTurn = {
         error: 'your-turn',
         message: 'You can’t add to your queue on your turn.',
       };
@@ -2087,7 +2087,7 @@ describe('drafts', () => {
         await start(id).expect(200);
 
         expect((await enqueue(id, 'shock-oracle').expect(409)).body).toEqual(
-          yourTurn,
+          refusedOnTurn,
         );
 
         await enqueue(id, 'shock-oracle', bobCookie).expect(200);
@@ -2104,7 +2104,7 @@ describe('drafts', () => {
         await post(id, 'pause').expect(200);
 
         expect((await enqueue(id, 'shock-oracle').expect(409)).body).toEqual(
-          yourTurn,
+          refusedOnTurn,
         );
 
         await enqueue(id, 'shock-oracle', bobCookie).expect(200);
@@ -2119,7 +2119,7 @@ describe('drafts', () => {
         await enqueue(id, 'lava-spike-oracle').expect(200);
         expect(
           (await enqueue(id, 'lava-spike-oracle', bobCookie).expect(409)).body,
-        ).toEqual(yourTurn);
+        ).toEqual(refusedOnTurn);
       });
 
       it('refuses the player on turn when the draft is closed or complete for that reason, not the turn', async () => {
@@ -2197,7 +2197,7 @@ describe('drafts', () => {
               409,
             )
           ).body,
-        ).toEqual(yourTurn);
+        ).toEqual(refusedOnTurn);
 
         const first = await pick(id, 'lightning-bolt-oracle', bobCookie).expect(
           200,

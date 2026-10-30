@@ -1,9 +1,16 @@
+import { HttpErrorResponse } from '@angular/common/http';
+
 /** Lobby → Drafting ⇄ Paused → Complete; Drafting or Paused → Closed → Drafting. */
 export type DraftState = 'Lobby' | 'Drafting' | 'Paused' | 'Complete' | 'Closed';
 
 /** An active draft is any draft that is neither closed nor complete. */
 export function isActive(state: DraftState): boolean {
   return state !== 'Complete' && state !== 'Closed';
+}
+
+/** Whether the API refused a request because the draft has moved on; its body says why. */
+export function isRefusal(err: unknown): err is HttpErrorResponse {
+  return err instanceof HttpErrorResponse && err.status === 409;
 }
 
 /** How far the pool snapshot (copying the pool from Scryfall) has got. */
