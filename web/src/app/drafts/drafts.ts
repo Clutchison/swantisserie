@@ -92,3 +92,17 @@ export interface PickView {
   oracleId: string;
   name: string;
 }
+
+/** A card in a queue, or lost from one. */
+export interface QueuedCardView {
+  oracleId: string;
+  name: string;
+}
+
+/** The signed-in player's queue, which only they may see. */
+export interface QueueView {
+  /** In the order they are to be picked. */
+  cards: QueuedCardView[];
+  /** Cards other players picked first, in the order they were lost. */
+  lost: QueuedCardView[];
+}

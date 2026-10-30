@@ -54,6 +54,16 @@
             {{ picking() ? 'Picking…' : 'Pick' }}
           </button>
         }
+        @if (offerQueue()) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="addToQueue(card)"
+            [disabled]="picked().has(card.oracleId) || queueing()"
+          >
+            Add to queue
+          </button>
+        }
         @if (card.images.length > 1) {
           <button class="button secondary" type="button" (click)="flip()">Flip</button>
         }
@@ -63,6 +73,9 @@
         <p class="note">Already picked.</p>
       } @else if (offerPick() && !yourTurn()) {
         <p class="note">You can pick on your turn.</p>
+      }
+      @if (queueNote(); as message) {
+        <p class="note" role="status">{{ message }}</p>
       }
       @if (pickError(); as message) {
         <p class="note error" role="alert">{{ message }}</p>

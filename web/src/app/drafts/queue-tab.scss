@@ -1,0 +1,87 @@
+/* Sits inside the draft page, which has the padding. */
+:host {
+  padding: 0;
+}
+
+/* Cards another player picked first. */
+.lost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  background: #fff4e5;
+
+  p {
+    flex: 1;
+    margin: 0;
+  }
+}
+
+.queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    background: #fff;
+  }
+
+  .empty {
+    color: #666;
+  }
+}
+
+.handle {
+  color: #999;
+  cursor: grab;
+  touch-action: none;
+}
+
+.number {
+  min-width: 1.5rem;
+  color: #666;
+  text-align: right;
+}
+
+.name {
+  flex: 1;
+}
+
+.move {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.icon {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+/* CDK drag-drop: the card being dragged (previewed in the list, so styled here), and the gap it leaves. */
+.cdk-drag-preview {
+  box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 0.2);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.cdk-drop-list-dragging li:not(.cdk-drag-placeholder) {
+  transition: transform 200ms ease;
+}

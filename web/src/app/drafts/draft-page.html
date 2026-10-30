@@ -152,6 +152,7 @@
             [draftId]="draft.id"
             [picked]="picked()"
             [offerPick]="offerPick()"
+            [offerQueue]="offerQueue()"
             [yourTurn]="yourTurn()"
             (pickMade)="pickMade($event)"
             (pickRefused)="pickRefused()"
@@ -174,6 +175,20 @@
       <p class="detail">
         Pool query: <code>{{ draft.poolQuery }}</code>
       </p>
+    </section>
+
+    <!-- Only players have a queue, and it's only read while shown. -->
+    <section
+      id="queue-panel"
+      class="queue"
+      role="tabpanel"
+      aria-labelledby="queue-tab"
+      [hidden]="tab() !== 'Queue'"
+    >
+      <h2>Queue</h2>
+      @if (tab() === 'Queue' && joined()) {
+        <app-queue-tab [draftId]="draft.id" [version]="draft.version" />
+      }
     </section>
 
     <section
@@ -267,8 +282,18 @@
       >
         Pool
       </button>
-      <!-- Not built yet. -->
-      <button type="button" role="tab" aria-selected="false" disabled>Queue</button>
+      <!-- Only players have a queue. -->
+      <button
+        id="queue-tab"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="tab() === 'Queue'"
+        aria-controls="queue-panel"
+        (click)="tab.set('Queue')"
+        [disabled]="!joined()"
+      >
+        Queue
+      </button>
       <button
         id="board-tab"
         type="button"
