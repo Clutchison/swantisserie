@@ -1,5 +1,10 @@
-/** Lobby → Drafting ⇄ Paused → Complete. */
-export type DraftState = 'Lobby' | 'Drafting' | 'Paused' | 'Complete';
+/** Lobby → Drafting ⇄ Paused → Complete; Drafting or Paused → Closed → Drafting. */
+export type DraftState = 'Lobby' | 'Drafting' | 'Paused' | 'Complete' | 'Closed';
+
+/** An active draft is any draft that is neither closed nor complete. */
+export function isActive(state: DraftState): boolean {
+  return state !== 'Complete' && state !== 'Closed';
+}
 
 /** How far the pool snapshot (copying the pool from Scryfall) has got. */
 export interface PoolSnapshotView {

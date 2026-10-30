@@ -29,6 +29,8 @@ export class QueueTab {
   readonly queue = input.required<QueueView>();
   /** Whether the queue is still on its way, so `queue` says nothing yet. */
   readonly loading = input(false);
+  /** Whether the queue can only be looked at, as while the draft is closed. */
+  readonly readOnly = input(false);
   /** The queue as a change made it. */
   readonly queueChanged = output<QueueView>();
   /** A change failed, so the queue may have moved on unseen; it should be re-read. */

@@ -7,56 +7,77 @@
         >{{ last ? '.' : ', ' }}
       }
     </p>
-    <button class="button secondary" type="button" (click)="dismissLost()" [disabled]="changing()">
-      Dismiss
-    </button>
+    @if (!readOnly()) {
+      <button
+        class="button secondary"
+        type="button"
+        (click)="dismissLost()"
+        [disabled]="changing()"
+      >
+        Dismiss
+      </button>
+    }
   </div>
 }
-<p class="detail">Cards are picked for you in this order. Drag to reorder.</p>
+@if (readOnly()) {
+  <p class="detail">Cards are picked for you in this order if the draft reopens.</p>
+} @else {
+  <p class="detail">Cards are picked for you in this order. Drag to reorder.</p>
+}
 <ol
   class="queue"
   cdkDropList
-  [cdkDropListDisabled]="changing()"
+  [cdkDropListDisabled]="changing() || readOnly()"
   (cdkDropListDropped)="dropped($event)"
 >
   @for (card of queue().cards; track card.oracleId; let i = $index, first = $first, last = $last) {
     <li cdkDrag cdkDragLockAxis="y" cdkDragPreviewContainer="parent">
-      <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
+      @if (!readOnly()) {
+        <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
+      }
       <span class="number">{{ i + 1 }}</span>
       <span class="name">{{ card.name }}</span>
-      <span class="move">
-        <button
-          class="icon"
-          type="button"
-          [attr.aria-label]="'Move ' + card.name + ' up'"
-          (click)="move(i, i - 1)"
-          [disabled]="first || changing()"
-        >
-          ↑
-        </button>
-        <button
-          class="icon"
-          type="button"
-          [attr.aria-label]="'Move ' + card.name + ' down'"
-          (click)="move(i, i + 1)"
-          [disabled]="last || changing()"
-        >
-          ↓
-        </button>
-        <button
-          class="icon"
-          type="button"
-          [attr.aria-label]="'Remove ' + card.name"
-          (click)="remove(card.oracleId)"
-          [disabled]="changing()"
-        >
-          ✕
-        </button>
-      </span>
+      @if (!readOnly()) {
+        <span class="move">
+          <button
+            class="icon"
+            type="button"
+            [attr.aria-label]="'Move ' + card.name + ' up'"
+            (click)="move(i, i - 1)"
+            [disabled]="first || changing()"
+          >
+            ↑
+          </button>
+          <button
+            class="icon"
+            type="button"
+            [attr.aria-label]="'Move ' + card.name + ' down'"
+            (click)="move(i, i + 1)"
+            [disabled]="last || changing()"
+          >
+            ↓
+          </button>
+          <button
+            class="icon"
+            type="button"
+            [attr.aria-label]="'Remove ' + card.name"
+            (click)="remove(card.oracleId)"
+            [disabled]="changing()"
+          >
+            ✕
+          </button>
+        </span>
+      }
     </li>
   } @empty {
     <li class="empty">
-      {{ loading() ? 'Loading your queue…' : 'Your queue is empty. Add cards from the pool.' }}
+      @if (loading()) {
+        Loading your queue…
+      } @else if (readOnly()) {
+        Your queue is empty.
+      } @else {
+        Your queue is empty. Add cards from the pool.
+      }
     </li>
   }
 </ol>

@@ -113,10 +113,29 @@ describe('drafts', () => {
       expect(complete).not.toContain('Red dragons');
     });
 
+    it('lists a closed draft only under Closed drafts, between active and complete', async () => {
+      const page = await openList([
+        draft({ id: 'a', name: 'Red dragons', state: 'Paused' }),
+        draft({ id: 'b', name: 'Shut early', state: 'Closed' }),
+        draft({ id: 'c', name: 'Last month', state: 'Complete' }),
+      ]);
+
+      expect([...page.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual([
+        'Active drafts',
+        'Closed drafts',
+        'Complete drafts',
+      ]);
+      expect(section(page, 'Closed drafts').textContent).toContain('Shut early');
+      expect(section(page, 'Closed drafts').textContent).not.toContain('Red dragons');
+      expect(section(page, 'Active drafts').textContent).not.toContain('Shut early');
+      expect(section(page, 'Complete drafts').textContent).not.toContain('Shut early');
+    });
+
     it('says so when there are no drafts yet', async () => {
       const page = await openList([]);
 
       expect(section(page, 'Active drafts').textContent).toContain('No active drafts');
+      expect(section(page, 'Closed drafts').textContent).toContain('No closed drafts');
       expect(section(page, 'Complete drafts').textContent).toContain('No complete drafts');
     });
 
@@ -697,6 +716,164 @@ describe('drafts', () => {
       });
     });
 
+    describe('close and reopen', () => {
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+      const drafting = {
+        state: 'Drafting' as const,
+        players: [alicePlayer, bob],
+        picksPerPlayer: 45,
+        turn: { pick: 38, round: 19, playerId: alice.id },
+      };
+      const closed = { ...drafting, state: 'Closed' as const, turn: null };
+      const banner = 'This draft is closed. No picks until it reopens.';
+
+      const button = (page: HTMLElement, label: string) =>
+        [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
+
+      it('closes a drafting draft once the organizer confirms, showing the progress', async () => {
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { fixture, page } = await openDraft(complete, drafting);
+
+        button(page, 'Close draft')!.click();
+
+        expect(confirm).toHaveBeenCalledWith(
+          'Close Red dragons? 37 of 90 picks made. The picks stand as made, and the draft is read-only until it is reopened.',
+        );
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'));
+        expect(req.request.method).toBe('POST');
+        req.flush(draft({ ...closed, version: 1 }));
+        await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain(banner);
+        expect(button(page, 'Close draft')).toBeUndefined();
+        expect(button(page, 'Pause draft')).toBeUndefined();
+        expect(button(page, 'Reopen draft')).toBeDefined();
+      });
+
+      it('offers closing a paused draft', async () => {
+        const { page } = await openDraft(complete, { ...drafting, state: 'Paused' });
+        expect(button(page, 'Close draft')).toBeDefined();
+      });
+
+      it.each(['Lobby', 'Complete'] as const)('offers neither in %s', async (state) => {
+        const { page } = await openDraft(complete, { ...drafting, state, turn: null });
+
+        expect(button(page, 'Close draft')).toBeUndefined();
+        expect(button(page, 'Reopen draft')).toBeUndefined();
+      });
+
+      it('keeps a draft the organizer did not confirm closing', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const { page } = await openDraft(complete, drafting);
+
+        button(page, 'Close draft')!.click();
+
+        http.expectNone('/api/drafts/draft-1/close');
+        expect(page.textContent).not.toContain(banner);
+      });
+
+      it('reopens a closed draft once the organizer confirms', async () => {
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { fixture, page } = await openDraft(complete, closed);
+
+        button(page, 'Reopen draft')!.click();
+
+        expect(confirm).toHaveBeenCalledWith(
+          'Reopen Red dragons? The turn comes back, and queued picks are made straight away.',
+        );
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/reopen'));
+        expect(req.request.method).toBe('POST');
+        req.flush(draft({ ...drafting, version: 1 }));
+        await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
+        await fixture.whenStable();
+
+        expect(page.textContent).not.toContain(banner);
+        expect(button(page, 'Pause draft')).toBeDefined();
+      });
+
+      it('keeps a draft the organizer did not confirm reopening', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const { page } = await openDraft(complete, closed);
+
+        button(page, 'Reopen draft')!.click();
+
+        http.expectNone('/api/drafts/draft-1/reopen');
+      });
+
+      it('says why a close was refused, and catches up with the draft', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { fixture, page } = await openDraft(complete, drafting);
+
+        button(page, 'Close draft')!.click();
+        const message = 'Only a drafting or paused draft can be closed.';
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'))).flush(
+          { error: 'not-closable', message },
+          { status: 409, statusText: 'Conflict' },
+        );
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft({ ...closed, version: 1 }),
+        );
+        await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
+        await fixture.whenStable();
+
+        expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
+        expect(button(page, 'Reopen draft')).toBeDefined();
+      });
+
+      it('offers closing and reopening only to the organizer or an app admin', async () => {
+        const organizer = { id: bob.id, name: bob.name };
+        const opened = await openDraft(complete, { ...closed, organizer });
+
+        expect(button(opened.page, 'Reopen draft')).toBeUndefined();
+        expect(opened.page.textContent).toContain(banner);
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft({ ...drafting, organizer, version: 1 }),
+        });
+        await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
+        await opened.fixture.whenStable();
+
+        expect(button(opened.page, 'Close draft')).toBeUndefined();
+        expect(opened.page.textContent).not.toContain(banner);
+      });
+
+      it('shows every viewer the draft closing as it happens', async () => {
+        const organizer = { id: bob.id, name: bob.name };
+        const { fixture, page } = await openDraft(complete, { ...drafting, organizer });
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft({ ...closed, organizer, version: 1 }),
+        });
+        await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
+        await fixture.whenStable();
+
+        expect(page.textContent).toContain(banner);
+      });
+
+      it('makes the queue read-only while closed, keeping it on show', async () => {
+        const { page } = await openDraft(complete, closed, {
+          queue: {
+            cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
+            lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
+          },
+        });
+
+        const queue = page.querySelector('#queue-panel')!;
+        expect(queue.textContent).toContain('Shivan Dragon');
+        expect(queue.textContent).toContain('Lightning Bolt');
+        expect(queue.querySelector('button')).toBeNull();
+        expect(queue.textContent).not.toContain('Drag to reorder');
+      });
+    });
+
     describe('pool tab', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 2, total: 2 };
 
@@ -1120,6 +1297,42 @@ describe('drafts', () => {
           );
           expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
         });
+      });
+
+      it('offers no picks or queue changes on a card, but keeps the exports', async () => {
+        const { fixture, page } = await openDraft(
+          complete,
+          {
+            state: 'Closed',
+            players: [alicePlayer, bob],
+            turn: null,
+          },
+          {
+            cards: [brightclimb],
+            picks: [
+              {
+                pick: 1,
+                playerId: alice.id,
+                oracleId: brightclimb.oracleId,
+                name: brightclimb.name,
+                layout: 'normal',
+                set: brightclimb.set,
+                collectorNumber: brightclimb.collectorNumber,
+              },
+            ],
+          },
+        );
+
+        const detail = await openDetail(fixture, page, 0);
+        expect(buttonIn(detail, 'Add to queue')).toBeUndefined();
+        expect(buttonIn(detail, 'Pick')).toBeUndefined();
+        buttonIn(detail, 'Close')!.click();
+        await fixture.whenStable();
+
+        tabButton(page, 'Me').click();
+        await fixture.whenStable();
+        expect(buttonIn(page, 'Copy for Arena')).toBeDefined();
+        expect(buttonIn(page, 'Copy for Moxfield')).toBeDefined();
       });
 
       describe('queue', () => {

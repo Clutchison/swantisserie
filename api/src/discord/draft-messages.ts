@@ -28,8 +28,8 @@ export interface WebhookMessage {
 
 /**
  * One message per announcement `events` make: a run of picks, such as a
- * pick and the cascade after it, is one message, and so is a start or a
- * resume and the cascade after it.
+ * pick and the cascade after it, is one message, and so is a start, a resume
+ * or a reopen and the cascade after it.
  */
 export function draftMessages(
   draft: AnnouncedDraft,
@@ -62,6 +62,12 @@ export function draftMessages(
         break;
       case 'resumed':
         messages.push(draftResumedMessage(draft, event.player, picks));
+        break;
+      case 'closed':
+        messages.push(draftClosedMessage(draft));
+        break;
+      case 'reopened':
+        messages.push(draftReopenedMessage(draft, event.player, picks));
         break;
       case 'completed':
         messages.push(draftCompleteMessage(draft));
@@ -112,11 +118,23 @@ export function draftResumedMessage(
   up: AnnouncedPlayer,
   picks: AnnouncedPick[] = [],
 ): WebhookMessage {
-  return announcement(
-    [`${bold(draft.name)} has resumed`, ...picks.map(pickLine)],
-    draft,
-    picks.length > 0 ? picks[picks.length - 1].next : up,
-  );
+  return backToDraftingMessage(draft, 'has resumed', up, picks);
+}
+
+export function draftClosedMessage(draft: AnnouncedDraft): WebhookMessage {
+  return announcement([`${bold(draft.name)} has been closed`], draft, null);
+}
+
+/**
+ * `up` is whose turn it is on reopening, unless `picks` were made from
+ * queues straight after the reopen.
+ */
+export function draftReopenedMessage(
+  draft: AnnouncedDraft,
+  up: AnnouncedPlayer,
+  picks: AnnouncedPick[] = [],
+): WebhookMessage {
+  return backToDraftingMessage(draft, 'has reopened', up, picks);
 }
 
 /** The undone pick's player is up again. */
@@ -137,6 +155,20 @@ export function picksMessage(
   picks: AnnouncedPick[],
 ): WebhookMessage {
   return announcement(picks.map(pickLine), draft, picks[picks.length - 1].next);
+}
+
+/** The draft `happened`, then any cascade; `up` is who is next without one. */
+function backToDraftingMessage(
+  draft: AnnouncedDraft,
+  happened: string,
+  up: AnnouncedPlayer,
+  picks: AnnouncedPick[],
+): WebhookMessage {
+  return announcement(
+    [`${bold(draft.name)} ${happened}`, ...picks.map(pickLine)],
+    draft,
+    picks.length > 0 ? picks[picks.length - 1].next : up,
+  );
 }
 
 function announcedPick(event: PickedEvent): AnnouncedPick {

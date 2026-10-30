@@ -41,4 +41,12 @@ export type DraftEvent =
       /** Whose turn it is. */
       player: EventPlayer;
     }
+  | { type: 'closed' }
+  | {
+      type: 'reopened';
+      /** The pick to be made next. */
+      number: number;
+      /** Whose turn it is. */
+      player: EventPlayer;
+    }
   | { type: 'completed' };

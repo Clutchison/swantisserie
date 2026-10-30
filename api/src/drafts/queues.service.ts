@@ -25,7 +25,7 @@ export class NotAPlayerError extends Error {
 
 /** Why a card can't be queued; sent to the player as is. */
 export interface QueueRefusal {
-  error: 'not-in-pool' | 'already-picked' | 'draft-complete';
+  error: 'not-in-pool' | 'already-picked' | 'draft-complete' | 'draft-closed';
   message: string;
 }
 
@@ -173,7 +173,8 @@ export class QueuesService {
    * Runs `change` on the user's queue and returns the queue as it then is.
    * The draft's row is shared-locked, so a pick can't land meanwhile, and
    * the player's row locked, so their queue changes one at a time. Throws
-   * NotAPlayerError if the user isn't in the draft.
+   * NotAPlayerError if the user isn't in the draft, and QueueRefusedError if
+   * the draft is closed.
    */
   private async change(
     draftId: string,
@@ -191,6 +192,12 @@ export class QueuesService {
         SELECT "id" FROM "Player"
         WHERE "draftId" = ${draftId} AND "userId" = ${userId} FOR UPDATE`;
       if (!draft || !player) throw new NotAPlayerError();
+      if (draft.state === 'Closed') {
+        throw new QueueRefusedError({
+          error: 'draft-closed',
+          message: 'This draft is closed.',
+        });
+      }
       await change(tx, player.id, draft.state);
       return this.read(tx, player.id);
     });

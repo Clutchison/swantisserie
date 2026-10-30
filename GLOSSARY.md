@@ -118,14 +118,22 @@ _Avoid_: Suspended, on hold
 
 **Complete**:
 A draft in which every player has all their picks. It stays viewable forever.
-_Avoid_: Finished, done, closed, past
+_Avoid_: Finished, done, past
+
+**Closed**:
+A started draft the organizer has ended early, with every pick as made. It is read-only until it is reopened, and is not complete.
+_Avoid_: Ended, archived, abandoned
+
+**Reopen**:
+The organizer returning a closed draft to drafting, at any time. Its turn comes back and queued picks fire straight away, even if it was paused when closed.
+_Avoid_: Restore, unclose, resume (that is from paused)
 
 **Cancel**:
 The organizer permanently removing a draft that is still in the lobby, with its pool, players and queues. It can't be undone, and a started draft can't be cancelled.
 _Avoid_: Delete, abort
 
 **Active draft**:
-Any draft that is not complete.
+Any draft that is neither closed nor complete.
 _Avoid_: Open draft, current draft
 
 ## Discord
@@ -135,5 +143,5 @@ A named Discord channel destination that an app admin registers. An organizer ch
 _Avoid_: Channel, hook, integration
 
 **Announcement**:
-A text post on a draft's webhook saying the draft has started, paused or resumed, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, which marks the queued picks, and so are a start or a resume and the cascade after it. Each links to the draft, and only the player whose turn it now is gets pinged.
+A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, which marks the queued picks, and so are a start, a resume or a reopen and the cascade after it. Each links to the draft, and only the player whose turn it now is gets pinged.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)

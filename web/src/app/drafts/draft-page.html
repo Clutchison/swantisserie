@@ -24,6 +24,9 @@
       @if (draft.state === 'Paused') {
         <p class="paused" role="status">The draft is paused. No picks until it resumes.</p>
       }
+      @if (draft.state === 'Closed') {
+        <p class="closed" role="status">This draft is closed. No picks until it reopens.</p>
+      }
       <div class="controls">
         @if (offerPause()) {
           <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
@@ -43,6 +46,16 @@
             [disabled]="sending()"
           >
             Undo pick {{ pick.pick }} ({{ pick.name }})
+          </button>
+        }
+        @if (offerClose()) {
+          <button class="button secondary" type="button" (click)="close()" [disabled]="sending()">
+            Close draft
+          </button>
+        }
+        @if (offerReopen()) {
+          <button class="button" type="button" (click)="reopen()" [disabled]="sending()">
+            Reopen draft
           </button>
         }
       </div>
@@ -243,6 +256,7 @@
             [draftId]="draft.id"
             [loading]="queueLoading()"
             [queue]="queue()"
+            [readOnly]="draft.state === 'Closed'"
             (queueChanged)="queueResource.set($event)"
             (queueStale)="queueResource.reload()"
           />

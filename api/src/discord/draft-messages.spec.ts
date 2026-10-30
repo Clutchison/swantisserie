@@ -1,7 +1,9 @@
 import {
+  draftClosedMessage,
   draftCompleteMessage,
   draftMessages,
   draftPausedMessage,
+  draftReopenedMessage,
   draftResumedMessage,
   draftStartedMessage,
   picksMessage,
@@ -287,6 +289,47 @@ describe('draftPausedMessage', () => {
   it('is the one message for a pause', () => {
     expect(draftMessages(draft, [{ type: 'paused' }])).toEqual([
       draftPausedMessage(draft),
+    ]);
+  });
+});
+
+describe('draftClosedMessage', () => {
+  it('says the draft has been closed, pinging no one', () => {
+    expect(draftClosedMessage(draft)).toEqual({
+      content: '**Red** has been closed\n<https://roto.example/drafts/d1>',
+      allowed_mentions: { parse: [], users: [] },
+    });
+  });
+
+  it('is the announcement for a close', () => {
+    expect(draftMessages(draft, [{ type: 'closed' }])).toEqual([
+      draftClosedMessage(draft),
+    ]);
+  });
+});
+
+describe('draftReopenedMessage', () => {
+  it('says the draft has reopened and pings whoever is up', () => {
+    expect(draftReopenedMessage(draft, alice)).toEqual({
+      content:
+        '**Red** has reopened\n' +
+        `<@${alice.id}> you’re up\n` +
+        '<https://roto.example/drafts/d1>',
+      allowed_mentions: { parse: [], users: [alice.id] },
+    });
+  });
+
+  it('is the announcement for a reopen, naming a bot that is up', () => {
+    expect(
+      draftMessages(draft, [{ type: 'reopened', number: 2, player: bot }]),
+    ).toEqual([
+      {
+        content:
+          '**Red** has reopened\n' +
+          `**${bot.name}** is up\n` +
+          '<https://roto.example/drafts/d1>',
+        allowed_mentions: { parse: [], users: [] },
+      },
     ]);
   });
 });
