@@ -68,7 +68,7 @@ export class QueuesService {
   /**
    * Adds the pool card with `oracleId` to the end of the user's queue; a
    * no-op if it is already queued. Throws QueueRefusedError if it can't be
-   * queued, as on the user's own turn, drafting or paused: they make that pick
+   * queued, as on the player's own turn, drafting or paused: they make that pick
    * by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
   async add(

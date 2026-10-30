@@ -60,7 +60,7 @@ export class PoolTab {
    * draft is active.
    */
   readonly offerQueue = input(false);
-  /** Whether it's the signed-in player's turn, so Pick is enabled for available cards. */
+  /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   readonly yourTurn = input(false);
   /** The number of the pick whose turn it is, if any. */
   readonly turnPick = input<number | null>(null);

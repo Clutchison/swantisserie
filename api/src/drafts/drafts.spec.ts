@@ -1349,6 +1349,14 @@ describe('drafts', () => {
    * A draft whose pool of `cards` (three, unless told otherwise) is
    * snapshotted, joined by each of `cookies` in order.
    */
+  /** The organizer, Alice, undoes the draft's latest pick, pick `number`. */
+  function undoPick(id: string, number: number) {
+    return request(app.getHttpServer())
+      .delete(`/api/drafts/${id}/picks/${number}`)
+      .set('Cookie', aliceCookie)
+      .expect(200);
+  }
+
   async function readyDraft(
     cookies: string[],
     picksPerPlayer = 1,
@@ -2140,10 +2148,7 @@ describe('drafts', () => {
         await start(id).expect(200);
         // Alice's turn came, so Shock was picked for her. Undoing it brings
         // her turn back with the rest of her queue still waiting.
-        await request(app.getHttpServer())
-          .delete(`/api/drafts/${id}/picks/1`)
-          .set('Cookie', aliceCookie)
-          .expect(200);
+        await undoPick(id, 1);
 
         const reordered = await reorder(id, [
           'lava-spike-oracle',
@@ -2162,10 +2167,7 @@ describe('drafts', () => {
         await enqueue(id, 'lava-spike-oracle').expect(200);
         await start(id).expect(200);
 
-        const undone = await request(app.getHttpServer())
-          .delete(`/api/drafts/${id}/picks/1`)
-          .set('Cookie', aliceCookie)
-          .expect(200);
+        const undone = await undoPick(id, 1);
 
         expect(undone.body.turn).toEqual({
           pick: 1,
@@ -2698,10 +2700,7 @@ describe('drafts', () => {
       await start(id).expect(200);
       await pick(id, 'shock-oracle').expect(200);
       // Bob's cascade ran; undoing its last pick leaves his turn with a card waiting.
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/3`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      await undoPick(id, 3);
       await pause(id).expect(200);
       // Queued while paused, off turn: nothing is picked yet.
       await enqueue(id, 'skewer-the-critics-oracle');
@@ -2766,10 +2765,7 @@ describe('drafts', () => {
       await enqueue(id, 'shock-oracle');
       await start(id).expect(200);
       // Lava Spike was picked for Alice; undoing it brings back her turn.
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/1`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      await undoPick(id, 1);
       await pause(id).expect(200);
 
       await resume(id).expect(200);
@@ -2973,10 +2969,7 @@ describe('drafts', () => {
       await enqueue(id, 'shock-oracle').expect(200);
       await start(id).expect(200);
       // Lava Spike was picked for Alice; undoing it brings back her turn.
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/1`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      await undoPick(id, 1);
       await post(id, 'pause').expect(200);
       await close(id).expect(200);
 
@@ -3010,10 +3003,7 @@ describe('drafts', () => {
       await enqueue(id, 'shock-oracle').expect(200);
       await start(id).expect(200);
       // Lava Spike was picked for Alice; undoing it brings back her turn.
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/1`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      await undoPick(id, 1);
       await close(id).expect(200);
       await reopen(id).expect(200);
 
@@ -3429,10 +3419,7 @@ describe('drafts', () => {
       await pick(id, 'shock-oracle').expect(200);
       await atPick(id, 4);
 
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/3`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      await undoPick(id, 3);
 
       await atPick(id, 4);
       expect(await pickLog(id)).toEqual([
@@ -4191,10 +4178,7 @@ describe('drafts', () => {
         .expect(200);
       const bobSees = await watch(id, bobCookie);
 
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/1`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      await undoPick(id, 1);
 
       await vi.waitFor(() =>
         expect(bobSees).toEqual([

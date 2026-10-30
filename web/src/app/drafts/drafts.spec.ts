@@ -1997,10 +1997,11 @@ describe('drafts', () => {
           async function turnChanges(
             fixture: { whenStable(): Promise<unknown> },
             turn: DraftView['turn'],
+            version = 1,
           ) {
             updates.events.next({
               type: 'changed',
-              draft: draft(drafting({ turn, version: 1 })),
+              draft: draft(drafting({ turn, version })),
             });
             await flushPicks([]);
             await flushQueue(EMPTY_QUEUE);
@@ -2015,13 +2016,7 @@ describe('drafts', () => {
             await turnChanges(fixture, { pick: 2, round: 1, playerId: alice.id });
             expect(buttonIn(detail, 'Add to queue')).toBeUndefined();
 
-            updates.events.next({
-              type: 'changed',
-              draft: draft(drafting({ turn: { pick: 3, round: 2, playerId: bob.id }, version: 2 })),
-            });
-            await flushPicks([]);
-            await flushQueue(EMPTY_QUEUE);
-            await fixture.whenStable();
+            await turnChanges(fixture, { pick: 3, round: 2, playerId: bob.id }, 2);
             expect(buttonIn(detail, 'Add to queue')).toBeDefined();
           });
 
