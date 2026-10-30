@@ -7,10 +7,12 @@ import {
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  COLLECTION_LIMIT,
   ScryfallClient,
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
   type ScryfallCard,
+  type ScryfallCardFace,
   type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
 
@@ -18,6 +20,21 @@ import {
 export interface CardImages extends ScryfallImageUris {
   /** Keeps the type a Prisma InputJsonObject. */
   [key: string]: string;
+}
+
+/** One face's fields for the pool search, as stored in PoolCard.faces. */
+export interface CardFace {
+  name: string;
+  typeLine: string | null;
+  oracleText: string | null;
+  manaCost: string | null;
+  /** Null when the card's colors apply, e.g. on adventures and split cards. */
+  colors: string[] | null;
+  power: string | null;
+  toughness: string | null;
+  loyalty: string | null;
+  /** Keeps the type a Prisma InputJsonObject. */
+  [key: string]: string | string[] | null;
 }
 
 /** The pool snapshot is complete, so the pool can't change any more. */
@@ -42,6 +59,9 @@ export class PoolSnapshotService
   private readonly logger = new Logger(PoolSnapshotService.name);
   /** Snapshots in flight in this process, by draft id. */
   private readonly running = new Map<string, Promise<void>>();
+  private backfilling: Promise<void> = Promise.resolve();
+  /** Set on shutdown, so the backfill stops between batches. */
+  private stopping = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,11 +83,15 @@ export class PoolSnapshotService
     } catch (err) {
       this.logger.error('Could not resume unfinished pool snapshots', err);
     }
+    this.backfilling = this.backfill().catch((err: unknown) => {
+      this.logger.error('Backfilling pool search fields failed', err);
+    });
   }
 
   /** Lets snapshots finish before the database goes away. */
   async onModuleDestroy(): Promise<void> {
-    await Promise.all(this.running.values());
+    this.stopping = true;
+    await Promise.all([...this.running.values(), this.backfilling]);
   }
 
   /**
@@ -171,6 +195,37 @@ export class PoolSnapshotService
       if (!result.hasMore) return;
     }
   }
+
+  /**
+   * Fills in the search fields of cards snapshotted before they were stored,
+   * from their Arena printings, leaving the rest of each card alone. A card
+   * Scryfall no longer has stays as it was, and is tried again next boot.
+   */
+  private async backfill(): Promise<void> {
+    let after = '';
+    while (!this.stopping) {
+      const batch = await this.prisma.poolCard.findMany({
+        where: { rarity: null, scryfallId: { gt: after } },
+        distinct: ['scryfallId'],
+        orderBy: { scryfallId: 'asc' },
+        take: COLLECTION_LIMIT,
+        select: { scryfallId: true },
+      });
+      if (batch.length === 0) return;
+      after = batch[batch.length - 1].scryfallId;
+      const cards = await this.scryfall.collection(
+        batch.map((card) => card.scryfallId),
+      );
+      await this.prisma.$transaction(
+        cards.map((card) =>
+          this.prisma.poolCard.updateMany({
+            where: { scryfallId: card.id, rarity: null },
+            data: searchFields(card),
+          }),
+        ),
+      );
+    }
+  }
 }
 
 /** A failure's explanation, fit to show the organizer. */
@@ -209,6 +264,35 @@ function toPoolCard(
       ...new Set(faces.flatMap((face) => face.colors ?? [])),
     ],
     manaValue: card.cmc,
+    ...searchFields(card),
     images,
+  };
+}
+
+/** The fields the pool search needs: all the backfill fills in. */
+function searchFields(card: ScryfallCard) {
+  return {
+    manaCost: card.mana_cost ?? null,
+    oracleText: card.oracle_text ?? null,
+    colorIdentity: card.color_identity,
+    keywords: card.keywords,
+    rarity: card.rarity,
+    power: card.power ?? null,
+    toughness: card.toughness ?? null,
+    loyalty: card.loyalty ?? null,
+    faces: (card.card_faces ?? []).map(toCardFace),
+  } satisfies Prisma.PoolCardUpdateInput;
+}
+
+function toCardFace(face: ScryfallCardFace): CardFace {
+  return {
+    name: face.name,
+    typeLine: face.type_line ?? null,
+    oracleText: face.oracle_text ?? null,
+    manaCost: face.mana_cost ?? null,
+    colors: face.colors ?? null,
+    power: face.power ?? null,
+    toughness: face.toughness ?? null,
+    loyalty: face.loyalty ?? null,
   };
 }

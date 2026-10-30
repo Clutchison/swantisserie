@@ -97,6 +97,19 @@ model PoolCard {
   typeLine        String
   colors          String[]
   manaValue       Float
+  /// Null when the faces carry it, as on double-faced cards.
+  manaCost        String?
+  /// Null when the faces carry it.
+  oracleText      String?
+  colorIdentity   String[]     @default([])
+  keywords        String[]     @default([])
+  /// common, uncommon, rare, mythic, special or bonus. Null only on a card snapshotted before rarity was stored, until it is backfilled.
+  rarity          String?
+  power           String?
+  toughness       String?
+  loyalty         String?
+  /// Each face's search fields, as CardFace[]: empty for single-faced cards. Null only on a card snapshotted before faces were stored, until it is backfilled.
+  faces           Json?
   /// Image URLs per face, as CardImages[]: one entry for single-faced cards, two when each face has its own image.
   images          Json
   /// Null until a player picks this card.

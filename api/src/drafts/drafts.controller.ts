@@ -43,7 +43,11 @@ import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
 import { type DraftView, toDraftView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
-import { type CardImages, PoolFrozenError } from './pool-snapshot.service.js';
+import {
+  type CardFace,
+  type CardImages,
+  PoolFrozenError,
+} from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
 const MAX_PICKS_PER_PLAYER = 100;
@@ -69,6 +73,19 @@ export interface PoolCardView {
   typeLine: string;
   colors: string[];
   manaValue: number;
+  /** Null when the faces carry it, as on double-faced cards. */
+  manaCost: string | null;
+  /** Null when the faces carry it. */
+  oracleText: string | null;
+  colorIdentity: string[];
+  keywords: string[];
+  /** Null only until a pool snapshotted before rarity was stored is backfilled. */
+  rarity: string | null;
+  power: string | null;
+  toughness: string | null;
+  loyalty: string | null;
+  /** Empty for single-faced cards. Null only until a pool snapshotted before faces were stored is backfilled. */
+  faces: CardFace[] | null;
   /** One entry per face with its own image. */
   images: CardImages[];
 }
@@ -461,6 +478,15 @@ function toPoolCardView(card: PoolCard): PoolCardView {
     typeLine: card.typeLine,
     colors: card.colors,
     manaValue: card.manaValue,
+    manaCost: card.manaCost,
+    oracleText: card.oracleText,
+    colorIdentity: card.colorIdentity,
+    keywords: card.keywords,
+    rarity: card.rarity,
+    power: card.power,
+    toughness: card.toughness,
+    loyalty: card.loyalty,
+    faces: card.faces as unknown as CardFace[] | null,
     images: card.images as unknown as CardImages[],
   };
 }

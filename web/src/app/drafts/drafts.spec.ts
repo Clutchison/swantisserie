@@ -687,6 +687,15 @@ describe('drafts', () => {
         typeLine: 'Creature — Dragon',
         colors: ['R'],
         manaValue: 6,
+        manaCost: '{4}{R}{R}',
+        oracleText: 'Flying\n{R}: Shivan Dragon gets +1/+0 until end of turn.',
+        colorIdentity: ['R'],
+        keywords: ['Flying'],
+        rarity: 'rare',
+        power: '5',
+        toughness: '5',
+        loyalty: null,
+        faces: [],
         images: [
           {
             small: image('small', 'shivan-id'),
@@ -1527,6 +1536,15 @@ describe('drafts', () => {
         typeLine: 'Creature — Dragon',
         colors: ['R'],
         manaValue: 6,
+        manaCost: '{4}{R}{R}',
+        oracleText: 'Flying\n{R}: Shivan Dragon gets +1/+0 until end of turn.',
+        colorIdentity: ['R'],
+        keywords: ['Flying'],
+        rarity: 'rare',
+        power: '5',
+        toughness: '5',
+        loyalty: null,
+        faces: [],
         images: [{ small: 's.jpg', normal: 'n.jpg', large: 'l.jpg' }],
       };
       const shivanPick: PickView = {

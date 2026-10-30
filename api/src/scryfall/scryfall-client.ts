@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 const API = 'https://api.scryfall.com';
-/** Search is limited to 2 requests per second: https://scryfall.com/docs/api/rate-limits */
-const SEARCH_INTERVAL_MS = 500;
+/** Search and collection share a limit of 2 requests per second: https://scryfall.com/docs/api/rate-limits */
+const REQUEST_INTERVAL_MS = 500;
 /** A 429 locks us out for 30 seconds, and ignoring it risks a ban. */
 const RATE_LIMITED_WAIT_MS = 30_000;
 const MAX_RATE_LIMITED_RETRIES = 3;
@@ -33,6 +33,16 @@ export interface ScryfallCard {
   /** Absent when the faces define the colors, e.g. modal double-faced cards. */
   colors?: string[];
   cmc: number;
+  /** Absent when the faces carry it, as on double-faced cards. */
+  mana_cost?: string;
+  /** Absent when the faces carry it. */
+  oracle_text?: string;
+  color_identity: string[];
+  keywords: string[];
+  rarity: string;
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
   /** Absent when each face has its own image (transform, modal_dfc). */
   image_uris?: ScryfallImageUris;
   card_faces?: ScryfallCardFace[];
@@ -42,7 +52,14 @@ export interface ScryfallCardFace {
   name: string;
   /** Only on reversible cards, where the card itself has none. */
   oracle_id?: string;
+  mana_cost?: string;
+  type_line?: string;
+  oracle_text?: string;
+  /** Absent when the card's colors apply, e.g. on adventures and split cards. */
   colors?: string[];
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
   image_uris?: ScryfallImageUris;
 }
 
@@ -75,11 +92,14 @@ export class ScryfallRejectedSearchError extends Error {
 /** Scryfall failed for reasons of its own, not the query's: an outage or rate limiting. */
 export class ScryfallUnavailableError extends Error {
   constructor(readonly status: number) {
-    super(`Scryfall search failed: ${status}`);
+    super(`Scryfall request failed: ${status}`);
   }
 }
 
-/** Scryfall's search API: the boundary faked in tests. */
+/** The most print ids one collection request may ask for. */
+export const COLLECTION_LIMIT = 75;
+
+/** Scryfall's card API: the boundary faked in tests. */
 export abstract class ScryfallClient {
   /**
    * The cards matching `query`, page by page (from 1), or null if none do.
@@ -90,6 +110,13 @@ export abstract class ScryfallClient {
     query: string,
     page?: number,
   ): Promise<ScryfallSearchPage | null>;
+
+  /**
+   * The printings with these Scryfall ids (at most COLLECTION_LIMIT), leaving
+   * out any Scryfall can't find. Throws ScryfallUnavailableError if Scryfall
+   * refuses or fails.
+   */
+  abstract collection(ids: string[]): Promise<ScryfallCard[]>;
 }
 
 @Injectable()
@@ -102,10 +129,29 @@ export class FetchScryfallClient extends ScryfallClient {
     url.searchParams.set('q', query);
     if (page > 1) url.searchParams.set('page', String(page));
 
+    return this.parse(await this.send(url.toString()));
+  }
+
+  async collection(ids: string[]): Promise<ScryfallCard[]> {
+    const res = await this.send(`${API}/cards/collection`, {
+      method: 'POST',
+      headers: { ...HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiers: ids.map((id) => ({ id })) }),
+    });
+    if (!res.ok) throw new ScryfallUnavailableError(res.status);
+    const body = (await res.json()) as { data: ScryfallCard[] };
+    return body.data;
+  }
+
+  /** Sends a request in its turn, waiting out rate limiting. */
+  private async send(
+    url: string,
+    init: RequestInit = { headers: HEADERS },
+  ): Promise<Response> {
     for (let rateLimited = 0; ; rateLimited++) {
       await this.waitForTurn();
-      const res = await fetch(url.toString(), { headers: HEADERS });
-      if (res.status !== 429) return this.parse(res);
+      const res = await fetch(url, init);
+      if (res.status !== 429) return res;
       if (rateLimited === MAX_RATE_LIMITED_RETRIES) {
         throw new ScryfallUnavailableError(res.status);
       }
@@ -137,17 +183,17 @@ export class FetchScryfallClient extends ScryfallClient {
     };
   }
 
-  /** Reserves the next free slot synchronously, so concurrent searches queue up. */
+  /** Reserves the next free slot synchronously, so concurrent requests queue up. */
   private async waitForTurn(): Promise<void> {
     const now = Date.now();
     const start = Math.max(now, this.nextStart);
-    this.nextStart = start + SEARCH_INTERVAL_MS;
+    this.nextStart = start + REQUEST_INTERVAL_MS;
     if (start > now) {
       await new Promise((resolve) => setTimeout(resolve, start - now));
     }
   }
 
-  /** Holds every search, not just this one, until the lockout is over. */
+  /** Holds every request, not just this one, until the lockout is over. */
   private backOff(): void {
     this.nextStart = Math.max(
       this.nextStart,
