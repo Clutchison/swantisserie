@@ -44,6 +44,8 @@ describe('pool search', () => {
     'giant or',
     'or giant',
     'giant -',
+    '- giant',
+    'c:r (',
     't:',
     '!',
     't<giant',

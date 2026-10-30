@@ -24,13 +24,16 @@ export function searchPool<C extends PoolSearchCard>(
   if (!search.trim()) return { ok: true, cards };
   let matches: Matcher;
   try {
-    matches = new Parser(tokenize(search)).parse();
+    const { tokens, unsupported } = tokenize(search);
+    matches = new Parser(tokens).parse();
+    // Only once the search parses, so a typo isn't reported as an unsupported keyword.
+    if (unsupported) throw unsupported;
   } catch (err) {
     if (err instanceof SearchError)
       return { ok: false, error: { kind: err.kind, message: err.message } };
     throw err;
   }
-  return { ok: true, cards: cards.filter((card) => matches(indexOf(card))) };
+  return { ok: true, cards: cards.filter((card) => matches(cardIndex(card))) };
 }
 
 class SearchError extends Error {
@@ -62,7 +65,7 @@ interface CardIndex {
 
 const indexes = new WeakMap<PoolSearchCard, CardIndex>();
 
-function indexOf(card: PoolSearchCard): CardIndex {
+function cardIndex(card: PoolSearchCard): CardIndex {
   let index = indexes.get(card);
   if (!index) {
     index = buildIndex(card);
@@ -163,8 +166,10 @@ function exactName(value: string): Matcher {
 
 const KEYWORD_PREFIX = /^([a-z]+)(:|!=|<=|>=|=|<|>)/i;
 
-function tokenize(search: string): Token[] {
+/** The search's tokens, and the first unsupported keyword in it, if any. */
+function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError } {
   const tokens: Token[] = [];
+  let unsupported: SearchError | undefined;
   let i = 0;
 
   /** A quoted string, or a run up to whitespace or a parenthesis. */
@@ -185,6 +190,8 @@ function tokenize(search: string): Token[] {
     const char = search[i];
     if (/\s/.test(char)) {
       i++;
+    } else if (char === '-' && !/[^\s)]/.test(search[i + 1] ?? '')) {
+      throw new SearchError('parse-error', '- needs a search right after it.');
     } else if (char === '(' || char === ')' || char === '-') {
       tokens.push(char);
       i++;
@@ -197,7 +204,13 @@ function tokenize(search: string): Token[] {
       const keyword = KEYWORD_PREFIX.exec(search.slice(i));
       if (keyword) {
         i += keyword[0].length;
-        tokens.push(keywordTerm(keyword[1].toLowerCase(), keyword[2], readValue()));
+        try {
+          tokens.push(keywordTerm(keyword[1].toLowerCase(), keyword[2], readValue()));
+        } catch (err) {
+          if (!(err instanceof SearchError && err.kind === 'unsupported')) throw err;
+          unsupported ??= err;
+          tokens.push(() => false);
+        }
         continue;
       }
       const { value, quoted } = readValue();
@@ -206,7 +219,7 @@ function tokenize(search: string): Token[] {
       else tokens.push(nameContains(value, quoted));
     }
   }
-  return tokens;
+  return { tokens, unsupported };
 }
 
 function keywordTerm(

@@ -47,7 +47,7 @@ interface ScryfallCard extends Omit<ScryfallFace, 'type_line'> {
 }
 
 /** Every card matching `query`; throws if Scryfall rejects any of it. */
-async function search(query: string): Promise<ScryfallCard[]> {
+async function searchScryfall(query: string): Promise<ScryfallCard[]> {
   const cards: ScryfallCard[] = [];
   let url: string | null = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}`;
   while (url) {
@@ -65,7 +65,11 @@ async function search(query: string): Promise<ScryfallCard[]> {
   return cards;
 }
 
-/** A card as the pool API returns it (see PoolCardView), without its images. */
+/**
+ * A card as the pool API returns it (see PoolCardView), without its images.
+ * Mirrors toPoolCard and searchFields in api/src/drafts/pool-snapshot.service.ts:
+ * keep the two in step.
+ */
 function toPoolCard(card: ScryfallCard) {
   return {
     scryfallId: card.id,
@@ -110,13 +114,13 @@ const searches = readFileSync(new URL('searches.txt', FIXTURES), 'utf8')
   .map((line) => line.trim())
   .filter((line) => line && !line.startsWith('#'));
 
-const cards = (await search(POOL_QUERY)).map(toPoolCard);
+const cards = (await searchScryfall(POOL_QUERY)).map(toPoolCard);
 writeFileSync(new URL('cards.json', FIXTURES), jsonLines(cards));
 
 const results: { search: string; names: string[] }[] = [];
-for (const query of searches) {
-  const names = (await search(`(${query}) ${POOL_QUERY}`)).map((card) => card.name).sort();
-  results.push({ search: query, names });
-  console.log(`${names.length}\t${query}`);
+for (const search of searches) {
+  const names = (await searchScryfall(`(${search}) ${POOL_QUERY}`)).map((card) => card.name).sort();
+  results.push({ search, names });
+  console.log(`${names.length}\t${search}`);
 }
 writeFileSync(new URL('results.json', FIXTURES), jsonLines(results));
