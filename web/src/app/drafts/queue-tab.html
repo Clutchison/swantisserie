@@ -3,7 +3,7 @@
     <p>
       Lost to other players:
       @for (card of queue().lost; track card.oracleId; let last = $last) {
-        <strong>{{ card.name }}</strong
+        <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
         >{{ last ? '.' : ', ' }}
       }
     </p>
@@ -31,12 +31,20 @@
   (cdkDropListDropped)="dropped($event)"
 >
   @for (card of queue().cards; track card.oracleId; let i = $index, first = $first, last = $last) {
-    <li cdkDrag cdkDragLockAxis="y" cdkDragPreviewContainer="parent">
+    <li
+      cdkDrag
+      cdkDragLockAxis="y"
+      cdkDragPreviewContainer="parent"
+      (cdkDragStarted)="previews.dragStarted()"
+    >
       @if (!readOnly()) {
         <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
       }
       <span class="number">{{ i + 1 }}</span>
-      <span class="name">{{ card.name }}</span>
+      <span class="name">
+        <!-- Only the text shows a Card preview, not the rest of the row. -->
+        <span [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</span>
+      </span>
       @if (!readOnly()) {
         <span class="move">
           <button

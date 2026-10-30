@@ -42,6 +42,10 @@ _Avoid_: Import, sync, card fetch
 One card in a pool, with the Arena printing the snapshot took.
 _Avoid_: Card entry, catalog card
 
+**Card preview**:
+A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name.
+_Avoid_: Tooltip, hover card
+
 **Pool search**:
 A search in Scryfall syntax that a viewer types to narrow the pool cards they see. It never changes the pool.
 _Avoid_: Filter, query (alone), advanced search
