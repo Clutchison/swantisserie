@@ -1,0 +1,101 @@
+# Searches whose scryfall.com results results.json records over the cards in
+# cards.json. One per line; re-record with scripts/record-pool-search-fixtures.mts.
+
+# Bare words match the name, ignoring case, spaces and punctuation
+giant
+GIANT
+locker
+sell sword
+sellsword
+sell-sword
+belunas
+beluna's gate
+kellan,
+bottomlesspool
+cant
+loch
+stomp
+
+# Quoted phrases match the name as written
+"wake up"
+"can't wake"
+"cant wake"
+"house-mouse"
+"house mouse"
+"pool // locker"
+"Beluna's"
+"kellan,"
+
+# Exact names: the whole name or one face's, ignoring punctuation
+!sheoldred
+!Glassworks
+!"Locker Room"
+!"bottomless pool // locker room"
+!"belunas gatekeeper"
+!"kellan the fae blooded"
+!kellan
+!"Sell-Sword"
+
+# name:
+name:locker
+name:sellsword
+name:"sell sword"
+name:"bottomless pool //"
+name=locker
+
+# t: / type:
+t:giant
+t:creature
+type:siege
+t:legend
+t:"legendary creature"
+t:"creature — human"
+t:"room //"
+t:"creature // sorcery"
+t:land
+t:sorcery
+t=giant
+t:legendarycreature
+
+# o: / oracle:, without reminder text; ~ is the card's name or "this creature" and the like
+o:flying
+o:"draw a card"
+oracle:destroy
+o:"Enchanted creature gets +1/+1"
+o:"counter it unless that player pays"
+o:{T}
+o:"+1/+1 counter"
+o:"can't"
+o:cant
+o:~
+o:"~ deals"
+o:"exile ~"
+o:"sacrifice ~"
+o:"when ~ enters"
+o:"~ can't"
+o:"this creature"
+o:"this siege"
+o:sheoldred
+
+# kw: / keyword:
+kw:flying
+keyword:ward
+kw:Flying
+kw:"first strike"
+kw:celebration
+kw:bargain
+kw:"manifest dread"
+
+# Implicit and explicit AND, or, negation and parentheses
+t:creature o:flying -kw:flying
+giant and t:creature
+t:giant or t:dragon
+giant OR dragon
+giant or dragon t:creature
+(t:giant or t:dragon) o:trample
+t:room -(o:draw or o:destroy)
+-t:creature -t:land t:sorcery
+-giant t:giant
+((t:giant))
+-"house-mouse" t:mouse
+-!sheoldred t:praetor
