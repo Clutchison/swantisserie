@@ -185,7 +185,7 @@ describe('FetchScryfallClient', () => {
     });
   });
 
-  it('keeps searches at least 500 ms apart, Scryfall’s limit of 2 per second', async () => {
+  it('keeps searches at least 600 ms apart, inside Scryfall’s limit of 2 per second', async () => {
     vi.useFakeTimers();
     try {
       for (let i = 0; i < 3; i++) {
@@ -200,12 +200,12 @@ describe('FetchScryfallClient', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(fetch).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(499);
+      await vi.advanceTimersByTimeAsync(599);
       expect(fetch).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(1);
       expect(fetch).toHaveBeenCalledTimes(2);
 
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(600);
       expect(fetch).toHaveBeenCalledTimes(3);
       await searches;
     } finally {
@@ -220,7 +220,7 @@ describe('FetchScryfallClient', () => {
       respond(404, { object: 'error', status: 404, details: 'No cards' });
 
       await scryfall.search('a');
-      await vi.advanceTimersByTimeAsync(600);
+      await vi.advanceTimersByTimeAsync(700);
       const second = scryfall.search('b');
       await vi.advanceTimersByTimeAsync(0);
 
@@ -253,7 +253,7 @@ describe('FetchScryfallClient', () => {
       expect(cards).toEqual([balefire]);
     });
 
-    it('shares the 500 ms spacing with searches', async () => {
+    it('shares the 600 ms spacing with searches', async () => {
       vi.useFakeTimers();
       try {
         respond(404, { object: 'error', status: 404, details: 'No cards' });
@@ -263,7 +263,7 @@ describe('FetchScryfallClient', () => {
           scryfall.search('a'),
           scryfall.printings(['balefire-id']),
         ]);
-        await vi.advanceTimersByTimeAsync(499);
+        await vi.advanceTimersByTimeAsync(599);
         expect(fetch).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
         expect(fetch).toHaveBeenCalledTimes(2);

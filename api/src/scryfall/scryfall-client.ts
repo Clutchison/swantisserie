@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 const API = 'https://api.scryfall.com';
-/** Search and collection (printings by id) share a limit of 2 requests per second: https://scryfall.com/docs/api/rate-limits */
-const REQUEST_INTERVAL_MS = 500;
+/**
+ * Search and collection (printings by id) share a limit of 2 requests per
+ * second (https://scryfall.com/docs/api/rate-limits); the extra 100 ms keeps
+ * us safely inside it.
+ */
+const REQUEST_INTERVAL_MS = 600;
 /** A 429 locks us out for 30 seconds, and ignoring it risks a ban. */
 const RATE_LIMITED_WAIT_MS = 30_000;
 const MAX_RATE_LIMITED_RETRIES = 3;
