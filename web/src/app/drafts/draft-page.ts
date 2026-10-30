@@ -14,7 +14,13 @@ import {
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import type { DraftView, PickView, PlayerView, QueueView } from './drafts';
+import {
+  type DraftView,
+  EMPTY_QUEUE,
+  type PickView,
+  type PlayerView,
+  type QueueView,
+} from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
@@ -99,12 +105,12 @@ export class DraftPage {
   protected readonly offerQueue = computed(
     () => this.joined() && this.draft()?.state !== 'Complete',
   );
-  /** Only players have a queue. Both the Pool and Queue tabs show it. */
-  private readonly queueResource = httpResource<QueueView>(() =>
+  /** Only players have a queue. Both the Pool and Queue tabs show it, and change it. */
+  protected readonly queueResource = httpResource<QueueView>(() =>
     this.joined() ? `/api/drafts/${this.id()}/queue` : undefined,
   );
   protected readonly queue = computed<QueueView>(() =>
-    this.queueResource.hasValue() ? this.queueResource.value() : { cards: [], lost: [] },
+    this.queueResource.hasValue() ? this.queueResource.value() : EMPTY_QUEUE,
   );
   protected readonly queueFailed = computed(() => !!this.queueResource.error());
   /** The oracle ids of the cards in the signed-in player's queue. */
@@ -197,16 +203,6 @@ export class DraftPage {
         shownVersion = version;
       });
     });
-  }
-
-  /** Shows the queue as the API answered a change to it. */
-  protected queueChanged(queue: QueueView) {
-    this.queueResource.set(queue);
-  }
-
-  /** Re-reads the queue, which may have moved on unseen. */
-  protected reloadQueue() {
-    this.queueResource.reload();
   }
 
   /** Opens the Picks panel on one player's picks. */

@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
+import { QueueApi, queueChangeFailure } from './queue-api';
 
 /** The draft view's Pool tab: a grid of the pool's cards, and a detail view of one. */
 @Component({
@@ -24,6 +25,7 @@ import type { CardImages, DraftView, PoolCardView, QueueView } from './drafts';
 })
 export class PoolTab {
   private readonly http = inject(HttpClient);
+  private readonly queueApi = inject(QueueApi);
 
   /** A draft whose pool snapshot is complete. */
   readonly draftId = input.required<string>();
@@ -127,9 +129,7 @@ export class PoolTab {
 
   protected addToQueue(card: PoolCardView) {
     return this.changeQueue(
-      this.http.post<QueueView>(`/api/drafts/${this.draftId()}/queue`, {
-        oracleId: card.oracleId,
-      }),
+      this.queueApi.add(this.draftId(), card.oracleId),
       'Added to your queue.',
       "Couldn't add the card to your queue. Try again in a moment.",
     );
@@ -137,17 +137,15 @@ export class PoolTab {
 
   protected removeFromQueue(card: PoolCardView) {
     return this.changeQueue(
-      this.http.delete<QueueView>(
-        `/api/drafts/${this.draftId()}/queue/${encodeURIComponent(card.oracleId)}`,
-      ),
+      this.queueApi.remove(this.draftId(), card.oracleId),
       'Removed from your queue.',
       "Couldn't remove the card from your queue. Try again in a moment.",
     );
   }
 
   /**
-   * Sends a change to the queue, noting `done` once it's made, or `failure`
-   * if it fails and the queue is to be re-read.
+   * Sends a change to the queue, noting `done` once it's made. If it fails,
+   * notes why (`failure`, unless the API says) and has the queue re-read.
    */
   private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
     this.queueing.set(true);
@@ -156,9 +154,7 @@ export class PoolTab {
       this.queueChanged.emit(await firstValueFrom(request));
       this.queueNote.set(done);
     } catch (err) {
-      this.queueNote.set(
-        (err instanceof HttpErrorResponse && err.status === 409 && err.error?.message) || failure,
-      );
+      this.queueNote.set(queueChangeFailure(err, failure));
       this.queueStale.emit();
     } finally {
       this.queueing.set(false);

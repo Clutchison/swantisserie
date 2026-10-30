@@ -169,6 +169,9 @@
         }
         @case ('Complete') {
           <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+          @if (queueFailed()) {
+            <p class="error">Couldn't load your queue. Try reloading the page.</p>
+          }
           <app-pool-tab
             [draftId]="draft.id"
             [picked]="picked()"
@@ -178,8 +181,8 @@
             [yourTurn]="yourTurn()"
             (pickMade)="pickMade($event)"
             (pickRefused)="pickRefused()"
-            (queueChanged)="queueChanged($event)"
-            (queueStale)="reloadQueue()"
+            (queueChanged)="queueResource.set($event)"
+            (queueStale)="queueResource.reload()"
           />
         }
         @case ('Failed') {
@@ -217,8 +220,8 @@
         <app-queue-tab
           [draftId]="draft.id"
           [queue]="queue()"
-          (queueChanged)="queueChanged($event)"
-          (queueStale)="reloadQueue()"
+          (queueChanged)="queueResource.set($event)"
+          (queueStale)="queueResource.reload()"
         />
       }
     </section>

@@ -5,10 +5,10 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type { QueueView } from './drafts';
+import { QueueApi, queueChangeFailure } from './queue-api';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
@@ -21,7 +21,7 @@ const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
   styleUrls: ['./drafts.scss', './queue-tab.scss'],
 })
 export class QueueTab {
-  private readonly http = inject(HttpClient);
+  private readonly queueApi = inject(QueueApi);
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
@@ -35,10 +35,6 @@ export class QueueTab {
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  private url() {
-    return `/api/drafts/${this.draftId()}/queue`;
-  }
-
   /** A card dragged to a new place in the queue. */
   protected dropped(event: CdkDragDrop<unknown>) {
     return this.move(event.previousIndex, event.currentIndex);
@@ -51,19 +47,20 @@ export class QueueTab {
     moveItemInArray(cards, from, to);
     this.queueChanged.emit({ ...this.queue(), cards });
     return this.change(
-      this.http.put<QueueView>(this.url(), { oracleIds: cards.map((card) => card.oracleId) }),
+      this.queueApi.reorder(
+        this.draftId(),
+        cards.map((card) => card.oracleId),
+      ),
     );
   }
 
   protected remove(oracleId: string) {
-    return this.change(
-      this.http.delete<QueueView>(`${this.url()}/${encodeURIComponent(oracleId)}`),
-    );
+    return this.change(this.queueApi.remove(this.draftId(), oracleId));
   }
 
   /** Forgets the cards lost to other players. */
   protected dismissLost() {
-    return this.change(this.http.delete<QueueView>(`${this.url()}/lost`));
+    return this.change(this.queueApi.dismissLost(this.draftId()));
   }
 
   /**
@@ -77,11 +74,7 @@ export class QueueTab {
     try {
       this.queueChanged.emit(await firstValueFrom(request));
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
-        this.error.set(err.error?.message ?? CHANGE_FAILED);
-      } else {
-        this.error.set(CHANGE_FAILED);
-      }
+      this.error.set(queueChangeFailure(err, CHANGE_FAILED));
       this.queueStale.emit();
     } finally {
       this.changing.set(false);

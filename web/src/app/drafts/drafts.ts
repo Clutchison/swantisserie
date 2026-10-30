@@ -106,3 +106,6 @@ export interface QueueView {
   /** Cards other players picked first, in the order they were lost. */
   lost: QueuedCardView[];
 }
+
+/** A queue with no cards in it, and none lost. */
+export const EMPTY_QUEUE: QueueView = { cards: [], lost: [] };
