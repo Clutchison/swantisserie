@@ -126,6 +126,8 @@ export interface PickView {
   name: string;
   /** How the faces are laid out. Null only until a pool snapshotted before layout was stored is backfilled. */
   layout: string | null;
+  set: string;
+  collectorNumber: string;
 }
 
 /** A card in a queue, or lost from one. */

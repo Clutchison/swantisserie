@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { arenaExport } from './arena-export';
+import { moxfieldExport } from './moxfield-export';
 import {
   type DraftView,
   EMPTY_QUEUE,
@@ -28,6 +29,9 @@ import { QueueTab } from './queue-tab';
 
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;
+
+/** Where a player's picks can be exported to. */
+type ExportTarget = 'Arena' | 'Moxfield';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -163,8 +167,8 @@ export class DraftPage {
     () => this.tab() === 'Board' || (this.tab() === 'Picks' && !this.onMeTab()),
   );
 
-  /** How the latest copy of the Picks panel's picks for Arena went. */
-  protected readonly arenaCopy = signal<'Copied' | 'Failed' | null>(null);
+  /** How the latest copy of the Picks panel's picks went: what it was copied for, or that it failed. */
+  protected readonly picksCopy = signal<ExportTarget | 'Failed' | null>(null);
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
@@ -213,17 +217,27 @@ export class DraftPage {
   protected showPicks(playerId: string) {
     this.picksPlayerId.set(playerId);
     this.tab.set('Picks');
-    this.arenaCopy.set(null);
+    this.picksCopy.set(null);
   }
 
   /** Copies `picks` to the clipboard as an Arena export. */
-  protected async copyForArena(picks: PickView[]) {
-    this.arenaCopy.set(null);
+  protected copyForArena(picks: PickView[]) {
+    return this.copyPicks('Arena', arenaExport(picks));
+  }
+
+  /** Copies `picks` to the clipboard as a Moxfield export. */
+  protected copyForMoxfield(picks: PickView[]) {
+    return this.copyPicks('Moxfield', moxfieldExport(picks));
+  }
+
+  /** Copies an export's `text` to the clipboard, reporting how it went in `picksCopy`. */
+  private async copyPicks(target: ExportTarget, text: string) {
+    this.picksCopy.set(null);
     try {
-      await navigator.clipboard.writeText(arenaExport(picks));
-      this.arenaCopy.set('Copied');
+      await navigator.clipboard.writeText(text);
+      this.picksCopy.set(target);
     } catch {
-      this.arenaCopy.set('Failed');
+      this.picksCopy.set('Failed');
     }
   }
 

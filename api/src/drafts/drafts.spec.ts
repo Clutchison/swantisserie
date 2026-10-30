@@ -1638,6 +1638,8 @@ describe('drafts', () => {
           oracleId: 'shock-oracle',
           name: 'Shock',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
       ]);
     });
@@ -1662,6 +1664,8 @@ describe('drafts', () => {
           oracleId: 'shock-oracle',
           name: 'Shock',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
         {
           pick: 2,
@@ -1669,6 +1673,8 @@ describe('drafts', () => {
           oracleId: 'lightning-bolt-oracle',
           name: 'Lightning Bolt',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
         {
           pick: 3,
@@ -1676,6 +1682,8 @@ describe('drafts', () => {
           oracleId: 'lava-spike-oracle',
           name: 'Lava Spike',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
       ]);
     });

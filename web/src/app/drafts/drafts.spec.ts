@@ -497,13 +497,23 @@ describe('drafts', () => {
     describe('undo', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
       const picks: PickView[] = [
-        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock', layout: 'normal' },
+        {
+          pick: 1,
+          playerId: bob.id,
+          oracleId: 'shock-oracle',
+          name: 'Shock',
+          layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
+        },
         {
           pick: 2,
           playerId: alice.id,
           oracleId: 'bolt-oracle',
           name: 'Lightning Bolt',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
       ];
       const drafting = {
@@ -553,6 +563,8 @@ describe('drafts', () => {
             oracleId: 'spike-oracle',
             name: 'Lava Spike',
             layout: 'normal',
+            set: 'ima',
+            collectorNumber: '1',
           },
         ]);
         await flushQueue(EMPTY_QUEUE);
@@ -920,6 +932,8 @@ describe('drafts', () => {
                   oracleId: 'shivan-oracle',
                   name: 'Shivan Dragon',
                   layout: 'normal',
+                  set: 'ima',
+                  collectorNumber: '1',
                 },
               ],
             },
@@ -961,6 +975,8 @@ describe('drafts', () => {
           oracleId: 'shivan-oracle',
           name: 'Shivan Dragon',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         };
 
         it('lets the player whose turn it is pick a card from its detail', async () => {
@@ -1175,6 +1191,8 @@ describe('drafts', () => {
                   oracleId: 'shivan-oracle',
                   name: 'Shivan Dragon',
                   layout: 'normal',
+                  set: 'ima',
+                  collectorNumber: '1',
                 },
               ],
               queue: { cards: [queued(shivan)], lost: [] },
@@ -1199,6 +1217,8 @@ describe('drafts', () => {
                   oracleId: 'shivan-oracle',
                   name: 'Shivan Dragon',
                   layout: 'normal',
+                  set: 'ima',
+                  collectorNumber: '1',
                 },
               ],
               queue: { cards: [], lost: [queued(shivan)] },
@@ -1411,13 +1431,23 @@ describe('drafts', () => {
     describe('board tab', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
       const picks: PickView[] = [
-        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock', layout: 'normal' },
+        {
+          pick: 1,
+          playerId: bob.id,
+          oracleId: 'shock-oracle',
+          name: 'Shock',
+          layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
+        },
         {
           pick: 2,
           playerId: alice.id,
           oracleId: 'bolt-oracle',
           name: 'Lightning Bolt',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
         {
           pick: 3,
@@ -1425,6 +1455,8 @@ describe('drafts', () => {
           oracleId: 'spike-oracle',
           name: 'Lava Spike',
           layout: 'normal',
+          set: 'ima',
+          collectorNumber: '1',
         },
       ];
 
@@ -1533,10 +1565,10 @@ describe('drafts', () => {
           expect(panel(page).querySelector('h2')?.textContent).toBe('Board');
         });
 
-        describe('copying for Arena', () => {
-          const copyButton = (root: HTMLElement) =>
+        describe('copying picks', () => {
+          const copyButton = (root: HTMLElement, target: 'Arena' | 'Moxfield' = 'Arena') =>
             [...panel(root).querySelectorAll('button')].find((button) =>
-              button.textContent?.includes('Copy for Arena'),
+              button.textContent?.includes(`Copy for ${target}`),
             );
           const writeText = vi.fn<(text: string) => Promise<void>>();
 
@@ -1562,7 +1594,7 @@ describe('drafts', () => {
             return opened;
           }
 
-          it('copies any player’s picks, with multi-face cards named for Arena', async () => {
+          it('copies any player’s picks for Arena, with multi-face cards named its way', async () => {
             const { fixture, page } = await openBobsPicks([
               {
                 pick: 1,
@@ -1570,6 +1602,8 @@ describe('drafts', () => {
                 oracleId: 'shock-oracle',
                 name: 'Shock',
                 layout: 'normal',
+                set: 'ima',
+                collectorNumber: '1',
               },
               {
                 pick: 3,
@@ -1577,6 +1611,8 @@ describe('drafts', () => {
                 oracleId: 'giant-oracle',
                 name: 'Bonecrusher Giant // Stomp',
                 layout: 'adventure',
+                set: 'ima',
+                collectorNumber: '1',
               },
               {
                 pick: 5,
@@ -1584,6 +1620,8 @@ describe('drafts', () => {
                 oracleId: 'commit-oracle',
                 name: 'Commit // Memory',
                 layout: 'split',
+                set: 'ima',
+                collectorNumber: '1',
               },
             ]);
 
@@ -1596,7 +1634,53 @@ describe('drafts', () => {
             expect(panel(page).querySelector('[role="status"]')?.textContent).toContain('Copied');
           });
 
-          it('reports a failed copy when the clipboard refuses', async () => {
+          it('copies any player’s picks for Moxfield, with their printings', async () => {
+            const { fixture, page } = await openBobsPicks([
+              {
+                pick: 1,
+                playerId: bob.id,
+                oracleId: 'shock-oracle',
+                name: 'Shock',
+                layout: 'normal',
+                set: 'm21',
+                collectorNumber: '159',
+              },
+              {
+                pick: 3,
+                playerId: bob.id,
+                oracleId: 'giant-oracle',
+                name: 'Bonecrusher Giant // Stomp',
+                layout: 'adventure',
+                set: 'eld',
+                collectorNumber: '115',
+              },
+            ]);
+
+            copyButton(page, 'Moxfield')!.click();
+            await fixture.whenStable();
+
+            expect(writeText).toHaveBeenCalledExactlyOnceWith(
+              '1 Shock (M21) 159\n1 Bonecrusher Giant // Stomp (ELD) 115',
+            );
+            expect(panel(page).querySelector('[role="status"]')?.textContent).toContain(
+              'Copied for Moxfield',
+            );
+          });
+
+          it('reports a failed copy for Moxfield when the clipboard refuses', async () => {
+            writeText.mockRejectedValue(new Error('denied'));
+            const { fixture, page } = await openBobsPicks(picks);
+
+            copyButton(page, 'Moxfield')!.click();
+            await fixture.whenStable();
+
+            expect(panel(page).querySelector('[role="alert"]')?.textContent).toContain(
+              "Couldn't copy",
+            );
+            expect(panel(page).querySelector('[role="status"]')).toBeNull();
+          });
+
+          it('reports a failed copy for Arena when the clipboard refuses', async () => {
             writeText.mockRejectedValue(new Error('denied'));
             const { fixture, page } = await openBobsPicks(picks);
 
@@ -1692,6 +1776,8 @@ describe('drafts', () => {
                 oracleId: 'shock-oracle',
                 name: 'Shock',
                 layout: 'normal',
+                set: 'ima',
+                collectorNumber: '1',
               },
               {
                 pick: 2,
@@ -1699,6 +1785,8 @@ describe('drafts', () => {
                 oracleId: 'bolt-oracle',
                 name: 'Lightning Bolt',
                 layout: 'normal',
+                set: 'ima',
+                collectorNumber: '1',
               },
             ],
           },
@@ -1815,6 +1903,8 @@ describe('drafts', () => {
         oracleId: 'shivan-oracle',
         name: 'Shivan Dragon',
         layout: 'normal',
+        set: 'ima',
+        collectorNumber: '1',
       };
 
       it('watches the draft it shows', async () => {

@@ -98,6 +98,10 @@ _Avoid_: Revert, rollback, take-back
 A player's picks as text that MTG Arena's deck import accepts, each card named the way Arena names it.
 _Avoid_: Decklist, Arena import (that is what the player does with it)
 
+**Moxfield export**:
+A player's picks as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
+_Avoid_: Decklist, Moxfield import (that is what the player does with it)
+
 ## Draft lifecycle
 
 **Lobby**:
