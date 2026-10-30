@@ -231,7 +231,7 @@ describe('FetchScryfallClient', () => {
     }
   });
 
-  describe('collection', () => {
+  describe('printings', () => {
     it('posts the print ids and returns the cards found', async () => {
       respond(200, {
         object: 'list',
@@ -239,7 +239,7 @@ describe('FetchScryfallClient', () => {
         data: [balefire],
       });
 
-      const cards = await scryfall.collection(['balefire-id', 'gone-id']);
+      const cards = await scryfall.printings(['balefire-id', 'gone-id']);
 
       const [url, init] = fetch.mock.calls[0];
       expect(url).toBe('https://api.scryfall.com/cards/collection');
@@ -261,7 +261,7 @@ describe('FetchScryfallClient', () => {
 
         const both = Promise.all([
           scryfall.search('a'),
-          scryfall.collection(['balefire-id']),
+          scryfall.printings(['balefire-id']),
         ]);
         await vi.advanceTimersByTimeAsync(499);
         expect(fetch).toHaveBeenCalledTimes(1);
@@ -279,7 +279,7 @@ describe('FetchScryfallClient', () => {
         respond(429, { object: 'error', status: 429, details: 'Too many' });
         respond(200, { object: 'list', not_found: [], data: [balefire] });
 
-        const cards = scryfall.collection(['balefire-id']);
+        const cards = scryfall.printings(['balefire-id']);
         await vi.advanceTimersByTimeAsync(30_000);
 
         expect(fetch).toHaveBeenCalledTimes(2);
@@ -292,7 +292,7 @@ describe('FetchScryfallClient', () => {
     it('fails plainly when Scryfall refuses the lookup', async () => {
       respond(400, { object: 'error', status: 400, details: 'Too many' });
 
-      await expect(scryfall.collection(['balefire-id'])).rejects.toBeInstanceOf(
+      await expect(scryfall.printings(['balefire-id'])).rejects.toBeInstanceOf(
         ScryfallUnavailableError,
       );
     });

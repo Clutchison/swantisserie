@@ -17,6 +17,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { PoolCard } from '../generated/prisma/client.js';
+import type { Rarity } from '../scryfall/scryfall-client.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -80,10 +81,13 @@ export interface PoolCardView {
   colorIdentity: string[];
   keywords: string[];
   /** Null only until a pool snapshotted before rarity was stored is backfilled. */
-  rarity: string | null;
+  rarity: Rarity | null;
+  /** How the faces are laid out, e.g. normal, split, transform, adventure. Null only until a pool snapshotted before layout was stored is backfilled. */
+  layout: string | null;
   power: string | null;
   toughness: string | null;
   loyalty: string | null;
+  defense: string | null;
   /** Empty for single-faced cards. Null only until a pool snapshotted before faces were stored is backfilled. */
   faces: CardFace[] | null;
   /** One entry per face with its own image. */
@@ -482,10 +486,12 @@ function toPoolCardView(card: PoolCard): PoolCardView {
     oracleText: card.oracleText,
     colorIdentity: card.colorIdentity,
     keywords: card.keywords,
-    rarity: card.rarity,
+    rarity: card.rarity as Rarity | null,
+    layout: card.layout,
     power: card.power,
     toughness: card.toughness,
     loyalty: card.loyalty,
+    defense: card.defense,
     faces: card.faces as unknown as CardFace[] | null,
     images: card.images as unknown as CardImages[],
   };

@@ -692,9 +692,11 @@ describe('drafts', () => {
         colorIdentity: ['R'],
         keywords: ['Flying'],
         rarity: 'rare',
+        layout: 'normal',
         power: '5',
         toughness: '5',
         loyalty: null,
+        defense: null,
         faces: [],
         images: [
           {
@@ -711,6 +713,7 @@ describe('drafts', () => {
         oracleId: 'brightclimb-oracle',
         name: 'Brightclimb Pathway // Grimclimb Pathway',
         typeLine: 'Land // Land',
+        layout: 'modal_dfc',
         colors: [],
         manaValue: 0,
         images: (['front', 'back'] as const).map((face) => ({
@@ -1541,9 +1544,11 @@ describe('drafts', () => {
         colorIdentity: ['R'],
         keywords: ['Flying'],
         rarity: 'rare',
+        layout: 'normal',
         power: '5',
         toughness: '5',
         loyalty: null,
+        defense: null,
         faces: [],
         images: [{ small: 's.jpg', normal: 'n.jpg', large: 'l.jpg' }],
       };

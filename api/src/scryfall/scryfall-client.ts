@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 const API = 'https://api.scryfall.com';
-/** Search and collection share a limit of 2 requests per second: https://scryfall.com/docs/api/rate-limits */
+/** Search and collection (printings by id) share a limit of 2 requests per second: https://scryfall.com/docs/api/rate-limits */
 const REQUEST_INTERVAL_MS = 500;
 /** A 429 locks us out for 30 seconds, and ignoring it risks a ban. */
 const RATE_LIMITED_WAIT_MS = 30_000;
@@ -20,6 +20,10 @@ export interface ScryfallImageUris {
   large: string;
 }
 
+/** https://scryfall.com/docs/api/cards#rarity */
+export type Rarity =
+  'common' | 'uncommon' | 'rare' | 'special' | 'mythic' | 'bonus';
+
 /** The fields of a Scryfall card object we use: https://scryfall.com/docs/api/cards */
 export interface ScryfallCard {
   /** This printing. */
@@ -30,6 +34,8 @@ export interface ScryfallCard {
   set: string;
   collector_number: string;
   type_line: string;
+  /** How the card's faces are laid out, e.g. normal, split, transform, adventure: https://scryfall.com/docs/api/layouts */
+  layout: string;
   /** Absent when the faces define the colors, e.g. modal double-faced cards. */
   colors?: string[];
   cmc: number;
@@ -39,10 +45,11 @@ export interface ScryfallCard {
   oracle_text?: string;
   color_identity: string[];
   keywords: string[];
-  rarity: string;
+  rarity: Rarity;
   power?: string;
   toughness?: string;
   loyalty?: string;
+  defense?: string;
   /** Absent when each face has its own image (transform, modal_dfc). */
   image_uris?: ScryfallImageUris;
   card_faces?: ScryfallCardFace[];
@@ -60,6 +67,7 @@ export interface ScryfallCardFace {
   power?: string;
   toughness?: string;
   loyalty?: string;
+  defense?: string;
   image_uris?: ScryfallImageUris;
 }
 
@@ -96,8 +104,8 @@ export class ScryfallUnavailableError extends Error {
   }
 }
 
-/** The most print ids one collection request may ask for. */
-export const COLLECTION_LIMIT = 75;
+/** The most print ids one printings request may ask for. */
+export const PRINTINGS_LIMIT = 75;
 
 /** Scryfall's card API: the boundary faked in tests. */
 export abstract class ScryfallClient {
@@ -112,11 +120,11 @@ export abstract class ScryfallClient {
   ): Promise<ScryfallSearchPage | null>;
 
   /**
-   * The printings with these Scryfall ids (at most COLLECTION_LIMIT), leaving
+   * The printings with these Scryfall ids (at most PRINTINGS_LIMIT), leaving
    * out any Scryfall can't find. Throws ScryfallUnavailableError if Scryfall
    * refuses or fails.
    */
-  abstract collection(ids: string[]): Promise<ScryfallCard[]>;
+  abstract printings(ids: string[]): Promise<ScryfallCard[]>;
 }
 
 @Injectable()
@@ -132,7 +140,7 @@ export class FetchScryfallClient extends ScryfallClient {
     return this.parse(await this.send(url.toString()));
   }
 
-  async collection(ids: string[]): Promise<ScryfallCard[]> {
+  async printings(ids: string[]): Promise<ScryfallCard[]> {
     const res = await this.send(`${API}/cards/collection`, {
       method: 'POST',
       headers: { ...HEADERS, 'Content-Type': 'application/json' },
