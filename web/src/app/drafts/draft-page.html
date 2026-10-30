@@ -297,12 +297,16 @@
           <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
             Copy for Arena
           </button>
+          <button class="button secondary" type="button" (click)="copyForMoxfield(player.picks)">
+            Copy for Moxfield
+          </button>
         }
-        @if (arenaCopy() === 'Copied') {
-          <p role="status">Copied for Arena.</p>
-        }
-        @if (arenaCopy() === 'Failed') {
-          <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
+        @if (picksCopy(); as copy) {
+          @if (copy === 'Failed') {
+            <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
+          } @else {
+            <p role="status">Copied for {{ copy }}.</p>
+          }
         }
         <ol class="picks">
           @for (pick of player.picks; track pick.pick) {

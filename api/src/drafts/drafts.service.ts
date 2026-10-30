@@ -164,7 +164,15 @@ const PICK_LOG = {
   select: {
     number: true,
     player: { select: { userId: true } },
-    poolCard: { select: { oracleId: true, name: true, layout: true } },
+    poolCard: {
+      select: {
+        oracleId: true,
+        name: true,
+        layout: true,
+        set: true,
+        collectorNumber: true,
+      },
+    },
   },
 } satisfies Prisma.PickFindManyArgs;
 
