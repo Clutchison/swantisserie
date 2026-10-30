@@ -30,6 +30,7 @@ import {
 } from './drafts';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
+import { TileImage, TileImageLoader } from './tile-image';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
@@ -42,7 +43,9 @@ import { QueueApi, queueChangeFailure } from './queue-api';
     CdkVirtualScrollableWindow,
     CdkFixedSizeVirtualScroll,
     CdkVirtualForOf,
+    TileImage,
   ],
+  providers: [TileImageLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pool-tab.html',
   styleUrls: ['./drafts.scss', './pool-tab.scss'],
