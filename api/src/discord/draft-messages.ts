@@ -10,10 +10,9 @@ export interface AnnouncedDraft {
 /** A player as announcements name or ping them. */
 export type AnnouncedPlayer = EventPlayer;
 
-export type AnnouncedPick = Omit<
-  Extract<DraftEvent, { type: 'picked' }>,
-  'type'
->;
+type PickedEvent = Extract<DraftEvent, { type: 'picked' }>;
+
+export type AnnouncedPick = Omit<PickedEvent, 'type'>;
 
 /** The body of a Discord webhook post: text only, no embeds. */
 export interface WebhookMessage {
@@ -22,18 +21,59 @@ export interface WebhookMessage {
   allowed_mentions: { parse: []; users: string[] };
 }
 
-/** `seats` are the players in seat order; the first is up. */
+/**
+ * One message per announcement `events` make: a run of picks, such as a
+ * pick and the cascade after it, is one message, and so is a start and the
+ * cascade after it.
+ */
+export function draftMessages(
+  draft: AnnouncedDraft,
+  events: DraftEvent[],
+): WebhookMessage[] {
+  const messages: WebhookMessage[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    // The picks straight after this event.
+    const picks: AnnouncedPick[] = [];
+    for (
+      let next = events[i + 1];
+      next?.type === 'picked';
+      next = events[++i + 1]
+    ) {
+      picks.push(announcedPick(next));
+    }
+    switch (event.type) {
+      case 'started':
+        messages.push(draftStartedMessage(draft, event.seats, picks));
+        break;
+      case 'picked':
+        messages.push(picksMessage(draft, [announcedPick(event), ...picks]));
+        break;
+      case 'completed':
+        messages.push(draftCompleteMessage(draft));
+        break;
+    }
+  }
+  return messages;
+}
+
+/**
+ * `seats` are the players in seat order; the first is up, unless `picks`
+ * were made from queues straight after the start.
+ */
 export function draftStartedMessage(
   draft: AnnouncedDraft,
   seats: AnnouncedPlayer[],
+  picks: AnnouncedPick[] = [],
 ): WebhookMessage {
   return announcement(
     [
       `${bold(draft.name)} has started. Seat order:`,
       ...seats.map((player, seat) => `${seat + 1}. ${bold(player.name)}`),
+      ...picks.map(pickLine),
     ],
     draft,
-    seats[0] ?? null,
+    picks.length > 0 ? picks[picks.length - 1].next : (seats[0] ?? null),
   );
 }
 
@@ -45,17 +85,22 @@ export function draftCompleteMessage(draft: AnnouncedDraft): WebhookMessage {
   );
 }
 
-export function pickMessage(
+/** `picks` in pick order, at least one; the last one's next player is up. */
+export function picksMessage(
   draft: AnnouncedDraft,
-  pick: AnnouncedPick,
+  picks: AnnouncedPick[],
 ): WebhookMessage {
-  return announcement(
-    [
-      `${bold(pick.player.name)} picked ${bold(pick.card)} (pick ${pick.number})`,
-    ],
-    draft,
-    pick.next,
-  );
+  return announcement(picks.map(pickLine), draft, picks[picks.length - 1].next);
+}
+
+function announcedPick(event: PickedEvent): AnnouncedPick {
+  const { type: _type, ...pick } = event;
+  return pick;
+}
+
+function pickLine(pick: AnnouncedPick): string {
+  const number = `pick ${pick.number}${pick.queued ? ', queued' : ''}`;
+  return `${bold(pick.player.name)} picked ${bold(pick.card)} (${number})`;
 }
 
 /**

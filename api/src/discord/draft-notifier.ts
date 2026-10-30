@@ -5,9 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { DiscordConfig } from './discord-config.js';
 import {
   type AnnouncedDraft,
-  draftCompleteMessage,
-  draftStartedMessage,
-  pickMessage,
+  draftMessages,
   type WebhookMessage,
 } from './draft-messages.js';
 import { WebhookClient, WebhookGoneError } from './webhook-client.js';
@@ -35,7 +33,7 @@ export class DraftNotifier {
   ) {}
 
   /**
-   * Posts one message per event to the draft's webhook, if it has one.
+   * Posts the events' announcements to the draft's webhook, if it has one.
    * Call once the events are committed. Never rejects: failures are logged.
    */
   notify(draftId: string, events: DraftEvent[]): Promise<void> {
@@ -64,12 +62,12 @@ export class DraftNotifier {
       name: row.name,
       url: new URL(`/drafts/${draftId}`, this.config.redirectUri).href,
     };
-    for (const event of events) {
+    for (const message of draftMessages(draft, events)) {
       try {
-        await this.post(row.webhook.url, toMessage(draft, event));
+        await this.post(row.webhook.url, message);
       } catch (err) {
         this.logger.error(
-          `Couldn’t post draft ${draftId}’s ${event.type} announcement: ${String(err)}`,
+          `Couldn’t post an announcement on draft ${draftId}: ${String(err)}`,
         );
       }
     }
@@ -86,16 +84,5 @@ export class DraftNotifier {
       }
     }
     await this.webhooks.post(url, message);
-  }
-}
-
-function toMessage(draft: AnnouncedDraft, event: DraftEvent): WebhookMessage {
-  switch (event.type) {
-    case 'started':
-      return draftStartedMessage(draft, event.seats);
-    case 'picked':
-      return pickMessage(draft, event);
-    case 'completed':
-      return draftCompleteMessage(draft);
   }
 }
