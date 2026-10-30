@@ -1,5 +1,3 @@
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { CdkScrollable } from '@angular/cdk/scrolling';
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -13,9 +11,8 @@ import {
   untracked,
   type WritableSignal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
-import { firstValueFrom, map, type Observable } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { arenaExport } from './arena-export';
 import { moxfieldExport } from './moxfield-export';
@@ -35,13 +32,10 @@ import { QueueTab } from './queue-tab';
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;
 
-/** From this width, the draft's panels fit side by side; narrower, they are bottom tabs. */
-const SIDE_BY_SIDE = '(min-width: 1024px)';
-
 /** Where a player's picks can be exported to. */
 type ExportTarget = 'Arena' | 'Moxfield';
 
-/** The draft view's panels. On tabs, Me is the Picks panel showing the signed-in player. */
+/** The draft view's panels. The Me tab is the Picks panel showing the signed-in player. */
 type Panel = 'Pool' | 'Queue' | 'Board' | 'Picks';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -52,7 +46,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 
 @Component({
   selector: 'app-draft-page',
-  imports: [CdkScrollable, PoolTab, QueueTab, RouterLink],
+  imports: [PoolTab, QueueTab, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
   styleUrls: ['./drafts.scss', './draft-page.scss'],
@@ -184,15 +178,6 @@ export class DraftPage {
     })),
   );
 
-  /** Whether the screen fits every panel at once, rather than one tab at a time. */
-  protected readonly sideBySide = toSignal(
-    inject(BreakpointObserver)
-      .observe(SIDE_BY_SIDE)
-      .pipe(map((state) => state.matches)),
-    { requireSync: true },
-  );
-  /** Panels are only tab panels while there are tabs. */
-  protected readonly panelRole = computed(() => (this.sideBySide() ? null : 'tabpanel'));
   protected readonly tab = signal<Panel>('Pool');
   /** The player whose picks the Picks panel was opened on, if any. */
   private readonly picksPlayerId = signal<string | null>(null);
@@ -207,11 +192,6 @@ export class DraftPage {
       board.find((player) => player.id === this.user()?.id) ??
       null
     );
-  });
-  /** What leaves another player's picks: the Board on tabs, and your own picks side by side. */
-  protected readonly closePicksLabel = computed(() => {
-    if (!this.sideBySide()) return '← Board';
-    return this.joined() ? 'Your picks' : 'Close';
   });
   /** Whether the Picks panel is showing the signed-in player. */
   protected readonly ownPicks = computed(() => this.shownPlayer()?.id === this.user()?.id);
@@ -283,19 +263,11 @@ export class DraftPage {
     this.picksCopy.set(null);
   }
 
-  /** Back from another player's picks: to the Board on tabs, and to your own side by side. */
+  /** Back from another player's picks to the Board. */
   protected closePicks() {
     this.picksPlayerId.set(null);
     this.tab.set('Board');
     this.picksCopy.set(null);
-  }
-
-  /** Whether `panel` is on screen: side by side, every panel with something to show. */
-  protected showing(panel: Panel): boolean {
-    if (!this.sideBySide()) return this.tab() === panel;
-    if (panel === 'Queue') return this.joined();
-    if (panel === 'Picks') return !!this.shownPlayer();
-    return true;
   }
 
   /** Copies `picks` to the clipboard as an Arena export. */

@@ -1,4 +1,4 @@
-<main [class.side-by-side]="sideBySide()">
+<main>
   <a routerLink="/">← Drafts</a>
   @if (loading() && !draft()) {
     <p>Loading…</p>
@@ -231,211 +231,7 @@
       }
     </section>
 
-    <div class="panels">
-      <section
-        id="pool-panel"
-        class="pool"
-        [attr.role]="panelRole()"
-        aria-labelledby="pool-tab"
-        [hidden]="!showing('Pool')"
-      >
-        <h2>Pool</h2>
-        @switch (draft.snapshot.state) {
-          @case ('Running') {
-            <p>
-              Snapshotting the pool from Scryfall…
-              @if (draft.snapshot.total !== null) {
-                {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
-              }
-            </p>
-            @if (draft.snapshot.total !== null) {
-              <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
-            } @else {
-              <progress></progress>
-            }
-          }
-          @case ('Complete') {
-            <p>{{ draft.snapshot.cards }} cards in the pool.</p>
-            @if (queueFailed()) {
-              <p class="error">Couldn't load your queue. Try reloading the page.</p>
-            }
-            <app-pool-tab
-              [draftId]="draft.id"
-              [picked]="picked()"
-              [queued]="queued()"
-              [offerPick]="offerPick()"
-              [offerQueue]="offerQueue()"
-              [yourTurn]="yourTurn()"
-              (pickMade)="pickMade($event)"
-              (pickRefused)="pickRefused()"
-              (queueChanged)="queueResource.set($event)"
-              (queueStale)="queueResource.reload()"
-            />
-          }
-          @case ('Failed') {
-            <div class="error" role="alert">
-              <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
-              @if (canOrganize()) {
-                <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
-                  {{ retrying() ? 'Retrying…' : 'Retry' }}
-                </button>
-                @if (retryFailed()) {
-                  <p>Couldn't restart the snapshot. Try again in a moment.</p>
-                }
-              }
-            </div>
-          }
-        }
-        <p class="detail">
-          Pool query: <code>{{ draft.poolQuery }}</code>
-        </p>
-      </section>
-
-      <!-- Only players have a queue. -->
-      <section
-        id="queue-panel"
-        class="queue"
-        cdkScrollable
-        [attr.role]="panelRole()"
-        aria-labelledby="queue-tab"
-        [hidden]="!showing('Queue')"
-      >
-        <h2>Queue</h2>
-        @if (queueFailed()) {
-          <p class="error">Couldn't load your queue. Try reloading the page.</p>
-        }
-        @if (joined() && !queueFailed()) {
-          <app-queue-tab
-            [draftId]="draft.id"
-            [loading]="queueLoading()"
-            [queue]="queue()"
-            [readOnly]="draft.state === 'Closed'"
-            (queueChanged)="queueResource.set($event)"
-            (queueStale)="queueResource.reload()"
-          />
-        } @else if (!joined()) {
-          <p class="empty">Only players have a queue.</p>
-        }
-      </section>
-
-      <section
-        id="board-panel"
-        class="board"
-        [attr.role]="panelRole()"
-        aria-labelledby="board-tab"
-        [hidden]="!showing('Board')"
-      >
-        <h2>Board</h2>
-        @if (picksFailed()) {
-          <p class="error">Couldn't load the picks. Try reloading the page.</p>
-        } @else if (picksLoading()) {
-          <p>Loading the picks…</p>
-        } @else {
-          <div class="player-picks">
-            @for (player of board(); track player.id) {
-              <section>
-                <h3>
-                  <button class="link" type="button" (click)="showPicks(player.id)">
-                    {{ player.name }}
-                  </button>
-                  @if (player.isBot) {
-                    <span class="badge">Bot</span>
-                  }
-                </h3>
-                <ol>
-                  @for (pick of player.picks; track pick.pick) {
-                    <li>{{ pick.name }}</li>
-                  } @empty {
-                    <li class="empty">No picks yet.</li>
-                  }
-                </ol>
-              </section>
-            }
-          </div>
-          <section class="log">
-            <h3>Pick log</h3>
-            <ol>
-              @for (pick of picks(); track pick.pick) {
-                <li>
-                  <span class="number">{{ pick.pick }}</span>
-                  @let picker = player(pick.playerId);
-                  <span class="player">
-                    {{ picker?.name }}
-                    @if (picker?.isBot) {
-                      <span class="badge">Bot</span>
-                    }
-                  </span>
-                  <span class="card">{{ pick.name }}</span>
-                </li>
-              } @empty {
-                <li class="empty">No picks yet.</li>
-              }
-            </ol>
-          </section>
-        }
-      </section>
-
-      <!-- Styled like the Board, which it opens from. -->
-      <section
-        id="picks-panel"
-        class="board"
-        [attr.role]="panelRole()"
-        aria-labelledby="picks-heading"
-        [hidden]="!showing('Picks')"
-      >
-        @if (shownPlayer(); as player) {
-          <h2 id="picks-heading">{{ ownPicks() ? 'Your picks' : player.name + '’s picks' }}</h2>
-          <div class="controls">
-            @if (!ownPicks()) {
-              <button class="button secondary" type="button" (click)="closePicks()">
-                {{ closePicksLabel() }}
-              </button>
-            }
-            @if (player.picks.length > 0) {
-              <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
-                Copy for Arena
-              </button>
-              <button
-                class="button secondary"
-                type="button"
-                (click)="copyForMoxfield(player.picks)"
-              >
-                Copy for Moxfield
-              </button>
-            }
-          </div>
-          @if (picksCopy(); as copy) {
-            @if (copy === 'Failed') {
-              <p class="error" role="alert">
-                Couldn't copy to the clipboard. Try again in a moment.
-              </p>
-            } @else {
-              <p role="status">Copied for {{ copy }}.</p>
-            }
-          }
-          @if (picksFailed()) {
-            <p class="error">Couldn't load the picks. Try reloading the page.</p>
-          } @else if (picksLoading()) {
-            <p>Loading the picks…</p>
-          } @else {
-            <ol class="picks">
-              @for (pick of player.picks; track pick.pick) {
-                <li>
-                  <span class="number">{{ pick.pick }}</span>
-                  <span class="card">{{ pick.name }}</span>
-                </li>
-              } @empty {
-                <li class="empty">No picks yet.</li>
-              }
-            </ol>
-          }
-        } @else {
-          <p class="empty">Only players have picks.</p>
-        }
-      </section>
-    </div>
-
-    <div class="tabs" role="tablist" aria-label="Draft" [hidden]="sideBySide()">
+    <div class="tabs" role="tablist" aria-label="Draft">
       <button
         id="pool-tab"
         type="button"
@@ -481,5 +277,198 @@
         Me
       </button>
     </div>
+
+    <section
+      id="pool-panel"
+      class="pool"
+      role="tabpanel"
+      aria-labelledby="pool-tab"
+      [hidden]="tab() !== 'Pool'"
+    >
+      <h2>Pool</h2>
+      @switch (draft.snapshot.state) {
+        @case ('Running') {
+          <p>
+            Snapshotting the pool from Scryfall…
+            @if (draft.snapshot.total !== null) {
+              {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
+            }
+          </p>
+          @if (draft.snapshot.total !== null) {
+            <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
+          } @else {
+            <progress></progress>
+          }
+        }
+        @case ('Complete') {
+          <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+          @if (queueFailed()) {
+            <p class="error">Couldn't load your queue. Try reloading the page.</p>
+          }
+          <app-pool-tab
+            [draftId]="draft.id"
+            [picked]="picked()"
+            [queued]="queued()"
+            [offerPick]="offerPick()"
+            [offerQueue]="offerQueue()"
+            [yourTurn]="yourTurn()"
+            (pickMade)="pickMade($event)"
+            (pickRefused)="pickRefused()"
+            (queueChanged)="queueResource.set($event)"
+            (queueStale)="queueResource.reload()"
+          />
+        }
+        @case ('Failed') {
+          <div class="error" role="alert">
+            <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
+            @if (canOrganize()) {
+              <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
+                {{ retrying() ? 'Retrying…' : 'Retry' }}
+              </button>
+              @if (retryFailed()) {
+                <p>Couldn't restart the snapshot. Try again in a moment.</p>
+              }
+            }
+          </div>
+        }
+      }
+      <p class="detail">
+        Pool query: <code>{{ draft.poolQuery }}</code>
+      </p>
+    </section>
+
+    <!-- Only players have a queue. -->
+    <section
+      id="queue-panel"
+      class="queue"
+      role="tabpanel"
+      aria-labelledby="queue-tab"
+      [hidden]="tab() !== 'Queue'"
+    >
+      <h2>Queue</h2>
+      @if (queueFailed()) {
+        <p class="error">Couldn't load your queue. Try reloading the page.</p>
+      }
+      @if (joined() && !queueFailed()) {
+        <app-queue-tab
+          [draftId]="draft.id"
+          [loading]="queueLoading()"
+          [queue]="queue()"
+          [readOnly]="draft.state === 'Closed'"
+          (queueChanged)="queueResource.set($event)"
+          (queueStale)="queueResource.reload()"
+        />
+      } @else if (!joined()) {
+        <p class="empty">Only players have a queue.</p>
+      }
+    </section>
+
+    <section
+      id="board-panel"
+      class="board"
+      role="tabpanel"
+      aria-labelledby="board-tab"
+      [hidden]="tab() !== 'Board'"
+    >
+      <h2>Board</h2>
+      @if (picksFailed()) {
+        <p class="error">Couldn't load the picks. Try reloading the page.</p>
+      } @else if (picksLoading()) {
+        <p>Loading the picks…</p>
+      } @else {
+        <div class="player-picks">
+          @for (player of board(); track player.id) {
+            <section>
+              <h3>
+                <button class="link" type="button" (click)="showPicks(player.id)">
+                  {{ player.name }}
+                </button>
+                @if (player.isBot) {
+                  <span class="badge">Bot</span>
+                }
+              </h3>
+              <ol>
+                @for (pick of player.picks; track pick.pick) {
+                  <li>{{ pick.name }}</li>
+                } @empty {
+                  <li class="empty">No picks yet.</li>
+                }
+              </ol>
+            </section>
+          }
+        </div>
+        <section class="log">
+          <h3>Pick log</h3>
+          <ol>
+            @for (pick of picks(); track pick.pick) {
+              <li>
+                <span class="number">{{ pick.pick }}</span>
+                @let picker = player(pick.playerId);
+                <span class="player">
+                  {{ picker?.name }}
+                  @if (picker?.isBot) {
+                    <span class="badge">Bot</span>
+                  }
+                </span>
+                <span class="card">{{ pick.name }}</span>
+              </li>
+            } @empty {
+              <li class="empty">No picks yet.</li>
+            }
+          </ol>
+        </section>
+      }
+    </section>
+
+    <!-- Styled like the Board, which it opens from. -->
+    <section
+      id="picks-panel"
+      class="board picks-panel"
+      role="tabpanel"
+      aria-labelledby="picks-heading"
+      [hidden]="tab() !== 'Picks'"
+    >
+      @if (shownPlayer(); as player) {
+        <h2 id="picks-heading">{{ ownPicks() ? 'Your picks' : player.name + '’s picks' }}</h2>
+        <div class="controls">
+          @if (!ownPicks()) {
+            <button class="button secondary" type="button" (click)="closePicks()">← Board</button>
+          }
+          @if (player.picks.length > 0) {
+            <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
+              Copy for Arena
+            </button>
+            <button class="button secondary" type="button" (click)="copyForMoxfield(player.picks)">
+              Copy for Moxfield
+            </button>
+          }
+        </div>
+        @if (picksCopy(); as copy) {
+          @if (copy === 'Failed') {
+            <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
+          } @else {
+            <p role="status">Copied for {{ copy }}.</p>
+          }
+        }
+        @if (picksFailed()) {
+          <p class="error">Couldn't load the picks. Try reloading the page.</p>
+        } @else if (picksLoading()) {
+          <p>Loading the picks…</p>
+        } @else {
+          <ol class="picks">
+            @for (pick of player.picks; track pick.pick) {
+              <li>
+                <span class="number">{{ pick.pick }}</span>
+                <span class="card">{{ pick.name }}</span>
+              </li>
+            } @empty {
+              <li class="empty">No picks yet.</li>
+            }
+          </ol>
+        }
+      } @else {
+        <p class="empty">Only players have picks.</p>
+      }
+    </section>
   }
 </main>

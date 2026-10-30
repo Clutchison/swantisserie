@@ -143,12 +143,11 @@ This is the single place to swap in a real bot later.
 ## Web layout
 
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, admin (webhooks).
-- **Draft view on mobile:** bottom tabs.
+- **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
   - **Pool:** pool search, card grid, tap for detail with **Pick** / **Add to queue**
   - **Queue:** drag to reorder, lost cards flagged
   - **Board:** every player's picks and the pick log
   - **Me:** my picks and export buttons
-- **Desktop:** the same panels side by side.
 
 ## Monthly cost
 
