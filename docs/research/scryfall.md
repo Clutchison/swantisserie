@@ -9,14 +9,14 @@ Source: https://scryfall.com/docs/api/bulk-data, `GET https://api.scryfall.com/b
 - **Format change.** Each file is now **gzipped JSONL** (`.jsonl.gz`, one card object per line, not a tarball). The bulk-data object exposes `jsonl_download_uri` and `compressed_size`. The old `download_uri` (a plain JSON array) is **gone** from the live response. The docs suggest streaming it line by line from gzip.
 - File URLs carry a timestamp that changes every day (e.g. `https://data.scryfall.io/oracle-cards/oracle-cards-20261027210243.jsonl.gz`). Get the current URL by calling `GET /bulk-data`, or `GET /bulk-data/{id}`, or by type (e.g. `/bulk-data/oracle-cards`).
 
-| type | compressed size (2026-10-27) | contents |
-|---|---|---|
-| `oracle_cards` | 24 MB | One card object per Oracle ID. The chosen print is "the most up-to-date recognizable version", **not** necessarily the Arena print. 39,095 objects. |
-| `unique_artwork` | 36.9 MB | One object per unique artwork |
-| `default_cards` | 76.5 MB | Every print, in English (or the only language it was printed in). 119,504 objects. |
-| `all_cards` | 383 MB | Every print in every language |
-| `rulings` | 5.2 MB | Rulings, keyed by `oracle_id` |
-| `art_tags` / `oracle_tags` | 12.6 / 5.8 MB | Tagger community tags |
+| type                       | compressed size (2026-10-27) | contents                                                                                                                                            |
+| -------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oracle_cards`             | 24 MB                        | One card object per Oracle ID. The chosen print is "the most up-to-date recognizable version", **not** necessarily the Arena print. 39,095 objects. |
+| `unique_artwork`           | 36.9 MB                      | One object per unique artwork                                                                                                                       |
+| `default_cards`            | 76.5 MB                      | Every print, in English (or the only language it was printed in). 119,504 objects.                                                                  |
+| `all_cards`                | 383 MB                       | Every print in every language                                                                                                                       |
+| `rulings`                  | 5.2 MB                       | Rulings, keyed by `oracle_id`                                                                                                                       |
+| `art_tags` / `oracle_tags` | 12.6 / 5.8 MB                | Tagger community tags                                                                                                                               |
 
 - **How often it updates.** Files are rebuilt "once every 12-24 hours" (daily, around 21:00 UTC). For gameplay data, the docs say "downloading card data once per week or right after set releases would most likely be sufficient." Prices go stale after 24 hours.
 - `/cards/manifest` lets you check what has changed. Its rate limit is 10 per minute.
@@ -64,7 +64,7 @@ Sources: https://scryfall.com/docs/api, https://scryfall.com/docs/api/rate-limit
 
 Sources: https://scryfall.com/docs/api/cards, https://scryfall.com/docs/api/sets, plus bulk analysis.
 
-- **`games`** (array, *per print*): any of `paper`, `arena`, `mtgo`, `astral`, `sega`.
+- **`games`** (array, _per print_): any of `paper`, `arena`, `mtgo`, `astral`, `sega`.
   - `'arena' in games` is the authoritative signal that **this print** is on Arena.
   - Observed: 21,762 prints in `default_cards` have `arena`, covering **16,484 distinct oracle_ids** (about 16,480 names).
 - **`arena_id`** (nullable int).
@@ -81,7 +81,7 @@ Sources: https://scryfall.com/docs/api/cards, https://scryfall.com/docs/api/sets
   - On 2026-09-23 Scryfall ran about 221 `merge` migrations with the note "Rebalanced cards have been removed from Arena" (Arena patch notes 2026.63.0, https://mtgarena-support.wizards.com/hc/en-us/articles/53820137910932-Patch-Notes-2026-63-0).
   - Example: `A-Oran-Rief Ooze` (znr `A-198`) was merged into the original.
   - In the current bulk data no card name starts with `A-` (the only hit is an unrelated playtest card, "A-Town"), and `is:rebalanced` returns nothing.
-  - Digital-only Alchemy *designs* still exist: `set_type: "alchemy"`, `is:alchemy` (855 cards), set codes `y***` such as `ymid`, `yneo`, `yfra`. Some also carry `promo_types: ["alchemy"]`.
+  - Digital-only Alchemy _designs_ still exist: `set_type: "alchemy"`, `is:alchemy` (855 cards), set codes `y***` such as `ymid`, `yneo`, `yfra`. Some also carry `promo_types: ["alchemy"]`.
   - **If you stored any old A- ids, apply `/migrations`.**
 - **Set codes on Arena.**
   - Set objects have `arena_code` (nullable) next to `code`. 230 sets have one.
@@ -99,7 +99,7 @@ Sources: https://scryfall.com/docs/api/cards, https://scryfall.com/docs/api/sets
 
 Sources: https://scryfall.com/docs/syntax, https://scryfall.com/docs/api/cards/search
 
-- **`game:arena`** matches prints available on Arena. **`in:arena`** matches cards that have *ever* been printed on Arena. Supported games: paper, mtgo, arena.
+- **`game:arena`** matches prints available on Arena. **`in:arena`** matches cards that have _ever_ been printed on Arena. Supported games: paper, mtgo, arena.
 - **`f:` / `format:` / `legal:`**, plus `banned:` and `restricted:`. Supported formats: standard, future, historic, timeless, gladiator, pioneer, modern, legacy, pauper, vintage, penny, commander, oathbreaker, standardbrawl, brawl, competitivebrawl, alchemy, paupercommander, duel, oldschool, premodern, predh, tlr.
 - **`is:` filters:**
   - `is:digital` matches MTGO- or Arena-only prints.
@@ -131,7 +131,7 @@ Sources: https://scryfall.com/docs/api/cards, https://scryfall.com/docs/api/layo
 - **`id`** is a UUID for one print in one language. **`oracle_id`** is a UUID for the card's Oracle identity, shared across reprints.
   - It is absent only on the `reversible_card` layout, where each face carries its own `oracle_id`.
   - Use `oracle_id` as the draft-pick identity and `id` for the image or printing you display.
-- **`name`**: for multi-face cards it is both names joined by ` // `, e.g. `Fire // Ice`, `Bonecrusher Giant // Stomp`, `Fable of the Mirror-Breaker // Reflection of Kiki-Jiki`.
+- **`name`**: for multi-face cards it is both names joined by `//`, e.g. `Fire // Ice`, `Bonecrusher Giant // Stomp`, `Fable of the Mirror-Breaker // Reflection of Kiki-Jiki`.
 - **Layouts:** normal, split, flip, transform, modal_dfc, meld, leveler, class, case, saga, adventure, **prepare** (new: a "prepared spell" part, e.g. "Adventurous Eater // Have a Bite"), mutate, prototype, battle, planar, scheme, vanguard, token, double_faced_token, emblem, augment, host, art_series, reversible_card, front_card.
 - **Where `card_faces` and `image_uris` live** (observed across bulk data):
   - **transform, modal_dfc, double_faced_token, art_series, reversible_card:** `card_faces[]` each have their own `image_uris`. There is **no top-level `image_uris`**.

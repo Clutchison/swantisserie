@@ -22,15 +22,15 @@ Out of scope for v1: CubeCobra import, turn timers, in-app deckbuilding, playoff
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Frontend | Angular + Angular Material |
-| Backend | NestJS, Prisma, Socket.IO |
-| Draft engine | Pure TypeScript package, unit-tested |
-| Database | Postgres on Neon |
-| Hosting | Single Heroku eco dyno (~$5/mo) |
-| Card data | [Scryfall API](https://scryfall.com/docs/api) (images hotlinked from Scryfall's CDN) |
-| Notifications | Discord channel webhooks |
+| Layer         | Choice                                                                               |
+| ------------- | ------------------------------------------------------------------------------------ |
+| Frontend      | Angular + Angular Material                                                           |
+| Backend       | NestJS, Prisma, Socket.IO                                                            |
+| Draft engine  | Pure TypeScript package, unit-tested                                                 |
+| Database      | Postgres on Neon                                                                     |
+| Hosting       | Single Heroku eco dyno (~$5/mo)                                                      |
+| Card data     | [Scryfall API](https://scryfall.com/docs/api) (images hotlinked from Scryfall's CDN) |
+| Notifications | Discord channel webhooks                                                             |
 
 The repo is an npm-workspaces monorepo with three packages: `engine`, `api` and `web`.
 
@@ -44,11 +44,11 @@ The repo is an npm-workspaces monorepo with three packages: `engine`, `api` and 
 
 ### Layout
 
-| Workspace | What it is |
-|---|---|
-| `engine/` | Pure TypeScript draft engine (no DB or HTTP), tested with Vitest |
-| `api/` | NestJS server: the JSON API under `/api`, plus the built Angular app on every other path. Prisma schema and migrations live in `api/prisma/` |
-| `web/` | Angular app |
+| Workspace | What it is                                                                                                                                   |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `engine/` | Pure TypeScript draft engine (no DB or HTTP), tested with Vitest                                                                             |
+| `api/`    | NestJS server: the JSON API under `/api`, plus the built Angular app on every other path. Prisma schema and migrations live in `api/prisma/` |
+| `web/`    | Angular app                                                                                                                                  |
 
 ### Setup
 
@@ -59,14 +59,14 @@ The repo is an npm-workspaces monorepo with three packages: `engine`, `api` and 
 
 ### Scripts (run from the root)
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | Nest in watch mode on :3000 and `ng serve` on :4200, which proxies `/api` to Nest. Open http://localhost:4200 |
-| `npm run build` | Builds `engine`, then `web`, then `api` (which runs `prisma generate` first) |
-| `npm test` | Runs every workspace's tests. API tests run against an in-process Postgres ([PGlite](https://pglite.dev)) with the real migrations applied, so no database is needed |
-| `npm run typecheck` | Type-checks every workspace |
-| `npm run lint` | Lints every workspace with oxlint |
-| `npm start` | Runs the built server (`api/dist/main.js`), serving `web/dist/web/browser` |
+| Script              | What it does                                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`       | Nest in watch mode on :3000 and `ng serve` on :4200, which proxies `/api` to Nest. Open http://localhost:4200                                                        |
+| `npm run build`     | Builds `engine`, then `web`, then `api` (which runs `prisma generate` first)                                                                                         |
+| `npm test`          | Runs every workspace's tests. API tests run against an in-process Postgres ([PGlite](https://pglite.dev)) with the real migrations applied, so no database is needed |
+| `npm run typecheck` | Type-checks every workspace                                                                                                                                          |
+| `npm run lint`      | Lints every workspace with oxlint                                                                                                                                    |
+| `npm start`         | Runs the built server (`api/dist/main.js`), serving `web/dist/web/browser`                                                                                           |
 
 To change the database schema, edit `api/prisma/schema.prisma` and run `npm run migrate:dev -w api -- --name <change>`.
 

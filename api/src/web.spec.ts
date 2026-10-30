@@ -8,7 +8,8 @@ import { App } from 'supertest/types.js';
 import { AppModule } from './app.module.js';
 import { configureApp } from './app.setup.js';
 
-const INDEX_HTML = '<!doctype html><title>Swantisserie</title><app-root></app-root>';
+const INDEX_HTML =
+  '<!doctype html><title>Swantisserie</title><app-root></app-root>';
 
 describe('serving the web app', () => {
   let app: INestApplication<App>;
@@ -50,9 +51,7 @@ describe('serving the web app', () => {
   });
 
   it('answers unknown API routes with a JSON 404, not the web app', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/api/nope')
-      .expect(404);
+    const res = await request(app.getHttpServer()).get('/api/nope').expect(404);
 
     expect(res.body).toMatchObject({ statusCode: 404 });
   });

@@ -63,13 +63,13 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - The organizer picks one webhook per draft.
 - **Text only, no card image embeds.** Every message links to the draft.
 
-| Event | Message |
-|---|---|
-| Draft started | Seat order |
-| Manual pick, no cascade | "**Alice** picked **Card** (pick 23)" + "@Bob you're up" |
-| Pick + cascade | One message listing every pick in order (marking queued ones), then ping the next player without a valid queue |
-| Undo | "Pick 23 (**Card** by Alice) was undone" + ping whoever is now up |
-| Draft complete | Link to all players' picks |
+| Event                   | Message                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Draft started           | Seat order                                                                                                     |
+| Manual pick, no cascade | "**Alice** picked **Card** (pick 23)" + "@Bob you're up"                                                       |
+| Pick + cascade          | One message listing every pick in order (marking queued ones), then ping the next player without a valid queue |
+| Undo                    | "Pick 23 (**Card** by Alice) was undone" + ping whoever is now up                                              |
+| Draft complete          | Link to all players' picks                                                                                     |
 
 - Pings use `allowed_mentions: { parse: [], users: [nextId] }`. The mention goes in `content`.
 - Possible later upgrade: a REST bot with an HTTP interactions endpoint for opt-in DMs and `/status` / `/pick` commands. Not in v1.
@@ -111,15 +111,15 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Repo | npm workspaces monorepo: `engine`, `api`, `web` |
+| Layer    | Choice                                                                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo     | npm workspaces monorepo: `engine`, `api`, `web`                                                                                                                                  |
 | `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turn calculation, cascade resolution, undo, queue pruning, drop/skip. Returns domain events. Built test-first. |
-| `api` | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie |
-| `web` | Angular + Angular Material + CDK, mobile-first |
-| DB | Neon Postgres (free tier) |
-| Hosting | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers. |
-| CI/CD | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`. |
+| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                                  |
+| `web`    | Angular + Angular Material + CDK, mobile-first                                                                                                                                   |
+| DB       | Neon Postgres (free tier)                                                                                                                                                        |
+| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.                |
+| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                                        |
 
 ### Pick flow (api)
 
@@ -132,6 +132,7 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 ### Where the Discord code lives
 
 `api/src/discord/`: `DiscordModule`, holding:
+
 - the admin webhook registry
 - `DraftNotifier`
 - pure message-formatter functions, unit-tested
