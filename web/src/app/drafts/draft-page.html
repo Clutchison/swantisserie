@@ -21,6 +21,14 @@
           }
         </p>
       }
+      @if (undoable(); as pick) {
+        <button class="button secondary" type="button" (click)="undo(pick)" [disabled]="undoing()">
+          Undo pick {{ pick.pick }} ({{ pick.name }})
+        </button>
+      }
+      @if (undoError(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
       <ol>
         @for (
           player of draft.players;

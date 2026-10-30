@@ -14,6 +14,11 @@ type PickedEvent = Extract<DraftEvent, { type: 'picked' }>;
 
 export type AnnouncedPick = Omit<PickedEvent, 'type'>;
 
+export type AnnouncedUndo = Omit<
+  Extract<DraftEvent, { type: 'undone' }>,
+  'type'
+>;
+
 /** The body of a Discord webhook post: text only, no embeds. */
 export interface WebhookMessage {
   content: string;
@@ -49,6 +54,9 @@ export function draftMessages(
       case 'picked':
         messages.push(picksMessage(draft, [announcedPick(event), ...picks]));
         break;
+      case 'undone':
+        messages.push(undoneMessage(draft, event));
+        break;
       case 'completed':
         messages.push(draftCompleteMessage(draft));
         break;
@@ -82,6 +90,18 @@ export function draftCompleteMessage(draft: AnnouncedDraft): WebhookMessage {
     [`${bold(draft.name)} is complete. See everyone’s picks:`],
     draft,
     null,
+  );
+}
+
+/** The undone pick's player is up again. */
+export function undoneMessage(
+  draft: AnnouncedDraft,
+  { number, player, card }: AnnouncedUndo,
+): WebhookMessage {
+  return announcement(
+    [`Pick ${number} (${bold(card)} by ${bold(player.name)}) was undone`],
+    draft,
+    player,
   );
 }
 

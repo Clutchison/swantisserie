@@ -135,6 +135,18 @@ export class PickRefusedError extends Error {
   }
 }
 
+/** Why the organizer can't undo a pick; sent to them as is. */
+export interface UndoRefusal {
+  error: 'not-drafting' | 'not-latest';
+  message: string;
+}
+
+export class UndoRefusedError extends Error {
+  constructor(readonly refusal: UndoRefusal) {
+    super(refusal.message);
+  }
+}
+
 const PICK_LOG = {
   orderBy: { number: 'asc' },
   select: {
@@ -581,6 +593,55 @@ export class DraftsService {
       events.push({ type: 'completed' });
     }
     return events;
+  }
+
+  /**
+   * Undoes pick `number`, the draft's latest: its card returns to the pool,
+   * and to the queues it was lost from, and the turn returns to its player.
+   * No queued picks are made. Throws UndoRefusedError if it can't be undone.
+   */
+  async undo(draftId: string, number: number): Promise<DraftEvent[]> {
+    return this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Drafting' && draft?.state !== 'Paused') {
+        throw new UndoRefusedError({
+          error: 'not-drafting',
+          message:
+            'Picks can only be undone while the draft is drafting or paused.',
+        });
+      }
+      const latest = await tx.pick.findFirst({
+        where: { draftId },
+        orderBy: { number: 'desc' },
+        select: {
+          id: true,
+          number: true,
+          poolCardId: true,
+          poolCard: { select: { name: true } },
+          player: { select: EVENT_PLAYER },
+        },
+      });
+      if (latest?.number !== number) {
+        throw new UndoRefusedError({
+          error: 'not-latest',
+          message:
+            'Only the latest pick can be undone, and the picks have changed.',
+        });
+      }
+      await tx.pick.delete({ where: { id: latest.id } });
+      // No longer picked, so no longer lost: back where it was in each queue.
+      await tx.queuedCard.updateMany({
+        where: { poolCardId: latest.poolCardId },
+        data: { lostAt: null },
+      });
+      return [
+        {
+          type: 'undone',
+          number: latest.number,
+          player: toEventPlayer(latest.player),
+          card: latest.poolCard.name,
+        },
+      ];
+    });
   }
 
   /** The draft's picks, in the order they were made. */

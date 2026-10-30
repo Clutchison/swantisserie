@@ -86,6 +86,10 @@ _Avoid_: Chain, auto-run
 Describes a queued card that another player picked first.
 _Avoid_: Sniped, taken
 
+**Undo**:
+The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, and to any queue it was lost from, and the turn returns to the player who picked it. An undo makes no queued picks.
+_Avoid_: Revert, rollback, take-back
+
 ## Draft lifecycle
 
 **Lobby**:
@@ -115,5 +119,5 @@ A named Discord channel destination that an app admin registers. An organizer ch
 _Avoid_: Channel, hook, integration
 
 **Announcement**:
-A text post on a draft's webhook saying the draft has started, a pick was made or the draft is complete. A pick and the cascade after it are one announcement, which marks the queued picks, and so are a start and the cascade after it. Each links to the draft, and only the player whose turn it now is gets pinged.
+A text post on a draft's webhook saying the draft has started, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, which marks the queued picks, and so are a start and the cascade after it. Each links to the draft, and only the player whose turn it now is gets pinged.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)

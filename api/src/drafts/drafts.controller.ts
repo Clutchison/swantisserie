@@ -34,6 +34,7 @@ import {
   PoolQueryError,
   ScryfallUnavailableError,
   StartRefusedError,
+  UndoRefusedError,
   UnknownBotError,
   UnknownWebhookError,
 } from './drafts.service.js';
@@ -116,6 +117,21 @@ export class DraftsController {
     const oracleId = parsePick(body);
     await this.findOr404(id);
     return this.change(id, () => this.drafts.pick(id, user.id, oracleId));
+  }
+
+  /**
+   * Undoes the draft's latest pick, which must be pick `number`, so an undo
+   * sent twice takes back only one; for the organizer.
+   */
+  @Delete(':id/picks/:number')
+  async undo(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('number') number: string,
+  ): Promise<DraftView> {
+    const pickNumber = parsePickNumber(number);
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.undo(id, pickNumber));
   }
 
   /** Starts the pool snapshot over; for the organizer, after a failure. */
@@ -226,6 +242,9 @@ export class DraftsController {
         if (err.refusal.error === 'not-in-pool') {
           throw new NotFoundException(err.refusal);
         }
+        throw new ConflictException(err.refusal);
+      }
+      if (err instanceof UndoRefusedError) {
         throw new ConflictException(err.refusal);
       }
       if (err instanceof PlayersChangedError) {
@@ -387,6 +406,17 @@ function parsePick(body: unknown): string {
     });
   }
   return oracleId;
+}
+
+/** A pick's number from its URL, or a 400 if it isn't one. */
+function parsePickNumber(param: string): number {
+  if (!/^[1-9]\d*$/.test(param)) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Say which pick to undo, by its number.',
+    });
+  }
+  return Number(param);
 }
 
 function toPickView(pick: LoggedPick): PickView {
