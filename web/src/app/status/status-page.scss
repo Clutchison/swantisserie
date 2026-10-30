@@ -10,9 +10,9 @@ ul {
 }
 
 li {
-  color: #b3261e;
+  color: var(--color-error);
 
   &.ok {
-    color: #1e7e34;
+    color: var(--color-success);
   }
 }

@@ -12,7 +12,8 @@
   margin-bottom: 1rem;
   padding: 0.5rem 0.75rem;
   border-radius: 0.25rem;
-  background: #fff4e5;
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
 
   p {
     flex: 1 1 8rem;
@@ -32,11 +33,11 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.25rem 0;
-    background: #fff;
+    background: var(--color-bg);
   }
 
   .empty {
-    color: #666;
+    color: var(--color-muted);
   }
 }
 
@@ -48,7 +49,7 @@
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  color: #999;
+  color: var(--color-muted);
   font-size: 1.25rem;
   cursor: grab;
   touch-action: none;
@@ -58,7 +59,7 @@
 
 .number {
   min-width: 1.5rem;
-  color: #666;
+  color: var(--color-muted);
   text-align: right;
 }
 
@@ -77,9 +78,8 @@
   min-width: 2.5rem;
   min-height: 2.5rem;
   padding: 0.25rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-muted);
   border-radius: 0.25rem;
-  background: #fff;
   font: inherit;
   cursor: pointer;
 
@@ -91,7 +91,7 @@
 
 /* CDK drag-drop: the card being dragged (previewed in the list, so styled here), and the gap it leaves. */
 .cdk-drag-preview {
-  box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 0.2);
+  box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
 }
 
 .cdk-drag-placeholder {

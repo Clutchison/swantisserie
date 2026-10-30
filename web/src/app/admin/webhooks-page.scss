@@ -4,7 +4,7 @@ li {
 
 input {
   padding: 0.5rem;
-  border: 1px solid #bbb;
+  border: 1px solid var(--color-muted);
   border-radius: 0.25rem;
   font: inherit;
   font-weight: normal;
@@ -13,13 +13,13 @@ input {
 
 .url {
   flex-basis: 100%;
-  color: #666;
+  color: var(--color-muted);
   font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
 
 .hint {
-  color: #666;
+  color: var(--color-muted);
   font-size: 0.875rem;
   font-weight: normal;
 }
