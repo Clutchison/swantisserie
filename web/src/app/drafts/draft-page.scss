@@ -4,8 +4,21 @@ h1 {
 
 .players,
 .pool,
+.queue,
 .board {
   margin-top: 1.5rem;
+}
+
+/* A row of buttons, which wraps on a phone. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+
+  &:empty {
+    display: none;
+  }
 }
 
 .board {
@@ -23,15 +36,11 @@ h1 {
     color: #666;
     list-style: none;
   }
-
-  .button + .button {
-    margin-left: 0.5rem;
-  }
 }
 
 /* A player's name on the Board, which opens their picks. */
 .link {
-  padding: 0;
+  padding: 0.25rem 0;
   border: 0;
   background: none;
   color: #5865f2;
@@ -58,6 +67,11 @@ ol.picks {
     min-width: 2rem;
     color: #666;
     text-align: right;
+  }
+
+  .card {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
@@ -89,6 +103,11 @@ ol.picks {
     min-width: 6rem;
     font-weight: 600;
   }
+
+  .card {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 .players {
@@ -106,6 +125,16 @@ ol.picks {
     }
   }
 
+  summary {
+    padding: 0.5rem 0;
+    cursor: pointer;
+  }
+
+  .name {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
   .seat {
     min-width: 1.5rem;
     color: #666;
@@ -115,10 +144,6 @@ ol.picks {
   .move {
     margin-left: auto;
   }
-
-  .button + .button {
-    margin-left: 0.5rem;
-  }
 }
 
 .turn,
@@ -127,6 +152,8 @@ ol.picks {
 }
 
 .icon {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
   padding: 0.25rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 0.25rem;
@@ -196,6 +223,49 @@ main {
     &:disabled {
       color: #999;
       cursor: default;
+    }
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/*
+ * The panels fill the width, the pool twice as wide as the rest. The pool
+ * scrolls with the page, as its grid expects; the others stay in view beside
+ * it, each scrolling on its own.
+ */
+main.side-by-side {
+  padding-bottom: 1rem;
+
+  .players ol {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0 1rem;
+  }
+
+  .panels {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+
+    > section {
+      flex: 1 1 0;
+      min-width: 0;
+      margin-top: 0;
+
+      &.pool {
+        flex-grow: 2;
+      }
+
+      &:not(.pool) {
+        position: sticky;
+        top: 0;
+        max-height: 100dvh;
+        overflow-y: auto;
+      }
     }
   }
 }

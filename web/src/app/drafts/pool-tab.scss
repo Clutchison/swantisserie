@@ -149,6 +149,8 @@ $card-corners: #{4.75% / 3.5%};
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
 }
 

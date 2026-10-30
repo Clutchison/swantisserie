@@ -15,7 +15,7 @@
   background: #fff4e5;
 
   p {
-    flex: 1;
+    flex: 1 1 8rem;
     margin: 0;
   }
 }
@@ -25,8 +25,10 @@
   padding: 0;
   list-style: none;
 
+  /* The buttons wrap under the name where a side-by-side panel is too narrow for both. */
   li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
     padding: 0.25rem 0;
@@ -38,10 +40,20 @@
   }
 }
 
+/* Finger-sized, and a long press on it starts no text selection or callout. */
 .handle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
   color: #999;
+  font-size: 1.25rem;
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .number {
@@ -51,16 +63,20 @@
 }
 
 .name {
-  flex: 1;
+  flex: 1 1 6rem;
+  min-width: 0;
 }
 
 .move {
   display: flex;
+  margin-left: auto;
   gap: 0.25rem;
 }
 
 .icon {
-  padding: 0.25rem 0.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0.25rem;
   border: 1px solid #ccc;
   border-radius: 0.25rem;
   background: #fff;

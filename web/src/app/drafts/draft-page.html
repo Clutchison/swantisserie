@@ -1,4 +1,4 @@
-<main>
+<main [class.side-by-side]="sideBySide()">
   <a routerLink="/">← Drafts</a>
   @if (loading() && !draft()) {
     <p>Loading…</p>
@@ -24,304 +24,343 @@
       @if (draft.state === 'Paused') {
         <p class="paused" role="status">The draft is paused. No picks until it resumes.</p>
       }
-      @if (offerPause()) {
-        <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
-          Pause draft
-        </button>
-      }
-      @if (offerResume()) {
-        <button class="button" type="button" (click)="resume()" [disabled]="sending()">
-          Resume draft
-        </button>
-      }
-      @if (undoable(); as pick) {
-        <button class="button secondary" type="button" (click)="undo(pick)" [disabled]="sending()">
-          Undo pick {{ pick.pick }} ({{ pick.name }})
-        </button>
-      }
+      <div class="controls">
+        @if (offerPause()) {
+          <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
+            Pause draft
+          </button>
+        }
+        @if (offerResume()) {
+          <button class="button" type="button" (click)="resume()" [disabled]="sending()">
+            Resume draft
+          </button>
+        }
+        @if (undoable(); as pick) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="undo(pick)"
+            [disabled]="sending()"
+          >
+            Undo pick {{ pick.pick }} ({{ pick.name }})
+          </button>
+        }
+      </div>
       @if (sendError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
-      <ol>
-        @for (
-          player of draft.players;
-          track player.id;
-          let i = $index, first = $first, last = $last
-        ) {
-          <li [attr.aria-current]="turn()?.playerId === player.id ? 'true' : null">
-            <span class="seat">{{ i + 1 }}</span>
-            <img class="avatar" [src]="player.avatarUrl" alt="" width="32" height="32" />
-            <span class="name">{{ player.name }}</span>
-            @if (player.isBot) {
-              <span class="badge">Bot</span>
-            }
-            @if (inLobby() && isAdmin() && player.isBot) {
-              <button
-                class="icon"
-                type="button"
-                [attr.aria-label]="'Remove ' + player.name"
-                (click)="removeBot(player.id)"
-                [disabled]="changingLobby()"
-              >
-                Remove
-              </button>
-            }
-            @if (inLobby() && canOrganize()) {
-              <span class="move">
+      <details [open]="inLobby()">
+        <summary>Seat order</summary>
+        <ol>
+          @for (
+            player of draft.players;
+            track player.id;
+            let i = $index, first = $first, last = $last
+          ) {
+            <li [attr.aria-current]="turn()?.playerId === player.id ? 'true' : null">
+              <span class="seat">{{ i + 1 }}</span>
+              <img class="avatar" [src]="player.avatarUrl" alt="" width="32" height="32" />
+              <span class="name">{{ player.name }}</span>
+              @if (player.isBot) {
+                <span class="badge">Bot</span>
+              }
+              @if (inLobby() && isAdmin() && player.isBot) {
                 <button
                   class="icon"
                   type="button"
-                  [attr.aria-label]="'Move ' + player.name + ' up'"
-                  (click)="moveSeat(i, -1)"
-                  [disabled]="first || changingLobby()"
+                  [attr.aria-label]="'Remove ' + player.name"
+                  (click)="removeBot(player.id)"
+                  [disabled]="changingLobby()"
                 >
-                  ↑
+                  Remove
                 </button>
-                <button
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="'Move ' + player.name + ' down'"
-                  (click)="moveSeat(i, 1)"
-                  [disabled]="last || changingLobby()"
-                >
-                  ↓
-                </button>
-              </span>
-            }
-          </li>
-        } @empty {
-          <li class="empty">Nobody has joined yet.</li>
-        }
-      </ol>
+              }
+              @if (inLobby() && canOrganize()) {
+                <span class="move">
+                  <button
+                    class="icon"
+                    type="button"
+                    [attr.aria-label]="'Move ' + player.name + ' up'"
+                    (click)="moveSeat(i, -1)"
+                    [disabled]="first || changingLobby()"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    class="icon"
+                    type="button"
+                    [attr.aria-label]="'Move ' + player.name + ' down'"
+                    (click)="moveSeat(i, 1)"
+                    [disabled]="last || changingLobby()"
+                  >
+                    ↓
+                  </button>
+                </span>
+              }
+            </li>
+          } @empty {
+            <li class="empty">Nobody has joined yet.</li>
+          }
+        </ol>
+      </details>
       @if (inLobby()) {
-        @if (joined()) {
-          <button
-            class="button secondary"
-            type="button"
-            (click)="leave()"
-            [disabled]="changingLobby()"
-          >
-            Leave
-          </button>
-        } @else {
-          <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
-            Join
-          </button>
-        }
-        @if (canOrganize()) {
-          <button
-            class="button secondary"
-            type="button"
-            (click)="randomizeSeats()"
-            [disabled]="changingLobby()"
-          >
-            Randomize seats
-          </button>
-          @if (isAdmin()) {
+        <div class="controls">
+          @if (joined()) {
             <button
               class="button secondary"
               type="button"
-              (click)="addBot()"
-              [disabled]="draftFull() || changingLobby()"
+              (click)="leave()"
+              [disabled]="changingLobby()"
             >
-              Add bot
+              Leave
+            </button>
+          } @else {
+            <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
+              Join
             </button>
           }
-          <button
-            class="button"
-            type="button"
-            (click)="start()"
-            [disabled]="!poolReady() || changingLobby()"
-          >
-            Start draft
-          </button>
-          @if (!poolReady()) {
-            <p class="detail">You can start the draft once the pool snapshot is complete.</p>
+          @if (canOrganize()) {
+            <button
+              class="button secondary"
+              type="button"
+              (click)="randomizeSeats()"
+              [disabled]="changingLobby()"
+            >
+              Randomize seats
+            </button>
+            @if (isAdmin()) {
+              <button
+                class="button secondary"
+                type="button"
+                (click)="addBot()"
+                [disabled]="draftFull() || changingLobby()"
+              >
+                Add bot
+              </button>
+            }
+            <button
+              class="button"
+              type="button"
+              (click)="start()"
+              [disabled]="!poolReady() || changingLobby()"
+            >
+              Start draft
+            </button>
+            @if (!poolReady()) {
+              <p class="detail">You can start the draft once the pool snapshot is complete.</p>
+            }
           }
-        }
+        </div>
       }
       @if (lobbyError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
     </section>
 
-    <section
-      id="pool-panel"
-      class="pool"
-      role="tabpanel"
-      aria-labelledby="pool-tab"
-      [hidden]="tab() !== 'Pool'"
-    >
-      <h2>Pool</h2>
-      @switch (draft.snapshot.state) {
-        @case ('Running') {
-          <p>
-            Snapshotting the pool from Scryfall…
+    <div class="panels">
+      <section
+        id="pool-panel"
+        class="pool"
+        [attr.role]="panelRole()"
+        aria-labelledby="pool-tab"
+        [hidden]="!showing('Pool')"
+      >
+        <h2>Pool</h2>
+        @switch (draft.snapshot.state) {
+          @case ('Running') {
+            <p>
+              Snapshotting the pool from Scryfall…
+              @if (draft.snapshot.total !== null) {
+                {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
+              }
+            </p>
             @if (draft.snapshot.total !== null) {
-              {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
+              <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
+            } @else {
+              <progress></progress>
             }
-          </p>
-          @if (draft.snapshot.total !== null) {
-            <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
-          } @else {
-            <progress></progress>
+          }
+          @case ('Complete') {
+            <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+            @if (queueFailed()) {
+              <p class="error">Couldn't load your queue. Try reloading the page.</p>
+            }
+            <app-pool-tab
+              [draftId]="draft.id"
+              [picked]="picked()"
+              [queued]="queued()"
+              [offerPick]="offerPick()"
+              [offerQueue]="offerQueue()"
+              [yourTurn]="yourTurn()"
+              (pickMade)="pickMade($event)"
+              (pickRefused)="pickRefused()"
+              (queueChanged)="queueResource.set($event)"
+              (queueStale)="queueResource.reload()"
+            />
+          }
+          @case ('Failed') {
+            <div class="error" role="alert">
+              <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
+              @if (canOrganize()) {
+                <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
+                  {{ retrying() ? 'Retrying…' : 'Retry' }}
+                </button>
+                @if (retryFailed()) {
+                  <p>Couldn't restart the snapshot. Try again in a moment.</p>
+                }
+              }
+            </div>
           }
         }
-        @case ('Complete') {
-          <p>{{ draft.snapshot.cards }} cards in the pool.</p>
-          @if (queueFailed()) {
-            <p class="error">Couldn't load your queue. Try reloading the page.</p>
-          }
-          <app-pool-tab
+        <p class="detail">
+          Pool query: <code>{{ draft.poolQuery }}</code>
+        </p>
+      </section>
+
+      <!-- Only players have a queue. -->
+      <section
+        id="queue-panel"
+        class="queue"
+        cdkScrollable
+        [attr.role]="panelRole()"
+        aria-labelledby="queue-tab"
+        [hidden]="!showing('Queue')"
+      >
+        <h2>Queue</h2>
+        @if (queueFailed()) {
+          <p class="error">Couldn't load your queue. Try reloading the page.</p>
+        }
+        @if (joined() && !queueFailed()) {
+          <app-queue-tab
             [draftId]="draft.id"
-            [picked]="picked()"
-            [queued]="queued()"
-            [offerPick]="offerPick()"
-            [offerQueue]="offerQueue()"
-            [yourTurn]="yourTurn()"
-            (pickMade)="pickMade($event)"
-            (pickRefused)="pickRefused()"
+            [loading]="queueLoading()"
+            [queue]="queue()"
             (queueChanged)="queueResource.set($event)"
             (queueStale)="queueResource.reload()"
           />
+        } @else if (!joined()) {
+          <p class="empty">Only players have a queue.</p>
         }
-        @case ('Failed') {
-          <div class="error" role="alert">
-            <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
-            @if (canOrganize()) {
-              <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
-                {{ retrying() ? 'Retrying…' : 'Retry' }}
-              </button>
-              @if (retryFailed()) {
-                <p>Couldn't restart the snapshot. Try again in a moment.</p>
-              }
+      </section>
+
+      <section
+        id="board-panel"
+        class="board"
+        [attr.role]="panelRole()"
+        aria-labelledby="board-tab"
+        [hidden]="!showing('Board')"
+      >
+        <h2>Board</h2>
+        @if (picksFailed()) {
+          <p class="error">Couldn't load the picks. Try reloading the page.</p>
+        } @else if (picksLoading()) {
+          <p>Loading the picks…</p>
+        } @else {
+          <div class="player-picks">
+            @for (player of board(); track player.id) {
+              <section>
+                <h3>
+                  <button class="link" type="button" (click)="showPicks(player.id)">
+                    {{ player.name }}
+                  </button>
+                  @if (player.isBot) {
+                    <span class="badge">Bot</span>
+                  }
+                </h3>
+                <ol>
+                  @for (pick of player.picks; track pick.pick) {
+                    <li>{{ pick.name }}</li>
+                  } @empty {
+                    <li class="empty">No picks yet.</li>
+                  }
+                </ol>
+              </section>
             }
           </div>
-        }
-      }
-      <p class="detail">
-        Pool query: <code>{{ draft.poolQuery }}</code>
-      </p>
-    </section>
-
-    <!-- Only players have a queue. -->
-    <section
-      id="queue-panel"
-      class="queue"
-      role="tabpanel"
-      aria-labelledby="queue-tab"
-      [hidden]="tab() !== 'Queue'"
-    >
-      <h2>Queue</h2>
-      @if (queueFailed()) {
-        <p class="error">Couldn't load your queue. Try reloading the page.</p>
-      }
-      @if (joined()) {
-        <app-queue-tab
-          [draftId]="draft.id"
-          [queue]="queue()"
-          (queueChanged)="queueResource.set($event)"
-          (queueStale)="queueResource.reload()"
-        />
-      }
-    </section>
-
-    <section
-      id="board-panel"
-      class="board"
-      role="tabpanel"
-      aria-labelledby="board-tab"
-      [hidden]="tab() !== 'Board'"
-    >
-      <h2>Board</h2>
-      @if (picksFailed()) {
-        <p class="error">Couldn't load the picks. Try reloading the page.</p>
-      }
-      <div class="player-picks">
-        @for (player of board(); track player.id) {
-          <section>
-            <h3>
-              <button class="link" type="button" (click)="showPicks(player.id)">
-                {{ player.name }}
-              </button>
-              @if (player.isBot) {
-                <span class="badge">Bot</span>
-              }
-            </h3>
+          <section class="log">
+            <h3>Pick log</h3>
             <ol>
-              @for (pick of player.picks; track pick.pick) {
-                <li>{{ pick.name }}</li>
+              @for (pick of picks(); track pick.pick) {
+                <li>
+                  <span class="number">{{ pick.pick }}</span>
+                  @let picker = player(pick.playerId);
+                  <span class="player">
+                    {{ picker?.name }}
+                    @if (picker?.isBot) {
+                      <span class="badge">Bot</span>
+                    }
+                  </span>
+                  <span class="card">{{ pick.name }}</span>
+                </li>
               } @empty {
                 <li class="empty">No picks yet.</li>
               }
             </ol>
           </section>
         }
-      </div>
-      <section class="log">
-        <h3>Pick log</h3>
-        <ol>
-          @for (pick of picks(); track pick.pick) {
-            <li>
-              <span class="number">{{ pick.pick }}</span>
-              @let picker = player(pick.playerId);
-              <span class="player">
-                {{ picker?.name }}
-                @if (picker?.isBot) {
-                  <span class="badge">Bot</span>
-                }
-              </span>
-              <span class="card">{{ pick.name }}</span>
-            </li>
-          } @empty {
-            <li class="empty">No picks yet.</li>
-          }
-        </ol>
       </section>
-    </section>
 
-    <!-- Styled like the Board, which it opens from. -->
-    <section
-      id="picks-panel"
-      class="board"
-      role="tabpanel"
-      aria-labelledby="picks-heading"
-      [hidden]="tab() !== 'Picks'"
-    >
-      @if (shownPlayer(); as player) {
-        <h2 id="picks-heading">{{ onMeTab() ? 'Your picks' : player.name + '’s picks' }}</h2>
-        @if (!onMeTab()) {
-          <button class="button secondary" type="button" (click)="tab.set('Board')">← Board</button>
-        }
-        @if (player.picks.length > 0) {
-          <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
-            Copy for Arena
-          </button>
-          <button class="button secondary" type="button" (click)="copyForMoxfield(player.picks)">
-            Copy for Moxfield
-          </button>
-        }
-        @if (picksCopy(); as copy) {
-          @if (copy === 'Failed') {
-            <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
+      <!-- Styled like the Board, which it opens from. -->
+      <section
+        id="picks-panel"
+        class="board"
+        [attr.role]="panelRole()"
+        aria-labelledby="picks-heading"
+        [hidden]="!showing('Picks')"
+      >
+        @if (shownPlayer(); as player) {
+          <h2 id="picks-heading">{{ ownPicks() ? 'Your picks' : player.name + '’s picks' }}</h2>
+          <div class="controls">
+            @if (!ownPicks()) {
+              <button class="button secondary" type="button" (click)="closePicks()">
+                {{ closePicksLabel() }}
+              </button>
+            }
+            @if (player.picks.length > 0) {
+              <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
+                Copy for Arena
+              </button>
+              <button
+                class="button secondary"
+                type="button"
+                (click)="copyForMoxfield(player.picks)"
+              >
+                Copy for Moxfield
+              </button>
+            }
+          </div>
+          @if (picksCopy(); as copy) {
+            @if (copy === 'Failed') {
+              <p class="error" role="alert">
+                Couldn't copy to the clipboard. Try again in a moment.
+              </p>
+            } @else {
+              <p role="status">Copied for {{ copy }}.</p>
+            }
+          }
+          @if (picksFailed()) {
+            <p class="error">Couldn't load the picks. Try reloading the page.</p>
+          } @else if (picksLoading()) {
+            <p>Loading the picks…</p>
           } @else {
-            <p role="status">Copied for {{ copy }}.</p>
+            <ol class="picks">
+              @for (pick of player.picks; track pick.pick) {
+                <li>
+                  <span class="number">{{ pick.pick }}</span>
+                  <span class="card">{{ pick.name }}</span>
+                </li>
+              } @empty {
+                <li class="empty">No picks yet.</li>
+              }
+            </ol>
           }
+        } @else {
+          <p class="empty">Only players have picks.</p>
         }
-        <ol class="picks">
-          @for (pick of player.picks; track pick.pick) {
-            <li>
-              <span class="number">{{ pick.pick }}</span>
-              <span class="card">{{ pick.name }}</span>
-            </li>
-          } @empty {
-            <li class="empty">No picks yet.</li>
-          }
-        </ol>
-      }
-    </section>
+      </section>
+    </div>
 
-    <div class="tabs" role="tablist" aria-label="Draft">
+    <div class="tabs" role="tablist" aria-label="Draft" [hidden]="sideBySide()">
       <button
         id="pool-tab"
         type="button"

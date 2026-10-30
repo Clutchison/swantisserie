@@ -76,6 +76,7 @@ export class PoolTab {
     this.resource.hasValue() ? this.resource.value() : [],
   );
   protected readonly failed = computed(() => !!this.resource.error());
+  protected readonly loading = this.resource.isLoading;
 
   /** The pool search typed into the search box. */
   protected readonly search = signal('');
@@ -98,6 +99,14 @@ export class PoolTab {
     return this.hidePicked()
       ? this.matched().filter((card) => !picked.has(card.oracleId))
       : this.matched();
+  });
+
+  /** Why the grid is empty, once the cards have loaded. */
+  protected readonly emptyNote = computed(() => {
+    if (this.loading() || this.failed() || this.shown().length > 0) return null;
+    return this.matched().length > 0
+      ? 'Every card here has been picked.'
+      : 'No cards match your search.';
   });
 
   /** The grid's width in px, once it has been measured. */

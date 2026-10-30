@@ -41,6 +41,36 @@ describe('App', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
+  it('says so while the first page loads', async () => {
+    const fixture = TestBed.createComponent(App);
+    const navigation = router.navigateByUrl('/');
+    const req = await vi.waitFor(() => http.expectOne('/api/auth/me'));
+    TestBed.tick();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain('Loading…');
+
+    req.flush({ id: '1', name: 'Alice', avatarUrl: 'https://example.com/a.png', isAdmin: false });
+    await navigation;
+    TestBed.tick();
+    for (const drafts of http.match('/api/drafts')) drafts.flush([]);
+    await fixture.whenStable();
+    expect(page.textContent).not.toContain('Loading…');
+  });
+
+  it('says so when a page cannot be loaded, rather than staying blank', async () => {
+    const fixture = TestBed.createComponent(App);
+    const navigation = router.navigateByUrl('/');
+    (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(null, {
+      status: 500,
+      statusText: 'Server Error',
+    });
+    await navigation.catch(() => undefined);
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('.error')?.textContent).toContain("Couldn't load this page.");
+  });
+
   it('sends signed-out users to the sign-in page', async () => {
     const page = await open('/', (req) =>
       req.flush(null, { status: 401, statusText: 'Unauthorized' }),

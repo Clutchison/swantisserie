@@ -42,7 +42,18 @@
         }
         <option [ngValue]="null">None</option>
       </select>
-      <span class="hint">The Discord channel where picks and turns are announced.</span>
+      @if (webhooksLoading()) {
+        <span class="hint">Loading the webhooks…</span>
+      } @else if (webhooksFailed()) {
+        <span class="hint error"
+          >Couldn't load the webhooks, so this draft will post nowhere. Try reloading the
+          page.</span
+        >
+      } @else if (webhooks().length === 0) {
+        <span class="hint">No webhooks yet, so this draft will post nowhere.</span>
+      } @else {
+        <span class="hint">Where this draft’s announcements are posted on Discord.</span>
+      }
     </label>
 
     @if (problem(); as problem) {

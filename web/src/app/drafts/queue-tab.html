@@ -55,7 +55,9 @@
       </span>
     </li>
   } @empty {
-    <li class="empty">Your queue is empty. Add cards from the pool.</li>
+    <li class="empty">
+      {{ loading() ? 'Loading your queue…' : 'Your queue is empty. Add cards from the pool.' }}
+    </li>
   }
 </ol>
 @if (error(); as message) {

@@ -1,3 +1,4 @@
+import { MediaMatcher } from '@angular/cdk/layout';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -874,6 +875,58 @@ describe('drafts', () => {
           await fixture.whenStable();
         }
 
+        it('says so while the pool’s cards load', async () => {
+          const { fixture, page } = await open('/drafts/draft-1');
+          http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: complete }));
+          await vi.waitFor(() => {
+            TestBed.tick();
+            expect(page.textContent).toContain('Loading the pool’s cards…');
+          });
+
+          await flushPool([shivan]);
+          await fixture.whenStable();
+          expect(page.textContent).not.toContain('Loading the pool’s cards…');
+        });
+
+        it('says so when no card matches the search', async () => {
+          const { fixture, page } = await openDraft(complete, {}, { cards: [shivan] });
+          expect(page.textContent).not.toContain('No cards match');
+
+          await search(fixture, page, 't:goblin');
+
+          expect(page.textContent).toContain('No cards match your search.');
+        });
+
+        it('says so when every card matching has been picked and is hidden', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            {
+              state: 'Drafting',
+              players: [alicePlayer],
+              turn: { pick: 2, round: 1, playerId: alice.id },
+            },
+            {
+              cards: [shivan],
+              picks: [
+                {
+                  pick: 1,
+                  playerId: alice.id,
+                  oracleId: shivan.oracleId,
+                  name: shivan.name,
+                  layout: 'normal',
+                  set: 'm20',
+                  collectorNumber: '332',
+                },
+              ],
+            },
+          );
+
+          page.querySelector<HTMLInputElement>('.hide-picked input')!.click();
+          await fixture.whenStable();
+
+          expect(page.textContent).toContain('Every card here has been picked.');
+        });
+
         it('narrows the grid to the cards matching the search as you type', async () => {
           const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
 
@@ -1246,6 +1299,41 @@ describe('drafts', () => {
           );
         });
 
+        it('says the queue is loading, not empty, until it arrives', async () => {
+          const { fixture, page } = await open('/drafts/draft-1');
+          http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
+          await flushPool([]);
+          await flushPicks([]);
+          const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+          tabButton(page, 'Queue').click();
+          await vi.waitFor(() => {
+            TestBed.tick();
+            expect(panel(page).textContent).toContain('Loading your queue…');
+          });
+          expect(panel(page).textContent).not.toContain('Your queue is empty');
+
+          req.flush(EMPTY_QUEUE);
+          await fixture.whenStable();
+          expect(panel(page).textContent).not.toContain('Loading your queue…');
+          expect(panel(page).textContent).toContain('Your queue is empty');
+        });
+
+        it('does not call a queue that failed to load empty', async () => {
+          const { fixture, page } = await open('/drafts/draft-1');
+          http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
+          await flushPool([]);
+          await flushPicks([]);
+          (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(null, {
+            status: 500,
+            statusText: 'Server Error',
+          });
+          await fixture.whenStable();
+
+          const queue = await openQueue(fixture, page);
+          expect(queue.textContent).toContain("Couldn't load your queue.");
+          expect(queue.textContent).not.toContain('Your queue is empty');
+        });
+
         it('offers to add a card again once it is removed on the Queue tab', async () => {
           const { fixture, page } = await openDraft(complete, drafting(), {
             cards: [shivan],
@@ -1476,6 +1564,48 @@ describe('drafts', () => {
       }
 
       const pickLog = (root: HTMLElement) => panel(root).querySelector<HTMLElement>('.log')!;
+
+      /** Opens the Board tab with the GET of the picks left for the test to answer. */
+      async function openBoardUnanswered() {
+        const { fixture, page } = await open('/drafts/draft-1');
+        http.expectOne('/api/drafts/draft-1').flush(
+          draft({
+            snapshot: complete,
+            state: 'Drafting',
+            players: [bob],
+            turn: { pick: 1, round: 1, playerId: bob.id },
+          }),
+        );
+        await flushPool();
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
+        tabButton(page, 'Board').click();
+        await vi.waitFor(() => {
+          TestBed.tick();
+          expect(panel(page).querySelector('h2')?.textContent).toBe('Board');
+        });
+        return { fixture, page, req };
+      }
+
+      it('says the picks are loading, not that there are none, until they arrive', async () => {
+        const { fixture, page, req } = await openBoardUnanswered();
+        expect(panel(page).textContent).toContain('Loading the picks…');
+        expect(panel(page).textContent).not.toContain('No picks yet');
+
+        req.flush([]);
+        await fixture.whenStable();
+        expect(panel(page).textContent).not.toContain('Loading the picks…');
+        expect(panel(page).textContent).toContain('No picks yet');
+      });
+
+      it('does not say there are no picks when they failed to load', async () => {
+        const { fixture, page, req } = await openBoardUnanswered();
+
+        req.flush(null, { status: 500, statusText: 'Server Error' });
+        await fixture.whenStable();
+
+        expect(panel(page).textContent).toContain("Couldn't load the picks.");
+        expect(panel(page).textContent).not.toContain('No picks yet');
+      });
 
       it('switches between the Pool and Board tabs', async () => {
         const { fixture, page } = await openBoard(picks);
@@ -1866,6 +1996,128 @@ describe('drafts', () => {
       });
     });
 
+    describe('seat order', () => {
+      const seats = (page: HTMLElement) =>
+        page.querySelector<HTMLDetailsElement>('.players details')!;
+
+      it('is open in the lobby, where seats are arranged', async () => {
+        const { page } = await openDraft(
+          { state: 'Complete', cards: 540, total: 540 },
+          { players: [bob] },
+        );
+
+        expect(seats(page).open).toBe(true);
+      });
+
+      it('collapses once the draft has started, out of the way of the panels', async () => {
+        const { page } = await openDraft(
+          { state: 'Complete', cards: 540, total: 540 },
+          { state: 'Drafting', players: [bob], turn: { pick: 1, round: 1, playerId: bob.id } },
+        );
+
+        expect(seats(page).open).toBe(false);
+        expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
+      });
+    });
+
+    describe('side by side, on a desktop-wide screen', () => {
+      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+      const bobsPick: PickView = {
+        pick: 1,
+        playerId: bob.id,
+        oracleId: 'shock-oracle',
+        name: 'Shock',
+        layout: 'normal',
+        set: 'ima',
+        collectorNumber: '1',
+      };
+      const drafting = {
+        state: 'Drafting',
+        players: [bob, alicePlayer],
+        turn: { pick: 2, round: 1, playerId: alice.id },
+      } satisfies Partial<DraftView>;
+
+      beforeEach(() => {
+        vi.spyOn(TestBed.inject(MediaMatcher), 'matchMedia').mockImplementation(
+          (media) =>
+            ({
+              media,
+              matches: true,
+              addListener: () => undefined,
+              removeListener: () => undefined,
+            }) as unknown as MediaQueryList,
+        );
+      });
+
+      /** The headings of the panels showing, in order. */
+      const panelHeadings = (page: HTMLElement) =>
+        [...page.querySelectorAll<HTMLElement>('.panels > section:not([hidden]) > h2')].map(
+          (heading) => heading.textContent,
+        );
+
+      it('shows the Pool, Queue, Board and Me panels together, with no tab bar', async () => {
+        const { page } = await openDraft(complete, drafting, { picks: [bobsPick] });
+
+        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Your picks']);
+        expect(page.querySelector('.tabs')?.hasAttribute('hidden')).toBe(true);
+        expect(page.querySelector('[role="tabpanel"]')).toBeNull();
+      });
+
+      it('leaves out the Queue and Me panels for someone who is not a player', async () => {
+        const { page } = await openDraft(complete, { ...drafting, players: [bob] });
+
+        expect(panelHeadings(page)).toEqual(['Pool', 'Board']);
+      });
+
+      it('opens a player’s picks from the Board in the Me panel, and returns to yours', async () => {
+        const { fixture, page } = await openDraft(complete, drafting, { picks: [bobsPick] });
+
+        page.querySelector<HTMLButtonElement>('.player-picks h3 button')!.click();
+        await fixture.whenStable();
+        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Bob’s picks']);
+
+        [...page.querySelectorAll('button')]
+          .find((button) => button.textContent?.includes('Your picks'))!
+          .click();
+        await fixture.whenStable();
+        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Your picks']);
+      });
+
+      it('goes back to your picks when the player shown leaves the draft', async () => {
+        const { fixture, page } = await openDraft(complete, { players: [bob, alicePlayer] });
+        page.querySelector<HTMLButtonElement>('.player-picks h3 button')!.click();
+        await fixture.whenStable();
+        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Bob’s picks']);
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft({ snapshot: complete, players: [alicePlayer], version: 1 }),
+        });
+        await flushQueue(EMPTY_QUEUE);
+        await fixture.whenStable();
+
+        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Your picks']);
+      });
+
+      it('lets someone who is not a player close a player’s picks', async () => {
+        const { fixture, page } = await openDraft(
+          complete,
+          { ...drafting, players: [bob] },
+          { picks: [bobsPick] },
+        );
+
+        page.querySelector<HTMLButtonElement>('.player-picks h3 button')!.click();
+        await fixture.whenStable();
+        expect(panelHeadings(page)).toEqual(['Pool', 'Board', 'Bob’s picks']);
+
+        [...page.querySelectorAll('button')]
+          .find((button) => button.textContent?.trim() === 'Close')!
+          .click();
+        await fixture.whenStable();
+        expect(panelHeadings(page)).toEqual(['Pool', 'Board']);
+      });
+    });
+
     describe('live updates', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
       const drafting = (fields: Partial<DraftView> = {}) =>
@@ -2045,6 +2297,31 @@ describe('drafts', () => {
       submit(page);
       return vi.waitFor(() => http.expectOne('/api/drafts'));
     }
+
+    it('says so while the webhooks load, and when there are none', async () => {
+      const { fixture, page } = await open('/drafts/new');
+      const req = http.expectOne('/api/webhooks');
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(page.textContent).toContain('Loading the webhooks…');
+      });
+
+      req.flush([]);
+      await fixture.whenStable();
+      expect(page.textContent).not.toContain('Loading the webhooks…');
+      expect(page.textContent).toContain('No webhooks yet, so this draft will post nowhere.');
+    });
+
+    it('says when the webhooks fail to load, and still offers to post nowhere', async () => {
+      const { fixture, page } = await open('/drafts/new');
+      http.expectOne('/api/webhooks').flush(null, { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+
+      expect(page.querySelector('.hint.error')?.textContent).toContain(
+        "Couldn't load the webhooks, so this draft will post nowhere.",
+      );
+      expect(chosenWebhook(page)).toBe('None');
+    });
 
     it('starts picks per player at 40', async () => {
       const { page } = await openForm();

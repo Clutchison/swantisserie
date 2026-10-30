@@ -35,6 +35,8 @@ export class CreateDraftPage {
   protected readonly webhooks = computed(() =>
     this.webhookResource.hasValue() ? this.webhookResource.value() : [],
   );
+  protected readonly webhooksLoading = this.webhookResource.isLoading;
+  protected readonly webhooksFailed = computed(() => !!this.webhookResource.error());
   protected readonly saving = signal(false);
   protected readonly problem = signal<DraftProblem | null>(null);
 
