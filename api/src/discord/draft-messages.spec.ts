@@ -3,6 +3,7 @@ import {
   draftMessages,
   draftStartedMessage,
   picksMessage,
+  undoneMessage,
 } from './draft-messages.js';
 
 const draft = { name: 'Red', url: 'https://roto.example/drafts/d1' };
@@ -234,5 +235,41 @@ describe('draftCompleteMessage', () => {
         '<https://roto.example/drafts/d1>',
       allowed_mentions: { parse: [], users: [] },
     });
+  });
+});
+
+describe('undoneMessage', () => {
+  it('says which pick was undone and pings its player, whose turn it is again', () => {
+    expect(
+      undoneMessage(draft, { number: 23, player: alice, card: 'Shock' }),
+    ).toEqual({
+      content:
+        'Pick 23 (**Shock** by **Alice**) was undone\n' +
+        '<@80351110224678912> you’re up\n' +
+        '<https://roto.example/drafts/d1>',
+      allowed_mentions: { parse: [], users: ['80351110224678912'] },
+    });
+  });
+
+  it('names a bot whose pick was undone without pinging it', () => {
+    expect(
+      undoneMessage(draft, { number: 2, player: bot, card: 'Shock' }),
+    ).toEqual({
+      content:
+        'Pick 2 (**Shock** by **Bot 1**) was undone\n' +
+        '**Bot 1** is up\n' +
+        '<https://roto.example/drafts/d1>',
+      allowed_mentions: { parse: [], users: [] },
+    });
+  });
+
+  it('is the one message for an undo', () => {
+    expect(
+      draftMessages(draft, [
+        { type: 'undone', number: 23, player: alice, card: 'Shock' },
+      ]),
+    ).toEqual([
+      undoneMessage(draft, { number: 23, player: alice, card: 'Shock' }),
+    ]);
   });
 });

@@ -25,4 +25,12 @@ export type DraftEvent =
       /** Whose turn it now is; null after the last pick. */
       next: EventPlayer | null;
     }
+  | {
+      type: 'undone';
+      /** The undone pick's number, which is now to be made again. */
+      number: number;
+      /** Who made the undone pick, whose turn it now is again. */
+      player: EventPlayer;
+      card: string;
+    }
   | { type: 'completed' };

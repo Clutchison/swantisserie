@@ -100,6 +100,15 @@ export class DraftPage {
   );
   protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
+  /** The pick the organizer may undo: the latest, while the draft is drafting or paused. */
+  protected readonly undoable = computed(() => {
+    const state = this.draft()?.state;
+    if (!this.canOrganize() || (state !== 'Drafting' && state !== 'Paused')) return null;
+    return this.picks().at(-1) ?? null;
+  });
+  protected readonly undoing = signal(false);
+  protected readonly undoError = signal<string | null>(null);
+
   /** Each player, in seat order, with their picks in pick order. */
   protected readonly board = computed(() =>
     (this.draft()?.players ?? []).map((player) => ({
@@ -199,6 +208,30 @@ export class DraftPage {
   private catchUp() {
     this.resource.reload();
     this.picksResource.reload();
+  }
+
+  /** Undoes `pick`, the latest; refused if the picks have moved on meanwhile. */
+  protected async undo(pick: PickView) {
+    const failure = "Couldn't undo the pick. Try again in a moment.";
+    this.undoing.set(true);
+    this.undoError.set(null);
+    try {
+      this.showDraft(
+        await firstValueFrom(
+          this.http.delete<DraftView>(`/api/drafts/${this.id()}/picks/${pick.pick}`),
+        ),
+      );
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 409) {
+        // The draft has moved on: show why, and catch up with it.
+        this.undoError.set(err.error?.message ?? failure);
+        this.catchUp();
+      } else {
+        this.undoError.set(failure);
+      }
+    } finally {
+      this.undoing.set(false);
+    }
   }
 
   protected join() {
