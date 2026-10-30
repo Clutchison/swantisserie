@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
+  cascade,
   currentTurn,
   draftComplete,
   MAX_PLAYERS,
@@ -352,13 +353,17 @@ export class DraftsService {
         orderBy: SEAT_ORDER,
         select: EVENT_PLAYER,
       });
-      return [{ type: 'started', seats: seats.map(toEventPlayer) }];
+      return [
+        { type: 'started', seats: seats.map(toEventPlayer) },
+        ...(await this.cascade(tx, draftId, draft)),
+      ];
     });
   }
 
   /**
-   * The user picks the pool card with `oracleId` on their turn; the last
-   * pick moves the draft to Complete. Throws PickRefusedError if they can't.
+   * The user picks the pool card with `oracleId` on their turn, and the
+   * cascade after it is picked; the last pick moves the draft to Complete.
+   * Throws PickRefusedError if they can't.
    */
   async pick(
     draftId: string,
@@ -379,8 +384,9 @@ export class DraftsService {
 
   /**
    * The bot makes its turn's pick: a card chosen at random from those not
-   * yet picked. Returns no events, and picks nothing, if the draft is no
-   * longer Drafting or has moved on from that turn.
+   * yet picked, then the cascade after it is picked. Returns no events, and
+   * picks nothing, if the draft is no longer Drafting or has moved on from
+   * that turn.
    */
   async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
     return this.locked(draftId, async (tx, draft) => {
@@ -426,8 +432,60 @@ export class DraftsService {
   }
 
   /**
+   * Picks each card the cascade from the draft's current turn makes, in a
+   * draft that is Drafting. A cascade stops at a bot's turn: the bot picks
+   * on its own timer.
+   */
+  private async cascade(
+    tx: Transaction,
+    draftId: string,
+    draft: LockedDraft,
+  ): Promise<DraftEvent[]> {
+    // Seats are 0..n-1 once started, so indexes here are the engine's seats.
+    const players = await tx.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: {
+        userId: true,
+        user: { select: { isBot: true } },
+        queue: {
+          where: { lostAt: null },
+          orderBy: { position: 'asc' },
+          select: { poolCard: { select: { oracleId: true } } },
+        },
+      },
+    });
+    const picked = await tx.pick.findMany({
+      where: { draftId },
+      orderBy: { number: 'asc' },
+      select: { poolCard: { select: { oracleId: true } } },
+    });
+    const picks = cascade(
+      {
+        players: players.length,
+        picksPerPlayer: draft.picksPerPlayer,
+        picked: picked.map((pick) => pick.poolCard.oracleId),
+      },
+      players.map((player) =>
+        player.user.isBot
+          ? []
+          : player.queue.map((queued) => queued.poolCard.oracleId),
+      ),
+    );
+    const events: DraftEvent[] = [];
+    for (const { seat, card } of picks) {
+      const { userId } = players[seat];
+      events.push(
+        ...(await this.pickCard(tx, draftId, draft, userId, card, true)),
+      );
+    }
+    return events;
+  }
+
+  /**
    * The user picks the pool card with `oracleId` on their turn, in a draft
-   * that is Drafting. Throws PickRefusedError if they can't.
+   * that is Drafting, and then the cascade after it is picked. Throws
+   * PickRefusedError if they can't.
    */
   private async takeTurn(
     tx: Transaction,
@@ -435,6 +493,25 @@ export class DraftsService {
     draft: LockedDraft,
     userId: string,
     oracleId: string,
+  ): Promise<DraftEvent[]> {
+    return [
+      ...(await this.pickCard(tx, draftId, draft, userId, oracleId, false)),
+      ...(await this.cascade(tx, draftId, draft)),
+    ];
+  }
+
+  /**
+   * The user picks the pool card with `oracleId` on their turn, in a draft
+   * that is Drafting; `queued` if it was picked from their queue. Throws
+   * PickRefusedError if they can't.
+   */
+  private async pickCard(
+    tx: Transaction,
+    draftId: string,
+    draft: LockedDraft,
+    userId: string,
+    oracleId: string,
+    queued: boolean,
   ): Promise<DraftEvent[]> {
     const card = await tx.poolCard.findUnique({
       where: { draftId_oracleId: { draftId, oracleId } },
@@ -492,6 +569,7 @@ export class DraftsService {
         number: picked,
         player: toEventPlayer(players[seat]),
         card: card.name,
+        queued,
         next: next ? toEventPlayer(players[next.seat]) : null,
       },
     ];

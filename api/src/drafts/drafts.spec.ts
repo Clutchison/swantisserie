@@ -1675,20 +1675,19 @@ describe('drafts', () => {
 
       it('takes a card another player picks out of the queue, as lost', async () => {
         const bobCookie = await signIn(bob);
-        const id = await readyDraft([aliceCookie, bobCookie], 2, [
+        const id = await readyDraft([aliceCookie, bobCookie], 1, [
           'Shock',
           'Lightning Bolt',
           'Lava Spike',
           'Skewer the Critics',
         ]);
-        await enqueue(id, 'shock-oracle', bobCookie).expect(200);
         await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+        await enqueue(id, 'shock-oracle', bobCookie).expect(200);
         await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
         await start(id).expect(200);
 
+        // Bob's turn then picks Shock from his queue.
         await pick(id, 'lava-spike-oracle').expect(200);
-        await pick(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
-        await pick(id, 'shock-oracle', bobCookie).expect(200);
 
         // Bob's own pick just leaves his queue; Alice's is lost to him.
         expect((await queue(id, bobCookie).expect(200)).body).toEqual({
@@ -1701,16 +1700,18 @@ describe('drafts', () => {
         const bobCookie = await signIn(bob);
         const id = await readyDraft([aliceCookie, bobCookie]);
         await enqueue(id, 'shock-oracle', bobCookie).expect(200);
-        await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
         await start(id).expect(200);
         await pick(id, 'shock-oracle').expect(200);
+        expect((await queue(id, bobCookie).expect(200)).body.lost).toEqual([
+          shock,
+        ]);
 
         const dismissed = await request(app.getHttpServer())
           .delete(`/api/drafts/${id}/queue/lost`)
           .set('Cookie', bobCookie)
           .expect(200);
 
-        expect(dismissed.body).toEqual({ cards: [spike], lost: [] });
+        expect(dismissed.body).toEqual({ cards: [], lost: [] });
       });
 
       it('marks a card lost to a bot, too', async () => {
@@ -1757,6 +1758,174 @@ describe('drafts', () => {
     it('is 404 for a draft that does not exist', async () => {
       await queue('no-such-draft').expect(404);
       await enqueue('no-such-draft', 'shock-oracle').expect(404);
+    });
+  });
+
+  describe('cascade', () => {
+    const cards = [
+      'Shock',
+      'Lightning Bolt',
+      'Lava Spike',
+      'Skewer the Critics',
+    ];
+    let bobCookie: string;
+
+    beforeEach(async () => {
+      bobCookie = await signIn(bob);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function enqueue(id: string, oracleId: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/queue`)
+        .set('Cookie', cookie)
+        .send({ oracleId })
+        .expect(200);
+    }
+
+    function pick(id: string, oracleId: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', cookie)
+        .send({ oracleId });
+    }
+
+    /** The pick log as `Player: Card` lines. */
+    async function pickLog(id: string) {
+      const res = await request(app.getHttpServer())
+        .get(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
+      return (res.body as { playerId: string; name: string }[]).map(
+        (pick) => `${names[pick.playerId] ?? 'Bot'}: ${pick.name}`,
+      );
+    }
+
+    function queue(id: string, cookie = aliceCookie) {
+      return request(app.getHttpServer())
+        .get(`/api/drafts/${id}/queue`)
+        .set('Cookie', cookie)
+        .expect(200);
+    }
+
+    it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      await enqueue(id, 'lava-spike-oracle', bobCookie);
+      await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
+      await start(id).expect(200);
+
+      const picked = await pick(id, 'shock-oracle').expect(200);
+
+      // Bob picks last in round 1 and first in round 2.
+      expect(picked.body.turn).toEqual({
+        pick: 4,
+        round: 2,
+        playerId: alice.id,
+      });
+      expect(await pickLog(id)).toEqual([
+        'Alice: Shock',
+        'Bob: Lava Spike',
+        'Bob: Skewer the Critics',
+      ]);
+      expect((await queue(id, bobCookie)).body).toEqual({
+        cards: [],
+        lost: [],
+      });
+    });
+
+    it('skips queued cards already picked, and stops at a player with none left', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      await enqueue(id, 'shock-oracle', bobCookie);
+      await enqueue(id, 'lava-spike-oracle', bobCookie);
+      await start(id).expect(200);
+
+      const picked = await pick(id, 'shock-oracle').expect(200);
+
+      expect(picked.body.turn).toEqual({ pick: 3, round: 2, playerId: bob.id });
+      expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+      expect((await queue(id, bobCookie)).body).toEqual({
+        cards: [],
+        lost: [{ oracleId: 'shock-oracle', name: 'Shock' }],
+      });
+    });
+
+    it('picks the first player’s queued card when the draft starts', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+      await enqueue(id, 'lightning-bolt-oracle');
+
+      const started = await start(id).expect(200);
+
+      expect(started.body.turn).toEqual({
+        pick: 2,
+        round: 1,
+        playerId: bob.id,
+      });
+      expect(await pickLog(id)).toEqual(['Alice: Lightning Bolt']);
+    });
+
+    it('stops at a bot’s turn, and carries on after the bot picks', async () => {
+      const id = await readyDraft([aliceCookie], 2, cards);
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/bots`)
+        .set('Cookie', await signIn(carol))
+        .expect(201);
+      // The bot picks the first available card by name.
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      await start(id).expect(200);
+      await enqueue(id, 'skewer-the-critics-oracle');
+
+      const picked = await pick(id, 'shock-oracle').expect(200);
+
+      expect(picked.body.turn.pick).toBe(2);
+      await vi.waitFor(async () => {
+        expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
+      });
+      expect(await pickLog(id)).toEqual([
+        'Alice: Shock',
+        'Bot: Lava Spike',
+        'Bot: Lightning Bolt',
+        'Alice: Skewer the Critics',
+      ]);
+    });
+
+    it('announces a pick and its cascade in one post, pinging who must pick next', async () => {
+      const webhook = await request(app.getHttpServer())
+        .post('/api/admin/webhooks')
+        .set('Cookie', await signIn(carol))
+        .send({
+          name: '#roto-main',
+          url: 'https://discord.com/api/webhooks/1234567890/secret-token',
+        })
+        .expect(201);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        2,
+        cards,
+        webhook.body.id,
+      );
+      await enqueue(id, 'lava-spike-oracle', bobCookie);
+      await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
+      await start(id).expect(200);
+
+      await pick(id, 'shock-oracle').expect(200);
+
+      const messages = await vi.waitFor(() => {
+        expect(webhookClient.post).toHaveBeenCalledTimes(2);
+        return webhookClient.post.mock.calls.map(([, message]) => message);
+      });
+      expect(messages[1]).toEqual({
+        content:
+          '**Alice** picked **Shock** (pick 1)\n' +
+          '**Bob** picked **Lava Spike** (pick 2, queued)\n' +
+          '**Bob** picked **Skewer the Critics** (pick 3, queued)\n' +
+          `<@${alice.id}> you’re up\n` +
+          `<https://roto.example/drafts/${id}>`,
+        allowed_mentions: { parse: [], users: [alice.id] },
+      });
     });
   });
 
@@ -2224,6 +2393,37 @@ describe('drafts', () => {
             id,
             state: 'Drafting',
             turn: { pick: 2, round: 1, playerId: bob.id },
+          }),
+        ]),
+      );
+    });
+
+    it('pushes the draft after a pick with its cascade made, so viewers see every pick', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, [
+        'Shock',
+        'Lightning Bolt',
+        'Lava Spike',
+        'Skewer the Critics',
+      ]);
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/queue`)
+        .set('Cookie', bobCookie)
+        .send({ oracleId: 'lava-spike-oracle' })
+        .expect(200);
+      await start(id).expect(200);
+      const carolSees = await watch(id, await signIn(carol));
+
+      await request(app.getHttpServer())
+        .post(`/api/drafts/${id}/picks`)
+        .set('Cookie', aliceCookie)
+        .send({ oracleId: 'shock-oracle' })
+        .expect(200);
+
+      await vi.waitFor(() =>
+        expect(carolSees).toEqual([
+          expect.objectContaining({
+            turn: { pick: 3, round: 2, playerId: bob.id },
           }),
         ]),
       );
