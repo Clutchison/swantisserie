@@ -202,12 +202,14 @@ export class PoolTab {
   }
 
   /**
-   * The images a tile offers the browser, until one has failed: a tile can't
-   * tell which, so imageFailed marks its normal image and it uses the API image.
+   * The images a tile offers the browser. A failed image's event doesn't say
+   * which one failed, so the tile marks its normal image broken and drops to the API image.
    */
-  protected tileImages(card: PoolCardView): string | null {
+  protected tileSrcset(card: PoolCardView): string | null {
     const normal = this.workingUrl(card, 'normal', 0);
-    return normal ? `${card.images[0].small} ${SMALL_IMAGE_SLOT}w, ${normal} ${TILE_WIDTH}w` : null;
+    return normal
+      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${TILE_WIDTH}w`
+      : null;
   }
 
   protected imageFailed(card: PoolCardView, version: ImageVersion, face = 0) {
@@ -306,12 +308,11 @@ const TILE_HEIGHT = 680;
 const TILE_MIN_WIDTH = 144;
 const TILE_GAP = 8;
 /**
- * The widest tile, in px, the small image serves at normal pixel density.
- * Declared to the browser as the image's width, though it's 146px: browsers
- * take any image narrower than its tile as too small, and tiles are 144-163px
- * on most desktop screens. Checked by eye as sharp enough at this width.
+ * The width declared to the browser for the small image, though it's really
+ * 146px: browsers load the normal image for any tile wider than this at normal
+ * pixel density, and desktop tiles run up to about 160px. A little soft at 160px.
  */
-const SMALL_IMAGE_SLOT = 160;
+const SMALL_IMAGE_DECLARED_WIDTH = 160;
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
 const ADDED_TO_QUEUE = 'Added to your queue.';
