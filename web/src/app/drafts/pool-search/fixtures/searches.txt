@@ -227,3 +227,69 @@ edition:znr
 s:grn
 s:one
 -s:woe t:giant
+
+# is: / not: for how the card's faces are laid out
+is:split
+is:transform
+is:tdfc
+is:mdfc
+is:dfc
+is:meld
+is:adventure
+not:dfc t:saga
+-is:split t:room
+
+# is: / not: for what the card is
+is:permanent
+is:permanent t:sorcery
+is:spell
+is:spell t:land
+not:spell
+not:permanent
+is:historic
+is:party
+is:outlaw
+is:vanilla
+is:frenchvanilla
+is:bear
+is:hybrid
+is:phyrexian
+not:hybrid c:m
+IS:Permanent
+
+# Regular expressions for name:, t: and o:, with Scryfall's extensions
+name:/\bthe\b/
+name:/^g/
+name:/r$/
+name:/m$/
+name:/pool \/\/ locker/
+name:/[aeiou]{3}/
+NAME:/GIANT/
+t:/^legendary/
+t:/\/\/ sorcery/
+t:/(dragon|giant)$/
+t:/— human/
+o:/^{T}:/
+o:/{t}:/
+o:/draws? (a|two) cards?/
+o:/DRAW A CARD/
+o:/create.*token/
+o:/destroy target (creature|artifact)/
+o:/flying$/
+o:/^flying/
+o:/\(/
+o:/~ deals/
+o:/when ~ enters/
+o:/\spp/
+o:/\smm/
+o:/\spt/
+o:/\sm/
+o:/\sm\sm/
+o:/\smr/
+o:/\smh/
+o:/\smp/
+o:/\sc/
+o:/\ss/
+o:/pays? \sm/
+o:/x\/x/
+t:creature -o:/./
