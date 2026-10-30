@@ -35,6 +35,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
   - Pool query and pick count are locked after start.
   - The draft completes when every player has all their picks.
   - Completed drafts stay viewable and exportable forever.
+- **Pick import:** in the lobby, the organizer can load picks made outside the app from a CSV: its columns map to seats by position and its picks run in snake order. After a preview, confirming fixes the seats, writes the picks, clears every queue and starts the draft Paused, with no announcement or queued picks until the organizer resumes it. It is final: a bad pick import means closing that draft and creating a new one.
 - Multiple drafts can run at once.
 
 ### Preloaded picks (queue)

@@ -143,7 +143,7 @@ export class PickImportRefusedError extends Error {
 /** What a pick import's file would do to a draft. */
 export interface PickImportPreview {
   /** Each column of the file with the player in the seat it maps to. */
-  seats: { column: string; player: string }[];
+  seats: { column: string; userId: string; player: string }[];
   picks: number;
   next: { pick: number; player: string };
 }
@@ -451,24 +451,16 @@ export class DraftsService {
     });
     if (!draft) throw new DraftGoneError();
     if (draft.state !== 'Lobby') throw new DraftStartedError();
-    const players = await this.prisma.player.findMany({
-      where: { draftId },
-      orderBy: SEAT_ORDER,
-      select: { user: { select: { name: true } } },
-    });
-    await this.checkCanStart(this.prisma, draftId, draft, players.length);
-    const reading = readPickImport(
+    const { players, reading } = await this.checkPickImport(
+      this.prisma,
+      draftId,
+      draft,
       csv,
-      { players: players.length, picksPerPlayer: draft.picksPerPlayer },
-      await this.prisma.poolCard.findMany({
-        where: { draftId },
-        select: { oracleId: true, name: true },
-      }),
     );
-    if (!reading.ok) throw new PickImportRefusedError(reading.problems);
     return {
       seats: reading.columns.map((column, seat) => ({
         column,
+        userId: players[seat].userId,
         player: players[seat].user.name,
       })),
       picks: reading.picks.length,
@@ -477,6 +469,90 @@ export class DraftsService {
         player: players[reading.next.seat].user.name,
       },
     };
+  }
+
+  /**
+   * Loads the picks in `csv` and moves the draft to Paused, with its seats
+   * fixed and every queue emptied. Nothing is announced and no queued picks
+   * are made: the organizer's resume does that. `previewedSeats` is the user
+   * ids the preview paired with the file's columns; the file's validation
+   * can't see a change to who sits where, so a difference refuses the file.
+   * Throws as previewPickImport does, with nothing changed.
+   */
+  async importPicks(
+    draftId: string,
+    csv: string,
+    previewedSeats: string[],
+  ): Promise<void> {
+    await this.inLobby(draftId, async (tx, draft) => {
+      const { players, reading, pool } = await this.checkPickImport(
+        tx,
+        draftId,
+        draft,
+        csv,
+      );
+      if (
+        players.length !== previewedSeats.length ||
+        players.some(({ userId }, seat) => userId !== previewedSeats[seat])
+      ) {
+        throw new PickImportRefusedError([
+          'The seats have changed since the preview. Choose the file again to check it.',
+        ]);
+      }
+      // Seats become 0..n-1 so the engine's seat indexes match them.
+      await this.seat(
+        tx,
+        draftId,
+        players.map((player) => player.userId),
+      );
+      const cardIds = new Map(pool.map((card) => [card.oracleId, card.id]));
+      const createdAt = new Date();
+      await tx.pick.createMany({
+        data: reading.picks.map(({ number, seat, oracleId }) => ({
+          draftId,
+          number,
+          playerId: players[seat].id,
+          // Read from this same pool, so it is there.
+          poolCardId: cardIds.get(oracleId)!,
+          createdAt,
+        })),
+      });
+      await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
+      await tx.draft.update({
+        where: { id: draftId },
+        data: { state: 'Paused' },
+      });
+    });
+  }
+
+  /**
+   * The draft's players in seat order, its pool, and `csv` read for them. Throws
+   * StartRefusedError if the draft can't start yet, and
+   * PickImportRefusedError if the file can't be imported.
+   */
+  private async checkPickImport(
+    client: Pick<Transaction, 'player' | 'poolCard'>,
+    draftId: string,
+    draft: LockedDraft,
+    csv: string,
+  ) {
+    const players = await client.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: { id: true, userId: true, user: { select: { name: true } } },
+    });
+    await this.checkCanStart(client, draftId, draft, players.length);
+    const pool = await client.poolCard.findMany({
+      where: { draftId },
+      select: { id: true, oracleId: true, name: true },
+    });
+    const reading = readPickImport(
+      csv,
+      { players: players.length, picksPerPlayer: draft.picksPerPlayer },
+      pool,
+    );
+    if (!reading.ok) throw new PickImportRefusedError(reading.problems);
+    return { players, reading, pool };
   }
 
   /**
