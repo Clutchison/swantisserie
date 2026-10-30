@@ -24,6 +24,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import {
+  CloseRefusedError,
   DraftFullError,
   DraftGoneError,
   DraftStartedError,
@@ -183,6 +184,28 @@ export class DraftsController {
     return this.change(id, () => this.drafts.resume(id));
   }
 
+  /** Closes a started draft early, so it is read-only; for the organizer. */
+  @Post(':id/close')
+  @HttpCode(200)
+  async close(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.close(id));
+  }
+
+  /** Reopens a closed draft, making any queued picks due; for the organizer. */
+  @Post(':id/reopen')
+  @HttpCode(200)
+  async reopen(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.reopen(id));
+  }
+
   /** Cancels a draft still in Lobby, for good; for the organizer. */
   @Delete(':id')
   @HttpCode(204)
@@ -314,7 +337,11 @@ export class DraftsController {
         }
         throw new ConflictException(err.refusal);
       }
-      if (err instanceof UndoRefusedError || err instanceof PauseRefusedError) {
+      if (
+        err instanceof UndoRefusedError ||
+        err instanceof PauseRefusedError ||
+        err instanceof CloseRefusedError
+      ) {
         throw new ConflictException(err.refusal);
       }
       if (err instanceof PlayersChangedError) {

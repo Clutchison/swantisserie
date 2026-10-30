@@ -119,10 +119,11 @@ export class DraftPage {
   protected readonly offerPick = computed(
     () => this.joined() && this.draft()?.state === 'Drafting',
   );
-  /** Players may queue cards until the draft is complete. */
-  protected readonly offerQueue = computed(
-    () => this.joined() && this.draft()?.state !== 'Complete',
-  );
+  /** Players may queue cards until the draft is complete, but not while it is closed. */
+  protected readonly offerQueue = computed(() => {
+    const state = this.draft()?.state;
+    return this.joined() && state !== 'Complete' && state !== 'Closed';
+  });
   /** Only players have a queue. Both the Pool and Queue tabs show it, and change it. */
   protected readonly queueResource = httpResource<QueueView>(() =>
     this.joined() ? `/api/drafts/${this.id()}/queue` : undefined,
@@ -153,7 +154,15 @@ export class DraftPage {
   protected readonly offerResume = computed(
     () => this.canOrganize() && this.draft()?.state === 'Paused',
   );
-  /** An undo, pause or resume is being sent. */
+  /** The organizer may close a drafting or paused draft and reopen a closed one. */
+  protected readonly offerClose = computed(() => {
+    const state = this.draft()?.state;
+    return this.canOrganize() && (state === 'Drafting' || state === 'Paused');
+  });
+  protected readonly offerReopen = computed(
+    () => this.canOrganize() && this.draft()?.state === 'Closed',
+  );
+  /** An undo, pause, resume, close or reopen is being sent. */
   protected readonly sending = signal(false);
   protected readonly sendError = signal<string | null>(null);
 
@@ -350,6 +359,37 @@ export class DraftPage {
     return this.send(
       this.http.post<DraftView>(`/api/drafts/${this.id()}/resume`, null),
       "Couldn't resume the draft. Try again in a moment.",
+    );
+  }
+
+  /** Closes the draft, once the organizer confirms. */
+  protected close() {
+    const { name, players, picksPerPlayer, turn } = this.draft()!;
+    // Only a drafting or paused draft is offered this, so there is a turn.
+    const made = turn!.pick - 1;
+    const total = players.length * picksPerPlayer;
+    if (
+      !confirm(
+        `Close ${name}? ${made} of ${total} picks made. The picks stand as made, and the draft is read-only until it is reopened.`,
+      )
+    ) {
+      return;
+    }
+    return this.send(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/close`, null),
+      "Couldn't close the draft. Try again in a moment.",
+    );
+  }
+
+  /** Reopens the draft, once the organizer confirms. */
+  protected reopen() {
+    const name = this.draft()!.name;
+    if (!confirm(`Reopen ${name}? The turn comes back, and queued picks are made straight away.`)) {
+      return;
+    }
+    return this.send(
+      this.http.post<DraftView>(`/api/drafts/${this.id()}/reopen`, null),
+      "Couldn't reopen the draft. Try again in a moment.",
     );
   }
 

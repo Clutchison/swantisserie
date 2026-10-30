@@ -15,13 +15,17 @@ export class DraftListPage {
 
   /** What the page that sent the viewer here wants them told, e.g. a draft was cancelled. */
   protected readonly notice = inject(Router).currentNavigation()?.extras.state?.['notice'] as
-    | string
-    | undefined;
+    string | undefined;
 
   protected readonly loading = this.drafts.isLoading;
   protected readonly failed = computed(() => !!this.drafts.error());
   protected readonly active = computed(() =>
-    (this.drafts.value() ?? []).filter((draft) => draft.state !== 'Complete'),
+    (this.drafts.value() ?? []).filter(
+      (draft) => draft.state !== 'Complete' && draft.state !== 'Closed',
+    ),
+  );
+  protected readonly closed = computed(() =>
+    (this.drafts.value() ?? []).filter((draft) => draft.state === 'Closed'),
   );
   protected readonly complete = computed(() =>
     (this.drafts.value() ?? []).filter((draft) => draft.state === 'Complete'),

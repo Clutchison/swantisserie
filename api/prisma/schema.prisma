@@ -43,6 +43,7 @@ enum DraftState {
   Drafting
   Paused
   Complete
+  Closed
 }
 
 model Draft {

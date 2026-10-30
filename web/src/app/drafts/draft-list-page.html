@@ -24,6 +24,19 @@
       </ul>
     </section>
     <section>
+      <h2>Closed drafts</h2>
+      <ul>
+        @for (draft of closed(); track draft.id) {
+          <li>
+            <a class="name" [routerLink]="['/drafts', draft.id]">{{ draft.name }}</a>
+            <span class="detail">Organized by {{ draft.organizer.name }}</span>
+          </li>
+        } @empty {
+          <li class="empty">No closed drafts.</li>
+        }
+      </ul>
+    </section>
+    <section>
       <h2>Complete drafts</h2>
       <ul>
         @for (draft of complete(); track draft.id) {

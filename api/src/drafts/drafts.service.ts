@@ -166,6 +166,18 @@ export class PauseRefusedError extends Error {
   }
 }
 
+/** Why the organizer can't close or reopen the draft; sent to them as is. */
+export interface CloseRefusal {
+  error: 'not-closable' | 'not-closed';
+  message: string;
+}
+
+export class CloseRefusedError extends Error {
+  constructor(readonly refusal: CloseRefusal) {
+    super(refusal.message);
+  }
+}
+
 const PICK_LOG = {
   orderBy: { number: 'asc' },
   select: {
@@ -721,29 +733,80 @@ export class DraftsService {
           message: 'Only a paused draft can be resumed.',
         });
       }
+      return this.backToDrafting(tx, draftId, draft, 'resumed');
+    });
+  }
+
+  /**
+   * Moves the draft from Drafting or Paused to Closed, with every pick as
+   * made, so it is read-only until reopened. Throws CloseRefusedError if it
+   * is in any other state.
+   */
+  async close(draftId: string): Promise<DraftEvent[]> {
+    return this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Drafting' && draft?.state !== 'Paused') {
+        throw new CloseRefusedError({
+          error: 'not-closable',
+          message: 'Only a drafting or paused draft can be closed.',
+        });
+      }
       await tx.draft.update({
         where: { id: draftId },
-        data: { state: 'Drafting' },
+        data: { state: 'Closed' },
       });
-      // Paused, so not complete: there is a turn.
-      const players = await tx.player.findMany({
-        where: { draftId },
-        orderBy: SEAT_ORDER,
-        select: EVENT_PLAYER,
-      });
-      const turn = currentTurn(
-        { players: players.length, picksPerPlayer: draft.picksPerPlayer },
-        await tx.pick.count({ where: { draftId } }),
-      )!;
-      return [
-        {
-          type: 'resumed',
-          number: turn.pick,
-          player: toEventPlayer(players[turn.seat]),
-        },
-        ...(await this.cascade(tx, draftId, draft)),
-      ];
+      return [{ type: 'closed' }];
     });
+  }
+
+  /**
+   * Moves the draft from Closed to Drafting, whatever it was when closed,
+   * and picks the cascade from its current turn. Throws CloseRefusedError if
+   * it isn't Closed.
+   */
+  async reopen(draftId: string): Promise<DraftEvent[]> {
+    return this.locked(draftId, async (tx, draft) => {
+      if (draft?.state !== 'Closed') {
+        throw new CloseRefusedError({
+          error: 'not-closed',
+          message: 'Only a closed draft can be reopened.',
+        });
+      }
+      return this.backToDrafting(tx, draftId, draft, 'reopened');
+    });
+  }
+
+  /**
+   * Moves a Paused or Closed draft to Drafting, and picks the cascade from
+   * its current turn. `type` is the event to say so with.
+   */
+  private async backToDrafting(
+    tx: Transaction,
+    draftId: string,
+    draft: LockedDraft,
+    type: 'resumed' | 'reopened',
+  ): Promise<DraftEvent[]> {
+    await tx.draft.update({
+      where: { id: draftId },
+      data: { state: 'Drafting' },
+    });
+    // Paused or Closed, so not complete: there is a turn.
+    const players = await tx.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: EVENT_PLAYER,
+    });
+    const turn = currentTurn(
+      { players: players.length, picksPerPlayer: draft.picksPerPlayer },
+      await tx.pick.count({ where: { draftId } }),
+    )!;
+    return [
+      {
+        type,
+        number: turn.pick,
+        player: toEventPlayer(players[turn.seat]),
+      },
+      ...(await this.cascade(tx, draftId, draft)),
+    ];
   }
 
   /** The draft's picks, in the order they were made. */

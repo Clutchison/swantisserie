@@ -1,5 +1,5 @@
-/** Lobby → Drafting ⇄ Paused → Complete. */
-export type DraftState = 'Lobby' | 'Drafting' | 'Paused' | 'Complete';
+/** Lobby → Drafting ⇄ Paused → Complete; Drafting or Paused → Closed → Drafting. */
+export type DraftState = 'Lobby' | 'Drafting' | 'Paused' | 'Complete' | 'Closed';
 
 /** How far the pool snapshot (copying the pool from Scryfall) has got. */
 export interface PoolSnapshotView {

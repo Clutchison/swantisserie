@@ -101,7 +101,9 @@ function botTurn(draftId: string, events: DraftEvent[]): BotTurn | null {
     return { draftId, userId: last.next.id, pick: last.number + 1 };
   }
   if (
-    (last?.type === 'undone' || last?.type === 'resumed') &&
+    (last?.type === 'undone' ||
+      last?.type === 'resumed' ||
+      last?.type === 'reopened') &&
     last.player.isBot
   ) {
     return { draftId, userId: last.player.id, pick: last.number };
