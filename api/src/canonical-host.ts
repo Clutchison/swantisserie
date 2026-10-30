@@ -9,17 +9,18 @@ import type { RequestHandler } from 'express';
 export function redirectToCanonicalHost(
   redirectUri: string | undefined,
 ): RequestHandler {
-  const canonical = URL.parse(redirectUri ?? '')?.hostname;
+  const canonicalHostname = URL.parse(redirectUri ?? '')?.hostname;
 
   return (req, res, next) => {
-    const hostname = req.hostname.toLowerCase();
+    const hostname = req.hostname?.toLowerCase();
     if (
-      canonical &&
-      hostname !== canonical &&
-      (hostname.endsWith('.herokuapp.com') || hostname === `www.${canonical}`)
+      canonicalHostname &&
+      hostname !== canonicalHostname &&
+      (hostname?.endsWith('.herokuapp.com') ||
+        hostname === `www.${canonicalHostname}`)
     ) {
       // 308 rather than 301, so a stale tab's POST isn't turned into a GET.
-      res.redirect(308, `https://${canonical}${req.originalUrl}`);
+      res.redirect(308, `https://${canonicalHostname}${req.originalUrl}`);
       return;
     }
     next();

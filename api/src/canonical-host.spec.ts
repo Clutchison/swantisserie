@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -80,6 +81,23 @@ describe('redirecting to the canonical hostname', () => {
     );
 
     await get('/drafts/42', 'swantisserie-abc123.herokuapp.com').expect(200);
+  });
+
+  it('serves an HTTP/1.0 request with no Host header as normal', async () => {
+    await startApp(CALLBACK);
+    await app.listen(0);
+    const { port } = new URL(await app.getUrl());
+
+    const response = await new Promise<string>((resolve, reject) => {
+      let received = '';
+      connect(Number(port), 'localhost')
+        .on('error', reject)
+        .on('data', (chunk) => (received += chunk.toString()))
+        .on('end', () => resolve(received))
+        .write('GET /drafts/42 HTTP/1.0\r\n\r\n');
+    });
+
+    expect(response).toMatch(/^HTTP\/1\.1 200/);
   });
 
   it('starts sign-in on the canonical hostname', async () => {
