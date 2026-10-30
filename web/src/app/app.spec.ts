@@ -103,7 +103,15 @@ describe('App', () => {
     expect(router.url).toBe('/');
     const header = page.querySelector('header')!;
     expect(header.textContent).toContain('Alice');
-    expect(header.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
+    expect(header.querySelector('.avatar')?.getAttribute('src')).toBe(alice.avatarUrl);
+  });
+
+  it('links the header logo to the home page', async () => {
+    const page = await open('/', (req) => req.flush(alice));
+
+    const logo = page.querySelector<HTMLImageElement>('header img[alt="Swantisserie home"]');
+    expect(logo?.getAttribute('src')).toBe('logo.svg');
+    expect(logo?.closest('a')?.getAttribute('href')).toBe('/');
   });
 
   it('logs out and returns to the sign-in page', async () => {

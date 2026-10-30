@@ -7,6 +7,11 @@ header {
   font-family: system-ui, sans-serif;
 }
 
+.logo {
+  display: flex;
+  flex: none;
+}
+
 .avatar {
   border-radius: 50%;
 }
