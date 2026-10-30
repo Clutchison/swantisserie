@@ -419,12 +419,12 @@ describe('drafts', () => {
         expect(seatNames(page)).toEqual(['Bob', 'Alice']);
       });
 
-      it('lets the organizer move a player up or down the seat order', async () => {
+      it('lets the organizer move a seat earlier or later', async () => {
         const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
-        expect(button(page, 'Move Alice up')?.disabled).toBe(true);
-        expect(button(page, 'Move Bob down')?.disabled).toBe(true);
+        expect(button(page, 'Move Alice earlier')?.disabled).toBe(true);
+        expect(button(page, 'Move Bob later')?.disabled).toBe(true);
 
-        button(page, 'Move Bob up')!.click();
+        button(page, 'Move Bob earlier')!.click();
         const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'));
         expect(req.request.method).toBe('PUT');
         expect(req.request.body).toEqual({ userIds: [bob.id, alice.id] });
@@ -454,7 +454,7 @@ describe('drafts', () => {
         expect(page.textContent).toContain('Your turn: pick 1, round 1');
         expect(button(page, 'Start draft')).toBeUndefined();
         expect(button(page, 'Randomize seats')).toBeUndefined();
-        expect(button(page, 'Move Bob up')).toBeUndefined();
+        expect(button(page, 'Move Bob earlier')).toBeUndefined();
       });
 
       it('says why a start was refused', async () => {
@@ -751,7 +751,7 @@ describe('drafts', () => {
 
         expect(button(page, 'Start draft')).toBeUndefined();
         expect(button(page, 'Randomize seats')).toBeUndefined();
-        expect(button(page, 'Move Bob up')).toBeUndefined();
+        expect(button(page, 'Move Bob earlier')).toBeUndefined();
       });
     });
 

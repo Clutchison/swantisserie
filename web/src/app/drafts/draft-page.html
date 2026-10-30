@@ -77,38 +77,40 @@
               @if (player.isBot) {
                 <span class="badge">Bot</span>
               }
-              @if (inLobby() && isAdmin() && player.isBot) {
-                <button
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="'Remove ' + player.name"
-                  (click)="removeBot(player.id)"
-                  [disabled]="changingLobby()"
-                >
-                  Remove
-                </button>
-              }
               @if (inLobby() && canOrganize()) {
-                <span class="move">
-                  <button
-                    class="icon"
-                    type="button"
-                    [attr.aria-label]="'Move ' + player.name + ' up'"
-                    (click)="moveSeat(i, -1)"
-                    [disabled]="first || changingLobby()"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    class="icon"
-                    type="button"
-                    [attr.aria-label]="'Move ' + player.name + ' down'"
-                    (click)="moveSeat(i, 1)"
-                    [disabled]="last || changingLobby()"
-                  >
-                    ↓
-                  </button>
-                </span>
+                <div class="seat-controls">
+                  <span class="move">
+                    <button
+                      class="icon"
+                      type="button"
+                      [attr.aria-label]="'Move ' + player.name + ' earlier'"
+                      (click)="moveSeat(i, -1)"
+                      [disabled]="first || changingLobby()"
+                    >
+                      <span class="across">←</span><span class="stacked">↑</span>
+                    </button>
+                    <button
+                      class="icon"
+                      type="button"
+                      [attr.aria-label]="'Move ' + player.name + ' later'"
+                      (click)="moveSeat(i, 1)"
+                      [disabled]="last || changingLobby()"
+                    >
+                      <span class="across">→</span><span class="stacked">↓</span>
+                    </button>
+                  </span>
+                  @if (isAdmin() && player.isBot) {
+                    <button
+                      class="icon remove"
+                      type="button"
+                      [attr.aria-label]="'Remove ' + player.name"
+                      (click)="removeBot(player.id)"
+                      [disabled]="changingLobby()"
+                    >
+                      Remove
+                    </button>
+                  }
+                </div>
               }
             </li>
           } @empty {

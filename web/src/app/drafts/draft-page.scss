@@ -141,8 +141,19 @@ ol.picks {
     text-align: right;
   }
 
+  /* In line with the name on a narrow screen, with Remove before the arrows. */
+  .seat-controls {
+    display: contents;
+  }
+
   .move {
+    order: 1;
     margin-left: auto;
+  }
+
+  /* Each arrow has a glyph for seats running across and for seats stacked, to show the way they run. */
+  .across {
+    display: none;
   }
 }
 
@@ -238,10 +249,42 @@ main {
     padding-bottom: 1rem;
   }
 
-  .players ol {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-    gap: 0 1rem;
+  .players {
+    ol {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+      gap: 0 1rem;
+    }
+
+    /* Seat number, avatar, name, badge; the buttons go below, in line with the name. */
+    li {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr) auto;
+      /* A tall row's spare height stays on this line, keeping the row's buttons level. */
+      grid-template-rows: 1fr;
+    }
+
+    .seat-controls {
+      display: flex;
+      grid-column: 3 / -1;
+    }
+
+    .move {
+      order: 0;
+      margin-left: 0;
+    }
+
+    .remove {
+      margin-left: auto;
+    }
+
+    .across {
+      display: inline;
+    }
+
+    .stacked {
+      display: none;
+    }
   }
 
   .tabs {
