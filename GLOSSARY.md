@@ -128,6 +128,10 @@ _Avoid_: Ended, archived, abandoned
 The organizer returning a closed draft to drafting, at any time. Its turn comes back and queued picks fire straight away, even if it was paused when closed.
 _Avoid_: Restore, unclose, resume (that is from paused)
 
+**Pick import**:
+The organizer loading picks made outside the app into a draft in the lobby, which starts it paused. A file's columns map to seats by position, and its picks are taken in snake order.
+_Avoid_: Upload, sheet sync, import (alone)
+
 **Cancel**:
 The organizer permanently removing a draft that is still in the lobby, with its pool, players and queues. It can't be undone, and a started draft can't be cancelled.
 _Avoid_: Delete, abort

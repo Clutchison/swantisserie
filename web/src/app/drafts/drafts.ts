@@ -60,6 +60,14 @@ export interface DraftView {
   createdAt: string;
 }
 
+/** What a pick import's file would do to a draft in the lobby. */
+export interface PickImportPreview {
+  /** Each column of the file with the player in the seat it maps to. */
+  seats: { column: string; player: string }[];
+  picks: number;
+  next: { pick: number; player: string };
+}
+
 /** The body of a failed POST /api/drafts: what to tell the organizer. */
 export type DraftProblem =
   | { error: 'not-on-arena'; message: string; cards: string[]; totalCards: number }

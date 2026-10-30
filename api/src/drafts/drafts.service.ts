@@ -7,6 +7,7 @@ import {
   MAX_PLAYERS,
   pickProblem,
   type PickProblem,
+  readPickImport,
   shuffle,
   startProblem,
   type StartProblem,
@@ -130,6 +131,21 @@ export class StartRefusedError extends Error {
   constructor(readonly refusal: StartRefusal) {
     super(refusal.message);
   }
+}
+
+/** Thrown when a pick import's file can't be imported, with all that's wrong with it. */
+export class PickImportRefusedError extends Error {
+  constructor(readonly problems: string[]) {
+    super('This file can’t be imported.');
+  }
+}
+
+/** What a pick import's file would do to a draft. */
+export interface PickImportPreview {
+  /** Each column of the file with the player in the seat it maps to. */
+  seats: { column: string; player: string }[];
+  picks: number;
+  next: { pick: number; player: string };
 }
 
 /** Why a player can't make a pick; sent to them as is. */
@@ -399,18 +415,8 @@ export class DraftsService {
    */
   async start(draftId: string): Promise<DraftEvent[]> {
     return this.inLobby(draftId, async (tx, draft) => {
-      if (draft.snapshotState !== 'Complete') {
-        throw new StartRefusedError({
-          error: 'pool-not-ready',
-          message: 'The pool snapshot isn’t complete yet.',
-        });
-      }
       const userIds = await this.seatOrder(tx, draftId);
-      const problem = startProblem(
-        { players: userIds.length, picksPerPlayer: draft.picksPerPlayer },
-        await tx.poolCard.count({ where: { draftId } }),
-      );
-      if (problem) throw new StartRefusedError(problem);
+      await this.checkCanStart(tx, draftId, draft, userIds.length);
       // Seats become 0..n-1 so the engine's seat indexes match them.
       await this.seat(tx, draftId, userIds);
       await tx.draft.update({
@@ -427,6 +433,73 @@ export class DraftsService {
         ...(await this.cascade(tx, draftId, draft)),
       ];
     });
+  }
+
+  /**
+   * What importing the picks in `csv` would do to the draft, which it leaves
+   * as it is. Throws DraftStartedError once the draft has left Lobby,
+   * StartRefusedError if it can't start yet, and PickImportRefusedError if
+   * the file can't be imported.
+   */
+  async previewPickImport(
+    draftId: string,
+    csv: string,
+  ): Promise<PickImportPreview> {
+    const draft = await this.prisma.draft.findUnique({
+      where: { id: draftId },
+      select: { state: true, picksPerPlayer: true, snapshotState: true },
+    });
+    if (!draft) throw new DraftGoneError();
+    if (draft.state !== 'Lobby') throw new DraftStartedError();
+    const players = await this.prisma.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: { user: { select: { name: true } } },
+    });
+    await this.checkCanStart(this.prisma, draftId, draft, players.length);
+    const reading = readPickImport(
+      csv,
+      { players: players.length, picksPerPlayer: draft.picksPerPlayer },
+      await this.prisma.poolCard.findMany({
+        where: { draftId },
+        select: { oracleId: true, name: true },
+      }),
+    );
+    if (!reading.ok) throw new PickImportRefusedError(reading.problems);
+    return {
+      seats: reading.columns.map((column, seat) => ({
+        column,
+        player: players[seat].user.name,
+      })),
+      picks: reading.picks.length,
+      next: {
+        pick: reading.next.pick,
+        player: players[reading.next.seat].user.name,
+      },
+    };
+  }
+
+  /**
+   * Throws StartRefusedError if the draft, with `players` players, can't
+   * start: its pool snapshot isn't complete, or a start check fails.
+   */
+  private async checkCanStart(
+    client: Pick<Transaction, 'poolCard'>,
+    draftId: string,
+    draft: LockedDraft,
+    players: number,
+  ): Promise<void> {
+    if (draft.snapshotState !== 'Complete') {
+      throw new StartRefusedError({
+        error: 'pool-not-ready',
+        message: 'The pool snapshot isn’t complete yet.',
+      });
+    }
+    const problem = startProblem(
+      { players, picksPerPlayer: draft.picksPerPlayer },
+      await client.poolCard.count({ where: { draftId } }),
+    );
+    if (problem) throw new StartRefusedError(problem);
   }
 
   /**

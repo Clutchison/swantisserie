@@ -476,6 +476,145 @@ describe('drafts', () => {
         expect(button(page, 'Start draft')).toBeDefined();
       });
 
+      describe('pick import', () => {
+        /** Chooses a made-up file and answers its preview with `answer`. */
+        async function chooseFile(
+          fixture: { whenStable(): Promise<unknown> },
+          page: HTMLElement,
+          answer: object,
+          status = 200,
+        ) {
+          const input = page.querySelector<HTMLInputElement>('input[type="file"]')!;
+          const text = ',Ann,Ben,\n->,Ash Golem,,';
+          Object.defineProperty(input, 'files', {
+            configurable: true,
+            value: [new File([text], 'picks.csv', { type: 'text/csv' })],
+          });
+          input.dispatchEvent(new Event('change'));
+          const req = await vi.waitFor(() =>
+            http.expectOne('/api/drafts/draft-1/pick-import/preview'),
+          );
+          expect(req.request.method).toBe('POST');
+          expect(req.request.body).toEqual({ csv: text });
+          req.flush(answer, { status, statusText: status === 200 ? 'OK' : 'Refused' });
+          await fixture.whenStable();
+        }
+
+        /** The answer's handling isn't tracked by stability, so wait for it to show. */
+        const shownPreview = (page: HTMLElement) =>
+          vi.waitFor(() => {
+            const shown = page.querySelector('.pick-import-preview');
+            if (!shown) throw new Error('No preview yet');
+            return shown;
+          });
+
+        const preview = {
+          seats: [
+            { column: 'Ann', player: 'Alice' },
+            { column: 'Ben', player: 'Bob' },
+          ],
+          picks: 70,
+          next: { pick: 71, player: 'Bob' },
+        };
+
+        it('previews a valid file: the pairings, pick count and next turn', async () => {
+          const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+          expect(page.textContent).toContain('Import picks');
+
+          await chooseFile(fixture, page, preview);
+
+          const shown = (await shownPreview(page)).textContent;
+          expect(shown).toContain('Ann → Alice');
+          expect(shown).toContain('Ben → Bob');
+          expect(shown).toContain('70 picks');
+          expect(shown).toContain('Next turn: Pick 71, Bob');
+        });
+
+        it('lists every problem with an invalid file', async () => {
+          const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+
+          await chooseFile(
+            fixture,
+            page,
+            {
+              error: 'invalid-pick-import',
+              message: 'This file can’t be imported.',
+              problems: [
+                'Unknown Card isn’t in this draft’s pool.',
+                'Ash Golem appears more than once.',
+              ],
+            },
+            422,
+          );
+
+          await vi.waitFor(() => {
+            const problems = [...page.querySelectorAll('.pick-import-problems li')];
+            expect(problems.map((li) => li.textContent)).toEqual([
+              'Unknown Card isn’t in this draft’s pool.',
+              'Ash Golem appears more than once.',
+            ]);
+          });
+        });
+
+        it('says a file is too large, whoever refused it', async () => {
+          const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+
+          await chooseFile(fixture, page, { message: 'request entity too large' }, 413);
+
+          await vi.waitFor(() =>
+            expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+              'That file is too large to be a sheet of picks.',
+            ),
+          );
+        });
+
+        it('drops a preview when the draft changes, as its pairings may no longer hold', async () => {
+          const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+          await chooseFile(fixture, page, preview);
+          await shownPreview(page);
+
+          updates.events.next({
+            type: 'changed',
+            draft: draft({ players: [bob, alicePlayer], version: 1 }),
+          });
+          // Alice is a player, so her queue is re-read too.
+          await flushQueue(EMPTY_QUEUE);
+          await fixture.whenStable();
+
+          expect(page.querySelector('.pick-import-preview')).toBeNull();
+        });
+
+        it('is offered only to the organizer or an app admin', async () => {
+          const { page } = await openDraft(
+            complete,
+            { players: [alicePlayer, bob] },
+            { user: { ...alice, id: 'carol', isAdmin: false } },
+          );
+
+          expect(page.textContent).not.toContain('Import picks');
+          expect(page.querySelector('input[type="file"]')).toBeNull();
+        });
+
+        it('is held until the pool snapshot is complete', async () => {
+          const { page } = await openDraft(
+            { state: 'Failed', cards: 0, total: null, error: 'Scryfall is down' },
+            { players: [alicePlayer, bob] },
+          );
+
+          expect(button(page, 'Import picks')!.disabled).toBe(true);
+        });
+
+        it('is gone once the draft has started', async () => {
+          const { page } = await openDraft(complete, {
+            state: 'Drafting',
+            players: [alicePlayer, bob],
+            turn: { pick: 1, round: 1, playerId: alice.id },
+          });
+
+          expect(button(page, 'Import picks')).toBeUndefined();
+        });
+      });
+
       it('holds the start until the pool snapshot is complete', async () => {
         // Not openDraft: the snapshot's poll is due before the page settles.
         const { fixture, page } = await open('/drafts/draft-1');

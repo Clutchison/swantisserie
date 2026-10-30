@@ -11,6 +11,7 @@ import {
   Logger,
   NotFoundException,
   Param,
+  PayloadTooLargeException,
   Post,
   Put,
   UnprocessableEntityException,
@@ -33,6 +34,8 @@ import {
   type LoggedPick,
   type NewDraft,
   PauseRefusedError,
+  type PickImportPreview,
+  PickImportRefusedError,
   PickRefusedError,
   PlayersChangedError,
   PoolQueryError,
@@ -57,6 +60,8 @@ const MAX_PICKS_PER_PLAYER = 100;
 const MAX_NAME_LENGTH = 100;
 /** Scryfall takes up to 1000 characters, and we wrap the query in more terms. */
 const MAX_POOL_QUERY_LENGTH = 900;
+/** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
+const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
 
 /** One pick in a draft's pick log. */
 export interface PickView {
@@ -269,6 +274,40 @@ export class DraftsController {
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
     return this.change(id, () => this.drafts.start(id));
+  }
+
+  /**
+   * What importing a file of picks would do to the draft, or all that's
+   * wrong with the file; changes nothing. For the organizer.
+   */
+  @Post(':id/pick-import/preview')
+  @HttpCode(200)
+  async previewPickImport(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<PickImportPreview> {
+    const csv = parsePickImport(body);
+    await this.findAsOrganizer(user, id);
+    try {
+      return await this.drafts.previewPickImport(id, csv);
+    } catch (err) {
+      if (err instanceof DraftGoneError) throw new NotFoundException();
+      if (err instanceof DraftStartedError) {
+        throw conflict('draft-started', err);
+      }
+      if (err instanceof StartRefusedError) {
+        throw new ConflictException(err.refusal);
+      }
+      if (err instanceof PickImportRefusedError) {
+        throw new UnprocessableEntityException({
+          error: 'invalid-pick-import',
+          message: err.message,
+          problems: err.problems,
+        });
+      }
+      throw err;
+    }
   }
 
   /** The signed-in role-holder joins the draft. */
@@ -491,6 +530,24 @@ function parseSeatOrder(body: unknown): string[] {
     });
   }
   return userIds;
+}
+
+/** A pick import's file text, or a 400 if there is none and a 413 if it's too long. */
+function parsePickImport(body: unknown): string {
+  const { csv } = (body ?? {}) as Record<string, unknown>;
+  if (typeof csv !== 'string') {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose a file to import.',
+    });
+  }
+  if (csv.length > MAX_PICK_IMPORT_LENGTH) {
+    throw new PayloadTooLargeException({
+      error: 'file-too-large',
+      message: 'That file is too large to be a sheet of picks.',
+    });
+  }
+  return csv;
 }
 
 /** The picked card's oracle id, or a 400 if there isn't one. */

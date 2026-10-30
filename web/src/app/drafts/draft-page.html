@@ -159,6 +159,22 @@
             >
               Start draft
             </button>
+            <input
+              #pickImportFile
+              type="file"
+              accept=".csv,text/csv"
+              aria-label="Import picks"
+              hidden
+              (change)="previewPickImport(pickImportFile)"
+            />
+            <button
+              class="button secondary"
+              type="button"
+              (click)="pickImportFile.click()"
+              [disabled]="!poolReady() || changingLobby()"
+            >
+              Import picks
+            </button>
             <button
               class="button secondary"
               type="button"
@@ -175,6 +191,31 @@
       }
       @if (lobbyError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
+      }
+      @if (pickImportPreview(); as preview) {
+        <div class="pick-import-preview" role="status">
+          <h3>Import picks</h3>
+          <ul>
+            @for (seat of preview.seats; track $index) {
+              <li>{{ seat.column }} → {{ seat.player }}</li>
+            }
+          </ul>
+          <p>
+            {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
+            {{ preview.next.pick }}, {{ preview.next.player }}.
+          </p>
+          <p class="detail">This is only a preview: nothing has been imported.</p>
+        </div>
+      }
+      @if (pickImportProblems().length > 0) {
+        <div class="pick-import-problems error" role="alert">
+          <p>This file can't be imported:</p>
+          <ul>
+            @for (problem of pickImportProblems(); track $index) {
+              <li>{{ problem }}</li>
+            }
+          </ul>
+        </div>
       }
     </section>
 
