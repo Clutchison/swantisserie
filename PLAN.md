@@ -18,6 +18,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - **Snapshot:** a background job pages through `(q) game:arena unique:cards` (175/page, ≤2 req/s, progress bar) and stores per card:
   - name, `oracle_id`, Arena print `id`, set code, collector number
   - type line, colors, mana value
+  - for the pool search: oracle text, mana cost, color identity, keywords, rarity, power/toughness/loyalty, per face
   - image URLs (`small`/`normal`/`large`, per face for double-faced cards)
 - The pool is **frozen at creation**: no changes after the snapshot.
 - Creation fails if `picks per player × players > pool size`.
@@ -83,8 +84,9 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 ## Card search in the app
 
-- **Local filters** over the snapshot: name, type, color, mana value. Picked cards are hidden or marked.
-- **Advanced box:** sends `(pool query) (user search)` to Scryfall, cached and throttled under 2 req/s, then intersects the results with the unpicked pool.
+- **Pool search:** one box that takes Scryfall syntax and narrows the grid on every keystroke. It runs in the browser over the snapshot and never calls Scryfall.
+  - For the keywords it supports, it returns the same pool cards scryfall.com would. Keywords that need data we don't snapshot (prices, tags, artist, flavor text) show a "not supported here" note.
+- Picked cards are marked, or hidden with a toggle.
 - All Scryfall requests send a real `User-Agent` and an `Accept` header.
 
 ## Export
@@ -141,7 +143,7 @@ This is the single place to swap in a real bot later.
 
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, admin (webhooks).
 - **Draft view on mobile:** bottom tabs.
-  - **Pool:** search/filters, card grid, tap for detail with **Pick** / **Add to queue**
+  - **Pool:** pool search, card grid, tap for detail with **Pick** / **Add to queue**
   - **Queue:** drag to reorder, lost cards flagged
   - **Board:** every player's picks and the pick log
   - **Me:** my picks and export buttons

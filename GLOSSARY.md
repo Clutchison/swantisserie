@@ -42,6 +42,10 @@ _Avoid_: Import, sync, card fetch
 One card in a pool, with the Arena printing the snapshot took.
 _Avoid_: Card entry, catalog card
 
+**Pool search**:
+A search in Scryfall syntax that a viewer types to narrow the pool cards they see. It never changes the pool.
+_Avoid_: Filter, query (alone), advanced search
+
 **On Arena**:
 Describes a card with at least one printing on MTG Arena. Every card in a pool must be on Arena.
 _Avoid_: Arena-legal (legality is per format), Arena card
