@@ -497,8 +497,14 @@ describe('drafts', () => {
     describe('undo', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
       const picks: PickView[] = [
-        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock' },
-        { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
+        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock', layout: 'normal' },
+        {
+          pick: 2,
+          playerId: alice.id,
+          oracleId: 'bolt-oracle',
+          name: 'Lightning Bolt',
+          layout: 'normal',
+        },
       ];
       const drafting = {
         state: 'Drafting' as const,
@@ -541,7 +547,13 @@ describe('drafts', () => {
         );
         await flushPicks([
           ...picks,
-          { pick: 3, playerId: alice.id, oracleId: 'spike-oracle', name: 'Lava Spike' },
+          {
+            pick: 3,
+            playerId: alice.id,
+            oracleId: 'spike-oracle',
+            name: 'Lava Spike',
+            layout: 'normal',
+          },
         ]);
         await flushQueue(EMPTY_QUEUE);
         await fixture.whenStable();
@@ -902,7 +914,13 @@ describe('drafts', () => {
             {
               cards: [brightclimb, shivan, thundermaw],
               picks: [
-                { pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' },
+                {
+                  pick: 1,
+                  playerId: bob.id,
+                  oracleId: 'shivan-oracle',
+                  name: 'Shivan Dragon',
+                  layout: 'normal',
+                },
               ],
             },
           );
@@ -942,6 +960,7 @@ describe('drafts', () => {
           playerId: alice.id,
           oracleId: 'shivan-oracle',
           name: 'Shivan Dragon',
+          layout: 'normal',
         };
 
         it('lets the player whose turn it is pick a card from its detail', async () => {
@@ -1150,7 +1169,13 @@ describe('drafts', () => {
             {
               cards: [shivan],
               picks: [
-                { pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' },
+                {
+                  pick: 1,
+                  playerId: bob.id,
+                  oracleId: 'shivan-oracle',
+                  name: 'Shivan Dragon',
+                  layout: 'normal',
+                },
               ],
               queue: { cards: [queued(shivan)], lost: [] },
             },
@@ -1168,7 +1193,13 @@ describe('drafts', () => {
             {
               cards: [shivan],
               picks: [
-                { pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' },
+                {
+                  pick: 1,
+                  playerId: bob.id,
+                  oracleId: 'shivan-oracle',
+                  name: 'Shivan Dragon',
+                  layout: 'normal',
+                },
               ],
               queue: { cards: [], lost: [queued(shivan)] },
             },
@@ -1380,9 +1411,21 @@ describe('drafts', () => {
     describe('board tab', () => {
       const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
       const picks: PickView[] = [
-        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock' },
-        { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
-        { pick: 3, playerId: alice.id, oracleId: 'spike-oracle', name: 'Lava Spike' },
+        { pick: 1, playerId: bob.id, oracleId: 'shock-oracle', name: 'Shock', layout: 'normal' },
+        {
+          pick: 2,
+          playerId: alice.id,
+          oracleId: 'bolt-oracle',
+          name: 'Lightning Bolt',
+          layout: 'normal',
+        },
+        {
+          pick: 3,
+          playerId: alice.id,
+          oracleId: 'spike-oracle',
+          name: 'Lava Spike',
+          layout: 'normal',
+        },
       ];
 
       async function openBoard(picks: PickView[]) {
@@ -1490,6 +1533,100 @@ describe('drafts', () => {
           expect(panel(page).querySelector('h2')?.textContent).toBe('Board');
         });
 
+        describe('copying for Arena', () => {
+          const copyButton = (root: HTMLElement) =>
+            [...panel(root).querySelectorAll('button')].find((button) =>
+              button.textContent?.includes('Copy for Arena'),
+            );
+          const writeText = vi.fn<(text: string) => Promise<void>>();
+
+          beforeEach(() => {
+            writeText.mockReset().mockResolvedValue();
+            Object.defineProperty(navigator, 'clipboard', {
+              value: { writeText },
+              configurable: true,
+            });
+          });
+
+          afterEach(() => {
+            Reflect.deleteProperty(navigator, 'clipboard');
+          });
+
+          /** Opens Bob's picks from the Board. */
+          async function openBobsPicks(bobsPicks: PickView[]) {
+            const opened = await openBoard(bobsPicks);
+            panel(opened.page)
+              .querySelector<HTMLButtonElement>('.player-picks section h3 button')!
+              .click();
+            await opened.fixture.whenStable();
+            return opened;
+          }
+
+          it('copies any player’s picks, with multi-face cards named for Arena', async () => {
+            const { fixture, page } = await openBobsPicks([
+              {
+                pick: 1,
+                playerId: bob.id,
+                oracleId: 'shock-oracle',
+                name: 'Shock',
+                layout: 'normal',
+              },
+              {
+                pick: 3,
+                playerId: bob.id,
+                oracleId: 'giant-oracle',
+                name: 'Bonecrusher Giant // Stomp',
+                layout: 'adventure',
+              },
+              {
+                pick: 5,
+                playerId: bob.id,
+                oracleId: 'commit-oracle',
+                name: 'Commit // Memory',
+                layout: 'split',
+              },
+            ]);
+
+            copyButton(page)!.click();
+            await fixture.whenStable();
+
+            expect(writeText).toHaveBeenCalledExactlyOnceWith(
+              'Deck\n1 Shock\n1 Bonecrusher Giant\n1 Commit // Memory',
+            );
+            expect(panel(page).querySelector('[role="status"]')?.textContent).toContain('Copied');
+          });
+
+          it('reports a failed copy when the clipboard refuses', async () => {
+            writeText.mockRejectedValue(new Error('denied'));
+            const { fixture, page } = await openBobsPicks(picks);
+
+            copyButton(page)!.click();
+            await fixture.whenStable();
+
+            expect(panel(page).querySelector('[role="alert"]')?.textContent).toContain(
+              "Couldn't copy",
+            );
+            expect(panel(page).querySelector('[role="status"]')).toBeNull();
+          });
+
+          it('clears the copy status once another player’s picks are opened', async () => {
+            const { fixture, page } = await openBobsPicks(picks);
+            copyButton(page)!.click();
+            await fixture.whenStable();
+
+            tabButton(page, 'Me').click();
+            await fixture.whenStable();
+
+            expect(panel(page).querySelector('[role="status"]')).toBeNull();
+          });
+
+          it('offers nothing to copy for a player with no picks', async () => {
+            const { page } = await openBobsPicks([]);
+
+            expect(copyButton(page)).toBeUndefined();
+          });
+        });
+
         it('still shows a complete draft’s picks, with no turn', async () => {
           const { fixture, page } = await openDraft(
             complete,
@@ -1549,8 +1686,20 @@ describe('drafts', () => {
           },
           {
             picks: [
-              { pick: 1, playerId: bot.id, oracleId: 'shock-oracle', name: 'Shock' },
-              { pick: 2, playerId: alice.id, oracleId: 'bolt-oracle', name: 'Lightning Bolt' },
+              {
+                pick: 1,
+                playerId: bot.id,
+                oracleId: 'shock-oracle',
+                name: 'Shock',
+                layout: 'normal',
+              },
+              {
+                pick: 2,
+                playerId: alice.id,
+                oracleId: 'bolt-oracle',
+                name: 'Lightning Bolt',
+                layout: 'normal',
+              },
             ],
           },
         );
@@ -1665,6 +1814,7 @@ describe('drafts', () => {
         playerId: alice.id,
         oracleId: 'shivan-oracle',
         name: 'Shivan Dragon',
+        layout: 'normal',
       };
 
       it('watches the draft it shows', async () => {

@@ -63,6 +63,8 @@ export interface PickView {
   playerId: string;
   oracleId: string;
   name: string;
+  /** How the faces are laid out. Null only until a pool snapshotted before layout was stored is backfilled. */
+  layout: string | null;
 }
 
 export interface PoolCardView {
@@ -469,6 +471,7 @@ function toPickView(pick: LoggedPick): PickView {
     playerId: pick.player.userId,
     oracleId: pick.poolCard.oracleId,
     name: pick.poolCard.name,
+    layout: pick.poolCard.layout,
   };
 }
 

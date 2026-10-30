@@ -293,6 +293,17 @@
         @if (!onMeTab()) {
           <button class="button secondary" type="button" (click)="tab.set('Board')">← Board</button>
         }
+        @if (player.picks.length > 0) {
+          <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
+            Copy for Arena
+          </button>
+        }
+        @if (arenaCopy() === 'Copied') {
+          <p role="status">Copied for Arena.</p>
+        }
+        @if (arenaCopy() === 'Failed') {
+          <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
+        }
         <ol class="picks">
           @for (pick of player.picks; track pick.pick) {
             <li>

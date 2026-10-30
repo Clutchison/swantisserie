@@ -23,6 +23,10 @@ h1 {
     color: #666;
     list-style: none;
   }
+
+  .button + .button {
+    margin-left: 0.5rem;
+  }
 }
 
 /* A player's name on the Board, which opens their picks. */

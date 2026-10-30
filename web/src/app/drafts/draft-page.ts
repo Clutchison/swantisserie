@@ -14,6 +14,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
+import { arenaExport } from './arena-export';
 import {
   type DraftView,
   EMPTY_QUEUE,
@@ -162,6 +163,9 @@ export class DraftPage {
     () => this.tab() === 'Board' || (this.tab() === 'Picks' && !this.onMeTab()),
   );
 
+  /** How the latest copy of the Picks panel's picks for Arena went. */
+  protected readonly arenaCopy = signal<'Copied' | 'Failed' | null>(null);
+
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
     const turn = this.draft()?.turn;
@@ -209,6 +213,18 @@ export class DraftPage {
   protected showPicks(playerId: string) {
     this.picksPlayerId.set(playerId);
     this.tab.set('Picks');
+    this.arenaCopy.set(null);
+  }
+
+  /** Copies `picks` to the clipboard as an Arena export. */
+  protected async copyForArena(picks: PickView[]) {
+    this.arenaCopy.set(null);
+    try {
+      await navigator.clipboard.writeText(arenaExport(picks));
+      this.arenaCopy.set('Copied');
+    } catch {
+      this.arenaCopy.set('Failed');
+    }
   }
 
   /** Opens the Picks panel on the signed-in player's picks: the Me tab. */

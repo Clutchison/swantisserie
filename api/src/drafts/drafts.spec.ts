@@ -1637,6 +1637,7 @@ describe('drafts', () => {
           playerId: alice.id,
           oracleId: 'shock-oracle',
           name: 'Shock',
+          layout: 'normal',
         },
       ]);
     });
@@ -1660,18 +1661,21 @@ describe('drafts', () => {
           playerId: alice.id,
           oracleId: 'shock-oracle',
           name: 'Shock',
+          layout: 'normal',
         },
         {
           pick: 2,
           playerId: bob.id,
           oracleId: 'lightning-bolt-oracle',
           name: 'Lightning Bolt',
+          layout: 'normal',
         },
         {
           pick: 3,
           playerId: bob.id,
           oracleId: 'lava-spike-oracle',
           name: 'Lava Spike',
+          layout: 'normal',
         },
       ]);
     });

@@ -124,6 +124,8 @@ export interface PickView {
   playerId: string;
   oracleId: string;
   name: string;
+  /** How the faces are laid out. Null only until a pool snapshotted before layout was stored is backfilled. */
+  layout: string | null;
 }
 
 /** A card in a queue, or lost from one. */

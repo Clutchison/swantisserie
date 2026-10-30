@@ -94,6 +94,10 @@ _Avoid_: Sniped, taken
 The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, and to any queue it was lost from, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
+**Arena export**:
+A player's picks as text that MTG Arena's deck import accepts, each card named the way Arena names it.
+_Avoid_: Decklist, Arena import (that is what the player does with it)
+
 ## Draft lifecycle
 
 **Lobby**:
