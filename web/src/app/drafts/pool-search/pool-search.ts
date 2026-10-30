@@ -1,4 +1,4 @@
-import type { PoolCardView } from '../drafts';
+import type { PoolCardView, Rarity } from '../drafts';
 
 /** The pool card fields a pool search looks at. */
 export type PoolSearchCard = Omit<PoolCardView, 'images'>;
@@ -61,7 +61,24 @@ interface CardIndex {
   oracleWithTilde: string[];
   /** Lowercased. */
   keywords: Set<string>;
+  /** The card's colors, then each face's that has its own. */
+  colors: Counts[];
+  /** A list of one, so it matches the same way as colors. */
+  identity: Counts[];
+  /** Each face's mana cost, leaving out a face with none unless every face has none. */
+  manaCosts: Counts[];
+  /** Its place in RARITIES, or -1 if unknown. */
+  rarity: number;
+  /** Lowercased. */
+  set: string;
+  /** The card's and its faces' values for each stat they have, with * as 0. */
+  stats: Record<Stat, number[]>;
 }
+
+type Stat = 'mv' | 'pow' | 'tou' | 'loy';
+
+/** How many of each symbol: a color, or a mana symbol with generic mana under ''. */
+type Counts = Map<string, number>;
 
 const indexes = new WeakMap<PoolSearchCard, CardIndex>();
 
@@ -93,7 +110,44 @@ function buildIndex(card: PoolSearchCard): CardIndex {
     oracle: oracle.map((text) => text.toLowerCase()),
     oracleWithTilde: oracle.map((text, i) => withTilde(text, texts[i].names)),
     keywords: new Set(card.keywords.map((keyword) => keyword.toLowerCase())),
+    colors: [card.colors, ...faces.flatMap((face) => (face.colors ? [face.colors] : []))].map(
+      colorCounts,
+    ),
+    identity: [colorCounts(card.colorIdentity)],
+    manaCosts: manaCosts(card),
+    rarity: card.rarity ? RARITIES.indexOf(card.rarity) : -1,
+    set: card.set.toLowerCase(),
+    stats: {
+      mv: [card.manaValue],
+      pow: statValues(card, 'power'),
+      tou: statValues(card, 'toughness'),
+      loy: statValues(card, 'loyalty'),
+    },
   };
+}
+
+/** A stat as a number, with * as 0 and 1+* as 1. */
+function statNumber(value: string): number {
+  return value === '*' ? 0 : parseFloat(value);
+}
+
+function statValues(card: PoolSearchCard, stat: 'power' | 'toughness' | 'loyalty'): number[] {
+  return [card[stat], ...(card.faces ?? []).map((face) => face[stat])]
+    .filter((value) => value !== null)
+    .map(statNumber)
+    .filter((value) => !Number.isNaN(value));
+}
+
+function manaCosts(card: PoolSearchCard): Counts[] {
+  const costs = [
+    ...(card.manaCost ?? '').split(' // '),
+    ...(card.faces ?? []).map((face) => face.manaCost ?? ''),
+  ].filter(Boolean);
+  return (costs.length ? costs : ['']).map((cost) => parseManaCost(cost)!);
+}
+
+function colorCounts(colors: string[]): Counts {
+  return new Map(colors.map((color) => [color.toLowerCase(), 1]));
 }
 
 function withoutReminderText(text: string): string {
@@ -123,16 +177,259 @@ function squeeze(text: string): string {
 
 type Token = '(' | ')' | '-' | 'or' | 'and' | Matcher;
 
-/** Text keywords and their aliases: each takes : or =. */
-const TEXT_KEYWORDS: Record<string, (value: string, quoted: boolean) => Matcher> = {
-  name: nameContains,
-  t: typeContains,
-  type: typeContains,
-  o: oracleContains,
-  oracle: oracleContains,
-  kw: hasKeyword,
-  keyword: hasKeyword,
+type Operator = ':' | '=' | '!=' | '<' | '<=' | '>' | '>=';
+
+/** A keyword and what follows it, as written, e.g. c, >=, "wu". The value is never empty. */
+interface Term {
+  keyword: string;
+  operator: Operator;
+  value: string;
+  quoted: boolean;
+}
+
+/** Which stat each stat keyword and alias means. */
+const STAT_KEYWORDS: Record<string, Stat> = {
+  mv: 'mv',
+  cmc: 'mv',
+  manavalue: 'mv',
+  pow: 'pow',
+  power: 'pow',
+  tou: 'tou',
+  toughness: 'tou',
+  loy: 'loy',
+  loyalty: 'loy',
 };
+
+/** The keywords we can match, and their aliases. */
+const KEYWORDS: Record<string, (term: Term) => Matcher> = {
+  name: textTerm(nameContains),
+  t: textTerm(typeContains),
+  type: textTerm(typeContains),
+  o: textTerm(oracleContains),
+  oracle: textTerm(oracleContains),
+  kw: textTerm(hasKeyword),
+  keyword: textTerm(hasKeyword),
+  c: colorTerm('colors'),
+  color: colorTerm('colors'),
+  id: colorTerm('identity'),
+  identity: colorTerm('identity'),
+  m: manaTerm,
+  mana: manaTerm,
+  r: rarityTerm,
+  rarity: rarityTerm,
+  s: textTerm(inSet),
+  set: textTerm(inSet),
+  e: textTerm(inSet),
+  edition: textTerm(inSet),
+  ...Object.fromEntries(
+    Object.entries(STAT_KEYWORDS).map(([keyword, stat]) => [keyword, statTerm(stat)]),
+  ),
+};
+
+/** A keyword that looks for text, so takes only : or =. */
+function textTerm(matcher: (value: string, quoted: boolean) => Matcher): (term: Term) => Matcher {
+  return (term) => {
+    if (!term.quoted && term.value.startsWith('/')) {
+      throw new SearchError('unsupported', 'Searching by regular expression isn’t supported here.');
+    }
+    return matcher(onlyEquals(term), term.quoted);
+  };
+}
+
+/** The term's value, if its operator is : or =. */
+function onlyEquals({ keyword, operator, value }: Omit<Term, 'quoted'>): string {
+  if (operator !== ':' && operator !== '=') {
+    throw new SearchError('parse-error', `${keyword}: can’t be compared with ${operator}.`);
+  }
+  return value;
+}
+
+/** The colors a word names, as lowercase letters. */
+const COLOR_NAMES: Record<string, string> = {
+  white: 'w',
+  blue: 'u',
+  black: 'b',
+  red: 'r',
+  green: 'g',
+  c: '',
+  colorless: '',
+  azorius: 'wu',
+  dimir: 'ub',
+  rakdos: 'br',
+  gruul: 'rg',
+  selesnya: 'gw',
+  orzhov: 'wb',
+  izzet: 'ur',
+  golgari: 'bg',
+  boros: 'rw',
+  simic: 'gu',
+  bant: 'gwu',
+  esper: 'wub',
+  grixis: 'ubr',
+  jund: 'brg',
+  naya: 'rgw',
+  abzan: 'wbg',
+  jeskai: 'urw',
+  sultai: 'bgu',
+  mardu: 'rwb',
+  temur: 'gur',
+};
+
+/**
+ * c: and id:, compared as sets of colors. With : c: finds at least the colors
+ * given and id: finds cards within them, as for a Commander deck. A number
+ * compares how many colors, and m or multicolor finds two or more.
+ */
+function colorTerm(field: 'colors' | 'identity'): (term: Term) => Matcher {
+  return ({ keyword, operator, value }) => {
+    const word = value.toLowerCase();
+    if (/^\d+$/.test(word)) {
+      const count = Number(word);
+      const op = operator === ':' ? '=' : operator;
+      return (card) => card[field].some((colors) => compareNumbers(colors.size, op, count));
+    }
+    if (word === 'm' || word === 'multicolor') {
+      if (operator !== ':' && operator !== '=' && operator !== '!=') {
+        throw new SearchError(
+          'parse-error',
+          `${keyword}:${value} can’t be compared with ${operator}.`,
+        );
+      }
+      const multicolored = (card: CardIndex) => card[field].some((colors) => colors.size >= 2);
+      return operator === '!=' ? (card) => !multicolored(card) : multicolored;
+    }
+    const letters = COLOR_NAMES[word] ?? word;
+    if (!/^[wubrg]*$/.test(letters)) {
+      throw new SearchError(
+        'parse-error',
+        `${keyword}: takes colors like wu, a color or guild name, or a number.`,
+      );
+    }
+    const wanted = colorCounts(letters.split(''));
+    // At least no colors would be every card, so c:c means exactly none.
+    const op =
+      operator !== ':' ? operator : !wanted.size ? '=' : field === 'identity' ? '<=' : '>=';
+    return (card) => card[field].some((colors) => compareCounts(colors, op, wanted));
+  };
+}
+
+/**
+ * m:, compared as a multiset of mana symbols, where generic mana counts as
+ * that many generic symbols. With : it finds at least the symbols given.
+ */
+function manaTerm({ keyword, operator, value }: Term): Matcher {
+  const wanted = parseManaCost(value);
+  if (!wanted) {
+    throw new SearchError('parse-error', `${keyword}: takes a mana cost like {2}{W}{W} or 2WW.`);
+  }
+  const op = operator === ':' ? '>=' : operator;
+  return (card) => card.manaCosts.some((cost) => compareCounts(cost, op, wanted));
+}
+
+/** A mana symbol without its braces: generic, a single symbol, or hybrid and Phyrexian halves. */
+const MANA_SYMBOL = /^(?:\d+|[WUBRGCXYZS]|(?:[WUBRGC2]\/){1,2}P|[WUBRGC2]\/[WUBRGC])$/;
+
+/**
+ * The symbols in a mana cost, written with braces ({2}{G/U}) or, for single
+ * letters and numbers, without (2GG). Undefined if it isn't one.
+ */
+function parseManaCost(cost: string): Counts | undefined {
+  const counts: Counts = new Map();
+  for (const [, braced, bare] of cost.toUpperCase().matchAll(/\{([^}]*)\}|(\d+|.)/g)) {
+    const symbol = braced ?? bare;
+    if (!MANA_SYMBOL.test(symbol)) return undefined;
+    if (/^\d+$/.test(symbol)) {
+      counts.set('', (counts.get('') ?? 0) + Number(symbol));
+      continue;
+    }
+    // Hybrid halves in a fixed order, so {U/R} and {R/U} are the same symbol.
+    const halves = symbol.split('/');
+    const phyrexian = halves.at(-1) === 'P' ? halves.pop() : undefined;
+    const key = [...halves.sort(), ...(phyrexian ? [phyrexian] : [])].join('/');
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * mv:, pow:, tou: and loy:, compared with a number or another of them. A card
+ * matches if any of its faces' values do, even across faces.
+ */
+function statTerm(stat: Stat): (term: Term) => Matcher {
+  return ({ keyword, operator, value }) => {
+    const op = operator === ':' ? '=' : operator;
+    const word = value.toLowerCase();
+    if (stat === 'mv' && (word === 'even' || word === 'odd')) {
+      const remainder = word === 'even' ? 0 : 1;
+      onlyEquals({ keyword, operator, value });
+      return (card) => card.stats.mv.some((mv) => mv % 2 === remainder);
+    }
+    const other = STAT_KEYWORDS[word];
+    if (other) {
+      return (card) =>
+        card.stats[stat].some((a) => card.stats[other].some((b) => compareNumbers(a, op, b)));
+    }
+    if (!/^(?:\d+(?:\.\d+)?|\*)$/.test(word)) {
+      throw new SearchError(
+        'parse-error',
+        `${keyword}: takes a number${stat === 'mv' ? ', even, odd' : ''} or another stat like pow or mv.`,
+      );
+    }
+    const number = statNumber(word);
+    return (card) => card.stats[stat].some((a) => compareNumbers(a, op, number));
+  };
+}
+
+/** Rarities from lowest to highest, as Scryfall orders them. */
+const RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'special', 'mythic', 'bonus'];
+
+/** r:, by name or first letter, compared in RARITIES' order. */
+function rarityTerm({ keyword, operator, value }: Term): Matcher {
+  const word = value.toLowerCase();
+  const rarity = RARITIES.findIndex((name) => name === word || name[0] === word);
+  if (rarity === -1) {
+    throw new SearchError('parse-error', `${keyword}: takes a rarity like common or c.`);
+  }
+  const op = operator === ':' ? '=' : operator;
+  return (card) => card.rarity !== -1 && compareNumbers(card.rarity, op, rarity);
+}
+
+/** Compares symbol counts as multisets: a <= b if b has at least as many of each. */
+function compareCounts(a: Counts, operator: Exclude<Operator, ':'>, b: Counts): boolean {
+  const atLeast = (x: Counts, y: Counts) =>
+    [...y].every(([symbol, count]) => (x.get(symbol) ?? 0) >= count);
+  switch (operator) {
+    case '=':
+      return atLeast(a, b) && atLeast(b, a);
+    case '!=':
+      return !(atLeast(a, b) && atLeast(b, a));
+    case '>=':
+      return atLeast(a, b);
+    case '<=':
+      return atLeast(b, a);
+    case '>':
+      return atLeast(a, b) && !atLeast(b, a);
+    case '<':
+      return atLeast(b, a) && !atLeast(a, b);
+  }
+}
+
+function compareNumbers(a: number, operator: Exclude<Operator, ':'>, b: number): boolean {
+  switch (operator) {
+    case '=':
+      return a === b;
+    case '!=':
+      return a !== b;
+    case '>=':
+      return a >= b;
+    case '<=':
+      return a <= b;
+    case '>':
+      return a > b;
+    case '<':
+      return a < b;
+  }
+}
 
 function nameContains(value: string, quoted: boolean): Matcher {
   if (quoted) {
@@ -157,6 +454,11 @@ function oracleContains(value: string): Matcher {
 function hasKeyword(value: string): Matcher {
   const keyword = value.toLowerCase();
   return (card) => card.keywords.has(keyword);
+}
+
+function inSet(value: string): Matcher {
+  const set = value.toLowerCase();
+  return (card) => card.set === set;
 }
 
 function exactName(value: string): Matcher {
@@ -205,7 +507,13 @@ function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError 
       if (keyword) {
         i += keyword[0].length;
         try {
-          tokens.push(keywordTerm(keyword[1].toLowerCase(), keyword[2], readValue()));
+          tokens.push(
+            keywordTerm({
+              keyword: keyword[1].toLowerCase(),
+              operator: keyword[2] as Operator,
+              ...readValue(),
+            }),
+          );
         } catch (err) {
           if (!(err instanceof SearchError && err.kind === 'unsupported')) throw err;
           unsupported ??= err;
@@ -222,21 +530,12 @@ function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError 
   return { tokens, unsupported };
 }
 
-function keywordTerm(
-  keyword: string,
-  operator: string,
-  { value, quoted }: { value: string; quoted: boolean },
-): Matcher {
-  const matcher = TEXT_KEYWORDS[keyword];
+function keywordTerm(term: Term): Matcher {
+  const { keyword, operator, value } = term;
+  const matcher = KEYWORDS[keyword];
   if (!matcher) throw new SearchError('unsupported', `${keyword}${operator} isn’t supported here.`);
-  if (operator !== ':' && operator !== '=') {
-    throw new SearchError('parse-error', `${keyword}: can’t be compared with ${operator}.`);
-  }
   if (!value) throw new SearchError('parse-error', `${keyword}: needs a value.`);
-  if (!quoted && value.startsWith('/')) {
-    throw new SearchError('unsupported', 'Searching by regular expression isn’t supported here.');
-  }
-  return matcher(value, quoted);
+  return matcher(term);
 }
 
 /**

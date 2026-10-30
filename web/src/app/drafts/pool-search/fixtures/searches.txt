@@ -99,3 +99,131 @@ t:room -(o:draw or o:destroy)
 ((t:giant))
 -"house-mouse" t:mouse
 -!sheoldred t:praetor
+
+# c: / color: — at least these colors with :, and Scryfall's set comparisons otherwise
+c:r
+c:R
+color:red
+c:wu
+c:uw
+c=wu
+c!=r
+c<=wu
+c<wu
+c>r
+c>=br
+c=r
+c:m
+c:multicolor
+c:c
+c:colorless
+c=c
+c:azorius
+c:esper
+c:abzan
+c=simic
+color<=grixis
+c:wubrg
+c=2
+c>=2
+c<2
+c:1
+c!=1
+c:g t:dinosaur
+
+# id: / identity: — fits within these colors with :, otherwise like c:
+id:r
+id:wu
+id=wu
+id>=wu
+id>r
+id<wu
+id:esper
+identity:selesnya
+id:c
+id=c
+id:m
+id=2
+id>2
+id<=1
+
+# m: / mana: — at least these symbols with :, and Scryfall's comparisons otherwise
+m:{G}
+m:G
+m:{G}{G}
+m:GG
+m:{2}{W}
+m:2W
+m:{1}
+m:{2}
+m:{X}
+m:X
+m:{B/P}
+m:{U/R}
+m:{R/U}
+m:{W/B}
+m:{G/P}
+mana:{R}{R}
+m={1}{W}
+m=1W
+m!={1}{W}
+m>{U}
+m>={U}{U}
+m<{2}{W}{W}
+m<=2WW
+m:{4}{U}
+m={4}{U}
+
+# mv: / cmc:, pow:, tou:, loy:, compared with numbers or each other
+mv=3
+mv:3
+mv>=6
+mv>5
+cmc<2
+cmc<=1
+mv!=2
+mv=0
+mv:even
+mv:odd
+manavalue=4
+pow>=5
+pow=0
+pow:*
+pow>tou
+pow<tou
+pow=tou
+tou>=pow
+tou<2
+power>6
+toughness=1
+loy:4
+loy>=5
+loyalty=3
+pow>mv
+pow>3 t:praetor
+tou>=11
+
+# r: / rarity:
+r:common
+r:c
+r:u
+r:rare
+r:m
+rarity:mythic
+r>=rare
+r>u
+r<uncommon
+r<=rare
+r!=common
+r:special
+
+# s: / set: / e: / edition:, the pool card's printing. Scryfall matches a card
+# if any printing is in the set, so leave out the basics every set reprints.
+s:woe -t:basic
+s:WOE -t:basic
+set:dsk
+e:mom -t:basic
+edition:znr
+s:grn
+s:one
+-s:woe t:giant

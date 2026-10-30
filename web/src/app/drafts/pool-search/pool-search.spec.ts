@@ -24,8 +24,8 @@ describe('pool search', () => {
   });
 
   it.each([
-    ['c:r', 'c:'],
-    ['t:giant mv>3', 'mv'],
+    ['usd<1', 'usd<'],
+    ['t:giant f:standard', 'f:'],
     ['foo:bar', 'foo:'],
     ['o:/draw/', 'regular expression'],
   ])('says %s is not supported here', (search, mentioned) => {
@@ -49,6 +49,15 @@ describe('pool search', () => {
     't:',
     '!',
     't<giant',
+    'c:purple',
+    'id>=m',
+    'm:{Q}',
+    'm:2W/',
+    'mv>big',
+    'mv<even',
+    'pow>name',
+    'r:legendary',
+    's>woe',
   ])('says %s cannot be parsed', (search) => {
     const result = searchPool(cards, search);
     expect(result).toEqual({
