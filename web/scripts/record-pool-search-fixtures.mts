@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const FIXTURES = new URL('../src/app/drafts/pool-search/fixtures/', import.meta.url);
 /** The fixed card set: a pool query covering every multi-face layout on Arena, hybrid and Phyrexian mana. */
 const POOL_QUERY =
-  'game:arena (s:woe or s:dsk or s:mom or (s:znr is:mdfc) or (s:grn is:hybrid) or (s:one is:phyrexian))';
+  'game:arena (s:woe or s:dsk or s:mom or (s:znr is:mdfc) or (s:bro is:meld) or (s:grn is:hybrid) or (s:one is:phyrexian))';
 const HEADERS = {
   'User-Agent': 'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)',
   Accept: 'application/json;q=0.9,*/*;q=0.8',
