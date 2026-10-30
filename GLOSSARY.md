@@ -105,7 +105,7 @@ A started draft in which the organizer has temporarily stopped picks.
 _Avoid_: Suspended, on hold
 
 **Complete**:
-A draft in which every player who has not been dropped has all their picks. It stays viewable forever.
+A draft in which every player has all their picks. It stays viewable forever.
 _Avoid_: Finished, done, closed, past
 
 **Active draft**:

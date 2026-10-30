@@ -32,7 +32,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - **No turn timers.**
 - **Lifecycle:** Lobby → Drafting ⇄ Paused → Complete.
   - Pool query and pick count are locked after start.
-  - The draft completes when every active player has all their picks.
+  - The draft completes when every player has all their picks.
   - Completed drafts stay viewable and exportable forever.
 - Multiple drafts can run at once.
 
@@ -48,7 +48,6 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 - **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo never triggers queued picks; queues fire only on the next real pick.
 - **Pick on behalf of** a player.
-- **Drop / restore** a player. A dropped player's turns are skipped. Nothing catches up automatically; the organizer uses pick-on-behalf.
 - **Pause / resume.**
 
 ### Live updates
@@ -111,15 +110,15 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 
 ## Stack
 
-| Layer    | Choice                                                                                                                                                                           |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repo     | npm workspaces monorepo: `engine`, `api`, `web`                                                                                                                                  |
-| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turn calculation, cascade resolution, undo, queue pruning, drop/skip. Returns domain events. Built test-first. |
-| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                                  |
-| `web`    | Angular + Angular Material + CDK, mobile-first                                                                                                                                   |
-| DB       | Neon Postgres (free tier)                                                                                                                                                        |
-| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.                |
-| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                                        |
+| Layer    | Choice                                                                                                                                                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo     | npm workspaces monorepo: `engine`, `api`, `web`                                                                                                                       |
+| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turn calculation, cascade resolution, undo, queue pruning. Returns domain events. Built test-first. |
+| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                       |
+| `web`    | Angular + Angular Material + CDK, mobile-first                                                                                                                        |
+| DB       | Neon Postgres (free tier)                                                                                                                                             |
+| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.     |
+| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                             |
 
 ### Pick flow (api)
 
