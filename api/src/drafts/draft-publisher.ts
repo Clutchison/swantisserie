@@ -31,4 +31,12 @@ export class DraftPublisher {
     this.gateway.changed(draft);
     return draft;
   }
+
+  /**
+   * Tells everyone viewing the draft it was cancelled. A lobby draft has
+   * never been announced, so nothing is posted to its webhook.
+   */
+  cancelled(draftId: string): void {
+    this.gateway.cancelled(draftId);
+  }
 }

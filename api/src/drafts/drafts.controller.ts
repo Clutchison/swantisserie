@@ -25,6 +25,7 @@ import {
 } from '../auth/session.guard.js';
 import {
   DraftFullError,
+  DraftGoneError,
   DraftStartedError,
   DraftsService,
   type DraftWithOrganizer,
@@ -182,6 +183,26 @@ export class DraftsController {
     return this.change(id, () => this.drafts.resume(id));
   }
 
+  /** Cancels a draft still in Lobby, for good; for the organizer. */
+  @Delete(':id')
+  @HttpCode(204)
+  async cancel(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.findAsOrganizer(user, id);
+    try {
+      await this.drafts.cancel(id);
+    } catch (err) {
+      if (err instanceof DraftGoneError) throw new NotFoundException();
+      if (err instanceof DraftStartedError) {
+        throw conflict('draft-started', err);
+      }
+      throw err;
+    }
+    this.publisher.cancelled(id);
+  }
+
   /** Starts the pool snapshot over; for the organizer, after a failure. */
   @Post(':id/snapshot')
   @HttpCode(202)
@@ -282,6 +303,7 @@ export class DraftsController {
     try {
       events = await change();
     } catch (err) {
+      if (err instanceof DraftGoneError) throw new NotFoundException();
       if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
       if (err instanceof StartRefusedError) {
         throw new ConflictException(err.refusal);

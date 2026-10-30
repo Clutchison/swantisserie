@@ -146,6 +146,14 @@
             >
               Start draft
             </button>
+            <button
+              class="button secondary"
+              type="button"
+              (click)="cancel()"
+              [disabled]="changingLobby()"
+            >
+              Cancel draft
+            </button>
             @if (!poolReady()) {
               <p class="detail">You can start the draft once the pool snapshot is complete.</p>
             }

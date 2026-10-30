@@ -10,6 +10,8 @@ const RETRY_MS = 5000;
 export type DraftUpdate =
   /** The draft changed: here it is as it now is. */
   | { type: 'changed'; draft: DraftView }
+  /** The draft was cancelled, so it no longer exists. */
+  | { type: 'cancelled' }
   /**
    * The socket (re)connected. Changes may have been missed while it was
    * down, e.g. while the server slept, so the draft should be re-read.
@@ -29,6 +31,7 @@ export class DraftUpdates {
       let retry: ReturnType<typeof setTimeout> | undefined;
       socket.on('connect', () => subscriber.next({ type: 'connected' }));
       socket.on('changed', (draft: DraftView) => subscriber.next({ type: 'changed', draft }));
+      socket.on('cancelled', () => subscriber.next({ type: 'cancelled' }));
       socket.on('connect_error', (err) => {
         // Socket.IO gives up after a refused handshake. Try again unless the
         // session is gone: a lookup can fail while the server is waking.

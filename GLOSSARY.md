@@ -120,6 +120,10 @@ _Avoid_: Suspended, on hold
 A draft in which every player has all their picks. It stays viewable forever.
 _Avoid_: Finished, done, closed, past
 
+**Cancel**:
+The organizer permanently removing a draft that is still in the lobby, with its pool, players and queues. It can't be undone, and a started draft can't be cancelled.
+_Avoid_: Delete, abort
+
 **Active draft**:
 Any draft that is not complete.
 _Avoid_: Open draft, current draft
