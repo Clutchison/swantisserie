@@ -33,7 +33,7 @@ h1 {
   }
 
   .empty {
-    color: #666;
+    color: var(--color-muted);
     list-style: none;
   }
 }
@@ -43,7 +43,7 @@ h1 {
   padding: 0.25rem 0;
   border: 0;
   background: none;
-  color: #5865f2;
+  color: var(--color-accent);
   font: inherit;
   cursor: pointer;
 
@@ -65,7 +65,7 @@ ol.picks {
 
   .number {
     min-width: 2rem;
-    color: #666;
+    color: var(--color-muted);
     text-align: right;
   }
 
@@ -95,7 +95,7 @@ ol.picks {
 
   .number {
     min-width: 2rem;
-    color: #666;
+    color: var(--color-muted);
     text-align: right;
   }
 
@@ -121,7 +121,7 @@ ol.picks {
     gap: 0.5rem;
 
     &[aria-current='true'] {
-      background: #eef;
+      background: var(--color-raised);
     }
   }
 
@@ -137,7 +137,7 @@ ol.picks {
 
   .seat {
     min-width: 1.5rem;
-    color: #666;
+    color: var(--color-muted);
     text-align: right;
   }
 
@@ -156,9 +156,8 @@ ol.picks {
   min-width: 2.5rem;
   min-height: 2.5rem;
   padding: 0.25rem 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-muted);
   border-radius: 0.25rem;
-  background: #fff;
   font: inherit;
   cursor: pointer;
 
@@ -176,8 +175,8 @@ ol.picks {
 .badge {
   padding: 0 0.375rem;
   border-radius: 0.25rem;
-  background: #eee;
-  color: #555;
+  background: var(--color-surface);
+  color: var(--color-muted);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -203,8 +202,8 @@ main {
   bottom: 0;
   left: 0;
   display: flex;
-  border-top: 1px solid #ddd;
-  background: #fff;
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-surface);
 
   [role='tab'] {
     flex: 1;
@@ -216,13 +215,13 @@ main {
     cursor: pointer;
 
     &[aria-selected='true'] {
-      border-top-color: #5865f2;
-      color: #5865f2;
+      border-top-color: var(--color-accent);
+      color: var(--color-accent);
       font-weight: 600;
     }
 
     &:disabled {
-      color: #999;
+      color: var(--color-muted);
       cursor: default;
     }
   }

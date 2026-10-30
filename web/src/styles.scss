@@ -1,6 +1,63 @@
 /* You can add global styles to this file, and also import other style files */
 
+/*
+ * Colours are defined here, though the theme-color in index.html repeats --color-bg.
+ * Pairings that fail WCAG AA, so avoid them: accent text on raised, and divider for
+ * anything that must be seen. The Discord button sits directly on bg, never on surface.
+ */
+:root {
+  color-scheme: dark;
+  accent-color: var(--color-accent);
+
+  --color-bg: #14262f;
+  --color-surface: #1f3a4d;
+  --color-raised: #2a4a60;
+  --color-text: #fff6e3;
+  --color-muted: #aeb9c2;
+  --color-divider: #5b7485;
+  --color-accent: #f58a1f;
+  --color-on-accent: #2e1409;
+  --color-error: #ff8a80;
+  --color-success: #7fd99a;
+  --color-warning-surface: #3d2a12;
+  --color-warning-text: #ffd98a;
+  --color-overlay: rgb(0 0 0 / 0.75);
+  --color-shadow: rgb(0 0 0 / 0.2);
+  --color-discord: #5865f2;
+  /* Cream text on the Discord button falls short of AA. */
+  --color-on-discord: #fff;
+}
+
 /* Every page has its own padding, and a phone has no width to spare. */
 body {
   margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-accent);
+}
+
+button {
+  border-color: var(--color-muted);
+  background: var(--color-surface);
+  color: var(--color-text);
+
+  /* No specificity, so a component's own button colours win. */
+  &:where(:hover:not(:disabled)) {
+    background: var(--color-raised);
+  }
+}
+
+input,
+select,
+textarea {
+  border-color: var(--color-muted);
+  background: var(--color-bg);
+  color: var(--color-text);
+
+  &::placeholder {
+    color: var(--color-muted);
+  }
 }
