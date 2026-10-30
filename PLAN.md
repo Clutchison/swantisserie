@@ -31,7 +31,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - **Standard snake order** (1→N, N→1). Default **40 picks per player**, set per draft.
 - **Singleton**: a card can be picked only once.
 - **No turn timers.**
-- **Lifecycle:** Lobby → Drafting ⇄ Paused → Complete.
+- **Lifecycle:** Lobby → Drafting ⇄ Paused → Complete; Drafting or Paused → Closed → Drafting.
   - Pool query and pick count are locked after start.
   - The draft completes when every player has all their picks.
   - Completed drafts stay viewable and exportable forever.

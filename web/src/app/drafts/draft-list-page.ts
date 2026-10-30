@@ -1,7 +1,7 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import type { DraftView } from './drafts';
+import { type DraftView, isActive } from './drafts';
 
 @Component({
   selector: 'app-draft-list-page',
@@ -20,9 +20,7 @@ export class DraftListPage {
   protected readonly loading = this.drafts.isLoading;
   protected readonly failed = computed(() => !!this.drafts.error());
   protected readonly active = computed(() =>
-    (this.drafts.value() ?? []).filter(
-      (draft) => draft.state !== 'Complete' && draft.state !== 'Closed',
-    ),
+    (this.drafts.value() ?? []).filter((draft) => isActive(draft.state)),
   );
   protected readonly closed = computed(() =>
     (this.drafts.value() ?? []).filter((draft) => draft.state === 'Closed'),

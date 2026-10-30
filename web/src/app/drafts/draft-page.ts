@@ -22,6 +22,7 @@ import { moxfieldExport } from './moxfield-export';
 import {
   type DraftView,
   EMPTY_QUEUE,
+  isActive,
   type PickView,
   type PlayerView,
   type QueueView,
@@ -119,10 +120,10 @@ export class DraftPage {
   protected readonly offerPick = computed(
     () => this.joined() && this.draft()?.state === 'Drafting',
   );
-  /** Players may queue cards until the draft is complete, but not while it is closed. */
+  /** Players may queue cards while the draft is active. */
   protected readonly offerQueue = computed(() => {
-    const state = this.draft()?.state;
-    return this.joined() && state !== 'Complete' && state !== 'Closed';
+    const draft = this.draft();
+    return this.joined() && !!draft && isActive(draft.state);
   });
   /** Only players have a queue. Both the Pool and Queue tabs show it, and change it. */
   protected readonly queueResource = httpResource<QueueView>(() =>

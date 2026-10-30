@@ -118,11 +118,7 @@ export function draftResumedMessage(
   up: AnnouncedPlayer,
   picks: AnnouncedPick[] = [],
 ): WebhookMessage {
-  return announcement(
-    [`${bold(draft.name)} has resumed`, ...picks.map(pickLine)],
-    draft,
-    picks.length > 0 ? picks[picks.length - 1].next : up,
-  );
+  return backToDraftingMessage(draft, 'has resumed', up, picks);
 }
 
 export function draftClosedMessage(draft: AnnouncedDraft): WebhookMessage {
@@ -138,11 +134,7 @@ export function draftReopenedMessage(
   up: AnnouncedPlayer,
   picks: AnnouncedPick[] = [],
 ): WebhookMessage {
-  return announcement(
-    [`${bold(draft.name)} has reopened`, ...picks.map(pickLine)],
-    draft,
-    picks.length > 0 ? picks[picks.length - 1].next : up,
-  );
+  return backToDraftingMessage(draft, 'has reopened', up, picks);
 }
 
 /** The undone pick's player is up again. */
@@ -163,6 +155,20 @@ export function picksMessage(
   picks: AnnouncedPick[],
 ): WebhookMessage {
   return announcement(picks.map(pickLine), draft, picks[picks.length - 1].next);
+}
+
+/** The draft `happened`, then any cascade; `up` is who is next without one. */
+function backToDraftingMessage(
+  draft: AnnouncedDraft,
+  happened: string,
+  up: AnnouncedPlayer,
+  picks: AnnouncedPick[],
+): WebhookMessage {
+  return announcement(
+    [`${bold(draft.name)} ${happened}`, ...picks.map(pickLine)],
+    draft,
+    picks.length > 0 ? picks[picks.length - 1].next : up,
+  );
 }
 
 function announcedPick(event: PickedEvent): AnnouncedPick {
