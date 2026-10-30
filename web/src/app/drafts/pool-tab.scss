@@ -10,10 +10,10 @@ $card-corners: #{4.75% / 3.5%};
   padding: 0;
 }
 
-/* Stays in reach while the grid scrolls under it. */
+/* Stays in reach while the grid scrolls under it, below any tabs at the top of the page. */
 .search-bar {
   position: sticky;
-  top: 0;
+  top: var(--tab-bar-height, 0);
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
@@ -120,7 +120,8 @@ $card-corners: #{4.75% / 3.5%};
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  /* Above the draft page's tabs, as well as the search bar. */
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;

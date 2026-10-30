@@ -201,6 +201,8 @@ main {
   right: 0;
   bottom: 0;
   left: 0;
+  /* Above the panels, which come after it, and the Pool's search bar. */
+  z-index: 2;
   display: flex;
   border-top: 1px solid var(--color-divider);
   background: var(--color-surface);
@@ -225,19 +227,16 @@ main {
       cursor: default;
     }
   }
-
-  &[hidden] {
-    display: none;
-  }
 }
 
-/*
- * The panels fill the width, the pool twice as wide as the rest. The pool
- * scrolls with the page, as its grid expects; the others stay in view beside
- * it, each scrolling on its own.
- */
-main.side-by-side {
-  padding-bottom: 1rem;
+/* From here the tabs sit at the top of the page, and the seats spread out. */
+@media (min-width: 1024px) {
+  main {
+    /* The Pool's search bar sticks just below the tabs. */
+    --tab-bar-height: 2.75rem;
+
+    padding-bottom: 1rem;
+  }
 
   .players ol {
     display: grid;
@@ -245,28 +244,33 @@ main.side-by-side {
     gap: 0 1rem;
   }
 
-  .panels {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.5rem;
+  .tabs {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    box-sizing: border-box;
+    height: var(--tab-bar-height);
     margin-top: 1.5rem;
+    border-top: 0;
+    border-bottom: 1px solid var(--color-divider);
+    background: var(--color-bg);
 
-    > section {
-      flex: 1 1 0;
-      min-width: 0;
-      margin-top: 0;
+    [role='tab'] {
+      flex: none;
+      padding: 0 0.75rem;
+      border-top: 0;
+      border-bottom: 2px solid transparent;
 
-      &.pool {
-        flex-grow: 2;
-      }
-
-      &:not(.pool) {
-        position: sticky;
-        top: 0;
-        max-height: 100dvh;
-        overflow-y: auto;
+      &[aria-selected='true'] {
+        border-bottom-color: var(--color-accent);
       }
     }
+  }
+
+  /* Pool and Board use the full width; these read better capped. */
+  .queue,
+  .picks-panel {
+    max-width: 48rem;
   }
 }
 

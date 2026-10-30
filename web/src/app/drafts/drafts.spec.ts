@@ -1,4 +1,3 @@
-import { MediaMatcher } from '@angular/cdk/layout';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -168,7 +167,7 @@ describe('drafts', () => {
       isBot: false,
     };
 
-    /** A button in the bottom tab bar, by its label. */
+    /** A button in the tab bar, by its label. */
     const tabButton = (root: HTMLElement, tab: string) =>
       [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
         (button) => button.textContent?.trim() === tab,
@@ -1185,7 +1184,7 @@ describe('drafts', () => {
         ...page.querySelectorAll<HTMLButtonElement>('[role="tabpanel"] .grid button'),
       ];
 
-      it('has a bottom tab bar where Pool and Board work, and Me for players', async () => {
+      it('has a tab bar where Pool and Board work, and Me for players', async () => {
         const { page } = await openDraft(complete);
 
         const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -1205,6 +1204,16 @@ describe('drafts', () => {
         expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain(
           '2 cards in the pool',
         );
+      });
+
+      it('puts the tab bar between the draft header and the panel, showing one panel at a time', async () => {
+        const { page } = await openDraft(complete);
+
+        const tabBar = page.querySelector('[role="tablist"]')!;
+        const panels = page.querySelectorAll('[role="tabpanel"]');
+        expect(tabBar.previousElementSibling?.classList).toContain('players');
+        expect(tabBar.nextElementSibling).toBe(panels[0]);
+        expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
       });
 
       it('shows the pool as a grid of lazily loaded normal images with name placeholders', async () => {
@@ -2472,104 +2481,6 @@ describe('drafts', () => {
 
         expect(seats(page).open).toBe(false);
         expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
-      });
-    });
-
-    describe('side by side, on a desktop-wide screen', () => {
-      const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
-      const bobsPick: PickView = {
-        pick: 1,
-        playerId: bob.id,
-        oracleId: 'shock-oracle',
-        name: 'Shock',
-        layout: 'normal',
-        set: 'ima',
-        collectorNumber: '1',
-      };
-      const drafting = {
-        state: 'Drafting',
-        players: [bob, alicePlayer],
-        turn: { pick: 2, round: 1, playerId: alice.id },
-      } satisfies Partial<DraftView>;
-
-      beforeEach(() => {
-        vi.spyOn(TestBed.inject(MediaMatcher), 'matchMedia').mockImplementation(
-          (media) =>
-            ({
-              media,
-              matches: true,
-              addListener: () => undefined,
-              removeListener: () => undefined,
-            }) as unknown as MediaQueryList,
-        );
-      });
-
-      /** The headings of the panels showing, in order. */
-      const panelHeadings = (page: HTMLElement) =>
-        [...page.querySelectorAll<HTMLElement>('.panels > section:not([hidden]) > h2')].map(
-          (heading) => heading.textContent,
-        );
-
-      it('shows the Pool, Queue, Board and Me panels together, with no tab bar', async () => {
-        const { page } = await openDraft(complete, drafting, { picks: [bobsPick] });
-
-        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Your picks']);
-        expect(page.querySelector('.tabs')?.hasAttribute('hidden')).toBe(true);
-        expect(page.querySelector('[role="tabpanel"]')).toBeNull();
-      });
-
-      it('leaves out the Queue and Me panels for someone who is not a player', async () => {
-        const { page } = await openDraft(complete, { ...drafting, players: [bob] });
-
-        expect(panelHeadings(page)).toEqual(['Pool', 'Board']);
-      });
-
-      it('opens a player’s picks from the Board in the Me panel, and returns to yours', async () => {
-        const { fixture, page } = await openDraft(complete, drafting, { picks: [bobsPick] });
-
-        page.querySelector<HTMLButtonElement>('.player-picks h3 button')!.click();
-        await fixture.whenStable();
-        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Bob’s picks']);
-
-        [...page.querySelectorAll('button')]
-          .find((button) => button.textContent?.includes('Your picks'))!
-          .click();
-        await fixture.whenStable();
-        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Your picks']);
-      });
-
-      it('goes back to your picks when the player shown leaves the draft', async () => {
-        const { fixture, page } = await openDraft(complete, { players: [bob, alicePlayer] });
-        page.querySelector<HTMLButtonElement>('.player-picks h3 button')!.click();
-        await fixture.whenStable();
-        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Bob’s picks']);
-
-        updates.events.next({
-          type: 'changed',
-          draft: draft({ snapshot: complete, players: [alicePlayer], version: 1 }),
-        });
-        await flushQueue(EMPTY_QUEUE);
-        await fixture.whenStable();
-
-        expect(panelHeadings(page)).toEqual(['Pool', 'Queue', 'Board', 'Your picks']);
-      });
-
-      it('lets someone who is not a player close a player’s picks', async () => {
-        const { fixture, page } = await openDraft(
-          complete,
-          { ...drafting, players: [bob] },
-          { picks: [bobsPick] },
-        );
-
-        page.querySelector<HTMLButtonElement>('.player-picks h3 button')!.click();
-        await fixture.whenStable();
-        expect(panelHeadings(page)).toEqual(['Pool', 'Board', 'Bob’s picks']);
-
-        [...page.querySelectorAll('button')]
-          .find((button) => button.textContent?.trim() === 'Close')!
-          .click();
-        await fixture.whenStable();
-        expect(panelHeadings(page)).toEqual(['Pool', 'Board']);
       });
     });
 
