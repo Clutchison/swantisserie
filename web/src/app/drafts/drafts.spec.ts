@@ -1252,7 +1252,7 @@ describe('drafts', () => {
         expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
       });
 
-      it('shows the pool as a grid of lazily loaded normal images with name placeholders', async () => {
+      it('shows the pool as a grid of normal images with name placeholders', async () => {
         const { page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
 
         expect(tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent)).toEqual([
@@ -1264,7 +1264,6 @@ describe('drafts', () => {
           image('normal', 'brightclimb-id'),
           image('normal', 'shivan-id'),
         ]);
-        expect(images.map((img) => img.getAttribute('loading'))).toEqual(['lazy', 'lazy']);
         expect(images[1].getAttribute('alt')).toBe('Shivan Dragon');
       });
 
@@ -1278,6 +1277,175 @@ describe('drafts', () => {
         expect(img.getAttribute('src')).toBe(
           'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
         );
+      });
+
+      describe('when a tile requests its image', () => {
+        /** Stands in for the browser saying which tiles are on screen. */
+        let screenChanged: IntersectionObserverCallback;
+        class FakeIntersectionObserver {
+          constructor(callback: IntersectionObserverCallback) {
+            screenChanged = callback;
+          }
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+        }
+
+        function report(tile: Element, isIntersecting: boolean) {
+          screenChanged(
+            [{ target: tile, isIntersecting } as IntersectionObserverEntry],
+            {} as IntersectionObserver,
+          );
+        }
+
+        /** Lets `ms` pass, then renders what came of it. */
+        function wait(ms: number) {
+          vi.advanceTimersByTime(ms);
+          TestBed.tick();
+        }
+
+        /** Opens the Pool tab, then takes over the clock. */
+        async function openPool(cards: PoolCardView[]) {
+          const opened = await openDraft(complete, {}, { cards });
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          return opened;
+        }
+
+        const src = (tile: Element) => tile.querySelector('img')?.getAttribute('src');
+
+        beforeEach(() => vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver));
+        afterEach(() => {
+          vi.useRealTimers();
+          vi.unstubAllGlobals();
+        });
+
+        it('shows only the name until a tile on screen has settled, then requests its image', async () => {
+          const { page } = await openPool([shivan]);
+          const [tile] = tiles(page);
+
+          report(tile, true);
+          wait(99);
+          expect(src(tile)).toBeUndefined();
+          expect(tile.querySelector('.placeholder')?.textContent).toBe('Shivan Dragon');
+
+          wait(51);
+          expect(src(tile)).toBe(image('normal', 'shivan-id'));
+        });
+
+        it('never requests the image of a tile that leaves the screen before settling', async () => {
+          const { page } = await openPool([brightclimb, shivan]);
+          const [left, stayed] = tiles(page);
+
+          report(left, true);
+          report(stayed, true);
+          wait(50);
+          report(left, false);
+          wait(100);
+
+          expect(src(left)).toBeUndefined();
+          expect(src(stayed)).toBe(image('normal', 'shivan-id'));
+        });
+
+        const third = card({ scryfallId: 'third-id', oracleId: 'third-oracle', name: 'Third' });
+
+        it('requests the images of buffer rows only after the tiles on screen', async () => {
+          const { page } = await openPool([brightclimb, shivan]);
+          const [onScreen, buffer] = tiles(page);
+
+          report(onScreen, true);
+          report(buffer, false);
+          wait(120);
+          expect(src(onScreen)).toBeDefined();
+          expect(src(buffer)).toBeUndefined();
+
+          wait(100);
+          expect(src(buffer)).toBe(image('normal', 'shivan-id'));
+        });
+
+        it('holds buffer rows back until it knows where every tile is, as on page load', async () => {
+          const { page } = await openPool([brightclimb, shivan]);
+          const [buffer, onScreen] = tiles(page);
+
+          report(buffer, false);
+          wait(500);
+          expect(src(buffer)).toBeUndefined();
+
+          report(onScreen, true);
+          wait(120);
+          expect(src(onScreen)).toBeDefined();
+          expect(src(buffer)).toBeUndefined();
+
+          wait(100);
+          expect(src(buffer)).toBeDefined();
+        });
+
+        it('holds buffer rows back again when a scroll brings another tile on screen', async () => {
+          const { page } = await openPool([brightclimb, shivan, third]);
+          const [first, next, buffer] = tiles(page);
+
+          report(first, true);
+          report(next, false);
+          report(buffer, false);
+          wait(130);
+          report(next, true);
+          wait(60);
+          expect(src(buffer)).toBeUndefined();
+
+          wait(60);
+          expect(src(next)).toBeDefined();
+          expect(src(buffer)).toBeUndefined();
+
+          wait(100);
+          expect(src(buffer)).toBeDefined();
+        });
+
+        it('requests nothing off screen while the Pool tab is hidden', async () => {
+          const { page } = await openPool([brightclimb, shivan]);
+          const [first, second] = tiles(page);
+          const panel = first.closest<HTMLElement>('[role="tabpanel"]')!;
+
+          panel.hidden = true;
+          report(first, false);
+          report(second, false);
+          wait(500);
+          expect(src(first)).toBeUndefined();
+          expect(src(second)).toBeUndefined();
+
+          panel.hidden = false;
+          report(first, true);
+          wait(220);
+          expect(src(first)).toBeDefined();
+          expect(src(second)).toBeDefined();
+        });
+
+        it('shows a card whose image was already requested straight away in a new tile', async () => {
+          const { page } = await openPool([brightclimb, shivan]);
+          tiles(page).forEach((tile) => report(tile, true));
+          wait(150);
+
+          // Moves the card up a row, which gives it a new tile.
+          const search = page.querySelector<HTMLInputElement>('input[type="search"]')!;
+          search.value = 'shivan';
+          search.dispatchEvent(new Event('input'));
+          TestBed.tick();
+
+          expect(tiles(page)).toHaveLength(1);
+          expect(src(tiles(page)[0])).toBe(image('normal', 'shivan-id'));
+        });
+
+        it('falls back to Scryfall’s API image when a settled tile’s image fails', async () => {
+          const { page } = await openPool([shivan]);
+          const [tile] = tiles(page);
+
+          report(tile, true);
+          wait(150);
+          tile.querySelector('img')!.dispatchEvent(new Event('error'));
+          TestBed.tick();
+
+          expect(src(tile)).toBe(
+            'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
+          );
+        });
       });
 
       /** Taps the grid's `index`th card and returns the detail view it opens. */

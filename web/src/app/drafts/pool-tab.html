@@ -56,17 +56,20 @@
           type="button"
           class="tile"
           [class.picked]="picked().has(card.oracleId)"
+          [appTileImage]="card.oracleId"
+          #tileImage="tileImage"
           (click)="open(card)"
         >
           <span class="placeholder">{{ card.name }}</span>
-          <img
-            [src]="image(card, 'normal')"
-            [alt]="card.name"
-            loading="lazy"
-            width="488"
-            height="680"
-            (error)="imageFailed(card, 'normal')"
-          />
+          @if (tileImage.requested()) {
+            <img
+              [src]="image(card, 'normal')"
+              [alt]="card.name"
+              width="488"
+              height="680"
+              (error)="imageFailed(card, 'normal')"
+            />
+          }
           @if (picked().has(card.oracleId)) {
             <span class="badge">Picked</span>
           }
