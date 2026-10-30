@@ -47,7 +47,6 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 ### Organizer tools
 
 - **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo never triggers queued picks; queues fire only on the next real pick.
-- **Pick on behalf of** a player.
 - **Pause / resume.**
 
 ### Live updates
