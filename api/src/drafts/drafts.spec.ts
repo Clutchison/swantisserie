@@ -37,7 +37,10 @@ describe('drafts', () => {
   let app: INestApplication<App>;
   /** `session=<token>` for Alice, ready for a Cookie header. */
   let aliceCookie: string;
-  const scryfall = { search: vi.fn<ScryfallClient['search']>() };
+  const scryfall = {
+    search: vi.fn<ScryfallClient['search']>(),
+    printings: vi.fn<ScryfallClient['printings']>(),
+  };
   const webhookClient = { post: vi.fn<WebhookClient['post']>() };
 
   beforeAll(async () => {
@@ -127,6 +130,10 @@ describe('drafts', () => {
       type_line: 'Creature — Dragon',
       colors: ['R'],
       cmc: 7,
+      layout: 'normal',
+      color_identity: ['R'],
+      keywords: [],
+      rarity: 'rare',
       image_uris: {
         small: `https://cards.scryfall.io/small/${slug}.jpg`,
         normal: `https://cards.scryfall.io/normal/${slug}.jpg`,
@@ -296,6 +303,145 @@ describe('drafts', () => {
         ],
       });
       expect(pool.body[0].images[0]).not.toHaveProperty('png');
+    });
+
+    it('stores each face’s text, cost, colors and stats, so a search can match either face', async () => {
+      const query = snapshotQuery('t:giant');
+      scryfallAnswers({
+        't:giant': page('Bonecrusher Giant // Stomp'),
+        '(t:giant) -in:arena': null,
+        [query]: {
+          ...page(),
+          totalCards: 1,
+          cards: [
+            card('Bonecrusher Giant // Stomp', {
+              type_line: 'Creature — Giant // Instant — Adventure',
+              mana_cost: '{2}{R} // {1}{R}',
+              layout: 'adventure',
+              cmc: 3,
+              power: '4',
+              toughness: '3',
+              rarity: 'rare',
+              card_faces: [
+                {
+                  name: 'Bonecrusher Giant',
+                  mana_cost: '{2}{R}',
+                  type_line: 'Creature — Giant',
+                  oracle_text:
+                    'Whenever Bonecrusher Giant becomes the target of a spell, Bonecrusher Giant deals 2 damage to that spell’s controller.',
+                  power: '4',
+                  toughness: '3',
+                },
+                {
+                  name: 'Stomp',
+                  mana_cost: '{1}{R}',
+                  type_line: 'Instant — Adventure',
+                  oracle_text:
+                    'Damage can’t be prevented this turn. Stomp deals 2 damage to any target.',
+                },
+              ],
+            }),
+          ],
+        },
+      });
+
+      const created = await createDraft({
+        name: 'Giants',
+        poolQuery: 't:giant',
+      }).expect(201);
+      await snapshotted(created.body.id);
+
+      const pool = await request(app.getHttpServer())
+        .get(`/api/drafts/${created.body.id}/pool`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      expect(pool.body[0]).toMatchObject({
+        layout: 'adventure',
+        manaCost: '{2}{R} // {1}{R}',
+        oracleText: null,
+        power: '4',
+        toughness: '3',
+        faces: [
+          {
+            name: 'Bonecrusher Giant',
+            typeLine: 'Creature — Giant',
+            oracleText:
+              'Whenever Bonecrusher Giant becomes the target of a spell, Bonecrusher Giant deals 2 damage to that spell’s controller.',
+            manaCost: '{2}{R}',
+            colors: null,
+            power: '4',
+            toughness: '3',
+            loyalty: null,
+            defense: null,
+          },
+          {
+            name: 'Stomp',
+            typeLine: 'Instant — Adventure',
+            oracleText:
+              'Damage can’t be prevented this turn. Stomp deals 2 damage to any target.',
+            manaCost: '{1}{R}',
+            colors: null,
+            power: null,
+            toughness: null,
+            loyalty: null,
+            defense: null,
+          },
+        ],
+      });
+    });
+
+    it('stores a battle’s defense on its face', async () => {
+      const query = snapshotQuery('t:battle');
+      scryfallAnswers({
+        't:battle': page('Invasion of Tarkir // Defiant Thundermaw'),
+        '(t:battle) -in:arena': null,
+        [query]: {
+          ...page(),
+          totalCards: 1,
+          cards: [
+            card('Invasion of Tarkir // Defiant Thundermaw', {
+              layout: 'transform',
+              type_line: 'Battle — Siege // Creature — Dragon',
+              card_faces: [
+                {
+                  name: 'Invasion of Tarkir',
+                  mana_cost: '{1}{R}',
+                  type_line: 'Battle — Siege',
+                  colors: ['R'],
+                  defense: '5',
+                },
+                {
+                  name: 'Defiant Thundermaw',
+                  mana_cost: '',
+                  type_line: 'Creature — Dragon',
+                  colors: ['R'],
+                  power: '4',
+                  toughness: '4',
+                },
+              ],
+            }),
+          ],
+        },
+      });
+
+      const created = await createDraft({
+        name: 'Battles',
+        poolQuery: 't:battle',
+      }).expect(201);
+      await snapshotted(created.body.id);
+
+      const pool = await request(app.getHttpServer())
+        .get(`/api/drafts/${created.body.id}/pool`)
+        .set('Cookie', aliceCookie)
+        .expect(200);
+      expect(pool.body[0]).toMatchObject({
+        layout: 'transform',
+        defense: null,
+        faces: [
+          { name: 'Invasion of Tarkir', defense: '5', power: null },
+          { name: 'Defiant Thundermaw', defense: null, power: '4' },
+        ],
+      });
     });
 
     it('fails rather than completing when Scryfall runs out of pages early', async () => {
@@ -507,7 +653,124 @@ describe('drafts', () => {
       });
     });
 
-    it('stores each card’s identity, printing, type, colors, mana value and images', async () => {
+    describe('backfill', () => {
+      /** A complete draft whose cards were snapshotted before the search fields were stored. */
+      async function oldPool(names: string[]) {
+        const { id } = await app.get(PrismaService).draft.create({
+          data: {
+            name: 'Red',
+            poolQuery: 'c:r',
+            picksPerPlayer: 40,
+            organizerId: alice.id,
+            snapshotState: 'Complete',
+            poolTotal: names.length,
+            pool: {
+              create: names.map((name) => {
+                const old = card(name);
+                return {
+                  scryfallId: old.id,
+                  oracleId: old.oracle_id!,
+                  name,
+                  set: old.set,
+                  collectorNumber: old.collector_number,
+                  typeLine: old.type_line,
+                  colors: old.colors,
+                  manaValue: old.cmc,
+                  images: [{ ...old.image_uris! }],
+                };
+              }),
+            },
+          },
+        });
+        return id;
+      }
+
+      async function poolOf(id: string) {
+        const res = await request(app.getHttpServer())
+          .get(`/api/drafts/${id}/pool`)
+          .set('Cookie', aliceCookie)
+          .expect(200);
+        return res.body as Record<string, unknown>[];
+      }
+
+      it('fills in the search fields of a pool snapshotted before they were stored, by print id, leaving the rest alone', async () => {
+        const id = await oldPool(['Shock']);
+        const before = await poolOf(id);
+        expect(before[0]).toMatchObject({ rarity: null, faces: null });
+        scryfall.printings.mockResolvedValue([
+          card('Shock', {
+            // A newer copy of the card: the backfill must not take these.
+            name: 'Shock (renamed)',
+            cmc: 2,
+            mana_cost: '{R}',
+            oracle_text: 'Shock deals 2 damage to any target.',
+            type_line: 'Instant',
+            rarity: 'common',
+          }),
+        ]);
+        await app.close();
+
+        app = await startApp();
+
+        await vi.waitFor(async () => {
+          expect((await poolOf(id))[0]).toEqual({
+            ...before[0],
+            manaCost: '{R}',
+            oracleText: 'Shock deals 2 damage to any target.',
+            colorIdentity: ['R'],
+            keywords: [],
+            rarity: 'common',
+            layout: 'normal',
+            power: null,
+            toughness: null,
+            loyalty: null,
+            defense: null,
+            faces: [],
+          });
+        });
+        expect(scryfall.printings).toHaveBeenCalledExactlyOnceWith([
+          'shock-id',
+        ]);
+      });
+
+      it('asks Scryfall for at most 75 cards at a time', async () => {
+        const names = Array.from({ length: 80 }, (_, i) => `Card ${i}`);
+        const id = await oldPool(names);
+        scryfall.printings.mockImplementation(async (ids) =>
+          names
+            .map((name) => card(name))
+            .filter((found) => ids.includes(found.id)),
+        );
+        await app.close();
+
+        app = await startApp();
+
+        await vi.waitFor(async () => {
+          const pool = await poolOf(id);
+          expect(pool.filter((c) => c.rarity === 'rare')).toHaveLength(80);
+        });
+        expect(
+          scryfall.printings.mock.calls.map(([ids]) => ids.length),
+        ).toEqual([75, 5]);
+      });
+
+      it('leaves a card Scryfall no longer has as it was', async () => {
+        const id = await oldPool(['Shock', 'Lightning Bolt']);
+        scryfall.printings.mockResolvedValue([card('Lightning Bolt')]);
+        await app.close();
+
+        app = await startApp();
+
+        await vi.waitFor(async () => {
+          const pool = await poolOf(id);
+          expect(
+            Object.fromEntries(pool.map((c) => [c.name, c.rarity])),
+          ).toEqual({ Shock: null, 'Lightning Bolt': 'rare' });
+        });
+      });
+    });
+
+    it('stores each card’s identity, printing, images and the fields the pool search needs', async () => {
       const query = snapshotQuery('t:dragon c:r');
       scryfallAnswers({
         't:dragon c:r': page('Balefire Dragon'),
@@ -524,6 +787,14 @@ describe('drafts', () => {
               type_line: 'Creature — Dragon',
               colors: ['R'],
               cmc: 7,
+              mana_cost: '{5}{R}{R}',
+              oracle_text:
+                'Flying\nWhenever Balefire Dragon deals combat damage to a player, it deals that much damage to each creature that player controls.',
+              color_identity: ['R'],
+              keywords: ['Flying'],
+              rarity: 'mythic',
+              power: '6',
+              toughness: '6',
             }),
           ],
         },
@@ -549,6 +820,18 @@ describe('drafts', () => {
           typeLine: 'Creature — Dragon',
           colors: ['R'],
           manaValue: 7,
+          manaCost: '{5}{R}{R}',
+          oracleText:
+            'Flying\nWhenever Balefire Dragon deals combat damage to a player, it deals that much damage to each creature that player controls.',
+          colorIdentity: ['R'],
+          keywords: ['Flying'],
+          rarity: 'mythic',
+          layout: 'normal',
+          power: '6',
+          toughness: '6',
+          loyalty: null,
+          defense: null,
+          faces: [],
           images: [
             {
               small: 'https://cards.scryfall.io/small/balefire-dragon.jpg',

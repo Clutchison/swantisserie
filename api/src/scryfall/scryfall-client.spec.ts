@@ -1,6 +1,7 @@
 import {
   FetchScryfallClient,
   ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
 } from './scryfall-client.js';
 
 describe('FetchScryfallClient', () => {
@@ -130,7 +131,7 @@ describe('FetchScryfallClient', () => {
       await vi.advanceTimersByTimeAsync(4 * 30_000);
 
       expect(fetch).toHaveBeenCalledTimes(4);
-      expect(await outcome).toBe('Scryfall search failed: 429');
+      expect(await outcome).toBe('Scryfall request failed: 429');
     } finally {
       vi.useRealTimers();
     }
@@ -184,7 +185,7 @@ describe('FetchScryfallClient', () => {
     });
   });
 
-  it('keeps searches at least 500 ms apart, Scryfall’s limit of 2 per second', async () => {
+  it('keeps searches at least 600 ms apart, inside Scryfall’s limit of 2 per second', async () => {
     vi.useFakeTimers();
     try {
       for (let i = 0; i < 3; i++) {
@@ -199,12 +200,12 @@ describe('FetchScryfallClient', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(fetch).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(499);
+      await vi.advanceTimersByTimeAsync(599);
       expect(fetch).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(1);
       expect(fetch).toHaveBeenCalledTimes(2);
 
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(600);
       expect(fetch).toHaveBeenCalledTimes(3);
       await searches;
     } finally {
@@ -219,7 +220,7 @@ describe('FetchScryfallClient', () => {
       respond(404, { object: 'error', status: 404, details: 'No cards' });
 
       await scryfall.search('a');
-      await vi.advanceTimersByTimeAsync(600);
+      await vi.advanceTimersByTimeAsync(700);
       const second = scryfall.search('b');
       await vi.advanceTimersByTimeAsync(0);
 
@@ -228,6 +229,73 @@ describe('FetchScryfallClient', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('printings', () => {
+    it('posts the print ids and returns the cards found', async () => {
+      respond(200, {
+        object: 'list',
+        not_found: [{ id: 'gone-id' }],
+        data: [balefire],
+      });
+
+      const cards = await scryfall.printings(['balefire-id', 'gone-id']);
+
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toBe('https://api.scryfall.com/cards/collection');
+      expect(init?.method).toBe('POST');
+      const headers = new Headers(init?.headers);
+      expect(headers.get('User-Agent')).toMatch(/^Swantisserie\/\S+ \(.+\)$/);
+      expect(headers.get('Content-Type')).toBe('application/json');
+      expect(JSON.parse(init?.body as string)).toEqual({
+        identifiers: [{ id: 'balefire-id' }, { id: 'gone-id' }],
+      });
+      expect(cards).toEqual([balefire]);
+    });
+
+    it('shares the 600 ms spacing with searches', async () => {
+      vi.useFakeTimers();
+      try {
+        respond(404, { object: 'error', status: 404, details: 'No cards' });
+        respond(200, { object: 'list', not_found: [], data: [] });
+
+        const both = Promise.all([
+          scryfall.search('a'),
+          scryfall.printings(['balefire-id']),
+        ]);
+        await vi.advanceTimersByTimeAsync(599);
+        expect(fetch).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        await both;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('backs off after a 429, then tries again', async () => {
+      vi.useFakeTimers();
+      try {
+        respond(429, { object: 'error', status: 429, details: 'Too many' });
+        respond(200, { object: 'list', not_found: [], data: [balefire] });
+
+        const cards = scryfall.printings(['balefire-id']);
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(await cards).toEqual([balefire]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('fails plainly when Scryfall refuses the lookup', async () => {
+      respond(400, { object: 'error', status: 400, details: 'Too many' });
+
+      await expect(scryfall.printings(['balefire-id'])).rejects.toBeInstanceOf(
+        ScryfallUnavailableError,
+      );
+    });
   });
 
   it('fails plainly when Scryfall itself is in trouble', async () => {

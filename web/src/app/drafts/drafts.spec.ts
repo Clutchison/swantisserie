@@ -687,6 +687,17 @@ describe('drafts', () => {
         typeLine: 'Creature — Dragon',
         colors: ['R'],
         manaValue: 6,
+        manaCost: '{4}{R}{R}',
+        oracleText: 'Flying\n{R}: Shivan Dragon gets +1/+0 until end of turn.',
+        colorIdentity: ['R'],
+        keywords: ['Flying'],
+        rarity: 'rare',
+        layout: 'normal',
+        power: '5',
+        toughness: '5',
+        loyalty: null,
+        defense: null,
+        faces: [],
         images: [
           {
             small: image('small', 'shivan-id'),
@@ -702,6 +713,7 @@ describe('drafts', () => {
         oracleId: 'brightclimb-oracle',
         name: 'Brightclimb Pathway // Grimclimb Pathway',
         typeLine: 'Land // Land',
+        layout: 'modal_dfc',
         colors: [],
         manaValue: 0,
         images: (['front', 'back'] as const).map((face) => ({
@@ -1527,6 +1539,17 @@ describe('drafts', () => {
         typeLine: 'Creature — Dragon',
         colors: ['R'],
         manaValue: 6,
+        manaCost: '{4}{R}{R}',
+        oracleText: 'Flying\n{R}: Shivan Dragon gets +1/+0 until end of turn.',
+        colorIdentity: ['R'],
+        keywords: ['Flying'],
+        rarity: 'rare',
+        layout: 'normal',
+        power: '5',
+        toughness: '5',
+        loyalty: null,
+        defense: null,
+        faces: [],
         images: [{ small: 's.jpg', normal: 'n.jpg', large: 'l.jpg' }],
       };
       const shivanPick: PickView = {

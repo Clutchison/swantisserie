@@ -11,6 +11,7 @@ import {
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
   type ScryfallCard,
+  type ScryfallCardFace,
   type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
 
@@ -18,6 +19,22 @@ import {
 export interface CardImages extends ScryfallImageUris {
   /** Keeps the type a Prisma InputJsonObject. */
   [key: string]: string;
+}
+
+/** One face's fields for the pool search, as stored in PoolCard.faces. */
+export interface CardFace {
+  name: string;
+  typeLine: string | null;
+  oracleText: string | null;
+  manaCost: string | null;
+  /** Null when the card's colors apply, e.g. on adventures and split cards. */
+  colors: string[] | null;
+  power: string | null;
+  toughness: string | null;
+  loyalty: string | null;
+  defense: string | null;
+  /** Keeps the type a Prisma InputJsonObject. */
+  [key: string]: string | string[] | null;
 }
 
 /** The pool snapshot is complete, so the pool can't change any more. */
@@ -209,6 +226,38 @@ function toPoolCard(
       ...new Set(faces.flatMap((face) => face.colors ?? [])),
     ],
     manaValue: card.cmc,
+    ...searchFields(card),
     images,
+  };
+}
+
+/** The fields the pool search needs: all the backfill fills in. */
+export function searchFields(card: ScryfallCard) {
+  return {
+    manaCost: card.mana_cost ?? null,
+    oracleText: card.oracle_text ?? null,
+    colorIdentity: card.color_identity,
+    keywords: card.keywords,
+    rarity: card.rarity,
+    layout: card.layout,
+    power: card.power ?? null,
+    toughness: card.toughness ?? null,
+    loyalty: card.loyalty ?? null,
+    defense: card.defense ?? null,
+    faces: (card.card_faces ?? []).map(toCardFace),
+  } satisfies Prisma.PoolCardUpdateInput;
+}
+
+function toCardFace(face: ScryfallCardFace): CardFace {
+  return {
+    name: face.name,
+    typeLine: face.type_line ?? null,
+    oracleText: face.oracle_text ?? null,
+    manaCost: face.mana_cost ?? null,
+    colors: face.colors ?? null,
+    power: face.power ?? null,
+    toughness: face.toughness ?? null,
+    loyalty: face.loyalty ?? null,
+    defense: face.defense ?? null,
   };
 }
