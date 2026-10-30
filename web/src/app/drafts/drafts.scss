@@ -2,6 +2,8 @@
   display: block;
   padding: 1rem;
   font-family: system-ui, sans-serif;
+  /* A long name or pool query wraps, rather than widening a phone's page. */
+  overflow-wrap: anywhere;
 }
 
 .error {
@@ -42,10 +44,10 @@ li {
   gap: 0 0.5rem;
   padding: 0.5rem 0;
   border-bottom: 1px solid #ddd;
+}
 
-  &.empty {
-    color: #666;
-  }
+.empty {
+  color: #666;
 }
 
 .name {

@@ -8,4 +8,11 @@
     <button type="button" (click)="logout()">Log out</button>
   </header>
 }
+@if (pageStatus() === 'Loading') {
+  <p class="page-status">Loading…</p>
+} @else if (pageStatus() === 'Failed') {
+  <p class="page-status error" role="alert">
+    Couldn't load this page. Check your connection and try reloading.
+  </p>
+}
 <router-outlet />

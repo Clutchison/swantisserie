@@ -18,3 +18,13 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.page-status {
+  margin: 0;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+
+.error {
+  color: #b3261e;
+}
