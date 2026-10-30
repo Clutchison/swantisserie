@@ -1433,6 +1433,22 @@ describe('drafts', () => {
           expect(src(tiles(page)[0])).toBe(image('normal', 'shivan-id'));
         });
 
+        it('leaves a tile whose row was set aside waiting, on screen or in the buffer', async () => {
+          const { page } = await openPool([brightclimb, shivan, third]);
+          const [settling, buffer, onScreen] = tiles(page);
+
+          report(settling, true);
+          report(buffer, false);
+          report(onScreen, true);
+          settling.remove();
+          buffer.remove();
+          wait(300);
+
+          expect(src(onScreen)).toBeDefined();
+          expect(src(settling)).toBeUndefined();
+          expect(src(buffer)).toBeUndefined();
+        });
+
         it('falls back to Scryfall’s API image when a settled tile’s image fails', async () => {
           const { page } = await openPool([shivan]);
           const [tile] = tiles(page);

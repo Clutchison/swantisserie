@@ -15,7 +15,7 @@ const SETTLE_MS = 120;
 const BUFFER_DELAY_MS = 50;
 
 interface WaitingTile {
-  key: string;
+  oracleId: string;
   request: () => void;
   /** Whether the browser has said if the tile is on screen yet. */
   measured: boolean;
@@ -34,7 +34,7 @@ interface WaitingTile {
 export class TileImageLoader implements OnDestroy {
   /** The tiles yet to request their images. */
   private readonly waiting = new Map<Element, WaitingTile>();
-  /** The keys of the images already requested, which their tiles needn't wait to show. */
+  /** The oracle ids of the cards whose images were already requested, which their tiles needn't wait to show. */
   private readonly requested = new Set<string>();
   private bufferDelay?: ReturnType<typeof setTimeout>;
   // Not in every test environment; tiles then request their images straight away.
@@ -43,14 +43,14 @@ export class TileImageLoader implements OnDestroy {
       ? null
       : new IntersectionObserver((entries) => this.screenChanged(entries));
 
-  add(element: Element, key: string, request: () => void) {
-    if (!this.observer || this.requested.has(key)) {
-      this.requested.add(key);
+  add(element: Element, oracleId: string, request: () => void) {
+    if (!this.observer || this.requested.has(oracleId)) {
+      this.requested.add(oracleId);
       request();
       return;
     }
     clearTimeout(this.bufferDelay);
-    this.waiting.set(element, { key, request, measured: false });
+    this.waiting.set(element, { oracleId, request, measured: false });
     this.observer.observe(element);
   }
 
@@ -73,6 +73,8 @@ export class TileImageLoader implements OnDestroy {
       clearTimeout(tile.settling);
       tile.settling = isIntersecting
         ? setTimeout(() => {
+            // The virtual scroll may have set its row aside before the browser has said so.
+            if (!target.isConnected) return;
             this.request(target, tile);
             this.scheduleBuffer();
           }, SETTLE_MS)
@@ -98,7 +100,7 @@ export class TileImageLoader implements OnDestroy {
 
   private request(element: Element, tile: WaitingTile) {
     this.forget(element);
-    this.requested.add(tile.key);
+    this.requested.add(tile.oracleId);
     tile.request();
   }
 
@@ -109,18 +111,18 @@ export class TileImageLoader implements OnDestroy {
   }
 }
 
-/** Marks a tile of the Pool tab's grid, with the key of its image, and says when to request it. */
+/** Marks a tile of the Pool tab's grid, with its card's oracle id, and says when to request its image. */
 @Directive({ selector: '[appTileImage]', exportAs: 'tileImage' })
 export class TileImage implements OnInit, OnDestroy {
   private readonly loader = inject(TileImageLoader);
   private readonly element = inject<ElementRef<Element>>(ElementRef).nativeElement;
 
-  readonly key = input.required<string>({ alias: 'appTileImage' });
+  readonly oracleId = input.required<string>({ alias: 'appTileImage' });
   /** Whether the tile should render its image, which requests it. */
   readonly requested = signal(false);
 
   ngOnInit() {
-    this.loader.add(this.element, this.key(), () => this.requested.set(true));
+    this.loader.add(this.element, this.oracleId(), () => this.requested.set(true));
   }
 
   ngOnDestroy() {
