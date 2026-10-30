@@ -23,6 +23,7 @@ import {
   type DraftView,
   EMPTY_QUEUE,
   isActive,
+  type PickImportPreview,
   type PickView,
   type PlayerView,
   type QueueView,
@@ -97,6 +98,11 @@ export class DraftPage {
   protected readonly poolReady = computed(() => this.draft()?.snapshot.state === 'Complete');
   protected readonly changingLobby = signal(false);
   protected readonly lobbyError = signal<string | null>(null);
+
+  /** What the latest file chosen for a pick import would do; nothing is saved. */
+  protected readonly pickImportPreview = signal<PickImportPreview | null>(null);
+  /** All that's wrong with the latest file chosen for a pick import. */
+  protected readonly pickImportProblems = signal<string[]>([]);
 
   /** Started drafts have picks; the lobby doesn't. */
   private readonly started = computed(() => {
@@ -257,7 +263,11 @@ export class DraftPage {
     effect(() => {
       const version = this.draft()?.version;
       untracked(() => {
-        if (shownVersion !== undefined && version !== shownVersion) this.queueResource.reload();
+        if (shownVersion !== undefined && version !== shownVersion) {
+          this.queueResource.reload();
+          // The file's pairings may no longer hold.
+          this.clearPickImport();
+        }
         shownVersion = version;
       });
     });
@@ -454,6 +464,43 @@ export class DraftPage {
       this.http.post<DraftView>(`/api/drafts/${this.id()}/start`, null),
       "Couldn't start the draft. Try again in a moment.",
     );
+  }
+
+  /** Previews the pick import of the file chosen in `input`, which changes nothing. */
+  protected async previewPickImport(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    if (!file) return;
+    this.changingLobby.set(true);
+    this.lobbyError.set(null);
+    this.clearPickImport();
+    const failure = "Couldn't read the file. Try again in a moment.";
+    try {
+      this.pickImportPreview.set(
+        await firstValueFrom(
+          this.http.post<PickImportPreview>(`/api/drafts/${this.id()}/pick-import/preview`, {
+            csv: await file.text(),
+          }),
+        ),
+      );
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 422) {
+        this.pickImportProblems.set(err.error?.problems ?? []);
+      } else if (err instanceof HttpErrorResponse && err.status === 413) {
+        // The API's own limit, or the body parser's, which doesn't say so as plainly.
+        this.lobbyError.set('That file is too large to be a sheet of picks.');
+      } else {
+        this.lobbyFailed(err, failure);
+      }
+    } finally {
+      this.changingLobby.set(false);
+      // So choosing the same file again, perhaps fixed, is a change.
+      input.value = '';
+    }
+  }
+
+  private clearPickImport() {
+    this.pickImportPreview.set(null);
+    this.pickImportProblems.set([]);
   }
 
   /** Cancels the draft, once the organizer confirms: it can't be undone. */
