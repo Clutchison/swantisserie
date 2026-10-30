@@ -128,18 +128,19 @@ export class PoolTab {
   protected readonly columns = computed(() =>
     Math.max(1, Math.floor((this.width() + TILE_GAP) / (TILE_MIN_WIDTH + TILE_GAP))),
   );
+  /** How wide each tile is in px. */
+  protected readonly tileWidth = computed(() => {
+    const columns = this.columns();
+    return this.width() ? (this.width() - TILE_GAP * (columns - 1)) / columns : TILE_MIN_WIDTH;
+  });
   /**
    * The height of one row of the grid in px, gap included. The grid only
    * renders the rows near the screen, so a big pool stays quick to search
    * and scroll; it needs every row the same height to know where each is.
    */
-  protected readonly rowHeight = computed(() => {
-    const columns = this.columns();
-    const tileWidth = this.width()
-      ? (this.width() - TILE_GAP * (columns - 1)) / columns
-      : TILE_MIN_WIDTH;
-    return (tileWidth * TILE_HEIGHT) / TILE_WIDTH + TILE_GAP;
-  });
+  protected readonly rowHeight = computed(
+    () => (this.tileWidth() * TILE_HEIGHT) / TILE_WIDTH + TILE_GAP,
+  );
   /** The cards shown, a row of the grid at a time. */
   protected readonly rows = computed(() => {
     const cards = this.shown();
@@ -198,6 +199,17 @@ export class PoolTab {
    */
   protected image(card: PoolCardView, version: ImageVersion, face = 0): string {
     return this.workingUrl(card, version, face) ?? fallbackImage(card, version, face);
+  }
+
+  /**
+   * The images a tile offers the browser. A failed image's event doesn't say
+   * which one failed, so the tile marks its normal image broken and drops to the API image.
+   */
+  protected tileSrcset(card: PoolCardView): string | null {
+    const normal = this.workingUrl(card, 'normal', 0);
+    return normal
+      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${TILE_WIDTH}w`
+      : null;
   }
 
   protected imageFailed(card: PoolCardView, version: ImageVersion, face = 0) {
@@ -295,6 +307,12 @@ const TILE_HEIGHT = 680;
 /** The narrowest a tile gets, and the gap between tiles, in px. */
 const TILE_MIN_WIDTH = 144;
 const TILE_GAP = 8;
+/**
+ * The width declared to the browser for the small image, though it's really
+ * 146px: browsers load the normal image for any tile wider than this at normal
+ * pixel density, and desktop tiles run up to about 160px. A little soft at 160px.
+ */
+const SMALL_IMAGE_DECLARED_WIDTH = 160;
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
 const ADDED_TO_QUEUE = 'Added to your queue.';

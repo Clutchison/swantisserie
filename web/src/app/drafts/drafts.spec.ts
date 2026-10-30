@@ -1277,6 +1277,38 @@ describe('drafts', () => {
         expect(img.getAttribute('src')).toBe(
           'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
         );
+        expect(img.hasAttribute('srcset')).toBe(false);
+      });
+
+      it('offers a tile’s small and normal images for the browser to choose between', async () => {
+        const { page } = await openDraft(complete, {}, { cards: [shivan] });
+
+        const img = tiles(page)[0].querySelector('img')!;
+        expect(img.getAttribute('srcset')).toBe(
+          `${image('small', 'shivan-id')} 160w, ${image('normal', 'shivan-id')} 488w`,
+        );
+      });
+
+      it('tells the browser how wide a tile is, once the grid is measured', async () => {
+        onTestFinished(() => void vi.unstubAllGlobals());
+        let measured!: ResizeObserverCallback;
+        vi.stubGlobal(
+          'ResizeObserver',
+          class {
+            constructor(callback: ResizeObserverCallback) {
+              measured = callback;
+            }
+            observe() {}
+            disconnect() {}
+          },
+        );
+        const { fixture, page } = await openDraft(complete, {}, { cards: [shivan] });
+
+        // Nine columns of 149px, with eight 8px gaps.
+        measured([{ contentRect: { width: 1405 } } as ResizeObserverEntry], {} as ResizeObserver);
+        await fixture.whenStable();
+
+        expect(tiles(page)[0].querySelector('img')!.getAttribute('sizes')).toBe('149px');
       });
 
       describe('when a tile requests its image', () => {
