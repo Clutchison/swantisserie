@@ -1,5 +1,8 @@
 @if (user(); as user) {
   <header>
+    <a class="logo" routerLink="/">
+      <img src="logo.svg" alt="Swantisserie home" width="40" height="40" />
+    </a>
     <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
     <span class="name">{{ user.name }}</span>
     @if (user.isAdmin) {

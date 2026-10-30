@@ -5,6 +5,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main>
+      <img class="logo" src="logo.svg" alt="" width="160" height="160" />
       <h1>Swantisserie</h1>
       @if (error() === 'not-allowed') {
         <p class="error">
