@@ -434,18 +434,26 @@ const PROPERTIES: Record<string, Matcher> = {
     /\bcreature\b/.test(card.typeLine) &&
     card.oracle.some(Boolean) &&
     card.oracle.every((text) => onlyKeywords(text, card.keywords)),
-  bear: (card) =>
-    card.stats.mv[0] === 2 &&
-    card.faces.some(
-      (face) => /\bcreature\b/.test(face.type) && face.power === '2' && face.toughness === '2',
-    ),
+  bear: allOf(
+    (card) => card.stats.mv[0] === 2,
+    anyCreature(({ power, toughness }) => power === '2' && toughness === '2'),
+  ),
   hybrid: hasSymbol((symbol) => /^[^/]+\/[^/P]+/.test(symbol)),
-  phyrexian: (card) =>
-    hasSymbol((symbol) => symbol.endsWith('P'))(card) ||
-    card.faces.some(({ text }) => /\{[^}]*\/P\}/.test(text)),
+  phyrexian: anyOf(
+    hasSymbol((symbol) => symbol.endsWith('P')),
+    anyFace(({ text }) => /\{[^}]*\/P\}/.test(text)),
+  ),
 };
 
 const PERMANENT_TYPE = /\b(?:artifact|battle|creature|enchantment|land|planeswalker)\b/;
+
+function allOf(...matchers: Matcher[]): Matcher {
+  return (card) => matchers.every((matches) => matches(card));
+}
+
+function anyOf(...matchers: Matcher[]): Matcher {
+  return (card) => matchers.some((matches) => matches(card));
+}
 
 function anyFace(test: (face: FaceIndex) => boolean): Matcher {
   return (card) => card.faces.some(test);
@@ -594,7 +602,10 @@ const REGEX_SHORTHANDS: Record<string, string> = {
   smm: String.raw`-[\dX*]+\/-[\dX*]+`,
 };
 
-const REGEX_SHORTHAND = /^s(?:mr|mh|mp|mm|m|c|s|pt|pp)/;
+/** Any shorthand's name after its backslash, longest first so \smr isn't read as \sm. */
+const REGEX_SHORTHAND = new RegExp(
+  `^(?:${[...Object.keys(REGEX_SHORTHANDS), 'smr'].sort((a, b) => b.length - a.length).join('|')})`,
+);
 
 /**
  * A regular expression written as Scryfall takes it: case-insensitive, with ^
