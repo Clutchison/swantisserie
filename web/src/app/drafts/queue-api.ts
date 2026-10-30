@@ -1,7 +1,7 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type { QueueView } from './drafts';
+import { isRefusal, type QueueView } from './drafts';
 
 /** Changes to the signed-in player's queue, each answered with the queue as it now is. */
 @Injectable({ providedIn: 'root' })
@@ -32,7 +32,7 @@ export class QueueApi {
  * change because the queue has moved on, e.g. a card was lost; else `fallback`.
  */
 export function queueChangeFailure(err: unknown, fallback: string): string {
-  return (err instanceof HttpErrorResponse && err.status === 409 && err.error?.message) || fallback;
+  return (isRefusal(err) && err.error?.message) || fallback;
 }
 
 function url(draftId: string) {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { currentTurn } from 'engine';
 import type { DraftState, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -25,7 +26,12 @@ export class NotAPlayerError extends Error {
 
 /** Why a card can't be queued; sent to the player as is. */
 export interface QueueRefusal {
-  error: 'not-in-pool' | 'already-picked' | 'draft-complete' | 'draft-closed';
+  error:
+    | 'not-in-pool'
+    | 'already-picked'
+    | 'draft-complete'
+    | 'draft-closed'
+    | 'your-turn';
   message: string;
 }
 
@@ -62,7 +68,8 @@ export class QueuesService {
   /**
    * Adds the pool card with `oracleId` to the end of the user's queue; a
    * no-op if it is already queued. Throws QueueRefusedError if it can't be
-   * queued, and NotAPlayerError if the user isn't in the draft.
+   * queued, as on the player's own turn, drafting or paused: they make that pick
+   * by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
   async add(
     draftId: string,
@@ -74,6 +81,15 @@ export class QueuesService {
         throw new QueueRefusedError({
           error: 'draft-complete',
           message: 'This draft is complete.',
+        });
+      }
+      if (
+        state !== 'Lobby' &&
+        (await this.isPlayersTurn(tx, draftId, playerId))
+      ) {
+        throw new QueueRefusedError({
+          error: 'your-turn',
+          message: 'You can’t add to your queue on your turn.',
         });
       }
       const card = await tx.poolCard.findUnique({
@@ -201,6 +217,30 @@ export class QueuesService {
       await change(tx, player.id, draft.state);
       return this.read(tx, player.id);
     });
+  }
+
+  /** Whether it's the player's turn, in a draft that has started. */
+  private async isPlayersTurn(
+    tx: Transaction,
+    draftId: string,
+    playerId: string,
+  ): Promise<boolean> {
+    const { picksPerPlayer, _count } = await tx.draft.findUniqueOrThrow({
+      where: { id: draftId },
+      select: {
+        picksPerPlayer: true,
+        _count: { select: { players: true, picks: true } },
+      },
+    });
+    const { seat } = await tx.player.findUniqueOrThrow({
+      where: { id: playerId },
+      select: { seat: true },
+    });
+    const turn = currentTurn(
+      { players: _count.players, picksPerPlayer },
+      _count.picks,
+    );
+    return turn?.seat === seat;
   }
 
   private async read(tx: Transaction, playerId: string): Promise<QueueView> {

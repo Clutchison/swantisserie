@@ -20,6 +20,7 @@ import {
   type DraftView,
   EMPTY_QUEUE,
   isActive,
+  isRefusal,
   type PickImportPreview,
   type PickView,
   type PlayerView,
@@ -123,7 +124,7 @@ export class DraftPage {
   protected readonly offerPick = computed(
     () => this.joined() && this.draft()?.state === 'Drafting',
   );
-  /** Players may queue cards while the draft is active. */
+  /** Players may change their queues while the draft is active, though not add on their own turn. */
   protected readonly offerQueue = computed(() => {
     const draft = this.draft();
     return this.joined() && !!draft && isActive(draft.state);
@@ -305,11 +306,6 @@ export class DraftPage {
     this.showDraft(draft);
   }
 
-  /** A refused pick means the draft has moved on: catch up with it. */
-  protected pickRefused() {
-    this.catchUp();
-  }
-
   /**
    * Shows the draft as it now is, with its picks re-read to match, unless
    * the page already shows a newer copy: a pick's answer and its push race.
@@ -321,7 +317,7 @@ export class DraftPage {
   }
 
   /** Re-reads the draft and its picks, which may have moved on unseen. */
-  private catchUp() {
+  protected catchUp() {
     this.resource.reload();
     this.picksResource.reload();
   }
@@ -389,7 +385,7 @@ export class DraftPage {
     try {
       this.showDraft(await firstValueFrom(request));
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
+      if (isRefusal(err)) {
         // The draft has moved on: show why, and catch up with it.
         this.sendError.set(err.error?.message ?? failure);
         this.catchUp();
@@ -533,7 +529,7 @@ export class DraftPage {
   }
 
   private lobbyFailed(err: unknown, failure: string) {
-    if (err instanceof HttpErrorResponse && err.status === 409) {
+    if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       this.lobbyError.set(err.error?.message ?? failure);
       this.resource.reload();

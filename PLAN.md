@@ -45,6 +45,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - **Cascade:** if the next player also has a valid queued card, theirs fires too, and so on.
 - If nothing in your queue is available, it stops and waits for you. It never picks randomly.
 - When someone else takes a card in your queue, it's removed from the queue and flagged as **lost**.
+- You **can't add to your queue on your own turn**, drafting or paused: that pick is made by hand, including the second of two turns in a row at a snake round boundary. You can add in the lobby and whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
 ### Organizer tools
 
@@ -144,7 +145,7 @@ This is the single place to swap in a real bot later.
 
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, admin (webhooks).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
-  - **Pool:** pool search, card grid, tap for detail with **Pick** / **Add to queue**
+  - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Queue:** drag to reorder, lost cards flagged
   - **Board:** every player's picks and the pick log
   - **Me:** my picks and export buttons

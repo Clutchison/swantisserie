@@ -312,8 +312,9 @@
             [offerPick]="offerPick()"
             [offerQueue]="offerQueue()"
             [yourTurn]="yourTurn()"
+            [turnPick]="draft.turn?.pick ?? null"
             (pickMade)="pickMade($event)"
-            (pickRefused)="pickRefused()"
+            (draftStale)="catchUp()"
             (queueChanged)="queueResource.set($event)"
             (queueStale)="queueResource.reload()"
           />
