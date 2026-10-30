@@ -5,17 +5,8 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  input,
-  signal,
-  untracked,
-} from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
 import type { QueueView } from './drafts';
 
@@ -34,27 +25,15 @@ export class QueueTab {
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
-  /** The draft's version: the queue is re-read when it changes, as a pick may have lost a card. */
-  readonly version = input.required<number>();
+  /** The signed-in player's queue. */
+  readonly queue = input.required<QueueView>();
+  /** The queue as a change made it. */
+  readonly queueChanged = output<QueueView>();
+  /** A change failed, so the queue may have moved on unseen; it should be re-read. */
+  readonly queueStale = output<void>();
 
-  private readonly resource = httpResource<QueueView>(() => this.url());
-  protected readonly queue = computed<QueueView>(() =>
-    this.resource.hasValue() ? this.resource.value() : { cards: [], lost: [] },
-  );
-  protected readonly failed = computed(() => !!this.resource.error());
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
-
-  constructor() {
-    let shown: number | undefined;
-    effect(() => {
-      const version = this.version();
-      untracked(() => {
-        if (shown !== undefined && version !== shown) this.resource.reload();
-        shown = version;
-      });
-    });
-  }
 
   private url() {
     return `/api/drafts/${this.draftId()}/queue`;
@@ -70,7 +49,7 @@ export class QueueTab {
     if (from === to) return;
     const cards = [...this.queue().cards];
     moveItemInArray(cards, from, to);
-    this.resource.set({ ...this.queue(), cards });
+    this.queueChanged.emit({ ...this.queue(), cards });
     return this.change(
       this.http.put<QueueView>(this.url(), { oracleIds: cards.map((card) => card.oracleId) }),
     );
@@ -96,14 +75,14 @@ export class QueueTab {
     this.changing.set(true);
     this.error.set(null);
     try {
-      this.resource.set(await firstValueFrom(request));
+      this.queueChanged.emit(await firstValueFrom(request));
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         this.error.set(err.error?.message ?? CHANGE_FAILED);
       } else {
         this.error.set(CHANGE_FAILED);
       }
-      this.resource.reload();
+      this.queueStale.emit();
     } finally {
       this.changing.set(false);
     }

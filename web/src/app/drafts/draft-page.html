@@ -172,11 +172,14 @@
           <app-pool-tab
             [draftId]="draft.id"
             [picked]="picked()"
+            [queued]="queued()"
             [offerPick]="offerPick()"
             [offerQueue]="offerQueue()"
             [yourTurn]="yourTurn()"
             (pickMade)="pickMade($event)"
             (pickRefused)="pickRefused()"
+            (queueChanged)="queueChanged($event)"
+            (queueStale)="reloadQueue()"
           />
         }
         @case ('Failed') {
@@ -198,7 +201,7 @@
       </p>
     </section>
 
-    <!-- Only players have a queue, and it's only read while shown. -->
+    <!-- Only players have a queue. -->
     <section
       id="queue-panel"
       class="queue"
@@ -207,8 +210,16 @@
       [hidden]="tab() !== 'Queue'"
     >
       <h2>Queue</h2>
-      @if (tab() === 'Queue' && joined()) {
-        <app-queue-tab [draftId]="draft.id" [version]="draft.version" />
+      @if (queueFailed()) {
+        <p class="error">Couldn't load your queue. Try reloading the page.</p>
+      }
+      @if (joined()) {
+        <app-queue-tab
+          [draftId]="draft.id"
+          [queue]="queue()"
+          (queueChanged)="queueChanged($event)"
+          (queueStale)="reloadQueue()"
+        />
       }
     </section>
 

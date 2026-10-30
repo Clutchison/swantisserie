@@ -55,14 +55,26 @@
           </button>
         }
         @if (offerQueue()) {
-          <button
-            class="button secondary"
-            type="button"
-            (click)="addToQueue(card)"
-            [disabled]="picked().has(card.oracleId) || queueing()"
-          >
-            Add to queue
-          </button>
+          <!-- A picked card, even one lost from the queue, is never offered for removal. -->
+          @if (queued().has(card.oracleId) && !picked().has(card.oracleId)) {
+            <button
+              class="button secondary"
+              type="button"
+              (click)="removeFromQueue(card)"
+              [disabled]="queueing()"
+            >
+              Remove from queue
+            </button>
+          } @else {
+            <button
+              class="button secondary"
+              type="button"
+              (click)="addToQueue(card)"
+              [disabled]="picked().has(card.oracleId) || queueing()"
+            >
+              Add to queue
+            </button>
+          }
         }
         @if (card.images.length > 1) {
           <button class="button secondary" type="button" (click)="flip()">Flip</button>

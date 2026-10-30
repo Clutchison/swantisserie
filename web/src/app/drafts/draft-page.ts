@@ -8,12 +8,13 @@ import {
   InjectionToken,
   input,
   signal,
+  untracked,
   type WritableSignal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import type { DraftView, PickView, PlayerView } from './drafts';
+import type { DraftView, PickView, PlayerView, QueueView } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
@@ -98,6 +99,18 @@ export class DraftPage {
   protected readonly offerQueue = computed(
     () => this.joined() && this.draft()?.state !== 'Complete',
   );
+  /** Only players have a queue. Both the Pool and Queue tabs show it. */
+  private readonly queueResource = httpResource<QueueView>(() =>
+    this.joined() ? `/api/drafts/${this.id()}/queue` : undefined,
+  );
+  protected readonly queue = computed<QueueView>(() =>
+    this.queueResource.hasValue() ? this.queueResource.value() : { cards: [], lost: [] },
+  );
+  protected readonly queueFailed = computed(() => !!this.queueResource.error());
+  /** The oracle ids of the cards in the signed-in player's queue. */
+  protected readonly queued = computed(
+    () => new Set(this.queue().cards.map((card) => card.oracleId)),
+  );
   protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
   /** The pick the organizer may undo: the latest, while the draft is drafting or paused. */
@@ -175,6 +188,25 @@ export class DraftPage {
       });
       onCleanup(() => watching.unsubscribe());
     });
+    // The queue is re-read when the draft changes, as a pick may have lost a card.
+    let shownVersion: number | undefined;
+    effect(() => {
+      const version = this.draft()?.version;
+      untracked(() => {
+        if (shownVersion !== undefined && version !== shownVersion) this.queueResource.reload();
+        shownVersion = version;
+      });
+    });
+  }
+
+  /** Shows the queue as the API answered a change to it. */
+  protected queueChanged(queue: QueueView) {
+    this.queueResource.set(queue);
+  }
+
+  /** Re-reads the queue, which may have moved on unseen. */
+  protected reloadQueue() {
+    this.queueResource.reload();
   }
 
   /** Opens the Picks panel on one player's picks. */

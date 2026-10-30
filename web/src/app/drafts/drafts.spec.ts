@@ -159,13 +159,15 @@ describe('drafts', () => {
     /**
      * Opens draft-1's page with the first GET answered by `pool`, its pool
      * cards by `cards` once the snapshot is complete, and its picks by
-     * `picks` once the draft has started, signed in as `user`.
+     * `picks` once the draft has started, and their queue by `queue` if
+     * they are a player, signed in as `user`.
      */
     async function openDraft(
       pool: PoolSnapshotView,
       fields: Partial<DraftView> = {},
       cards: PoolCardView[] = [],
       picks: PickView[] = [],
+      queue: QueueView = { cards: [], lost: [] },
       user = alice,
     ) {
       const { fixture, page } = await open('/drafts/draft-1', user);
@@ -173,8 +175,14 @@ describe('drafts', () => {
       http.expectOne('/api/drafts/draft-1').flush(opened);
       if (pool.state === 'Complete') await flushPool(cards);
       if (opened.state !== 'Lobby') await flushPicks(picks);
+      if (opened.players.some((player) => player.id === user.id)) await flushQueue(queue);
       await fixture.whenStable();
       return { fixture, page };
+    }
+
+    /** Answers the page's GET of the signed-in player's queue with `queue`. */
+    async function flushQueue(queue: QueueView) {
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queue);
     }
 
     /** Answers the page's GET of draft-1's pick log with `picks`. */
@@ -294,6 +302,7 @@ describe('drafts', () => {
         const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'));
         expect(req.request.method).toBe('POST');
         req.flush(draft({ players: [bob, alicePlayer] }), { status: 201, statusText: 'Created' });
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(section(page, 'Players').textContent).toContain('Alice');
@@ -442,7 +451,7 @@ describe('drafts', () => {
       it('holds the start until the pool snapshot is complete', async () => {
         const { fixture, page } = await openDraft(
           { state: 'Running', cards: 175, total: 540 },
-          { players: [alicePlayer, bob] },
+          { players: [bob] },
         );
 
         expect(button(page, 'Start draft')?.disabled).toBe(true);
@@ -451,7 +460,7 @@ describe('drafts', () => {
         );
 
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-          draft({ players: [alicePlayer, bob] }),
+          draft({ players: [bob] }),
         );
         await flushPool();
         await fixture.whenStable();
@@ -497,6 +506,7 @@ describe('drafts', () => {
           draft({ ...drafting, turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 }),
         );
         await flushPicks(picks.slice(0, 1));
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(page.textContent).toContain('Your turn: pick 2, round 1');
@@ -519,6 +529,7 @@ describe('drafts', () => {
           ...picks,
           { pick: 3, playerId: alice.id, oracleId: 'spike-oracle', name: 'Lava Spike' },
         ]);
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
@@ -580,6 +591,7 @@ describe('drafts', () => {
         expect(req.request.method).toBe('POST');
         req.flush(draft({ ...paused, version: 1 }));
         await flushPicks([]);
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(page.textContent).toContain('The draft is paused. No picks until it resumes.');
@@ -595,6 +607,7 @@ describe('drafts', () => {
         expect(req.request.method).toBe('POST');
         req.flush(draft({ ...drafting, version: 1 }));
         await flushPicks([]);
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(page.textContent).not.toContain('The draft is paused');
@@ -614,6 +627,7 @@ describe('drafts', () => {
           draft({ ...paused, version: 1 }),
         );
         await flushPicks([]);
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
@@ -641,6 +655,7 @@ describe('drafts', () => {
           draft: draft({ ...paused, organizer: { id: bob.id, name: bob.name }, version: 1 }),
         });
         await flushPicks([]);
+        await flushQueue({ cards: [], lost: [] });
         await fixture.whenStable();
 
         expect(page.textContent).toContain('The draft is paused. No picks until it resumes.');
@@ -896,14 +911,9 @@ describe('drafts', () => {
         });
         const queued = (card: PoolCardView) => ({ oracleId: card.oracleId, name: card.name });
 
-        /** Opens the Queue tab, answering its GET with `queue`, and returns its panel. */
-        async function openQueue(
-          fixture: { whenStable(): Promise<unknown> },
-          page: HTMLElement,
-          queue: QueueView,
-        ) {
+        /** Opens the Queue tab and returns its panel. */
+        async function openQueue(fixture: { whenStable(): Promise<unknown> }, page: HTMLElement) {
           tabButton(page, 'Queue').click();
-          (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queue);
           await fixture.whenStable();
           return panel(page);
         }
@@ -919,24 +929,146 @@ describe('drafts', () => {
           req.flush({ cards: [queued(shivan)], lost: [] });
           await fixture.whenStable();
           expect(detail.textContent).toContain('Added to your queue.');
+          expect(buttonIn(detail, 'Add to queue')).toBeUndefined();
+          expect(buttonIn(detail, 'Remove from queue')).toBeDefined();
 
-          const queue = await openQueue(fixture, page, { cards: [queued(shivan)], lost: [] });
+          const queue = await openQueue(fixture, page);
           expect(queue.querySelector('h2')?.textContent).toContain('Queue');
           expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent)).toEqual([
             'Shivan Dragon',
           ]);
         });
 
+        it('offers to remove a queued card from its detail', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            {
+              cards: [queued(shivan)],
+              lost: [],
+            },
+          );
+
+          expect(buttonIn(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
+          buttonIn(page.querySelector('[role="dialog"]')!, 'Close')!.click();
+          await fixture.whenStable();
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
         /** The names in the Queue tab's list, in order. */
         const names = (queue: HTMLElement) =>
           [...queue.querySelectorAll('li .name')].map((name) => name.textContent);
 
-        it('removes a card from the Queue tab', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(shivan), queued(brightclimb)],
+        it('removes a queued card from its detail, then offers to add it again', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            { cards: [queued(shivan), queued(brightclimb)], lost: [] },
+          );
+
+          const detail = await openDetail(fixture, page, 1);
+          buttonIn(detail, 'Remove from queue')!.click();
+          const req = http.expectOne('/api/drafts/draft-1/queue/shivan-oracle');
+          expect(req.request.method).toBe('DELETE');
+          req.flush({ cards: [queued(brightclimb)], lost: [] });
+          await fixture.whenStable();
+
+          expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+            'Removed from your queue.',
+          );
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+          expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          expect(names(await openQueue(fixture, page))).toEqual([
+            'Brightclimb Pathway // Grimclimb Pathway',
+          ]);
+        });
+
+        it('says when a card could not be removed from your queue, and re-reads it', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), [shivan], [], {
+            cards: [queued(shivan)],
             lost: [],
           });
+
+          const detail = await openDetail(fixture, page, 0);
+          buttonIn(detail, 'Remove from queue')!.click();
+          http
+            .expectOne('/api/drafts/draft-1/queue/shivan-oracle')
+            .flush(null, { status: 500, statusText: 'Server Error' });
+          // The queue is re-read, as it may have moved on.
+          await flushQueue({ cards: [queued(shivan)], lost: [] });
+          await fixture.whenStable();
+
+          expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+            "Couldn't remove the card from your queue.",
+          );
+          expect(buttonIn(detail, 'Remove from queue')).toBeDefined();
+        });
+
+        it('offers only a disabled Add to queue for a picked card, even one still queued', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+            [shivan],
+            [{ pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
+            // Picked since the queue was read: it isn't lost from it yet.
+            { cards: [queued(shivan)], lost: [] },
+          );
+
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')!.disabled).toBe(true);
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
+        it('offers only a disabled Add to queue for a card lost from the queue', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+            [shivan],
+            [{ pick: 1, playerId: bob.id, oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
+            { cards: [], lost: [queued(shivan)] },
+          );
+
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')!.disabled).toBe(true);
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
+        it('offers to add a card again once it is removed on the Queue tab', async () => {
+          const { fixture, page } = await openDraft(complete, drafting(), [shivan], [], {
+            cards: [queued(shivan)],
+            lost: [],
+          });
+
+          const queue = await openQueue(fixture, page);
+          queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
+          http.expectOne('/api/drafts/draft-1/queue/shivan-oracle').flush({ cards: [], lost: [] });
+          await fixture.whenStable();
+          tabButton(page, 'Pool').click();
+          await fixture.whenStable();
+
+          const detail = await openDetail(fixture, page, 0);
+          expect(buttonIn(detail, 'Add to queue')).toBeDefined();
+          expect(buttonIn(detail, 'Remove from queue')).toBeUndefined();
+        });
+
+        it('removes a card from the Queue tab', async () => {
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            {
+              cards: [queued(shivan), queued(brightclimb)],
+              lost: [],
+            },
+          );
+          const queue = await openQueue(fixture, page);
 
           queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
           const req = http.expectOne('/api/drafts/draft-1/queue/shivan-oracle');
@@ -948,11 +1080,17 @@ describe('drafts', () => {
         });
 
         it('moves a card up or down the queue, saving the new order', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(shivan), queued(brightclimb)],
-            lost: [],
-          });
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            {
+              cards: [queued(shivan), queued(brightclimb)],
+              lost: [],
+            },
+          );
+          const queue = await openQueue(fixture, page);
           expect(
             queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon up"]')!
               .disabled,
@@ -978,11 +1116,17 @@ describe('drafts', () => {
         });
 
         it('notes cards lost to other players, until dismissed', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(brightclimb)],
-            lost: [queued(shivan)],
-          });
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            {
+              cards: [queued(brightclimb)],
+              lost: [queued(shivan)],
+            },
+          );
+          const queue = await openQueue(fixture, page);
 
           const note = queue.querySelector<HTMLElement>('.lost')!;
           expect(note.textContent).toContain('Lost to other players');
@@ -999,8 +1143,14 @@ describe('drafts', () => {
         });
 
         it('re-reads the queue when the draft changes, so a lost card shows', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, { cards: [queued(shivan)], lost: [] });
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            { cards: [queued(shivan)], lost: [] },
+          );
+          const queue = await openQueue(fixture, page);
 
           updates.events.next({
             type: 'changed',
@@ -1036,11 +1186,17 @@ describe('drafts', () => {
         });
 
         it('says why a new order was refused, and re-reads the queue', async () => {
-          const { fixture, page } = await openDraft(complete, drafting(), [brightclimb, shivan]);
-          const queue = await openQueue(fixture, page, {
-            cards: [queued(shivan), queued(brightclimb)],
-            lost: [],
-          });
+          const { fixture, page } = await openDraft(
+            complete,
+            drafting(),
+            [brightclimb, shivan],
+            [],
+            {
+              cards: [queued(shivan), queued(brightclimb)],
+              lost: [],
+            },
+          );
+          const queue = await openQueue(fixture, page);
 
           queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
           http
@@ -1279,6 +1435,7 @@ describe('drafts', () => {
           { players: [alicePlayer] },
           [],
           [],
+          undefined,
           admin,
         );
 
@@ -1304,7 +1461,7 @@ describe('drafts', () => {
           id: `bot:${i}`,
           name: `Bot ${i + 1}`,
         }));
-        const { page } = await openDraft(complete, { players: bots }, [], [], admin);
+        const { page } = await openDraft(complete, { players: bots }, [], [], undefined, admin);
 
         expect(button(page, 'Add bot')?.disabled).toBe(true);
       });
@@ -1326,6 +1483,7 @@ describe('drafts', () => {
           },
           [],
           [],
+          undefined,
           admin,
         );
 
