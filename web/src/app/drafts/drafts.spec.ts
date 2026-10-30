@@ -477,6 +477,8 @@ describe('drafts', () => {
       });
 
       describe('pick import', () => {
+        const text = ',Ann,Ben,\n->,Ash Golem,,';
+
         /** Chooses a made-up file and answers its preview with `answer`. */
         async function chooseFile(
           fixture: { whenStable(): Promise<unknown> },
@@ -485,7 +487,6 @@ describe('drafts', () => {
           status = 200,
         ) {
           const input = page.querySelector<HTMLInputElement>('input[type="file"]')!;
-          const text = ',Ann,Ben,\n->,Ash Golem,,';
           Object.defineProperty(input, 'files', {
             configurable: true,
             value: [new File([text], 'picks.csv', { type: 'text/csv' })],
@@ -510,8 +511,8 @@ describe('drafts', () => {
 
         const preview = {
           seats: [
-            { column: 'Ann', player: 'Alice' },
-            { column: 'Ben', player: 'Bob' },
+            { column: 'Ann', userId: alice.id, player: 'Alice' },
+            { column: 'Ben', userId: bob.id, player: 'Bob' },
           ],
           picks: 70,
           next: { pick: 71, player: 'Bob' },
@@ -528,6 +529,108 @@ describe('drafts', () => {
           expect(shown).toContain('Ben → Bob');
           expect(shown).toContain('70 picks');
           expect(shown).toContain('Next turn: Pick 71, Bob');
+        });
+
+        describe('confirming', () => {
+          async function previewed() {
+            const opened = await openDraft(complete, { players: [alicePlayer, bob] });
+            await chooseFile(opened.fixture, opened.page, preview);
+            await shownPreview(opened.page);
+            return opened;
+          }
+
+          /** Confirms the import and answers it with `answer`. */
+          async function confirmImport(page: HTMLElement, answer: object, status = 200) {
+            button(page, 'Import and start paused')!.click();
+            const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pick-import'));
+            expect(req.request.method).toBe('POST');
+            expect(req.request.body).toEqual({ csv: text, userIds: [alice.id, bob.id] });
+            req.flush(answer, { status, statusText: status === 200 ? 'OK' : 'Refused' });
+          }
+
+          it('warns that the import is final and clears all queues', async () => {
+            const { page } = await previewed();
+
+            const shown = (await shownPreview(page)).textContent;
+            expect(shown).toContain('Importing is final and clears all queues');
+          });
+
+          it('sends the same file text again and moves to the paused draft', async () => {
+            const { fixture, page } = await previewed();
+
+            await confirmImport(
+              page,
+              draft({
+                state: 'Paused',
+                players: [alicePlayer, bob],
+                turn: { pick: 2, round: 1, playerId: bob.id },
+                version: 1,
+              }),
+            );
+
+            await vi.waitFor(() => {
+              expect(page.querySelector('.pick-import-preview')).toBeNull();
+              expect(button(page, 'Import picks')).toBeUndefined();
+            });
+            const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
+            picks.flush([]);
+            await flushQueue(EMPTY_QUEUE);
+            await fixture.whenStable();
+          });
+
+          it('moves a viewer in the lobby to the paused draft and its picks without a reload', async () => {
+            const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+
+            updates.events.next({
+              type: 'changed',
+              draft: draft({
+                state: 'Paused',
+                players: [alicePlayer, bob],
+                turn: { pick: 2, round: 1, playerId: bob.id },
+                version: 1,
+              }),
+            });
+
+            const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
+            picks.flush([
+              {
+                pick: 1,
+                playerId: alice.id,
+                oracleId: 'ash-golem-oracle',
+                name: 'Ash Golem',
+                layout: 'normal',
+                set: 'tst',
+                collectorNumber: '1',
+              },
+            ]);
+            await flushQueue(EMPTY_QUEUE);
+            await fixture.whenStable();
+
+            await vi.waitFor(() => expect(page.textContent).toContain('Ash Golem'));
+            expect(button(page, 'Import picks')).toBeUndefined();
+          });
+
+          it('lists the problems of a file that is no longer valid', async () => {
+            const { page } = await previewed();
+
+            await confirmImport(
+              page,
+              {
+                error: 'invalid-pick-import',
+                message: 'This file can’t be imported.',
+                problems: ['The file has 2 player columns, but the draft has 3 players.'],
+              },
+              422,
+            );
+
+            await vi.waitFor(() => {
+              const problems = [...page.querySelectorAll('.pick-import-problems li')];
+              expect(problems.map((li) => li.textContent)).toEqual([
+                'The file has 2 player columns, but the draft has 3 players.',
+              ]);
+            });
+            expect(page.querySelector('.pick-import-preview')).toBeNull();
+          });
         });
 
         it('lists every problem with an invalid file', async () => {

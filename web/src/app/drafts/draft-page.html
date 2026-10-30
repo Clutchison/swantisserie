@@ -205,6 +205,18 @@
             {{ preview.next.pick }}, {{ preview.next.player }}.
           </p>
           <p class="detail">This is only a preview: nothing has been imported.</p>
+          <p class="pick-import-warning">
+            Importing is final and clears all queues. The draft starts paused until you resume it.
+            It can't be reversed: a wrong file means closing this draft and creating a new one.
+          </p>
+          <button
+            class="button"
+            type="button"
+            (click)="confirmPickImport(preview)"
+            [disabled]="changingLobby()"
+          >
+            Import and start paused
+          </button>
         </div>
       }
       @if (pickImportProblems().length > 0) {

@@ -299,15 +299,27 @@ export class DraftsController {
       if (err instanceof StartRefusedError) {
         throw new ConflictException(err.refusal);
       }
-      if (err instanceof PickImportRefusedError) {
-        throw new UnprocessableEntityException({
-          error: 'invalid-pick-import',
-          message: err.message,
-          problems: err.problems,
-        });
-      }
+      if (err instanceof PickImportRefusedError) throw pickImportRefused(err);
       throw err;
     }
+  }
+
+  /**
+   * Loads a file of picks and starts the draft paused, for good; the file is
+   * checked again, as the draft may have changed since its preview. `userIds`
+   * is the seat order the preview showed. For the organizer.
+   */
+  @Post(':id/pick-import')
+  @HttpCode(200)
+  async importPicks(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<DraftView> {
+    const csv = parsePickImport(body);
+    const userIds = parseSeatOrder(body);
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.drafts.importPicks(id, csv, userIds));
   }
 
   /** The signed-in role-holder joins the draft. */
@@ -383,6 +395,7 @@ export class DraftsController {
       ) {
         throw new ConflictException(err.refusal);
       }
+      if (err instanceof PickImportRefusedError) throw pickImportRefused(err);
       if (err instanceof PlayersChangedError) {
         throw conflict('players-changed', err);
       }
@@ -464,6 +477,16 @@ export class DraftsController {
 
 function conflict(error: string, cause: Error): ConflictException {
   return new ConflictException({ error, message: cause.message });
+}
+
+function pickImportRefused(
+  cause: PickImportRefusedError,
+): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    error: 'invalid-pick-import',
+    message: cause.message,
+    problems: cause.problems,
+  });
 }
 
 /** The create form's fields, or a 400 saying which one to fix. */

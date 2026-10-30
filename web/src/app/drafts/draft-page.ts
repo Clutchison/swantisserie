@@ -99,8 +99,11 @@ export class DraftPage {
   protected readonly changingLobby = signal(false);
   protected readonly lobbyError = signal<string | null>(null);
 
-  /** What the latest file chosen for a pick import would do; nothing is saved. */
-  protected readonly pickImportPreview = signal<PickImportPreview | null>(null);
+  /**
+   * What the latest file chosen for a pick import would do, with its text to
+   * send again on confirming: nothing is saved between the two.
+   */
+  protected readonly pickImportPreview = signal<(PickImportPreview & { csv: string }) | null>(null);
   /** All that's wrong with the latest file chosen for a pick import. */
   protected readonly pickImportProblems = signal<string[]>([]);
 
@@ -475,13 +478,11 @@ export class DraftPage {
     this.clearPickImport();
     const failure = "Couldn't read the file. Try again in a moment.";
     try {
-      this.pickImportPreview.set(
-        await firstValueFrom(
-          this.http.post<PickImportPreview>(`/api/drafts/${this.id()}/pick-import/preview`, {
-            csv: await file.text(),
-          }),
-        ),
+      const csv = await file.text();
+      const preview = await firstValueFrom(
+        this.http.post<PickImportPreview>(`/api/drafts/${this.id()}/pick-import/preview`, { csv }),
       );
+      this.pickImportPreview.set({ ...preview, csv });
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 422) {
         this.pickImportProblems.set(err.error?.problems ?? []);
@@ -495,6 +496,31 @@ export class DraftPage {
       this.changingLobby.set(false);
       // So choosing the same file again, perhaps fixed, is a change.
       input.value = '';
+    }
+  }
+
+  /** Imports the previewed file, which the API checks again; the draft starts paused. */
+  protected async confirmPickImport({ csv, seats }: PickImportPreview & { csv: string }) {
+    this.changingLobby.set(true);
+    this.lobbyError.set(null);
+    try {
+      this.showDraft(
+        await firstValueFrom(
+          this.http.post<DraftView>(`/api/drafts/${this.id()}/pick-import`, {
+            csv,
+            userIds: seats.map((seat) => seat.userId),
+          }),
+        ),
+      );
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 422) {
+        this.clearPickImport();
+        this.pickImportProblems.set(err.error?.problems ?? []);
+      } else {
+        this.lobbyFailed(err, "Couldn't import the picks. Try again in a moment.");
+      }
+    } finally {
+      this.changingLobby.set(false);
     }
   }
 

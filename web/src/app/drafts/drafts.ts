@@ -63,7 +63,7 @@ export interface DraftView {
 /** What a pick import's file would do to a draft in the lobby. */
 export interface PickImportPreview {
   /** Each column of the file with the player in the seat it maps to. */
-  seats: { column: string; player: string }[];
+  seats: { column: string; userId: string; player: string }[];
   picks: number;
   next: { pick: number; player: string };
 }
