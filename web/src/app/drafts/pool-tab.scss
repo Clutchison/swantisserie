@@ -99,9 +99,9 @@ $card-corners: #{4.75% / 3.5%};
   }
 }
 
-/* A picked card stays in the grid, dimmed and labelled. */
+/* A picked card stays in the grid, dimmed and labelled. Still opaque, so the name stays hidden behind it. */
 .tile.picked img {
-  opacity: 0.35;
+  filter: brightness(0.35);
 }
 
 .badge {
