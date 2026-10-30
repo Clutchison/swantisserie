@@ -14,7 +14,7 @@ import {
   type WritableSignal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { arenaExport } from './arena-export';
@@ -60,6 +60,7 @@ export class DraftPage {
   private readonly pollMs = inject(DRAFT_POLL_MS);
   private readonly user = inject(Auth).user;
   private readonly updates = inject(DraftUpdates);
+  private readonly router = inject(Router);
 
   readonly id = input.required<string>();
 
@@ -233,6 +234,8 @@ export class DraftPage {
       const watching = this.updates.watch(this.id()).subscribe((event) => {
         if (event.type === 'changed') {
           this.showDraft(event.draft);
+        } else if (event.type === 'cancelled') {
+          void this.leaveCancelled();
         } else {
           this.catchUp();
         }
@@ -412,19 +415,45 @@ export class DraftPage {
     );
   }
 
+  /** Cancels the draft, once the organizer confirms: it can't be undone. */
+  protected async cancel() {
+    const name = this.draft()!.name;
+    if (!confirm(`Cancel ${name}? This removes the draft for everyone and can't be undone.`)) {
+      return;
+    }
+    this.changingLobby.set(true);
+    this.lobbyError.set(null);
+    try {
+      await firstValueFrom(this.http.delete<void>(`/api/drafts/${this.id()}`));
+      await this.leaveCancelled();
+    } catch (err) {
+      this.lobbyFailed(err, "Couldn't cancel the draft. Try again in a moment.");
+    } finally {
+      this.changingLobby.set(false);
+    }
+  }
+
+  /** Sends the viewer to the draft list, which says the draft was cancelled. */
+  private leaveCancelled() {
+    const notice = `${this.draft()?.name ?? 'The draft'} was cancelled.`;
+    return this.router.navigateByUrl('/', { state: { notice } });
+  }
+
   private changeLobby(
     request: Observable<DraftView>,
     failure = "Couldn't update the players. Try again in a moment.",
   ) {
-    return this.apply(request, this.changingLobby, (err) => {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
-        // The draft's state no longer allows this: show why, and catch up with it.
-        this.lobbyError.set(err.error?.message ?? failure);
-        this.resource.reload();
-      } else {
-        this.lobbyError.set(failure);
-      }
-    });
+    return this.apply(request, this.changingLobby, (err) => this.lobbyFailed(err, failure));
+  }
+
+  private lobbyFailed(err: unknown, failure: string) {
+    if (err instanceof HttpErrorResponse && err.status === 409) {
+      // The draft's state no longer allows this: show why, and catch up with it.
+      this.lobbyError.set(err.error?.message ?? failure);
+      this.resource.reload();
+    } else {
+      this.lobbyError.set(failure);
+    }
   }
 
   protected retry() {

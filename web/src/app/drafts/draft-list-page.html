@@ -1,5 +1,8 @@
 <main>
   <h1>Drafts</h1>
+  @if (notice; as notice) {
+    <p class="notice" role="status">{{ notice }}</p>
+  }
   <a class="button" routerLink="/drafts/new">New draft</a>
   @if (loading()) {
     <p>Loading…</p>

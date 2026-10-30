@@ -94,6 +94,13 @@ export class DraftStartedError extends Error {
   }
 }
 
+/** Thrown when a change only allowed in Lobby finds the draft was just cancelled. */
+export class DraftGoneError extends Error {
+  constructor() {
+    super('This draft was cancelled.');
+  }
+}
+
 /** Thrown when a seat order doesn't list exactly the draft's players. */
 export class PlayersChangedError extends Error {
   constructor() {
@@ -322,6 +329,24 @@ export class DraftsService {
       if (count === 0) throw new UnknownBotError();
       // A bot only ever plays in the draft it was added to.
       await tx.user.delete({ where: { id: userId } });
+    });
+  }
+
+  /**
+   * Cancels the draft: it and everything belonging to it are gone for good.
+   * Throws DraftStartedError once the draft has left Lobby.
+   */
+  async cancel(draftId: string): Promise<void> {
+    await this.inLobby(draftId, async (tx) => {
+      const bots = await tx.player.findMany({
+        where: { draftId, user: { isBot: true } },
+        select: { userId: true },
+      });
+      await tx.draft.delete({ where: { id: draftId } });
+      // A bot only ever plays in the draft it was added to.
+      await tx.user.deleteMany({
+        where: { id: { in: bots.map((bot) => bot.userId) } },
+      });
     });
   }
 
@@ -760,7 +785,8 @@ export class DraftsService {
     change: (tx: Transaction, draft: LockedDraft) => Promise<T>,
   ): Promise<T> {
     return this.locked(draftId, async (tx, draft) => {
-      if (draft?.state !== 'Lobby') throw new DraftStartedError();
+      if (!draft) throw new DraftGoneError();
+      if (draft.state !== 'Lobby') throw new DraftStartedError();
       return change(tx, draft);
     });
   }

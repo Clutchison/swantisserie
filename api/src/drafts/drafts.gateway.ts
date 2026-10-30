@@ -53,4 +53,9 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
   changed(draft: DraftView): void {
     this.server.to(room(draft.id)).emit('changed', draft);
   }
+
+  /** Tells everyone viewing the draft that it no longer exists. */
+  cancelled(draftId: string): void {
+    this.server.to(room(draftId)).emit('cancelled');
+  }
 }

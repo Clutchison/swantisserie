@@ -112,7 +112,7 @@ export class PoolSnapshotService
     draftId: string,
     started: { resolve: () => void; reject: (err: unknown) => void },
   ): Promise<void> {
-    let poolQuery: string;
+    let poolQuery: string | null;
     try {
       poolQuery = await this.reset(draftId);
     } catch (err) {
@@ -120,6 +120,7 @@ export class PoolSnapshotService
       return;
     }
     started.resolve();
+    if (poolQuery === null) return;
 
     try {
       await this.pageThrough(draftId, poolQuery);
@@ -128,19 +129,22 @@ export class PoolSnapshotService
         data: { snapshotState: 'Complete' },
       });
     } catch (err) {
-      this.logger.error(`Pool snapshot for draft ${draftId} failed`, err);
-      await this.prisma.draft.update({
+      const { count } = await this.prisma.draft.updateMany({
         where: { id: draftId },
         data: { snapshotState: 'Failed', snapshotError: explain(err) },
       });
+      // No draft left: it was cancelled, which is what stopped the snapshot.
+      if (count > 0) {
+        this.logger.error(`Pool snapshot for draft ${draftId} failed`, err);
+      }
     }
   }
 
   /**
    * Marks the draft Running and drops its cards, unless its pool is already
-   * frozen. Returns its pool query.
+   * frozen. Returns its pool query, or null if it was cancelled.
    */
-  private async reset(draftId: string): Promise<string> {
+  private async reset(draftId: string): Promise<string | null> {
     return this.prisma.$transaction(async (tx) => {
       // The state check and the reset are one statement, so a snapshot that
       // completes in the meantime can't be wiped.
@@ -152,7 +156,12 @@ export class PoolSnapshotService
           snapshotError: null,
         },
       });
-      if (count === 0) throw new PoolFrozenError();
+      if (count === 0) {
+        if (await tx.draft.count({ where: { id: draftId } })) {
+          throw new PoolFrozenError();
+        }
+        return null;
+      }
       await tx.poolCard.deleteMany({ where: { draftId } });
       const { poolQuery } = await tx.draft.findUniqueOrThrow({
         where: { id: draftId },
