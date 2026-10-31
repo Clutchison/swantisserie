@@ -100,6 +100,46 @@ describe('redirecting to the canonical hostname', () => {
     expect(response).toMatch(/^HTTP\/1\.1 200/);
   });
 
+  it('permanently redirects plain HTTP on the canonical hostname to HTTPS, keeping the path and query', async () => {
+    await startApp(CALLBACK);
+
+    const res = await get('/drafts/42?tab=queue', 'roto.example')
+      .set('X-Forwarded-Proto', 'http')
+      .expect(308);
+
+    expect(res.headers.location).toBe(
+      'https://roto.example/drafts/42?tab=queue',
+    );
+  });
+
+  it('redirects plain HTTP before starting sign-in, so no cookie is set', async () => {
+    vi.stubEnv('DISCORD_CLIENT_ID', 'client-123');
+    await startApp(CALLBACK);
+
+    const res = await get('/api/auth/discord', 'roto.example')
+      .set('X-Forwarded-Proto', 'http')
+      .expect(308);
+
+    expect(res.headers.location).toBe('https://roto.example/api/auth/discord');
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('serves HTTPS on the canonical hostname as normal', async () => {
+    await startApp(CALLBACK);
+
+    await get('/drafts/42', 'roto.example')
+      .set('X-Forwarded-Proto', 'https')
+      .expect(200);
+  });
+
+  it('serves plain HTTP as normal when the redirect URI is itself plain HTTP', async () => {
+    await startApp('http://localhost:4200/api/auth/discord/callback');
+
+    await get('/drafts/42', 'localhost:4200')
+      .set('X-Forwarded-Proto', 'http')
+      .expect(200);
+  });
+
   it('starts sign-in on the canonical hostname', async () => {
     vi.stubEnv('DISCORD_CLIENT_ID', 'client-123');
     await startApp(CALLBACK);
