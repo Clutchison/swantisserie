@@ -14,6 +14,9 @@ svg {
   display: block;
   flex: none;
   margin-top: var(--space-xl);
+  /* Keeps the page-level logo from filling a phone. */
+  max-width: 50vw;
+  height: auto;
 }
 
 p {
