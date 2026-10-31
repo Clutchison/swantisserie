@@ -14,9 +14,11 @@
       <ul>
         @for (draft of active(); track draft.id) {
           <li>
-            <a class="name" [routerLink]="['/drafts', draft.id]">{{ draft.name }}</a>
-            <span class="state">{{ draft.state }}</span>
-            <span class="detail">Organized by {{ draft.organizer.name }}</span>
+            <a class="draft-link" [routerLink]="['/drafts', draft.id]">
+              <span class="name">{{ draft.name }}</span>
+              <span class="state">{{ draft.state }}</span>
+              <span class="detail">Organized by {{ draft.organizer.name }}</span>
+            </a>
           </li>
         } @empty {
           <li class="empty">No active drafts.</li>
@@ -28,8 +30,10 @@
       <ul>
         @for (draft of closed(); track draft.id) {
           <li>
-            <a class="name" [routerLink]="['/drafts', draft.id]">{{ draft.name }}</a>
-            <span class="detail">Organized by {{ draft.organizer.name }}</span>
+            <a class="draft-link" [routerLink]="['/drafts', draft.id]">
+              <span class="name">{{ draft.name }}</span>
+              <span class="detail">Organized by {{ draft.organizer.name }}</span>
+            </a>
           </li>
         } @empty {
           <li class="empty">No closed drafts.</li>
@@ -41,8 +45,10 @@
       <ul>
         @for (draft of complete(); track draft.id) {
           <li>
-            <a class="name" [routerLink]="['/drafts', draft.id]">{{ draft.name }}</a>
-            <span class="detail">Organized by {{ draft.organizer.name }}</span>
+            <a class="draft-link" [routerLink]="['/drafts', draft.id]">
+              <span class="name">{{ draft.name }}</span>
+              <span class="detail">Organized by {{ draft.organizer.name }}</span>
+            </a>
           </li>
         } @empty {
           <li class="empty">No complete drafts.</li>
