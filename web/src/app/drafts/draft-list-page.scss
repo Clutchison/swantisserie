@@ -1,3 +1,8 @@
+main {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+
 ul {
   display: grid;
   gap: var(--space-sm);
