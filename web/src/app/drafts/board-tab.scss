@@ -4,13 +4,12 @@
 }
 
 h3 {
-  margin: 1rem 0 0.25rem;
-  font-size: 1rem;
+  margin: var(--space-lg) 0 var(--space-xs);
 }
 
 ol {
   margin: 0;
-  padding-left: 1.5rem;
+  padding-left: var(--space-xl);
 }
 
 .empty {
@@ -19,11 +18,10 @@ ol {
 
 /* A player's name on the Board, which opens their picks. */
 .link {
-  padding: 0.25rem 0;
+  padding: var(--space-xs) 0;
   border: 0;
   background: none;
   color: var(--color-accent);
-  font: inherit;
   cursor: pointer;
 
   &:hover {
@@ -35,7 +33,7 @@ ol {
 .player-picks {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: 0 1rem;
+  gap: 0 var(--space-lg);
 }
 
 .log {
@@ -46,7 +44,7 @@ ol {
 
   li {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--space-sm);
   }
 
   .number {

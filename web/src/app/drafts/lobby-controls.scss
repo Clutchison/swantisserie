@@ -10,7 +10,7 @@ ol {
 
 li {
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 
   &[aria-current='true'] {
     background: var(--color-raised);
@@ -18,7 +18,7 @@ li {
 }
 
 summary {
-  padding: 0.5rem 0;
+  padding: var(--space-sm) 0;
   cursor: pointer;
 }
 
@@ -51,10 +51,9 @@ summary {
 .icon {
   min-width: 2.5rem;
   min-height: 2.5rem;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-xs) var(--space-sm);
   border: 1px solid var(--color-muted);
   border-radius: 0.25rem;
-  font: inherit;
   cursor: pointer;
 
   &:disabled {
@@ -72,7 +71,7 @@ summary {
   ol {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-    gap: 0 1rem;
+    gap: 0 var(--space-lg);
   }
 
   /* Seat number, avatar, name, badge; the buttons go below, in line with the name. */

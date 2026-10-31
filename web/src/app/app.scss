@@ -1,11 +1,10 @@
 header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--color-divider);
   background: var(--color-surface);
-  font-family: system-ui, sans-serif;
 }
 
 .logo {
@@ -27,8 +26,7 @@ header {
 
 .page-status {
   margin: 0;
-  padding: 1rem;
-  font-family: system-ui, sans-serif;
+  padding: var(--space-lg);
 }
 
 .error {

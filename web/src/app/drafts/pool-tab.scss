@@ -18,8 +18,8 @@ $card-corners: #{4.75% / 3.5%};
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0;
+  gap: var(--space-sm) var(--space-lg);
+  padding: var(--space-sm) 0;
   background: var(--color-surface);
 }
 
@@ -32,25 +32,24 @@ $card-corners: #{4.75% / 3.5%};
 
 .search-field label {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-xs);
   font-weight: 600;
 }
 
 .search {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.5rem;
+  padding: var(--space-sm);
   border: 1px solid var(--color-muted);
   border-radius: 0.5rem;
   /* 16px or more, so phones don't zoom in on focus. */
-  font: inherit;
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }
 
 .hide-picked {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-xs);
   /* The search box's padding and border, so this centres on the box, not the label above it. */
   padding-block: calc(0.5rem + 1px);
   white-space: nowrap;
@@ -88,7 +87,6 @@ $card-corners: #{4.75% / 3.5%};
   border: 0;
   border-radius: $card-corners;
   background: var(--color-surface);
-  font: inherit;
   cursor: pointer;
 
   .placeholder {
@@ -97,9 +95,9 @@ $card-corners: #{4.75% / 3.5%};
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.5rem;
+    padding: var(--space-sm);
     color: var(--color-muted);
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     text-align: center;
   }
 
@@ -123,11 +121,11 @@ $card-corners: #{4.75% / 3.5%};
   position: absolute;
   top: 50%;
   left: 50%;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-xs) var(--space-sm);
   border-radius: 0.25rem;
   background: var(--color-overlay);
   color: var(--color-text);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   transform: translate(-50%, -50%);
 }
@@ -140,7 +138,7 @@ $card-corners: #{4.75% / 3.5%};
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: var(--space-lg);
   background: var(--color-overlay);
 }
 
@@ -148,7 +146,7 @@ $card-corners: #{4.75% / 3.5%};
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-md);
   max-height: 100%;
 
   /* Scaled to fit the screen; only the corners are rounded. */
@@ -167,7 +165,7 @@ $card-corners: #{4.75% / 3.5%};
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 }
 
 .note {

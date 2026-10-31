@@ -1,7 +1,6 @@
 :host {
   display: block;
-  padding: 1rem;
-  font-family: system-ui, sans-serif;
+  padding: var(--space-lg);
 }
 
 ul {
