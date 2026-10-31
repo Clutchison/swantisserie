@@ -11,22 +11,24 @@ datasource db {
 /// A Discord account that has signed in, or a bot an app admin added to a draft.
 model User {
   /// Discord user ID (snowflake); `bot:<uuid>` for a bot.
-  id        String     @id
+  id               String     @id
   /// Discord display name: global_name, falling back to username.
-  name      String
+  name             String
   /// Discord avatar hash; null means the default avatar.
-  avatar    String?
+  avatar           String?
   /// A player the app controls. Bots can't sign in: they have no Discord account.
-  isBot     Boolean    @default(false)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  sessions  Session[]
+  isBot            Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  sessions         Session[]
   /// Drafts this user organizes.
-  drafts    Draft[]
+  drafts           Draft[]
   /// Drafts this user has joined.
-  players   Player[]
+  players          Player[]
   /// Feedback this user has sent.
-  feedback  Feedback[]
+  feedback         Feedback[] @relation("FeedbackSender")
+  /// Feedback this app admin has marked reviewed.
+  reviewedFeedback Feedback[] @relation("FeedbackReviewedBy")
 }
 
 model Session {
@@ -191,14 +193,18 @@ model Webhook {
 
 /// A plain-text message a role-holder sent to the app admins.
 model Feedback {
-  id       String   @id @default(uuid())
-  message  String
-  senderId String
-  sender   User     @relation(fields: [senderId], references: [id])
+  id           String    @id @default(uuid())
+  message      String
+  senderId     String
+  sender       User      @relation("FeedbackSender", fields: [senderId], references: [id])
   /// The page it was sent from.
-  pageUrl  String
-  reviewed Boolean  @default(false)
-  sentAt   DateTime @default(now())
+  pageUrl      String
+  sentAt       DateTime  @default(now())
+  /// The app admin who marked it reviewed; null while it is unreviewed.
+  reviewedById String?
+  reviewedBy   User?     @relation("FeedbackReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  reviewedAt   DateTime?
 
   @@index([senderId])
+  @@index([reviewedById])
 }

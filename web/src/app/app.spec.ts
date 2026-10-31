@@ -114,10 +114,10 @@ describe('App', () => {
     expect(logo?.closest('a')?.getAttribute('href')).toBe('/');
   });
 
-  it('shows an app admin Send feedback, Webhooks and Log out as matching quiet buttons', async () => {
+  it('shows an app admin Send feedback, Feedback, Webhooks and Log out as matching quiet buttons', async () => {
     const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
 
-    expect(quietButtons(page)).toEqual(['Send feedback', 'Webhooks', 'Log out']);
+    expect(quietButtons(page)).toEqual(['Send feedback', 'Feedback', 'Webhooks', 'Log out']);
   });
 
   it('shows other users Send feedback and Log out, as quiet buttons', async () => {
@@ -125,6 +125,7 @@ describe('App', () => {
 
     expect(quietButtons(page)).toEqual(['Send feedback', 'Log out']);
     expect(page.querySelector('header')?.textContent).not.toContain('Webhooks');
+    expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
   });
 
   it('logs out and returns to the sign-in page', async () => {

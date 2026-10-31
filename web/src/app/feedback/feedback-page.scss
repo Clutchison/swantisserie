@@ -1,0 +1,26 @@
+li {
+  align-items: center;
+  row-gap: var(--space-sm);
+}
+
+.avatar {
+  border-radius: 50%;
+}
+
+time.detail {
+  flex-basis: auto;
+}
+
+/* Sent as plain text: keep its line breaks, and don't let a long word widen the page. */
+.message {
+  flex-basis: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.page-url {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
