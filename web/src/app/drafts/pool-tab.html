@@ -28,6 +28,18 @@
     />
     Hide picked
   </label>
+  <div class="color-filter" role="group" aria-label="Color filter">
+    @for (button of colorButtons; track button.color) {
+      <button
+        type="button"
+        [attr.aria-label]="button.name"
+        [attr.aria-pressed]="poolFilters().colors.has(button.color)"
+        (click)="toggleColor(button.color)"
+      >
+        <img [src]="'mana/' + button.color + '.svg'" alt="" width="28" height="28" />
+      </button>
+    }
+  </div>
 </div>
 <!-- Always there, so screen readers announce a message as it appears. -->
 <p id="pool-search-error" class="search-error error" role="status">{{ searchError() }}</p>
