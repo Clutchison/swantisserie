@@ -24,6 +24,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
 import { type DraftView, isRefusal, type PoolCardView, type QueueView } from './drafts';
+import { ImagePreloader } from './image-preloader';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
 import { TileImage, TileImageLoader } from './tile-image';
@@ -52,9 +53,13 @@ export class PoolTab {
   private readonly http = inject(HttpClient);
   private readonly queueApi = inject(QueueApi);
   private readonly images = inject(CardImageSource);
+  private readonly preloader = inject(ImagePreloader);
+  private readonly tileImages = inject(TileImageLoader);
 
   /** A draft whose pool snapshot is complete. */
   readonly draftId = input.required<string>();
+  /** Whether the Pool tab is the draft page's visible tab. */
+  readonly visible = input(true);
   /** The pool's cards, which the draft page loads. */
   readonly cards = input.required<PoolCardView[]>();
   /** Whether the pool's cards are still on their way. */
@@ -109,6 +114,23 @@ export class PoolTab {
       : this.matched();
   });
 
+  /**
+   * The first results' large images: front faces of the unpicked cards shown,
+   * leaving out any known broken. Unchanged while the URLs are, so that
+   * something else changing doesn't restart the wait for them.
+   */
+  private readonly firstResultImages = computed(
+    () => {
+      const picked = this.picked();
+      return this.shown()
+        .filter((card) => !picked.has(card.oracleId))
+        .map((card) => this.images.workingUrl(card, 'large'))
+        .filter((url) => url !== undefined)
+        .slice(0, FIRST_RESULTS_COUNT);
+    },
+    { equal: (a, b) => a.length === b.length && a.every((url, i) => url === b[i]) },
+  );
+
   /** Why the grid is empty, once the cards have loaded. */
   protected readonly emptyNote = computed(() => {
     if (this.loading() || this.failed() || this.shown().length > 0) return null;
@@ -157,6 +179,8 @@ export class PoolTab {
   /** What came of adding the card in the detail view to the queue, or removing it. */
   protected readonly queueNote = signal<string | null>(null);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
+  /** The countdown of the tile the mouse is resting on. */
+  private resting?: ReturnType<typeof setTimeout>;
 
   constructor() {
     effect(() => this.closeButton()?.nativeElement.focus());
@@ -177,6 +201,21 @@ export class PoolTab {
       observer.observe(inject<ElementRef<HTMLElement>>(ElementRef).nativeElement);
       inject(DestroyRef).onDestroy(() => observer.disconnect());
     }
+    // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
+    effect((onCleanup) => {
+      this.search();
+      const urls = this.firstResultImages();
+      const ready =
+        this.visible() && !this.loading() && this.tileImages.settled() && !constrainedConnection();
+      this.preloader.preloadResults([]);
+      if (!ready || urls.length === 0) return;
+      const waiting = setTimeout(() => this.preloader.preloadResults(urls), RESULTS_SETTLE_MS);
+      onCleanup(() => clearTimeout(waiting));
+    });
+    inject(DestroyRef).onDestroy(() => {
+      clearTimeout(this.resting);
+      this.preloader.preloadResults([]);
+    });
   }
 
   /** The gap between tiles, across and down, in px. */
@@ -210,8 +249,29 @@ export class PoolTab {
     this.images.failed(card, version, face);
   }
 
+  /** The mouse has come to a tile: if it rests there, the viewer is likely to open it. */
+  protected mouseEntered(card: PoolCardView, tile: HTMLElement) {
+    clearTimeout(this.resting);
+    this.resting = setTimeout(() => {
+      // The grid may have moved on from this tile with no mouseleave.
+      if (tile.isConnected) this.preloadLarge(card);
+    }, REST_MS);
+  }
+
+  protected mouseLeft() {
+    clearTimeout(this.resting);
+  }
+
+  /** Preloads one face's large image, unless its snapshot URL has failed: the fallback is for when it's needed. */
+  protected preloadLarge(card: PoolCardView, face = 0) {
+    const url = this.images.workingUrl(card, 'large', face);
+    if (url) this.preloader.preload(url);
+  }
+
   protected open(card: PoolCardView, tile: HTMLElement) {
     this.detail.set(card);
+    this.preloader.noteRequested(this.images.url(card, 'large'));
+    for (let face = 1; face < card.images.length; face++) this.preloadLarge(card, face);
     const loaded = tile.querySelector('img');
     const normal = this.images.url(card, 'normal');
     this.tilePlaceholder.set(
@@ -305,6 +365,22 @@ const TILE_GAP = 8;
  * pixel density, and desktop tiles run up to about 160px. A little soft at 160px.
  */
 const SMALL_IMAGE_DECLARED_WIDTH = 160;
+
+/** How long the mouse rests on a tile before its large image loads, in ms: crossing tiles stays under this. */
+const REST_MS = 150;
+
+/** How many of the results get their large images preloaded. */
+const FIRST_RESULTS_COUNT = 20;
+/** How long the results must stay as they are before that starts, in ms: long enough for typing, and for the grid to render. */
+const RESULTS_SETTLE_MS = 500;
+
+/** Whether the browser reports data saver mode or a 2G connection. Not every browser reports this. */
+function constrainedConnection() {
+  const { connection } = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  };
+  return !!connection?.saveData || !!connection?.effectiveType?.endsWith('2g');
+}
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
 const ADDED_TO_QUEUE = 'Added to your queue.';

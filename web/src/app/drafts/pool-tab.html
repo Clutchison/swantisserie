@@ -63,6 +63,10 @@
           #tileImage="tileImage"
           #tile
           (click)="open(card, tile)"
+          (mouseenter)="mouseEntered(card, tile)"
+          (mouseleave)="mouseLeft()"
+          (touchstart)="preloadLarge(card)"
+          (focus)="preloadLarge(card)"
         >
           <span class="placeholder">{{ card.name }}</span>
           @if (tileImage.requested()) {
