@@ -102,6 +102,8 @@ export async function openUrl(url: string, user = alice) {
   (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
   await navigation;
   TestBed.tick();
+  // App admins' headers ask how much feedback is unreviewed.
+  for (const req of http.match('/api/admin/feedback/unreviewed-count')) req.flush({ count: 0 });
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 

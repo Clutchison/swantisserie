@@ -38,6 +38,8 @@ describe('App', () => {
     // The home page lists drafts; answer it so the app can settle.
     TestBed.tick();
     for (const req of http.match('/api/drafts')) req.flush([]);
+    // App admins' headers also ask how much feedback is unreviewed.
+    for (const req of http.match('/api/admin/feedback/unreviewed-count')) req.flush({ count: 0 });
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }

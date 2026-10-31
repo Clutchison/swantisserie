@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import type { FeedbackView } from './feedback-page';
+import type { FeedbackView, ReviewedFeedbackView } from './feedback-page';
 
 const alice = {
   id: '80351110224678912',
@@ -34,6 +34,14 @@ const fromBob: FeedbackView = {
   sender: { name: 'Bob', avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png' },
 };
 
+const reviewedByCarol: ReviewedFeedbackView = {
+  ...fromAlice,
+  reviewedAt: '2026-10-31T15:00:00.000Z',
+  reviewedBy: { name: 'Carol' },
+};
+
+const COUNT = '/api/admin/feedback/unreviewed-count';
+
 describe('reviewing feedback', () => {
   let http: HttpTestingController;
   let router: Router;
@@ -57,12 +65,13 @@ describe('reviewing feedback', () => {
   });
 
   /** Opens `url` as `user`. */
-  async function open(url: string, user: typeof alice) {
+  async function open(url: string, user: typeof alice, unreviewedCount = 0) {
     const fixture = TestBed.createComponent(App);
     const navigation = router.navigateByUrl(url);
     (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
     await navigation;
     TestBed.tick();
+    if (user.isAdmin) http.expectOne(COUNT).flush({ count: unreviewedCount });
     return { fixture, page: fixture.nativeElement as HTMLElement };
   }
 
@@ -156,6 +165,139 @@ describe('reviewing feedback', () => {
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain('try again');
     expect(items(page)).toHaveLength(1);
+  });
+
+  describe('the Reviewed view', () => {
+    const tab = (page: HTMLElement, name: string) =>
+      [...page.querySelectorAll<HTMLButtonElement>('main [role="tab"]')].find(
+        (t) => t.textContent?.trim() === name,
+      )!;
+
+    /** Opens the page, then its Reviewed view with `reviewed` waiting. */
+    async function openReviewed(reviewed: ReviewedFeedbackView[]) {
+      const opened = await openPage([]);
+      tab(opened.page, 'Reviewed').click();
+      TestBed.tick();
+      http.expectOne('/api/admin/feedback/reviewed').flush(reviewed);
+      await opened.fixture.whenStable();
+      return opened;
+    }
+
+    const markUnreviewed = (item: Element) =>
+      [...item.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Mark unreviewed',
+      )!;
+
+    it('starts on the unreviewed view', async () => {
+      const { page } = await openPage([fromAlice]);
+
+      expect(tab(page, 'Unreviewed').getAttribute('aria-selected')).toBe('true');
+      expect(tab(page, 'Reviewed').getAttribute('aria-selected')).toBe('false');
+    });
+
+    it('shows the same details plus who reviewed it and when', async () => {
+      const { page } = await openReviewed([reviewedByCarol]);
+
+      expect(tab(page, 'Reviewed').getAttribute('aria-selected')).toBe('true');
+      const [item] = items(page);
+      expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
+      expect(item.textContent).toContain('Alice');
+      expect(item.querySelector('.message')?.textContent).toBe(fromAlice.message);
+      expect(item.querySelector('a')?.getAttribute('href')).toBe(fromAlice.pageUrl);
+      expect(item.querySelector('time')?.getAttribute('datetime')).toBe(fromAlice.sentAt);
+      const review = item.querySelector('.review')!;
+      expect(review.textContent).toContain('Reviewed by Carol');
+      expect(review.querySelector('time')?.getAttribute('datetime')).toBe(
+        reviewedByCarol.reviewedAt,
+      );
+      expect(markReviewed(item)).toBeUndefined();
+    });
+
+    it('marks an item unreviewed in one click, with no confirmation, and removes it', async () => {
+      const confirm = vi.spyOn(window, 'confirm');
+      const { fixture, page } = await openReviewed([reviewedByCarol]);
+
+      markUnreviewed(items(page)[0]).click();
+      const request = http.expectOne('/api/admin/feedback/feedback-1/reviewed');
+      expect(request.request.method).toBe('DELETE');
+      request.flush(null, { status: 204, statusText: 'No Content' });
+      (await vi.waitFor(() => http.expectOne('/api/admin/feedback/reviewed'))).flush([]);
+      await fixture.whenStable();
+
+      expect(confirm).not.toHaveBeenCalled();
+      expect(page.querySelector('main')?.textContent).toContain('No reviewed feedback yet');
+    });
+
+    it('keeps the item and says so when marking unreviewed fails', async () => {
+      const { fixture, page } = await openReviewed([reviewedByCarol]);
+
+      markUnreviewed(items(page)[0]).click();
+      http
+        .expectOne('/api/admin/feedback/feedback-1/reviewed')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain('try again');
+      expect(items(page)).toHaveLength(1);
+    });
+
+    it('fetches the unreviewed list afresh on returning to it', async () => {
+      const { fixture, page } = await openReviewed([]);
+
+      tab(page, 'Unreviewed').click();
+      TestBed.tick();
+      http.expectOne('/api/admin/feedback').flush([fromBob]);
+      await fixture.whenStable();
+
+      expect(items(page).map((item) => item.textContent)).toEqual([
+        expect.stringContaining('Bob'),
+      ]);
+    });
+  });
+
+  describe('the unreviewed count in the header', () => {
+    const headerLink = (page: HTMLElement) =>
+      page.querySelector('header a[href="/admin/feedback"]')?.textContent?.trim();
+
+    /** Opens a page other than the feedback page as Carol, an app admin. */
+    async function openStatus(unreviewedCount: number) {
+      const opened = await open('/status', carol, unreviewedCount);
+      http.expectOne('/api/health').flush({});
+      await opened.fixture.whenStable();
+      return opened;
+    }
+
+    it('shows how many items are unreviewed', async () => {
+      const { page } = await openStatus(3);
+
+      expect(headerLink(page)).toBe('Feedback (3)');
+    });
+
+    it('reads just Feedback at zero', async () => {
+      const { page } = await openStatus(0);
+
+      expect(headerLink(page)).toBe('Feedback');
+    });
+
+    it('reads just Feedback when the count cannot be fetched', async () => {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/status');
+      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(carol);
+      await navigation;
+      TestBed.tick();
+      http.expectOne(COUNT).flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/health').flush({});
+      await fixture.whenStable();
+
+      expect(headerLink(fixture.nativeElement as HTMLElement)).toBe('Feedback');
+    });
+
+    it('is not fetched for other users', async () => {
+      await open('/status', alice);
+
+      http.expectNone(COUNT);
+      http.expectOne('/api/health').flush({});
+    });
   });
 
   it('says when there is nothing to review', async () => {

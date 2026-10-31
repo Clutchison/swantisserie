@@ -63,7 +63,7 @@ describe('feedback', () => {
       .send(body);
   }
 
-  /** No API shows reviewed feedback yet, so tests look at what was saved directly. */
+  /** Sending has no API of its own to read back, so tests look at what was saved directly. */
   const saved = () => app.get(PrismaService).feedback.findMany();
 
   it('saves the sender, time sent and page URL, starting unreviewed', async () => {
@@ -215,6 +215,131 @@ describe('feedback', () => {
 
     it('says when there is no such feedback to mark', async () => {
       await markReviewed('no-such-feedback').expect(404);
+    });
+
+    describe('the reviewed list', () => {
+      const listReviewed = (cookie = carolCookie) =>
+        request(app.getHttpServer())
+          .get('/api/admin/feedback/reviewed')
+          .set('Cookie', cookie);
+
+      it('shows the same details plus who reviewed it and when', async () => {
+        const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+        await received('Still unreviewed', '2026-10-31T13:00:00.000Z');
+        await markReviewed(id).expect(204);
+        const [{ reviewedAt }] = await app
+          .get(PrismaService)
+          .feedback.findMany({ where: { id } });
+
+        const res = await listReviewed().expect(200);
+
+        expect(res.body).toEqual([
+          {
+            id,
+            message: 'Hello',
+            pageUrl,
+            sentAt: '2026-10-31T12:00:00.000Z',
+            sender: {
+              name: 'Alice',
+              avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
+            },
+            reviewedAt: reviewedAt!.toISOString(),
+            reviewedBy: { name: 'Carol' },
+          },
+        ]);
+      });
+
+      it('lists the newest sent first, whatever order they were reviewed in', async () => {
+        const middle = await received('Middle', '2026-10-02T12:00:00.000Z');
+        const newest = await received('Newest', '2026-10-03T12:00:00.000Z');
+        const oldest = await received('Oldest', '2026-10-01T12:00:00.000Z');
+        await markReviewed(newest.id).expect(204);
+        await markReviewed(oldest.id).expect(204);
+        await markReviewed(middle.id).expect(204);
+
+        const res = await listReviewed().expect(200);
+
+        expect(
+          (res.body as { message: string }[]).map((item) => item.message),
+        ).toEqual(['Newest', 'Middle', 'Oldest']);
+      });
+
+      it('rejects anyone who is not an app admin', async () => {
+        await listReviewed(aliceCookie).expect(403);
+        await request(app.getHttpServer())
+          .get('/api/admin/feedback/reviewed')
+          .expect(401);
+      });
+    });
+
+    describe('marking unreviewed', () => {
+      const markUnreviewed = (id: string, cookie = carolCookie) =>
+        request(app.getHttpServer())
+          .delete(`/api/admin/feedback/${id}/reviewed`)
+          .set('Cookie', cookie);
+
+      it('returns it to the list, forgetting the review', async () => {
+        const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+        await markReviewed(id).expect(204);
+
+        await markUnreviewed(id).expect(204);
+
+        const res = await list().expect(200);
+        expect((res.body as { id: string }[]).map((item) => item.id)).toEqual([id]);
+        expect((await saved())[0]).toMatchObject({
+          reviewedById: null,
+          reviewedAt: null,
+        });
+      });
+
+      it('changes nothing when the item is already unreviewed', async () => {
+        const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+
+        await markUnreviewed(id).expect(204);
+
+        expect((await saved())[0].reviewedById).toBeNull();
+      });
+
+      it('says when there is no such feedback', async () => {
+        await markUnreviewed('no-such-feedback').expect(404);
+      });
+
+      it('rejects anyone who is not an app admin', async () => {
+        const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+        await markReviewed(id).expect(204);
+
+        await markUnreviewed(id, aliceCookie).expect(403);
+        await request(app.getHttpServer())
+          .delete(`/api/admin/feedback/${id}/reviewed`)
+          .expect(401);
+
+        expect((await saved())[0].reviewedById).toBe(carol.id);
+      });
+    });
+
+    describe('the unreviewed count', () => {
+      const count = (cookie = carolCookie) =>
+        request(app.getHttpServer())
+          .get('/api/admin/feedback/unreviewed-count')
+          .set('Cookie', cookie);
+
+      it('counts only unreviewed feedback', async () => {
+        expect((await count().expect(200)).body).toEqual({ count: 0 });
+
+        const { id } = await received('Reviewed', '2026-10-01T12:00:00.000Z');
+        await received('Waiting', '2026-10-02T12:00:00.000Z');
+        await received('Also waiting', '2026-10-03T12:00:00.000Z');
+        await markReviewed(id).expect(204);
+
+        expect((await count().expect(200)).body).toEqual({ count: 2 });
+      });
+
+      it('only app admins can fetch it', async () => {
+        await count(aliceCookie).expect(403);
+        await request(app.getHttpServer())
+          .get('/api/admin/feedback/unreviewed-count')
+          .expect(401);
+      });
     });
 
     it('rejects anyone who is not an app admin', async () => {
