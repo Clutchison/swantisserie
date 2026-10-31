@@ -54,6 +54,24 @@ describe('create form', () => {
     return vi.waitFor(() => http.expectOne('/api/drafts'));
   }
 
+  it('offers a way back to the draft list as a secondary button beside submit', async () => {
+    const { page } = await openForm();
+
+    const cancel = page.querySelector<HTMLAnchorElement>('.actions a.button.secondary')!;
+    expect(cancel.textContent?.trim()).toBe('Cancel');
+    expect(cancel.getAttribute('href')).toBe('/');
+    expect(cancel.parentElement?.querySelector('button[type="submit"]')).not.toBeNull();
+  });
+
+  it('keeps the Scryfall search link a plain link', async () => {
+    const { page } = await openForm();
+
+    const scryfall = [...page.querySelectorAll('a')].find(
+      (link) => link.textContent?.trim() === 'Scryfall search',
+    )!;
+    expect(scryfall.classList.contains('button')).toBe(false);
+  });
+
   it('says so while the webhooks load, and when there are none', async () => {
     const { fixture, page } = await openUrl('/drafts/new');
     const req = http.expectOne('/api/webhooks');
