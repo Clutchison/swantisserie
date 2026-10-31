@@ -72,6 +72,10 @@ $card-corners: #{4.75% / 3.5%};
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
+
+    &:hover {
+      background: var(--color-raised);
+    }
   }
 
   img {

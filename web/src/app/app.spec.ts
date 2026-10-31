@@ -114,6 +114,19 @@ describe('App', () => {
     expect(logo?.closest('a')?.getAttribute('href')).toBe('/');
   });
 
+  it('shows an app admin Webhooks and Log out as a matching pair of quiet buttons', async () => {
+    const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
+
+    expect(quietButtons(page)).toEqual(['Webhooks', 'Log out']);
+  });
+
+  it('shows other users Log out alone, as a quiet button', async () => {
+    const page = await open('/', (req) => req.flush(alice));
+
+    expect(quietButtons(page)).toEqual(['Log out']);
+    expect(page.querySelector('header')?.textContent).not.toContain('Webhooks');
+  });
+
   it('logs out and returns to the sign-in page', async () => {
     const page = await open('/', (req) => req.flush(alice));
 
@@ -142,6 +155,12 @@ describe('App', () => {
     expect(router.url).toBe('/sign-in');
   });
 });
+
+function quietButtons(page: HTMLElement) {
+  return [...page.querySelectorAll('header .button.quiet')].map((control) =>
+    control.textContent?.trim(),
+  );
+}
 
 function clickLogOut(page: HTMLElement) {
   const button = [...page.querySelectorAll('header button')].find((b) =>

@@ -18,10 +18,37 @@ header {
 
 .name {
   flex: 1;
+  min-width: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.extra-controls {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+header .button {
+  flex: none;
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+/* On phones, controls beyond Log out take their own row, so the name keeps its width. */
+@media (max-width: 30rem) {
+  header {
+    flex-wrap: wrap;
+  }
+
+  .extra-controls {
+    flex-basis: 100%;
+    order: 1;
+  }
 }
 
 .page-status {

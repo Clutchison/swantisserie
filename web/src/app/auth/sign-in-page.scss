@@ -15,4 +15,9 @@
   color: var(--color-on-discord);
   font-weight: 600;
   text-decoration: none;
+
+  /* Darker, as brightening would take the white text below AA. */
+  &:hover {
+    filter: brightness(0.9);
+  }
 }

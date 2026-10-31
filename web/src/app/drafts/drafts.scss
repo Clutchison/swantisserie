@@ -15,28 +15,6 @@
   background: var(--color-surface);
 }
 
-.button {
-  display: inline-block;
-  padding: var(--space-sm) var(--space-lg);
-  border: 0;
-  border-radius: 0.5rem;
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  &.secondary {
-    background: var(--color-raised);
-    color: var(--color-text);
-  }
-}
-
 ul {
   list-style: none;
   padding: 0;
