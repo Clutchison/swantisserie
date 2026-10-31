@@ -255,7 +255,7 @@ export async function pickLogLines(id: string) {
   const res = await pickLog(id);
   const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
   return (res.body as { playerId: string; name: string }[]).map(
-    (pick) => `${names[pick.playerId] ?? 'Bot'}: ${pick.name}`,
+    (logged) => `${names[logged.playerId] ?? 'Bot'}: ${logged.name}`,
   );
 }
 
