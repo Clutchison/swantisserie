@@ -18,33 +18,37 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { PoolCard } from '../generated/prisma/client.js';
-import type { Rarity } from '../scryfall/scryfall-client.js';
+import {
+  type Rarity,
+  ScryfallUnavailableError,
+} from '../scryfall/scryfall-client.js';
 import {
   CurrentUser,
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
 import {
-  CloseRefusedError,
-  DraftFullError,
-  DraftGoneError,
-  DraftStartedError,
   DraftsService,
   type DraftWithOrganizer,
   type LoggedPick,
   type NewDraft,
-  PauseRefusedError,
   type PickImportPreview,
+} from './drafts.service.js';
+import {
+  CloseRefusedError,
+  DraftFullError,
+  DraftGoneError,
+  DraftStartedError,
+  PauseRefusedError,
   PickImportRefusedError,
   PickRefusedError,
   PlayersChangedError,
   PoolQueryError,
-  ScryfallUnavailableError,
   StartRefusedError,
   UndoRefusedError,
   UnknownBotError,
   UnknownWebhookError,
-} from './drafts.service.js';
+} from './draft-errors.js';
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
 import { type DraftView, toDraftView } from './draft-view.js';
