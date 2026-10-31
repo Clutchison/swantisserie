@@ -173,3 +173,13 @@ _Avoid_: Channel, hook, integration
 **Announcement**:
 A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, which marks the queued picks, and so are a start, a resume or a reopen and the cascade after it. Each links to the draft, and only the player whose turn it now is gets pinged.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)
+
+## Feedback
+
+**Feedback**:
+A plain-text message a signed-in role-holder sends to the app admins, naming its sender and the page it was sent from. It is unreviewed until an app admin marks it reviewed.
+_Avoid_: Report, ticket, suggestion, comment
+
+**Reviewed**:
+Describes feedback an app admin has marked as dealt with. It leaves the default list but is kept and can still be viewed.
+_Avoid_: Seen, read, resolved, closed, archived
