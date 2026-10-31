@@ -2,16 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { cascade, currentTurn, draftComplete, pickProblem } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  EVENT_PLAYER,
-  locked,
-  type LockedDraft,
-  SEAT_ORDER,
-  toEventPlayer,
-  type Transaction,
-} from './draft-changes.js';
 import { PickRefusedError, UndoRefusedError } from './draft-errors.js';
-import type { DraftEvent } from './draft-events.js';
+import {
+  type DraftEvent,
+  EVENT_PLAYER,
+  toEventPlayer,
+} from './draft-events.js';
+import { DraftLock, type LockedDraft } from './draft-lock.js';
+import { draftSize, SEAT_ORDER } from './draft-shapes.js';
 
 const PICK_LOG = {
   orderBy: { number: 'asc' },
@@ -44,7 +42,10 @@ export interface BotTurn {
 /** A draft's turns: picks, bots' turns, cascades and undos. */
 @Injectable()
 export class TurnsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
+  ) {}
 
   /** The draft's picks, in the order they were made. */
   async picks(draftId: string): Promise<LoggedPick[]> {
@@ -62,15 +63,16 @@ export class TurnsService {
     oracleId: string,
   ): Promise<DraftEvent[]> {
     // Locked so picks happen one at a time: each sees every pick before it.
-    return locked(this.prisma, draftId, async (tx, draft) => {
-      if (draft?.state !== 'Drafting') {
-        throw new PickRefusedError({
+    return this.lock.whileIn(
+      draftId,
+      ['Drafting'],
+      () =>
+        new PickRefusedError({
           error: 'not-drafting',
           message: 'This draft isn’t taking picks.',
-        });
-      }
-      return this.takeTurn(tx, draftId, draft, userId, oracleId);
-    });
+        }),
+      (draft) => this.takeTurn(draft, userId, oracleId),
+    );
   }
 
   /**
@@ -80,8 +82,9 @@ export class TurnsService {
    * that turn.
    */
   async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
-    return locked(this.prisma, draftId, async (tx, draft) => {
+    return this.lock.run(draftId, async (draft) => {
       if (draft?.state !== 'Drafting') return [];
+      const { tx } = draft;
       if ((await tx.pick.count({ where: { draftId } })) !== pick - 1) {
         return [];
       }
@@ -91,7 +94,7 @@ export class TurnsService {
         select: { oracleId: true },
       });
       const card = available[Math.floor(Math.random() * available.length)];
-      return this.takeTurn(tx, draftId, draft, userId, card.oracleId);
+      return this.takeTurn(draft, userId, card.oracleId);
     });
   }
 
@@ -111,7 +114,7 @@ export class TurnsService {
     });
     return drafts.flatMap((draft) => {
       const turn = currentTurn(
-        { players: draft.players.length, picksPerPlayer: draft.picksPerPlayer },
+        draftSize(draft, draft.players.length),
         draft._count.picks,
       );
       if (!turn) return [];
@@ -123,15 +126,13 @@ export class TurnsService {
   }
 
   /**
-   * Picks each card the cascade from the draft's current turn makes, in a
-   * draft that is Drafting. A cascade stops at a bot's turn: the bot picks
-   * on its own timer.
+   * Picks each card the cascade from the draft's current turn makes. The
+   * caller holds the draft row lock, and has moved the draft to Drafting; a
+   * draft its last pick has just completed makes no picks. A cascade stops at
+   * a bot's turn: the bot picks on its own timer.
    */
-  async cascade(
-    tx: Transaction,
-    draftId: string,
-    draft: LockedDraft,
-  ): Promise<DraftEvent[]> {
+  async cascade(draft: LockedDraft): Promise<DraftEvent[]> {
+    const { tx, id: draftId } = draft;
     // Seats are 0..n-1 once started, so indexes here are the engine's seats.
     const players = await tx.player.findMany({
       where: { draftId },
@@ -153,8 +154,7 @@ export class TurnsService {
     });
     const picks = cascade(
       {
-        players: players.length,
-        picksPerPlayer: draft.picksPerPlayer,
+        ...draftSize(draft, players.length),
         picked: picked.map((pick) => pick.poolCard.oracleId),
       },
       players.map((player) =>
@@ -166,9 +166,7 @@ export class TurnsService {
     const events: DraftEvent[] = [];
     for (const { seat, card } of picks) {
       const { userId } = players[seat];
-      events.push(
-        ...(await this.pickCard(tx, draftId, draft, userId, card, true)),
-      );
+      events.push(...(await this.pickCard(draft, userId, card, true)));
     }
     return events;
   }
@@ -179,15 +177,13 @@ export class TurnsService {
    * PickRefusedError if they can't.
    */
   private async takeTurn(
-    tx: Transaction,
-    draftId: string,
     draft: LockedDraft,
     userId: string,
     oracleId: string,
   ): Promise<DraftEvent[]> {
     return [
-      ...(await this.pickCard(tx, draftId, draft, userId, oracleId, false)),
-      ...(await this.cascade(tx, draftId, draft)),
+      ...(await this.pickCard(draft, userId, oracleId, false)),
+      ...(await this.cascade(draft)),
     ];
   }
 
@@ -197,13 +193,12 @@ export class TurnsService {
    * PickRefusedError if they can't.
    */
   private async pickCard(
-    tx: Transaction,
-    draftId: string,
     draft: LockedDraft,
     userId: string,
     oracleId: string,
     queued: boolean,
   ): Promise<DraftEvent[]> {
+    const { tx, id: draftId } = draft;
     const card = await tx.poolCard.findUnique({
       where: { draftId_oracleId: { draftId, oracleId } },
       select: { id: true, name: true },
@@ -225,10 +220,7 @@ export class TurnsService {
       ...PICK_LOG,
     });
     const seat = players.findIndex((player) => player.userId === userId);
-    const size = {
-      players: players.length,
-      picksPerPlayer: draft.picksPerPlayer,
-    };
+    const size = draftSize(draft, players.length);
     const problem = pickProblem(
       { ...size, picked: pickLog.map((pick) => pick.poolCard.oracleId) },
       seat,
@@ -265,10 +257,7 @@ export class TurnsService {
       },
     ];
     if (draftComplete(size, picked)) {
-      await tx.draft.update({
-        where: { id: draftId },
-        data: { state: 'Complete' },
-      });
+      await draft.moveTo('Complete');
       events.push({ type: 'completed' });
     }
     return events;
@@ -280,46 +269,49 @@ export class TurnsService {
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {
-    return locked(this.prisma, draftId, async (tx, draft) => {
-      if (draft?.state !== 'Drafting' && draft?.state !== 'Paused') {
-        throw new UndoRefusedError({
+    return this.lock.whileIn(
+      draftId,
+      ['Drafting', 'Paused'],
+      () =>
+        new UndoRefusedError({
           error: 'not-drafting',
           message:
             'Picks can only be undone while the draft is drafting or paused.',
+        }),
+      async ({ tx }) => {
+        const latest = await tx.pick.findFirst({
+          where: { draftId },
+          orderBy: { number: 'desc' },
+          select: {
+            id: true,
+            number: true,
+            poolCardId: true,
+            poolCard: { select: { name: true } },
+            player: { select: EVENT_PLAYER },
+          },
         });
-      }
-      const latest = await tx.pick.findFirst({
-        where: { draftId },
-        orderBy: { number: 'desc' },
-        select: {
-          id: true,
-          number: true,
-          poolCardId: true,
-          poolCard: { select: { name: true } },
-          player: { select: EVENT_PLAYER },
-        },
-      });
-      if (latest?.number !== number) {
-        throw new UndoRefusedError({
-          error: 'not-latest',
-          message:
-            'Only the latest pick can be undone, and the picks have changed.',
+        if (latest?.number !== number) {
+          throw new UndoRefusedError({
+            error: 'not-latest',
+            message:
+              'Only the latest pick can be undone, and the picks have changed.',
+          });
+        }
+        await tx.pick.delete({ where: { id: latest.id } });
+        // No longer picked, so no longer lost: back where it was in each queue.
+        await tx.queuedCard.updateMany({
+          where: { poolCardId: latest.poolCardId },
+          data: { lostAt: null },
         });
-      }
-      await tx.pick.delete({ where: { id: latest.id } });
-      // No longer picked, so no longer lost: back where it was in each queue.
-      await tx.queuedCard.updateMany({
-        where: { poolCardId: latest.poolCardId },
-        data: { lostAt: null },
-      });
-      return [
-        {
-          type: 'undone',
-          number: latest.number,
-          player: toEventPlayer(latest.player),
-          card: latest.poolCard.name,
-        },
-      ];
-    });
+        return [
+          {
+            type: 'undone',
+            number: latest.number,
+            player: toEventPlayer(latest.player),
+            card: latest.poolCard.name,
+          },
+        ];
+      },
+    );
   }
 }

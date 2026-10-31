@@ -1,17 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { MAX_PLAYERS, shuffle } from 'engine';
-import { type PoolCard, Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  checkCanStart,
-  EVENT_PLAYER,
-  inLobby,
-  SEAT_ORDER,
-  seatPlayers,
-  toEventPlayer,
-  type Transaction,
-} from './draft-changes.js';
 import {
   DraftFullError,
   PlayersChangedError,
@@ -19,7 +10,18 @@ import {
   UnknownBotError,
   UnknownWebhookError,
 } from './draft-errors.js';
-import type { DraftEvent } from './draft-events.js';
+import {
+  type DraftEvent,
+  EVENT_PLAYER,
+  toEventPlayer,
+} from './draft-events.js';
+import { DraftLock, type LockedDraft } from './draft-lock.js';
+import {
+  type DraftWithOrganizer,
+  WITH_ORGANIZER,
+} from './draft-reads.service.js';
+import { SEAT_ORDER } from './draft-shapes.js';
+import { checkCanStart, seatPlayers } from './draft-start.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { TurnsService } from './turns.service.js';
 import {
@@ -36,28 +38,12 @@ export interface NewDraft {
   webhookId: string | null;
 }
 
-const WITH_ORGANIZER = {
-  include: {
-    organizer: { select: { id: true, name: true } },
-    // Never the URL: it is a secret only app admins may see.
-    webhook: { select: { id: true, name: true } },
-    players: {
-      orderBy: SEAT_ORDER,
-      select: {
-        user: { select: { id: true, name: true, avatar: true, isBot: true } },
-      },
-    },
-    _count: { select: { pool: true, picks: true } },
-  },
-} satisfies Prisma.DraftDefaultArgs;
-
-export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
-
-/** Drafts as they are created and read, and everything done in their lobby. */
+/** Drafts as they are created, and everything done in their lobby. */
 @Injectable()
 export class DraftLobbyService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
     private readonly scryfall: ScryfallClient,
     private readonly snapshots: PoolSnapshotService,
     private readonly turns: TurnsService,
@@ -98,40 +84,12 @@ export class DraftLobbyService {
     return created;
   }
 
-  async find(id: string): Promise<DraftWithOrganizer | null> {
-    return this.prisma.draft.findUnique({ where: { id }, ...WITH_ORGANIZER });
-  }
-
-  /** Every draft, newest first. */
-  async list(): Promise<DraftWithOrganizer[]> {
-    return this.prisma.draft.findMany({
-      orderBy: { createdAt: 'desc' },
-      ...WITH_ORGANIZER,
-    });
-  }
-
-  /** The draft's pool so far, by name. */
-  async pool(draftId: string): Promise<PoolCard[]> {
-    return this.prisma.poolCard.findMany({
-      where: { draftId },
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  /**
-   * Starts the draft's pool snapshot over, e.g. after a failure. Throws
-   * PoolFrozenError if the snapshot is already complete.
-   */
-  async restartSnapshot(draftId: string): Promise<void> {
-    await this.snapshots.start(draftId);
-  }
-
   /**
    * Adds the user to the draft's players; a no-op if they're already in.
    * Throws DraftStartedError once the draft has left Lobby.
    */
   async join(draftId: string, userId: string): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
+    await this.lock.inLobby(draftId, async ({ tx }) => {
       await tx.player.createMany({
         data: { draftId, userId },
         skipDuplicates: true,
@@ -144,7 +102,7 @@ export class DraftLobbyService {
    * Throws DraftStartedError once the draft has left Lobby.
    */
   async leave(draftId: string, userId: string): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
+    await this.lock.inLobby(draftId, async ({ tx }) => {
       await tx.player.deleteMany({ where: { draftId, userId } });
     });
   }
@@ -155,7 +113,7 @@ export class DraftLobbyService {
    * as it can, and DraftStartedError once it has left Lobby.
    */
   async addBot(draftId: string): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
+    await this.lock.inLobby(draftId, async ({ tx }) => {
       const players = await tx.player.findMany({
         where: { draftId },
         select: { user: { select: { name: true, isBot: true } } },
@@ -181,7 +139,7 @@ export class DraftLobbyService {
    * once it has left Lobby.
    */
   async removeBot(draftId: string, userId: string): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
+    await this.lock.inLobby(draftId, async ({ tx }) => {
       const { count } = await tx.player.deleteMany({
         where: { draftId, userId, user: { isBot: true } },
       });
@@ -196,7 +154,7 @@ export class DraftLobbyService {
    * Throws DraftStartedError once the draft has left Lobby.
    */
   async cancel(draftId: string): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
+    await this.lock.inLobby(draftId, async ({ tx }) => {
       const bots = await tx.player.findMany({
         where: { draftId, user: { isBot: true } },
         select: { userId: true },
@@ -214,9 +172,9 @@ export class DraftLobbyService {
    * draft has left Lobby.
    */
   async randomizeSeats(draftId: string): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
-      const userIds = await this.seatOrder(tx, draftId);
-      await seatPlayers(tx, draftId, shuffle(userIds));
+    await this.lock.inLobby(draftId, async (draft) => {
+      const userIds = await this.seatOrder(draft);
+      await seatPlayers(draft, shuffle(userIds));
     });
   }
 
@@ -226,8 +184,8 @@ export class DraftLobbyService {
    * DraftStartedError once the draft has left Lobby.
    */
   async reorderSeats(draftId: string, userIds: string[]): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx) => {
-      const players = new Set(await this.seatOrder(tx, draftId));
+    await this.lock.inLobby(draftId, async (draft) => {
+      const players = new Set(await this.seatOrder(draft));
       // The controller has checked the ids are distinct.
       if (
         players.size !== userIds.length ||
@@ -235,7 +193,7 @@ export class DraftLobbyService {
       ) {
         throw new PlayersChangedError();
       }
-      await seatPlayers(tx, draftId, userIds);
+      await seatPlayers(draft, userIds);
     });
   }
 
@@ -245,15 +203,13 @@ export class DraftLobbyService {
    * already has.
    */
   async start(draftId: string): Promise<DraftEvent[]> {
-    return inLobby(this.prisma, draftId, async (tx, draft) => {
-      const userIds = await this.seatOrder(tx, draftId);
-      await checkCanStart(tx, draftId, draft, userIds.length);
+    return this.lock.inLobby(draftId, async (draft) => {
+      const { tx } = draft;
+      const userIds = await this.seatOrder(draft);
+      await checkCanStart(tx, draft, userIds.length);
       // Seats become 0..n-1 so the engine's seat indexes match them.
-      await seatPlayers(tx, draftId, userIds);
-      await tx.draft.update({
-        where: { id: draftId },
-        data: { state: 'Drafting' },
-      });
+      await seatPlayers(draft, userIds);
+      await draft.moveTo('Drafting');
       const seats = await tx.player.findMany({
         where: { draftId },
         orderBy: SEAT_ORDER,
@@ -261,13 +217,13 @@ export class DraftLobbyService {
       });
       return [
         { type: 'started', seats: seats.map(toEventPlayer) },
-        ...(await this.turns.cascade(tx, draftId, draft)),
+        ...(await this.turns.cascade(draft)),
       ];
     });
   }
 
   /** The user ids of the draft's players, in seat order. */
-  private async seatOrder(tx: Transaction, draftId: string): Promise<string[]> {
+  private async seatOrder({ tx, id: draftId }: LockedDraft): Promise<string[]> {
     const players = await tx.player.findMany({
       where: { draftId },
       orderBy: SEAT_ORDER,

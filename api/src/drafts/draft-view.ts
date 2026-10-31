@@ -5,7 +5,8 @@ import type {
 } from '../generated/prisma/client.js';
 import { avatarUrl } from '../auth/avatar-url.js';
 import type { WebhookView } from '../discord/webhooks.service.js';
-import type { DraftWithOrganizer } from './draft-lobby.service.js';
+import type { DraftWithOrganizer } from './draft-reads.service.js';
+import { draftSize } from './draft-shapes.js';
 
 /** How far the pool snapshot has got. */
 export interface PoolSnapshotView {
@@ -91,7 +92,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
 function toTurnView(draft: DraftWithOrganizer): TurnView | null {
   if (draft.state !== 'Drafting' && draft.state !== 'Paused') return null;
   const turn = currentTurn(
-    { players: draft.players.length, picksPerPlayer: draft.picksPerPlayer },
+    draftSize(draft, draft.players.length),
     draft._count.picks,
   );
   if (!turn) return null;

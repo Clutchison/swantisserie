@@ -18,7 +18,7 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
-import { DraftLobbyService } from './draft-lobby.service.js';
+import { DraftReadsService } from './draft-reads.service.js';
 import {
   NotAPlayerError,
   QueueChangedError,
@@ -35,7 +35,7 @@ import {
 @UseGuards(SessionGuard)
 export class QueuesController {
   constructor(
-    private readonly lobby: DraftLobbyService,
+    private readonly reads: DraftReadsService,
     private readonly queues: QueuesService,
   ) {}
 
@@ -94,7 +94,7 @@ export class QueuesController {
     id: string,
     request: () => Promise<QueueView>,
   ): Promise<QueueView> {
-    if (!(await this.lobby.find(id))) throw new NotFoundException();
+    if (!(await this.reads.find(id))) throw new NotFoundException();
     try {
       return await request();
     } catch (err) {

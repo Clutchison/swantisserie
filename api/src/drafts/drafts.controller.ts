@@ -28,11 +28,11 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
+import { DraftLobbyService, type NewDraft } from './draft-lobby.service.js';
 import {
-  DraftLobbyService,
+  DraftReadsService,
   type DraftWithOrganizer,
-  type NewDraft,
-} from './draft-lobby.service.js';
+} from './draft-reads.service.js';
 import {
   type PickImportPreview,
   PickImportService,
@@ -61,6 +61,7 @@ import {
   type CardFace,
   type CardImages,
   PoolFrozenError,
+  PoolSnapshotService,
 } from './pool-snapshot.service.js';
 
 const DEFAULT_PICKS_PER_PLAYER = 40;
@@ -119,7 +120,9 @@ export class DraftsController {
   private readonly logger = new Logger(DraftsController.name);
 
   constructor(
+    private readonly reads: DraftReadsService,
     private readonly lobby: DraftLobbyService,
+    private readonly snapshots: PoolSnapshotService,
     private readonly pickImports: PickImportService,
     private readonly turns: TurnsService,
     private readonly lifecycle: DraftLifecycleService,
@@ -129,7 +132,7 @@ export class DraftsController {
 
   @Get()
   async list(): Promise<DraftView[]> {
-    return (await this.lobby.list()).map(toDraftView);
+    return (await this.reads.list()).map(toDraftView);
   }
 
   @Get(':id')
@@ -140,7 +143,7 @@ export class DraftsController {
   @Get(':id/pool')
   async pool(@Param('id') id: string): Promise<PoolCardView[]> {
     await this.findOr404(id);
-    return (await this.lobby.pool(id)).map(toPoolCardView);
+    return (await this.reads.pool(id)).map(toPoolCardView);
   }
 
   /** The draft's pick log, in pick order. */
@@ -250,7 +253,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.lobby.restartSnapshot(id));
+    return this.change(id, () => this.snapshots.start(id));
   }
 
   /** Seats the players in a random order; for the organizer. */
@@ -453,7 +456,7 @@ export class DraftsController {
   }
 
   private async findOr404(id: string): Promise<DraftWithOrganizer> {
-    const draft = await this.lobby.find(id);
+    const draft = await this.reads.find(id);
     if (!draft) throw new NotFoundException();
     return draft;
   }
