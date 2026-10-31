@@ -69,8 +69,9 @@ export function useDraftsApp() {
     router = TestBed.inject(Router);
   });
 
-  afterEach(() => vi.restoreAllMocks());
   afterEach(() => http.verify());
+  // Hooks run last-registered first, so a failed verify can't skip this.
+  afterEach(() => vi.restoreAllMocks());
 }
 
 /** Opens `url` as `user`: Alice, unless told otherwise. */
