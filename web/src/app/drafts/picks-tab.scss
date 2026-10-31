@@ -1,0 +1,31 @@
+/* Sits inside the draft page, which has the padding. */
+:host {
+  padding: 0;
+}
+
+/* One player's picks, numbered as in the pick log. */
+ol.picks {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .number {
+    min-width: 2rem;
+    color: var(--color-muted);
+    text-align: right;
+  }
+
+  .card {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.empty {
+  list-style: none;
+}

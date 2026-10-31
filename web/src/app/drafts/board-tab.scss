@@ -1,0 +1,67 @@
+/* Sits inside the draft page, which has the padding. */
+:host {
+  padding: 0;
+}
+
+h3 {
+  margin: 1rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.empty {
+  list-style: none;
+}
+
+/* A player's name on the Board, which opens their picks. */
+.link {
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* One column of picks per player, as many across as fit. */
+.player-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0 1rem;
+}
+
+.log {
+  ol {
+    padding-left: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .number {
+    min-width: 2rem;
+    color: var(--color-muted);
+    text-align: right;
+  }
+
+  .player {
+    min-width: 6rem;
+    font-weight: 600;
+  }
+
+  .card {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
