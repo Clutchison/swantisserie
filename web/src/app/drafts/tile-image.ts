@@ -37,6 +37,9 @@ export class TileImageLoader implements OnDestroy {
   /** The oracle ids of the cards whose images were already requested, which their tiles needn't wait to show. */
   private readonly requested = new Set<string>();
   private bufferDelay?: ReturnType<typeof setTimeout>;
+  private readonly settledSignal = signal(true);
+  /** Whether no tile on screen, or that may be, is yet to request its image. */
+  readonly settled = this.settledSignal.asReadonly();
   // Not in every test environment; tiles then request their images straight away.
   private readonly observer =
     typeof IntersectionObserver === 'undefined'
@@ -51,6 +54,7 @@ export class TileImageLoader implements OnDestroy {
     }
     clearTimeout(this.bufferDelay);
     this.waiting.set(element, { oracleId, request, measured: false });
+    this.settledSignal.set(false);
     this.observer.observe(element);
   }
 
@@ -89,6 +93,7 @@ export class TileImageLoader implements OnDestroy {
     const waitingOnScreen = [...this.waiting.values()].some(
       (tile) => !tile.measured || tile.settling !== undefined,
     );
+    this.settledSignal.set(!waitingOnScreen);
     if (waitingOnScreen) return;
     this.bufferDelay = setTimeout(() => {
       for (const [element, tile] of this.waiting) {

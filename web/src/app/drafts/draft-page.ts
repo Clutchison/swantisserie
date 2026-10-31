@@ -26,6 +26,7 @@ import {
   type QueueView,
 } from './drafts';
 import { DraftUpdates } from './draft-updates';
+import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';
 import { OrganizerControls } from './organizer-controls';
 import { PicksTab } from './picks-tab';
@@ -44,7 +45,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 @Component({
   selector: 'app-draft-page',
   imports: [BoardTab, LobbyControls, OrganizerControls, PicksTab, PoolTab, QueueTab, RouterLink],
-  providers: [CardImageSource, CardPreviews],
+  providers: [CardImageSource, CardPreviews, ImagePreloader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './draft-page.scss'],

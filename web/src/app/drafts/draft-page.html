@@ -122,6 +122,7 @@
           }
           <app-pool-tab
             [draftId]="draft.id"
+            [visible]="tab() === 'Pool'"
             [cards]="poolCards()"
             [loading]="poolLoading()"
             [failed]="poolFailed()"
