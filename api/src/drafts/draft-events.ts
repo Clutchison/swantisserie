@@ -1,3 +1,5 @@
+import type { Prisma } from '../generated/prisma/client.js';
+
 /** A player as a draft event names them. */
 export interface EventPlayer {
   /** Their Discord user id, or a bot's synthetic one. */
@@ -50,3 +52,14 @@ export type DraftEvent =
       player: EventPlayer;
     }
   | { type: 'completed' };
+
+/** What a draft event needs of a player. */
+export const EVENT_PLAYER = {
+  user: { select: { id: true, name: true, isBot: true } },
+} satisfies Prisma.PlayerSelect;
+
+export function toEventPlayer({
+  user,
+}: Prisma.PlayerGetPayload<{ select: typeof EVENT_PLAYER }>): EventPlayer {
+  return { id: user.id, name: user.name, isBot: user.isBot };
+}

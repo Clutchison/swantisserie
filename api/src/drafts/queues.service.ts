@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { currentTurn } from 'engine';
-import type { DraftState, Prisma } from '../generated/prisma/client.js';
+import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { draftSize, type Transaction } from './draft-shapes.js';
 
 /** A card in a queue, or lost from one. */
 export interface QueuedCardView {
@@ -47,8 +48,6 @@ export class QueueRefusedError extends Error {
     super(refusal.message);
   }
 }
-
-type Transaction = Prisma.TransactionClient;
 
 /** Players' queues: the cards each wants picked for them, in order. */
 @Injectable()
@@ -225,7 +224,7 @@ export class QueuesService {
     draftId: string,
     playerId: string,
   ): Promise<boolean> {
-    const { picksPerPlayer, _count } = await tx.draft.findUniqueOrThrow({
+    const draft = await tx.draft.findUniqueOrThrow({
       where: { id: draftId },
       select: {
         picksPerPlayer: true,
@@ -237,8 +236,8 @@ export class QueuesService {
       select: { seat: true },
     });
     const turn = currentTurn(
-      { players: _count.players, picksPerPlayer },
-      _count.picks,
+      draftSize(draft, draft._count.players),
+      draft._count.picks,
     );
     return turn?.seat === seat;
   }

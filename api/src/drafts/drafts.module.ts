@@ -5,7 +5,9 @@ import { ScryfallModule } from '../scryfall/scryfall.module.js';
 import { BotPickDelay, BotPlayers } from './bot-players.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService } from './draft-lobby.service.js';
+import { DraftLock } from './draft-lock.js';
 import { DraftPublisher } from './draft-publisher.js';
+import { DraftReadsService } from './draft-reads.service.js';
 import { DraftsController } from './drafts.controller.js';
 import { DraftsGateway } from './drafts.gateway.js';
 import { PickImportService } from './pick-import.service.js';
@@ -19,6 +21,8 @@ import { TurnsService } from './turns.service.js';
   imports: [AuthModule, DiscordModule, ScryfallModule],
   controllers: [DraftsController, QueuesController],
   providers: [
+    DraftLock,
+    DraftReadsService,
     DraftLobbyService,
     PickImportService,
     TurnsService,

@@ -1,23 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { currentTurn } from 'engine';
-import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  EVENT_PLAYER,
-  locked,
-  type LockedDraft,
-  SEAT_ORDER,
-  toEventPlayer,
-  type Transaction,
-} from './draft-changes.js';
 import { CloseRefusedError, PauseRefusedError } from './draft-errors.js';
-import type { DraftEvent } from './draft-events.js';
+import {
+  type DraftEvent,
+  EVENT_PLAYER,
+  toEventPlayer,
+} from './draft-events.js';
+import { DraftLock, type LockedDraft } from './draft-lock.js';
+import { draftSize, SEAT_ORDER } from './draft-shapes.js';
 import { TurnsService } from './turns.service.js';
 
 /** A started draft's pauses, resumes, closes and reopens. */
 @Injectable()
 export class DraftLifecycleService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
     private readonly turns: TurnsService,
   ) {}
 
@@ -26,19 +23,19 @@ export class DraftLifecycleService {
    * a bot's, can be made. Throws PauseRefusedError if it isn't Drafting.
    */
   async pause(draftId: string): Promise<DraftEvent[]> {
-    return locked(this.prisma, draftId, async (tx, draft) => {
-      if (draft?.state !== 'Drafting') {
-        throw new PauseRefusedError({
+    return this.lock.whileIn(
+      draftId,
+      ['Drafting'],
+      () =>
+        new PauseRefusedError({
           error: 'not-drafting',
           message: 'Only a drafting draft can be paused.',
-        });
-      }
-      await tx.draft.update({
-        where: { id: draftId },
-        data: { state: 'Paused' },
-      });
-      return [{ type: 'paused' }];
-    });
+        }),
+      async (draft) => {
+        await draft.moveTo('Paused');
+        return [{ type: 'paused' }];
+      },
+    );
   }
 
   /**
@@ -46,15 +43,16 @@ export class DraftLifecycleService {
    * from its current turn. Throws PauseRefusedError if it isn't Paused.
    */
   async resume(draftId: string): Promise<DraftEvent[]> {
-    return locked(this.prisma, draftId, async (tx, draft) => {
-      if (draft?.state !== 'Paused') {
-        throw new PauseRefusedError({
+    return this.lock.whileIn(
+      draftId,
+      ['Paused'],
+      () =>
+        new PauseRefusedError({
           error: 'not-paused',
           message: 'Only a paused draft can be resumed.',
-        });
-      }
-      return this.backToDrafting(tx, draftId, draft, 'resumed');
-    });
+        }),
+      (draft) => this.backToDrafting(draft, 'resumed'),
+    );
   }
 
   /**
@@ -63,19 +61,19 @@ export class DraftLifecycleService {
    * is in any other state.
    */
   async close(draftId: string): Promise<DraftEvent[]> {
-    return locked(this.prisma, draftId, async (tx, draft) => {
-      if (draft?.state !== 'Drafting' && draft?.state !== 'Paused') {
-        throw new CloseRefusedError({
+    return this.lock.whileIn(
+      draftId,
+      ['Drafting', 'Paused'],
+      () =>
+        new CloseRefusedError({
           error: 'not-closable',
           message: 'Only a drafting or paused draft can be closed.',
-        });
-      }
-      await tx.draft.update({
-        where: { id: draftId },
-        data: { state: 'Closed' },
-      });
-      return [{ type: 'closed' }];
-    });
+        }),
+      async (draft) => {
+        await draft.moveTo('Closed');
+        return [{ type: 'closed' }];
+      },
+    );
   }
 
   /**
@@ -84,15 +82,16 @@ export class DraftLifecycleService {
    * it isn't Closed.
    */
   async reopen(draftId: string): Promise<DraftEvent[]> {
-    return locked(this.prisma, draftId, async (tx, draft) => {
-      if (draft?.state !== 'Closed') {
-        throw new CloseRefusedError({
+    return this.lock.whileIn(
+      draftId,
+      ['Closed'],
+      () =>
+        new CloseRefusedError({
           error: 'not-closed',
           message: 'Only a closed draft can be reopened.',
-        });
-      }
-      return this.backToDrafting(tx, draftId, draft, 'reopened');
-    });
+        }),
+      (draft) => this.backToDrafting(draft, 'reopened'),
+    );
   }
 
   /**
@@ -100,15 +99,11 @@ export class DraftLifecycleService {
    * its current turn. `type` is the event to say so with.
    */
   private async backToDrafting(
-    tx: Transaction,
-    draftId: string,
     draft: LockedDraft,
     type: 'resumed' | 'reopened',
   ): Promise<DraftEvent[]> {
-    await tx.draft.update({
-      where: { id: draftId },
-      data: { state: 'Drafting' },
-    });
+    const { tx, id: draftId } = draft;
+    await draft.moveTo('Drafting');
     // Paused or Closed, so not complete: there is a turn.
     const players = await tx.player.findMany({
       where: { draftId },
@@ -116,7 +111,7 @@ export class DraftLifecycleService {
       select: EVENT_PLAYER,
     });
     const turn = currentTurn(
-      { players: players.length, picksPerPlayer: draft.picksPerPlayer },
+      draftSize(draft, players.length),
       await tx.pick.count({ where: { draftId } }),
     )!;
     return [
@@ -125,7 +120,7 @@ export class DraftLifecycleService {
         number: turn.pick,
         player: toEventPlayer(players[turn.seat]),
       },
-      ...(await this.turns.cascade(tx, draftId, draft)),
+      ...(await this.turns.cascade(draft)),
     ];
   }
 }

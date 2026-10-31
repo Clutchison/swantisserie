@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DraftNotifier } from '../discord/draft-notifier.js';
 import type { DraftEvent } from './draft-events.js';
-import { DraftLobbyService } from './draft-lobby.service.js';
+import { DraftReadsService } from './draft-reads.service.js';
 import { type DraftView, toDraftView } from './draft-view.js';
 import { DraftsGateway } from './drafts.gateway.js';
 
@@ -9,7 +9,7 @@ import { DraftsGateway } from './drafts.gateway.js';
 @Injectable()
 export class DraftPublisher {
   constructor(
-    private readonly lobby: DraftLobbyService,
+    private readonly reads: DraftReadsService,
     private readonly gateway: DraftsGateway,
     private readonly notifier: DraftNotifier,
   ) {}
@@ -25,7 +25,7 @@ export class DraftPublisher {
   ): Promise<DraftView | null> {
     // Committed by now, so a failed post can't undo the change.
     if (events.length > 0) void this.notifier.notify(draftId, events);
-    const found = await this.lobby.find(draftId);
+    const found = await this.reads.find(draftId);
     if (!found) return null;
     const draft = toDraftView(found);
     this.gateway.changed(draft);

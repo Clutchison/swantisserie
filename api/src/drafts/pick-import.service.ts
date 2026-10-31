@@ -1,19 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { readPickImport } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PickImportRefusedError } from './draft-errors.js';
+import { checkInLobby, DraftLock } from './draft-lock.js';
+import { draftSize, SEAT_ORDER, type Transaction } from './draft-shapes.js';
 import {
   checkCanStart,
-  inLobby,
-  type LockedDraft,
-  SEAT_ORDER,
   seatPlayers,
-  type Transaction,
-} from './draft-changes.js';
-import {
-  DraftGoneError,
-  DraftStartedError,
-  PickImportRefusedError,
-} from './draft-errors.js';
+  type StartableDraft,
+} from './draft-start.js';
 
 /** What a pick import's file would do to a draft. */
 export interface PickImportPreview {
@@ -26,7 +21,10 @@ export interface PickImportPreview {
 /** Pick imports: loading picks made outside the app into a draft in the lobby. */
 @Injectable()
 export class PickImportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
+  ) {}
 
   /**
    * What importing the picks in `csv` would do to the draft, which it leaves
@@ -40,13 +38,17 @@ export class PickImportService {
   ): Promise<PickImportPreview> {
     const draft = await this.prisma.draft.findUnique({
       where: { id: draftId },
-      select: { state: true, picksPerPlayer: true, snapshotState: true },
+      select: {
+        id: true,
+        state: true,
+        picksPerPlayer: true,
+        snapshotState: true,
+      },
     });
-    if (!draft) throw new DraftGoneError();
-    if (draft.state !== 'Lobby') throw new DraftStartedError();
+    // Unlocked, as a preview changes nothing: not even the draft's version.
+    checkInLobby(draft);
     const { players, reading } = await this.checkPickImport(
       this.prisma,
-      draftId,
       draft,
       csv,
     );
@@ -77,10 +79,10 @@ export class PickImportService {
     csv: string,
     previewedSeats: string[],
   ): Promise<void> {
-    await inLobby(this.prisma, draftId, async (tx, draft) => {
+    await this.lock.inLobby(draftId, async (draft) => {
+      const { tx } = draft;
       const { players, reading, pool } = await this.checkPickImport(
         tx,
-        draftId,
         draft,
         csv,
       );
@@ -94,8 +96,7 @@ export class PickImportService {
       }
       // Seats become 0..n-1 so the engine's seat indexes match them.
       await seatPlayers(
-        tx,
-        draftId,
+        draft,
         players.map((player) => player.userId),
       );
       const cardIds = new Map(pool.map((card) => [card.oracleId, card.id]));
@@ -111,10 +112,7 @@ export class PickImportService {
         })),
       });
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
-      await tx.draft.update({
-        where: { id: draftId },
-        data: { state: 'Paused' },
-      });
+      await draft.moveTo('Paused');
     });
   }
 
@@ -125,25 +123,21 @@ export class PickImportService {
    */
   private async checkPickImport(
     client: Pick<Transaction, 'player' | 'poolCard'>,
-    draftId: string,
-    draft: LockedDraft,
+    draft: StartableDraft,
     csv: string,
   ) {
+    const draftId = draft.id;
     const players = await client.player.findMany({
       where: { draftId },
       orderBy: SEAT_ORDER,
       select: { id: true, userId: true, user: { select: { name: true } } },
     });
-    await checkCanStart(client, draftId, draft, players.length);
+    await checkCanStart(client, draft, players.length);
     const pool = await client.poolCard.findMany({
       where: { draftId },
       select: { id: true, oracleId: true, name: true },
     });
-    const reading = readPickImport(
-      csv,
-      { players: players.length, picksPerPlayer: draft.picksPerPlayer },
-      pool,
-    );
+    const reading = readPickImport(csv, draftSize(draft, players.length), pool);
     if (!reading.ok) throw new PickImportRefusedError(reading.problems);
     return { players, reading, pool };
   }
