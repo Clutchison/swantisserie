@@ -50,6 +50,10 @@ _Avoid_: Tooltip, hover card
 A search in Scryfall syntax that a viewer types to narrow the pool cards they see. It never changes the pool.
 _Avoid_: Filter, query (alone), advanced search
 
+**Pool tab**:
+The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them.
+_Avoid_: Card grid, pool page
+
 **On Arena**:
 Describes a card with at least one printing on MTG Arena. Every card in a pool must be on Arena.
 _Avoid_: Arena-legal (legality is per format), Arena card
@@ -81,6 +85,10 @@ _Avoid_: Selection, draft (as a verb)
 **Pick log**:
 A draft's picks in the order they were made, each with its pick number, player and card.
 _Avoid_: History, pick history, feed
+
+**Board tab**:
+The part of a draft's page that shows every player's picks, in seat order, and the pick log.
+_Avoid_: Picks page, draft board
 
 **Queue**:
 A player's private, ordered list of cards to pick automatically when their turn comes.

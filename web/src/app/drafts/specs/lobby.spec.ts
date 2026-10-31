@@ -1,4 +1,4 @@
-import { type PoolSnapshotView, EMPTY_QUEUE } from '../drafts';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   draft,
@@ -9,19 +9,15 @@ import {
   openDraft,
   flushQueue,
   flushPicks,
+  completeSnapshot,
+  button,
 } from './harness';
 
 useDraftsApp();
 
 describe('lobby', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
-
-  function button(page: HTMLElement, label: string) {
-    return [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
-  }
-
   it('lists the players with their avatars', async () => {
-    const { page } = await openDraft(complete, { players: [bob, alicePlayer] });
+    const { page } = await openDraft(completeSnapshot, { players: [bob, alicePlayer] });
 
     const players = section(page, 'Players');
     const items = [...players.querySelectorAll('li')];
@@ -30,13 +26,13 @@ describe('lobby', () => {
   });
 
   it('says when nobody has joined yet', async () => {
-    const { page } = await openDraft(complete, { players: [] });
+    const { page } = await openDraft(completeSnapshot, { players: [] });
 
     expect(section(page, 'Players').textContent).toContain('Nobody has joined yet');
   });
 
   it('joins the draft, then offers to leave it', async () => {
-    const { fixture, page } = await openDraft(complete, { players: [bob] });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
     expect(button(page, 'Leave')).toBeUndefined();
 
     button(page, 'Join')!.click();
@@ -59,14 +55,17 @@ describe('lobby', () => {
   });
 
   it('offers neither once the draft has started', async () => {
-    const { page } = await openDraft(complete, { state: 'Drafting', players: [alicePlayer] });
+    const { page } = await openDraft(completeSnapshot, {
+      state: 'Drafting',
+      players: [alicePlayer],
+    });
 
     expect(button(page, 'Join')).toBeUndefined();
     expect(button(page, 'Leave')).toBeUndefined();
   });
 
   it('shows the draft as started when a join is refused for it', async () => {
-    const { fixture, page } = await openDraft(complete, { players: [bob] });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
 
     button(page, 'Join')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(

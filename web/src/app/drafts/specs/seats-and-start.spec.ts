@@ -1,12 +1,12 @@
 import { TestBed } from '@angular/core/testing';
-import { type PoolSnapshotView, EMPTY_QUEUE } from '../drafts';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
   draft,
   http,
   updates,
-  open,
+  openUrl,
   section,
   bob,
   alicePlayer,
@@ -14,24 +14,19 @@ import {
   flushQueue,
   flushPicks,
   flushPool,
+  completeSnapshot,
+  button,
+  type AppFixture,
 } from './harness';
 
 useDraftsApp();
 
 describe('seats and start', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
-
-  function button(page: HTMLElement, label: string) {
-    return [...page.querySelectorAll('button')].find(
-      (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
-    );
-  }
-
   const seatNames = (page: HTMLElement) =>
     [...section(page, 'Players').querySelectorAll('li .name')].map((n) => n.textContent);
 
   it('shows the seat order and whose turn it is', async () => {
-    const { page } = await openDraft(complete, {
+    const { page } = await openDraft(completeSnapshot, {
       state: 'Drafting',
       players: [bob, alicePlayer],
       turn: { pick: 1, round: 1, playerId: bob.id },
@@ -44,7 +39,7 @@ describe('seats and start', () => {
   });
 
   it('tells the signed-in player when it is their turn', async () => {
-    const { page } = await openDraft(complete, {
+    const { page } = await openDraft(completeSnapshot, {
       state: 'Drafting',
       players: [alicePlayer, bob],
       turn: { pick: 1, round: 1, playerId: alice.id },
@@ -54,7 +49,7 @@ describe('seats and start', () => {
   });
 
   it('lets the organizer randomize the seats', async () => {
-    const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
     button(page, 'Randomize seats')!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'));
@@ -66,7 +61,7 @@ describe('seats and start', () => {
   });
 
   it('lets the organizer move a seat earlier or later', async () => {
-    const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
     expect(button(page, 'Move Alice earlier')?.disabled).toBe(true);
     expect(button(page, 'Move Bob later')?.disabled).toBe(true);
 
@@ -81,7 +76,7 @@ describe('seats and start', () => {
   });
 
   it('starts the draft for the organizer', async () => {
-    const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
     button(page, 'Start draft')!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'));
@@ -104,7 +99,7 @@ describe('seats and start', () => {
   });
 
   it('says why a start was refused', async () => {
-    const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
     button(page, 'Start draft')!.click();
     const message = '2 players × 300 picks needs 600 cards, but the pool has 540.';
@@ -126,7 +121,7 @@ describe('seats and start', () => {
 
     /** Chooses a made-up file and answers its preview with `answer`. */
     async function chooseFile(
-      fixture: { whenStable(): Promise<unknown> },
+      fixture: AppFixture,
       page: HTMLElement,
       answer: object,
       status = 200,
@@ -162,7 +157,7 @@ describe('seats and start', () => {
     };
 
     it('previews a valid file: the pairings, pick count and next turn', async () => {
-      const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       expect(page.textContent).toContain('Import picks');
 
       await chooseFile(fixture, page, preview);
@@ -176,7 +171,7 @@ describe('seats and start', () => {
 
     describe('confirming', () => {
       async function previewed() {
-        const opened = await openDraft(complete, { players: [alicePlayer, bob] });
+        const opened = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
         await chooseFile(opened.fixture, opened.page, preview);
         await shownPreview(opened.page);
         return opened;
@@ -222,7 +217,9 @@ describe('seats and start', () => {
       });
 
       it('moves a viewer in the lobby to the paused draft and its picks without a reload', async () => {
-        const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+        const { fixture, page } = await openDraft(completeSnapshot, {
+          players: [alicePlayer, bob],
+        });
 
         updates.events.next({
           type: 'changed',
@@ -277,7 +274,7 @@ describe('seats and start', () => {
     });
 
     it('lists every problem with an invalid file', async () => {
-      const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
       await chooseFile(
         fixture,
@@ -303,7 +300,7 @@ describe('seats and start', () => {
     });
 
     it('says a file is too large, whoever refused it', async () => {
-      const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
       await chooseFile(fixture, page, { message: 'request entity too large' }, 413);
 
@@ -315,7 +312,7 @@ describe('seats and start', () => {
     });
 
     it('drops a preview when the draft changes, as its pairings may no longer hold', async () => {
-      const { fixture, page } = await openDraft(complete, { players: [alicePlayer, bob] });
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       await chooseFile(fixture, page, preview);
       await shownPreview(page);
 
@@ -332,7 +329,7 @@ describe('seats and start', () => {
 
     it('is offered only to the organizer or an app admin', async () => {
       const { page } = await openDraft(
-        complete,
+        completeSnapshot,
         { players: [alicePlayer, bob] },
         { user: { ...alice, id: 'carol', isAdmin: false } },
       );
@@ -351,7 +348,7 @@ describe('seats and start', () => {
     });
 
     it('is gone once the draft has started', async () => {
-      const { page } = await openDraft(complete, {
+      const { page } = await openDraft(completeSnapshot, {
         state: 'Drafting',
         players: [alicePlayer, bob],
         turn: { pick: 1, round: 1, playerId: alice.id },
@@ -363,7 +360,7 @@ describe('seats and start', () => {
 
   it('holds the start until the pool snapshot is complete', async () => {
     // Not openDraft: the snapshot's poll is due before the page settles.
-    const { fixture, page } = await open('/drafts/draft-1');
+    const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(
       draft({
         snapshot: { state: 'Running', cards: 175, total: 540 },
@@ -388,7 +385,7 @@ describe('seats and start', () => {
   });
 
   it('offers seat changes and the start only to the organizer or an app admin', async () => {
-    const { page } = await openDraft(complete, {
+    const { page } = await openDraft(completeSnapshot, {
       players: [alicePlayer, bob],
       organizer: { id: bob.id, name: bob.name },
     });

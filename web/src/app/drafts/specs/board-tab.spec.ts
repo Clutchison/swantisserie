@@ -1,23 +1,23 @@
 import { TestBed } from '@angular/core/testing';
-import { type PickView, type PoolSnapshotView } from '../drafts';
+import { type PickView } from '../drafts';
 import {
   useDraftsApp,
   alice,
   draft,
   http,
-  open,
+  openUrl,
   bob,
   alicePlayer,
   tabButton,
   panel,
   openDraft,
   flushPool,
+  completeSnapshot,
 } from './harness';
 
 useDraftsApp();
 
 describe('board tab', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const picks: PickView[] = [
     {
       pick: 1,
@@ -50,7 +50,7 @@ describe('board tab', () => {
 
   async function openBoard(picks: PickView[]) {
     const opened = await openDraft(
-      complete,
+      completeSnapshot,
       {
         state: 'Drafting',
         players: [bob, alicePlayer],
@@ -67,10 +67,10 @@ describe('board tab', () => {
 
   /** Opens the Board tab with the GET of the picks left for the test to answer. */
   async function openBoardUnanswered() {
-    const { fixture, page } = await open('/drafts/draft-1');
+    const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(
       draft({
-        snapshot: complete,
+        snapshot: completeSnapshot,
         state: 'Drafting',
         players: [bob],
         turn: { pick: 1, round: 1, playerId: bob.id },
@@ -337,7 +337,7 @@ describe('board tab', () => {
 
     it('still shows a complete draft’s picks, with no turn', async () => {
       const { fixture, page } = await openDraft(
-        complete,
+        completeSnapshot,
         { state: 'Complete', players: [bob, alicePlayer], turn: null },
         { picks: picks },
       );
@@ -353,7 +353,7 @@ describe('board tab', () => {
     });
 
     it('offers the Me tab only to players', async () => {
-      const { page } = await openDraft(complete, {
+      const { page } = await openDraft(completeSnapshot, {
         state: 'Drafting',
         players: [bob],
         turn: { pick: 1, round: 1, playerId: bob.id },

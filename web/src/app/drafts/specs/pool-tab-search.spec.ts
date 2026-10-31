@@ -4,13 +4,15 @@ import {
   alice,
   draft,
   http,
-  open,
+  openUrl,
   bob,
   alicePlayer,
   openDraft,
   flushPool,
+  completeSnapshot,
+  type AppFixture,
 } from './harness';
-import { useTallScreen, complete, card, shivan, brightclimb, tiles } from './pool-tab-harness';
+import { useTallScreen, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -21,11 +23,7 @@ describe('pool tab', () => {
       tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent);
 
     /** Types `text` into the Pool tab's search box, as a keystroke would. */
-    async function search(
-      fixture: { whenStable(): Promise<unknown> },
-      page: HTMLElement,
-      text: string,
-    ) {
+    async function search(fixture: AppFixture, page: HTMLElement, text: string) {
       const box = page.querySelector<HTMLInputElement>('input[type="search"]')!;
       box.value = text;
       box.dispatchEvent(new Event('input'));
@@ -33,8 +31,8 @@ describe('pool tab', () => {
     }
 
     it('says so while the pool’s cards load', async () => {
-      const { fixture, page } = await open('/drafts/draft-1');
-      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: complete }));
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
       await vi.waitFor(() => {
         TestBed.tick();
         expect(page.textContent).toContain('Loading the pool’s cards…');
@@ -46,7 +44,7 @@ describe('pool tab', () => {
     });
 
     it('says so when no card matches the search', async () => {
-      const { fixture, page } = await openDraft(complete, {}, { cards: [shivan] });
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
       expect(page.textContent).not.toContain('No cards match');
 
       await search(fixture, page, 't:goblin');
@@ -56,7 +54,7 @@ describe('pool tab', () => {
 
     it('says so when every card matching has been picked and is hidden', async () => {
       const { fixture, page } = await openDraft(
-        complete,
+        completeSnapshot,
         {
           state: 'Drafting',
           players: [alicePlayer],
@@ -85,7 +83,11 @@ describe('pool tab', () => {
     });
 
     it('narrows the grid to the cards matching the search as you type', async () => {
-      const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        {},
+        { cards: [brightclimb, shivan] },
+      );
 
       await search(fixture, page, 't:dragon');
       expect(names(page)).toEqual(['Shivan Dragon']);
@@ -95,7 +97,11 @@ describe('pool tab', () => {
     });
 
     it('says why a search is bad, and keeps the grid as it was until it is fixed', async () => {
-      const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        {},
+        { cards: [brightclimb, shivan] },
+      );
       const note = () => page.querySelector('[role="tabpanel"] .search-error')?.textContent;
 
       await search(fixture, page, 't:dragon');
@@ -113,7 +119,11 @@ describe('pool tab', () => {
     });
 
     it('shows the whole pool when the search is emptied', async () => {
-      const { fixture, page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        {},
+        { cards: [brightclimb, shivan] },
+      );
 
       await search(fixture, page, 't:dragon');
       await search(fixture, page, '  ');
@@ -128,7 +138,7 @@ describe('pool tab', () => {
         name: 'Thundermaw Hellkite',
       });
       const { fixture, page } = await openDraft(
-        complete,
+        completeSnapshot,
         { state: 'Drafting', players: [bob], turn: { pick: 2, round: 1, playerId: bob.id } },
         {
           cards: [brightclimb, shivan, thundermaw],

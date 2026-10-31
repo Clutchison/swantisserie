@@ -1,22 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { type PoolCardView } from '../drafts';
-import { useDraftsApp, openDraft } from './harness';
-import {
-  useTallScreen,
-  complete,
-  image,
-  card,
-  shivan,
-  brightclimb,
-  tiles,
-} from './pool-tab-harness';
+import { useDraftsApp, openDraft, completeSnapshot } from './harness';
+import { useTallScreen, image, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
 
 describe('pool tab', () => {
   it('has a tab bar where Pool and Board work, and Me for players', async () => {
-    const { page } = await openDraft(complete);
+    const { page } = await openDraft(completeSnapshot);
 
     const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(['Pool', 'Queue', 'Board', 'Me']);
@@ -27,11 +19,11 @@ describe('pool tab', () => {
       'false',
     ]);
     expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, false, true]);
-    expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('2 cards in the pool');
+    expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('540 cards in the pool');
   });
 
   it('puts the tab bar between the draft header and the panel, showing one panel at a time', async () => {
-    const { page } = await openDraft(complete);
+    const { page } = await openDraft(completeSnapshot);
 
     const tabBar = page.querySelector('[role="tablist"]')!;
     const panels = page.querySelectorAll('[role="tabpanel"]');
@@ -41,7 +33,7 @@ describe('pool tab', () => {
   });
 
   it('shows the pool as a grid of normal images with name placeholders', async () => {
-    const { page } = await openDraft(complete, {}, { cards: [brightclimb, shivan] });
+    const { page } = await openDraft(completeSnapshot, {}, { cards: [brightclimb, shivan] });
 
     expect(tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent)).toEqual([
       'Brightclimb Pathway // Grimclimb Pathway',
@@ -56,7 +48,7 @@ describe('pool tab', () => {
   });
 
   it('falls back to Scryfall’s API image when a grid image fails to load', async () => {
-    const { fixture, page } = await openDraft(complete, {}, { cards: [shivan] });
+    const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
 
     const img = tiles(page)[0].querySelector('img')!;
     img.dispatchEvent(new Event('error'));
@@ -69,7 +61,7 @@ describe('pool tab', () => {
   });
 
   it('offers a tile’s small and normal images for the browser to choose between', async () => {
-    const { page } = await openDraft(complete, {}, { cards: [shivan] });
+    const { page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
 
     const img = tiles(page)[0].querySelector('img')!;
     expect(img.getAttribute('srcset')).toBe(
@@ -90,7 +82,7 @@ describe('pool tab', () => {
         disconnect() {}
       },
     );
-    const { fixture, page } = await openDraft(complete, {}, { cards: [shivan] });
+    const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
 
     // Nine columns of 149px, with eight 8px gaps.
     measured([{ contentRect: { width: 1405 } } as ResizeObserverEntry], {} as ResizeObserver);
@@ -126,7 +118,7 @@ describe('pool tab', () => {
 
     /** Opens the Pool tab, then takes over the clock. */
     async function openPool(cards: PoolCardView[]) {
-      const opened = await openDraft(complete, {}, { cards });
+      const opened = await openDraft(completeSnapshot, {}, { cards });
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       return opened;
     }

@@ -1,4 +1,3 @@
-import { type PoolSnapshotView } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -9,12 +8,13 @@ import {
   tabButton,
   panel,
   openDraft,
+  completeSnapshot,
+  button,
 } from './harness';
 
 useDraftsApp();
 
 describe('bots', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const bot = {
     id: 'bot:1',
     name: 'Bot 1',
@@ -23,19 +23,13 @@ describe('bots', () => {
   };
   const admin = { ...alice, isAdmin: true };
 
-  function button(page: HTMLElement, label: string) {
-    return [...page.querySelectorAll<HTMLButtonElement>('button')].find(
-      (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
-    );
-  }
-
   /** The text of each badge in `root`. */
   const badges = (root: Element | null) =>
     [...(root?.querySelectorAll('.badge') ?? [])].map((badge) => badge.textContent?.trim());
 
   it('marks bots with a badge in the players, turn, board and pick log', async () => {
     const { fixture, page } = await openDraft(
-      complete,
+      completeSnapshot,
       {
         state: 'Drafting',
         players: [bot, alicePlayer],
@@ -84,7 +78,7 @@ describe('bots', () => {
 
   it('lets an app admin add a bot, then remove it', async () => {
     const { fixture, page } = await openDraft(
-      complete,
+      completeSnapshot,
       { players: [alicePlayer] },
       { user: admin },
     );
@@ -111,13 +105,13 @@ describe('bots', () => {
       id: `bot:${i}`,
       name: `Bot ${i + 1}`,
     }));
-    const { page } = await openDraft(complete, { players: bots }, { user: admin });
+    const { page } = await openDraft(completeSnapshot, { players: bots }, { user: admin });
 
     expect(button(page, 'Add bot')?.disabled).toBe(true);
   });
 
   it('offers bot controls only to app admins, not the organizer', async () => {
-    const { page } = await openDraft(complete, { players: [alicePlayer, bot] });
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bot] });
 
     expect(button(page, 'Add bot')).toBeUndefined();
     expect(button(page, 'Remove Bot 1')).toBeUndefined();
@@ -125,7 +119,7 @@ describe('bots', () => {
 
   it('offers no bot controls once the draft has started', async () => {
     const { page } = await openDraft(
-      complete,
+      completeSnapshot,
       {
         state: 'Drafting',
         players: [alicePlayer, bot],

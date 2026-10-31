@@ -1,4 +1,4 @@
-import { type PoolSnapshotView, EMPTY_QUEUE } from '../drafts';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -10,12 +10,13 @@ import {
   openDraft,
   flushQueue,
   flushPicks,
+  completeSnapshot,
+  button,
 } from './harness';
 
 useDraftsApp();
 
 describe('close and reopen', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const drafting = {
     state: 'Drafting' as const,
     players: [alicePlayer, bob],
@@ -25,12 +26,9 @@ describe('close and reopen', () => {
   const closed = { ...drafting, state: 'Closed' as const, turn: null };
   const banner = 'This draft is closed. No picks until it reopens.';
 
-  const button = (page: HTMLElement, label: string) =>
-    [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
-
   it('closes a drafting draft once the organizer confirms, showing the progress', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { fixture, page } = await openDraft(complete, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, drafting);
 
     button(page, 'Close draft')!.click();
 
@@ -51,12 +49,12 @@ describe('close and reopen', () => {
   });
 
   it('offers closing a paused draft', async () => {
-    const { page } = await openDraft(complete, { ...drafting, state: 'Paused' });
+    const { page } = await openDraft(completeSnapshot, { ...drafting, state: 'Paused' });
     expect(button(page, 'Close draft')).toBeDefined();
   });
 
   it.each(['Lobby', 'Complete'] as const)('offers neither in %s', async (state) => {
-    const { page } = await openDraft(complete, { ...drafting, state, turn: null });
+    const { page } = await openDraft(completeSnapshot, { ...drafting, state, turn: null });
 
     expect(button(page, 'Close draft')).toBeUndefined();
     expect(button(page, 'Reopen draft')).toBeUndefined();
@@ -64,7 +62,7 @@ describe('close and reopen', () => {
 
   it('keeps a draft the organizer did not confirm closing', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(complete, drafting);
+    const { page } = await openDraft(completeSnapshot, drafting);
 
     button(page, 'Close draft')!.click();
 
@@ -74,7 +72,7 @@ describe('close and reopen', () => {
 
   it('reopens a closed draft once the organizer confirms', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { fixture, page } = await openDraft(complete, closed);
+    const { fixture, page } = await openDraft(completeSnapshot, closed);
 
     button(page, 'Reopen draft')!.click();
 
@@ -94,7 +92,7 @@ describe('close and reopen', () => {
 
   it('keeps a draft the organizer did not confirm reopening', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(complete, closed);
+    const { page } = await openDraft(completeSnapshot, closed);
 
     button(page, 'Reopen draft')!.click();
 
@@ -103,7 +101,7 @@ describe('close and reopen', () => {
 
   it('says why a close was refused, and catches up with the draft', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { fixture, page } = await openDraft(complete, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, drafting);
 
     button(page, 'Close draft')!.click();
     const message = 'Only a drafting or paused draft can be closed.';
@@ -124,7 +122,7 @@ describe('close and reopen', () => {
 
   it('offers closing and reopening only to the organizer or an app admin', async () => {
     const organizer = { id: bob.id, name: bob.name };
-    const opened = await openDraft(complete, { ...closed, organizer });
+    const opened = await openDraft(completeSnapshot, { ...closed, organizer });
 
     expect(button(opened.page, 'Reopen draft')).toBeUndefined();
     expect(opened.page.textContent).toContain(banner);
@@ -143,7 +141,7 @@ describe('close and reopen', () => {
 
   it('shows every viewer the draft closing as it happens', async () => {
     const organizer = { id: bob.id, name: bob.name };
-    const { fixture, page } = await openDraft(complete, { ...drafting, organizer });
+    const { fixture, page } = await openDraft(completeSnapshot, { ...drafting, organizer });
 
     updates.events.next({
       type: 'changed',
@@ -157,7 +155,7 @@ describe('close and reopen', () => {
   });
 
   it('makes the queue read-only while closed, keeping it on show', async () => {
-    const { page } = await openDraft(complete, closed, {
+    const { page } = await openDraft(completeSnapshot, closed, {
       queue: {
         cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
         lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
@@ -173,7 +171,7 @@ describe('close and reopen', () => {
 
   it('makes the queue read-only once complete, without promising a reopen', async () => {
     const { page } = await openDraft(
-      complete,
+      completeSnapshot,
       { ...drafting, state: 'Complete', turn: null },
       {
         queue: {
@@ -197,7 +195,7 @@ describe('close and reopen', () => {
     { state: 'Paused', turn: drafting.turn },
   ] as const)('keeps the queue controls in $state', async ({ state, turn }) => {
     const { page } = await openDraft(
-      complete,
+      completeSnapshot,
       { ...drafting, state, turn },
       { queue: { cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }], lost: [] } },
     );

@@ -1,4 +1,4 @@
-import { type DraftView, type PickView, type PoolCardView, type PoolSnapshotView } from '../drafts';
+import { type DraftView, type PickView, type PoolCardView } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -12,12 +12,12 @@ import {
   panel,
   openDraft,
   flushPicks,
+  completeSnapshot,
 } from './harness';
 
 useDraftsApp();
 
 describe('live updates', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const drafting = (fields: Partial<DraftView> = {}) =>
     draft({
       state: 'Drafting',
@@ -58,13 +58,13 @@ describe('live updates', () => {
   };
 
   it('watches the draft it shows', async () => {
-    await openDraft(complete, drafting());
+    await openDraft(completeSnapshot, drafting());
 
     expect(updates.watch).toHaveBeenCalledWith('draft-1');
   });
 
   it('shows another player’s pick on the Pool, Board and Me tabs, and the turn passing', async () => {
-    const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
     expect(page.textContent).toContain('Your turn: pick 1, round 1');
 
     updates.events.next({
@@ -85,7 +85,7 @@ describe('live updates', () => {
   });
 
   it('follows the draft out of the lobby when the organizer starts it', async () => {
-    const { fixture, page } = await openDraft(complete, {
+    const { fixture, page } = await openDraft(completeSnapshot, {
       players: [alicePlayer, bob],
     });
 
@@ -99,7 +99,7 @@ describe('live updates', () => {
 
   it('ignores a pushed draft older than the one it shows', async () => {
     const { fixture, page } = await openDraft(
-      complete,
+      completeSnapshot,
       drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 5 }),
       { cards: [shivan], picks: [shivanPick] },
     );
@@ -112,7 +112,7 @@ describe('live updates', () => {
   });
 
   it('stops watching when the page closes', async () => {
-    await openDraft(complete, drafting());
+    await openDraft(completeSnapshot, drafting());
     expect(updates.events.observed).toBe(true);
 
     await router.navigateByUrl('/');
@@ -122,7 +122,7 @@ describe('live updates', () => {
   });
 
   it('catches up with the draft and its picks when it reconnects', async () => {
-    const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
 
     updates.events.next({ type: 'connected' });
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
