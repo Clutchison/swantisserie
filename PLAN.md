@@ -88,6 +88,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 - **Pool search:** one box that takes Scryfall syntax and narrows the grid on every keystroke. It runs in the browser over the snapshot and never calls Scryfall.
   - For the keywords it supports, it returns the same pool cards scryfall.com would. Keywords that need data we don't snapshot (prices, tags, artist, flavor text) show a "not supported here" note.
+- **Color filter:** six buttons, one per color and Colorless, separate from the search box. A card shows if one of its faces has colors all among those pressed: a colorless face only counts when Colorless is pressed. A pool filter never edits the typed search; it turns its state into Scryfall search text that runs over the search's results, in the same browser matching. The state lasts as long as the typed search.
 - Picked cards are marked, or hidden with a toggle.
 - All Scryfall requests send a real `User-Agent` and an `Accept` header.
 

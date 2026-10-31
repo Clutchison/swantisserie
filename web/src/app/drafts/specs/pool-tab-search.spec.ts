@@ -185,5 +185,134 @@ describe('pool tab', () => {
       await fixture.whenStable();
       expect(names(page)).toHaveLength(3);
     });
+
+    describe('color filter', () => {
+      const colored = (name: string, colors: string[], typeLine = 'Creature — Bear') =>
+        card({ scryfallId: name, oracleId: name, name, colors, typeLine });
+      const white = colored('White Bear', ['W']);
+      const blue = colored('Blue Bear', ['U']);
+      const azorius = colored('Azorius Bear', ['W', 'U']);
+      const orzhov = colored('Orzhov Bear', ['W', 'B']);
+      const golem = colored('Colorless Golem', [], 'Artifact Creature — Golem');
+      const pool = [white, blue, azorius, orzhov, golem];
+
+      const button = (page: HTMLElement, name: string) =>
+        page.querySelector<HTMLButtonElement>(`.color-filter button[aria-label="${name}"]`)!;
+
+      async function press(fixture: AppFixture, page: HTMLElement, ...buttons: string[]) {
+        for (const name of buttons) button(page, name).click();
+        await fixture.whenStable();
+      }
+
+      it('offers six named toggle buttons with stored mana symbols, none pressed', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: pool });
+        const buttons = [...page.querySelectorAll('.color-filter button')];
+
+        expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+          'White',
+          'Blue',
+          'Black',
+          'Red',
+          'Green',
+          'Colorless',
+        ]);
+        expect(buttons.map((b) => b.getAttribute('aria-pressed'))).toEqual(Array(6).fill('false'));
+        expect(button(page, 'White').querySelector('img')?.getAttribute('src')).toBe('mana/W.svg');
+
+        await press(fixture, page, 'White');
+        expect(button(page, 'White').getAttribute('aria-pressed')).toBe('true');
+
+        await press(fixture, page, 'White');
+        expect(button(page, 'White').getAttribute('aria-pressed')).toBe('false');
+        expect(names(page)).toHaveLength(5);
+      });
+
+      it('shows cards whose colors are all among those pressed', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: pool });
+
+        await press(fixture, page, 'White', 'Blue');
+        expect(names(page)).toEqual(['White Bear', 'Blue Bear', 'Azorius Bear']);
+
+        await press(fixture, page, 'Colorless');
+        expect(names(page)).toEqual(['White Bear', 'Blue Bear', 'Azorius Bear', 'Colorless Golem']);
+
+        await press(fixture, page, 'White', 'Blue');
+        expect(names(page)).toEqual(['Colorless Golem']);
+      });
+
+      it('combines with a typed search and with Hide picked, leaving the search box alone', async () => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          { state: 'Drafting', players: [bob], turn: { pick: 2, round: 1, playerId: bob.id } },
+          {
+            cards: pool,
+            picks: [
+              {
+                pick: 1,
+                playerId: bob.id,
+                oracleId: white.oracleId,
+                name: white.name,
+                layout: 'normal',
+                set: 'm20',
+                collectorNumber: '332',
+              },
+            ],
+          },
+        );
+
+        await search(fixture, page, 'bear');
+        await press(fixture, page, 'White', 'Colorless');
+        expect(names(page)).toEqual(['White Bear']);
+        expect(page.querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('bear');
+
+        page.querySelector<HTMLInputElement>('.hide-picked input')!.click();
+        await fixture.whenStable();
+        expect(page.textContent).toContain('Every card here has been picked.');
+      });
+
+      it('still responds while the search cannot be parsed, over the last good results', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: pool });
+
+        await search(fixture, page, 't:bear');
+        await search(fixture, page, 't:bear (');
+        expect(page.textContent).toContain('The search ends too soon.');
+
+        await press(fixture, page, 'Blue');
+        expect(names(page)).toEqual(['Blue Bear']);
+        expect(page.textContent).toContain('The search ends too soon.');
+      });
+
+      it('says the filters may be why nothing matches, only while one is active', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [white] });
+
+        await press(fixture, page, 'Green');
+        expect(page.textContent).toContain('No cards match your search and filters.');
+
+        await press(fixture, page, 'Green');
+        await search(fixture, page, 't:goblin');
+        expect(page.textContent).toContain('No cards match your search.');
+        expect(page.textContent).not.toContain('search and filters');
+
+        await press(fixture, page, 'White');
+        expect(page.textContent).toContain('No cards match your search and filters.');
+      });
+
+      it('lasts while the viewer switches tabs', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: pool });
+        const tab = (name: string) =>
+          [...page.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+            (t) => t.textContent?.trim() === name,
+          )!;
+
+        await press(fixture, page, 'Blue');
+        tab('Board').click();
+        await fixture.whenStable();
+        tab('Pool').click();
+        await fixture.whenStable();
+
+        expect(button(page, 'Blue').getAttribute('aria-pressed')).toBe('true');
+        expect(names(page)).toEqual(['Blue Bear']);
+      });
+    });
   });
 });

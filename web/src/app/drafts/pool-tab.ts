@@ -25,13 +25,19 @@ import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
 import { type DraftView, isRefusal, type PoolCardView, type QueueView } from './drafts';
 import { ImagePreloader } from './image-preloader';
+import {
+  applyPoolFilters,
+  type ColorChoice,
+  poolFilterActive,
+  type PoolFilterState,
+} from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
 import { TileImage, TileImageLoader } from './tile-image';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
- * search, and a detail view of one.
+ * search and pool filters, and a detail view of one.
  */
 @Component({
   selector: 'app-pool-tab',
@@ -106,12 +112,18 @@ export class PoolTab {
     source: this.searchResult,
     computation: (result, previous) => (result.ok ? result.cards : (previous?.value ?? [])),
   });
+  /** The color filter's buttons, in the order they're laid out. */
+  protected readonly colorButtons = COLOR_BUTTONS;
+  /** What the viewer has set across the pool filters. */
+  protected readonly poolFilters = signal<PoolFilterState>({ colors: new Set() });
+  /** The cards the last good search matched that the pool filters let through. */
+  private readonly filtered = computed(() => applyPoolFilters(this.matched(), this.poolFilters()));
   /** The cards the grid shows. */
   protected readonly shown = computed(() => {
     const picked = this.picked();
     return this.hidePicked()
-      ? this.matched().filter((card) => !picked.has(card.oracleId))
-      : this.matched();
+      ? this.filtered().filter((card) => !picked.has(card.oracleId))
+      : this.filtered();
   });
 
   /**
@@ -134,8 +146,9 @@ export class PoolTab {
   /** Why the grid is empty, once the cards have loaded. */
   protected readonly emptyNote = computed(() => {
     if (this.loading() || this.failed() || this.shown().length > 0) return null;
-    return this.matched().length > 0
-      ? 'Every card here has been picked.'
+    if (this.filtered().length > 0) return 'Every card here has been picked.';
+    return poolFilterActive(this.poolFilters())
+      ? 'No cards match your search and filters.'
       : 'No cards match your search.';
   });
 
@@ -215,6 +228,15 @@ export class PoolTab {
     inject(DestroyRef).onDestroy(() => {
       clearTimeout(this.resting);
       this.preloader.preloadResults([]);
+    });
+  }
+
+  /** Presses a color filter button, or lets it go if it's already pressed. */
+  protected toggleColor(color: ColorChoice) {
+    this.poolFilters.update((state) => {
+      const colors = new Set(state.colors);
+      if (!colors.delete(color)) colors.add(color);
+      return { ...state, colors };
     });
   }
 
@@ -352,6 +374,15 @@ export class PoolTab {
     this.face.update((face) => (face + 1) % this.detail()!.images.length);
   }
 }
+
+const COLOR_BUTTONS: { color: ColorChoice; name: string }[] = [
+  { color: 'W', name: 'White' },
+  { color: 'U', name: 'Blue' },
+  { color: 'B', name: 'Black' },
+  { color: 'R', name: 'Red' },
+  { color: 'G', name: 'Green' },
+  { color: 'C', name: 'Colorless' },
+];
 
 /** A tile's proportions: those of a card's normal image. */
 const TILE_WIDTH = 488;

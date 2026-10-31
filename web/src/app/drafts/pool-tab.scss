@@ -55,6 +55,47 @@ $card-corners: #{4.75% / 3.5%};
   white-space: nowrap;
 }
 
+/* 44px touch targets; six of them and their gaps fit a 320px screen's 288px of content. */
+.color-filter {
+  display: flex;
+  gap: var(--space-xs);
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  img {
+    display: block;
+    opacity: 0.45;
+  }
+
+  /* Told apart by the ring as well as the symbol's strength, not by color alone. */
+  button[aria-pressed='true'] {
+    border-color: var(--color-text);
+
+    img {
+      opacity: 1;
+    }
+  }
+}
+
+/* Their own row on phones. */
+@media (max-width: 40rem) {
+  .color-filter {
+    flex-basis: 100%;
+  }
+}
+
 /* Takes no room while empty. */
 .search-error {
   margin: 0;
