@@ -5,20 +5,42 @@
       <button class="button secondary" type="button" (click)="boardChosen.emit()">← Board</button>
     }
     @if (playerPicks().length > 0) {
-      <button class="button secondary" type="button" (click)="copyForArena(playerPicks())">
-        Copy for Arena
-      </button>
-      <button class="button secondary" type="button" (click)="copyForMoxfield(playerPicks())">
-        Copy for Moxfield
-      </button>
+      @for (target of exportTargets; track target) {
+        <button
+          class="button secondary copy"
+          [class.copied]="copied() === target"
+          type="button"
+          (click)="copyFor(target, playerPicks())"
+        >
+          <!-- Stays when hidden, so the button keeps its width. -->
+          <span class="label">Copy for {{ target }}</span>
+          @if (copied() === target) {
+            <span class="confirmation">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M3 8.5l3.5 3.5L13 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              Copied
+            </span>
+          }
+        </button>
+      }
     }
   </div>
-  @if (picksCopy(); as copy) {
-    @if (copy === 'Failed') {
-      <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
-    } @else {
-      <p role="status">Copied for {{ copy }}.</p>
+  <!-- Always here, as a status region only announces changes once it's on the page. -->
+  <p class="visually-hidden" role="status">
+    @if (copied(); as target) {
+      Copied for {{ target }}
     }
+  </p>
+  @if (copyFailed()) {
+    <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
   }
   @if (failed()) {
     <p class="error">Couldn't load the picks. Try reloading the page.</p>

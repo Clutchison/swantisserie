@@ -182,6 +182,12 @@ export class DraftPage {
   });
 
   constructor() {
+    // Opening or closing the Picks panel, or showing another player's picks, forgets any copy.
+    effect(() => {
+      this.tab();
+      this.picksPlayerId();
+      untracked(() => this.picksTab()?.clearCopy());
+    });
     effect((onCleanup) => {
       if (this.draft()?.snapshot.state !== 'Running') return;
       const timer = setTimeout(() => this.resource.reload(), this.pollMs);
@@ -219,14 +225,12 @@ export class DraftPage {
   protected showPicks(playerId: string) {
     this.picksPlayerId.set(playerId);
     this.tab.set('Picks');
-    this.picksTab()?.clearCopy();
   }
 
   /** Back from another player's picks to the Board. */
   protected closePicks() {
     this.picksPlayerId.set(null);
     this.tab.set('Board');
-    this.picksTab()?.clearCopy();
   }
 
   /** Opens the Picks panel on the signed-in player's picks: the Me tab. */

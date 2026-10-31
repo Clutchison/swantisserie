@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  type OnDestroy,
+  output,
+  signal,
+} from '@angular/core';
 import { arenaExport } from './arena-export';
 import { CardPreviewName } from './card-preview';
 import { type PickView, type PlayerView, type PoolCardView } from './drafts';
@@ -6,6 +14,15 @@ import { moxfieldExport } from './moxfield-export';
 
 /** Where a player's picks can be exported to. */
 type ExportTarget = 'Arena' | 'Moxfield';
+
+/** Each export target's export of a player's picks, in the order their buttons show. */
+const EXPORTS: Record<ExportTarget, (picks: PickView[]) => string> = {
+  Arena: arenaExport,
+  Moxfield: moxfieldExport,
+};
+
+/** How long a copy button shows its confirmation. */
+const CONFIRMATION_MS = 2000;
 
 /** The draft view's Picks panel: one player's picks, which can be exported. */
 @Component({
@@ -15,7 +32,7 @@ type ExportTarget = 'Arena' | 'Moxfield';
   templateUrl: './picks-tab.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './picks-tab.scss'],
 })
-export class PicksTab {
+export class PicksTab implements OnDestroy {
   /** The player whose picks to show, if any. */
   readonly player = input.required<PlayerView | null>();
   /** Whether `player` is the signed-in player. */
@@ -36,32 +53,58 @@ export class PicksTab {
     this.picks().filter((pick) => pick.playerId === this.player()?.id),
   );
 
-  /** How the latest copy of the picks went: what it was copied for, or that it failed. */
-  protected readonly picksCopy = signal<ExportTarget | 'Failed' | null>(null);
+  protected readonly exportTargets = Object.keys(EXPORTS) as ExportTarget[];
 
-  /** Forgets how the latest copy went, as the panel is opening or closing. */
+  /** What the latest copy of the picks was copied for, while it's confirmed. */
+  protected readonly copied = signal<ExportTarget | null>(null);
+  /** Whether the latest copy of the picks failed. */
+  protected readonly copyFailed = signal(false);
+
+  private confirmationTimer?: ReturnType<typeof setTimeout>;
+  /** The latest copy attempt, so that an earlier or cleared one can't report how it went. */
+  private latestCopy = 0;
+
+  ngOnDestroy() {
+    clearTimeout(this.confirmationTimer);
+  }
+
+  /** Forgets how the latest copy went, as the panel opens, closes or shows another player. */
   clearCopy() {
-    this.picksCopy.set(null);
+    this.latestCopy++;
+    this.clearConfirmation();
+    this.copyFailed.set(false);
   }
 
-  /** Copies `picks` to the clipboard as an Arena export. */
-  protected copyForArena(picks: PickView[]) {
-    return this.copyPicks('Arena', arenaExport(picks));
-  }
-
-  /** Copies `picks` to the clipboard as a Moxfield export. */
-  protected copyForMoxfield(picks: PickView[]) {
-    return this.copyPicks('Moxfield', moxfieldExport(picks));
-  }
-
-  /** Copies an export's `text` to the clipboard, reporting how it went in `picksCopy`. */
-  private async copyPicks(target: ExportTarget, text: string) {
-    this.picksCopy.set(null);
-    try {
-      await navigator.clipboard.writeText(text);
-      this.picksCopy.set(target);
-    } catch {
-      this.picksCopy.set('Failed');
+  /** Copies `picks` to the clipboard as an export for `target`, confirming how it went. */
+  protected async copyFor(target: ExportTarget, picks: PickView[]) {
+    const copy = ++this.latestCopy;
+    this.copyFailed.set(false);
+    // The same button stays confirmed while it copies again, rather than flickering.
+    if (this.copied() !== target) {
+      this.clearConfirmation();
     }
+    try {
+      await navigator.clipboard.writeText(EXPORTS[target](picks));
+      if (copy === this.latestCopy) {
+        this.confirm(target);
+      }
+    } catch {
+      if (copy === this.latestCopy) {
+        this.clearConfirmation();
+        this.copyFailed.set(true);
+      }
+    }
+  }
+
+  /** Shows the confirmation for `target` for `CONFIRMATION_MS`. */
+  private confirm(target: ExportTarget) {
+    clearTimeout(this.confirmationTimer);
+    this.copied.set(target);
+    this.confirmationTimer = setTimeout(() => this.copied.set(null), CONFIRMATION_MS);
+  }
+
+  private clearConfirmation() {
+    clearTimeout(this.confirmationTimer);
+    this.copied.set(null);
   }
 }
