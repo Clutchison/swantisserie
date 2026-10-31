@@ -11,6 +11,10 @@ import {
   getDraft,
   readyDraft,
   start,
+  enqueue,
+  pick,
+  pickLogLines,
+  queue,
 } from './harness.js';
 
 useDraftsApp();
@@ -27,44 +31,10 @@ describe('cascade', () => {
     vi.restoreAllMocks();
   });
 
-  function enqueue(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .send({ oracleId })
-      .expect(200);
-  }
-
-  function pick(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', cookie)
-      .send({ oracleId });
-  }
-
-  /** The pick log as `Player: Card` lines. */
-  async function pickLog(id: string) {
-    const res = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
-    return (res.body as { playerId: string; name: string }[]).map(
-      (pick) => `${names[pick.playerId] ?? 'Bot'}: ${pick.name}`,
-    );
-  }
-
-  function queue(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .expect(200);
-  }
-
   it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'lava-spike-oracle', bobCookie);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
+    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
     await start(id).expect(200);
 
     const picked = await pick(id, 'shock-oracle').expect(200);
@@ -75,12 +45,12 @@ describe('cascade', () => {
       round: 2,
       playerId: alice.id,
     });
-    expect(await pickLog(id)).toEqual([
+    expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
       'Bob: Lava Spike',
       'Bob: Skewer the Critics',
     ]);
-    expect((await queue(id, bobCookie)).body).toEqual({
+    expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
       lost: [],
     });
@@ -88,15 +58,15 @@ describe('cascade', () => {
 
   it('skips queued cards already picked, and stops at a player with none left', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'shock-oracle', bobCookie);
-    await enqueue(id, 'lava-spike-oracle', bobCookie);
+    await enqueue(id, 'shock-oracle', bobCookie).expect(200);
+    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
     await start(id).expect(200);
 
     const picked = await pick(id, 'shock-oracle').expect(200);
 
     expect(picked.body.turn).toEqual({ pick: 3, round: 2, playerId: bob.id });
-    expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
-    expect((await queue(id, bobCookie)).body).toEqual({
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+    expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
       lost: [{ oracleId: 'shock-oracle', name: 'Shock' }],
     });
@@ -104,7 +74,7 @@ describe('cascade', () => {
 
   it('picks the first player’s queued card when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
-    await enqueue(id, 'lightning-bolt-oracle');
+    await enqueue(id, 'lightning-bolt-oracle').expect(200);
 
     const started = await start(id).expect(200);
 
@@ -113,7 +83,7 @@ describe('cascade', () => {
       round: 1,
       playerId: bob.id,
     });
-    expect(await pickLog(id)).toEqual(['Alice: Lightning Bolt']);
+    expect(await pickLogLines(id)).toEqual(['Alice: Lightning Bolt']);
   });
 
   it('stops at a bot’s turn, and carries on after the bot picks', async () => {
@@ -124,8 +94,8 @@ describe('cascade', () => {
       .expect(201);
     // The bot picks the first available card by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await enqueue(id, 'shock-oracle');
-    await enqueue(id, 'skewer-the-critics-oracle');
+    await enqueue(id, 'shock-oracle').expect(200);
+    await enqueue(id, 'skewer-the-critics-oracle').expect(200);
 
     const started = await start(id).expect(200);
 
@@ -133,7 +103,7 @@ describe('cascade', () => {
     await vi.waitFor(async () => {
       expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
     });
-    expect(await pickLog(id)).toEqual([
+    expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
       'Bot: Lava Spike',
       'Bot: Lightning Bolt',
@@ -156,8 +126,8 @@ describe('cascade', () => {
       cards,
       webhook.body.id,
     );
-    await enqueue(id, 'lava-spike-oracle', bobCookie);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
+    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
     await start(id).expect(200);
 
     await pick(id, 'shock-oracle').expect(200);

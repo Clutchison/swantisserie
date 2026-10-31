@@ -12,9 +12,11 @@ import {
   signIn,
   signInAlice,
   getDraft,
-  undoPick,
   readyDraft,
   start,
+  pick,
+  pickLog,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
@@ -58,21 +60,6 @@ describe('bot players', () => {
     return { id, botIds: draft.players.slice(1).map((player) => player.id) };
   }
 
-  function pick(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', cookie)
-      .send({ oracleId });
-  }
-
-  async function pickLog(id: string) {
-    const res = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    return res.body as { pick: number; playerId: string; name: string }[];
-  }
-
   /** The draft once its turn is pick `number`. */
   function atPick(id: string, number: number) {
     return vi.waitFor(async () => {
@@ -99,7 +86,10 @@ describe('bot players', () => {
     // Snake order: Alice, bots 1-3, then bots 3-1 and Alice again.
     const draft = await atPick(id, 8);
     expect(draft.turn).toEqual({ pick: 8, round: 2, playerId: alice.id });
-    const log = await pickLog(id);
+    const log = (await pickLog(id)).body as {
+      playerId: string;
+      name: string;
+    }[];
     expect(log.map((logged) => logged.playerId)).toEqual([
       alice.id,
       botIds[0],
@@ -128,9 +118,11 @@ describe('bot players', () => {
     await start(id).expect(200);
 
     expect((await atPick(id, 2)).turn?.playerId).toBe(alice.id);
-    expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
-      botIds[0],
-    ]);
+    expect(
+      (await pickLog(id)).body.map(
+        (logged: { playerId: string }) => logged.playerId,
+      ),
+    ).toEqual([botIds[0]]);
   });
 
   it('picks uniformly at random from the cards not yet picked', async () => {
@@ -142,10 +134,9 @@ describe('bot players', () => {
     await pick(id, 'fireblast-oracle').expect(200);
 
     await vi.waitFor(async () => {
-      expect((await pickLog(id)).map((logged) => logged.name)).toEqual([
-        'Fireblast',
-        'Shock',
-      ]);
+      expect(
+        (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
+      ).toEqual(['Fireblast', 'Shock']);
     });
   });
 
@@ -175,10 +166,9 @@ describe('bot players', () => {
     });
     await settle(300);
 
-    expect((await pickLog(id)).map((logged) => logged.name)).toEqual([
-      'Shock',
-      'Firebolt',
-    ]);
+    expect(
+      (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
+    ).toEqual(['Shock', 'Firebolt']);
   });
 
   it('does nothing when its timer fires while the draft is paused, and picks once it resumes', async () => {
@@ -195,7 +185,7 @@ describe('bot players', () => {
       .expect(200);
     await settle(300);
 
-    expect(await pickLog(id)).toHaveLength(1);
+    expect((await pickLog(id)).body).toHaveLength(1);
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/resume`)
@@ -203,10 +193,11 @@ describe('bot players', () => {
       .expect(200);
 
     await vi.waitFor(async () => {
-      expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
-        alice.id,
-        botIds[0],
-      ]);
+      expect(
+        (await pickLog(id)).body.map(
+          (logged: { playerId: string }) => logged.playerId,
+        ),
+      ).toEqual([alice.id, botIds[0]]);
     });
   });
 
@@ -224,7 +215,7 @@ describe('bot players', () => {
       .expect(200);
     await settle(300);
 
-    expect(await pickLog(id)).toHaveLength(1);
+    expect((await pickLog(id)).body).toHaveLength(1);
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/reopen`)
@@ -232,10 +223,11 @@ describe('bot players', () => {
       .expect(200);
 
     await vi.waitFor(async () => {
-      expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
-        alice.id,
-        botIds[0],
-      ]);
+      expect(
+        (await pickLog(id)).body.map(
+          (logged: { playerId: string }) => logged.playerId,
+        ),
+      ).toEqual([alice.id, botIds[0]]);
     });
   });
 
@@ -247,10 +239,10 @@ describe('bot players', () => {
     await pick(id, 'shock-oracle').expect(200);
     await atPick(id, 4);
 
-    await undoPick(id, 3);
+    await undo(id, 3).expect(200);
 
     await atPick(id, 4);
-    expect(await pickLog(id)).toEqual([
+    expect((await pickLog(id)).body).toEqual([
       expect.objectContaining({ playerId: alice.id, name: 'Shock' }),
       expect.objectContaining({
         playerId: botIds[0],
@@ -273,10 +265,11 @@ describe('bot players', () => {
     await startApp();
 
     await vi.waitFor(async () => {
-      expect((await pickLog(id)).map((logged) => logged.playerId)).toEqual([
-        alice.id,
-        botIds[0],
-      ]);
+      expect(
+        (await pickLog(id)).body.map(
+          (logged: { playerId: string }) => logged.playerId,
+        ),
+      ).toEqual([alice.id, botIds[0]]);
     });
   });
 

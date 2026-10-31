@@ -11,6 +11,8 @@ import {
   signIn,
   getDraft,
   readyDraft,
+  pickLog,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
@@ -22,13 +24,6 @@ describe('pick import', () => {
       .post(`/api/drafts/${id}/pick-import`)
       .set('Cookie', cookie)
       .send({ csv, userIds: [alice.id, bob.id] });
-  }
-
-  function pickLog(id: string) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
   }
 
   /** Made up: 'Ann' and 'Ben' are not the draft's players' names. */
@@ -260,18 +255,14 @@ describe('pick import', () => {
   it('undoes imported picks from the latest back', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
     await importPicks(id, csv).expect(200);
-    const undo = (number: number) =>
-      request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/picks/${number}`)
-        .set('Cookie', aliceCookie);
 
-    await undo(2).expect(409);
-    const answer = await undo(3).expect(200);
+    await undo(id, 2).expect(409);
+    const answer = await undo(id, 3).expect(200);
 
     expect(answer.body.turn.playerId).toBe(bob.id);
     expect(answer.body.turn.pick).toBe(3);
-    await undo(2).expect(200);
-    await undo(1).expect(200);
+    await undo(id, 2).expect(200);
+    await undo(id, 1).expect(200);
     expect((await pickLog(id)).body).toEqual([]);
   });
 });

@@ -183,3 +183,9 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
   if (snapshot.state === 'Complete') await flushPool();
   await fixture.whenStable();
 }
+
+/** Lets `ms` pass on the fake timers, then renders what came of it. */
+export function wait(ms: number) {
+  vi.advanceTimersByTime(ms);
+  TestBed.tick();
+}

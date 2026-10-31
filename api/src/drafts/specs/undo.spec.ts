@@ -10,6 +10,11 @@ import {
   signIn,
   readyDraft,
   start,
+  pick,
+  undo,
+  enqueue,
+  queue,
+  pickLogLines,
 } from './harness.js';
 
 useDraftsApp();
@@ -26,52 +31,11 @@ describe('undo', () => {
     vi.restoreAllMocks();
   });
 
-  function pick(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', cookie)
-      .send({ oracleId })
-      .expect(200);
-  }
-
-  function undo(id: string, number: number | string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/picks/${number}`)
-      .set('Cookie', cookie);
-  }
-
-  function enqueue(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .send({ oracleId })
-      .expect(200);
-  }
-
-  function queue(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .expect(200);
-  }
-
-  /** The pick log as `Player: Card` lines. */
-  async function pickLog(id: string) {
-    const res = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
-    return (res.body as { playerId: string; name: string }[]).map(
-      (pick) => `${names[pick.playerId] ?? 'Bot'}: ${pick.name}`,
-    );
-  }
-
   it('removes the latest pick, returning its card to the pool and the turn to its player', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
+    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
 
     const undone = await undo(id, 2).expect(200);
 
@@ -80,45 +44,48 @@ describe('undo', () => {
       round: 1,
       playerId: bob.id,
     });
-    expect(await pickLog(id)).toEqual(['Alice: Shock']);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Lightning Bolt is back in the pool.
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
-    expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lightning Bolt']);
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Bob: Lightning Bolt',
+    ]);
   });
 
   it('undoes only the last pick of a cascade, and makes no queued picks', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'lava-spike-oracle', bobCookie);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
-    await enqueue(id, 'lightning-bolt-oracle', bobCookie);
+    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
+    await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
+    await pick(id, 'shock-oracle').expect(200);
 
     const undone = await undo(id, 3).expect(200);
 
     // Bob's queue still has Lightning Bolt, but it waits for him.
     expect(undone.body.turn).toEqual({ pick: 3, round: 2, playerId: bob.id });
-    expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
   });
 
   it('returns the card to the queues it was lost from, to be picked on the next real pick', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
-    await enqueue(id, 'skewer-the-critics-oracle');
-    await pick(id, 'skewer-the-critics-oracle', bobCookie);
+    await pick(id, 'shock-oracle').expect(200);
+    await enqueue(id, 'skewer-the-critics-oracle').expect(200);
+    await pick(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
 
     await undo(id, 2).expect(200);
 
-    expect((await queue(id)).body).toEqual({
+    expect((await queue(id).expect(200)).body).toEqual({
       cards: [
         { oracleId: 'skewer-the-critics-oracle', name: 'Skewer the Critics' },
       ],
       lost: [],
     });
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
-    await pick(id, 'lava-spike-oracle', bobCookie);
-    expect(await pickLog(id)).toEqual([
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+    await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+    expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
       'Bob: Lightning Bolt',
       'Bob: Lava Spike',
@@ -129,8 +96,8 @@ describe('undo', () => {
   it('refuses to undo any pick but the latest, so an undo sent twice takes back one', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
+    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
 
     const [first, second] = await Promise.all([undo(id, 2), undo(id, 2)]);
 
@@ -139,7 +106,7 @@ describe('undo', () => {
     ]);
     const refused = await undo(id, 2).expect(409);
     expect(refused.body.error).toBe('not-latest');
-    expect(await pickLog(id)).toEqual(['Alice: Shock']);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
   });
 
   it('refuses an undo with no picks to undo', async () => {
@@ -155,19 +122,22 @@ describe('undo', () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
     expect((await undo(id, 1).expect(409)).body.error).toBe('not-drafting');
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
+    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
 
     const refused = await undo(id, 2).expect(409);
 
     expect(refused.body.error).toBe('not-drafting');
-    expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lightning Bolt']);
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Bob: Lightning Bolt',
+    ]);
   });
 
   it('undoes a pick while the draft is paused, leaving it paused', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
+    await pick(id, 'shock-oracle').expect(200);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/pause`)
       .set('Cookie', aliceCookie)
@@ -179,7 +149,7 @@ describe('undo', () => {
       state: 'Paused',
       turn: { pick: 1, playerId: alice.id },
     });
-    expect(await pickLog(id)).toEqual([]);
+    expect(await pickLogLines(id)).toEqual([]);
   });
 
   it('announces the undo, pinging the player whose turn it is again', async () => {
@@ -198,8 +168,8 @@ describe('undo', () => {
       webhook.body.id,
     );
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
+    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
 
     await undo(id, 2).expect(200);
 
@@ -219,8 +189,8 @@ describe('undo', () => {
   it('lets an app admin undo, but not other players', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle');
-    await pick(id, 'lightning-bolt-oracle', bobCookie);
+    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
 
     await undo(id, 2, bobCookie).expect(403);
     await undo(id, 2, await signIn(carol)).expect(200);
