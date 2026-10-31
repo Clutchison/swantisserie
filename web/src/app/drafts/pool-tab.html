@@ -61,7 +61,8 @@
           [class.picked]="picked().has(card.oracleId)"
           [appTileImage]="card.oracleId"
           #tileImage="tileImage"
-          (click)="open(card)"
+          #tile
+          (click)="open(card, tile)"
         >
           <span class="placeholder">{{ card.name }}</span>
           @if (tileImage.requested()) {
@@ -93,13 +94,23 @@
       [attr.aria-label]="card.name"
       (click)="$event.stopPropagation()"
     >
-      <img
-        [src]="image(card, 'large', face())"
-        [alt]="card.name"
-        width="672"
-        height="936"
-        (error)="imageFailed(card, 'large', face())"
-      />
+      <!-- One card's image per element: another card opened here starts afresh. -->
+      @for (shownCard of [card]; track shownCard.oracleId) {
+        <app-card-image
+          class="large"
+          [src]="image(shownCard, 'large', face())"
+          [alt]="shownCard.name"
+          [width]="672"
+          [height]="936"
+          (failed)="imageFailed(shownCard, 'large', face())"
+        >
+          @if (tileImage(); as src) {
+            <img class="placeholder" [src]="src" alt="" width="488" height="680" />
+          } @else {
+            <span class="placeholder">{{ shownCard.name }}</span>
+          }
+        </app-card-image>
+      }
       <div class="actions">
         @if (offerPick()) {
           <button

@@ -21,6 +21,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
 import { type DraftView, isRefusal, type PoolCardView, type QueueView } from './drafts';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
@@ -39,6 +40,7 @@ import { TileImage, TileImageLoader } from './tile-image';
     CdkFixedSizeVirtualScroll,
     CdkVirtualForOf,
     TileImage,
+    CardImage,
   ],
   providers: [TileImageLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -145,6 +147,8 @@ export class PoolTab {
 
   /** The card in the detail view, if one is open. */
   protected readonly detail = signal<PoolCardView | null>(null);
+  /** The image the detail view's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
+  protected readonly tileImage = signal<string | null>(null);
   /** Which face the detail view shows: 0 is the front. */
   protected readonly face = signal(0);
   protected readonly picking = signal(false);
@@ -206,8 +210,13 @@ export class PoolTab {
     this.images.failed(card, version, face);
   }
 
-  protected open(card: PoolCardView) {
+  protected open(card: PoolCardView, tile: HTMLElement) {
     this.detail.set(card);
+    const loaded = tile.querySelector('img');
+    const normal = this.images.url(card, 'normal');
+    this.tileImage.set(
+      loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
+    );
     this.face.set(0);
     this.pickError.set(null);
     this.queueNote.set(null);

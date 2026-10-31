@@ -53,6 +53,10 @@ export let updates: { events: Subject<DraftUpdate>; watch: ReturnType<typeof vi.
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useDraftsApp() {
   beforeEach(() => {
+    decodes = new Map();
+    HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
+      return new Promise((resolve, reject) => decodes.set(this, { resolve, reject }));
+    };
     const events = new Subject<DraftUpdate>();
     updates = { events, watch: vi.fn(() => events) };
     TestBed.configureTestingModule({
@@ -72,6 +76,23 @@ export function useDraftsApp() {
   afterEach(() => http.verify());
   // Hooks run last-registered first, so a failed verify can't skip this.
   afterEach(() => vi.restoreAllMocks());
+}
+
+/** The images waiting on the browser to decode them, which jsdom never does. */
+let decodes: Map<HTMLImageElement, { resolve: () => void; reject: () => void }>;
+
+/** The browser finishes decoding `img`. */
+export async function decoded(img: HTMLImageElement) {
+  decodes.get(img)!.resolve();
+  await Promise.resolve();
+  TestBed.tick();
+}
+
+/** The browser refuses to decode `img`. */
+export async function decodeRefused(img: HTMLImageElement) {
+  decodes.get(img)!.reject();
+  await Promise.resolve();
+  TestBed.tick();
 }
 
 /** Opens `url` as `user`: Alice, unless told otherwise. */

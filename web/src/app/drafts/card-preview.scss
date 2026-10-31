@@ -5,13 +5,10 @@
 }
 
 /*
- * The attributes and aspect ratio reserve the card's shape while it loads.
+ * The aspect ratio reserves the card's shape while it loads.
  * Rounding at a printed card's corner radius cuts nothing else away.
  */
-img {
-  display: block;
-  width: 100%;
-  height: auto;
+app-card-image {
   aspect-ratio: 488 / 680;
   border-radius: #{4.75% / 3.5%};
   background: var(--color-surface);
