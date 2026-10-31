@@ -127,6 +127,8 @@ $card-corners: #{4.75% / 3.5%};
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
+  /* Starting halfway across the tile leaves it half the width to fit in. */
+  white-space: nowrap;
   transform: translate(-50%, -50%);
 }
 
