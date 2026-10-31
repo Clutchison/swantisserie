@@ -18,11 +18,11 @@ function shownBy(...pressed: ColorChoice[]) {
 describe('color filter', () => {
   it.each<[ColorChoice[], string]>([
     [[], ''],
-    [['C'], 'c:c'],
+    [['C'], '-c>=1'],
     [['W'], '(c:w) c<=w'],
     [['W', 'U'], '(c:w or c:u) c<=wu'],
-    [['W', 'U', 'C'], 'c<=wu'],
-    [['W', 'C'], 'c<=w'],
+    [['W', 'U', 'C'], '(c:w or c:u or -c>=1) c<=wu'],
+    [['W', 'C'], '(c:w or -c>=1) c<=w'],
     [['W', 'U', 'B', 'R', 'G'], '(c:w or c:u or c:b or c:r or c:g) c<=wubrg'],
   ])('turns %j into the search text "%s"', (pressed, text) => {
     expect(colorFilterSearch(new Set(pressed))).toBe(text);
@@ -76,8 +76,17 @@ describe('color filter', () => {
         expect(result.ok && result.cards.map((card) => card.name)).not.toContain(emeriasCall);
       });
 
-      it('shows it for Colorless, for its back', () => {
-        expect(shownBy('C')).toContain(emeriasCall);
+      it('leaves it out for Colorless, since it is really a white card', () => {
+        expect(shownBy('C')).not.toContain(emeriasCall);
+        expect(shownBy('U', 'C')).not.toContain(emeriasCall);
+      });
+
+      it('still shows it when its color is pressed along with Colorless', () => {
+        expect(shownBy('W', 'C')).toContain(emeriasCall);
+      });
+
+      it('shows a card with no color on either face for Colorless', () => {
+        expect(shownBy('C')).toContain('Brightclimb Pathway // Grimclimb Pathway');
       });
 
       it('leaves it out for a color neither face has', () => {

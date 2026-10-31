@@ -14,18 +14,18 @@ export const noPoolFilters: PoolFilterState = { colors: new Set() };
 const COLORS: ColorChoice[] = ['W', 'U', 'B', 'R', 'G'];
 
 /**
- * The color filter's search text. Without Colorless, a card must also have a
- * pressed color: `-c:c` wouldn't do, since a card is out if any face is
- * colorless, which would lose a white spell with a land on its back.
- * Search terms can each match a different face, so a WB // colorless card would
- * show for White alone; no such card is known.
+ * The color filter's search text. A card is colorless only if no face has a
+ * color: a white spell with a land on its back is a white card, so it shows for
+ * White, but not for Colorless. `c:c` and `-c:c` won't do, since either looks
+ * for any colorless face. Search terms can each match a different face, so a
+ * WB // colorless card would show for White alone; no such card is known.
  */
 export function colorFilterSearch(pressed: ReadonlySet<ColorChoice>): string {
   const letters = COLORS.filter((color) => pressed.has(color)).map((color) => color.toLowerCase());
-  if (!letters.length) return pressed.has('C') ? 'c:c' : '';
-  const within = `c<=${letters.join('')}`;
-  if (pressed.has('C')) return within;
-  return `(${letters.map((letter) => `c:${letter}`).join(' or ')}) ${within}`;
+  const colorless = pressed.has('C') ? ['-c>=1'] : [];
+  if (!letters.length) return colorless.join('');
+  const options = [...letters.map((letter) => `c:${letter}`), ...colorless];
+  return `(${options.join(' or ')}) c<=${letters.join('')}`;
 }
 
 /** Each pool filter, as Scryfall search text for its state: empty when it narrows nothing. */
