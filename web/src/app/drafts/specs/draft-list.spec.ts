@@ -14,7 +14,7 @@ describe('draft list', () => {
   it('says so while the drafts load', async () => {
     const { fixture, page } = await openUrl('/');
     const req = http.expectOne('/api/drafts');
-    await expectLoadingAnimation(() => page, 'Loading…', 96);
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
 
     req.flush([]);
     await fixture.whenStable();

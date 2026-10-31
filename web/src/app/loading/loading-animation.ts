@@ -12,8 +12,8 @@ import {
 const DELAY_MS = 200;
 
 /**
- * The Spit logo with its crank turning and flames flickering, above the projected
- * loading text. Render it only while loading: its delay starts when it's created.
+ * The Spit logo with its crank turning, flames flickering and heat waves rising, above
+ * the projected loading text. Render it only while loading: its delay starts when it's created.
  */
 @Component({
   selector: 'app-loading-animation',
@@ -25,7 +25,7 @@ export class LoadingAnimation {
   readonly size = input.required<'page' | 'tab'>();
 
   /** The logo's width and height, in px. */
-  protected readonly logoSize = computed(() => (this.size() === 'page' ? 96 : 64));
+  protected readonly logoSize = computed(() => (this.size() === 'page' ? 288 : 64));
   protected readonly shown = signal(false);
   /** Asked once, as a load is too short to be worth following a change of mind. */
   protected readonly moving = !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;

@@ -47,7 +47,7 @@ describe('App', () => {
     const navigation = router.navigateByUrl('/');
     const req = await vi.waitFor(() => http.expectOne('/api/auth/me'));
     const page = fixture.nativeElement as HTMLElement;
-    await expectLoadingAnimation(() => page, 'Loading…', 96);
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
 
     req.flush({ id: '1', name: 'Alice', avatarUrl: 'https://example.com/a.png', isAdmin: false });
     await navigation;

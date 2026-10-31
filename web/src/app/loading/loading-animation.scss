@@ -46,6 +46,14 @@ p {
     animation-duration: 600ms;
     animation-delay: -150ms;
   }
+
+  .heat-wave {
+    animation: rise 1.8s ease-out infinite;
+  }
+
+  .heat-wave.right {
+    animation-delay: -800ms;
+  }
 }
 
 @keyframes turn {
@@ -67,5 +75,19 @@ p {
   }
   70% {
     transform: scale(1.04, 0.92) skewX(-1deg);
+  }
+}
+
+@keyframes rise {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-14px);
+    opacity: 0;
   }
 }

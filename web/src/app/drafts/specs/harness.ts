@@ -109,7 +109,7 @@ export async function openUrl(url: string, user = alice) {
 export async function expectLoadingAnimation(
   root: () => Element,
   text: string,
-  logoWidth: 96 | 64,
+  logoWidth: 288 | 64,
 ) {
   await vi.waitFor(() => {
     TestBed.tick();

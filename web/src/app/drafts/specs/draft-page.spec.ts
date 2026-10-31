@@ -15,7 +15,7 @@ describe('draft page', () => {
   it('says so while the draft loads', async () => {
     const { page } = await openUrl('/drafts/draft-1');
     const req = http.expectOne('/api/drafts/draft-1');
-    await expectLoadingAnimation(() => page, 'Loading…', 96);
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
 
     req.flush(draft({ state: 'Lobby' }));
     await vi.waitFor(() => {
