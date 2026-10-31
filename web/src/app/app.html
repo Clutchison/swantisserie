@@ -5,11 +5,14 @@
     </a>
     <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
     <span class="name">{{ user.name }}</span>
-    @if (user.isAdmin) {
-      <div class="extra-controls">
+    <div class="extra-controls">
+      <button class="button quiet" type="button" (click)="feedbackOpen.set(true)">
+        Send feedback
+      </button>
+      @if (user.isAdmin) {
         <a class="button quiet" routerLink="/admin/webhooks">Webhooks</a>
-      </div>
-    }
+      }
+    </div>
     <button class="button quiet" type="button" (click)="logout()">Log out</button>
   </header>
 }
@@ -21,3 +24,6 @@
   </p>
 }
 <router-outlet />
+@if (feedbackOpen()) {
+  <app-feedback-dialog (closed)="feedbackOpen.set(false)" />
+}

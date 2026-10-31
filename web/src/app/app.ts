@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NavigationCancel,
@@ -11,10 +11,11 @@ import {
 } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
+import { FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 
 @Component({
-  imports: [LoadingAnimation, RouterLink, RouterOutlet],
+  imports: [FeedbackDialog, LoadingAnimation, RouterLink, RouterOutlet],
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',
@@ -24,6 +25,7 @@ export class App {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   protected readonly user = this.auth.user;
+  protected readonly feedbackOpen = signal(false);
 
   /** Pages say how they are loading once shown; this covers the wait for one, and its failure. */
   protected readonly pageStatus = toSignal(

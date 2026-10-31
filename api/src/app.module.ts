@@ -5,6 +5,7 @@ import { API_PREFIX } from './app.setup.js';
 import { AuthModule } from './auth/auth.module.js';
 import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
+import { FeedbackModule } from './feedback/feedback.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
 export interface AppOptions {
@@ -21,6 +22,7 @@ export class AppModule {
         PrismaModule,
         AuthModule,
         DraftsModule,
+        FeedbackModule,
         WebhooksModule,
         ServeStaticModule.forRoot({
           rootPath: webRoot,
