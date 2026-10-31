@@ -54,6 +54,14 @@ _Avoid_: Card modal, card popup
 A search in Scryfall syntax that a viewer types to narrow the pool cards they see. It never changes the pool.
 _Avoid_: Filter, query (alone), advanced search
 
+**Pool filter**:
+A control a viewer sets, rather than types, to narrow the pool cards they see. It never changes the pool.
+_Avoid_: Filter (alone), facet, search
+
+**Color filter**:
+The pool filter that narrows by card color: a viewer presses colors, or colorless, and sees only cards whose colors are all among those pressed.
+_Avoid_: Color search, color identity filter, mana filter
+
 **Pool tab**:
 The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them.
 _Avoid_: Card grid, pool page
