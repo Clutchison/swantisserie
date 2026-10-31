@@ -1,8 +1,30 @@
-import { useDraftsApp, draft, http, openUrl, openDraft, poll } from './harness';
+import { TestBed } from '@angular/core/testing';
+import {
+  useDraftsApp,
+  draft,
+  expectLoadingAnimation,
+  http,
+  openUrl,
+  openDraft,
+  poll,
+} from './harness';
 
 useDraftsApp();
 
 describe('draft page', () => {
+  it('says so while the draft loads', async () => {
+    const { page } = await openUrl('/drafts/draft-1');
+    const req = http.expectOne('/api/drafts/draft-1');
+    await expectLoadingAnimation(() => page, 'Loading…', 96);
+
+    req.flush(draft({ state: 'Lobby' }));
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(page.textContent).not.toContain('Loading…');
+    });
+    http.match(() => true).forEach((pending) => pending.flush([]));
+  });
+
   it('shows the draft and its pool size once the snapshot is complete', async () => {
     const { page } = await openDraft({ state: 'Complete', cards: 540, total: 540 });
 

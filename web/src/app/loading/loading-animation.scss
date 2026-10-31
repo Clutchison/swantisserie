@@ -1,0 +1,71 @@
+:host {
+  display: block;
+}
+
+[role='status'] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The space is on what's shown, so a load that shows nothing takes up none. */
+svg {
+  display: block;
+  flex: none;
+  margin-top: var(--space-xl);
+}
+
+p {
+  margin: 0 0 var(--space-xl);
+  text-align: center;
+}
+
+/*
+ * Transforms here apply in the SVG's user space: the crank's origin is on the spit,
+ * and a flame's is its base, the origin of the group that places it.
+ */
+.moving {
+  .crank {
+    transform-origin: 0 302px;
+    /* There and back is one turn, seen edge-on, so about every 2s. */
+    animation: turn 1s ease-in-out infinite alternate;
+  }
+
+  .flame {
+    transform-origin: 0 0;
+    animation: flicker 700ms ease-in-out infinite;
+  }
+
+  .flame.middle {
+    animation-duration: 850ms;
+    animation-delay: -300ms;
+  }
+
+  .flame.right {
+    animation-duration: 600ms;
+    animation-delay: -150ms;
+  }
+}
+
+@keyframes turn {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(-1);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(-2deg);
+  }
+  35% {
+    transform: scale(0.95, 1.08) skewX(2deg);
+  }
+  70% {
+    transform: scale(1.04, 0.92) skewX(-1deg);
+  }
+}

@@ -100,3 +100,8 @@
 .cdk-drop-list-dragging li:not(.cdk-drag-placeholder) {
   transition: transform 200ms ease;
 }
+
+/* A list item lays out as a row, so this fills it for the animation to centre. */
+.empty app-loading-animation {
+  flex: 1;
+}

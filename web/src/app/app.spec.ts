@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from './app';
 import { routes } from './app.routes';
+import { expectLoadingAnimation } from './drafts/specs/harness';
 
 describe('App', () => {
   let http: HttpTestingController;
@@ -45,9 +46,8 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     const navigation = router.navigateByUrl('/');
     const req = await vi.waitFor(() => http.expectOne('/api/auth/me'));
-    TestBed.tick();
     const page = fixture.nativeElement as HTMLElement;
-    expect(page.textContent).toContain('Loading…');
+    await expectLoadingAnimation(() => page, 'Loading…', 96);
 
     req.flush({ id: '1', name: 'Alice', avatarUrl: 'https://example.com/a.png', isAdmin: false });
     await navigation;

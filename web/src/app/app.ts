@@ -11,9 +11,10 @@ import {
 } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
+import { LoadingAnimation } from './loading/loading-animation';
 
 @Component({
-  imports: [RouterLink, RouterOutlet],
+  imports: [LoadingAnimation, RouterLink, RouterOutlet],
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',

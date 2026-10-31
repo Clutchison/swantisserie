@@ -80,7 +80,7 @@
   } @empty {
     <li class="empty">
       @if (loading()) {
-        Loading your queue…
+        <app-loading-animation size="tab">Loading your queue…</app-loading-animation>
       } @else if (readOnly()) {
         Your queue is empty.
       } @else {

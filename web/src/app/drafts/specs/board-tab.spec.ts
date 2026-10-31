@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { type PickView } from '../drafts';
+import { EMPTY_QUEUE, type PickView } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -13,6 +13,8 @@ import {
   openDraft,
   flushPool,
   completeSnapshot,
+  expectLoadingAnimation,
+  flushQueue,
 } from './harness';
 
 useDraftsApp();
@@ -66,13 +68,13 @@ describe('board tab', () => {
   const pickLog = (root: HTMLElement) => panel(root).querySelector<HTMLElement>('.log')!;
 
   /** Opens the Board tab with the GET of the picks left for the test to answer. */
-  async function openBoardUnanswered() {
+  async function openBoardUnanswered(players = [bob]) {
     const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(
       draft({
         snapshot: completeSnapshot,
         state: 'Drafting',
-        players: [bob],
+        players,
         turn: { pick: 1, round: 1, playerId: bob.id },
       }),
     );
@@ -88,13 +90,24 @@ describe('board tab', () => {
 
   it('says the picks are loading, not that there are none, until they arrive', async () => {
     const { fixture, page, req } = await openBoardUnanswered();
-    expect(panel(page).textContent).toContain('Loading the picks…');
+    await expectLoadingAnimation(() => panel(page), 'Loading the picks…', 64);
     expect(panel(page).textContent).not.toContain('No picks yet');
 
     req.flush([]);
     await fixture.whenStable();
     expect(panel(page).textContent).not.toContain('Loading the picks…');
     expect(panel(page).textContent).toContain('No picks yet');
+  });
+
+  it('says a player’s picks are loading until they arrive', async () => {
+    const { fixture, page, req } = await openBoardUnanswered([alicePlayer, bob]);
+    const picksPanel = () => page.querySelector('#picks-panel')!;
+    await expectLoadingAnimation(picksPanel, 'Loading the picks…', 64);
+
+    await flushQueue(EMPTY_QUEUE);
+    req.flush([]);
+    await fixture.whenStable();
+    expect(picksPanel().textContent).not.toContain('Loading the picks…');
   });
 
   it('does not say there are no picks when they failed to load', async () => {

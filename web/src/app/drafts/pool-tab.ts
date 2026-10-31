@@ -35,6 +35,7 @@ import {
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
 import { TileImage, TileImageLoader } from './tile-image';
+import { LoadingAnimation } from '../loading/loading-animation';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
@@ -43,6 +44,7 @@ import { TileImage, TileImageLoader } from './tile-image';
 @Component({
   selector: 'app-pool-tab',
   imports: [
+    LoadingAnimation,
     CdkVirtualScrollViewport,
     CdkVirtualScrollableWindow,
     CdkFixedSizeVirtualScroll,
