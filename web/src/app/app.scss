@@ -18,9 +18,18 @@ header {
 
 .name {
   flex: 1;
+  min-width: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Compact, so both fit beside the logo and avatar at 320px; the name gives way first. */
+.button {
+  flex: none;
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 

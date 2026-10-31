@@ -49,6 +49,16 @@ main {
     background: none;
     cursor: pointer;
 
+    /* Inset, as the bar meets the screen's edges. */
+    &:focus-visible {
+      outline-offset: -2px;
+    }
+
+    /* Not the selected tab: accent text on raised fails AA. */
+    &:hover:not(:disabled, [aria-selected='true']) {
+      background: var(--color-raised);
+    }
+
     &[aria-selected='true'] {
       border-top-color: var(--color-accent);
       color: var(--color-accent);

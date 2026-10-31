@@ -6,9 +6,9 @@
     <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
     <span class="name">{{ user.name }}</span>
     @if (user.isAdmin) {
-      <a routerLink="/admin/webhooks">Webhooks</a>
+      <a class="button quiet" routerLink="/admin/webhooks">Webhooks</a>
     }
-    <button type="button" (click)="logout()">Log out</button>
+    <button class="button quiet" type="button" (click)="logout()">Log out</button>
   </header>
 }
 @if (pageStatus() === 'Loading') {
