@@ -1,7 +1,7 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { type WebhookView } from '../drafts';
-import { useDraftsApp, draft, http, router, open } from './harness';
+import { useDraftsApp, draft, http, router, openUrl } from './harness';
 
 useDraftsApp();
 
@@ -11,7 +11,7 @@ describe('create form', () => {
 
   /** Opens the form with GET /api/webhooks answered by `webhooks`. */
   async function openForm(webhooks: WebhookView[] = []) {
-    const { fixture, page } = await open('/drafts/new');
+    const { fixture, page } = await openUrl('/drafts/new');
     http.expectOne('/api/webhooks').flush(webhooks);
     await fixture.whenStable();
     return { fixture, page };
@@ -55,7 +55,7 @@ describe('create form', () => {
   }
 
   it('says so while the webhooks load, and when there are none', async () => {
-    const { fixture, page } = await open('/drafts/new');
+    const { fixture, page } = await openUrl('/drafts/new');
     const req = http.expectOne('/api/webhooks');
     await vi.waitFor(() => {
       TestBed.tick();
@@ -69,7 +69,7 @@ describe('create form', () => {
   });
 
   it('says when the webhooks fail to load, and still offers to post nowhere', async () => {
-    const { fixture, page } = await open('/drafts/new');
+    const { fixture, page } = await openUrl('/drafts/new');
     http.expectOne('/api/webhooks').flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
@@ -140,7 +140,7 @@ describe('create form', () => {
   });
 
   it('still creates a draft, posting nowhere, when the webhooks fail to load', async () => {
-    const { fixture, page } = await open('/drafts/new');
+    const { fixture, page } = await openUrl('/drafts/new');
     http
       .expectOne('/api/webhooks')
       .flush(null, { status: 500, statusText: 'Internal Server Error' });

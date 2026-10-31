@@ -1,4 +1,4 @@
-import { type PoolSnapshotView, EMPTY_QUEUE } from '../drafts';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -10,12 +10,13 @@ import {
   openDraft,
   flushQueue,
   flushPicks,
+  completeSnapshot,
+  button,
 } from './harness';
 
 useDraftsApp();
 
 describe('pause and resume', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const drafting = {
     state: 'Drafting' as const,
     players: [alicePlayer, bob],
@@ -23,11 +24,8 @@ describe('pause and resume', () => {
   };
   const paused = { ...drafting, state: 'Paused' as const };
 
-  const button = (page: HTMLElement, label: string) =>
-    [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
-
   it('lets the organizer pause the draft, telling everyone picks have stopped', async () => {
-    const { fixture, page } = await openDraft(complete, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, drafting);
     expect(button(page, 'Resume draft')).toBeUndefined();
 
     button(page, 'Pause draft')!.click();
@@ -44,7 +42,7 @@ describe('pause and resume', () => {
   });
 
   it('lets the organizer resume a paused draft', async () => {
-    const { fixture, page } = await openDraft(complete, paused);
+    const { fixture, page } = await openDraft(completeSnapshot, paused);
 
     button(page, 'Resume draft')!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/resume'));
@@ -59,7 +57,7 @@ describe('pause and resume', () => {
   });
 
   it('says why a pause was refused, and catches up with the draft', async () => {
-    const { fixture, page } = await openDraft(complete, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, drafting);
 
     button(page, 'Pause draft')!.click();
     const message = 'Only a drafting draft can be paused.';
@@ -79,7 +77,7 @@ describe('pause and resume', () => {
   });
 
   it('offers pause and resume only to the organizer or an app admin', async () => {
-    const { page } = await openDraft(complete, {
+    const { page } = await openDraft(completeSnapshot, {
       ...paused,
       organizer: { id: bob.id, name: bob.name },
     });
@@ -89,7 +87,7 @@ describe('pause and resume', () => {
   });
 
   it('shows every viewer the draft pausing as it happens', async () => {
-    const { fixture, page } = await openDraft(complete, {
+    const { fixture, page } = await openDraft(completeSnapshot, {
       ...drafting,
       organizer: { id: bob.id, name: bob.name },
     });

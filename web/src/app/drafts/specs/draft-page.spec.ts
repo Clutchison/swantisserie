@@ -1,4 +1,4 @@
-import { useDraftsApp, draft, http, open, openDraft, poll } from './harness';
+import { useDraftsApp, draft, http, openUrl, openDraft, poll } from './harness';
 
 useDraftsApp();
 
@@ -69,7 +69,7 @@ describe('draft page', () => {
   });
 
   it('says when the draft cannot be loaded', async () => {
-    const { fixture, page } = await open('/drafts/draft-1');
+    const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush({}, { status: 404, statusText: 'Not Found' });
     await fixture.whenStable();
 

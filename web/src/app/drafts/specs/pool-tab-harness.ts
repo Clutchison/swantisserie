@@ -1,6 +1,5 @@
-import { type PoolCardView, type PoolSnapshotView } from '../drafts';
-
-export const complete: PoolSnapshotView = { state: 'Complete', cards: 2, total: 2 };
+import { type PoolCardView } from '../drafts';
+import { type AppFixture } from './harness';
 
 // jsdom lays nothing out, so the window is 0px tall and the grid, which
 // only renders the rows on screen, would render just a few. Give it a
@@ -71,15 +70,8 @@ export const tiles = (page: HTMLElement) => [
 ];
 
 /** Taps the grid's `index`th card and returns the detail view it opens. */
-export async function openDetail(
-  fixture: { whenStable(): Promise<unknown> },
-  page: HTMLElement,
-  index: number,
-) {
+export async function openDetail(fixture: AppFixture, page: HTMLElement, index: number) {
   tiles(page)[index].click();
   await fixture.whenStable();
   return page.querySelector<HTMLElement>('[role="dialog"]')!;
 }
-
-export const buttonIn = (root: HTMLElement, label: string) =>
-  [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);

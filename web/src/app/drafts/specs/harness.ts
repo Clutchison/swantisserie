@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { Subject } from 'rxjs';
 import { App } from '../../app';
@@ -23,6 +23,8 @@ export const alice = {
   isAdmin: false,
 };
 
+export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
+
 export function draft(fields: Partial<DraftView>): DraftView {
   return {
     id: 'draft-1',
@@ -31,7 +33,7 @@ export function draft(fields: Partial<DraftView>): DraftView {
     picksPerPlayer: 40,
     state: 'Lobby',
     organizer: { id: alice.id, name: alice.name },
-    snapshot: { state: 'Complete', cards: 540, total: 540 },
+    snapshot: completeSnapshot,
     players: [],
     turn: null,
     webhook: null,
@@ -40,6 +42,8 @@ export function draft(fields: Partial<DraftView>): DraftView {
     ...fields,
   };
 }
+
+export type AppFixture = ComponentFixture<App>;
 
 export let http: HttpTestingController;
 export let router: Router;
@@ -65,11 +69,12 @@ export function useDraftsApp() {
     router = TestBed.inject(Router);
   });
 
+  afterEach(() => vi.restoreAllMocks());
   afterEach(() => http.verify());
 }
 
 /** Opens `url` as `user`: Alice, unless told otherwise. */
-export async function open(url: string, user = alice) {
+export async function openUrl(url: string, user = alice) {
   const fixture = TestBed.createComponent(App);
   const navigation = router.navigateByUrl(url);
   (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
@@ -80,7 +85,7 @@ export async function open(url: string, user = alice) {
 
 /** Opens the draft list with GET /api/drafts answered by `drafts`. */
 export async function openList(drafts: DraftView[]) {
-  const { fixture, page } = await open('/');
+  const { fixture, page } = await openUrl('/');
   http.expectOne('/api/drafts').flush(drafts);
   await fixture.whenStable();
   return page;
@@ -107,23 +112,29 @@ export const alicePlayer = {
   isBot: false,
 };
 
+/** A button inside `root`, by its text or its aria-label. */
+export const button = (root: HTMLElement, label: string) =>
+  [...root.querySelectorAll('button')].find(
+    (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
+  );
+
 /** A button in the tab bar, by its label. */
 export const tabButton = (root: HTMLElement, tab: string) =>
   [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
-    (button) => button.textContent?.trim() === tab,
+    (b) => b.textContent?.trim() === tab,
   )!;
 /** The tab panel showing. */
 export const panel = (root: HTMLElement) =>
   root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
 
 /**
- * Opens draft-1's page with the first GET answered by `pool`, its pool
+ * Opens draft-1's page with the first GET answered by `snapshot`, its pool
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` if
  * they are a player, signed in as `user`.
  */
 export async function openDraft(
-  pool: PoolSnapshotView,
+  snapshot: PoolSnapshotView,
   fields: Partial<DraftView> = {},
   {
     cards = [],
@@ -137,10 +148,10 @@ export async function openDraft(
     user?: typeof alice;
   } = {},
 ) {
-  const { fixture, page } = await open('/drafts/draft-1', user);
-  const opened = draft({ snapshot: pool, ...fields });
+  const { fixture, page } = await openUrl('/drafts/draft-1', user);
+  const opened = draft({ snapshot, ...fields });
   http.expectOne('/api/drafts/draft-1').flush(opened);
-  if (pool.state === 'Complete') await flushPool(cards);
+  if (snapshot.state === 'Complete') await flushPool(cards);
   if (opened.state !== 'Lobby') await flushPicks(picks);
   if (opened.players.some((player) => player.id === user.id)) await flushQueue(queue);
   await fixture.whenStable();
@@ -165,9 +176,9 @@ export async function flushPool(cards: PoolCardView[] = []) {
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(cards);
 }
 
-/** The next poll of the draft, answered with `pool`. */
-export async function poll(fixture: { whenStable(): Promise<unknown> }, pool: PoolSnapshotView) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft({ snapshot: pool }));
-  if (pool.state === 'Complete') await flushPool();
+/** The next poll of the draft, answered with `snapshot`. */
+export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
+  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft({ snapshot }));
+  if (snapshot.state === 'Complete') await flushPool();
   await fixture.whenStable();
 }

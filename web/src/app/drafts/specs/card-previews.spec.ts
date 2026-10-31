@@ -1,25 +1,24 @@
 import { TestBed } from '@angular/core/testing';
-import { type PickView, type PoolCardView, type PoolSnapshotView, type QueueView } from '../drafts';
+import { type PickView, type PoolCardView, type QueueView } from '../drafts';
 import {
   useDraftsApp,
   alice,
   draft,
   http,
-  open,
+  openUrl,
   bob,
   alicePlayer,
   tabButton,
   panel,
   openDraft,
   flushPicks,
+  completeSnapshot,
 } from './harness';
+import { image } from './pool-tab-harness';
 
 useDraftsApp();
 
 describe('card previews', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 2, total: 2 };
-  const normal = (id: string, face = 'front') =>
-    `https://cards.scryfall.io/normal/${face}/${id}.jpg`;
   const poolCard = (id: string, name: string, faces = ['front']): PoolCardView => ({
     scryfallId: `${id}-id`,
     oracleId: `${id}-oracle`,
@@ -41,9 +40,9 @@ describe('card previews', () => {
     defense: null,
     faces: [],
     images: faces.map((face) => ({
-      small: `https://cards.scryfall.io/small/${face}/${id}-id.jpg`,
-      normal: normal(`${id}-id`, face),
-      large: `https://cards.scryfall.io/large/${face}/${id}-id.jpg`,
+      small: image('small', `${id}-id`, face),
+      normal: image('normal', `${id}-id`, face),
+      large: image('large', `${id}-id`, face),
     })),
   });
   const bolt = poolCard('bolt', 'Lightning Bolt');
@@ -63,7 +62,7 @@ describe('card previews', () => {
     options: { cards?: PoolCardView[]; picks?: PickView[]; queue?: QueueView } = {},
   ) {
     return openDraft(
-      complete,
+      completeSnapshot,
       {
         state: 'Drafting',
         players: [alicePlayer, bob],
@@ -116,7 +115,7 @@ describe('card previews', () => {
     expect(previewImage()).toBeNull();
     wait(1);
 
-    expect(previewImage()?.getAttribute('src')).toBe(normal('bolt-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     expect(previewImage()?.getAttribute('alt')).toBe('Lightning Bolt');
   });
 
@@ -164,7 +163,7 @@ describe('card previews', () => {
     name.dispatchEvent(pointer('pointerdown', 'mouse'));
     name.click();
     TestBed.tick();
-    expect(previewImage()?.getAttribute('src')).toBe(normal('bolt-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
   function tap(target: HTMLElement) {
@@ -181,7 +180,7 @@ describe('card previews', () => {
     tap(boardName(page, 'Lightning Bolt'));
     wait(1000);
 
-    expect(previewImage()?.getAttribute('src')).toBe(normal('bolt-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
   it('switches to the card of another name tapped', async () => {
@@ -191,7 +190,7 @@ describe('card previews', () => {
     tap(boardName(page, 'Shock'));
 
     expect(document.querySelectorAll('app-card-preview')).toHaveLength(1);
-    expect(previewImage()?.getAttribute('src')).toBe(normal('shock-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
   });
 
   it('closes on a tap elsewhere', async () => {
@@ -219,7 +218,7 @@ describe('card previews', () => {
     tap(boardName(page, 'Lightning Bolt'));
     hover(boardName(page, 'Shock'));
     wait(150);
-    expect(previewImage()?.getAttribute('src')).toBe(normal('shock-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
     unhover(boardName(page, 'Shock'));
     expect(previewImage()).toBeNull();
@@ -234,7 +233,7 @@ describe('card previews', () => {
     const preview = document.querySelector('app-card-preview')!;
     expect(preview.querySelectorAll('button, a')).toHaveLength(0);
     expect(preview.querySelectorAll('img')).toHaveLength(1);
-    expect(previewImage()?.getAttribute('src')).toBe(normal('pathway-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'pathway-id'));
     expect(previewImage()?.getAttribute('width')).toBe('488');
     expect(previewImage()?.getAttribute('height')).toBe('680');
   });
@@ -281,10 +280,10 @@ describe('card previews', () => {
   });
 
   it('leaves names as plain text while the pool is loading or failed to load', async () => {
-    const { fixture, page } = await open('/drafts/draft-1');
+    const { fixture, page } = await openUrl('/drafts/draft-1');
     http
       .expectOne('/api/drafts/draft-1')
-      .flush(draft({ snapshot: complete, state: 'Drafting', players: [bob] }));
+      .flush(draft({ snapshot: completeSnapshot, state: 'Drafting', players: [bob] }));
     await flushPicks([pick(1, bolt, bob.id)]);
     const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
     await vi.waitFor(() => {
@@ -309,7 +308,7 @@ describe('card previews', () => {
     const { fixture, page } = await openBoard();
 
     tap(panel(page).querySelector<HTMLElement>('.log .card span')!);
-    expect(previewImage()?.getAttribute('src')).toBe(normal('bolt-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
 
     panel(page).querySelector<HTMLButtonElement>('.player-picks button')!.click();
     TestBed.tick();
@@ -317,7 +316,7 @@ describe('card previews', () => {
     await fixture.whenStable();
     tap(page.querySelector('h1')!);
     tap(panel(page).querySelector<HTMLElement>('.picks .card span')!);
-    expect(previewImage()?.getAttribute('src')).toBe(normal('bolt-id'));
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
   describe('in the queue', () => {
@@ -337,10 +336,10 @@ describe('card previews', () => {
       const { page } = await openQueue();
 
       tap(panel(page).querySelector<HTMLElement>('li .name span')!);
-      expect(previewImage()?.getAttribute('src')).toBe(normal('shock-id'));
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
       tap(panel(page).querySelector<HTMLElement>('.lost strong')!);
-      expect(previewImage()?.getAttribute('src')).toBe(normal('bolt-id'));
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
     it('closes when a drag starts, and opens none until it is released', async () => {

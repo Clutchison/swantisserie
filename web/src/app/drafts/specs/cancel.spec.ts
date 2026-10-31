@@ -12,34 +12,31 @@ import {
   openDraft,
   flushQueue,
   flushPicks,
+  completeSnapshot,
+  button,
+  type AppFixture,
 } from './harness';
 
 useDraftsApp();
 
 describe('cancel', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const running: PoolSnapshotView = { state: 'Running', cards: 0, total: null };
   const failed: PoolSnapshotView = { state: 'Failed', cards: 0, total: null, error: 'Nope' };
 
-  const cancelButton = (page: HTMLElement) =>
-    [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cancel draft');
-
-  afterEach(() => vi.restoreAllMocks());
-
   /** Answers the draft list the page was sent to, and returns its notice. */
-  async function flushList(fixture: { whenStable(): Promise<unknown> }, page: HTMLElement) {
+  async function flushList(fixture: AppFixture, page: HTMLElement) {
     (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();
     return page.querySelector('.notice')?.textContent?.trim();
   }
 
-  it.each([running, failed, complete])(
+  it.each([running, failed, completeSnapshot])(
     'lets the organizer cancel with a $state pool snapshot, once they confirm',
     async (snapshot) => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const { fixture, page } = await openDraft(snapshot);
 
-      cancelButton(page)!.click();
+      button(page, 'Cancel draft')!.click();
 
       expect(confirm).toHaveBeenCalledWith(
         "Cancel Red dragons? This removes the draft for everyone and can't be undone.",
@@ -54,38 +51,42 @@ describe('cancel', () => {
 
   it('keeps a draft the organizer did not confirm cancelling', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(complete);
+    const { page } = await openDraft(completeSnapshot);
 
-    cancelButton(page)!.click();
+    button(page, 'Cancel draft')!.click();
 
     http.expectNone('/api/drafts/draft-1');
     expect(router.url).toBe('/drafts/draft-1');
   });
 
   it('offers it to an app admin', async () => {
-    const admin = await openDraft(complete, {}, { user: { ...alice, id: 'c', isAdmin: true } });
-    expect(cancelButton(admin.page)).toBeDefined();
+    const admin = await openDraft(
+      completeSnapshot,
+      {},
+      { user: { ...alice, id: 'c', isAdmin: true } },
+    );
+    expect(button(admin.page, 'Cancel draft')).toBeDefined();
   });
 
   it('does not offer it to other role-holders', async () => {
-    const { page } = await openDraft(complete, {}, { user: { ...alice, id: 'bob' } });
-    expect(cancelButton(page)).toBeUndefined();
+    const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
+    expect(button(page, 'Cancel draft')).toBeUndefined();
   });
 
   it('does not offer it once the draft has left the lobby', async () => {
-    const { page } = await openDraft(complete, {
+    const { page } = await openDraft(completeSnapshot, {
       state: 'Drafting',
       players: [alicePlayer, bob],
       turn: { pick: 1, round: 1, playerId: alice.id },
     });
-    expect(cancelButton(page)).toBeUndefined();
+    expect(button(page, 'Cancel draft')).toBeUndefined();
   });
 
   it('says why when the draft has started meanwhile', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { fixture, page } = await openDraft(complete);
+    const { fixture, page } = await openDraft(completeSnapshot);
 
-    cancelButton(page)!.click();
+    button(page, 'Cancel draft')!.click();
     http
       .expectOne('/api/drafts/draft-1')
       .flush(
@@ -108,7 +109,11 @@ describe('cancel', () => {
   });
 
   it('sends everyone viewing to the draft list, with a notice, when it is cancelled', async () => {
-    const { fixture, page } = await openDraft(complete, {}, { user: { ...alice, id: 'bob' } });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      {},
+      { user: { ...alice, id: 'bob' } },
+    );
 
     updates.events.next({ type: 'cancelled' });
 

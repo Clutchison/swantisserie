@@ -9,16 +9,10 @@ import {
   tabButton,
   openDraft,
   flushPicks,
+  completeSnapshot,
+  button,
 } from './harness';
-import {
-  useTallScreen,
-  complete,
-  shivan,
-  brightclimb,
-  tiles,
-  openDetail,
-  buttonIn,
-} from './pool-tab-harness';
+import { useTallScreen, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -43,12 +37,12 @@ describe('pool tab', () => {
     };
 
     it('lets the player whose turn it is pick a card from its detail', async () => {
-      const { fixture, page } = await openDraft(complete, drafting(), {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
       });
 
       const detail = await openDetail(fixture, page, 1);
-      buttonIn(detail, 'Pick')!.click();
+      button(detail, 'Pick')!.click();
       const req = http.expectOne('/api/drafts/draft-1/picks');
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ oracleId: 'shivan-oracle' });
@@ -65,53 +59,53 @@ describe('pool tab', () => {
 
     it('disables Pick when it is not your turn', async () => {
       const { fixture, page } = await openDraft(
-        complete,
+        completeSnapshot,
         drafting({ turn: { pick: 1, round: 1, playerId: bob.id } }),
         { cards: [shivan] },
       );
 
       const detail = await openDetail(fixture, page, 0);
 
-      expect(buttonIn(detail, 'Pick')!.disabled).toBe(true);
+      expect(button(detail, 'Pick')!.disabled).toBe(true);
       expect(detail.textContent).toContain('You can pick on your turn.');
     });
 
     it('disables Pick for a card that has been picked', async () => {
       const { fixture, page } = await openDraft(
-        complete,
+        completeSnapshot,
         drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
         { cards: [brightclimb, shivan], picks: [{ ...shivanPick, playerId: bob.id }] },
       );
 
       expect(tiles(page)[1].textContent).toContain('Picked');
       const detail = await openDetail(fixture, page, 1);
-      expect(buttonIn(detail, 'Pick')!.disabled).toBe(true);
+      expect(button(detail, 'Pick')!.disabled).toBe(true);
       expect(detail.textContent).toContain('Already picked.');
     });
 
     it('offers no Pick to someone who is not a player', async () => {
-      const { fixture, page } = await openDraft(complete, drafting({ players: [bob] }), {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
         cards: [shivan],
       });
 
-      expect(buttonIn(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
+      expect(button(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
     });
 
     it('offers no Pick before the draft starts', async () => {
       const { fixture, page } = await openDraft(
-        complete,
+        completeSnapshot,
         { players: [alicePlayer, bob] },
         { cards: [shivan] },
       );
 
-      expect(buttonIn(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
+      expect(button(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
     });
 
     it('says why a pick was refused, and catches up with the draft', async () => {
-      const { fixture, page } = await openDraft(complete, drafting(), { cards: [shivan] });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
 
       const detail = await openDetail(fixture, page, 0);
-      buttonIn(detail, 'Pick')!.click();
+      button(detail, 'Pick')!.click();
       http
         .expectOne('/api/drafts/draft-1/picks')
         .flush(
@@ -132,7 +126,7 @@ describe('pool tab', () => {
 
   it('offers no picks or queue changes on a card, but keeps the exports', async () => {
     const { fixture, page } = await openDraft(
-      complete,
+      completeSnapshot,
       {
         state: 'Closed',
         players: [alicePlayer, bob],
@@ -155,14 +149,14 @@ describe('pool tab', () => {
     );
 
     const detail = await openDetail(fixture, page, 0);
-    expect(buttonIn(detail, 'Add to queue')).toBeUndefined();
-    expect(buttonIn(detail, 'Pick')).toBeUndefined();
-    buttonIn(detail, 'Close')!.click();
+    expect(button(detail, 'Add to queue')).toBeUndefined();
+    expect(button(detail, 'Pick')).toBeUndefined();
+    button(detail, 'Close')!.click();
     await fixture.whenStable();
 
     tabButton(page, 'Me').click();
     await fixture.whenStable();
-    expect(buttonIn(page, 'Copy for Arena')).toBeDefined();
-    expect(buttonIn(page, 'Copy for Moxfield')).toBeDefined();
+    expect(button(page, 'Copy for Arena')).toBeDefined();
+    expect(button(page, 'Copy for Moxfield')).toBeDefined();
   });
 });

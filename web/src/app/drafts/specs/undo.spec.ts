@@ -1,4 +1,4 @@
-import { type PickView, type PoolSnapshotView, EMPTY_QUEUE } from '../drafts';
+import { type PickView, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -9,12 +9,12 @@ import {
   openDraft,
   flushQueue,
   flushPicks,
+  completeSnapshot,
 } from './harness';
 
 useDraftsApp();
 
 describe('undo', () => {
-  const complete: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
   const picks: PickView[] = [
     {
       pick: 1,
@@ -45,7 +45,7 @@ describe('undo', () => {
     [...page.querySelectorAll('button')].find((b) => b.textContent?.includes('Undo'));
 
   it('lets the organizer undo the latest pick, handing the turn back', async () => {
-    const { fixture, page } = await openDraft(complete, drafting, { picks: picks });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting, { picks: picks });
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
 
     undoButton(page)!.click();
@@ -61,7 +61,7 @@ describe('undo', () => {
   });
 
   it('says why an undo was refused, and catches up with the draft', async () => {
-    const { fixture, page } = await openDraft(complete, drafting, { picks: picks });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting, { picks: picks });
 
     undoButton(page)!.click();
     const message = 'Only the latest pick can be undone, and the picks have changed.';
@@ -93,7 +93,7 @@ describe('undo', () => {
 
   it('offers undo only to the organizer or an app admin', async () => {
     const { page } = await openDraft(
-      complete,
+      completeSnapshot,
       { ...drafting, organizer: { id: bob.id, name: bob.name } },
       { picks: picks },
     );
@@ -102,7 +102,7 @@ describe('undo', () => {
   });
 
   it('offers no undo before the first pick', async () => {
-    const { page } = await openDraft(complete, {
+    const { page } = await openDraft(completeSnapshot, {
       ...drafting,
       turn: { pick: 1, round: 1, playerId: bob.id },
     });
@@ -112,7 +112,7 @@ describe('undo', () => {
 
   it('offers no undo once the draft is complete', async () => {
     const { page } = await openDraft(
-      complete,
+      completeSnapshot,
       { ...drafting, state: 'Complete', turn: null },
       { picks: picks },
     );
