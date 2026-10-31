@@ -1,5 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+  TestRequest,
+} from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
@@ -41,6 +45,7 @@ describe('sending feedback', () => {
   afterEach(() => http.verify());
 
   const dialog = () => page.querySelector<HTMLElement>('[role="dialog"]');
+  const backdrop = () => dialog()!.parentElement!;
   const field = () => dialog()!.querySelector('textarea')!;
 
   function button(label: string) {
@@ -63,6 +68,10 @@ describe('sending feedback', () => {
     button('Submit')!.click();
     await fixture.whenStable();
     return http.expectOne('/api/feedback');
+  }
+
+  function succeed(req: TestRequest) {
+    req.flush(null, { status: 204, statusText: 'No Content' });
   }
 
   /** The response arrives a moment after it is flushed. */
@@ -107,7 +116,7 @@ describe('sending feedback', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body.message).toBe('Nice app');
     expect(new URL(req.request.body.pageUrl).pathname).toBe('/status');
-    req.flush(null, { status: 204, statusText: 'No Content' });
+    succeed(req);
   });
 
   it('disables Submit while sending, so nothing is sent twice', async () => {
@@ -119,7 +128,7 @@ describe('sending feedback', () => {
     button('Submit')!.click();
     http.expectNone('/api/feedback');
 
-    req.flush(null, { status: 204, statusText: 'No Content' });
+    succeed(req);
     await expectThanks();
   });
 
@@ -127,7 +136,7 @@ describe('sending feedback', () => {
     await open();
     await type('Nice app');
 
-    (await submit()).flush(null, { status: 204, statusText: 'No Content' });
+    succeed(await submit());
     await expectThanks();
 
     expect(dialog()!.querySelector('textarea')).toBeNull();
@@ -154,7 +163,7 @@ describe('sending feedback', () => {
     expect(field().value).toBe('Nice app');
     expect(button('Submit')!.disabled).toBe(false);
 
-    (await submit()).flush(null, { status: 204, statusText: 'No Content' });
+    succeed(await submit());
     await expectThanks();
   });
 
@@ -166,7 +175,7 @@ describe('sending feedback', () => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       },
     ],
-    ['a backdrop click', () => press(dialog()!.parentElement!, 'mousedown', 'mouseup', 'click')],
+    ['a backdrop click', () => press(backdrop(), 'mousedown', 'mouseup', 'click')],
   ])('closing with %s', (_, close) => {
     it('closes the modal and discards the text', async () => {
       await open();
@@ -207,7 +216,7 @@ describe('sending feedback', () => {
 
     await press(field(), 'mousedown');
     // A click spanning two elements fires on their common ancestor: here, the backdrop.
-    await press(dialog()!.parentElement!, 'mouseup', 'click');
+    await press(backdrop(), 'mouseup', 'click');
 
     expect(field().value).toBe('Nice app');
   });

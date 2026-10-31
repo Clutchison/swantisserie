@@ -1,15 +1,3 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  /* Above everything a page can stack. */
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-lg);
-  background: var(--color-overlay);
-}
-
 .dialog {
   box-sizing: border-box;
   width: min(32rem, 100%);
@@ -51,17 +39,4 @@ textarea {
 
 .error {
   color: var(--color-error);
-}
-
-/* Only the opening: nothing here waits for it, and buttons work from the start. */
-@media (prefers-reduced-motion: no-preference) {
-  .backdrop {
-    animation: fade-in 150ms ease-out;
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
 }

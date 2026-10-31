@@ -169,3 +169,28 @@ textarea {
     color: var(--color-muted);
   }
 }
+
+/* Behind every modal. Above everything a page can stack, such as the draft page's tabs. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: var(--color-overlay);
+}
+
+/* Only the opening: nothing here waits for it, and buttons work from the start. */
+@media (prefers-reduced-motion: no-preference) {
+  .backdrop {
+    animation: backdrop-fade-in 150ms ease-out;
+  }
+}
+
+@keyframes backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+}

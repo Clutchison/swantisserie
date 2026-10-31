@@ -177,18 +177,6 @@ $card-corners: #{4.75% / 3.5%};
   transform: translate(-50%, -50%);
 }
 
-.backdrop {
-  position: fixed;
-  inset: 0;
-  /* Above the draft page's tabs, as well as the search bar. */
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-lg);
-  background: var(--color-overlay);
-}
-
 .card-detail {
   display: flex;
   flex-direction: column;
@@ -229,18 +217,8 @@ $card-corners: #{4.75% / 3.5%};
 
 /* Only the opening: nothing here waits for it, and buttons work from the start. */
 @media (prefers-reduced-motion: no-preference) {
-  .backdrop {
-    animation: fade-in 150ms ease-out;
-  }
-
   .card-detail {
     animation: scale-up 150ms ease-out;
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
   }
 }
 

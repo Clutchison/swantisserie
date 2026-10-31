@@ -36,10 +36,10 @@ export class FeedbackDialog {
   readonly closed = output();
 
   protected readonly message = signal('');
-  protected readonly sending = signal(false);
-  protected readonly sent = signal(false);
-  protected readonly failed = signal(false);
-  protected readonly canSubmit = computed(() => !this.sending() && !!this.message().trim());
+  protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
+  protected readonly canSubmit = computed(
+    () => this.status() !== 'Sending' && !!this.message().trim(),
+  );
 
   constructor() {
     afterNextRender(() => this.field()?.nativeElement.focus());
@@ -57,8 +57,7 @@ export class FeedbackDialog {
 
   protected async submit() {
     if (!this.canSubmit()) return;
-    this.sending.set(true);
-    this.failed.set(false);
+    this.status.set('Sending');
     try {
       await firstValueFrom(
         // Closing the modal discards the feedback, even mid-send.
@@ -66,11 +65,9 @@ export class FeedbackDialog {
           .post('/api/feedback', { message: this.message(), pageUrl: this.location.href })
           .pipe(takeUntilDestroyed(this.destroyRef)),
       );
-      this.sent.set(true);
+      this.status.set('Sent');
     } catch {
-      this.failed.set(true);
-    } finally {
-      this.sending.set(false);
+      this.status.set('Failed');
     }
   }
 }
