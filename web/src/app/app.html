@@ -10,7 +10,7 @@
         Send feedback
       </button>
       @if (user.isAdmin) {
-        <a class="button quiet" routerLink="/admin/feedback">Feedback</a>
+        <a class="button quiet" routerLink="/admin/feedback">{{ feedbackLabel() }}</a>
         <a class="button quiet" routerLink="/admin/webhooks">Webhooks</a>
       }
     </div>

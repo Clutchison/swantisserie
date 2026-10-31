@@ -181,5 +181,5 @@ A plain-text message a signed-in role-holder sends to the app admins, naming its
 _Avoid_: Report, ticket, suggestion, comment
 
 **Reviewed**:
-Describes feedback an app admin has marked as dealt with. It leaves the default list but is kept and can still be viewed.
+Describes feedback an app admin has marked as dealt with. It leaves the default list but is kept and can still be viewed, and any app admin can mark it unreviewed again.
 _Avoid_: Seen, read, resolved, closed, archived

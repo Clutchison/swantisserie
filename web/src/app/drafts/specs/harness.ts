@@ -15,6 +15,7 @@ import {
   type QueueView,
 } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
+import { answerUnreviewedCount } from '../../feedback/specs-harness';
 
 export const alice = {
   id: '80351110224678912',
@@ -102,6 +103,7 @@ export async function openUrl(url: string, user = alice) {
   (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
   await navigation;
   TestBed.tick();
+  answerUnreviewedCount(http);
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 

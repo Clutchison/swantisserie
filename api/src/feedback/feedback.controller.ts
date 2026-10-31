@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   NotFoundException,
@@ -17,6 +18,7 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
+import type { Feedback, User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -29,6 +31,12 @@ export interface FeedbackView {
   pageUrl: string;
   sentAt: Date;
   sender: { name: string; avatarUrl: string };
+}
+
+/** Reviewed feedback as app admins see it. */
+export interface ReviewedFeedbackView extends FeedbackView {
+  reviewedAt: Date;
+  reviewedBy: { name: string };
 }
 
 /** Where signed-in role-holders send feedback to the app admins. */
@@ -67,13 +75,29 @@ export class AdminFeedbackController {
       orderBy: { sentAt: 'desc' },
       include: { sender: true },
     });
-    return unreviewed.map(({ id, message, pageUrl, sentAt, sender }) => ({
-      id,
-      message,
-      pageUrl,
-      sentAt,
-      sender: { name: sender.name, avatarUrl: avatarUrl(sender) },
+    return unreviewed.map(toFeedbackView);
+  }
+
+  @Get('reviewed')
+  async listReviewed(): Promise<ReviewedFeedbackView[]> {
+    const reviewed = await this.prisma.feedback.findMany({
+      where: { reviewedById: { not: null } },
+      orderBy: { sentAt: 'desc' },
+      include: { sender: true, reviewedBy: true },
+    });
+    return reviewed.map((feedback) => ({
+      ...toFeedbackView(feedback),
+      reviewedAt: feedback.reviewedAt!,
+      reviewedBy: { name: feedback.reviewedBy!.name },
     }));
+  }
+
+  @Get('unreviewed-count')
+  async countUnreviewed(): Promise<{ count: number }> {
+    const count = await this.prisma.feedback.count({
+      where: { reviewedById: null },
+    });
+    return { count };
   }
 
   @Put(':id/reviewed')
@@ -91,6 +115,32 @@ export class AdminFeedbackController {
     const matching = await this.prisma.feedback.count({ where: { id } });
     if (matching === 0) throw new NotFoundException();
   }
+
+  @Delete(':id/reviewed')
+  @HttpCode(204)
+  async markUnreviewed(@Param('id') id: string): Promise<void> {
+    const { count } = await this.prisma.feedback.updateMany({
+      where: { id },
+      data: { reviewedById: null, reviewedAt: null },
+    });
+    if (count === 0) throw new NotFoundException();
+  }
+}
+
+function toFeedbackView({
+  id,
+  message,
+  pageUrl,
+  sentAt,
+  sender,
+}: Feedback & { sender: User }): FeedbackView {
+  return {
+    id,
+    message,
+    pageUrl,
+    sentAt,
+    sender: { name: sender.name, avatarUrl: avatarUrl(sender) },
+  };
 }
 
 function invalid(message: string) {
