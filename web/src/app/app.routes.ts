@@ -25,6 +25,11 @@ export const routes: Routes = [
         canActivate: [appAdmin],
       },
       {
+        path: 'admin/feedback',
+        loadComponent: () => import('./feedback/feedback-page').then((m) => m.FeedbackPage),
+        canActivate: [appAdmin],
+      },
+      {
         path: 'status',
         loadComponent: () => import('./status/status-page').then((m) => m.StatusPage),
       },

@@ -16,7 +16,7 @@ const admins = new AdminConfig(carol.id);
 
 const pageUrl = 'https://swantisserie.example/drafts/42';
 
-describe('sending feedback', () => {
+describe('feedback', () => {
   let database: TestDatabase;
   let app: INestApplication<App>;
   let aliceCookie: string;
@@ -63,7 +63,7 @@ describe('sending feedback', () => {
       .send(body);
   }
 
-  /** No API reads feedback yet, so tests look at what was saved directly. */
+  /** No API shows reviewed feedback yet, so tests look at what was saved directly. */
   const saved = () => app.get(PrismaService).feedback.findMany();
 
   it('saves the sender, time sent and page URL, starting unreviewed', async () => {
@@ -77,7 +77,8 @@ describe('sending feedback', () => {
       message: 'The pool tab is great',
       senderId: alice.id,
       pageUrl,
-      reviewed: false,
+      reviewedById: null,
+      reviewedAt: null,
     });
     expect(feedback.sentAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
     expect(feedback.sentAt.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
@@ -134,5 +135,99 @@ describe('sending feedback', () => {
     await send({ message: 'Hello', pageUrl: url }).expect(400);
 
     expect(await saved()).toEqual([]);
+  });
+
+  describe('reviewing', () => {
+    const list = (cookie = carolCookie) =>
+      request(app.getHttpServer())
+        .get('/api/admin/feedback')
+        .set('Cookie', cookie);
+
+    const markReviewed = (id: string, cookie = carolCookie) =>
+      request(app.getHttpServer())
+        .put(`/api/admin/feedback/${id}/reviewed`)
+        .set('Cookie', cookie);
+
+    /** Saved with a known time sent, so order and details can be checked. */
+    const received = (message: string, sentAt: string) =>
+      app.get(PrismaService).feedback.create({
+        data: {
+          message,
+          pageUrl,
+          senderId: alice.id,
+          sentAt: new Date(sentAt),
+        },
+      });
+
+    it('lists unreviewed feedback with its details', async () => {
+      const { id } = await received('Line one\nLine two', '2026-10-31T12:00:00.000Z');
+
+      const res = await list().expect(200);
+
+      expect(res.body).toEqual([
+        {
+          id,
+          message: 'Line one\nLine two',
+          pageUrl,
+          sentAt: '2026-10-31T12:00:00.000Z',
+          sender: {
+            name: 'Alice',
+            avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
+          },
+        },
+      ]);
+    });
+
+    it('lists the newest first', async () => {
+      await received('Middle', '2026-10-02T12:00:00.000Z');
+      await received('Newest', '2026-10-03T12:00:00.000Z');
+      await received('Oldest', '2026-10-01T12:00:00.000Z');
+
+      const res = await list().expect(200);
+
+      expect(
+        (res.body as { message: string }[]).map((item) => item.message),
+      ).toEqual(['Newest', 'Middle', 'Oldest']);
+    });
+
+    it('marking removes it from the list, keeping it and recording who and when', async () => {
+      const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+      const before = Date.now();
+
+      await markReviewed(id).expect(204);
+
+      expect((await list().expect(200)).body).toEqual([]);
+      const [kept] = await saved();
+      expect(kept).toMatchObject({ id, message: 'Hello', reviewedById: carol.id });
+      expect(kept.reviewedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+      expect(kept.reviewedAt!.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+    });
+
+    it('keeps the first review when an item is marked again', async () => {
+      const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+      await markReviewed(id).expect(204);
+      const [first] = await saved();
+
+      await markReviewed(id).expect(204);
+
+      expect((await saved())[0].reviewedAt).toEqual(first.reviewedAt);
+    });
+
+    it('says when there is no such feedback to mark', async () => {
+      await markReviewed('no-such-feedback').expect(404);
+    });
+
+    it('rejects anyone who is not an app admin', async () => {
+      const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
+
+      await list(aliceCookie).expect(403);
+      await markReviewed(id, aliceCookie).expect(403);
+      await request(app.getHttpServer()).get('/api/admin/feedback').expect(401);
+      await request(app.getHttpServer())
+        .put(`/api/admin/feedback/${id}/reviewed`)
+        .expect(401);
+
+      expect((await saved())[0].reviewedById).toBeNull();
+    });
   });
 });

@@ -47,6 +47,7 @@ header .button {
 
   .extra-controls {
     flex-basis: 100%;
+    flex-wrap: wrap;
     order: 1;
   }
 }

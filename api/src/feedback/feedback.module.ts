@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
-import { FeedbackController } from './feedback.controller.js';
+import { AdminFeedbackController, FeedbackController } from './feedback.controller.js';
 
 @Module({
   imports: [AuthModule],
-  controllers: [FeedbackController],
+  controllers: [FeedbackController, AdminFeedbackController],
 })
 export class FeedbackModule {}

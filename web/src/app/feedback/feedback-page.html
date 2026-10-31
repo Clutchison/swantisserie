@@ -1,0 +1,37 @@
+<main>
+  <h1>Feedback</h1>
+
+  @if (problem(); as problem) {
+    <p class="error" role="alert">{{ problem }}</p>
+  }
+
+  @if (feedback.isLoading() && !feedback.hasValue()) {
+    <p>Loading…</p>
+  } @else if (feedback.error()) {
+    <p class="error">Couldn't load the feedback. Try reloading the page.</p>
+  } @else if (feedback.hasValue()) {
+    <ul>
+      @for (item of feedback.value(); track item.id) {
+        <li>
+          <img class="avatar" [src]="item.sender.avatarUrl" alt="" width="32" height="32" />
+          <span class="name">{{ item.sender.name }}</span>
+          <time class="detail" [attr.datetime]="item.sentAt">{{
+            item.sentAt | date: 'medium'
+          }}</time>
+          <p class="message">{{ item.message }}</p>
+          <a class="page-url" [href]="item.pageUrl">{{ item.pageUrl }}</a>
+          <button
+            class="button secondary"
+            type="button"
+            [disabled]="saving()"
+            (click)="markReviewed(item)"
+          >
+            Mark reviewed
+          </button>
+        </li>
+      } @empty {
+        <li class="empty">No feedback to review</li>
+      }
+    </ul>
+  }
+</main>
