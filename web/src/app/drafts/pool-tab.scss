@@ -17,15 +17,28 @@ $card-corners: #{4.75% / 3.5%};
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.5rem 1rem;
   padding: 0.5rem 0;
   background: var(--color-surface);
 }
 
-.search {
+/* Capped, not a share of the screen, so longer searches still fit on a laptop. */
+.search-field {
   flex: 1 1 12rem;
   min-width: 0;
+  max-width: 50rem;
+}
+
+.search-field label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.search {
+  box-sizing: border-box;
+  width: 100%;
   padding: 0.5rem;
   border: 1px solid var(--color-muted);
   border-radius: 0.5rem;
@@ -38,6 +51,8 @@ $card-corners: #{4.75% / 3.5%};
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  /* The search box's padding and border, so this centres on the box, not the label above it. */
+  padding-block: calc(0.5rem + 1px);
   white-space: nowrap;
 }
 

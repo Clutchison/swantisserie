@@ -2,20 +2,23 @@
   <p class="error">Couldn't load the pool's cards. Try reloading the page.</p>
 }
 <div class="search-bar">
-  <input
-    #searchBox
-    type="search"
-    class="search"
-    aria-label="Search the pool"
-    placeholder="Search, e.g. t:dragon c:r"
-    autocapitalize="off"
-    autocomplete="off"
-    spellcheck="false"
-    aria-describedby="pool-search-error"
-    [attr.aria-invalid]="!!searchError()"
-    [value]="search()"
-    (input)="search.set(searchBox.value)"
-  />
+  <div class="search-field">
+    <label for="pool-search">Scryfall Search</label>
+    <input
+      #searchBox
+      id="pool-search"
+      type="search"
+      class="search"
+      placeholder="Search, e.g. t:dragon c:r"
+      autocapitalize="off"
+      autocomplete="off"
+      spellcheck="false"
+      aria-describedby="pool-search-error"
+      [attr.aria-invalid]="!!searchError()"
+      [value]="search()"
+      (input)="search.set(searchBox.value)"
+    />
+  </div>
   <label class="hide-picked">
     <input
       #hidePickedBox
