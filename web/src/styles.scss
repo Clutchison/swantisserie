@@ -134,7 +134,10 @@ button {
   }
 }
 
-/* Not the raised background, as accent text on raised fails AA. No specificity, so a component's own hover wins. */
+/*
+ * Not the raised background, as accent text on raised fails AA.
+ * No specificity, so a component's own hover wins.
+ */
 a:where(:hover) {
   filter: brightness(1.15);
 }
@@ -149,11 +152,9 @@ button:focus-visible {
 @media (prefers-reduced-motion: no-preference) {
   a,
   button {
-    transition:
-      background-color 150ms ease-out,
-      border-color 150ms ease-out,
-      color 150ms ease-out,
-      filter 150ms ease-out;
+    transition-property: background-color, border-color, color, filter;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
   }
 }
 
