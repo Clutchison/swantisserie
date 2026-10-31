@@ -198,6 +198,19 @@ describe('board tab', () => {
         [...panel(root).querySelectorAll('button')].find((button) =>
           button.textContent?.includes(`Copy for ${target}`),
         );
+      /** What a copy button shows: its confirmation, once it has one, or else its label. */
+      const shownLabel = (button: HTMLElement) =>
+        (button.querySelector('.confirmation') ?? button).textContent?.trim();
+      /** The Picks panel, even while it's hidden behind another tab. */
+      const picksPanel = (root: HTMLElement) => root.querySelector<HTMLElement>('#picks-panel')!;
+      /** The Arena copy button in the Picks panel, even while it's hidden behind another tab. */
+      const picksCopyButton = (root: HTMLElement) =>
+        [...picksPanel(root).querySelectorAll('button')].find((button) =>
+          button.textContent?.includes('Copy for Arena'),
+        )!;
+      /** What the Picks panel's hidden status region announces. */
+      const announced = (root: HTMLElement) =>
+        picksPanel(root).querySelector('[role="status"]')?.textContent?.trim();
       const writeText = vi.fn<(text: string) => Promise<void>>();
 
       beforeEach(() => {
@@ -259,7 +272,7 @@ describe('board tab', () => {
         expect(writeText).toHaveBeenCalledExactlyOnceWith(
           'Deck\n1 Shock\n1 Bonecrusher Giant\n1 Commit // Memory',
         );
-        expect(panel(page).querySelector('[role="status"]')?.textContent).toContain('Copied');
+        expect(announced(page)).toBe('Copied for Arena');
       });
 
       it('copies any player’s picks for Moxfield, with their printings', async () => {
@@ -290,9 +303,7 @@ describe('board tab', () => {
         expect(writeText).toHaveBeenCalledExactlyOnceWith(
           '1 Shock (M21) 159\n1 Bonecrusher Giant // Stomp (ELD) 115',
         );
-        expect(panel(page).querySelector('[role="status"]')?.textContent).toContain(
-          'Copied for Moxfield',
-        );
+        expect(announced(page)).toBe('Copied for Moxfield');
       });
 
       it('reports a failed copy for Moxfield when the clipboard refuses', async () => {
@@ -303,7 +314,8 @@ describe('board tab', () => {
         await fixture.whenStable();
 
         expect(panel(page).querySelector('[role="alert"]')?.textContent).toContain("Couldn't copy");
-        expect(panel(page).querySelector('[role="status"]')).toBeNull();
+        expect(announced(page)).toBe('');
+        expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copy for Moxfield');
       });
 
       it('reports a failed copy for Arena when the clipboard refuses', async () => {
@@ -314,7 +326,8 @@ describe('board tab', () => {
         await fixture.whenStable();
 
         expect(panel(page).querySelector('[role="alert"]')?.textContent).toContain("Couldn't copy");
-        expect(panel(page).querySelector('[role="status"]')).toBeNull();
+        expect(announced(page)).toBe('');
+        expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
       });
 
       it('clears the copy status once another player’s picks are opened', async () => {
@@ -325,7 +338,150 @@ describe('board tab', () => {
         tabButton(page, 'Me').click();
         await fixture.whenStable();
 
-        expect(panel(page).querySelector('[role="status"]')).toBeNull();
+        expect(announced(page)).toBe('');
+      });
+
+      it('confirms a copy on the clicked button, with a checkmark', async () => {
+        const { fixture, page } = await openBobsPicks(picks);
+
+        copyButton(page)!.click();
+        await fixture.whenStable();
+
+        expect(shownLabel(copyButton(page)!)).toBe('Copied');
+        expect(copyButton(page)!.querySelector('svg')).not.toBeNull();
+        expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copy for Moxfield');
+        expect(copyButton(page, 'Moxfield')!.querySelector('svg')).toBeNull();
+      });
+
+      describe('over time', () => {
+        afterEach(() => vi.useRealTimers());
+
+        /** Opens Bob's picks, then takes over the clock. */
+        async function openBobsPicksWithClock() {
+          const opened = await openBobsPicks(picks);
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+          return opened;
+        }
+
+        /** Lets `ms` pass, then shows what changed. */
+        async function pass(fixture: { whenStable(): Promise<unknown> }, ms: number) {
+          vi.advanceTimersByTime(ms);
+          await fixture.whenStable();
+        }
+
+        it('returns the button to its label after 2 seconds', async () => {
+          const { fixture, page } = await openBobsPicksWithClock();
+          copyButton(page)!.click();
+          await fixture.whenStable();
+
+          await pass(fixture, 1999);
+          expect(shownLabel(copyButton(page)!)).toBe('Copied');
+
+          await pass(fixture, 1);
+          expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+          expect(announced(page)).toBe('');
+        });
+
+        it('copies again and restarts the 2 seconds when clicked while confirmed', async () => {
+          const { fixture, page } = await openBobsPicksWithClock();
+          copyButton(page)!.click();
+          await fixture.whenStable();
+          await pass(fixture, 1500);
+
+          copyButton(page)!.click();
+          await fixture.whenStable();
+          expect(writeText).toHaveBeenCalledTimes(2);
+
+          await pass(fixture, 1999);
+          expect(shownLabel(copyButton(page)!)).toBe('Copied');
+          await pass(fixture, 1);
+          expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+        });
+
+        it('confirms only the latest copy, for its own 2 seconds', async () => {
+          const { fixture, page } = await openBobsPicksWithClock();
+          copyButton(page)!.click();
+          await fixture.whenStable();
+          await pass(fixture, 1500);
+
+          copyButton(page, 'Moxfield')!.click();
+          await fixture.whenStable();
+
+          expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+          expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copied');
+          expect(announced(page)).toBe('Copied for Moxfield');
+
+          await pass(fixture, 1999);
+          expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copied');
+        });
+
+        it('returns the first button to its label while the other button is still copying', async () => {
+          const { fixture, page } = await openBobsPicksWithClock();
+          copyButton(page)!.click();
+          await fixture.whenStable();
+
+          writeText.mockReturnValue(new Promise(() => {}));
+          copyButton(page, 'Moxfield')!.click();
+          await fixture.whenStable();
+
+          expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+        });
+
+        it.each(['Pool', 'Queue', 'Board'] as const)(
+          'clears the confirmation when the %s tab closes the panel',
+          async (tab) => {
+            const { fixture, page } = await openBobsPicksWithClock();
+            copyButton(page)!.click();
+            await fixture.whenStable();
+
+            tabButton(page, tab).click();
+            await fixture.whenStable();
+
+            expect(shownLabel(picksCopyButton(page))).toBe('Copy for Arena');
+            expect(announced(page)).toBe('');
+          },
+        );
+
+        it('does not confirm a copy that finishes after the panel has closed', async () => {
+          let finishCopy = () => {};
+          writeText.mockReturnValue(new Promise((resolve) => (finishCopy = resolve)));
+          const { fixture, page } = await openBobsPicksWithClock();
+          copyButton(page)!.click();
+          await fixture.whenStable();
+
+          tabButton(page, 'Pool').click();
+          await fixture.whenStable();
+          finishCopy();
+          await writeText.mock.results[0]?.value;
+          await fixture.whenStable();
+
+          expect(shownLabel(picksCopyButton(page))).toBe('Copy for Arena');
+        });
+      });
+
+      it('clears the failure alert on the next copy attempt', async () => {
+        writeText.mockRejectedValueOnce(new Error('denied'));
+        const { fixture, page } = await openBobsPicks(picks);
+        copyButton(page)!.click();
+        await fixture.whenStable();
+
+        copyButton(page)!.click();
+        await fixture.whenStable();
+
+        expect(panel(page).querySelector('[role="alert"]')).toBeNull();
+        expect(shownLabel(copyButton(page)!)).toBe('Copied');
+      });
+
+      it('clears the failure alert when a tab closes the panel', async () => {
+        writeText.mockRejectedValue(new Error('denied'));
+        const { fixture, page } = await openBobsPicks(picks);
+        copyButton(page)!.click();
+        await fixture.whenStable();
+
+        tabButton(page, 'Pool').click();
+        await fixture.whenStable();
+
+        expect(picksPanel(page).querySelector('[role="alert"]')).toBeNull();
       });
 
       it('offers nothing to copy for a player with no picks', async () => {

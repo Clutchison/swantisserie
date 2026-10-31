@@ -3,6 +3,37 @@
   padding: 0;
 }
 
+/* A copy button's label and confirmation share one cell, so the label alone sets its width. */
+.copy {
+  display: inline-grid;
+  justify-items: center;
+  align-items: center;
+
+  > * {
+    grid-area: 1 / 1;
+  }
+
+  &.copied .label {
+    visibility: hidden;
+  }
+}
+
+.confirmation {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* One player's picks, numbered as in the pick log. */
 ol.picks {
   margin: 0;
