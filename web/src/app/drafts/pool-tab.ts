@@ -28,6 +28,7 @@ import { ImagePreloader } from './image-preloader';
 import {
   applyPoolFilters,
   type ColorChoice,
+  noPoolFilters,
   poolFilterActive,
   type PoolFilterState,
 } from './pool-search/pool-filters';
@@ -115,7 +116,7 @@ export class PoolTab {
   /** The color filter's buttons, in the order they're laid out. */
   protected readonly colorButtons = COLOR_BUTTONS;
   /** What the viewer has set across the pool filters. */
-  protected readonly poolFilters = signal<PoolFilterState>({ colors: new Set() });
+  protected readonly poolFilters = signal<PoolFilterState>(noPoolFilters);
   /** The cards the last good search matched that the pool filters let through. */
   private readonly filtered = computed(() => applyPoolFilters(this.matched(), this.poolFilters()));
   /** The cards the grid shows. */

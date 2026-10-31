@@ -17,9 +17,11 @@ const COLORS: ColorChoice[] = ['W', 'U', 'B', 'R', 'G'];
  * The color filter's search text. Without Colorless, a card must also have a
  * pressed color: `-c:c` wouldn't do, since a card is out if any face is
  * colorless, which would lose a white spell with a land on its back.
+ * Search terms can each match a different face, so a WB // colorless card would
+ * show for White alone; no such card is known.
  */
 export function colorFilterSearch(pressed: ReadonlySet<ColorChoice>): string {
-  const letters = COLORS.filter((color) => pressed.has(color)).map((c) => c.toLowerCase());
+  const letters = COLORS.filter((color) => pressed.has(color)).map((color) => color.toLowerCase());
   if (!letters.length) return pressed.has('C') ? 'c:c' : '';
   const within = `c<=${letters.join('')}`;
   if (pressed.has('C')) return within;

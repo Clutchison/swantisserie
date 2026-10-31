@@ -7,7 +7,7 @@ import {
   poolFilterActive,
   type ColorChoice,
 } from './pool-filters';
-import { type PoolSearchCard } from './pool-search';
+import { type PoolSearchCard, searchPool } from './pool-search';
 
 const cards = fixtureCards as PoolSearchCard[];
 
@@ -69,6 +69,11 @@ describe('color filter', () => {
 
       it('shows a white card with a colorless back for White, though that face is colorless', () => {
         expect(shownBy('W')).toContain(emeriasCall);
+      });
+
+      it('needs more than -c:c to do so, which rules out a card for any colorless face', () => {
+        const result = searchPool(cards, 'c<=w -c:c');
+        expect(result.ok && result.cards.map((card) => card.name)).not.toContain(emeriasCall);
       });
 
       it('shows it for Colorless, for its back', () => {
