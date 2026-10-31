@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { httpResource } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NavigationCancel,
@@ -26,6 +27,15 @@ export class App {
   private readonly router = inject(Router);
   protected readonly user = this.auth.user;
   protected readonly feedbackOpen = signal(false);
+
+  /** Fetched once per page load: it is a nudge, not a live figure. */
+  private readonly unreviewed = httpResource<{ count: number }>(() =>
+    this.user()?.isAdmin ? '/api/admin/feedback/unreviewed-count' : undefined,
+  );
+  protected readonly feedbackLabel = computed(() => {
+    const count = this.unreviewed.hasValue() ? this.unreviewed.value().count : 0;
+    return count > 0 ? `Feedback (${count})` : 'Feedback';
+  });
 
   /** Pages say how they are loading once shown; this covers the wait for one, and its failure. */
   protected readonly pageStatus = toSignal(

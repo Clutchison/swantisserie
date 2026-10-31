@@ -5,6 +5,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import { App } from './app';
 import { routes } from './app.routes';
 import { expectLoadingAnimation } from './drafts/specs/harness';
+import { answerUnreviewedCount } from './feedback/specs-harness';
 
 describe('App', () => {
   let http: HttpTestingController;
@@ -38,6 +39,7 @@ describe('App', () => {
     // The home page lists drafts; answer it so the app can settle.
     TestBed.tick();
     for (const req of http.match('/api/drafts')) req.flush([]);
+    answerUnreviewedCount(http);
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
