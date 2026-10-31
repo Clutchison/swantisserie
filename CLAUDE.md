@@ -2,9 +2,9 @@
 
 Rotisserie draft app for our Discord server; drafted pools are played on MTG Arena. The v1 plan is in `PLAN.md`; background research is in `docs/research/`.
 
-## File size
+## File layout
 
-New feature tests go in that feature's spec file. Split any file before it passes 1000 lines: lint enforces this for TypeScript, while templates, styles and JSON fixtures rely on this convention alone.
+New feature tests go in that feature's spec file. Split any file before it passes 1000 lines: lint enforces this for TypeScript under `src/`, while templates, styles and JSON fixtures rely on this convention alone.
 
 ## Agent skills
 
