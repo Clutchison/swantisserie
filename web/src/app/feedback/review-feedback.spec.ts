@@ -65,13 +65,20 @@ describe('reviewing feedback', () => {
   });
 
   /** Opens `url` as `user`. */
-  async function open(url: string, user: typeof alice, unreviewedCount = 0) {
+  async function open(url: string, user: typeof alice, unreviewedCount: number | 'fails' = 0) {
     const fixture = TestBed.createComponent(App);
     const navigation = router.navigateByUrl(url);
     (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
     await navigation;
     TestBed.tick();
-    if (user.isAdmin) http.expectOne(COUNT).flush({ count: unreviewedCount });
+    if (user.isAdmin) {
+      const count = http.expectOne(COUNT);
+      if (unreviewedCount === 'fails') {
+        count.flush(null, { status: 500, statusText: 'Server Error' });
+      } else {
+        count.flush({ count: unreviewedCount });
+      }
+    }
     return { fixture, page: fixture.nativeElement as HTMLElement };
   }
 
@@ -260,7 +267,7 @@ describe('reviewing feedback', () => {
       page.querySelector('header a[href="/admin/feedback"]')?.textContent?.trim();
 
     /** Opens a page other than the feedback page as Carol, an app admin. */
-    async function openStatus(unreviewedCount: number) {
+    async function openStatus(unreviewedCount: number | 'fails') {
       const opened = await open('/status', carol, unreviewedCount);
       http.expectOne('/api/health').flush({});
       await opened.fixture.whenStable();
@@ -280,16 +287,9 @@ describe('reviewing feedback', () => {
     });
 
     it('reads just Feedback when the count cannot be fetched', async () => {
-      const fixture = TestBed.createComponent(App);
-      const navigation = router.navigateByUrl('/status');
-      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(carol);
-      await navigation;
-      TestBed.tick();
-      http.expectOne(COUNT).flush(null, { status: 500, statusText: 'Server Error' });
-      http.expectOne('/api/health').flush({});
-      await fixture.whenStable();
+      const { page } = await openStatus('fails');
 
-      expect(headerLink(fixture.nativeElement as HTMLElement)).toBe('Feedback');
+      expect(headerLink(page)).toBe('Feedback');
     });
 
     it('is not fetched for other users', async () => {

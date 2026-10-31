@@ -35,9 +35,9 @@
             }}</time>
             <p class="message">{{ item.message }}</p>
             <a class="page-url" [href]="item.pageUrl">{{ item.pageUrl }}</a>
-            @if (item.reviewedBy; as reviewedBy) {
+            @if ('reviewedBy' in item) {
               <p class="review">
-                Reviewed by {{ reviewedBy.name }},
+                Reviewed by {{ item.reviewedBy.name }},
                 <time [attr.datetime]="item.reviewedAt">{{
                   item.reviewedAt | date: 'medium'
                 }}</time>

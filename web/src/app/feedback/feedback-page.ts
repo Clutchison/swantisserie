@@ -36,7 +36,7 @@ export class FeedbackPage {
   protected readonly views: readonly View[] = ['Unreviewed', 'Reviewed'];
   protected readonly view = signal<View>('Unreviewed');
   /** Fetched afresh on each change of view, as another app admin may have reviewed something. */
-  protected readonly feedback = httpResource<(FeedbackView & Partial<ReviewedFeedbackView>)[]>(() =>
+  protected readonly feedback = httpResource<(FeedbackView | ReviewedFeedbackView)[]>(() =>
     this.view() === 'Reviewed' ? `${API}/reviewed` : API,
   );
   protected readonly saving = signal(false);
