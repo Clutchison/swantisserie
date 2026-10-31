@@ -26,6 +26,19 @@
   --color-discord: #5865f2;
   /* Cream text on the Discord button falls short of AA. */
   --color-on-discord: #fff;
+
+  --font-family: 'Inter Variable', system-ui, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
 }
 
 /* Every page has its own padding, and a phone has no width to spare. */
@@ -33,6 +46,31 @@ body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+}
+
+h1 {
+  font-size: var(--font-size-xl);
+}
+
+h2 {
+  font-size: var(--font-size-lg);
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-md);
+}
+
+/* Form controls otherwise keep the browser's own font. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 /*

@@ -1,12 +1,12 @@
 h1 {
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-xs);
 }
 
 .players,
 .pool,
 .queue,
 .board {
-  margin-top: 1.5rem;
+  margin-top: var(--space-xl);
 }
 
 .turn,
@@ -22,7 +22,7 @@ progress {
 }
 
 code {
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 /* Room for the tab bar, so it never covers the end of the page. */
@@ -43,11 +43,10 @@ main {
 
   [role='tab'] {
     flex: 1;
-    padding: 0.75rem 0.5rem;
+    padding: var(--space-md) var(--space-sm);
     border: 0;
     border-top: 2px solid transparent;
     background: none;
-    font: inherit;
     cursor: pointer;
 
     &[aria-selected='true'] {
@@ -69,7 +68,7 @@ main {
     /* The Pool's search bar sticks just below the tabs. */
     --tab-bar-height: 2.75rem;
 
-    padding-bottom: 1rem;
+    padding-bottom: var(--space-lg);
   }
 
   .tabs {
@@ -78,14 +77,14 @@ main {
     bottom: auto;
     box-sizing: border-box;
     height: var(--tab-bar-height);
-    margin-top: 1.5rem;
+    margin-top: var(--space-xl);
     border-top: 0;
     border-bottom: 1px solid var(--color-divider);
     background: var(--color-bg);
 
     [role='tab'] {
       flex: none;
-      padding: 0 0.75rem;
+      padding: 0 var(--space-md);
       border-top: 0;
       border-bottom: 2px solid transparent;
 

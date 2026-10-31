@@ -21,7 +21,7 @@
 .confirmation {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-xs);
 }
 
 .visually-hidden {
@@ -37,12 +37,12 @@
 /* One player's picks, numbered as in the pick log. */
 ol.picks {
   margin: 0;
-  padding-left: 1.5rem;
+  padding-left: var(--space-xl);
   list-style: none;
 
   li {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--space-sm);
   }
 
   .number {
