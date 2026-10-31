@@ -132,6 +132,12 @@ describe('redirecting to the canonical hostname', () => {
       .expect(200);
   });
 
+  it('serves a request on the canonical hostname with no forwarded scheme as normal', async () => {
+    await startApp(CALLBACK);
+
+    await get('/drafts/42', 'roto.example').expect(200);
+  });
+
   it('serves plain HTTP as normal when the redirect URI is itself plain HTTP', async () => {
     await startApp('http://localhost:4200/api/auth/discord/callback');
 
