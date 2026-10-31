@@ -1,0 +1,32 @@
+<div class="backdrop" (mousedown)="backdropPressed($event)" (click)="backdropClicked($event)">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Send feedback">
+    <!-- Always present: screen readers announce only changes to a status already there. -->
+    <p class="thanks" role="status">{{ sent() ? 'Thanks, your feedback was sent' : '' }}</p>
+    @if (sent()) {
+      <div class="actions">
+        <button #closeButton class="button" type="button" (click)="closed.emit()">Close</button>
+      </div>
+    } @else {
+      <h2>Send feedback</h2>
+      <form (submit)="$event.preventDefault(); submit()">
+        <textarea
+          #field
+          name="message"
+          rows="6"
+          maxlength="2000"
+          required
+          aria-label="Your feedback"
+          [value]="message()"
+          (input)="message.set(field.value)"
+        ></textarea>
+        @if (failed()) {
+          <p class="error" role="alert">Couldn't send your feedback. Try again.</p>
+        }
+        <div class="actions">
+          <button class="button secondary" type="button" (click)="closed.emit()">Cancel</button>
+          <button class="button" type="submit" [disabled]="!canSubmit()">Submit</button>
+        </div>
+      </form>
+    }
+  </div>
+</div>

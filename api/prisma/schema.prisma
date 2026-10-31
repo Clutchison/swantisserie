@@ -11,20 +11,22 @@ datasource db {
 /// A Discord account that has signed in, or a bot an app admin added to a draft.
 model User {
   /// Discord user ID (snowflake); `bot:<uuid>` for a bot.
-  id        String    @id
+  id        String     @id
   /// Discord display name: global_name, falling back to username.
   name      String
   /// Discord avatar hash; null means the default avatar.
   avatar    String?
   /// A player the app controls. Bots can't sign in: they have no Discord account.
-  isBot     Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isBot     Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   sessions  Session[]
   /// Drafts this user organizes.
   drafts    Draft[]
   /// Drafts this user has joined.
   players   Player[]
+  /// Feedback this user has sent.
+  feedback  Feedback[]
 }
 
 model Session {
@@ -185,4 +187,18 @@ model Webhook {
   drafts    Draft[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A plain-text message a role-holder sent to the app admins.
+model Feedback {
+  id       String   @id @default(uuid())
+  message  String
+  senderId String
+  sender   User     @relation(fields: [senderId], references: [id])
+  /// The page it was sent from.
+  pageUrl  String
+  reviewed Boolean  @default(false)
+  sentAt   DateTime @default(now())
+
+  @@index([senderId])
 }
