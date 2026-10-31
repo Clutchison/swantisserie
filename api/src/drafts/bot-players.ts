@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
-import { type BotTurn, DraftsService } from './drafts.service.js';
+import { type BotTurn, TurnsService } from './turns.service.js';
 
 /** How long a bot waits before each pick, so its picks arrive one at a time. */
 export class BotPickDelay {
@@ -28,7 +28,7 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
   private stopping = false;
 
   constructor(
-    private readonly drafts: DraftsService,
+    private readonly turns: TurnsService,
     private readonly publisher: DraftPublisher,
     private readonly delay: BotPickDelay,
   ) {}
@@ -39,7 +39,7 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
    */
   async onApplicationBootstrap(): Promise<void> {
     try {
-      for (const turn of await this.drafts.botTurns()) this.schedule(turn);
+      for (const turn of await this.turns.botTurns()) this.schedule(turn);
     } catch (err) {
       this.logger.error('Could not resume bots’ turns', err);
     }
@@ -77,7 +77,7 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async pick(turn: BotTurn): Promise<void> {
     try {
-      const events = await this.drafts.botPick(turn);
+      const events = await this.turns.botPick(turn);
       // Empty if the turn moved on meanwhile: nothing to do.
       if (events.length === 0) return;
       await this.publisher.publish(turn.draftId, events);

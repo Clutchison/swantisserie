@@ -5,7 +5,7 @@ import type {
 } from '../generated/prisma/client.js';
 import { avatarUrl } from '../auth/avatar-url.js';
 import type { WebhookView } from '../discord/webhooks.service.js';
-import type { DraftWithOrganizer } from './drafts.service.js';
+import type { DraftWithOrganizer } from './draft-lobby.service.js';
 
 /** How far the pool snapshot has got. */
 export interface PoolSnapshotView {

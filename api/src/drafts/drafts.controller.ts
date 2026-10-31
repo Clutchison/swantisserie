@@ -27,13 +27,17 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
+import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import {
-  DraftsService,
+  DraftLobbyService,
   type DraftWithOrganizer,
-  type LoggedPick,
   type NewDraft,
+} from './draft-lobby.service.js';
+import {
   type PickImportPreview,
-} from './drafts.service.js';
+  PickImportService,
+} from './pick-import.service.js';
+import { type LoggedPick, TurnsService } from './turns.service.js';
 import {
   CloseRefusedError,
   DraftFullError,
@@ -115,14 +119,17 @@ export class DraftsController {
   private readonly logger = new Logger(DraftsController.name);
 
   constructor(
-    private readonly drafts: DraftsService,
+    private readonly lobby: DraftLobbyService,
+    private readonly pickImports: PickImportService,
+    private readonly turns: TurnsService,
+    private readonly lifecycle: DraftLifecycleService,
     private readonly publisher: DraftPublisher,
     private readonly bots: BotPlayers,
   ) {}
 
   @Get()
   async list(): Promise<DraftView[]> {
-    return (await this.drafts.list()).map(toDraftView);
+    return (await this.lobby.list()).map(toDraftView);
   }
 
   @Get(':id')
@@ -133,14 +140,14 @@ export class DraftsController {
   @Get(':id/pool')
   async pool(@Param('id') id: string): Promise<PoolCardView[]> {
     await this.findOr404(id);
-    return (await this.drafts.pool(id)).map(toPoolCardView);
+    return (await this.lobby.pool(id)).map(toPoolCardView);
   }
 
   /** The draft's pick log, in pick order. */
   @Get(':id/picks')
   async picks(@Param('id') id: string): Promise<PickView[]> {
     await this.findOr404(id);
-    return (await this.drafts.picks(id)).map(toPickView);
+    return (await this.turns.picks(id)).map(toPickView);
   }
 
   /** The signed-in player picks a pool card on their turn. */
@@ -153,7 +160,7 @@ export class DraftsController {
   ): Promise<DraftView> {
     const oracleId = parsePick(body);
     await this.findOr404(id);
-    return this.change(id, () => this.drafts.pick(id, user.id, oracleId));
+    return this.change(id, () => this.turns.pick(id, user.id, oracleId));
   }
 
   /**
@@ -168,7 +175,7 @@ export class DraftsController {
   ): Promise<DraftView> {
     const pickNumber = parsePickNumber(number);
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.undo(id, pickNumber));
+    return this.change(id, () => this.turns.undo(id, pickNumber));
   }
 
   /** Pauses the draft, so no picks can be made; for the organizer. */
@@ -179,7 +186,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.pause(id));
+    return this.change(id, () => this.lifecycle.pause(id));
   }
 
   /** Resumes a paused draft, making any queued picks due; for the organizer. */
@@ -190,7 +197,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.resume(id));
+    return this.change(id, () => this.lifecycle.resume(id));
   }
 
   /** Closes a started draft early, so it is read-only; for the organizer. */
@@ -201,7 +208,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.close(id));
+    return this.change(id, () => this.lifecycle.close(id));
   }
 
   /** Reopens a closed draft, making any queued picks due; for the organizer. */
@@ -212,7 +219,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.reopen(id));
+    return this.change(id, () => this.lifecycle.reopen(id));
   }
 
   /** Cancels a draft still in Lobby, for good; for the organizer. */
@@ -224,7 +231,7 @@ export class DraftsController {
   ): Promise<void> {
     await this.findAsOrganizer(user, id);
     try {
-      await this.drafts.cancel(id);
+      await this.lobby.cancel(id);
     } catch (err) {
       if (err instanceof DraftGoneError) throw new NotFoundException();
       if (err instanceof DraftStartedError) {
@@ -243,7 +250,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.restartSnapshot(id));
+    return this.change(id, () => this.lobby.restartSnapshot(id));
   }
 
   /** Seats the players in a random order; for the organizer. */
@@ -254,7 +261,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.randomizeSeats(id));
+    return this.change(id, () => this.lobby.randomizeSeats(id));
   }
 
   /** Sets the seat order, as every player's user id; for the organizer. */
@@ -266,7 +273,7 @@ export class DraftsController {
   ): Promise<DraftView> {
     const userIds = parseSeatOrder(body);
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.reorderSeats(id, userIds));
+    return this.change(id, () => this.lobby.reorderSeats(id, userIds));
   }
 
   /** Starts the draft with its seats as they are; for the organizer. */
@@ -277,7 +284,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.start(id));
+    return this.change(id, () => this.lobby.start(id));
   }
 
   /**
@@ -294,7 +301,7 @@ export class DraftsController {
     const csv = parsePickImport(body);
     await this.findAsOrganizer(user, id);
     try {
-      return await this.drafts.previewPickImport(id, csv);
+      return await this.pickImports.previewPickImport(id, csv);
     } catch (err) {
       if (err instanceof DraftGoneError) throw new NotFoundException();
       if (err instanceof DraftStartedError) {
@@ -323,7 +330,9 @@ export class DraftsController {
     const csv = parsePickImport(body);
     const userIds = parseSeatOrder(body);
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.drafts.importPicks(id, csv, userIds));
+    return this.change(id, () =>
+      this.pickImports.importPicks(id, csv, userIds),
+    );
   }
 
   /** The signed-in role-holder joins the draft. */
@@ -333,7 +342,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findOr404(id);
-    return this.change(id, () => this.drafts.join(id, user.id));
+    return this.change(id, () => this.lobby.join(id, user.id));
   }
 
   /** The signed-in role-holder leaves the draft. */
@@ -343,7 +352,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findOr404(id);
-    return this.change(id, () => this.drafts.leave(id, user.id));
+    return this.change(id, () => this.lobby.leave(id, user.id));
   }
 
   /** Adds a bot to the draft's players; for app admins. */
@@ -353,7 +362,7 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.findAsAppAdmin(user, id);
-    return this.change(id, () => this.drafts.addBot(id));
+    return this.change(id, () => this.lobby.addBot(id));
   }
 
   /** Removes a bot from the draft and deletes it; for app admins. */
@@ -364,7 +373,7 @@ export class DraftsController {
     @Param('userId') userId: string,
   ): Promise<DraftView> {
     await this.findAsAppAdmin(user, id);
-    return this.change(id, () => this.drafts.removeBot(id, userId));
+    return this.change(id, () => this.lobby.removeBot(id, userId));
   }
 
   /**
@@ -444,7 +453,7 @@ export class DraftsController {
   }
 
   private async findOr404(id: string): Promise<DraftWithOrganizer> {
-    const draft = await this.drafts.find(id);
+    const draft = await this.lobby.find(id);
     if (!draft) throw new NotFoundException();
     return draft;
   }
@@ -456,7 +465,7 @@ export class DraftsController {
   ): Promise<DraftView> {
     const draft = parseNewDraft(body);
     try {
-      return toDraftView(await this.drafts.create(user.id, draft));
+      return toDraftView(await this.lobby.create(user.id, draft));
     } catch (err) {
       if (err instanceof UnknownWebhookError) {
         throw new BadRequestException({

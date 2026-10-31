@@ -1,0 +1,324 @@
+import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { MAX_PLAYERS, shuffle } from 'engine';
+import { type PoolCard, Prisma } from '../generated/prisma/client.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  checkCanStart,
+  EVENT_PLAYER,
+  inLobby,
+  SEAT_ORDER,
+  seatPlayers,
+  toEventPlayer,
+  type Transaction,
+} from './draft-changes.js';
+import {
+  DraftFullError,
+  PlayersChangedError,
+  PoolQueryError,
+  UnknownBotError,
+  UnknownWebhookError,
+} from './draft-errors.js';
+import type { DraftEvent } from './draft-events.js';
+import { PoolSnapshotService } from './pool-snapshot.service.js';
+import { TurnsService } from './turns.service.js';
+import {
+  ScryfallClient,
+  ScryfallRejectedSearchError,
+  type ScryfallSearchPage,
+} from '../scryfall/scryfall-client.js';
+
+export interface NewDraft {
+  name: string;
+  poolQuery: string;
+  picksPerPlayer: number;
+  /** Where its announcements are posted; null for none. */
+  webhookId: string | null;
+}
+
+const WITH_ORGANIZER = {
+  include: {
+    organizer: { select: { id: true, name: true } },
+    // Never the URL: it is a secret only app admins may see.
+    webhook: { select: { id: true, name: true } },
+    players: {
+      orderBy: SEAT_ORDER,
+      select: {
+        user: { select: { id: true, name: true, avatar: true, isBot: true } },
+      },
+    },
+    _count: { select: { pool: true, picks: true } },
+  },
+} satisfies Prisma.DraftDefaultArgs;
+
+export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
+
+/** Drafts as they are created and read, and everything done in their lobby. */
+@Injectable()
+export class DraftLobbyService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scryfall: ScryfallClient,
+    private readonly snapshots: PoolSnapshotService,
+    private readonly turns: TurnsService,
+  ) {}
+
+  /**
+   * Saves a new draft in Lobby, organized by `organizerId`, and starts its
+   * pool snapshot. Throws UnknownWebhookError if its webhook doesn't exist,
+   * PoolQueryError if its pool query can't make a pool, and
+   * ScryfallUnavailableError if that can't be checked.
+   */
+  async create(
+    organizerId: string,
+    draft: NewDraft,
+  ): Promise<DraftWithOrganizer> {
+    if (
+      draft.webhookId !== null &&
+      !(await this.prisma.webhook.findUnique({
+        where: { id: draft.webhookId },
+      }))
+    ) {
+      throw new UnknownWebhookError();
+    }
+    await this.checkPoolQuery(draft.poolQuery);
+    const created = await this.prisma.draft
+      .create({ data: { ...draft, organizerId }, ...WITH_ORGANIZER })
+      .catch((err: unknown) => {
+        // The webhook was removed while the pool query was being checked.
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2003'
+        ) {
+          throw new UnknownWebhookError();
+        }
+        throw err;
+      });
+    await this.snapshots.start(created.id);
+    return created;
+  }
+
+  async find(id: string): Promise<DraftWithOrganizer | null> {
+    return this.prisma.draft.findUnique({ where: { id }, ...WITH_ORGANIZER });
+  }
+
+  /** Every draft, newest first. */
+  async list(): Promise<DraftWithOrganizer[]> {
+    return this.prisma.draft.findMany({
+      orderBy: { createdAt: 'desc' },
+      ...WITH_ORGANIZER,
+    });
+  }
+
+  /** The draft's pool so far, by name. */
+  async pool(draftId: string): Promise<PoolCard[]> {
+    return this.prisma.poolCard.findMany({
+      where: { draftId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Starts the draft's pool snapshot over, e.g. after a failure. Throws
+   * PoolFrozenError if the snapshot is already complete.
+   */
+  async restartSnapshot(draftId: string): Promise<void> {
+    await this.snapshots.start(draftId);
+  }
+
+  /**
+   * Adds the user to the draft's players; a no-op if they're already in.
+   * Throws DraftStartedError once the draft has left Lobby.
+   */
+  async join(draftId: string, userId: string): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      await tx.player.createMany({
+        data: { draftId, userId },
+        skipDuplicates: true,
+      });
+    });
+  }
+
+  /**
+   * Removes the user from the draft's players; a no-op if they're not in.
+   * Throws DraftStartedError once the draft has left Lobby.
+   */
+  async leave(draftId: string, userId: string): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      await tx.player.deleteMany({ where: { draftId, userId } });
+    });
+  }
+
+  /**
+   * Adds a new bot to the draft's players, named after the highest-numbered
+   * bot it has had. Throws DraftFullError if the draft has as many players
+   * as it can, and DraftStartedError once it has left Lobby.
+   */
+  async addBot(draftId: string): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      const players = await tx.player.findMany({
+        where: { draftId },
+        select: { user: { select: { name: true, isBot: true } } },
+      });
+      if (players.length >= MAX_PLAYERS) throw new DraftFullError();
+      const numbers = players
+        .filter(({ user }) => user.isBot)
+        .map(({ user }) => Number(user.name.replace(/^Bot /, '')) || 0);
+      const user = await tx.user.create({
+        data: {
+          id: `bot:${randomUUID()}`,
+          name: `Bot ${Math.max(0, ...numbers) + 1}`,
+          isBot: true,
+        },
+      });
+      await tx.player.create({ data: { draftId, userId: user.id } });
+    });
+  }
+
+  /**
+   * Removes the bot from the draft's players and deletes it. Throws
+   * UnknownBotError if the draft has no such bot, and DraftStartedError
+   * once it has left Lobby.
+   */
+  async removeBot(draftId: string, userId: string): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      const { count } = await tx.player.deleteMany({
+        where: { draftId, userId, user: { isBot: true } },
+      });
+      if (count === 0) throw new UnknownBotError();
+      // A bot only ever plays in the draft it was added to.
+      await tx.user.delete({ where: { id: userId } });
+    });
+  }
+
+  /**
+   * Cancels the draft: it and everything belonging to it are gone for good.
+   * Throws DraftStartedError once the draft has left Lobby.
+   */
+  async cancel(draftId: string): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      const bots = await tx.player.findMany({
+        where: { draftId, user: { isBot: true } },
+        select: { userId: true },
+      });
+      await tx.draft.delete({ where: { id: draftId } });
+      // A bot only ever plays in the draft it was added to.
+      await tx.user.deleteMany({
+        where: { id: { in: bots.map((bot) => bot.userId) } },
+      });
+    });
+  }
+
+  /**
+   * Seats the players in a random order. Throws DraftStartedError once the
+   * draft has left Lobby.
+   */
+  async randomizeSeats(draftId: string): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      const userIds = await this.seatOrder(tx, draftId);
+      await seatPlayers(tx, draftId, shuffle(userIds));
+    });
+  }
+
+  /**
+   * Seats the players in the order of `userIds`, which must list each of
+   * them once; throws PlayersChangedError if it doesn't. Throws
+   * DraftStartedError once the draft has left Lobby.
+   */
+  async reorderSeats(draftId: string, userIds: string[]): Promise<void> {
+    await inLobby(this.prisma, draftId, async (tx) => {
+      const players = new Set(await this.seatOrder(tx, draftId));
+      // The controller has checked the ids are distinct.
+      if (
+        players.size !== userIds.length ||
+        !userIds.every((userId) => players.has(userId))
+      ) {
+        throw new PlayersChangedError();
+      }
+      await seatPlayers(tx, draftId, userIds);
+    });
+  }
+
+  /**
+   * Moves the draft to Drafting with its seats as they are. Throws
+   * StartRefusedError if it can't start yet, and DraftStartedError if it
+   * already has.
+   */
+  async start(draftId: string): Promise<DraftEvent[]> {
+    return inLobby(this.prisma, draftId, async (tx, draft) => {
+      const userIds = await this.seatOrder(tx, draftId);
+      await checkCanStart(tx, draftId, draft, userIds.length);
+      // Seats become 0..n-1 so the engine's seat indexes match them.
+      await seatPlayers(tx, draftId, userIds);
+      await tx.draft.update({
+        where: { id: draftId },
+        data: { state: 'Drafting' },
+      });
+      const seats = await tx.player.findMany({
+        where: { draftId },
+        orderBy: SEAT_ORDER,
+        select: EVENT_PLAYER,
+      });
+      return [
+        { type: 'started', seats: seats.map(toEventPlayer) },
+        ...(await this.turns.cascade(tx, draftId, draft)),
+      ];
+    });
+  }
+
+  /** The user ids of the draft's players, in seat order. */
+  private async seatOrder(tx: Transaction, draftId: string): Promise<string[]> {
+    const players = await tx.player.findMany({
+      where: { draftId },
+      orderBy: SEAT_ORDER,
+      select: { userId: true },
+    });
+    return players.map((player) => player.userId);
+  }
+
+  private async checkPoolQuery(poolQuery: string): Promise<void> {
+    const matches = await this.search(poolQuery);
+    if (!matches) {
+      throw new PoolQueryError({
+        error: 'no-cards',
+        message: 'This pool query matches no cards.',
+      });
+    }
+    // An ignored term would quietly give a different pool than intended.
+    if (matches.warnings.length > 0) {
+      throw new PoolQueryError({
+        error: 'query-rejected',
+        message: 'Scryfall ignored part of this pool query.',
+        warnings: matches.warnings,
+      });
+    }
+
+    // in:arena, not game:arena: game: matches printings, so -game:arena would
+    // also catch Arena cards that have a paper-only printing.
+    const notOnArena = await this.search(`(${poolQuery}) -in:arena`);
+    if (notOnArena) {
+      const { totalCards } = notOnArena;
+      throw new PoolQueryError({
+        error: 'not-on-arena',
+        message: `${totalCards} ${totalCards === 1 ? 'card' : 'cards'} in this pool query ${totalCards === 1 ? 'is' : 'are'} not on Arena.`,
+        cards: notOnArena.cards.map((card) => card.name),
+        totalCards,
+      });
+    }
+  }
+
+  private async search(query: string): Promise<ScryfallSearchPage | null> {
+    try {
+      return await this.scryfall.search(query);
+    } catch (err) {
+      if (err instanceof ScryfallRejectedSearchError) {
+        throw new PoolQueryError({
+          error: 'query-rejected',
+          message: err.details,
+          warnings: err.warnings,
+        });
+      }
+      throw err;
+    }
+  }
+}
