@@ -2,6 +2,20 @@ h1 {
   margin-bottom: var(--space-xs);
 }
 
+/* A minor action, so it doesn't compete with the page's real controls. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-muted);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-text);
+    filter: none;
+  }
+}
+
 .players,
 .pool,
 .queue,

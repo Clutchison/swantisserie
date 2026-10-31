@@ -12,6 +12,15 @@ import {
 useDraftsApp();
 
 describe('draft page', () => {
+  it('links back to the draft list, named "Drafts" with its chevron hidden from screen readers', async () => {
+    const { page } = await openDraft({ state: 'Complete', cards: 540, total: 540 });
+
+    const backLink = page.querySelector<HTMLAnchorElement>('a.back-link')!;
+    expect(backLink.textContent?.trim()).toBe('Drafts');
+    expect(backLink.getAttribute('href')).toBe('/');
+    expect(backLink.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('says so while the draft loads', async () => {
     const { page } = await openUrl('/drafts/draft-1');
     const req = http.expectOne('/api/drafts/draft-1');
