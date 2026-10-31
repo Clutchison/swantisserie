@@ -114,15 +114,22 @@ export class PoolTab {
       : this.matched();
   });
 
-  /** The first results' large images, front faces of the unpicked cards shown, leaving out any known broken. */
-  private readonly firstResults = computed(() => {
-    const picked = this.picked();
-    return this.shown()
-      .filter((card) => !picked.has(card.oracleId))
-      .slice(0, FIRST_RESULTS)
-      .map((card) => this.images.workingUrl(card, 'large'))
-      .filter((url) => url !== undefined);
-  });
+  /**
+   * The first results' large images: front faces of the unpicked cards shown,
+   * leaving out any known broken. Unchanged while the URLs are, so that
+   * something else changing doesn't restart the wait for them.
+   */
+  private readonly firstResultImages = computed(
+    () => {
+      const picked = this.picked();
+      return this.shown()
+        .filter((card) => !picked.has(card.oracleId))
+        .map((card) => this.images.workingUrl(card, 'large'))
+        .filter((url) => url !== undefined)
+        .slice(0, FIRST_RESULTS_COUNT);
+    },
+    { equal: (a, b) => a.length === b.length && a.every((url, i) => url === b[i]) },
+  );
 
   /** Why the grid is empty, once the cards have loaded. */
   protected readonly emptyNote = computed(() => {
@@ -197,7 +204,7 @@ export class PoolTab {
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
     effect((onCleanup) => {
       this.search();
-      const urls = this.firstResults();
+      const urls = this.firstResultImages();
       const ready =
         this.visible() && !this.loading() && this.tileImages.settled() && !constrainedConnection();
       this.preloader.preloadResults([]);
@@ -363,7 +370,7 @@ const SMALL_IMAGE_DECLARED_WIDTH = 160;
 const REST_MS = 150;
 
 /** How many of the results get their large images preloaded. */
-const FIRST_RESULTS = 20;
+const FIRST_RESULTS_COUNT = 20;
 /** How long the results must stay as they are before that starts, in ms: long enough for typing, and for the grid to render. */
 const RESULTS_SETTLE_MS = 500;
 

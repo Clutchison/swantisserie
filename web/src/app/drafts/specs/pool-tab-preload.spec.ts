@@ -106,7 +106,7 @@ describe('preloading a single card', () => {
     expect(requested()).toEqual([image('large', 'brightclimb-id', 'back')]);
   });
 
-  it('requests an image only once, however often a card shows interest', async () => {
+  it('requests an image only once, however often a viewer shows interest', async () => {
     const { page } = await openPool([shivan]);
     const [tile] = tiles(page);
 
@@ -175,6 +175,18 @@ describe('preloading the first results', () => {
     for (const { image: running } of requests.splice(0)) running.onload?.();
   }
 
+  /** Finishes images until none are left, returning every URL requested on the way. */
+  function drainRequests() {
+    const seen: string[] = [];
+    while (requests.length > 0) {
+      seen.push(...requested());
+      finishRunning();
+    }
+    return seen;
+  }
+
+  const lands = () => numbered(1, 'land').map((land) => ({ ...land, typeLine: 'Land' }));
+
   it('starts 500ms after the Pool tab first shows, with an empty search', async () => {
     await openPool(numbered(1));
 
@@ -202,13 +214,7 @@ describe('preloading the first results', () => {
     await openPool(numbered(25));
 
     wait(500);
-    const seen: string[] = [];
-    while (requests.length > 0) {
-      seen.push(...requested());
-      finishRunning();
-    }
-
-    expect(seen).toEqual(large(...dragons(1, 20)));
+    expect(drainRequests()).toEqual(large(...dragons(1, 20)));
   });
 
   it('counts only the unpicked cards among the first 20, even with picked cards shown', async () => {
@@ -216,13 +222,7 @@ describe('preloading the first results', () => {
 
     await openPool(cards, [picked(cards[0])]);
     wait(500);
-    const seen: string[] = [];
-    while (requests.length > 0) {
-      seen.push(...requested());
-      finishRunning();
-    }
-
-    expect(seen).toEqual(large(...dragons(2, 21)));
+    expect(drainRequests()).toEqual(large(...dragons(2, 21)));
   });
 
   it('leaves picked cards out when they’re hidden too', async () => {
@@ -236,11 +236,30 @@ describe('preloading the first results', () => {
     expect(requested()).toEqual(large('dragon-2'));
   });
 
+  it('keeps waiting undisturbed when something changes but the results don’t', async () => {
+    const { page } = await openPool(numbered(1));
+
+    wait(300);
+    tiles(page)[0].querySelector('img')!.dispatchEvent(new Event('error'));
+    TestBed.tick();
+    wait(200);
+
+    expect(requested()).toEqual(large('dragon-1'));
+  });
+
+  it('takes the next card in place of one whose large image is known to be broken', async () => {
+    const { fixture, page } = await openPool(numbered(21));
+
+    const detail = await openDetail(fixture, page, 0);
+    detail.querySelector('.large img:not(.placeholder)')!.dispatchEvent(new Event('error'));
+    TestBed.tick();
+    wait(500);
+
+    expect(drainRequests()).toEqual(large(...dragons(2, 21)));
+  });
+
   it('preloads the results of the search once it has been unchanged for 500ms', async () => {
-    const { page } = await openPool([
-      ...numbered(1),
-      ...numbered(1, 'land').map((land) => ({ ...land, typeLine: 'Land' })),
-    ]);
+    const { page } = await openPool([...numbered(1), ...lands()]);
 
     search(page, 't:lan');
     wait(400);
@@ -253,10 +272,7 @@ describe('preloading the first results', () => {
   });
 
   it('drops images not yet requested when the results change, and lets those running finish', async () => {
-    const { page } = await openPool([
-      ...numbered(6),
-      ...numbered(1, 'land').map((land) => ({ ...land, typeLine: 'Land' })),
-    ]);
+    const { page } = await openPool([...numbered(6), ...lands()]);
     wait(500);
     expect(requested()).toEqual(large(...dragons(1, 4)));
     const running = requests.map((request) => request.image);
