@@ -266,6 +266,17 @@ describe('card previews', () => {
     expect(previewImage()!.classList).toContain('shown');
   });
 
+  it('fades in even if its image is already loaded', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(488);
+    const { page } = await openBoard();
+
+    tap(boardName(page, 'Lightning Bolt'));
+    await decoded(previewImage()!);
+
+    expect(previewImage()!.classList).not.toContain('instant');
+  });
+
   it('reveals the fallback once a failed image’s retry has decoded', async () => {
     const { page } = await openBoard();
 

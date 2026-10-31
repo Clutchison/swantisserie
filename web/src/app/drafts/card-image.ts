@@ -43,6 +43,8 @@ export class CardImage {
   readonly alt = input.required<string>();
   readonly width = input.required<number>();
   readonly height = input.required<number>();
+  /** Whether an image already loaded when this opens appears with no fade. */
+  readonly instantIfLoaded = input(false);
   /** The image it's waiting on failed to load. */
   readonly failed = output<void>();
 
@@ -89,13 +91,14 @@ export class CardImage {
   private decode(element: HTMLImageElement, layer: Layer) {
     layer.decoding = true;
     // Only for the first image: a change of face always crossfades.
-    layer.instant = !this.shown() && element.complete && element.naturalWidth > 0;
+    layer.instant =
+      this.instantIfLoaded() && !this.shown() && element.complete && element.naturalWidth > 0;
     void element.decode().then(
       () => this.reveal(layer),
       // A browser may refuse to decode ahead of time. If it has every byte, nothing partial can show.
       // If not, the load failed, and the image's error event deals with that.
       () => {
-        if (element.naturalWidth > 0) this.reveal(layer);
+        if (element.complete && element.naturalWidth > 0) this.reveal(layer);
       },
     );
   }

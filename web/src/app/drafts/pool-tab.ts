@@ -147,8 +147,8 @@ export class PoolTab {
 
   /** The card in the detail view, if one is open. */
   protected readonly detail = signal<PoolCardView | null>(null);
-  /** The image the detail view's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
-  protected readonly tileImage = signal<string | null>(null);
+  /** The image the Card detail's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
+  protected readonly tilePlaceholder = signal<string | null>(null);
   /** Which face the detail view shows: 0 is the front. */
   protected readonly face = signal(0);
   protected readonly picking = signal(false);
@@ -214,7 +214,7 @@ export class PoolTab {
     this.detail.set(card);
     const loaded = tile.querySelector('img');
     const normal = this.images.url(card, 'normal');
-    this.tileImage.set(
+    this.tilePlaceholder.set(
       loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
     );
     this.face.set(0);

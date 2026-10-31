@@ -102,9 +102,10 @@
           [alt]="shownCard.name"
           [width]="672"
           [height]="936"
+          [instantIfLoaded]="true"
           (failed)="imageFailed(shownCard, 'large', face())"
         >
-          @if (tileImage(); as src) {
+          @if (tilePlaceholder(); as src) {
             <img class="placeholder" [src]="src" alt="" width="488" height="680" />
           } @else {
             <span class="placeholder">{{ shownCard.name }}</span>

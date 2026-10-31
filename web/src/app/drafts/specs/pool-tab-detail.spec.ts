@@ -105,7 +105,7 @@ describe('pool tab', () => {
     const front = image('large', 'brightclimb-id', 'front');
     const back = image('large', 'brightclimb-id', 'back');
 
-    async function flip(detail: HTMLElement) {
+    function flip(detail: HTMLElement) {
       button(detail, 'Flip')!.click();
       wait(0);
     }
@@ -163,7 +163,7 @@ describe('pool tab', () => {
       await decoded(newestLarge(detail));
       wait(150);
 
-      await flip(detail);
+      flip(detail);
       expect(shownSrcs(detail)).toEqual([front]);
 
       await decoded(newestLarge(detail));
@@ -179,7 +179,7 @@ describe('pool tab', () => {
       await decoded(newestLarge(detail));
       wait(150);
 
-      await flip(detail);
+      flip(detail);
 
       expect(largeImages(detail).map((img) => img.getAttribute('alt'))).toEqual([
         brightclimb.name,
@@ -192,16 +192,16 @@ describe('pool tab', () => {
       await decoded(newestLarge(detail));
       wait(150);
 
-      await flip(detail);
+      flip(detail);
       const stale = newestLarge(detail);
-      await flip(detail);
+      flip(detail);
       await decoded(stale);
 
       expect(shownSrcs(detail)).toEqual([front]);
       expect(largeImages(detail)).toHaveLength(1);
     });
 
-    it('never shows a closed card’s image on the next card opened', async () => {
+    it('never shows an image from a Card detail that was closed on the next card opened', async () => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         {},
@@ -268,7 +268,7 @@ describe('pool tab', () => {
       await decoded(newestLarge(detail));
       wait(150);
 
-      await flip(detail);
+      flip(detail);
       newestLarge(detail).dispatchEvent(new Event('error'));
       wait(0);
       newestLarge(detail).dispatchEvent(new Event('error'));
@@ -280,11 +280,27 @@ describe('pool tab', () => {
     it('reveals a fully loaded image the browser refused to decode ahead of time', async () => {
       const { detail } = await openOne(shivan);
       const large = newestLarge(detail);
-      Object.defineProperty(large, 'naturalWidth', { value: 672 });
+      Object.defineProperties(large, {
+        complete: { value: true },
+        naturalWidth: { value: 672 },
+      });
 
       await decodeRefused(large);
 
       expect(large.classList).toContain('shown');
+    });
+
+    it('stays hidden if decoding was refused partway through loading', async () => {
+      const { detail } = await openOne(shivan);
+      const large = newestLarge(detail);
+      Object.defineProperties(large, {
+        complete: { value: false },
+        naturalWidth: { value: 672 },
+      });
+
+      await decodeRefused(large);
+
+      expect(large.classList).not.toContain('shown');
     });
 
     it('stays hidden if decoding was refused because the image never loaded', async () => {
