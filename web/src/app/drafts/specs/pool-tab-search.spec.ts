@@ -30,6 +30,15 @@ describe('pool tab', () => {
       await fixture.whenStable();
     }
 
+    it('labels the search box "Scryfall Search", keeping its example placeholder', async () => {
+      const { page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
+      const box = page.querySelector<HTMLInputElement>('input[type="search"]')!;
+
+      expect(box.labels?.[0]?.textContent?.trim()).toBe('Scryfall Search');
+      expect(box.hasAttribute('aria-label')).toBe(false);
+      expect(box.placeholder).toBe('Search, e.g. t:dragon c:r');
+    });
+
     it('says so while the pool’s cards load', async () => {
       const { fixture, page } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
