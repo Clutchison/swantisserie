@@ -18,6 +18,7 @@ import {
   completeSnapshot,
   button,
   type AppFixture,
+  expectLoadingAnimation,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
@@ -209,10 +210,7 @@ describe('pool tab', () => {
       await flushPicks([]);
       const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
       tabButton(page, 'Queue').click();
-      await vi.waitFor(() => {
-        TestBed.tick();
-        expect(panel(page).textContent).toContain('Loading your queue…');
-      });
+      await expectLoadingAnimation(() => panel(page), 'Loading your queue…', 64);
       expect(panel(page).textContent).not.toContain('Your queue is empty');
 
       req.flush(EMPTY_QUEUE);

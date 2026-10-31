@@ -5,7 +5,7 @@
   }
   <a class="button" routerLink="/drafts/new">New draft</a>
   @if (loading()) {
-    <p>Loading…</p>
+    <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
     <p class="error">Couldn't load the drafts. Try reloading the page.</p>
   } @else {

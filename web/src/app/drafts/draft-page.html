@@ -1,7 +1,7 @@
 <main>
   <a routerLink="/">← Drafts</a>
   @if (loading() && !draft()) {
-    <p>Loading…</p>
+    <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
     <p class="error">Couldn't load this draft. Try reloading the page.</p>
   } @else if (draft(); as draft) {

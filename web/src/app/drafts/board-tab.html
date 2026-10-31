@@ -1,7 +1,7 @@
 @if (failed()) {
   <p class="error">Couldn't load the picks. Try reloading the page.</p>
 } @else if (loading()) {
-  <p>Loading the picks…</p>
+  <app-loading-animation size="tab">Loading the picks…</app-loading-animation>
 } @else {
   <div class="player-picks">
     @for (player of board(); track player.id) {

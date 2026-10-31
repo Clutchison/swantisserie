@@ -105,6 +105,20 @@ export async function openUrl(url: string, user = alice) {
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 
+/** Waits out a load's delay, then checks it shows its text under a logo of the given width. */
+export async function expectLoadingAnimation(
+  root: () => Element,
+  text: string,
+  logoWidth: 288 | 64,
+) {
+  await vi.waitFor(() => {
+    TestBed.tick();
+    const loading = root().querySelector('app-loading-animation');
+    expect(loading?.textContent).toContain(text);
+    expect(loading?.querySelector('svg')?.getAttribute('width')).toBe(String(logoWidth));
+  });
+}
+
 /** Opens the draft list with GET /api/drafts answered by `drafts`. */
 export async function openList(drafts: DraftView[]) {
   const { fixture, page } = await openUrl('/');

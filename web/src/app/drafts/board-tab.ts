@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { LoadingAnimation } from '../loading/loading-animation';
 import { CardPreviewName } from './card-preview';
 import { type PickView, type PlayerView, type PoolCardView } from './drafts';
 
 /** The draft view's Board tab: every player's picks, in seat order, and the pick log. */
 @Component({
   selector: 'app-board-tab',
-  imports: [CardPreviewName],
+  imports: [CardPreviewName, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './board-tab.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './board-tab.scss'],

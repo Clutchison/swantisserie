@@ -11,6 +11,7 @@ import { arenaExport } from './arena-export';
 import { CardPreviewName } from './card-preview';
 import { type PickView, type PlayerView, type PoolCardView } from './drafts';
 import { moxfieldExport } from './moxfield-export';
+import { LoadingAnimation } from '../loading/loading-animation';
 
 /** Where a player's picks can be exported to. */
 type ExportTarget = 'Arena' | 'Moxfield';
@@ -27,7 +28,7 @@ const CONFIRMATION_MS = 2000;
 /** The draft view's Picks panel: one player's picks, which can be exported. */
 @Component({
   selector: 'app-picks-tab',
-  imports: [CardPreviewName],
+  imports: [CardPreviewName, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './picks-tab.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './picks-tab.scss'],

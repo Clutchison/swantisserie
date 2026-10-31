@@ -1,4 +1,3 @@
-import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
   alice,
@@ -11,6 +10,7 @@ import {
   flushPool,
   completeSnapshot,
   type AppFixture,
+  expectLoadingAnimation,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
@@ -42,10 +42,7 @@ describe('pool tab', () => {
     it('says so while the pool’s cards load', async () => {
       const { fixture, page } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
-      await vi.waitFor(() => {
-        TestBed.tick();
-        expect(page.textContent).toContain('Loading the pool’s cards…');
-      });
+      await expectLoadingAnimation(() => page, 'Loading the pool’s cards…', 64);
 
       await flushPool([shivan]);
       await fixture.whenStable();

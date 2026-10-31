@@ -44,7 +44,7 @@
 <!-- Always there, so screen readers announce a message as it appears. -->
 <p id="pool-search-error" class="search-error error" role="status">{{ searchError() }}</p>
 @if (loading()) {
-  <p>Loading the pool’s cards…</p>
+  <app-loading-animation size="tab">Loading the pool’s cards…</app-loading-animation>
 } @else if (emptyNote(); as note) {
   <p class="empty">{{ note }}</p>
 }

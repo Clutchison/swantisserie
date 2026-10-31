@@ -12,6 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { LoadingAnimation } from '../loading/loading-animation';
 import { firstValueFrom } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
@@ -44,7 +45,16 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 
 @Component({
   selector: 'app-draft-page',
-  imports: [BoardTab, LobbyControls, OrganizerControls, PicksTab, PoolTab, QueueTab, RouterLink],
+  imports: [
+    BoardTab,
+    LoadingAnimation,
+    LobbyControls,
+    OrganizerControls,
+    PicksTab,
+    PoolTab,
+    QueueTab,
+    RouterLink,
+  ],
   providers: [CardImageSource, CardPreviews, ImagePreloader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',

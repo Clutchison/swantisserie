@@ -1,8 +1,26 @@
-import { useDraftsApp, draft, openList, section } from './harness';
+import {
+  useDraftsApp,
+  draft,
+  expectLoadingAnimation,
+  http,
+  openList,
+  openUrl,
+  section,
+} from './harness';
 
 useDraftsApp();
 
 describe('draft list', () => {
+  it('says so while the drafts load', async () => {
+    const { fixture, page } = await openUrl('/');
+    const req = http.expectOne('/api/drafts');
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
+
+    req.flush([]);
+    await fixture.whenStable();
+    expect(page.textContent).not.toContain('Loading…');
+  });
+
   it('shows active and complete drafts separately', async () => {
     const page = await openList([
       draft({ id: 'a', name: 'Red dragons', state: 'Lobby' }),

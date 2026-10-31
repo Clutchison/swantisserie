@@ -18,13 +18,14 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { type DraftState, isActive, type PoolCardView, type QueueView } from './drafts';
 import { QueueApi, queueChangeFailure } from './queue-api';
+import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
 /** The draft view's Queue tab: the signed-in player's queue, which they reorder and prune. */
 @Component({
   selector: 'app-queue-tab',
-  imports: [CardPreviewName, CdkDropList, CdkDrag, CdkDragHandle],
+  imports: [CardPreviewName, CdkDropList, CdkDrag, CdkDragHandle, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-tab.html',
   styleUrls: ['./drafts.scss', './queue-tab.scss'],
