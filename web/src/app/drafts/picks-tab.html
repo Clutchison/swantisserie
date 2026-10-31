@@ -1,0 +1,44 @@
+@if (player(); as player) {
+  <h2 id="picks-heading">{{ own() ? 'Your picks' : player.name + '’s picks' }}</h2>
+  <div class="controls">
+    @if (!own()) {
+      <button class="button secondary" type="button" (click)="boardChosen.emit()">← Board</button>
+    }
+    @if (playerPicks().length > 0) {
+      <button class="button secondary" type="button" (click)="copyForArena(playerPicks())">
+        Copy for Arena
+      </button>
+      <button class="button secondary" type="button" (click)="copyForMoxfield(playerPicks())">
+        Copy for Moxfield
+      </button>
+    }
+  </div>
+  @if (picksCopy(); as copy) {
+    @if (copy === 'Failed') {
+      <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
+    } @else {
+      <p role="status">Copied for {{ copy }}.</p>
+    }
+  }
+  @if (failed()) {
+    <p class="error">Couldn't load the picks. Try reloading the page.</p>
+  } @else if (loading()) {
+    <p>Loading the picks…</p>
+  } @else {
+    <ol class="picks">
+      @for (pick of playerPicks(); track pick.pick) {
+        <li>
+          <span class="number">{{ pick.pick }}</span>
+          <span class="card">
+            <!-- Only the text shows a Card preview, not the rest of the row. -->
+            <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+          </span>
+        </li>
+      } @empty {
+        <li class="empty">No picks yet.</li>
+      }
+    </ol>
+  }
+} @else {
+  <p class="empty">Only players have picks.</p>
+}

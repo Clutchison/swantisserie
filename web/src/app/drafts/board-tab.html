@@ -1,0 +1,52 @@
+@if (failed()) {
+  <p class="error">Couldn't load the picks. Try reloading the page.</p>
+} @else if (loading()) {
+  <p>Loading the picks…</p>
+} @else {
+  <div class="player-picks">
+    @for (player of board(); track player.id) {
+      <section>
+        <h3>
+          <button class="link" type="button" (click)="playerChosen.emit(player.id)">
+            {{ player.name }}
+          </button>
+          @if (player.isBot) {
+            <span class="badge">Bot</span>
+          }
+        </h3>
+        <ol>
+          @for (pick of player.picks; track pick.pick) {
+            <li>
+              <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+            </li>
+          } @empty {
+            <li class="empty">No picks yet.</li>
+          }
+        </ol>
+      </section>
+    }
+  </div>
+  <section class="log">
+    <h3>Pick log</h3>
+    <ol>
+      @for (pick of picks(); track pick.pick) {
+        <li>
+          <span class="number">{{ pick.pick }}</span>
+          @let picker = player(pick.playerId);
+          <span class="player">
+            {{ picker?.name }}
+            @if (picker?.isBot) {
+              <span class="badge">Bot</span>
+            }
+          </span>
+          <span class="card">
+            <!-- Only the text shows a Card preview, not the rest of the row. -->
+            <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+          </span>
+        </li>
+      } @empty {
+        <li class="empty">No picks yet.</li>
+      }
+    </ol>
+  </section>
+}

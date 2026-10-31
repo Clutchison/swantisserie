@@ -9,186 +9,9 @@ h1 {
   margin-top: 1.5rem;
 }
 
-/* A row of buttons, which wraps on a phone. */
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.5rem 0;
-
-  &:empty {
-    display: none;
-  }
-}
-
-.board {
-  h3 {
-    margin: 1rem 0 0.25rem;
-    font-size: 1rem;
-  }
-
-  ol {
-    margin: 0;
-    padding-left: 1.5rem;
-  }
-
-  .empty {
-    color: var(--color-muted);
-    list-style: none;
-  }
-}
-
-/* A player's name on the Board, which opens their picks. */
-.link {
-  padding: 0.25rem 0;
-  border: 0;
-  background: none;
-  color: var(--color-accent);
-  font: inherit;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-/* One player's picks, numbered as in the pick log. */
-ol.picks {
-  margin-top: 1rem;
-  padding-left: 0;
-  list-style: none;
-
-  li {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .number {
-    min-width: 2rem;
-    color: var(--color-muted);
-    text-align: right;
-  }
-
-  .card {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-}
-
-/* One column of picks per player, as many across as fit. */
-.player-picks {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: 0 1rem;
-}
-
-.log {
-  ol {
-    padding-left: 0;
-    list-style: none;
-  }
-
-  li {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .number {
-    min-width: 2rem;
-    color: var(--color-muted);
-    text-align: right;
-  }
-
-  .player {
-    min-width: 6rem;
-    font-weight: 600;
-  }
-
-  .card {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-}
-
-.players {
-  ol {
-    list-style: none;
-    padding: 0;
-  }
-
-  li {
-    align-items: center;
-    gap: 0.5rem;
-
-    &[aria-current='true'] {
-      background: var(--color-raised);
-    }
-  }
-
-  summary {
-    padding: 0.5rem 0;
-    cursor: pointer;
-  }
-
-  .name {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  .seat {
-    min-width: 1.5rem;
-    color: var(--color-muted);
-    text-align: right;
-  }
-
-  /* In line with the name on a narrow screen, with Remove before the arrows. */
-  .seat-controls {
-    display: contents;
-  }
-
-  .move {
-    order: 1;
-    margin-left: auto;
-  }
-
-  /* Each arrow has a glyph for seats running across and for seats stacked, to show the way they run. */
-  .across {
-    display: none;
-  }
-}
-
 .turn,
 .paused,
 .closed {
-  font-weight: 600;
-}
-
-.icon {
-  min-width: 2.5rem;
-  min-height: 2.5rem;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--color-muted);
-  border-radius: 0.25rem;
-  font: inherit;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-}
-
-.avatar {
-  border-radius: 50%;
-}
-
-/* Marks a player the app controls. */
-.badge {
-  padding: 0 0.375rem;
-  border-radius: 0.25rem;
-  background: var(--color-surface);
-  color: var(--color-muted);
-  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -240,51 +63,13 @@ main {
   }
 }
 
-/* From here the tabs sit at the top of the page, and the seats spread out. */
+/* From here the tabs sit at the top of the page. */
 @media (min-width: 1024px) {
   main {
     /* The Pool's search bar sticks just below the tabs. */
     --tab-bar-height: 2.75rem;
 
     padding-bottom: 1rem;
-  }
-
-  .players {
-    ol {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-      gap: 0 1rem;
-    }
-
-    /* Seat number, avatar, name, badge; the buttons go below, in line with the name. */
-    li {
-      display: grid;
-      grid-template-columns: auto auto minmax(0, 1fr) auto;
-      /* A tall row's spare height stays on this line, keeping the row's buttons level. */
-      grid-template-rows: 1fr;
-    }
-
-    .seat-controls {
-      display: flex;
-      grid-column: 3 / -1;
-    }
-
-    .move {
-      order: 0;
-      margin-left: 0;
-    }
-
-    .remove {
-      margin-left: auto;
-    }
-
-    .across {
-      display: inline;
-    }
-
-    .stacked {
-      display: none;
-    }
   }
 
   .tabs {
@@ -315,9 +100,4 @@ main {
   .picks-panel {
     max-width: 48rem;
   }
-}
-
-.pick-import-warning {
-  color: var(--color-warning-text);
-  font-weight: 600;
 }

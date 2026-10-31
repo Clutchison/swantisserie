@@ -27,210 +27,23 @@
       @if (draft.state === 'Closed') {
         <p class="closed" role="status">This draft is closed. No picks until it reopens.</p>
       }
-      <div class="controls">
-        @if (offerPause()) {
-          <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
-            Pause draft
-          </button>
-        }
-        @if (offerResume()) {
-          <button class="button" type="button" (click)="resume()" [disabled]="sending()">
-            Resume draft
-          </button>
-        }
-        @if (undoable(); as pick) {
-          <button
-            class="button secondary"
-            type="button"
-            (click)="undo(pick)"
-            [disabled]="sending()"
-          >
-            Undo pick {{ pick.pick }} ({{ pick.name }})
-          </button>
-        }
-        @if (offerClose()) {
-          <button class="button secondary" type="button" (click)="close()" [disabled]="sending()">
-            Close draft
-          </button>
-        }
-        @if (offerReopen()) {
-          <button class="button" type="button" (click)="reopen()" [disabled]="sending()">
-            Reopen draft
-          </button>
-        }
-      </div>
-      @if (sendError(); as message) {
-        <p class="error" role="alert">{{ message }}</p>
-      }
-      <details [open]="inLobby()">
-        <summary>Seat order</summary>
-        <ol>
-          @for (
-            player of draft.players;
-            track player.id;
-            let i = $index, first = $first, last = $last
-          ) {
-            <li [attr.aria-current]="turn()?.playerId === player.id ? 'true' : null">
-              <span class="seat">{{ i + 1 }}</span>
-              <img class="avatar" [src]="player.avatarUrl" alt="" width="32" height="32" />
-              <span class="name">{{ player.name }}</span>
-              @if (player.isBot) {
-                <span class="badge">Bot</span>
-              }
-              @if (inLobby() && canOrganize()) {
-                <div class="seat-controls">
-                  <span class="move">
-                    <button
-                      class="icon"
-                      type="button"
-                      [attr.aria-label]="'Move ' + player.name + ' earlier'"
-                      (click)="moveSeat(i, -1)"
-                      [disabled]="first || changingLobby()"
-                    >
-                      <span class="across">←</span><span class="stacked">↑</span>
-                    </button>
-                    <button
-                      class="icon"
-                      type="button"
-                      [attr.aria-label]="'Move ' + player.name + ' later'"
-                      (click)="moveSeat(i, 1)"
-                      [disabled]="last || changingLobby()"
-                    >
-                      <span class="across">→</span><span class="stacked">↓</span>
-                    </button>
-                  </span>
-                  @if (isAdmin() && player.isBot) {
-                    <button
-                      class="icon remove"
-                      type="button"
-                      [attr.aria-label]="'Remove ' + player.name"
-                      (click)="removeBot(player.id)"
-                      [disabled]="changingLobby()"
-                    >
-                      Remove
-                    </button>
-                  }
-                </div>
-              }
-            </li>
-          } @empty {
-            <li class="empty">Nobody has joined yet.</li>
-          }
-        </ol>
-      </details>
-      @if (inLobby()) {
-        <div class="controls">
-          @if (joined()) {
-            <button
-              class="button secondary"
-              type="button"
-              (click)="leave()"
-              [disabled]="changingLobby()"
-            >
-              Leave
-            </button>
-          } @else {
-            <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
-              Join
-            </button>
-          }
-          @if (canOrganize()) {
-            <button
-              class="button secondary"
-              type="button"
-              (click)="randomizeSeats()"
-              [disabled]="changingLobby()"
-            >
-              Randomize seats
-            </button>
-            @if (isAdmin()) {
-              <button
-                class="button secondary"
-                type="button"
-                (click)="addBot()"
-                [disabled]="draftFull() || changingLobby()"
-              >
-                Add bot
-              </button>
-            }
-            <button
-              class="button"
-              type="button"
-              (click)="start()"
-              [disabled]="!poolReady() || changingLobby()"
-            >
-              Start draft
-            </button>
-            <input
-              #pickImportFile
-              type="file"
-              accept=".csv,text/csv"
-              aria-label="Import picks"
-              hidden
-              (change)="previewPickImport(pickImportFile)"
-            />
-            <button
-              class="button secondary"
-              type="button"
-              (click)="pickImportFile.click()"
-              [disabled]="!poolReady() || changingLobby()"
-            >
-              Import picks
-            </button>
-            <button
-              class="button secondary"
-              type="button"
-              (click)="cancel()"
-              [disabled]="changingLobby()"
-            >
-              Cancel draft
-            </button>
-            @if (!poolReady()) {
-              <p class="detail">You can start the draft once the pool snapshot is complete.</p>
-            }
-          }
-        </div>
-      }
-      @if (lobbyError(); as message) {
-        <p class="error" role="alert">{{ message }}</p>
-      }
-      @if (pickImportPreview(); as preview) {
-        <div class="pick-import-preview" role="status">
-          <h3>Import picks</h3>
-          <ul>
-            @for (seat of preview.seats; track $index) {
-              <li>{{ seat.column }} → {{ seat.player }}</li>
-            }
-          </ul>
-          <p>
-            {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
-            {{ preview.next.pick }}, {{ preview.next.player }}.
-          </p>
-          <p class="detail">This is only a preview: nothing has been imported.</p>
-          <p class="pick-import-warning">
-            Importing is final and clears all queues. The draft starts paused until you resume it.
-            It can't be reversed: a wrong file means closing this draft and creating a new one.
-          </p>
-          <button
-            class="button"
-            type="button"
-            (click)="confirmPickImport(preview)"
-            [disabled]="changingLobby()"
-          >
-            Import and start paused
-          </button>
-        </div>
-      }
-      @if (pickImportProblems().length > 0) {
-        <div class="pick-import-problems error" role="alert">
-          <p>This file can't be imported:</p>
-          <ul>
-            @for (problem of pickImportProblems(); track $index) {
-              <li>{{ problem }}</li>
-            }
-          </ul>
-        </div>
-      }
+      <app-organizer-controls
+        [draft]="draft"
+        [picks]="picks()"
+        [canOrganize]="canOrganize()"
+        (draftChanged)="showDraft($event)"
+        (draftStale)="catchUp()"
+      />
+      <app-lobby-controls
+        [draft]="draft"
+        [canOrganize]="canOrganize()"
+        [joined]="joined()"
+        (changeStarted)="retryFailed.set(false)"
+        (draftChanged)="resource.set($event)"
+        (picksImported)="showDraft($event)"
+        (draftStale)="resource.reload()"
+        (cancelled)="leaveCancelled()"
+      />
     </section>
 
     <div class="tabs" role="tablist" aria-label="Draft">
@@ -318,7 +131,7 @@
             [offerQueue]="offerQueue()"
             [yourTurn]="yourTurn()"
             [turnPick]="draft.turn?.pick ?? null"
-            (pickMade)="pickMade($event)"
+            (pickMade)="showDraft($event)"
             (draftStale)="catchUp()"
             (queueChanged)="queueResource.set($event)"
             (queueStale)="queueResource.reload()"
@@ -378,60 +191,14 @@
       [hidden]="tab() !== 'Board'"
     >
       <h2>Board</h2>
-      @if (picksFailed()) {
-        <p class="error">Couldn't load the picks. Try reloading the page.</p>
-      } @else if (picksLoading()) {
-        <p>Loading the picks…</p>
-      } @else {
-        <div class="player-picks">
-          @for (player of board(); track player.id) {
-            <section>
-              <h3>
-                <button class="link" type="button" (click)="showPicks(player.id)">
-                  {{ player.name }}
-                </button>
-                @if (player.isBot) {
-                  <span class="badge">Bot</span>
-                }
-              </h3>
-              <ol>
-                @for (pick of player.picks; track pick.pick) {
-                  <li>
-                    <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{
-                      pick.name
-                    }}</span>
-                  </li>
-                } @empty {
-                  <li class="empty">No picks yet.</li>
-                }
-              </ol>
-            </section>
-          }
-        </div>
-        <section class="log">
-          <h3>Pick log</h3>
-          <ol>
-            @for (pick of picks(); track pick.pick) {
-              <li>
-                <span class="number">{{ pick.pick }}</span>
-                @let picker = player(pick.playerId);
-                <span class="player">
-                  {{ picker?.name }}
-                  @if (picker?.isBot) {
-                    <span class="badge">Bot</span>
-                  }
-                </span>
-                <span class="card">
-                  <!-- Only the text shows a Card preview, not the rest of the row. -->
-                  <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
-                </span>
-              </li>
-            } @empty {
-              <li class="empty">No picks yet.</li>
-            }
-          </ol>
-        </section>
-      }
+      <app-board-tab
+        [players]="draft.players"
+        [picks]="picks()"
+        [poolCardsById]="poolCardsById()"
+        [loading]="picksLoading()"
+        [failed]="picksFailed()"
+        (playerChosen)="showPicks($event)"
+      />
     </section>
 
     <!-- Styled like the Board, which it opens from. -->
@@ -442,50 +209,15 @@
       aria-labelledby="picks-heading"
       [hidden]="tab() !== 'Picks'"
     >
-      @if (shownPlayer(); as player) {
-        <h2 id="picks-heading">{{ ownPicks() ? 'Your picks' : player.name + '’s picks' }}</h2>
-        <div class="controls">
-          @if (!ownPicks()) {
-            <button class="button secondary" type="button" (click)="closePicks()">← Board</button>
-          }
-          @if (player.picks.length > 0) {
-            <button class="button secondary" type="button" (click)="copyForArena(player.picks)">
-              Copy for Arena
-            </button>
-            <button class="button secondary" type="button" (click)="copyForMoxfield(player.picks)">
-              Copy for Moxfield
-            </button>
-          }
-        </div>
-        @if (picksCopy(); as copy) {
-          @if (copy === 'Failed') {
-            <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
-          } @else {
-            <p role="status">Copied for {{ copy }}.</p>
-          }
-        }
-        @if (picksFailed()) {
-          <p class="error">Couldn't load the picks. Try reloading the page.</p>
-        } @else if (picksLoading()) {
-          <p>Loading the picks…</p>
-        } @else {
-          <ol class="picks">
-            @for (pick of player.picks; track pick.pick) {
-              <li>
-                <span class="number">{{ pick.pick }}</span>
-                <span class="card">
-                  <!-- Only the text shows a Card preview, not the rest of the row. -->
-                  <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
-                </span>
-              </li>
-            } @empty {
-              <li class="empty">No picks yet.</li>
-            }
-          </ol>
-        }
-      } @else {
-        <p class="empty">Only players have picks.</p>
-      }
+      <app-picks-tab
+        [player]="shownPlayer()"
+        [own]="ownPicks()"
+        [picks]="picks()"
+        [poolCardsById]="poolCardsById()"
+        [loading]="picksLoading()"
+        [failed]="picksFailed()"
+        (boardChosen)="closePicks()"
+      />
     </section>
   }
 </main>
