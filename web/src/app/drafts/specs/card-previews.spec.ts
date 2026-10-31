@@ -13,6 +13,7 @@ import {
   openDraft,
   flushPicks,
   completeSnapshot,
+  wait,
 } from './harness';
 import { image } from './pool-tab-harness';
 
@@ -82,12 +83,6 @@ describe('card previews', () => {
   }
 
   afterEach(() => vi.useRealTimers());
-
-  /** Lets `ms` pass, then renders what came of it. */
-  function wait(ms: number) {
-    vi.advanceTimersByTime(ms);
-    TestBed.tick();
-  }
 
   /** A card name in the Board's pick lists, by its text. */
   const boardName = (page: HTMLElement, name: string) =>

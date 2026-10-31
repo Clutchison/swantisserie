@@ -204,12 +204,59 @@ export async function snapshotted(id: string) {
   });
 }
 
-/** The organizer, Alice, undoes the draft's latest pick, pick `number`. */
-export function undoPick(id: string, number: number) {
+export function pick(id: string, oracleId: unknown, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/picks`)
+    .set('Cookie', cookie)
+    .send({ oracleId });
+}
+
+/** Undoes the draft's pick `number`, by default as the organizer, Alice. */
+export function undo(
+  id: string,
+  number: number | string,
+  cookie = aliceCookie,
+) {
   return request(app.getHttpServer())
     .delete(`/api/drafts/${id}/picks/${number}`)
+    .set('Cookie', cookie);
+}
+
+export function queue(id: string, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .get(`/api/drafts/${id}/queue`)
+    .set('Cookie', cookie);
+}
+
+export function enqueue(id: string, oracleId: unknown, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/queue`)
+    .set('Cookie', cookie)
+    .send({ oracleId });
+}
+
+/** Posts to the draft's `action` route. */
+export function post(id: string, action: string, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/${action}`)
+    .set('Cookie', cookie);
+}
+
+/** The draft's pick log, as the API answers with it. */
+export function pickLog(id: string) {
+  return request(app.getHttpServer())
+    .get(`/api/drafts/${id}/picks`)
     .set('Cookie', aliceCookie)
     .expect(200);
+}
+
+/** The pick log as `Player: Card` lines. */
+export async function pickLogLines(id: string) {
+  const res = await pickLog(id);
+  const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
+  return (res.body as { playerId: string; name: string }[]).map(
+    (logged) => `${names[logged.playerId] ?? 'Bot'}: ${logged.name}`,
+  );
 }
 
 /**

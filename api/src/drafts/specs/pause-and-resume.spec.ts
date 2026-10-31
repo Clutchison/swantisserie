@@ -8,9 +8,12 @@ import {
   webhookClient,
   useDraftsApp,
   signIn,
-  undoPick,
   readyDraft,
   start,
+  pick,
+  enqueue,
+  pickLogLines,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
@@ -23,13 +26,6 @@ describe('pause and resume', () => {
     bobCookie = await signIn(bob);
   });
 
-  function pick(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', cookie)
-      .send({ oracleId });
-  }
-
   function pause(id: string, cookie = aliceCookie) {
     return request(app.getHttpServer())
       .post(`/api/drafts/${id}/pause`)
@@ -40,26 +36,6 @@ describe('pause and resume', () => {
     return request(app.getHttpServer())
       .post(`/api/drafts/${id}/resume`)
       .set('Cookie', cookie);
-  }
-
-  function enqueue(id: string, oracleId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .send({ oracleId })
-      .expect(200);
-  }
-
-  /** The pick log as `Player: Card` lines. */
-  async function pickLog(id: string) {
-    const res = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
-    return (res.body as { playerId: string; name: string }[]).map(
-      (pick) => `${names[pick.playerId] ?? 'Bot'}: ${pick.name}`,
-    );
   }
 
   it('pauses the draft, refusing picks until it resumes', async () => {
@@ -74,7 +50,7 @@ describe('pause and resume', () => {
     });
     const refused = await pick(id, 'shock-oracle').expect(409);
     expect(refused.body.error).toBe('not-drafting');
-    expect(await pickLog(id)).toEqual([]);
+    expect(await pickLogLines(id)).toEqual([]);
 
     const resumed = await resume(id).expect(200);
 
@@ -83,27 +59,27 @@ describe('pause and resume', () => {
       turn: { pick: 1, playerId: alice.id },
     });
     await pick(id, 'shock-oracle').expect(200);
-    expect(await pickLog(id)).toEqual(['Alice: Shock']);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
   });
 
   it('makes the queued picks due on resume, cascading from whoever is up', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'lava-spike-oracle', bobCookie);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie);
-    await enqueue(id, 'lightning-bolt-oracle', bobCookie);
+    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
+    await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
     await start(id).expect(200);
     await pick(id, 'shock-oracle').expect(200);
     // Bob's cascade ran; undoing its last pick leaves his turn with a card waiting.
-    await undoPick(id, 3);
+    await undo(id, 3).expect(200);
     await pause(id).expect(200);
     // Queued while paused, off turn: nothing is picked yet.
-    await enqueue(id, 'skewer-the-critics-oracle');
-    expect(await pickLog(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+    await enqueue(id, 'skewer-the-critics-oracle').expect(200);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
 
     const resumed = await resume(id).expect(200);
 
     expect(resumed.body).toMatchObject({ state: 'Complete', turn: null });
-    expect(await pickLog(id)).toEqual([
+    expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
       'Bob: Lava Spike',
       'Bob: Lightning Bolt',
@@ -155,11 +131,11 @@ describe('pause and resume', () => {
       cards,
       webhook.body.id,
     );
-    await enqueue(id, 'lava-spike-oracle');
-    await enqueue(id, 'shock-oracle');
+    await enqueue(id, 'lava-spike-oracle').expect(200);
+    await enqueue(id, 'shock-oracle').expect(200);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn.
-    await undoPick(id, 1);
+    await undo(id, 1).expect(200);
     await pause(id).expect(200);
 
     await resume(id).expect(200);

@@ -12,9 +12,9 @@ import {
   allOnArena,
   createDraft,
   getDraft,
-  undoPick,
   readyDraft,
   start,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
@@ -136,7 +136,7 @@ describe('live updates', () => {
       .expect(200);
     const bobSees = await watch(id, bobCookie);
 
-    await undoPick(id, 1);
+    await undo(id, 1).expect(200);
 
     await vi.waitFor(() =>
       expect(bobSees).toEqual([

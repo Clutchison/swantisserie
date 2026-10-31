@@ -10,6 +10,7 @@ import {
   getDraft,
   readyDraft,
   start,
+  pick,
 } from './harness.js';
 
 useDraftsApp();
@@ -28,13 +29,6 @@ describe('picks', () => {
     ]);
     await start(id).expect(200);
     return id;
-  }
-
-  function pick(id: string, oracleId: unknown, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', cookie)
-      .send({ oracleId });
   }
 
   function picks(id: string, cookie = aliceCookie) {

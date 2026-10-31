@@ -7,9 +7,14 @@ import {
   webhookClient,
   useDraftsApp,
   signIn,
-  undoPick,
   readyDraft,
   start,
+  post,
+  pick,
+  enqueue,
+  queue,
+  pickLog,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
@@ -22,39 +27,12 @@ describe('close and reopen', () => {
     bobCookie = await signIn(bob);
   });
 
-  function post(id: string, action: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/${action}`)
-      .set('Cookie', cookie);
-  }
-
   function close(id: string, cookie = aliceCookie) {
     return post(id, 'close', cookie);
   }
 
   function reopen(id: string, cookie = aliceCookie) {
     return post(id, 'reopen', cookie);
-  }
-
-  function pick(id: string, oracleId: string, cookie = aliceCookie) {
-    return post(id, 'picks', cookie).send({ oracleId });
-  }
-
-  function enqueue(id: string, oracleId: string, cookie = aliceCookie) {
-    return post(id, 'queue', cookie).send({ oracleId });
-  }
-
-  function queue(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie);
-  }
-
-  function pickLog(id: string) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
   }
 
   it('closes a drafting draft with no picks, showing no turn', async () => {
@@ -187,7 +165,7 @@ describe('close and reopen', () => {
     await enqueue(id, 'shock-oracle').expect(200);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn.
-    await undoPick(id, 1);
+    await undo(id, 1).expect(200);
     await post(id, 'pause').expect(200);
     await close(id).expect(200);
 
@@ -221,7 +199,7 @@ describe('close and reopen', () => {
     await enqueue(id, 'shock-oracle').expect(200);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn.
-    await undoPick(id, 1);
+    await undo(id, 1).expect(200);
     await close(id).expect(200);
     await reopen(id).expect(200);
 

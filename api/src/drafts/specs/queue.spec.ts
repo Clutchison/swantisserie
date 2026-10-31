@@ -9,27 +9,18 @@ import {
   useDraftsApp,
   signIn,
   getDraft,
-  undoPick,
   readyDraft,
   start,
+  queue,
+  enqueue,
+  pick,
+  post,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('queue', () => {
-  function queue(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie);
-  }
-
-  function enqueue(id: string, oracleId: unknown, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .send({ oracleId });
-  }
-
   const shock = { oracleId: 'shock-oracle', name: 'Shock' };
   const bolt = { oracleId: 'lightning-bolt-oracle', name: 'Lightning Bolt' };
   const spike = { oracleId: 'lava-spike-oracle', name: 'Lava Spike' };
@@ -173,13 +164,6 @@ describe('queue', () => {
       vi.restoreAllMocks();
     });
 
-    function pick(id: string, oracleId: string, cookie = aliceCookie) {
-      return request(app.getHttpServer())
-        .post(`/api/drafts/${id}/picks`)
-        .set('Cookie', cookie)
-        .send({ oracleId });
-    }
-
     it('takes a card another player picks out of the queue, as lost', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 1, [
@@ -274,19 +258,6 @@ describe('queue', () => {
       message: 'You can’t add to your queue on your turn.',
     };
 
-    function pick(id: string, oracleId: string, cookie = aliceCookie) {
-      return request(app.getHttpServer())
-        .post(`/api/drafts/${id}/picks`)
-        .set('Cookie', cookie)
-        .send({ oracleId });
-    }
-
-    function post(id: string, action: string) {
-      return request(app.getHttpServer())
-        .post(`/api/drafts/${id}/${action}`)
-        .set('Cookie', aliceCookie);
-    }
-
     it('refuses an add from the player whose turn it is while drafting, but not from the others', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
@@ -354,7 +325,7 @@ describe('queue', () => {
       await start(id).expect(200);
       // Alice's turn came, so Shock was picked for her. Undoing it brings
       // her turn back with the rest of her queue still waiting.
-      await undoPick(id, 1);
+      await undo(id, 1).expect(200);
 
       const reordered = await reorder(id, [
         'lava-spike-oracle',
@@ -373,7 +344,7 @@ describe('queue', () => {
       await enqueue(id, 'lava-spike-oracle').expect(200);
       await start(id).expect(200);
 
-      const undone = await undoPick(id, 1);
+      const undone = await undo(id, 1).expect(200);
 
       expect(undone.body.turn).toEqual({
         pick: 1,
