@@ -17,6 +17,7 @@ import {
   input,
   type OnDestroy,
 } from '@angular/core';
+import { CardImage } from './card-image';
 import { CardImageSource } from './card-image-source';
 import { type PoolCardView } from './drafts';
 
@@ -37,12 +38,13 @@ const POSITIONS: ConnectedPosition[] = [
 @Component({
   selector: 'app-card-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<img
+  imports: [CardImage],
+  template: `<app-card-image
     [src]="images.url(card(), 'normal')"
     [alt]="card().name"
-    width="488"
-    height="680"
-    (error)="images.failed(card(), 'normal')"
+    [width]="488"
+    [height]="680"
+    (failed)="images.failed(card(), 'normal')"
   />`,
   styleUrl: './card-preview.scss',
 })

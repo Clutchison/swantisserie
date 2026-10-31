@@ -75,3 +75,20 @@ export async function openDetail(fixture: AppFixture, page: HTMLElement, index: 
   await fixture.whenStable();
   return page.querySelector<HTMLElement>('[role="dialog"]')!;
 }
+
+/** The images of the Card detail's large image, oldest first, leaving out any placeholder. */
+export const largeImages = (detail: HTMLElement) => [
+  ...detail.querySelectorAll<HTMLImageElement>('.large img:not(.placeholder)'),
+];
+
+/** The latest image the Card detail has asked for. */
+export const newestLarge = (detail: HTMLElement) => largeImages(detail).at(-1)!;
+
+/** Has a tile's image finished loading, as `currentSrc` was the one the browser chose. */
+export function tileLoaded(tile: HTMLElement, currentSrc: string) {
+  Object.defineProperties(tile.querySelector('img')!, {
+    complete: { value: true },
+    naturalWidth: { value: 488 },
+    currentSrc: { value: currentSrc },
+  });
+}

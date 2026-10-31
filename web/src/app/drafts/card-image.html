@@ -1,0 +1,15 @@
+@if (!covered()) {
+  <ng-content />
+}
+@for (layer of layers(); track layer) {
+  <img
+    #layer
+    [src]="layer.src"
+    [alt]="layer === named() ? alt() : ''"
+    [attr.width]="width()"
+    [attr.height]="height()"
+    [class.shown]="layer !== pending()"
+    [class.instant]="layer.instant"
+    (error)="imageFailed(layer)"
+  />
+}

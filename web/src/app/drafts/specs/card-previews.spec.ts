@@ -13,6 +13,7 @@ import {
   openDraft,
   flushPicks,
   completeSnapshot,
+  decoded,
   wait,
 } from './harness';
 import { image } from './pool-tab-harness';
@@ -250,6 +251,44 @@ describe('card previews', () => {
     expect(previewImage()?.getAttribute('src')).toBe(
       'https://api.scryfall.com/cards/bolt-id?format=image&version=normal',
     );
+  });
+
+  it('fades its image in only once decoded, with no placeholder', async () => {
+    const { page } = await openBoard();
+
+    tap(boardName(page, 'Lightning Bolt'));
+    const preview = document.querySelector('app-card-preview')!;
+    expect(previewImage()!.classList).not.toContain('shown');
+    expect(preview.querySelector('.placeholder')).toBeNull();
+
+    await decoded(previewImage()!);
+
+    expect(previewImage()!.classList).toContain('shown');
+  });
+
+  it('fades in even if its image is already loaded', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(488);
+    const { page } = await openBoard();
+
+    tap(boardName(page, 'Lightning Bolt'));
+    await decoded(previewImage()!);
+
+    expect(previewImage()!.classList).not.toContain('instant');
+  });
+
+  it('reveals the fallback once a failed image’s retry has decoded', async () => {
+    const { page } = await openBoard();
+
+    tap(boardName(page, 'Lightning Bolt'));
+    previewImage()!.dispatchEvent(new Event('error'));
+    TestBed.tick();
+    expect(previewImage()!.classList).not.toContain('shown');
+
+    await decoded(previewImage()!);
+
+    expect(previewImage()!.getAttribute('src')).toContain('api.scryfall.com');
+    expect(previewImage()!.classList).toContain('shown');
   });
 
   it('fetches the pool once, for the Pool tab too', async () => {
