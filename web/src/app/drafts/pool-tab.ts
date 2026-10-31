@@ -4,7 +4,7 @@ import {
   CdkVirtualScrollableWindow,
   CdkVirtualScrollViewport,
 } from '@angular/cdk/scrolling';
-import { HttpClient, httpResource } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -21,13 +21,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
-import {
-  type CardImages,
-  type DraftView,
-  isRefusal,
-  type PoolCardView,
-  type QueueView,
-} from './drafts';
+import { CardImageSource, type ImageVersion } from './card-image-source';
+import { type DraftView, isRefusal, type PoolCardView, type QueueView } from './drafts';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
 import { TileImage, TileImageLoader } from './tile-image';
@@ -54,9 +49,16 @@ import { TileImage, TileImageLoader } from './tile-image';
 export class PoolTab {
   private readonly http = inject(HttpClient);
   private readonly queueApi = inject(QueueApi);
+  private readonly images = inject(CardImageSource);
 
   /** A draft whose pool snapshot is complete. */
   readonly draftId = input.required<string>();
+  /** The pool's cards, which the draft page loads. */
+  readonly cards = input.required<PoolCardView[]>();
+  /** Whether the pool's cards are still on their way. */
+  readonly loading = input(false);
+  /** Whether the pool's cards couldn't be loaded. */
+  readonly failed = input(false);
   /** The oracle ids of the cards picked so far. */
   readonly picked = input<ReadonlySet<string>>(new Set());
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
@@ -81,15 +83,6 @@ export class PoolTab {
   readonly queueChanged = output<QueueView>();
   /** Adding or removing a card failed, so the queue may have moved on unseen; it should be re-read. */
   readonly queueStale = output<void>();
-
-  private readonly resource = httpResource<PoolCardView[]>(
-    () => `/api/drafts/${this.draftId()}/pool`,
-  );
-  protected readonly cards = computed(() =>
-    this.resource.hasValue() ? this.resource.value() : [],
-  );
-  protected readonly failed = computed(() => !!this.resource.error());
-  protected readonly loading = this.resource.isLoading;
 
   /** The pool search typed into the search box. */
   protected readonly search = signal('');
@@ -150,9 +143,6 @@ export class PoolTab {
     return rows;
   });
 
-  /** Scryfall CDN image URLs that failed to load. */
-  private readonly brokenUrls = signal<ReadonlySet<string>>(new Set());
-
   /** The card in the detail view, if one is open. */
   protected readonly detail = signal<PoolCardView | null>(null);
   /** Which face the detail view shows: 0 is the front. */
@@ -198,7 +188,7 @@ export class PoolTab {
    * snapshot's URL has failed.
    */
   protected image(card: PoolCardView, version: ImageVersion, face = 0): string {
-    return this.workingUrl(card, version, face) ?? fallbackImage(card, version, face);
+    return this.images.url(card, version, face);
   }
 
   /**
@@ -206,21 +196,14 @@ export class PoolTab {
    * which one failed, so the tile marks its normal image broken and drops to the API image.
    */
   protected tileSrcset(card: PoolCardView): string | null {
-    const normal = this.workingUrl(card, 'normal', 0);
+    const normal = this.images.workingUrl(card, 'normal');
     return normal
       ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${TILE_WIDTH}w`
       : null;
   }
 
   protected imageFailed(card: PoolCardView, version: ImageVersion, face = 0) {
-    const url = this.workingUrl(card, version, face);
-    if (url) this.brokenUrls.update((urls) => new Set(urls).add(url));
-  }
-
-  /** The snapshot's URL for one face's image, unless it has failed to load. */
-  private workingUrl(card: PoolCardView, version: ImageVersion, face: number) {
-    const url = card.images[face]?.[version];
-    return url && !this.brokenUrls().has(url) ? url : undefined;
+    this.images.failed(card, version, face);
   }
 
   protected open(card: PoolCardView) {
@@ -316,11 +299,3 @@ const SMALL_IMAGE_DECLARED_WIDTH = 160;
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
 const ADDED_TO_QUEUE = 'Added to your queue.';
-
-type ImageVersion = Exclude<keyof CardImages, 'small'>;
-
-/** Scryfall's API image of a printing's face, for when its CDN URL fails. */
-function fallbackImage(card: PoolCardView, version: ImageVersion, face: number): string {
-  const back = face > 0 ? '&face=back' : '';
-  return `https://api.scryfall.com/cards/${card.scryfallId}?format=image&version=${version}${back}`;
-}

@@ -35,6 +35,14 @@ body {
   color: var(--color-text);
 }
 
+/*
+ * A Card preview is view-only, in the overlay outside any component: the mouse
+ * and taps go straight through it to whatever is beneath.
+ */
+.cdk-overlay-pane.card-preview-pane {
+  pointer-events: none;
+}
+
 a {
   color: var(--color-accent);
 }

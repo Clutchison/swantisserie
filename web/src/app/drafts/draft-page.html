@@ -309,6 +309,9 @@
           }
           <app-pool-tab
             [draftId]="draft.id"
+            [cards]="poolCards()"
+            [loading]="poolLoading()"
+            [failed]="poolFailed()"
             [picked]="picked()"
             [queued]="queued()"
             [offerPick]="offerPick()"
@@ -357,6 +360,7 @@
           [draftId]="draft.id"
           [loading]="queueLoading()"
           [queue]="queue()"
+          [poolCardsById]="poolCardsById()"
           [draftState]="draft.state"
           (queueChanged)="queueResource.set($event)"
           (queueStale)="queueResource.reload()"
@@ -392,7 +396,11 @@
               </h3>
               <ol>
                 @for (pick of player.picks; track pick.pick) {
-                  <li>{{ pick.name }}</li>
+                  <li>
+                    <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{
+                      pick.name
+                    }}</span>
+                  </li>
                 } @empty {
                   <li class="empty">No picks yet.</li>
                 }
@@ -413,7 +421,10 @@
                     <span class="badge">Bot</span>
                   }
                 </span>
-                <span class="card">{{ pick.name }}</span>
+                <span class="card">
+                  <!-- Only the text shows a Card preview, not the rest of the row. -->
+                  <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+                </span>
               </li>
             } @empty {
               <li class="empty">No picks yet.</li>
@@ -462,7 +473,10 @@
             @for (pick of player.picks; track pick.pick) {
               <li>
                 <span class="number">{{ pick.pick }}</span>
-                <span class="card">{{ pick.name }}</span>
+                <span class="card">
+                  <!-- Only the text shows a Card preview, not the rest of the row. -->
+                  <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+                </span>
               </li>
             } @empty {
               <li class="empty">No picks yet.</li>

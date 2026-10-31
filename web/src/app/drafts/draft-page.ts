@@ -15,6 +15,8 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { arenaExport } from './arena-export';
+import { CardImageSource } from './card-image-source';
+import { CardPreviewName, CardPreviews } from './card-preview';
 import { moxfieldExport } from './moxfield-export';
 import {
   type DraftView,
@@ -24,6 +26,7 @@ import {
   type PickImportPreview,
   type PickView,
   type PlayerView,
+  type PoolCardView,
   type QueueView,
 } from './drafts';
 import { DraftUpdates } from './draft-updates';
@@ -47,7 +50,8 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 
 @Component({
   selector: 'app-draft-page',
-  imports: [PoolTab, QueueTab, RouterLink],
+  imports: [CardPreviewName, PoolTab, QueueTab, RouterLink],
+  providers: [CardImageSource, CardPreviews],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
   styleUrls: ['./drafts.scss', './draft-page.scss'],
@@ -91,6 +95,19 @@ export class DraftPage {
   protected readonly inLobby = computed(() => this.draft()?.state === 'Lobby');
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft()?.snapshot.state === 'Complete');
+  /** The Pool tab and Card previews share this one load of the pool's cards. */
+  private readonly poolResource = httpResource<PoolCardView[]>(() =>
+    this.poolReady() ? `/api/drafts/${this.id()}/pool` : undefined,
+  );
+  protected readonly poolCards = computed(() =>
+    this.poolResource.hasValue() ? this.poolResource.value() : [],
+  );
+  /** The pool's cards by oracle id, for finding the card a name is of. */
+  protected readonly poolCardsById = computed<ReadonlyMap<string, PoolCardView>>(
+    () => new Map(this.poolCards().map((card) => [card.oracleId, card])),
+  );
+  protected readonly poolFailed = computed(() => !!this.poolResource.error());
+  protected readonly poolLoading = this.poolResource.isLoading;
   protected readonly changingLobby = signal(false);
   protected readonly lobbyError = signal<string | null>(null);
 

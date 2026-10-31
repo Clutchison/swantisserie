@@ -15,7 +15,8 @@ import {
   signal,
 } from '@angular/core';
 import { firstValueFrom, type Observable } from 'rxjs';
-import { type DraftState, isActive, type QueueView } from './drafts';
+import { CardPreviewName, CardPreviews } from './card-preview';
+import { type DraftState, isActive, type PoolCardView, type QueueView } from './drafts';
 import { QueueApi, queueChangeFailure } from './queue-api';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
@@ -23,18 +24,21 @@ const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 /** The draft view's Queue tab: the signed-in player's queue, which they reorder and prune. */
 @Component({
   selector: 'app-queue-tab',
-  imports: [CdkDropList, CdkDrag, CdkDragHandle],
+  imports: [CardPreviewName, CdkDropList, CdkDrag, CdkDragHandle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-tab.html',
   styleUrls: ['./drafts.scss', './queue-tab.scss'],
 })
 export class QueueTab {
   private readonly queueApi = inject(QueueApi);
+  protected readonly previews = inject(CardPreviews);
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
   /** The signed-in player's queue. */
   readonly queue = input.required<QueueView>();
+  /** The pool's cards by oracle id, for the Card previews of the names here. */
+  readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
   /** Whether the queue is still on its way, so `queue` says nothing yet. */
   readonly loading = input(false);
   /** The state of the draft this queue is in. */
