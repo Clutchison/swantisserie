@@ -9,7 +9,7 @@ import { type DraftView, isActive } from './drafts';
   imports: [LoadingAnimation, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-list-page.html',
-  styleUrl: './drafts.scss',
+  styleUrls: ['./drafts.scss', './draft-list-page.scss'],
 })
 export class DraftListPage {
   private readonly drafts = httpResource<DraftView[]>(() => '/api/drafts');

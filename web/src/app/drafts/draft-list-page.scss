@@ -1,0 +1,47 @@
+main {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+
+ul {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+li {
+  display: block;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.draft-link {
+  display: grid;
+  /* Zero minimum, so a long name wraps instead of widening a phone's page. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+
+  /* The name stays cream, as accent text on raised fails AA. */
+  &:hover {
+    background: var(--color-raised);
+    filter: none;
+  }
+
+  .state {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    /* Raised would vanish into the card on hover, so it gets its own edge on both backgrounds. */
+    border: 1px solid var(--color-muted);
+    background: var(--color-bg);
+    white-space: nowrap;
+  }
+
+  .detail {
+    grid-column: 1;
+  }
+}
