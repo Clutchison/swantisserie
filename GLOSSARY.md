@@ -46,6 +46,10 @@ _Avoid_: Card entry, catalog card
 A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name.
 _Avoid_: Tooltip, hover card
 
+**Card detail**:
+The view of a pool card that opens from the Pool tab, showing its large image and the actions a viewer can take on it.
+_Avoid_: Card modal, card popup
+
 **Pool search**:
 A search in Scryfall syntax that a viewer types to narrow the pool cards they see. It never changes the pool.
 _Avoid_: Filter, query (alone), advanced search
