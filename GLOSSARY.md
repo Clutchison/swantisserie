@@ -114,8 +114,12 @@ _Avoid_: Chain, auto-run
 Describes a queued card that another player picked first.
 _Avoid_: Sniped, taken
 
+**Cleared**:
+Describes a queued card taken out of a player's queue because another player picked a different card in that queue. A cleared card is still available, and the player can queue it again.
+_Avoid_: Wiped, reset, lost (that is the card that was picked)
+
 **Undo**:
-The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, and to any queue it was lost from, and the turn returns to the player who picked it. An undo makes no queued picks.
+The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, any queue that pick cleared is restored, including the lost card, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
