@@ -94,6 +94,10 @@ _Avoid_: Go, move
 One card taken by one player on their turn. Each card in the pool can be picked once.
 _Avoid_: Selection, draft (as a verb)
 
+**Picked badge**:
+The mark on a picked card in the Pool tab, showing that it was picked and which player picked it.
+_Avoid_: Taken badge, picked label
+
 **Pick log**:
 A draft's picks in the order they were made, each with its pick number, player and card.
 _Avoid_: History, pick history, feed
