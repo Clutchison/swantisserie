@@ -122,6 +122,8 @@ describe('undo', () => {
 
     it('restores the whole queue in its original order, and makes no queued picks', async () => {
       const id = await clearedByPickOne();
+      // Alice's turn comes back with a card queued, which must wait for her.
+      await enqueue(id, 'skewer-the-critics-oracle').expect(200);
 
       const undone = await undo(id, 1).expect(200);
 

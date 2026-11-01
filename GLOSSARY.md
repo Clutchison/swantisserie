@@ -118,6 +118,14 @@ _Avoid_: Sniped, taken
 Describes a queued card taken out of a player's queue because another player picked a different card in that queue. A cleared card is still available, and the player can queue it again.
 _Avoid_: Wiped, reset, lost (that is the card that was picked)
 
+**Queue tab**:
+The part of a draft's page where a player sees and rearranges their queue.
+_Avoid_: Queue page
+
+**Queue notice**:
+The note on the Queue tab naming a player's lost and cleared cards. It builds up until the player dismisses it, and an undo takes off what that pick added.
+_Avoid_: Alert, warning, notification
+
 **Undo**:
 The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, any queue that pick cleared is restored, including the lost card, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back

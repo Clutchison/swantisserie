@@ -12,19 +12,19 @@ export async function takeFromQueues(
   await tx.queuedCard.deleteMany({
     where: { poolCardId: pick.poolCardId, playerId: pick.playerId },
   });
-  const holders = await tx.queuedCard.findMany({
+  const losers = await tx.queuedCard.findMany({
     where: { poolCardId: pick.poolCardId },
     select: { playerId: true },
   });
-  const playerId = { in: holders.map((holder) => holder.playerId) };
-  const cleared = await tx.queuedCard.findMany({
-    where: { playerId },
+  const ofLosers = { in: losers.map((loser) => loser.playerId) };
+  const unqueued = await tx.queuedCard.findMany({
+    where: { playerId: ofLosers },
     select: { playerId: true, poolCardId: true, position: true },
   });
   await tx.unqueuedCard.createMany({
-    data: cleared.map((card) => ({ ...card, pickId: pick.id })),
+    data: unqueued.map((card) => ({ ...card, pickId: pick.id })),
   });
-  await tx.queuedCard.deleteMany({ where: { playerId } });
+  await tx.queuedCard.deleteMany({ where: { playerId: ofLosers } });
 }
 
 /**
