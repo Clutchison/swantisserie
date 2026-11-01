@@ -159,6 +159,7 @@ describe('close and reopen', () => {
       queue: {
         cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
         lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
+        cleared: [],
       },
     });
 
@@ -177,6 +178,7 @@ describe('close and reopen', () => {
         queue: {
           cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
           lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
+          cleared: [],
         },
       },
     );
@@ -197,7 +199,13 @@ describe('close and reopen', () => {
     const { page } = await openDraft(
       completeSnapshot,
       { ...drafting, state, turn },
-      { queue: { cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }], lost: [] } },
+      {
+        queue: {
+          cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
+          lost: [],
+          cleared: [],
+        },
+      },
     );
 
     const queue = page.querySelector('#queue-panel')!;

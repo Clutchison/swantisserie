@@ -70,16 +70,16 @@ export class QueuesController {
     return this.answer(id, () => this.queues.reorder(id, user.id, oracleIds));
   }
 
-  /** Forgets the cards lost from the queue. */
-  @Delete('lost')
-  async dismissLost(
+  /** Stops the Queue tab notice listing the lost and cleared cards. */
+  @Delete('notice')
+  async dismissNotice(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.dismissLost(id, user.id));
+    return this.answer(id, () => this.queues.dismissNotice(id, user.id));
   }
 
-  /** Takes a card out of the queue. Declared after `lost`, which it would match. */
+  /** Takes a card out of the queue. Declared after `notice`, which it would match. */
   @Delete(':oracleId')
   async remove(
     @CurrentUser() user: SessionUser,

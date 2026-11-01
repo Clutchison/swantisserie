@@ -99,7 +99,7 @@ describe('pick import', () => {
     expect([...times][0]).toBeGreaterThanOrEqual(before - 1000);
   });
 
-  it('empties every player’s queue, lost cards too', async () => {
+  it('empties every player’s queue', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     for (const cookie of [aliceCookie, bobCookie]) {
@@ -110,10 +110,6 @@ describe('pick import', () => {
         .expect(200);
     }
     const prisma = app.get(PrismaService);
-    await prisma.queuedCard.updateMany({
-      where: { player: { draftId: id, userId: bob.id } },
-      data: { lostAt: new Date() },
-    });
 
     await importPicks(id, csv).expect(200);
 

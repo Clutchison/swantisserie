@@ -27,16 +27,37 @@ describe('cascade', () => {
     ]);
   });
 
-  it('skips queued cards already picked, before or during the cascade', () => {
+  it('skips queued cards picked before the cascade', () => {
     expect(
-      cascade({ players: 3, picksPerPlayer: 2, picked: ['shock'] }, [
+      cascade({ players: 2, picksPerPlayer: 2, picked: ['shock'] }, [
         [],
-        ['shock', 'bolt', 'spike'],
-        ['bolt', 'skewer'],
+        ['shock', 'bolt'],
+      ]),
+    ).toEqual([{ seat: 1, card: 'bolt' }]);
+  });
+
+  it('stops at a seat whose queue another seat cleared earlier in the cascade', () => {
+    expect(
+      cascade({ players: 3, picksPerPlayer: 2, picked: [] }, [
+        ['shock', 'spike'],
+        ['shock', 'bolt'],
+        ['skewer'],
+      ]),
+    ).toEqual([{ seat: 0, card: 'shock' }]);
+  });
+
+  it('leaves the rest of a queue in place after its own seat picks from it', () => {
+    // Shock leaves seat 0's queue, and Bolt is still there for its next turn.
+    expect(
+      cascade({ players: 2, picksPerPlayer: 2, picked: [] }, [
+        ['shock', 'bolt'],
+        ['spike', 'skewer'],
       ]),
     ).toEqual([
-      { seat: 1, card: 'bolt' },
-      { seat: 2, card: 'skewer' },
+      { seat: 0, card: 'shock' },
+      { seat: 1, card: 'spike' },
+      { seat: 1, card: 'skewer' },
+      { seat: 0, card: 'bolt' },
     ]);
   });
 

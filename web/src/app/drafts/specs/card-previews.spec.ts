@@ -357,6 +357,7 @@ describe('card previews', () => {
     const queue: QueueView = {
       cards: [{ oracleId: shock.oracleId, name: shock.name }],
       lost: [{ oracleId: bolt.oracleId, name: bolt.name }],
+      cleared: [],
     };
 
     async function openQueue() {
@@ -372,7 +373,7 @@ describe('card previews', () => {
       tap(panel(page).querySelector<HTMLElement>('li .name span')!);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
-      tap(panel(page).querySelector<HTMLElement>('.lost strong')!);
+      tap(panel(page).querySelector<HTMLElement>('.notice strong')!);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 

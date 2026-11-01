@@ -44,12 +44,12 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - On your turn, the first card in your queue that is still available is picked for you.
 - **Cascade:** if the next player also has a valid queued card, theirs fires too, and so on.
 - If nothing in your queue is available, it stops and waits for you. It never picks randomly.
-- When someone else takes a card in your queue, it's removed from the queue and flagged as **lost**.
+- When someone else picks a card in your queue, by hand, from their queue or as a bot, that card is **lost** and the rest of your queue is **cleared**, even mid-cascade, so a stale plan never fires. Your own pick just leaves your queue. The Queue tab notice names the lost and cleared cards, building up until dismissed. Cleared cards are still available and can be queued again. Clearing is private: it adds no announcement or ping.
 - You **can't add to your queue on your own turn**, drafting or paused: that pick is made by hand, including the second of two turns in a row at a snake round boundary. You can add in the lobby and whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
 ### Organizer tools
 
-- **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo never triggers queued picks; queues fire only on the next real pick.
+- **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Any queue that pick cleared is restored in its original order, lost card included and even if the notice was dismissed, followed by anything queued since. Undo never triggers queued picks; queues fire only on the next real pick.
 - **Pause / resume.**
 
 ### Live updates
@@ -147,7 +147,7 @@ This is the single place to swap in a real bot later.
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, admin (webhooks).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
   - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, and **Add to queue** off your turn or **Remove from queue** for a queued card
-  - **Queue:** drag to reorder, lost cards flagged
+  - **Queue:** drag to reorder, lost and cleared cards named in a notice
   - **Board:** every player's picks and the pick log
   - **Me:** my picks and export buttons
 

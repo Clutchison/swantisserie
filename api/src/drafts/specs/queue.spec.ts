@@ -16,6 +16,7 @@ import {
   pick,
   post,
   undo,
+  dismissNotice,
 } from './harness.js';
 
 useDraftsApp();
@@ -24,6 +25,10 @@ describe('queue', () => {
   const shock = { oracleId: 'shock-oracle', name: 'Shock' };
   const bolt = { oracleId: 'lightning-bolt-oracle', name: 'Lightning Bolt' };
   const spike = { oracleId: 'lava-spike-oracle', name: 'Lava Spike' };
+  const skewer = {
+    oracleId: 'skewer-the-critics-oracle',
+    name: 'Skewer the Critics',
+  };
 
   it('lets a player add cards to the end of their queue', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -31,10 +36,15 @@ describe('queue', () => {
     await enqueue(id, 'lava-spike-oracle').expect(200);
     const added = await enqueue(id, 'shock-oracle').expect(200);
 
-    expect(added.body).toEqual({ cards: [spike, shock], lost: [] });
+    expect(added.body).toEqual({
+      cards: [spike, shock],
+      lost: [],
+      cleared: [],
+    });
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [spike, shock],
       lost: [],
+      cleared: [],
     });
   });
 
@@ -164,7 +174,7 @@ describe('queue', () => {
       vi.restoreAllMocks();
     });
 
-    it('takes a card another player picks out of the queue, as lost', async () => {
+    it('marks a card another player picks as lost and clears the rest of the queue', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 1, [
         'Shock',
@@ -177,41 +187,158 @@ describe('queue', () => {
       await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
       await start(id).expect(200);
 
-      // Bob's turn then picks Shock from his queue.
-      await pick(id, 'lava-spike-oracle').expect(200);
+      await pick(id, 'shock-oracle').expect(200);
 
-      // Bob's own pick just leaves his queue; Alice's is lost to him.
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
-        cards: [bolt],
-        lost: [spike],
+        cards: [],
+        lost: [shock],
+        cleared: [spike, bolt],
+      });
+      // The cards are still available, and it's for Bob to pick by hand.
+      await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+    });
+
+    it('leaves the rest of a queue in place after the player’s own pick', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, [
+        'Shock',
+        'Lightning Bolt',
+        'Lava Spike',
+        'Skewer the Critics',
+      ]);
+      await enqueue(id, 'shock-oracle').expect(200);
+      await enqueue(id, 'lava-spike-oracle').expect(200);
+      await start(id).expect(200);
+
+      // Queued by Alice, Shock is picked for her when the draft starts.
+      expect((await queue(id).expect(200)).body).toEqual({
+        cards: [spike],
+        lost: [],
+        cleared: [],
       });
     });
 
-    it('lets a player dismiss their lost cards', async () => {
+    it('builds up the lost and cleared cards across clearings, for that player alone', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
+        'Shock',
+        'Lightning Bolt',
+        'Lava Spike',
+        'Skewer the Critics',
+      ]);
+      await enqueue(id, 'shock-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lightning-bolt-oracle', carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, 'lightning-bolt-oracle').expect(200);
+      await enqueue(id, 'lava-spike-oracle', carolCookie).expect(200);
+      await enqueue(id, 'skewer-the-critics-oracle', carolCookie).expect(200);
+
+      await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [],
+        lost: [bolt, spike],
+        cleared: [shock, skewer],
+      });
+      expect((await queue(id).expect(200)).body).toEqual({
+        cards: [],
+        lost: [],
+        cleared: [],
+      });
+      const draft = JSON.stringify((await getDraft(id).expect(200)).body);
+      expect(draft).not.toContain('skewer-the-critics-oracle');
+    });
+
+    it('takes a cleared card off the list once it is queued again, and for good', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
+        'Shock',
+        'Lightning Bolt',
+        'Lava Spike',
+        'Skewer the Critics',
+      ]);
+      await enqueue(id, 'shock-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lightning-bolt-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lava-spike-oracle', carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, 'lightning-bolt-oracle').expect(200);
+
+      const queuedAgain = await enqueue(id, 'shock-oracle', carolCookie);
+
+      expect(queuedAgain.body).toEqual({
+        cards: [shock],
+        lost: [bolt],
+        cleared: [spike],
+      });
+      const removed = await remove(id, 'shock-oracle', carolCookie).expect(200);
+      expect(removed.body.cleared).toEqual([spike]);
+    });
+
+    it('refuses to queue a cleared card on the player’s own turn', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
       await enqueue(id, 'shock-oracle', bobCookie).expect(200);
+      await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
       await start(id).expect(200);
       await pick(id, 'shock-oracle').expect(200);
-      expect((await queue(id, bobCookie).expect(200)).body.lost).toEqual([
-        shock,
-      ]);
 
-      const dismissed = await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/queue/lost`)
-        .set('Cookie', bobCookie)
-        .expect(200);
+      const refused = await enqueue(id, 'lava-spike-oracle', bobCookie);
 
-      expect(dismissed.body).toEqual({ cards: [], lost: [] });
+      expect(refused.status).toBe(409);
+      expect(refused.body.error).toBe('your-turn');
     });
 
-    it('marks a card lost to a bot, too', async () => {
+    it('keeps listing a cleared card someone later picks as cleared, not lost', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
+        'Shock',
+        'Lightning Bolt',
+        'Lava Spike',
+        'Skewer the Critics',
+      ]);
+      await enqueue(id, 'shock-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lightning-bolt-oracle', carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, 'lightning-bolt-oracle').expect(200);
+
+      await pick(id, 'shock-oracle', bobCookie).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [],
+        lost: [bolt],
+        cleared: [shock],
+      });
+    });
+
+    it('lets a player dismiss their lost and cleared cards', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      await enqueue(id, 'shock-oracle', bobCookie).expect(200);
+      await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+      expect((await queue(id, bobCookie).expect(200)).body).toEqual({
+        cards: [],
+        lost: [shock],
+        cleared: [spike],
+      });
+
+      const dismissed = await dismissNotice(id, bobCookie).expect(200);
+
+      expect(dismissed.body).toEqual({ cards: [], lost: [], cleared: [] });
+    });
+
+    it('clears a queue for a bot’s pick, too', async () => {
       const id = await readyDraft([aliceCookie], 1, ['Shock', 'Lava Spike']);
       await request(app.getHttpServer())
         .post(`/api/drafts/${id}/bots`)
         .set('Cookie', await signIn(carol))
         .expect(201);
       await enqueue(id, 'shock-oracle').expect(200);
+      await enqueue(id, 'lava-spike-oracle').expect(200);
       // The bot picks first: the last card by name, Shock.
       vi.spyOn(Math, 'random').mockReturnValue(0.99);
       const draft = (await getDraft(id).expect(200)).body as DraftView;
@@ -226,6 +353,7 @@ describe('queue', () => {
         expect((await queue(id).expect(200)).body).toEqual({
           cards: [],
           lost: [shock],
+          cleared: [spike],
         });
       });
     });

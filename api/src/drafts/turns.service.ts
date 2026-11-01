@@ -10,6 +10,7 @@ import {
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, SEAT_ORDER } from './draft-shapes.js';
+import { restoreQueues, takeFromQueues } from './queue-clearing.js';
 
 const PICK_LOG = {
   orderBy: { number: 'asc' },
@@ -141,7 +142,6 @@ export class TurnsService {
         userId: true,
         user: { select: { isBot: true } },
         queue: {
-          where: { lostAt: null },
           orderBy: { position: 'asc' },
           select: { poolCard: { select: { oracleId: true } } },
         },
@@ -227,21 +227,19 @@ export class TurnsService {
       oracleId,
     );
     if (problem) throw new PickRefusedError(problem);
-    await tx.pick.create({
+    const { id: pickId } = await tx.pick.create({
       data: {
         draftId,
         number: pickLog.length + 1,
         playerId: players[seat].id,
         poolCardId: card.id,
       },
+      select: { id: true },
     });
-    // The card leaves the picker's queue, and is lost from everyone else's.
-    await tx.queuedCard.deleteMany({
-      where: { poolCardId: card.id, playerId: players[seat].id },
-    });
-    await tx.queuedCard.updateMany({
-      where: { poolCardId: card.id, lostAt: null },
-      data: { lostAt: new Date() },
+    await takeFromQueues(tx, {
+      id: pickId,
+      playerId: players[seat].id,
+      poolCardId: card.id,
     });
     // pickLog was read before this pick, so count it too.
     const picked = pickLog.length + 1;
@@ -265,7 +263,7 @@ export class TurnsService {
 
   /**
    * Undoes pick `number`, the draft's latest: its card returns to the pool,
-   * and to the queues it was lost from, and the turn returns to its player.
+   * the queues it cleared are restored, and the turn returns to its player.
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {
@@ -285,7 +283,6 @@ export class TurnsService {
           select: {
             id: true,
             number: true,
-            poolCardId: true,
             poolCard: { select: { name: true } },
             player: { select: EVENT_PLAYER },
           },
@@ -297,12 +294,8 @@ export class TurnsService {
               'Only the latest pick can be undone, and the picks have changed.',
           });
         }
+        await restoreQueues(tx, latest.id);
         await tx.pick.delete({ where: { id: latest.id } });
-        // No longer picked, so no longer lost: back where it was in each queue.
-        await tx.queuedCard.updateMany({
-          where: { poolCardId: latest.poolCardId },
-          data: { lostAt: null },
-        });
         return [
           {
             type: 'undone',

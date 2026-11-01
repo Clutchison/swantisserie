@@ -123,6 +123,7 @@ model PoolCard {
   /// Null until a player picks this card.
   pick            Pick?
   queued          QueuedCard[]
+  unqueued        UnqueuedCard[]
 
   @@unique([draftId, oracleId])
 }
@@ -140,6 +141,7 @@ model Player {
   picks    Pick[]
   /// Bots have none.
   queue    QueuedCard[]
+  unqueued UnqueuedCard[]
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -158,24 +160,43 @@ model Pick {
   poolCardId String   @unique
   poolCard   PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+  /// What undoing this pick puts back into queues.
+  unqueued   UnqueuedCard[]
 
   @@unique([draftId, number])
   @@index([playerId])
 }
 
-/// A card in a player's queue, or one lost from it.
+/// A card in a player's queue.
 model QueuedCard {
-  id         String    @id @default(uuid())
+  id         String   @id @default(uuid())
   playerId   String
-  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   poolCardId String
-  poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  poolCard   PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Order in the queue, lowest first; not necessarily consecutive.
   position   Int
-  /// When another player picked this card, taking it out of the queue; null while it is queued.
-  lostAt     DateTime?
 
   @@unique([playerId, poolCardId])
+  @@index([poolCardId])
+}
+
+/// A card another player's pick took out of a queue: lost if it is the card that pick took, else cleared. Kept until that pick is undone, which puts it back.
+model UnqueuedCard {
+  id           String   @id @default(uuid())
+  pickId       String
+  pick         Pick     @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  playerId     String
+  player       Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  poolCardId   String
+  poolCard     PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  /// Where it was in the queue, lowest first.
+  position     Int
+  /// Whether the Queue tab notice has stopped listing it: it was dismissed, or the card was queued again.
+  noticeHidden Boolean  @default(false)
+
+  @@unique([pickId, playerId, poolCardId])
+  @@index([playerId])
   @@index([poolCardId])
 }
 

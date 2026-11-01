@@ -15,6 +15,7 @@ import {
   enqueue,
   queue,
   pickLogLines,
+  dismissNotice,
 } from './harness.js';
 
 useDraftsApp();
@@ -82,6 +83,7 @@ describe('undo', () => {
         { oracleId: 'skewer-the-critics-oracle', name: 'Skewer the Critics' },
       ],
       lost: [],
+      cleared: [],
     });
     await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
     await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
@@ -91,6 +93,109 @@ describe('undo', () => {
       'Bob: Lava Spike',
       'Alice: Skewer the Critics',
     ]);
+  });
+
+  describe('of a pick that cleared a queue', () => {
+    const shock = { oracleId: 'shock-oracle', name: 'Shock' };
+    const bolt = { oracleId: 'lightning-bolt-oracle', name: 'Lightning Bolt' };
+    const spike = { oracleId: 'lava-spike-oracle', name: 'Lava Spike' };
+    const skewer = {
+      oracleId: 'skewer-the-critics-oracle',
+      name: 'Skewer the Critics',
+    };
+    let carolCookie: string;
+
+    /** Carol, picking last, has Shock, Bolt and Lava Spike queued, and Alice picks Bolt. */
+    async function clearedByPickOne() {
+      carolCookie = await signIn(carol);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        cards,
+      );
+      await enqueue(id, 'shock-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lightning-bolt-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lava-spike-oracle', carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, 'lightning-bolt-oracle').expect(200);
+      return id;
+    }
+
+    it('restores the whole queue in its original order, and makes no queued picks', async () => {
+      const id = await clearedByPickOne();
+      // Alice's turn comes back with a card queued, which must wait for her.
+      await enqueue(id, 'skewer-the-critics-oracle').expect(200);
+
+      const undone = await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [shock, bolt, spike],
+        lost: [],
+        cleared: [],
+      });
+      expect(undone.body.turn.playerId).toBe(alice.id);
+      expect(await pickLogLines(id)).toEqual([]);
+    });
+
+    it('puts cards queued since after the restored ones, with no duplicates', async () => {
+      const id = await clearedByPickOne();
+      await enqueue(id, 'skewer-the-critics-oracle', carolCookie).expect(200);
+      await enqueue(id, 'shock-oracle', carolCookie).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
+        shock,
+        bolt,
+        spike,
+        skewer,
+      ]);
+    });
+
+    it('restores the queue even if the notice was dismissed', async () => {
+      const id = await clearedByPickOne();
+      await dismissNotice(id, carolCookie).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
+        shock,
+        bolt,
+        spike,
+      ]);
+    });
+
+    it('restores only what that pick cleared, and drops only that from the notice', async () => {
+      carolCookie = await signIn(carol);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        cards,
+      );
+      await enqueue(id, 'shock-oracle', carolCookie).expect(200);
+      await enqueue(id, 'lightning-bolt-oracle', carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, 'lightning-bolt-oracle').expect(200);
+      await enqueue(id, 'lava-spike-oracle', carolCookie).expect(200);
+      await enqueue(id, 'skewer-the-critics-oracle', carolCookie).expect(200);
+      await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+
+      await undo(id, 2).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [spike, skewer],
+        lost: [bolt],
+        cleared: [shock],
+      });
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [shock, bolt, spike, skewer],
+        lost: [],
+        cleared: [],
+      });
+    });
   });
 
   it('refuses to undo any pick but the latest, so an undo sent twice takes back one', async () => {

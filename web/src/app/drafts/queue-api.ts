@@ -21,9 +21,9 @@ export class QueueApi {
     return this.http.put<QueueView>(url(draftId), { oracleIds });
   }
 
-  /** Forgets the cards lost to other players. */
-  dismissLost(draftId: string): Observable<QueueView> {
-    return this.http.delete<QueueView>(`${url(draftId)}/lost`);
+  /** Stops the notice listing the lost and cleared cards. */
+  dismissNotice(draftId: string): Observable<QueueView> {
+    return this.http.delete<QueueView>(`${url(draftId)}/notice`);
   }
 }
 
