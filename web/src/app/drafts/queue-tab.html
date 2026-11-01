@@ -1,10 +1,19 @@
-@if (queue().lost.length > 0) {
+@if (hasNotice()) {
   <div class="lost" role="status">
     <p>
-      Lost to other players:
-      @for (card of queue().lost; track card.oracleId; let last = $last) {
-        <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
-        >{{ last ? '.' : ', ' }}
+      @if (queue().lost.length > 0) {
+        Lost to other players:
+        @for (card of queue().lost; track card.oracleId; let last = $last) {
+          <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
+          >{{ last ? '.' : ', ' }}
+        }
+      }
+      @if (queue().cleared.length > 0) {
+        Your queue was cleared:
+        @for (card of queue().cleared; track card.oracleId; let last = $last) {
+          <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
+          >{{ last ? '.' : ', ' }}
+        }
       }
     </p>
     @if (!readOnly()) {

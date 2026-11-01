@@ -357,6 +357,7 @@ describe('card previews', () => {
     const queue: QueueView = {
       cards: [{ oracleId: shock.oracleId, name: shock.name }],
       lost: [{ oracleId: bolt.oracleId, name: bolt.name }],
+      cleared: [],
     };
 
     async function openQueue() {

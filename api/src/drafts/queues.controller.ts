@@ -70,7 +70,7 @@ export class QueuesController {
     return this.answer(id, () => this.queues.reorder(id, user.id, oracleIds));
   }
 
-  /** Forgets the cards lost from the queue. */
+  /** Stops the Queue tab notice listing the lost and cleared cards. */
   @Delete('lost')
   async dismissLost(
     @CurrentUser() user: SessionUser,

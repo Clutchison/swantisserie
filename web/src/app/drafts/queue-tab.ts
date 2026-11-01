@@ -54,6 +54,11 @@ export class QueueTab {
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  /** Whether there are lost or cleared cards to note. */
+  protected readonly hasNotice = computed(
+    () => this.queue().lost.length > 0 || this.queue().cleared.length > 0,
+  );
+
   /** A card dragged to a new place in the queue. */
   protected dropped(event: CdkDragDrop<unknown>) {
     return this.move(event.previousIndex, event.currentIndex);
@@ -77,7 +82,7 @@ export class QueueTab {
     return this.change(this.queueApi.remove(this.draftId(), oracleId));
   }
 
-  /** Forgets the cards lost to other players. */
+  /** Stops the notice listing the lost and cleared cards. */
   protected dismissLost() {
     return this.change(this.queueApi.dismissLost(this.draftId()));
   }

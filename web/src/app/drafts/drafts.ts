@@ -150,7 +150,7 @@ export interface PickView {
   collectorNumber: string;
 }
 
-/** A card in a queue, or lost from one. */
+/** A card in a queue, or lost or cleared from one. */
 export interface QueuedCardView {
   oracleId: string;
   name: string;
@@ -162,7 +162,9 @@ export interface QueueView {
   cards: QueuedCardView[];
   /** Cards other players picked first, in the order they were lost. */
   lost: QueuedCardView[];
+  /** Cards taken out because a card in the queue was lost, in the order they went. */
+  cleared: QueuedCardView[];
 }
 
-/** A queue with no cards in it, and none lost. */
-export const EMPTY_QUEUE: QueueView = { cards: [], lost: [] };
+/** A queue with no cards in it, and none lost or cleared. */
+export const EMPTY_QUEUE: QueueView = { cards: [], lost: [], cleared: [] };

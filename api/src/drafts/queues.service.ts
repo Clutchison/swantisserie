@@ -4,7 +4,9 @@ import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 
-/** A card in a queue, or lost from one. */
+const POOL_CARD_NAME = { oracleId: true, name: true } as const;
+
+/** A card in a queue, or lost or cleared from one. */
 export interface QueuedCardView {
   oracleId: string;
   name: string;
@@ -16,6 +18,8 @@ export interface QueueView {
   cards: QueuedCardView[];
   /** Cards other players picked first, in the order they were lost. */
   lost: QueuedCardView[];
+  /** Cards taken out because a card in the queue was lost, in the order they went. */
+  cleared: QueuedCardView[];
 }
 
 /** Thrown when someone who isn't playing in a draft asks for a queue in it. */
@@ -65,8 +69,8 @@ export class QueuesService {
   }
 
   /**
-   * Adds the pool card with `oracleId` to the end of the user's queue; a
-   * no-op if it is already queued. Throws QueueRefusedError if it can't be
+   * Adds the pool card with `oracleId` to the end of the user's queue, and
+   * off its cleared list; a no-op if it is already queued. Throws QueueRefusedError if it can't be
    * queued, as on the player's own turn, drafting or paused: they make that pick
    * by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
@@ -118,6 +122,10 @@ export class QueuesService {
         // A card already queued stays where it is.
         update: {},
       });
+      await tx.unqueuedCard.updateMany({
+        where: { playerId, poolCardId: card.id },
+        data: { noticeHidden: true },
+      });
     });
   }
 
@@ -133,7 +141,7 @@ export class QueuesService {
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
       const queued = await tx.queuedCard.findMany({
-        where: { playerId, lostAt: null },
+        where: { playerId },
         select: { id: true, poolCard: { select: { oracleId: true } } },
       });
       const ids = new Map(
@@ -156,9 +164,8 @@ export class QueuesService {
   }
 
   /**
-   * Takes the card with `oracleId` out of the user's queue, or its lost
-   * cards; a no-op if it isn't there. Throws NotAPlayerError if the user
-   * isn't in the draft.
+   * Takes the card with `oracleId` out of the user's queue; a no-op if it
+   * isn't there. Throws NotAPlayerError if the user isn't in the draft.
    */
   async remove(
     draftId: string,
@@ -173,13 +180,14 @@ export class QueuesService {
   }
 
   /**
-   * Forgets the user's lost cards. Throws NotAPlayerError if the user isn't
-   * in the draft.
+   * Stops listing the user's lost and cleared cards. An undo still restores
+   * them. Throws NotAPlayerError if the user isn't in the draft.
    */
   async dismissLost(draftId: string, userId: string): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      await tx.queuedCard.deleteMany({
-        where: { playerId, lostAt: { not: null } },
+      await tx.unqueuedCard.updateMany({
+        where: { playerId },
+        data: { noticeHidden: true },
       });
     });
   }
@@ -243,17 +251,28 @@ export class QueuesService {
   }
 
   private async read(tx: Transaction, playerId: string): Promise<QueueView> {
-    const entries = await tx.queuedCard.findMany({
+    const cards = await tx.queuedCard.findMany({
       where: { playerId },
-      orderBy: [{ lostAt: 'asc' }, { position: 'asc' }],
+      orderBy: { position: 'asc' },
+      select: { poolCard: { select: POOL_CARD_NAME } },
+    });
+    const listed = await tx.unqueuedCard.findMany({
+      where: { playerId, noticeHidden: false },
+      orderBy: [{ pick: { number: 'asc' } }, { position: 'asc' }],
       select: {
-        lostAt: true,
-        poolCard: { select: { oracleId: true, name: true } },
+        poolCardId: true,
+        pick: { select: { poolCardId: true } },
+        poolCard: { select: POOL_CARD_NAME },
       },
     });
+    const isLost = (card: (typeof listed)[number]) =>
+      card.poolCardId === card.pick.poolCardId;
     return {
-      cards: entries.filter((e) => !e.lostAt).map((e) => e.poolCard),
-      lost: entries.filter((e) => e.lostAt).map((e) => e.poolCard),
+      cards: cards.map((card) => card.poolCard),
+      lost: listed.filter(isLost).map((card) => card.poolCard),
+      cleared: listed
+        .filter((card) => !isLost(card))
+        .map((card) => card.poolCard),
     };
   }
 }
