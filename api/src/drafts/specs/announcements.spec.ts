@@ -76,7 +76,6 @@ describe('announcements', () => {
       webhookId,
     );
     await start(id).expect(200);
-    const link = `<https://roto.example/drafts/${id}>`;
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
@@ -90,9 +89,9 @@ describe('announcements', () => {
       .expect(200);
 
     expect((await posted(4)).slice(1)).toEqual([
-      `**Alice** picked **Shock** (pick 1)\n<@${bob.id}> you’re up\n${link}`,
-      `**Bob** picked **Lava Spike** (pick 2)\n${link}`,
-      `**Red** is complete. See everyone’s picks:\n${link}`,
+      `**Alice** picked **Shock** (pick 1)\n<@${bob.id}> you’re up`,
+      '**Bob** picked **Lava Spike** (pick 2)',
+      '**Red** is complete',
     ]);
     expect(webhookClient.post.mock.calls[1][1].allowed_mentions).toEqual({
       parse: [],

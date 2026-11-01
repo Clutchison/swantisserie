@@ -16,9 +16,9 @@ const bob = { id: '80351110224678913', name: 'Bob', isBot: false };
 const bot = { id: 'bot:5f0c', name: 'Bot 1', isBot: true };
 
 describe('picksMessage', () => {
-  it('says who picked what, pings only the next player, and links to the draft', () => {
+  it('says who picked what, and pings only the next player', () => {
     expect(
-      picksMessage(draft, [
+      picksMessage([
         {
           number: 23,
           player: alice,
@@ -30,15 +30,14 @@ describe('picksMessage', () => {
     ).toEqual({
       content:
         '**Alice** picked **Shock** (pick 23)\n' +
-        '<@80351110224678913> you’re up\n' +
-        '<https://roto.example/drafts/d1>',
+        '<@80351110224678913> you’re up',
       allowed_mentions: { parse: [], users: ['80351110224678913'] },
     });
   });
 
   it('pings no one after the last pick', () => {
     expect(
-      picksMessage(draft, [
+      picksMessage([
         {
           number: 80,
           player: bob,
@@ -48,16 +47,14 @@ describe('picksMessage', () => {
         },
       ]),
     ).toEqual({
-      content:
-        '**Bob** picked **Shock** (pick 80)\n' +
-        '<https://roto.example/drafts/d1>',
+      content: '**Bob** picked **Shock** (pick 80)',
       allowed_mentions: { parse: [], users: [] },
     });
   });
 
   it('names a bot whose turn it is without pinging it', () => {
     expect(
-      picksMessage(draft, [
+      picksMessage([
         {
           number: 2,
           player: alice,
@@ -67,17 +64,14 @@ describe('picksMessage', () => {
         },
       ]),
     ).toEqual({
-      content:
-        '**Alice** picked **Shock** (pick 2)\n' +
-        '**Bot 1** is up\n' +
-        '<https://roto.example/drafts/d1>',
+      content: '**Alice** picked **Shock** (pick 2)\n' + '**Bot 1** is up',
       allowed_mentions: { parse: [], users: [] },
     });
   });
 
   it('pings the next player after a bot’s pick', () => {
     expect(
-      picksMessage(draft, [
+      picksMessage([
         {
           number: 3,
           player: bot,
@@ -89,14 +83,13 @@ describe('picksMessage', () => {
     ).toEqual({
       content:
         '**Bot 1** picked **Shock** (pick 3)\n' +
-        '<@80351110224678912> you’re up\n' +
-        '<https://roto.example/drafts/d1>',
+        '<@80351110224678912> you’re up',
       allowed_mentions: { parse: [], users: ['80351110224678912'] },
     });
   });
 
   it('shows names as written, without their markdown taking effect', () => {
-    const { content } = picksMessage(draft, [
+    const { content } = picksMessage([
       {
         number: 1,
         player: { id: '1', name: '*star*_ <@2>', isBot: false },
@@ -149,8 +142,7 @@ describe('draftMessages', () => {
           '**Alice** picked **Shock** (pick 4)\n' +
           '**Bob** picked **Lava Spike** (pick 5, queued)\n' +
           '**Carol** picked **Skewer the Critics** (pick 6, queued)\n' +
-          '<@80351110224678912> you’re up\n' +
-          '<https://roto.example/drafts/d1>',
+          '<@80351110224678912> you’re up',
         allowed_mentions: { parse: [], users: ['80351110224678912'] },
       },
     ]);
@@ -197,16 +189,14 @@ describe('draftMessages', () => {
         { type: 'completed' },
       ]).map((message) => message.content),
     ).toEqual([
-      '**Bob** picked **Shock** (pick 2, queued)\n' +
-        '<https://roto.example/drafts/d1>',
-      '**Red** is complete. See everyone’s picks:\n' +
-        '<https://roto.example/drafts/d1>',
+      '**Bob** picked **Shock** (pick 2, queued)',
+      '**Red** is complete',
     ]);
   });
 });
 
 describe('draftStartedMessage', () => {
-  it('lists the seat order and pings only the first player', () => {
+  it('lists the seat order, pings only the first player, and links to the draft', () => {
     expect(draftStartedMessage(draft, [bob, alice])).toEqual({
       content:
         '**Red** has started. Seat order:\n' +
@@ -232,11 +222,9 @@ describe('draftStartedMessage', () => {
 });
 
 describe('draftCompleteMessage', () => {
-  it('says the draft is complete, pings no one, and links to everyone’s picks', () => {
+  it('says the draft is complete and pings no one', () => {
     expect(draftCompleteMessage(draft)).toEqual({
-      content:
-        '**Red** is complete. See everyone’s picks:\n' +
-        '<https://roto.example/drafts/d1>',
+      content: '**Red** is complete',
       allowed_mentions: { parse: [], users: [] },
     });
   });
@@ -244,25 +232,20 @@ describe('draftCompleteMessage', () => {
 
 describe('undoneMessage', () => {
   it('says which pick was undone and pings its player, whose turn it is again', () => {
-    expect(
-      undoneMessage(draft, { number: 23, player: alice, card: 'Shock' }),
-    ).toEqual({
-      content:
-        'Pick 23 (**Shock** by **Alice**) was undone\n' +
-        '<@80351110224678912> you’re up\n' +
-        '<https://roto.example/drafts/d1>',
-      allowed_mentions: { parse: [], users: ['80351110224678912'] },
-    });
+    expect(undoneMessage({ number: 23, player: alice, card: 'Shock' })).toEqual(
+      {
+        content:
+          'Pick 23 (**Shock** by **Alice**) was undone\n' +
+          '<@80351110224678912> you’re up',
+        allowed_mentions: { parse: [], users: ['80351110224678912'] },
+      },
+    );
   });
 
   it('names a bot whose pick was undone without pinging it', () => {
-    expect(
-      undoneMessage(draft, { number: 2, player: bot, card: 'Shock' }),
-    ).toEqual({
+    expect(undoneMessage({ number: 2, player: bot, card: 'Shock' })).toEqual({
       content:
-        'Pick 2 (**Shock** by **Bot 1**) was undone\n' +
-        '**Bot 1** is up\n' +
-        '<https://roto.example/drafts/d1>',
+        'Pick 2 (**Shock** by **Bot 1**) was undone\n' + '**Bot 1** is up',
       allowed_mentions: { parse: [], users: [] },
     });
   });
@@ -272,16 +255,14 @@ describe('undoneMessage', () => {
       draftMessages(draft, [
         { type: 'undone', number: 23, player: alice, card: 'Shock' },
       ]),
-    ).toEqual([
-      undoneMessage(draft, { number: 23, player: alice, card: 'Shock' }),
-    ]);
+    ).toEqual([undoneMessage({ number: 23, player: alice, card: 'Shock' })]);
   });
 });
 
 describe('draftPausedMessage', () => {
   it('says the draft is paused, pinging no one', () => {
     expect(draftPausedMessage(draft)).toEqual({
-      content: '**Red** is paused\n<https://roto.example/drafts/d1>',
+      content: '**Red** is paused',
       allowed_mentions: { parse: [], users: [] },
     });
   });
@@ -296,7 +277,7 @@ describe('draftPausedMessage', () => {
 describe('draftClosedMessage', () => {
   it('says the draft has been closed, pinging no one', () => {
     expect(draftClosedMessage(draft)).toEqual({
-      content: '**Red** has been closed\n<https://roto.example/drafts/d1>',
+      content: '**Red** has been closed',
       allowed_mentions: { parse: [], users: [] },
     });
   });
@@ -311,10 +292,7 @@ describe('draftClosedMessage', () => {
 describe('draftReopenedMessage', () => {
   it('says the draft has reopened and pings whoever is up', () => {
     expect(draftReopenedMessage(draft, alice)).toEqual({
-      content:
-        '**Red** has reopened\n' +
-        `<@${alice.id}> you’re up\n` +
-        '<https://roto.example/drafts/d1>',
+      content: '**Red** has reopened\n' + `<@${alice.id}> you’re up`,
       allowed_mentions: { parse: [], users: [alice.id] },
     });
   });
@@ -324,10 +302,7 @@ describe('draftReopenedMessage', () => {
       draftMessages(draft, [{ type: 'reopened', number: 2, player: bot }]),
     ).toEqual([
       {
-        content:
-          '**Red** has reopened\n' +
-          `**${bot.name}** is up\n` +
-          '<https://roto.example/drafts/d1>',
+        content: '**Red** has reopened\n' + `**${bot.name}** is up`,
         allowed_mentions: { parse: [], users: [] },
       },
     ]);
@@ -337,10 +312,7 @@ describe('draftReopenedMessage', () => {
 describe('draftResumedMessage', () => {
   it('says the draft has resumed and pings whoever is up', () => {
     expect(draftResumedMessage(draft, alice)).toEqual({
-      content:
-        '**Red** has resumed\n' +
-        '<@80351110224678912> you’re up\n' +
-        '<https://roto.example/drafts/d1>',
+      content: '**Red** has resumed\n' + '<@80351110224678912> you’re up',
       allowed_mentions: { parse: [], users: ['80351110224678912'] },
     });
   });
@@ -363,8 +335,7 @@ describe('draftResumedMessage', () => {
         content:
           '**Red** has resumed\n' +
           '**Alice** picked **Shock** (pick 5, queued)\n' +
-          '<@80351110224678913> you’re up\n' +
-          '<https://roto.example/drafts/d1>',
+          '<@80351110224678913> you’re up',
         allowed_mentions: { parse: [], users: ['80351110224678913'] },
       },
     ]);
@@ -375,10 +346,7 @@ describe('draftResumedMessage', () => {
       draftMessages(draft, [{ type: 'resumed', number: 2, player: bot }]),
     ).toEqual([
       {
-        content:
-          '**Red** has resumed\n' +
-          '**Bot 1** is up\n' +
-          '<https://roto.example/drafts/d1>',
+        content: '**Red** has resumed\n' + '**Bot 1** is up',
         allowed_mentions: { parse: [], users: [] },
       },
     ]);

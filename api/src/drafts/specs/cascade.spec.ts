@@ -203,8 +203,7 @@ describe('cascade', () => {
         '**Alice** picked **Shock** (pick 1)\n' +
         '**Bob** picked **Lava Spike** (pick 2, queued)\n' +
         '**Bob** picked **Skewer the Critics** (pick 3, queued)\n' +
-        `<@${alice.id}> you’re up\n` +
-        `<https://roto.example/drafts/${id}>`,
+        `<@${alice.id}> you’re up`,
       allowed_mentions: { parse: [], users: [alice.id] },
     });
   });
@@ -236,9 +235,7 @@ describe('cascade', () => {
     });
     expect(messages[1]).toEqual({
       content:
-        '**Alice** picked **Shock** (pick 1)\n' +
-        `<@${bob.id}> you’re up\n` +
-        `<https://roto.example/drafts/${id}>`,
+        '**Alice** picked **Shock** (pick 1)\n' + `<@${bob.id}> you’re up`,
       allowed_mentions: { parse: [], users: [bob.id] },
     });
   });

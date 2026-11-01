@@ -144,17 +144,16 @@ describe('pause and resume', () => {
       expect(webhookClient.post).toHaveBeenCalledTimes(4);
       return webhookClient.post.mock.calls.map(([, message]) => message);
     });
-    const link = `<https://roto.example/drafts/${id}>`;
     expect(messages.slice(2)).toEqual([
       {
-        content: `**Red** is paused\n${link}`,
+        content: '**Red** is paused',
         allowed_mentions: { parse: [], users: [] },
       },
       {
         content:
           '**Red** has resumed\n' +
           '**Alice** picked **Shock** (pick 1, queued)\n' +
-          `<@${bob.id}> you’re up\n${link}`,
+          `<@${bob.id}> you’re up`,
         allowed_mentions: { parse: [], users: [bob.id] },
       },
     ]);

@@ -285,8 +285,7 @@ describe('undo', () => {
     expect(messages[3]).toEqual({
       content:
         'Pick 2 (**Lightning Bolt** by **Bob**) was undone\n' +
-        `<@${bob.id}> you’re up\n` +
-        `<https://roto.example/drafts/${id}>`,
+        `<@${bob.id}> you’re up`,
       allowed_mentions: { parse: [], users: [bob.id] },
     });
   });

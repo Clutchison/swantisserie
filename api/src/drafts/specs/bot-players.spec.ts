@@ -285,7 +285,6 @@ describe('bot players', () => {
         .expect(201);
       const { id } = await draftWithBots(1, 2, res.body.id);
       await start(id).expect(200);
-      const link = `<https://roto.example/drafts/${id}>`;
 
       await pick(id, 'shock-oracle').expect(200);
 
@@ -294,15 +293,15 @@ describe('bot players', () => {
         return webhookClient.post.mock.calls.map(([, message]) => message);
       });
       expect(messages[1]).toEqual({
-        content: `**Alice** picked **Shock** (pick 1)\n**Bot 1** is up\n${link}`,
+        content: '**Alice** picked **Shock** (pick 1)\n**Bot 1** is up',
         allowed_mentions: { parse: [], users: [] },
       });
       expect(messages[2].content).toMatch(
-        /^\*\*Bot 1\*\* picked .* \(pick 2\)\n\*\*Bot 1\*\* is up\n/,
+        /^\*\*Bot 1\*\* picked .* \(pick 2\)\n\*\*Bot 1\*\* is up$/,
       );
       expect(messages[2].allowed_mentions.users).toEqual([]);
       expect(messages[3].content).toMatch(
-        new RegExp(`\\(pick 3\\)\\n<@${alice.id}> you’re up\\n`),
+        new RegExp(`\\(pick 3\\)\\n<@${alice.id}> you’re up$`),
       );
       expect(messages[3].allowed_mentions.users).toEqual([alice.id]);
     });
