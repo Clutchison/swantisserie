@@ -15,6 +15,7 @@ import {
   queue,
   pickLog,
   undo,
+  dismissNotice,
 } from './harness.js';
 
 useDraftsApp();
@@ -151,10 +152,7 @@ describe('close and reopen', () => {
       .delete(`/api/drafts/${id}/queue/lava-spike-oracle`)
       .set('Cookie', bobCookie)
       .expect(409);
-    await request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/queue/lost`)
-      .set('Cookie', bobCookie)
-      .expect(409);
+    await dismissNotice(id, bobCookie).expect(409);
 
     expect((await queue(id, bobCookie).expect(200)).body).toEqual(saved);
   });

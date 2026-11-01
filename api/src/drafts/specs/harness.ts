@@ -296,3 +296,10 @@ export function start(id: string, cookie = aliceCookie) {
     .post(`/api/drafts/${id}/start`)
     .set('Cookie', cookie);
 }
+
+/** Dismisses the player's Queue notice. */
+export function dismissNotice(id: string, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .delete(`/api/drafts/${id}/queue/notice`)
+    .set('Cookie', cookie);
+}

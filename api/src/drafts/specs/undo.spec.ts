@@ -15,6 +15,7 @@ import {
   enqueue,
   queue,
   pickLogLines,
+  dismissNotice,
 } from './harness.js';
 
 useDraftsApp();
@@ -153,10 +154,7 @@ describe('undo', () => {
 
     it('restores the queue even if the notice was dismissed', async () => {
       const id = await clearedByPickOne();
-      await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/queue/lost`)
-        .set('Cookie', carolCookie)
-        .expect(200);
+      await dismissNotice(id, carolCookie).expect(200);
 
       await undo(id, 1).expect(200);
 

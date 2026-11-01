@@ -1,26 +1,26 @@
+<ng-template #names let-cards>
+  @for (card of cards; track card.oracleId; let last = $last) {
+    <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
+    >{{ last ? '.' : ', ' }}
+  }
+</ng-template>
 @if (hasNotice()) {
-  <div class="lost" role="status">
+  <div class="notice" role="status">
     <p>
       @if (queue().lost.length > 0) {
         Lost to other players:
-        @for (card of queue().lost; track card.oracleId; let last = $last) {
-          <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
-          >{{ last ? '.' : ', ' }}
-        }
+        <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().lost }" />
       }
       @if (queue().cleared.length > 0) {
         Your queue was cleared:
-        @for (card of queue().cleared; track card.oracleId; let last = $last) {
-          <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
-          >{{ last ? '.' : ', ' }}
-        }
+        <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().cleared }" />
       }
     </p>
     @if (!readOnly()) {
       <button
         class="button secondary"
         type="button"
-        (click)="dismissLost()"
+        (click)="dismissNotice()"
         [disabled]="changing()"
       >
         Dismiss

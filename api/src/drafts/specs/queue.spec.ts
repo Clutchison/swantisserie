@@ -16,6 +16,7 @@ import {
   pick,
   post,
   undo,
+  dismissNotice,
 } from './harness.js';
 
 useDraftsApp();
@@ -325,10 +326,7 @@ describe('queue', () => {
         cleared: [spike],
       });
 
-      const dismissed = await request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/queue/lost`)
-        .set('Cookie', bobCookie)
-        .expect(200);
+      const dismissed = await dismissNotice(id, bobCookie).expect(200);
 
       expect(dismissed.body).toEqual({ cards: [], lost: [], cleared: [] });
     });

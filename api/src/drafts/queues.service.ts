@@ -183,7 +183,7 @@ export class QueuesService {
    * Stops listing the user's lost and cleared cards. An undo still restores
    * them. Throws NotAPlayerError if the user isn't in the draft.
    */
-  async dismissLost(draftId: string, userId: string): Promise<QueueView> {
+  async dismissNotice(draftId: string, userId: string): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
       await tx.unqueuedCard.updateMany({
         where: { playerId },

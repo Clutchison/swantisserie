@@ -317,18 +317,18 @@ describe('pool tab', () => {
       });
       const queue = await openQueue(fixture, page);
 
-      const note = queue.querySelector<HTMLElement>('.lost')!;
+      const note = queue.querySelector<HTMLElement>('.notice')!;
       expect(note.textContent).toContain('Lost to other players');
       expect(note.textContent).toContain('Shivan Dragon');
       expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
 
       button(note, 'Dismiss')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/queue/lost');
+      const req = http.expectOne('/api/drafts/draft-1/queue/notice');
       expect(req.request.method).toBe('DELETE');
       req.flush({ cards: [queued(brightclimb)], lost: [], cleared: [] });
       await fixture.whenStable();
 
-      expect(queue.querySelector('.lost')).toBeNull();
+      expect(queue.querySelector('.notice')).toBeNull();
     });
 
     it('names lost and cleared cards apart, and dismiss hides them alike', async () => {
@@ -338,17 +338,17 @@ describe('pool tab', () => {
       });
       const queue = await openQueue(fixture, page);
 
-      const note = queue.querySelector<HTMLElement>('.lost')!;
+      const note = queue.querySelector<HTMLElement>('.notice')!;
       expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
         'Lost to other players: Shivan Dragon. ' +
           'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
       );
 
       button(note, 'Dismiss')!.click();
-      http.expectOne('/api/drafts/draft-1/queue/lost').flush({ cards: [], lost: [], cleared: [] });
+      http.expectOne('/api/drafts/draft-1/queue/notice').flush({ cards: [], lost: [], cleared: [] });
       await fixture.whenStable();
 
-      expect(queue.querySelector('.lost')).toBeNull();
+      expect(queue.querySelector('.notice')).toBeNull();
     });
 
     it('re-reads the queue when the draft changes, so a lost card shows', async () => {
@@ -370,7 +370,7 @@ describe('pool tab', () => {
       });
       await fixture.whenStable();
 
-      expect(queue.querySelector('.lost')?.textContent).toContain('Shivan Dragon');
+      expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
     });
 
     it('offers Add to queue and the Queue tab only to players', async () => {

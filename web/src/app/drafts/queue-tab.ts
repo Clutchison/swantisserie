@@ -14,6 +14,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { type DraftState, isActive, type PoolCardView, type QueueView } from './drafts';
@@ -25,7 +26,14 @@ const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 /** The draft view's Queue tab: the signed-in player's queue, which they reorder and prune. */
 @Component({
   selector: 'app-queue-tab',
-  imports: [CardPreviewName, CdkDropList, CdkDrag, CdkDragHandle, LoadingAnimation],
+  imports: [
+    CardPreviewName,
+    CdkDropList,
+    CdkDrag,
+    CdkDragHandle,
+    LoadingAnimation,
+    NgTemplateOutlet,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-tab.html',
   styleUrls: ['./drafts.scss', './queue-tab.scss'],
@@ -83,8 +91,8 @@ export class QueueTab {
   }
 
   /** Stops the notice listing the lost and cleared cards. */
-  protected dismissLost() {
-    return this.change(this.queueApi.dismissLost(this.draftId()));
+  protected dismissNotice() {
+    return this.change(this.queueApi.dismissNotice(this.draftId()));
   }
 
   /**
