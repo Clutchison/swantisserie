@@ -23,7 +23,13 @@ import {
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
-import { type DraftView, isRefusal, type PoolCardView, type QueueView } from './drafts';
+import {
+  type DraftView,
+  isRefusal,
+  type PlayerView,
+  type PoolCardView,
+  type QueueView,
+} from './drafts';
 import { ImagePreloader } from './image-preloader';
 import {
   applyPoolFilters,
@@ -34,6 +40,7 @@ import {
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
+import { PlayerAvatar } from './player-avatar';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -51,6 +58,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
     CdkVirtualForOf,
     TileImage,
     CardImage,
+    PlayerAvatar,
   ],
   providers: [TileImageLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,8 +83,8 @@ export class PoolTab {
   readonly loading = input(false);
   /** Whether the pool's cards couldn't be loaded. */
   readonly failed = input(false);
-  /** The oracle ids of the cards picked so far. */
-  readonly picked = input<ReadonlySet<string>>(new Set());
+  /** The cards picked so far: each one's oracle id, and the player who picked it. */
+  readonly picked = input<ReadonlyMap<string, PlayerView>>(new Map());
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
   readonly offerPick = input(false);
   /** The oracle ids of the cards in the signed-in player's queue. */
