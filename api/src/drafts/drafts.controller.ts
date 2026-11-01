@@ -181,6 +181,21 @@ export class DraftsController {
     return this.change(id, () => this.turns.undo(id, pickNumber));
   }
 
+  /**
+   * Chooses where the draft's later announcements are posted, or none, at any
+   * stage; announces nothing itself. For the organizer.
+   */
+  @Put(':id/webhook')
+  async changeWebhook(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<DraftView> {
+    const webhookId = parseWebhookChoice(body);
+    await this.findAsOrganizer(user, id);
+    return this.change(id, () => this.lifecycle.changeWebhook(id, webhookId));
+  }
+
   /** Pauses the draft, so no picks can be made; for the organizer. */
   @Post(':id/pause')
   @HttpCode(200)
@@ -419,6 +434,9 @@ export class DraftsController {
         throw conflict('draft-started', err);
       }
       if (err instanceof DraftFullError) throw conflict('draft-full', err);
+      if (err instanceof UnknownWebhookError) {
+        throw conflict('webhook-removed', err);
+      }
       if (err instanceof UnknownBotError) {
         throw new NotFoundException({
           error: 'no-such-bot',
@@ -553,6 +571,19 @@ function parseNewDraft(body: unknown): NewDraft {
     picksPerPlayer: picks,
     webhookId: webhookId ?? null,
   };
+}
+
+/** The webhook chosen for a draft, null for none, or a 400 if the body doesn't say. */
+function parseWebhookChoice(body: unknown): string | null {
+  const { webhookId } = (body ?? {}) as Record<string, unknown>;
+  if (webhookId === null) return null;
+  if (typeof webhookId !== 'string' || !webhookId) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose a webhook from the list.',
+    });
+  }
+  return webhookId;
 }
 
 /** The seat order's user ids, or a 400 if it isn't a list of distinct ids. */

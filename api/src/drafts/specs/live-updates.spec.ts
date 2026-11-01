@@ -297,4 +297,32 @@ describe('live updates', () => {
     );
     expect(bobSeesOther).toEqual([]);
   });
+
+  it('tells everyone viewing a draft its new webhook, with a newer version', async () => {
+    const carolCookie = await signIn(carol);
+    const webhook = await request(app.getHttpServer())
+      .post('/api/admin/webhooks')
+      .set('Cookie', carolCookie)
+      .send({
+        name: '#roto-main',
+        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
+      })
+      .expect(201);
+    const id = await readyDraft([aliceCookie]);
+    const before = await getDraft(id).expect(200);
+    const changes = await watch(id, carolCookie);
+
+    await request(app.getHttpServer())
+      .put(`/api/drafts/${id}/webhook`)
+      .set('Cookie', aliceCookie)
+      .send({ webhookId: webhook.body.id })
+      .expect(200);
+
+    await vi.waitFor(() => expect(changes).toHaveLength(1));
+    expect(changes[0].webhook).toEqual({
+      id: webhook.body.id,
+      name: '#roto-main',
+    });
+    expect(changes[0].version).toBeGreaterThan(before.body.version);
+  });
 });

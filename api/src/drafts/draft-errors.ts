@@ -23,7 +23,7 @@ export class PoolQueryError extends Error {
   }
 }
 
-/** Thrown when a new draft names a webhook that doesn't exist, e.g. one just removed. */
+/** Thrown when a draft is given a webhook that doesn't exist, e.g. one just removed. */
 export class UnknownWebhookError extends Error {
   constructor() {
     super('That webhook has been removed. Choose another.');

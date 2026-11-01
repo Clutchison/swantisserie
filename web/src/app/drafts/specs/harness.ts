@@ -1,8 +1,8 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import { Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { DRAFT_POLL_MS } from '../draft-page';
@@ -13,6 +13,7 @@ import {
   type PoolCardView,
   type PoolSnapshotView,
   type QueueView,
+  type WebhookView,
 } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerUnreviewedCount } from '../../feedback/specs-harness';
@@ -51,10 +52,22 @@ export let router: Router;
 /** Stands in for the API's Socket.IO gateway: push events through `events`. */
 export let updates: { events: Subject<DraftUpdate>; watch: ReturnType<typeof vi.fn> };
 
+/**
+ * What GET /api/webhooks answers with, without a test having to: every view
+ * an organizer opens loads them. Null leaves the request to the test.
+ */
+let registeredWebhooks: WebhookView[] | null;
+
+/** Has GET /api/webhooks answer with `webhooks`, or (with null) wait for the test to. */
+export function webhooksAnswer(webhooks: WebhookView[] | null) {
+  registeredWebhooks = webhooks;
+}
+
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useDraftsApp() {
   beforeEach(() => {
     decodes = new Map();
+    registeredWebhooks = [];
     HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
       return new Promise((resolve, reject) => decodes.set(this, { resolve, reject }));
     };
@@ -64,7 +77,14 @@ export function useDraftsApp() {
       imports: [App],
       providers: [
         provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(),
+        provideHttpClient(
+          withInterceptors([
+            (req, next) =>
+              req.url === '/api/webhooks' && registeredWebhooks
+                ? of(new HttpResponse({ body: registeredWebhooks }))
+                : next(req),
+          ]),
+        ),
         provideHttpClientTesting(),
         { provide: DRAFT_POLL_MS, useValue: 5 },
         { provide: DraftUpdates, useValue: updates },

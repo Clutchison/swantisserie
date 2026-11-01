@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { currentTurn } from 'engine';
-import { CloseRefusedError, PauseRefusedError } from './draft-errors.js';
+import { Prisma } from '../generated/prisma/client.js';
+import {
+  CloseRefusedError,
+  DraftGoneError,
+  PauseRefusedError,
+  UnknownWebhookError,
+} from './draft-errors.js';
 import {
   type DraftEvent,
   EVENT_PLAYER,
@@ -10,13 +16,35 @@ import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, SEAT_ORDER } from './draft-shapes.js';
 import { TurnsService } from './turns.service.js';
 
-/** A started draft's pauses, resumes, closes and reopens. */
+/** A draft's webhook changes, and a started draft's pauses, resumes, closes and reopens. */
 @Injectable()
 export class DraftLifecycleService {
   constructor(
     private readonly lock: DraftLock,
     private readonly turns: TurnsService,
   ) {}
+
+  /**
+   * Chooses the webhook the draft's later announcements are posted to, null
+   * for none, in any state. Throws UnknownWebhookError if it doesn't exist,
+   * and DraftGoneError if the draft doesn't.
+   */
+  async changeWebhook(draftId: string, webhookId: string | null): Promise<void> {
+    await this.lock.run(draftId, async (draft) => {
+      if (!draft) throw new DraftGoneError();
+      await draft.tx.draft
+        .update({ where: { id: draftId }, data: { webhookId } })
+        .catch((err: unknown) => {
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === 'P2003'
+          ) {
+            throw new UnknownWebhookError();
+          }
+          throw err;
+        });
+    });
+  }
 
   /**
    * Moves the draft from Drafting to Paused, so no picks, manual, queued or
