@@ -23,6 +23,7 @@ import {
   EMPTY_QUEUE,
   isActive,
   type PickView,
+  type PlayerView,
   type PoolCardView,
   type QueueView,
 } from './drafts';
@@ -127,8 +128,16 @@ export class DraftPage {
   protected readonly picksLoading = computed(
     () => this.picksResource.isLoading() && !this.picksResource.hasValue(),
   );
-  /** The oracle ids of the cards picked so far. */
-  protected readonly picked = computed(() => new Set(this.picks().map((pick) => pick.oracleId)));
+  /** The cards picked so far: each one's oracle id, and the player who picked it. */
+  protected readonly picked = computed(() => {
+    const players = this.draft()?.players ?? [];
+    const picked = new Map<string, PlayerView>();
+    for (const pick of this.picks()) {
+      const player = players.find((player) => player.id === pick.playerId);
+      if (player) picked.set(pick.oracleId, player);
+    }
+    return picked;
+  });
   /** Players may pick while the draft is Drafting. */
   protected readonly offerPick = computed(
     () => this.joined() && this.draft()?.state === 'Drafting',

@@ -23,7 +23,13 @@ import {
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
-import { type DraftView, isRefusal, type PoolCardView, type QueueView } from './drafts';
+import {
+  type DraftView,
+  isRefusal,
+  type PlayerView,
+  type PoolCardView,
+  type QueueView,
+} from './drafts';
 import { ImagePreloader } from './image-preloader';
 import {
   applyPoolFilters,
@@ -75,8 +81,8 @@ export class PoolTab {
   readonly loading = input(false);
   /** Whether the pool's cards couldn't be loaded. */
   readonly failed = input(false);
-  /** The oracle ids of the cards picked so far. */
-  readonly picked = input<ReadonlySet<string>>(new Set());
+  /** The cards picked so far: each one's oracle id, and the player who picked it. */
+  readonly picked = input<ReadonlyMap<string, PlayerView>>(new Map());
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
   readonly offerPick = input(false);
   /** The oracle ids of the cards in the signed-in player's queue. */
@@ -183,6 +189,8 @@ export class PoolTab {
     return rows;
   });
 
+  /** The avatars that failed to load, which Picked badges and the card detail then leave out. */
+  protected readonly brokenAvatars = signal<ReadonlySet<string>>(new Set());
   /** The card in the detail view, if one is open. */
   protected readonly detail = signal<PoolCardView | null>(null);
   /** The image the Card detail's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
@@ -272,6 +280,10 @@ export class PoolTab {
 
   protected imageFailed(card: PoolCardView, version: ImageVersion, face = 0) {
     this.images.failed(card, version, face);
+  }
+
+  protected avatarFailed(url: string) {
+    this.brokenAvatars.update((broken) => new Set(broken).add(url));
   }
 
   /** The mouse has come to a tile: if it rests there, the viewer is likely to open it. */
