@@ -50,5 +50,6 @@ describe('the queue clearing migration', () => {
       { poolCardId: 'last' },
     ]);
     await db.close();
-  });
+    // Starting Postgres and applying every migration can pass 5s on CI.
+  }, 30_000);
 });
