@@ -68,7 +68,7 @@ model Draft {
   /// Where the draft's announcements are posted; null for none.
   webhookId      String?
   webhook        Webhook?          @relation(fields: [webhookId], references: [id], onDelete: SetNull)
-  /// Goes up with every change to the draft's players, seats, state or picks, so viewers can tell which copy is newest.
+  /// Goes up with every change to the draft's players, seats, state, picks or webhook, so viewers can tell which copy is newest.
   version        Int               @default(0)
   pool           PoolCard[]
   players        Player[]

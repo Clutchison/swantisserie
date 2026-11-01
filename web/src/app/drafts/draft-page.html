@@ -46,6 +46,13 @@
         (draftChanged)="showDraft($event)"
         (draftStale)="catchUp()"
       />
+      @if (canOrganize()) {
+        <app-webhook-control
+          [draft]="draft"
+          (draftChanged)="showDraft($event)"
+          (draftStale)="catchUp()"
+        />
+      }
       <app-lobby-controls
         [draft]="draft"
         [canOrganize]="canOrganize()"

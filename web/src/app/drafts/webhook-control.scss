@@ -1,0 +1,20 @@
+/* Sits inside the draft page, which has the padding. */
+:host {
+  display: block;
+  padding: 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-width: 40rem;
+  font-weight: 600;
+}
+
+select {
+  padding: var(--space-sm);
+  border: 1px solid var(--color-muted);
+  border-radius: 0.25rem;
+  font-weight: normal;
+}

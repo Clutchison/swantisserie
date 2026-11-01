@@ -1,4 +1,5 @@
 import { MAX_PLAYERS, type PickProblem, type StartProblem } from 'engine';
+import { Prisma } from '../generated/prisma/client.js';
 
 /** Why a pool query can't make a pool; sent to the organizer as is. */
 export type PoolQueryProblem =
@@ -23,11 +24,22 @@ export class PoolQueryError extends Error {
   }
 }
 
-/** Thrown when a new draft names a webhook that doesn't exist, e.g. one just removed. */
+/** Thrown when a draft is given a webhook that doesn't exist, e.g. one just removed. */
 export class UnknownWebhookError extends Error {
   constructor() {
     super('That webhook has been removed. Choose another.');
   }
+}
+
+/** Rethrows a failed save of a draft, as UnknownWebhookError if its webhook doesn't exist. */
+export function rethrowMissingWebhook(err: unknown): never {
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === 'P2003'
+  ) {
+    throw new UnknownWebhookError();
+  }
+  throw err;
 }
 
 /** Thrown when a change only allowed in Lobby is tried after the draft started. */

@@ -1,0 +1,23 @@
+<div class="webhook-control">
+  <label>
+    Announcements
+    <select
+      name="draftWebhook"
+      [formControl]="choice"
+      [attr.disabled]="saving() || webhooksFailed() ? '' : null"
+      (focus)="catchUp()"
+      (change)="save()"
+    >
+      @for (webhook of webhooks(); track webhook.id) {
+        <option [ngValue]="webhook.id">{{ webhook.name }}</option>
+      }
+      <option [ngValue]="null">None</option>
+    </select>
+  </label>
+  @if (webhooksFailed()) {
+    <p class="error" role="alert">Couldn't load the webhooks. Try reloading the page.</p>
+  }
+  @if (saveError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</div>

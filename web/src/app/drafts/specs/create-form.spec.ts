@@ -1,9 +1,10 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { type WebhookView } from '../drafts';
-import { useDraftsApp, draft, http, router, openUrl } from './harness';
+import { useDraftsApp, draft, http, router, openUrl, webhooksAnswer } from './harness';
 
 useDraftsApp();
+beforeEach(() => webhooksAnswer(null));
 
 describe('create form', () => {
   const main = { id: 'webhook-main', name: '#roto-main' };
@@ -123,6 +124,8 @@ describe('create form', () => {
     await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-9'));
     http.expectOne('/api/drafts/draft-9').flush(draft({ id: 'draft-9' }));
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
+    // The organizer's control on the draft's page loads them too.
+    (await vi.waitFor(() => http.expectOne('/api/webhooks'))).flush([]);
   });
 
   it('offers the webhooks by name, starting on the first, and sends the one chosen', async () => {

@@ -35,6 +35,9 @@ export class DraftNotifier {
   /**
    * Posts the events' announcements to the draft's webhook, if it has one.
    * Call once the events are committed. Never rejects: failures are logged.
+   * The webhook is read when their turn to send comes: if it changes, those
+   * still queued go to the new one, while a batch already sending finishes on
+   * the old one.
    */
   notify(draftId: string, events: DraftEvent[]): Promise<void> {
     const queued = (this.queues.get(draftId) ?? Promise.resolve()).then(() =>

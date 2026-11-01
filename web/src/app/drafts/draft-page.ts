@@ -33,6 +33,7 @@ import { OrganizerControls } from './organizer-controls';
 import { PicksTab } from './picks-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
+import { WebhookControl } from './webhook-control';
 
 /** The draft view's panels. The Me tab is the Picks panel showing the signed-in player. */
 type Panel = 'Pool' | 'Queue' | 'Board' | 'Picks';
@@ -54,6 +55,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
     PoolTab,
     QueueTab,
     RouterLink,
+    WebhookControl,
   ],
   providers: [CardImageSource, CardPreviews, ImagePreloader],
   changeDetection: ChangeDetectionStrategy.OnPush,
