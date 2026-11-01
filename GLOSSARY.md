@@ -179,7 +179,7 @@ _Avoid_: Open draft, current draft
 ## Discord
 
 **Webhook**:
-A named Discord channel destination that an app admin registers. An organizer chooses one per draft, and that draft's announcements are posted to it. Its URL is secret: only app admins see it.
+A named Discord channel destination that an app admin registers. An organizer chooses at most one per draft and can change it at any time, and that draft's announcements are posted to it from then on. Its URL is secret: only app admins see it.
 _Avoid_: Channel, hook, integration
 
 **Announcement**:
