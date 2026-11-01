@@ -40,6 +40,7 @@ import {
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { QueueApi, queueChangeFailure } from './queue-api';
+import { PlayerAvatar } from './player-avatar';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -57,6 +58,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
     CdkVirtualForOf,
     TileImage,
     CardImage,
+    PlayerAvatar,
   ],
   providers: [TileImageLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -189,8 +191,6 @@ export class PoolTab {
     return rows;
   });
 
-  /** The avatars that failed to load, which Picked badges and the card detail then leave out. */
-  protected readonly brokenAvatars = signal<ReadonlySet<string>>(new Set());
   /** The card in the detail view, if one is open. */
   protected readonly detail = signal<PoolCardView | null>(null);
   /** The image the Card detail's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
@@ -280,10 +280,6 @@ export class PoolTab {
 
   protected imageFailed(card: PoolCardView, version: ImageVersion, face = 0) {
     this.images.failed(card, version, face);
-  }
-
-  protected avatarFailed(url: string) {
-    this.brokenAvatars.update((broken) => new Set(broken).add(url));
   }
 
   /** The mouse has come to a tile: if it rests there, the viewer is likely to open it. */

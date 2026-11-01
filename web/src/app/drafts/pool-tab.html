@@ -94,16 +94,7 @@
           }
           @if (picked().get(card.oracleId); as picker) {
             <span class="badge">
-              @if (!brokenAvatars().has(picker.avatarUrl)) {
-                <img
-                  class="avatar"
-                  [src]="picker.avatarUrl"
-                  alt=""
-                  width="32"
-                  height="32"
-                  (error)="avatarFailed(picker.avatarUrl)"
-                />
-              }
+              <app-player-avatar [src]="picker.avatarUrl" />
               <span aria-hidden="true">Picked</span>
               <span class="visually-hidden">Picked by {{ picker.name }}</span>
             </span>
@@ -181,16 +172,7 @@
       </div>
       @if (picked().get(card.oracleId); as picker) {
         <p class="note picked-by">
-          @if (!brokenAvatars().has(picker.avatarUrl)) {
-            <img
-              class="avatar"
-              [src]="picker.avatarUrl"
-              alt=""
-              width="32"
-              height="32"
-              (error)="avatarFailed(picker.avatarUrl)"
-            />
-          }
+          <app-player-avatar [src]="picker.avatarUrl" />
           Picked by {{ picker.name }}
         </p>
       } @else if (offerPick() && !yourTurn()) {

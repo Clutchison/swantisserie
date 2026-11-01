@@ -163,7 +163,9 @@ describe('pool tab', () => {
       expect(shown.getAttribute('src')).toBe(bob.avatarUrl);
       expect(shown.getAttribute('width')).toBe('32');
       expect(shown.getAttribute('height')).toBe('32');
-      expect(shown.nextElementSibling?.textContent?.trim()).toBe('Picked');
+      const word = badge(page).querySelector('[aria-hidden="true"]')!;
+      expect(word.textContent?.trim()).toBe('Picked');
+      expect(shown.compareDocumentPosition(word) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it('announces the badge with the name of the player who picked the card', async () => {
