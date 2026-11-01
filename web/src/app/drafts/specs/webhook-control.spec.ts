@@ -117,6 +117,21 @@ describe('changing a draft’s webhook', () => {
     expect(shownOption(control(page)!)).toBe('#roto-newer');
   });
 
+  it('catches up on focus: a webhook registered since is offered, and one removed shows none', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { webhook: main, version: 3 });
+    const newer = { id: 'newer', name: '#roto-newer' };
+    webhooksAnswer([other, newer]);
+
+    control(page)!.dispatchEvent(new Event('focus'));
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+      draft({ webhook: null, version: 3 }),
+    );
+    await fixture.whenStable();
+
+    expect(optionNames(control(page)!)).toEqual(['#roto-other', '#roto-newer', 'None']);
+    expect(shownOption(control(page)!)).toBe('None');
+  });
+
   it('says so when the chosen webhook was just removed, and goes back to the current one', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, { webhook: main, version: 3 });
     const select = control(page)!;

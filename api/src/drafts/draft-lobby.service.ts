@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { MAX_PLAYERS, shuffle } from 'engine';
-import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   DraftFullError,
   PlayersChangedError,
   PoolQueryError,
+  rethrowMissingWebhook,
   UnknownBotError,
   UnknownWebhookError,
 } from './draft-errors.js';
@@ -70,16 +70,8 @@ export class DraftLobbyService {
     await this.checkPoolQuery(draft.poolQuery);
     const created = await this.prisma.draft
       .create({ data: { ...draft, organizerId }, ...WITH_ORGANIZER })
-      .catch((err: unknown) => {
-        // The webhook was removed while the pool query was being checked.
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2003'
-        ) {
-          throw new UnknownWebhookError();
-        }
-        throw err;
-      });
+      // The webhook may have been removed while the pool query was being checked.
+      .catch(rethrowMissingWebhook);
     await this.snapshots.start(created.id);
     return created;
   }

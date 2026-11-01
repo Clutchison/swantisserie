@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { currentTurn } from 'engine';
-import { Prisma } from '../generated/prisma/client.js';
 import {
   CloseRefusedError,
   DraftGoneError,
   PauseRefusedError,
-  UnknownWebhookError,
+  rethrowMissingWebhook,
 } from './draft-errors.js';
 import {
   type DraftEvent,
@@ -34,15 +33,7 @@ export class DraftLifecycleService {
       if (!draft) throw new DraftGoneError();
       await draft.tx.draft
         .update({ where: { id: draftId }, data: { webhookId } })
-        .catch((err: unknown) => {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2003'
-          ) {
-            throw new UnknownWebhookError();
-          }
-          throw err;
-        });
+        .catch(rethrowMissingWebhook);
     });
   }
 

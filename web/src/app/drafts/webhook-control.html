@@ -5,6 +5,7 @@
       name="draftWebhook"
       [formControl]="choice"
       [attr.disabled]="saving() || webhooksFailed() ? '' : null"
+      (focus)="catchUp()"
       (change)="save()"
     >
       @for (webhook of webhooks(); track webhook.id) {

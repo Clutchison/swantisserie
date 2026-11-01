@@ -13,7 +13,7 @@ Inspired by [mtgrotisseriedraft.com](https://mtgrotisseriedraft.com), with some 
 - **Snake draft**: 2–12 players, 40 picks each by default, no turn timers, one copy of each card.
 - **Preloaded picks**: rank cards in a private queue. On your turn the first one still available is picked for you, and queued picks cascade through the following players.
 - **Discord posts**: a webhook announces each pick (or a cascade of picks) and pings the next player who has to pick manually.
-- **Organizer tools**: undo, pause, and changing a draft's webhook at any stage. The change itself posts nothing and missed announcements aren't resent. Announcements queued but not yet sending go to the new webhook, while a batch already sending finishes on the old one.
+- **Organizer tools**: undo, pause, and changing a draft's webhook at any time. The change itself posts nothing and missed announcements aren't resent. Announcements queued but not yet sending go to the new webhook, while a batch already sending finishes on the old one.
 - **Live updates** for everyone viewing a draft.
 - **Export** any player's picks to the clipboard for Arena or Moxfield.
 - **Mobile-first** UI.

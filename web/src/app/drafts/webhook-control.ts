@@ -27,7 +27,7 @@ export class WebhookControl {
   readonly draft = input.required<DraftView>();
   /** The draft as the change made it. */
   readonly draftChanged = output<DraftView>();
-  /** The change was refused, so the draft has moved on unseen; it should be re-read. */
+  /** The draft may have moved on unseen; it should be re-read. */
   readonly draftStale = output<void>();
 
   private readonly webhookResource = httpResource<WebhookView[]>(() => '/api/webhooks');
@@ -48,6 +48,15 @@ export class WebhookControl {
   constructor() {
     // The control follows the draft, whoever changed it.
     effect(() => this.choice.setValue(this.currentId()));
+  }
+
+  /**
+   * Re-reads what's on offer as the organizer comes to choose: nothing pushes
+   * a webhook being registered, renamed or removed to this view.
+   */
+  protected catchUp() {
+    this.webhookResource.reload();
+    this.draftStale.emit();
   }
 
   /** Saves the webhook just chosen, or goes back to the current one if that fails. */

@@ -183,7 +183,7 @@ export class DraftsController {
 
   /**
    * Chooses where the draft's later announcements are posted, or none, at any
-   * stage; announces nothing itself. For the organizer.
+   * time; announces nothing itself. For the organizer.
    */
   @Put(':id/webhook')
   async changeWebhook(
