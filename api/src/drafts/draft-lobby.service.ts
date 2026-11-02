@@ -30,7 +30,7 @@ import {
   ScryfallRejectedSearchError,
   type ScryfallSearchPage,
 } from '../scryfall/scryfall-client.js';
-import { SCRYFALL_NAME } from './platform.js';
+import { SCRYFALL_GAME } from './platform.js';
 
 export interface NewDraft {
   name: string;
@@ -250,7 +250,7 @@ export class DraftLobbyService {
     // in:arena, not game:arena: game: matches printings, so -game:arena would
     // also catch Arena cards that have a paper-only printing. Likewise MTGO.
     const notOnPlatform = await this.search(
-      `(${poolQuery}) -in:${SCRYFALL_NAME[platform]}`,
+      `(${poolQuery}) -in:${SCRYFALL_GAME[platform]}`,
     );
     if (notOnPlatform) {
       const { totalCards } = notOnPlatform;
