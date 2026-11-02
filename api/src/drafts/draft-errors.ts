@@ -1,5 +1,6 @@
 import type {
   CloseRefusal,
+  CubeLinkProblem,
   PauseRefusal,
   PickRefusal,
   PoolQueryProblem,
@@ -13,6 +14,26 @@ export class PoolQueryError extends Error {
   constructor(readonly problem: PoolQueryProblem) {
     super(problem.message);
   }
+}
+
+export class CubeLinkError extends Error {
+  constructor(readonly problem: CubeLinkProblem) {
+    super(problem.message);
+  }
+}
+
+/**
+ * Says how many of a pool source's cards (`where`, e.g. "in this cube")
+ * aren't on the platform, without a closing full stop.
+ */
+export function countNotOnPlatform(
+  count: number,
+  where: string,
+  platform: string,
+): string {
+  return count === 1
+    ? `1 card ${where} is not on ${platform}`
+    : `${count} cards ${where} are not on ${platform}`;
 }
 
 /** Thrown when a draft is given a webhook that doesn't exist, e.g. one just removed. */

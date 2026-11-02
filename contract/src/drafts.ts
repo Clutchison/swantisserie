@@ -13,7 +13,7 @@ export interface PoolSnapshotView {
   state: PoolSnapshotState;
   /** Cards snapshotted so far: the pool size once Complete. */
   cards: number;
-  /** Cards Scryfall says the pool query matches; null until the first page arrives. */
+  /** Cards the pool will hold, as Scryfall or the cube says; null until it is known. */
   total: number | null;
   /** Why the snapshot failed, when it has. */
   error?: string;
@@ -42,11 +42,22 @@ export interface WebhookView {
   name: string;
 }
 
+/** The CubeCobra cube a draft's pool was made from. */
+export interface CubeView {
+  /** As it was when the draft was created. */
+  name: string;
+  /** The cube's page on CubeCobra. */
+  url: string;
+}
+
 /** A draft, as every viewer is sent it. */
 export interface DraftView {
   id: string;
   name: string;
-  poolQuery: string;
+  /** The pool query that defines the pool; null when a cube link does. */
+  poolQuery: string | null;
+  /** The cube that defines the pool; null when a pool query does. */
+  cube: CubeView | null;
   picksPerPlayer: number;
   platform: Platform;
   state: DraftState;

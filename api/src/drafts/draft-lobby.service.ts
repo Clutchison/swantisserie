@@ -4,7 +4,9 @@ import { MAX_PLAYERS, shuffle } from 'engine';
 import type { Platform } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  CubeLinkError,
   DraftFullError,
+  countNotOnPlatform,
   PlayersChangedError,
   PoolQueryError,
   rethrowMissingWebhook,
@@ -31,10 +33,20 @@ import {
   type ScryfallSearchPage,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
+import { CubeCobraClient } from '../cubecobra/cubecobra-client.js';
+import { cubeIdFrom } from '../cubecobra/cube-link.js';
+import { cubePrintings } from './cube-pool.js';
+
+/** What defines a new draft's pool: a pool query or a cube link, as the organizer gave it. */
+export type NewPoolSource = { poolQuery: string } | { cubeLink: string };
+
+/** A pool source as a draft keeps it. */
+type SavedPoolSource =
+  { poolQuery: string } | { cubeId: string; cubeName: string };
 
 export interface NewDraft {
   name: string;
-  poolQuery: string;
+  poolSource: NewPoolSource;
   picksPerPlayer: number;
   platform: Platform;
   /** Where its announcements are posted; null for none. */
@@ -48,6 +60,7 @@ export class DraftLobbyService {
     private readonly prisma: PrismaService,
     private readonly lock: DraftLock,
     private readonly scryfall: ScryfallClient,
+    private readonly cubeCobra: CubeCobraClient,
     private readonly snapshots: PoolSnapshotService,
     private readonly turns: TurnsService,
   ) {}
@@ -55,8 +68,9 @@ export class DraftLobbyService {
   /**
    * Saves a new draft in Lobby, organized by `organizerId`, and starts its
    * pool snapshot. Throws UnknownWebhookError if its webhook doesn't exist,
-   * PoolQueryError if its pool query can't make a pool, and
-   * ScryfallUnavailableError if that can't be checked.
+   * PoolQueryError or CubeLinkError if its pool source can't make a pool, and
+   * ScryfallUnavailableError or CubeCobraUnavailableError if that can't be
+   * checked.
    */
   async create(
     organizerId: string,
@@ -70,10 +84,14 @@ export class DraftLobbyService {
     ) {
       throw new UnknownWebhookError();
     }
-    await this.checkPoolQuery(draft.poolQuery, draft.platform);
+    const { poolSource, ...fields } = draft;
+    const saved = await this.checkPoolSource(poolSource, draft.platform);
     const created = await this.prisma.draft
-      .create({ data: { ...draft, organizerId }, ...WITH_ORGANIZER })
-      // The webhook may have been removed while the pool query was being checked.
+      .create({
+        data: { ...fields, ...saved, organizerId },
+        ...WITH_ORGANIZER,
+      })
+      // The webhook may have been removed while the pool source was being checked.
       .catch(rethrowMissingWebhook);
     await this.snapshots.start(created.id);
     return created;
@@ -227,6 +245,55 @@ export class DraftLobbyService {
     return players.map((player) => player.userId);
   }
 
+  /** The pool source as the draft keeps it, once it is checked to make a pool. */
+  private async checkPoolSource(
+    poolSource: NewPoolSource,
+    platform: Platform,
+  ): Promise<SavedPoolSource> {
+    if ('cubeLink' in poolSource) {
+      return this.checkCubeLink(poolSource.cubeLink, platform);
+    }
+    await this.checkPoolQuery(poolSource.poolQuery, platform);
+    return poolSource;
+  }
+
+  private async checkCubeLink(
+    cubeLink: string,
+    platform: Platform,
+  ): Promise<SavedPoolSource> {
+    const cubeId = cubeIdFrom(cubeLink);
+    if (!cubeId) {
+      throw new CubeLinkError({
+        error: 'not-a-cube-link',
+        message: 'That isn’t a CubeCobra cube link.',
+      });
+    }
+    const cube = await this.cubeCobra.cube(cubeId);
+    if (!cube) {
+      // CubeCobra answers the same for a private cube as for a missing one.
+      throw new CubeLinkError({
+        error: 'cube-not-found',
+        message: 'No public cube on CubeCobra has that id.',
+      });
+    }
+    if (cube.mainboard.length === 0) {
+      throw new CubeLinkError({
+        error: 'no-cards',
+        message: 'This cube has no mainboard cards.',
+      });
+    }
+    const { missing } = await cubePrintings(this.scryfall, cube, platform);
+    if (missing.length > 0) {
+      throw new CubeLinkError({
+        error: 'not-on-platform',
+        message: `${countNotOnPlatform(missing.length, 'in this cube', platform)}.`,
+        cards: missing,
+        totalCards: missing.length,
+      });
+    }
+    return { cubeId, cubeName: cube.name };
+  }
+
   private async checkPoolQuery(
     poolQuery: string,
     platform: Platform,
@@ -256,7 +323,7 @@ export class DraftLobbyService {
       const { totalCards } = notOnPlatform;
       throw new PoolQueryError({
         error: 'not-on-platform',
-        message: `${totalCards} ${totalCards === 1 ? 'card' : 'cards'} in this pool query ${totalCards === 1 ? 'is' : 'are'} not on ${platform}.`,
+        message: `${countNotOnPlatform(totalCards, 'in this pool query', platform)}.`,
         cards: notOnPlatform.cards.map((card) => card.name),
         totalCards,
       });

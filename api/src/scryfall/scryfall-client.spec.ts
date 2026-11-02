@@ -298,6 +298,93 @@ describe('FetchScryfallClient', () => {
     });
   });
 
+  describe('printingsOn', () => {
+    /** A Scryfall search answer holding these cards, with more pages if `hasMore`. */
+    const found = (cards: object[], hasMore = false) => ({
+      object: 'list',
+      total_cards: cards.length,
+      has_more: hasMore,
+      data: cards,
+    });
+    const sentQueries = () =>
+      fetch.mock.calls.map(([url]) => ({
+        q: new URL(url as string).searchParams.get('q')!,
+        page: new URL(url as string).searchParams.get('page'),
+      }));
+    /** An oracle id as long as a real one (a UUID). */
+    const oracleId = (n: number) =>
+      `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+    it('searches the game for one printing of each card by oracle id', async () => {
+      const bolt = { name: 'Lightning Bolt', oracle_id: 'bolt' };
+      respond(200, found([bolt]));
+
+      const cards = await scryfall.printingsOn('arena', ['bolt', 'shock']);
+
+      expect(sentQueries()).toEqual([
+        {
+          q: '(oracleid:bolt or oracleid:shock) game:arena unique:cards',
+          page: null,
+        },
+      ]);
+      expect(cards).toEqual([bolt]);
+    });
+
+    it('splits a long list across searches Scryfall accepts, asking for each card once', async () => {
+      vi.useFakeTimers();
+      try {
+        const ids = Array.from({ length: 50 }, (_, n) => oracleId(n));
+        fetch.mockImplementation(async () => Response.json(found([])));
+
+        const cards = scryfall.printingsOn('mtgo', [...ids, ...ids]);
+        await vi.advanceTimersByTimeAsync(10_000);
+        await cards;
+
+        const queries = sentQueries().map(({ q }) => q);
+        expect(queries.length).toBeGreaterThan(1);
+        for (const q of queries) {
+          expect(q.length).toBeLessThanOrEqual(1000);
+          expect(q).toMatch(/^\(oracleid:.+\) game:mtgo unique:cards$/);
+        }
+        const asked = queries.flatMap((q) =>
+          [...q.matchAll(/oracleid:([\w-]+)/g)].map(([, id]) => id),
+        );
+        expect(asked).toEqual(ids);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('follows a search onto its later pages', async () => {
+      vi.useFakeTimers();
+      try {
+        const bolt = { name: 'Lightning Bolt', oracle_id: 'bolt' };
+        const shock = { name: 'Shock', oracle_id: 'shock' };
+        respond(200, found([bolt], true));
+        respond(200, found([shock]));
+
+        const cards = scryfall.printingsOn('arena', ['bolt', 'shock']);
+        await vi.advanceTimersByTimeAsync(600);
+
+        expect(sentQueries().map(({ page }) => page)).toEqual([null, '2']);
+        expect(await cards).toEqual([bolt, shock]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('returns no cards when none of them is on the game', async () => {
+      respond(404, { object: 'error', status: 404, details: 'No cards' });
+
+      expect(await scryfall.printingsOn('arena', ['bolt'])).toEqual([]);
+    });
+
+    it('asks nothing for no cards', async () => {
+      expect(await scryfall.printingsOn('arena', [])).toEqual([]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
   it('fails plainly when Scryfall itself is in trouble', async () => {
     respond(503, {
       object: 'error',

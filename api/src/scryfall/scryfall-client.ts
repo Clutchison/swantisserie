@@ -100,6 +100,8 @@ export class ScryfallUnavailableError extends Error {
 
 /** The most print ids one printings request may ask for. */
 export const PRINTINGS_LIMIT = 75;
+/** The longest query Scryfall will search: https://scryfall.com/docs/api/cards/search */
+const MAX_QUERY_LENGTH = 1000;
 
 /** Scryfall's card API: the boundary faked in tests. */
 export abstract class ScryfallClient {
@@ -119,6 +121,17 @@ export abstract class ScryfallClient {
    * refuses or fails.
    */
   abstract printings(ids: string[]): Promise<ScryfallCard[]>;
+
+  /**
+   * A printing on `game` (as Scryfall's `game:` search names it) of each card
+   * with one of these oracle ids, leaving out cards with none. Asks for as
+   * many cards per search as Scryfall's query length allows. Throws
+   * ScryfallUnavailableError if Scryfall itself is in trouble.
+   */
+  abstract printingsOn(
+    game: string,
+    oracleIds: string[],
+  ): Promise<ScryfallCard[]>;
 }
 
 @Injectable()
@@ -143,6 +156,22 @@ export class FetchScryfallClient extends ScryfallClient {
     if (!res.ok) throw new ScryfallUnavailableError(res.status);
     const body = (await res.json()) as { data: ScryfallCard[] };
     return body.data;
+  }
+
+  async printingsOn(
+    game: string,
+    oracleIds: string[],
+  ): Promise<ScryfallCard[]> {
+    const cards: ScryfallCard[] = [];
+    for (const query of oracleIdQueries(game, [...new Set(oracleIds)])) {
+      for (let page = 1; ; page++) {
+        const result = await this.search(query, page);
+        if (!result) break;
+        cards.push(...result.cards);
+        if (!result.hasMore) break;
+      }
+    }
+    return cards;
   }
 
   /** Sends a request in its turn, waiting out rate limiting. */
@@ -202,4 +231,22 @@ export class FetchScryfallClient extends ScryfallClient {
       Date.now() + RATE_LIMITED_WAIT_MS,
     );
   }
+}
+
+/** Searches for a printing on `game` of each of the cards, each as long as Scryfall allows. */
+function oracleIdQueries(game: string, oracleIds: string[]): string[] {
+  const wrap = (terms: string[]) =>
+    `(${terms.join(' or ')}) game:${game} unique:cards`;
+  const queries: string[] = [];
+  let terms: string[] = [];
+  for (const oracleId of oracleIds) {
+    const term = `oracleid:${oracleId}`;
+    if (terms.length > 0 && wrap([...terms, term]).length > MAX_QUERY_LENGTH) {
+      queries.push(wrap(terms));
+      terms = [];
+    }
+    terms.push(term);
+  }
+  if (terms.length > 0) queries.push(wrap(terms));
+  return queries;
 }

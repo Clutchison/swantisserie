@@ -14,6 +14,9 @@ import type { DraftCreationProblem, DraftView, Platform, WebhookView } from 'con
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 
+/** Where a new draft's pool comes from. */
+type PoolSource = 'poolQuery' | 'cubeLink';
+
 @Component({
   selector: 'app-create-draft-page',
   imports: [ReactiveFormsModule, RouterLink],
@@ -28,12 +31,17 @@ export class CreateDraftPage {
   // Validated by the API, whose messages say exactly what to fix.
   protected readonly form = inject(FormBuilder).nonNullable.group({
     name: '',
+    poolSource: 'poolQuery' as PoolSource,
     poolQuery: '',
+    cubeLink: '',
     picksPerPlayer: 40,
     platform: 'Arena' as Platform,
     webhookId: null as string | null,
   });
   protected readonly platforms: Platform[] = ['Arena', 'MTGO'];
+  protected readonly poolSource = toSignal(this.form.controls.poolSource.valueChanges, {
+    initialValue: this.form.controls.poolSource.value,
+  });
   protected readonly platform = toSignal(this.form.controls.platform.valueChanges, {
     initialValue: this.form.controls.platform.value,
   });
@@ -55,13 +63,20 @@ export class CreateDraftPage {
     });
   }
 
+  /** The form's fields as the API takes them, with only the pool source chosen. */
+  private requestBody() {
+    const { poolSource, poolQuery, cubeLink, ...fields } = this.form.getRawValue();
+    return { ...fields, ...(poolSource === 'cubeLink' ? { cubeLink } : { poolQuery }) };
+  }
+
   protected async create() {
     this.saving.set(true);
     this.problem.set(null);
     try {
-      // The API checks the pool query with Scryfall, which can take a moment.
+      // The API checks the pool with Scryfall, and a cube with CubeCobra too,
+      // which can take a moment.
       const draft = await firstValueFrom(
-        this.http.post<DraftView>('/api/drafts', this.form.getRawValue()),
+        this.http.post<DraftView>('/api/drafts', this.requestBody()),
       );
       await this.router.navigate(['/drafts', draft.id]);
     } catch (err) {

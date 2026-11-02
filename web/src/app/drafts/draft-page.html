@@ -172,9 +172,15 @@
         }
       }
       <p class="detail">Platform: {{ draft.platform }}</p>
-      <p class="detail">
-        Pool query: <code>{{ draft.poolQuery }}</code>
-      </p>
+      @if (draft.cube; as cube) {
+        <p class="detail">
+          Cube: <a [href]="cube.url" target="_blank" rel="noopener">{{ cube.name }}</a>
+        </p>
+      } @else {
+        <p class="detail">
+          Pool query: <code>{{ draft.poolQuery }}</code>
+        </p>
+      }
     </section>
 
     <!-- Only players have a queue. -->

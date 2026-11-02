@@ -15,10 +15,17 @@ import {
   type ScryfallCardFace,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
+import {
+  CubeCobraClient,
+  CubeCobraUnavailableError,
+} from '../cubecobra/cubecobra-client.js';
+import { cubePrintings } from './cube-pool.js';
+import { countNotOnPlatform } from './draft-errors.js';
 
-/** What a draft's pool is snapshotted from. */
+/** What a draft's pool is snapshotted from: its pool query or its cube. */
 interface PoolSource {
-  poolQuery: string;
+  poolQuery: string | null;
+  cubeId: string | null;
   platform: Platform;
 }
 
@@ -45,8 +52,8 @@ export class PoolFrozenError extends Error {
 class PoolSnapshotError extends Error {}
 
 /**
- * Copies each draft's pool from Scryfall in the background: the pool
- * snapshot. Progress lives on the draft (snapshotState, poolTotal,
+ * Copies each draft's pool from Scryfall in the background, from its pool
+ * query or from its cube as CubeCobra now has it: the pool snapshot. Progress lives on the draft (snapshotState, poolTotal,
  * snapshotError) and in its PoolCard rows.
  */
 @Injectable()
@@ -60,6 +67,7 @@ export class PoolSnapshotService
   constructor(
     private readonly prisma: PrismaService,
     private readonly scryfall: ScryfallClient,
+    private readonly cubeCobra: CubeCobraClient,
   ) {}
 
   /**
@@ -120,7 +128,11 @@ export class PoolSnapshotService
     if (source === null) return;
 
     try {
-      await this.pageThrough(draftId, source);
+      if (source.cubeId !== null) {
+        await this.copyCube(draftId, source.cubeId, source.platform);
+      } else if (source.poolQuery !== null) {
+        await this.pageThrough(draftId, source.poolQuery, source.platform);
+      }
       await this.prisma.draft.update({
         where: { id: draftId },
         data: { snapshotState: 'Complete' },
@@ -139,7 +151,7 @@ export class PoolSnapshotService
 
   /**
    * Marks the draft Running and drops its cards, unless its pool is already
-   * frozen. Returns its pool query and platform, or null if it was cancelled.
+   * frozen. Returns its pool source, or null if it was cancelled.
    */
   private async reset(draftId: string): Promise<PoolSource | null> {
     return this.prisma.$transaction(async (tx) => {
@@ -162,14 +174,54 @@ export class PoolSnapshotService
       await tx.poolCard.deleteMany({ where: { draftId } });
       return tx.draft.findUniqueOrThrow({
         where: { id: draftId },
-        select: { poolQuery: true, platform: true },
+        select: { poolQuery: true, cubeId: true, platform: true },
       });
+    });
+  }
+
+  /**
+   * Copies the cube's mainboard as CubeCobra has it now, each card in a
+   * printing on the platform. Fails if any card has none, as creation would.
+   */
+  private async copyCube(
+    draftId: string,
+    cubeId: string,
+    platform: Platform,
+  ): Promise<void> {
+    const cube = await this.cubeCobra.cube(cubeId);
+    if (!cube) {
+      throw new PoolSnapshotError(
+        'CubeCobra no longer has this cube, or it is no longer public.',
+      );
+    }
+    if (cube.mainboard.length === 0) {
+      throw new PoolSnapshotError(
+        'The cube no longer has any mainboard cards.',
+      );
+    }
+    await this.prisma.draft.update({
+      where: { id: draftId },
+      data: { poolTotal: cube.mainboard.length },
+    });
+    const { printings, missing } = await cubePrintings(
+      this.scryfall,
+      cube,
+      platform,
+    );
+    if (missing.length > 0) {
+      throw new PoolSnapshotError(
+        `${countNotOnPlatform(missing.length, 'in the cube', platform)}: ${missing.join(', ')}.`,
+      );
+    }
+    await this.prisma.poolCard.createMany({
+      data: printings.map((card) => toPoolCard(draftId, card)),
     });
   }
 
   private async pageThrough(
     draftId: string,
-    { poolQuery, platform }: PoolSource,
+    poolQuery: string,
+    platform: Platform,
   ): Promise<void> {
     // game:arena picks the Arena printing of each card, game:mtgo the MTGO
     // one; the pool query was already checked to have no cards off the
@@ -206,6 +258,9 @@ function explain(err: unknown): string {
   }
   if (err instanceof ScryfallUnavailableError) {
     return 'Scryfall could not be reached.';
+  }
+  if (err instanceof CubeCobraUnavailableError) {
+    return 'CubeCobra could not be reached.';
   }
   return 'Snapshotting the pool failed unexpectedly.';
 }

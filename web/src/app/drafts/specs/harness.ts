@@ -33,6 +33,7 @@ export function draft(fields: Partial<DraftView>): DraftView {
     id: 'draft-1',
     name: 'Red dragons',
     poolQuery: 't:dragon c:r',
+    cube: null,
     picksPerPlayer: 40,
     platform: 'Arena',
     state: 'Lobby',
