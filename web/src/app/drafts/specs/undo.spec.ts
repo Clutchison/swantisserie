@@ -1,4 +1,4 @@
-import type { PickView } from 'contract';
+import type { PickView, UndoRefusal } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -67,7 +67,7 @@ describe('undo', () => {
     undoButton(page)!.click();
     const message = 'Only the latest pick can be undone, and the picks have changed.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'))).flush(
-      { error: 'not-latest', message },
+      { error: 'not-latest', message } satisfies UndoRefusal,
       { status: 409, statusText: 'Conflict' },
     );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(

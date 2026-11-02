@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { DraftView, PoolCardView } from 'contract';
+import type { DraftView, PoolCardView, QueueRefusal } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -504,12 +504,13 @@ describe('pool tab', () => {
         const detail = await openDetail(fixture, page, 0);
 
         button(detail, 'Add to queue')!.click();
-        http
-          .expectOne('/api/drafts/draft-1/queue')
-          .flush(
-            { error: 'your-turn', message: 'You can’t add to your queue on your turn.' },
-            { status: 409, statusText: 'Conflict' },
-          );
+        http.expectOne('/api/drafts/draft-1/queue').flush(
+          {
+            error: 'your-turn',
+            message: 'You can’t add to your queue on your turn.',
+          } satisfies QueueRefusal,
+          { status: 409, statusText: 'Conflict' },
+        );
         // The queue is re-read, and again once the draft turns out to have changed.
         await flushQueue(EMPTY_QUEUE);
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
@@ -551,12 +552,13 @@ describe('pool tab', () => {
         });
         const detail = await openDetail(fixture, page, 0);
         button(detail, 'Add to queue')!.click();
-        http
-          .expectOne('/api/drafts/draft-1/queue')
-          .flush(
-            { error: 'your-turn', message: 'You can’t add to your queue on your turn.' },
-            { status: 409, statusText: 'Conflict' },
-          );
+        http.expectOne('/api/drafts/draft-1/queue').flush(
+          {
+            error: 'your-turn',
+            message: 'You can’t add to your queue on your turn.',
+          } satisfies QueueRefusal,
+          { status: 409, statusText: 'Conflict' },
+        );
         await flushQueue(EMPTY_QUEUE);
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
           draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
@@ -583,7 +585,7 @@ describe('pool tab', () => {
         http
           .expectOne('/api/drafts/draft-1/queue/shivan-card')
           .flush(
-            { error: 'draft-closed', message: 'This draft is closed.' },
+            { error: 'draft-closed', message: 'This draft is closed.' } satisfies QueueRefusal,
             { status: 409, statusText: 'Conflict' },
           );
         await flushQueue({ cards: [queued(shivan)], lost: [], cleared: [] });
@@ -629,12 +631,13 @@ describe('pool tab', () => {
       const queue = await openQueue(fixture, page);
 
       queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(
-          { error: 'queue-changed', message: 'Your queue has changed. Reload and try again.' },
-          { status: 409, statusText: 'Conflict' },
-        );
+      http.expectOne('/api/drafts/draft-1/queue').flush(
+        {
+          error: 'queue-changed',
+          message: 'Your queue has changed. Reload and try again.',
+        } satisfies QueueRefusal,
+        { status: 409, statusText: 'Conflict' },
+      );
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush({
         cards: [queued(shivan)],
         lost: [],

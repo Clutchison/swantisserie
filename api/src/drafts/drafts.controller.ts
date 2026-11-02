@@ -20,7 +20,10 @@ import {
 import type {
   CardFace,
   CardImages,
+  DraftCreationProblem,
   DraftView,
+  DraftChangeRefusal,
+  PickImportRefusal,
   PickImportPreview,
   PickView,
   PoolCardView,
@@ -452,7 +455,7 @@ export class DraftsController {
         throw new BadRequestException({
           error: 'invalid',
           message: err.message,
-        });
+        } satisfies DraftCreationProblem);
       }
       if (err instanceof PoolQueryError) {
         throw new UnprocessableEntityException(err.problem);
@@ -462,15 +465,21 @@ export class DraftsController {
         throw new BadGatewayException({
           error: 'scryfall-unavailable',
           message: 'Scryfall could not be reached. Try again in a moment.',
-        });
+        } satisfies DraftCreationProblem);
       }
       throw err;
     }
   }
 }
 
-function conflict(error: string, cause: Error): ConflictException {
-  return new ConflictException({ error, message: cause.message });
+function conflict(
+  error: DraftChangeRefusal['error'],
+  cause: Error,
+): ConflictException {
+  return new ConflictException({
+    error,
+    message: cause.message,
+  } satisfies DraftChangeRefusal);
 }
 
 function pickImportRefused(
@@ -480,7 +489,7 @@ function pickImportRefused(
     error: 'invalid-pick-import',
     message: cause.message,
     problems: cause.problems,
-  });
+  } satisfies PickImportRefusal);
 }
 
 /** The create form's fields, or a 400 saying which one to fix. */
@@ -488,7 +497,10 @@ function parseNewDraft(body: unknown): NewDraft {
   const { name, poolQuery, picksPerPlayer, platform, webhookId } = (body ??
     {}) as Record<string, unknown>;
   const invalid = (message: string) =>
-    new BadRequestException({ error: 'invalid', message });
+    new BadRequestException({
+      error: 'invalid',
+      message,
+    } satisfies DraftCreationProblem);
 
   const trimmedName = typeof name === 'string' ? name.trim() : '';
   if (!trimmedName) throw invalid('Give the draft a name.');

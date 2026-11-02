@@ -1,3 +1,4 @@
+import type { PauseRefusal } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -62,7 +63,7 @@ describe('pause and resume', () => {
     button(page, 'Pause draft')!.click();
     const message = 'Only a drafting draft can be paused.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'))).flush(
-      { error: 'not-drafting', message },
+      { error: 'not-drafting', message } satisfies PauseRefusal,
       { status: 409, statusText: 'Conflict' },
     );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(

@@ -1,21 +1,22 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import type { DraftState, QueueView } from 'contract';
+import type { DraftCreationProblem, DraftRefusal, DraftState, QueueView } from 'contract';
 
 /** An active draft is any draft that is neither closed nor complete. */
 export function isActive(state: DraftState): boolean {
   return state !== 'Complete' && state !== 'Closed';
 }
 
+/** A 409 from the drafts API; its body, if any, says why. */
+export type RefusalResponse = HttpErrorResponse & { error: DraftRefusal | null };
+
 /** Whether the API refused a request because the draft has moved on; its body says why. */
-export function isRefusal(err: unknown): err is HttpErrorResponse {
+export function isRefusal(err: unknown): err is RefusalResponse {
   return err instanceof HttpErrorResponse && err.status === 409;
 }
 
-/** The body of a failed POST /api/drafts: what to tell the organizer. */
+/** Why creating a draft failed, from the API or the request itself: what to tell the organizer. */
 export type DraftProblem =
-  | { error: 'not-on-platform'; message: string; cards: string[]; totalCards: number }
-  | { error: 'query-rejected'; message: string; warnings: string[] }
-  | { error: 'no-cards' | 'invalid' | 'scryfall-unavailable'; message: string }
+  | DraftCreationProblem
   /** Set by the web app when the API gave no explanation, e.g. offline. */
   | { error: 'request-failed'; message: string };
 

@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { DraftView, PickImportPreview } from 'contract';
+import type { DraftView, PickImportPreview, PickImportRefusal } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { isRefusal } from './drafts';
@@ -156,7 +156,7 @@ export class LobbyControls {
       this.pickImportPreview.set({ ...preview, csv });
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 422) {
-        this.pickImportProblems.set(err.error?.problems ?? []);
+        this.pickImportProblems.set(pickImportProblems(err));
       } else if (err instanceof HttpErrorResponse && err.status === 413) {
         // The API's own limit, or the body parser's, which doesn't say so as plainly.
         this.lobbyError.set('That file is too large to be a sheet of picks.');
@@ -186,7 +186,7 @@ export class LobbyControls {
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 422) {
         this.clearPickImport();
-        this.pickImportProblems.set(err.error?.problems ?? []);
+        this.pickImportProblems.set(pickImportProblems(err));
       } else {
         this.lobbyFailed(err, "Couldn't import the picks. Try again in a moment.");
       }
@@ -247,4 +247,10 @@ export class LobbyControls {
       this.changingLobby.set(false);
     }
   }
+}
+
+/** All that's wrong with a pick import's file, from the API's 422 saying so. */
+function pickImportProblems(err: HttpErrorResponse): string[] {
+  const refusal: PickImportRefusal | null = err.error;
+  return refusal?.problems ?? [];
 }
