@@ -293,15 +293,15 @@ describe('bot players', () => {
         return webhookClient.post.mock.calls.map(([, message]) => message);
       });
       expect(messages[1]).toEqual({
-        content: '**Alice** picked **Shock** (pick 1)\n**Bot 1** is up',
+        content: '1- **Alice** picked **Shock**\n**Bot 1** is up.',
         allowed_mentions: { parse: [], users: [] },
       });
       expect(messages[2].content).toMatch(
-        /^\*\*Bot 1\*\* picked .* \(pick 2\)\n\*\*Bot 1\*\* is up$/,
+        /^2- \*\*Bot 1\*\* picked .*\n\*\*Bot 1\*\* is up\.$/,
       );
       expect(messages[2].allowed_mentions.users).toEqual([]);
       expect(messages[3].content).toMatch(
-        new RegExp(`\\(pick 3\\)\\n<@${alice.id}> you’re up$`),
+        new RegExp(`^3- .*\\n<@${alice.id}> you’re up\\.$`),
       );
       expect(messages[3].allowed_mentions.users).toEqual([alice.id]);
     });

@@ -134,15 +134,8 @@ export function draftReopenedMessage(
 }
 
 /** The undone pick's player is up again. */
-export function undoneMessage({
-  number,
-  player,
-  card,
-}: AnnouncedUndo): WebhookMessage {
-  return announcement(
-    [`Pick ${number} (${bold(card)} by ${bold(player.name)}) was undone`],
-    player,
-  );
+export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
+  return announcement([`Undone: ${pickLine(undone)}`], undone.player);
 }
 
 /** `picks` in pick order, at least one; the last one's next player is up. */
@@ -168,9 +161,8 @@ function announcedPick(event: PickedEvent): AnnouncedPick {
   return pick;
 }
 
-function pickLine(pick: AnnouncedPick): string {
-  const number = `pick ${pick.number}${pick.queued ? ', queued' : ''}`;
-  return `${bold(pick.player.name)} picked ${bold(pick.card)} (${number})`;
+function pickLine({ number, player, card }: AnnouncedUndo): string {
+  return `${number}- ${bold(player.name)} picked ${bold(card)}`;
 }
 
 /**
@@ -186,8 +178,8 @@ function announcement(
   return {
     content: [
       ...lines,
-      ...(pinged ? [`<@${pinged.id}> you’re up`] : []),
-      ...(up?.isBot ? [`${bold(up.name)} is up`] : []),
+      ...(pinged ? [`<@${pinged.id}> you’re up.`] : []),
+      ...(up?.isBot ? [`${bold(up.name)} is up.`] : []),
       // In angle brackets, so Discord doesn't embed a preview of the page.
       ...(url ? [`<${url}>`] : []),
     ].join('\n'),

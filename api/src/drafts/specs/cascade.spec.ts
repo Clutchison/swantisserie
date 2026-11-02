@@ -200,10 +200,10 @@ describe('cascade', () => {
     });
     expect(messages[1]).toEqual({
       content:
-        '**Alice** picked **Shock** (pick 1)\n' +
-        '**Bob** picked **Lava Spike** (pick 2, queued)\n' +
-        '**Bob** picked **Skewer the Critics** (pick 3, queued)\n' +
-        `<@${alice.id}> you’re up`,
+        '1- **Alice** picked **Shock**\n' +
+        '2- **Bob** picked **Lava Spike**\n' +
+        '3- **Bob** picked **Skewer the Critics**\n' +
+        `<@${alice.id}> you’re up.`,
       allowed_mentions: { parse: [], users: [alice.id] },
     });
   });
@@ -234,8 +234,7 @@ describe('cascade', () => {
       return webhookClient.post.mock.calls.map(([, message]) => message);
     });
     expect(messages[1]).toEqual({
-      content:
-        '**Alice** picked **Shock** (pick 1)\n' + `<@${bob.id}> you’re up`,
+      content: '1- **Alice** picked **Shock**\n' + `<@${bob.id}> you’re up.`,
       allowed_mentions: { parse: [], users: [bob.id] },
     });
   });

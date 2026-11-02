@@ -60,7 +60,7 @@ describe('announcements', () => {
       '**Red** has started. Seat order:\n' +
         '1. **Alice**\n' +
         '2. **Bob**\n' +
-        `<@${alice.id}> you’re up\n` +
+        `<@${alice.id}> you’re up.\n` +
         `<https://roto.example/drafts/${id}>`,
     ]);
     expect(webhookClient.post).toHaveBeenCalledWith(webhookUrl, {
@@ -89,8 +89,8 @@ describe('announcements', () => {
       .expect(200);
 
     expect((await posted(4)).slice(1)).toEqual([
-      `**Alice** picked **Shock** (pick 1)\n<@${bob.id}> you’re up`,
-      '**Bob** picked **Lava Spike** (pick 2)',
+      `1- **Alice** picked **Shock**\n<@${bob.id}> you’re up.`,
+      '2- **Bob** picked **Lava Spike**',
       '**Red** is complete',
     ]);
     expect(webhookClient.post.mock.calls[1][1].allowed_mentions).toEqual({

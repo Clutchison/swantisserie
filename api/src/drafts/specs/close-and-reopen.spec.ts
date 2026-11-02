@@ -213,8 +213,8 @@ describe('close and reopen', () => {
       {
         content:
           '**Red** has reopened\n' +
-          '**Alice** picked **Shock** (pick 1, queued)\n' +
-          `<@${bob.id}> you’re up`,
+          '1- **Alice** picked **Shock**\n' +
+          `<@${bob.id}> you’re up.`,
         allowed_mentions: { parse: [], users: [bob.id] },
       },
     ]);

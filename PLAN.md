@@ -64,13 +64,13 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - The organizer picks one webhook per draft.
 - **Text only, no card image embeds.** Only the draft started message links to the draft.
 
-| Event                   | Message                                                                                                        |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Draft started           | Seat order + link to the draft                                                                                 |
-| Manual pick, no cascade | "**Alice** picked **Card** (pick 23)" + "@Bob you're up"                                                       |
-| Pick + cascade          | One message listing every pick in order (marking queued ones), then ping the next player without a valid queue |
-| Undo                    | "Pick 23 (**Card** by Alice) was undone" + ping whoever is now up                                              |
-| Draft complete          | "**Draft** is complete"                                                                                        |
+| Event                   | Message                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| Draft started           | Seat order + link to the draft                                                           |
+| Manual pick, no cascade | "23- **Alice** picked **Card**" + "@Bob you're up."                                      |
+| Pick + cascade          | One message listing every pick in order, then ping the next player without a valid queue |
+| Undo                    | "Undone: 23- **Alice** picked **Card**" + ping whoever is now up                         |
+| Draft complete          | "**Draft** is complete"                                                                  |
 
 - Pings use `allowed_mentions: { parse: [], users: [nextId] }`. The mention goes in `content`.
 - Possible later upgrade: a REST bot with an HTTP interactions endpoint for opt-in DMs and `/status` / `/pick` commands. Not in v1.
