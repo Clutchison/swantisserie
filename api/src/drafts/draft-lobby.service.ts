@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CubeLinkError,
   DraftFullError,
-  countNotOnPlatform,
+  notOnPlatformSentence,
   PlayersChangedError,
   PoolQueryError,
   rethrowMissingWebhook,
@@ -286,7 +286,7 @@ export class DraftLobbyService {
     if (missing.length > 0) {
       throw new CubeLinkError({
         error: 'not-on-platform',
-        message: `${countNotOnPlatform(missing.length, 'in this cube', platform)}.`,
+        message: `${notOnPlatformSentence(missing.length, 'in this cube', platform)}.`,
         cards: missing,
         totalCards: missing.length,
       });
@@ -323,7 +323,7 @@ export class DraftLobbyService {
       const { totalCards } = notOnPlatform;
       throw new PoolQueryError({
         error: 'not-on-platform',
-        message: `${countNotOnPlatform(totalCards, 'in this pool query', platform)}.`,
+        message: `${notOnPlatformSentence(totalCards, 'in this pool query', platform)}.`,
         cards: notOnPlatform.cards.map((card) => card.name),
         totalCards,
       });

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
 const SITE = 'https://cubecobra.com';
+/** Scryfall's oracle ids are UUIDs; anything else would break the search for printings. */
+const ORACLE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HEADERS = {
   'User-Agent':
     'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)',
@@ -91,6 +94,7 @@ function toCube(body: unknown): Cube {
       if (
         !isRecord(details) ||
         typeof details.oracle_id !== 'string' ||
+        !ORACLE_ID.test(details.oracle_id) ||
         typeof details.name !== 'string'
       ) {
         throw malformed('a card with no oracle id or name');

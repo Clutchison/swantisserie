@@ -28,11 +28,6 @@ export type CubeLinkProblem =
        */
       error: 'not-a-cube-link' | 'cube-not-found' | 'no-cards';
       message: string;
-    }
-  | {
-      /** CubeCobra failed, or answered with something we can't read. */
-      error: 'cubecobra-unavailable';
-      message: string;
     };
 
 /** The body of a failed POST /api/drafts: what to tell the organizer. */
@@ -44,7 +39,12 @@ export type DraftCreationProblem =
       error: 'invalid';
       message: string;
     }
-  | { error: 'scryfall-unavailable'; message: string };
+  | { error: 'scryfall-unavailable'; message: string }
+  | {
+      /** CubeCobra failed, or answered with something we can't read. */
+      error: 'cubecobra-unavailable';
+      message: string;
+    };
 
 /**
  * Why the organizer can't start the draft; sent to them as is. The api

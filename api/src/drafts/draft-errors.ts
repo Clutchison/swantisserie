@@ -26,7 +26,7 @@ export class CubeLinkError extends Error {
  * Says how many of a pool source's cards (`where`, e.g. "in this cube")
  * aren't on the platform, without a closing full stop.
  */
-export function countNotOnPlatform(
+export function notOnPlatformSentence(
   count: number,
   where: string,
   platform: string,

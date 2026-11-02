@@ -20,7 +20,7 @@ import {
   CubeCobraUnavailableError,
 } from '../cubecobra/cubecobra-client.js';
 import { cubePrintings } from './cube-pool.js';
-import { countNotOnPlatform } from './draft-errors.js';
+import { notOnPlatformSentence } from './draft-errors.js';
 
 /** What a draft's pool is snapshotted from: its pool query or its cube. */
 interface PoolSource {
@@ -210,7 +210,7 @@ export class PoolSnapshotService
     );
     if (missing.length > 0) {
       throw new PoolSnapshotError(
-        `${countNotOnPlatform(missing.length, 'in the cube', platform)}: ${missing.join(', ')}.`,
+        `${notOnPlatformSentence(missing.length, 'in the cube', platform)}: ${missing.join(', ')}.`,
       );
     }
     await this.prisma.poolCard.createMany({

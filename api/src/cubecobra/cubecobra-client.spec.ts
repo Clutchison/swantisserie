@@ -3,6 +3,10 @@ import {
   FetchCubeCobraClient,
 } from './cubecobra-client.js';
 
+const DEFTBLADE = '9a3e3a8f-7c19-4b52-a1b4-08eb09f6127a';
+const BOLT = '4457ed35-7c10-48c8-9776-456485fdf070';
+const SHOCK = 'fd1d5ded-d1b4-4b9f-be72-c8a2e1b4b6c4';
+
 describe('FetchCubeCobraClient', () => {
   const fetch = vi.fn<typeof globalThis.fetch>();
   let cubeCobra: FetchCubeCobraClient;
@@ -57,20 +61,20 @@ describe('FetchCubeCobraClient', () => {
       shortId: 'thepaupercube',
       cards: {
         mainboard: [
-          listed('Deftblade Elite', 'deftblade'),
-          listed('Lightning Bolt', 'bolt'),
-          listed('Lightning Bolt', 'bolt'),
+          listed('Deftblade Elite', DEFTBLADE),
+          listed('Lightning Bolt', BOLT),
+          listed('Lightning Bolt', BOLT),
         ],
-        maybeboard: [listed('Shock', 'shock')],
+        maybeboard: [listed('Shock', SHOCK)],
       },
     });
 
     expect(await cubeCobra.cube('thepaupercube')).toEqual({
       name: 'The Pauper Cube',
       mainboard: [
-        { oracleId: 'deftblade', name: 'Deftblade Elite' },
-        { oracleId: 'bolt', name: 'Lightning Bolt' },
-        { oracleId: 'bolt', name: 'Lightning Bolt' },
+        { oracleId: DEFTBLADE, name: 'Deftblade Elite' },
+        { oracleId: BOLT, name: 'Lightning Bolt' },
+        { oracleId: BOLT, name: 'Lightning Bolt' },
       ],
     });
   });
@@ -107,6 +111,15 @@ describe('FetchCubeCobraClient', () => {
       {
         name: 'The Pauper Cube',
         cards: { mainboard: [{ details: { name: 'Shock' } }] },
+      },
+    ],
+    [
+      'has a card whose oracle id isn’t one, which Scryfall would refuse',
+      {
+        name: 'The Pauper Cube',
+        cards: {
+          mainboard: [{ details: { oracle_id: 'x) or (c:r', name: 'Shock' } }],
+        },
       },
     ],
     [
