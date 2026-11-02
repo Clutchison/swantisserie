@@ -136,6 +136,7 @@ describe('preloading the first results', () => {
     Array.from({ length: count }, (_, i) => {
       const id = `${prefix}-${i + 1}`;
       return card({
+        id: `${id}-card`,
         scryfallId: id,
         oracleId: `${id}-oracle`,
         name: id,
@@ -152,10 +153,10 @@ describe('preloading the first results', () => {
   const dragons = (from: number, to: number) =>
     Array.from({ length: to - from + 1 }, (_, i) => `dragon-${from + i}`);
 
-  const picked = ({ oracleId, name }: PoolCardView): PickView => ({
+  const picked = ({ id, name }: PoolCardView): PickView => ({
     pick: 1,
     playerId: bob.id,
-    oracleId,
+    poolCardId: id,
     name,
     layout: 'normal',
     set: 'm20',

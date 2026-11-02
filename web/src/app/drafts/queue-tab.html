@@ -1,6 +1,6 @@
 <ng-template #names let-cards>
-  @for (card of cards; track card.oracleId; let last = $last) {
-    <strong [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</strong
+  @for (card of cards; track card.poolCardId; let last = $last) {
+    <strong [appCardPreview]="poolCardsById().get(card.poolCardId)">{{ card.name }}</strong
     >{{ last ? '.' : ', ' }}
   }
 </ng-template>
@@ -39,7 +39,11 @@
   [cdkDropListDisabled]="changing() || readOnly()"
   (cdkDropListDropped)="dropped($event)"
 >
-  @for (card of queue().cards; track card.oracleId; let i = $index, first = $first, last = $last) {
+  @for (
+    card of queue().cards;
+    track card.poolCardId;
+    let i = $index, first = $first, last = $last
+  ) {
     <li
       cdkDrag
       cdkDragLockAxis="y"
@@ -52,7 +56,7 @@
       <span class="number">{{ i + 1 }}</span>
       <span class="name">
         <!-- Only the text shows a Card preview, not the rest of the row. -->
-        <span [appCardPreview]="poolCardsById().get(card.oracleId)">{{ card.name }}</span>
+        <span [appCardPreview]="poolCardsById().get(card.poolCardId)">{{ card.name }}</span>
       </span>
       @if (!readOnly()) {
         <span class="move">
@@ -78,7 +82,7 @@
             class="icon"
             type="button"
             [attr.aria-label]="'Remove ' + card.name"
-            (click)="remove(card.oracleId)"
+            (click)="remove(card.poolCardId)"
             [disabled]="changing()"
           >
             ✕

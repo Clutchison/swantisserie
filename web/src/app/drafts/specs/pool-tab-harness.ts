@@ -20,6 +20,7 @@ export function useTallScreen() {
 export const image = (version: string, id: string, face = 'front') =>
   `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
 export const card = (fields: Partial<PoolCardView>): PoolCardView => ({
+  id: 'shivan-card',
   scryfallId: 'shivan-id',
   oracleId: 'shivan-oracle',
   name: 'Shivan Dragon',
@@ -50,6 +51,7 @@ export const card = (fields: Partial<PoolCardView>): PoolCardView => ({
 });
 export const shivan = card({});
 export const brightclimb = card({
+  id: 'brightclimb-card',
   scryfallId: 'brightclimb-id',
   oracleId: 'brightclimb-oracle',
   name: 'Brightclimb Pathway // Grimclimb Pathway',

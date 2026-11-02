@@ -40,7 +40,7 @@ describe('bots', () => {
           {
             pick: 1,
             playerId: bot.id,
-            oracleId: 'shock-oracle',
+            poolCardId: 'shock-card',
             name: 'Shock',
             layout: 'normal',
             set: 'ima',
@@ -49,7 +49,7 @@ describe('bots', () => {
           {
             pick: 2,
             playerId: alice.id,
-            oracleId: 'bolt-oracle',
+            poolCardId: 'bolt-card',
             name: 'Lightning Bolt',
             layout: 'normal',
             set: 'ima',

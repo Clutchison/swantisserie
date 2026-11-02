@@ -94,7 +94,7 @@ model PoolCard {
   draft           Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Scryfall id of the Arena printing.
   scryfallId      String
-  /// Identity shared by every printing; the pick identity.
+  /// Identity shared by every printing of the card. A pool card is named by its own id, not this.
   oracleId        String
   name            String
   set             String

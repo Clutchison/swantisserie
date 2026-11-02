@@ -34,7 +34,7 @@ describe('pool tab', () => {
       turn: { pick: 1, round: 1, playerId: bob.id },
       ...fields,
     });
-    const queued = (card: PoolCardView) => ({ oracleId: card.oracleId, name: card.name });
+    const queued = (card: PoolCardView) => ({ poolCardId: card.id, name: card.name });
 
     /** Opens the Queue tab and returns its panel. */
     async function openQueue(fixture: AppFixture, page: HTMLElement) {
@@ -52,7 +52,7 @@ describe('pool tab', () => {
       button(detail, 'Add to queue')!.click();
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ oracleId: 'shivan-oracle' });
+      expect(req.request.body).toEqual({ poolCardId: 'shivan-card' });
       req.flush({ cards: [queued(shivan)], lost: [], cleared: [] });
       await fixture.whenStable();
       expect(detail.textContent).toContain('Added to your queue.');
@@ -96,7 +96,7 @@ describe('pool tab', () => {
 
       const detail = await openDetail(fixture, page, 1);
       button(detail, 'Remove from queue')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/queue/shivan-oracle');
+      const req = http.expectOne('/api/drafts/draft-1/queue/shivan-card');
       expect(req.request.method).toBe('DELETE');
       req.flush({ cards: [queued(brightclimb)], lost: [], cleared: [] });
       await fixture.whenStable();
@@ -124,7 +124,7 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 0);
       button(detail, 'Remove from queue')!.click();
       http
-        .expectOne('/api/drafts/draft-1/queue/shivan-oracle')
+        .expectOne('/api/drafts/draft-1/queue/shivan-card')
         .flush(null, { status: 500, statusText: 'Server Error' });
       // The queue is re-read, as it may have moved on.
       await flushQueue({ cards: [queued(shivan)], lost: [], cleared: [] });
@@ -147,7 +147,7 @@ describe('pool tab', () => {
             {
               pick: 1,
               playerId: bob.id,
-              oracleId: 'shivan-oracle',
+              poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
               layout: 'normal',
               set: 'ima',
@@ -173,7 +173,7 @@ describe('pool tab', () => {
             {
               pick: 1,
               playerId: bob.id,
-              oracleId: 'shivan-oracle',
+              poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
               layout: 'normal',
               set: 'ima',
@@ -249,7 +249,7 @@ describe('pool tab', () => {
 
       const queue = await openQueue(fixture, page);
       queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
-      http.expectOne('/api/drafts/draft-1/queue/shivan-oracle').flush(EMPTY_QUEUE);
+      http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
       await fixture.whenStable();
       tabButton(page, 'Pool').click();
       await fixture.whenStable();
@@ -271,7 +271,7 @@ describe('pool tab', () => {
       const queue = await openQueue(fixture, page);
 
       queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/queue/shivan-oracle');
+      const req = http.expectOne('/api/drafts/draft-1/queue/shivan-card');
       expect(req.request.method).toBe('DELETE');
       req.flush({ cards: [queued(brightclimb)], lost: [], cleared: [] });
       await fixture.whenStable();
@@ -299,7 +299,7 @@ describe('pool tab', () => {
       expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Shivan Dragon']);
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.method).toBe('PUT');
-      expect(req.request.body).toEqual({ oracleIds: ['brightclimb-oracle', 'shivan-oracle'] });
+      expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
       req.flush({ cards: [queued(brightclimb), queued(shivan)], lost: [], cleared: [] });
       await fixture.whenStable();
 
@@ -443,7 +443,7 @@ describe('pool tab', () => {
 
         const detail = await openDetail(fixture, page, 0);
         button(detail, 'Remove from queue')!.click();
-        http.expectOne('/api/drafts/draft-1/queue/shivan-oracle').flush(EMPTY_QUEUE);
+        http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
         await fixture.whenStable();
 
         expect(detail.querySelector('[role="status"]')?.textContent).toContain(
@@ -580,7 +580,7 @@ describe('pool tab', () => {
 
         button(detail, 'Remove from queue')!.click();
         http
-          .expectOne('/api/drafts/draft-1/queue/shivan-oracle')
+          .expectOne('/api/drafts/draft-1/queue/shivan-card')
           .flush(
             { error: 'draft-closed', message: 'This draft is closed.' },
             { status: 409, statusText: 'Conflict' },

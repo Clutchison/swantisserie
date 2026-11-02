@@ -157,8 +157,8 @@ describe('close and reopen', () => {
   it('makes the queue read-only while closed, keeping it on show', async () => {
     const { page } = await openDraft(completeSnapshot, closed, {
       queue: {
-        cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
-        lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
+        cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
+        lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
         cleared: [],
       },
     });
@@ -176,8 +176,8 @@ describe('close and reopen', () => {
       { ...drafting, state: 'Complete', turn: null },
       {
         queue: {
-          cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
-          lost: [{ oracleId: 'bolt-oracle', name: 'Lightning Bolt' }],
+          cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
+          lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
           cleared: [],
         },
       },
@@ -201,7 +201,7 @@ describe('close and reopen', () => {
       { ...drafting, state, turn },
       {
         queue: {
-          cards: [{ oracleId: 'shivan-oracle', name: 'Shivan Dragon' }],
+          cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
           lost: [],
           cleared: [],
         },

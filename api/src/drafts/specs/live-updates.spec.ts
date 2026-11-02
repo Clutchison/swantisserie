@@ -15,6 +15,7 @@ import {
   readyDraft,
   start,
   undo,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -105,13 +106,14 @@ describe('live updates', () => {
   it('pushes the draft to its viewers after each pick', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
     await start(id).expect(200);
     const bobSees = await watch(id, bobCookie);
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
 
     await vi.waitFor(() =>
@@ -128,11 +130,12 @@ describe('live updates', () => {
   it('pushes the draft to its viewers after an undo, with the turn back', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
     await start(id).expect(200);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
     const bobSees = await watch(id, bobCookie);
 
@@ -204,10 +207,11 @@ describe('live updates', () => {
       'Lava Spike',
       'Skewer the Critics',
     ]);
+    const ids = await poolCardIds(id);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/queue`)
       .set('Cookie', bobCookie)
-      .send({ oracleId: 'lava-spike-oracle' })
+      .send({ poolCardId: ids['Lava Spike'] })
       .expect(200);
     await start(id).expect(200);
     const carolSees = await watch(id, await signIn(carol));
@@ -215,7 +219,7 @@ describe('live updates', () => {
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
 
     await vi.waitFor(() =>

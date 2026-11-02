@@ -17,6 +17,7 @@ import {
   readyDraft,
   start,
   webhookClient,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -156,8 +157,9 @@ describe('webhook', () => {
       if (state === 'Paused') await post(id, 'pause').expect(200);
       if (state === 'Closed') await post(id, 'close').expect(200);
       if (state === 'Complete') {
-        await pick(id, 'shock-oracle').expect(200);
-        await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+        const ids = await poolCardIds(id);
+        await pick(id, ids.Shock).expect(200);
+        await pick(id, ids['Lava Spike'], bobCookie).expect(200);
       }
     }
 
@@ -217,12 +219,13 @@ describe('webhook', () => {
 
     it('posts nothing once none is chosen', async () => {
       const id = await joinedDraft();
+      const ids = await poolCardIds(id);
 
       const res = await changeWebhook(id, { webhookId: null }).expect(200);
       expect(res.body.webhook).toBeNull();
       await start(id).expect(200);
-      await pick(id, 'shock-oracle').expect(200);
-      await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
       // Waits behind the draft's announcements, so they have had their chance.
       await app.get(DraftNotifier).notify(id, []);

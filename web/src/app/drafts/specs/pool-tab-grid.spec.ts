@@ -152,7 +152,12 @@ describe('pool tab', () => {
       expect(src(stayed)).toBe(image('normal', 'shivan-id'));
     });
 
-    const third = card({ scryfallId: 'third-id', oracleId: 'third-oracle', name: 'Third' });
+    const third = card({
+      id: 'third-card',
+      scryfallId: 'third-id',
+      oracleId: 'third-oracle',
+      name: 'Third',
+    });
 
     it('requests the images of buffer rows only after the tiles on screen', async () => {
       const { page } = await openPool([brightclimb, shivan]);

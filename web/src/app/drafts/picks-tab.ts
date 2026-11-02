@@ -40,7 +40,7 @@ export class PicksTab implements OnDestroy {
   readonly own = input.required<boolean>();
   /** The pick log, in pick order. */
   readonly picks = input.required<PickView[]>();
-  /** The pool's cards by oracle id, for the Card previews of the names here. */
+  /** The pool's cards by id, for the Card previews of the names here. */
   readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
   /** Whether the picks are still on their way. */
   readonly loading = input(false);

@@ -17,9 +17,9 @@ const PICK_LOG = {
   select: {
     number: true,
     player: { select: { userId: true } },
+    poolCardId: true,
     poolCard: {
       select: {
-        oracleId: true,
         name: true,
         layout: true,
         set: true,
@@ -54,14 +54,14 @@ export class TurnsService {
   }
 
   /**
-   * The user picks the pool card with `oracleId` on their turn, and the
+   * The user picks the pool card `poolCardId` on their turn, and the
    * cascade after it is picked; the last pick moves the draft to Complete.
    * Throws PickRefusedError if they can't.
    */
   async pick(
     draftId: string,
     userId: string,
-    oracleId: string,
+    poolCardId: string,
   ): Promise<DraftEvent[]> {
     // Locked so picks happen one at a time: each sees every pick before it.
     return this.lock.whileIn(
@@ -72,7 +72,7 @@ export class TurnsService {
           error: 'not-drafting',
           message: 'This draft isn’t taking picks.',
         }),
-      (draft) => this.takeTurn(draft, userId, oracleId),
+      (draft) => this.takeTurn(draft, userId, poolCardId),
     );
   }
 
@@ -92,10 +92,10 @@ export class TurnsService {
       const available = await tx.poolCard.findMany({
         where: { draftId, pick: null },
         orderBy: { name: 'asc' },
-        select: { oracleId: true },
+        select: { id: true },
       });
       const card = available[Math.floor(Math.random() * available.length)];
-      return this.takeTurn(draft, userId, card.oracleId);
+      return this.takeTurn(draft, userId, card.id);
     });
   }
 
@@ -143,24 +143,24 @@ export class TurnsService {
         user: { select: { isBot: true } },
         queue: {
           orderBy: { position: 'asc' },
-          select: { poolCard: { select: { oracleId: true } } },
+          select: { poolCardId: true },
         },
       },
     });
     const picked = await tx.pick.findMany({
       where: { draftId },
       orderBy: { number: 'asc' },
-      select: { poolCard: { select: { oracleId: true } } },
+      select: { poolCardId: true },
     });
     const picks = cascade(
       {
         ...draftSize(draft, players.length),
-        picked: picked.map((pick) => pick.poolCard.oracleId),
+        picked: picked.map((pick) => pick.poolCardId),
       },
       players.map((player) =>
         player.user.isBot
           ? []
-          : player.queue.map((queued) => queued.poolCard.oracleId),
+          : player.queue.map((queued) => queued.poolCardId),
       ),
     );
     const events: DraftEvent[] = [];
@@ -174,35 +174,35 @@ export class TurnsService {
   }
 
   /**
-   * The user picks the pool card with `oracleId` on their turn, in a draft
+   * The user picks the pool card `poolCardId` on their turn, in a draft
    * that is Drafting, and then the cascade after it is picked. Throws
    * PickRefusedError if they can't.
    */
   private async takeTurn(
     draft: LockedDraft,
     userId: string,
-    oracleId: string,
+    poolCardId: string,
   ): Promise<DraftEvent[]> {
     return [
-      ...(await this.pickCard(draft, userId, oracleId, { queued: false })),
+      ...(await this.pickCard(draft, userId, poolCardId, { queued: false })),
       ...(await this.cascade(draft)),
     ];
   }
 
   /**
-   * The user picks the pool card with `oracleId` on their turn, in a draft
+   * The user picks the pool card `poolCardId` on their turn, in a draft
    * that is Drafting; `queued` if it was picked from their queue. Throws
    * PickRefusedError if they can't.
    */
   private async pickCard(
     draft: LockedDraft,
     userId: string,
-    oracleId: string,
+    poolCardId: string,
     { queued }: { queued: boolean },
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
-    const card = await tx.poolCard.findUnique({
-      where: { draftId_oracleId: { draftId, oracleId } },
+    const card = await tx.poolCard.findFirst({
+      where: { id: poolCardId, draftId },
       select: { id: true, name: true },
     });
     if (!card) {
@@ -224,9 +224,9 @@ export class TurnsService {
     const seat = players.findIndex((player) => player.userId === userId);
     const size = draftSize(draft, players.length);
     const problem = pickProblem(
-      { ...size, picked: pickLog.map((pick) => pick.poolCard.oracleId) },
+      { ...size, picked: pickLog.map((pick) => pick.poolCardId) },
       seat,
-      oracleId,
+      poolCardId,
     );
     if (problem) throw new PickRefusedError(problem);
     const { id: pickId } = await tx.pick.create({

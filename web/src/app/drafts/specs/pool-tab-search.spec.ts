@@ -72,7 +72,7 @@ describe('pool tab', () => {
             {
               pick: 1,
               playerId: alice.id,
-              oracleId: shivan.oracleId,
+              poolCardId: shivan.id,
               name: shivan.name,
               layout: 'normal',
               set: 'm20',
@@ -139,6 +139,7 @@ describe('pool tab', () => {
 
     it('hides picked cards when asked, together with the search', async () => {
       const thundermaw = card({
+        id: 'thundermaw-card',
         scryfallId: 'thundermaw-id',
         oracleId: 'thundermaw-oracle',
         name: 'Thundermaw Hellkite',
@@ -152,7 +153,7 @@ describe('pool tab', () => {
             {
               pick: 1,
               playerId: bob.id,
-              oracleId: 'shivan-oracle',
+              poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
               layout: 'normal',
               set: 'ima',
@@ -185,7 +186,7 @@ describe('pool tab', () => {
 
     describe('color filter', () => {
       const colored = (name: string, colors: string[], typeLine = 'Creature — Bear') =>
-        card({ scryfallId: name, oracleId: name, name, colors, typeLine });
+        card({ id: name, scryfallId: name, oracleId: name, name, colors, typeLine });
       const white = colored('White Bear', ['W']);
       const blue = colored('Blue Bear', ['U']);
       const azorius = colored('Azorius Bear', ['W', 'U']);
@@ -247,7 +248,7 @@ describe('pool tab', () => {
               {
                 pick: 1,
                 playerId: bob.id,
-                oracleId: white.oracleId,
+                poolCardId: white.id,
                 name: white.name,
                 layout: 'normal',
                 set: 'm20',

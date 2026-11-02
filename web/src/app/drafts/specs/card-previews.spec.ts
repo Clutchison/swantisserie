@@ -22,6 +22,7 @@ useDraftsApp();
 
 describe('card previews', () => {
   const poolCard = (id: string, name: string, faces = ['front']): PoolCardView => ({
+    id: `${id}-card`,
     scryfallId: `${id}-id`,
     oracleId: `${id}-oracle`,
     name,
@@ -52,7 +53,7 @@ describe('card previews', () => {
   const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView => ({
     pick: number,
     playerId,
-    oracleId: card.oracleId,
+    poolCardId: card.id,
     name: card.name,
     layout: card.layout,
     set: card.set,
@@ -355,8 +356,8 @@ describe('card previews', () => {
 
   describe('in the queue', () => {
     const queue: QueueView = {
-      cards: [{ oracleId: shock.oracleId, name: shock.name }],
-      lost: [{ oracleId: bolt.oracleId, name: bolt.name }],
+      cards: [{ poolCardId: shock.id, name: shock.name }],
+      lost: [{ poolCardId: bolt.id, name: bolt.name }],
       cleared: [],
     };
 

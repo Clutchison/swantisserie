@@ -25,6 +25,7 @@ import {
   snapshotted,
   readyDraft,
   start,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -51,10 +52,11 @@ describe('cancel', () => {
 
   it('leaves nothing belonging to the draft, including its bots', async () => {
     const id = await readyDraft([aliceCookie]);
+    const ids = await poolCardIds(id);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/queue`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/bots`)

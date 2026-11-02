@@ -15,7 +15,7 @@ const SETTLE_MS = 120;
 const BUFFER_DELAY_MS = 50;
 
 interface WaitingTile {
-  oracleId: string;
+  poolCardId: string;
   request: () => void;
   /** Whether the browser has said if the tile is on screen yet. */
   measured: boolean;
@@ -34,7 +34,7 @@ interface WaitingTile {
 export class TileImageLoader implements OnDestroy {
   /** The tiles yet to request their images. */
   private readonly waiting = new Map<Element, WaitingTile>();
-  /** The oracle ids of the cards whose images were already requested, which their tiles needn't wait to show. */
+  /** The pool card ids of the cards whose images were already requested, which their tiles needn't wait to show. */
   private readonly requested = new Set<string>();
   private bufferDelay?: ReturnType<typeof setTimeout>;
   private readonly settledSignal = signal(true);
@@ -46,14 +46,14 @@ export class TileImageLoader implements OnDestroy {
       ? null
       : new IntersectionObserver((entries) => this.screenChanged(entries));
 
-  add(element: Element, oracleId: string, request: () => void) {
-    if (!this.observer || this.requested.has(oracleId)) {
-      this.requested.add(oracleId);
+  add(element: Element, poolCardId: string, request: () => void) {
+    if (!this.observer || this.requested.has(poolCardId)) {
+      this.requested.add(poolCardId);
       request();
       return;
     }
     clearTimeout(this.bufferDelay);
-    this.waiting.set(element, { oracleId, request, measured: false });
+    this.waiting.set(element, { poolCardId, request, measured: false });
     this.settledSignal.set(false);
     this.observer.observe(element);
   }
@@ -105,7 +105,7 @@ export class TileImageLoader implements OnDestroy {
 
   private request(element: Element, tile: WaitingTile) {
     this.forget(element);
-    this.requested.add(tile.oracleId);
+    this.requested.add(tile.poolCardId);
     tile.request();
   }
 
@@ -116,18 +116,18 @@ export class TileImageLoader implements OnDestroy {
   }
 }
 
-/** Marks a tile of the Pool tab's grid, with its card's oracle id, and says when to request its image. */
+/** Marks a tile of the Pool tab's grid, with its pool card's id, and says when to request its image. */
 @Directive({ selector: '[appTileImage]', exportAs: 'tileImage' })
 export class TileImage implements OnInit, OnDestroy {
   private readonly loader = inject(TileImageLoader);
   private readonly element = inject<ElementRef<Element>>(ElementRef).nativeElement;
 
-  readonly oracleId = input.required<string>({ alias: 'appTileImage' });
+  readonly poolCardId = input.required<string>({ alias: 'appTileImage' });
   /** Whether the tile should render its image, which requests it. */
   readonly requested = signal(false);
 
   ngOnInit() {
-    this.loader.add(this.element, this.oracleId(), () => this.requested.set(true));
+    this.loader.add(this.element, this.poolCardId(), () => this.requested.set(true));
   }
 
   ngOnDestroy() {

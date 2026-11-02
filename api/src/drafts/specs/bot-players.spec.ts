@@ -17,6 +17,7 @@ import {
   pick,
   pickLog,
   undo,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -81,7 +82,7 @@ describe('bot players', () => {
     const { id, botIds } = await draftWithBots(3, 2);
     await start(id).expect(200);
 
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     // Snake order: Alice, bots 1-3, then bots 3-1 and Alice again.
     const draft = await atPick(id, 8);
@@ -102,8 +103,7 @@ describe('bot players', () => {
     const picked = log.map((logged) => logged.name);
     expect(new Set(picked).size).toBe(7);
     const [last] = cards.filter((name) => !picked.includes(name));
-    const oracleId = `${last.toLowerCase().replace(/\W+/g, '-')}-oracle`;
-    const final = await pick(id, oracleId).expect(200);
+    const final = await pick(id, (await poolCardIds(id))[last]).expect(200);
     expect(final.body.state).toBe('Complete');
   });
 
@@ -131,7 +131,7 @@ describe('bot players', () => {
     // Of the seven cards left, by name, the last but one.
     vi.spyOn(Math, 'random').mockReturnValue(5.5 / 7);
 
-    await pick(id, 'fireblast-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Fireblast).expect(200);
 
     await vi.waitFor(async () => {
       expect(
@@ -146,7 +146,7 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1, 2);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     // Pick 2 is made some other way before the bot's timer fires.
     const prisma = app.get(PrismaService);
@@ -177,7 +177,7 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/pause`)
@@ -207,7 +207,7 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/close`)
@@ -236,7 +236,7 @@ describe('bot players', () => {
     await start(id).expect(200);
     // The bot picks the first available card by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
     await atPick(id, 4);
 
     await undo(id, 3).expect(200);
@@ -259,7 +259,7 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
     await app.close();
 
     await startApp();
@@ -286,7 +286,7 @@ describe('bot players', () => {
       const { id } = await draftWithBots(1, 2, res.body.id);
       await start(id).expect(200);
 
-      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
       const messages = await vi.waitFor(() => {
         expect(webhookClient.post).toHaveBeenCalledTimes(4);

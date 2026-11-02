@@ -8,17 +8,17 @@ import { isRefusal, type QueueView } from './drafts';
 export class QueueApi {
   private readonly http = inject(HttpClient);
 
-  add(draftId: string, oracleId: string): Observable<QueueView> {
-    return this.http.post<QueueView>(url(draftId), { oracleId });
+  add(draftId: string, poolCardId: string): Observable<QueueView> {
+    return this.http.post<QueueView>(url(draftId), { poolCardId });
   }
 
-  remove(draftId: string, oracleId: string): Observable<QueueView> {
-    return this.http.delete<QueueView>(`${url(draftId)}/${encodeURIComponent(oracleId)}`);
+  remove(draftId: string, poolCardId: string): Observable<QueueView> {
+    return this.http.delete<QueueView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
   }
 
-  /** Puts the queue's cards in this order. */
-  reorder(draftId: string, oracleIds: string[]): Observable<QueueView> {
-    return this.http.put<QueueView>(url(draftId), { oracleIds });
+  /** Puts the queue's cards in this order, as their pool card ids. */
+  reorder(draftId: string, poolCardIds: string[]): Observable<QueueView> {
+    return this.http.put<QueueView>(url(draftId), { poolCardIds });
   }
 
   /** Stops the notice listing the lost and cleared cards. */

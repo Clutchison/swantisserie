@@ -81,11 +81,7 @@ export class PickImportService {
   ): Promise<void> {
     await this.lock.inLobby(draftId, async (draft) => {
       const { tx } = draft;
-      const { players, reading, pool } = await this.checkPickImport(
-        tx,
-        draft,
-        csv,
-      );
+      const { players, reading } = await this.checkPickImport(tx, draft, csv);
       if (
         players.length !== previewedSeats.length ||
         players.some(({ userId }, seat) => userId !== previewedSeats[seat])
@@ -99,15 +95,14 @@ export class PickImportService {
         draft,
         players.map((player) => player.userId),
       );
-      const cardIds = new Map(pool.map((card) => [card.oracleId, card.id]));
       const createdAt = new Date();
       await tx.pick.createMany({
-        data: reading.picks.map(({ number, seat, oracleId }) => ({
+        data: reading.picks.map(({ number, seat, poolCardId }) => ({
           draftId,
           number,
           playerId: players[seat].id,
-          // Read from this same pool, so it is there.
-          poolCardId: cardIds.get(oracleId)!,
+          // Read from this same pool, in this transaction.
+          poolCardId,
           createdAt,
         })),
       });
@@ -117,7 +112,7 @@ export class PickImportService {
   }
 
   /**
-   * The draft's players in seat order, its pool, and `csv` read for them. Throws
+   * The draft's players in seat order, and `csv` read for them against its pool. Throws
    * StartRefusedError if the draft can't start yet, and
    * PickImportRefusedError if the file can't be imported.
    */
@@ -135,10 +130,10 @@ export class PickImportService {
     await checkCanStart(client, draft, players.length);
     const pool = await client.poolCard.findMany({
       where: { draftId },
-      select: { id: true, oracleId: true, name: true },
+      select: { id: true, name: true },
     });
     const reading = readPickImport(csv, draftSize(draft, players.length), pool);
     if (!reading.ok) throw new PickImportRefusedError(reading.problems);
-    return { players, reading, pool };
+    return { players, reading };
   }
 }

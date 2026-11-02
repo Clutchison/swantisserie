@@ -17,6 +17,7 @@ import {
   pick,
   post,
   undo,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -79,17 +80,18 @@ describe('announcements', () => {
       undefined,
       webhookId,
     );
+    const ids = await poolCardIds(id);
     await start(id).expect(200);
 
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', bobCookie)
-      .send({ oracleId: 'lava-spike-oracle' })
+      .send({ poolCardId: ids['Lava Spike'] })
       .expect(200);
 
     expect((await posted(4)).slice(1)).toEqual([
@@ -124,10 +126,11 @@ describe('announcements', () => {
 
     it('names them without a ping after a by-hand pick', async () => {
       const id = await snakeDraft();
+      const ids = await poolCardIds(id);
       await start(id).expect(200);
-      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, ids.Shock).expect(200);
 
-      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
       expect(await lastPost(3)).toEqual({
         content: '2- **Bob** picked **Lightning Bolt**\n**Bob** is up.',
@@ -137,10 +140,11 @@ describe('announcements', () => {
 
     it('pings them after a queued pick in a pick’s cascade', async () => {
       const id = await snakeDraft();
-      await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      const ids = await poolCardIds(id);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
       await start(id).expect(200);
 
-      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, ids.Shock).expect(200);
 
       expect(await lastPost(2)).toEqual({
         content:
@@ -153,8 +157,9 @@ describe('announcements', () => {
 
     it('pings them after a queued pick in a start’s cascade', async () => {
       const id = await snakeDraft();
-      await enqueue(id, 'shock-oracle').expect(200);
-      await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      const ids = await poolCardIds(id);
+      await enqueue(id, ids.Shock).expect(200);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
       await start(id).expect(200);
 
@@ -178,11 +183,12 @@ describe('announcements', () => {
       'pings them after a queued pick when a %s ends in a %s’s cascade',
       async (stop, carryOn, happened) => {
         const id = await snakeDraft();
-        await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
-        await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
-        await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+        const ids = await poolCardIds(id);
+        await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+        await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
+        await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
         await start(id).expect(200);
-        await pick(id, 'shock-oracle').expect(200);
+        await pick(id, ids.Shock).expect(200);
         // Undoing both of Bob's queued picks leaves his turn with one card
         // waiting, which fires as pick 2 and leaves him up for pick 3.
         await undo(id, 3).expect(200);
@@ -203,10 +209,11 @@ describe('announcements', () => {
 
     it('pings them on an undo of their second pick in a row', async () => {
       const id = await snakeDraft();
+      const ids = await poolCardIds(id);
       await start(id).expect(200);
-      await pick(id, 'shock-oracle').expect(200);
-      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
-      await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
       await undo(id, 3).expect(200);
 
@@ -220,9 +227,10 @@ describe('announcements', () => {
 
     it('pings them on a resume after their by-hand pick', async () => {
       const id = await snakeDraft();
+      const ids = await poolCardIds(id);
       await start(id).expect(200);
-      await pick(id, 'shock-oracle').expect(200);
-      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
       await post(id, 'pause').expect(200);
 
       await post(id, 'resume').expect(200);
@@ -241,11 +249,12 @@ describe('announcements', () => {
       ['Shock', 'Lightning Bolt', 'Lava Spike'],
       webhookId,
     );
+    const ids = await poolCardIds(id);
     await post(id, 'bots', await signIn(carol)).expect(201);
-    await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+    await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await start(id).expect(200);
 
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     // The bot then picks on its own timer, so more posts may follow.
     const message = await vi.waitFor(() => {
@@ -264,11 +273,12 @@ describe('announcements', () => {
 
   it('posts nothing for a draft without a webhook', async () => {
     const id = await readyDraft([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
     await start(id).expect(200);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
 
     // Give a stray post the chance to happen.
@@ -283,6 +293,7 @@ describe('announcements', () => {
       undefined,
       webhookId,
     );
+    const ids = await poolCardIds(id);
     await start(id).expect(200);
     await posted(1);
     webhookClient.post.mockRejectedValue(new Error('Discord is down'));
@@ -293,7 +304,7 @@ describe('announcements', () => {
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/picks`)
       .set('Cookie', aliceCookie)
-      .send({ oracleId: 'shock-oracle' })
+      .send({ poolCardId: ids.Shock })
       .expect(200);
 
     // The first try and two retries.

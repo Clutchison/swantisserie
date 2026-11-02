@@ -65,13 +65,13 @@
     [style.padding-bottom.px]="tileGap"
     [style.height.px]="rowHeight()"
   >
-    @for (card of row; track card.oracleId) {
+    @for (card of row; track card.id) {
       <div class="cell" role="listitem">
         <button
           type="button"
           class="tile"
-          [class.picked]="picked().has(card.oracleId)"
-          [appTileImage]="card.oracleId"
+          [class.picked]="picked().has(card.id)"
+          [appTileImage]="card.id"
           #tileImage="tileImage"
           #tile
           (click)="open(card, tile)"
@@ -92,7 +92,7 @@
               (error)="imageFailed(card, 'normal')"
             />
           }
-          @if (picked().get(card.oracleId); as picker) {
+          @if (picked().get(card.id); as picker) {
             <span class="badge">
               <app-player-avatar [src]="picker.avatarUrl" />
               <span aria-hidden="true">Picked</span>
@@ -115,7 +115,7 @@
       (click)="$event.stopPropagation()"
     >
       <!-- One card's image per element: another card opened here starts afresh. -->
-      @for (shownCard of [card]; track shownCard.oracleId) {
+      @for (shownCard of [card]; track shownCard.id) {
         <app-card-image
           class="large"
           [src]="image(shownCard, 'large', face())"
@@ -138,14 +138,14 @@
             class="button"
             type="button"
             (click)="pick(card)"
-            [disabled]="!yourTurn() || picked().has(card.oracleId) || picking()"
+            [disabled]="!yourTurn() || picked().has(card.id) || picking()"
           >
             {{ picking() ? 'Picking…' : 'Pick' }}
           </button>
         }
         @if (offerQueue()) {
           <!-- A picked card, even one lost from the queue, is never offered for removal. -->
-          @if (queued().has(card.oracleId) && !picked().has(card.oracleId)) {
+          @if (queued().has(card.id) && !picked().has(card.id)) {
             <button
               class="button secondary"
               type="button"
@@ -159,7 +159,7 @@
               class="button secondary"
               type="button"
               (click)="addToQueue(card)"
-              [disabled]="picked().has(card.oracleId) || queueing()"
+              [disabled]="picked().has(card.id) || queueing()"
             >
               Add to queue
             </button>
@@ -170,7 +170,7 @@
         }
         <button #closeButton class="button secondary" type="button" (click)="close()">Close</button>
       </div>
-      @if (picked().get(card.oracleId); as picker) {
+      @if (picked().get(card.id); as picker) {
         <p class="note picked-by">
           <app-player-avatar [src]="picker.avatarUrl" />
           Picked by {{ picker.name }}

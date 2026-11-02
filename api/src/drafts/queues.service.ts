@@ -4,11 +4,9 @@ import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 
-const POOL_CARD_NAME = { oracleId: true, name: true } as const;
-
 /** A card in a queue, or lost or cleared from one. */
 export interface QueuedCardView {
-  oracleId: string;
+  poolCardId: string;
   name: string;
 }
 
@@ -69,7 +67,7 @@ export class QueuesService {
   }
 
   /**
-   * Adds the pool card with `oracleId` to the end of the user's queue, and
+   * Adds the pool card `poolCardId` to the end of the user's queue, and
    * off its cleared list; a no-op if it is already queued. Throws QueueRefusedError if it can't be
    * queued, as on the player's own turn, drafting or paused: they make that pick
    * by hand. Throws NotAPlayerError if the user isn't in the draft.
@@ -77,7 +75,7 @@ export class QueuesService {
   async add(
     draftId: string,
     userId: string,
-    oracleId: string,
+    poolCardId: string,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
       if (state === 'Complete') {
@@ -95,8 +93,8 @@ export class QueuesService {
           message: 'You can’t add to your queue on your turn.',
         });
       }
-      const card = await tx.poolCard.findUnique({
-        where: { draftId_oracleId: { draftId, oracleId } },
+      const card = await tx.poolCard.findFirst({
+        where: { id: poolCardId, draftId },
         select: { id: true, pick: { select: { id: true } } },
       });
       if (!card) {
@@ -130,33 +128,33 @@ export class QueuesService {
   }
 
   /**
-   * Puts the user's queue in the order of `oracleIds`, which must list each
+   * Puts the user's queue in the order of `poolCardIds`, which must list each
    * queued card once; throws QueueChangedError if it doesn't. Throws
    * NotAPlayerError if the user isn't in the draft.
    */
   async reorder(
     draftId: string,
     userId: string,
-    oracleIds: string[],
+    poolCardIds: string[],
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
       const queued = await tx.queuedCard.findMany({
         where: { playerId },
-        select: { id: true, poolCard: { select: { oracleId: true } } },
+        select: { id: true, poolCardId: true },
       });
-      const ids = new Map(
-        queued.map((entry) => [entry.poolCard.oracleId, entry.id]),
+      const queuedIds = new Map(
+        queued.map((entry) => [entry.poolCardId, entry.id]),
       );
-      // The controller has checked the oracle ids are distinct.
+      // The controller has checked the pool card ids are distinct.
       if (
-        ids.size !== oracleIds.length ||
-        !oracleIds.every((oracleId) => ids.has(oracleId))
+        queuedIds.size !== poolCardIds.length ||
+        !poolCardIds.every((poolCardId) => queuedIds.has(poolCardId))
       ) {
         throw new QueueChangedError();
       }
-      for (const [position, oracleId] of oracleIds.entries()) {
+      for (const [position, poolCardId] of poolCardIds.entries()) {
         await tx.queuedCard.update({
-          where: { id: ids.get(oracleId) },
+          where: { id: queuedIds.get(poolCardId) },
           data: { position },
         });
       }
@@ -164,17 +162,17 @@ export class QueuesService {
   }
 
   /**
-   * Takes the card with `oracleId` out of the user's queue; a no-op if it
+   * Takes the pool card `poolCardId` out of the user's queue; a no-op if it
    * isn't there. Throws NotAPlayerError if the user isn't in the draft.
    */
   async remove(
     draftId: string,
     userId: string,
-    oracleId: string,
+    poolCardId: string,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
       await tx.queuedCard.deleteMany({
-        where: { playerId, poolCard: { oracleId } },
+        where: { playerId, poolCardId },
       });
     });
   }
@@ -254,7 +252,7 @@ export class QueuesService {
     const cards = await tx.queuedCard.findMany({
       where: { playerId },
       orderBy: { position: 'asc' },
-      select: { poolCard: { select: POOL_CARD_NAME } },
+      select: { poolCardId: true, poolCard: { select: { name: true } } },
     });
     const listed = await tx.unqueuedCard.findMany({
       where: { playerId, noticeHidden: false },
@@ -262,17 +260,22 @@ export class QueuesService {
       select: {
         poolCardId: true,
         pick: { select: { poolCardId: true } },
-        poolCard: { select: POOL_CARD_NAME },
+        poolCard: { select: { name: true } },
       },
     });
     const isLost = (card: (typeof listed)[number]) =>
       card.poolCardId === card.pick.poolCardId;
     return {
-      cards: cards.map((card) => card.poolCard),
-      lost: listed.filter(isLost).map((card) => card.poolCard),
-      cleared: listed
-        .filter((card) => !isLost(card))
-        .map((card) => card.poolCard),
+      cards: cards.map(toQueuedCardView),
+      lost: listed.filter(isLost).map(toQueuedCardView),
+      cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
     };
   }
+}
+
+function toQueuedCardView(card: {
+  poolCardId: string;
+  poolCard: { name: string };
+}): QueuedCardView {
+  return { poolCardId: card.poolCardId, name: card.poolCard.name };
 }

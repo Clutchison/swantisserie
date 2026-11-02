@@ -19,7 +19,7 @@ describe('undo', () => {
     {
       pick: 1,
       playerId: bob.id,
-      oracleId: 'shock-oracle',
+      poolCardId: 'shock-card',
       name: 'Shock',
       layout: 'normal',
       set: 'ima',
@@ -28,7 +28,7 @@ describe('undo', () => {
     {
       pick: 2,
       playerId: alice.id,
-      oracleId: 'bolt-oracle',
+      poolCardId: 'bolt-card',
       name: 'Lightning Bolt',
       layout: 'normal',
       set: 'ima',
@@ -77,7 +77,7 @@ describe('undo', () => {
       {
         pick: 3,
         playerId: alice.id,
-        oracleId: 'spike-oracle',
+        poolCardId: 'spike-card',
         name: 'Lava Spike',
         layout: 'normal',
         set: 'ima',

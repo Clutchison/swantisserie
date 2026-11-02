@@ -31,7 +31,7 @@ describe('pool tab', () => {
     const shivanPick: PickView = {
       pick: 1,
       playerId: alice.id,
-      oracleId: 'shivan-oracle',
+      poolCardId: 'shivan-card',
       name: 'Shivan Dragon',
       layout: 'normal',
       set: 'ima',
@@ -47,7 +47,7 @@ describe('pool tab', () => {
       button(detail, 'Pick')!.click();
       const req = http.expectOne('/api/drafts/draft-1/picks');
       expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ oracleId: 'shivan-oracle' });
+      expect(req.request.body).toEqual({ poolCardId: 'shivan-card' });
       req.flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
       await flushPicks([shivanPick]);
       await fixture.whenStable();
@@ -118,7 +118,7 @@ describe('pool tab', () => {
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
         draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
       );
-      await flushPicks([{ ...shivanPick, oracleId: 'other-oracle', name: 'Other' }]);
+      await flushPicks([{ ...shivanPick, poolCardId: 'other-card', name: 'Other' }]);
       await fixture.whenStable();
 
       expect(detail.querySelector('[role="alert"]')?.textContent).toContain('It’s not your turn.');
@@ -135,7 +135,7 @@ describe('pool tab', () => {
     const pickBy = (playerId: string): PickView => ({
       pick: 1,
       playerId,
-      oracleId: 'shivan-oracle',
+      poolCardId: 'shivan-card',
       name: 'Shivan Dragon',
       layout: 'normal',
       set: 'ima',
@@ -254,7 +254,7 @@ describe('pool tab', () => {
           {
             pick: 1,
             playerId: alice.id,
-            oracleId: brightclimb.oracleId,
+            poolCardId: brightclimb.id,
             name: brightclimb.name,
             layout: 'normal',
             set: brightclimb.set,

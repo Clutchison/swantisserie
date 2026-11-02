@@ -55,19 +55,19 @@ export class QueuesController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const oracleId = parseCard(body);
-    return this.answer(id, () => this.queues.add(id, user.id, oracleId));
+    const poolCardId = parseCard(body);
+    return this.answer(id, () => this.queues.add(id, user.id, poolCardId));
   }
 
-  /** Sets the queue's order, as every queued card's oracle id. */
+  /** Sets the queue's order, as every queued card's pool card id. */
   @Put()
   async reorder(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const oracleIds = parseOrder(body);
-    return this.answer(id, () => this.queues.reorder(id, user.id, oracleIds));
+    const poolCardIds = parseOrder(body);
+    return this.answer(id, () => this.queues.reorder(id, user.id, poolCardIds));
   }
 
   /** Stops the Queue tab notice listing the lost and cleared cards. */
@@ -80,13 +80,13 @@ export class QueuesController {
   }
 
   /** Takes a card out of the queue. Declared after `notice`, which it would match. */
-  @Delete(':oracleId')
+  @Delete(':poolCardId')
   async remove(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
-    @Param('oracleId') oracleId: string,
+    @Param('poolCardId') poolCardId: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.remove(id, user.id, oracleId));
+    return this.answer(id, () => this.queues.remove(id, user.id, poolCardId));
   }
 
   /** Answers with the queue as `request` leaves it, or why it can’t. */
@@ -121,30 +121,30 @@ export class QueuesController {
   }
 }
 
-/** The card's oracle id, or a 400 if there isn't one. */
+/** The pool card's id, or a 400 if there isn't one. */
 function parseCard(body: unknown): string {
-  const { oracleId } = (body ?? {}) as Record<string, unknown>;
-  if (typeof oracleId !== 'string' || !oracleId) {
+  const { poolCardId } = (body ?? {}) as Record<string, unknown>;
+  if (typeof poolCardId !== 'string' || !poolCardId) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say which card to queue.',
     });
   }
-  return oracleId;
+  return poolCardId;
 }
 
-/** The queued cards' oracle ids, or a 400 if it isn't a list of distinct ids. */
+/** The queued cards' pool card ids, or a 400 if it isn't a list of distinct ids. */
 function parseOrder(body: unknown): string[] {
-  const { oracleIds } = (body ?? {}) as Record<string, unknown>;
+  const { poolCardIds } = (body ?? {}) as Record<string, unknown>;
   if (
-    !Array.isArray(oracleIds) ||
-    !oracleIds.every((id) => typeof id === 'string') ||
-    new Set(oracleIds).size !== oracleIds.length
+    !Array.isArray(poolCardIds) ||
+    !poolCardIds.every((id) => typeof id === 'string') ||
+    new Set(poolCardIds).size !== poolCardIds.length
   ) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'List each queued card once, in order.',
     });
   }
-  return oracleIds;
+  return poolCardIds;
 }

@@ -236,7 +236,7 @@ describe('seats and start', () => {
           {
             pick: 1,
             playerId: alice.id,
-            oracleId: 'ash-golem-oracle',
+            poolCardId: 'ash-golem-card',
             name: 'Ash Golem',
             layout: 'normal',
             set: 'tst',
