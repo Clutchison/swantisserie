@@ -1,5 +1,5 @@
-import { countedLines } from './counted-lines';
 import type { PickView } from 'contract';
+import { countedLines } from './counted-lines';
 
 /** What a Moxfield export needs of a picked card. */
 export type MoxfieldExportCard = Pick<PickView, 'name' | 'set' | 'collectorNumber'>;

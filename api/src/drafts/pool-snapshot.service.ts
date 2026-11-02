@@ -13,7 +13,6 @@ import {
   ScryfallUnavailableError,
   type ScryfallCard,
   type ScryfallCardFace,
-  type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
 
@@ -221,7 +220,7 @@ function toPoolCard(
   const images: StoredCardImages[] = (
     card.image_uris ? [card.image_uris] : faces.map((face) => face.image_uris)
   )
-    .filter((uris): uris is ScryfallImageUris => !!uris)
+    .filter((uris): uris is CardImages => !!uris)
     .map(({ small, normal, large }) => ({ small, normal, large }));
   return {
     draftId,

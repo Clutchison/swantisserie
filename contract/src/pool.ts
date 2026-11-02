@@ -1,4 +1,4 @@
-/** Scryfall image URLs of one card face. */
+/** The sizes of one card face's image that we use, on cards.scryfall.io. */
 export interface CardImages {
   small: string;
   normal: string;
