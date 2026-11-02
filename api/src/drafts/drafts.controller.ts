@@ -57,7 +57,7 @@ import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
 import { type DraftView, toDraftView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
-import { isPlatform } from './platform.js';
+import { isPlatform, PLATFORMS } from './platform.js';
 import {
   type CardFace,
   type CardImages,
@@ -563,7 +563,7 @@ function parseNewDraft(body: unknown): NewDraft {
   // Only a missing field gets the default, as with picks per player.
   const chosenPlatform = platform === undefined ? 'Arena' : platform;
   if (!isPlatform(chosenPlatform)) {
-    throw invalid('Choose Arena or MTGO.');
+    throw invalid(`Choose ${PLATFORMS.join(' or ')}.`);
   }
 
   // Missing or null: the draft posts nowhere.

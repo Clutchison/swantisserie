@@ -1,22 +1,10 @@
-import { PGlite } from '@electric-sql/pglite';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { databaseBefore } from './migrations.js';
 
-const MIGRATIONS = join(import.meta.dirname, '../../../prisma/migrations');
 const DRAFT_PLATFORM = '20261102140000_draft_platform';
 
 describe('the draft platform migration', () => {
   it('puts every existing draft on Arena', async () => {
-    const db = await PGlite.create();
-    const apply = (migration: string) =>
-      db.exec(
-        readFileSync(join(MIGRATIONS, migration, 'migration.sql'), 'utf8'),
-      );
-    const earlier = readdirSync(MIGRATIONS, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name < DRAFT_PLATFORM)
-      .map((entry) => entry.name)
-      .sort();
-    for (const migration of earlier) await apply(migration);
+    const { db, applyMigration } = await databaseBefore(DRAFT_PLATFORM);
     // Only these rows matter, so the rows they refer to needn't exist.
     await db.exec(`
       SET session_replication_role = replica;
@@ -25,7 +13,7 @@ describe('the draft platform migration', () => {
                ('b', 'Red', 'c:r', 40, 'organizer', now());
     `);
 
-    await apply(DRAFT_PLATFORM);
+    await applyMigration();
 
     const drafts = await db.query(
       `SELECT "id", "platform" FROM "Draft" ORDER BY "id"`,

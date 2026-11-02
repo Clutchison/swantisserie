@@ -14,7 +14,7 @@ import {
   type ScryfallCardFace,
   type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
-import { SCRYFALL_GAME } from './platform.js';
+import { SCRYFALL_NAME } from './platform.js';
 
 /** What a draft's pool is snapshotted from. */
 interface PoolSource {
@@ -184,7 +184,7 @@ export class PoolSnapshotService
     // game:arena picks the Arena printing of each card, game:mtgo the MTGO
     // one; the pool query was already checked to have no cards off the
     // platform.
-    const query = `(${poolQuery}) game:${SCRYFALL_GAME[platform]} unique:cards`;
+    const query = `(${poolQuery}) game:${SCRYFALL_NAME[platform]} unique:cards`;
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
       if (!result) {
