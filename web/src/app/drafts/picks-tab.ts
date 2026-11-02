@@ -22,7 +22,7 @@ const EXPORTS: Record<ExportTarget, (picks: PickView[]) => string> = {
   Moxfield: moxfieldExport,
 };
 
-/** The export targets a draft on each platform offers. An MTGO export will join Moxfield. */
+/** The export targets a draft on each platform offers. */
 const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
   Arena: ['Arena', 'Moxfield'],
   MTGO: ['Moxfield'],
