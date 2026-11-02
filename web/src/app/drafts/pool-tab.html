@@ -71,7 +71,7 @@
           type="button"
           class="tile"
           [class.picked]="picked().has(card.id)"
-          [appTileImage]="card.id"
+          [appTileImage]="card.scryfallId"
           #tileImage="tileImage"
           #tile
           (click)="open(card, tile)"
