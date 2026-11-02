@@ -38,12 +38,16 @@ _Avoid_: Card list, cube
 The Scryfall search the organizer enters to define a draft's pool.
 _Avoid_: Search, filter, Scryfall query (in code)
 
+**Cube link**:
+The CubeCobra cube an organizer names to define a draft's pool, instead of a pool query.
+_Avoid_: Cube list, CubeCobra import, cube (alone)
+
 **Pool snapshot**:
-The copy of a pool query's cards taken from Scryfall right after a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
+The cards a pool query or cube link names, taken from Scryfall right after a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:
-One card in a pool, with the Arena printing the snapshot took.
+One copy of a card in a pool, with the Arena printing the snapshot took. A pool can hold several copies of the same card.
 _Avoid_: Card entry, catalog card
 
 **Card preview**:
@@ -70,6 +74,10 @@ _Avoid_: Color search, color identity filter, mana filter
 The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them.
 _Avoid_: Card grid, pool page
 
+**Platform**:
+The game a draft is played on: MTG Arena or Magic Online (MTGO).
+_Avoid_: Client, target, game
+
 **On Arena**:
 Describes a card with at least one printing on MTG Arena. Every card in a pool must be on Arena.
 _Avoid_: Arena-legal (legality is per format), Arena card
@@ -95,7 +103,7 @@ A player's chance to make the next pick. The draft says whose turn it is and whi
 _Avoid_: Go, move
 
 **Pick**:
-One card taken by one player on their turn. Each card in the pool can be picked once.
+One pool card taken by one player on their turn. Each pool card can be picked once.
 _Avoid_: Selection, draft (as a verb)
 
 **Picked badge**:
@@ -119,7 +127,7 @@ A run of queued picks that fire one after another because each next player also 
 _Avoid_: Chain, auto-run
 
 **Lost**:
-Describes a queued card that another player picked first.
+Describes a queued card that other players picked first, leaving no copy of it in the pool.
 _Avoid_: Sniped, taken
 
 **Cleared**:
