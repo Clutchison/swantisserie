@@ -14,6 +14,7 @@ import {
   enqueue,
   pickLogLines,
   undo,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -40,6 +41,7 @@ describe('pause and resume', () => {
 
   it('pauses the draft, refusing picks until it resumes', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const ids = await poolCardIds(id);
     await start(id).expect(200);
 
     const paused = await pause(id).expect(200);
@@ -48,7 +50,7 @@ describe('pause and resume', () => {
       state: 'Paused',
       turn: { pick: 1, playerId: alice.id },
     });
-    const refused = await pick(id, 'shock-oracle').expect(409);
+    const refused = await pick(id, ids.Shock).expect(409);
     expect(refused.body.error).toBe('not-drafting');
     expect(await pickLogLines(id)).toEqual([]);
 
@@ -58,22 +60,23 @@ describe('pause and resume', () => {
       state: 'Drafting',
       turn: { pick: 1, playerId: alice.id },
     });
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, ids.Shock).expect(200);
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
   });
 
   it('makes the queued picks due on resume, cascading from whoever is up', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
-    await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+    await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
+    await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await start(id).expect(200);
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, ids.Shock).expect(200);
     // Bob's cascade ran; undoing its last pick leaves his turn with a card waiting.
     await undo(id, 3).expect(200);
     await pause(id).expect(200);
     // Queued while paused, off turn: nothing is picked yet.
-    await enqueue(id, 'skewer-the-critics-oracle').expect(200);
+    await enqueue(id, ids['Skewer the Critics']).expect(200);
     expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
 
     const resumed = await resume(id).expect(200);
@@ -89,6 +92,7 @@ describe('pause and resume', () => {
 
   it('refuses to pause a draft that is not drafting, or resume one that is not paused', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+    const ids = await poolCardIds(id);
     expect((await pause(id).expect(409)).body.error).toBe('not-drafting');
     expect((await resume(id).expect(409)).body.error).toBe('not-paused');
     await start(id).expect(200);
@@ -96,8 +100,8 @@ describe('pause and resume', () => {
     await pause(id).expect(200);
     expect((await pause(id).expect(409)).body.error).toBe('not-drafting');
     await resume(id).expect(200);
-    await pick(id, 'shock-oracle').expect(200);
-    await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+    await pick(id, ids.Shock).expect(200);
+    await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
     const refused = await pause(id).expect(409);
 
@@ -131,8 +135,9 @@ describe('pause and resume', () => {
       cards,
       webhook.body.id,
     );
-    await enqueue(id, 'lava-spike-oracle').expect(200);
-    await enqueue(id, 'shock-oracle').expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids['Lava Spike']).expect(200);
+    await enqueue(id, ids.Shock).expect(200);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn.
     await undo(id, 1).expect(200);

@@ -24,7 +24,7 @@ describe('board tab', () => {
     {
       pick: 1,
       playerId: bob.id,
-      oracleId: 'shock-oracle',
+      poolCardId: 'shock-card',
       name: 'Shock',
       layout: 'normal',
       set: 'ima',
@@ -33,7 +33,7 @@ describe('board tab', () => {
     {
       pick: 2,
       playerId: alice.id,
-      oracleId: 'bolt-oracle',
+      poolCardId: 'bolt-card',
       name: 'Lightning Bolt',
       layout: 'normal',
       set: 'ima',
@@ -42,7 +42,7 @@ describe('board tab', () => {
     {
       pick: 3,
       playerId: alice.id,
-      oracleId: 'spike-oracle',
+      poolCardId: 'spike-card',
       name: 'Lava Spike',
       layout: 'normal',
       set: 'ima',
@@ -288,7 +288,7 @@ describe('board tab', () => {
           {
             pick: 1,
             playerId: bob.id,
-            oracleId: 'shock-oracle',
+            poolCardId: 'shock-card',
             name: 'Shock',
             layout: 'normal',
             set: 'ima',
@@ -297,7 +297,7 @@ describe('board tab', () => {
           {
             pick: 3,
             playerId: bob.id,
-            oracleId: 'giant-oracle',
+            poolCardId: 'giant-card',
             name: 'Bonecrusher Giant // Stomp',
             layout: 'adventure',
             set: 'ima',
@@ -306,7 +306,7 @@ describe('board tab', () => {
           {
             pick: 5,
             playerId: bob.id,
-            oracleId: 'commit-oracle',
+            poolCardId: 'commit-card',
             name: 'Commit // Memory',
             layout: 'split',
             set: 'ima',
@@ -328,7 +328,7 @@ describe('board tab', () => {
           {
             pick: 1,
             playerId: bob.id,
-            oracleId: 'shock-oracle',
+            poolCardId: 'shock-card',
             name: 'Shock',
             layout: 'normal',
             set: 'm21',
@@ -337,7 +337,7 @@ describe('board tab', () => {
           {
             pick: 3,
             playerId: bob.id,
-            oracleId: 'giant-oracle',
+            poolCardId: 'giant-card',
             name: 'Bonecrusher Giant // Stomp',
             layout: 'adventure',
             set: 'eld',

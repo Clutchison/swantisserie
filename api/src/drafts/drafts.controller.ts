@@ -77,7 +77,7 @@ export interface PickView {
   /** 1-based, counting every pick in the draft. */
   pick: number;
   playerId: string;
-  oracleId: string;
+  poolCardId: string;
   name: string;
   /** How the faces are laid out. Null only until a pool snapshotted before layout was stored is backfilled. */
   layout: string | null;
@@ -86,6 +86,7 @@ export interface PickView {
 }
 
 export interface PoolCardView {
+  id: string;
   scryfallId: string;
   oracleId: string;
   name: string;
@@ -161,9 +162,9 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const oracleId = parsePick(body);
+    const poolCardId = parsePick(body);
     await this.findOr404(id);
-    return this.change(id, () => this.turns.pick(id, user.id, oracleId));
+    return this.change(id, () => this.turns.pick(id, user.id, poolCardId));
   }
 
   /**
@@ -620,16 +621,16 @@ function parsePickImport(body: unknown): string {
   return csv;
 }
 
-/** The picked card's oracle id, or a 400 if there isn't one. */
+/** The picked pool card's id, or a 400 if there isn't one. */
 function parsePick(body: unknown): string {
-  const { oracleId } = (body ?? {}) as Record<string, unknown>;
-  if (typeof oracleId !== 'string' || !oracleId) {
+  const { poolCardId } = (body ?? {}) as Record<string, unknown>;
+  if (typeof poolCardId !== 'string' || !poolCardId) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say which card to pick.',
     });
   }
-  return oracleId;
+  return poolCardId;
 }
 
 /** A pick's number from its URL, or a 400 if it isn't one. */
@@ -647,7 +648,7 @@ function toPickView(pick: LoggedPick): PickView {
   return {
     pick: pick.number,
     playerId: pick.player.userId,
-    oracleId: pick.poolCard.oracleId,
+    poolCardId: pick.poolCardId,
     name: pick.poolCard.name,
     layout: pick.poolCard.layout,
     set: pick.poolCard.set,
@@ -657,6 +658,7 @@ function toPickView(pick: LoggedPick): PickView {
 
 function toPoolCardView(card: PoolCard): PoolCardView {
   return {
+    id: card.id,
     scryfallId: card.scryfallId,
     oracleId: card.oracleId,
     name: card.name,

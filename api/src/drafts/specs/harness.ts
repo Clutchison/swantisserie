@@ -204,11 +204,25 @@ export async function snapshotted(id: string) {
   });
 }
 
-export function pick(id: string, oracleId: unknown, cookie = aliceCookie) {
+/** The ids of the draft's pool cards, by card name. */
+export async function poolCardIds(id: string): Promise<Record<string, string>> {
+  const res = await request(app.getHttpServer())
+    .get(`/api/drafts/${id}/pool`)
+    .set('Cookie', aliceCookie)
+    .expect(200);
+  return Object.fromEntries(
+    (res.body as { id: string; name: string }[]).map((card) => [
+      card.name,
+      card.id,
+    ]),
+  );
+}
+
+export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
   return request(app.getHttpServer())
     .post(`/api/drafts/${id}/picks`)
     .set('Cookie', cookie)
-    .send({ oracleId });
+    .send({ poolCardId });
 }
 
 /** Undoes the draft's pick `number`, by default as the organizer, Alice. */
@@ -228,11 +242,11 @@ export function queue(id: string, cookie = aliceCookie) {
     .set('Cookie', cookie);
 }
 
-export function enqueue(id: string, oracleId: unknown, cookie = aliceCookie) {
+export function enqueue(id: string, poolCardId: unknown, cookie = aliceCookie) {
   return request(app.getHttpServer())
     .post(`/api/drafts/${id}/queue`)
     .set('Cookie', cookie)
-    .send({ oracleId });
+    .send({ poolCardId });
 }
 
 /** Posts to the draft's `action` route. */

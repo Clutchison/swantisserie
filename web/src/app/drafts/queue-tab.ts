@@ -46,7 +46,7 @@ export class QueueTab {
   readonly draftId = input.required<string>();
   /** The signed-in player's queue. */
   readonly queue = input.required<QueueView>();
-  /** The pool's cards by oracle id, for the Card previews of the names here. */
+  /** The pool's cards by id, for the Card previews of the names here. */
   readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
   /** Whether the queue is still on its way, so `queue` says nothing yet. */
   readonly loading = input(false);
@@ -81,13 +81,13 @@ export class QueueTab {
     return this.change(
       this.queueApi.reorder(
         this.draftId(),
-        cards.map((card) => card.oracleId),
+        cards.map((card) => card.poolCardId),
       ),
     );
   }
 
-  protected remove(oracleId: string) {
-    return this.change(this.queueApi.remove(this.draftId(), oracleId));
+  protected remove(poolCardId: string) {
+    return this.change(this.queueApi.remove(this.draftId(), poolCardId));
   }
 
   /** Stops the notice listing the lost and cleared cards. */

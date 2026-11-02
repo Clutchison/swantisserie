@@ -17,6 +17,7 @@ import {
   post,
   queue,
   undo,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -35,11 +36,12 @@ describe('cascade', () => {
 
   it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+    await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
     await start(id).expect(200);
 
-    const picked = await pick(id, 'shock-oracle').expect(200);
+    const picked = await pick(id, ids.Shock).expect(200);
 
     // Bob picks last in round 1 and first in round 2.
     expect(picked.body.turn).toEqual({
@@ -61,27 +63,29 @@ describe('cascade', () => {
 
   it('stops at a player whose queue another player’s pick has just cleared', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'shock-oracle', bobCookie).expect(200);
-    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids.Shock, bobCookie).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await start(id).expect(200);
 
-    const picked = await pick(id, 'shock-oracle').expect(200);
+    const picked = await pick(id, ids.Shock).expect(200);
 
     expect(picked.body.turn).toEqual({ pick: 2, round: 1, playerId: bob.id });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
-      lost: [{ oracleId: 'shock-oracle', name: 'Shock' }],
-      cleared: [{ oracleId: 'lava-spike-oracle', name: 'Lava Spike' }],
+      lost: [{ poolCardId: ids.Shock, name: 'Shock' }],
+      cleared: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
     });
   });
 
   it('clears a queue mid-cascade: a queued pick from a start stops at the player it cleared', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
-    await enqueue(id, 'shock-oracle').expect(200);
-    await enqueue(id, 'lightning-bolt-oracle').expect(200);
-    await enqueue(id, 'shock-oracle', bobCookie).expect(200);
-    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids.Shock).expect(200);
+    await enqueue(id, ids['Lightning Bolt']).expect(200);
+    await enqueue(id, ids.Shock, bobCookie).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
 
     const started = await start(id).expect(200);
 
@@ -89,7 +93,7 @@ describe('cascade', () => {
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Alice's own pick leaves the rest of her queue in place.
     expect((await queue(id).expect(200)).body).toEqual({
-      cards: [{ oracleId: 'lightning-bolt-oracle', name: 'Lightning Bolt' }],
+      cards: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
       lost: [],
       cleared: [],
     });
@@ -107,14 +111,15 @@ describe('cascade', () => {
         1,
         cards,
       );
-      await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
-      await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+      const ids = await poolCardIds(id);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await start(id).expect(200);
-      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, ids.Shock).expect(200);
       // Bob's turn is back, with Lava Spike still queued, and waits for him.
       await undo(id, 2).expect(200);
-      await enqueue(id, 'lava-spike-oracle', carolCookie).expect(200);
-      await enqueue(id, 'skewer-the-critics-oracle', carolCookie).expect(200);
+      await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
+      await enqueue(id, ids['Skewer the Critics'], carolCookie).expect(200);
       await post(id, stop).expect(200);
 
       const restarted = await post(id, restart).expect(200);
@@ -126,9 +131,9 @@ describe('cascade', () => {
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [],
-        lost: [{ oracleId: 'lava-spike-oracle', name: 'Lava Spike' }],
+        lost: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
         cleared: [
-          { oracleId: 'skewer-the-critics-oracle', name: 'Skewer the Critics' },
+          { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
         ],
       });
     },
@@ -136,7 +141,8 @@ describe('cascade', () => {
 
   it('picks the first player’s queued card when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
-    await enqueue(id, 'lightning-bolt-oracle').expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids['Lightning Bolt']).expect(200);
 
     const started = await start(id).expect(200);
 
@@ -150,14 +156,15 @@ describe('cascade', () => {
 
   it('stops at a bot’s turn, and carries on after the bot picks', async () => {
     const id = await readyDraft([aliceCookie], 2, cards);
+    const ids = await poolCardIds(id);
     await request(app.getHttpServer())
       .post(`/api/drafts/${id}/bots`)
       .set('Cookie', await signIn(carol))
       .expect(201);
     // The bot picks the first available card by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await enqueue(id, 'shock-oracle').expect(200);
-    await enqueue(id, 'skewer-the-critics-oracle').expect(200);
+    await enqueue(id, ids.Shock).expect(200);
+    await enqueue(id, ids['Skewer the Critics']).expect(200);
 
     const started = await start(id).expect(200);
 
@@ -188,11 +195,12 @@ describe('cascade', () => {
       cards,
       webhook.body.id,
     );
-    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
-    await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+    await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
     await start(id).expect(200);
 
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     const messages = await vi.waitFor(() => {
       expect(webhookClient.post).toHaveBeenCalledTimes(2);
@@ -223,11 +231,12 @@ describe('cascade', () => {
       cards,
       webhook.body.id,
     );
-    await enqueue(id, 'shock-oracle', bobCookie).expect(200);
-    await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids.Shock, bobCookie).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await start(id).expect(200);
 
-    await pick(id, 'shock-oracle').expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     const messages = await vi.waitFor(() => {
       expect(webhookClient.post).toHaveBeenCalledTimes(2);

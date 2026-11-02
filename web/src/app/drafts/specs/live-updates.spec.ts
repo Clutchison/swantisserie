@@ -26,6 +26,7 @@ describe('live updates', () => {
       ...fields,
     });
   const shivan: PoolCardView = {
+    id: 'shivan-card',
     scryfallId: 'shivan-id',
     oracleId: 'shivan-oracle',
     name: 'Shivan Dragon',
@@ -50,7 +51,7 @@ describe('live updates', () => {
   const shivanPick: PickView = {
     pick: 1,
     playerId: alice.id,
-    oracleId: 'shivan-oracle',
+    poolCardId: 'shivan-card',
     name: 'Shivan Dragon',
     layout: 'normal',
     set: 'ima',

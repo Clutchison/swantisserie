@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readPickImport } from './pick-import.js';
 
-/** A pool card whose oracle id is its name, in lower case. */
-const card = (name: string) => ({ oracleId: name.toLowerCase(), name });
+/** A pool card whose id is its name, in lower case. */
+const card = (name: string) => ({ id: name.toLowerCase(), name });
 const pool = [
   'Ash Golem',
   'Brine Wisp',
@@ -30,10 +30,10 @@ describe('readPickImport', () => {
       ok: true,
       columns: ['Ann', 'Ben'],
       picks: [
-        { number: 1, seat: 0, oracleId: 'ash golem' },
-        { number: 2, seat: 1, oracleId: 'vex, the quiet' },
-        { number: 3, seat: 1, oracleId: 'brine wisp' },
-        { number: 4, seat: 0, oracleId: 'cinder hound' },
+        { number: 1, seat: 0, poolCardId: 'ash golem' },
+        { number: 2, seat: 1, poolCardId: 'vex, the quiet' },
+        { number: 3, seat: 1, poolCardId: 'brine wisp' },
+        { number: 4, seat: 0, poolCardId: 'cinder hound' },
       ],
       next: { pick: 5, round: 3, seat: 0 },
     });
@@ -53,7 +53,7 @@ describe('readPickImport', () => {
 
       expect(read(csv)).toMatchObject({
         ok: true,
-        picks: [{ number: 1, seat: 0, oracleId: 'ash golem' }],
+        picks: [{ number: 1, seat: 0, poolCardId: 'ash golem' }],
         next: { pick: 2, seat: 1 },
       });
     });
@@ -72,7 +72,7 @@ describe('readPickImport', () => {
 
       expect(read(csv, size, cards)).toMatchObject({
         ok: true,
-        picks: [{ oracleId: 'the "big" one' }],
+        picks: [{ poolCardId: 'the "big" one' }],
       });
     });
 
@@ -144,7 +144,7 @@ describe('readPickImport', () => {
 
       expect(read(csv)).toMatchObject({
         ok: true,
-        picks: [{ oracleId: 'ash golem' }, { oracleId: 'vex, the quiet' }],
+        picks: [{ poolCardId: 'ash golem' }, { poolCardId: 'vex, the quiet' }],
       });
     });
 
@@ -153,7 +153,7 @@ describe('readPickImport', () => {
       (name) => {
         expect(read(`,Ann,Ben,\n->,${name},,`)).toMatchObject({
           ok: true,
-          picks: [{ oracleId: 'spring // autumn' }],
+          picks: [{ poolCardId: 'spring // autumn' }],
         });
       },
     );

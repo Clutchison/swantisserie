@@ -83,11 +83,11 @@ export class PoolTab {
   readonly loading = input(false);
   /** Whether the pool's cards couldn't be loaded. */
   readonly failed = input(false);
-  /** The cards picked so far: each one's oracle id, and the player who picked it. */
+  /** The cards picked so far: each one's pool card id, and the player who picked it. */
   readonly picked = input<ReadonlyMap<string, PlayerView>>(new Map());
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
   readonly offerPick = input(false);
-  /** The oracle ids of the cards in the signed-in player's queue. */
+  /** The pool card ids of the cards in the signed-in player's queue. */
   readonly queued = input<ReadonlySet<string>>(new Set());
   /**
    * Whether the card detail offers Remove from queue for a queued card, or
@@ -133,7 +133,7 @@ export class PoolTab {
   protected readonly shown = computed(() => {
     const picked = this.picked();
     return this.hidePicked()
-      ? this.filtered().filter((card) => !picked.has(card.oracleId))
+      ? this.filtered().filter((card) => !picked.has(card.id))
       : this.filtered();
   });
 
@@ -146,7 +146,7 @@ export class PoolTab {
     () => {
       const picked = this.picked();
       return this.shown()
-        .filter((card) => !picked.has(card.oracleId))
+        .filter((card) => !picked.has(card.id))
         .map((card) => this.images.workingUrl(card, 'large'))
         .filter((url) => url !== undefined)
         .slice(0, FIRST_RESULTS_COUNT);
@@ -321,7 +321,7 @@ export class PoolTab {
     try {
       const draft = await firstValueFrom(
         this.http.post<DraftView>(`/api/drafts/${this.draftId()}/picks`, {
-          oracleId: card.oracleId,
+          poolCardId: card.id,
         }),
       );
       this.close();
@@ -341,7 +341,7 @@ export class PoolTab {
 
   protected addToQueue(card: PoolCardView) {
     return this.changeQueue(
-      this.queueApi.add(this.draftId(), card.oracleId),
+      this.queueApi.add(this.draftId(), card.id),
       ADDED_TO_QUEUE,
       "Couldn't add the card to your queue. Try again in a moment.",
     );
@@ -349,7 +349,7 @@ export class PoolTab {
 
   protected removeFromQueue(card: PoolCardView) {
     return this.changeQueue(
-      this.queueApi.remove(this.draftId(), card.oracleId),
+      this.queueApi.remove(this.draftId(), card.id),
       'Removed from your queue.',
       "Couldn't remove the card from your queue. Try again in a moment.",
     );

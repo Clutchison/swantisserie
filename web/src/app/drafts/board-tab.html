@@ -17,7 +17,7 @@
         <ol>
           @for (pick of player.picks; track pick.pick) {
             <li>
-              <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+              <span [appCardPreview]="poolCardsById().get(pick.poolCardId)">{{ pick.name }}</span>
             </li>
           } @empty {
             <li class="empty">No picks yet.</li>
@@ -41,7 +41,7 @@
           </span>
           <span class="card">
             <!-- Only the text shows a Card preview, not the rest of the row. -->
-            <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+            <span [appCardPreview]="poolCardsById().get(pick.poolCardId)">{{ pick.name }}</span>
           </span>
         </li>
       } @empty {

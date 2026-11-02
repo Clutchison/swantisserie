@@ -267,7 +267,7 @@ describe('pool snapshot', () => {
     });
   });
 
-  it('fails on a card with no oracle id rather than inventing a pick identity', async () => {
+  it('fails on a card with no oracle id rather than inventing one', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
       'c:r': page('Shock'),
@@ -615,6 +615,7 @@ describe('pool snapshot', () => {
       .expect(200);
     expect(pool.body).toEqual([
       {
+        id: expect.any(String),
         scryfallId: '9f0a1c6e-id',
         oracleId: '9f0a1c6e-oracle',
         name: 'Balefire Dragon',

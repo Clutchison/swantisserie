@@ -13,6 +13,7 @@ import {
   readyDraft,
   pickLog,
   undo,
+  poolCardIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -102,11 +103,12 @@ describe('pick import', () => {
   it('empties every player’s queue', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const ids = await poolCardIds(id);
     for (const cookie of [aliceCookie, bobCookie]) {
       await request(app.getHttpServer())
         .post(`/api/drafts/${id}/queue`)
         .set('Cookie', cookie)
-        .send({ oracleId: 'dusk-heron-oracle' })
+        .send({ poolCardId: ids['Dusk Heron'] })
         .expect(200);
     }
     const prisma = app.get(PrismaService);

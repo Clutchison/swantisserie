@@ -53,7 +53,7 @@
           <span class="number">{{ pick.pick }}</span>
           <span class="card">
             <!-- Only the text shows a Card preview, not the rest of the row. -->
-            <span [appCardPreview]="poolCardsById().get(pick.oracleId)">{{ pick.name }}</span>
+            <span [appCardPreview]="poolCardsById().get(pick.poolCardId)">{{ pick.name }}</span>
           </span>
         </li>
       } @empty {

@@ -3,7 +3,7 @@ import { currentTurn, type Turn } from './turn.js';
 
 /** What a pick import needs of a pool card. */
 export interface PickImportCard {
-  oracleId: string;
+  id: string;
   name: string;
 }
 
@@ -13,7 +13,7 @@ export interface ImportedPick {
   number: number;
   /** 0-based index into the seat order. */
   seat: number;
-  oracleId: string;
+  poolCardId: string;
 }
 
 /** A pick import's file, read: what it would load, or everything wrong with it. */
@@ -160,11 +160,11 @@ export function readPickImport(
       const names = matches.map((card) => card.name).join(', ');
       problems.push(`${name} matches more than one pool card: ${names}.`);
     } else {
-      const [{ oracleId, name: cardName }] = matches;
-      if (seen.has(oracleId))
+      const [{ id: poolCardId, name: cardName }] = matches;
+      if (seen.has(poolCardId))
         problems.push(`${cardName} appears more than once.`);
-      seen.add(oracleId);
-      picks.push({ number: picks.length + 1, seat, oracleId });
+      seen.add(poolCardId);
+      picks.push({ number: picks.length + 1, seat, poolCardId });
     }
   }
 

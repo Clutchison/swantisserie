@@ -109,6 +109,7 @@ export interface CardFace {
 
 /** One card in a pool, with the Arena printing the snapshot took. */
 export interface PoolCardView {
+  id: string;
   scryfallId: string;
   oracleId: string;
   name: string;
@@ -142,7 +143,7 @@ export interface PickView {
   /** 1-based, counting every pick in the draft. */
   pick: number;
   playerId: string;
-  oracleId: string;
+  poolCardId: string;
   name: string;
   /** How the faces are laid out. Null only until a pool snapshotted before layout was stored is backfilled. */
   layout: string | null;
@@ -152,7 +153,7 @@ export interface PickView {
 
 /** A card in a queue, or lost or cleared from one. */
 export interface QueuedCardView {
-  oracleId: string;
+  poolCardId: string;
   name: string;
 }
 

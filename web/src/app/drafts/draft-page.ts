@@ -105,9 +105,9 @@ export class DraftPage {
   protected readonly poolCards = computed(() =>
     this.poolResource.hasValue() ? this.poolResource.value() : [],
   );
-  /** The pool's cards by oracle id, for finding the card a name is of. */
+  /** The pool's cards by id, for finding the card a name is of. */
   protected readonly poolCardsById = computed<ReadonlyMap<string, PoolCardView>>(
-    () => new Map(this.poolCards().map((card) => [card.oracleId, card])),
+    () => new Map(this.poolCards().map((card) => [card.id, card])),
   );
   protected readonly poolFailed = computed(() => !!this.poolResource.error());
   protected readonly poolLoading = this.poolResource.isLoading;
@@ -128,13 +128,13 @@ export class DraftPage {
   protected readonly picksLoading = computed(
     () => this.picksResource.isLoading() && !this.picksResource.hasValue(),
   );
-  /** The cards picked so far: each one's oracle id, and the player who picked it. */
+  /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = computed(() => {
     const players = this.draft()?.players ?? [];
     const picked = new Map<string, PlayerView>();
     for (const pick of this.picks()) {
       const player = players.find((player) => player.id === pick.playerId);
-      if (player) picked.set(pick.oracleId, player);
+      if (player) picked.set(pick.poolCardId, player);
     }
     return picked;
   });
@@ -158,9 +158,9 @@ export class DraftPage {
   protected readonly queueLoading = computed(
     () => this.queueResource.isLoading() && !this.queueResource.hasValue(),
   );
-  /** The oracle ids of the cards in the signed-in player's queue. */
+  /** The pool card ids of the cards in the signed-in player's queue. */
   protected readonly queued = computed(
-    () => new Set(this.queue().cards.map((card) => card.oracleId)),
+    () => new Set(this.queue().cards.map((card) => card.poolCardId)),
   );
   protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
