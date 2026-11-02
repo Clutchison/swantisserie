@@ -12,7 +12,7 @@ export class AdminConfig {
     );
   }
 
-  isAdmin(userId: string): boolean {
+  isAppAdmin(userId: string): boolean {
     return this.ids.has(userId);
   }
 }

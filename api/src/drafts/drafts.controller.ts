@@ -459,7 +459,7 @@ export class DraftsController {
     id: string,
   ): Promise<DraftWithOrganizer> {
     const draft = await this.findOr404(id);
-    if (draft.organizerId !== user.id && !user.isAdmin) {
+    if (draft.organizerId !== user.id && !user.isAppAdmin) {
       throw new ForbiddenException();
     }
     return draft;
@@ -471,7 +471,7 @@ export class DraftsController {
     id: string,
   ): Promise<DraftWithOrganizer> {
     const draft = await this.findOr404(id);
-    if (!user.isAdmin) throw new ForbiddenException();
+    if (!user.isAppAdmin) throw new ForbiddenException();
     return draft;
   }
 

@@ -44,7 +44,7 @@ export class App {
 
   /** Fetched once per page load: it is a nudge, not a live figure. */
   private readonly unreviewed = httpResource<{ count: number }>(() =>
-    this.user()?.isAdmin ? '/api/admin/feedback/unreviewed-count' : undefined,
+    this.user()?.isAppAdmin ? '/api/admin/feedback/unreviewed-count' : undefined,
   );
   private readonly unreviewedSuffix = computed(() => {
     const count = this.unreviewed.hasValue() ? this.unreviewed.value().count : 0;
@@ -55,7 +55,7 @@ export class App {
 
   /** Which commit is live, for app admins; left out of the menu until known, or if it can't be. */
   private readonly appVersionResource = httpResource<AppVersionView>(() =>
-    this.user()?.isAdmin ? '/api/admin/app-version' : undefined,
+    this.user()?.isAppAdmin ? '/api/admin/app-version' : undefined,
   );
   protected readonly appVersion = computed(() => {
     if (!this.appVersionResource.hasValue()) return undefined;

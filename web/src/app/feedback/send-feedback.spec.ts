@@ -6,14 +6,15 @@ import {
 } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import type { UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 
-const alice = {
+const alice: UserView = {
   id: '80351110224678912',
   name: 'Alice',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAdmin: false,
+  isAppAdmin: false,
 };
 
 describe('sending feedback', () => {

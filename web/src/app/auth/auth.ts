@@ -1,18 +1,10 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import type { UserView } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 export const SIGN_IN_PATH = 'sign-in';
-
-/** The signed-in user, as GET /api/auth/me reports them. */
-export interface UserView {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  /** App admins have organizer powers on every draft. */
-  isAdmin: boolean;
-}
 
 /** The signed-in Discord user, as reported by the API's session cookie. */
 @Injectable({ providedIn: 'root' })
@@ -59,5 +51,5 @@ export const signedIn: CanActivateFn = async () => {
 export const appAdmin: CanActivateFn = async () => {
   const auth = inject(Auth);
   const router = inject(Router);
-  return (await auth.currentUser())?.isAdmin ? true : router.createUrlTree(['/']);
+  return (await auth.currentUser())?.isAppAdmin ? true : router.createUrlTree(['/']);
 };

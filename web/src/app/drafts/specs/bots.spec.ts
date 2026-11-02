@@ -21,7 +21,7 @@ describe('bots', () => {
     avatarUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
     isBot: true,
   };
-  const admin = { ...alice, isAdmin: true };
+  const admin = { ...alice, isAppAdmin: true };
 
   /** The text of each badge in `root`. */
   const badges = (root: Element | null) =>

@@ -11,7 +11,7 @@ export class AdminGuard extends SessionGuard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (!(await super.canActivate(context))) return false;
     const { user } = context.switchToHttp().getRequest<AuthedRequest>();
-    if (!user?.isAdmin) throw new ForbiddenException();
+    if (!user?.isAppAdmin) throw new ForbiddenException();
     return true;
   }
 }

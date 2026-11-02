@@ -2,22 +2,23 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import type { UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
 import type { FeedbackView, ReviewedFeedbackView } from './feedback-page';
 
-const alice = {
+const alice: UserView = {
   id: '80351110224678912',
   name: 'Alice',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAdmin: false,
+  isAppAdmin: false,
 };
-const carol = {
+const carol: UserView = {
   id: '80351110224678914',
   name: 'Carol',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/2.png',
-  isAdmin: true,
+  isAppAdmin: true,
 };
 
 const fromAlice: FeedbackView = {
@@ -72,7 +73,7 @@ describe('reviewing feedback', () => {
     (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
     await navigation;
     TestBed.tick();
-    if (user.isAdmin) {
+    if (user.isAppAdmin) {
       const count = http.expectOne(COUNT);
       if (unreviewedCount === 'fails') {
         count.flush(null, { status: 500, statusText: 'Server Error' });

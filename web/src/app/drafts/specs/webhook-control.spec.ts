@@ -55,7 +55,7 @@ describe('changing a draft’s webhook', () => {
     const { page } = await openDraft(
       completeSnapshot,
       { webhook: main },
-      { user: { ...alice, id: 'carol', isAdmin: true } },
+      { user: { ...alice, id: 'carol', isAppAdmin: true } },
     );
 
     expect(shownOption(control(page)!)).toBe('#roto-main');

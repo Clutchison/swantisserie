@@ -88,7 +88,7 @@ export class DraftPage {
   protected readonly canOrganize = computed(() => {
     const user = this.user();
     const draft = this.draft();
-    return !!user && !!draft && (user.isAdmin || user.id === draft.organizer.id);
+    return !!user && !!draft && (user.isAppAdmin || user.id === draft.organizer.id);
   });
 
   /** Whether the signed-in user has joined this draft. */

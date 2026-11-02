@@ -15,7 +15,7 @@ export const SESSION_COOKIE = 'session';
 /** The signed-in user, as @CurrentUser() supplies them. */
 export interface SessionUser extends User {
   /** Read from config on each request, so a change applies without re-login. */
-  isAdmin: boolean;
+  isAppAdmin: boolean;
 }
 
 export type AuthedRequest = Request & { user?: SessionUser };
@@ -39,7 +39,7 @@ export class SessionGuard implements CanActivate {
     const token = sessionToken(req);
     const user = token ? await this.sessions.findUser(token) : null;
     if (!user) throw new UnauthorizedException();
-    req.user = { ...user, isAdmin: this.admins.isAdmin(user.id) };
+    req.user = { ...user, isAppAdmin: this.admins.isAppAdmin(user.id) };
     return true;
   }
 }

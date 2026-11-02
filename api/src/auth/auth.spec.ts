@@ -145,7 +145,7 @@ describe('Discord sign-in', () => {
       name: 'Alice',
       avatarUrl:
         'https://cdn.discordapp.com/avatars/80351110224678912/8342729096ea3675442027381ff50dfe.png',
-      isAdmin: false,
+      isAppAdmin: false,
     });
   });
 
@@ -154,7 +154,7 @@ describe('Discord sign-in', () => {
 
     const me = await agent.get('/api/auth/me').expect(200);
 
-    expect(me.body).toMatchObject({ id: '222', isAdmin: true });
+    expect(me.body).toMatchObject({ id: '222', isAppAdmin: true });
   });
 
   it('updates a returning user’s name and avatar from Discord', async () => {
@@ -172,7 +172,7 @@ describe('Discord sign-in', () => {
       name: 'alice_renamed',
       // Default avatar index for this ID: (id >> 22) % 6 = 5.
       avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-      isAdmin: false,
+      isAppAdmin: false,
     });
   });
 

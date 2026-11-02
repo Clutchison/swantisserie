@@ -36,7 +36,7 @@
                 <span class="across">→</span><span class="stacked">↓</span>
               </button>
             </span>
-            @if (isAdmin() && player.isBot) {
+            @if (isAppAdmin() && player.isBot) {
               <button
                 class="icon remove"
                 type="button"
@@ -75,7 +75,7 @@
       >
         Randomize seats
       </button>
-      @if (isAdmin()) {
+      @if (isAppAdmin()) {
         <button
           class="button secondary"
           type="button"
