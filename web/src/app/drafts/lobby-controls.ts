@@ -54,6 +54,13 @@ export class LobbyControls {
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
+  /**
+   * Read once: resizing after load doesn't move the seat order. No `matchMedia` counts as mobile.
+   * The breakpoint matches the desktop layout in `lobby-controls.scss` and `draft-page.scss`.
+   */
+  private readonly onDesktop = !!globalThis.matchMedia?.('(min-width: 1024px)').matches;
+  /** The seat order stays open on desktop; on mobile it collapses once the draft starts. */
+  protected readonly seatOrderOpen = computed(() => this.onDesktop || this.inLobby());
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
   protected readonly changingLobby = signal(false);
