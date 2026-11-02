@@ -11,6 +11,7 @@ import { DraftNotifierRetries } from '../../discord/draft-notifier.js';
 import { BotPickDelay } from '../bot-players.js';
 import { WebhookClient } from '../../discord/webhook-client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { CubeCobraClient } from '../../cubecobra/cubecobra-client.js';
 import {
   ScryfallCard,
   ScryfallClient,
@@ -38,7 +39,9 @@ export let aliceCookie: string;
 export const scryfall = {
   search: vi.fn<ScryfallClient['search']>(),
   printings: vi.fn<ScryfallClient['printings']>(),
+  printingsOn: vi.fn<ScryfallClient['printingsOn']>(),
 };
+export const cubeCobra = { cube: vi.fn<CubeCobraClient['cube']>() };
 export const webhookClient = { post: vi.fn<WebhookClient['post']>() };
 
 /** Registers the hooks that give each test a fresh database and running app. */
@@ -74,6 +77,8 @@ export async function startApp(botDelayMs = 0) {
   })
     .overrideProvider(ScryfallClient)
     .useValue(scryfall)
+    .overrideProvider(CubeCobraClient)
+    .useValue(cubeCobra)
     .overrideProvider(AdminConfig)
     .useValue(admins)
     .overrideProvider(DiscordConfig)

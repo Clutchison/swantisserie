@@ -53,8 +53,12 @@ enum DraftState {
 model Draft {
   id             String            @id @default(uuid())
   name           String
-  /// The Scryfall search that defines the pool.
-  poolQuery      String
+  /// The Scryfall search that defines the pool; null when a cube link does. Exactly one of poolQuery and cubeId is set.
+  poolQuery      String?
+  /// The CubeCobra cube whose mainboard defines the pool, by id; null when a pool query does.
+  cubeId         String?
+  /// The cube's name as it was when the draft was created; set exactly when cubeId is.
+  cubeName       String?
   picksPerPlayer Int
   /// The game the draft is played on. Chosen at creation; it never changes.
   platform       Platform          @default(Arena)
@@ -63,7 +67,7 @@ model Draft {
   organizer      User              @relation(fields: [organizerId], references: [id])
   /// Progress of copying the pool from Scryfall. The pool is frozen once Complete.
   snapshotState  PoolSnapshotState @default(Running)
-  /// How many cards Scryfall says the pool query matches; null until the first page arrives.
+  /// How many cards the pool will hold, as Scryfall or the cube says; null until it is known.
   poolTotal      Int?
   /// Why the last snapshot attempt failed; null otherwise.
   snapshotError  String?

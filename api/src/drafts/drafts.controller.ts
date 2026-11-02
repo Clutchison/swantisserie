@@ -31,6 +31,7 @@ import type {
 } from 'contract';
 import type { PoolCard } from '../generated/prisma/client.js';
 import { ScryfallUnavailableError } from '../scryfall/scryfall-client.js';
+import { CubeCobraUnavailableError } from '../cubecobra/cubecobra-client.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -46,6 +47,7 @@ import { PickImportService } from './pick-import.service.js';
 import { type LoggedPick, TurnsService } from './turns.service.js';
 import {
   CloseRefusedError,
+  CubeLinkError,
   DraftFullError,
   DraftGoneError,
   DraftStartedError,
@@ -74,6 +76,8 @@ const MAX_PICKS_PER_PLAYER = 100;
 const MAX_NAME_LENGTH = 100;
 /** Scryfall takes up to 1000 characters, and we wrap the query in more terms. */
 const MAX_POOL_QUERY_LENGTH = 900;
+/** Far longer than any CubeCobra cube URL. */
+const MAX_CUBE_LINK_LENGTH = 300;
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
 
@@ -457,8 +461,15 @@ export class DraftsController {
           message: err.message,
         } satisfies DraftCreationProblem);
       }
-      if (err instanceof PoolQueryError) {
+      if (err instanceof PoolQueryError || err instanceof CubeLinkError) {
         throw new UnprocessableEntityException(err.problem);
+      }
+      if (err instanceof CubeCobraUnavailableError) {
+        this.logger.error(err.message);
+        throw new BadGatewayException({
+          error: 'cubecobra-unavailable',
+          message: 'CubeCobra could not be reached. Try again in a moment.',
+        } satisfies DraftCreationProblem);
       }
       if (err instanceof ScryfallUnavailableError) {
         this.logger.error(err.message);
@@ -494,8 +505,8 @@ function pickImportRefused(
 
 /** The create form's fields, or a 400 saying which one to fix. */
 function parseNewDraft(body: unknown): NewDraft {
-  const { name, poolQuery, picksPerPlayer, platform, webhookId } = (body ??
-    {}) as Record<string, unknown>;
+  const { name, poolQuery, cubeLink, picksPerPlayer, platform, webhookId } =
+    (body ?? {}) as Record<string, unknown>;
   const invalid = (message: string) =>
     new BadRequestException({
       error: 'invalid',
@@ -509,11 +520,20 @@ function parseNewDraft(body: unknown): NewDraft {
   }
 
   const trimmedQuery = typeof poolQuery === 'string' ? poolQuery.trim() : '';
-  if (!trimmedQuery) throw invalid('Enter a pool query.');
+  const trimmedLink = typeof cubeLink === 'string' ? cubeLink.trim() : '';
+  if (trimmedQuery && trimmedLink) {
+    throw invalid('Enter a pool query or a cube link, not both.');
+  }
+  if (!trimmedQuery && !trimmedLink) {
+    throw invalid('Enter a pool query or a cube link.');
+  }
   if (trimmedQuery.length > MAX_POOL_QUERY_LENGTH) {
     throw invalid(
       `Keep the pool query to ${MAX_POOL_QUERY_LENGTH} characters.`,
     );
+  }
+  if (trimmedLink.length > MAX_CUBE_LINK_LENGTH) {
+    throw invalid(`Keep the cube link to ${MAX_CUBE_LINK_LENGTH} characters.`);
   }
 
   // Only a missing field gets the default: null is a field left blank.
@@ -543,7 +563,9 @@ function parseNewDraft(body: unknown): NewDraft {
 
   return {
     name: trimmedName,
-    poolQuery: trimmedQuery,
+    poolSource: trimmedLink
+      ? { cubeLink: trimmedLink }
+      : { poolQuery: trimmedQuery },
     picksPerPlayer: picks,
     platform: chosenPlatform,
     webhookId: webhookId ?? null,

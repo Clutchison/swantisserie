@@ -129,6 +129,58 @@ describe('create form', () => {
     (await vi.waitFor(() => http.expectOne('/api/webhooks'))).flush([]);
   });
 
+  /** Chooses where the pool comes from by its radio button's label. */
+  async function choosePoolSource(
+    { fixture, page }: Awaited<ReturnType<typeof openForm>>,
+    label: string,
+  ) {
+    const radio = [...page.querySelectorAll<HTMLInputElement>('[name="poolSource"]')].find(
+      (input) => input.closest('label')?.textContent?.trim() === label,
+    )!;
+    radio.click();
+    await fixture.whenStable();
+  }
+
+  it('starts on a pool query, with no cube link field', async () => {
+    const { page } = await openForm();
+
+    expect(page.querySelector('[name="poolQuery"]')).not.toBeNull();
+    expect(page.querySelector('[name="cubeLink"]')).toBeNull();
+  });
+
+  it('creates a draft from a cube link in place of a pool query', async () => {
+    const form = await openForm();
+    fill(form.page, 'poolQuery', 't:dragon c:r');
+    await choosePoolSource(form, 'Cube link');
+    expect(form.page.querySelector('[name="poolQuery"]')).toBeNull();
+    fill(form.page, 'name', 'Pauper');
+    fill(form.page, 'cubeLink', 'https://cubecobra.com/cube/list/thepaupercube');
+    await form.fixture.whenStable();
+    submit(form.page);
+
+    const req = await vi.waitFor(() => http.expectOne('/api/drafts'));
+    expect(req.request.body).toEqual({
+      name: 'Pauper',
+      cubeLink: 'https://cubecobra.com/cube/list/thepaupercube',
+      picksPerPlayer: 40,
+      platform: 'Arena',
+      webhookId: null,
+    });
+    req.flush({ error: 'invalid', message: 'Stop here.' } satisfies DraftCreationProblem, {
+      status: 400,
+      statusText: 'Error',
+    });
+  });
+
+  it('says a cube’s mainboard cards must be on the platform chosen', async () => {
+    const form = await openForm();
+    await choosePoolSource(form, 'Cube link');
+
+    expect(form.page.querySelector('[name="cubeLink"] ~ .hint')?.textContent).toContain(
+      'every card must be on Arena.',
+    );
+  });
+
   const platformSelect = (page: HTMLElement) =>
     page.querySelector<HTMLSelectElement>('[name="platform"]')!;
 
@@ -297,6 +349,15 @@ describe('create form', () => {
       {
         error: 'scryfall-unavailable',
         message: 'Scryfall could not be reached. Try again in a moment.',
+      },
+    ],
+    [422, { error: 'not-a-cube-link', message: 'That isn’t a CubeCobra cube link.' }],
+    [422, { error: 'cube-not-found', message: 'No public cube on CubeCobra has that id.' }],
+    [
+      502,
+      {
+        error: 'cubecobra-unavailable',
+        message: 'CubeCobra could not be reached. Try again in a moment.',
       },
     ],
   ])('shows the API’s message for a %i', async (status, body) => {

@@ -14,22 +14,51 @@
       </select>
       <span class="hint">The game this draft is played on. It can’t change later.</span>
     </label>
-    <label>
-      Pool query
-      <textarea
-        name="poolQuery"
-        formControlName="poolQuery"
-        rows="3"
-        maxlength="900"
-        required
-        placeholder="e.g. cube:arena"
-      ></textarea>
-      <span class="hint">
-        A
-        <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall search</a
-        >. Every card it finds goes in the pool, and they must all be on {{ platform() }}.
-      </span>
-    </label>
+    <fieldset class="pool-source">
+      <legend>Pool from</legend>
+      <label class="choice">
+        <input type="radio" name="poolSource" formControlName="poolSource" value="poolQuery" />
+        Pool query
+      </label>
+      <label class="choice">
+        <input type="radio" name="poolSource" formControlName="poolSource" value="cubeLink" />
+        Cube link
+      </label>
+    </fieldset>
+    @if (poolSource() === 'cubeLink') {
+      <label>
+        Cube link
+        <input
+          name="cubeLink"
+          formControlName="cubeLink"
+          maxlength="300"
+          required
+          placeholder="e.g. https://cubecobra.com/cube/list/thepaupercube"
+        />
+        <span class="hint">
+          A <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a> cube’s link
+          or id. Its mainboard goes in the pool, and every card must be on {{ platform() }}.
+        </span>
+      </label>
+    } @else {
+      <label>
+        Pool query
+        <textarea
+          name="poolQuery"
+          formControlName="poolQuery"
+          rows="3"
+          maxlength="900"
+          required
+          placeholder="e.g. cube:arena"
+        ></textarea>
+        <span class="hint">
+          A
+          <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener"
+            >Scryfall search</a
+          >. Every card it finds goes in the pool, and they must all be on {{ platform() }}.
+        </span>
+      </label>
+    }
     <label>
       Picks per player
       <input

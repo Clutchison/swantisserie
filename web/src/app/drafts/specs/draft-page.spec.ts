@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
+  completeSnapshot,
   draft,
   expectLoadingAnimation,
   http,
@@ -53,6 +54,24 @@ describe('draft page', () => {
     const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
     expect(details).toContain('Platform: MTGO');
     expect(details).toContain('Pool query: t:dragon c:r');
+  });
+
+  it('shows the cube a pool came from, linking to it, in place of a pool query', async () => {
+    const { page } = await openDraft(completeSnapshot, {
+      poolQuery: null,
+      cube: {
+        name: 'The Pauper Cube',
+        url: 'https://cubecobra.com/cube/overview/thepaupercube',
+      },
+    });
+
+    const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
+    expect(details).toContain('Cube: The Pauper Cube');
+    expect(details.some((detail) => detail?.startsWith('Pool query'))).toBe(false);
+    const link = [...page.querySelectorAll<HTMLAnchorElement>('.detail a')].find(
+      (a) => a.textContent?.trim() === 'The Pauper Cube',
+    )!;
+    expect(link.href).toBe('https://cubecobra.com/cube/overview/thepaupercube');
   });
 
   it('shows snapshot progress and keeps polling until it is complete', async () => {

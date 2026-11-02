@@ -1,13 +1,15 @@
+/** Some of a pool query's or cube's cards aren't on the draft's platform. */
+export interface NotOnPlatformProblem {
+  error: 'not-on-platform';
+  message: string;
+  /** Offending card names: a pool query's first page of them, or all of a cube's. */
+  cards: string[];
+  totalCards: number;
+}
+
 /** Why a pool query can't make a pool; sent to the organizer as is. */
 export type PoolQueryProblem =
-  | {
-      /** Some of its cards aren't on the draft's platform. */
-      error: 'not-on-platform';
-      message: string;
-      /** The first page of offending card names. */
-      cards: string[];
-      totalCards: number;
-    }
+  | NotOnPlatformProblem
   | { error: 'no-cards'; message: string }
   | {
       /** Scryfall couldn't run the query, or ignored some of its terms. */
@@ -16,15 +18,33 @@ export type PoolQueryProblem =
       warnings: string[];
     };
 
+/** Why a cube link can't make a pool; sent to the organizer as is. */
+export type CubeLinkProblem =
+  | NotOnPlatformProblem
+  | {
+      /**
+       * The link isn't to a CubeCobra cube, CubeCobra has no public cube
+       * with its id, or the cube's mainboard is empty.
+       */
+      error: 'not-a-cube-link' | 'cube-not-found' | 'no-cards';
+      message: string;
+    };
+
 /** The body of a failed POST /api/drafts: what to tell the organizer. */
 export type DraftCreationProblem =
   | PoolQueryProblem
+  | CubeLinkProblem
   | {
       /** A field to fix, or a webhook that has since been removed. */
       error: 'invalid';
       message: string;
     }
-  | { error: 'scryfall-unavailable'; message: string };
+  | { error: 'scryfall-unavailable'; message: string }
+  | {
+      /** CubeCobra failed, or answered with something we can't read. */
+      error: 'cubecobra-unavailable';
+      message: string;
+    };
 
 /**
  * Why the organizer can't start the draft; sent to them as is. The api

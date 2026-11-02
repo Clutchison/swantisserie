@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DiscordModule } from '../discord/discord.module.js';
+import { CubeCobraModule } from '../cubecobra/cubecobra.module.js';
 import { ScryfallModule } from '../scryfall/scryfall.module.js';
 import { BotPickDelay, BotPlayers } from './bot-players.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
@@ -18,7 +19,7 @@ import { QueuesService } from './queues.service.js';
 import { TurnsService } from './turns.service.js';
 
 @Module({
-  imports: [AuthModule, DiscordModule, ScryfallModule],
+  imports: [AuthModule, CubeCobraModule, DiscordModule, ScryfallModule],
   controllers: [DraftsController, QueuesController],
   providers: [
     DraftLock,

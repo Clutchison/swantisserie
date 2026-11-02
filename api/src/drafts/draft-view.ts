@@ -1,6 +1,7 @@
 import type { DraftView, TurnView } from 'contract';
 import { currentTurn } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
+import { cubeUrl } from '../cubecobra/cubecobra-client.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
 import { draftSize } from './draft-shapes.js';
 
@@ -10,6 +11,10 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
     id: draft.id,
     name: draft.name,
     poolQuery: draft.poolQuery,
+    cube:
+      draft.cubeId === null || draft.cubeName === null
+        ? null
+        : { name: draft.cubeName, url: cubeUrl(draft.cubeId) },
     picksPerPlayer: draft.picksPerPlayer,
     platform: draft.platform,
     state: draft.state,

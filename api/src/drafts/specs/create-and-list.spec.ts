@@ -31,6 +31,7 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
     id: expect.any(String),
     name: 'Red dragons',
     poolQuery: 't:dragon c:r',
+    cube: null,
     picksPerPlayer: 30,
     platform: 'Arena',
     state: 'Lobby',
@@ -217,11 +218,23 @@ it.each([
     { name: 'x'.repeat(101), poolQuery: 'c:r' },
     'Keep the name to 100 characters.',
   ],
-  ['no pool query', { name: 'Red' }, 'Enter a pool query.'],
+  [
+    'no pool query or cube link',
+    { name: 'Red' },
+    'Enter a pool query or a cube link.',
+  ],
   [
     'a pool query over 900 characters',
     { name: 'Red', poolQuery: 'c:r '.repeat(226) },
     'Keep the pool query to 900 characters.',
+  ],
+  [
+    'a cube link over 300 characters',
+    {
+      name: 'Red',
+      cubeLink: `https://cubecobra.com/cube/list/${'x'.repeat(269)}`,
+    },
+    'Keep the cube link to 300 characters.',
   ],
   [
     'zero picks per player',
