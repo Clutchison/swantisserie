@@ -28,13 +28,14 @@ Two **category** roles:
 - `bug`: something is broken
 - `enhancement`: new feature or improvement
 
-Five **state** roles:
+Six **state** roles:
 
 - `needs-triage`: maintainer needs to evaluate
 - `needs-info`: waiting on reporter for more information
 - `ready-for-agent`: fully specified, ready for an AFK agent
 - `ready-for-human`: needs human implementation
 - `wontfix`: will not be actioned
+- `tracking`: split into sub-issues; the work lives in those, not here
 
 For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` means it's ready for a human to merge.
 
@@ -42,7 +43,7 @@ Every triaged issue should carry exactly one category role and one state role. I
 
 These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
-State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
+State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, `tracking`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
 
 ## Invocation
 
@@ -83,6 +84,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+   - `tracking`: when triage splits the issue into sub-issues (e.g. via `to-tickets`), replace the parent's state role with `tracking`, keeping its category role, and post a comment listing the sub-issues. Never label the parent `ready-for-agent`: an agent would implement it alongside its children. Close the parent once every sub-issue is closed.
    - `needs-triage`: apply the role. Optional comment if there's partial progress.
 
 ## Quick state override

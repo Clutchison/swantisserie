@@ -64,7 +64,7 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
-Do NOT close or modify any parent issue.
+Do NOT close the parent issue or edit its body. Do relabel it: keep its category label and replace its state label with `tracking`, so it leaves the triage queue and agents don't pick it up alongside its children.
 
 <local-ticket-template>
 
