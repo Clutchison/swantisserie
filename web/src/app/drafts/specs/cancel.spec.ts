@@ -68,7 +68,7 @@ describe('cancel', () => {
     expect(button(admin.page, 'Cancel draft')).toBeDefined();
   });
 
-  it('does not offer it to other role-holders', async () => {
+  it('does not offer it to other guild members', async () => {
     const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
     expect(button(page, 'Cancel draft')).toBeUndefined();
   });

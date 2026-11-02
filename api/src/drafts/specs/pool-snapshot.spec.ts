@@ -407,7 +407,7 @@ describe('pool snapshot', () => {
     expect(scryfall.search).toHaveBeenCalledTimes(3);
   });
 
-  it('lets an app admin retry, but not other role-holders', async () => {
+  it('lets an app admin retry, but not other guild members', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
       'c:r': page('Shock'),

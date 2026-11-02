@@ -9,8 +9,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       <h1>Swantisserie</h1>
       @if (error() === 'not-allowed') {
         <p class="error">
-          Swantisserie is only for members of our Discord server with the roto-draft role. Ask a
-          server admin for the role, then sign in again.
+          Swantisserie is only for members of our Discord server. Join the server, then sign in
+          again.
         </p>
       } @else if (error()) {
         <p class="error">Sign-in didn't work. Please try again.</p>
@@ -24,7 +24,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 export class SignInPage {
   /**
    * Set by the API's callback when sign-in fails: `not-allowed` when the user
-   * lacks guild membership or the roto-draft role, `failed` otherwise.
+   * isn't a guild member, `failed` otherwise.
    */
   readonly error = input<'failed' | 'not-allowed'>();
 }

@@ -4,7 +4,7 @@ import { DiscordClient } from '../discord/discord-client.js';
 import { DiscordConfig } from '../discord/discord-config.js';
 import { NewSession, SessionService } from './session.service.js';
 
-/** The Discord user isn't in our guild, or lacks the roto-draft role. */
+/** The Discord user isn't in our guild. */
 export class NotAllowedError extends Error {
   constructor(userId: string) {
     super(`Discord user ${userId} may not sign in`);
@@ -27,12 +27,12 @@ export class AuthService {
   async signIn(code: string): Promise<NewSession> {
     const accessToken = await this.discord.exchangeCode(code);
     const profile = await this.discord.getCurrentUser(accessToken);
-    // Checked on every sign-in, so losing the role locks the user out next time.
+    // Checked on every sign-in, so leaving the guild locks the user out next time.
     const member = await this.discord.getGuildMember(
       accessToken,
       this.config.guildId,
     );
-    if (!member?.roles.includes(this.config.roleId)) {
+    if (!member) {
       throw new NotAllowedError(profile.id);
     }
     const fields = {

@@ -21,11 +21,6 @@ export class DiscordConfig {
     return this.required('DISCORD_GUILD_ID');
   }
 
-  /** The role (roto-draft) a guild member needs to sign in. */
-  get roleId(): string {
-    return this.required('DISCORD_ROLE_ID');
-  }
-
   /**
    * Whether our cookies need the Secure flag. Derived from the redirect URI,
    * which must be exactly right for login to work at all, rather than from a

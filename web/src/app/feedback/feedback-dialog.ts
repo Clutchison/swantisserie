@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-/** The modal a signed-in role-holder sends feedback to the app admins from. */
+/** The modal a signed-in guild member sends feedback to the app admins from. */
 @Component({
   selector: 'app-feedback-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,

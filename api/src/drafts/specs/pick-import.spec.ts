@@ -118,7 +118,7 @@ describe('pick import', () => {
     ).toBe(0);
   });
 
-  it('is for the organizer and app admins, not other role-holders', async () => {
+  it('is for the organizer and app admins, not other guild members', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
 

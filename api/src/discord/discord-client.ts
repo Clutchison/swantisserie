@@ -11,11 +11,8 @@ export interface DiscordProfile {
   avatar: string | null;
 }
 
-/** The fields of a guild member object we use. */
-export interface DiscordGuildMember {
-  /** Role IDs. */
-  roles: string[];
-}
+/** A guild member object. We use none of its fields, only whether there is one. */
+export type DiscordGuildMember = Record<string, unknown>;
 
 /** Discord's OAuth2 and user endpoints: the boundary faked in tests. */
 export abstract class DiscordClient {

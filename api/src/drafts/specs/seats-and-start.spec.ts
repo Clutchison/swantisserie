@@ -110,7 +110,7 @@ describe('seats and start', () => {
       .expect(409);
   });
 
-  it('lets an app admin start the draft, but not other role-holders', async () => {
+  it('lets an app admin start the draft, but not other guild members', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie]);
 

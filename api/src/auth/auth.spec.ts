@@ -26,11 +26,10 @@ const config = new DiscordConfig({
   DISCORD_CLIENT_SECRET: 'shh',
   DISCORD_REDIRECT_URI: 'http://localhost:4200/api/auth/discord/callback',
   DISCORD_GUILD_ID: 'guild-1',
-  DISCORD_ROLE_ID: 'roto-draft',
 });
 const admins = new AdminConfig('111, 222');
 
-const roleHolder: DiscordGuildMember = { roles: ['other-role', 'roto-draft'] };
+const guildMember: DiscordGuildMember = {};
 
 /** Stands in for the admin-only routes later tickets add. */
 @Controller('admin-only')
@@ -116,7 +115,7 @@ describe('Discord sign-in', () => {
   /** Runs the redirect → callback round trip in a cookie-keeping agent. */
   async function signIn(
     profile: DiscordProfile,
-    member: DiscordGuildMember | null = roleHolder,
+    member: DiscordGuildMember | null = guildMember,
   ) {
     discord.exchangeCode.mockResolvedValue('access-token');
     discord.getCurrentUser.mockResolvedValue(profile);
@@ -198,18 +197,21 @@ describe('Discord sign-in', () => {
     await agent.get('/api/auth/me').expect(401);
   });
 
-  it('turns away a guild member without the roto-draft role', async () => {
-    const { agent, callback } = await signIn(alice, { roles: ['other-role'] });
+  it.each([
+    ['no roles', { roles: [] }],
+    ['unrelated roles', { roles: ['some-role', 'another-role'] }],
+  ])('signs in a guild member with %s', async (_, member) => {
+    const { agent, callback } = await signIn(alice, member);
 
-    expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
-    await agent.get('/api/auth/me').expect(401);
+    expect(callback.headers.location).toBe('/');
+    await agent.get('/api/auth/me').expect(200);
   });
 
-  it('re-checks the role on every sign-in', async () => {
+  it('re-checks guild membership on every sign-in', async () => {
     const first = await signIn(alice);
     await first.agent.get('/api/auth/me').expect(200);
 
-    const { agent, callback } = await signIn(alice, { roles: [] });
+    const { agent, callback } = await signIn(alice, null);
 
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
     await agent.get('/api/auth/me').expect(401);

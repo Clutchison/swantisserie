@@ -8,16 +8,16 @@ A rotisserie draft app for one Discord server: players take turns picking cards 
 Our Discord server. Only its members can use the app.
 _Avoid_: Server (except in user-facing copy), Discord
 
-**Role-holder**:
-A guild member with the `roto-draft` role. Only role-holders may sign in.
-_Avoid_: Member, player (unless they are in a draft)
+**Guild member**:
+Someone in the guild. Only guild members may sign in.
+_Avoid_: Role-holder, member (alone), player (unless they are in a draft)
 
 **App admin**:
 A user named in config who has organizer powers on every draft and manages webhooks.
 _Avoid_: Admin (alone), moderator, superuser
 
 **Organizer**:
-The role-holder who created a draft and runs it. App admins act as organizer on every draft.
+The guild member who created a draft and runs it. App admins act as organizer on every draft.
 _Avoid_: Host, owner, creator
 
 ## Drafting
@@ -71,7 +71,7 @@ Describes a card with at least one printing on MTG Arena. Every card in a pool m
 _Avoid_: Arena-legal (legality is per format), Arena card
 
 **Player**:
-A role-holder or bot who has joined a particular draft.
+A guild member or bot who has joined a particular draft.
 _Avoid_: Drafter, participant, user
 
 **Bot**:
@@ -145,7 +145,7 @@ _Avoid_: Decklist, Moxfield import (that is what the player does with it)
 ## Draft lifecycle
 
 **Lobby**:
-A draft's first state, when role-holders join and leave it.
+A draft's first state, when guild members join and leave it.
 _Avoid_: Pending, open, created
 
 **Drafting**:
@@ -193,7 +193,7 @@ _Avoid_: Notification (in user-facing copy), alert, message (alone)
 ## Feedback
 
 **Feedback**:
-A plain-text message a signed-in role-holder sends to the app admins, naming its sender and the page it was sent from. It is unreviewed until an app admin marks it reviewed.
+A plain-text message a signed-in guild member sends to the app admins, naming its sender and the page it was sent from. It is unreviewed until an app admin marks it reviewed.
 _Avoid_: Report, ticket, suggestion, comment
 
 **Reviewed**:
