@@ -2,6 +2,7 @@ import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/comm
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import type { UserView } from 'contract';
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
@@ -18,7 +19,7 @@ import {
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 
-export const alice = {
+export const alice: UserView = {
   id: '80351110224678912',
   name: 'Alice',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
@@ -118,7 +119,7 @@ export async function decodeRefused(img: HTMLImageElement) {
 }
 
 /** Opens `url` as `user`: Alice, unless told otherwise. */
-export async function openUrl(url: string, user = alice) {
+export async function openUrl(url: string, user: UserView = alice) {
   const fixture = TestBed.createComponent(App);
   const navigation = router.navigateByUrl(url);
   (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);

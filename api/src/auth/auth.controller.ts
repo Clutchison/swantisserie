@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { SignInError, UserView } from 'contract';
 import type { CookieOptions, Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { DiscordConfig } from '../discord/discord-config.js';
@@ -25,17 +26,8 @@ import {
 
 const STATE_COOKIE = 'oauth_state';
 const SCOPES = 'identify guilds.members.read';
-const SIGN_IN_FAILED = '/sign-in?error=failed';
-const SIGN_IN_NOT_ALLOWED = '/sign-in?error=not-allowed';
 /** Discord names itself in ?iss= on the callback (RFC 9207). */
 const DISCORD_ISSUER = 'https://discord.com';
-
-export interface UserView {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  isAdmin: boolean;
-}
 
 @Controller('auth')
 export class AuthController {
@@ -81,7 +73,7 @@ export class AuthController {
       (issuer !== undefined && issuer !== DISCORD_ISSUER) ||
       typeof code !== 'string'
     ) {
-      return res.redirect(SIGN_IN_FAILED);
+      return res.redirect(signInFailed('failed'));
     }
 
     let session: NewSession;
@@ -90,10 +82,10 @@ export class AuthController {
     } catch (err) {
       if (err instanceof NotAllowedError) {
         this.logger.log(err.message);
-        return res.redirect(SIGN_IN_NOT_ALLOWED);
+        return res.redirect(signInFailed('not-allowed'));
       }
       this.logger.error('Discord sign-in failed', err);
-      return res.redirect(SIGN_IN_FAILED);
+      return res.redirect(signInFailed('failed'));
     }
     res.cookie(SESSION_COOKIE, session.token, {
       ...this.cookieOptions(),
@@ -137,4 +129,9 @@ function sameSecret(given: unknown, expected: unknown): boolean {
   const a = Buffer.from(given);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** The sign-in page, showing why sign-in failed. */
+function signInFailed(error: SignInError): string {
+  return `/sign-in?${new URLSearchParams({ error })}`;
 }

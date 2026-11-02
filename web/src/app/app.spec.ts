@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import type { UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
 import { expectLoadingAnimation } from './drafts/specs/harness';
@@ -60,7 +61,13 @@ describe('App', () => {
     const page = fixture.nativeElement as HTMLElement;
     await expectLoadingAnimation(() => page, 'Loading…', 288);
 
-    req.flush({ id: '1', name: 'Alice', avatarUrl: 'https://example.com/a.png', isAdmin: false });
+    const user: UserView = {
+      id: '1',
+      name: 'Alice',
+      avatarUrl: 'https://example.com/a.png',
+      isAdmin: false,
+    };
+    req.flush(user);
     await navigation;
     TestBed.tick();
     for (const drafts of http.match('/api/drafts')) drafts.flush([]);
@@ -103,7 +110,7 @@ describe('App', () => {
     );
   });
 
-  const alice = {
+  const alice: UserView = {
     id: '80351110224678912',
     name: 'Alice',
     avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',

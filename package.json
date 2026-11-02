@@ -2,6 +2,7 @@
   "name": "swantisserie",
   "private": true,
   "workspaces": [
+    "contract",
     "engine",
     "web",
     "api"

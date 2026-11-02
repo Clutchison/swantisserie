@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import type { SignInError } from 'contract';
 
 @Component({
   selector: 'app-sign-in-page',
@@ -22,9 +23,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   styleUrl: './sign-in-page.scss',
 })
 export class SignInPage {
-  /**
-   * Set by the API's callback when sign-in fails: `not-allowed` when the user
-   * isn't a guild member, `failed` otherwise.
-   */
-  readonly error = input<'failed' | 'not-allowed'>();
+  /** Set by the API's callback when sign-in fails. */
+  readonly error = input<SignInError>();
 }
