@@ -2,20 +2,12 @@ import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/comm
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { UserView } from 'contract';
+import type { DraftView, PoolSnapshotView, UserView, WebhookView } from 'contract';
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { DRAFT_POLL_MS } from '../draft-page';
-import {
-  type DraftView,
-  EMPTY_QUEUE,
-  type PickView,
-  type PoolCardView,
-  type PoolSnapshotView,
-  type QueueView,
-  type WebhookView,
-} from '../drafts';
+import { EMPTY_QUEUE, type PickView, type PoolCardView, type QueueView } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 

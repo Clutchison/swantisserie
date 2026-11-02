@@ -1,62 +1,29 @@
-import { currentTurn } from 'engine';
 import type {
   DraftState,
+  DraftView,
   Platform,
   PoolSnapshotState,
-} from '../generated/prisma/client.js';
+  TurnView,
+} from 'contract';
+import { currentTurn } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
-import type { WebhookView } from '../discord/webhooks.service.js';
+import type * as Schema from '../generated/prisma/enums.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
 import { draftSize } from './draft-shapes.js';
 
-/** How far the pool snapshot has got. */
-export interface PoolSnapshotView {
-  state: PoolSnapshotState;
-  /** Cards snapshotted so far: the pool size once Complete. */
-  cards: number;
-  /** Cards Scryfall says the pool query matches; null until the first page arrives. */
-  total: number | null;
-  /** Why the snapshot failed, when it has. */
-  error?: string;
-}
+/** True when A and B are the same union of values. */
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
-/** A guild member or bot who has joined a draft. */
-export interface PlayerView {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  /** A player the app controls, which an app admin added for testing. */
-  isBot: boolean;
-}
-
-/** Whose turn it is. */
-export interface TurnView {
-  /** 1-based, counting every pick in the draft. */
-  pick: number;
-  round: number;
-  playerId: string;
-}
-
-/** A draft, as every viewer is sent it. */
-export interface DraftView {
-  id: string;
-  name: string;
-  poolQuery: string;
-  picksPerPlayer: number;
-  platform: Platform;
-  state: DraftState;
-  organizer: { id: string; name: string };
-  snapshot: PoolSnapshotView;
-  /** In seat order. */
-  players: PlayerView[];
-  /** Null unless the draft is Drafting or Paused. */
-  turn: TurnView | null;
-  /** Where the draft's announcements are posted; null for none. */
-  webhook: WebhookView | null;
-  /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
-  version: number;
-  createdAt: Date;
-}
+/**
+ * Fails typecheck when the contract's unions and the schema's enums list
+ * different values, so neither can change without the other.
+ */
+export type ContractMatchesSchema = [
+  Expect<Same<DraftState, Schema.DraftState>>,
+  Expect<Same<Platform, Schema.Platform>>,
+  Expect<Same<PoolSnapshotState, Schema.PoolSnapshotState>>,
+];
+type Expect<T extends true> = T;
 
 /** The draft as viewers see it: never its webhook's URL. */
 export function toDraftView(draft: DraftWithOrganizer): DraftView {
@@ -88,7 +55,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
       name: draft.webhook.name,
     },
     version: draft.version,
-    createdAt: draft.createdAt,
+    createdAt: draft.createdAt.toISOString(),
   };
 }
 

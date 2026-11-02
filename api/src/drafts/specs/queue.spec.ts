@@ -1,5 +1,5 @@
+import type { DraftView } from 'contract';
 import request from 'supertest';
-import type { DraftView } from '../draft-view.js';
 import {
   alice,
   bob,

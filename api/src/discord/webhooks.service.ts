@@ -2,12 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, type Webhook } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-/** A webhook as organizers choose it: by name, its URL kept secret. */
-export interface WebhookView {
-  id: string;
-  name: string;
-}
-
 /** What an app admin enters to register a webhook. */
 export interface NewWebhook {
   name: string;

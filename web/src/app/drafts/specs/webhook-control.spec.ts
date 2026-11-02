@@ -1,4 +1,4 @@
-import { type DraftState } from '../drafts';
+import type { DraftState } from 'contract';
 import {
   alice,
   completeSnapshot,

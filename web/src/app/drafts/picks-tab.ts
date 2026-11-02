@@ -7,9 +7,10 @@ import {
   output,
   signal,
 } from '@angular/core';
+import type { Platform, PlayerView } from 'contract';
 import { arenaExport } from './arena-export';
 import { CardPreviewName } from './card-preview';
-import { type PickView, type Platform, type PlayerView, type PoolCardView } from './drafts';
+import type { PickView, PoolCardView } from './drafts';
 import { moxfieldExport } from './moxfield-export';
 import { LoadingAnimation } from '../loading/loading-animation';
 

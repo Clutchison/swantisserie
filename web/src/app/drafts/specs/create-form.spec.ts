@@ -1,6 +1,6 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { type WebhookView } from '../drafts';
+import type { WebhookView } from 'contract';
 import { useDraftsApp, draft, http, router, openUrl, webhooksAnswer } from './harness';
 
 useDraftsApp();

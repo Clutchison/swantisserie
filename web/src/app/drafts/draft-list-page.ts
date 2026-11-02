@@ -2,8 +2,9 @@ import { NgTemplateOutlet } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import type { DraftView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { type DraftView, isActive } from './drafts';
+import { isActive } from './drafts';
 
 @Component({
   selector: 'app-draft-list-page',

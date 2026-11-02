@@ -4,13 +4,13 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import type { DraftSocketEvents, DraftView } from 'contract';
 import cookieParser from 'cookie-parser';
 import type { Request, Response } from 'express';
-import type { Server, Socket } from 'socket.io';
+import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { API_PREFIX } from '../app.setup.js';
 import { sessionToken } from '../auth/session.guard.js';
 import { SessionService } from '../auth/session.service.js';
-import type { DraftView } from './draft-view.js';
 
 const parseCookies = cookieParser();
 
@@ -26,7 +26,7 @@ const room = (draftId: string) => `draft:${draftId}`;
 @WebSocketGateway({ path: `/${API_PREFIX}/socket.io` })
 export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
-  private readonly server!: Server;
+  private readonly server!: Server<DefaultEventsMap, DraftSocketEvents>;
 
   constructor(private readonly sessions: SessionService) {}
 

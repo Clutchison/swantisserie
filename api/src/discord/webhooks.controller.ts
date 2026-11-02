@@ -12,6 +12,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import type { WebhookView } from 'contract';
 import type { Webhook } from '../generated/prisma/client.js';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { SessionGuard } from '../auth/session.guard.js';
@@ -19,7 +20,6 @@ import {
   type NewWebhook,
   WebhookNameTakenError,
   WebhooksService,
-  type WebhookView,
 } from './webhooks.service.js';
 
 const MAX_NAME_LENGTH = 100;

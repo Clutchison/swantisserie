@@ -17,6 +17,7 @@ import {
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
+import type { DraftView } from 'contract';
 import type { PoolCard } from '../generated/prisma/client.js';
 import {
   type Rarity,
@@ -55,7 +56,7 @@ import {
 } from './draft-errors.js';
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
-import { type DraftView, toDraftView } from './draft-view.js';
+import { toDraftView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
 import { isPlatform, PLATFORMS } from './platform.js';
 import {

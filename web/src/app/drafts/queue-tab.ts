@@ -15,9 +15,10 @@ import {
   signal,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import type { DraftState } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardPreviewName, CardPreviews } from './card-preview';
-import { type DraftState, isActive, type PoolCardView, type QueueView } from './drafts';
+import { isActive, type PoolCardView, type QueueView } from './drafts';
 import { QueueApi, queueChangeFailure } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
 
