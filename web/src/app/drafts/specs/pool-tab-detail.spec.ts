@@ -44,7 +44,9 @@ describe('pool tab', () => {
     const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
 
     const detail = await openDetail(fixture, page, 0);
-    const large = detail.querySelector<HTMLImageElement>(`img[src="${image('large', 'shivan-id')}"]`)!;
+    const large = detail.querySelector<HTMLImageElement>(
+      `img[src="${image('large', 'shivan-id')}"]`,
+    )!;
     expect(large.classList).not.toContain('shown');
 
     await decoded(large);

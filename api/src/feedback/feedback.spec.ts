@@ -160,7 +160,10 @@ describe('feedback', () => {
       });
 
     it('lists unreviewed feedback with its details', async () => {
-      const { id } = await received('Line one\nLine two', '2026-10-31T12:00:00.000Z');
+      const { id } = await received(
+        'Line one\nLine two',
+        '2026-10-31T12:00:00.000Z',
+      );
 
       const res = await list().expect(200);
 
@@ -198,7 +201,11 @@ describe('feedback', () => {
 
       expect((await list().expect(200)).body).toEqual([]);
       const [kept] = await saved();
-      expect(kept).toMatchObject({ id, message: 'Hello', reviewedById: carol.id });
+      expect(kept).toMatchObject({
+        id,
+        message: 'Hello',
+        reviewedById: carol.id,
+      });
       expect(kept.reviewedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
       expect(kept.reviewedAt!.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
     });
@@ -285,7 +292,9 @@ describe('feedback', () => {
         await markUnreviewed(id).expect(204);
 
         const res = await list().expect(200);
-        expect((res.body as { id: string }[]).map((item) => item.id)).toEqual([id]);
+        expect((res.body as { id: string }[]).map((item) => item.id)).toEqual([
+          id,
+        ]);
         expect((await saved())[0]).toMatchObject({
           reviewedById: null,
           reviewedAt: null,

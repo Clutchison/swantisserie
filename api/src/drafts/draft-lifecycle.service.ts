@@ -28,7 +28,10 @@ export class DraftLifecycleService {
    * for none, in any state. Throws UnknownWebhookError if it doesn't exist,
    * and DraftGoneError if the draft doesn't.
    */
-  async changeWebhook(draftId: string, webhookId: string | null): Promise<void> {
+  async changeWebhook(
+    draftId: string,
+    webhookId: string | null,
+  ): Promise<void> {
     await this.lock.run(draftId, async (draft) => {
       if (!draft) throw new DraftGoneError();
       await draft.tx.draft
