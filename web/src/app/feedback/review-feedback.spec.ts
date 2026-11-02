@@ -6,7 +6,7 @@ import type { UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
-import type { FeedbackView, ReviewedFeedbackView } from './feedback-page';
+import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 
 const alice: UserView = {
   id: '80351110224678912',

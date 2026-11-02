@@ -11,6 +11,11 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import type {
+  FeedbackView,
+  ReviewedFeedbackView,
+  UnreviewedFeedbackCount,
+} from 'contract';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { avatarUrl } from '../auth/avatar-url.js';
 import {
@@ -23,21 +28,6 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_PAGE_URL_LENGTH = 2048;
-
-/** Feedback as app admins see it. */
-export interface FeedbackView {
-  id: string;
-  message: string;
-  pageUrl: string;
-  sentAt: Date;
-  sender: { name: string; avatarUrl: string };
-}
-
-/** Reviewed feedback as app admins see it. */
-export interface ReviewedFeedbackView extends FeedbackView {
-  reviewedAt: Date;
-  reviewedBy: { name: string };
-}
 
 /** Where signed-in guild members send feedback to the app admins. */
 @Controller('feedback')
@@ -87,13 +77,13 @@ export class AdminFeedbackController {
     });
     return reviewed.map((feedback) => ({
       ...toFeedbackView(feedback),
-      reviewedAt: feedback.reviewedAt!,
+      reviewedAt: feedback.reviewedAt!.toISOString(),
       reviewedBy: { name: feedback.reviewedBy!.name },
     }));
   }
 
   @Get('unreviewed-count')
-  async countUnreviewed(): Promise<{ count: number }> {
+  async countUnreviewed(): Promise<UnreviewedFeedbackCount> {
     const count = await this.prisma.feedback.count({
       where: { reviewedById: null },
     });
@@ -138,7 +128,7 @@ function toFeedbackView({
     id,
     message,
     pageUrl,
-    sentAt,
+    sentAt: sentAt.toISOString(),
     sender: { name: sender.name, avatarUrl: avatarUrl(sender) },
   };
 }

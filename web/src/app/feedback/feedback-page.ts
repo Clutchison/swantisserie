@@ -1,22 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
-
-/** Feedback as app admins see it. */
-export interface FeedbackView {
-  id: string;
-  message: string;
-  pageUrl: string;
-  sentAt: string;
-  sender: { name: string; avatarUrl: string };
-}
-
-/** Reviewed feedback as app admins see it. */
-export interface ReviewedFeedbackView extends FeedbackView {
-  reviewedAt: string;
-  reviewedBy: { name: string };
-}
 
 type View = 'Unreviewed' | 'Reviewed';
 
