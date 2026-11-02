@@ -22,7 +22,7 @@ import {
 import { cubePrintings } from './cube-pool.js';
 import { notOnPlatformSentence } from './draft-errors.js';
 
-/** What a draft's pool is snapshotted from: its pool query or its cube. */
+/** A draft's pool source, as it keeps it, and its platform: what the pool is snapshotted from. */
 interface PoolSource {
   poolQuery: string | null;
   cubeId: string | null;
@@ -132,6 +132,9 @@ export class PoolSnapshotService
         await this.copyCube(draftId, source.cubeId, source.platform);
       } else if (source.poolQuery !== null) {
         await this.pageThrough(draftId, source.poolQuery, source.platform);
+      } else {
+        // The schema rules this out; fail loudly rather than complete an empty pool.
+        throw new Error(`Draft ${draftId} has no pool source.`);
       }
       await this.prisma.draft.update({
         where: { id: draftId },
@@ -199,10 +202,6 @@ export class PoolSnapshotService
         'The cube no longer has any mainboard cards.',
       );
     }
-    await this.prisma.draft.update({
-      where: { id: draftId },
-      data: { poolTotal: cube.mainboard.length },
-    });
     const { printings, missing } = await cubePrintings(
       this.scryfall,
       cube,
@@ -213,9 +212,17 @@ export class PoolSnapshotService
         `${notOnPlatformSentence(missing.length, 'in the cube', platform)}: ${missing.join(', ')}.`,
       );
     }
-    await this.prisma.poolCard.createMany({
-      data: printings.map((card) => toPoolCard(draftId, card)),
-    });
+    // The total and the cards land together, so a failed snapshot shows no
+    // total for a pool it could never make.
+    await this.prisma.$transaction([
+      this.prisma.poolCard.createMany({
+        data: printings.map((card) => toPoolCard(draftId, card)),
+      }),
+      this.prisma.draft.update({
+        where: { id: draftId },
+        data: { poolTotal: printings.length },
+      }),
+    ]);
   }
 
   private async pageThrough(

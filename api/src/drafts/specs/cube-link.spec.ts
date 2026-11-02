@@ -326,7 +326,7 @@ describe('snapshotting a cube', () => {
     expect(draft.snapshot).toEqual({
       state: 'Failed',
       cards: 0,
-      total: 3,
+      total: null,
       error:
         '2 cards in the cube are not on Arena: Ancient Hellkite, Dream Pillager.',
     });
