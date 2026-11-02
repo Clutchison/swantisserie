@@ -193,6 +193,29 @@ describe('board tab', () => {
     ]);
   });
 
+  it('shows each picked copy of a card as its own pick', async () => {
+    const bolt = picks[1]!;
+    const { page } = await openBoard([
+      { ...bolt, pick: 1, poolCardId: 'bolt-card-1', playerId: bob.id },
+      { ...bolt, pick: 2, poolCardId: 'bolt-card-2' },
+      { ...bolt, pick: 3, poolCardId: 'bolt-card-3' },
+    ]);
+
+    const log = [...pickLog(page).querySelectorAll('li')].map((li) =>
+      [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
+    );
+    expect(log).toEqual([
+      ['1', 'Bob', 'Lightning Bolt'],
+      ['2', 'Alice', 'Lightning Bolt'],
+      ['3', 'Alice', 'Lightning Bolt'],
+    ]);
+    const alicePicks = panel(page).querySelectorAll('.player-picks section')[1]!;
+    expect([...alicePicks.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
+      'Lightning Bolt',
+      'Lightning Bolt',
+    ]);
+  });
+
   it('says when nobody has picked yet', async () => {
     const { page } = await openBoard([]);
 

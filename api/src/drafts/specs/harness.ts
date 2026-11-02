@@ -204,18 +204,24 @@ export async function snapshotted(id: string) {
   });
 }
 
-/** The ids of the draft's pool cards, by card name. */
+/** The ids of the draft's pool cards, by card name: the last copy's, for a card with copies. */
 export async function poolCardIds(id: string): Promise<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(await copyIds(id)).map(([name, ids]) => [name, ids.at(-1)!]),
+  );
+}
+
+/** The ids of every copy of each card in the draft's pool, by card name. */
+export async function copyIds(id: string): Promise<Record<string, string[]>> {
   const res = await request(app.getHttpServer())
     .get(`/api/drafts/${id}/pool`)
     .set('Cookie', aliceCookie)
     .expect(200);
-  return Object.fromEntries(
-    (res.body as { id: string; name: string }[]).map((card) => [
-      card.name,
-      card.id,
-    ]),
-  );
+  const copies: Record<string, string[]> = {};
+  for (const card of res.body as { id: string; name: string }[]) {
+    (copies[card.name] ??= []).push(card.id);
+  }
+  return copies;
 }
 
 export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {

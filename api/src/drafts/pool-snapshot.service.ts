@@ -187,7 +187,6 @@ export class PoolSnapshotService
       await this.prisma.$transaction([
         this.prisma.poolCard.createMany({
           data: result.cards.map((card) => toPoolCard(draftId, card)),
-          skipDuplicates: true,
         }),
         this.prisma.draft.update({
           where: { id: draftId },

@@ -1,11 +1,15 @@
+import { countedLines } from './counted-lines';
 import { type PickView } from './drafts';
 
 /** What an Arena export needs of a picked card. */
 export type ArenaExportCard = Pick<PickView, 'name' | 'layout'>;
 
-/** The cards in Arena's import format: a `Deck` header, then `1 Card Name` lines. */
+/**
+ * The cards in Arena's import format: a `Deck` header, then `1 Card Name`
+ * lines, with copies of a card on one line, as `2 Card Name`.
+ */
 export function arenaExport(cards: ArenaExportCard[]): string {
-  return ['Deck', ...cards.map((card) => `1 ${arenaName(card)}`)].join('\n');
+  return ['Deck', ...countedLines(cards.map(arenaName))].join('\n');
 }
 
 /**

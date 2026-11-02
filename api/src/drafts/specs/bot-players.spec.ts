@@ -18,6 +18,7 @@ import {
   pickLog,
   undo,
   poolCardIds,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -138,6 +139,30 @@ describe('bot players', () => {
         (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
       ).toEqual(['Fireblast', 'Shock']);
     });
+  });
+
+  it('picks the last copy of a card another player already picked', async () => {
+    const id = await readyDraft([aliceCookie], 1, [
+      'Lightning Bolt',
+      'Lightning Bolt',
+    ]);
+    await request(app.getHttpServer())
+      .post(`/api/drafts/${id}/bots`)
+      .set('Cookie', await signIn(carol))
+      .expect(201);
+    await start(id).expect(200);
+    const [first, second] = (await copyIds(id))['Lightning Bolt'];
+
+    await pick(id, first).expect(200);
+
+    await vi.waitFor(async () => {
+      expect(
+        (await pickLog(id)).body.map(
+          (logged: { poolCardId: string }) => logged.poolCardId,
+        ),
+      ).toEqual([first, second]);
+    });
+    expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
   });
 
   it('does nothing when its timer fires after the turn has moved on', async () => {
