@@ -4,9 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
+import { adminButton, answerTopBar } from '../top-bar/specs-harness';
 import type { AdminWebhookView } from './webhooks-page';
-import { answerUnreviewedCount } from '../feedback/specs-harness';
 
 const alice = {
   id: '80351110224678912',
@@ -61,8 +60,7 @@ describe('webhooks page', () => {
     (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
     await navigation;
     TestBed.tick();
-    answerUnreviewedCount(http);
-    answerAppVersion(http);
+    answerTopBar(http);
     return { fixture, page: fixture.nativeElement as HTMLElement };
   }
 

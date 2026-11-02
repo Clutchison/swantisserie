@@ -17,6 +17,11 @@ import { FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 import { TopBarMenu } from './top-bar/top-bar-menu';
 
+/** Which commit is live, as the API reports it: null when the build didn't record one. */
+export interface AppVersionView {
+  commit: string | null;
+}
+
 @Component({
   imports: [
     FeedbackDialog,
@@ -49,7 +54,7 @@ export class App {
   protected readonly feedbackLabel = computed(() => `Feedback${this.unreviewedSuffix()}`);
 
   /** Which commit is live, for app admins; left out of the menu until known, or if it can't be. */
-  private readonly appVersionResource = httpResource<{ commit: string | null }>(() =>
+  private readonly appVersionResource = httpResource<AppVersionView>(() =>
     this.user()?.isAdmin ? '/api/admin/app-version' : undefined,
   );
   protected readonly appVersion = computed(() => {
@@ -57,10 +62,10 @@ export class App {
     const { commit } = this.appVersionResource.value();
     return commit
       ? {
-          label: `Version ${commit.slice(0, 7)}`,
+          label: `App version ${commit.slice(0, 7)}`,
           url: `https://github.com/Clutchison/swantisserie/commit/${commit}`,
         }
-      : { label: 'Version unknown', url: null };
+      : { label: 'App version unknown', url: null };
   });
 
   /** Pages say how they are loading once shown; this covers the wait for one, and its failure. */

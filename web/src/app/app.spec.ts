@@ -28,6 +28,7 @@ describe('App', () => {
   afterEach(() => http.verify());
 
   const sha = '0123456789abcdef0123456789abcdef01234567';
+  const commitUrl = `https://github.com/Clutchison/swantisserie/commit/${sha}`;
 
   /**
    * Opens `url` with /api/auth/me answered by `respond`, and an app admin's
@@ -142,7 +143,7 @@ describe('App', () => {
       expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
       expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
       expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
-      expect(page.querySelector('header')!.textContent).not.toContain('Version');
+      expect(page.querySelector('header')!.textContent).not.toContain('App version');
       // Nor do they ask which version is live.
       expect(http.match('/api/admin/app-version')).toEqual([]);
     });
@@ -172,22 +173,20 @@ describe('App', () => {
     it('opens on click and holds Webhooks, Feedback, then the app version', async () => {
       const { page, trigger } = await openAdmin();
 
-      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'Version 0123456']);
+      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'App version 0123456']);
       expect(trigger.getAttribute('aria-expanded')).toBe('true');
     });
 
     it('links the app version to its commit on GitHub', async () => {
       const { page } = await openAdmin({ commit: sha });
 
-      expect(versionLink(page)?.getAttribute('href')).toBe(
-        `https://github.com/Clutchison/swantisserie/commit/${sha}`,
-      );
+      expect(versionLink(page)?.getAttribute('href')).toBe(commitUrl);
     });
 
     it('shows an unknown app version, with no link', async () => {
       const { page } = await openAdmin({ commit: null });
 
-      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'Version unknown']);
+      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'App version unknown']);
       expect(versionLink(page)).toBeNull();
     });
 
@@ -258,14 +257,23 @@ describe('App', () => {
         'Admin',
         'Webhooks',
         'Feedback',
-        'Version 0123456',
+        'App version 0123456',
       ]);
-      expect(versionLink(page)?.getAttribute('href')).toBe(
-        `https://github.com/Clutchison/swantisserie/commit/${sha}`,
-      );
+      expect(versionLink(page)?.getAttribute('href')).toBe(commitUrl);
       const heading = page.querySelector<HTMLElement>('.panel .menu-heading')!;
       expect(heading.textContent).toBe('Admin');
       expect(heading.closest('a, button')).toBeNull();
+    });
+
+    it('shows an app admin an unknown app version, with no link', async () => {
+      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }), {
+        commit: null,
+      });
+      page.querySelector<HTMLElement>('button[aria-label="Menu"]')!.click();
+      TestBed.tick();
+
+      expect(panelText(page).at(-1)).toBe('App version unknown');
+      expect(versionLink(page)).toBeNull();
     });
 
     it('stays open when the Admin heading is clicked', async () => {
@@ -373,9 +381,7 @@ function panelText(page: HTMLElement) {
 }
 
 function versionLink(page: HTMLElement) {
-  return page.querySelector<HTMLAnchorElement>(
-    'header .panel a[href^="https://github.com/Clutchison/swantisserie/commit/"]',
-  );
+  return page.querySelector<HTMLAnchorElement>('header .panel a[href*="/commit/"]');
 }
 
 function clickLogOut(page: HTMLElement) {
