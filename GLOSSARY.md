@@ -34,13 +34,21 @@ _Avoid_: Game, league, room
 The fixed set of cards on the platform that a draft picks from, frozen when the draft is created.
 _Avoid_: Card list, cube
 
+**Pool source**:
+What defines a draft's pool: either a pool query or a cube link. The organizer chooses it when creating the draft, and it never changes.
+_Avoid_: Pool definition, card source
+
 **Pool query**:
 The Scryfall search the organizer enters to define a draft's pool.
 _Avoid_: Search, filter, Scryfall query (in code)
 
 **Cube link**:
-The CubeCobra cube an organizer names to define a draft's pool, instead of a pool query.
-_Avoid_: Cube list, CubeCobra import, cube (alone)
+The link to a cube, or its id alone, that an organizer gives to define a draft's pool instead of a pool query.
+_Avoid_: Cube list, CubeCobra import
+
+**Cube**:
+A card list kept on CubeCobra, which a cube link names. Only its mainboard goes in a pool.
+_Avoid_: Cube list, CubeCobra list, pool (that is what a draft picks from)
 
 **Pool snapshot**:
 The cards a pool query or cube link names, taken from Scryfall right after a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
