@@ -166,7 +166,7 @@ export class TurnsService {
     const events: DraftEvent[] = [];
     for (const { seat, card } of picks) {
       const { userId } = players[seat];
-      events.push(...(await this.pickCard(draft, userId, card)));
+      events.push(...(await this.pickCard(draft, userId, card, true)));
     }
     return events;
   }
@@ -182,19 +182,21 @@ export class TurnsService {
     oracleId: string,
   ): Promise<DraftEvent[]> {
     return [
-      ...(await this.pickCard(draft, userId, oracleId)),
+      ...(await this.pickCard(draft, userId, oracleId, false)),
       ...(await this.cascade(draft)),
     ];
   }
 
   /**
    * The user picks the pool card with `oracleId` on their turn, in a draft
-   * that is Drafting. Throws PickRefusedError if they can't.
+   * that is Drafting; `queued` if it was picked from their queue. Throws
+   * PickRefusedError if they can't.
    */
   private async pickCard(
     draft: LockedDraft,
     userId: string,
     oracleId: string,
+    queued: boolean,
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
     const card = await tx.poolCard.findUnique({
@@ -248,6 +250,7 @@ export class TurnsService {
         number: picked,
         player: toEventPlayer(players[seat]),
         card: card.name,
+        queued,
         next: next ? toEventPlayer(players[next.seat]) : null,
       },
     ];

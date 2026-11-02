@@ -13,6 +13,10 @@ import {
   getDraft,
   readyDraft,
   start,
+  enqueue,
+  pick,
+  post,
+  undo,
 } from './harness.js';
 
 useDraftsApp();
@@ -98,6 +102,124 @@ describe('announcements', () => {
       users: [bob.id],
     });
   });
+  describe('when a pick leaves its player up', () => {
+    const cards = [
+      'Shock',
+      'Lightning Bolt',
+      'Lava Spike',
+      'Skewer the Critics',
+    ];
+
+    /** A draft of Alice then Bob, so Bob makes picks 2 and 3 in a row. */
+    function snakeDraft() {
+      return readyDraft([aliceCookie, bobCookie], 2, cards, webhookId);
+    }
+
+    /** The latest post made, once `count` have been. */
+    async function lastPost(count: number) {
+      await posted(count);
+      return webhookClient.post.mock.calls[count - 1][1];
+    }
+
+    it('names them without a ping after a by-hand pick', async () => {
+      const id = await snakeDraft();
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+
+      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+
+      expect(await lastPost(3)).toEqual({
+        content: '2- **Bob** picked **Lightning Bolt**\n**Bob** is up.',
+        allowed_mentions: { parse: [], users: [] },
+      });
+    });
+
+    it('pings them after a queued pick in a pick’s cascade', async () => {
+      const id = await snakeDraft();
+      await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      await start(id).expect(200);
+
+      await pick(id, 'shock-oracle').expect(200);
+
+      expect(await lastPost(2)).toEqual({
+        content:
+          '1- **Alice** picked **Shock**\n' +
+          '2- **Bob** picked **Lightning Bolt**\n' +
+          `<@${bob.id}> you’re up.`,
+        allowed_mentions: { parse: [], users: [bob.id] },
+      });
+    });
+
+    it('pings them after a queued pick in a start’s cascade', async () => {
+      const id = await snakeDraft();
+      await enqueue(id, 'shock-oracle').expect(200);
+      await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+
+      await start(id).expect(200);
+
+      expect((await lastPost(1)).allowed_mentions.users).toEqual([bob.id]);
+    });
+
+    it.each([
+      ['pause', 'resume', 'has resumed'],
+      ['close', 'reopen', 'has reopened'],
+    ])(
+      'pings them after a queued pick when a %s ends in a %s’s cascade',
+      async (stop, carryOn, happened) => {
+        const id = await snakeDraft();
+        await enqueue(id, 'lava-spike-oracle', bobCookie).expect(200);
+        await enqueue(id, 'skewer-the-critics-oracle', bobCookie).expect(200);
+        await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+        await start(id).expect(200);
+        await pick(id, 'shock-oracle').expect(200);
+        // Undoing both of Bob's queued picks leaves his turn with one card
+        // waiting, which fires as pick 2 and leaves him up for pick 3.
+        await undo(id, 3).expect(200);
+        await undo(id, 2).expect(200);
+        await post(id, stop).expect(200);
+
+        await post(id, carryOn).expect(200);
+
+        expect(await lastPost(6)).toEqual({
+          content:
+            `**Red** ${happened}\n` +
+            '2- **Bob** picked **Lightning Bolt**\n' +
+            `<@${bob.id}> you’re up.`,
+          allowed_mentions: { parse: [], users: [bob.id] },
+        });
+      },
+    );
+
+    it('pings them on an undo of their second pick in a row', async () => {
+      const id = await snakeDraft();
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      await pick(id, 'lava-spike-oracle', bobCookie).expect(200);
+
+      await undo(id, 3).expect(200);
+
+      expect(await lastPost(5)).toEqual({
+        content:
+          'Undone: 3- **Bob** picked **Lava Spike**\n' +
+          `<@${bob.id}> you’re up.`,
+        allowed_mentions: { parse: [], users: [bob.id] },
+      });
+    });
+
+    it('pings them on a resume after their by-hand pick', async () => {
+      const id = await snakeDraft();
+      await start(id).expect(200);
+      await pick(id, 'shock-oracle').expect(200);
+      await pick(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+      await post(id, 'pause').expect(200);
+
+      await post(id, 'resume').expect(200);
+
+      expect((await lastPost(5)).allowed_mentions.users).toEqual([bob.id]);
+    });
+  });
+
   it('posts nothing for a draft without a webhook', async () => {
     const id = await readyDraft([aliceCookie, bobCookie]);
     await start(id).expect(200);

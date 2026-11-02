@@ -73,6 +73,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 | Draft complete          | "**Draft** is complete"                                                                  |
 
 - Pings use `allowed_mentions: { parse: [], users: [nextId] }`. The mention goes in `content`.
+- A by-hand pick that leaves the same player up, at a round boundary in snake order, doesn't ping them: "**Alice** is up." names them, as it does a bot. A queued pick that leaves its player up, a cascade ending on anyone, and start, resume, reopen and undo announcements all still ping.
 - Possible later upgrade: a REST bot with an HTTP interactions endpoint for opt-in DMs and `/status` / `/pick` commands. Not in v1.
 
 ## Card images

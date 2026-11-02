@@ -138,9 +138,15 @@ export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
   return announcement([`Undone: ${pickLine(undone)}`], undone.player);
 }
 
-/** `picks` in pick order, at least one; the last one's next player is up. */
+/**
+ * `picks` in pick order, at least one; the last one's next player is up. A
+ * player who has just picked by hand and is up again is named, not pinged:
+ * they know. A queued pick still pings them, as they may be away.
+ */
 export function picksMessage(picks: AnnouncedPick[]): WebhookMessage {
-  return announcement(picks.map(pickLine), picks[picks.length - 1].next);
+  const { player, queued, next } = picks[picks.length - 1];
+  const knows = !queued && next?.id === player.id;
+  return announcement(picks.map(pickLine), next, undefined, !knows);
 }
 
 /** The draft `happened`, then any cascade; `up` is who is next without one. */
@@ -167,19 +173,20 @@ function pickLine({ number, player, card }: AnnouncedUndo): string {
 
 /**
  * `lines`, then who is `up` if anyone is, then a link to `url` if given.
- * Only a player who isn't a bot is pinged.
+ * Whoever is up is pinged if `ping` and they aren't a bot, and named otherwise.
  */
 function announcement(
   lines: string[],
   up: AnnouncedPlayer | null,
   url?: string,
+  ping = true,
 ): WebhookMessage {
-  const pinged = up && !up.isBot ? up : null;
+  const pinged = up && ping && !up.isBot ? up : null;
   return {
     content: [
       ...lines,
       ...(pinged ? [`<@${pinged.id}> you’re up.`] : []),
-      ...(up?.isBot ? [`${bold(up.name)} is up.`] : []),
+      ...(up && !pinged ? [`${bold(up.name)} is up.`] : []),
       // In angle brackets, so Discord doesn't embed a preview of the page.
       ...(url ? [`<${url}>`] : []),
     ].join('\n'),
