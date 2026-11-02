@@ -8,10 +8,10 @@ on:
   pull_request:
   workflow_dispatch:
 
-# A PR's new push cancels its stale run; everything else is keyed on the commit,
-# so each commit on main finishes its own run.
+# A PR's new push cancels its stale run. Every other run gets its own group, so
+# no run on main is cancelled, not even by a manual run of the same commit.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
