@@ -1,6 +1,6 @@
 # Swantisserie
 
-A rotisserie draft app for one Discord server: players take turns picking cards from a shared pool, then play their picks on MTG Arena.
+A rotisserie draft app for one Discord server: players take turns picking cards from a shared pool, then play their picks on MTG Arena or Magic Online.
 
 ## Access
 
@@ -31,7 +31,7 @@ One rotisserie event: a pool, its players, and the picks they make in snake orde
 _Avoid_: Game, league, room
 
 **Pool**:
-The fixed set of cards on Arena that a draft picks from, frozen when the draft is created.
+The fixed set of cards on the platform that a draft picks from, frozen when the draft is created.
 _Avoid_: Card list, cube
 
 **Pool query**:
@@ -47,7 +47,7 @@ The cards a pool query or cube link names, taken from Scryfall right after a dra
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:
-One copy of a card in a pool, with the Arena printing the snapshot took. A pool can hold several copies of the same card.
+One copy of a card in a pool, with the printing on the platform that the snapshot took. A pool can hold several copies of the same card.
 _Avoid_: Card entry, catalog card
 
 **Card preview**:
@@ -75,12 +75,12 @@ The part of a draft's page where a viewer browses and searches the pool cards, a
 _Avoid_: Card grid, pool page
 
 **Platform**:
-The game a draft is played on: MTG Arena or Magic Online (MTGO).
+The game a draft is played on: MTG Arena or Magic Online (MTGO). The organizer chooses it when creating the draft, and it never changes.
 _Avoid_: Client, target, game
 
-**On Arena**:
-Describes a card with at least one printing on MTG Arena. Every card in a pool must be on Arena.
-_Avoid_: Arena-legal (legality is per format), Arena card
+**On the platform**:
+Describes a card with at least one printing on a draft's platform. Every card in a pool must be on its draft's platform.
+_Avoid_: Arena-legal, MTGO-legal (legality is per format), Arena card, on Arena (alone)
 
 **Player**:
 A guild member or bot who has joined a particular draft.
@@ -147,7 +147,7 @@ The organizer taking back a draft's latest pick, while it is drafting or paused.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
-A player's picks as text that MTG Arena's deck import accepts, each card named the way Arena names it.
+A player's picks as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
 _Avoid_: Decklist, Arena import (that is what the player does with it)
 
 **Moxfield export**:
