@@ -5,6 +5,7 @@ export * from './auth.js';
 export * from './draft-errors.js';
 export * from './drafts.js';
 export * from './feedback.js';
+export * from './health.js';
 export * from './picks.js';
 export * from './pool.js';
 export * from './queue.js';
