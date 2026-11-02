@@ -14,7 +14,7 @@ import {
   completeSnapshot,
   button,
 } from './harness';
-import { useTallScreen, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
+import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -83,6 +83,27 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 1);
       expect(button(detail, 'Pick')!.disabled).toBe(true);
       expect(detail.textContent).toContain('Picked by Bob');
+    });
+
+    it('shows a tile per copy of a card, each picked and badged on its own', async () => {
+      const copies = ['shivan-1', 'shivan-2', 'shivan-3'].map((id) => card({ id }));
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+        { cards: copies, picks: [{ ...shivanPick, poolCardId: 'shivan-2', playerId: bob.id }] },
+      );
+
+      expect(tiles(page).map((tile) => tile.classList.contains('picked'))).toEqual([
+        false,
+        true,
+        false,
+      ]);
+      const detail = await openDetail(fixture, page, 2);
+      expect(button(detail, 'Pick')!.disabled).toBe(false);
+      button(detail, 'Pick')!.click();
+      expect(http.expectOne('/api/drafts/draft-1/picks').request.body).toEqual({
+        poolCardId: 'shivan-3',
+      });
     });
 
     it('offers no Pick to someone who is not a player', async () => {

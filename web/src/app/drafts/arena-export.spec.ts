@@ -11,6 +11,16 @@ describe('Arena export', () => {
     ).toBe('Deck\n1 Shivan Dragon\n1 Lightning Bolt');
   });
 
+  it('groups copies of a card into one line with their count, where the first copy was', () => {
+    expect(
+      arenaExport([
+        { name: 'Lightning Bolt', layout: 'normal' },
+        { name: 'Shivan Dragon', layout: 'normal' },
+        { name: 'Lightning Bolt', layout: 'normal' },
+      ]),
+    ).toBe('Deck\n2 Lightning Bolt\n1 Shivan Dragon');
+  });
+
   it.each([
     [
       'transform',

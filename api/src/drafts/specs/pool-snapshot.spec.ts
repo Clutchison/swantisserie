@@ -22,6 +22,8 @@ import {
   createDraft,
   getDraft,
   snapshotted,
+  readyDraft,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -387,6 +389,26 @@ describe('pool snapshot', () => {
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
       state: 'Failed',
       error: 'Scryfall rejected the pool query: Too many terms.',
+    });
+  });
+
+  it('keeps each copy of a card as its own pool card', async () => {
+    const id = await readyDraft([], 1, [
+      'Lightning Bolt',
+      'Shock',
+      'Lightning Bolt',
+      'Lightning Bolt',
+    ]);
+
+    const copies = await copyIds(id);
+
+    expect(copies['Lightning Bolt']).toHaveLength(3);
+    expect(new Set(copies['Lightning Bolt']).size).toBe(3);
+    expect(copies['Shock']).toHaveLength(1);
+    expect((await getDraft(id).expect(200)).body.snapshot).toEqual({
+      state: 'Complete',
+      cards: 4,
+      total: 4,
     });
   });
 

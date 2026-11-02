@@ -65,14 +65,28 @@ function parseCsv(text: string): string[][] | null {
   return rows;
 }
 
-/** The pool cards each name can mean, by lower-case full and front-face name. */
-function cardsByName(pool: PickImportCard[]): Map<string, PickImportCard[]> {
-  const byName = new Map<string, PickImportCard[]>();
+/** Cards' copies in the pool, by each card's full name. */
+type CopiesByCard = Map<string, PickImportCard[]>;
+
+/** A filled cell's card, as its copies in the pool, or why it has none. */
+type NamedPick =
+  | { ok: true; seat: number; cardName: string; copies: PickImportCard[] }
+  | { ok: false; problem: string };
+
+/**
+ * The cards each name can mean, by lower-case full and front-face name: each
+ * card is its copies in the pool, by its full name. Copies share a full name
+ * and different cards never do, so the full name tells cards apart.
+ */
+function cardsByName(pool: PickImportCard[]): Map<string, CopiesByCard> {
+  const byName = new Map<string, CopiesByCard>();
   for (const card of pool) {
     const names = new Set([card.name, card.name.split(' // ')[0]]);
     for (const name of names) {
       const key = name.toLowerCase();
-      byName.set(key, [...(byName.get(key) ?? []), card]);
+      const cards: CopiesByCard = byName.get(key) ?? new Map();
+      cards.set(card.name, [...(cards.get(card.name) ?? []), card]);
+      byName.set(key, cards);
     }
   }
   return byName;
@@ -81,7 +95,8 @@ function cardsByName(pool: PickImportCard[]): Map<string, PickImportCard[]> {
 /**
  * Reads a pick import's file for a draft of `size` with `pool`. Column N of
  * the file is seat N, and its picks run in snake order. Names are matched to
- * pool cards ignoring case, never fuzzily.
+ * pool cards ignoring case, never fuzzily, and each use of a name takes the
+ * next unpicked copy of its card.
  */
 export function readPickImport(
   text: string,
@@ -150,21 +165,48 @@ export function readPickImport(
   }
 
   const byName = cardsByName(pool);
-  const seen = new Set<string>();
+  // Each filled cell's card, as its copies, or what is wrong with its name.
+  const named = filled.map(({ seat, name }): NamedPick => {
+    const cards = byName.get(name.toLowerCase()) ?? new Map();
+    if (cards.size === 0) {
+      return { ok: false, problem: `${name} isn’t in this draft’s pool.` };
+    }
+    if (cards.size > 1) {
+      const names = [...cards.keys()].join(', ');
+      return {
+        ok: false,
+        problem: `${name} matches more than one pool card: ${names}.`,
+      };
+    }
+    const [[cardName, copies]] = cards;
+    return { ok: true, seat, cardName, copies };
+  });
+  // How many of each card's copies the picks so far have taken.
+  const taken = new Map<string, number>();
   const picks: ImportedPick[] = [];
-  for (const { seat, name } of filled) {
-    const matches = byName.get(name.toLowerCase()) ?? [];
-    if (matches.length === 0) {
-      problems.push(`${name} isn’t in this draft’s pool.`);
-    } else if (matches.length > 1) {
-      const names = matches.map((card) => card.name).join(', ');
-      problems.push(`${name} matches more than one pool card: ${names}.`);
+  for (const pick of named) {
+    if (!pick.ok) {
+      problems.push(pick.problem);
+      continue;
+    }
+    const { seat, cardName, copies } = pick;
+    const copy = taken.get(cardName) ?? 0;
+    taken.set(cardName, copy + 1);
+    if (copy < copies.length) {
+      picks.push({
+        number: picks.length + 1,
+        seat,
+        poolCardId: copies[copy].id,
+      });
+    } else if (copies.length === 1) {
+      problems.push(`${cardName} appears more than once.`);
     } else {
-      const [{ id: poolCardId, name: cardName }] = matches;
-      if (seen.has(poolCardId))
-        problems.push(`${cardName} appears more than once.`);
-      seen.add(poolCardId);
-      picks.push({ number: picks.length + 1, seat, poolCardId });
+      const uses = named.filter(
+        (other) => other.ok && other.cardName === cardName,
+      );
+      problems.push(
+        `${cardName} appears ${uses.length} times, but the pool has ${copies.length} copies.`,
+      );
     }
   }
 

@@ -11,6 +11,16 @@ describe('Moxfield export', () => {
     ).toBe('1 Shivan Dragon (M20) 335\n1 Lightning Bolt (STA) 42');
   });
 
+  it('groups copies of a card into one line with their count, where the first copy was', () => {
+    expect(
+      moxfieldExport([
+        { name: 'Lightning Bolt', set: 'sta', collectorNumber: '42' },
+        { name: 'Shivan Dragon', set: 'm20', collectorNumber: '335' },
+        { name: 'Lightning Bolt', set: 'sta', collectorNumber: '42' },
+      ]),
+    ).toBe('2 Lightning Bolt (STA) 42\n1 Shivan Dragon (M20) 335');
+  });
+
   it('keeps every face of a multi-face card in its name', () => {
     expect(
       moxfieldExport([{ name: 'Bonecrusher Giant // Stomp', set: 'eld', collectorNumber: '115' }]),

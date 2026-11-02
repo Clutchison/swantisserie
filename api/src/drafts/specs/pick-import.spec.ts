@@ -14,6 +14,7 @@ import {
   pickLog,
   undo,
   poolCardIds,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -74,6 +75,29 @@ describe('pick import', () => {
       [2, bob.id, 'Brine Wisp'],
       [3, bob.id, 'Cinder Hound'],
     ]);
+  });
+
+  it('takes a different copy for each use of a card’s name', async () => {
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 2, [
+      'Ash Golem',
+      'Ash Golem',
+      'Brine Wisp',
+      'Cinder Hound',
+    ]);
+    const copies = await copyIds(id);
+
+    await importPicks(
+      id,
+      ',Ann,Ben,\n->,Ash Golem,Ash Golem,\n,,Brine Wisp,<-',
+    ).expect(200);
+
+    const log = (await pickLog(id)).body as { poolCardId: string }[];
+    expect(
+      log
+        .map((pick) => pick.poolCardId)
+        .slice(0, 2)
+        .sort(),
+    ).toEqual([...copies['Ash Golem']].sort());
   });
 
   it('gives the picks what the exports need of them', async () => {

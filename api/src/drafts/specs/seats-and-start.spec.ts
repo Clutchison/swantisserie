@@ -48,6 +48,33 @@ describe('seats and start', () => {
     expect((await getDraft(id).expect(200)).body.state).toBe('Lobby');
   });
 
+  it('counts every copy of a card toward the pool', async () => {
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 2, [
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Shock',
+    ]);
+
+    await start(id).expect(200);
+  });
+
+  it('refuses a start when the pool, counting copies, is too small', async () => {
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 3, [
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Shock',
+      'Shock',
+      'Lava Spike',
+    ]);
+
+    const refused = await start(id).expect(409);
+
+    expect(refused.body.message).toBe(
+      '2 players × 3 picks needs 6 cards, but the pool has 5.',
+    );
+  });
+
   it('refuses a start with fewer than 2 players', async () => {
     const id = await readyDraft([aliceCookie]);
 

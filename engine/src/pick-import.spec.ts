@@ -182,6 +182,50 @@ describe('readPickImport', () => {
     });
   });
 
+  describe('copies', () => {
+    /** Two copies of Ash Golem, with ids ash golem 1 and ash golem 2. */
+    const copies = [
+      { id: 'ash golem 1', name: 'Ash Golem' },
+      { id: 'ash golem 2', name: 'Ash Golem' },
+      card('Brine Wisp'),
+      card('Spring // Autumn'),
+      { id: 'spring // autumn 2', name: 'Spring // Autumn' },
+    ];
+
+    it('maps each use of a name to the next unpicked copy', () => {
+      const csv = ',Ann,Ben,\n->,Ash Golem,ash golem,\n,,Brine Wisp,<-';
+
+      expect(read(csv, size, copies)).toMatchObject({
+        ok: true,
+        picks: [
+          { seat: 0, poolCardId: 'ash golem 1' },
+          { seat: 1, poolCardId: 'ash golem 2' },
+          { seat: 1, poolCardId: 'brine wisp' },
+        ],
+      });
+    });
+
+    it('counts a card’s copies however it is named', () => {
+      const csv = ',Ann,Ben,\n->,Spring,Spring // Autumn,';
+
+      expect(read(csv, size, copies)).toMatchObject({
+        ok: true,
+        picks: [
+          { poolCardId: 'spring // autumn' },
+          { poolCardId: 'spring // autumn 2' },
+        ],
+      });
+    });
+
+    it('refuses a name used more times than the pool has copies', () => {
+      const csv = ',Ann,Ben,\n->,Ash Golem,Ash Golem,\n,,Ash Golem,<-';
+
+      expect(problems(csv, size, copies)).toEqual([
+        'Ash Golem appears 3 times, but the pool has 2 copies.',
+      ]);
+    });
+  });
+
   describe('pick count', () => {
     it('refuses a file with no picks', () => {
       expect(problems(',Ann,Ben,\n->,,,\n,,,<-')).toEqual([

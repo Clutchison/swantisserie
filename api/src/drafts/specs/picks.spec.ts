@@ -12,6 +12,7 @@ import {
   start,
   pick,
   poolCardIds,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -135,6 +136,43 @@ describe('picks', () => {
       message: 'That card has already been picked.',
     });
     expect((await getDraft(id).expect(200)).body.turn.playerId).toBe(bob.id);
+  });
+
+  it('picks each copy of a card on its own, and a player can pick a second copy', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, [
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Shock',
+    ]);
+    await start(id).expect(200);
+    const [first, second, third] = (await copyIds(id))['Lightning Bolt'];
+
+    await pick(id, first).expect(200);
+    await pick(id, first, bobCookie).expect(409);
+    await pick(id, second, bobCookie).expect(200);
+    await pick(id, third, bobCookie).expect(200);
+
+    expect(
+      (await picks(id).expect(200)).body.map(
+        ({ pick, playerId, poolCardId, name }: Record<string, unknown>) => ({
+          pick,
+          playerId,
+          poolCardId,
+          name,
+        }),
+      ),
+    ).toEqual([
+      {
+        pick: 1,
+        playerId: alice.id,
+        poolCardId: first,
+        name: 'Lightning Bolt',
+      },
+      { pick: 2, playerId: bob.id, poolCardId: second, name: 'Lightning Bolt' },
+      { pick: 3, playerId: bob.id, poolCardId: third, name: 'Lightning Bolt' },
+    ]);
   });
 
   it('refuses a card that is not in the pool, even one in another draft’s', async () => {
