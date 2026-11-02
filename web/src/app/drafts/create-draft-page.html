@@ -6,6 +6,15 @@
       <input name="name" formControlName="name" maxlength="100" required />
     </label>
     <label>
+      Platform
+      <select name="platform" formControlName="platform">
+        @for (platform of platforms; track platform) {
+          <option [ngValue]="platform">{{ platform }}</option>
+        }
+      </select>
+      <span class="hint">The game this draft is played on. It can’t change later.</span>
+    </label>
+    <label>
       Pool query
       <textarea
         name="poolQuery"
@@ -18,7 +27,7 @@
       <span class="hint">
         A
         <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall search</a
-        >. Every card it finds goes in the pool, and they must all be on Arena.
+        >. Every card it finds goes in the pool, and they must all be on {{ platform() }}.
       </span>
     </label>
     <label>
@@ -59,7 +68,7 @@
     @if (problem(); as problem) {
       <div class="error" role="alert">
         <p>{{ problem.message }}</p>
-        @if (problem.error === 'not-on-arena') {
+        @if (problem.error === 'not-on-platform') {
           <ul>
             @for (card of problem.cards; track card) {
               <li>{{ card }}</li>

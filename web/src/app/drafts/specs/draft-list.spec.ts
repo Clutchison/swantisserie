@@ -106,6 +106,21 @@ describe('draft list', () => {
     },
   );
 
+  it.each([
+    ['Lobby', 'Active drafts'],
+    ['Closed', 'Closed drafts'],
+    ['Complete', 'Complete drafts'],
+  ] as const)('shows the platform of a %s draft', async (state, heading) => {
+    const page = await openList([
+      draft({ id: 'a', name: 'Red dragons', state, platform: 'MTGO' }),
+      draft({ id: 'b', name: 'Arena cube', state, platform: 'Arena' }),
+    ]);
+
+    const [mtgo, arena] = section(page, heading).querySelectorAll('a');
+    expect(mtgo.querySelector('.platform')?.textContent?.trim()).toBe('MTGO');
+    expect(arena.querySelector('.platform')?.textContent?.trim()).toBe('Arena');
+  });
+
   it('keeps the empty messages out of any link', async () => {
     const page = await openList([]);
 

@@ -5,7 +5,7 @@
       <button class="button secondary" type="button" (click)="boardChosen.emit()">← Board</button>
     }
     @if (playerPicks().length > 0) {
-      @for (target of exportTargets; track target) {
+      @for (target of exportTargets(); track target) {
         <button
           class="button secondary copy"
           [class.copied]="copied() === target"

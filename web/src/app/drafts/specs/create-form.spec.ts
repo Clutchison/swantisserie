@@ -114,6 +114,7 @@ describe('create form', () => {
       name: 'Red dragons',
       poolQuery: 't:dragon c:r',
       picksPerPlayer: 30,
+      platform: 'Arena',
       webhookId: null,
     });
     req.flush(draft({ id: 'draft-9', picksPerPlayer: 30 }), {
@@ -126,6 +127,49 @@ describe('create form', () => {
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
     // The organizer's control on the draft's page loads them too.
     (await vi.waitFor(() => http.expectOne('/api/webhooks'))).flush([]);
+  });
+
+  const platformSelect = (page: HTMLElement) =>
+    page.querySelector<HTMLSelectElement>('[name="platform"]')!;
+
+  /** Chooses the platform option labelled `label`. */
+  function choosePlatform(page: HTMLElement, label: string) {
+    const select = platformSelect(page);
+    select.selectedIndex = [...select.options].findIndex(
+      (option) => option.textContent?.trim() === label,
+    );
+    select.dispatchEvent(new Event('change'));
+  }
+
+  it('offers Arena and MTGO, starting on Arena', async () => {
+    const { page } = await openForm();
+
+    const select = platformSelect(page);
+    expect([...select.options].map((option) => option.textContent?.trim())).toEqual([
+      'Arena',
+      'MTGO',
+    ]);
+    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Arena');
+  });
+
+  it('sends the platform chosen', async () => {
+    const form = await openForm();
+    choosePlatform(form.page, 'MTGO');
+
+    const req = await create(form);
+    expect(req.request.body.platform).toBe('MTGO');
+    req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+  });
+
+  it('says the pool’s cards must be on the platform chosen', async () => {
+    const { fixture, page } = await openForm();
+    const hint = () => page.querySelector('[name="poolQuery"] ~ .hint')?.textContent;
+    expect(hint()).toContain('they must all be on Arena.');
+
+    choosePlatform(page, 'MTGO');
+    await fixture.whenStable();
+
+    expect(hint()).toContain('they must all be on MTGO.');
   });
 
   it('offers the webhooks by name, starting on the first, and sends the one chosen', async () => {
@@ -182,7 +226,7 @@ describe('create form', () => {
     const { fixture, page } = form;
 
     fail(await create(form), 422, {
-      error: 'not-on-arena',
+      error: 'not-on-platform',
       message: '2 cards in this pool query are not on Arena.',
       cards: ['Ancient Hellkite', 'Dream Pillager'],
       totalCards: 2,
@@ -203,7 +247,7 @@ describe('create form', () => {
     const { fixture, page } = form;
 
     fail(await create(form), 422, {
-      error: 'not-on-arena',
+      error: 'not-on-platform',
       message: '5000 cards in this pool query are not on Arena.',
       cards: ['Ancient Hellkite', 'Dream Pillager'],
       totalCards: 5000,

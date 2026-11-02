@@ -1,22 +1,10 @@
-import { PGlite } from '@electric-sql/pglite';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { databaseBefore } from './migrations.js';
 
-const MIGRATIONS = join(import.meta.dirname, '../../../prisma/migrations');
 const QUEUE_CLEARING = '20261101090000_queue_clearing';
 
 describe('the queue clearing migration', () => {
   it('moves lost cards against the pick that took them, and leaves queues as they were', async () => {
-    const db = await PGlite.create();
-    const apply = (migration: string) =>
-      db.exec(
-        readFileSync(join(MIGRATIONS, migration, 'migration.sql'), 'utf8'),
-      );
-    const earlier = readdirSync(MIGRATIONS, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name < QUEUE_CLEARING)
-      .map((entry) => entry.name)
-      .sort();
-    for (const migration of earlier) await apply(migration);
+    const { db, applyMigration } = await databaseBefore(QUEUE_CLEARING);
     // Only these rows matter, so the rows they refer to needn't exist.
     await db.exec(`
       SET session_replication_role = replica;
@@ -28,7 +16,7 @@ describe('the queue clearing migration', () => {
                ('c', 'player', 'last', 2, NULL);
     `);
 
-    await apply(QUEUE_CLEARING);
+    await applyMigration();
 
     const unqueued = await db.query(
       `SELECT "pickId", "playerId", "poolCardId", "position", "noticeHidden" FROM "UnqueuedCard"`,

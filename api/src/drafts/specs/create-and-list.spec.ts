@@ -32,6 +32,7 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
     name: 'Red dragons',
     poolQuery: 't:dragon c:r',
     picksPerPlayer: 30,
+    platform: 'Arena',
     state: 'Lobby',
     organizer: alice,
     snapshot: expect.any(Object),
@@ -46,7 +47,59 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
   expect(list.body).toEqual([{ ...draft, id: created.body.id }]);
 });
 
-it('refuses a pool query with cards not on Arena, and lists them', async () => {
+it('creates a draft on the platform the organizer chose', async () => {
+  scryfallAnswers({
+    'c:r': page('Shock'),
+    '(c:r) -in:mtgo': null,
+    '(c:r) game:mtgo unique:cards': page('Shock'),
+  });
+
+  const created = await createDraft({
+    name: 'Red',
+    poolQuery: 'c:r',
+    platform: 'MTGO',
+  }).expect(201);
+
+  expect(created.body.platform).toBe('MTGO');
+  const list = await listDrafts().expect(200);
+  expect(list.body[0].platform).toBe('MTGO');
+});
+
+it('refuses a platform other than Arena or MTGO', async () => {
+  const res = await createDraft({
+    name: 'Red',
+    poolQuery: 'c:r',
+    platform: 'Paper',
+  }).expect(400);
+
+  expect(res.body).toEqual({
+    error: 'invalid',
+    message: 'Choose Arena or MTGO.',
+  });
+});
+
+it('refuses an MTGO draft whose pool query has cards not on MTGO, naming MTGO', async () => {
+  scryfallAnswers({
+    'f:legacy t:dragon': page('Balefire Dragon', 'Ancient Hellkite'),
+    '(f:legacy t:dragon) -in:mtgo': page('Balefire Dragon'),
+  });
+
+  const res = await createDraft({
+    name: 'Dragons',
+    poolQuery: 'f:legacy t:dragon',
+    platform: 'MTGO',
+  }).expect(422);
+
+  expect(res.body).toEqual({
+    error: 'not-on-platform',
+    message: '1 card in this pool query is not on MTGO.',
+    cards: ['Balefire Dragon'],
+    totalCards: 1,
+  });
+  await listDrafts().expect(200).expect([]);
+});
+
+it('refuses an Arena draft whose pool query has cards not on Arena, and lists them', async () => {
   scryfallAnswers({
     'f:legacy t:dragon': page('Balefire Dragon', 'Ancient Hellkite'),
     '(f:legacy t:dragon) -in:arena': page('Ancient Hellkite', 'Dream Pillager'),
@@ -58,7 +111,7 @@ it('refuses a pool query with cards not on Arena, and lists them', async () => {
   }).expect(422);
 
   expect(res.body).toEqual({
-    error: 'not-on-arena',
+    error: 'not-on-platform',
     message: '2 cards in this pool query are not on Arena.',
     cards: ['Ancient Hellkite', 'Dream Pillager'],
     totalCards: 2,

@@ -14,11 +14,9 @@
       <ul>
         @for (draft of active(); track draft.id) {
           <li>
-            <a class="draft-link" [routerLink]="['/drafts', draft.id]">
-              <span class="name">{{ draft.name }}</span>
-              <span class="state">{{ draft.state }}</span>
-              <span class="detail">Organized by {{ draft.organizer.name }}</span>
-            </a>
+            <ng-container
+              *ngTemplateOutlet="draftLink; context: { $implicit: draft, showState: true }"
+            />
           </li>
         } @empty {
           <li class="empty">No active drafts.</li>
@@ -30,10 +28,7 @@
       <ul>
         @for (draft of closed(); track draft.id) {
           <li>
-            <a class="draft-link" [routerLink]="['/drafts', draft.id]">
-              <span class="name">{{ draft.name }}</span>
-              <span class="detail">Organized by {{ draft.organizer.name }}</span>
-            </a>
+            <ng-container *ngTemplateOutlet="draftLink; context: { $implicit: draft }" />
           </li>
         } @empty {
           <li class="empty">No closed drafts.</li>
@@ -45,10 +40,7 @@
       <ul>
         @for (draft of complete(); track draft.id) {
           <li>
-            <a class="draft-link" [routerLink]="['/drafts', draft.id]">
-              <span class="name">{{ draft.name }}</span>
-              <span class="detail">Organized by {{ draft.organizer.name }}</span>
-            </a>
+            <ng-container *ngTemplateOutlet="draftLink; context: { $implicit: draft }" />
           </li>
         } @empty {
           <li class="empty">No complete drafts.</li>
@@ -57,3 +49,17 @@
     </section>
   }
 </main>
+
+<!-- One draft in a list, all of it a link to the draft's page. -->
+<ng-template #draftLink let-draft let-showState="showState">
+  <a class="draft-link" [routerLink]="['/drafts', draft.id]">
+    <span class="name">{{ draft.name }}</span>
+    @if (showState) {
+      <span class="state">{{ draft.state }}</span>
+    }
+    <span class="detail"
+      ><span class="platform">{{ draft.platform }}</span> · Organized by
+      {{ draft.organizer.name }}</span
+    >
+  </a>
+</ng-template>

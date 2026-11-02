@@ -98,7 +98,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app):
 
 - **Arena:** `Deck` header, then `1 Card Name` lines. Name only, no set codes, because Arena set codes differ and a named printing the player doesn't own can show as missing. Multi-face cards use Arena naming (front-face name for transform / MDFC / adventure; `A // B` for split cards).
-- **Moxfield:** `1 Card Name (SET) 123`, using the snapshotted Arena printing (Moxfield uses Scryfall set codes).
+- **Moxfield:** `1 Card Name (SET) 123`, using the snapshotted printing on the draft's platform (Moxfield uses Scryfall set codes).
 - **Before launch:** paste one test export containing a transform, a split and an adventure card into the Arena client to confirm the naming.
 
 ## Out of scope for v1

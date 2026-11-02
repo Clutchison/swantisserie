@@ -7,10 +7,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import type { DraftProblem, DraftView, WebhookView } from './drafts';
+import type { DraftProblem, DraftView, Platform, WebhookView } from './drafts';
 
 @Component({
   selector: 'app-create-draft-page',
@@ -28,7 +29,12 @@ export class CreateDraftPage {
     name: '',
     poolQuery: '',
     picksPerPlayer: 40,
+    platform: 'Arena' as Platform,
     webhookId: null as string | null,
+  });
+  protected readonly platforms: Platform[] = ['Arena', 'MTGO'];
+  protected readonly platform = toSignal(this.form.controls.platform.valueChanges, {
+    initialValue: this.form.controls.platform.value,
   });
   private readonly webhookResource = httpResource<WebhookView[]>(() => '/api/webhooks');
   // If they fail to load, the draft can still be created to post nowhere.

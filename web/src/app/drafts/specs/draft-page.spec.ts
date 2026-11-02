@@ -44,6 +44,17 @@ describe('draft page', () => {
     expect(page.querySelector('progress')).toBeNull();
   });
 
+  it('shows the draft’s platform beside its pool query', async () => {
+    const { page } = await openDraft(
+      { state: 'Complete', cards: 540, total: 540 },
+      { platform: 'MTGO' },
+    );
+
+    const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
+    expect(details).toContain('Platform: MTGO');
+    expect(details).toContain('Pool query: t:dragon c:r');
+  });
+
   it('shows snapshot progress and keeps polling until it is complete', async () => {
     const { fixture, page } = await openDraft({ state: 'Running', cards: 0, total: null });
     expect(page.textContent).toContain('Snapshotting the pool');

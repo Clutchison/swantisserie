@@ -57,6 +57,7 @@ import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
 import { type DraftView, toDraftView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
+import { isPlatform, PLATFORMS } from './platform.js';
 import {
   type CardFace,
   type CardImages,
@@ -526,10 +527,8 @@ function pickImportRefused(
 
 /** The create form's fields, or a 400 saying which one to fix. */
 function parseNewDraft(body: unknown): NewDraft {
-  const { name, poolQuery, picksPerPlayer, webhookId } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { name, poolQuery, picksPerPlayer, platform, webhookId } = (body ??
+    {}) as Record<string, unknown>;
   const invalid = (message: string) =>
     new BadRequestException({ error: 'invalid', message });
 
@@ -561,6 +560,12 @@ function parseNewDraft(body: unknown): NewDraft {
     );
   }
 
+  // Only a missing field gets the default, as with picks per player.
+  const chosenPlatform = platform === undefined ? 'Arena' : platform;
+  if (!isPlatform(chosenPlatform)) {
+    throw invalid(`Choose ${PLATFORMS.join(' or ')}.`);
+  }
+
   // Missing or null: the draft posts nowhere.
   if (webhookId != null && (typeof webhookId !== 'string' || !webhookId)) {
     throw invalid('Choose a webhook from the list.');
@@ -570,6 +575,7 @@ function parseNewDraft(body: unknown): NewDraft {
     name: trimmedName,
     poolQuery: trimmedQuery,
     picksPerPlayer: picks,
+    platform: chosenPlatform,
     webhookId: webhookId ?? null,
   };
 }

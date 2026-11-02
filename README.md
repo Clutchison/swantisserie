@@ -9,7 +9,7 @@ Inspired by [mtgrotisseriedraft.com](https://mtgrotisseriedraft.com), with some 
 ## Features (v1)
 
 - **Discord login**: only members of our server can sign in.
-- **Pools from a Scryfall query**: any card the query returns is in the pool. Every card must be on Arena, or the draft can't be created. The pool is snapshotted when the draft is created.
+- **Pools from a Scryfall query**: any card the query returns is in the pool. The organizer chooses the draft's platform, Arena or MTGO, and every card must be on it, or the draft can't be created. The pool is snapshotted when the draft is created.
 - **Snake draft**: 2–12 players, 40 picks each by default, no turn timers, one copy of each card.
 - **Preloaded picks**: rank cards in a private queue. On your turn the first one still available is picked for you, and queued picks cascade through the following players.
 - **Discord posts**: a webhook announces each pick (or a cascade of picks) and pings the next player who has to pick manually.

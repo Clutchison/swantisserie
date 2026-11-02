@@ -4,7 +4,7 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Platform, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallClient,
@@ -14,6 +14,13 @@ import {
   type ScryfallCardFace,
   type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
+import { SCRYFALL_GAME } from './platform.js';
+
+/** What a draft's pool is snapshotted from. */
+interface PoolSource {
+  poolQuery: string;
+  platform: Platform;
+}
 
 /** Image URLs of one card face, as stored in PoolCard.images. */
 export interface CardImages extends ScryfallImageUris {
@@ -112,18 +119,18 @@ export class PoolSnapshotService
     draftId: string,
     started: { resolve: () => void; reject: (err: unknown) => void },
   ): Promise<void> {
-    let poolQuery: string | null;
+    let source: PoolSource | null;
     try {
-      poolQuery = await this.reset(draftId);
+      source = await this.reset(draftId);
     } catch (err) {
       started.reject(err);
       return;
     }
     started.resolve();
-    if (poolQuery === null) return;
+    if (source === null) return;
 
     try {
-      await this.pageThrough(draftId, poolQuery);
+      await this.pageThrough(draftId, source);
       await this.prisma.draft.update({
         where: { id: draftId },
         data: { snapshotState: 'Complete' },
@@ -142,9 +149,9 @@ export class PoolSnapshotService
 
   /**
    * Marks the draft Running and drops its cards, unless its pool is already
-   * frozen. Returns its pool query, or null if it was cancelled.
+   * frozen. Returns its pool query and platform, or null if it was cancelled.
    */
-  private async reset(draftId: string): Promise<string | null> {
+  private async reset(draftId: string): Promise<PoolSource | null> {
     return this.prisma.$transaction(async (tx) => {
       // The state check and the reset are one statement, so a snapshot that
       // completes in the meantime can't be wiped.
@@ -163,24 +170,27 @@ export class PoolSnapshotService
         return null;
       }
       await tx.poolCard.deleteMany({ where: { draftId } });
-      const { poolQuery } = await tx.draft.findUniqueOrThrow({
+      return tx.draft.findUniqueOrThrow({
         where: { id: draftId },
-        select: { poolQuery: true },
+        select: { poolQuery: true, platform: true },
       });
-      return poolQuery;
     });
   }
 
-  private async pageThrough(draftId: string, poolQuery: string): Promise<void> {
-    // game:arena picks the Arena printing of each card; the pool query was
-    // already checked to have no cards off Arena.
-    const query = `(${poolQuery}) game:arena unique:cards`;
+  private async pageThrough(
+    draftId: string,
+    { poolQuery, platform }: PoolSource,
+  ): Promise<void> {
+    // game:arena picks the Arena printing of each card, game:mtgo the MTGO
+    // one; the pool query was already checked to have no cards off the
+    // platform.
+    const query = `(${poolQuery}) game:${SCRYFALL_GAME[platform]} unique:cards`;
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
       if (!result) {
         throw new PoolSnapshotError(
           page === 1
-            ? 'The pool query no longer matches any cards on Arena.'
+            ? `The pool query no longer matches any cards on ${platform}.`
             : 'Scryfall stopped returning cards before the pool was complete.',
         );
       }

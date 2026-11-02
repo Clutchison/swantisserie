@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { MAX_PLAYERS, shuffle } from 'engine';
+import type { Platform } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   DraftFullError,
@@ -29,11 +30,13 @@ import {
   ScryfallRejectedSearchError,
   type ScryfallSearchPage,
 } from '../scryfall/scryfall-client.js';
+import { SCRYFALL_GAME } from './platform.js';
 
 export interface NewDraft {
   name: string;
   poolQuery: string;
   picksPerPlayer: number;
+  platform: Platform;
   /** Where its announcements are posted; null for none. */
   webhookId: string | null;
 }
@@ -67,7 +70,7 @@ export class DraftLobbyService {
     ) {
       throw new UnknownWebhookError();
     }
-    await this.checkPoolQuery(draft.poolQuery);
+    await this.checkPoolQuery(draft.poolQuery, draft.platform);
     const created = await this.prisma.draft
       .create({ data: { ...draft, organizerId }, ...WITH_ORGANIZER })
       // The webhook may have been removed while the pool query was being checked.
@@ -224,7 +227,10 @@ export class DraftLobbyService {
     return players.map((player) => player.userId);
   }
 
-  private async checkPoolQuery(poolQuery: string): Promise<void> {
+  private async checkPoolQuery(
+    poolQuery: string,
+    platform: Platform,
+  ): Promise<void> {
     const matches = await this.search(poolQuery);
     if (!matches) {
       throw new PoolQueryError({
@@ -242,14 +248,16 @@ export class DraftLobbyService {
     }
 
     // in:arena, not game:arena: game: matches printings, so -game:arena would
-    // also catch Arena cards that have a paper-only printing.
-    const notOnArena = await this.search(`(${poolQuery}) -in:arena`);
-    if (notOnArena) {
-      const { totalCards } = notOnArena;
+    // also catch Arena cards that have a paper-only printing. Likewise MTGO.
+    const notOnPlatform = await this.search(
+      `(${poolQuery}) -in:${SCRYFALL_GAME[platform]}`,
+    );
+    if (notOnPlatform) {
+      const { totalCards } = notOnPlatform;
       throw new PoolQueryError({
-        error: 'not-on-arena',
-        message: `${totalCards} ${totalCards === 1 ? 'card' : 'cards'} in this pool query ${totalCards === 1 ? 'is' : 'are'} not on Arena.`,
-        cards: notOnArena.cards.map((card) => card.name),
+        error: 'not-on-platform',
+        message: `${totalCards} ${totalCards === 1 ? 'card' : 'cards'} in this pool query ${totalCards === 1 ? 'is' : 'are'} not on ${platform}.`,
+        cards: notOnPlatform.cards.map((card) => card.name),
         totalCards,
       });
     }

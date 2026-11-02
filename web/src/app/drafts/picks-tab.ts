@@ -9,17 +9,23 @@ import {
 } from '@angular/core';
 import { arenaExport } from './arena-export';
 import { CardPreviewName } from './card-preview';
-import { type PickView, type PlayerView, type PoolCardView } from './drafts';
+import { type PickView, type Platform, type PlayerView, type PoolCardView } from './drafts';
 import { moxfieldExport } from './moxfield-export';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /** Where a player's picks can be exported to. */
 type ExportTarget = 'Arena' | 'Moxfield';
 
-/** Each export target's export of a player's picks, in the order their buttons show. */
+/** Each export target's export of a player's picks. */
 const EXPORTS: Record<ExportTarget, (picks: PickView[]) => string> = {
   Arena: arenaExport,
   Moxfield: moxfieldExport,
+};
+
+/** The export targets a draft on each platform offers. */
+const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
+  Arena: ['Arena', 'Moxfield'],
+  MTGO: ['Moxfield'],
 };
 
 /** How long a copy button shows its confirmation. */
@@ -34,6 +40,8 @@ const CONFIRMATION_MS = 2000;
   styleUrls: ['./drafts.scss', './draft-panels.scss', './picks-tab.scss'],
 })
 export class PicksTab implements OnDestroy {
+  /** The draft's platform, which decides the exports offered. */
+  readonly platform = input.required<Platform>();
   /** The player whose picks to show, if any. */
   readonly player = input.required<PlayerView | null>();
   /** Whether `player` is the signed-in player. */
@@ -54,7 +62,8 @@ export class PicksTab implements OnDestroy {
     this.picks().filter((pick) => pick.playerId === this.player()?.id),
   );
 
-  protected readonly exportTargets = Object.keys(EXPORTS) as ExportTarget[];
+  /** In the order their buttons show. */
+  protected readonly exportTargets = computed(() => PLATFORM_EXPORTS[this.platform()]);
 
   /** What the latest copy of the picks was copied for, while it's confirmed. */
   protected readonly copied = signal<ExportTarget | null>(null);
