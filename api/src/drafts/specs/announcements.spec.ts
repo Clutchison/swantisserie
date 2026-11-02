@@ -158,7 +158,17 @@ describe('announcements', () => {
 
       await start(id).expect(200);
 
-      expect((await lastPost(1)).allowed_mentions.users).toEqual([bob.id]);
+      expect(await lastPost(1)).toEqual({
+        content:
+          '**Red** has started. Seat order:\n' +
+          '1. **Alice**\n' +
+          '2. **Bob**\n' +
+          '1- **Alice** picked **Shock**\n' +
+          '2- **Bob** picked **Lightning Bolt**\n' +
+          `<@${bob.id}> you’re up.\n` +
+          `<https://roto.example/drafts/${id}>`,
+        allowed_mentions: { parse: [], users: [bob.id] },
+      });
     });
 
     it.each([
@@ -217,7 +227,38 @@ describe('announcements', () => {
 
       await post(id, 'resume').expect(200);
 
-      expect((await lastPost(5)).allowed_mentions.users).toEqual([bob.id]);
+      expect(await lastPost(5)).toEqual({
+        content: `**Red** has resumed\n<@${bob.id}> you’re up.`,
+        allowed_mentions: { parse: [], users: [bob.id] },
+      });
+    });
+  });
+
+  it('names a bot a cascade ends on after a by-hand pick, pinging no one', async () => {
+    const id = await readyDraft(
+      [aliceCookie, bobCookie],
+      1,
+      ['Shock', 'Lightning Bolt', 'Lava Spike'],
+      webhookId,
+    );
+    await post(id, 'bots', await signIn(carol)).expect(201);
+    await enqueue(id, 'lightning-bolt-oracle', bobCookie).expect(200);
+    await start(id).expect(200);
+
+    await pick(id, 'shock-oracle').expect(200);
+
+    // The bot then picks on its own timer, so more posts may follow.
+    const message = await vi.waitFor(() => {
+      const call = webhookClient.post.mock.calls[1];
+      expect(call).toBeDefined();
+      return call[1];
+    });
+    expect(message).toEqual({
+      content:
+        '1- **Alice** picked **Shock**\n' +
+        '2- **Bob** picked **Lightning Bolt**\n' +
+        '**Bot 1** is up.',
+      allowed_mentions: { parse: [], users: [] },
     });
   });
 

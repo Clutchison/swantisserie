@@ -166,7 +166,9 @@ export class TurnsService {
     const events: DraftEvent[] = [];
     for (const { seat, card } of picks) {
       const { userId } = players[seat];
-      events.push(...(await this.pickCard(draft, userId, card, true)));
+      events.push(
+        ...(await this.pickCard(draft, userId, card, { queued: true })),
+      );
     }
     return events;
   }
@@ -182,7 +184,7 @@ export class TurnsService {
     oracleId: string,
   ): Promise<DraftEvent[]> {
     return [
-      ...(await this.pickCard(draft, userId, oracleId, false)),
+      ...(await this.pickCard(draft, userId, oracleId, { queued: false })),
       ...(await this.cascade(draft)),
     ];
   }
@@ -196,7 +198,7 @@ export class TurnsService {
     draft: LockedDraft,
     userId: string,
     oracleId: string,
-    queued: boolean,
+    { queued }: { queued: boolean },
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
     const card = await tx.poolCard.findUnique({

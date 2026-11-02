@@ -92,7 +92,7 @@ export function draftStartedMessage(
       ...seats.map((player, seat) => `${seat + 1}. ${bold(player.name)}`),
       ...picks.map(pickLine),
     ],
-    picks.length > 0 ? picks[picks.length - 1].next : (seats[0] ?? null),
+    upAfter(picks, seats[0] ?? null),
     { url: draft.url },
   );
 }
@@ -158,8 +158,16 @@ function backToDraftingMessage(
 ): WebhookMessage {
   return announcement(
     [`${bold(draft.name)} ${happened}`, ...picks.map(pickLine)],
-    picks.length > 0 ? picks[picks.length - 1].next : up,
+    upAfter(picks, up),
   );
+}
+
+/** Who is up after `picks`, the cascade if any; `up` is who is up without one. */
+function upAfter(
+  picks: AnnouncedPick[],
+  up: AnnouncedPlayer | null,
+): AnnouncedPlayer | null {
+  return picks.length > 0 ? picks[picks.length - 1].next : up;
 }
 
 function announcedPick(event: PickedEvent): AnnouncedPick {
