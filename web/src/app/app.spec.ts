@@ -108,26 +108,168 @@ describe('App', () => {
     expect(header.querySelector('.avatar')?.getAttribute('src')).toBe(alice.avatarUrl);
   });
 
-  it('links the header logo to the home page', async () => {
-    const page = await open('/', (req) => req.flush(alice));
+  describe('desktop top bar', () => {
+    it('links the logo and title to the home page as one link', async () => {
+      const page = await open('/', (req) => req.flush(alice));
 
-    const logo = page.querySelector<HTMLImageElement>('header img[alt="Swantisserie home"]');
-    expect(logo?.getAttribute('src')).toBe('logo.svg');
-    expect(logo?.closest('a')?.getAttribute('href')).toBe('/');
+      const logo = page.querySelector<HTMLImageElement>('header img[src="logo.svg"]');
+      const link = logo?.closest('a');
+      expect(link?.getAttribute('href')).toBe('/');
+      expect(link?.textContent?.trim()).toBe('Swantisserie');
+    });
+
+    it('shows an app admin the home link, Admin and Send feedback on the left, in order', async () => {
+      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
+
+      expect(leftControls(page)).toEqual(['Swantisserie', 'Admin', 'Send feedback']);
+    });
+
+    it('shows other users no Admin, Webhooks or Feedback', async () => {
+      const page = await open('/', (req) => req.flush(alice));
+
+      expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
+      expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
+      expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
+    });
+
+    it('shows the username, user image and Log out on the right, in order', async () => {
+      const page = await open('/', (req) => req.flush(alice));
+
+      const right = [...page.querySelector('header .right-group')!.children];
+      expect(right.map((el) => el.textContent?.trim() || el.tagName)).toEqual([
+        'Alice',
+        'IMG',
+        'Log out',
+      ]);
+    });
   });
 
-  it('shows an app admin Send feedback, Feedback, Webhooks and Log out as matching quiet buttons', async () => {
-    const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
+  describe('Admin dropdown', () => {
+    async function openAdmin() {
+      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
+      const trigger = adminButton(page);
+      expect(menuLinks(page)).toEqual([]);
+      trigger.click();
+      TestBed.tick();
+      return { page, trigger };
+    }
 
-    expect(quietButtons(page)).toEqual(['Send feedback', 'Feedback', 'Webhooks', 'Log out']);
+    it('opens on click and holds Webhooks then Feedback', async () => {
+      const { page, trigger } = await openAdmin();
+
+      expect(menuLinks(page)).toEqual(['Webhooks', 'Feedback']);
+      expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('closes on an outside click', async () => {
+      const { page } = await openAdmin();
+
+      page.querySelector<HTMLElement>('.name')!.click();
+      TestBed.tick();
+
+      expect(menuLinks(page)).toEqual([]);
+    });
+
+    it('closes on Escape and returns focus to its button', async () => {
+      const { page, trigger } = await openAdmin();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      TestBed.tick();
+
+      expect(menuLinks(page)).toEqual([]);
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it('closes when an item is chosen, and goes there', async () => {
+      const { page } = await openAdmin();
+
+      page.querySelector<HTMLElement>('.panel a[href="/admin/webhooks"]')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush([]);
+
+      await vi.waitFor(() => expect(router.url).toBe('/admin/webhooks'));
+      TestBed.tick();
+      expect(menuLinks(page)).toEqual([]);
+    });
   });
 
-  it('shows other users Send feedback and Log out, as quiet buttons', async () => {
-    const page = await open('/', (req) => req.flush(alice));
+  describe('hamburger menu', () => {
+    async function openMenu(user: typeof alice) {
+      const page = await open('/', (req) => req.flush(user));
+      page.querySelector<HTMLElement>('button[aria-label="Menu"]')!.click();
+      TestBed.tick();
+      return page;
+    }
 
-    expect(quietButtons(page)).toEqual(['Send feedback', 'Log out']);
-    expect(page.querySelector('header')?.textContent).not.toContain('Webhooks');
-    expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
+    it('comes before the logo in the bar', async () => {
+      const page = await open('/', (req) => req.flush(alice));
+
+      const left = page.querySelector('header .left-group')!;
+      expect(left.children[0].querySelector('button')?.getAttribute('aria-label')).toBe('Menu');
+      expect(left.children[1].getAttribute('href')).toBe('/');
+    });
+
+    it('shows other users only Send feedback', async () => {
+      const page = await openMenu(alice);
+
+      expect(panelText(page)).toEqual(['Send feedback']);
+    });
+
+    it('also shows an app admin Webhooks and Feedback under an Admin heading', async () => {
+      const page = await openMenu({ ...alice, isAdmin: true });
+
+      expect(panelText(page)).toEqual(['Send feedback', 'Admin', 'Webhooks', 'Feedback']);
+      const heading = page.querySelector<HTMLElement>('.panel .menu-heading')!;
+      expect(heading.textContent).toBe('Admin');
+      expect(heading.closest('a, button')).toBeNull();
+    });
+
+    it('stays open when the Admin heading is clicked', async () => {
+      const page = await openMenu({ ...alice, isAdmin: true });
+
+      page.querySelector<HTMLElement>('.panel .menu-heading')!.click();
+      TestBed.tick();
+
+      expect(page.querySelector('.panel')).not.toBeNull();
+    });
+
+    it('closes on an outside click', async () => {
+      const page = await openMenu(alice);
+
+      page.querySelector<HTMLElement>('.name')!.click();
+      TestBed.tick();
+
+      expect(page.querySelector('.panel')).toBeNull();
+    });
+
+    it('closes on Escape', async () => {
+      const page = await openMenu(alice);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      TestBed.tick();
+
+      expect(page.querySelector('.panel')).toBeNull();
+    });
+
+    it('closes when a link is chosen, and goes there', async () => {
+      const page = await openMenu({ ...alice, isAdmin: true });
+
+      page.querySelector<HTMLElement>('.panel a[href="/admin/webhooks"]')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush([]);
+
+      await vi.waitFor(() => expect(router.url).toBe('/admin/webhooks'));
+      TestBed.tick();
+      expect(page.querySelector('.panel')).toBeNull();
+    });
+
+    it('closes, then opens the feedback dialog, when Send feedback is chosen', async () => {
+      const page = await openMenu(alice);
+
+      page.querySelector<HTMLElement>('.panel button')!.click();
+      TestBed.tick();
+
+      expect(page.querySelector('.panel')).toBeNull();
+      expect(page.querySelector('[role="dialog"]')).not.toBeNull();
+    });
   });
 
   it('logs out and returns to the sign-in page', async () => {
@@ -159,9 +301,26 @@ describe('App', () => {
   });
 });
 
-function quietButtons(page: HTMLElement) {
-  return [...page.querySelectorAll('header .button.quiet')].map((control) =>
-    control.textContent?.trim(),
+/** The visible text of the desktop left group's controls, in order. */
+function leftControls(page: HTMLElement) {
+  return [...page.querySelectorAll('header .left-group a, header .wide-only button')].map(
+    (control) => control.textContent?.trim(),
+  );
+}
+
+function adminButton(page: HTMLElement) {
+  return [...page.querySelectorAll<HTMLButtonElement>('header button')].find(
+    (button) => button.textContent?.trim() === 'Admin',
+  )!;
+}
+
+function menuLinks(page: HTMLElement) {
+  return [...page.querySelectorAll('header .panel a')].map((link) => link.textContent?.trim());
+}
+
+function panelText(page: HTMLElement) {
+  return [...page.querySelectorAll('header .panel .menu-item, header .panel .menu-heading')].map(
+    (item) => item.textContent?.trim(),
   );
 }
 

@@ -215,6 +215,11 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
+    [...page.querySelectorAll<HTMLButtonElement>('header button')]
+      .find((button) => button.textContent?.trim() === 'Admin')!
+      .click();
+    await fixture.whenStable();
+
     const link = page.querySelector<HTMLAnchorElement>('header a[href="/admin/webhooks"]');
     expect(link?.textContent).toContain('Webhooks');
   });
@@ -225,6 +230,7 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
+    expect(page.querySelector('header')?.textContent).not.toContain('Admin');
     expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
     http.expectNone('/api/admin/webhooks');
   });

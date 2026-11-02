@@ -1,0 +1,31 @@
+/* Stretched to the bar's full height, so the panel opens below the bar, whatever the button's height. */
+:host {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-self: stretch;
+  align-items: center;
+}
+
+/* The same size as the bar's other buttons. */
+.button {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+/* Past the bar's padding and border. Above the draft page's tabs; a modal, later in the page, still covers it. */
+.panel {
+  position: absolute;
+  top: calc(100% + var(--space-sm) + 1px);
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 10rem;
+  padding: var(--space-xs);
+  border: 1px solid var(--color-divider);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
+}

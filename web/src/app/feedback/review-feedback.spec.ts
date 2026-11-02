@@ -99,6 +99,8 @@ describe('reviewing feedback', () => {
     http.expectOne('/api/health').flush({});
     await fixture.whenStable();
 
+    adminButton(page).click();
+    await fixture.whenStable();
     page.querySelector<HTMLAnchorElement>('header a[href="/admin/feedback"]')!.click();
     await vi.waitFor(() => http.expectOne('/api/admin/feedback')).then((req) => req.flush([]));
     await fixture.whenStable();
@@ -156,9 +158,7 @@ describe('reviewing feedback', () => {
     await fixture.whenStable();
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(items(page).map((item) => item.textContent)).toEqual([
-      expect.stringContaining('Bob'),
-    ]);
+    expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
   });
 
   it('keeps the item and says so when marking fails', async () => {
@@ -256,15 +256,19 @@ describe('reviewing feedback', () => {
       http.expectOne('/api/admin/feedback').flush([fromBob]);
       await fixture.whenStable();
 
-      expect(items(page).map((item) => item.textContent)).toEqual([
-        expect.stringContaining('Bob'),
-      ]);
+      expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
     });
   });
 
-  describe('the unreviewed count in the header', () => {
-    const headerLink = (page: HTMLElement) =>
-      page.querySelector('header a[href="/admin/feedback"]')?.textContent?.trim();
+  describe('the unreviewed count in the top bar', () => {
+    /** The labels of the Admin button and, with its menu opened, the Feedback item. */
+    async function labels({ fixture, page }: Awaited<ReturnType<typeof openStatus>>) {
+      const admin = adminButton(page);
+      const adminLabel = admin.textContent?.trim();
+      admin.click();
+      await fixture.whenStable();
+      return [adminLabel, feedbackItem(page)];
+    }
 
     /** Opens a page other than the feedback page as Carol, an app admin. */
     async function openStatus(unreviewedCount: number | 'fails') {
@@ -275,21 +279,30 @@ describe('reviewing feedback', () => {
     }
 
     it('shows how many items are unreviewed', async () => {
-      const { page } = await openStatus(3);
+      const opened = await openStatus(3);
 
-      expect(headerLink(page)).toBe('Feedback (3)');
+      expect(await labels(opened)).toEqual(['Admin (3)', 'Feedback (3)']);
     });
 
-    it('reads just Feedback at zero', async () => {
-      const { page } = await openStatus(0);
+    it('reads just Admin and Feedback at zero', async () => {
+      const opened = await openStatus(0);
 
-      expect(headerLink(page)).toBe('Feedback');
+      expect(await labels(opened)).toEqual(['Admin', 'Feedback']);
     });
 
-    it('reads just Feedback when the count cannot be fetched', async () => {
-      const { page } = await openStatus('fails');
+    it('reads just Admin and Feedback when the count cannot be fetched', async () => {
+      const opened = await openStatus('fails');
 
-      expect(headerLink(page)).toBe('Feedback');
+      expect(await labels(opened)).toEqual(['Admin', 'Feedback']);
+    });
+
+    it('shows on the Feedback item in the hamburger menu', async () => {
+      const { fixture, page } = await openStatus(3);
+
+      page.querySelector<HTMLElement>('button[aria-label="Menu"]')!.click();
+      await fixture.whenStable();
+
+      expect(feedbackItem(page)).toBe('Feedback (3)');
     });
 
     it('is not fetched for other users', async () => {
@@ -308,11 +321,19 @@ describe('reviewing feedback', () => {
 
   it('says when the feedback cannot be loaded', async () => {
     const { fixture, page } = await open('/admin/feedback', carol);
-    http
-      .expectOne('/api/admin/feedback')
-      .flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne('/api/admin/feedback').flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
     expect(page.querySelector('main')?.textContent).toContain("Couldn't load the feedback");
   });
 });
+
+function adminButton(page: HTMLElement) {
+  return [...page.querySelectorAll<HTMLButtonElement>('header button')].find((button) =>
+    button.textContent?.trim().startsWith('Admin'),
+  )!;
+}
+
+function feedbackItem(page: HTMLElement) {
+  return page.querySelector('header a[href="/admin/feedback"]')?.textContent?.trim();
+}

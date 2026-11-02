@@ -1,0 +1,16 @@
+<button
+  #trigger
+  class="button quiet"
+  type="button"
+  [attr.aria-label]="accessibleName()"
+  [attr.aria-expanded]="open()"
+  (click)="toggle()"
+>
+  {{ label() }}
+</button>
+@if (open()) {
+  <!-- Keyboard users choose an item with its own link or button; this only sees the click bubble up. -->
+  <div class="panel" (click)="panelClicked($event)">
+    <ng-content />
+  </div>
+}

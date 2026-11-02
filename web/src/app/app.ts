@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -14,9 +15,17 @@ import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
 import { FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
+import { TopBarMenu } from './top-bar/top-bar-menu';
 
 @Component({
-  imports: [FeedbackDialog, LoadingAnimation, RouterLink, RouterOutlet],
+  imports: [
+    FeedbackDialog,
+    LoadingAnimation,
+    NgTemplateOutlet,
+    RouterLink,
+    RouterOutlet,
+    TopBarMenu,
+  ],
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',
@@ -32,10 +41,12 @@ export class App {
   private readonly unreviewed = httpResource<{ count: number }>(() =>
     this.user()?.isAdmin ? '/api/admin/feedback/unreviewed-count' : undefined,
   );
-  protected readonly feedbackLabel = computed(() => {
+  private readonly unreviewedSuffix = computed(() => {
     const count = this.unreviewed.hasValue() ? this.unreviewed.value().count : 0;
-    return count > 0 ? `Feedback (${count})` : 'Feedback';
+    return count > 0 ? ` (${count})` : '';
   });
+  protected readonly adminLabel = computed(() => `Admin${this.unreviewedSuffix()}`);
+  protected readonly feedbackLabel = computed(() => `Feedback${this.unreviewedSuffix()}`);
 
   /** Pages say how they are loading once shown; this covers the wait for one, and its failure. */
   protected readonly pageStatus = toSignal(
