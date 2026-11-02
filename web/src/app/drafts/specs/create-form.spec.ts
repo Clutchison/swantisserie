@@ -1,6 +1,6 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { WebhookView } from 'contract';
+import type { DraftCreationProblem, WebhookView } from 'contract';
 import { useDraftsApp, draft, http, router, openUrl, webhooksAnswer } from './harness';
 
 useDraftsApp();
@@ -158,7 +158,10 @@ describe('create form', () => {
 
     const req = await create(form);
     expect(req.request.body.platform).toBe('MTGO');
-    req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+    req.flush({ error: 'invalid', message: 'Stop here.' } satisfies DraftCreationProblem, {
+      status: 400,
+      statusText: 'Error',
+    });
   });
 
   it('says the pool’s cards must be on the platform chosen', async () => {
@@ -185,7 +188,10 @@ describe('create form', () => {
 
     const req = await create(form);
     expect(req.request.body.webhookId).toBe(side.id);
-    req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+    req.flush({ error: 'invalid', message: 'Stop here.' } satisfies DraftCreationProblem, {
+      status: 400,
+      statusText: 'Error',
+    });
   });
 
   it('can post nowhere', async () => {
@@ -194,7 +200,10 @@ describe('create form', () => {
 
     const req = await create(form);
     expect(req.request.body.webhookId).toBeNull();
-    req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+    req.flush({ error: 'invalid', message: 'Stop here.' } satisfies DraftCreationProblem, {
+      status: 400,
+      statusText: 'Error',
+    });
   });
 
   it('offers only None when no webhooks are registered', async () => {
@@ -214,10 +223,17 @@ describe('create form', () => {
     expect(chosenWebhook(page)).toBe('None');
     const req = await create({ fixture, page });
     expect(req.request.body.webhookId).toBeNull();
-    req.flush({ error: 'invalid', message: 'Stop here.' }, { status: 400, statusText: 'Error' });
+    req.flush({ error: 'invalid', message: 'Stop here.' } satisfies DraftCreationProblem, {
+      status: 400,
+      statusText: 'Error',
+    });
   });
 
-  function fail(req: ReturnType<HttpTestingController['expectOne']>, status: number, body: object) {
+  function fail(
+    req: ReturnType<HttpTestingController['expectOne']>,
+    status: number,
+    body: DraftCreationProblem,
+  ) {
     req.flush(body, { status, statusText: 'Error' });
   }
 
@@ -230,7 +246,7 @@ describe('create form', () => {
       message: '2 cards in this pool query are not on Arena.',
       cards: ['Ancient Hellkite', 'Dream Pillager'],
       totalCards: 2,
-    });
+    } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
     const error = page.querySelector('.error')!;
@@ -251,7 +267,7 @@ describe('create form', () => {
       message: '5000 cards in this pool query are not on Arena.',
       cards: ['Ancient Hellkite', 'Dream Pillager'],
       totalCards: 5000,
-    });
+    } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
     expect(page.querySelector('.error')?.textContent).toContain('…and 4998 more.');
@@ -265,7 +281,7 @@ describe('create form', () => {
       error: 'query-rejected',
       message: 'Scryfall ignored part of this pool query.',
       warnings: ['Invalid expression “foo:bar” was ignored. Unknown keyword “foo”.'],
-    });
+    } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
     const error = page.querySelector('.error')!.textContent;
@@ -273,7 +289,7 @@ describe('create form', () => {
     expect(error).toContain('Invalid expression “foo:bar” was ignored. Unknown keyword “foo”.');
   });
 
-  it.each([
+  it.each<[number, DraftCreationProblem]>([
     [422, { error: 'no-cards', message: 'This pool query matches no cards.' }],
     [400, { error: 'invalid', message: 'Give the draft a name.' }],
     [

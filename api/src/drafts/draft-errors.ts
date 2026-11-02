@@ -1,23 +1,13 @@
-import { MAX_PLAYERS, type PickProblem, type StartProblem } from 'engine';
+import type {
+  CloseRefusal,
+  PauseRefusal,
+  PickRefusal,
+  PoolQueryProblem,
+  StartRefusal,
+  UndoRefusal,
+} from 'contract';
+import { MAX_PLAYERS } from 'engine';
 import { Prisma } from '../generated/prisma/client.js';
-
-/** Why a pool query can't make a pool; sent to the organizer as is. */
-export type PoolQueryProblem =
-  | {
-      /** Some of its cards aren't on the draft's platform. */
-      error: 'not-on-platform';
-      message: string;
-      /** The first page of offending card names. */
-      cards: string[];
-      totalCards: number;
-    }
-  | { error: 'no-cards'; message: string }
-  | {
-      /** Scryfall couldn't run the query, or ignored some of its terms. */
-      error: 'query-rejected';
-      message: string;
-      warnings: string[];
-    };
 
 export class PoolQueryError extends Error {
   constructor(readonly problem: PoolQueryProblem) {
@@ -78,10 +68,6 @@ export class UnknownBotError extends Error {
   }
 }
 
-/** Why the organizer can't start the draft; sent to them as is. */
-export type StartRefusal =
-  StartProblem | { error: 'pool-not-ready'; message: string };
-
 export class StartRefusedError extends Error {
   constructor(readonly refusal: StartRefusal) {
     super(refusal.message);
@@ -95,20 +81,10 @@ export class PickImportRefusedError extends Error {
   }
 }
 
-/** Why a player can't make a pick; sent to them as is. */
-export type PickRefusal =
-  PickProblem | { error: 'not-drafting' | 'not-in-pool'; message: string };
-
 export class PickRefusedError extends Error {
   constructor(readonly refusal: PickRefusal) {
     super(refusal.message);
   }
-}
-
-/** Why the organizer can't undo a pick; sent to them as is. */
-export interface UndoRefusal {
-  error: 'not-drafting' | 'not-latest';
-  message: string;
 }
 
 export class UndoRefusedError extends Error {
@@ -117,22 +93,10 @@ export class UndoRefusedError extends Error {
   }
 }
 
-/** Why the organizer can't pause or resume the draft; sent to them as is. */
-export interface PauseRefusal {
-  error: 'not-drafting' | 'not-paused';
-  message: string;
-}
-
 export class PauseRefusedError extends Error {
   constructor(readonly refusal: PauseRefusal) {
     super(refusal.message);
   }
-}
-
-/** Why the organizer can't close or reopen the draft; sent to them as is. */
-export interface CloseRefusal {
-  error: 'not-closable' | 'not-closed';
-  message: string;
 }
 
 export class CloseRefusedError extends Error {

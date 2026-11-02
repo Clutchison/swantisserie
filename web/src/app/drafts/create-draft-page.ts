@@ -10,7 +10,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import type { DraftView, Platform, WebhookView } from 'contract';
+import type { DraftCreationProblem, DraftView, Platform, WebhookView } from 'contract';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 
@@ -74,7 +74,7 @@ export class CreateDraftPage {
 
 function problemFrom(err: unknown): DraftProblem {
   if (err instanceof HttpErrorResponse && typeof err.error?.message === 'string') {
-    return err.error as DraftProblem;
+    return err.error as DraftCreationProblem;
   }
   return {
     error: 'request-failed',

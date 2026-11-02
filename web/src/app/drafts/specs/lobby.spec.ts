@@ -1,3 +1,4 @@
+import type { LobbyRefusal } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -69,7 +70,7 @@ describe('lobby', () => {
 
     button(page, 'Join')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
-      { error: 'draft-started', message: 'This draft has started.' },
+      { error: 'draft-started', message: 'This draft has started.' } satisfies LobbyRefusal,
       { status: 409, statusText: 'Conflict' },
     );
     // The page re-reads the draft to catch up with its new state.

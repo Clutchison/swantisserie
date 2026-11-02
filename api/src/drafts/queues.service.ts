@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { QueuedCardView, QueueView } from 'contract';
+import type { QueuedCardView, QueueRefusal, QueueView } from 'contract';
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -10,17 +10,6 @@ export class NotAPlayerError extends Error {
   constructor() {
     super('Only the draft’s players have queues.');
   }
-}
-
-/** Why a card can't be queued; sent to the player as is. */
-export interface QueueRefusal {
-  error:
-    | 'not-in-pool'
-    | 'already-picked'
-    | 'draft-complete'
-    | 'draft-closed'
-    | 'your-turn';
-  message: string;
 }
 
 /** Thrown when a new order doesn't list exactly the queued cards. */

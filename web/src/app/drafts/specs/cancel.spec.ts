@@ -1,4 +1,4 @@
-import type { PoolSnapshotView } from 'contract';
+import type { LobbyRefusal, PoolSnapshotView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -91,7 +91,7 @@ describe('cancel', () => {
     http
       .expectOne('/api/drafts/draft-1')
       .flush(
-        { error: 'draft-started', message: 'This draft has started.' },
+        { error: 'draft-started', message: 'This draft has started.' } satisfies LobbyRefusal,
         { status: 409, statusText: 'Conflict' },
       );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(

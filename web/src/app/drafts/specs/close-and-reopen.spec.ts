@@ -1,3 +1,4 @@
+import type { CloseRefusal } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -106,7 +107,7 @@ describe('close and reopen', () => {
     button(page, 'Close draft')!.click();
     const message = 'Only a drafting or paused draft can be closed.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'))).flush(
-      { error: 'not-closable', message },
+      { error: 'not-closable', message } satisfies CloseRefusal,
       { status: 409, statusText: 'Conflict' },
     );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(

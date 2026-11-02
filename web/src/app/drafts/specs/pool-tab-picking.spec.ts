@@ -1,4 +1,4 @@
-import type { DraftView, PickView } from 'contract';
+import type { DraftView, PickRefusal, PickView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -132,10 +132,10 @@ describe('pool tab', () => {
       button(detail, 'Pick')!.click();
       http
         .expectOne('/api/drafts/draft-1/picks')
-        .flush(
-          { error: 'not-your-turn', message: 'It’s not your turn.' },
-          { status: 409, statusText: 'Conflict' },
-        );
+        .flush({ error: 'not-your-turn', message: 'It’s not your turn.' } satisfies PickRefusal, {
+          status: 409,
+          statusText: 'Conflict',
+        });
       // The page re-reads the draft and its picks to catch up.
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
         draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),

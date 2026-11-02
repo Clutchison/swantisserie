@@ -13,7 +13,7 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import type { QueueView } from 'contract';
+import type { QueueRefusal, QueueView } from 'contract';
 import {
   CurrentUser,
   SessionGuard,
@@ -108,7 +108,7 @@ export class QueuesController {
         throw new ConflictException({
           error: 'queue-changed',
           message: err.message,
-        });
+        } satisfies QueueRefusal);
       }
       if (err instanceof QueueRefusedError) {
         if (err.refusal.error === 'not-in-pool') {

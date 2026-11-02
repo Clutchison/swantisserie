@@ -1,3 +1,4 @@
+import type { PickImportRefusal, StartRefusal } from 'contract';
 import { TestBed } from '@angular/core/testing';
 import { EMPTY_QUEUE } from '../drafts';
 import {
@@ -104,7 +105,7 @@ describe('seats and start', () => {
     button(page, 'Start draft')!.click();
     const message = '2 players × 300 picks needs 600 cards, but the pool has 540.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(
-      { error: 'pool-too-small', message },
+      { error: 'pool-too-small', message } satisfies StartRefusal,
       { status: 409, statusText: 'Conflict' },
     );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
@@ -259,7 +260,7 @@ describe('seats and start', () => {
             error: 'invalid-pick-import',
             message: 'This file can’t be imported.',
             problems: ['The file has 2 player columns, but the draft has 3 players.'],
-          },
+          } satisfies PickImportRefusal,
           422,
         );
 
@@ -286,7 +287,7 @@ describe('seats and start', () => {
             'Unknown Card isn’t in this draft’s pool.',
             'Ash Golem appears more than once.',
           ],
-        },
+        } satisfies PickImportRefusal,
         422,
       );
 
