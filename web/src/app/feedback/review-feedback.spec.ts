@@ -2,11 +2,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { UserView } from 'contract';
+import type { FeedbackView, ReviewedFeedbackView, UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
-import type { FeedbackView, ReviewedFeedbackView } from './feedback-page';
 
 const alice: UserView = {
   id: '80351110224678912',

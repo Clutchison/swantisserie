@@ -2,11 +2,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { UserView } from 'contract';
+import type { AdminWebhookView, UserView, WebhookAdminProblem } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { adminButton, answerTopBar } from '../top-bar/specs-harness';
-import type { AdminWebhookView } from './webhooks-page';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -145,7 +144,7 @@ describe('webhooks page', () => {
     button(page.querySelector('form.add')!, 'Add').click();
 
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(
-      { error: 'invalid', message: 'Give the webhook a name.' },
+      { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookAdminProblem,
       { status: 400, statusText: 'Bad Request' },
     );
     await fixture.whenStable();
@@ -176,7 +175,10 @@ describe('webhooks page', () => {
     button(li, 'Rename').click();
 
     (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(
-      { error: 'name-taken', message: 'Another webhook is called #roto-side.' },
+      {
+        error: 'name-taken',
+        message: 'Another webhook is called #roto-side.',
+      } satisfies WebhookAdminProblem,
       { status: 409, statusText: 'Conflict' },
     );
     await fixture.whenStable();

@@ -1,15 +1,8 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import type { AdminWebhookView } from 'contract';
 import { firstValueFrom } from 'rxjs';
-
-/** A webhook as app admins see it, URL and all. */
-export interface AdminWebhookView {
-  id: string;
-  name: string;
-  /** A secret: only app admins are sent it. */
-  url: string;
-}
 
 const API = '/api/admin/webhooks';
 

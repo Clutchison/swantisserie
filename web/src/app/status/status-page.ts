@@ -1,10 +1,6 @@
 import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
-
-interface Health {
-  api: 'ok';
-  db: 'ok' | 'error';
-}
+import type { HealthView } from 'contract';
 
 @Component({
   selector: 'app-status-page',
@@ -13,9 +9,9 @@ interface Health {
   styleUrl: './status-page.scss',
 })
 export class StatusPage {
-  private readonly health = httpResource<Health>(() => '/api/health');
+  private readonly health = httpResource<HealthView>(() => '/api/health');
 
-  protected readonly status = computed((): Health | null => {
+  protected readonly status = computed((): HealthView | null => {
     const error = this.health.error();
     if (!error) return this.health.value() ?? null;
     // A 503 still carries the API's report of which part is down.

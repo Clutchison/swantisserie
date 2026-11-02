@@ -11,16 +11,12 @@ import {
   RouterLink,
   RouterOutlet,
 } from '@angular/router';
+import type { AppVersionView, UnreviewedFeedbackCount } from 'contract';
 import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
 import { FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 import { TopBarMenu } from './top-bar/top-bar-menu';
-
-/** Which commit is live, as the API reports it: null when the build didn't record one. */
-export interface AppVersionView {
-  commit: string | null;
-}
 
 @Component({
   imports: [
@@ -43,7 +39,7 @@ export class App {
   protected readonly feedbackOpen = signal(false);
 
   /** Fetched once per page load: it is a nudge, not a live figure. */
-  private readonly unreviewed = httpResource<{ count: number }>(() =>
+  private readonly unreviewed = httpResource<UnreviewedFeedbackCount>(() =>
     this.user()?.isAppAdmin ? '/api/admin/feedback/unreviewed-count' : undefined,
   );
   private readonly unreviewedSuffix = computed(() => {

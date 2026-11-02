@@ -12,7 +12,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import type { WebhookView } from 'contract';
+import type {
+  AdminWebhookView,
+  WebhookAdminProblem,
+  WebhookView,
+} from 'contract';
 import type { Webhook } from '../generated/prisma/client.js';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { SessionGuard } from '../auth/session.guard.js';
@@ -26,11 +30,6 @@ const MAX_NAME_LENGTH = 100;
 /** Discord's webhook URLs, on any of its hosts: /api/webhooks/{id}/{token}. */
 const WEBHOOK_URL =
   /^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\d+\/[\w-]+$/;
-
-/** A webhook as app admins see it, URL and all. */
-export interface AdminWebhookView extends WebhookView {
-  url: string;
-}
 
 /** The webhooks an organizer can choose for a draft. */
 @Controller('webhooks')
@@ -84,17 +83,19 @@ async function refuseTakenName<T>(saving: Promise<T>): Promise<T> {
     return await saving;
   } catch (err) {
     if (err instanceof WebhookNameTakenError) {
-      throw new ConflictException({
+      const problem: WebhookAdminProblem = {
         error: 'name-taken',
         message: err.message,
-      });
+      };
+      throw new ConflictException(problem);
     }
     throw err;
   }
 }
 
 function invalid(message: string) {
-  return new BadRequestException({ error: 'invalid', message });
+  const problem: WebhookAdminProblem = { error: 'invalid', message };
+  return new BadRequestException(problem);
 }
 
 /** The add form's fields, or a 400 saying which one to fix. */

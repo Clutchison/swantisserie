@@ -1,0 +1,16 @@
+import type { WebhookView } from './drafts.js';
+
+/** A webhook as app admins see it, URL and all. */
+export interface AdminWebhookView extends WebhookView {
+  /** A secret: only app admins are sent it. */
+  url: string;
+}
+
+/**
+ * Why an app admin's change to the webhook registry was refused; sent to
+ * them as is. invalid: a 400 naming the field to fix. name-taken: a 409.
+ */
+export interface WebhookAdminProblem {
+  error: 'invalid' | 'name-taken';
+  message: string;
+}

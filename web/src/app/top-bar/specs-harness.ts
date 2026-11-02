@@ -1,5 +1,5 @@
 import type { HttpTestingController } from '@angular/common/http/testing';
-import type { AppVersionView } from '../app';
+import type { AppVersionView } from 'contract';
 import { answerUnreviewedCount } from '../feedback/specs-harness';
 
 /** The top bar's Admin button, whatever unreviewed count its label shows. */
