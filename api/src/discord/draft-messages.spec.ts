@@ -23,6 +23,7 @@ describe('picksMessage', () => {
           number: 23,
           player: alice,
           card: 'Shock',
+          queued: false,
           next: bob,
         },
       ]),
@@ -40,6 +41,7 @@ describe('picksMessage', () => {
           number: 80,
           player: bob,
           card: 'Shock',
+          queued: false,
           next: null,
         },
       ]),
@@ -56,6 +58,7 @@ describe('picksMessage', () => {
           number: 2,
           player: alice,
           card: 'Shock',
+          queued: false,
           next: bot,
         },
       ]),
@@ -72,6 +75,7 @@ describe('picksMessage', () => {
           number: 3,
           player: bot,
           card: 'Shock',
+          queued: false,
           next: alice,
         },
       ]),
@@ -82,12 +86,102 @@ describe('picksMessage', () => {
     });
   });
 
+  it('names a player their by-hand pick leaves up, pinging no one', () => {
+    expect(
+      picksMessage([
+        {
+          number: 12,
+          player: alice,
+          card: 'Shock',
+          queued: false,
+          next: alice,
+        },
+      ]),
+    ).toEqual({
+      content: '12- **Alice** picked **Shock**\n' + '**Alice** is up.',
+      allowed_mentions: { parse: [], users: [] },
+    });
+  });
+
+  it('pings a player their queued pick leaves up, without saying it was queued', () => {
+    expect(
+      picksMessage([
+        {
+          number: 12,
+          player: alice,
+          card: 'Shock',
+          queued: true,
+          next: alice,
+        },
+      ]),
+    ).toEqual({
+      content:
+        '12- **Alice** picked **Shock**\n' + '<@80351110224678912> you’re up.',
+      allowed_mentions: { parse: [], users: ['80351110224678912'] },
+    });
+  });
+
+  it('pings the player a cascade ends on after a by-hand pick', () => {
+    expect(
+      picksMessage([
+        {
+          number: 11,
+          player: alice,
+          card: 'Shock',
+          queued: false,
+          next: bob,
+        },
+        {
+          number: 12,
+          player: bob,
+          card: 'Lava Spike',
+          queued: true,
+          next: alice,
+        },
+      ]),
+    ).toEqual({
+      content:
+        '11- **Alice** picked **Shock**\n' +
+        '12- **Bob** picked **Lava Spike**\n' +
+        '<@80351110224678912> you’re up.',
+      allowed_mentions: { parse: [], users: ['80351110224678912'] },
+    });
+  });
+
+  it('names a bot a cascade ends on after a by-hand pick', () => {
+    expect(
+      picksMessage([
+        {
+          number: 1,
+          player: alice,
+          card: 'Shock',
+          queued: false,
+          next: bob,
+        },
+        {
+          number: 2,
+          player: bob,
+          card: 'Lava Spike',
+          queued: true,
+          next: bot,
+        },
+      ]),
+    ).toEqual({
+      content:
+        '1- **Alice** picked **Shock**\n' +
+        '2- **Bob** picked **Lava Spike**\n' +
+        '**Bot 1** is up.',
+      allowed_mentions: { parse: [], users: [] },
+    });
+  });
+
   it('shows names as written, without their markdown taking effect', () => {
     const { content } = picksMessage([
       {
         number: 1,
         player: { id: '1', name: '*star*_ <@2>', isBot: false },
         card: 'Fire // Ice',
+        queued: false,
         next: null,
       },
     ]);
@@ -109,6 +203,7 @@ describe('draftMessages', () => {
           number: 4,
           player: alice,
           card: 'Shock',
+          queued: false,
           next: bob,
         },
         {
@@ -116,6 +211,7 @@ describe('draftMessages', () => {
           number: 5,
           player: bob,
           card: 'Lava Spike',
+          queued: true,
           next: carol,
         },
         {
@@ -123,6 +219,7 @@ describe('draftMessages', () => {
           number: 6,
           player: carol,
           card: 'Skewer the Critics',
+          queued: true,
           next: alice,
         },
       ]),
@@ -147,6 +244,7 @@ describe('draftMessages', () => {
           number: 1,
           player: alice,
           card: 'Shock',
+          queued: true,
           next: bob,
         },
       ]),
@@ -172,6 +270,7 @@ describe('draftMessages', () => {
           number: 2,
           player: bob,
           card: 'Shock',
+          queued: false,
           next: null,
         },
         { type: 'completed' },
@@ -310,6 +409,7 @@ describe('draftResumedMessage', () => {
           number: 5,
           player: alice,
           card: 'Shock',
+          queued: true,
           next: bob,
         },
       ]),

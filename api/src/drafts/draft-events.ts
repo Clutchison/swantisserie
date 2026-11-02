@@ -22,6 +22,8 @@ export type DraftEvent =
       number: number;
       player: EventPlayer;
       card: string;
+      /** Made from the player's queue, not by them. */
+      queued: boolean;
       /** Whose turn it now is; null after the last pick. */
       next: EventPlayer | null;
     }

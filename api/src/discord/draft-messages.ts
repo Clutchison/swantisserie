@@ -92,8 +92,8 @@ export function draftStartedMessage(
       ...seats.map((player, seat) => `${seat + 1}. ${bold(player.name)}`),
       ...picks.map(pickLine),
     ],
-    picks.length > 0 ? picks[picks.length - 1].next : (seats[0] ?? null),
-    draft.url,
+    upAfter(picks, seats[0] ?? null),
+    { url: draft.url },
   );
 }
 
@@ -138,9 +138,15 @@ export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
   return announcement([`Undone: ${pickLine(undone)}`], undone.player);
 }
 
-/** `picks` in pick order, at least one; the last one's next player is up. */
+/**
+ * `picks` in pick order, at least one; the last one's next player is up. A
+ * player who has just picked by hand and is up again is named, not pinged:
+ * they know. A queued pick still pings them, as they may be away.
+ */
 export function picksMessage(picks: AnnouncedPick[]): WebhookMessage {
-  return announcement(picks.map(pickLine), picks[picks.length - 1].next);
+  const { player, queued, next } = picks[picks.length - 1];
+  const ping = queued || next?.id !== player.id;
+  return announcement(picks.map(pickLine), next, { ping });
 }
 
 /** The draft `happened`, then any cascade; `up` is who is next without one. */
@@ -152,8 +158,16 @@ function backToDraftingMessage(
 ): WebhookMessage {
   return announcement(
     [`${bold(draft.name)} ${happened}`, ...picks.map(pickLine)],
-    picks.length > 0 ? picks[picks.length - 1].next : up,
+    upAfter(picks, up),
   );
+}
+
+/** Who is up after `picks`, the cascade if any; `up` is who is up without one. */
+function upAfter(
+  picks: AnnouncedPick[],
+  up: AnnouncedPlayer | null,
+): AnnouncedPlayer | null {
+  return picks.length > 0 ? picks[picks.length - 1].next : up;
 }
 
 function announcedPick(event: PickedEvent): AnnouncedPick {
@@ -167,19 +181,19 @@ function pickLine({ number, player, card }: AnnouncedUndo): string {
 
 /**
  * `lines`, then who is `up` if anyone is, then a link to `url` if given.
- * Only a player who isn't a bot is pinged.
+ * Whoever is up is pinged if `ping` and they aren't a bot, and named otherwise.
  */
 function announcement(
   lines: string[],
   up: AnnouncedPlayer | null,
-  url?: string,
+  { url, ping = true }: { url?: string; ping?: boolean } = {},
 ): WebhookMessage {
-  const pinged = up && !up.isBot ? up : null;
+  const pinged = up && ping && !up.isBot ? up : null;
   return {
     content: [
       ...lines,
       ...(pinged ? [`<@${pinged.id}> you’re up.`] : []),
-      ...(up?.isBot ? [`${bold(up.name)} is up.`] : []),
+      ...(up && !pinged ? [`${bold(up.name)} is up.`] : []),
       // In angle brackets, so Discord doesn't embed a preview of the page.
       ...(url ? [`<${url}>`] : []),
     ].join('\n'),
