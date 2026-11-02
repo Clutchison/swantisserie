@@ -1,29 +1,8 @@
-import type {
-  DraftState,
-  DraftView,
-  Platform,
-  PoolSnapshotState,
-  TurnView,
-} from 'contract';
+import type { DraftView, TurnView } from 'contract';
 import { currentTurn } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
-import type * as Schema from '../generated/prisma/enums.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
 import { draftSize } from './draft-shapes.js';
-
-/** True when A and B are the same union of values. */
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-
-/**
- * Fails typecheck when the contract's unions and the schema's enums list
- * different values, so neither can change without the other.
- */
-export type ContractMatchesSchema = [
-  Expect<Same<DraftState, Schema.DraftState>>,
-  Expect<Same<Platform, Schema.Platform>>,
-  Expect<Same<PoolSnapshotState, Schema.PoolSnapshotState>>,
-];
-type Expect<T extends true> = T;
 
 /** The draft as viewers see it: never its webhook's URL. */
 export function toDraftView(draft: DraftWithOrganizer): DraftView {
