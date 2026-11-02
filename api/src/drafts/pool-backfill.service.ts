@@ -9,7 +9,7 @@ import {
   PRINTINGS_LIMIT,
   ScryfallClient,
 } from '../scryfall/scryfall-client.js';
-import { searchFields } from './pool-snapshot.service.js';
+import { searchFields } from './pool-card.js';
 
 /**
  * Fills in the pool search fields of cards snapshotted before they were

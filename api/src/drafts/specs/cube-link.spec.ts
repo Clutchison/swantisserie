@@ -16,7 +16,6 @@ import {
   post,
   scryfall,
   signIn,
-  snapshotted,
   start,
   useDraftsApp,
 } from './harness.js';
@@ -100,11 +99,6 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
     cubeLink: 'thepaupercube',
   }).expect(201);
 
-  expect((await snapshotted(created.body.id)).snapshot).toEqual({
-    state: 'Complete',
-    cards: 3,
-    total: 3,
-  });
   const copies = await copyIds(created.body.id);
   expect(copies['Lightning Bolt']).toHaveLength(2);
   expect(copies['Deftblade Elite']).toHaveLength(1);
@@ -268,7 +262,6 @@ describe('creating a draft from a cube', () => {
       picksPerPlayer: 2,
     }).expect(201);
     const { id } = created.body;
-    await snapshotted(id);
     for (const cookie of [aliceCookie, await signIn(bob)]) {
       await post(id, 'players', cookie).expect(201);
     }
@@ -282,91 +275,29 @@ describe('creating a draft from a cube', () => {
   });
 });
 
-describe('snapshotting a cube', () => {
-  /** Has the organizer retry the draft's pool snapshot. */
-  function retry(id: string) {
-    return post(id, 'snapshot').expect(202);
-  }
+describe('the pool snapshot of a cube link', () => {
+  it('is complete straight after creation, from one fetch of the cube and one lookup of its cards', async () => {
+    cubesAre({ thepaupercube: pauper });
+    onPlatform('Lightning Bolt', 'Deftblade Elite');
 
-  /** The pool's card names, sorted. */
-  async function poolNames(id: string) {
-    const cards = (await pool(id)).body as { name: string }[];
-    return cards.map((c) => c.name).sort();
-  }
-
-  /**
-   * Creates a draft from the Pauper Cube, which CubeCobra answers with
-   * `snapshotCube` by the time of the snapshot, and waits for the snapshot.
-   */
-  async function createdThenFailed(snapshotCube: Cube | null | Error) {
-    onPlatform('Lightning Bolt', 'Deftblade Elite', 'Shock');
-    cubesAre({ thepaupercube: snapshotCube });
-    // Creation fetches the cube first; the snapshot fetches it again.
-    cubeCobra.cube.mockResolvedValueOnce(pauper);
     const created = await createDraft({
       name: 'Pauper',
       cubeLink: 'thepaupercube',
     }).expect(201);
-    return {
-      id: created.body.id as string,
-      draft: await snapshotted(created.body.id),
-    };
-  }
 
-  it('fails, listing them, when cards not on the platform were added to the cube after creation', async () => {
-    const { draft } = await createdThenFailed(
-      cube(
-        'The Pauper Cube',
-        'Lightning Bolt',
-        'Ancient Hellkite',
-        'Dream Pillager',
-      ),
-    );
-
-    expect(draft.snapshot).toEqual({
-      state: 'Failed',
-      cards: 0,
-      total: null,
-      error:
-        '2 cards in the cube are not on Arena: Ancient Hellkite, Dream Pillager.',
-    });
-  });
-
-  it('fails when the cube is gone or private by the time of the snapshot', async () => {
-    const { draft } = await createdThenFailed(null);
-
-    expect(draft.snapshot).toMatchObject({
-      state: 'Failed',
-      error: 'CubeCobra no longer has this cube, or it is no longer public.',
-    });
-  });
-
-  it('fails when CubeCobra can’t be reached for the snapshot', async () => {
-    const { draft } = await createdThenFailed(
-      new CubeCobraUnavailableError('CubeCobra answered 503.'),
-    );
-
-    expect(draft.snapshot).toMatchObject({
-      state: 'Failed',
-      error: 'CubeCobra could not be reached.',
-    });
-  });
-
-  it('takes the cube as it is at retry time', async () => {
-    const { id } = await createdThenFailed(null);
-    cubesAre({ thepaupercube: cube('The Pauper Cube', 'Shock', 'Shock') });
-
-    await retry(id);
-
-    expect((await snapshotted(id)).snapshot).toEqual({
+    expect(created.body.snapshot).toEqual({
       state: 'Complete',
-      cards: 2,
-      total: 2,
+      cards: 3,
+      total: 3,
     });
-    expect(await poolNames(id)).toEqual(['Shock', 'Shock']);
+    expect((await getDraft(created.body.id).expect(200)).body.snapshot).toEqual(
+      { state: 'Complete', cards: 3, total: 3 },
+    );
+    expect(cubeCobra.cube).toHaveBeenCalledTimes(1);
+    expect(scryfall.printingsOn).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the pool frozen once complete, whatever happens to the cube', async () => {
+  it('refuses a retry, keeping the pool as it was, because the pool is frozen', async () => {
     cubesAre({ thepaupercube: pauper });
     onPlatform('Lightning Bolt', 'Deftblade Elite', 'Shock');
     const created = await createDraft({
@@ -374,18 +305,19 @@ describe('snapshotting a cube', () => {
       cubeLink: 'thepaupercube',
     }).expect(201);
     const { id } = created.body;
-    await snapshotted(id);
     cubesAre({ thepaupercube: cube('The Pauper Cube', 'Shock') });
 
     await post(id, 'snapshot').expect(409);
 
-    expect(await poolNames(id)).toEqual([
+    const cards = (await pool(id)).body as { name: string }[];
+    expect(cards.map((c) => c.name).sort()).toEqual([
       'Deftblade Elite',
       'Lightning Bolt',
       'Lightning Bolt',
     ]);
-    expect((await getDraft(id).expect(200)).body.cube.name).toBe(
-      'The Pauper Cube',
+    expect(cubeCobra.cube).toHaveBeenCalledTimes(1);
+    expect((await getDraft(id).expect(200)).body.snapshot.state).toBe(
+      'Complete',
     );
   });
 });

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { MAX_PLAYERS, shuffle } from 'engine';
-import type { Platform } from '../generated/prisma/client.js';
+import type { Platform, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CubeLinkError,
@@ -25,11 +25,13 @@ import {
 } from './draft-reads.service.js';
 import { SEAT_ORDER } from './draft-shapes.js';
 import { checkCanStart, seatPlayers } from './draft-start.js';
+import { toPoolCard } from './pool-card.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { TurnsService } from './turns.service.js';
 import {
   ScryfallClient,
   ScryfallRejectedSearchError,
+  type ScryfallCard,
   type ScryfallSearchPage,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
@@ -40,9 +42,12 @@ import { cubePrintings } from './cube-pool.js';
 /** What defines a new draft's pool: a pool query or a cube link, as the organizer gave it. */
 export type NewPoolSource = { poolQuery: string } | { cubeLink: string };
 
-/** A pool source as a draft keeps it. */
-type SavedPoolSource =
-  { poolQuery: string } | { cubeId: string; cubeName: string };
+/** A cube as a draft keeps it, with a printing on the platform of each mainboard copy. */
+interface CheckedCube {
+  cubeId: string;
+  cubeName: string;
+  printings: ScryfallCard[];
+}
 
 export interface NewDraft {
   name: string;
@@ -66,8 +71,10 @@ export class DraftLobbyService {
   ) {}
 
   /**
-   * Saves a new draft in Lobby, organized by `organizerId`, and starts its
-   * pool snapshot. Throws UnknownWebhookError if its webhook doesn't exist,
+   * Saves a new draft in Lobby, organized by `organizerId`, with its pool
+   * snapshot: complete straight away for a cube link, which the check has
+   * already looked up every card of, and started in the background for a
+   * pool query. Throws UnknownWebhookError if its webhook doesn't exist,
    * PoolQueryError or CubeLinkError if its pool source can't make a pool, and
    * ScryfallUnavailableError or CubeCobraUnavailableError if that can't be
    * checked.
@@ -85,16 +92,41 @@ export class DraftLobbyService {
       throw new UnknownWebhookError();
     }
     const { poolSource, ...fields } = draft;
-    const saved = await this.checkPoolSource(poolSource, draft.platform);
-    const created = await this.prisma.draft
-      .create({
-        data: { ...fields, ...saved, organizerId },
-        ...WITH_ORGANIZER,
-      })
-      // The webhook may have been removed while the pool source was being checked.
-      .catch(rethrowMissingWebhook);
+    if ('cubeLink' in poolSource) {
+      const { cubeId, cubeName, printings } = await this.checkCubeLink(
+        poolSource.cubeLink,
+        draft.platform,
+      );
+      // One statement, so the draft and its pool cards are saved together or not at all.
+      return this.saveDraft({
+        ...fields,
+        cubeId,
+        cubeName,
+        organizerId,
+        snapshotState: 'Complete',
+        poolTotal: printings.length,
+        pool: { createMany: { data: printings.map(toPoolCard) } },
+      });
+    }
+    await this.checkPoolQuery(poolSource.poolQuery, draft.platform);
+    const created = await this.saveDraft({
+      ...fields,
+      poolQuery: poolSource.poolQuery,
+      organizerId,
+    });
     await this.snapshots.start(created.id);
     return created;
+  }
+
+  private saveDraft(
+    data: Prisma.DraftUncheckedCreateInput,
+  ): Promise<DraftWithOrganizer> {
+    return (
+      this.prisma.draft
+        .create({ data, ...WITH_ORGANIZER })
+        // The webhook may have been removed while the pool source was being checked.
+        .catch(rethrowMissingWebhook)
+    );
   }
 
   /**
@@ -245,22 +277,11 @@ export class DraftLobbyService {
     return players.map((player) => player.userId);
   }
 
-  /** The pool source as the draft keeps it, once it is checked to make a pool. */
-  private async checkPoolSource(
-    poolSource: NewPoolSource,
-    platform: Platform,
-  ): Promise<SavedPoolSource> {
-    if ('cubeLink' in poolSource) {
-      return this.checkCubeLink(poolSource.cubeLink, platform);
-    }
-    await this.checkPoolQuery(poolSource.poolQuery, platform);
-    return poolSource;
-  }
-
+  /** The cube the link names, once it is checked to make a pool on the platform. */
   private async checkCubeLink(
     cubeLink: string,
     platform: Platform,
-  ): Promise<SavedPoolSource> {
+  ): Promise<CheckedCube> {
     const cubeId = cubeIdFrom(cubeLink);
     if (!cubeId) {
       throw new CubeLinkError({
@@ -282,7 +303,11 @@ export class DraftLobbyService {
         message: 'This cube has no mainboard cards.',
       });
     }
-    const { missing } = await cubePrintings(this.scryfall, cube, platform);
+    const { printings, missing } = await cubePrintings(
+      this.scryfall,
+      cube,
+      platform,
+    );
     if (missing.length > 0) {
       throw new CubeLinkError({
         error: 'not-on-platform',
@@ -291,7 +316,7 @@ export class DraftLobbyService {
         totalCards: missing.length,
       });
     }
-    return { cubeId, cubeName: cube.name };
+    return { cubeId, cubeName: cube.name, printings };
   }
 
   private async checkPoolQuery(
