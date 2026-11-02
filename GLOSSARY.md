@@ -58,6 +58,10 @@ _Avoid_: Tooltip, hover card
 The view of a pool card that opens from the Pool tab, showing its large image and the actions a viewer can take on it.
 _Avoid_: Card modal, card popup
 
+**Horizontal card**:
+A card whose face is printed to be read sideways, such as a Room, a split card, or a battle's front.
+_Avoid_: Sideways card, landscape card, rotated card
+
 **Pool search**:
 A search in Scryfall syntax that a viewer types to narrow the pool cards they see. It never changes the pool.
 _Avoid_: Filter, query (alone), advanced search
