@@ -164,9 +164,9 @@ describe('board tab', () => {
     });
 
     const [botRow, aliceRow] = [...pickLog(page).querySelectorAll('li')];
-    const named = botRow!.querySelector<HTMLElement>(`[title="${longName}"]`)!;
-    expect(named.textContent?.trim()).toBe(longName);
-    expect(named.parentElement?.querySelector('.badge')?.textContent).toBe('Bot');
+    const botName = botRow!.querySelector<HTMLElement>(`[title="${longName}"]`)!;
+    expect(botName.textContent?.trim()).toBe(longName);
+    expect(botName.parentElement?.querySelector('.badge')?.textContent).toBe('Bot');
     expect(aliceRow!.querySelector('[title="Alice"]')?.textContent?.trim()).toBe('Alice');
     expect(aliceRow!.querySelector('.badge')).toBeNull();
   });
