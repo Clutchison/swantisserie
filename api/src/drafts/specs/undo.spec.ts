@@ -17,7 +17,7 @@ import {
   pickLogLines,
   dismissNotice,
   poolCardIds,
-  copyIds,
+  readyDraftWithCopies,
 } from './harness.js';
 
 useDraftsApp();
@@ -207,24 +207,13 @@ describe('undo', () => {
   });
 
   describe('in a pool with copies of a card', () => {
-    const copies = ['Lightning Bolt', 'Lightning Bolt', 'Shock', 'Lava Spike'];
-    let carolCookie: string;
-
-    /** A draft of Alice, Bob and Carol, picking last, with Lightning Bolt's copies. */
-    async function draftWithCopies() {
-      carolCookie = await signIn(carol);
-      const id = await readyDraft(
-        [aliceCookie, bobCookie, carolCookie],
-        1,
-        copies,
-      );
-      const ids = await poolCardIds(id);
-      const [first, second] = (await copyIds(id))['Lightning Bolt'];
-      return { id, ids, first, second };
-    }
-
     it('keeps a queue entry its pick moved on its new copy, in the same place', async () => {
-      const { id, ids, first, second } = await draftWithCopies();
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+        carolCookie,
+      ]);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await start(id).expect(200);
@@ -245,7 +234,12 @@ describe('undo', () => {
     });
 
     it('restores a queue its pick lost a copy from, every copy in its place', async () => {
-      const { id, ids, first, second } = await draftWithCopies();
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+        carolCookie,
+      ]);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, second, carolCookie).expect(200);
