@@ -15,7 +15,8 @@
     "test": "npm test --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "start": "npm run start:prod -w api",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "format:check": "npm run format:check --workspaces"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",
