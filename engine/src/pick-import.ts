@@ -65,6 +65,9 @@ function parseCsv(text: string): string[][] | null {
   return rows;
 }
 
+/** Cards' copies in the pool, by each card's full name. */
+type CopiesByCard = Map<string, PickImportCard[]>;
+
 /** A filled cell's card, as its copies in the pool, or why it has none. */
 type NamedPick =
   | { ok: true; seat: number; cardName: string; copies: PickImportCard[] }
@@ -75,15 +78,13 @@ type NamedPick =
  * card is its copies in the pool, by its full name. Copies share a full name
  * and different cards never do, so the full name tells cards apart.
  */
-function cardsByName(
-  pool: PickImportCard[],
-): Map<string, Map<string, PickImportCard[]>> {
-  const byName = new Map<string, Map<string, PickImportCard[]>>();
+function cardsByName(pool: PickImportCard[]): Map<string, CopiesByCard> {
+  const byName = new Map<string, CopiesByCard>();
   for (const card of pool) {
     const names = new Set([card.name, card.name.split(' // ')[0]]);
     for (const name of names) {
       const key = name.toLowerCase();
-      const cards = byName.get(key) ?? new Map<string, PickImportCard[]>();
+      const cards: CopiesByCard = byName.get(key) ?? new Map();
       cards.set(card.name, [...(cards.get(card.name) ?? []), card]);
       byName.set(key, cards);
     }
@@ -180,11 +181,6 @@ export function readPickImport(
     const [[cardName, copies]] = cards;
     return { ok: true, seat, cardName, copies };
   });
-  // How often each card is named in the whole file, for its problem.
-  const uses = new Map<string, number>();
-  for (const pick of named) {
-    if (pick.ok) uses.set(pick.cardName, (uses.get(pick.cardName) ?? 0) + 1);
-  }
   // How many of each card's copies the picks so far have taken.
   const taken = new Map<string, number>();
   const picks: ImportedPick[] = [];
@@ -202,11 +198,14 @@ export function readPickImport(
         seat,
         poolCardId: copies[copy].id,
       });
+    } else if (copies.length === 1) {
+      problems.push(`${cardName} appears more than once.`);
     } else {
+      const uses = named.filter(
+        (other) => other.ok && other.cardName === cardName,
+      );
       problems.push(
-        copies.length === 1
-          ? `${cardName} appears more than once.`
-          : `${cardName} appears ${uses.get(cardName)} times, but the pool has ${copies.length} copies.`,
+        `${cardName} appears ${uses.length} times, but the pool has ${copies.length} copies.`,
       );
     }
   }
