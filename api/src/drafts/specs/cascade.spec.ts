@@ -18,6 +18,7 @@ import {
   queue,
   undo,
   poolCardIds,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -138,6 +139,53 @@ describe('cascade', () => {
       });
     },
   );
+
+  it('picks each queued copy of a card in turn', async () => {
+    const id = await readyDraft([aliceCookie, bobCookie], 2, [
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Shock',
+      'Lava Spike',
+    ]);
+    const ids = await poolCardIds(id);
+    const [first, second] = (await copyIds(id))['Lightning Bolt'];
+    await enqueue(id, second, bobCookie).expect(200);
+    await enqueue(id, first, bobCookie).expect(200);
+    await start(id).expect(200);
+
+    await pick(id, ids.Shock).expect(200);
+
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Bob: Lightning Bolt',
+      'Bob: Lightning Bolt',
+    ]);
+  });
+
+  it('picks a queued copy that another player’s pick moved to a new copy', async () => {
+    const carolCookie = await signIn(carol);
+    const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
+      'Lightning Bolt',
+      'Lightning Bolt',
+      'Shock',
+      'Lava Spike',
+    ]);
+    const ids = await poolCardIds(id);
+    const [first, second] = (await copyIds(id))['Lightning Bolt'];
+    await enqueue(id, first, carolCookie).expect(200);
+    await start(id).expect(200);
+    await pick(id, first).expect(200);
+
+    await pick(id, ids.Shock, bobCookie).expect(200);
+
+    const log = await request(app.getHttpServer())
+      .get(`/api/drafts/${id}/picks`)
+      .set('Cookie', aliceCookie)
+      .expect(200);
+    expect(
+      log.body.map(({ poolCardId }: { poolCardId: string }) => poolCardId),
+    ).toEqual([first, ids.Shock, second]);
+  });
 
   it('picks the first player’s queued card when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);

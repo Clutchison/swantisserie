@@ -17,6 +17,7 @@ import {
   pickLogLines,
   dismissNotice,
   poolCardIds,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -199,6 +200,66 @@ describe('undo', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, bolt, spike, skewer],
+        lost: [],
+        cleared: [],
+      });
+    });
+  });
+
+  describe('in a pool with copies of a card', () => {
+    const copies = ['Lightning Bolt', 'Lightning Bolt', 'Shock', 'Lava Spike'];
+    let carolCookie: string;
+
+    /** A draft of Alice, Bob and Carol, picking last, with Lightning Bolt's copies. */
+    async function draftWithCopies() {
+      carolCookie = await signIn(carol);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        copies,
+      );
+      const ids = await poolCardIds(id);
+      const [first, second] = (await copyIds(id))['Lightning Bolt'];
+      return { id, ids, first, second };
+    }
+
+    it('keeps a queue entry its pick moved on its new copy, in the same place', async () => {
+      const { id, ids, first, second } = await draftWithCopies();
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, first).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [
+          { poolCardId: second, name: 'Lightning Bolt' },
+          { poolCardId: ids.Shock, name: 'Shock' },
+        ],
+        lost: [],
+        cleared: [],
+      });
+      // The picked copy is back in the pool.
+      await pick(id, first).expect(200);
+    });
+
+    it('restores a queue its pick lost a copy from, every copy in its place', async () => {
+      const { id, ids, first, second } = await draftWithCopies();
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await enqueue(id, second, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, first).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [
+          { poolCardId: first, name: 'Lightning Bolt' },
+          { poolCardId: ids.Shock, name: 'Shock' },
+          { poolCardId: second, name: 'Lightning Bolt' },
+        ],
         lost: [],
         cleared: [],
       });

@@ -1,9 +1,11 @@
 import type { Transaction } from './draft-shapes.js';
 
 /**
- * What a new pick does to queues: its card leaves the picker's queue, and each
- * other queue holding it is emptied. Those cards are kept against the pick, in
- * queue order, so that undoing it can put them back.
+ * What a new pick, already made, does to queues: its card leaves the picker's
+ * queue. Each other queue holding it moves to another copy of the card, if one
+ * is available that the queue doesn't hold; else that queue is emptied. Those
+ * cards are kept against the pick, in queue order, so that undoing it can put
+ * them back. A moved entry stays moved: its copy is as good as the one picked.
  */
 export async function takeFromQueues(
   tx: Transaction,
@@ -12,10 +14,21 @@ export async function takeFromQueues(
   await tx.queuedCard.deleteMany({
     where: { poolCardId: pick.poolCardId, playerId: pick.playerId },
   });
-  const losers = await tx.queuedCard.findMany({
+  const losers = [];
+  for (const entry of await tx.queuedCard.findMany({
     where: { poolCardId: pick.poolCardId },
-    select: { playerId: true },
-  });
+    select: { id: true, playerId: true },
+  })) {
+    const copy = await availableCopy(tx, pick.poolCardId, entry.playerId);
+    if (copy) {
+      await tx.queuedCard.update({
+        where: { id: entry.id },
+        data: { poolCardId: copy.id },
+      });
+    } else {
+      losers.push(entry);
+    }
+  }
   const ofLosers = { in: losers.map((loser) => loser.playerId) };
   const unqueued = await tx.queuedCard.findMany({
     where: { playerId: ofLosers },
@@ -25,6 +38,28 @@ export async function takeFromQueues(
     data: unqueued.map((card) => ({ ...card, pickId: pick.id })),
   });
   await tx.queuedCard.deleteMany({ where: { playerId: ofLosers } });
+}
+
+/** An unpicked copy of the pool card `poolCardId` that the player hasn't queued, if any. */
+async function availableCopy(
+  tx: Transaction,
+  poolCardId: string,
+  playerId: string,
+): Promise<{ id: string } | null> {
+  const { draftId, oracleId } = await tx.poolCard.findUniqueOrThrow({
+    where: { id: poolCardId },
+    select: { draftId: true, oracleId: true },
+  });
+  return tx.poolCard.findFirst({
+    where: {
+      draftId,
+      oracleId,
+      pick: null,
+      queued: { none: { playerId } },
+    },
+    orderBy: { id: 'asc' },
+    select: { id: true },
+  });
 }
 
 /**
