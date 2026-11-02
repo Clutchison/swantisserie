@@ -35,7 +35,7 @@ The fixed set of cards on the platform that a draft picks from, frozen when the 
 _Avoid_: Card list, cube
 
 **Pool source**:
-What defines a draft's pool: either a pool query or a cube link. The organizer chooses it when creating the draft, and it never changes.
+What defines a draft's pool: a pool query, a cube link or a set list. The organizer chooses it when creating the draft, and it never changes.
 _Avoid_: Pool definition, card source
 
 **Pool query**:
@@ -50,8 +50,16 @@ _Avoid_: Cube list, CubeCobra import
 A card list kept on CubeCobra, which a cube link names. Only its mainboard goes in a pool.
 _Avoid_: Cube list, CubeCobra list, pool (that is what a draft picks from)
 
+**Set list**:
+The Magic sets an organizer picks, or has the app pick at random, to define a draft's pool. The pool holds every card printed in those sets that is on the platform; cards that aren't are left out.
+_Avoid_: Set selection, set codes, random sets (as a pool source)
+
+**Sublist**:
+A smaller set that comes with a main set, such as a bonus sheet, its Alchemy cards or its Commander decks. An organizer chooses which of a set's sublists go in a set list.
+_Avoid_: Bonus sheet (for sublists in general), child set, subset
+
 **Pool snapshot**:
-The cards a pool query or cube link names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
+The cards a pool source names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:
