@@ -1,4 +1,5 @@
-import { type PickView, EMPTY_QUEUE } from '../drafts';
+import type { PickView } from 'contract';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,

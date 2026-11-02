@@ -12,14 +12,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import type { DraftView, PlayerView } from 'contract';
+import type { DraftView, PickView, PlayerView, PoolCardView, QueueView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { firstValueFrom } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
-import { EMPTY_QUEUE, isActive, type PickView, type PoolCardView, type QueueView } from './drafts';
+import { EMPTY_QUEUE, isActive } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';

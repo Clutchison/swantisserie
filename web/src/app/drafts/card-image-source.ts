@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { type CardImages, type PoolCardView } from './drafts';
+import type { CardImages, PoolCardView } from 'contract';
 
 export type ImageVersion = Exclude<keyof CardImages, 'small'>;
 

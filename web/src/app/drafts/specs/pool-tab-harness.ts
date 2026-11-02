@@ -1,4 +1,4 @@
-import { type PoolCardView } from '../drafts';
+import type { PoolCardView } from 'contract';
 import { type AppFixture } from './harness';
 
 // jsdom lays nothing out, so the window is 0px tall and the grid, which

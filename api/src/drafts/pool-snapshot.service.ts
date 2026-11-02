@@ -4,6 +4,7 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
+import type { CardFace, CardImages } from 'contract';
 import type { Platform, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -12,7 +13,6 @@ import {
   ScryfallUnavailableError,
   type ScryfallCard,
   type ScryfallCardFace,
-  type ScryfallImageUris,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
 
@@ -22,24 +22,14 @@ interface PoolSource {
   platform: Platform;
 }
 
-/** Image URLs of one card face, as stored in PoolCard.images. */
-export interface CardImages extends ScryfallImageUris {
+/** A card face's images, as stored in PoolCard.images. */
+interface StoredCardImages extends CardImages {
   /** Keeps the type a Prisma InputJsonObject. */
   [key: string]: string;
 }
 
 /** One face's fields for the pool search, as stored in PoolCard.faces. */
-export interface CardFace {
-  name: string;
-  typeLine: string | null;
-  oracleText: string | null;
-  manaCost: string | null;
-  /** Null when the card's colors apply, e.g. on adventures and split cards. */
-  colors: string[] | null;
-  power: string | null;
-  toughness: string | null;
-  loyalty: string | null;
-  defense: string | null;
+interface StoredCardFace extends CardFace {
   /** Keeps the type a Prisma InputJsonObject. */
   [key: string]: string | string[] | null;
 }
@@ -227,10 +217,10 @@ function toPoolCard(
   const faces = card.card_faces ?? [];
   const oracleId = card.oracle_id ?? faces[0]?.oracle_id;
   if (!oracleId) throw new PoolSnapshotError(`${card.name} has no oracle id.`);
-  const images: CardImages[] = (
+  const images: StoredCardImages[] = (
     card.image_uris ? [card.image_uris] : faces.map((face) => face.image_uris)
   )
-    .filter((uris): uris is ScryfallImageUris => !!uris)
+    .filter((uris): uris is CardImages => !!uris)
     .map(({ small, normal, large }) => ({ small, normal, large }));
   return {
     draftId,
@@ -266,7 +256,7 @@ export function searchFields(card: ScryfallCard) {
   } satisfies Prisma.PoolCardUpdateInput;
 }
 
-function toCardFace(face: ScryfallCardFace): CardFace {
+function toCardFace(face: ScryfallCardFace): StoredCardFace {
   return {
     name: face.name,
     typeLine: face.type_line ?? null,

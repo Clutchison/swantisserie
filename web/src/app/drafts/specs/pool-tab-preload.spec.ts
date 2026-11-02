@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { type PickView, type PoolCardView } from '../drafts';
+import type { PickView, PoolCardView } from 'contract';
 import {
   bob,
   completeSnapshot,

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { CardImages, Rarity } from 'contract';
 
 const API = 'https://api.scryfall.com';
 /**
@@ -16,17 +17,6 @@ const HEADERS = {
     'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)',
   Accept: 'application/json;q=0.9,*/*;q=0.8',
 };
-
-/** The sizes of a card image we use, on cards.scryfall.io. */
-export interface ScryfallImageUris {
-  small: string;
-  normal: string;
-  large: string;
-}
-
-/** https://scryfall.com/docs/api/cards#rarity */
-export type Rarity =
-  'common' | 'uncommon' | 'rare' | 'special' | 'mythic' | 'bonus';
 
 /** The fields of a Scryfall card object we use: https://scryfall.com/docs/api/cards */
 export interface ScryfallCard {
@@ -55,7 +45,7 @@ export interface ScryfallCard {
   loyalty?: string;
   defense?: string;
   /** Absent when each face has its own image (transform, modal_dfc). */
-  image_uris?: ScryfallImageUris;
+  image_uris?: CardImages;
   card_faces?: ScryfallCardFace[];
 }
 
@@ -72,7 +62,7 @@ export interface ScryfallCardFace {
   toughness?: string;
   loyalty?: string;
   defense?: string;
-  image_uris?: ScryfallImageUris;
+  image_uris?: CardImages;
 }
 
 /** One page of a search's results (unique cards, 175 per page). */

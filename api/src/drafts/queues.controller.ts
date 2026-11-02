@@ -13,6 +13,7 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import type { QueueView } from 'contract';
 import {
   CurrentUser,
   SessionGuard,
@@ -24,7 +25,6 @@ import {
   QueueChangedError,
   QueueRefusedError,
   QueuesService,
-  type QueueView,
 } from './queues.service.js';
 
 /**

@@ -20,11 +20,11 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import type { DraftView, PlayerView } from 'contract';
+import type { DraftView, PlayerView, PoolCardView, QueueView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
-import { isRefusal, type PoolCardView, type QueueView } from './drafts';
+import { isRefusal } from './drafts';
 import { ImagePreloader } from './image-preloader';
 import {
   applyPoolFilters,

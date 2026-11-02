@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import { isRefusal, type QueueView } from './drafts';
+import type { QueueView } from 'contract';
+import { isRefusal } from './drafts';
 
 /** Changes to the signed-in player's queue, each answered with the queue as it now is. */
 @Injectable({ providedIn: 'root' })

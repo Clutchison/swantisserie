@@ -17,9 +17,9 @@ import {
   input,
   type OnDestroy,
 } from '@angular/core';
+import type { PoolCardView } from 'contract';
 import { CardImage } from './card-image';
 import { CardImageSource } from './card-image-source';
-import { type PoolCardView } from './drafts';
 
 /** How long the mouse rests on a name before its Card preview opens, in ms. */
 const HOVER_MS = 150;

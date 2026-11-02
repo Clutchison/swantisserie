@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import type { PlayerView } from 'contract';
+import type { PickView, PlayerView, PoolCardView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { CardPreviewName } from './card-preview';
-import type { PickView, PoolCardView } from './drafts';
 
 /** The draft view's Board tab: every player's picks, in seat order, and the pick log. */
 @Component({
