@@ -73,7 +73,7 @@ export class AuthController {
       (issuer !== undefined && issuer !== DISCORD_ISSUER) ||
       typeof code !== 'string'
     ) {
-      return res.redirect(signInFailed('failed'));
+      return res.redirect(signInErrorPath('failed'));
     }
 
     let session: NewSession;
@@ -82,10 +82,10 @@ export class AuthController {
     } catch (err) {
       if (err instanceof NotAllowedError) {
         this.logger.log(err.message);
-        return res.redirect(signInFailed('not-allowed'));
+        return res.redirect(signInErrorPath('not-allowed'));
       }
       this.logger.error('Discord sign-in failed', err);
-      return res.redirect(signInFailed('failed'));
+      return res.redirect(signInErrorPath('failed'));
     }
     res.cookie(SESSION_COOKIE, session.token, {
       ...this.cookieOptions(),
@@ -131,7 +131,7 @@ function sameSecret(given: unknown, expected: unknown): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** The sign-in page, showing why sign-in failed. */
-function signInFailed(error: SignInError): string {
+/** The path of the sign-in page, showing why sign-in failed. */
+function signInErrorPath(error: SignInError): string {
   return `/sign-in?${new URLSearchParams({ error })}`;
 }
