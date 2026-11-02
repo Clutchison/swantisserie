@@ -1,6 +1,6 @@
+import type { DraftSocketEvents, DraftView } from 'contract';
 import { io, type Socket } from 'socket.io-client';
 import request from 'supertest';
-import type { DraftView } from '../draft-view.js';
 import {
   alice,
   bob,
@@ -21,7 +21,7 @@ import {
 useDraftsApp();
 
 describe('live updates', () => {
-  const sockets: Socket[] = [];
+  const sockets: Socket<DraftSocketEvents>[] = [];
 
   beforeEach(async () => {
     await app.listen(0);
@@ -32,7 +32,10 @@ describe('live updates', () => {
   });
 
   /** A Socket.IO client for draft `draftId`, not yet connected. */
-  async function socketFor(draftId: string, cookie?: string): Promise<Socket> {
+  async function socketFor(
+    draftId: string,
+    cookie?: string,
+  ): Promise<Socket<DraftSocketEvents>> {
     const socket = io(await app.getUrl(), {
       path: '/api/socket.io',
       transports: ['websocket'],

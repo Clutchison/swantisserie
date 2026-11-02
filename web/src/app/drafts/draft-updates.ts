@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
+import type { DraftSocketEvents, DraftView } from 'contract';
 import { Observable } from 'rxjs';
-import { io } from 'socket.io-client';
-import type { DraftView } from './drafts';
+import { io, type Socket } from 'socket.io-client';
 
 /** How long to wait before retrying a handshake the API refused for its own reasons. */
 const RETRY_MS = 5000;
@@ -27,10 +27,10 @@ export class DraftUpdates {
    */
   watch(draftId: string): Observable<DraftUpdate> {
     return new Observable((subscriber) => {
-      const socket = io({ path: '/api/socket.io', auth: { draftId } });
+      const socket: Socket<DraftSocketEvents> = io({ path: '/api/socket.io', auth: { draftId } });
       let retry: ReturnType<typeof setTimeout> | undefined;
       socket.on('connect', () => subscriber.next({ type: 'connected' }));
-      socket.on('changed', (draft: DraftView) => subscriber.next({ type: 'changed', draft }));
+      socket.on('changed', (draft) => subscriber.next({ type: 'changed', draft }));
       socket.on('cancelled', () => subscriber.next({ type: 'cancelled' }));
       socket.on('connect_error', (err) => {
         // Socket.IO gives up after a refused handshake. Try again unless the

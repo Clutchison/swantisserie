@@ -1,6 +1,6 @@
+import type { DraftView } from 'contract';
 import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { DraftView } from '../draft-view.js';
 import {
   alice,
   carol,

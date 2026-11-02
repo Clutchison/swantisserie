@@ -10,8 +10,9 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import type { DraftView, Platform, WebhookView } from 'contract';
 import { firstValueFrom } from 'rxjs';
-import type { DraftProblem, DraftView, Platform, WebhookView } from './drafts';
+import type { DraftProblem } from './drafts';
 
 @Component({
   selector: 'app-create-draft-page',

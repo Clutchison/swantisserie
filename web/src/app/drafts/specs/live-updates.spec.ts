@@ -1,4 +1,5 @@
-import { type DraftView, type PickView, type PoolCardView } from '../drafts';
+import type { DraftView } from 'contract';
+import type { PickView, PoolCardView } from '../drafts';
 import {
   useDraftsApp,
   alice,

@@ -1,4 +1,5 @@
-import { type PoolSnapshotView, EMPTY_QUEUE } from '../drafts';
+import type { PoolSnapshotView } from 'contract';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,

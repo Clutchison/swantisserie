@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { type DraftView, type PoolCardView, EMPTY_QUEUE } from '../drafts';
+import type { DraftView } from 'contract';
+import { type PoolCardView, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,

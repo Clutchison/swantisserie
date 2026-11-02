@@ -1,4 +1,4 @@
-import type { DraftView } from '../drafts';
+import type { DraftView } from 'contract';
 import {
   useDraftsApp,
   bob,

@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import type { DraftView } from 'contract';
 import { DraftNotifier } from '../discord/draft-notifier.js';
 import type { DraftEvent } from './draft-events.js';
 import { DraftReadsService } from './draft-reads.service.js';
-import { type DraftView, toDraftView } from './draft-view.js';
+import { toDraftView } from './draft-view.js';
 import { DraftsGateway } from './drafts.gateway.js';
 
 /** Tells the world about a change to a draft, once it is committed. */

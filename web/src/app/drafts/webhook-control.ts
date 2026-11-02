@@ -10,8 +10,9 @@ import {
   signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import type { DraftView, WebhookView } from 'contract';
 import { firstValueFrom } from 'rxjs';
-import { type DraftView, isRefusal, type WebhookView } from './drafts';
+import { isRefusal } from './drafts';
 
 /** The organizer's choice of where a draft's announcements are posted, saved as soon as made. */
 @Component({
