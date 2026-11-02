@@ -22,7 +22,7 @@ import type {
   CardImages,
   DraftCreationProblem,
   DraftView,
-  LobbyRefusal,
+  DraftChangeRefusal,
   PickImportRefusal,
   PickImportPreview,
   PickView,
@@ -458,9 +458,7 @@ export class DraftsController {
         } satisfies DraftCreationProblem);
       }
       if (err instanceof PoolQueryError) {
-        throw new UnprocessableEntityException(
-          err.problem satisfies DraftCreationProblem,
-        );
+        throw new UnprocessableEntityException(err.problem);
       }
       if (err instanceof ScryfallUnavailableError) {
         this.logger.error(err.message);
@@ -475,13 +473,13 @@ export class DraftsController {
 }
 
 function conflict(
-  error: LobbyRefusal['error'],
+  error: DraftChangeRefusal['error'],
   cause: Error,
 ): ConflictException {
   return new ConflictException({
     error,
     message: cause.message,
-  } satisfies LobbyRefusal);
+  } satisfies DraftChangeRefusal);
 }
 
 function pickImportRefused(

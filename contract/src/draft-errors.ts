@@ -26,13 +26,19 @@ export type DraftCreationProblem =
     }
   | { error: 'scryfall-unavailable'; message: string };
 
-/** Why the organizer can't start the draft; sent to them as is. */
+/**
+ * Why the organizer can't start the draft; sent to them as is. The api
+ * passes on engine's StartProblem codes, so typecheck ties the two.
+ */
 export interface StartRefusal {
   error: 'player-count' | 'pool-too-small' | 'pool-not-ready';
   message: string;
 }
 
-/** Why a player can't make a pick; sent to them as is. */
+/**
+ * Why a player can't make a pick; sent to them as is. The api passes on
+ * engine's PickProblem codes, so typecheck ties the two.
+ */
 export interface PickRefusal {
   error: 'not-your-turn' | 'already-picked' | 'not-drafting' | 'not-in-pool';
   message: string;
@@ -56,8 +62,8 @@ export interface CloseRefusal {
   message: string;
 }
 
-/** Why a change to a draft's lobby, players or webhook was refused. */
-export interface LobbyRefusal {
+/** Why a change to a draft's players, seats, pool or webhook was refused. */
+export interface DraftChangeRefusal {
   error:
     | 'draft-started'
     | 'draft-full'
@@ -87,8 +93,8 @@ export interface PickImportRefusal {
 }
 
 /**
- * The body of a 409 from the drafts API: the draft or queue has moved on
- * since the viewer last saw it, and this says how.
+ * Why the drafts API refused a request because the draft or queue has moved
+ * on since the viewer last saw it: a 409, or a 404 for `not-in-pool`.
  */
 export type DraftRefusal =
   | StartRefusal
@@ -96,5 +102,5 @@ export type DraftRefusal =
   | UndoRefusal
   | PauseRefusal
   | CloseRefusal
-  | LobbyRefusal
+  | DraftChangeRefusal
   | QueueRefusal;

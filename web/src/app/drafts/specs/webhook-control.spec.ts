@@ -1,4 +1,4 @@
-import type { DraftState, LobbyRefusal } from 'contract';
+import type { DraftState, DraftChangeRefusal } from 'contract';
 import {
   alice,
   completeSnapshot,
@@ -139,7 +139,7 @@ describe('changing a draft’s webhook', () => {
     webhooksAnswer([main]);
     http
       .expectOne('/api/drafts/draft-1/webhook')
-      .flush({ error: 'webhook-removed', message: removedMessage } satisfies LobbyRefusal, {
+      .flush({ error: 'webhook-removed', message: removedMessage } satisfies DraftChangeRefusal, {
         status: 409,
         statusText: 'Conflict',
       });

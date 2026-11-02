@@ -14,7 +14,7 @@ export function isRefusal(err: unknown): err is RefusalResponse {
   return err instanceof HttpErrorResponse && err.status === 409;
 }
 
-/** The body of a failed POST /api/drafts: what to tell the organizer. */
+/** Why creating a draft failed, from the API or the request itself: what to tell the organizer. */
 export type DraftProblem =
   | DraftCreationProblem
   /** Set by the web app when the API gave no explanation, e.g. offline. */
