@@ -11,11 +11,7 @@ import { App } from 'supertest/types.js';
 import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
 import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
-import {
-  DiscordClient,
-  DiscordGuildMember,
-  DiscordProfile,
-} from '../discord/discord-client.js';
+import { DiscordClient, DiscordProfile } from '../discord/discord-client.js';
 import { DiscordConfig } from '../discord/discord-config.js';
 import { AdminConfig } from './admin-config.js';
 import { AdminGuard } from './admin.guard.js';
@@ -28,8 +24,6 @@ const config = new DiscordConfig({
   DISCORD_GUILD_ID: 'guild-1',
 });
 const admins = new AdminConfig('111, 222');
-
-const guildMember: DiscordGuildMember = {};
 
 /** Stands in for the admin-only routes later tickets add. */
 @Controller('admin-only')
@@ -50,7 +44,7 @@ describe('Discord sign-in', () => {
   const discord = {
     exchangeCode: vi.fn<DiscordClient['exchangeCode']>(),
     getCurrentUser: vi.fn<DiscordClient['getCurrentUser']>(),
-    getGuildMember: vi.fn<DiscordClient['getGuildMember']>(),
+    isGuildMember: vi.fn<DiscordClient['isGuildMember']>(),
   };
 
   beforeAll(async () => {
@@ -113,13 +107,10 @@ describe('Discord sign-in', () => {
   });
 
   /** Runs the redirect → callback round trip in a cookie-keeping agent. */
-  async function signIn(
-    profile: DiscordProfile,
-    member: DiscordGuildMember | null = guildMember,
-  ) {
+  async function signIn(profile: DiscordProfile, isGuildMember = true) {
     discord.exchangeCode.mockResolvedValue('access-token');
     discord.getCurrentUser.mockResolvedValue(profile);
-    discord.getGuildMember.mockResolvedValue(member);
+    discord.isGuildMember.mockResolvedValue(isGuildMember);
     const agent = request.agent(app.getHttpServer());
     const start = await agent.get('/api/auth/discord');
     const state = new URL(start.headers.location).searchParams.get('state');
@@ -186,32 +177,22 @@ describe('Discord sign-in', () => {
   });
 
   it('turns away someone who is not in our guild', async () => {
-    const { agent, callback } = await signIn(alice, null);
+    const { agent, callback } = await signIn(alice, false);
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
-    expect(discord.getGuildMember).toHaveBeenCalledWith(
+    expect(discord.isGuildMember).toHaveBeenCalledWith(
       'access-token',
       'guild-1',
     );
     await agent.get('/api/auth/me').expect(401);
   });
 
-  it.each([
-    ['no roles', { roles: [] }],
-    ['unrelated roles', { roles: ['some-role', 'another-role'] }],
-  ])('signs in a guild member with %s', async (_, member) => {
-    const { agent, callback } = await signIn(alice, member);
-
-    expect(callback.headers.location).toBe('/');
-    await agent.get('/api/auth/me').expect(200);
-  });
-
   it('re-checks guild membership on every sign-in', async () => {
     const first = await signIn(alice);
     await first.agent.get('/api/auth/me').expect(200);
 
-    const { agent, callback } = await signIn(alice, null);
+    const { agent, callback } = await signIn(alice, false);
 
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
     await agent.get('/api/auth/me').expect(401);

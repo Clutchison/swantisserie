@@ -11,19 +11,16 @@ export interface DiscordProfile {
   avatar: string | null;
 }
 
-/** A guild member object. We use none of its fields, only whether there is one. */
-export type DiscordGuildMember = Record<string, unknown>;
-
 /** Discord's OAuth2 and user endpoints: the boundary faked in tests. */
 export abstract class DiscordClient {
   /** Exchanges an authorization code for the user's access token. */
   abstract exchangeCode(code: string): Promise<string>;
   abstract getCurrentUser(accessToken: string): Promise<DiscordProfile>;
-  /** The user's membership of `guildId`, or null if they aren't in it. */
-  abstract getGuildMember(
+  /** Whether the user is in `guildId`. */
+  abstract isGuildMember(
     accessToken: string,
     guildId: string,
-  ): Promise<DiscordGuildMember | null>;
+  ): Promise<boolean>;
 }
 
 @Injectable()
@@ -64,17 +61,14 @@ export class FetchDiscordClient extends DiscordClient {
     return (await res.json()) as DiscordProfile;
   }
 
-  async getGuildMember(
-    accessToken: string,
-    guildId: string,
-  ): Promise<DiscordGuildMember | null> {
+  async isGuildMember(accessToken: string, guildId: string): Promise<boolean> {
     const res = await fetch(`${API}/users/@me/guilds/${guildId}/member`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (res.status === 404) return null;
+    if (res.status === 404) return false;
     if (!res.ok) {
       throw new Error(`Discord guild member lookup failed: ${res.status}`);
     }
-    return (await res.json()) as DiscordGuildMember;
+    return true;
   }
 }

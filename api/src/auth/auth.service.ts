@@ -28,11 +28,11 @@ export class AuthService {
     const accessToken = await this.discord.exchangeCode(code);
     const profile = await this.discord.getCurrentUser(accessToken);
     // Checked on every sign-in, so leaving the guild locks the user out next time.
-    const member = await this.discord.getGuildMember(
+    const isGuildMember = await this.discord.isGuildMember(
       accessToken,
       this.config.guildId,
     );
-    if (!member) {
+    if (!isGuildMember) {
       throw new NotAllowedError(profile.id);
     }
     const fields = {
