@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { EMPTY_QUEUE, type PickView } from '../drafts';
+import { type DraftView, EMPTY_QUEUE, type PickView } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -50,10 +50,11 @@ describe('board tab', () => {
     },
   ];
 
-  async function openBoard(picks: PickView[]) {
+  async function openBoard(picks: PickView[], fields: Partial<DraftView> = {}) {
     const opened = await openDraft(
       completeSnapshot,
       {
+        ...fields,
         state: 'Drafting',
         players: [bob, alicePlayer],
         turn: { pick: 4, round: 2, playerId: bob.id },
@@ -297,14 +298,31 @@ describe('board tab', () => {
       });
 
       /** Opens Bob's picks from the Board. */
-      async function openBobsPicks(bobsPicks: PickView[]) {
-        const opened = await openBoard(bobsPicks);
+      async function openBobsPicks(bobsPicks: PickView[], fields: Partial<DraftView> = {}) {
+        const opened = await openBoard(bobsPicks, fields);
         panel(opened.page)
           .querySelector<HTMLButtonElement>('.player-picks section h3 button')!
           .click();
         await opened.fixture.whenStable();
         return opened;
       }
+
+      const copyTargets = (root: HTMLElement) =>
+        [...panel(root).querySelectorAll('button.copy .label')].map((label) =>
+          label.textContent?.trim(),
+        );
+
+      it('offers copies for Arena and Moxfield on an Arena draft', async () => {
+        const { page } = await openBobsPicks(picks, { platform: 'Arena' });
+
+        expect(copyTargets(page)).toEqual(['Copy for Arena', 'Copy for Moxfield']);
+      });
+
+      it('offers only the copy for Moxfield on an MTGO draft', async () => {
+        const { page } = await openBobsPicks(picks, { platform: 'MTGO' });
+
+        expect(copyTargets(page)).toEqual(['Copy for Moxfield']);
+      });
 
       it('copies any player’s picks for Arena, with multi-face cards named its way', async () => {
         const { fixture, page } = await openBobsPicks([

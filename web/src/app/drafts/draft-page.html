@@ -171,6 +171,7 @@
           </div>
         }
       }
+      <p class="detail">Platform: {{ draft.platform }}</p>
       <p class="detail">
         Pool query: <code>{{ draft.poolQuery }}</code>
       </p>
@@ -230,6 +231,7 @@
       [hidden]="tab() !== 'Picks'"
     >
       <app-picks-tab
+        [platform]="draft.platform"
         [player]="shownPlayer()"
         [own]="ownPicks()"
         [picks]="picks()"

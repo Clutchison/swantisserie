@@ -56,6 +56,8 @@ model Draft {
   /// The Scryfall search that defines the pool.
   poolQuery      String
   picksPerPlayer Int
+  /// The game the draft is played on. Chosen at creation; it never changes.
+  platform       Platform          @default(Arena)
   state          DraftState        @default(Lobby)
   organizerId    String
   organizer      User              @relation(fields: [organizerId], references: [id])
@@ -80,6 +82,12 @@ model Draft {
   @@index([webhookId])
 }
 
+/// The game a draft is played on.
+enum Platform {
+  Arena
+  MTGO
+}
+
 /// Progress of the pool snapshot: copying the pool query's cards from Scryfall.
 enum PoolSnapshotState {
   Running
@@ -92,7 +100,7 @@ model PoolCard {
   id              String       @id @default(uuid())
   draftId         String
   draft           Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  /// Scryfall id of the Arena printing.
+  /// Scryfall id of the printing on the draft's platform.
   scryfallId      String
   /// Identity shared by every printing of the card, and by every copy of it in the pool. A pool card is named by its own id, not this.
   oracleId        String

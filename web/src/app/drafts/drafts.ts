@@ -47,12 +47,16 @@ export interface WebhookView {
   name: string;
 }
 
+/** The game a draft is played on, by its short name. */
+export type Platform = 'Arena' | 'MTGO';
+
 /** A draft, as the drafts API reports it. */
 export interface DraftView {
   id: string;
   name: string;
   poolQuery: string;
   picksPerPlayer: number;
+  platform: Platform;
   state: DraftState;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
@@ -77,7 +81,7 @@ export interface PickImportPreview {
 
 /** The body of a failed POST /api/drafts: what to tell the organizer. */
 export type DraftProblem =
-  | { error: 'not-on-arena'; message: string; cards: string[]; totalCards: number }
+  | { error: 'not-on-platform'; message: string; cards: string[]; totalCards: number }
   | { error: 'query-rejected'; message: string; warnings: string[] }
   | { error: 'no-cards' | 'invalid' | 'scryfall-unavailable'; message: string }
   /** Set by the web app when the API gave no explanation, e.g. offline. */
@@ -107,7 +111,7 @@ export interface CardFace {
   defense: string | null;
 }
 
-/** One card in a pool, with the Arena printing the snapshot took. */
+/** One card in a pool, with the printing on the draft's platform that the snapshot took. */
 export interface PoolCardView {
   id: string;
   scryfallId: string;

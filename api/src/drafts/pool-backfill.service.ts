@@ -13,7 +13,8 @@ import { searchFields } from './pool-snapshot.service.js';
 
 /**
  * Fills in the pool search fields of cards snapshotted before they were
- * stored, from their Arena printings, in the background after boot.
+ * stored, from their printings on the draft's platform, in the background
+ * after boot.
  */
 @Injectable()
 export class PoolBackfillService

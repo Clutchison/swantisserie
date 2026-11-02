@@ -4,7 +4,8 @@ import { Prisma } from '../generated/prisma/client.js';
 /** Why a pool query can't make a pool; sent to the organizer as is. */
 export type PoolQueryProblem =
   | {
-      error: 'not-on-arena';
+      /** Some of its cards aren't on the draft's platform. */
+      error: 'not-on-platform';
       message: string;
       /** The first page of offending card names. */
       cards: string[];

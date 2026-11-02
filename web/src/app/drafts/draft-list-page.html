@@ -17,7 +17,10 @@
             <a class="draft-link" [routerLink]="['/drafts', draft.id]">
               <span class="name">{{ draft.name }}</span>
               <span class="state">{{ draft.state }}</span>
-              <span class="detail">Organized by {{ draft.organizer.name }}</span>
+              <span class="detail"
+                ><span class="platform">{{ draft.platform }}</span> · Organized by
+                {{ draft.organizer.name }}</span
+              >
             </a>
           </li>
         } @empty {
@@ -32,7 +35,10 @@
           <li>
             <a class="draft-link" [routerLink]="['/drafts', draft.id]">
               <span class="name">{{ draft.name }}</span>
-              <span class="detail">Organized by {{ draft.organizer.name }}</span>
+              <span class="detail"
+                ><span class="platform">{{ draft.platform }}</span> · Organized by
+                {{ draft.organizer.name }}</span
+              >
             </a>
           </li>
         } @empty {
@@ -47,7 +53,10 @@
           <li>
             <a class="draft-link" [routerLink]="['/drafts', draft.id]">
               <span class="name">{{ draft.name }}</span>
-              <span class="detail">Organized by {{ draft.organizer.name }}</span>
+              <span class="detail"
+                ><span class="platform">{{ draft.platform }}</span> · Organized by
+                {{ draft.organizer.name }}</span
+              >
             </a>
           </li>
         } @empty {

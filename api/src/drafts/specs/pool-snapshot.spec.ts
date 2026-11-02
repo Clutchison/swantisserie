@@ -54,6 +54,50 @@ describe('pool snapshot', () => {
     expect(scryfall.search).toHaveBeenCalledWith(query, 2);
   });
 
+  it('takes each card’s MTGO printing for an MTGO draft', async () => {
+    scryfallAnswers({
+      'c:r': page('Shock'),
+      '(c:r) -in:mtgo': null,
+      '(c:r) game:mtgo unique:cards': page('Shock'),
+    });
+
+    const created = await createDraft({
+      name: 'Red',
+      poolQuery: 'c:r',
+      platform: 'MTGO',
+    }).expect(201);
+
+    const draft = await snapshotted(created.body.id);
+    expect(draft.snapshot).toEqual({ state: 'Complete', cards: 1, total: 1 });
+    expect(scryfall.search).toHaveBeenCalledWith(
+      '(c:r) game:mtgo unique:cards',
+      1,
+    );
+    expect(scryfall.search).not.toHaveBeenCalledWith(
+      snapshotQuery('c:r'),
+      expect.anything(),
+    );
+  });
+
+  it('names the platform when the pool query no longer matches any cards on it', async () => {
+    scryfallAnswers({
+      'c:r': page('Shock'),
+      '(c:r) -in:mtgo': null,
+      '(c:r) game:mtgo unique:cards': null,
+    });
+
+    const created = await createDraft({
+      name: 'Red',
+      poolQuery: 'c:r',
+      platform: 'MTGO',
+    }).expect(201);
+
+    const draft = await snapshotted(created.body.id);
+    expect(draft.snapshot.error).toBe(
+      'The pool query no longer matches any cards on MTGO.',
+    );
+  });
+
   it('stores an image per face of a double-faced card, and its colors from the faces', async () => {
     const query = snapshotQuery('t:dragon');
     const face = (name: string, color: string) => ({

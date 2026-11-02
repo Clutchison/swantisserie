@@ -1,6 +1,7 @@
 import { currentTurn } from 'engine';
 import type {
   DraftState,
+  Platform,
   PoolSnapshotState,
 } from '../generated/prisma/client.js';
 import { avatarUrl } from '../auth/avatar-url.js';
@@ -42,6 +43,7 @@ export interface DraftView {
   name: string;
   poolQuery: string;
   picksPerPlayer: number;
+  platform: Platform;
   state: DraftState;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
@@ -63,6 +65,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
     name: draft.name,
     poolQuery: draft.poolQuery,
     picksPerPlayer: draft.picksPerPlayer,
+    platform: draft.platform,
     state: draft.state,
     organizer: draft.organizer,
     snapshot: {
