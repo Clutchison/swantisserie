@@ -353,7 +353,7 @@ export class DraftsController {
     );
   }
 
-  /** The signed-in role-holder joins the draft. */
+  /** The signed-in guild member joins the draft. */
   @Post(':id/players')
   async join(
     @CurrentUser() user: SessionUser,
@@ -363,7 +363,7 @@ export class DraftsController {
     return this.change(id, () => this.lobby.join(id, user.id));
   }
 
-  /** The signed-in role-holder leaves the draft. */
+  /** The signed-in guild member leaves the draft. */
   @Delete(':id/players/me')
   async leave(
     @CurrentUser() user: SessionUser,

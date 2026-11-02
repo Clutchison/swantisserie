@@ -24,7 +24,7 @@ export interface PoolSnapshotView {
   error?: string;
 }
 
-/** A role-holder or bot who has joined a draft. */
+/** A guild member or bot who has joined a draft. */
 export interface PlayerView {
   id: string;
   name: string;

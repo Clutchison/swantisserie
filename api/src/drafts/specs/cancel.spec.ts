@@ -71,7 +71,7 @@ describe('cancel', () => {
     expect(await prisma.user.count({ where: { id: alice.id } })).toBe(1);
   });
 
-  it('lets an app admin cancel, but not other role-holders', async () => {
+  it('lets an app admin cancel, but not other guild members', async () => {
     const id = await readyDraft([aliceCookie]);
 
     await cancel(id, await signIn(bob)).expect(403);

@@ -90,7 +90,9 @@ describe('App', () => {
     await fixture.whenStable();
 
     const page = fixture.nativeElement as HTMLElement;
-    expect(page.querySelector('.error')?.textContent).toContain('roto-draft role');
+    expect(page.querySelector('.error')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Swantisserie is only for members of our Discord server. Join the server, then sign in again.',
+    );
   });
 
   const alice = {
@@ -127,7 +129,7 @@ describe('App', () => {
       expect(leftControls(page)).toEqual(['Swantisserie', 'Admin', 'Send feedback']);
     });
 
-    it('shows role-holders who aren’t app admins no Admin, Webhooks or Feedback', async () => {
+    it('shows guild members who aren’t app admins no Admin, Webhooks or Feedback', async () => {
       const page = await open('/', (req) => req.flush(alice));
 
       expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
@@ -211,7 +213,7 @@ describe('App', () => {
       expect(left.children[1].getAttribute('href')).toBe('/');
     });
 
-    it('shows role-holders who aren’t app admins only Send feedback', async () => {
+    it('shows guild members who aren’t app admins only Send feedback', async () => {
       const page = await openMenu(alice);
 
       expect(panelText(page)).toEqual(['Send feedback']);

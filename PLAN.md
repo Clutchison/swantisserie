@@ -7,8 +7,8 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 ## Access
 
 - Login with Discord OAuth2 (scopes `identify guilds.members.read`).
-- At login, require membership in our guild **and** the `roto-draft` role (`GET /users/@me/guilds/{guild}/member`). Otherwise reject.
-- Any `roto-draft` member can create a draft and becomes its **organizer**.
+- At login, require membership in our guild (`GET /users/@me/guilds/{guild}/member`). Otherwise reject.
+- Any guild member can create a draft and becomes its **organizer**.
 - **App admins** (Discord user IDs in config) have organizer powers on every draft.
 
 ## Pool
@@ -26,7 +26,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 ## Draft
 
-- 2–12 players. Role-holders click **Join** in the lobby.
+- 2–12 players. Guild members click **Join** in the lobby.
 - The organizer starts the draft. Seats are randomized at start and the organizer can edit them manually.
 - **Standard snake order** (1→N, N→1). Default **40 picks per player**, set per draft.
 - **Singleton**: a card can be picked only once.

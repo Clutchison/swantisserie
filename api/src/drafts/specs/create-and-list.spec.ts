@@ -18,7 +18,7 @@ import {
 
 useDraftsApp();
 
-it('creates a draft in Lobby with the signed-in role-holder as organizer', async () => {
+it('creates a draft in Lobby with the signed-in guild member as organizer', async () => {
   allOnArena('t:dragon c:r');
 
   const created = await createDraft({

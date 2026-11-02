@@ -39,7 +39,7 @@ export interface ReviewedFeedbackView extends FeedbackView {
   reviewedBy: { name: string };
 }
 
-/** Where signed-in role-holders send feedback to the app admins. */
+/** Where signed-in guild members send feedback to the app admins. */
 @Controller('feedback')
 @UseGuards(SessionGuard)
 export class FeedbackController {

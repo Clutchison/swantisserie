@@ -97,7 +97,7 @@ describe('webhook registry', () => {
     ]);
   });
 
-  it('refuses the registry to role-holders who are not app admins', async () => {
+  it('refuses the registry to guild members who are not app admins', async () => {
     await addWebhook({ name: '#roto-main', url: mainUrl }).expect(201);
 
     await adminList(aliceCookie).expect(403);
@@ -154,7 +154,7 @@ describe('webhook registry', () => {
     });
   });
 
-  it('lists webhooks to every role-holder by name, without their URLs', async () => {
+  it('lists webhooks to every guild member by name, without their URLs', async () => {
     await addWebhook({ name: '#roto-main', url: mainUrl }).expect(201);
 
     for (const cookie of [aliceCookie, carolCookie]) {
