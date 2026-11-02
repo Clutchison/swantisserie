@@ -8,6 +8,8 @@
 :root {
   color-scheme: dark;
   accent-color: var(--color-accent);
+  /* Hides the blue box mobile browsers flash over a tapped control. Inherited by everything. */
+  -webkit-tap-highlight-color: transparent;
 
   --color-bg: #14262f;
   --color-surface: #1f3a4d;
