@@ -51,7 +51,7 @@ A card list kept on CubeCobra, which a cube link names. Only its mainboard goes 
 _Avoid_: Cube list, CubeCobra list, pool (that is what a draft picks from)
 
 **Pool snapshot**:
-The cards a pool query or cube link names, taken from Scryfall right after a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
+The cards a pool query or cube link names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:

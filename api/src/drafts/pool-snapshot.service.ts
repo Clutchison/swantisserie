@@ -15,17 +15,10 @@ import {
   type ScryfallCardFace,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
-import {
-  CubeCobraClient,
-  CubeCobraUnavailableError,
-} from '../cubecobra/cubecobra-client.js';
-import { cubePrintings } from './cube-pool.js';
-import { notOnPlatformSentence } from './draft-errors.js';
 
-/** A draft's pool source, as it keeps it, and its platform: what the pool is snapshotted from. */
+/** A draft's pool query, null for a cube draft, and its platform: what the pool is snapshotted from. */
 interface PoolSource {
   poolQuery: string | null;
-  cubeId: string | null;
   platform: Platform;
 }
 
@@ -52,9 +45,10 @@ export class PoolFrozenError extends Error {
 class PoolSnapshotError extends Error {}
 
 /**
- * Copies each draft's pool from Scryfall in the background, from its pool
- * query or from its cube as CubeCobra now has it: the pool snapshot. Progress lives on the draft (snapshotState, poolTotal,
- * snapshotError) and in its PoolCard rows.
+ * Copies each pool query draft's pool from Scryfall in the background: the
+ * pool snapshot. Progress lives on the draft (snapshotState, poolTotal,
+ * snapshotError) and in its PoolCard rows. A cube draft's snapshot is taken
+ * whole when the draft is created, so it is never run here.
  */
 @Injectable()
 export class PoolSnapshotService
@@ -67,7 +61,6 @@ export class PoolSnapshotService
   constructor(
     private readonly prisma: PrismaService,
     private readonly scryfall: ScryfallClient,
-    private readonly cubeCobra: CubeCobraClient,
   ) {}
 
   /**
@@ -128,14 +121,14 @@ export class PoolSnapshotService
     if (source === null) return;
 
     try {
-      if (source.cubeId !== null) {
-        await this.copyCube(draftId, source.cubeId, source.platform);
-      } else if (source.poolQuery !== null) {
-        await this.pageThrough(draftId, source.poolQuery, source.platform);
-      } else {
-        // The schema rules this out; fail loudly rather than complete an empty pool.
-        throw new Error(`Draft ${draftId} has no pool source.`);
+      if (source.poolQuery === null) {
+        // A cube draft's pool is complete from creation; only one left
+        // unfinished by an older version gets here.
+        throw new PoolSnapshotError(
+          'A cube draft’s pool is taken only when it is created. Cancel this draft and create it again.',
+        );
       }
+      await this.pageThrough(draftId, source.poolQuery, source.platform);
       await this.prisma.draft.update({
         where: { id: draftId },
         data: { snapshotState: 'Complete' },
@@ -177,52 +170,9 @@ export class PoolSnapshotService
       await tx.poolCard.deleteMany({ where: { draftId } });
       return tx.draft.findUniqueOrThrow({
         where: { id: draftId },
-        select: { poolQuery: true, cubeId: true, platform: true },
+        select: { poolQuery: true, platform: true },
       });
     });
-  }
-
-  /**
-   * Copies the cube's mainboard as CubeCobra has it now, each card in a
-   * printing on the platform. Fails if any card has none, as creation would.
-   */
-  private async copyCube(
-    draftId: string,
-    cubeId: string,
-    platform: Platform,
-  ): Promise<void> {
-    const cube = await this.cubeCobra.cube(cubeId);
-    if (!cube) {
-      throw new PoolSnapshotError(
-        'CubeCobra no longer has this cube, or it is no longer public.',
-      );
-    }
-    if (cube.mainboard.length === 0) {
-      throw new PoolSnapshotError(
-        'The cube no longer has any mainboard cards.',
-      );
-    }
-    const { printings, missing } = await cubePrintings(
-      this.scryfall,
-      cube,
-      platform,
-    );
-    if (missing.length > 0) {
-      throw new PoolSnapshotError(
-        `${notOnPlatformSentence(missing.length, 'in the cube', platform)}: ${missing.join(', ')}.`,
-      );
-    }
-    // The total and the cards land together, so a failed snapshot shows no
-    // total for a pool it could never make.
-    await this.prisma.$transaction([
-      this.prisma.poolCard.createMany({
-        data: printings.map((card) => toPoolCard(draftId, card)),
-      }),
-      this.prisma.draft.update({
-        where: { id: draftId },
-        data: { poolTotal: printings.length },
-      }),
-    ]);
   }
 
   private async pageThrough(
@@ -266,9 +216,6 @@ function explain(err: unknown): string {
   if (err instanceof ScryfallUnavailableError) {
     return 'Scryfall could not be reached.';
   }
-  if (err instanceof CubeCobraUnavailableError) {
-    return 'CubeCobra could not be reached.';
-  }
   return 'Snapshotting the pool failed unexpectedly.';
 }
 
@@ -276,6 +223,13 @@ function toPoolCard(
   draftId: string,
   card: ScryfallCard,
 ): Prisma.PoolCardCreateManyInput {
+  return { draftId, ...poolCardFields(card) };
+}
+
+/** A pool card for the printing, as a draft's own pool cards are created. */
+export function poolCardFields(
+  card: ScryfallCard,
+): Prisma.PoolCardCreateManyDraftInput {
   const faces = card.card_faces ?? [];
   const oracleId = card.oracle_id ?? faces[0]?.oracle_id;
   if (!oracleId) throw new PoolSnapshotError(`${card.name} has no oracle id.`);
@@ -285,7 +239,6 @@ function toPoolCard(
     .filter((uris): uris is CardImages => !!uris)
     .map(({ small, normal, large }) => ({ small, normal, large }));
   return {
-    draftId,
     scryfallId: card.id,
     oracleId,
     name: card.name,
