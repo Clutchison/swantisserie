@@ -205,17 +205,16 @@ describe('close and reopen', () => {
       expect(webhookClient.post).toHaveBeenCalledTimes(4);
       return webhookClient.post.mock.calls.map(([, message]) => message);
     });
-    const link = `<https://roto.example/drafts/${id}>`;
     expect(messages.slice(2)).toEqual([
       {
-        content: `**Red** has been closed\n${link}`,
+        content: '**Red** has been closed',
         allowed_mentions: { parse: [], users: [] },
       },
       {
         content:
           '**Red** has reopened\n' +
-          '**Alice** picked **Shock** (pick 1, queued)\n' +
-          `<@${bob.id}> you’re up\n${link}`,
+          '1- **Alice** picked **Shock**\n' +
+          `<@${bob.id}> you’re up.`,
         allowed_mentions: { parse: [], users: [bob.id] },
       },
     ]);

@@ -1,6 +1,6 @@
 import type { DraftEvent, EventPlayer } from '../drafts/draft-events.js';
 
-/** A draft as its announcements name and link to it. */
+/** A draft as its announcements name it and its start links to it. */
 export interface AnnouncedDraft {
   name: string;
   /** The draft's page in the app. */
@@ -52,10 +52,10 @@ export function draftMessages(
         messages.push(draftStartedMessage(draft, event.seats, picks));
         break;
       case 'picked':
-        messages.push(picksMessage(draft, [announcedPick(event), ...picks]));
+        messages.push(picksMessage([announcedPick(event), ...picks]));
         break;
       case 'undone':
-        messages.push(undoneMessage(draft, event));
+        messages.push(undoneMessage(event));
         break;
       case 'paused':
         messages.push(draftPausedMessage(draft));
@@ -92,21 +92,17 @@ export function draftStartedMessage(
       ...seats.map((player, seat) => `${seat + 1}. ${bold(player.name)}`),
       ...picks.map(pickLine),
     ],
-    draft,
     picks.length > 0 ? picks[picks.length - 1].next : (seats[0] ?? null),
+    draft.url,
   );
 }
 
 export function draftCompleteMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement(
-    [`${bold(draft.name)} is complete. See everyone’s picks:`],
-    draft,
-    null,
-  );
+  return announcement([`${bold(draft.name)} is complete`], null);
 }
 
 export function draftPausedMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement([`${bold(draft.name)} is paused`], draft, null);
+  return announcement([`${bold(draft.name)} is paused`], null);
 }
 
 /**
@@ -122,7 +118,7 @@ export function draftResumedMessage(
 }
 
 export function draftClosedMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement([`${bold(draft.name)} has been closed`], draft, null);
+  return announcement([`${bold(draft.name)} has been closed`], null);
 }
 
 /**
@@ -138,23 +134,13 @@ export function draftReopenedMessage(
 }
 
 /** The undone pick's player is up again. */
-export function undoneMessage(
-  draft: AnnouncedDraft,
-  { number, player, card }: AnnouncedUndo,
-): WebhookMessage {
-  return announcement(
-    [`Pick ${number} (${bold(card)} by ${bold(player.name)}) was undone`],
-    draft,
-    player,
-  );
+export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
+  return announcement([`Undone: ${pickLine(undone)}`], undone.player);
 }
 
 /** `picks` in pick order, at least one; the last one's next player is up. */
-export function picksMessage(
-  draft: AnnouncedDraft,
-  picks: AnnouncedPick[],
-): WebhookMessage {
-  return announcement(picks.map(pickLine), draft, picks[picks.length - 1].next);
+export function picksMessage(picks: AnnouncedPick[]): WebhookMessage {
+  return announcement(picks.map(pickLine), picks[picks.length - 1].next);
 }
 
 /** The draft `happened`, then any cascade; `up` is who is next without one. */
@@ -166,7 +152,6 @@ function backToDraftingMessage(
 ): WebhookMessage {
   return announcement(
     [`${bold(draft.name)} ${happened}`, ...picks.map(pickLine)],
-    draft,
     picks.length > 0 ? picks[picks.length - 1].next : up,
   );
 }
@@ -176,27 +161,27 @@ function announcedPick(event: PickedEvent): AnnouncedPick {
   return pick;
 }
 
-function pickLine(pick: AnnouncedPick): string {
-  const number = `pick ${pick.number}${pick.queued ? ', queued' : ''}`;
-  return `${bold(pick.player.name)} picked ${bold(pick.card)} (${number})`;
+function pickLine({ number, player, card }: AnnouncedUndo): string {
+  return `${number}- ${bold(player.name)} picked ${bold(card)}`;
 }
 
 /**
- * `lines`, then who is `up` if anyone is, then the draft's link. Only a
- * player who isn't a bot is pinged.
+ * `lines`, then who is `up` if anyone is, then a link to `url` if given.
+ * Only a player who isn't a bot is pinged.
  */
 function announcement(
   lines: string[],
-  draft: AnnouncedDraft,
   up: AnnouncedPlayer | null,
+  url?: string,
 ): WebhookMessage {
   const pinged = up && !up.isBot ? up : null;
   return {
     content: [
       ...lines,
-      ...(pinged ? [`<@${pinged.id}> you’re up`] : []),
-      ...(up?.isBot ? [`${bold(up.name)} is up`] : []),
-      link(draft),
+      ...(pinged ? [`<@${pinged.id}> you’re up.`] : []),
+      ...(up?.isBot ? [`${bold(up.name)} is up.`] : []),
+      // In angle brackets, so Discord doesn't embed a preview of the page.
+      ...(url ? [`<${url}>`] : []),
     ].join('\n'),
     allowed_mentions: { parse: [], users: pinged ? [pinged.id] : [] },
   };
@@ -205,9 +190,4 @@ function announcement(
 /** `text` in bold, with any markdown or mention in it shown as written. */
 function bold(text: string): string {
   return `**${text.replace(/[\\*_~|`<>[\]]/g, '\\$&')}**`;
-}
-
-/** In angle brackets, so Discord doesn't embed a preview of the page. */
-function link(draft: AnnouncedDraft): string {
-  return `<${draft.url}>`;
 }

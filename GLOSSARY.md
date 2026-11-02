@@ -187,7 +187,7 @@ A named Discord channel destination that an app admin registers. An organizer ch
 _Avoid_: Channel, hook, integration
 
 **Announcement**:
-A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, which marks the queued picks, and so are a start, a resume or a reopen and the cascade after it. Only a start links to the draft, and only the player whose turn it now is gets pinged.
+A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. Only a start links to the draft, and only the player whose turn it now is gets pinged.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)
 
 ## Feedback
