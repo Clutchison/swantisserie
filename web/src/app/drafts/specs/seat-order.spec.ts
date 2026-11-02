@@ -1,5 +1,13 @@
 import type { DraftView } from '../drafts';
-import { useDraftsApp, bob, openDraft, completeSnapshot } from './harness';
+import {
+  useDraftsApp,
+  bob,
+  draft,
+  openDraft,
+  completeSnapshot,
+  flushPicks,
+  updates,
+} from './harness';
 
 useDraftsApp();
 
@@ -14,9 +22,16 @@ describe('seat order', () => {
     turn: { pick: 1, round: 1, playerId: bob.id },
   });
 
-  function onDesktop(desktop: boolean) {
+  /** Starts the draft while the page is open, as a pushed update. */
+  async function startLive(fixture: { whenStable(): Promise<unknown> }) {
+    updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
+    await flushPicks([]);
+    await fixture.whenStable();
+  }
+
+  function viewOn(screen: 'desktop' | 'mobile') {
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: desktop && query === '(min-width: 1024px)',
+      matches: screen === 'desktop' && query === '(min-width: 1024px)',
     }));
   }
 
@@ -25,7 +40,7 @@ describe('seat order', () => {
   });
 
   describe('on desktop', () => {
-    beforeEach(() => onDesktop(true));
+    beforeEach(() => viewOn('desktop'));
 
     it('is open in the lobby, where seats are arranged', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
@@ -35,6 +50,15 @@ describe('seat order', () => {
 
     it('stays open once the draft has started, showing every seat', async () => {
       const { page } = await openDraft(completeSnapshot, drafting());
+
+      expect(seats(page).open).toBe(true);
+      expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
+    });
+
+    it('stays open when the draft starts while the page is open', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      await startLive(fixture);
 
       expect(seats(page).open).toBe(true);
       expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
@@ -51,7 +75,7 @@ describe('seat order', () => {
   });
 
   describe('on mobile', () => {
-    beforeEach(() => onDesktop(false));
+    beforeEach(() => viewOn('mobile'));
 
     it('is open in the lobby, where seats are arranged', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
@@ -61,6 +85,15 @@ describe('seat order', () => {
 
     it('collapses once the draft has started, out of the way of the panels', async () => {
       const { page } = await openDraft(completeSnapshot, drafting());
+
+      expect(seats(page).open).toBe(false);
+      expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
+    });
+
+    it('collapses when the draft starts while the page is open', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      await startLive(fixture);
 
       expect(seats(page).open).toBe(false);
       expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
