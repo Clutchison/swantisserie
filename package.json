@@ -16,6 +16,7 @@
     "typecheck": "npm run typecheck --workspaces",
     "start": "npm run start:prod -w api",
     "lint": "npm run lint --workspaces",
+    "format": "npm run format --workspaces",
     "format:check": "npm run format:check --workspaces"
   },
   "devDependencies": {
