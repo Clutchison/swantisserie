@@ -99,11 +99,6 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
     cubeLink: 'thepaupercube',
   }).expect(201);
 
-  expect((await getDraft(created.body.id).expect(200)).body.snapshot).toEqual({
-    state: 'Complete',
-    cards: 3,
-    total: 3,
-  });
   const copies = await copyIds(created.body.id);
   expect(copies['Lightning Bolt']).toHaveLength(2);
   expect(copies['Deftblade Elite']).toHaveLength(1);
@@ -280,7 +275,7 @@ describe('creating a draft from a cube', () => {
   });
 });
 
-describe('a cube draft’s pool snapshot', () => {
+describe('the pool snapshot of a cube link', () => {
   it('is complete straight after creation, from one fetch of the cube and one lookup of its cards', async () => {
     cubesAre({ thepaupercube: pauper });
     onPlatform('Lightning Bolt', 'Deftblade Elite');

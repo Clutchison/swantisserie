@@ -16,8 +16,8 @@ import {
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
 
-/** A draft's pool query, null for a cube draft, and its platform: what the pool is snapshotted from. */
-interface PoolSource {
+/** A draft's pool query, null when a cube link defines its pool, and its platform: what the pool is snapshotted from. */
+interface SnapshotSource {
   poolQuery: string | null;
   platform: Platform;
 }
@@ -45,10 +45,10 @@ export class PoolFrozenError extends Error {
 class PoolSnapshotError extends Error {}
 
 /**
- * Copies each pool query draft's pool from Scryfall in the background: the
- * pool snapshot. Progress lives on the draft (snapshotState, poolTotal,
- * snapshotError) and in its PoolCard rows. A cube draft's snapshot is taken
- * whole when the draft is created, so it is never run here.
+ * Copies the pool of each draft defined by a pool query from Scryfall in the
+ * background: the pool snapshot. Progress lives on the draft (snapshotState,
+ * poolTotal, snapshotError) and in its PoolCard rows. A draft defined by a
+ * cube link has its snapshot taken whole when it is created, never here.
  */
 @Injectable()
 export class PoolSnapshotService
@@ -110,7 +110,7 @@ export class PoolSnapshotService
     draftId: string,
     started: { resolve: () => void; reject: (err: unknown) => void },
   ): Promise<void> {
-    let source: PoolSource | null;
+    let source: SnapshotSource | null;
     try {
       source = await this.reset(draftId);
     } catch (err) {
@@ -122,10 +122,10 @@ export class PoolSnapshotService
 
     try {
       if (source.poolQuery === null) {
-        // A cube draft's pool is complete from creation; only one left
+        // A cube link's pool is complete from creation; only a draft left
         // unfinished by an older version gets here.
         throw new PoolSnapshotError(
-          'A cube draft’s pool is taken only when it is created. Cancel this draft and create it again.',
+          'A pool from a cube link is taken only when its draft is created. Cancel this draft and create it again.',
         );
       }
       await this.pageThrough(draftId, source.poolQuery, source.platform);
@@ -149,7 +149,7 @@ export class PoolSnapshotService
    * Marks the draft Running and drops its cards, unless its pool is already
    * frozen. Returns its pool source, or null if it was cancelled.
    */
-  private async reset(draftId: string): Promise<PoolSource | null> {
+  private async reset(draftId: string): Promise<SnapshotSource | null> {
     return this.prisma.$transaction(async (tx) => {
       // The state check and the reset are one statement, so a snapshot that
       // completes in the meantime can't be wiped.
@@ -195,7 +195,7 @@ export class PoolSnapshotService
       }
       await this.prisma.$transaction([
         this.prisma.poolCard.createMany({
-          data: result.cards.map((card) => toPoolCard(draftId, card)),
+          data: result.cards.map((card) => ({ draftId, ...toPoolCard(card) })),
         }),
         this.prisma.draft.update({
           where: { id: draftId },
@@ -219,15 +219,8 @@ function explain(err: unknown): string {
   return 'Snapshotting the pool failed unexpectedly.';
 }
 
-function toPoolCard(
-  draftId: string,
-  card: ScryfallCard,
-): Prisma.PoolCardCreateManyInput {
-  return { draftId, ...poolCardFields(card) };
-}
-
 /** A pool card for the printing, as a draft's own pool cards are created. */
-export function poolCardFields(
+export function toPoolCard(
   card: ScryfallCard,
 ): Prisma.PoolCardCreateManyDraftInput {
   const faces = card.card_faces ?? [];

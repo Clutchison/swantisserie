@@ -25,10 +25,7 @@ import {
 } from './draft-reads.service.js';
 import { SEAT_ORDER } from './draft-shapes.js';
 import { checkCanStart, seatPlayers } from './draft-start.js';
-import {
-  poolCardFields,
-  PoolSnapshotService,
-} from './pool-snapshot.service.js';
+import { toPoolCard, PoolSnapshotService } from './pool-snapshot.service.js';
 import { TurnsService } from './turns.service.js';
 import {
   ScryfallClient,
@@ -100,18 +97,18 @@ export class DraftLobbyService {
         draft.platform,
       );
       // One statement, so the draft and its pool cards are saved together or not at all.
-      return this.save({
+      return this.saveDraft({
         ...fields,
         cubeId,
         cubeName,
         organizerId,
         snapshotState: 'Complete',
         poolTotal: printings.length,
-        pool: { createMany: { data: printings.map(poolCardFields) } },
+        pool: { createMany: { data: printings.map(toPoolCard) } },
       });
     }
     await this.checkPoolQuery(poolSource.poolQuery, draft.platform);
-    const created = await this.save({
+    const created = await this.saveDraft({
       ...fields,
       poolQuery: poolSource.poolQuery,
       organizerId,
@@ -120,7 +117,7 @@ export class DraftLobbyService {
     return created;
   }
 
-  private save(
+  private saveDraft(
     data: Prisma.DraftUncheckedCreateInput,
   ): Promise<DraftWithOrganizer> {
     return (

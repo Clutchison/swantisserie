@@ -92,7 +92,7 @@ enum Platform {
   MTGO
 }
 
-/// Progress of the pool snapshot: copying the pool's cards from Scryfall. A cube draft's is Complete from creation.
+/// Progress of the pool snapshot: copying the pool's cards from Scryfall. A cube link's is Complete from creation.
 enum PoolSnapshotState {
   Running
   Complete
