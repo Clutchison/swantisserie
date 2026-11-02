@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton } from '../top-bar/specs-harness';
+import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
 import type { FeedbackView, ReviewedFeedbackView } from './feedback-page';
 
 const alice = {
@@ -79,6 +79,7 @@ describe('reviewing feedback', () => {
       } else {
         count.flush({ count: unreviewedCount });
       }
+      answerAppVersion(http);
     }
     return { fixture, page: fixture.nativeElement as HTMLElement };
   }

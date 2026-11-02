@@ -2,6 +2,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { HealthController } from './health/health.controller.js';
 import { API_PREFIX } from './app.setup.js';
+import { AppVersionModule } from './app-version/app-version.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
@@ -21,6 +22,7 @@ export class AppModule {
       imports: [
         PrismaModule,
         AuthModule,
+        AppVersionModule,
         DraftsModule,
         FeedbackModule,
         WebhooksModule,

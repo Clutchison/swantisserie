@@ -6,7 +6,7 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { expectLoadingAnimation } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
-import { adminButton } from './top-bar/specs-harness';
+import { adminButton, answerAppVersion } from './top-bar/specs-harness';
 
 describe('App', () => {
   let http: HttpTestingController;
@@ -27,10 +27,16 @@ describe('App', () => {
 
   afterEach(() => http.verify());
 
-  /** Opens `url` with /api/auth/me answered by `respond`. */
+  const sha = '0123456789abcdef0123456789abcdef01234567';
+
+  /**
+   * Opens `url` with /api/auth/me answered by `respond`, and an app admin's
+   * request for the app version by `appVersion`, unless left unanswered.
+   */
   async function open(
     url: string,
     respond: (req: ReturnType<HttpTestingController['expectOne']>) => void,
+    appVersion: Parameters<typeof answerAppVersion>[1] | 'unanswered' = { commit: sha },
   ) {
     const fixture = TestBed.createComponent(App);
     const navigation = router.navigateByUrl(url);
@@ -41,6 +47,7 @@ describe('App', () => {
     TestBed.tick();
     for (const req of http.match('/api/drafts')) req.flush([]);
     answerUnreviewedCount(http);
+    if (appVersion !== 'unanswered') answerAppVersion(http, appVersion);
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
@@ -130,11 +137,14 @@ describe('App', () => {
     });
 
     it('shows guild members who aren’t app admins no Admin, Webhooks or Feedback', async () => {
-      const page = await open('/', (req) => req.flush(alice));
+      const page = await open('/', (req) => req.flush(alice), 'unanswered');
 
       expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
       expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
       expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
+      expect(page.querySelector('header')!.textContent).not.toContain('Version');
+      // Nor do they ask which version is live.
+      expect(http.match('/api/admin/app-version')).toEqual([]);
     });
 
     it('shows the username, user image and Log out on the right, in order', async () => {
@@ -150,8 +160,8 @@ describe('App', () => {
   });
 
   describe('Admin dropdown', () => {
-    async function openAdmin() {
-      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
+    async function openAdmin(appVersion?: Parameters<typeof answerAppVersion>[1]) {
+      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }), appVersion);
       const trigger = adminButton(page);
       expect(menuLinks(page)).toEqual([]);
       trigger.click();
@@ -159,11 +169,32 @@ describe('App', () => {
       return { page, trigger };
     }
 
-    it('opens on click and holds Webhooks then Feedback', async () => {
+    it('opens on click and holds Webhooks, Feedback, then the app version', async () => {
       const { page, trigger } = await openAdmin();
 
-      expect(menuLinks(page)).toEqual(['Webhooks', 'Feedback']);
+      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'Version 0123456']);
       expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('links the app version to its commit on GitHub', async () => {
+      const { page } = await openAdmin({ commit: sha });
+
+      expect(versionLink(page)?.getAttribute('href')).toBe(
+        `https://github.com/Clutchison/swantisserie/commit/${sha}`,
+      );
+    });
+
+    it('shows an unknown app version, with no link', async () => {
+      const { page } = await openAdmin({ commit: null });
+
+      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'Version unknown']);
+      expect(versionLink(page)).toBeNull();
+    });
+
+    it('still works, without the version, when the app version can’t be fetched', async () => {
+      const { page } = await openAdmin('fails');
+
+      expect(menuText(page)).toEqual(['Webhooks', 'Feedback']);
     });
 
     it('closes on an outside click', async () => {
@@ -219,10 +250,19 @@ describe('App', () => {
       expect(panelText(page)).toEqual(['Send feedback']);
     });
 
-    it('also shows an app admin Webhooks and Feedback under an Admin heading', async () => {
+    it('also shows an app admin Webhooks, Feedback and the app version under an Admin heading', async () => {
       const page = await openMenu({ ...alice, isAdmin: true });
 
-      expect(panelText(page)).toEqual(['Send feedback', 'Admin', 'Webhooks', 'Feedback']);
+      expect(panelText(page)).toEqual([
+        'Send feedback',
+        'Admin',
+        'Webhooks',
+        'Feedback',
+        'Version 0123456',
+      ]);
+      expect(versionLink(page)?.getAttribute('href')).toBe(
+        `https://github.com/Clutchison/swantisserie/commit/${sha}`,
+      );
       const heading = page.querySelector<HTMLElement>('.panel .menu-heading')!;
       expect(heading.textContent).toBe('Admin');
       expect(heading.closest('a, button')).toBeNull();
@@ -317,9 +357,24 @@ function menuLinks(page: HTMLElement) {
   return [...page.querySelectorAll('header .panel a')].map((link) => link.textContent?.trim());
 }
 
-function panelText(page: HTMLElement) {
-  return [...page.querySelectorAll('header .panel .menu-item, header .panel .menu-heading')].map(
+/** The open Admin dropdown's items, in order: its links, and lines that aren't links. */
+function menuText(page: HTMLElement) {
+  return [...page.querySelectorAll('header .panel .menu-item, header .panel .menu-note')].map(
     (item) => item.textContent?.trim(),
+  );
+}
+
+function panelText(page: HTMLElement) {
+  return [
+    ...page.querySelectorAll(
+      'header .panel .menu-item, header .panel .menu-heading, header .panel .menu-note',
+    ),
+  ].map((item) => item.textContent?.trim());
+}
+
+function versionLink(page: HTMLElement) {
+  return page.querySelector<HTMLAnchorElement>(
+    'header .panel a[href^="https://github.com/Clutchison/swantisserie/commit/"]',
   );
 }
 

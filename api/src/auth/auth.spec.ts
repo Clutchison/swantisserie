@@ -13,6 +13,7 @@ import { configureApp } from '../app.setup.js';
 import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
 import { DiscordClient, DiscordProfile } from '../discord/discord-client.js';
 import { DiscordConfig } from '../discord/discord-config.js';
+import { AppVersion } from '../app-version/app-version.js';
 import { AdminConfig } from './admin-config.js';
 import { AdminGuard } from './admin.guard.js';
 import { AuthModule } from './auth.module.js';
@@ -24,6 +25,8 @@ const config = new DiscordConfig({
   DISCORD_GUILD_ID: 'guild-1',
 });
 const admins = new AdminConfig('111, 222');
+/** The app version as if recorded at build time; each test sets its own. */
+const appVersion: { commit: string | null } = { commit: null };
 
 /** Stands in for the admin-only routes later tickets add. */
 @Controller('admin-only')
@@ -72,6 +75,8 @@ describe('Discord sign-in', () => {
       .useValue(discord)
       .overrideProvider(AdminConfig)
       .useValue(admins)
+      .overrideProvider(AppVersion)
+      .useValue(appVersion)
       .compile();
 
     app = configureApp(moduleRef.createNestApplication());
@@ -325,6 +330,45 @@ describe('Discord sign-in', () => {
 
     it('reject signed-out requests', async () => {
       await request(app.getHttpServer()).get('/api/admin-only').expect(401);
+    });
+  });
+
+  describe('the app version', () => {
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+
+    it('is the commit the API was built from, for app admins', async () => {
+      appVersion.commit = sha;
+      const { agent } = await signIn({ ...alice, id: '111' });
+
+      await agent
+        .get('/api/admin/app-version')
+        .expect(200)
+        .expect({ commit: sha });
+    });
+
+    it('is null when the build did not record a commit', async () => {
+      appVersion.commit = null;
+      const { agent } = await signIn({ ...alice, id: '111' });
+
+      await agent
+        .get('/api/admin/app-version')
+        .expect(200)
+        .expect({ commit: null });
+    });
+
+    it('is hidden from signed-in users who are not app admins', async () => {
+      appVersion.commit = sha;
+      const { agent } = await signIn(alice);
+
+      await agent.get('/api/admin/app-version').expect(403);
+    });
+
+    it('is hidden from signed-out requests', async () => {
+      appVersion.commit = sha;
+
+      await request(app.getHttpServer())
+        .get('/api/admin/app-version')
+        .expect(401);
     });
   });
 });

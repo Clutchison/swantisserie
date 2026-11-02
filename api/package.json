@@ -5,7 +5,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "prisma generate && nest build",
+    "build": "prisma generate && nest build && node scripts/record-app-version.mjs dist/app-version.json",
     "typecheck": "prisma generate && tsc --noEmit",
     "dev": "prisma generate && nest start --watch --exec \"node --env-file-if-exists=../.env --enable-source-maps\"",
     "start:prod": "node --enable-source-maps dist/main.js",

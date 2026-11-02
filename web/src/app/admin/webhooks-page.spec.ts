@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton } from '../top-bar/specs-harness';
+import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
 import type { AdminWebhookView } from './webhooks-page';
 import { answerUnreviewedCount } from '../feedback/specs-harness';
 
@@ -62,6 +62,7 @@ describe('webhooks page', () => {
     await navigation;
     TestBed.tick();
     answerUnreviewedCount(http);
+    answerAppVersion(http);
     return { fixture, page: fixture.nativeElement as HTMLElement };
   }
 

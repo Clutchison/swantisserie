@@ -36,6 +36,15 @@
   <ng-template #adminItems>
     <a class="menu-item" routerLink="/admin/webhooks">Webhooks</a>
     <a class="menu-item" routerLink="/admin/feedback">{{ feedbackLabel() }}</a>
+    @if (appVersion(); as version) {
+      @if (version.url) {
+        <a class="menu-item muted" [href]="version.url" target="_blank" rel="noopener">{{
+          version.label
+        }}</a>
+      } @else {
+        <div class="menu-note">{{ version.label }}</div>
+      }
+    }
   </ng-template>
 }
 @if (pageStatus() === 'Loading') {
