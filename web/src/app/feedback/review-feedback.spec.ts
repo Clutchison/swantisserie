@@ -12,13 +12,13 @@ const alice: UserView = {
   id: '80351110224678912',
   name: 'Alice',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAdmin: false,
+  isAppAdmin: false,
 };
 const carol: UserView = {
   id: '80351110224678914',
   name: 'Carol',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/2.png',
-  isAdmin: true,
+  isAppAdmin: true,
 };
 
 const fromAlice: FeedbackView = {
@@ -73,7 +73,7 @@ describe('reviewing feedback', () => {
     (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
     await navigation;
     TestBed.tick();
-    if (user.isAdmin) {
+    if (user.isAppAdmin) {
       const count = http.expectOne(COUNT);
       if (unreviewedCount === 'fails') {
         count.flush(null, { status: 500, statusText: 'Server Error' });

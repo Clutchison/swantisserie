@@ -5,7 +5,7 @@
         <button class="menu-item" type="button" (click)="feedbackOpen.set(true)">
           Send feedback
         </button>
-        @if (user.isAdmin) {
+        @if (user.isAppAdmin) {
           <div role="group" aria-labelledby="narrow-admin-heading">
             <div class="menu-heading" id="narrow-admin-heading">Admin</div>
             <ng-container [ngTemplateOutlet]="adminItems" />
@@ -17,7 +17,7 @@
         <span class="title">Swantisserie</span>
       </a>
       <div class="wide-only">
-        @if (user.isAdmin) {
+        @if (user.isAppAdmin) {
           <app-top-bar-menu [label]="adminLabel()">
             <ng-container [ngTemplateOutlet]="adminItems" />
           </app-top-bar-menu>

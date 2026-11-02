@@ -23,7 +23,7 @@ export const alice: UserView = {
   id: '80351110224678912',
   name: 'Alice',
   avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAdmin: false,
+  isAppAdmin: false,
 };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };

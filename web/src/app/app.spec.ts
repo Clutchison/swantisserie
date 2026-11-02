@@ -65,7 +65,7 @@ describe('App', () => {
       id: '1',
       name: 'Alice',
       avatarUrl: 'https://example.com/a.png',
-      isAdmin: false,
+      isAppAdmin: false,
     };
     req.flush(user);
     await navigation;
@@ -114,7 +114,7 @@ describe('App', () => {
     id: '80351110224678912',
     name: 'Alice',
     avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-    isAdmin: false,
+    isAppAdmin: false,
   };
 
   it('shows the signed-in user’s avatar and name in the header', async () => {
@@ -139,7 +139,7 @@ describe('App', () => {
     });
 
     it('shows an app admin the home link, Admin and Send feedback on the left, in order', async () => {
-      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }));
+      const page = await open('/', (req) => req.flush({ ...alice, isAppAdmin: true }));
 
       expect(leftControls(page)).toEqual(['Swantisserie', 'Admin', 'Send feedback']);
     });
@@ -169,7 +169,7 @@ describe('App', () => {
 
   describe('Admin dropdown', () => {
     async function openAdmin(appVersion?: Parameters<typeof answerAppVersion>[1]) {
-      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }), appVersion);
+      const page = await open('/', (req) => req.flush({ ...alice, isAppAdmin: true }), appVersion);
       const trigger = adminButton(page);
       expect(menuLinks(page)).toEqual([]);
       trigger.click();
@@ -257,7 +257,7 @@ describe('App', () => {
     });
 
     it('also shows an app admin Webhooks, Feedback and the app version under an Admin heading', async () => {
-      const page = await openMenu({ ...alice, isAdmin: true });
+      const page = await openMenu({ ...alice, isAppAdmin: true });
 
       expect(panelText(page)).toEqual([
         'Send feedback',
@@ -273,7 +273,7 @@ describe('App', () => {
     });
 
     it('shows an app admin an unknown app version, with no link', async () => {
-      const page = await open('/', (req) => req.flush({ ...alice, isAdmin: true }), {
+      const page = await open('/', (req) => req.flush({ ...alice, isAppAdmin: true }), {
         commit: null,
       });
       page.querySelector<HTMLElement>('button[aria-label="Menu"]')!.click();
@@ -284,7 +284,7 @@ describe('App', () => {
     });
 
     it('stays open when the Admin heading is clicked', async () => {
-      const page = await openMenu({ ...alice, isAdmin: true });
+      const page = await openMenu({ ...alice, isAppAdmin: true });
 
       page.querySelector<HTMLElement>('.panel .menu-heading')!.click();
       TestBed.tick();
@@ -311,7 +311,7 @@ describe('App', () => {
     });
 
     it('closes when a link is chosen, and goes there', async () => {
-      const page = await openMenu({ ...alice, isAdmin: true });
+      const page = await openMenu({ ...alice, isAppAdmin: true });
 
       page.querySelector<HTMLElement>('.panel a[href="/admin/webhooks"]')!.click();
       (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush([]);

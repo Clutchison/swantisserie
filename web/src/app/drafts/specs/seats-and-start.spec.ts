@@ -331,7 +331,7 @@ describe('seats and start', () => {
       const { page } = await openDraft(
         completeSnapshot,
         { players: [alicePlayer, bob] },
-        { user: { ...alice, id: 'carol', isAdmin: false } },
+        { user: { ...alice, id: 'carol', isAppAdmin: false } },
       );
 
       expect(page.textContent).not.toContain('Import picks');

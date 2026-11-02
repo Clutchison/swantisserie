@@ -101,7 +101,7 @@ export class AuthController {
       id: user.id,
       name: user.name,
       avatarUrl: avatarUrl(user),
-      isAdmin: user.isAdmin,
+      isAppAdmin: user.isAppAdmin,
     };
   }
 

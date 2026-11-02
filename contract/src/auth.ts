@@ -4,7 +4,7 @@ export interface UserView {
   name: string;
   avatarUrl: string;
   /** App admins have organizer powers on every draft. */
-  isAdmin: boolean;
+  isAppAdmin: boolean;
 }
 
 /**

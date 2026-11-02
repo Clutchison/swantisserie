@@ -51,5 +51,5 @@ export const signedIn: CanActivateFn = async () => {
 export const appAdmin: CanActivateFn = async () => {
   const auth = inject(Auth);
   const router = inject(Router);
-  return (await auth.currentUser())?.isAdmin ? true : router.createUrlTree(['/']);
+  return (await auth.currentUser())?.isAppAdmin ? true : router.createUrlTree(['/']);
 };

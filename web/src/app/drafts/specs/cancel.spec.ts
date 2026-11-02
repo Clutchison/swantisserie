@@ -63,7 +63,7 @@ describe('cancel', () => {
     const admin = await openDraft(
       completeSnapshot,
       {},
-      { user: { ...alice, id: 'c', isAdmin: true } },
+      { user: { ...alice, id: 'c', isAppAdmin: true } },
     );
     expect(button(admin.page, 'Cancel draft')).toBeDefined();
   });
