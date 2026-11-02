@@ -7,13 +7,6 @@
   align-items: center;
 }
 
-/* The same size as the bar's other buttons. */
-.button {
-  padding: var(--space-xs) var(--space-md);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-}
-
 /* Past the bar's padding and border. Above the draft page's tabs; a modal, later in the page, still covers it. */
 .panel {
   position: absolute;

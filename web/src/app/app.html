@@ -12,7 +12,7 @@
           </div>
         }
       </app-top-bar-menu>
-      <a class="home" routerLink="/">
+      <a class="home" routerLink="/" aria-label="Swantisserie">
         <img src="logo.svg" alt="" width="40" height="40" />
         <span class="title">Swantisserie</span>
       </a>
@@ -22,7 +22,7 @@
             <ng-container [ngTemplateOutlet]="adminItems" />
           </app-top-bar-menu>
         }
-        <button class="button quiet" type="button" (click)="feedbackOpen.set(true)">
+        <button class="button quiet compact" type="button" (click)="feedbackOpen.set(true)">
           Send feedback
         </button>
       </div>
@@ -30,7 +30,7 @@
     <div class="right-group">
       <span class="name">{{ user.name }}</span>
       <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
-      <button class="button quiet" type="button" (click)="logout()">Log out</button>
+      <button class="button quiet compact" type="button" (click)="logout()">Log out</button>
     </div>
   </header>
   <ng-template #adminItems>

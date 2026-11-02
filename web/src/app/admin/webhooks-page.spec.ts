@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
+import { adminButton } from '../top-bar/specs-harness';
 import type { AdminWebhookView } from './webhooks-page';
 import { answerUnreviewedCount } from '../feedback/specs-harness';
 
@@ -215,9 +216,7 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
-    [...page.querySelectorAll<HTMLButtonElement>('header button')]
-      .find((button) => button.textContent?.trim() === 'Admin')!
-      .click();
+    adminButton(page).click();
     await fixture.whenStable();
 
     const link = page.querySelector<HTMLAnchorElement>('header a[href="/admin/webhooks"]');

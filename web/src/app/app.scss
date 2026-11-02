@@ -53,13 +53,6 @@ header {
   white-space: nowrap;
 }
 
-header .button {
-  flex: none;
-  padding: var(--space-xs) var(--space-md);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-}
-
 /* Projected into the menus, so styled here. */
 .menu-item {
   display: block;
@@ -102,15 +95,8 @@ header .button {
     display: none;
   }
 
-  /* Still names the link for screen readers, as the logo alone doesn't. */
   .title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    display: none;
   }
 }
 

@@ -6,6 +6,7 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { expectLoadingAnimation } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
+import { adminButton } from './top-bar/specs-harness';
 
 describe('App', () => {
   let http: HttpTestingController;
@@ -116,6 +117,8 @@ describe('App', () => {
       const link = logo?.closest('a');
       expect(link?.getAttribute('href')).toBe('/');
       expect(link?.textContent?.trim()).toBe('Swantisserie');
+      // The title is hidden on phones, where the link still needs a name.
+      expect(link?.getAttribute('aria-label')).toBe('Swantisserie');
     });
 
     it('shows an app admin the home link, Admin and Send feedback on the left, in order', async () => {
@@ -124,7 +127,7 @@ describe('App', () => {
       expect(leftControls(page)).toEqual(['Swantisserie', 'Admin', 'Send feedback']);
     });
 
-    it('shows other users no Admin, Webhooks or Feedback', async () => {
+    it('shows role-holders who aren’t app admins no Admin, Webhooks or Feedback', async () => {
       const page = await open('/', (req) => req.flush(alice));
 
       expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
@@ -208,7 +211,7 @@ describe('App', () => {
       expect(left.children[1].getAttribute('href')).toBe('/');
     });
 
-    it('shows other users only Send feedback', async () => {
+    it('shows role-holders who aren’t app admins only Send feedback', async () => {
       const page = await openMenu(alice);
 
       expect(panelText(page)).toEqual(['Send feedback']);
@@ -306,12 +309,6 @@ function leftControls(page: HTMLElement) {
   return [...page.querySelectorAll('header .left-group a, header .wide-only button')].map(
     (control) => control.textContent?.trim(),
   );
-}
-
-function adminButton(page: HTMLElement) {
-  return [...page.querySelectorAll<HTMLButtonElement>('header button')].find(
-    (button) => button.textContent?.trim() === 'Admin',
-  )!;
 }
 
 function menuLinks(page: HTMLElement) {

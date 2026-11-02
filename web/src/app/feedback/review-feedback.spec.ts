@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { App } from '../app';
 import { routes } from '../app.routes';
+import { adminButton } from '../top-bar/specs-harness';
 import type { FeedbackView, ReviewedFeedbackView } from './feedback-page';
 
 const alice = {
@@ -327,12 +328,6 @@ describe('reviewing feedback', () => {
     expect(page.querySelector('main')?.textContent).toContain("Couldn't load the feedback");
   });
 });
-
-function adminButton(page: HTMLElement) {
-  return [...page.querySelectorAll<HTMLButtonElement>('header button')].find((button) =>
-    button.textContent?.trim().startsWith('Admin'),
-  )!;
-}
 
 function feedbackItem(page: HTMLElement) {
   return page.querySelector('header a[href="/admin/feedback"]')?.textContent?.trim();
