@@ -34,7 +34,7 @@
           <span class="number">{{ pick.pick }}</span>
           @let picker = player(pick.playerId);
           <span class="player">
-            {{ picker?.name }}
+            <span class="name" [title]="picker?.name ?? ''">{{ picker?.name }}</span>
             @if (picker?.isBot) {
               <span class="badge">Bot</span>
             }

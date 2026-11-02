@@ -145,6 +145,41 @@ describe('board tab', () => {
     ]);
   });
 
+  it('gives a pick log player’s full name on hover, with a bot’s badge outside the name', async () => {
+    const longName = 'Bartholomew the Exceedingly Long';
+    const bot = { ...bob, id: 'bot:1', name: longName, isBot: true };
+    const { page } = await openDraft(
+      completeSnapshot,
+      {
+        state: 'Drafting',
+        players: [bot, alicePlayer],
+        turn: { pick: 3, round: 1, playerId: alice.id },
+      },
+      { picks: [{ ...picks[0]!, playerId: bot.id }, picks[1]!] },
+    );
+    tabButton(page, 'Board').click();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(pickLog(page).querySelectorAll('li')).toHaveLength(2);
+    });
+
+    const [botRow, aliceRow] = [...pickLog(page).querySelectorAll('li')];
+    const named = botRow!.querySelector<HTMLElement>(`[title="${longName}"]`)!;
+    expect(named.textContent?.trim()).toBe(longName);
+    expect(named.parentElement?.querySelector('.badge')?.textContent).toBe('Bot');
+    expect(aliceRow!.querySelector('[title="Alice"]')?.textContent?.trim()).toBe('Alice');
+    expect(aliceRow!.querySelector('.badge')).toBeNull();
+  });
+
+  it('leaves hover text off a pick log card, whose Card preview shows it in full', async () => {
+    const { page } = await openBoard(picks);
+
+    const card = pickLog(page).querySelector<HTMLElement>('li .card')!;
+    expect(card.textContent?.trim()).toBe('Shock');
+    expect(card.querySelector('[title]')).toBeNull();
+    expect(card.hasAttribute('title')).toBe(false);
+  });
+
   it('lists every player’s picks, in seat order', async () => {
     const { page } = await openBoard(picks);
 
