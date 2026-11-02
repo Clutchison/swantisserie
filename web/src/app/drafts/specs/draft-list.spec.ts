@@ -93,15 +93,18 @@ describe('draft list', () => {
   it.each([
     ['Closed', 'Closed drafts'],
     ['Complete', 'Complete drafts'],
-  ] as const)('makes all of a %s draft one link, with its organizer inside', async (state, heading) => {
-    const page = await openList([draft({ id: 'a', name: 'Red dragons', state })]);
+  ] as const)(
+    'makes all of a %s draft one link, with its organizer inside',
+    async (state, heading) => {
+      const page = await openList([draft({ id: 'a', name: 'Red dragons', state })]);
 
-    const links = section(page, heading).querySelectorAll('a');
-    expect(links.length).toBe(1);
-    expect(links[0].getAttribute('href')).toBe('/drafts/a');
-    expect(links[0].textContent).toContain('Red dragons');
-    expect(links[0].textContent).toContain('Organized by');
-  });
+      const links = section(page, heading).querySelectorAll('a');
+      expect(links.length).toBe(1);
+      expect(links[0].getAttribute('href')).toBe('/drafts/a');
+      expect(links[0].textContent).toContain('Red dragons');
+      expect(links[0].textContent).toContain('Organized by');
+    },
+  );
 
   it('keeps the empty messages out of any link', async () => {
     const page = await openList([]);

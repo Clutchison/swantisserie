@@ -345,7 +345,9 @@ describe('pool tab', () => {
       );
 
       button(note, 'Dismiss')!.click();
-      http.expectOne('/api/drafts/draft-1/queue/notice').flush({ cards: [], lost: [], cleared: [] });
+      http
+        .expectOne('/api/drafts/draft-1/queue/notice')
+        .flush({ cards: [], lost: [], cleared: [] });
       await fixture.whenStable();
 
       expect(queue.querySelector('.notice')).toBeNull();

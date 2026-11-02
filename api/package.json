@@ -11,8 +11,9 @@
     "start:prod": "node --enable-source-maps dist/main.js",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "format": "prettier --write \"src/**/*.ts\"",
     "lint": "oxlint --type-aware src/",
+    "format": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --write",
+    "format:check": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --check",
     "test": "vitest run",
     "test:watch": "vitest"
   },

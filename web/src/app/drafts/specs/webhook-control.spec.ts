@@ -24,8 +24,7 @@ describe('changing a draft’s webhook', () => {
 
   const control = (page: HTMLElement) =>
     page.querySelector<HTMLSelectElement>('select[name="draftWebhook"]');
-  const shownOption = (select: HTMLSelectElement) =>
-    select.selectedOptions[0].textContent?.trim();
+  const shownOption = (select: HTMLSelectElement) => select.selectedOptions[0].textContent?.trim();
   const optionNames = (select: HTMLSelectElement) =>
     [...select.options].map((option) => option.textContent?.trim());
 

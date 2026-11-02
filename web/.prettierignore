@@ -1,0 +1,4 @@
+# Generated pool-search fixtures: one card per line on purpose. Prettier would expand them
+# to tens of thousands of lines, past the 1000-line limit for JSON fixtures.
+src/app/drafts/pool-search/fixtures/cards.json
+src/app/drafts/pool-search/fixtures/results.json
