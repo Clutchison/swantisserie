@@ -82,6 +82,18 @@ header {
   font-weight: 600;
 }
 
+/* The app version: a footnote to the Admin items, not one of them. */
+.menu-item.muted,
+.menu-note {
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+}
+
+.menu-note {
+  padding: var(--space-sm) var(--space-md);
+  white-space: nowrap;
+}
+
 .narrow-only {
   display: none;
 }

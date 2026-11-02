@@ -16,6 +16,10 @@ _Avoid_: Role-holder, member (alone), player (unless they are in a draft)
 A user named in config who has organizer powers on every draft and manages webhooks.
 _Avoid_: Admin (alone), moderator, superuser
 
+**App version**:
+The commit of the app that is live, or unknown when it wasn't recorded. Only app admins see it.
+_Avoid_: Version (alone), release, build number
+
 **Organizer**:
 The guild member who created a draft and runs it. App admins act as organizer on every draft.
 _Avoid_: Host, owner, creator
