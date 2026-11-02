@@ -10,10 +10,10 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { DraftView } from 'contract';
+import type { DraftView, PickImportPreview } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import { isRefusal, type PickImportPreview } from './drafts';
+import { isRefusal } from './drafts';
 
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;

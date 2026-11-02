@@ -17,12 +17,17 @@ import {
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
-import type { DraftView } from 'contract';
+import type {
+  CardFace,
+  CardImages,
+  DraftView,
+  PickImportPreview,
+  PickView,
+  PoolCardView,
+  Rarity,
+} from 'contract';
 import type { PoolCard } from '../generated/prisma/client.js';
-import {
-  type Rarity,
-  ScryfallUnavailableError,
-} from '../scryfall/scryfall-client.js';
+import { ScryfallUnavailableError } from '../scryfall/scryfall-client.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -34,10 +39,7 @@ import {
   DraftReadsService,
   type DraftWithOrganizer,
 } from './draft-reads.service.js';
-import {
-  type PickImportPreview,
-  PickImportService,
-} from './pick-import.service.js';
+import { PickImportService } from './pick-import.service.js';
 import { type LoggedPick, TurnsService } from './turns.service.js';
 import {
   CloseRefusedError,
@@ -60,8 +62,6 @@ import { toDraftView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
 import { isPlatform, PLATFORMS } from './platform.js';
 import {
-  type CardFace,
-  type CardImages,
   PoolFrozenError,
   PoolSnapshotService,
 } from './pool-snapshot.service.js';
@@ -73,49 +73,6 @@ const MAX_NAME_LENGTH = 100;
 const MAX_POOL_QUERY_LENGTH = 900;
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
-
-/** One pick in a draft's pick log. */
-export interface PickView {
-  /** 1-based, counting every pick in the draft. */
-  pick: number;
-  playerId: string;
-  poolCardId: string;
-  name: string;
-  /** How the faces are laid out. Null only until a pool snapshotted before layout was stored is backfilled. */
-  layout: string | null;
-  set: string;
-  collectorNumber: string;
-}
-
-export interface PoolCardView {
-  id: string;
-  scryfallId: string;
-  oracleId: string;
-  name: string;
-  set: string;
-  collectorNumber: string;
-  typeLine: string;
-  colors: string[];
-  manaValue: number;
-  /** Null when the faces carry it, as on double-faced cards. */
-  manaCost: string | null;
-  /** Null when the faces carry it. */
-  oracleText: string | null;
-  colorIdentity: string[];
-  keywords: string[];
-  /** Null only until a pool snapshotted before rarity was stored is backfilled. */
-  rarity: Rarity | null;
-  /** How the faces are laid out, e.g. normal, split, transform, adventure. Null only until a pool snapshotted before layout was stored is backfilled. */
-  layout: string | null;
-  power: string | null;
-  toughness: string | null;
-  loyalty: string | null;
-  defense: string | null;
-  /** Empty for single-faced cards. Null only until a pool snapshotted before faces were stored is backfilled. */
-  faces: CardFace[] | null;
-  /** One entry per face with its own image. */
-  images: CardImages[];
-}
 
 @Controller('drafts')
 @UseGuards(SessionGuard)

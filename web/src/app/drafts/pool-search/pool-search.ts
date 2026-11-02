@@ -1,4 +1,4 @@
-import type { PoolCardView, Rarity } from '../drafts';
+import type { PoolCardView, Rarity } from 'contract';
 
 /** The pool card fields a pool search looks at. */
 export type PoolSearchCard = Omit<PoolCardView, 'images'>;

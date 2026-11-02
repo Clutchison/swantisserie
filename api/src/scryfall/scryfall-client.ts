@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Rarity } from 'contract';
 
 const API = 'https://api.scryfall.com';
 /**
@@ -23,10 +24,6 @@ export interface ScryfallImageUris {
   normal: string;
   large: string;
 }
-
-/** https://scryfall.com/docs/api/cards#rarity */
-export type Rarity =
-  'common' | 'uncommon' | 'rare' | 'special' | 'mythic' | 'bonus';
 
 /** The fields of a Scryfall card object we use: https://scryfall.com/docs/api/cards */
 export interface ScryfallCard {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { PickImportPreview } from 'contract';
 import { readPickImport } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
@@ -9,14 +10,6 @@ import {
   seatPlayers,
   type StartableDraft,
 } from './draft-start.js';
-
-/** What a pick import's file would do to a draft. */
-export interface PickImportPreview {
-  /** Each column of the file with the player in the seat it maps to. */
-  seats: { column: string; userId: string; player: string }[];
-  picks: number;
-  next: { pick: number; player: string };
-}
 
 /** Pick imports: loading picks made outside the app into a draft in the lobby. */
 @Injectable()

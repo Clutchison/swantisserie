@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { type PoolCardView } from '../drafts';
+import type { PoolCardView } from 'contract';
 import { useDraftsApp, openDraft, completeSnapshot, wait } from './harness';
 import { useTallScreen, image, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 

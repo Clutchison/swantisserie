@@ -8,9 +8,9 @@ import {
   output,
   signal,
 } from '@angular/core';
-import type { DraftView } from 'contract';
+import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
-import { isRefusal, type PickView } from './drafts';
+import { isRefusal } from './drafts';
 
 /** The organizer's buttons on a started draft: pause, resume, undo, close and reopen. */
 @Component({

@@ -1,5 +1,5 @@
 import { countedLines } from './counted-lines';
-import { type PickView } from './drafts';
+import type { PickView } from 'contract';
 
 /** What an Arena export needs of a picked card. */
 export type ArenaExportCard = Pick<PickView, 'name' | 'layout'>;
