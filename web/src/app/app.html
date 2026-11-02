@@ -1,21 +1,42 @@
 @if (user(); as user) {
   <header>
-    <a class="logo" routerLink="/">
-      <img src="logo.svg" alt="Swantisserie home" width="40" height="40" />
-    </a>
-    <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
-    <span class="name">{{ user.name }}</span>
-    <div class="extra-controls">
-      <button class="button quiet" type="button" (click)="feedbackOpen.set(true)">
-        Send feedback
-      </button>
-      @if (user.isAdmin) {
-        <a class="button quiet" routerLink="/admin/feedback">{{ feedbackLabel() }}</a>
-        <a class="button quiet" routerLink="/admin/webhooks">Webhooks</a>
-      }
+    <div class="left-group">
+      <app-top-bar-menu class="narrow-only" label="☰" accessibleName="Menu">
+        <button class="menu-item" type="button" (click)="feedbackOpen.set(true)">
+          Send feedback
+        </button>
+        @if (user.isAdmin) {
+          <div role="group" aria-labelledby="narrow-admin-heading">
+            <div class="menu-heading" id="narrow-admin-heading">Admin</div>
+            <ng-container [ngTemplateOutlet]="adminItems" />
+          </div>
+        }
+      </app-top-bar-menu>
+      <a class="home" routerLink="/" aria-label="Swantisserie">
+        <img src="logo.svg" alt="" width="40" height="40" />
+        <span class="title">Swantisserie</span>
+      </a>
+      <div class="wide-only">
+        @if (user.isAdmin) {
+          <app-top-bar-menu [label]="adminLabel()">
+            <ng-container [ngTemplateOutlet]="adminItems" />
+          </app-top-bar-menu>
+        }
+        <button class="button quiet compact" type="button" (click)="feedbackOpen.set(true)">
+          Send feedback
+        </button>
+      </div>
     </div>
-    <button class="button quiet" type="button" (click)="logout()">Log out</button>
+    <div class="right-group">
+      <span class="name">{{ user.name }}</span>
+      <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
+      <button class="button quiet compact" type="button" (click)="logout()">Log out</button>
+    </div>
   </header>
+  <ng-template #adminItems>
+    <a class="menu-item" routerLink="/admin/webhooks">Webhooks</a>
+    <a class="menu-item" routerLink="/admin/feedback">{{ feedbackLabel() }}</a>
+  </ng-template>
 }
 @if (pageStatus() === 'Loading') {
   <app-loading-animation size="page">Loading…</app-loading-animation>
