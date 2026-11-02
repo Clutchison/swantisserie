@@ -422,6 +422,34 @@ describe('queue', () => {
       });
     });
 
+    it('takes a copy a queued card moves to off the cleared list', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 2, [
+        ...cards,
+        'Skewer the Critics',
+        'Fireblast',
+      ]);
+      const ids = await poolCardIds(id);
+      const [first, second] = (await copyIds(id))['Lightning Bolt'];
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await enqueue(id, second, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+      await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
+      await pick(id, ids.Fireblast, carolCookie).expect(200);
+      await enqueue(id, first, carolCookie).expect(200);
+
+      await pick(id, first, bobCookie).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [{ poolCardId: second, name: 'Lightning Bolt' }],
+        lost: [shock],
+        cleared: [],
+      });
+    });
+
     it('lets a player queue several copies of a card, each its own entry', async () => {
       const id = await readyDraft([aliceCookie], 1, cards);
       const [first, second] = (await copyIds(id))['Lightning Bolt'];

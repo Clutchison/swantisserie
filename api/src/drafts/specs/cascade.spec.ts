@@ -13,6 +13,7 @@ import {
   start,
   enqueue,
   pick,
+  pickLog,
   pickLogLines,
   post,
   queue,
@@ -178,12 +179,10 @@ describe('cascade', () => {
 
     await pick(id, ids.Shock, bobCookie).expect(200);
 
-    const log = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
     expect(
-      log.body.map(({ poolCardId }: { poolCardId: string }) => poolCardId),
+      (await pickLog(id)).body.map(
+        ({ poolCardId }: { poolCardId: string }) => poolCardId,
+      ),
     ).toEqual([first, ids.Shock, second]);
   });
 

@@ -2,10 +2,11 @@ import type { Transaction } from './draft-shapes.js';
 
 /**
  * What a new pick, already made, does to queues: its card leaves the picker's
- * queue. Each other queue holding it moves to another copy of the card, if one
- * is available that the queue doesn't hold; else that queue is emptied. Those
- * cards are kept against the pick, in queue order, so that undoing it can put
- * them back. A moved entry stays moved: its copy is as good as the one picked.
+ * queue. In each other queue holding it, it is swapped for another copy of the
+ * card, in the same place, if one is available that the queue doesn't hold;
+ * else that queue is emptied. Emptied cards are kept against the pick, in
+ * queue order, so that undoing it can put them back. A swapped copy stays
+ * swapped: it is as good as the one picked.
  */
 export async function takeFromQueues(
   tx: Transaction,
@@ -14,22 +15,36 @@ export async function takeFromQueues(
   await tx.queuedCard.deleteMany({
     where: { poolCardId: pick.poolCardId, playerId: pick.playerId },
   });
-  const losers = [];
-  for (const entry of await tx.queuedCard.findMany({
+  const { draftId, oracleId } = await tx.poolCard.findUniqueOrThrow({
+    where: { id: pick.poolCardId },
+    select: { draftId: true, oracleId: true },
+  });
+  const losers: string[] = [];
+  for (const { id, playerId } of await tx.queuedCard.findMany({
     where: { poolCardId: pick.poolCardId },
     select: { id: true, playerId: true },
   })) {
-    const copy = await availableCopy(tx, pick.poolCardId, entry.playerId);
-    if (copy) {
-      await tx.queuedCard.update({
-        where: { id: entry.id },
-        data: { poolCardId: copy.id },
-      });
-    } else {
-      losers.push(entry);
+    // An unpicked copy the player hasn't queued, if any.
+    const copy = await tx.poolCard.findFirst({
+      where: { draftId, oracleId, pick: null, queued: { none: { playerId } } },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+    if (!copy) {
+      losers.push(playerId);
+      continue;
     }
+    await tx.queuedCard.update({
+      where: { id },
+      data: { poolCardId: copy.id },
+    });
+    // Queued again, so off the notice, as when the player queues it.
+    await tx.unqueuedCard.updateMany({
+      where: { playerId, poolCardId: copy.id },
+      data: { noticeHidden: true },
+    });
   }
-  const ofLosers = { in: losers.map((loser) => loser.playerId) };
+  const ofLosers = { in: losers };
   const unqueued = await tx.queuedCard.findMany({
     where: { playerId: ofLosers },
     select: { playerId: true, poolCardId: true, position: true },
@@ -38,28 +53,6 @@ export async function takeFromQueues(
     data: unqueued.map((card) => ({ ...card, pickId: pick.id })),
   });
   await tx.queuedCard.deleteMany({ where: { playerId: ofLosers } });
-}
-
-/** An unpicked copy of the pool card `poolCardId` that the player hasn't queued, if any. */
-async function availableCopy(
-  tx: Transaction,
-  poolCardId: string,
-  playerId: string,
-): Promise<{ id: string } | null> {
-  const { draftId, oracleId } = await tx.poolCard.findUniqueOrThrow({
-    where: { id: poolCardId },
-    select: { draftId: true, oracleId: true },
-  });
-  return tx.poolCard.findFirst({
-    where: {
-      draftId,
-      oracleId,
-      pick: null,
-      queued: { none: { playerId } },
-    },
-    orderBy: { id: 'asc' },
-    select: { id: true },
-  });
 }
 
 /**
