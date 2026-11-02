@@ -1,11 +1,17 @@
 name: CI
 
 on:
+  # Branches get CI through their PR (open a draft PR, or start a run by hand),
+  # so a push to a branch with an open PR runs once, not twice.
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
+# A PR's new push cancels its stale run; everything else is keyed on the commit,
+# so each commit on main finishes its own run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
