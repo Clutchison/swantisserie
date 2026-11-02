@@ -311,6 +311,33 @@ export async function readyDraft(
   return id;
 }
 
+/** Two copies of Lightning Bolt, with Shock and Lava Spike. */
+export const boltCopies = [
+  'Lightning Bolt',
+  'Lightning Bolt',
+  'Shock',
+  'Lava Spike',
+];
+
+/**
+ * A ready draft, as readyDraft makes, whose pool is `boltCopies` plus any
+ * other `cards`. Answers with its pool card ids by name, and with the ids of
+ * Lightning Bolt's two copies as `first` and `second`.
+ */
+export async function readyDraftWithCopies(
+  cookies: string[],
+  picksPerPlayer = 1,
+  cards: string[] = [],
+) {
+  const id = await readyDraft(cookies, picksPerPlayer, [
+    ...boltCopies,
+    ...cards,
+  ]);
+  const ids = await poolCardIds(id);
+  const [first, second] = (await copyIds(id))['Lightning Bolt'];
+  return { id, ids, first, second };
+}
+
 export function start(id: string, cookie = aliceCookie) {
   return request(app.getHttpServer())
     .post(`/api/drafts/${id}/start`)

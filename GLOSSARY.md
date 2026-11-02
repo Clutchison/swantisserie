@@ -119,7 +119,7 @@ The part of a draft's page that shows every player's picks, in seat order, and t
 _Avoid_: Picks page, draft board
 
 **Queue**:
-A player's private, ordered list of cards to pick automatically when their turn comes.
+A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold.
 _Avoid_: Wishlist, preload list, autopick list
 
 **Cascade**:
@@ -127,7 +127,7 @@ A run of queued picks that fire one after another because each next player also 
 _Avoid_: Chain, auto-run
 
 **Lost**:
-Describes a queued card that other players picked first, leaving no copy of it in the pool.
+Describes a queued card that another player picked first when no other copy of it was available for that queue: every copy left was picked or already in the queue.
 _Avoid_: Sniped, taken
 
 **Cleared**:

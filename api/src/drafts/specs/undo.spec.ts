@@ -17,6 +17,7 @@ import {
   pickLogLines,
   dismissNotice,
   poolCardIds,
+  readyDraftWithCopies,
 } from './harness.js';
 
 useDraftsApp();
@@ -199,6 +200,60 @@ describe('undo', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, bolt, spike, skewer],
+        lost: [],
+        cleared: [],
+      });
+    });
+  });
+
+  describe('in a pool with copies of a card', () => {
+    it('keeps a queue entry its pick moved on its new copy, in the same place', async () => {
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+        carolCookie,
+      ]);
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, first).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [
+          { poolCardId: second, name: 'Lightning Bolt' },
+          { poolCardId: ids.Shock, name: 'Shock' },
+        ],
+        lost: [],
+        cleared: [],
+      });
+      // The picked copy is back in the pool.
+      await pick(id, first).expect(200);
+    });
+
+    it('restores a queue its pick lost a copy from, every copy in its place', async () => {
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+        carolCookie,
+      ]);
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await enqueue(id, second, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, first).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [
+          { poolCardId: first, name: 'Lightning Bolt' },
+          { poolCardId: ids.Shock, name: 'Shock' },
+          { poolCardId: second, name: 'Lightning Bolt' },
+        ],
         lost: [],
         cleared: [],
       });

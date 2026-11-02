@@ -18,6 +18,7 @@ import {
   undo,
   dismissNotice,
   poolCardIds,
+  readyDraftWithCopies,
 } from './harness.js';
 
 useDraftsApp();
@@ -387,6 +388,117 @@ describe('queue', () => {
       expect(refused.body).toEqual({
         error: 'draft-complete',
         message: 'This draft is complete.',
+      });
+    });
+  });
+
+  describe('when the pool holds copies of a card', () => {
+    it('moves a queued copy another player picks to a copy still available, in the same place', async () => {
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        await signIn(bob),
+        carolCookie,
+      ]);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
+      await start(id).expect(200);
+
+      await pick(id, first).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [
+          { poolCardId: ids.Shock, name: 'Shock' },
+          { poolCardId: second, name: 'Lightning Bolt' },
+          { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
+        ],
+        lost: [],
+        cleared: [],
+      });
+    });
+
+    it('takes a copy a queued card moves to off the cleared list', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies(
+        [aliceCookie, bobCookie, carolCookie],
+        2,
+        ['Skewer the Critics', 'Fireblast'],
+      );
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await enqueue(id, second, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+      await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
+      await pick(id, ids.Fireblast, carolCookie).expect(200);
+      await enqueue(id, first, carolCookie).expect(200);
+
+      await pick(id, first, bobCookie).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [{ poolCardId: second, name: 'Lightning Bolt' }],
+        lost: [shock],
+        cleared: [],
+      });
+    });
+
+    it('lets a player queue several copies of a card, each its own entry', async () => {
+      const { id, first, second } = await readyDraftWithCopies([aliceCookie]);
+
+      await enqueue(id, second).expect(200);
+      const added = await enqueue(id, first).expect(200);
+
+      expect(added.body.cards).toEqual([
+        { poolCardId: second, name: 'Lightning Bolt' },
+        { poolCardId: first, name: 'Lightning Bolt' },
+      ]);
+    });
+
+    it('loses a queued copy when no copy is left that the queue doesn’t already hold', async () => {
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        await signIn(bob),
+        carolCookie,
+      ]);
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, second, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await start(id).expect(200);
+
+      await pick(id, first).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [],
+        lost: [{ poolCardId: first, name: 'Lightning Bolt' }],
+        cleared: [
+          { poolCardId: second, name: 'Lightning Bolt' },
+          { poolCardId: ids.Shock, name: 'Shock' },
+        ],
+      });
+    });
+
+    it('loses a queued copy once every other copy is picked', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+        carolCookie,
+      ]);
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, second).expect(200);
+
+      await pick(id, first, bobCookie).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [],
+        lost: [{ poolCardId: first, name: 'Lightning Bolt' }],
+        cleared: [{ poolCardId: ids.Shock, name: 'Shock' }],
       });
     });
   });
