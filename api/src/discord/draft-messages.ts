@@ -93,7 +93,7 @@ export function draftStartedMessage(
       ...picks.map(pickLine),
     ],
     picks.length > 0 ? picks[picks.length - 1].next : (seats[0] ?? null),
-    draft.url,
+    { url: draft.url },
   );
 }
 
@@ -145,8 +145,8 @@ export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
  */
 export function picksMessage(picks: AnnouncedPick[]): WebhookMessage {
   const { player, queued, next } = picks[picks.length - 1];
-  const knows = !queued && next?.id === player.id;
-  return announcement(picks.map(pickLine), next, undefined, !knows);
+  const ping = queued || next?.id !== player.id;
+  return announcement(picks.map(pickLine), next, { ping });
 }
 
 /** The draft `happened`, then any cascade; `up` is who is next without one. */
@@ -178,8 +178,7 @@ function pickLine({ number, player, card }: AnnouncedUndo): string {
 function announcement(
   lines: string[],
   up: AnnouncedPlayer | null,
-  url?: string,
-  ping = true,
+  { url, ping = true }: { url?: string; ping?: boolean } = {},
 ): WebhookMessage {
   const pinged = up && ping && !up.isBot ? up : null;
   return {

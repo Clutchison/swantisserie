@@ -102,6 +102,7 @@ describe('announcements', () => {
       users: [bob.id],
     });
   });
+
   describe('when a pick leaves its player up', () => {
     const cards = [
       'Shock',

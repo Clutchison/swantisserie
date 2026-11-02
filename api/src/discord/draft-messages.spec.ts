@@ -121,7 +121,7 @@ describe('picksMessage', () => {
     });
   });
 
-  it('pings a player a cascade ends on after their own by-hand pick', () => {
+  it('pings the player a cascade ends on after a by-hand pick', () => {
     expect(
       picksMessage([
         {
@@ -129,11 +129,11 @@ describe('picksMessage', () => {
           player: alice,
           card: 'Shock',
           queued: false,
-          next: alice,
+          next: bob,
         },
         {
           number: 12,
-          player: alice,
+          player: bob,
           card: 'Lava Spike',
           queued: true,
           next: alice,
@@ -142,7 +142,7 @@ describe('picksMessage', () => {
     ).toEqual({
       content:
         '11- **Alice** picked **Shock**\n' +
-        '12- **Alice** picked **Lava Spike**\n' +
+        '12- **Bob** picked **Lava Spike**\n' +
         '<@80351110224678912> you’re up.',
       allowed_mentions: { parse: [], users: ['80351110224678912'] },
     });
