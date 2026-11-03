@@ -1,6 +1,6 @@
 import type { BasicLand, PoolCardView } from 'contract';
 
-/** The basic lands, in the order the Basic lands control and the API list them. */
+/** The basic lands, in the order the Basic lands modal and the API list them. */
 export const BASIC_LANDS: readonly BasicLand[] = [
   'Plains',
   'Island',

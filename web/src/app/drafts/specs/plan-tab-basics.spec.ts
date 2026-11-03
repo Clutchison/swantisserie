@@ -49,6 +49,20 @@ describe('basic lands on the plan tab', () => {
     return panel(page);
   }
 
+  /** The Basic lands button, whatever count it shows. */
+  const basicsButton = (plan: HTMLElement) =>
+    [...plan.querySelectorAll('button')].find((b) =>
+      b.textContent?.trim().startsWith('Basic lands'),
+    );
+  /** The open modal, if any. */
+  const dialog = (plan: HTMLElement) => plan.querySelector<HTMLElement>('[role="dialog"]');
+  /** Opens the Basic lands modal, and answers with it. */
+  async function openBasics(fixture: AppFixture, plan: HTMLElement) {
+    basicsButton(plan)!.click();
+    await fixture.whenStable();
+    return dialog(plan)!;
+  }
+
   /** Each board's heading, and its lines as `count name`. */
   const boards = (plan: HTMLElement) =>
     [...plan.querySelectorAll('section')].map((board) => ({
@@ -75,6 +89,7 @@ describe('basic lands on the plan tab', () => {
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
     expect(
       ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'].map(
         (land) => countOf(plan, land).value,
@@ -131,6 +146,7 @@ describe('basic lands on the plan tab', () => {
       plan: planOf([{ land: 'Swamp', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
 
     typeCount(plan, 'Swamp', '');
     expect(countOf(plan, 'Swamp').value).toBe('2');
@@ -149,6 +165,7 @@ describe('basic lands on the plan tab', () => {
       plan: planOf([{ land: 'Forest', count: 3 }]),
     });
     const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
 
     expect(boards(plan)).toEqual([
       {
@@ -173,6 +190,7 @@ describe('basic lands on the plan tab', () => {
       ]),
     });
     const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
 
     button(plan, 'Clear basics')!.click();
     const cleared = http.expectOne('/api/drafts/draft-1/plan/basics');
@@ -192,6 +210,7 @@ describe('basic lands on the plan tab', () => {
       { cards, user: admin, plan: planOf() },
     );
     const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
 
     button(plan, 'One more Wastes')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Wastes');
@@ -230,5 +249,129 @@ describe('basic lands on the plan tab', () => {
     expect(disabled('Island')).toEqual([true, true]);
     expect(disabled('Shivan Dragon')).toEqual([false]);
     expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
+  });
+
+  it('sets basics in a Basic lands modal, not above the boards, each labelled by its mana symbol', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    expect(countOf(plan, 'Plains')).toBeNull();
+    expect(dialog(plan)).toBeNull();
+
+    const modal = await openBasics(fixture, plan);
+    expect(modal.getAttribute('aria-modal')).toBe('true');
+    expect(modal.querySelector('h3')?.textContent?.trim()).toBe('Basic lands');
+    const symbols = [...modal.querySelectorAll<HTMLImageElement>('label img')];
+    expect(symbols.map((symbol) => [symbol.getAttribute('src'), symbol.alt, symbol.title])).toEqual(
+      [
+        ['mana/W.svg', 'Plains', 'Plains'],
+        ['mana/U.svg', 'Island', 'Island'],
+        ['mana/B.svg', 'Swamp', 'Swamp'],
+        ['mana/R.svg', 'Mountain', 'Mountain'],
+        ['mana/G.svg', 'Forest', 'Forest'],
+        ['mana/C.svg', 'Wastes', 'Wastes'],
+      ],
+    );
+    // Each number is labelled by its land, through its symbol's alt text.
+    expect(modal.querySelector('label[for="basic-Wastes"] img')?.getAttribute('alt')).toBe(
+      'Wastes',
+    );
+    expect(button(modal, 'Clear basics')).toBeDefined();
+    expect(button(modal, 'Done')).toBeDefined();
+  });
+
+  it('counts the plan’s basics on the button, and only when it holds some', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf([
+        { land: 'Mountain', count: 5 },
+        { land: 'Wastes', count: 1 },
+      ]),
+    });
+    const plan = await openPlan(fixture, page);
+    expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (6)');
+
+    const modal = await openBasics(fixture, plan);
+    button(modal, 'One more Wastes')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/basics/Wastes').flush(
+      planOf([
+        { land: 'Mountain', count: 5 },
+        { land: 'Wastes', count: 2 },
+      ]),
+    );
+    // The plan behind the modal updates as each change saves.
+    await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (7)'));
+    expect(boards(plan)[0].lines).toContain('2 Wastes');
+
+    button(modal, 'Clear basics')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/basics').flush(planOf());
+    await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands'));
+    expect(dialog(plan)).not.toBeNull();
+  });
+
+  it('closes the modal on Done, on Escape and on a click on the backdrop', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+
+    button(await openBasics(fixture, plan), 'Done')!.click();
+    await fixture.whenStable();
+    expect(dialog(plan)).toBeNull();
+
+    await openBasics(fixture, plan);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await fixture.whenStable();
+    expect(dialog(plan)).toBeNull();
+
+    // A click inside the modal leaves it open.
+    const modal = await openBasics(fixture, plan);
+    modal.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    modal.click();
+    await fixture.whenStable();
+    expect(dialog(plan)).not.toBeNull();
+    const backdrop = modal.parentElement!;
+    backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    backdrop.click();
+    await fixture.whenStable();
+    expect(dialog(plan)).toBeNull();
+  });
+
+  it('shows only the Basic lands button in the mode controls on mobile', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    const controls = (plan: HTMLElement) =>
+      [...plan.querySelectorAll('.mode-controls button')].map((b) => b.textContent?.trim());
+    expect(controls(plan)).toEqual(['Basic lands']);
+  });
+
+  it('shows the Basic lands button after the view controls on desktop', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    const controls = () =>
+      [...plan.querySelectorAll('.mode-controls button')].map((b) => b.textContent?.trim());
+    expect(controls()).toEqual(['Stacks', 'List', 'Mana value', 'Color', 'Type', 'Basic lands']);
+
+    button(plan, 'List')!.click();
+    await fixture.whenStable();
+    expect(controls()).toEqual(['Stacks', 'List', 'Basic lands']);
   });
 });

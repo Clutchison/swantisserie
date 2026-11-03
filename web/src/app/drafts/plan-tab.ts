@@ -33,6 +33,7 @@ import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { type Grouping, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { manaSymbol } from './mana-cost';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
 const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
@@ -64,6 +65,16 @@ interface PlanLine extends BoardCard {
   /** How many copies the board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
   count: number;
 }
+
+/** Each basic land's mana symbol, which labels it in the Basic lands modal: Wastes's is colorless. */
+const BASIC_SYMBOLS: Record<BasicLand, string> = {
+  Plains: '{W}',
+  Island: '{U}',
+  Swamp: '{B}',
+  Mountain: '{R}',
+  Forest: '{G}',
+  Wastes: '{C}',
+};
 
 /** Each basic land's card data, for the images and Card previews of its copies. */
 const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
@@ -105,7 +116,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; the Basic lands control, which sets how
+ * the unpicked cards they added; the Basic lands modal, which sets how
  * many of each basic land the mainboard holds; and the Plan notice of their lost
  * cards.
  *
@@ -129,7 +140,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucideTrash,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '(document:keydown.escape)': 'closeQueueing()' },
+  host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
 })
@@ -202,21 +213,36 @@ export class PlanTab {
     }),
   );
 
-  /** Each basic land, with how many copies the plan holds. */
+  /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
   protected readonly basics = computed(() =>
     BASIC_LANDS.map((land) => ({
       land,
       count: this.plan().basics.find((basic) => basic.land === land)?.count ?? 0,
+      symbol: manaSymbol(BASIC_SYMBOLS[land]).src,
     })),
   );
+  /** How many basic lands the plan holds in all, for the Basic lands button. */
+  protected readonly basicsTotal = computed(() =>
+    this.plan().basics.reduce((total, basic) => total + basic.count, 0),
+  );
+  /** Whether the Basic lands modal is open. */
+  protected readonly basicsOpen = signal(false);
+  private readonly doneWithBasics = viewChild<ElementRef<HTMLButtonElement>>('doneWithBasics');
   /** Whether the plan holds any basic land, for Clear basics to clear. */
   protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
-  /** The most copies of one basic land the control offers. */
+  /** The most copies of one basic land the Basic lands modal offers. */
   protected readonly mostBasics = MOST_BASICS;
 
   /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
   protected readonly queueDialog = signal<{ includeSideboard: boolean } | null>(null);
   private readonly cancelQueueing = viewChild<ElementRef<HTMLButtonElement>>('cancelQueueing');
+  /**
+   * Whether the current press began on a modal's backdrop. Only a click
+   * that both begins and ends there closes the modal: dragging a text
+   * selection out of the modal also ends in a click on the backdrop.
+   */
+  private pressedBackdrop = false;
+
   /** Whether Queue unpicked is on its way. */
   protected readonly sendingQueue = signal(false);
   /** The pool card ids Queue unpicked adds from each board: its unpicked copies the queue doesn't hold. */
@@ -246,6 +272,7 @@ export class PlanTab {
   constructor() {
     // The modal takes focus as it opens.
     effect(() => this.cancelQueueing()?.nativeElement.focus());
+    effect(() => this.doneWithBasics()?.nativeElement.focus());
     // Not every test environment's `matchMedia` reports changes.
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;
@@ -326,6 +353,21 @@ export class PlanTab {
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(this.planApi.dismissNotice(this.draftId()));
+  }
+
+  protected backdropPressed(event: MouseEvent) {
+    this.pressedBackdrop = event.target === event.currentTarget;
+  }
+
+  /** A click on a modal's backdrop closes that modal, if the press began there too. */
+  protected backdropClicked(event: MouseEvent, modal: 'queueing' | 'basics') {
+    if (!this.pressedBackdrop || event.target !== event.currentTarget) return;
+    if (modal === 'queueing') this.closeQueueing();
+    else this.closeBasics();
+  }
+
+  protected closeBasics() {
+    this.basicsOpen.set(false);
   }
 
   /** Opens the Queue unpicked modal, leaving the sideboard out. */

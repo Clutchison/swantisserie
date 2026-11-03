@@ -19,8 +19,11 @@ export function manaCostOf(card: {
   // front face holds its cost; a split card, Room or adventure writes both
   // halves' costs in one, between them //, and shows the first.
   const cost = (card.manaCost ?? card.faces[0]?.manaCost ?? '').split(FACE_SEPARATOR)[0];
-  return [...cost.matchAll(/\{[^}]*\}/g)].map(([text]) => {
-    const svg = MANA_SYMBOLS[text];
-    return svg ? { text, src: `mana/${svg.file}`, description: svg.description } : { text };
-  });
+  return [...cost.matchAll(/\{[^}]*\}/g)].map(([text]) => manaSymbol(text));
+}
+
+/** One mana symbol, as a cost writes it, e.g. {W}, with its SVG and description if the app has them. */
+export function manaSymbol(text: string): ManaSymbol {
+  const svg = MANA_SYMBOLS[text];
+  return svg ? { text, src: `mana/${svg.file}`, description: svg.description } : { text };
 }
