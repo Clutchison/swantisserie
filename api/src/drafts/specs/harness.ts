@@ -295,6 +295,12 @@ export async function pickLogLines(id: string) {
  * least `cookies.length * picksPerPlayer` cards; a pick import empties
  * every queue, so queue after importing; and a bot picks at random, so
  * pin `Math.random` (0 picks the first available card by name).
+ *
+ * Once started: every `card` here has the same mana value, so anything the
+ * API sorts by mana value comes out sorted by name; a queued card is picked
+ * in the cascade as soon as its player's turn comes, so queue only what the
+ * spec means to have picked; and a bot picks again at once when its pick is
+ * undone (its delay is 0 here), so undo a player's pick to see an undo.
  */
 export async function readyDraft(
   cookies: string[],
