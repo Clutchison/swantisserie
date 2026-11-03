@@ -152,7 +152,7 @@ export function picksMessage(
 ): WebhookMessage {
   const { player, queued, next } = picks[picks.length - 1];
   const ping = queued || next?.id !== player.id;
-  return announcement(draft, picks.map(pickLine), next, ping);
+  return announcement(draft, picks.map(pickLine), next, { ping });
 }
 
 /** The draft `happened`, then any cascade; `up` is who is next without one. */
@@ -195,7 +195,7 @@ function announcement(
   draft: AnnouncedDraft,
   lines: string[],
   up: AnnouncedPlayer | null,
-  ping = true,
+  { ping = true }: { ping?: boolean } = {},
 ): WebhookMessage {
   const pinged = up && ping && !up.isBot ? up : null;
   const upLine = pinged

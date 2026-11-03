@@ -284,6 +284,7 @@ describe('draftMessages', () => {
       ]).map((message) => message.content),
     ).toEqual(['2- **Bob** picked **Shock**', '**Red** is complete']);
   });
+
   it('carries no link when a cascade straight after a start completes the draft', () => {
     expect(
       draftMessages(draft, [

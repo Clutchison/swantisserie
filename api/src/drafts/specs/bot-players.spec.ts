@@ -322,7 +322,9 @@ describe('bot players', () => {
         allowed_mentions: { parse: [], users: [] },
       });
       expect(messages[2].content).toMatch(
-        /^2- \*\*Bot 1\*\* picked .*\n\*\*Bot 1\*\* is up\. \[Open draft\]\(<https:\/\/roto\.example\/drafts\/.*>\)$/,
+        new RegExp(
+          `^2- \\*\\*Bot 1\\*\\* picked .*\\n\\*\\*Bot 1\\*\\* is up\\. \\[Open draft\\]\\(<https://roto\\.example/drafts/${id}>\\)$`,
+        ),
       );
       expect(messages[2].allowed_mentions.users).toEqual([]);
       expect(messages[3].content).toMatch(
