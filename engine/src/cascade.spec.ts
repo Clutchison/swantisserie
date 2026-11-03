@@ -57,6 +57,21 @@ describe('cascade', () => {
     ).toEqual([{ seat: 0, card: 'shock' }]);
   });
 
+  it('carries on to a seat under pick next, picking its next queued card after one is lost', () => {
+    expect(
+      cascade(
+        { players: 3, picksPerPlayer: 2, picked: [] },
+        [['shock', 'spike'], ['shock', 'bolt'], ['skewer']],
+        singles,
+        ['ClearQueue', 'PickNext', 'ClearQueue'],
+      ),
+    ).toEqual([
+      { seat: 0, card: 'shock' },
+      { seat: 1, card: 'bolt' },
+      { seat: 2, card: 'skewer' },
+    ]);
+  });
+
   it('carries on to a seat whose queued card the cascade swapped for another copy', () => {
     expect(
       cascade(

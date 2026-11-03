@@ -60,6 +60,8 @@ describe('cascade', () => {
       cards: [],
       lost: [],
       cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     });
   });
 
@@ -78,6 +80,8 @@ describe('cascade', () => {
       cards: [],
       lost: [{ poolCardId: ids.Shock, name: 'Shock' }],
       cleared: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     });
   });
 
@@ -98,6 +102,8 @@ describe('cascade', () => {
       cards: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
       lost: [],
       cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     });
   });
 
@@ -137,6 +143,8 @@ describe('cascade', () => {
         cleared: [
           { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
         ],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     },
   );

@@ -1,5 +1,10 @@
 import type { DraftPicks } from './pick.js';
-import { type Pool, queuesAfterPick, type SeatPick } from './queue.js';
+import {
+  type Pool,
+  queuesAfterPick,
+  type SeatPick,
+  type StealBehavior,
+} from './queue.js';
 import { currentTurn } from './turn.js';
 
 /** A pick made from a queue. */
@@ -11,13 +16,16 @@ export type QueuedPick = SeatPick;
  * seat's queued cards in order, indexed by seat; a seat with no queue, such
  * as a bot's, stops the cascade. After each pick, queues change as
  * `queuesAfterPick` says: a queued copy of the picked card may be swapped for
- * another copy, or lost, clearing that queue and stopping the cascade at that
- * seat's next turn. Cards are pool card ids, as in `pool` and `picked`.
+ * another copy, or lost. Under clear queue, a lost card clears that queue and
+ * stops the cascade at that seat's next turn; under pick next, as that seat's
+ * entry in `stealBehaviors` may say, the rest of its queue carries on. Cards
+ * are pool card ids, as in `pool` and `picked`.
  */
 export function cascade(
   draft: DraftPicks,
   queues: readonly (readonly string[])[],
   pool: Pool,
+  stealBehaviors: readonly StealBehavior[] = [],
 ): QueuedPick[] {
   const picked = [...draft.picked];
   const taken = new Set(picked);
@@ -30,9 +38,11 @@ export function cascade(
     if (card === undefined) return picks;
     const pick = { seat: turn.seat, card };
     picks.push(pick);
-    remaining = queuesAfterPick(pick, remaining, { pool, picked }).map(
-      (after) => after.queue,
-    );
+    remaining = queuesAfterPick(pick, remaining, {
+      pool,
+      picked,
+      stealBehaviors,
+    }).map((after) => after.queue);
     picked.push(card);
     taken.add(card);
   }

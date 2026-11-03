@@ -13,7 +13,7 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import type { QueueRefusal, QueueView } from 'contract';
+import type { QueueRefusal, QueueView, StealBehavior } from 'contract';
 import {
   CurrentUser,
   SessionGuard,
@@ -28,8 +28,8 @@ import {
 } from './queues.service.js';
 
 /**
- * The signed-in player's queue in a draft. There is no way to see anyone
- * else's: a queue is private to its player.
+ * The signed-in player's queue in a draft, and their steal behavior. There
+ * is no way to see anyone else's: a queue is private to its player.
  */
 @Controller('drafts/:id/queue')
 @UseGuards(SessionGuard)
@@ -68,6 +68,19 @@ export class QueuesController {
   ): Promise<QueueView> {
     const poolCardIds = parseOrder(body);
     return this.answer(id, () => this.queues.reorder(id, user.id, poolCardIds));
+  }
+
+  /** Sets what a lost card does to the rest of the queue. */
+  @Put('steal-behavior')
+  async setStealBehavior(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<QueueView> {
+    const stealBehavior = parseStealBehavior(body);
+    return this.answer(id, () =>
+      this.queues.setStealBehavior(id, user.id, stealBehavior),
+    );
   }
 
   /** Stops the Queue tab notice listing the lost and cleared cards. */
@@ -147,4 +160,16 @@ function parseOrder(body: unknown): string[] {
     });
   }
   return poolCardIds;
+}
+
+/** The steal behavior to set, or a 400 if it isn't one. */
+function parseStealBehavior(body: unknown): StealBehavior {
+  const { stealBehavior } = (body ?? {}) as Record<string, unknown>;
+  if (stealBehavior !== 'ClearQueue' && stealBehavior !== 'PickNext') {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose clear queue or pick next.',
+    });
+  }
+  return stealBehavior;
 }

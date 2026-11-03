@@ -4,7 +4,7 @@ export interface QueuedCardView {
   name: string;
 }
 
-/** The signed-in player's queue, which only they may see. */
+/** The signed-in player's queue and steal behavior, which only they may see. */
 export interface QueueView {
   /** In the order they are to be picked. */
   cards: QueuedCardView[];
@@ -15,4 +15,17 @@ export interface QueueView {
    * went.
    */
   cleared: QueuedCardView[];
+  /**
+   * Whether the latest of the `lost` cards left the rest of the queue in
+   * place, as it does under pick next.
+   */
+  restKept: boolean;
+  /** What a card lost from now on does to the rest of the queue. */
+  stealBehavior: StealBehavior;
 }
+
+/**
+ * What a lost card does to the rest of a player's queue: under clear queue
+ * the rest is cleared; under pick next it stays, in order.
+ */
+export type StealBehavior = 'ClearQueue' | 'PickNext';

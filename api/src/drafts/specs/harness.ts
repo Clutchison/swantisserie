@@ -278,7 +278,11 @@ export function pickLog(id: string) {
 /** The pick log as `Player: Card` lines. */
 export async function pickLogLines(id: string) {
   const res = await pickLog(id);
-  const names = { [alice.id]: 'Alice', [bob.id]: 'Bob' };
+  const names = {
+    [alice.id]: 'Alice',
+    [bob.id]: 'Bob',
+    [carol.id]: 'Carol',
+  };
   return (res.body as { playerId: string; name: string }[]).map(
     (logged) => `${names[logged.playerId] ?? 'Bot'}: ${logged.name}`,
   );
@@ -354,4 +358,16 @@ export function dismissNotice(id: string, cookie = aliceCookie) {
   return request(app.getHttpServer())
     .delete(`/api/drafts/${id}/queue/notice`)
     .set('Cookie', cookie);
+}
+
+/** Sets the player's steal behavior in the draft. */
+export function setStealBehavior(
+  id: string,
+  behavior: unknown,
+  cookie = aliceCookie,
+) {
+  return request(app.getHttpServer())
+    .put(`/api/drafts/${id}/queue/steal-behavior`)
+    .set('Cookie', cookie)
+    .send({ stealBehavior: behavior });
 }

@@ -147,7 +147,7 @@ The part of a draft's page that shows every player's picks, in seat order, and t
 _Avoid_: Picks page, draft board
 
 **Queue**:
-A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold.
+A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue.
 _Avoid_: Wishlist, preload list, autopick list
 
 **Cascade**:
@@ -171,7 +171,7 @@ The part of a draft's page where a player sees and rearranges their queue.
 _Avoid_: Queue page
 
 **Queue notice**:
-The note on the Queue tab naming a player's lost and cleared cards. It builds up until the player dismisses it, and an undo takes off what that pick added.
+The note on the Queue tab naming a player's lost and cleared cards, and saying when the rest of the queue was kept under pick next. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Alert, warning, notification
 
 **Undo**:
