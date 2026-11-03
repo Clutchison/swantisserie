@@ -207,7 +207,7 @@ ul {
     min-width: 0;
   }
 
-  /* Each card overlaps the one above, leaving its name showing. */
+  /* Each card overlaps the one above, leaving its name showing. It stays under the next card even while pointed at: its Card preview already shows all of it. */
   li {
     position: relative;
     display: block;
@@ -216,12 +216,6 @@ ul {
 
     & + li {
       margin-top: calc(#{$stack-step} - #{$card-height});
-    }
-
-    /* The card under the mouse, or with a button focused, comes out from under the rest. */
-    &:hover,
-    &:focus-within {
-      z-index: 1;
     }
   }
 
@@ -281,9 +275,19 @@ ul {
     opacity: 0;
   }
 
-  li:hover > & button,
-  li:focus-within > & button {
-    opacity: 1;
+  /* Taller than the strip of the card that shows, so while they show they sit over the next card; only then, or hidden they'd take its clicks. */
+  li:hover > &,
+  li:focus-within > & {
+    z-index: 1;
+
+    button {
+      opacity: 1;
+    }
+  }
+
+  /* Buttons reached by keyboard stay over the next card's even while that card is pointed at. */
+  li:has(:focus-visible) > & {
+    z-index: 2;
   }
 }
 
