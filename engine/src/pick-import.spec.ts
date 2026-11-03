@@ -58,6 +58,46 @@ describe('readPickImport', () => {
       });
     });
 
+    describe('empty lines', () => {
+      const header = ',Ann,Ben,';
+      const round1 = '->,Ash Golem,Brine Wisp,';
+      const round2 = ',,Cinder Hound,<-';
+      const without = [header, round1, round2].join('\n');
+
+      it('reads the file the same without them', () => {
+        expect(read(without)).toMatchObject({
+          ok: true,
+          picks: [
+            { number: 1, seat: 0, poolCardId: 'ash golem' },
+            { number: 2, seat: 1, poolCardId: 'brine wisp' },
+            { number: 3, seat: 1, poolCardId: 'cinder hound' },
+          ],
+          next: { pick: 4, round: 2, seat: 0 },
+        });
+      });
+
+      it.each(['', ',,,', ' , , , '])('skips “%s” between rounds', (line) => {
+        const csv = [header, round1, line, round2].join('\n');
+
+        expect(read(csv)).toEqual(read(without));
+      });
+
+      it('skips empty lines before the header', () => {
+        const csv = ['', ',,,', header, round1, round2].join('\n');
+
+        expect(read(csv)).toEqual(read(without));
+      });
+
+      it('still counts a round with only a direction marker', () => {
+        const csv = [header, '->,,,', ',Ash Golem,Brine Wisp,<-'].join('\n');
+
+        expect(problems(csv)).toEqual([
+          'Round 1 has no pick for Ann, but later picks are filled in.',
+          'Round 1 has no pick for Ben, but later picks are filled in.',
+        ]);
+      });
+    });
+
     it('takes a file with no last column', () => {
       expect(read(',Ann,Ben\n->,Ash Golem,Brine Wisp')).toMatchObject({
         ok: true,
@@ -101,6 +141,26 @@ describe('readPickImport', () => {
       ).toEqual([
         'Round 1 has “Ash Golem” outside the player columns.',
         'Round 1 has “Dusk Heron” outside the player columns.',
+      ]);
+    });
+
+    it('refuses a direction marker that contradicts snake order', () => {
+      const csv = [
+        ',Ann,Ben,',
+        '<-,Ash Golem,Brine Wisp,',
+        '->,,Cinder Hound,',
+        ',,,->',
+      ].join('\n');
+
+      expect(problems(csv)).toEqual([
+        'Round 1 is marked <- but runs -> in snake order.',
+        'Round 2 is marked -> but runs <- in snake order.',
+      ]);
+    });
+
+    it('refuses a contradicting direction marker in the last column', () => {
+      expect(problems(',Ann,Ben,\n->,Ash Golem,Brine Wisp,<-')).toEqual([
+        'Round 1 is marked <- but runs -> in snake order.',
       ]);
     });
 

@@ -121,7 +121,8 @@ export function readPickImport(
       problems: ['The file has a quote that is never closed.'],
     };
   }
-  const [header = [], ...rows] = parsed;
+  // Blank lines aren't rounds, wherever they fall.
+  const [header = [], ...rows] = parsed.filter((row) => row.some(Boolean));
   const columns = header.slice(1);
   while (columns.at(-1) === '') columns.pop();
   if (columns.length === 0) {
@@ -143,6 +144,7 @@ export function readPickImport(
   }
 
   rows.forEach((row, round) => {
+    const direction = round % 2 === 0 ? '->' : '<-';
     row.forEach((cell, index) => {
       const marker = index === 0 || index === seats + 1;
       const outside = marker
@@ -151,6 +153,10 @@ export function readPickImport(
       if (outside) {
         problems.push(
           `Round ${round + 1} has “${cell}” outside the player columns.`,
+        );
+      } else if (marker && cell && cell !== direction) {
+        problems.push(
+          `Round ${round + 1} is marked ${cell} but runs ${direction} in snake order.`,
         );
       }
     });
