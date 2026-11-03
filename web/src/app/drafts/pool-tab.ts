@@ -99,7 +99,7 @@ export class PoolTab {
    * the plan, or else Add to Plan: for players while the draft is active,
    * behind the Plan tab's gate.
    */
-  readonly offerAddToPlan = input(false);
+  readonly offerPlanChange = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   readonly yourTurn = input(false);
   /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */

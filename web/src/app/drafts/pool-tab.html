@@ -165,7 +165,7 @@
             </button>
           }
         }
-        @if (offerAddToPlan()) {
+        @if (offerPlanChange()) {
           <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
           @if (planned().has(card.id) && !picked().has(card.id)) {
             <button

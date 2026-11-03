@@ -23,16 +23,16 @@ useTallScreen();
 
 /** Plans are only open to app admins for now, and this Alice is one. */
 describe('pool tab', () => {
-  describe('Add to Plan', () => {
-    const admin = { ...alice, isAppAdmin: true };
-    /** Started, with Alice then Bob; Bob is up. */
-    const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
-      state: 'Drafting',
-      players: [alicePlayer, bob],
-      turn: { pick: 1, round: 1, playerId: bob.id },
-      ...fields,
-    });
+  const admin = { ...alice, isAppAdmin: true };
+  /** Started, with Alice then Bob; Bob is up. */
+  const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+    state: 'Drafting',
+    players: [alicePlayer, bob],
+    turn: { pick: 1, round: 1, playerId: bob.id },
+    ...fields,
+  });
 
+  describe('Add to Plan', () => {
     it('adds an unpicked copy of a card to the plan from its detail, and lists it on the Plan tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
@@ -190,14 +190,6 @@ describe('pool tab', () => {
   });
 
   describe('Remove from Plan', () => {
-    const admin = { ...alice, isAppAdmin: true };
-    /** Started, with Alice then Bob; Bob is up. */
-    const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
-      state: 'Drafting',
-      players: [alicePlayer, bob],
-      turn: { pick: 1, round: 1, playerId: bob.id },
-      ...fields,
-    });
     const shivanCopy = card({ id: 'shivan-card-2' });
     const planned = (poolCardId: string, board: 'mainboard' | 'sideboard' = 'mainboard') => ({
       ...EMPTY_PLAN,
@@ -340,8 +332,8 @@ describe('pool tab', () => {
             {
               pick: 1,
               playerId: alice.id,
-              poolCardId: 'shivan-card',
-              name: 'Shivan Dragon',
+              poolCardId: shivan.id,
+              name: shivan.name,
               layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
@@ -354,6 +346,37 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 0);
       expect(button(detail, 'Remove from Plan')).toBeUndefined();
       expect(button(detail, 'Add to Plan')!.disabled).toBe(true);
+    });
+
+    it('is offered for the copy the plan took in place of one another player picked', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+        {
+          cards: [shivan, shivanCopy],
+          user: admin,
+          plan: planned(shivanCopy.id),
+          picks: [
+            {
+              pick: 1,
+              playerId: bob.id,
+              poolCardId: shivan.id,
+              name: shivan.name,
+              layout: 'normal',
+              typeLine: 'Creature — Dragon',
+              set: 'ima',
+              collectorNumber: '1',
+            },
+          ],
+        },
+      );
+
+      const picked = await openDetail(fixture, page, 0);
+      expect(button(picked, 'Remove from Plan')).toBeUndefined();
+      expect(button(picked, 'Add to Plan')!.disabled).toBe(true);
+      button(picked, 'Close')!.click();
+      await fixture.whenStable();
+      expect(button(await openDetail(fixture, page, 1), 'Remove from Plan')!.disabled).toBe(false);
     });
 
     it.each(['Closed', 'Complete'] as const)(
