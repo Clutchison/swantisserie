@@ -1,15 +1,20 @@
 # Swantisserie — v1 Plan
 
-A rotisserie ("roto") draft app for one Discord server, modelled on mtgrotisseriedraft.com with features dropped and added. Drafted pools are played on MTG Arena (decks are built in Arena or Moxfield, not in this app).
+A rotisserie ("roto") draft app for Discord servers (guilds), modelled on mtgrotisseriedraft.com with features dropped and added. Drafted pools are played on MTG Arena (decks are built in Arena or Moxfield, not in this app).
 
 Research behind these decisions: [docs/research/](docs/research/) — `mtgrotisserie.md`, `discord.md`, `scryfall.md`, `arena.md`.
 
 ## Access
 
-- Login with Discord OAuth2 (scopes `identify guilds.members.read`).
-- At login, require membership in our guild (`GET /users/@me/guilds/{guild}/member`). Otherwise reject.
-- Any guild member can create a draft and becomes its **organizer**.
-- **App admins** (Discord user IDs in config) have organizer powers on every draft.
+Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/0001-many-guilds-through-a-rest-only-discord-bot.md), #169).
+
+- Login with Discord OAuth2 (scopes `identify guilds guilds.members.read`). Anyone with a Discord account can sign in.
+- At each sign-in, `GET /users/@me/guilds` records which set-up guilds the user is in, and whether they're a **guild admin** in each (owner, or the Manage Server permission).
+- A user sees and joins only drafts in guilds they're a member of. Every draft and webhook belongs to one guild. Data from before many-guild support belongs to the guild in `DISCORD_GUILD_ID`.
+- **Setup:** a guild admin adds the Discord bot to their guild through Discord's add-bot screen, chooses the guild's **organizer role** (or Anyone), then clicks **Create channel categories** (a draft category and an archive category) or picks existing ones. A guild settings page changes these later. Nobody can create drafts in a guild until its setup is done.
+- Members with the organizer role (checked live with the Discord bot), guild admins and app admins who are members can create a draft in the guild, and become its **organizer**. With no organizer role set, any member can.
+- **Guild admins** have app admin powers over every draft and webhook in their guild.
+- **App admins** (Discord user IDs in config) can manage drafts and webhooks in every guild, but join and create drafts only in guilds they're a member of.
 
 ## Pool
 
@@ -58,10 +63,14 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 - On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, so nothing missed while it was away stays missing.
 - Undos and queue-lost will need their own events, alongside the pushed draft.
 
-## Discord (webhooks, no bot)
+## Discord (Discord bot and webhooks)
 
-- An app admin registers **named webhooks** once (e.g. "#roto-main"). Webhook URLs are secrets and are not exposed to non-admins.
-- The organizer picks one webhook per draft.
+- Creating a draft makes the Discord bot create a **draft channel** in the guild's draft category, named after the draft, with a webhook in it. The draft's announcements go there by default. If Discord refuses, the draft isn't created and the organizer sees why.
+- A draft channel belongs to its draft and is never offered to other drafts.
+- App admins and guild admins register **named webhooks** by hand for a guild (e.g. "#roto-main"). Webhook URLs are secrets, seen only by app admins and that guild's admins.
+- Only app admins and the guild's admins can switch a draft's announcements to one of its guild's webhooks, or back to its draft channel.
+- **Archive chat:** the organizer, guild admins or app admins can move a complete or closed draft's channel to the archive category. Permissions aren't changed: a bot can't mute channels for members. Reopening the draft moves the channel back, and cancelling a lobby draft deletes it.
+- If a draft or archive category was deleted in Discord, the Discord bot recreates it when it's next needed and DMs the guild admin who last ran setup. A failed DM is ignored.
 - **Text only, no card image embeds.** Only the draft started message links to the draft.
 
 | Event                   | Message                                                                                  |
@@ -74,7 +83,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 - Pings use `allowed_mentions: { parse: [], users: [nextId] }`. The mention goes in `content`.
 - A by-hand pick that leaves the same player up, at a round boundary in snake order, doesn't ping them: "**Alice** is up." names them, as it does a bot. A queued pick that leaves its player up, a cascade ending on anyone, and start, resume, reopen and undo announcements all still ping.
-- Possible later upgrade: a REST bot with an HTTP interactions endpoint for opt-in DMs and `/status` / `/pick` commands. Not in v1.
+- Possible later upgrade: an HTTP interactions endpoint on the api for slash commands (changing a guild's categories, `/status`, `/pick`) and opt-in DMs to players. It needs no gateway.
 
 ## Card images
 
@@ -111,7 +120,7 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 - Rarity and wildcard tools
 - Deckbuilding (main/sideboard, basics) in the app
 - Hidden-picks mode
-- Discord bot (DMs, slash commands)
+- Discord bot DMs to players and slash commands (the Discord bot itself is in scope, REST-only)
 
 ## Stack
 
@@ -137,15 +146,14 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 
 `api/src/discord/`: `DiscordModule`, holding:
 
-- the admin webhook registry
+- the per-guild webhook registry
+- the Discord bot's REST client (`Authorization: Bot <DISCORD_BOT_TOKEN>`): roles, categories, draft channels and their webhooks, archiving, DMs
 - `DraftNotifier`
 - pure message-formatter functions, unit-tested
 
-This is the single place to swap in a real bot later.
-
 ## Web layout
 
-- **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, admin (webhooks).
+- **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, guild setup and guild settings (guild admins), webhooks (app admins and guild admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
   - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Queue:** drag to reorder, lost and cleared cards named in a notice
