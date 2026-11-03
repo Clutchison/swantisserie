@@ -649,6 +649,7 @@ function toPickView(pick: LoggedPick): PickView {
     poolCardId: pick.poolCardId,
     name: pick.poolCard.name,
     layout: pick.poolCard.layout,
+    typeLine: pick.poolCard.typeLine,
     set: pick.poolCard.set,
     collectorNumber: pick.poolCard.collectorNumber,
   };

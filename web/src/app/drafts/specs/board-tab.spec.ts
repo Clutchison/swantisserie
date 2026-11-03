@@ -28,6 +28,7 @@ describe('board tab', () => {
       poolCardId: 'shock-card',
       name: 'Shock',
       layout: 'normal',
+      typeLine: 'Instant',
       set: 'ima',
       collectorNumber: '1',
     },
@@ -37,6 +38,7 @@ describe('board tab', () => {
       poolCardId: 'bolt-card',
       name: 'Lightning Bolt',
       layout: 'normal',
+      typeLine: 'Instant',
       set: 'ima',
       collectorNumber: '1',
     },
@@ -46,6 +48,7 @@ describe('board tab', () => {
       poolCardId: 'spike-card',
       name: 'Lava Spike',
       layout: 'normal',
+      typeLine: 'Sorcery — Arcane',
       set: 'ima',
       collectorNumber: '1',
     },
@@ -267,7 +270,7 @@ describe('board tab', () => {
     });
 
     describe('copying picks', () => {
-      const copyButton = (root: HTMLElement, target: 'Arena' | 'Moxfield' = 'Arena') =>
+      const copyButton = (root: HTMLElement, target: 'Arena' | 'MTGO' | 'Moxfield' = 'Arena') =>
         [...panel(root).querySelectorAll('button')].find((button) =>
           button.textContent?.includes(`Copy for ${target}`),
         );
@@ -319,10 +322,10 @@ describe('board tab', () => {
         expect(copyTargets(page)).toEqual(['Copy for Arena', 'Copy for Moxfield']);
       });
 
-      it('offers only the copy for Moxfield on an MTGO draft', async () => {
+      it('offers copies for MTGO and Moxfield on an MTGO draft', async () => {
         const { page } = await openBobsPicks(picks, { platform: 'MTGO' });
 
-        expect(copyTargets(page)).toEqual(['Copy for Moxfield']);
+        expect(copyTargets(page)).toEqual(['Copy for MTGO', 'Copy for Moxfield']);
       });
 
       it('copies any player’s picks for Arena, with multi-face cards named its way', async () => {
@@ -333,6 +336,7 @@ describe('board tab', () => {
             poolCardId: 'shock-card',
             name: 'Shock',
             layout: 'normal',
+            typeLine: 'Instant',
             set: 'ima',
             collectorNumber: '1',
           },
@@ -342,6 +346,7 @@ describe('board tab', () => {
             poolCardId: 'giant-card',
             name: 'Bonecrusher Giant // Stomp',
             layout: 'adventure',
+            typeLine: 'Creature — Giant // Sorcery — Adventure',
             set: 'ima',
             collectorNumber: '1',
           },
@@ -351,6 +356,7 @@ describe('board tab', () => {
             poolCardId: 'commit-card',
             name: 'Commit // Memory',
             layout: 'split',
+            typeLine: 'Instant // Sorcery',
             set: 'ima',
             collectorNumber: '1',
           },
@@ -365,6 +371,52 @@ describe('board tab', () => {
         expect(announced(page)).toBe('Copied for Arena');
       });
 
+      it('copies any player’s picks for MTGO, with multi-face cards named its way', async () => {
+        const { fixture, page } = await openBobsPicks(
+          [
+            {
+              pick: 1,
+              playerId: bob.id,
+              poolCardId: 'shock-card',
+              name: 'Shock',
+              layout: 'normal',
+              typeLine: 'Instant',
+              set: 'ima',
+              collectorNumber: '1',
+            },
+            {
+              pick: 3,
+              playerId: bob.id,
+              poolCardId: 'giant-card',
+              name: 'Bonecrusher Giant // Stomp',
+              layout: 'adventure',
+              typeLine: 'Creature — Giant // Sorcery — Adventure',
+              set: 'eld',
+              collectorNumber: '115',
+            },
+            {
+              pick: 5,
+              playerId: bob.id,
+              poolCardId: 'commit-card',
+              name: 'Commit // Memory',
+              layout: 'split',
+              typeLine: 'Instant // Sorcery',
+              set: 'akh',
+              collectorNumber: '211',
+            },
+          ],
+          { platform: 'MTGO' },
+        );
+
+        copyButton(page, 'MTGO')!.click();
+        await fixture.whenStable();
+
+        expect(writeText).toHaveBeenCalledExactlyOnceWith(
+          '1 Shock\n1 Bonecrusher Giant\n1 Commit/Memory',
+        );
+        expect(announced(page)).toBe('Copied for MTGO');
+      });
+
       it('copies any player’s picks for Moxfield, with their printings', async () => {
         const { fixture, page } = await openBobsPicks([
           {
@@ -373,6 +425,7 @@ describe('board tab', () => {
             poolCardId: 'shock-card',
             name: 'Shock',
             layout: 'normal',
+            typeLine: 'Instant',
             set: 'm21',
             collectorNumber: '159',
           },
@@ -382,6 +435,7 @@ describe('board tab', () => {
             poolCardId: 'giant-card',
             name: 'Bonecrusher Giant // Stomp',
             layout: 'adventure',
+            typeLine: 'Creature — Giant // Sorcery — Adventure',
             set: 'eld',
             collectorNumber: '115',
           },

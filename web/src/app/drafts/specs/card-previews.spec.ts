@@ -56,6 +56,7 @@ describe('card previews', () => {
     poolCardId: card.id,
     name: card.name,
     layout: card.layout,
+    typeLine: card.typeLine,
     set: card.set,
     collectorNumber: card.collectorNumber,
   });

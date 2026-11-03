@@ -54,6 +54,7 @@ describe('live updates', () => {
     poolCardId: 'shivan-card',
     name: 'Shivan Dragon',
     layout: 'normal',
+    typeLine: 'Creature — Dragon',
     set: 'ima',
     collectorNumber: '1',
   };

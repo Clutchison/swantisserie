@@ -10,6 +10,7 @@ export interface PickView {
    * layout was stored is backfilled.
    */
   layout: string | null;
+  typeLine: string;
   set: string;
   collectorNumber: string;
 }
