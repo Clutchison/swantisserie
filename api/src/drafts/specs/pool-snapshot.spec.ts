@@ -54,11 +54,31 @@ describe('pool snapshot', () => {
     expect(scryfall.search).toHaveBeenCalledWith(query, 2);
   });
 
+  it('leaves the basic lands out of the pool, as a plan adds them by count', async () => {
+    scryfallAnswers({
+      't:land': page('Plains', 'Snow-Covered Plains'),
+      '(t:land) -in:arena': null,
+      [snapshotQuery('t:land')]: page('Snow-Covered Plains'),
+    });
+
+    const created = await createDraft({
+      name: 'Lands',
+      poolQuery: 't:land',
+    }).expect(201);
+
+    await snapshotted(created.body.id);
+    expect(scryfall.search).toHaveBeenCalledWith(
+      '(t:land) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:arena unique:cards',
+      1,
+    );
+  });
+
   it('takes each card’s MTGO printing for an MTGO draft', async () => {
     scryfallAnswers({
       'c:r': page('Shock'),
       '(c:r) -in:mtgo': null,
-      '(c:r) game:mtgo unique:cards': page('Shock'),
+      '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards':
+        page('Shock'),
     });
 
     const created = await createDraft({
@@ -70,7 +90,7 @@ describe('pool snapshot', () => {
     const draft = await snapshotted(created.body.id);
     expect(draft.snapshot).toEqual({ state: 'Complete', cards: 1, total: 1 });
     expect(scryfall.search).toHaveBeenCalledWith(
-      '(c:r) game:mtgo unique:cards',
+      '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards',
       1,
     );
     expect(scryfall.search).not.toHaveBeenCalledWith(
@@ -83,7 +103,8 @@ describe('pool snapshot', () => {
     scryfallAnswers({
       'c:r': page('Shock'),
       '(c:r) -in:mtgo': null,
-      '(c:r) game:mtgo unique:cards': null,
+      '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards':
+        null,
     });
 
     const created = await createDraft({

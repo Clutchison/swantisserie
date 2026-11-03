@@ -1,4 +1,5 @@
 import type {
+  BasicLand,
   DraftState,
   PlanBoard,
   Platform,
@@ -18,6 +19,7 @@ type Expect<T extends true> = T;
  * so it isn't reported as unused; nothing imports it.
  */
 export type ContractMatchesSchema = [
+  Expect<Same<BasicLand, Schema.BasicLand>>,
   Expect<Same<DraftState, Schema.DraftState>>,
   Expect<Same<PlanBoard, Schema.PlanBoard>>,
   Expect<Same<Platform, Schema.Platform>>,
