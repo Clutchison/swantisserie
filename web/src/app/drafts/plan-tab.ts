@@ -12,6 +12,7 @@ import {
 import type { PlanBoard, PlannedCardView, PlanView, PoolCardView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImageSource } from './card-image-source';
+import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { PlanApi } from './plan-api';
@@ -91,7 +92,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  */
 @Component({
   selector: 'app-plan-tab',
-  imports: [CardPreviewName, CdkDrag, CdkDropList, CdkDropListGroup, LoadingAnimation],
+  imports: [CardName, CardPreviewName, CdkDrag, CdkDropList, CdkDropListGroup, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],

@@ -15,6 +15,7 @@ import {
   completeSnapshot,
   decoded,
   wait,
+  viewOn,
 } from './harness';
 import { image } from './pool-tab-harness';
 
@@ -98,6 +99,11 @@ describe('card previews', () => {
     [...page.querySelectorAll<HTMLElement>('.player-picks li span')].find(
       (span) => span.textContent?.trim() === name,
     )!;
+  /** The symbols of the cost before `name`, by their alt text, or the text of one with no SVG. */
+  const costBefore = (name: HTMLElement) =>
+    [...(name.previousElementSibling?.querySelectorAll('img, span') ?? [])].map((symbol) =>
+      symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent,
+    );
   /** The Card preview's image, if one is open: it's outside the page. */
   const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');
 
@@ -245,7 +251,10 @@ describe('card previews', () => {
   it('requests no image until it opens', async () => {
     const { page } = await openBoard();
 
-    expect(page.querySelector('#board-panel img')).toBeNull();
+    // Only the names' mana symbols, which aren't card images.
+    expect(
+      [...page.querySelectorAll('#board-panel img')].filter((img) => !img.closest('.cost')),
+    ).toEqual([]);
     expect(previewImage()).toBeNull();
   });
 
@@ -349,7 +358,7 @@ describe('card previews', () => {
   it('shows on names in the pick log and on another player’s picks', async () => {
     const { fixture, page } = await openBoard();
 
-    tap(panel(page).querySelector<HTMLElement>('.log .card span')!);
+    tap(panel(page).querySelector<HTMLElement>('.log app-card-name .name')!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
 
     panel(page).querySelector<HTMLButtonElement>('.player-picks button')!.click();
@@ -357,8 +366,63 @@ describe('card previews', () => {
     vi.useRealTimers();
     await fixture.whenStable();
     tap(page.querySelector('h1')!);
-    tap(panel(page).querySelector<HTMLElement>('.picks .card span')!);
+    tap(panel(page).querySelector<HTMLElement>('.picks app-card-name .name')!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+  });
+
+  describe('mana costs', () => {
+    it('show before names on the Board tab, as symbols with alt and title text', async () => {
+      const { page } = await openBoard({
+        cards: [{ ...bolt, manaCost: '{1}{R}' }, shock],
+      });
+
+      const name = boardName(page, 'Lightning Bolt');
+      expect(costBefore(name)).toEqual(['one generic mana', 'one red mana']);
+      const symbol = name.previousElementSibling!.querySelector('img')!;
+      expect(symbol.getAttribute('src')).toBe('mana/1.svg');
+      expect(symbol.title).toBe('one generic mana');
+    });
+
+    it('show a symbol the app has no SVG for as its text', async () => {
+      const { page } = await openBoard({ cards: [{ ...bolt, manaCost: '{H}{R}' }, shock] });
+
+      expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual(['{H}', 'one red mana']);
+    });
+
+    it('show once the pool card has loaded, the name alone until then', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http
+        .expectOne('/api/drafts/draft-1')
+        .flush(draft({ snapshot: completeSnapshot, state: 'Drafting', players: [bob] }));
+      await flushPicks([pick(1, bolt, bob.id)]);
+      const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
+      tabButton(page, 'Board').click();
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(boardName(page, 'Lightning Bolt')).toBeDefined();
+      });
+
+      expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual([]);
+
+      request.flush([bolt]);
+      await fixture.whenStable();
+      expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual(['one red mana']);
+    });
+
+    it('show before names in the pick log and on the Picks tab', async () => {
+      const { fixture, page } = await openBoard();
+
+      expect(
+        costBefore(panel(page).querySelector<HTMLElement>('.log app-card-name .name')!),
+      ).toEqual(['one red mana']);
+
+      panel(page).querySelector<HTMLButtonElement>('.player-picks button')!.click();
+      vi.useRealTimers();
+      await fixture.whenStable();
+      expect(
+        costBefore(panel(page).querySelector<HTMLElement>('.picks app-card-name .name')!),
+      ).toEqual(['one red mana']);
+    });
   });
 
   describe('in the plan', () => {
@@ -374,8 +438,60 @@ describe('card previews', () => {
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
 
-      tap(panel(page).querySelector<HTMLElement>('li .name span')!);
+      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    /** Opens the Plan tab with Lightning Bolt on the mainboard, Shock on the sideboard, and Bolt lost. */
+    async function openPlan() {
+      const opened = await openPicked({
+        user: { ...alice, isAppAdmin: true },
+        plan: {
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
+          lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.name }],
+        },
+      });
+      tabButton(opened.page, 'Plan').click();
+      await opened.fixture.whenStable();
+      return opened;
+    }
+
+    it('shows mana costs before list lines’ names, each plan board its own list', async () => {
+      const { page } = await openPlan();
+
+      const lists = [...panel(page).querySelectorAll<HTMLElement>('.plan-board .card-rows')];
+      expect(
+        lists.map((list) =>
+          [...list.querySelectorAll<HTMLElement>('app-card-name .name')].map((name) => [
+            name.textContent,
+            costBefore(name),
+          ]),
+        ),
+      ).toEqual([[['Lightning Bolt', ['one red mana']]], [['Shock', ['one red mana']]]]);
+    });
+
+    it('shows mana costs inline in the notice', async () => {
+      const { page } = await openPlan();
+
+      const notice = panel(page).querySelector<HTMLElement>('.notice')!;
+      expect(costBefore(notice.querySelector<HTMLElement>('strong .name')!)).toEqual([
+        'one red mana',
+      ]);
+      expect(notice.querySelector('.card-rows')).toBeNull();
+    });
+
+    it('shows no mana costs on stacks’ card images', async () => {
+      viewOn('desktop');
+      try {
+        const { page } = await openPlan();
+
+        expect(panel(page).querySelector('.stacks')).not.toBeNull();
+        expect(panel(page).querySelector('.stacks .cost')).toBeNull();
+      } finally {
+        vi.unstubAllGlobals();
+        localStorage.clear();
+      }
     });
   });
 
@@ -398,16 +514,29 @@ describe('card previews', () => {
     it('shows on queue rows and the queue lost notice', async () => {
       const { page } = await openQueue();
 
-      tap(panel(page).querySelector<HTMLElement>('li .name span')!);
+      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
-      tap(panel(page).querySelector<HTMLElement>('.notice strong')!);
+      tap(panel(page).querySelector<HTMLElement>('.notice strong .name')!);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    it('shows mana costs before queue rows’ names, and inline in the notice', async () => {
+      const { page } = await openQueue();
+
+      expect(costBefore(panel(page).querySelector<HTMLElement>('.queue .name')!)).toEqual([
+        'one red mana',
+      ]);
+      const notice = panel(page).querySelector<HTMLElement>('.notice')!;
+      expect(costBefore(notice.querySelector<HTMLElement>('strong .name')!)).toEqual([
+        'one red mana',
+      ]);
+      expect(notice.querySelector('.card-rows')).toBeNull();
     });
 
     it('closes when a drag starts, and opens none until it is released', async () => {
       const { page } = await openQueue();
-      const name = panel(page).querySelector<HTMLElement>('li .name span')!;
+      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
       tap(name);
       expect(previewImage()).not.toBeNull();
 

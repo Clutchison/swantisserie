@@ -57,3 +57,33 @@ li {
 .cdk-drag-placeholder {
   opacity: 0.3;
 }
+
+/*
+ * A list of card names with their mana costs (see CardName): the costs line
+ * up right-aligned in one column, as wide as the widest, and the names start
+ * at one edge after it. A list sets its row's columns in --card-row-columns,
+ * naming the cost and name columns: a row's cells before its CardName fill the
+ * columns before them, and those after it the columns after.
+ */
+.card-rows {
+  --card-row-columns: [cost] max-content [name] minmax(0, 1fr);
+  display: grid;
+  grid-template-columns: var(--card-row-columns);
+  align-items: center;
+
+  /* An empty list's one row spans every column, laid out as any list item. */
+  > li {
+    grid-column: 1 / -1;
+  }
+
+  > li:not(.empty) {
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: center;
+  }
+
+  /* A dragged row is out of the list's grid, so lays out its cells in the same columns itself. */
+  > li.cdk-drag-preview {
+    grid-template-columns: var(--card-row-columns);
+  }
+}

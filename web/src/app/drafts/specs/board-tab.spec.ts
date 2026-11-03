@@ -141,7 +141,9 @@ describe('board tab', () => {
     const { page } = await openBoard(picks);
 
     const log = [...pickLog(page).querySelectorAll('li')].map((li) =>
-      [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
+      [...li.querySelectorAll(':scope > span, :scope > app-card-name')].map((span) =>
+        span.textContent?.trim(),
+      ),
     );
     expect(log).toEqual([
       ['1', 'Bob', 'Shock'],
@@ -179,7 +181,7 @@ describe('board tab', () => {
   it('leaves hover text off a pick log card, whose Card preview shows it in full', async () => {
     const { page } = await openBoard(picks);
 
-    const card = pickLog(page).querySelector<HTMLElement>('li .card')!;
+    const card = pickLog(page).querySelector<HTMLElement>('li app-card-name .name')!;
     expect(card.textContent?.trim()).toBe('Shock');
     expect(card.querySelector('[title]')).toBeNull();
     expect(card.hasAttribute('title')).toBe(false);
@@ -207,7 +209,9 @@ describe('board tab', () => {
     ]);
 
     const log = [...pickLog(page).querySelectorAll('li')].map((li) =>
-      [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
+      [...li.querySelectorAll(':scope > span, :scope > app-card-name')].map((span) =>
+        span.textContent?.trim(),
+      ),
     );
     expect(log).toEqual([
       ['1', 'Bob', 'Lightning Bolt'],
@@ -232,7 +236,9 @@ describe('board tab', () => {
     const shownPlayer = (root: HTMLElement) => ({
       heading: panel(root).querySelector('h2')?.textContent,
       picks: [...panel(root).querySelectorAll('li')].map((li) =>
-        [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
+        [...li.querySelectorAll(':scope > span, :scope > app-card-name')].map((span) =>
+          span.textContent?.trim(),
+        ),
       ),
     });
 

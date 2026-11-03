@@ -3,7 +3,9 @@
     <p>
       Lost to other players:
       @for (card of plan().lost; track card.poolCardId; let last = $last) {
-        <strong [appCardPreview]="poolCardsById().get(card.poolCardId)">{{ card.name }}</strong>
+        <strong
+          ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name"
+        /></strong>
         (picked by {{ card.pickedBy }}){{ last ? '.' : ',' }}
       }
     </p>
@@ -140,7 +142,7 @@
         </div>
       } @else {
         <ul
-          class="lines"
+          class="lines card-rows"
           cdkDropList
           [cdkDropListData]="board.name"
           [cdkDropListDisabled]="changing() || !onDesktop()"
@@ -156,33 +158,32 @@
               (cdkDragStarted)="previews.dragStarted()"
             >
               <span class="count">{{ line.count }}</span>
-              <span class="name">
-                <!-- Only the text shows a Card preview, not the rest of the row. -->
-                <span [appCardPreview]="poolCardsById().get(line.poolCardId)">{{ line.name }}</span>
-              </span>
-              @if (!line.picked) {
-                <span class="mark">Unpicked</span>
-              }
-              <button
-                class="button compact quiet"
-                type="button"
-                [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
-                (click)="move(line.poolCardId, board.other)"
-                [disabled]="changing()"
-              >
-                To {{ board.otherName }}
-              </button>
-              @if (!line.picked) {
+              <app-card-name [card]="poolCardsById().get(line.poolCardId)" [name]="line.name" />
+              <span class="line-actions">
+                @if (!line.picked) {
+                  <span class="mark">Unpicked</span>
+                }
                 <button
                   class="button compact quiet"
                   type="button"
-                  [attr.aria-label]="'Remove ' + line.name + ' from your plan'"
-                  (click)="remove(line.poolCardId)"
+                  [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
+                  (click)="move(line.poolCardId, board.other)"
                   [disabled]="changing()"
                 >
-                  Remove
+                  To {{ board.otherName }}
                 </button>
-              }
+                @if (!line.picked) {
+                  <button
+                    class="button compact quiet"
+                    type="button"
+                    [attr.aria-label]="'Remove ' + line.name + ' from your plan'"
+                    (click)="remove(line.poolCardId)"
+                    [disabled]="changing()"
+                  >
+                    Remove
+                  </button>
+                }
+              </span>
             </li>
           } @empty {
             <li class="empty">
