@@ -7,6 +7,7 @@ import {
   completeSnapshot,
   flushPicks,
   updates,
+  viewOn,
 } from './harness';
 
 useDraftsApp();
@@ -27,12 +28,6 @@ describe('seat order', () => {
     updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
     await flushPicks([]);
     await fixture.whenStable();
-  }
-
-  function viewOn(screen: 'desktop' | 'mobile') {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: screen === 'desktop' && query === '(min-width: 1024px)',
-    }));
   }
 
   afterEach(() => {

@@ -220,6 +220,22 @@ _Avoid_: Deck tab, deckbuilder, Deck Planner
 The note on the Plan tab naming a player's lost unpicked cards and who picked each. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Deck notice, alert, queue notice (that is the queue's)
 
+**Stacks mode**:
+The way of showing each plan board as stacks of overlapping card images, offered on desktop, so a player sees their curve at a glance.
+_Avoid_: Card view, grid view, visual mode, curve view
+
+**List mode**:
+The way of showing each plan board as lines of card names with counts. The only way below the desktop breakpoint.
+_Avoid_: Text mode, compact view
+
+**Stack**:
+One column of stacks mode: the cards of a plan board that share a grouping's value, sorted by mana value then name.
+_Avoid_: Column, pile
+
+**Grouping**:
+How stacks mode divides a plan board into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies.
+_Avoid_: Sort, filter, view
+
 **Export tab**:
 The part of a draft's page where a player reviews their picks and copies their exports.
 _Avoid_: Me tab, Picks tab, picks page

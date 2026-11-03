@@ -264,6 +264,16 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
   await fixture.whenStable();
 }
 
+/**
+ * Puts the page on a desktop or a mobile screen, by the draft page's
+ * breakpoint, for the test to come. Undo it with `vi.unstubAllGlobals()`.
+ */
+export function viewOn(screen: 'desktop' | 'mobile') {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: screen === 'desktop' && query === '(min-width: 1024px)',
+  }));
+}
+
 /** Lets `ms` pass on the fake timers, then renders what came of it. */
 export function wait(ms: number) {
   vi.advanceTimersByTime(ms);

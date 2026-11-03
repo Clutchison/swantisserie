@@ -1,3 +1,4 @@
+import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -9,12 +10,38 @@ import {
 } from '@angular/core';
 import type { PlanBoard, PlannedCardView, PlanView, PoolCardView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
-import { CardPreviewName } from './card-preview';
+import { CardImageSource } from './card-image-source';
+import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure } from './drafts';
 import { PlanApi } from './plan-api';
+import { type Grouping, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
+
+/** How a plan board shows: as stacks of card images, or as a list of names. */
+export type PlanMode = 'stacks' | 'list';
+
+/** The draft page's desktop layout, from which stacks mode is offered. */
+const DESKTOP = '(min-width: 1024px)';
+
+/** The mode and grouping a viewer chose, kept in their browser. */
+interface PlanViewChoice {
+  mode: PlanMode;
+  grouping: Grouping;
+}
+const CHOICE_KEY = 'plan-view';
+const DEFAULT_CHOICE: PlanViewChoice = { mode: 'stacks', grouping: 'manaValue' };
+const MODES: PlanMode[] = ['stacks', 'list'];
+
+/**
+ * The width declared to the browser for a stack's small image, though it's
+ * really 146px: browsers load the normal image for any stack wider than this
+ * at normal pixel density, and stacks run up to 160px. A little soft at 160px.
+ */
+const SMALL_IMAGE_DECLARED_WIDTH = 160;
+/** The width of a card's normal image, in px. */
+const NORMAL_IMAGE_WIDTH = 488;
 
 /** One line of a board: a card's picked copies, or its unpicked ones, with how many the board holds. */
 interface PlanLine {
@@ -49,20 +76,34 @@ const BOARDS: Record<
   },
 };
 
+/** The groupings, in the order the control offers them, as it names them. */
+const GROUPINGS: { grouping: Grouping; name: string }[] = [
+  { grouping: 'manaValue', name: 'Mana value' },
+  { grouping: 'color', name: 'Color' },
+  { grouping: 'type', name: 'Type' },
+];
+
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
  * the unpicked cards they added; and the Plan notice of their lost cards.
+ *
+ * On desktop each board shows as stacks of card images, grouped by mana
+ * value, color or card type, or as a list of names, and a card can be
+ * dragged onto the other board; below the desktop breakpoint only the list
+ * is offered.
  */
 @Component({
   selector: 'app-plan-tab',
-  imports: [CardPreviewName, LoadingAnimation],
+  imports: [CardPreviewName, CdkDrag, CdkDropList, CdkDropListGroup, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
 })
 export class PlanTab {
   private readonly planApi = inject(PlanApi);
+  protected readonly images = inject(CardImageSource);
+  protected readonly previews = inject(CardPreviews);
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
@@ -80,7 +121,16 @@ export class PlanTab {
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  /** The mainboard, then the sideboard, each as its lines and counts. */
+  /** Whether the page is at the desktop layout. No `matchMedia` counts as mobile. */
+  protected readonly onDesktop = signal(!!globalThis.matchMedia?.(DESKTOP).matches);
+  private readonly remembered = rememberedChoice();
+  protected readonly mode = signal(this.remembered.mode);
+  protected readonly grouping = signal(this.remembered.grouping);
+  protected readonly groupings = GROUPINGS;
+  /** Whether the boards show as stacks: the chosen mode, on desktop. */
+  protected readonly showingStacks = computed(() => this.onDesktop() && this.mode() === 'stacks');
+
+  /** The mainboard, then the sideboard, each as its lines and counts, and its stacks when showing them. */
   protected readonly boards = computed(() =>
     (['Mainboard', 'Sideboard'] as const).map((board) => {
       const { cards, ...rest } = BOARDS[board];
@@ -91,12 +141,57 @@ export class PlanTab {
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
+        stacks: this.showingStacks() ? stacks(held, this.grouping(), this.poolCardsById()) : [],
       };
     }),
   );
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
+
+  constructor() {
+    globalThis.matchMedia?.(DESKTOP).addEventListener?.('change', ({ matches }) => {
+      this.onDesktop.set(matches);
+    });
+  }
+
+  protected setMode(mode: PlanMode) {
+    this.mode.set(mode);
+    this.rememberChoice();
+  }
+
+  protected setGrouping(grouping: Grouping) {
+    this.grouping.set(grouping);
+    this.rememberChoice();
+  }
+
+  /** Keeps the chosen mode and grouping for next time, if the browser allows. */
+  private rememberChoice() {
+    const choice: PlanViewChoice = { mode: this.mode(), grouping: this.grouping() };
+    try {
+      localStorage.setItem(CHOICE_KEY, JSON.stringify(choice));
+    } catch {
+      // Storage may be full or refused, as in a private window: the choice holds for this page.
+    }
+  }
+
+  /** A stack's image at the small and normal sizes, for the browser to choose between. */
+  protected srcset(card: PoolCardView): string | null {
+    const normal = this.images.workingUrl(card, 'normal');
+    return normal
+      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${NORMAL_IMAGE_WIDTH}w`
+      : null;
+  }
+
+  /** A card dropped on a board: it moves there, unless that's the board it came from. */
+  protected dropped({
+    item,
+    previousContainer,
+    container,
+  }: CdkDragDrop<PlanBoard, PlanBoard, string>) {
+    if (previousContainer.data === container.data) return;
+    return this.move(item.data, container.data);
+  }
 
   /** Moves one copy of a card to `board`, and shows the plan as it then is. */
   protected move(poolCardId: string, board: PlanBoard) {
@@ -131,6 +226,25 @@ export class PlanTab {
     }
   }
 }
+
+/** The mode and grouping the viewer last chose, or the defaults if none is kept or storage is refused. */
+function rememberedChoice(): PlanViewChoice {
+  try {
+    const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');
+    const { mode, grouping } = (kept ?? {}) as Record<string, unknown>;
+    return {
+      mode: isMode(mode) ? mode : DEFAULT_CHOICE.mode,
+      grouping: isGrouping(grouping) ? grouping : DEFAULT_CHOICE.grouping,
+    };
+  } catch {
+    // Storage may be refused, as in a private window, or hold something that isn't a choice.
+    return DEFAULT_CHOICE;
+  }
+}
+
+const isMode = (value: unknown): value is PlanMode => MODES.includes(value as PlanMode);
+const isGrouping = (value: unknown): value is Grouping =>
+  GROUPINGS.some((option) => option.grouping === value);
 
 /**
  * One line per distinct name, picked and unpicked copies apart, in the order

@@ -1,3 +1,6 @@
+import { CdkDropList } from '@angular/cdk/drag-drop';
+import type { DebugElement } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import type { DraftView, PlanView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
@@ -19,6 +22,7 @@ import {
   completeSnapshot,
   button,
   updates,
+  viewOn,
   type AppFixture,
 } from './harness';
 import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -38,8 +42,8 @@ describe('plan tab', () => {
   });
   const tabs = (page: HTMLElement) =>
     [...page.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim());
-  const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1 });
-  const boltAgain = card({ id: 'bolt-card-2', name: 'Lightning Bolt', manaValue: 1 });
+  const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1, typeLine: 'Instant' });
+  const boltAgain = card({ ...bolt, id: 'bolt-card-2' });
   const cards = [shivan, brightclimb, bolt, boltAgain];
   const planned = (card: { id: string; name: string }, picked = true) => ({
     poolCardId: card.id,
@@ -360,6 +364,212 @@ describe('plan tab', () => {
     await fixture.whenStable();
 
     expect(boards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
+  });
+
+  describe('on desktop', () => {
+    /** Each board's stacks as `name: card, card`, with ` (unpicked)` after a dimmed card. */
+    const stacksOf = (plan: HTMLElement) =>
+      [...plan.querySelectorAll('section')].map((board) =>
+        [...board.querySelectorAll('.stack')].map(
+          (stack) =>
+            `${stack.querySelector('.stack-name')?.textContent?.trim()}: ${[
+              ...stack.querySelectorAll('li'),
+            ]
+              .map(
+                (item) =>
+                  item.querySelector('img')?.alt +
+                  (item.classList.contains('unpicked') ? ' (unpicked)' : ''),
+              )
+              .join(', ')}`,
+        ),
+      );
+    const pressed = (plan: HTMLElement, label: string) =>
+      button(plan, label)?.getAttribute('aria-pressed');
+
+    beforeEach(() => viewOn('desktop'));
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      localStorage.clear();
+    });
+
+    it('opens in stacks mode, grouped by mana value, with lands in their own stack', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf({
+          mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(pressed(plan, 'List')).toBe('false');
+      expect(pressed(plan, 'Mana value')).toBe('true');
+      expect(stacksOf(plan)).toEqual([
+        [
+          '1: Lightning Bolt, Lightning Bolt (unpicked)',
+          'Lands: Brightclimb Pathway // Grimclimb Pathway',
+        ],
+        ['6: Shivan Dragon'],
+      ]);
+      expect(boards(plan).map((board) => board.heading)).toEqual([
+        'Mainboard 3 (2 picked)',
+        'Sideboard 1 (1 picked)',
+      ]);
+    });
+
+    it('groups by color or type instead, or lists, as chosen, and remembers the choice', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      button(plan, 'Color')!.click();
+      await fixture.whenStable();
+      expect(pressed(plan, 'Color')).toBe('true');
+      expect(pressed(plan, 'Mana value')).toBe('false');
+      expect(stacksOf(plan)[0]).toEqual([
+        'R: Lightning Bolt, Lightning Bolt, Shivan Dragon',
+        'Lands: Brightclimb Pathway // Grimclimb Pathway',
+      ]);
+
+      button(plan, 'Type')!.click();
+      await fixture.whenStable();
+      expect(stacksOf(plan)[0]).toEqual([
+        'Creature: Shivan Dragon',
+        'Instant: Lightning Bolt, Lightning Bolt',
+        'Land: Brightclimb Pathway // Grimclimb Pathway',
+      ]);
+      expect(JSON.parse(localStorage.getItem('plan-view')!)).toEqual({
+        mode: 'stacks',
+        grouping: 'type',
+      });
+
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      expect(pressed(plan, 'List')).toBe('true');
+      expect(button(plan, 'Type')).toBeUndefined();
+      expect(plan.querySelector('.stack')).toBeNull();
+      expect(boards(plan)[0].lines).toEqual([
+        '1 Brightclimb Pathway // Grimclimb Pathway',
+        '2 Lightning Bolt',
+        '1 Shivan Dragon',
+      ]);
+      expect(JSON.parse(localStorage.getItem('plan-view')!)).toEqual({
+        mode: 'list',
+        grouping: 'type',
+      });
+    });
+
+    it('opens as it was last left', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Color')).toBe('true');
+      expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
+    });
+
+    it('moves a card dragged onto the other board, as its button does', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      /** Each board's drop list, which a dragged card lands in. The Queue tab has one of its own. */
+      const dropLists = () =>
+        fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
+      const listOf = (element: DebugElement) => element.injector.get(CdkDropList);
+      expect(dropLists().map((list) => listOf(list).data)).toEqual(['Mainboard', 'Sideboard']);
+      const [mainboard, sideboard] = dropLists();
+      const dropped = (card: string, from: DebugElement, onto: DebugElement) =>
+        onto.triggerEventHandler('cdkDropListDropped', {
+          item: { data: card },
+          previousContainer: listOf(from),
+          container: listOf(onto),
+        });
+
+      dropped('bolt-card', mainboard, sideboard);
+      await fixture.whenStable();
+      const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
+      expect(req.request.method).toBe('PUT');
+      expect(req.request.body).toEqual({ board: 'Sideboard' });
+      req.flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(boltAgain), planned(shivan)],
+          sideboard: [planned(bolt)],
+        }),
+      );
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['1: Lightning Bolt']));
+
+      // Dropped back where it came from: nothing to change.
+      dropped('shivan-card', mainboard, mainboard);
+      await fixture.whenStable();
+      http.expectNone('/api/drafts/draft-1/plan/shivan-card');
+
+      // The list is a drop target too.
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      const [listMainboard, listSideboard] = dropLists();
+      dropped('bolt-card', listSideboard, listMainboard);
+      expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card').request.body).toEqual({
+        board: 'Mainboard',
+      });
+    });
+
+    it('falls back to the defaults when the browser offers no storage', async () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('QuotaExceededError');
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(pressed(plan, 'Mana value')).toBe('true');
+
+      // A choice that can't be kept still takes effect.
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      expect(pressed(plan, 'List')).toBe('true');
+      expect(plan.querySelector('.stack')).toBeNull();
+    });
+  });
+
+  it('offers only list mode below the desktop breakpoint, whatever was chosen on desktop', async () => {
+    localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
+    viewOn('mobile');
+    try {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(button(plan, 'Stacks')).toBeUndefined();
+      expect(button(plan, 'List')).toBeUndefined();
+      expect(plan.querySelector('.stack')).toBeNull();
+      expect(boards(plan)[0].lines).toHaveLength(3);
+    } finally {
+      vi.unstubAllGlobals();
+      localStorage.clear();
+    }
   });
 
   it.each(['Lobby', 'Paused', 'Closed', 'Complete'] as const)(
