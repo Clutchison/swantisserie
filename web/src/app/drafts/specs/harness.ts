@@ -199,6 +199,10 @@ export const panel = (root: HTMLElement) =>
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
  * `fixture.whenStable()` resolves, as it arrives through a promise: assert
  * what it shows inside `vi.waitFor`, unless the change showed it early.
+ *
+ * One draft per test: the app and its stand-in API are made once per test,
+ * so a second `openDraft` in the same test fails. Cases that differ only in
+ * the draft's fields are an `it.each`.
  */
 export async function openDraft(
   snapshot: PoolSnapshotView,

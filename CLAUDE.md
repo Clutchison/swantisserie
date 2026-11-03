@@ -16,6 +16,10 @@ Issues live in GitHub Issues for `Clutchison/swantisserie`, managed with the `gh
 
 Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
+### Picks and their effects
+
+Before touching picks, queues, plans, cascades, bots, pick import or undo, read `docs/agents/pick-effects.md`: it names the files in the chain, so read only those you will edit.
+
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root (ADRs created lazily). See `docs/agents/domain.md`.

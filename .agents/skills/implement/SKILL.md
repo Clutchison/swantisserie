@@ -12,6 +12,10 @@ If the ticket has open sub-issues (or carries the `tracking` label), stop: its w
 
 Call the Skill tool with "tdd" where possible, at pre-agreed seams.
 
+Read whole files only where you will edit them. For a spec's conventions, read its harness and one `it` block of the nearest spec, not the whole file.
+
+Edit with the Edit tool, exact strings against the file as it is; format once with prettier before committing, since formatting reflows the strings later edits match.
+
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 
 Once done, call the Skill tool with "code-review" to review the work.
