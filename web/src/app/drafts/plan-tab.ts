@@ -33,6 +33,7 @@ import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { type Grouping, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { MANA_SYMBOLS } from './mana-symbols';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
 const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
@@ -64,6 +65,16 @@ interface PlanLine extends BoardCard {
   /** How many copies the board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
   count: number;
 }
+
+/** Each basic land's mana symbol, which labels it in the Basic lands modal: Wastes's is colorless. */
+const BASIC_SYMBOLS: Record<BasicLand, string> = {
+  Plains: '{W}',
+  Island: '{U}',
+  Swamp: '{B}',
+  Mountain: '{R}',
+  Forest: '{G}',
+  Wastes: '{C}',
+};
 
 /** Each basic land's card data, for the images and Card previews of its copies. */
 const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
@@ -105,7 +116,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; the Basic lands control, which sets how
+ * the unpicked cards they added; the Basic lands modal, which sets how
  * many of each basic land the mainboard holds; and the Plan notice of their lost
  * cards.
  *
@@ -129,7 +140,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucideTrash,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '(document:keydown.escape)': 'closeQueueing()' },
+  host: { '(document:keydown.escape)': 'closeQueueing(); basicsOpen.set(false)' },
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
 })
@@ -202,13 +213,23 @@ export class PlanTab {
     }),
   );
 
-  /** Each basic land, with how many copies the plan holds. */
+  /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
   protected readonly basics = computed(() =>
     BASIC_LANDS.map((land) => ({
       land,
       count: this.plan().basics.find((basic) => basic.land === land)?.count ?? 0,
+      symbol: `mana/${MANA_SYMBOLS[BASIC_SYMBOLS[land]].file}`,
     })),
   );
+  /** How many basic lands the plan holds in all, for the Basic lands button. */
+  protected readonly basicsTotal = computed(() =>
+    this.plan().basics.reduce((total, basic) => total + basic.count, 0),
+  );
+  /** Whether the Basic lands modal is open. */
+  protected readonly basicsOpen = signal(false);
+  private readonly doneWithBasics = viewChild<ElementRef<HTMLButtonElement>>('doneWithBasics');
+  /** Whether the current press began on the Basic lands modal's backdrop, as a click there closes it. */
+  private pressedBackdrop = false;
   /** Whether the plan holds any basic land, for Clear basics to clear. */
   protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
   /** The most copies of one basic land the control offers. */
@@ -246,6 +267,7 @@ export class PlanTab {
   constructor() {
     // The modal takes focus as it opens.
     effect(() => this.cancelQueueing()?.nativeElement.focus());
+    effect(() => this.doneWithBasics()?.nativeElement.focus());
     // Not every test environment's `matchMedia` reports changes.
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;
@@ -311,6 +333,15 @@ export class PlanTab {
     // The binding only writes the input when the count changes, as it may not.
     input.value = String(count);
     return count === held ? undefined : this.setBasic(land, count);
+  }
+
+  protected backdropPressed(event: MouseEvent) {
+    this.pressedBackdrop = event.target === event.currentTarget;
+  }
+
+  /** A click on the Basic lands modal's backdrop closes it, unless the press began inside the modal. */
+  protected backdropClicked(event: MouseEvent) {
+    if (this.pressedBackdrop && event.target === event.currentTarget) this.basicsOpen.set(false);
   }
 
   /** Takes every basic land out of the plan. */

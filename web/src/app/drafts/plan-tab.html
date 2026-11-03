@@ -43,8 +43,9 @@
     </button>
   </div>
 }
-@if (onDesktop()) {
-  <div class="mode-controls">
+<!-- Stacks or list, and how the stacks group, on desktop only; then the Basic lands button, on every screen. -->
+<div class="mode-controls">
+  @if (onDesktop()) {
     <div class="segmented" role="group" aria-label="Mode">
       <button
         class="button compact quiet"
@@ -77,54 +78,9 @@
         }
       </div>
     }
-  </div>
-}
-<div class="basics" role="group" aria-labelledby="basics-heading">
-  <h3 id="basics-heading">Basic lands</h3>
-  <ul>
-    @for (basic of basics(); track basic.land) {
-      <li>
-        <label [for]="'basic-' + basic.land">{{ basic.land }}</label>
-        <button
-          class="button compact quiet"
-          type="button"
-          [attr.aria-label]="'One fewer ' + basic.land"
-          [title]="'One fewer ' + basic.land"
-          (click)="setBasic(basic.land, basic.count - 1)"
-          [disabled]="changing() || basic.count === 0"
-        >
-          <svg lucideMinus size="16"></svg>
-        </button>
-        <input
-          [id]="'basic-' + basic.land"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          [max]="mostBasics"
-          [value]="basic.count"
-          (change)="typedBasic(basic.land, basic.count, $any($event.target))"
-          [disabled]="changing()"
-        />
-        <button
-          class="button compact quiet"
-          type="button"
-          [attr.aria-label]="'One more ' + basic.land"
-          [title]="'One more ' + basic.land"
-          (click)="setBasic(basic.land, basic.count + 1)"
-          [disabled]="changing() || basic.count >= mostBasics"
-        >
-          <svg lucidePlus size="16"></svg>
-        </button>
-      </li>
-    }
-  </ul>
-  <button
-    class="button compact secondary"
-    type="button"
-    (click)="clearBasics()"
-    [disabled]="changing() || !hasBasics()"
-  >
-    Clear basics
+  }
+  <button class="button compact secondary" type="button" (click)="basicsOpen.set(true)">
+    Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
   </button>
 </div>
 <!-- On desktop, a card dragged from one board's drop list onto the other's moves there. -->
@@ -328,6 +284,71 @@
           [disabled]="sendingQueue() || queueCount() === 0"
         >
           Queue {{ queueCountText() }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+@if (basicsOpen()) {
+  <div class="backdrop" (mousedown)="backdropPressed($event)" (click)="backdropClicked($event)">
+    <div class="basics" role="dialog" aria-modal="true" aria-labelledby="basics-heading">
+      <h3 id="basics-heading">Basic lands</h3>
+      <ul>
+        @for (basic of basics(); track basic.land) {
+          <li>
+            <label [for]="'basic-' + basic.land">
+              <img
+                [src]="basic.symbol"
+                [alt]="basic.land"
+                [title]="basic.land"
+                width="24"
+                height="24"
+              />
+            </label>
+            <button
+              class="button compact quiet"
+              type="button"
+              [attr.aria-label]="'One fewer ' + basic.land"
+              [title]="'One fewer ' + basic.land"
+              (click)="setBasic(basic.land, basic.count - 1)"
+              [disabled]="changing() || basic.count === 0"
+            >
+              <svg lucideMinus size="16"></svg>
+            </button>
+            <input
+              [id]="'basic-' + basic.land"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [max]="mostBasics"
+              [value]="basic.count"
+              (change)="typedBasic(basic.land, basic.count, $any($event.target))"
+              [disabled]="changing()"
+            />
+            <button
+              class="button compact quiet"
+              type="button"
+              [attr.aria-label]="'One more ' + basic.land"
+              [title]="'One more ' + basic.land"
+              (click)="setBasic(basic.land, basic.count + 1)"
+              [disabled]="changing() || basic.count >= mostBasics"
+            >
+              <svg lucidePlus size="16"></svg>
+            </button>
+          </li>
+        }
+      </ul>
+      <div class="dialog-actions">
+        <button
+          class="button secondary"
+          type="button"
+          (click)="clearBasics()"
+          [disabled]="changing() || !hasBasics()"
+        >
+          Clear basics
+        </button>
+        <button class="button" type="button" #doneWithBasics (click)="basicsOpen.set(false)">
+          Done
         </button>
       </div>
     </div>
