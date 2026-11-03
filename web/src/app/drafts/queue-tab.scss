@@ -106,24 +106,42 @@
   flex: 1;
 }
 
-/* What a lost card does to the rest of the queue. */
+/* What a lost card does to the rest of the queue: a label, then a pill that switches it. */
 .steal-behavior {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin: var(--space-lg) 0 0;
-  padding: 0;
-  border: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 
-  legend {
-    margin-bottom: var(--space-xs);
-    padding: 0;
+  [title] {
     font-weight: 600;
+    cursor: help;
+  }
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 2.5rem;
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    background: var(--color-raised);
   }
 
-  .choice {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .swap {
+    color: var(--color-muted);
   }
 }

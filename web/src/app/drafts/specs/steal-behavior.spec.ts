@@ -41,31 +41,98 @@ describe('steal behavior', () => {
     return panel(page);
   }
 
-  /** The steal behavior option labelled `label`. */
-  function option(queue: HTMLElement, label: string) {
-    return [...queue.querySelectorAll('label')]
-      .find((l) => l.textContent?.includes(label))!
-      .querySelector<HTMLInputElement>('input[type="radio"]')!;
+  const EXPLANATION =
+    'Clear queue: the rest of your queue is cleared. ' +
+    'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
+
+  /** The steal behavior pill. */
+  function pill(queue: HTMLElement) {
+    return queue.querySelector<HTMLButtonElement>('.steal-behavior button')!;
   }
 
-  it('shows the player’s steal behavior, and sets it when they choose another', async () => {
+  /** The text of the elements an element's `aria-describedby` names. */
+  function description(el: HTMLElement) {
+    return (el.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => el.ownerDocument.getElementById(id)?.textContent?.replace(/\s+/g, ' ').trim())
+      .join(' ');
+  }
+
+  it('shows the player’s steal behavior above the notice and the queue', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [brightclimb, shivan],
+      queue: queueOf({ lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }] }),
+    });
+    const queue = await openQueue(fixture, page);
+
+    const control = queue.querySelector<HTMLElement>('.steal-behavior')!;
+    expect(control.textContent).toContain('Steal behavior');
+    expect(pill(queue).textContent).toContain('Clear queue');
+    expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Clear queue');
+    const notice = queue.querySelector('.notice')!;
+    expect(control.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(queue.querySelector('input[type="radio"]')).toBeNull();
+    expect(queue.querySelector('legend')).toBeNull();
+  });
+
+  it('explains itself in a tooltip and as the pill’s description', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf(),
     });
     const queue = await openQueue(fixture, page);
-    expect(option(queue, 'Clear queue').checked).toBe(true);
-    expect(option(queue, 'Pick next').checked).toBe(false);
 
-    option(queue, 'Pick next').click();
+    const label = [...queue.querySelectorAll<HTMLElement>('.steal-behavior [title]')];
+    expect(label.map((l) => l.title)).toEqual([EXPLANATION]);
+    expect(description(pill(queue))).toBe(EXPLANATION);
+    const shown = [...queue.querySelectorAll<HTMLElement>('*')].filter(
+      (el) =>
+        !el.closest('.visually-hidden') &&
+        [...el.childNodes].some(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.includes('is cleared'),
+        ),
+    );
+    expect(shown).toEqual([]);
+  });
+
+  it('shows when the queue is empty', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [], stealBehavior: 'PickNext' }),
+    });
+    const queue = await openQueue(fixture, page);
+
+    expect(pill(queue).textContent).toContain('Pick next');
+  });
+
+  it('switches to the other steal behavior when clicked, and saves it', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf(),
+    });
+    const queue = await openQueue(fixture, page);
+
+    pill(queue).click();
+    await fixture.whenStable();
+    expect(pill(queue).textContent).toContain('Pick next');
+    expect(pill(queue).disabled).toBe(true);
     const req = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ stealBehavior: 'PickNext' });
     req.flush(queueOf({ stealBehavior: 'PickNext' }));
     await fixture.whenStable();
 
-    expect(option(queue, 'Pick next').checked).toBe(true);
-    expect(option(queue, 'Clear queue').checked).toBe(false);
+    expect(pill(queue).textContent).toContain('Pick next');
+    expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Pick next');
+    await vi.waitFor(() => expect(pill(queue).disabled).toBe(false));
+
+    pill(queue).click();
+    const back = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
+    expect(back.request.body).toEqual({ stealBehavior: 'ClearQueue' });
+    back.flush(queueOf());
+    await fixture.whenStable();
+
+    expect(pill(queue).textContent).toContain('Clear queue');
   });
 
   it.each([
@@ -82,7 +149,7 @@ describe('steal behavior', () => {
     );
     const queue = await openQueue(fixture, page);
 
-    expect(option(queue, 'Pick next').disabled).toBe(false);
+    expect(pill(queue).disabled).toBe(false);
   });
 
   it.each(['Closed', 'Complete'] as const)(
@@ -94,31 +161,35 @@ describe('steal behavior', () => {
       });
       const queue = await openQueue(fixture, page);
 
-      expect(option(queue, 'Pick next').checked).toBe(true);
-      expect(option(queue, 'Pick next').disabled).toBe(true);
-      expect(option(queue, 'Clear queue').disabled).toBe(true);
+      expect(pill(queue).textContent).toContain('Pick next');
+      expect(pill(queue).disabled).toBe(true);
     },
   );
 
-  it('says when it couldn’t be changed, and re-reads the queue', async () => {
+  it('says when it couldn’t be changed, shows the previous value again, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf(),
     });
     const queue = await openQueue(fixture, page);
 
-    option(queue, 'Pick next').click();
+    pill(queue).click();
     http
       .expectOne('/api/drafts/draft-1/queue/steal-behavior')
       .flush(
         { error: 'draft-closed', message: 'This draft is closed.' },
         { status: 409, statusText: 'Conflict' },
       );
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queueOf());
-    await fixture.whenStable();
+    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+    // Before the queue is re-read.
+    await vi.waitFor(() => {
+      expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
+      expect(pill(queue).textContent).toContain('Clear queue');
+    });
 
-    expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
-    expect(option(queue, 'Clear queue').checked).toBe(true);
+    reread.flush(queueOf());
+    await fixture.whenStable();
+    expect(pill(queue).textContent).toContain('Clear queue');
   });
 
   describe('the queue notice', () => {

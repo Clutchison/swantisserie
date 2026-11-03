@@ -169,7 +169,7 @@ describe('close and reopen', () => {
     const queue = page.querySelector('#queue-panel')!;
     expect(queue.textContent).toContain('Shivan Dragon');
     expect(queue.textContent).toContain('Lightning Bolt');
-    expect(queue.querySelector('button')).toBeNull();
+    expect(queue.querySelector('button:not(:disabled)')).toBeNull();
     expect(queue.textContent).not.toContain('Drag to reorder');
   });
 
@@ -191,7 +191,7 @@ describe('close and reopen', () => {
     const queue = page.querySelector('#queue-panel')!;
     expect(queue.textContent).toContain('Shivan Dragon');
     expect(queue.textContent).toContain('Lightning Bolt');
-    expect(queue.querySelector('button')).toBeNull();
+    expect(queue.querySelector('button:not(:disabled)')).toBeNull();
     expect(queue.textContent).not.toContain('Drag to reorder');
     expect(queue.textContent).not.toContain('reopens');
   });
