@@ -86,7 +86,7 @@ describe('basic lands on the plan tab', () => {
     const added = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
     expect(added.request.method).toBe('PUT');
     expect(added.request.body).toEqual({ count: 1 });
-    added.flush(planOf([{ land: 'Plains', board: 'Mainboard', count: 1 }]));
+    added.flush(planOf([{ land: 'Plains', count: 1 }]));
     await vi.waitFor(() => expect(countOf(plan, 'Plains').value).toBe('1'));
     expect(boards(plan)[0]).toEqual({
       heading: 'Mainboard 3 (3 picked)',
@@ -98,8 +98,8 @@ describe('basic lands on the plan tab', () => {
     expect(typed.request.body).toEqual({ count: 8 });
     typed.flush(
       planOf([
-        { land: 'Plains', board: 'Mainboard', count: 1 },
-        { land: 'Island', board: 'Mainboard', count: 8 },
+        { land: 'Plains', count: 1 },
+        { land: 'Island', count: 8 },
       ]),
     );
     await vi.waitFor(() =>
@@ -114,7 +114,7 @@ describe('basic lands on the plan tab', () => {
     button(plan, 'One fewer Plains')!.click();
     const fewer = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
     expect(fewer.request.body).toEqual({ count: 0 });
-    fewer.flush(planOf([{ land: 'Island', board: 'Mainboard', count: 8 }]));
+    fewer.flush(planOf([{ land: 'Island', count: 8 }]));
     await vi.waitFor(() => expect(countOf(plan, 'Plains').value).toBe('0'));
 
     typeCount(plan, 'Island', '0');
@@ -128,7 +128,7 @@ describe('basic lands on the plan tab', () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       user: admin,
-      plan: planOf([{ land: 'Swamp', board: 'Mainboard', count: 2 }]),
+      plan: planOf([{ land: 'Swamp', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
 
@@ -142,50 +142,34 @@ describe('basic lands on the plan tab', () => {
     });
   });
 
-  it('counts a basic across both boards, and moves it between them like any other card', async () => {
+  it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       user: admin,
-      plan: planOf([{ land: 'Forest', board: 'Mainboard', count: 3 }]),
+      plan: planOf([{ land: 'Forest', count: 3 }]),
     });
     const plan = await openPlan(fixture, page);
 
-    button(plan, 'Move Forest to the sideboard')!.click();
-    const moved = http.expectOne('/api/drafts/draft-1/plan/basics/Forest/move');
-    expect(moved.request.method).toBe('POST');
-    expect(moved.request.body).toEqual({ board: 'Sideboard' });
-    moved.flush(
-      planOf([
-        { land: 'Forest', board: 'Mainboard', count: 2 },
-        { land: 'Forest', board: 'Sideboard', count: 1 },
-      ]),
-    );
-
-    await vi.waitFor(() =>
-      expect(boards(plan)).toEqual([
-        {
-          heading: 'Mainboard 4 (4 picked)',
-          lines: ['1 Lightning Bolt', '1 Shivan Dragon', '2 Forest'],
-        },
-        { heading: 'Sideboard 1 (1 picked)', lines: ['1 Forest'] },
-      ]),
-    );
+    expect(boards(plan)).toEqual([
+      {
+        heading: 'Mainboard 5 (5 picked)',
+        lines: ['1 Lightning Bolt', '1 Shivan Dragon', '3 Forest'],
+      },
+      { heading: 'Sideboard 0 (0 picked)', lines: [] },
+    ]);
     expect(countOf(plan, 'Forest').value).toBe('3');
-    // A basic is no unpicked card: there's nothing to remove but by its count.
+    expect(button(plan, 'Move Forest to the sideboard')).toBeUndefined();
     expect(button(plan, 'Remove Forest from your plan')).toBeUndefined();
-    button(plan, 'Move Forest to the mainboard')!.click();
-    expect(http.expectOne('/api/drafts/draft-1/plan/basics/Forest/move').request.body).toEqual({
-      board: 'Mainboard',
-    });
+    expect(button(plan, 'Move Shivan Dragon to the sideboard')).toBeDefined();
   });
 
-  it('clears every basic, on both boards', async () => {
+  it('clears every basic', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       user: admin,
       plan: planOf([
-        { land: 'Mountain', board: 'Mainboard', count: 5 },
-        { land: 'Wastes', board: 'Sideboard', count: 1 },
+        { land: 'Mountain', count: 5 },
+        { land: 'Wastes', count: 1 },
       ]),
     });
     const plan = await openPlan(fixture, page);
@@ -197,7 +181,7 @@ describe('basic lands on the plan tab', () => {
 
     await vi.waitFor(() => expect(countOf(plan, 'Mountain').value).toBe('0'));
     expect(countOf(plan, 'Wastes').value).toBe('0');
-    expect(boards(plan)[1].lines).toEqual([]);
+    expect(boards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']);
     expect(button(plan, 'Clear basics')!.disabled).toBe(true);
   });
 
@@ -213,7 +197,7 @@ describe('basic lands on the plan tab', () => {
     http.expectOne('/api/drafts/draft-1/plan/basics/Wastes');
   });
 
-  it('shows basics in the Lands stack on desktop, with their card images, and moves one dragged onto the other board', async () => {
+  it('shows basics in the Lands stack on desktop, with their card images, and can’t be dragged off the mainboard', async () => {
     viewOn('desktop');
     onTestFinished(() => {
       vi.unstubAllGlobals();
@@ -221,7 +205,7 @@ describe('basic lands on the plan tab', () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       user: admin,
-      plan: planOf([{ land: 'Island', board: 'Mainboard', count: 2 }]),
+      plan: planOf([{ land: 'Island', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
 
@@ -235,18 +219,16 @@ describe('basic lands on the plan tab', () => {
     );
 
     // The Queue tab has a drop list of its own.
-    const [mainboard, sideboard] = fixture.debugElement
+    const [mainboard] = fixture.debugElement
       .query(By.css('app-plan-tab'))
       .queryAll(By.directive(CdkDropList));
-    const island = mainboard
-      .queryAll(By.directive(CdkDrag))
-      .find((drag) => drag.nativeElement.querySelector('img')?.alt === 'Island')!;
-    sideboard.triggerEventHandler('cdkDropListDropped', {
-      item: island.injector.get(CdkDrag),
-      previousContainer: mainboard.injector.get(CdkDropList),
-      container: sideboard.injector.get(CdkDropList),
-    });
-    const moved = http.expectOne('/api/drafts/draft-1/plan/basics/Island/move');
-    expect(moved.request.body).toEqual({ board: 'Sideboard' });
+    const drags = mainboard.queryAll(By.directive(CdkDrag));
+    const disabled = (alt: string) =>
+      drags
+        .filter((drag) => drag.nativeElement.querySelector('img')?.alt === alt)
+        .map((drag) => drag.injector.get(CdkDrag).disabled);
+    expect(disabled('Island')).toEqual([true, true]);
+    expect(disabled('Shivan Dragon')).toEqual([false]);
+    expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
   });
 });

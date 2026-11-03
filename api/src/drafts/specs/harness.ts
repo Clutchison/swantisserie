@@ -169,9 +169,9 @@ export function page(...names: string[]): ScryfallSearchPage {
   };
 }
 
-/** The search the snapshot pages through for `poolQuery`. */
+/** The search the snapshot pages through for `poolQuery`, which leaves the basic lands out. */
 export const snapshotQuery = (poolQuery: string) =>
-  `(${poolQuery}) game:arena unique:cards`;
+  `(${poolQuery}) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:arena unique:cards`;
 
 /** A pool query whose cards are all on Arena, with a two-card pool. */
 export function allOnArena(poolQuery: string) {
@@ -424,7 +424,7 @@ export function dismissPlanNotice(id: string, cookie: string) {
     .set('Cookie', cookie);
 }
 
-/** Sets how many copies of a basic land the player's plan holds, across both boards. */
+/** Sets how many copies of a basic land the player's mainboard holds. */
 export function setBasic(
   id: string,
   land: string,
@@ -435,19 +435,6 @@ export function setBasic(
     .put(`/api/drafts/${id}/plan/basics/${land}`)
     .set('Cookie', cookie)
     .send({ count });
-}
-
-/** Moves one copy of a basic land in the player's plan onto `board`. */
-export function moveBasic(
-  id: string,
-  land: string,
-  board: unknown,
-  cookie: string,
-) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/plan/basics/${land}/move`)
-    .set('Cookie', cookie)
-    .send({ board });
 }
 
 /** Takes every basic land out of the player's plan. */

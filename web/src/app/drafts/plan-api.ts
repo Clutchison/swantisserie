@@ -25,14 +25,9 @@ export class PlanApi {
     return this.http.delete<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
   }
 
-  /** Sets how many copies of a basic land the plan holds, across both boards. */
+  /** Sets how many copies of a basic land the plan's mainboard holds. */
   setBasic(draftId: string, land: BasicLand, count: number): Observable<PlanView> {
     return this.http.put<PlanView>(`${url(draftId)}/basics/${land}`, { count });
-  }
-
-  /** Moves one copy of a basic land in the plan to the mainboard or the sideboard. */
-  moveBasic(draftId: string, land: BasicLand, board: PlanBoard): Observable<PlanView> {
-    return this.http.post<PlanView>(`${url(draftId)}/basics/${land}/move`, { board });
   }
 
   /** Takes every basic land out of the plan. */

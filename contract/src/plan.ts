@@ -9,15 +9,14 @@ export interface PlannedCardView {
   picked: boolean;
 }
 
-/** A basic land, which a plan holds by count rather than as pool cards. */
+/** A basic land, which a plan holds by count on its mainboard, and a pool never holds. */
 export type BasicLand =
   'Plains' | 'Island' | 'Swamp' | 'Mountain' | 'Forest' | 'Wastes';
 
-/** The copies of one basic land on one board of a plan. Never a pool card: no one picks it, and it is never queued. */
+/** The copies of one basic land in a plan, always on the mainboard. Never a pool card: no one picks it, and it is never queued. */
 export interface PlannedBasicView {
   land: BasicLand;
-  board: PlanBoard;
-  /** At least 1: a basic with no copies on a board isn't listed for it. */
+  /** At least 1: a basic with no copies isn't listed. */
   count: number;
 }
 
@@ -35,7 +34,7 @@ export interface PlanView {
   mainboard: PlannedCardView[];
   /** Sorted by mana value, then name. */
   sideboard: PlannedCardView[];
-  /** The mainboard's basics, then the sideboard's, each in the order Plains, Island, Swamp, Mountain, Forest, Wastes. */
+  /** The mainboard's basic lands, in the order Plains, Island, Swamp, Mountain, Forest, Wastes. A sideboard never holds one. */
   basics: PlannedBasicView[];
   /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
   lost: LostCardView[];

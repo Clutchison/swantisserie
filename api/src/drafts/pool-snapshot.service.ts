@@ -11,6 +11,7 @@ import {
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
 } from '../scryfall/scryfall-client.js';
+import { NO_BASIC_LANDS } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
 import { NoOracleIdError, toPoolCard } from './pool-card.js';
 
@@ -168,8 +169,8 @@ export class PoolSnapshotService
   ): Promise<void> {
     // game:arena picks the Arena printing of each card, game:mtgo the MTGO
     // one; the pool query was already checked to have no cards off the
-    // platform.
-    const query = `(${poolQuery}) game:${SCRYFALL_GAME[platform]} unique:cards`;
+    // platform. The basic lands are left out: a plan adds them by count.
+    const query = `(${poolQuery}) ${NO_BASIC_LANDS} game:${SCRYFALL_GAME[platform]} unique:cards`;
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
       if (!result) {

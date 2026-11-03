@@ -16,8 +16,8 @@ import {
 import type { BasicLand, PlanBoard, PlanView } from 'contract';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { CurrentUser, type SessionUser } from '../auth/session.guard.js';
-import { BasicLand as BASIC_LAND_VALUES } from '../generated/prisma/enums.js';
 import { NotAPlayerError } from './draft-errors.js';
+import { isBasicLand } from './basic-lands.js';
 import { DraftReadsService } from './draft-reads.service.js';
 import { parseCard } from './parse-card.js';
 import { PlanRefusedError, PlansService } from './plans.service.js';
@@ -66,7 +66,7 @@ export class PlansController {
     return this.answer(id, () => this.plans.dismissNotice(id, user.id));
   }
 
-  /** Sets how many copies of a basic land the plan holds, across both boards. */
+  /** Sets how many copies of a basic land the mainboard holds. */
   @Put('basics/:land')
   async setBasic(
     @CurrentUser() user: SessionUser,
@@ -78,22 +78,6 @@ export class PlansController {
     const count = parseCount(body);
     return this.answer(id, () =>
       this.plans.setBasic(id, user.id, basic, count),
-    );
-  }
-
-  /** Moves one copy of a basic land in the plan to the mainboard or the sideboard. */
-  @Post('basics/:land/move')
-  @HttpCode(200)
-  async moveBasic(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Param('land') land: string,
-    @Body() body: unknown,
-  ): Promise<PlanView> {
-    const basic = parseLand(land);
-    const board = parseBoard(body);
-    return this.answer(id, () =>
-      this.plans.moveBasic(id, user.id, basic, board),
     );
   }
 
@@ -173,13 +157,13 @@ const MOST_BASICS = 99;
 
 /** The basic land named in the path, or a 400 if it isn't one. */
 function parseLand(land: string): BasicLand {
-  if (!(Object.values(BASIC_LAND_VALUES) as string[]).includes(land)) {
+  if (!isBasicLand(land)) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose a basic land.',
     });
   }
-  return land as BasicLand;
+  return land;
 }
 
 /** How many copies of a basic land to hold, or a 400 if it isn't a whole number up to MOST_BASICS. */

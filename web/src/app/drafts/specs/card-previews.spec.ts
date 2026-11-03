@@ -385,7 +385,7 @@ describe('card previews', () => {
         plan: {
           mainboard: [],
           sideboard: [],
-          basics: [{ land: 'Swamp', board: 'Mainboard', count: 2 }],
+          basics: [{ land: 'Swamp', count: 2 }],
           lost: [],
         },
       });

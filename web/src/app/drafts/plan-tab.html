@@ -130,7 +130,8 @@
                   <li
                     [class.unpicked]="!card.picked"
                     cdkDrag
-                    [cdkDragData]="card"
+                    [cdkDragData]="card.poolCardId"
+                    [cdkDragDisabled]="!!card.basic"
                     cdkDragPreviewContainer="parent"
                     (cdkDragStarted)="previews.dragStarted()"
                   >
@@ -155,16 +156,19 @@
                       <span class="mark">Unpicked</span>
                     }
                     <div class="actions">
-                      <button
-                        class="icon"
-                        type="button"
-                        [attr.aria-label]="'Move ' + card.name + ' to the ' + board.otherName"
-                        [title]="'To ' + board.otherName"
-                        (click)="move(card, board.other)"
-                        [disabled]="changing()"
-                      >
-                        {{ board.arrow }}
-                      </button>
+                      <!-- A basic land stays on the mainboard. -->
+                      @if (!card.basic) {
+                        <button
+                          class="icon"
+                          type="button"
+                          [attr.aria-label]="'Move ' + card.name + ' to the ' + board.otherName"
+                          [title]="'To ' + board.otherName"
+                          (click)="move(card.poolCardId, board.other)"
+                          [disabled]="changing()"
+                        >
+                          {{ board.arrow }}
+                        </button>
+                      }
                       @if (!card.picked) {
                         <button
                           class="icon"
@@ -197,7 +201,8 @@
             <li
               [class.unpicked]="!line.picked"
               cdkDrag
-              [cdkDragData]="line"
+              [cdkDragData]="line.poolCardId"
+              [cdkDragDisabled]="!!line.basic"
               cdkDragPreviewContainer="parent"
               (cdkDragStarted)="previews.dragStarted()"
             >
@@ -209,15 +214,18 @@
               @if (!line.picked) {
                 <span class="mark">Unpicked</span>
               }
-              <button
-                class="button compact quiet"
-                type="button"
-                [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
-                (click)="move(line, board.other)"
-                [disabled]="changing()"
-              >
-                To {{ board.otherName }}
-              </button>
+              <!-- A basic land stays on the mainboard. -->
+              @if (!line.basic) {
+                <button
+                  class="button compact quiet"
+                  type="button"
+                  [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
+                  (click)="move(line.poolCardId, board.other)"
+                  [disabled]="changing()"
+                >
+                  To {{ board.otherName }}
+                </button>
+              }
               @if (!line.picked) {
                 <button
                   class="button compact quiet"
