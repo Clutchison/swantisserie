@@ -502,6 +502,25 @@ describe('plan tab', () => {
       });
     });
 
+    it('caps only List mode lines at the Queue tab width, not an empty board in stacks mode', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      const capped = () =>
+        [...plan.querySelectorAll('section')].map(
+          (board) => board.querySelector('.lines')?.classList.contains('capped') ?? null,
+        );
+
+      expect(capped()).toEqual([null, false]);
+
+      button(plan, 'List')?.click();
+      fixture.detectChanges();
+      expect(capped()).toEqual([true, true]);
+    });
+
     it('opens as it was last left', async () => {
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {

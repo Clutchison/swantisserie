@@ -93,6 +93,8 @@ main {
   main {
     /* The Pool's search bar sticks just below the tabs. */
     --tab-bar-height: 2.75rem;
+    /* The width of the capped tabs below; the Plan tab's List mode lines share it. */
+    --capped-tab-width: 48rem;
 
     padding-bottom: var(--space-lg);
   }
@@ -123,6 +125,6 @@ main {
   /* Pool and Board use the full width; these read better capped. */
   .queue,
   .export {
-    max-width: 48rem;
+    max-width: var(--capped-tab-width);
   }
 }
