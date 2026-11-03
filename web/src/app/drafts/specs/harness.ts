@@ -195,6 +195,10 @@ export const panel = (root: HTMLElement) =>
  * `picks` once the draft has started, and their queue by `queue` if
  * they are a player, and their plan by `plan` if they are also an app
  * admin, signed in as `user`.
+ *
+ * Once open, a change's answer (`req.flush(...)`) shows a moment after
+ * `fixture.whenStable()` resolves, as it arrives through a promise: assert
+ * what it shows inside `vi.waitFor`, unless the change showed it early.
  */
 export async function openDraft(
   snapshot: PoolSnapshotView,
