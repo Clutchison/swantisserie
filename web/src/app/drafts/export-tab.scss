@@ -42,3 +42,9 @@ ol.picks {
 .empty {
   list-style: none;
 }
+
+/* Arena's import may cut a long sideboard short. */
+.notice {
+  background: var(--color-warning-surface);
+  color: var(--color-warning-text);
+}

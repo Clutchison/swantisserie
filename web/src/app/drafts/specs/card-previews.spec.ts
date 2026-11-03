@@ -355,13 +355,13 @@ describe('card previews', () => {
     expect(panel(page).querySelector('.error')).toBeNull();
   });
 
-  it('shows on names in the pick log and on another player’s picks', async () => {
+  it('shows on names in the pick log and on your picks on the Export tab', async () => {
     const { fixture, page } = await openBoard();
 
     tap(panel(page).querySelector<HTMLElement>('.log app-card-name .name')!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
 
-    panel(page).querySelector<HTMLButtonElement>('.player-picks button')!.click();
+    tabButton(page, 'Export').click();
     TestBed.tick();
     vi.useRealTimers();
     await fixture.whenStable();
@@ -416,7 +416,7 @@ describe('card previews', () => {
         costBefore(panel(page).querySelector<HTMLElement>('.log app-card-name .name')!),
       ).toEqual(['one red mana']);
 
-      panel(page).querySelector<HTMLButtonElement>('.player-picks button')!.click();
+      tabButton(page, 'Export').click();
       vi.useRealTimers();
       await fixture.whenStable();
       expect(

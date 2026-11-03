@@ -1,18 +1,12 @@
-@if (player(); as player) {
-  <h2 id="picks-heading">{{ own() ? 'Your picks' : player.name + '’s picks' }}</h2>
+@if (player()) {
   <div class="controls">
-    @if (!own()) {
-      <button class="button secondary" type="button" (click)="boardChosen.emit()">
-        <svg lucideArrowLeft size="16"></svg> Board
-      </button>
-    }
-    @if (playerPicks().length > 0) {
+    @if (playerPicks().length > 0 && !planLoading() && !planFailed()) {
       @for (target of exportTargets(); track target) {
         <button
           class="button secondary copy"
           [class.copied]="copied() === target"
           type="button"
-          (click)="copyFor(target, playerPicks())"
+          (click)="copyFor(target)"
         >
           <!-- Stays when hidden, so the button keeps its width. -->
           <span class="label">Copy for {{ target }}</span>
@@ -35,6 +29,17 @@
   @if (copyFailed()) {
     <p class="error" role="alert">Couldn't copy to the clipboard. Try again in a moment.</p>
   }
+  @if (planFailed()) {
+    <p class="error">
+      Couldn't load your plan, which your exports come from. Try reloading the page.
+    </p>
+  } @else if (sideboardOverArenaCap()) {
+    <p class="notice">
+      Your sideboard has {{ exportPlan().sideboard.length }} cards. Arena's import may keep only
+      {{ arenaSideboardCap }} of them, though your export has them all.
+    </p>
+  }
+  <h3>Your picks</h3>
   @if (failed()) {
     <p class="error">Couldn't load the picks. Try reloading the page.</p>
   } @else if (loading()) {
