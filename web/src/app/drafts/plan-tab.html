@@ -1,3 +1,11 @@
+<!-- A move button's icon: off the mainboard is minus, onto it is plus. -->
+<ng-template #moveIcon let-board>
+  @if (board.other === 'Sideboard') {
+    <svg lucideMinus size="16"></svg>
+  } @else {
+    <svg lucidePlus size="16"></svg>
+  }
+</ng-template>
 @if (hasNotice()) {
   <div class="notice" role="status">
     <p>
@@ -109,26 +117,28 @@
                       <span class="mark">Unpicked</span>
                     }
                     <div class="actions">
+                      @let moveName = 'Move ' + card.name + ' to the ' + board.otherName;
                       <button
                         class="icon"
                         type="button"
-                        [attr.aria-label]="'Move ' + card.name + ' to the ' + board.otherName"
-                        [title]="'To ' + board.otherName"
+                        [attr.aria-label]="moveName"
+                        [title]="moveName"
                         (click)="move(card.poolCardId, board.other)"
                         [disabled]="changing()"
                       >
-                        {{ board.arrow }}
+                        <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: board }" />
                       </button>
                       @if (!card.picked) {
+                        @let removeName = 'Remove ' + card.name + ' from your plan';
                         <button
                           class="icon"
                           type="button"
-                          [attr.aria-label]="'Remove ' + card.name + ' from your plan'"
-                          title="Remove"
+                          [attr.aria-label]="removeName"
+                          [title]="removeName"
                           (click)="remove(card.poolCardId)"
                           [disabled]="changing()"
                         >
-                          ×
+                          <svg lucideTrash size="16"></svg>
                         </button>
                       }
                     </div>
@@ -141,6 +151,7 @@
       } @else {
         <ul
           class="lines"
+          [class.with-remove]="board.picked < board.count"
           cdkDropList
           [cdkDropListData]="board.name"
           [cdkDropListDisabled]="changing() || !onDesktop()"
@@ -163,24 +174,28 @@
               @if (!line.picked) {
                 <span class="mark">Unpicked</span>
               }
+              @let moveName = 'Move ' + line.name + ' to the ' + board.otherName;
               <button
-                class="button compact quiet"
+                class="button compact quiet line-action move"
                 type="button"
-                [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
+                [attr.aria-label]="moveName"
+                [title]="moveName"
                 (click)="move(line.poolCardId, board.other)"
                 [disabled]="changing()"
               >
-                To {{ board.otherName }}
+                <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: board }" />
               </button>
               @if (!line.picked) {
+                @let removeName = 'Remove ' + line.name + ' from your plan';
                 <button
-                  class="button compact quiet"
+                  class="button compact quiet line-action"
                   type="button"
-                  [attr.aria-label]="'Remove ' + line.name + ' from your plan'"
+                  [attr.aria-label]="removeName"
+                  [title]="removeName"
                   (click)="remove(line.poolCardId)"
                   [disabled]="changing()"
                 >
-                  Remove
+                  <svg lucideTrash size="16"></svg>
                 </button>
               }
             </li>

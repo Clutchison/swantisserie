@@ -9,8 +9,10 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import type { PlanBoard, PlannedCardView, PlanView, PoolCardView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { CardImageSource } from './card-image-source';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
@@ -43,7 +45,7 @@ interface PlanLine {
 
 /**
  * Each plan board: its cards, the board its cards move to, as the button
- * names it and the stacks' button points to it, and what an empty one says.
+ * names it, and what an empty one says.
  */
 const BOARDS: Record<
   PlanBoard,
@@ -51,8 +53,6 @@ const BOARDS: Record<
     cards: (plan: PlanView) => PlannedCardView[];
     other: PlanBoard;
     otherName: string;
-    /** Which way the other board lies: the sideboard is below the mainboard. */
-    arrow: string;
     empty: string;
   }
 > = {
@@ -60,14 +60,12 @@ const BOARDS: Record<
     cards: (plan) => plan.mainboard,
     other: 'Sideboard',
     otherName: 'sideboard',
-    arrow: '↓',
     empty: 'No picks yet.',
   },
   Sideboard: {
     cards: (plan) => plan.sideboard,
     other: 'Mainboard',
     otherName: 'mainboard',
-    arrow: '↑',
     empty: 'Nothing on your sideboard.',
   },
 };
@@ -91,7 +89,17 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  */
 @Component({
   selector: 'app-plan-tab',
-  imports: [CardPreviewName, CdkDrag, CdkDropList, CdkDropListGroup, LoadingAnimation],
+  imports: [
+    CardPreviewName,
+    NgTemplateOutlet,
+    CdkDrag,
+    CdkDropList,
+    CdkDropListGroup,
+    LoadingAnimation,
+    LucideMinus,
+    LucidePlus,
+    LucideTrash,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
