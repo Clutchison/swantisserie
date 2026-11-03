@@ -16,7 +16,7 @@ import {
   completeSnapshot,
   button,
 } from './harness';
-import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
+import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -51,8 +51,9 @@ describe('pool tab', () => {
       });
       await fixture.whenStable();
       expect(detail.querySelector('[role="status"]')?.textContent).toContain('Added to your plan.');
-      // Another copy can be added straight after.
-      expect(button(detail, 'Add to Plan')!.disabled).toBe(false);
+      // That copy can be taken straight back out.
+      expect(button(detail, 'Remove from Plan')!.disabled).toBe(false);
+      expect(button(detail, 'Add to Plan')).toBeUndefined();
 
       button(detail, 'Close')!.click();
       tabButton(page, 'Plan').click();
@@ -186,5 +187,186 @@ describe('pool tab', () => {
 
       expect(button(await openDetail(fixture, page, 0), 'Add to Plan')).toBeUndefined();
     });
+  });
+
+  describe('Remove from Plan', () => {
+    const admin = { ...alice, isAppAdmin: true };
+    /** Started, with Alice then Bob; Bob is up. */
+    const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+      state: 'Drafting',
+      players: [alicePlayer, bob],
+      turn: { pick: 1, round: 1, playerId: bob.id },
+      ...fields,
+    });
+    const shivanCopy = card({ id: 'shivan-card-2' });
+    const planned = (poolCardId: string, board: 'mainboard' | 'sideboard' = 'mainboard') => ({
+      ...EMPTY_PLAN,
+      [board]: [{ poolCardId, name: 'Shivan Dragon', picked: false }],
+    });
+
+    it('is offered in place of Add to Plan for the copy in the plan, not for another copy', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan, shivanCopy],
+        user: admin,
+        plan: planned(shivan.id),
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      expect(button(detail, 'Remove from Plan')!.disabled).toBe(false);
+      expect(button(detail, 'Add to Plan')).toBeUndefined();
+
+      button(detail, 'Close')!.click();
+      await fixture.whenStable();
+      const other = await openDetail(fixture, page, 1);
+      expect(button(other, 'Add to Plan')!.disabled).toBe(false);
+      expect(button(other, 'Remove from Plan')).toBeUndefined();
+    });
+
+    it('takes the copy off the sideboard, then offers Add to Plan, and the Plan tab no longer lists it', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        user: admin,
+        plan: planned(shivan.id, 'sideboard'),
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      button(detail, 'Remove from Plan')!.click();
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expect(req.request.method).toBe('DELETE');
+      req.flush(EMPTY_PLAN);
+      await fixture.whenStable();
+      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+        'Removed from your plan.',
+      );
+      expect(button(detail, 'Add to Plan')!.disabled).toBe(false);
+      expect(button(detail, 'Remove from Plan')).toBeUndefined();
+
+      button(detail, 'Close')!.click();
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+      expect(panel(page).querySelector('li.unpicked')).toBeNull();
+    });
+
+    it('is disabled while a removal is on its way', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        user: admin,
+        plan: planned(shivan.id),
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      button(detail, 'Remove from Plan')!.click();
+      fixture.detectChanges();
+      expect(button(detail, 'Remove from Plan')!.disabled).toBe(true);
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(EMPTY_PLAN);
+    });
+
+    it('is disabled while an add of another copy is on its way', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan, shivanCopy],
+        user: admin,
+        plan: planned(shivan.id),
+      });
+
+      button(await openDetail(fixture, page, 1), 'Add to Plan')!.click();
+      button(page.querySelector<HTMLElement>('[role="dialog"]')!, 'Close')!.click();
+      const detail = await openDetail(fixture, page, 0);
+      expect(button(detail, 'Remove from Plan')!.disabled).toBe(true);
+      http.expectOne('/api/drafts/draft-1/plan').flush(planned(shivan.id));
+    });
+
+    it('says why a removal was refused, and re-reads the plan and the draft', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        user: admin,
+        plan: planned(shivan.id),
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      button(detail, 'Remove from Plan')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+        {
+          error: 'not-in-plan',
+          message: 'That card isn’t in your plan.',
+        } satisfies PlanRefusal,
+        { status: 409, statusText: 'Conflict' },
+      );
+      await flushPlan(EMPTY_PLAN);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(drafting({ version: 1 })),
+      );
+      await flushPicks([]);
+      await flushQueue(EMPTY_QUEUE);
+      await flushPlan(EMPTY_PLAN);
+      await fixture.whenStable();
+
+      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+        'That card isn’t in your plan.',
+      );
+    });
+
+    it('says when a card could not be removed, and re-reads the plan', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        user: admin,
+        plan: planned(shivan.id),
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      button(detail, 'Remove from Plan')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await flushPlan(planned(shivan.id));
+      await fixture.whenStable();
+
+      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+        "Couldn't remove the card from your plan. Try again in a moment.",
+      );
+    });
+
+    it('is never offered for a picked card in the plan', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+        {
+          cards: [shivan],
+          user: admin,
+          plan: {
+            ...EMPTY_PLAN,
+            mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: true }],
+          },
+          picks: [
+            {
+              pick: 1,
+              playerId: alice.id,
+              poolCardId: 'shivan-card',
+              name: 'Shivan Dragon',
+              layout: 'normal',
+              typeLine: 'Creature — Dragon',
+              set: 'ima',
+              collectorNumber: '1',
+            },
+          ],
+        },
+      );
+
+      const detail = await openDetail(fixture, page, 0);
+      expect(button(detail, 'Remove from Plan')).toBeUndefined();
+      expect(button(detail, 'Add to Plan')!.disabled).toBe(true);
+    });
+
+    it.each(['Closed', 'Complete'] as const)(
+      'is not offered once the draft is %s',
+      async (state) => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          drafting({ state, turn: null }),
+          { cards: [shivan], user: admin, plan: planned(shivan.id) },
+        );
+
+        expect(button(await openDetail(fixture, page, 0), 'Remove from Plan')).toBeUndefined();
+      },
+    );
   });
 });

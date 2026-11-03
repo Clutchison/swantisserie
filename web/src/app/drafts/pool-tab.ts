@@ -92,9 +92,12 @@ export class PoolTab {
    * draft is active.
    */
   readonly offerQueue = input(false);
+  /** The pool card ids of the unpicked cards in the signed-in player's plan. */
+  readonly planned = input<ReadonlySet<string>>(new Set());
   /**
-   * Whether the card detail offers Add to Plan for an unpicked card: for
-   * players while the draft is active, behind the Plan tab's gate.
+   * Whether the card detail offers Remove from Plan for an unpicked copy in
+   * the plan, or else Add to Plan: for players while the draft is active,
+   * behind the Plan tab's gate.
    */
   readonly offerAddToPlan = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
@@ -109,9 +112,9 @@ export class PoolTab {
   readonly queueChanged = output<QueueView>();
   /** Adding or removing a card failed, so the queue may have moved on unseen; it should be re-read. */
   readonly queueStale = output<void>();
-  /** A card was added to the plan: the plan as it now is. */
+  /** A card was added to or removed from the plan: the plan as it now is. */
   readonly planChanged = output<PlanView>();
-  /** Adding a card to the plan failed, so the plan may have moved on unseen; it should be re-read. */
+  /** Adding or removing a card failed, so the plan may have moved on unseen; it should be re-read. */
   readonly planStale = output<void>();
 
   /** The pool search typed into the search box. */
@@ -209,7 +212,7 @@ export class PoolTab {
   /** What came of adding the card in the detail view to the queue, or removing it. */
   protected readonly queueNote = signal<string | null>(null);
   protected readonly planning = signal(false);
-  /** What came of adding the card in the detail view to the plan. */
+  /** What came of adding the card in the detail view to the plan, or removing it. */
   protected readonly planNote = signal<string | null>(null);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
   /** The countdown of the tile the mouse is resting on. */
@@ -376,21 +379,36 @@ export class PoolTab {
     }
   }
 
+  protected addToPlan(card: PoolCardView) {
+    return this.changePlan(
+      this.planApi.add(this.draftId(), card.id),
+      'Added to your plan.',
+      "Couldn't add the card to your plan. Try again in a moment.",
+    );
+  }
+
+  protected removeFromPlan(card: PoolCardView) {
+    return this.changePlan(
+      this.planApi.remove(this.draftId(), card.id),
+      'Removed from your plan.',
+      "Couldn't remove the card from your plan. Try again in a moment.",
+    );
+  }
+
   /**
-   * Adds an unpicked copy of the card to the plan. If that fails, notes why
-   * (or that it failed) and has the plan re-read, and the draft too if it
-   * was refused: a stale page may not know the draft has moved on.
+   * Sends a change to the plan, noting `done` once it's made. If it fails,
+   * notes why (`failure`, unless the API says) and has the plan re-read, and
+   * the draft too if it was refused: a stale page may not know the draft has
+   * moved on.
    */
-  protected async addToPlan(card: PoolCardView) {
+  private async changePlan(request: Observable<PlanView>, done: string, failure: string) {
     this.planning.set(true);
     this.planNote.set(null);
     try {
-      this.planChanged.emit(await firstValueFrom(this.planApi.add(this.draftId(), card.id)));
-      this.planNote.set('Added to your plan.');
+      this.planChanged.emit(await firstValueFrom(request));
+      this.planNote.set(done);
     } catch (err) {
-      this.planNote.set(
-        changeFailure(err, "Couldn't add the card to your plan. Try again in a moment."),
-      );
+      this.planNote.set(changeFailure(err, failure));
       this.planStale.emit();
       if (isRefusal(err)) this.draftStale.emit();
     } finally {
