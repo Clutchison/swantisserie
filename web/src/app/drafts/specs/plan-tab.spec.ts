@@ -1,4 +1,4 @@
-import { CdkDropList } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import type { DraftView, PlanView } from 'contract';
@@ -56,6 +56,7 @@ describe('plan tab', () => {
   const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
     mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain), planned(shivan)],
     sideboard: [],
+    basics: [],
     lost: [],
     ...fields,
   });
@@ -528,14 +529,23 @@ describe('plan tab', () => {
       const listOf = (element: DebugElement) => element.injector.get(CdkDropList);
       expect(dropLists().map((list) => listOf(list).data)).toEqual(['Mainboard', 'Sideboard']);
       const [mainboard, sideboard] = dropLists();
-      const dropped = (card: string, from: DebugElement, onto: DebugElement) =>
+      /** Drops the first card named `name` on `from` onto `onto`, as the drag ends. */
+      const dropped = (name: string, from: DebugElement, onto: DebugElement) => {
+        const item = from
+          .queryAll(By.directive(CdkDrag))
+          .find((drag) =>
+            [drag.nativeElement.querySelector('img')?.alt, drag.nativeElement.textContent].some(
+              (text) => text?.includes(name),
+            ),
+          )!;
         onto.triggerEventHandler('cdkDropListDropped', {
-          item: { data: card },
+          item: item.injector.get(CdkDrag),
           previousContainer: listOf(from),
           container: listOf(onto),
         });
+      };
 
-      dropped('bolt-card', mainboard, sideboard);
+      dropped('Lightning Bolt', mainboard, sideboard);
       await fixture.whenStable();
       const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
       expect(req.request.method).toBe('PUT');
@@ -549,7 +559,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['1: Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
-      dropped('shivan-card', mainboard, mainboard);
+      dropped('Shivan Dragon', mainboard, mainboard);
       await fixture.whenStable();
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
 
@@ -557,7 +567,7 @@ describe('plan tab', () => {
       button(plan, 'List')!.click();
       await fixture.whenStable();
       const [listMainboard, listSideboard] = dropLists();
-      dropped('bolt-card', listSideboard, listMainboard);
+      dropped('Lightning Bolt', listSideboard, listMainboard);
       expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card').request.body).toEqual({
         board: 'Mainboard',
       });

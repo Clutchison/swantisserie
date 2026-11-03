@@ -39,7 +39,7 @@ One rotisserie event in a guild: a pool, its players, and the picks they make in
 _Avoid_: Game, league, room
 
 **Pool**:
-The fixed set of cards on the platform that a draft picks from, frozen when the draft is created.
+The fixed set of cards on the platform that a draft picks from, frozen when the draft is created. It never holds a basic land, whatever its pool source names.
 _Avoid_: Card list, cube
 
 **Pool source**:
@@ -207,6 +207,10 @@ _Avoid_: Maybeboard, bench, board (alone)
 **Unpicked card**:
 A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, or another player picks it when no other copy is available for the plan.
 _Avoid_: Maybe, wishlist card, placeholder, proxy
+
+**Basic land**:
+A Plains, Island, Swamp, Mountain, Forest or Wastes in a player's plan, added by count. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked, and it is always on the mainboard. A snow-covered basic is not one: it can be a pool card.
+_Avoid_: Land (alone; a pool card can be a land), free land
 
 **Plan board**:
 Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.

@@ -18,6 +18,7 @@ import {
   EVENT_PLAYER,
   toEventPlayer,
 } from './draft-events.js';
+import { isBasicLand } from './basic-lands.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import {
   type DraftWithOrganizer,
@@ -289,14 +290,19 @@ export class DraftLobbyService {
         message: 'That isn’t a CubeCobra cube link.',
       });
     }
-    const cube = await this.cubeCobra.cube(cubeId);
-    if (!cube) {
+    const found = await this.cubeCobra.cube(cubeId);
+    if (!found) {
       // CubeCobra answers the same for a private cube as for a missing one.
       throw new CubeLinkError({
         error: 'cube-not-found',
         message: 'No public cube on CubeCobra has that id.',
       });
     }
+    // The basic lands are left out: a plan adds them by count.
+    const cube = {
+      ...found,
+      mainboard: found.mainboard.filter((card) => !isBasicLand(card.name)),
+    };
     if (cube.mainboard.length === 0) {
       throw new CubeLinkError({
         error: 'no-cards',

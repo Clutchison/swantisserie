@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  BasicLand,
   PlanBoard,
   PlannedCardView,
   PlanRefusal,
@@ -19,9 +20,10 @@ export class PlanRefusedError extends Error {
 
 /**
  * Players' plans: each player's private mainboard and sideboard, holding
- * every pick they've made and the unpicked cards they've added. A plan
- * never changes the draft, so it can be changed in any draft state, except
- * that unpicked cards are only added while the draft is active.
+ * every pick they've made and the unpicked cards and basic lands they've
+ * added. A plan never changes the draft, so it can be changed in any draft
+ * state, except that unpicked cards are only added while the draft is
+ * active.
  */
 @Injectable()
 export class PlansService {
@@ -148,6 +150,40 @@ export class PlansService {
   }
 
   /**
+   * Sets how many copies of the basic land `land` the user's mainboard
+   * holds; at 0 it holds none. Throws NotAPlayerError if the user isn't in
+   * the draft.
+   */
+  async setBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    count: number,
+  ): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      if (count === 0) {
+        await tx.plannedBasic.deleteMany({ where: { playerId, land } });
+        return;
+      }
+      await tx.plannedBasic.upsert({
+        where: { playerId_land: { playerId, land } },
+        create: { playerId, land, count },
+        update: { count },
+      });
+    });
+  }
+
+  /**
+   * Takes every basic land out of the user's plan. Throws
+   * NotAPlayerError if the user isn't in the draft.
+   */
+  async clearBasics(draftId: string, userId: string): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      await tx.plannedBasic.deleteMany({ where: { playerId } });
+    });
+  }
+
+  /**
    * Stops the Plan notice listing the user's lost cards. An undo still
    * restores them. Throws NotAPlayerError if the user isn't in the draft.
    */
@@ -205,6 +241,12 @@ export class PlansService {
           name: card.poolCard.name,
           picked: card.pickId !== null,
         }));
+    // Postgres orders enums as declared, which is the order a plan lists the basics in.
+    const basics = await tx.plannedBasic.findMany({
+      where: { playerId },
+      orderBy: { land: 'asc' },
+      select: { land: true, count: true },
+    });
     const lost = await tx.unplannedCard.findMany({
       where: { playerId, noticeHidden: false },
       orderBy: { pick: { number: 'asc' } },
@@ -219,6 +261,7 @@ export class PlansService {
     return {
       mainboard: onBoard('Mainboard'),
       sideboard: onBoard('Sideboard'),
+      basics,
       lost: lost.map((card) => ({
         poolCardId: card.poolCardId,
         name: card.poolCard.name,
