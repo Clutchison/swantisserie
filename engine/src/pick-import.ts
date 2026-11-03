@@ -74,29 +74,40 @@ type NamedPick =
   | { ok: false; problem: string };
 
 /**
- * The cards each name can mean, by lower-case full and front-face name: each
- * card is its copies in the pool, by its full name. Copies share a full name
- * and different cards never do, so the full name tells cards apart.
+ * The cards a name can mean, ignoring case: the card with that full name, or
+ * else every card with it as their front-face name. Each card is its copies in
+ * the pool, by its full name. Copies share a full name and different cards
+ * never do, so the full name tells cards apart.
  */
-function cardsByName(pool: PickImportCard[]): Map<string, CopiesByCard> {
-  const byName = new Map<string, CopiesByCard>();
+function cardsByName(pool: PickImportCard[]): (name: string) => CopiesByCard {
+  const byFullName = new Map<string, CopiesByCard>();
+  const byFrontFace = new Map<string, CopiesByCard>();
+  const add = (
+    byName: Map<string, CopiesByCard>,
+    name: string,
+    card: PickImportCard,
+  ) => {
+    const key = name.toLowerCase();
+    const cards: CopiesByCard = byName.get(key) ?? new Map();
+    cards.set(card.name, [...(cards.get(card.name) ?? []), card]);
+    byName.set(key, cards);
+  };
   for (const card of pool) {
-    const names = new Set([card.name, card.name.split(' // ')[0]]);
-    for (const name of names) {
-      const key = name.toLowerCase();
-      const cards: CopiesByCard = byName.get(key) ?? new Map();
-      cards.set(card.name, [...(cards.get(card.name) ?? []), card]);
-      byName.set(key, cards);
-    }
+    add(byFullName, card.name, card);
+    add(byFrontFace, card.name.split(' // ')[0], card);
   }
-  return byName;
+  return (name) => {
+    const key = name.toLowerCase();
+    return byFullName.get(key) ?? byFrontFace.get(key) ?? new Map();
+  };
 }
 
 /**
  * Reads a pick import's file for a draft of `size` with `pool`. Column N of
  * the file is seat N, and its picks run in snake order. Names are matched to
- * pool cards ignoring case, never fuzzily, and each use of a name takes the
- * next unpicked copy of its card.
+ * pool cards ignoring case, never fuzzily, on a card's full name or else its
+ * front-face name, and each use of a name takes the next unpicked copy of its
+ * card.
  */
 export function readPickImport(
   text: string,
@@ -164,10 +175,10 @@ export function readPickImport(
     }
   }
 
-  const byName = cardsByName(pool);
+  const cardsNamed = cardsByName(pool);
   // Each filled cell's card, as its copies, or what is wrong with its name.
   const named = filled.map(({ seat, name }): NamedPick => {
-    const cards = byName.get(name.toLowerCase()) ?? new Map();
+    const cards = cardsNamed(name);
     if (cards.size === 0) {
       return { ok: false, problem: `${name} isn’t in this draft’s pool.` };
     }

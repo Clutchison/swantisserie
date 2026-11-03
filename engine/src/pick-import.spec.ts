@@ -165,11 +165,30 @@ describe('readPickImport', () => {
       ]);
     });
 
-    it('refuses a name that matches more than one pool card', () => {
-      const cards = [card('Spring'), card('Spring // Autumn')];
+    it('prefers a card whose full name matches over one whose front face does', () => {
+      const cards = [card('Spring // Autumn'), card('Spring')];
+
+      expect(read(',Ann,Ben,\n->,spring,,', size, cards)).toMatchObject({
+        ok: true,
+        picks: [{ poolCardId: 'spring' }],
+      });
+    });
+
+    it('imports a card and another with its name as their front face', () => {
+      const cards = [card('Spring // Autumn'), card('Spring')];
+      const csv = ',Ann,Ben,\n->,Spring,Spring // Autumn,';
+
+      expect(read(csv, size, cards)).toMatchObject({
+        ok: true,
+        picks: [{ poolCardId: 'spring' }, { poolCardId: 'spring // autumn' }],
+      });
+    });
+
+    it('refuses a front-face name that matches more than one pool card', () => {
+      const cards = [card('Spring // Autumn'), card('Spring // Summer')];
 
       expect(problems(',Ann,Ben,\n->,spring,,', size, cards)).toEqual([
-        'spring matches more than one pool card: Spring, Spring // Autumn.',
+        'spring matches more than one pool card: Spring // Autumn, Spring // Summer.',
       ]);
     });
 
