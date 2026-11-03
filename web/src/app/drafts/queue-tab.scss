@@ -21,16 +21,15 @@
   }
 }
 
+/* The handle, position, cost, name and buttons. */
 .queue {
+  --card-row-columns: auto auto [cost] max-content [name] minmax(0, 1fr) auto;
+  container-type: inline-size;
   margin: 0;
   padding: 0;
   list-style: none;
 
-  /* The buttons wrap under the name where the panel is too narrow for both. */
   li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
     gap: var(--space-sm);
     padding: var(--space-xs) 0;
     background: var(--color-bg);
@@ -63,15 +62,21 @@
   text-align: right;
 }
 
-.name {
-  flex: 1 1 6rem;
-  min-width: 0;
+app-card-name {
+  font-weight: 600;
 }
 
 .move {
   display: flex;
-  margin-left: auto;
+  justify-self: end;
   gap: var(--space-xs);
+}
+
+/* The buttons wrap under the name where the panel is too narrow for both. */
+@container (width < 26rem) {
+  .move {
+    grid-column: name / -1;
+  }
 }
 
 .icon {

@@ -22,6 +22,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { BASIC_LANDS, basicCard, MOST_BASICS } from './basic-lands';
 import { CardImageSource } from './card-image-source';
+import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { PlanApi } from './plan-api';
@@ -110,6 +111,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 @Component({
   selector: 'app-plan-tab',
   imports: [
+    CardName,
     CardPreviewName,
     NgTemplateOutlet,
     CdkDrag,

@@ -11,7 +11,9 @@
     <p>
       Lost to other players:
       @for (card of plan().lost; track card.poolCardId; let last = $last) {
-        <strong [appCardPreview]="poolCardsById().get(card.poolCardId)">{{ card.name }}</strong>
+        <strong
+          ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name"
+        /></strong>
         (picked by {{ card.pickedBy }}){{ last ? '.' : ',' }}
       }
     </p>
@@ -204,7 +206,7 @@
         </div>
       } @else {
         <ul
-          class="lines"
+          class="lines card-rows"
           [class.with-remove]="board.picked < board.count"
           cdkDropList
           [cdkDropListData]="board.name"
@@ -222,40 +224,39 @@
               (cdkDragStarted)="previews.dragStarted()"
             >
               <span class="count">{{ line.count }}</span>
-              <span class="name">
-                <!-- Only the text shows a Card preview, not the rest of the row. -->
-                <span [appCardPreview]="cardsById().get(line.poolCardId)">{{ line.name }}</span>
+              <app-card-name [card]="cardsById().get(line.poolCardId)" [name]="line.name" />
+              <span class="line-actions">
+                @if (!line.picked) {
+                  <span class="mark">Unpicked</span>
+                }
+                <!-- A basic land stays on the mainboard. -->
+                @if (!line.basic) {
+                  @let moveName = 'Move ' + line.name + ' to the ' + board.otherName;
+                  <button
+                    class="button compact quiet line-action move"
+                    type="button"
+                    [attr.aria-label]="moveName"
+                    [title]="moveName"
+                    (click)="move(line.poolCardId, board.other)"
+                    [disabled]="changing()"
+                  >
+                    <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: board }" />
+                  </button>
+                }
+                @if (!line.picked) {
+                  @let removeName = 'Remove ' + line.name + ' from your plan';
+                  <button
+                    class="button compact quiet line-action"
+                    type="button"
+                    [attr.aria-label]="removeName"
+                    [title]="removeName"
+                    (click)="remove(line.poolCardId)"
+                    [disabled]="changing()"
+                  >
+                    <svg lucideTrash size="16"></svg>
+                  </button>
+                }
               </span>
-              @if (!line.picked) {
-                <span class="mark">Unpicked</span>
-              }
-              <!-- A basic land stays on the mainboard. -->
-              @if (!line.basic) {
-                @let moveName = 'Move ' + line.name + ' to the ' + board.otherName;
-                <button
-                  class="button compact quiet line-action move"
-                  type="button"
-                  [attr.aria-label]="moveName"
-                  [title]="moveName"
-                  (click)="move(line.poolCardId, board.other)"
-                  [disabled]="changing()"
-                >
-                  <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: board }" />
-                </button>
-              }
-              @if (!line.picked) {
-                @let removeName = 'Remove ' + line.name + ' from your plan';
-                <button
-                  class="button compact quiet line-action"
-                  type="button"
-                  [attr.aria-label]="removeName"
-                  [title]="removeName"
-                  (click)="remove(line.poolCardId)"
-                  [disabled]="changing()"
-                >
-                  <svg lucideTrash size="16"></svg>
-                </button>
-              }
             </li>
           } @empty {
             <li class="empty">

@@ -40,14 +40,11 @@
   } @else if (loading()) {
     <app-loading-animation size="tab">Loading the picks…</app-loading-animation>
   } @else {
-    <ol class="picks">
+    <ol class="picks card-rows">
       @for (pick of playerPicks(); track pick.pick) {
         <li>
           <span class="number">{{ pick.pick }}</span>
-          <span class="card">
-            <!-- Only the text shows a Card preview, not the rest of the row. -->
-            <span [appCardPreview]="poolCardsById().get(pick.poolCardId)">{{ pick.name }}</span>
-          </span>
+          <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
         </li>
       } @empty {
         <li class="empty">No picks yet.</li>

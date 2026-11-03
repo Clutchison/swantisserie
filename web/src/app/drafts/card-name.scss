@@ -1,0 +1,49 @@
+/*
+ * A cost never wraps between its symbols, and isn't copied with its name.
+ * Each symbol is about the height of the text.
+ */
+.cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.0625em;
+  vertical-align: -0.125em;
+  white-space: nowrap;
+  user-select: none;
+
+  &:not(:empty) {
+    margin-inline-end: 0.25em;
+  }
+
+  img {
+    width: 1em;
+    height: 1em;
+  }
+}
+
+/*
+ * In a list of card rows, the cost and name fill the list's columns: costs
+ * right-aligned in one, as wide as the widest, and names starting at one
+ * edge after it. A name too long for its row is cut off, never its cost.
+ */
+:host-context(.card-rows) {
+  display: grid;
+  grid-column: cost / span 2;
+  grid-template-columns: subgrid;
+  align-items: center;
+
+  .cost {
+    grid-column: cost;
+    justify-self: end;
+    margin: 0;
+  }
+
+  /* Only as wide as its text, as only the text shows a Card preview. */
+  .name {
+    grid-column: name;
+    justify-self: start;
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

@@ -10,7 +10,7 @@ import {
 import type { PickView, Platform, PlayerView, PoolCardView } from 'contract';
 import { LucideArrowLeft, LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
-import { CardPreviewName } from './card-preview';
+import { CardName } from './card-name';
 import { moxfieldExport } from './moxfield-export';
 import { mtgoExport } from './mtgo-export';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -37,7 +37,7 @@ const CONFIRMATION_MS = 2000;
 /** The draft view's Picks panel: one player's picks, which can be exported. */
 @Component({
   selector: 'app-picks-tab',
-  imports: [CardPreviewName, LoadingAnimation, LucideArrowLeft, LucideCheck],
+  imports: [CardName, LoadingAnimation, LucideArrowLeft, LucideCheck],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './picks-tab.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './picks-tab.scss'],

@@ -9,7 +9,8 @@ h3 {
 
 ol {
   margin: 0;
-  padding-left: var(--space-xl);
+  padding: 0;
+  list-style: none;
 }
 
 .empty {
@@ -36,24 +37,28 @@ ol {
   gap: 0 var(--space-lg);
 }
 
-.log {
-  /* Every row shares these columns: the player's fits the longest name, up to a cap that keeps the card readable. */
+/* Each pick numbered in its player's picks, by a counter: a row of card rows is no list item. */
+.player-picks {
   ol {
-    display: grid;
-    grid-template-columns: auto fit-content(min(12rem, 35%)) minmax(0, 1fr);
+    --card-row-columns: [number] var(--space-xl) [cost] max-content [name] minmax(0, 1fr);
+    counter-reset: pick;
+  }
+
+  li:not(.empty) {
+    counter-increment: pick;
+
+    &::before {
+      justify-self: end;
+      content: counter(pick) '.';
+    }
+  }
+}
+
+.log {
+  /* The player's column fits the longest name, up to a cap that keeps the card readable. */
+  ol {
+    --card-row-columns: auto fit-content(min(12rem, 35%)) [cost] max-content [name] minmax(0, 1fr);
     gap: 0 var(--space-sm);
-    padding-left: 0;
-    list-style: none;
-  }
-
-  li {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
-  }
-
-  .empty {
-    display: block;
   }
 
   .number {
@@ -71,8 +76,7 @@ ol {
     font-weight: 600;
   }
 
-  .name,
-  .card > span {
+  .name {
     overflow: hidden;
     min-width: 0;
     text-overflow: ellipsis;
@@ -81,11 +85,5 @@ ol {
 
   .badge {
     flex: none;
-  }
-
-  /* A flex row, so that its name is only as wide as its text: only the text shows a Card preview. */
-  .card {
-    display: flex;
-    min-width: 0;
   }
 }

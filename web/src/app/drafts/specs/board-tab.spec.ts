@@ -20,6 +20,12 @@ import {
 
 useDraftsApp();
 
+/** The text of each of a list row's cells: a pick log row's, or a player's pick's. */
+const rowText = (li: Element) =>
+  [...li.querySelectorAll(':scope > span, :scope > app-card-name')].map((cell) =>
+    cell.textContent?.trim(),
+  );
+
 describe('board tab', () => {
   const picks: PickView[] = [
     {
@@ -140,9 +146,7 @@ describe('board tab', () => {
   it('shows the pick log: pick number, player and card', async () => {
     const { page } = await openBoard(picks);
 
-    const log = [...pickLog(page).querySelectorAll('li')].map((li) =>
-      [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
-    );
+    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
     expect(log).toEqual([
       ['1', 'Bob', 'Shock'],
       ['2', 'Alice', 'Lightning Bolt'],
@@ -179,7 +183,7 @@ describe('board tab', () => {
   it('leaves hover text off a pick log card, whose Card preview shows it in full', async () => {
     const { page } = await openBoard(picks);
 
-    const card = pickLog(page).querySelector<HTMLElement>('li .card')!;
+    const card = pickLog(page).querySelector<HTMLElement>('li app-card-name .name')!;
     expect(card.textContent?.trim()).toBe('Shock');
     expect(card.querySelector('[title]')).toBeNull();
     expect(card.hasAttribute('title')).toBe(false);
@@ -206,9 +210,7 @@ describe('board tab', () => {
       { ...bolt, pick: 3, poolCardId: 'bolt-card-3' },
     ]);
 
-    const log = [...pickLog(page).querySelectorAll('li')].map((li) =>
-      [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
-    );
+    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
     expect(log).toEqual([
       ['1', 'Bob', 'Lightning Bolt'],
       ['2', 'Alice', 'Lightning Bolt'],
@@ -231,9 +233,7 @@ describe('board tab', () => {
     /** The open panel's heading and its picks: pick number and card. */
     const shownPlayer = (root: HTMLElement) => ({
       heading: panel(root).querySelector('h2')?.textContent,
-      picks: [...panel(root).querySelectorAll('li')].map((li) =>
-        [...li.querySelectorAll(':scope > span')].map((span) => span.textContent?.trim()),
-      ),
+      picks: [...panel(root).querySelectorAll('li')].map((li) => rowText(li)),
     });
 
     it('lists your picks on the Me tab', async () => {

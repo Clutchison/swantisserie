@@ -78,6 +78,10 @@ _Avoid_: Card entry, catalog card
 A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name, or next to its tile on the Pool tab when a viewer rests the mouse on the tile.
 _Avoid_: Tooltip, hover card
 
+**Mana cost**:
+The mana symbols shown before a pool card's name wherever the name has a Card preview. A card with more than one cost, such as a split card, Room, adventure or double-faced card, shows only its first face's.
+_Avoid_: Casting cost, mana value (that is the cost's total)
+
 **Card detail**:
 The view of a pool card that opens from the Pool tab, showing its large image and the actions a viewer can take on it.
 _Avoid_: Card modal, card popup

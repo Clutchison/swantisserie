@@ -14,10 +14,10 @@
             <span class="badge">Bot</span>
           }
         </h3>
-        <ol>
+        <ol class="card-rows">
           @for (pick of player.picks; track pick.pick) {
             <li>
-              <span [appCardPreview]="poolCardsById().get(pick.poolCardId)">{{ pick.name }}</span>
+              <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
             </li>
           } @empty {
             <li class="empty">No picks yet.</li>
@@ -28,7 +28,7 @@
   </div>
   <section class="log">
     <h3>Pick log</h3>
-    <ol>
+    <ol class="card-rows">
       @for (pick of picks(); track pick.pick) {
         <li>
           <span class="number">{{ pick.pick }}</span>
@@ -39,10 +39,7 @@
               <span class="badge">Bot</span>
             }
           </span>
-          <span class="card">
-            <!-- Only the text shows a Card preview, not the rest of the row. -->
-            <span [appCardPreview]="poolCardsById().get(pick.poolCardId)">{{ pick.name }}</span>
-          </span>
+          <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
         </li>
       } @empty {
         <li class="empty">No picks yet.</li>
