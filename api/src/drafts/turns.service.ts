@@ -10,7 +10,7 @@ import {
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, SEAT_ORDER } from './draft-shapes.js';
-import { restoreQueues, takeFromQueues } from './queue-clearing.js';
+import { poolCards, restoreQueues, takeFromQueues } from './queue-clearing.js';
 
 const PICK_LOG = {
   orderBy: { number: 'asc' },
@@ -163,6 +163,7 @@ export class TurnsService {
           ? []
           : player.queue.map((queued) => queued.poolCardId),
       ),
+      (await poolCards(tx, draftId)).pool,
     );
     const events: DraftEvent[] = [];
     for (const { seat, card } of picks) {

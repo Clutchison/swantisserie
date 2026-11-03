@@ -179,6 +179,25 @@ describe('cascade', () => {
     ).toEqual([first, ids.Shock, second]);
   });
 
+  it('picks a queued copy that the same cascade moved to a new copy', async () => {
+    const carolCookie = await signIn(carol);
+    const { id, first, second } = await readyDraftWithCopies([
+      aliceCookie,
+      bobCookie,
+      carolCookie,
+    ]);
+    await enqueue(id, first).expect(200);
+    await enqueue(id, first, bobCookie).expect(200);
+
+    await start(id).expect(200);
+
+    expect(
+      (await pickLog(id)).body.map(
+        ({ poolCardId }: { poolCardId: string }) => poolCardId,
+      ),
+    ).toEqual([first, second]);
+  });
+
   it('picks the first player’s queued card when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
     const ids = await poolCardIds(id);

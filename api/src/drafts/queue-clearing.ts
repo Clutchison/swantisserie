@@ -1,58 +1,86 @@
+import { type PoolCards, queuesAfterPick } from 'engine';
 import type { Transaction } from './draft-shapes.js';
 
 /**
- * What a new pick, already made, does to queues: its card leaves the picker's
- * queue. In each other queue holding it, it is swapped for another copy of the
- * card, in the same place, if one is available that the queue doesn't hold;
- * else that queue is emptied. Emptied cards are kept against the pick, in
- * queue order, so that undoing it can put them back. A swapped copy stays
- * swapped: it is as good as the one picked.
+ * The draft's pool for the engine: each pool card's oracle id, which its
+ * copies share, offering copies in id order. With the pool cards picked.
+ */
+export async function poolCards(
+  tx: Transaction,
+  draftId: string,
+): Promise<{ pool: PoolCards; picked: string[] }> {
+  const cards = await tx.poolCard.findMany({
+    where: { draftId },
+    orderBy: { id: 'asc' },
+    select: { id: true, oracleId: true, pick: { select: { id: true } } },
+  });
+  return {
+    pool: new Map(cards.map((card) => [card.id, card.oracleId])),
+    picked: cards.filter((card) => card.pick).map((card) => card.id),
+  };
+}
+
+/**
+ * Persists what a new pick, already made, does to queues, as the engine's
+ * `queuesAfterPick` says: its card leaves the picker's queue, and in each
+ * other queue holding it, it is swapped for another copy or lost, clearing
+ * that queue. Lost and cleared cards are kept against the pick, in queue
+ * order, so that undoing it can put them back. A swapped copy stays swapped:
+ * it is as good as the one picked.
  */
 export async function takeFromQueues(
   tx: Transaction,
   pick: { id: string; playerId: string; poolCardId: string },
 ): Promise<void> {
+  const { draftId } = await tx.poolCard.findUniqueOrThrow({
+    where: { id: pick.poolCardId },
+    select: { draftId: true },
+  });
+  const players = await tx.player.findMany({
+    where: { draftId },
+    select: {
+      id: true,
+      queue: {
+        orderBy: { position: 'asc' },
+        select: { poolCardId: true, position: true },
+      },
+    },
+  });
+  const after = queuesAfterPick(
+    {
+      seat: players.findIndex((player) => player.id === pick.playerId),
+      card: pick.poolCardId,
+    },
+    players.map((player) => player.queue.map((queued) => queued.poolCardId)),
+    await poolCards(tx, draftId),
+  );
   await tx.queuedCard.deleteMany({
     where: { poolCardId: pick.poolCardId, playerId: pick.playerId },
   });
-  const { draftId, oracleId } = await tx.poolCard.findUniqueOrThrow({
-    where: { id: pick.poolCardId },
-    select: { draftId: true, oracleId: true },
-  });
-  const losers: string[] = [];
-  for (const { id, playerId } of await tx.queuedCard.findMany({
-    where: { poolCardId: pick.poolCardId },
-    select: { id: true, playerId: true },
-  })) {
-    // An unpicked copy the player hasn't queued, if any.
-    const copy = await tx.poolCard.findFirst({
-      where: { draftId, oracleId, pick: null, queued: { none: { playerId } } },
-      orderBy: { id: 'asc' },
-      select: { id: true },
-    });
-    if (!copy) {
-      losers.push(playerId);
-      continue;
+  for (const [index, { swapped, unqueued }] of after.entries()) {
+    const { id: playerId, queue } = players[index];
+    if (swapped !== undefined) {
+      await tx.queuedCard.update({
+        where: {
+          playerId_poolCardId: { playerId, poolCardId: pick.poolCardId },
+        },
+        data: { poolCardId: swapped },
+      });
+      // Queued again, so off the notice, as when the player queues it.
+      await tx.unqueuedCard.updateMany({
+        where: { playerId, poolCardId: swapped },
+        data: { noticeHidden: true },
+      });
     }
-    await tx.queuedCard.update({
-      where: { id },
-      data: { poolCardId: copy.id },
-    });
-    // Queued again, so off the notice, as when the player queues it.
-    await tx.unqueuedCard.updateMany({
-      where: { playerId, poolCardId: copy.id },
-      data: { noticeHidden: true },
-    });
+    if (unqueued.length > 0) {
+      await tx.unqueuedCard.createMany({
+        data: queue
+          .filter((queued) => unqueued.includes(queued.poolCardId))
+          .map((queued) => ({ ...queued, playerId, pickId: pick.id })),
+      });
+      await tx.queuedCard.deleteMany({ where: { playerId } });
+    }
   }
-  const ofLosers = { in: losers };
-  const unqueued = await tx.queuedCard.findMany({
-    where: { playerId: ofLosers },
-    select: { playerId: true, poolCardId: true, position: true },
-  });
-  await tx.unqueuedCard.createMany({
-    data: unqueued.map((card) => ({ ...card, pickId: pick.id })),
-  });
-  await tx.queuedCard.deleteMany({ where: { playerId: ofLosers } });
 }
 
 /**
