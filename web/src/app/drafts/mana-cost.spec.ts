@@ -18,15 +18,17 @@ describe('mana cost', () => {
     ]);
   });
 
-  it('is both halves’ costs, between them //, on a split card or Room', () => {
-    expect(manaCostOf({ manaCost: '{U} // {4}{U}', faces: [face('{U}'), face('{4}{U}')] })).toEqual(
-      [
-        { text: '{U}', src: 'mana/U.svg', description: 'one blue mana' },
-        { text: '//' },
-        { text: '{4}', src: 'mana/4.svg', description: 'four generic mana' },
-        { text: '{U}', src: 'mana/U.svg', description: 'one blue mana' },
-      ],
-    );
+  const U = { text: '{U}', src: 'mana/U.svg', description: 'one blue mana' };
+  const GW = { text: '{G/W}', src: 'mana/GW.svg', description: 'one green or white mana' };
+  const ONE = { text: '{1}', src: 'mana/1.svg', description: 'one generic mana' };
+
+  it.each([
+    ['a split card', '{G/W}{G/W} // {4}{G}{W}', [GW, GW]],
+    ['a Room', '{U} // {4}{U}', [U]],
+    ['an adventure card', '{1}{U} // {2}{U}', [ONE, U]],
+  ])('is only the first face’s cost on %s', (_, manaCost, symbols) => {
+    const [first, second] = manaCost.split(' // ');
+    expect(manaCostOf({ manaCost, faces: [face(first), face(second)] })).toEqual(symbols);
   });
 
   it.each([
