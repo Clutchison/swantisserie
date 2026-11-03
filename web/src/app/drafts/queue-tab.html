@@ -17,7 +17,7 @@
     [disabled]="readOnly() || changing() || loading()"
     (click)="toggleStealBehavior()"
   >
-    {{ stealBehaviorName() }}<span class="swap" aria-hidden="true">⇄</span>
+    {{ stealBehaviorName() }}<svg lucideArrowLeftRight class="swap" size="16"></svg>
   </button>
 </div>
 @if (error(); as failure) {
@@ -84,32 +84,38 @@
       </span>
       @if (!readOnly()) {
         <span class="move">
+          @let upName = 'Move ' + card.name + ' up';
           <button
             class="icon"
             type="button"
-            [attr.aria-label]="'Move ' + card.name + ' up'"
+            [attr.aria-label]="upName"
+            [title]="upName"
             (click)="move(i, i - 1)"
             [disabled]="first || changing()"
           >
-            ↑
+            <svg lucideArrowUp size="16"></svg>
           </button>
+          @let downName = 'Move ' + card.name + ' down';
           <button
             class="icon"
             type="button"
-            [attr.aria-label]="'Move ' + card.name + ' down'"
+            [attr.aria-label]="downName"
+            [title]="downName"
             (click)="move(i, i + 1)"
             [disabled]="last || changing()"
           >
-            ↓
+            <svg lucideArrowDown size="16"></svg>
           </button>
+          @let removeName = 'Remove ' + card.name;
           <button
             class="icon"
             type="button"
-            [attr.aria-label]="'Remove ' + card.name"
+            [attr.aria-label]="removeName"
+            [title]="removeName"
             (click)="remove(card.poolCardId)"
             [disabled]="changing()"
           >
-            ✕
+            <svg lucideTrash size="16"></svg>
           </button>
         </span>
       }

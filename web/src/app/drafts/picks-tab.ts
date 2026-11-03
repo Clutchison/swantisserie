@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import type { PickView, Platform, PlayerView, PoolCardView } from 'contract';
+import { LucideArrowLeft, LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
 import { CardPreviewName } from './card-preview';
 import { moxfieldExport } from './moxfield-export';
@@ -36,7 +37,7 @@ const CONFIRMATION_MS = 2000;
 /** The draft view's Picks panel: one player's picks, which can be exported. */
 @Component({
   selector: 'app-picks-tab',
-  imports: [CardPreviewName, LoadingAnimation],
+  imports: [CardPreviewName, LoadingAnimation, LucideArrowLeft, LucideCheck],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './picks-tab.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './picks-tab.scss'],

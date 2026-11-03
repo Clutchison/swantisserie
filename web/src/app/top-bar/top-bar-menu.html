@@ -3,10 +3,15 @@
   class="button quiet compact"
   type="button"
   [attr.aria-label]="accessibleName()"
+  [attr.title]="label() ? null : accessibleName()"
   [attr.aria-expanded]="open()"
   (click)="toggle()"
 >
-  {{ label() }}
+  @if (label(); as label) {
+    {{ label }}
+  } @else {
+    <svg lucideMenu size="20"></svg>
+  }
 </button>
 @if (open()) {
   <!-- Keyboard users choose an item with its own link or button; this only sees the click bubble up. -->

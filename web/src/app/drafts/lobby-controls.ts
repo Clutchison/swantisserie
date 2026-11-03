@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import type { DraftView, PickImportPreview, PickImportRefusal } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { DESKTOP_QUERY, isRefusal } from './drafts';
 
@@ -25,6 +26,7 @@ const MAX_PLAYERS = 12;
  */
 @Component({
   selector: 'app-lobby-controls',
+  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './lobby-controls.scss'],

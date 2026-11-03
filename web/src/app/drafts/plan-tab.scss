@@ -4,6 +4,8 @@ $card-corners: #{4.75% / 3.5%};
 $card-height: 139.344%;
 /* How much of a stacked card shows above the next: its name. */
 $stack-step: 16%;
+/* The width of each button on a list line. */
+$line-action-width: 2.5rem;
 
 /* Sits inside the draft page, which has the padding. */
 :host {
@@ -96,6 +98,20 @@ ul {
   .unpicked .count,
   .unpicked .name {
     opacity: 0.6;
+  }
+
+  /* A line's move and Remove buttons share a width, so they line up down the board. */
+  .line-action {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: $line-action-width;
+    padding-inline: 0;
+  }
+
+  /* Where a board has a Remove button, a line without one keeps its place, so the move buttons line up too. */
+  &.with-remove .move:last-child {
+    margin-inline-end: calc(#{$line-action-width} + var(--space-sm));
   }
 }
 

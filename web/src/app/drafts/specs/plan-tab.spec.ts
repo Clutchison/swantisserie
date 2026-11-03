@@ -196,6 +196,42 @@ describe('plan tab', () => {
     );
   });
 
+  it('shows a line’s move button as minus on the mainboard and plus on the sideboard, and Remove as a trash can', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf({
+        mainboard: [planned(brightclimb), unpicked(shivan)],
+        sideboard: [planned(bolt)],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    /** The button's Lucide icon, its visible text, and its tooltip. */
+    const shown = (name: string) => {
+      const found = button(plan, name)!;
+      const icon = [...found.querySelectorAll('svg')].map((svg) =>
+        [...svg.classList].find((name) => name.startsWith('lucide-')),
+      );
+      return { icon, text: found.textContent?.trim(), tooltip: found.title };
+    };
+    expect(shown('Move Shivan Dragon to the sideboard')).toEqual({
+      icon: ['lucide-minus'],
+      text: '',
+      tooltip: 'Move Shivan Dragon to the sideboard',
+    });
+    expect(shown('Move Lightning Bolt to the mainboard')).toEqual({
+      icon: ['lucide-plus'],
+      text: '',
+      tooltip: 'Move Lightning Bolt to the mainboard',
+    });
+    expect(shown('Remove Shivan Dragon from your plan')).toEqual({
+      icon: ['lucide-trash'],
+      text: '',
+      tooltip: 'Remove Shivan Dragon from your plan',
+    });
+  });
+
   it('says why a move was refused, and re-reads the plan', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
