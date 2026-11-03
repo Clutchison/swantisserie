@@ -232,7 +232,7 @@ export class PlanTab {
   private pressedBackdrop = false;
   /** Whether the plan holds any basic land, for Clear basics to clear. */
   protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
-  /** The most copies of one basic land the control offers. */
+  /** The most copies of one basic land the Basic lands modal offers. */
   protected readonly mostBasics = MOST_BASICS;
 
   /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
