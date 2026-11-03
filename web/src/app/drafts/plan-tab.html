@@ -1,15 +1,46 @@
-<p class="detail">Every pick lands on your mainboard. Only you can see your plan.</p>
+@if (hasNotice()) {
+  <div class="notice" role="status">
+    <p>
+      Taken out of your plan:
+      @for (card of plan().removed; track card.poolCardId; let last = $last) {
+        <strong [appCardPreview]="poolCardsById().get(card.poolCardId)">{{ card.name }}</strong>
+        (picked by {{ card.pickedBy }}){{ last ? '.' : ',' }}
+      }
+    </p>
+    <button
+      class="button secondary"
+      type="button"
+      (click)="dismissNotice()"
+      [disabled]="changing()"
+    >
+      Dismiss
+    </button>
+  </div>
+}
+<p class="detail">
+  Every pick lands on your mainboard. Unpicked cards you add leave your plan if another player picks
+  them and no other copy is free. Only you can see your plan.
+</p>
 @for (board of boards(); track board.name) {
   <section class="plan-board">
-    <h3>{{ board.name }} ({{ board.count }})</h3>
+    <h3>
+      @if (board.picked === board.count) {
+        {{ board.name }} ({{ board.count }})
+      } @else {
+        {{ board.name }} {{ board.count }} ({{ board.picked }} picked)
+      }
+    </h3>
     <ul>
       @for (line of board.lines; track line.poolCardId) {
-        <li>
+        <li [class.unpicked]="!line.picked">
           <span class="count">{{ line.count }}</span>
           <span class="name">
             <!-- Only the text shows a Card preview, not the rest of the row. -->
             <span [appCardPreview]="poolCardsById().get(line.poolCardId)">{{ line.name }}</span>
           </span>
+          @if (!line.picked) {
+            <span class="mark">Unpicked</span>
+          }
           <button
             class="button compact quiet"
             type="button"
@@ -19,6 +50,17 @@
           >
             To {{ board.otherName }}
           </button>
+          @if (!line.picked) {
+            <button
+              class="button compact quiet"
+              type="button"
+              [attr.aria-label]="'Remove ' + line.name + ' from your plan'"
+              (click)="remove(line.poolCardId)"
+              [disabled]="changing()"
+            >
+              Remove
+            </button>
+          }
         </li>
       } @empty {
         <li class="empty">

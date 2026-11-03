@@ -162,6 +162,11 @@ export class DraftPage {
    * plans. The Plan tab doesn't appear for anyone else.
    */
   protected readonly offerPlan = computed(() => !!this.user()?.isAppAdmin);
+  /** Players may add unpicked cards to their plans while the draft is active, their own turn included. */
+  protected readonly offerAddToPlan = computed(() => {
+    const draft = this.draft();
+    return this.offerPlan() && this.joined() && !!draft && isActive(draft.state);
+  });
   /** Only players have a plan, and it can be changed in every draft state. */
   protected readonly planResource = httpResource<PlanView>(() =>
     this.joined() && this.offerPlan() ? `/api/drafts/${this.id()}/plan` : undefined,

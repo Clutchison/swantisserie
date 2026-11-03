@@ -5,6 +5,7 @@ import type {
   PlanRefusal,
   PlanView,
 } from 'contract';
+import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
@@ -18,8 +19,9 @@ export class PlanRefusedError extends Error {
 
 /**
  * Players' plans: each player's private mainboard and sideboard, holding
- * every pick they've made. A plan never changes the draft, so it can be
- * changed in any draft state.
+ * every pick they've made and the unpicked cards they've added. A plan
+ * never changes the draft, so it can be changed in any draft state, except
+ * that unpicked cards are only added while the draft is active.
  */
 @Injectable()
 export class PlansService {
@@ -36,6 +38,70 @@ export class PlansService {
   }
 
   /**
+   * Adds an unpicked copy of the pool card `poolCardId` to the user's
+   * mainboard: that copy if it's available and not in the plan, else the
+   * first available copy the plan doesn't hold. Throws PlanRefusedError if
+   * there is none, if the card is picked or not in the pool, or once the
+   * draft is closed or complete; and NotAPlayerError if the user isn't in
+   * the draft.
+   */
+  async add(
+    draftId: string,
+    userId: string,
+    poolCardId: string,
+  ): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId, state) => {
+      if (state === 'Closed' || state === 'Complete') {
+        throw new PlanRefusedError(
+          state === 'Closed'
+            ? { error: 'draft-closed', message: 'This draft is closed.' }
+            : { error: 'draft-complete', message: 'This draft is complete.' },
+        );
+      }
+      const card = await tx.poolCard.findFirst({
+        where: { id: poolCardId, draftId },
+        select: { id: true, oracleId: true, pick: { select: { id: true } } },
+      });
+      if (!card) {
+        throw new PlanRefusedError({
+          error: 'not-in-pool',
+          message: 'That card isn’t in this pool.',
+        });
+      }
+      if (card.pick) {
+        throw new PlanRefusedError({
+          error: 'already-picked',
+          message: 'That card has already been picked.',
+        });
+      }
+      // Copies are offered in id order, as the engine offers them.
+      const copies = await tx.poolCard.findMany({
+        where: { draftId, oracleId: card.oracleId, pick: null },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      const held = new Set(
+        (
+          await tx.plannedCard.findMany({
+            where: { playerId },
+            select: { poolCardId: true },
+          })
+        ).map((planned) => planned.poolCardId),
+      );
+      const copy = [card, ...copies].find((copy) => !held.has(copy.id));
+      if (!copy) {
+        throw new PlanRefusedError({
+          error: 'no-copies-left',
+          message: 'Every available copy of that card is in your plan already.',
+        });
+      }
+      await tx.plannedCard.create({
+        data: { playerId, poolCardId: copy.id, added: true },
+      });
+    });
+  }
+
+  /**
    * Moves the pool card `poolCardId` in the user's plan to `board`; a no-op
    * if it is there already. Throws PlanRefusedError if the card isn't in
    * the plan, and NotAPlayerError if the user isn't in the draft.
@@ -46,20 +112,74 @@ export class PlansService {
     poolCardId: string,
     board: PlanBoard,
   ): Promise<PlanView> {
-    return this.prisma.$transaction(async (tx) => {
-      const locked = await lockPlayer(tx, draftId, userId);
-      if (!locked) throw new NotAPlayerError('plans');
-      const { playerId } = locked;
+    return this.change(draftId, userId, async (tx, playerId) => {
       const { count } = await tx.plannedCard.updateMany({
         where: { playerId, poolCardId },
         data: { board },
       });
-      if (count === 0) {
+      if (count === 0) throw notInPlan();
+    });
+  }
+
+  /**
+   * Takes the unpicked pool card `poolCardId` out of the user's plan.
+   * Throws PlanRefusedError if the card is one of their picks or isn't in
+   * the plan, and NotAPlayerError if the user isn't in the draft.
+   */
+  async remove(
+    draftId: string,
+    userId: string,
+    poolCardId: string,
+  ): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      const planned = await tx.plannedCard.findUnique({
+        where: { playerId_poolCardId: { playerId, poolCardId } },
+        select: { id: true, pickId: true },
+      });
+      if (!planned) throw notInPlan();
+      if (planned.pickId) {
         throw new PlanRefusedError({
-          error: 'not-in-plan',
-          message: 'That card isn’t in your plan.',
+          error: 'a-pick',
+          message: 'That card is one of your picks.',
         });
       }
+      await tx.plannedCard.delete({ where: { id: planned.id } });
+    });
+  }
+
+  /**
+   * Stops the Plan notice listing the cards taken out of the user's plan.
+   * An undo still restores them. Throws NotAPlayerError if the user isn't
+   * in the draft.
+   */
+  async dismissNotice(draftId: string, userId: string): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      await tx.unplannedCard.updateMany({
+        where: { playerId },
+        data: { noticeHidden: true },
+      });
+    });
+  }
+
+  /**
+   * Runs `change` on the user's plan, with their row locked, and returns
+   * the plan as it then is. Throws NotAPlayerError if the user isn't in
+   * the draft.
+   */
+  private async change(
+    draftId: string,
+    userId: string,
+    change: (
+      tx: Transaction,
+      playerId: string,
+      state: DraftState,
+    ) => Promise<void>,
+  ): Promise<PlanView> {
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await lockPlayer(tx, draftId, userId);
+      if (!locked) throw new NotAPlayerError('plans');
+      const { playerId, state } = locked;
+      await change(tx, playerId, state);
       return this.read(tx, playerId);
     });
   }
@@ -74,6 +194,7 @@ export class PlansService {
       select: {
         poolCardId: true,
         board: true,
+        pickId: true,
         poolCard: { select: { name: true } },
       },
     });
@@ -83,7 +204,34 @@ export class PlansService {
         .map((card) => ({
           poolCardId: card.poolCardId,
           name: card.poolCard.name,
+          picked: card.pickId !== null,
         }));
-    return { mainboard: onBoard('Mainboard'), sideboard: onBoard('Sideboard') };
+    const removed = await tx.unplannedCard.findMany({
+      where: { playerId, noticeHidden: false },
+      orderBy: { pick: { number: 'asc' } },
+      select: {
+        poolCardId: true,
+        poolCard: { select: { name: true } },
+        pick: {
+          select: { player: { select: { user: { select: { name: true } } } } },
+        },
+      },
+    });
+    return {
+      mainboard: onBoard('Mainboard'),
+      sideboard: onBoard('Sideboard'),
+      removed: removed.map((card) => ({
+        poolCardId: card.poolCardId,
+        name: card.poolCard.name,
+        pickedBy: card.pick.player.user.name,
+      })),
+    };
   }
+}
+
+function notInPlan() {
+  return new PlanRefusedError({
+    error: 'not-in-plan',
+    message: 'That card isn’t in your plan.',
+  });
 }

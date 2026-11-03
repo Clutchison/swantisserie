@@ -395,3 +395,25 @@ export function movePlanned(
     .set('Cookie', cookie)
     .send({ board });
 }
+
+/** Adds an unpicked copy of a pool card to the player's plan. */
+export function addToPlan(id: string, poolCardId: unknown, cookie: string) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/plan`)
+    .set('Cookie', cookie)
+    .send({ poolCardId });
+}
+
+/** Takes an unpicked card out of the player's plan. */
+export function removeFromPlan(id: string, poolCardId: string, cookie: string) {
+  return request(app.getHttpServer())
+    .delete(`/api/drafts/${id}/plan/${poolCardId}`)
+    .set('Cookie', cookie);
+}
+
+/** Dismisses the player's Plan notice. */
+export function dismissPlanNotice(id: string, cookie: string) {
+  return request(app.getHttpServer())
+    .delete(`/api/drafts/${id}/plan/notice`)
+    .set('Cookie', cookie);
+}

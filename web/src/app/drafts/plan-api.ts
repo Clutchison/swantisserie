@@ -8,11 +8,29 @@ import type { PlanBoard, PlanView } from 'contract';
 export class PlanApi {
   private readonly http = inject(HttpClient);
 
+  /** Adds an unpicked copy of a pool card to the mainboard. */
+  add(draftId: string, poolCardId: string): Observable<PlanView> {
+    return this.http.post<PlanView>(url(draftId), { poolCardId });
+  }
+
   /** Moves a card in the plan to the mainboard or the sideboard. */
   move(draftId: string, poolCardId: string, board: PlanBoard): Observable<PlanView> {
-    return this.http.put<PlanView>(
-      `/api/drafts/${draftId}/plan/${encodeURIComponent(poolCardId)}`,
-      { board },
-    );
+    return this.http.put<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`, {
+      board,
+    });
   }
+
+  /** Takes an unpicked card out of the plan. */
+  remove(draftId: string, poolCardId: string): Observable<PlanView> {
+    return this.http.delete<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
+  }
+
+  /** Stops the Plan notice listing the cards taken out of the plan. */
+  dismissNotice(draftId: string): Observable<PlanView> {
+    return this.http.delete<PlanView>(`${url(draftId)}/notice`);
+  }
+}
+
+function url(draftId: string) {
+  return `/api/drafts/${draftId}/plan`;
 }

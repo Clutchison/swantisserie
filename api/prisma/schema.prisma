@@ -107,9 +107,9 @@ enum PoolSnapshotState {
 
 /// One copy of a card in a draft's pool, as snapshotted from Scryfall. A pool can hold several copies of the same card.
 model PoolCard {
-  id              String         @id @default(uuid())
+  id              String          @id @default(uuid())
   draftId         String
-  draft           Draft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft           Draft           @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Scryfall id of the printing on the draft's platform.
   scryfallId      String
   /// Identity shared by every printing of the card, and by every copy of it in the pool. A pool card is named by its own id, not this.
@@ -124,8 +124,8 @@ model PoolCard {
   manaCost        String?
   /// Null when the faces carry it.
   oracleText      String?
-  colorIdentity   String[]       @default([])
-  keywords        String[]       @default([])
+  colorIdentity   String[]        @default([])
+  keywords        String[]        @default([])
   /// How the card's faces are laid out, as Scryfall names it: normal, split, transform, adventure etc.
   layout          String
   /// common, uncommon, rare, special, mythic or bonus.
@@ -143,18 +143,19 @@ model PoolCard {
   queued          QueuedCard[]
   unqueued        UnqueuedCard[]
   planned         PlannedCard[]
+  unplanned       UnplannedCard[]
 
   @@index([draftId])
 }
 
 /// A guild member or bot who has joined a draft.
 model Player {
-  id            String         @id @default(uuid())
+  id            String          @id @default(uuid())
   draftId       String
-  draft         Draft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft         Draft           @relation(fields: [draftId], references: [id], onDelete: Cascade)
   userId        String
-  user          User           @relation(fields: [userId], references: [id])
-  joinedAt      DateTime       @default(now())
+  user          User            @relation(fields: [userId], references: [id])
+  joinedAt      DateTime        @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
   seat          Int?
   picks         Pick[]
@@ -163,8 +164,9 @@ model Player {
   unqueued      UnqueuedCard[]
   /// Private to the player, like their queue.
   plan          PlannedCard[]
+  unplanned     UnplannedCard[]
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
-  stealBehavior StealBehavior  @default(ClearQueue)
+  stealBehavior StealBehavior   @default(ClearQueue)
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -172,21 +174,23 @@ model Player {
 
 /// One card taken by one player on their turn.
 model Pick {
-  id         String         @id @default(uuid())
+  id         String          @id @default(uuid())
   draftId    String
-  draft      Draft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft      Draft           @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// 1-based, counting every pick in the draft.
   number     Int
   playerId   String
-  player     Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player     Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
   /// Unique: each pool card can be picked once.
-  poolCardId String         @unique
-  poolCard   PoolCard       @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
-  createdAt  DateTime       @default(now())
+  poolCardId String          @unique
+  poolCard   PoolCard        @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
   /// What undoing this pick puts back into queues.
   unqueued   UnqueuedCard[]
-  /// Its place in its player's plan, which undoing it takes away.
+  /// Its place in its player's plan, which undoing it takes away unless the player added the card first.
   planned    PlannedCard?
+  /// What undoing this pick puts back into plans.
+  unplanned  UnplannedCard[]
 
   @@unique([draftId, number])
   @@index([playerId])
@@ -198,19 +202,40 @@ enum PlanBoard {
   Sideboard
 }
 
-/// A card in a player's plan: one of their picks, on their mainboard or sideboard.
+/// A card in a player's plan, on their mainboard or sideboard: one of their picks, or an unpicked pool card they added.
 model PlannedCard {
   id         String    @id @default(uuid())
   playerId   String
   player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   poolCardId String
   poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
-  /// The pick that put it in the plan; undoing that pick takes it out.
-  pickId     String    @unique
-  pick       Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  /// The pick it is, if it is one; an unpicked card has none.
+  pickId     String?   @unique
+  pick       Pick?     @relation(fields: [pickId], references: [id], onDelete: SetNull)
   board      PlanBoard @default(Mainboard)
+  /// Whether the player added it with Add to Plan: undoing a pick of it then leaves it in the plan, unpicked, rather than taking it out.
+  added      Boolean   @default(false)
 
   @@unique([playerId, poolCardId])
+  @@index([poolCardId])
+}
+
+/// An unpicked card another player's pick took out of a plan, as no other copy was available for it. Kept until that pick is undone, which puts it back.
+model UnplannedCard {
+  id           String    @id @default(uuid())
+  pickId       String
+  pick         Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  playerId     String
+  player       Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  poolCardId   String
+  poolCard     PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  /// The board it was on, which an undo puts it back on.
+  board        PlanBoard
+  /// Whether the Plan notice has stopped listing it: it was dismissed.
+  noticeHidden Boolean   @default(false)
+
+  @@unique([pickId, playerId])
+  @@index([playerId])
   @@index([poolCardId])
 }
 

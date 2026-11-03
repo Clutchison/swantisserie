@@ -163,12 +163,15 @@
             [queued]="queued()"
             [offerPick]="offerPick()"
             [offerQueue]="offerQueue()"
+            [offerPlan]="offerAddToPlan()"
             [yourTurn]="yourTurn()"
             [turnPick]="draft.turn?.pick ?? null"
             (pickMade)="showDraft($event)"
             (draftStale)="catchUp()"
             (queueChanged)="queueResource.set($event)"
             (queueStale)="queueResource.reload()"
+            (planChanged)="planResource.set($event)"
+            (planStale)="planResource.reload()"
           />
         }
         @case ('Failed') {

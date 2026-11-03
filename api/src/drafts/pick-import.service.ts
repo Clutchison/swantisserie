@@ -104,7 +104,7 @@ export class PickImportService {
         tx,
         await tx.pick.findMany({
           where: { draftId },
-          select: { id: true, playerId: true, poolCardId: true },
+          select: { id: true, number: true, playerId: true, poolCardId: true },
         }),
       );
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });

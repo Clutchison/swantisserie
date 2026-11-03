@@ -6,6 +6,8 @@ export type Transaction = Prisma.TransactionClient;
 /** A pick just made, as the helpers that record what it does take it. */
 export interface MadePick {
   id: string;
+  /** 1-based, counting every pick in the draft. */
+  number: number;
   playerId: string;
   poolCardId: string;
 }

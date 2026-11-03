@@ -204,6 +204,10 @@ _Avoid_: Main deck, maindeck, board (alone)
 The part of a player's plan holding cards they don't intend to play.
 _Avoid_: Maybeboard, bench, board (alone)
 
+**Unpicked card**:
+A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, or another player picks it when no other copy is available for the plan.
+_Avoid_: Maybe, wishlist card, placeholder, proxy
+
 **Plan board**:
 Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.
 _Avoid_: Board (alone; that is the Board tab), zone, section
