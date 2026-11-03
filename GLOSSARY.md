@@ -1,19 +1,27 @@
 # Swantisserie
 
-A rotisserie draft app for one Discord server: players take turns picking cards from a shared pool, then play their picks on MTG Arena or Magic Online.
+A rotisserie draft app for Discord servers: players take turns picking cards from a shared pool, then play their picks on MTG Arena or Magic Online.
 
 ## Access
 
 **Guild**:
-Our Discord server. Only its members can use the app.
-_Avoid_: Server (except in user-facing copy), Discord
+A Discord server that uses the app. Its drafts are seen only by its members.
+_Avoid_: Server (except in user-facing copy), Discord, tenant
 
 **Guild member**:
-Someone in the guild. Only guild members may sign in.
+Someone in a particular guild. Only its guild members see and join a guild's drafts.
 _Avoid_: Role-holder, member (alone), player (unless they are in a draft)
 
+**Guild admin**:
+A guild member who owns the guild or has Discord's Manage Server permission in it. Guild admins set up their guild, can create drafts without the organizer role, and have app admin powers over every draft in their guild.
+_Avoid_: Server admin, moderator, owner (alone)
+
+**Organizer role**:
+The Discord role a guild admin chooses at setup whose holders may create drafts in that guild. When none is chosen, any guild member may.
+_Avoid_: Drafter role, permission, rank
+
 **App admin**:
-A user named in config who has organizer powers on every draft and manages webhooks.
+A user named in config who can manage drafts and webhooks in every guild, but plays only in guilds they are a member of.
 _Avoid_: Admin (alone), moderator, superuser
 
 **App version**:
@@ -21,13 +29,13 @@ The commit of the app that is live, or unknown when it wasn't recorded. Only app
 _Avoid_: Version (alone), release, build number
 
 **Organizer**:
-The guild member who created a draft and runs it. App admins act as organizer on every draft.
+The guild member who created a draft and runs it. App admins act as organizer on every draft, and guild admins on every draft in their guild.
 _Avoid_: Host, owner, creator
 
 ## Drafting
 
 **Draft**:
-One rotisserie event: a pool, its players, and the picks they make in snake order.
+One rotisserie event in a guild: a pool, its players, and the picks they make in snake order.
 _Avoid_: Game, league, room
 
 **Pool**:
@@ -107,7 +115,7 @@ A guild member or bot who has joined a particular draft.
 _Avoid_: Drafter, participant, user
 
 **Bot**:
-A player the app controls, which picks a random available card on its turn. Only app admins add bots, for testing.
+A player the app controls, which picks a random available card on its turn. Only app admins and guild admins add bots, for testing.
 _Avoid_: AI, dummy, CPU
 
 **Seat**:
@@ -214,9 +222,33 @@ _Avoid_: Open draft, current draft
 
 ## Discord
 
+**Discord bot**:
+The app's own user in Discord, which a guild admin adds to their guild at setup so the app can manage its draft channels.
+_Avoid_: Bot (alone; that is a player), integration, app user
+
+**Setup**:
+A guild admin adding the Discord bot to their guild, choosing its organizer role and creating or choosing its categories. Until setup is done, nobody can create drafts in the guild.
+_Avoid_: Onboarding, install, registration
+
 **Webhook**:
-A named Discord channel destination that an app admin registers. An organizer chooses at most one per draft and can change it at any time, and that draft's announcements are posted to it from then on. Its URL is secret: only app admins see it.
+A named Discord channel destination that an app admin or guild admin registers by hand for one guild. An app admin or guild admin can switch a draft's announcements to one of its guild's webhooks, or back to its draft channel, at any time. Its URL is secret: only app admins and its guild's admins see it.
 _Avoid_: Channel, hook, integration
+
+**Draft channel**:
+The Discord channel the app creates for a draft along with the draft, where the draft's announcements go unless they are switched to a webhook. It belongs to its draft, and no other draft can use it.
+_Avoid_: Draft chat, draft webhook, room
+
+**Draft category**:
+The Discord category in a guild where draft channels are created.
+_Avoid_: Drafts folder, parent channel
+
+**Archive category**:
+The Discord category in a guild where archived draft channels go.
+_Avoid_: Archive folder, graveyard
+
+**Archived**:
+Describes a draft channel moved to its guild's archive category because its draft is complete or closed. Reopening the draft moves it back.
+_Avoid_: Muted, hidden, closed (that is the draft)
 
 **Announcement**:
 A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. Only a start links to the draft. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them: that announcement names them as up without pinging them.
