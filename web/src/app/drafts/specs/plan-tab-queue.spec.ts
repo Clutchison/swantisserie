@@ -111,6 +111,28 @@ describe('queueing the unpicked cards on the plan tab', () => {
     expect(panel(page).textContent).toContain('Lightning Bolt');
   });
 
+  it('closes on a click on the backdrop, but not on a drag out of the modal', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan,
+    });
+    const tab = await openModal(fixture, page);
+    const modal = dialog(tab)!;
+    const backdrop = modal.parentElement!;
+
+    // A press inside the modal, let go on the backdrop, as a text selection dragged out.
+    modal.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    backdrop.click();
+    await fixture.whenStable();
+    expect(dialog(tab)).not.toBeNull();
+
+    backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    backdrop.click();
+    await fixture.whenStable();
+    expect(dialog(tab)).toBeNull();
+  });
+
   it('includes the sideboard when checked, and opens unchecked each time', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,

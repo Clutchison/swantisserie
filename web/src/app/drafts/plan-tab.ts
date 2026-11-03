@@ -33,7 +33,7 @@ import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { type Grouping, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { MANA_SYMBOLS } from './mana-symbols';
+import { manaSymbol } from './mana-cost';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
 const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
@@ -140,7 +140,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucideTrash,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '(document:keydown.escape)': 'closeQueueing(); basicsOpen.set(false)' },
+  host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
 })
@@ -218,7 +218,7 @@ export class PlanTab {
     BASIC_LANDS.map((land) => ({
       land,
       count: this.plan().basics.find((basic) => basic.land === land)?.count ?? 0,
-      symbol: `mana/${MANA_SYMBOLS[BASIC_SYMBOLS[land]].file}`,
+      symbol: manaSymbol(BASIC_SYMBOLS[land]).src,
     })),
   );
   /** How many basic lands the plan holds in all, for the Basic lands button. */
@@ -228,8 +228,6 @@ export class PlanTab {
   /** Whether the Basic lands modal is open. */
   protected readonly basicsOpen = signal(false);
   private readonly doneWithBasics = viewChild<ElementRef<HTMLButtonElement>>('doneWithBasics');
-  /** Whether the current press began on the Basic lands modal's backdrop, as a click there closes it. */
-  private pressedBackdrop = false;
   /** Whether the plan holds any basic land, for Clear basics to clear. */
   protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
   /** The most copies of one basic land the Basic lands modal offers. */
@@ -238,6 +236,13 @@ export class PlanTab {
   /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
   protected readonly queueDialog = signal<{ includeSideboard: boolean } | null>(null);
   private readonly cancelQueueing = viewChild<ElementRef<HTMLButtonElement>>('cancelQueueing');
+  /**
+   * Whether the current press began on a modal's backdrop. Only a click
+   * that both begins and ends there closes the modal: dragging a text
+   * selection out of the modal also ends in a click on the backdrop.
+   */
+  private pressedBackdrop = false;
+
   /** Whether Queue unpicked is on its way. */
   protected readonly sendingQueue = signal(false);
   /** The pool card ids Queue unpicked adds from each board: its unpicked copies the queue doesn't hold. */
@@ -335,15 +340,6 @@ export class PlanTab {
     return count === held ? undefined : this.setBasic(land, count);
   }
 
-  protected backdropPressed(event: MouseEvent) {
-    this.pressedBackdrop = event.target === event.currentTarget;
-  }
-
-  /** A click on the Basic lands modal's backdrop closes it, unless the press began inside the modal. */
-  protected backdropClicked(event: MouseEvent) {
-    if (this.pressedBackdrop && event.target === event.currentTarget) this.basicsOpen.set(false);
-  }
-
   /** Takes every basic land out of the plan. */
   protected clearBasics() {
     return this.change(this.planApi.clearBasics(this.draftId()));
@@ -357,6 +353,21 @@ export class PlanTab {
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(this.planApi.dismissNotice(this.draftId()));
+  }
+
+  protected backdropPressed(event: MouseEvent) {
+    this.pressedBackdrop = event.target === event.currentTarget;
+  }
+
+  /** A click on a modal's backdrop closes that modal, if the press began there too. */
+  protected backdropClicked(event: MouseEvent, modal: 'queueing' | 'basics') {
+    if (!this.pressedBackdrop || event.target !== event.currentTarget) return;
+    if (modal === 'queueing') this.closeQueueing();
+    else this.closeBasics();
+  }
+
+  protected closeBasics() {
+    this.basicsOpen.set(false);
   }
 
   /** Opens the Queue unpicked modal, leaving the sideboard out. */

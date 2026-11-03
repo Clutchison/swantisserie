@@ -245,13 +245,16 @@
 }
 <!-- Closed as soon as adding to the queue isn't offered, as when the player's turn comes. -->
 @if (offerQueueUnpicked() && queueDialog(); as dialog) {
-  <div class="backdrop" (click)="closeQueueing()">
+  <div
+    class="backdrop"
+    (mousedown)="backdropPressed($event)"
+    (click)="backdropClicked($event, 'queueing')"
+  >
     <div
-      class="queue-unpicked"
+      class="modal queue-unpicked"
       role="dialog"
       aria-modal="true"
       aria-labelledby="queue-unpicked-heading"
-      (click)="$event.stopPropagation()"
     >
       <h3 id="queue-unpicked-heading">Queue unpicked cards</h3>
       @if (queueCount() === 0) {
@@ -290,8 +293,12 @@
   </div>
 }
 @if (basicsOpen()) {
-  <div class="backdrop" (mousedown)="backdropPressed($event)" (click)="backdropClicked($event)">
-    <div class="basics" role="dialog" aria-modal="true" aria-labelledby="basics-heading">
+  <div
+    class="backdrop"
+    (mousedown)="backdropPressed($event)"
+    (click)="backdropClicked($event, 'basics')"
+  >
+    <div class="modal basics" role="dialog" aria-modal="true" aria-labelledby="basics-heading">
       <h3 id="basics-heading">Basic lands</h3>
       <ul>
         @for (basic of basics(); track basic.land) {
@@ -347,9 +354,7 @@
         >
           Clear basics
         </button>
-        <button class="button" type="button" #doneWithBasics (click)="basicsOpen.set(false)">
-          Done
-        </button>
+        <button class="button" type="button" #doneWithBasics (click)="closeBasics()">Done</button>
       </div>
     </div>
   </div>

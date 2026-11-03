@@ -58,12 +58,11 @@ ul {
   list-style: none;
 }
 
-/* The Basic lands modal, on the page's backdrop: a row per basic land, its symbol, −, number and +. */
-.basics {
+/* A modal on the page's backdrop: its heading, what it holds, then its actions. */
+.modal {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  width: min(20rem, 100%);
   padding: var(--space-lg);
   border-radius: 0.5rem;
   background: var(--color-bg);
@@ -72,6 +71,11 @@ ul {
   h3 {
     margin: 0;
   }
+}
+
+/* The Basic lands modal: a row per basic land, its symbol, −, number and +. */
+.basics {
+  width: min(20rem, 100%);
 
   ul {
     display: flex;
@@ -306,18 +310,10 @@ ul {
   margin-bottom: var(--space-md);
 }
 
-/* The Queue unpicked modal, on the page's backdrop. */
+/* The Queue unpicked modal. */
 .queue-unpicked {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
   width: min(24rem, 100%);
-  padding: var(--space-lg);
-  border-radius: 0.5rem;
-  background: var(--color-bg);
-  color: var(--color-text);
 
-  h3,
   p {
     margin: 0;
   }
