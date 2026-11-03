@@ -1,8 +1,15 @@
 /**
- * A draft's pool: each pool card's card, keyed by pool card id. Copies of a
- * card share one, such as its oracle id. Copies are offered in this order.
+ * A draft's pool: each pool card's oracle id, keyed by pool card id. Copies
+ * of a card share an oracle id. Copies are offered in this order.
  */
-export type PoolCards = ReadonlyMap<string, string>;
+export type Pool = ReadonlyMap<string, string>;
+
+/** A pick: the seat that made it and the pool card it picked. */
+export interface SeatPick {
+  /** 0-based index into the seat order. */
+  seat: number;
+  card: string;
+}
 
 /** One seat's queue after a pick. */
 export interface QueueAfterPick {
@@ -23,15 +30,20 @@ export interface QueueAfterPick {
  * queue holding it, it is swapped, in the same place, for the first copy in
  * `pool` that is not `picked` and that the queue doesn't hold; with no such
  * copy, it is lost and the rest of that queue cleared. `picked` is the cards
- * picked already, with or without this one. Cards are identified as in `pool`.
+ * picked already, with or without this one. Cards are pool card ids.
  */
 export function queuesAfterPick(
-  pick: { seat: number; card: string },
+  pick: SeatPick,
   queues: readonly (readonly string[])[],
-  { pool, picked }: { pool: PoolCards; picked: readonly string[] },
+  { pool, picked }: { pool: Pool; picked: readonly string[] },
 ): QueueAfterPick[] {
   const taken = new Set([...picked, pick.card]);
-  const card = pool.get(pick.card);
+  const oracleId = pool.get(pick.card);
+  const copies = [...pool]
+    .filter(
+      ([card, cardOracleId]) => cardOracleId === oracleId && !taken.has(card),
+    )
+    .map(([card]) => card);
   return queues.map((queue, seat) => {
     if (seat === pick.seat) {
       return {
@@ -41,9 +53,7 @@ export function queuesAfterPick(
     }
     const at = queue.indexOf(pick.card);
     if (at === -1) return { queue: [...queue], unqueued: [] };
-    const copy = [...pool].find(
-      ([id, of]) => of === card && !taken.has(id) && !queue.includes(id),
-    )?.[0];
+    const copy = copies.find((card) => !queue.includes(card));
     if (copy === undefined) return { queue: [], unqueued: [...queue] };
     return { queue: queue.with(at, copy), swapped: copy, unqueued: [] };
   });

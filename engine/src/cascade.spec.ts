@@ -73,6 +73,23 @@ describe('cascade', () => {
     ]);
   });
 
+  it('stops at a seat whose queued copy the cascade picked after swapping it into another queue', () => {
+    // Seat 1's Bolt moves to bolt-2, then seat 1 picks it from seat 2.
+    expect(
+      cascade(
+        { players: 3, picksPerPlayer: 1, picked: [] },
+        [['bolt-1'], ['bolt-1'], ['bolt-2']],
+        new Map([
+          ['bolt-1', 'Lightning Bolt'],
+          ['bolt-2', 'Lightning Bolt'],
+        ]),
+      ),
+    ).toEqual([
+      { seat: 0, card: 'bolt-1' },
+      { seat: 1, card: 'bolt-2' },
+    ]);
+  });
+
   it('leaves the rest of a queue in place after its own seat picks from it', () => {
     // Shock leaves seat 0's queue, and Bolt is still there for its next turn.
     expect(

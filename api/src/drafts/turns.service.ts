@@ -9,8 +9,8 @@ import {
   toEventPlayer,
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
-import { draftSize, SEAT_ORDER } from './draft-shapes.js';
-import { poolCards, restoreQueues, takeFromQueues } from './queue-clearing.js';
+import { draftSize, enginePool, SEAT_ORDER } from './draft-shapes.js';
+import { restoreQueues, takeFromQueues } from './queue-clearing.js';
 
 const PICK_LOG = {
   orderBy: { number: 'asc' },
@@ -148,22 +148,15 @@ export class TurnsService {
         },
       },
     });
-    const picked = await tx.pick.findMany({
-      where: { draftId },
-      orderBy: { number: 'asc' },
-      select: { poolCardId: true },
-    });
+    const { pool, picked } = await enginePool(tx, draftId);
     const picks = cascade(
-      {
-        ...draftSize(draft, players.length),
-        picked: picked.map((pick) => pick.poolCardId),
-      },
+      { ...draftSize(draft, players.length), picked },
       players.map((player) =>
         player.user.isBot
           ? []
           : player.queue.map((queued) => queued.poolCardId),
       ),
-      (await poolCards(tx, draftId)).pool,
+      pool,
     );
     const events: DraftEvent[] = [];
     for (const { seat, card } of picks) {

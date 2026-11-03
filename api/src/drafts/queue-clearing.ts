@@ -1,24 +1,5 @@
-import { type PoolCards, queuesAfterPick } from 'engine';
-import type { Transaction } from './draft-shapes.js';
-
-/**
- * The draft's pool for the engine: each pool card's oracle id, which its
- * copies share, offering copies in id order. With the pool cards picked.
- */
-export async function poolCards(
-  tx: Transaction,
-  draftId: string,
-): Promise<{ pool: PoolCards; picked: string[] }> {
-  const cards = await tx.poolCard.findMany({
-    where: { draftId },
-    orderBy: { id: 'asc' },
-    select: { id: true, oracleId: true, pick: { select: { id: true } } },
-  });
-  return {
-    pool: new Map(cards.map((card) => [card.id, card.oracleId])),
-    picked: cards.filter((card) => card.pick).map((card) => card.id),
-  };
-}
+import { queuesAfterPick } from 'engine';
+import { enginePool, SEAT_ORDER, type Transaction } from './draft-shapes.js';
 
 /**
  * Persists what a new pick, already made, does to queues, as the engine's
@@ -38,6 +19,7 @@ export async function takeFromQueues(
   });
   const players = await tx.player.findMany({
     where: { draftId },
+    orderBy: SEAT_ORDER,
     select: {
       id: true,
       queue: {
@@ -52,14 +34,18 @@ export async function takeFromQueues(
       card: pick.poolCardId,
     },
     players.map((player) => player.queue.map((queued) => queued.poolCardId)),
-    await poolCards(tx, draftId),
+    await enginePool(tx, draftId),
   );
-  await tx.queuedCard.deleteMany({
-    where: { poolCardId: pick.poolCardId, playerId: pick.playerId },
-  });
-  for (const [index, { swapped, unqueued }] of after.entries()) {
-    const { id: playerId, queue } = players[index];
-    if (swapped !== undefined) {
+  for (const [seat, { queue, swapped, unqueued }] of after.entries()) {
+    const { id: playerId, queue: before } = players[seat];
+    if (unqueued.length > 0) {
+      await tx.unqueuedCard.createMany({
+        data: before
+          .filter((queued) => unqueued.includes(queued.poolCardId))
+          .map((queued) => ({ ...queued, playerId, pickId: pick.id })),
+      });
+      await tx.queuedCard.deleteMany({ where: { playerId } });
+    } else if (swapped !== undefined) {
       await tx.queuedCard.update({
         where: {
           playerId_poolCardId: { playerId, poolCardId: pick.poolCardId },
@@ -71,14 +57,11 @@ export async function takeFromQueues(
         where: { playerId, poolCardId: swapped },
         data: { noticeHidden: true },
       });
-    }
-    if (unqueued.length > 0) {
-      await tx.unqueuedCard.createMany({
-        data: queue
-          .filter((queued) => unqueued.includes(queued.poolCardId))
-          .map((queued) => ({ ...queued, playerId, pickId: pick.id })),
+    } else {
+      // Only the picker's own queue loses cards this way.
+      await tx.queuedCard.deleteMany({
+        where: { playerId, poolCardId: { notIn: queue } },
       });
-      await tx.queuedCard.deleteMany({ where: { playerId } });
     }
   }
 }

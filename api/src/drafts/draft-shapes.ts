@@ -1,4 +1,4 @@
-import type { DraftSize } from 'engine';
+import type { DraftSize, Pool } from 'engine';
 import type { Draft, Prisma } from '../generated/prisma/client.js';
 
 export type Transaction = Prisma.TransactionClient;
@@ -15,4 +15,23 @@ export function draftSize(
   players: number,
 ): DraftSize {
   return { players, picksPerPlayer };
+}
+
+/**
+ * The draft's pool as the engine sees it, offering copies in id order, and
+ * the pool cards picked so far.
+ */
+export async function enginePool(
+  tx: Transaction,
+  draftId: string,
+): Promise<{ pool: Pool; picked: string[] }> {
+  const cards = await tx.poolCard.findMany({
+    where: { draftId },
+    orderBy: { id: 'asc' },
+    select: { id: true, oracleId: true, pick: { select: { id: true } } },
+  });
+  return {
+    pool: new Map(cards.map((card) => [card.id, card.oracleId])),
+    picked: cards.filter((card) => card.pick).map((card) => card.id),
+  };
 }

@@ -39,7 +39,21 @@ describe('queuesAfterPick', () => {
     ]);
   });
 
-  it('empties another queue holding the card when no copy is left for it', () => {
+  it('swaps the same copy into each other queue that held the card', () => {
+    expect(
+      queuesAfterPick(
+        { seat: 0, card: 'bolt-1' },
+        [[], ['bolt-1'], ['shock', 'bolt-1']],
+        { pool, picked: [] },
+      ),
+    ).toEqual([
+      { queue: [], unqueued: [] },
+      { queue: ['bolt-2'], swapped: 'bolt-2', unqueued: [] },
+      { queue: ['shock', 'bolt-2'], swapped: 'bolt-2', unqueued: [] },
+    ]);
+  });
+
+  it('loses the card from another queue when no copy is left for it, clearing the rest', () => {
     // bolt-2 is picked already; the queue holding Shock has no copy to swap.
     expect(
       queuesAfterPick(
@@ -54,7 +68,7 @@ describe('queuesAfterPick', () => {
     ]);
   });
 
-  it('empties a queue that already holds every other copy', () => {
+  it('loses the card from a queue that already holds every other copy', () => {
     expect(
       queuesAfterPick({ seat: 0, card: 'bolt-1' }, [[], ['bolt-2', 'bolt-1']], {
         pool,
