@@ -7,10 +7,12 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { LucideMenu } from '@lucide/angular';
 
 /** A top bar button that opens a panel of the projected items below the bar, over the page. */
 @Component({
   selector: 'app-top-bar-menu',
+  imports: [LucideMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './top-bar-menu.html',
   styleUrl: './top-bar-menu.scss',
@@ -23,8 +25,9 @@ export class TopBarMenu {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
 
-  readonly label = input.required<string>();
-  /** Names the button when its label is only an icon. */
+  /** The button's text; without one, it shows the menu icon, named by `accessibleName`. */
+  readonly label = input<string>();
+  /** Names the button, and is its tooltip, when it shows only the menu icon. */
   readonly accessibleName = input<string>();
 
   protected readonly open = signal(false);

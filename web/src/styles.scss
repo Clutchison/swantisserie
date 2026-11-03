@@ -87,6 +87,12 @@ a {
   color: var(--color-accent);
 }
 
+/* A Lucide icon strokes in currentColor, so it takes its text's colour; it sits centred on the text beside it, at its own size. */
+svg.lucide {
+  flex: none;
+  vertical-align: middle;
+}
+
 button {
   border-color: var(--color-muted);
   background: var(--color-surface);

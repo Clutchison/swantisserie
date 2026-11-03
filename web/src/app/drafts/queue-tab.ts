@@ -17,6 +17,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import type { DraftState, PoolCardView, QueueView, StealBehavior } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { LucideArrowDown, LucideArrowLeftRight, LucideArrowUp, LucideTrash } from '@lucide/angular';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, isActive } from './drafts';
 import { QueueApi } from './queue-api';
@@ -56,6 +57,10 @@ type ErrorPlace = 'stealBehavior' | 'queue';
     CdkDrag,
     CdkDragHandle,
     LoadingAnimation,
+    LucideArrowDown,
+    LucideArrowLeftRight,
+    LucideArrowUp,
+    LucideTrash,
     NgTemplateOutlet,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
