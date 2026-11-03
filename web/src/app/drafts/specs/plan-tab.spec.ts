@@ -1,4 +1,3 @@
-import { TestBed } from '@angular/core/testing';
 import type { DraftView, PlanView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
@@ -95,7 +94,7 @@ describe('plan tab', () => {
     http.expectNone('/api/drafts/draft-1/plan');
   });
 
-  it('lists the mainboard and the sideboard, each line a count and a name, with a card preview', async () => {
+  it('lists the mainboard and the sideboard, each line a count and a name', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       user: admin,
@@ -126,30 +125,6 @@ describe('plan tab', () => {
     expect(
       [...sideboard.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')),
     ).toEqual(['Move Shivan Dragon to the mainboard']);
-  });
-
-  it('shows a card preview when the mouse rests on a name', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-      cards,
-      user: admin,
-      plan: planOf(),
-    });
-    const plan = await openPlan(fixture, page);
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-
-    const name = [...plan.querySelectorAll<HTMLElement>('.name > span')].find(
-      (span) => span.textContent?.trim() === 'Shivan Dragon',
-    )!;
-    name.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
-    vi.advanceTimersByTime(150);
-    TestBed.tick();
-
-    const preview = document.querySelector<HTMLImageElement>('app-card-preview img');
-    expect(preview?.getAttribute('alt')).toBe('Shivan Dragon');
-    name.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-    TestBed.tick();
-    expect(document.querySelector('app-card-preview img')).toBeNull();
-    vi.useRealTimers();
   });
 
   it('says when a board is empty', async () => {

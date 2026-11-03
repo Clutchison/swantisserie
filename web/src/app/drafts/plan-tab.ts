@@ -83,7 +83,7 @@ export class PlanTab {
     (['Mainboard', 'Sideboard'] as const).map((board) => {
       const { cards, ...rest } = BOARDS[board];
       const held = cards(this.plan());
-      return { board, ...rest, count: held.length, lines: lines(held) };
+      return { name: board, ...rest, count: held.length, lines: lines(held) };
     }),
   );
 

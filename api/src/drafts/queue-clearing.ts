@@ -1,5 +1,10 @@
 import { queuesAfterPick } from 'engine';
-import { enginePool, SEAT_ORDER, type Transaction } from './draft-shapes.js';
+import {
+  enginePool,
+  type MadePick,
+  SEAT_ORDER,
+  type Transaction,
+} from './draft-shapes.js';
 
 /**
  * Persists what a new pick, already made, does to queues, as the engine's
@@ -12,7 +17,7 @@ import { enginePool, SEAT_ORDER, type Transaction } from './draft-shapes.js';
  */
 export async function takeFromQueues(
   tx: Transaction,
-  pick: { id: string; playerId: string; poolCardId: string },
+  pick: MadePick,
 ): Promise<void> {
   const { draftId } = await tx.poolCard.findUniqueOrThrow({
     where: { id: pick.poolCardId },

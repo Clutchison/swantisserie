@@ -3,6 +3,13 @@ import type { Draft, Prisma } from '../generated/prisma/client.js';
 
 export type Transaction = Prisma.TransactionClient;
 
+/** A pick just made, as the helpers that record what it does take it. */
+export interface MadePick {
+  id: string;
+  playerId: string;
+  poolCardId: string;
+}
+
 /** Seated players by seat, then the rest in join order. */
 export const SEAT_ORDER = [
   { seat: { sort: 'asc', nulls: 'last' } },

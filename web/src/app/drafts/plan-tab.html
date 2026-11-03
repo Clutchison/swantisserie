@@ -1,7 +1,7 @@
 <p class="detail">Every pick lands on your mainboard. Only you can see your plan.</p>
-@for (board of boards(); track board.board) {
+@for (board of boards(); track board.name) {
   <section class="plan-board">
-    <h3>{{ board.board }} ({{ board.count }})</h3>
+    <h3>{{ board.name }} ({{ board.count }})</h3>
     <ul>
       @for (line of board.lines; track line.poolCardId) {
         <li>

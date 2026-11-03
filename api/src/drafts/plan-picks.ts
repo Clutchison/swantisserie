@@ -1,11 +1,4 @@
-import type { Transaction } from './draft-shapes.js';
-
-/** A pick just made, to put in its player's plan. */
-export interface MadePick {
-  id: string;
-  playerId: string;
-  poolCardId: string;
-}
+import type { MadePick, Transaction } from './draft-shapes.js';
 
 /** Puts each of `picks`, just made, on its player's mainboard. */
 export async function planPicks(
