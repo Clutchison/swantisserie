@@ -13,7 +13,7 @@ import {
 import type { DraftView, PickImportPreview, PickImportRefusal } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import { isRefusal } from './drafts';
+import { DESKTOP_QUERY, isRefusal } from './drafts';
 
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;
@@ -59,7 +59,7 @@ export class LobbyControls {
    * Read once: resizing after load doesn't move the seat order. No `matchMedia` counts as mobile.
    * The breakpoint matches the desktop layout in `lobby-controls.scss` and `draft-page.scss`.
    */
-  private readonly onDesktop = !!globalThis.matchMedia?.('(min-width: 1024px)').matches;
+  private readonly onDesktop = !!globalThis.matchMedia?.(DESKTOP_QUERY).matches;
   /** The seat order stays open on desktop; on mobile it collapses once the draft starts. */
   protected readonly seatOrderOpen = computed(() => this.onDesktop || this.inLobby());
   /** The start needs the pool's size, so waits for the snapshot. */

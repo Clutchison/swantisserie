@@ -1,6 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import type { DraftCreationProblem, DraftRefusal, DraftState, PlanView, QueueView } from 'contract';
 
+/**
+ * The media query of the draft page's desktop layout, where the tabs sit at
+ * the top: the breakpoint in `draft-page.scss` and `lobby-controls.scss`.
+ */
+export const DESKTOP_QUERY = '(min-width: 1024px)';
+
 /** An active draft is any draft that is neither closed nor complete. */
 export function isActive(state: DraftState): boolean {
   return state !== 'Complete' && state !== 'Closed';

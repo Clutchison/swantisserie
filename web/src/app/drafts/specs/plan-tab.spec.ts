@@ -23,6 +23,7 @@ import {
   button,
   updates,
   viewOn,
+  resizeTo,
   type AppFixture,
 } from './harness';
 import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -524,6 +525,25 @@ describe('plan tab', () => {
       expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card').request.body).toEqual({
         board: 'Mainboard',
       });
+    });
+
+    it('drops to the list as the window narrows below the breakpoint, and back to stacks as it widens', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        user: admin,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      expect(plan.querySelectorAll('.stack')).toHaveLength(3);
+
+      resizeTo('mobile');
+      expect(button(plan, 'Stacks')).toBeUndefined();
+      expect(plan.querySelector('.stack')).toBeNull();
+      expect(boards(plan)[0].lines).toHaveLength(3);
+
+      resizeTo('desktop');
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(plan.querySelectorAll('.stack')).toHaveLength(3);
     });
 
     it('falls back to the defaults when the browser offers no storage', async () => {

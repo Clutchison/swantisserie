@@ -233,7 +233,7 @@ One column of stacks mode: the cards of a plan board that share a grouping's val
 _Avoid_: Column, pile
 
 **Grouping**:
-How stacks mode divides a plan board into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies.
+How stacks mode divides a plan board into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies, and one with none of the listed types goes under Other.
 _Avoid_: Sort, filter, view
 
 **Export tab**:

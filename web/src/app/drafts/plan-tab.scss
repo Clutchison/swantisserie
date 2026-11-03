@@ -33,7 +33,7 @@ h3 {
 }
 
 /* Stacks or list, and how the stacks group; each a row of toggles with the chosen one pressed. */
-.view-controls {
+.mode-controls {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
@@ -177,7 +177,14 @@ ul {
   }
 }
 
-/* A stacked card's buttons sit over its top corner, and show while it's pointed at or focused. */
+/* A stacked card's mark sits over its top left corner, always; its buttons over the right, while it's pointed at or focused. */
+.stack .mark {
+  position: absolute;
+  top: var(--space-xs);
+  left: var(--space-xs);
+  background: var(--color-bg);
+}
+
 .actions {
   position: absolute;
   top: var(--space-xs);
@@ -185,25 +192,16 @@ ul {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  opacity: 0;
 
-  li:hover > &,
-  li:focus-within > & {
+  /* Hidden rather than gone, so the buttons still take focus, which shows them. */
+  button {
+    opacity: 0;
+  }
+
+  li:hover > & button,
+  li:focus-within > & button {
     opacity: 1;
   }
-
-  .mark {
-    background: var(--color-bg);
-  }
-}
-
-/* CDK drag-drop: the card being dragged (previewed in the board, so styled here), and the gap it leaves. */
-.cdk-drag-preview {
-  box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
-}
-
-.cdk-drag-placeholder {
-  opacity: 0.3;
 }
 
 .icon {

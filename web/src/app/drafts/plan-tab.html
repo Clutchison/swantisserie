@@ -22,8 +22,8 @@
   and no other copy is available. Only you can see your plan.
 </p>
 @if (onDesktop()) {
-  <div class="view-controls">
-    <div class="segmented" role="group" aria-label="View">
+  <div class="mode-controls">
+    <div class="segmented" role="group" aria-label="Mode">
       <button
         class="button compact quiet"
         type="button"
@@ -62,6 +62,7 @@
   @for (board of boards(); track board.name) {
     <section class="plan-board">
       <h3>{{ board.name }} {{ board.count }} ({{ board.picked }} picked)</h3>
+      <!-- An empty board shows as the list in either mode: what it says, and a drop list to drag onto. -->
       @if (showingStacks() && board.count > 0) {
         <div
           class="stacks"
@@ -91,7 +92,7 @@
                     <div class="card" [appCardPreview]="poolCard">
                       @if (poolCard) {
                         <img
-                          [attr.srcset]="srcset(poolCard)"
+                          [attr.srcset]="images.srcset(poolCard)"
                           sizes="160px"
                           [src]="images.url(poolCard, 'normal')"
                           [alt]="card.name"
@@ -104,10 +105,10 @@
                         <span class="placeholder">{{ card.name }}</span>
                       }
                     </div>
+                    @if (!card.picked) {
+                      <span class="mark">Unpicked</span>
+                    }
                     <div class="actions">
-                      @if (!card.picked) {
-                        <span class="mark">Unpicked</span>
-                      }
                       <button
                         class="icon"
                         type="button"
@@ -116,7 +117,7 @@
                         (click)="move(card.poolCardId, board.other)"
                         [disabled]="changing()"
                       >
-                        {{ board.name === 'Mainboard' ? '↓' : '↑' }}
+                        {{ board.arrow }}
                       </button>
                       @if (!card.picked) {
                         <button

@@ -86,8 +86,8 @@ export function stacks(
     cards: [] as PlannedCardView[],
   }));
   for (const card of sorted) {
-    const at = RULES[grouping].findIndex((rule) => rule.holds(facts(card)));
-    if (at >= 0) stacked[at].cards.push(card);
+    const stackIndex = RULES[grouping].findIndex((rule) => rule.holds(facts(card)));
+    if (stackIndex >= 0) stacked[stackIndex].cards.push(card);
   }
   return stacked.filter((stack) => stack.cards.length > 0);
 }

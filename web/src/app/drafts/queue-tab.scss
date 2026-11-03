@@ -88,15 +88,7 @@
   }
 }
 
-/* CDK drag-drop: the card being dragged (previewed in the list, so styled here), and the gap it leaves. */
-.cdk-drag-preview {
-  box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
-}
-
-.cdk-drag-placeholder {
-  opacity: 0.3;
-}
-
+/* CDK drag-drop: the cards making way for the one being dragged. */
 .cdk-drop-list-dragging li:not(.cdk-drag-placeholder) {
   transition: transform 200ms ease;
 }

@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   inject,
   input,
   output,
@@ -12,7 +13,7 @@ import type { PlanBoard, PlannedCardView, PlanView, PoolCardView } from 'contrac
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImageSource } from './card-image-source';
 import { CardPreviewName, CardPreviews } from './card-preview';
-import { changeFailure } from './drafts';
+import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { PlanApi } from './plan-api';
 import { type Grouping, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -22,26 +23,14 @@ const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
 /** How a plan board shows: as stacks of card images, or as a list of names. */
 export type PlanMode = 'stacks' | 'list';
 
-/** The draft page's desktop layout, from which stacks mode is offered. */
-const DESKTOP = '(min-width: 1024px)';
-
 /** The mode and grouping a viewer chose, kept in their browser. */
-interface PlanViewChoice {
+interface PlanChoice {
   mode: PlanMode;
   grouping: Grouping;
 }
 const CHOICE_KEY = 'plan-view';
-const DEFAULT_CHOICE: PlanViewChoice = { mode: 'stacks', grouping: 'manaValue' };
+const DEFAULT_CHOICE: PlanChoice = { mode: 'stacks', grouping: 'manaValue' };
 const MODES: PlanMode[] = ['stacks', 'list'];
-
-/**
- * The width declared to the browser for a stack's small image, though it's
- * really 146px: browsers load the normal image for any stack wider than this
- * at normal pixel density, and stacks run up to 160px. A little soft at 160px.
- */
-const SMALL_IMAGE_DECLARED_WIDTH = 160;
-/** The width of a card's normal image, in px. */
-const NORMAL_IMAGE_WIDTH = 488;
 
 /** One line of a board: a card's picked copies, or its unpicked ones, with how many the board holds. */
 interface PlanLine {
@@ -52,13 +41,18 @@ interface PlanLine {
   picked: boolean;
 }
 
-/** Each plan board: its cards, the board its cards move to, as the button names it, and what an empty one says. */
+/**
+ * Each plan board: its cards, the board its cards move to, as the button
+ * names it and the stacks' button points to it, and what an empty one says.
+ */
 const BOARDS: Record<
   PlanBoard,
   {
     cards: (plan: PlanView) => PlannedCardView[];
     other: PlanBoard;
     otherName: string;
+    /** Which way the other board lies: the sideboard is below the mainboard. */
+    arrow: string;
     empty: string;
   }
 > = {
@@ -66,12 +60,14 @@ const BOARDS: Record<
     cards: (plan) => plan.mainboard,
     other: 'Sideboard',
     otherName: 'sideboard',
+    arrow: '↓',
     empty: 'No picks yet.',
   },
   Sideboard: {
     cards: (plan) => plan.sideboard,
     other: 'Mainboard',
     otherName: 'mainboard',
+    arrow: '↑',
     empty: 'Nothing on your sideboard.',
   },
 };
@@ -121,8 +117,8 @@ export class PlanTab {
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  /** Whether the page is at the desktop layout. No `matchMedia` counts as mobile. */
-  protected readonly onDesktop = signal(!!globalThis.matchMedia?.(DESKTOP).matches);
+  /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
+  protected readonly onDesktop = signal(!!globalThis.matchMedia?.(DESKTOP_QUERY).matches);
   private readonly remembered = rememberedChoice();
   protected readonly mode = signal(this.remembered.mode);
   protected readonly grouping = signal(this.remembered.grouping);
@@ -150,9 +146,14 @@ export class PlanTab {
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
 
   constructor() {
-    globalThis.matchMedia?.(DESKTOP).addEventListener?.('change', ({ matches }) => {
-      this.onDesktop.set(matches);
+    // Not every test environment's `matchMedia` reports changes.
+    const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
+    if (!desktop?.addEventListener) return;
+    const listening = new AbortController();
+    desktop.addEventListener('change', ({ matches }) => this.onDesktop.set(matches), {
+      signal: listening.signal,
     });
+    inject(DestroyRef).onDestroy(() => listening.abort());
   }
 
   protected setMode(mode: PlanMode) {
@@ -167,20 +168,12 @@ export class PlanTab {
 
   /** Keeps the chosen mode and grouping for next time, if the browser allows. */
   private rememberChoice() {
-    const choice: PlanViewChoice = { mode: this.mode(), grouping: this.grouping() };
+    const choice: PlanChoice = { mode: this.mode(), grouping: this.grouping() };
     try {
       localStorage.setItem(CHOICE_KEY, JSON.stringify(choice));
     } catch {
       // Storage may be full or refused, as in a private window: the choice holds for this page.
     }
-  }
-
-  /** A stack's image at the small and normal sizes, for the browser to choose between. */
-  protected srcset(card: PoolCardView): string | null {
-    const normal = this.images.workingUrl(card, 'normal');
-    return normal
-      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${NORMAL_IMAGE_WIDTH}w`
-      : null;
   }
 
   /** A card dropped on a board: it moves there, unless that's the board it came from. */
@@ -228,7 +221,7 @@ export class PlanTab {
 }
 
 /** The mode and grouping the viewer last chose, or the defaults if none is kept or storage is refused. */
-function rememberedChoice(): PlanViewChoice {
+function rememberedChoice(): PlanChoice {
   try {
     const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');
     const { mode, grouping } = (kept ?? {}) as Record<string, unknown>;

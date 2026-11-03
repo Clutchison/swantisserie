@@ -180,13 +180,13 @@ describe('plan stacks', () => {
       typeLine: 'Land // Land',
     });
     const cards = [disruption, pathway];
-    const planned2 = cards.map((c) => planned(c));
+    const inPlan = cards.map((c) => planned(c));
 
-    expect(named(stacks(planned2, 'manaValue', pool(...cards)))).toEqual([
+    expect(named(stacks(inPlan, 'manaValue', pool(...cards)))).toEqual([
       '2: Jwari Disruption // Jwari Ruins',
       'Lands: Brightclimb Pathway // Grimclimb Pathway',
     ]);
-    expect(named(stacks(planned2, 'type', pool(...cards)))).toEqual([
+    expect(named(stacks(inPlan, 'type', pool(...cards)))).toEqual([
       'Instant: Jwari Disruption // Jwari Ruins',
       'Land: Brightclimb Pathway // Grimclimb Pathway',
     ]);

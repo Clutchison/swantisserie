@@ -4,6 +4,16 @@ import type { CardImages, PoolCardView } from 'contract';
 export type ImageVersion = Exclude<keyof CardImages, 'small'>;
 
 /**
+ * The width declared to the browser for the small image, though it's really
+ * 146px: browsers load the normal image for anything wider than this at normal
+ * pixel density, and desktop tiles and stacks run up to about 160px. A little
+ * soft at 160px.
+ */
+const SMALL_IMAGE_DECLARED_WIDTH = 160;
+/** The width of a card's normal image, in px. */
+const NORMAL_IMAGE_WIDTH = 488;
+
+/**
  * Says where to load a pool card's images from, across everything on a draft's
  * page that shows them: the snapshot's Scryfall CDN URLs, or Scryfall's API
  * image once one of those has failed.
@@ -22,6 +32,19 @@ export class CardImageSource {
   workingUrl(card: PoolCardView, version: ImageVersion, face = 0): string | undefined {
     const url = card.images[face]?.[version];
     return url && !this.brokenUrls().has(url) ? url : undefined;
+  }
+
+  /**
+   * The front face's small and normal images, for the browser to choose between
+   * by the width it shows the card at. A failed image's event doesn't say which
+   * one failed, so the caller marks the normal image broken, and this is then
+   * null: it drops to the API image alone.
+   */
+  srcset(card: PoolCardView): string | null {
+    const normal = this.workingUrl(card, 'normal');
+    return normal
+      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${NORMAL_IMAGE_WIDTH}w`
+      : null;
   }
 
   /** One face's image failed to load, so its next URL is the fallback. */

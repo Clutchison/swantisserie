@@ -64,7 +64,7 @@ export class CardPreviews implements OnDestroy {
   private shown?: { anchor: Element; overlay: OverlayRef };
   /** The name the mouse is resting on, with its countdown. */
   private hovering?: { anchor: Element; timer: ReturnType<typeof setTimeout> };
-  /** A queue drag is under way, which no Card preview may get in the way of. */
+  /** A drag of a card is under way, which no Card preview may get in the way of. */
   private dragging = false;
 
   constructor() {
@@ -123,7 +123,7 @@ export class CardPreviews implements OnDestroy {
     if (this.hovering?.anchor === anchor) this.cancelHover();
   }
 
-  /** A queue drag has started: closes any Card preview, and opens none until it's released. */
+  /** A drag of a card has started: closes any Card preview, and opens none until it's released. */
   dragStarted() {
     this.dragging = true;
     this.close();
