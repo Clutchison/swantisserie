@@ -6,20 +6,25 @@
 </ng-template>
 <div class="steal-behavior">
   <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
-  <span [id]="stealBehaviorDescriptionId" class="visually-hidden">{{
+  <span id="steal-behavior-description" class="visually-hidden">{{
     stealBehaviorExplanation
   }}</span>
   <button
-    class="pill"
+    class="button compact quiet pill"
     type="button"
     [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
-    [attr.aria-describedby]="stealBehaviorDescriptionId"
+    aria-describedby="steal-behavior-description"
     [disabled]="readOnly() || changing() || loading()"
     (click)="toggleStealBehavior()"
   >
     {{ stealBehaviorName() }}<span class="swap" aria-hidden="true">⇄</span>
   </button>
 </div>
+@if (error(); as failure) {
+  @if (failure.place === 'stealBehavior') {
+    <p class="error" role="alert">{{ failure.message }}</p>
+  }
+}
 @if (hasNotice()) {
   <div class="notice" role="status">
     <p>
@@ -121,6 +126,8 @@
     </li>
   }
 </ol>
-@if (error(); as message) {
-  <p class="error" role="alert">{{ message }}</p>
+@if (error(); as failure) {
+  @if (failure.place === 'queue') {
+    <p class="error" role="alert">{{ failure.message }}</p>
+  }
 }

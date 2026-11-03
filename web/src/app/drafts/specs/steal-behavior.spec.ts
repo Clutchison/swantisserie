@@ -207,6 +207,10 @@ describe('steal behavior', () => {
       expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
       expect(pill(queue).textContent).toContain('Clear queue');
     });
+    // By the pill, not under a queue that may run off the screen.
+    const alert = queue.querySelector('[role="alert"]')!;
+    const list = queue.querySelector('.queue')!;
+    expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     reread.flush(queueOf());
     await fixture.whenStable();
