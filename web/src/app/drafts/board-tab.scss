@@ -53,7 +53,8 @@ ol {
 
 /*
  * Each pick numbered in its player's picks, by a counter: a row of card rows is no list item.
- * The number column widens past its minimum for a number that needs it, for every row alike.
+ * A number and its '.' never wrap apart, and the number column widens past its minimum to fit the
+ * widest, for every row alike.
  */
 .player-picks {
   ol {
