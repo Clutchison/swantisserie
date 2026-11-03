@@ -670,13 +670,13 @@ function toPoolCardView(card: PoolCard): PoolCardView {
     oracleText: card.oracleText,
     colorIdentity: card.colorIdentity,
     keywords: card.keywords,
-    rarity: card.rarity as Rarity | null,
+    rarity: card.rarity as Rarity,
     layout: card.layout,
     power: card.power,
     toughness: card.toughness,
     loyalty: card.loyalty,
     defense: card.defense,
-    faces: card.faces as unknown as CardFace[] | null,
+    faces: card.faces as unknown as CardFace[],
     images: card.images as unknown as CardImages[],
   };
 }

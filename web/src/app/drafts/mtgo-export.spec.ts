@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mtgoExport, type MtgoExportCard } from './mtgo-export';
 
 /** A card of the given name and layout, with an unremarkable type line. */
-const card = (name: string, layout: string | null): MtgoExportCard => ({
+const card = (name: string, layout: string): MtgoExportCard => ({
   name,
   layout,
   typeLine: 'Instant',
@@ -71,9 +71,5 @@ describe('MTGO export', () => {
     expect(mtgoExport([card('SP//dr, Piloted by Peni', 'normal')])).toBe(
       '1 SP//dr, Piloted by Peni',
     );
-  });
-
-  it('keeps the whole name of a card whose layout is not backfilled yet', () => {
-    expect(mtgoExport([card('Commit // Memory', null)])).toBe('1 Commit // Memory');
   });
 });

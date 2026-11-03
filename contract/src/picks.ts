@@ -5,11 +5,8 @@ export interface PickView {
   playerId: string;
   poolCardId: string;
   name: string;
-  /**
-   * How the faces are laid out. Null only until a pool snapshotted before
-   * layout was stored is backfilled.
-   */
-  layout: string | null;
+  /** How the faces are laid out. */
+  layout: string;
   typeLine: string;
   set: string;
   collectorNumber: string;

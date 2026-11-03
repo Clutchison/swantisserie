@@ -3,9 +3,9 @@ import type { CardImages, Rarity } from 'contract';
 
 const API = 'https://api.scryfall.com';
 /**
- * Search and collection (printings by id) share a limit of 2 requests per
- * second (https://scryfall.com/docs/api/rate-limits); the extra 100 ms keeps
- * us safely inside it.
+ * Search is limited to 2 requests per second
+ * (https://scryfall.com/docs/api/rate-limits); the extra 100 ms keeps us
+ * safely inside it.
  */
 const REQUEST_INTERVAL_MS = 600;
 /** A 429 locks us out for 30 seconds, and ignoring it risks a ban. */
@@ -98,8 +98,6 @@ export class ScryfallUnavailableError extends Error {
   }
 }
 
-/** The most print ids one printings request may ask for. */
-export const PRINTINGS_LIMIT = 75;
 /** The longest query Scryfall will search: https://scryfall.com/docs/api/cards/search */
 const MAX_QUERY_LENGTH = 1000;
 
@@ -114,13 +112,6 @@ export abstract class ScryfallClient {
     query: string,
     page?: number,
   ): Promise<ScryfallSearchPage | null>;
-
-  /**
-   * The printings with these Scryfall ids (at most PRINTINGS_LIMIT), leaving
-   * out any Scryfall can't find. Throws ScryfallUnavailableError if Scryfall
-   * refuses or fails.
-   */
-  abstract printings(ids: string[]): Promise<ScryfallCard[]>;
 
   /**
    * A printing on `game` (as Scryfall's `game:` search names it) of each card
@@ -147,17 +138,6 @@ export class FetchScryfallClient extends ScryfallClient {
     return this.parse(await this.send(url.toString()));
   }
 
-  async printings(ids: string[]): Promise<ScryfallCard[]> {
-    const res = await this.send(`${API}/cards/collection`, {
-      method: 'POST',
-      headers: { ...HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifiers: ids.map((id) => ({ id })) }),
-    });
-    if (!res.ok) throw new ScryfallUnavailableError(res.status);
-    const body = (await res.json()) as { data: ScryfallCard[] };
-    return body.data;
-  }
-
   async printingsOn(
     game: string,
     oracleIds: string[],
@@ -175,13 +155,10 @@ export class FetchScryfallClient extends ScryfallClient {
   }
 
   /** Sends a request in its turn, waiting out rate limiting. */
-  private async send(
-    url: string,
-    init: RequestInit = { headers: HEADERS },
-  ): Promise<Response> {
+  private async send(url: string): Promise<Response> {
     for (let rateLimited = 0; ; rateLimited++) {
       await this.waitForTurn();
-      const res = await fetch(url, init);
+      const res = await fetch(url, { headers: HEADERS });
       if (res.status !== 429) return res;
       if (rateLimited === MAX_RATE_LIMITED_RETRIES) {
         throw new ScryfallUnavailableError(res.status);

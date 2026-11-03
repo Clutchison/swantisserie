@@ -52,8 +52,8 @@ export function toPoolCard(
   };
 }
 
-/** The fields the pool search needs: all the backfill fills in. */
-export function searchFields(card: ScryfallCard) {
+/** The fields the pool search needs. */
+function searchFields(card: ScryfallCard) {
   return {
     manaCost: card.mana_cost ?? null,
     oracleText: card.oracle_text ?? null,
@@ -66,7 +66,7 @@ export function searchFields(card: ScryfallCard) {
     loyalty: card.loyalty ?? null,
     defense: card.defense ?? null,
     faces: (card.card_faces ?? []).map(toCardFace),
-  } satisfies Prisma.PoolCardUpdateInput;
+  };
 }
 
 function toCardFace(face: ScryfallCardFace): StoredCardFace {
