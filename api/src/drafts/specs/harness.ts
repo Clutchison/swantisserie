@@ -259,6 +259,14 @@ export function enqueue(id: string, poolCardId: unknown, cookie = aliceCookie) {
     .send({ poolCardId });
 }
 
+/** Adds the unpicked cards in the player's plan to the end of their queue. */
+export function queueUnpicked(id: string, body: unknown, cookie: string) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/queue/unpicked`)
+    .set('Cookie', cookie)
+    .send(body as object);
+}
+
 /** Posts to the draft's `action` route. */
 export function post(id: string, action: string, cookie = aliceCookie) {
   return request(app.getHttpServer())

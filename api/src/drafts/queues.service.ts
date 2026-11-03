@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
+import { PLAN_ORDER } from './plans.service.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -80,21 +81,7 @@ export class QueuesService {
     poolCardId: string,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
-      if (state === 'Complete') {
-        throw new QueueRefusedError({
-          error: 'draft-complete',
-          message: 'This draft is complete.',
-        });
-      }
-      if (
-        state !== 'Lobby' &&
-        (await this.isPlayersTurn(tx, draftId, playerId))
-      ) {
-        throw new QueueRefusedError({
-          error: 'your-turn',
-          message: 'You can’t add to your queue on your turn.',
-        });
-      }
+      await this.checkCanAdd(tx, draftId, playerId, state);
       const card = await tx.poolCard.findFirst({
         where: { id: poolCardId, draftId },
         select: { id: true, pick: { select: { id: true } } },
@@ -111,21 +98,39 @@ export class QueuesService {
           message: 'That card has already been picked.',
         });
       }
-      const { _max } = await tx.queuedCard.aggregate({
-        where: { playerId },
-        _max: { position: true },
+      await this.append(tx, playerId, [card.id]);
+    });
+  }
+
+  /**
+   * Adds the unpicked cards in the user's plan to the end of their queue,
+   * in one go: the mainboard's, then, if `includeSideboard`, the
+   * sideboard's, each in the plan's order. Copies already queued stay where
+   * they are. Refused as `add` is, and throws NotAPlayerError if the user
+   * isn't in the draft.
+   */
+  async addUnpicked(
+    draftId: string,
+    userId: string,
+    includeSideboard: boolean,
+  ): Promise<QueueView> {
+    return this.change(draftId, userId, async (tx, playerId, state) => {
+      await this.checkCanAdd(tx, draftId, playerId, state);
+      const unpicked = await tx.plannedCard.findMany({
+        where: {
+          playerId,
+          pickId: null,
+          ...(includeSideboard ? {} : { board: 'Mainboard' }),
+        },
+        // Postgres orders enums as declared: the mainboard, then the sideboard.
+        orderBy: [{ board: 'asc' }, ...PLAN_ORDER],
+        select: { poolCardId: true },
       });
-      const position = (_max.position ?? -1) + 1;
-      await tx.queuedCard.upsert({
-        where: { playerId_poolCardId: { playerId, poolCardId: card.id } },
-        create: { playerId, poolCardId: card.id, position },
-        // A card already queued stays where it is.
-        update: {},
-      });
-      await tx.unqueuedCard.updateMany({
-        where: { playerId, poolCardId: card.id },
-        data: { noticeHidden: true },
-      });
+      await this.append(
+        tx,
+        playerId,
+        unpicked.map((card) => card.poolCardId),
+      );
     });
   }
 
@@ -189,6 +194,64 @@ export class QueuesService {
         where: { playerId },
         data: { noticeHidden: true },
       });
+    });
+  }
+
+  /**
+   * Throws QueueRefusedError if the player can't add to their queue now: in
+   * a complete draft, or on their own turn, drafting or paused, when they
+   * make that pick by hand. `change` refuses a closed draft.
+   */
+  private async checkCanAdd(
+    tx: Transaction,
+    draftId: string,
+    playerId: string,
+    state: DraftState,
+  ): Promise<void> {
+    if (state === 'Complete') {
+      throw new QueueRefusedError({
+        error: 'draft-complete',
+        message: 'This draft is complete.',
+      });
+    }
+    if (
+      state !== 'Lobby' &&
+      (await this.isPlayersTurn(tx, draftId, playerId))
+    ) {
+      throw new QueueRefusedError({
+        error: 'your-turn',
+        message: 'You can’t add to your queue on your turn.',
+      });
+    }
+  }
+
+  /**
+   * Adds the pool cards `poolCardIds`, which no one has picked, to the end
+   * of the player's queue in order, and off their Queue notice. A card already
+   * queued stays where it is.
+   */
+  private async append(
+    tx: Transaction,
+    playerId: string,
+    poolCardIds: string[],
+  ): Promise<void> {
+    const queued = await tx.queuedCard.findMany({
+      where: { playerId },
+      select: { poolCardId: true, position: true },
+    });
+    const held = new Set(queued.map((card) => card.poolCardId));
+    const added = poolCardIds.filter((id) => !held.has(id));
+    const next = Math.max(-1, ...queued.map((card) => card.position)) + 1;
+    await tx.queuedCard.createMany({
+      data: added.map((poolCardId, offset) => ({
+        playerId,
+        poolCardId,
+        position: next + offset,
+      })),
+    });
+    await tx.unqueuedCard.updateMany({
+      where: { playerId, poolCardId: { in: poolCardIds } },
+      data: { noticeHidden: true },
     });
   }
 
