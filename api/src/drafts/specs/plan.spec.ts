@@ -49,6 +49,7 @@ describe('plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [],
+      basics: [],
       lost: [],
     });
 
@@ -67,6 +68,7 @@ describe('plan', () => {
         },
       ],
       sideboard: [],
+      basics: [],
       lost: [],
     });
   });
@@ -100,11 +102,13 @@ describe('plan', () => {
     expect(moved.body).toEqual({
       mainboard: [skewer],
       sideboard: [spike],
+      basics: [],
       lost: [],
     });
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [skewer],
       sideboard: [spike],
+      basics: [],
       lost: [],
     });
     // Moving it there again changes nothing.
@@ -120,6 +124,7 @@ describe('plan', () => {
     expect(back.body).toEqual({
       mainboard: [spike, skewer],
       sideboard: [],
+      basics: [],
       lost: [],
     });
   });
@@ -153,6 +158,7 @@ describe('plan', () => {
         { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
       ],
       sideboard: [],
+      basics: [],
       lost: [],
     });
   });
@@ -184,6 +190,7 @@ describe('plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
       sideboard: [],
+      basics: [],
       lost: [],
     });
     // Alice's plan holds Lightning Bolt, but she isn't an app admin.
@@ -217,6 +224,7 @@ describe('plan', () => {
         { poolCardId: ids.Shock, name: 'Shock', picked: true },
       ],
       sideboard: [],
+      basics: [],
       lost: [],
     });
     // A bot can't sign in to see its plan, but its picks land there too.
@@ -262,6 +270,7 @@ describe('plan', () => {
         { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
       ],
       sideboard: [],
+      basics: [],
       lost: [],
     });
     // Picked again, it lands on the mainboard, not where it was.
@@ -282,6 +291,7 @@ describe('plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [],
+      basics: [],
       lost: [],
     });
     await start(id).expect(200);
@@ -302,6 +312,7 @@ describe('plan', () => {
     expect(paused.body).toEqual({
       mainboard: [],
       sideboard: [spike],
+      basics: [],
       lost: [],
     });
 
@@ -315,6 +326,7 @@ describe('plan', () => {
     expect(closed.body).toEqual({
       mainboard: [spike],
       sideboard: [],
+      basics: [],
       lost: [],
     });
 
@@ -330,6 +342,7 @@ describe('plan', () => {
     expect(complete.body).toEqual({
       mainboard: [],
       sideboard: [spike],
+      basics: [],
       lost: [],
     });
     // The draft itself is left alone.

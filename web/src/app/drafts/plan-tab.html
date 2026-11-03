@@ -57,6 +57,52 @@
     }
   </div>
 }
+<div class="basics" role="group" aria-labelledby="basics-heading">
+  <h3 id="basics-heading">Basic lands</h3>
+  <ul>
+    @for (basic of basics(); track basic.land) {
+      <li>
+        <label [for]="'basic-' + basic.land">{{ basic.land }}</label>
+        <button
+          class="button compact quiet"
+          type="button"
+          [attr.aria-label]="'One fewer ' + basic.land"
+          (click)="setBasic(basic.land, basic.count - 1)"
+          [disabled]="changing() || basic.count === 0"
+        >
+          −
+        </button>
+        <input
+          [id]="'basic-' + basic.land"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [max]="mostBasics"
+          [value]="basic.count"
+          (change)="typedBasic(basic.land, basic.count, $any($event.target))"
+          [disabled]="changing()"
+        />
+        <button
+          class="button compact quiet"
+          type="button"
+          [attr.aria-label]="'One more ' + basic.land"
+          (click)="setBasic(basic.land, basic.count + 1)"
+          [disabled]="changing() || basic.count >= mostBasics"
+        >
+          +
+        </button>
+      </li>
+    }
+  </ul>
+  <button
+    class="button compact secondary"
+    type="button"
+    (click)="clearBasics()"
+    [disabled]="changing() || !hasBasics()"
+  >
+    Clear basics
+  </button>
+</div>
 <!-- On desktop, a card dragged from one board's drop list onto the other's moves there. -->
 <div cdkDropListGroup>
   @for (board of boards(); track board.name) {
@@ -80,11 +126,11 @@
               </h4>
               <ul>
                 @for (card of stack.cards; track card.poolCardId) {
-                  @let poolCard = poolCardsById().get(card.poolCardId);
+                  @let poolCard = cardsById().get(card.poolCardId);
                   <li
                     [class.unpicked]="!card.picked"
                     cdkDrag
-                    [cdkDragData]="card.poolCardId"
+                    [cdkDragData]="card"
                     cdkDragPreviewContainer="parent"
                     (cdkDragStarted)="previews.dragStarted()"
                   >
@@ -114,7 +160,7 @@
                         type="button"
                         [attr.aria-label]="'Move ' + card.name + ' to the ' + board.otherName"
                         [title]="'To ' + board.otherName"
-                        (click)="move(card.poolCardId, board.other)"
+                        (click)="move(card, board.other)"
                         [disabled]="changing()"
                       >
                         {{ board.arrow }}
@@ -151,14 +197,14 @@
             <li
               [class.unpicked]="!line.picked"
               cdkDrag
-              [cdkDragData]="line.poolCardId"
+              [cdkDragData]="line"
               cdkDragPreviewContainer="parent"
               (cdkDragStarted)="previews.dragStarted()"
             >
               <span class="count">{{ line.count }}</span>
               <span class="name">
                 <!-- Only the text shows a Card preview, not the rest of the row. -->
-                <span [appCardPreview]="poolCardsById().get(line.poolCardId)">{{ line.name }}</span>
+                <span [appCardPreview]="cardsById().get(line.poolCardId)">{{ line.name }}</span>
               </span>
               @if (!line.picked) {
                 <span class="mark">Unpicked</span>
@@ -167,7 +213,7 @@
                 class="button compact quiet"
                 type="button"
                 [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
-                (click)="move(line.poolCardId, board.other)"
+                (click)="move(line, board.other)"
                 [disabled]="changing()"
               >
                 To {{ board.otherName }}

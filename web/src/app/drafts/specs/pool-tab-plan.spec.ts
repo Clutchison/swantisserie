@@ -47,6 +47,7 @@ describe('pool tab', () => {
       req.flush({
         mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: false }],
         sideboard: [],
+        basics: [],
         lost: [],
       });
       await fixture.whenStable();
@@ -58,7 +59,7 @@ describe('pool tab', () => {
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
       const plan = panel(page);
-      expect(plan.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      expect(plan.querySelector('.plan-board h3')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
         'Mainboard 1 (0 picked)',
       );
       expect(plan.querySelector('li.unpicked .name')?.textContent?.trim()).toBe('Shivan Dragon');

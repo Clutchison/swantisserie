@@ -44,4 +44,4 @@ export const EMPTY_QUEUE: QueueView = {
 };
 
 /** A plan with nothing on either board, and nothing lost from it. */
-export const EMPTY_PLAN: PlanView = { mainboard: [], sideboard: [], lost: [] };
+export const EMPTY_PLAN: PlanView = { mainboard: [], sideboard: [], basics: [], lost: [] };

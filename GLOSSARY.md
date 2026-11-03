@@ -208,6 +208,10 @@ _Avoid_: Maybeboard, bench, board (alone)
 A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, or another player picks it when no other copy is available for the plan.
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
+**Basic land**:
+A Plains, Island, Swamp, Mountain, Forest or Wastes in a player's plan, added by count rather than from the pool. It is never a pool card: no one picks it, it is never queued, and no pick or undo changes it. It counts as picked, and a new one lands on the mainboard.
+_Avoid_: Land (alone; a pool card can be a land), free land
+
 **Plan board**:
 Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.
 _Avoid_: Board (alone; that is the Board tab), zone, section

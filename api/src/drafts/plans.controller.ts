@@ -13,9 +13,10 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import type { PlanBoard, PlanView } from 'contract';
+import type { BasicLand, PlanBoard, PlanView } from 'contract';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { CurrentUser, type SessionUser } from '../auth/session.guard.js';
+import { BasicLand as BASIC_LAND_VALUES } from '../generated/prisma/enums.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftReadsService } from './draft-reads.service.js';
 import { parseCard } from './parse-card.js';
@@ -65,7 +66,47 @@ export class PlansController {
     return this.answer(id, () => this.plans.dismissNotice(id, user.id));
   }
 
-  /** Takes an unpicked card out of the plan. Declared after `notice`, which it would match. */
+  /** Sets how many copies of a basic land the plan holds, across both boards. */
+  @Put('basics/:land')
+  async setBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+    @Body() body: unknown,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    const count = parseCount(body);
+    return this.answer(id, () =>
+      this.plans.setBasic(id, user.id, basic, count),
+    );
+  }
+
+  /** Moves one copy of a basic land in the plan to the mainboard or the sideboard. */
+  @Post('basics/:land/move')
+  @HttpCode(200)
+  async moveBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+    @Body() body: unknown,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    const board = parseBoard(body);
+    return this.answer(id, () =>
+      this.plans.moveBasic(id, user.id, basic, board),
+    );
+  }
+
+  /** Takes every basic land out of the plan. Declared before `:poolCardId`, which would match it. */
+  @Delete('basics')
+  async clearBasics(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<PlanView> {
+    return this.answer(id, () => this.plans.clearBasics(id, user.id));
+  }
+
+  /** Takes an unpicked card out of the plan. Declared after `notice` and `basics`, which it would match. */
   @Delete(':poolCardId')
   async remove(
     @CurrentUser() user: SessionUser,
@@ -125,4 +166,35 @@ function parseBoard(body: unknown): PlanBoard {
     });
   }
   return board;
+}
+
+/** The most copies of one basic land a plan holds. */
+const MOST_BASICS = 99;
+
+/** The basic land named in the path, or a 400 if it isn't one. */
+function parseLand(land: string): BasicLand {
+  if (!(Object.values(BASIC_LAND_VALUES) as string[]).includes(land)) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose a basic land.',
+    });
+  }
+  return land as BasicLand;
+}
+
+/** How many copies of a basic land to hold, or a 400 if it isn't a whole number up to MOST_BASICS. */
+function parseCount(body: unknown): number {
+  const { count } = (body ?? {}) as Record<string, unknown>;
+  if (
+    typeof count !== 'number' ||
+    !Number.isInteger(count) ||
+    count < 0 ||
+    count > MOST_BASICS
+  ) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: `Choose a number of copies from 0 to ${MOST_BASICS}.`,
+    });
+  }
+  return count;
 }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  BasicLand,
   PlanBoard,
   PlannedCardView,
   PlanRefusal,
@@ -19,9 +20,10 @@ export class PlanRefusedError extends Error {
 
 /**
  * Players' plans: each player's private mainboard and sideboard, holding
- * every pick they've made and the unpicked cards they've added. A plan
- * never changes the draft, so it can be changed in any draft state, except
- * that unpicked cards are only added while the draft is active.
+ * every pick they've made and the unpicked cards and basic lands they've
+ * added. A plan never changes the draft, so it can be changed in any draft
+ * state, except that unpicked cards are only added while the draft is
+ * active.
  */
 @Injectable()
 export class PlansService {
@@ -148,6 +150,62 @@ export class PlansService {
   }
 
   /**
+   * Sets how many copies of the basic land `land` the user's plan holds,
+   * across both boards: copies it gains go on the mainboard, and copies it
+   * loses come off the mainboard first, then the sideboard. Throws
+   * NotAPlayerError if the user isn't in the draft.
+   */
+  async setBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    count: number,
+  ): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      const held = await basicCounts(tx, playerId, land);
+      // The sideboard keeps its copies unless the count is below them.
+      const sideboard = Math.min(held.Sideboard, count);
+      await setBasicCount(tx, playerId, land, 'Mainboard', count - sideboard);
+      await setBasicCount(tx, playerId, land, 'Sideboard', sideboard);
+    });
+  }
+
+  /**
+   * Moves one copy of the basic land `land` in the user's plan onto
+   * `board`. Throws PlanRefusedError if the other board holds none, and
+   * NotAPlayerError if the user isn't in the draft.
+   */
+  async moveBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    board: PlanBoard,
+  ): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      const from: PlanBoard = board === 'Mainboard' ? 'Sideboard' : 'Mainboard';
+      const held = await basicCounts(tx, playerId, land);
+      if (held[from] === 0) {
+        throw new PlanRefusedError({
+          error: 'basic-not-on-board',
+          message: `There’s no ${land} on your ${from.toLowerCase()}.`,
+        });
+      }
+      await setBasicCount(tx, playerId, land, from, held[from] - 1);
+      await setBasicCount(tx, playerId, land, board, held[board] + 1);
+    });
+  }
+
+  /**
+   * Takes every basic land out of the user's plan, on both boards. Throws
+   * NotAPlayerError if the user isn't in the draft.
+   */
+  async clearBasics(draftId: string, userId: string): Promise<PlanView> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      await tx.plannedBasic.deleteMany({ where: { playerId } });
+    });
+  }
+
+  /**
    * Stops the Plan notice listing the user's lost cards. An undo still
    * restores them. Throws NotAPlayerError if the user isn't in the draft.
    */
@@ -205,6 +263,13 @@ export class PlansService {
           name: card.poolCard.name,
           picked: card.pickId !== null,
         }));
+    // Postgres orders enums as declared: the mainboard first, and the basics
+    // in the order the plan lists them.
+    const basics = await tx.plannedBasic.findMany({
+      where: { playerId },
+      orderBy: [{ board: 'asc' }, { land: 'asc' }],
+      select: { land: true, board: true, count: true },
+    });
     const lost = await tx.unplannedCard.findMany({
       where: { playerId, noticeHidden: false },
       orderBy: { pick: { number: 'asc' } },
@@ -219,12 +284,47 @@ export class PlansService {
     return {
       mainboard: onBoard('Mainboard'),
       sideboard: onBoard('Sideboard'),
+      basics,
       lost: lost.map((card) => ({
         poolCardId: card.poolCardId,
         name: card.poolCard.name,
         pickedBy: card.pick.player.user.name,
       })),
     };
+  }
+}
+
+/** How many copies of `land` each board of the player's plan holds. */
+async function basicCounts(
+  tx: Transaction,
+  playerId: string,
+  land: BasicLand,
+): Promise<Record<PlanBoard, number>> {
+  const rows = await tx.plannedBasic.findMany({
+    where: { playerId, land },
+    select: { board: true, count: true },
+  });
+  const held = { Mainboard: 0, Sideboard: 0 };
+  for (const row of rows) held[row.board] = row.count;
+  return held;
+}
+
+/** Sets how many copies of `land` one board holds: with none, it has no row. */
+async function setBasicCount(
+  tx: Transaction,
+  playerId: string,
+  land: BasicLand,
+  board: PlanBoard,
+  count: number,
+) {
+  if (count === 0) {
+    await tx.plannedBasic.deleteMany({ where: { playerId, land, board } });
+  } else {
+    await tx.plannedBasic.upsert({
+      where: { playerId_land_board: { playerId, land, board } },
+      create: { playerId, land, board, count },
+      update: { count },
+    });
   }
 }
 

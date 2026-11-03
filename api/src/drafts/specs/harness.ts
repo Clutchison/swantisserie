@@ -423,3 +423,36 @@ export function dismissPlanNotice(id: string, cookie: string) {
     .delete(`/api/drafts/${id}/plan/notice`)
     .set('Cookie', cookie);
 }
+
+/** Sets how many copies of a basic land the player's plan holds, across both boards. */
+export function setBasic(
+  id: string,
+  land: string,
+  count: unknown,
+  cookie: string,
+) {
+  return request(app.getHttpServer())
+    .put(`/api/drafts/${id}/plan/basics/${land}`)
+    .set('Cookie', cookie)
+    .send({ count });
+}
+
+/** Moves one copy of a basic land in the player's plan onto `board`. */
+export function moveBasic(
+  id: string,
+  land: string,
+  board: unknown,
+  cookie: string,
+) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/plan/basics/${land}/move`)
+    .set('Cookie', cookie)
+    .send({ board });
+}
+
+/** Takes every basic land out of the player's plan. */
+export function clearBasics(id: string, cookie: string) {
+  return request(app.getHttpServer())
+    .delete(`/api/drafts/${id}/plan/basics`)
+    .set('Cookie', cookie);
+}
