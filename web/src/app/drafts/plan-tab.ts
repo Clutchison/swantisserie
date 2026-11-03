@@ -4,10 +4,13 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
+  ElementRef,
   inject,
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type {
@@ -17,6 +20,7 @@ import type {
   PlannedCardView,
   PlanView,
   PoolCardView,
+  QueueView,
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
@@ -26,10 +30,12 @@ import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { PlanApi } from './plan-api';
+import { QueueApi } from './queue-api';
 import { type Grouping, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
+const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
 
 /** How a plan board shows: as stacks of card images, or as a list of names. */
 export type PlanMode = 'stacks' | 'list';
@@ -123,11 +129,13 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucideTrash,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown.escape)': 'closeQueueing()' },
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
 })
 export class PlanTab {
   private readonly planApi = inject(PlanApi);
+  private readonly queueApi = inject(QueueApi);
   protected readonly images = inject(CardImageSource);
   protected readonly previews = inject(CardPreviews);
 
@@ -139,10 +147,18 @@ export class PlanTab {
   readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
   readonly loading = input(false);
+  /** The pool card ids of the cards in the signed-in player's queue. */
+  readonly queued = input<ReadonlySet<string>>(new Set());
+  /** Whether Queue unpicked is offered: as the queue allows adding, so never on the player's own turn. */
+  readonly offerQueueUnpicked = input(false);
   /** The plan as a change made it. */
   readonly planChanged = output<PlanView>();
   /** A change failed, so the plan may have moved on unseen; it should be re-read. */
   readonly planStale = output<void>();
+  /** The queue as Queue unpicked left it. */
+  readonly queueChanged = output<QueueView>();
+  /** Queue unpicked failed, so the queue may have moved on unseen; it should be re-read. */
+  readonly queueStale = output<void>();
 
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -198,10 +214,34 @@ export class PlanTab {
   /** The most copies of one basic land the control offers. */
   protected readonly mostBasics = MOST_BASICS;
 
+  /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
+  protected readonly queueing = signal<{ includeSideboard: boolean } | null>(null);
+  private readonly cancelQueueing = viewChild<ElementRef<HTMLButtonElement>>('cancelQueueing');
+  /** Whether Queue unpicked is on its way. */
+  protected readonly queueingUnpicked = signal(false);
+  /** The pool card ids Queue unpicked adds from each board: its unpicked copies the queue doesn't hold. */
+  private readonly toQueue = computed(() => {
+    const toAdd = (cards: PlannedCardView[]) =>
+      cards.filter((card) => !card.picked && !this.queued().has(card.poolCardId));
+    return { mainboard: toAdd(this.plan().mainboard), sideboard: toAdd(this.plan().sideboard) };
+  });
+  /** Whether Queue unpicked has anything to add, from either board. */
+  protected readonly anythingToQueue = computed(
+    () => this.toQueue().mainboard.length + this.toQueue().sideboard.length > 0,
+  );
+  /** How many cards the open Queue unpicked modal adds. */
+  protected readonly queueCount = computed(
+    () =>
+      this.toQueue().mainboard.length +
+      (this.queueing()?.includeSideboard ? this.toQueue().sideboard.length : 0),
+  );
+
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
 
   constructor() {
+    // The modal takes focus as it opens.
+    effect(() => this.cancelQueueing()?.nativeElement.focus());
     // Not every test environment's `matchMedia` reports changes.
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;
@@ -282,6 +322,41 @@ export class PlanTab {
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(this.planApi.dismissNotice(this.draftId()));
+  }
+
+  /** Opens the Queue unpicked modal, leaving the sideboard out. */
+  protected openQueueing() {
+    this.queueing.set({ includeSideboard: false });
+  }
+
+  protected closeQueueing() {
+    this.queueing.set(null);
+  }
+
+  protected setIncludeSideboard(includeSideboard: boolean) {
+    this.queueing.set({ includeSideboard });
+  }
+
+  /**
+   * Adds the modal's cards to the end of the queue, in one request, and
+   * closes it. A refusal means the queue or turn has moved on: say why, and
+   * re-read the queue.
+   */
+  protected async queueUnpicked() {
+    const { includeSideboard } = this.queueing()!;
+    this.queueingUnpicked.set(true);
+    this.error.set(null);
+    try {
+      this.queueChanged.emit(
+        await firstValueFrom(this.queueApi.addUnpicked(this.draftId(), includeSideboard)),
+      );
+    } catch (err) {
+      this.error.set(changeFailure(err, QUEUE_FAILED));
+      this.queueStale.emit();
+    } finally {
+      this.queueingUnpicked.set(false);
+      this.closeQueueing();
+    }
   }
 
   /**

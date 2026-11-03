@@ -237,8 +237,12 @@
             [loading]="planLoading()"
             [plan]="plan()"
             [poolCardsById]="poolCardsById()"
+            [queued]="queued()"
+            [offerQueueUnpicked]="offerQueue() && !yourTurn()"
             (planChanged)="planResource.set($event)"
             (planStale)="planResource.reload()"
+            (queueChanged)="queueResource.set($event)"
+            (queueStale)="queueResource.reload()"
           />
         } @else if (!joined()) {
           <p class="empty">Only players have a plan.</p>
