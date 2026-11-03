@@ -164,8 +164,8 @@ export class DraftPage {
    * plans. The Plan tab doesn't appear for anyone else.
    */
   protected readonly offerPlan = computed(() => !!this.user()?.isAppAdmin);
-  /** Players may add unpicked cards to their plans while the draft is active, their own turn included. */
-  protected readonly offerAddToPlan = computed(() => {
+  /** Players may add unpicked cards to their plans, or remove them, while the draft is active, their own turn included. */
+  protected readonly offerPlanChange = computed(() => {
     const draft = this.draft();
     return this.offerPlan() && this.joined() && !!draft && isActive(draft.state);
   });
@@ -176,6 +176,13 @@ export class DraftPage {
   protected readonly plan = computed<PlanView>(() =>
     this.planResource.hasValue() ? this.planResource.value() : EMPTY_PLAN,
   );
+  /** The pool card ids of the unpicked cards in the signed-in player's plan, on either board. */
+  protected readonly planned = computed(() => {
+    const { mainboard, sideboard } = this.plan();
+    return new Set(
+      [...mainboard, ...sideboard].filter((card) => !card.picked).map((card) => card.poolCardId),
+    );
+  });
   protected readonly planFailed = computed(() => !!this.planResource.error());
   protected readonly planLoading = computed(
     () => this.planResource.isLoading() && !this.planResource.hasValue(),
