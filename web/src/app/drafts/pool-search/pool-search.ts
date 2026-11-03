@@ -67,7 +67,7 @@ interface CardIndex {
   identity: Counts[];
   /** Each face's mana cost, leaving out a face with none unless every face has none. */
   manaCosts: Counts[];
-  /** Its place in RARITIES, or -1 if unknown. */
+  /** Its place in RARITIES. */
   rarity: number;
   /** Lowercased. */
   set: string;
@@ -109,7 +109,7 @@ const SELF_REFERENCE =
   /\bthis (?:creature|land|enchantment|artifact|equipment|aura|vehicle|saga|siege|permanent|spell|card|token)\b/g;
 
 function buildIndex(card: PoolSearchCard): CardIndex {
-  const faces = card.faces ?? [];
+  const { faces } = card;
   const texts: { text: string; names: string[] }[] = [];
   if (card.oracleText) texts.push({ text: card.oracleText, names: [card.name] });
   for (const face of faces) {
@@ -128,7 +128,7 @@ function buildIndex(card: PoolSearchCard): CardIndex {
     ),
     identity: [colorCounts(card.colorIdentity)],
     manaCosts: manaCosts(card),
-    rarity: card.rarity ? RARITIES.indexOf(card.rarity) : -1,
+    rarity: RARITIES.indexOf(card.rarity),
     set: card.set.toLowerCase(),
     stats: {
       mv: [card.manaValue],
@@ -136,7 +136,7 @@ function buildIndex(card: PoolSearchCard): CardIndex {
       tou: statValues(card, 'toughness'),
       loy: statValues(card, 'loyalty'),
     },
-    layout: card.layout ?? '',
+    layout: card.layout,
     faces: (faces.length ? faces : [card]).map((face) => ({
       type: (face.typeLine ?? '').toLowerCase(),
       text: face.oracleText ?? '',
@@ -152,7 +152,7 @@ function statNumber(value: string): number {
 }
 
 function statValues(card: PoolSearchCard, stat: 'power' | 'toughness' | 'loyalty'): number[] {
-  return [card[stat], ...(card.faces ?? []).map((face) => face[stat])]
+  return [card[stat], ...card.faces.map((face) => face[stat])]
     .filter((value) => value !== null)
     .map(statNumber)
     .filter((value) => !Number.isNaN(value));
@@ -161,7 +161,7 @@ function statValues(card: PoolSearchCard, stat: 'power' | 'toughness' | 'loyalty
 function manaCosts(card: PoolSearchCard): Counts[] {
   const costs = [
     ...(card.manaCost ?? '').split(' // '),
-    ...(card.faces ?? []).map((face) => face.manaCost ?? ''),
+    ...card.faces.map((face) => face.manaCost ?? ''),
   ].filter(Boolean);
   return (costs.length ? costs : ['']).map((cost) => parseManaCost(cost)!);
 }
@@ -513,7 +513,7 @@ function rarityTerm({ keyword, operator, value }: Term): Matcher {
     throw new SearchError('parse-error', `${keyword}: takes a rarity like common or c.`);
   }
   const op = operator === ':' ? '=' : operator;
-  return (card) => card.rarity !== -1 && compareNumbers(card.rarity, op, rarity);
+  return (card) => compareNumbers(card.rarity, op, rarity);
 }
 
 /** Compares symbol counts as multisets: a <= b if b has at least as many of each. */

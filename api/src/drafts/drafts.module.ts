@@ -12,7 +12,6 @@ import { DraftReadsService } from './draft-reads.service.js';
 import { DraftsController } from './drafts.controller.js';
 import { DraftsGateway } from './drafts.gateway.js';
 import { PickImportService } from './pick-import.service.js';
-import { PoolBackfillService } from './pool-backfill.service.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { QueuesController } from './queues.controller.js';
 import { QueuesService } from './queues.service.js';
@@ -30,7 +29,6 @@ import { TurnsService } from './turns.service.js';
     DraftLifecycleService,
     DraftsGateway,
     PoolSnapshotService,
-    PoolBackfillService,
     DraftPublisher,
     QueuesService,
     { provide: BotPickDelay, useValue: new BotPickDelay(1500) },

@@ -38,10 +38,4 @@ describe('Arena export', () => {
       'Deck\n1 Commit // Memory',
     );
   });
-
-  it('keeps the whole name of a card whose layout is not backfilled yet', () => {
-    expect(arenaExport([{ name: 'Commit // Memory', layout: null }])).toBe(
-      'Deck\n1 Commit // Memory',
-    );
-  });
 });

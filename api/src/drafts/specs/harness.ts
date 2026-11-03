@@ -38,7 +38,6 @@ export let app: INestApplication<App>;
 export let aliceCookie: string;
 export const scryfall = {
   search: vi.fn<ScryfallClient['search']>(),
-  printings: vi.fn<ScryfallClient['printings']>(),
   printingsOn: vi.fn<ScryfallClient['printingsOn']>(),
 };
 export const cubeCobra = { cube: vi.fn<CubeCobraClient['cube']>() };

@@ -52,7 +52,7 @@ export function toPoolCard(
   };
 }
 
-/** The fields the pool search needs: all the backfill fills in. */
+/** The fields the pool search needs. */
 export function searchFields(card: ScryfallCard) {
   return {
     manaCost: card.mana_cost ?? null,

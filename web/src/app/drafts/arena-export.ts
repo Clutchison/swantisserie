@@ -15,9 +15,8 @@ export function arenaExport(cards: ArenaExportCard[]): string {
 
 /**
  * The name Arena knows a card by: split cards by both faces, other multi-face
- * cards by their front face. A card with no layout yet keeps its whole name, as
- * a lone face of a split card is no card at all.
+ * cards by their front face.
  */
 function arenaName({ name, layout }: ArenaExportCard): string {
-  return layout === 'split' || layout === null ? name : frontFace(name);
+  return layout === 'split' ? name : frontFace(name);
 }

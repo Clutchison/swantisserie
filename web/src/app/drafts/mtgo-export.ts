@@ -16,12 +16,9 @@ export function mtgoExport(cards: MtgoExportCard[]): string {
 /**
  * The name MTGO knows a card by: split cards by both faces joined by a slash,
  * as `Fire/Ice`, though Rooms keep Scryfall's `A // B`. Other multi-face cards
- * go by their front face, and meld cards are one face already. A card with no
- * layout yet keeps its whole name, as a lone face of a split card is no card at
- * all.
+ * go by their front face, and meld cards are one face already.
  */
 function mtgoName({ name, layout, typeLine }: MtgoExportCard): string {
-  if (layout === null) return name;
   if (layout === 'split') return isRoom(typeLine) ? name : name.replaceAll(FACE_SEPARATOR, '/');
   return frontFace(name);
 }
