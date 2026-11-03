@@ -112,8 +112,6 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 
 ## Out of scope for v1
 
-- CubeCobra import
-- Building pools by set code
 - Emoji reactions, suggest-pick, minimum time between picks, spectating
 - Playoffs/standings (best post-v1 candidate), player profiles
 - Email / SMS / push notifications
