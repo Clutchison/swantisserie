@@ -9,6 +9,11 @@ import {
   openDraft,
   completeSnapshot,
   button,
+  draft,
+  openUrl,
+  flushPool,
+  flushPicks,
+  expectLoadingAnimation,
   type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -150,6 +155,22 @@ describe('steal behavior', () => {
     const queue = await openQueue(fixture, page);
 
     expect(pill(queue).disabled).toBe(false);
+  });
+
+  it('can’t be changed until the queue has loaded', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
+    await flushPool([shivan]);
+    await flushPicks([]);
+    const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+    tabButton(page, 'Queue').click();
+    await expectLoadingAnimation(() => panel(page), 'Loading your queue…', 64);
+    expect(pill(panel(page)).disabled).toBe(true);
+
+    req.flush(queueOf({ stealBehavior: 'PickNext' }));
+    await fixture.whenStable();
+    expect(pill(panel(page)).disabled).toBe(false);
+    expect(pill(panel(page)).textContent).toContain('Pick next');
   });
 
   it.each(['Closed', 'Complete'] as const)(

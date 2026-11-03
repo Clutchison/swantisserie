@@ -5,7 +5,7 @@
   }
 </ng-template>
 <div class="steal-behavior">
-  <span [title]="stealBehaviorExplanation">Steal behavior</span>
+  <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
   <span [id]="stealBehaviorDescriptionId" class="visually-hidden">{{
     stealBehaviorExplanation
   }}</span>
@@ -14,7 +14,7 @@
     type="button"
     [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
     [attr.aria-describedby]="stealBehaviorDescriptionId"
-    [disabled]="readOnly() || changing()"
+    [disabled]="readOnly() || changing() || loading()"
     (click)="toggleStealBehavior()"
   >
     {{ stealBehaviorName() }}<span class="swap" aria-hidden="true">⇄</span>
