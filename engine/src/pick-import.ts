@@ -147,7 +147,10 @@ export function readPickImport(
     const direction = round % 2 === 0 ? '->' : '<-';
     row.forEach((cell, index) => {
       const marker = index === 0 || index === seats + 1;
-      if (marker ? !DIRECTION_MARKERS.has(cell) : index > seats + 1 && cell) {
+      const outside = marker
+        ? !DIRECTION_MARKERS.has(cell)
+        : index > seats + 1 && cell;
+      if (outside) {
         problems.push(
           `Round ${round + 1} has “${cell}” outside the player columns.`,
         );
