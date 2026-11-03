@@ -35,6 +35,7 @@ describe('pool tab', () => {
       poolCardId: 'shivan-card',
       name: 'Shivan Dragon',
       layout: 'normal',
+      typeLine: 'Creature — Dragon',
       set: 'ima',
       collectorNumber: '1',
     };
@@ -160,6 +161,7 @@ describe('pool tab', () => {
       poolCardId: 'shivan-card',
       name: 'Shivan Dragon',
       layout: 'normal',
+      typeLine: 'Creature — Dragon',
       set: 'ima',
       collectorNumber: '1',
     });
@@ -279,6 +281,7 @@ describe('pool tab', () => {
             poolCardId: brightclimb.id,
             name: brightclimb.name,
             layout: 'normal',
+            typeLine: brightclimb.typeLine,
             set: brightclimb.set,
             collectorNumber: brightclimb.collectorNumber,
           },

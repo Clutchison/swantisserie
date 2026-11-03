@@ -153,12 +153,13 @@ describe('preloading the first results', () => {
   const dragons = (from: number, to: number) =>
     Array.from({ length: to - from + 1 }, (_, i) => `dragon-${from + i}`);
 
-  const picked = ({ id, name }: PoolCardView): PickView => ({
+  const picked = ({ id, name, typeLine }: PoolCardView): PickView => ({
     pick: 1,
     playerId: bob.id,
     poolCardId: id,
     name,
     layout: 'normal',
+    typeLine,
     set: 'm20',
     collectorNumber: '1',
   });

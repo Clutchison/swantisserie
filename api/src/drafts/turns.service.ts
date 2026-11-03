@@ -22,6 +22,7 @@ const PICK_LOG = {
       select: {
         name: true,
         layout: true,
+        typeLine: true,
         set: true,
         collectorNumber: true,
       },

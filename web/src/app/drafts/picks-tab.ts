@@ -11,21 +11,23 @@ import type { PickView, Platform, PlayerView, PoolCardView } from 'contract';
 import { arenaExport } from './arena-export';
 import { CardPreviewName } from './card-preview';
 import { moxfieldExport } from './moxfield-export';
+import { mtgoExport } from './mtgo-export';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /** Where a player's picks can be exported to. */
-type ExportTarget = 'Arena' | 'Moxfield';
+type ExportTarget = 'Arena' | 'MTGO' | 'Moxfield';
 
 /** Each export target's export of a player's picks. */
 const EXPORTS: Record<ExportTarget, (picks: PickView[]) => string> = {
   Arena: arenaExport,
+  MTGO: mtgoExport,
   Moxfield: moxfieldExport,
 };
 
 /** The export targets a draft on each platform offers. */
 const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
   Arena: ['Arena', 'Moxfield'],
-  MTGO: ['Moxfield'],
+  MTGO: ['MTGO', 'Moxfield'],
 };
 
 /** How long a copy button shows its confirmation. */
