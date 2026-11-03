@@ -24,6 +24,26 @@ import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
+/** Each steal behavior: what it's called, what it does, and the one the pill switches to. */
+const STEAL_BEHAVIORS: Record<
+  StealBehavior,
+  { name: string; effect: string; other: StealBehavior }
+> = {
+  ClearQueue: {
+    name: 'Clear queue',
+    effect: 'the rest of your queue is cleared',
+    other: 'PickNext',
+  },
+  PickNext: {
+    name: 'Pick next',
+    effect: 'the rest of your queue stays, and your next available card is picked on your turn',
+    other: 'ClearQueue',
+  },
+};
+
+/** Where a failed change is explained: by the steal behavior pill, or under the queue. */
+type ErrorPlace = 'stealBehavior' | 'queue';
+
 /**
  * The draft view's Queue tab: the signed-in player's queue, which they
  * reorder and prune, and their steal behavior.
@@ -64,7 +84,14 @@ export class QueueTab {
   /** While the draft is not active, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !isActive(this.draftState()));
   protected readonly changing = signal(false);
-  protected readonly error = signal<string | null>(null);
+  protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
+
+  protected readonly stealBehaviorName = computed(
+    () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
+  );
+  protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIORS)
+    .map(({ name, effect }) => `${name}: ${effect}.`)
+    .join(' ');
 
   /** Whether the notice should say the rest of the queue was kept after its latest loss. */
   protected readonly showRestKept = computed(
@@ -99,10 +126,18 @@ export class QueueTab {
     return this.change(this.queueApi.remove(this.draftId(), poolCardId));
   }
 
-  /** Sets the steal behavior, showing it chosen at once. */
-  protected setStealBehavior(stealBehavior: StealBehavior) {
+  /**
+   * Switches to the other steal behavior, showing it at once. If that
+   * fails, the previous one shows again until the queue is re-read.
+   */
+  protected toggleStealBehavior() {
+    const previous = this.queue().stealBehavior;
+    const stealBehavior = STEAL_BEHAVIORS[previous].other;
     this.queueChanged.emit({ ...this.queue(), stealBehavior });
-    return this.change(this.queueApi.setStealBehavior(this.draftId(), stealBehavior));
+    return this.change(this.queueApi.setStealBehavior(this.draftId(), stealBehavior), {
+      place: 'stealBehavior',
+      rollBack: () => this.queueChanged.emit({ ...this.queue(), stealBehavior: previous }),
+    });
   }
 
   /** Stops the notice listing the lost and cleared cards. */
@@ -113,15 +148,19 @@ export class QueueTab {
   /**
    * Sends a change to the queue and shows the queue it answers with. A
    * refused change means the queue has moved on, e.g. a card was lost:
-   * say why, and re-read it.
+   * say why, at `place`, roll back what it showed early, and re-read it.
    */
-  private async change(request: Observable<QueueView>) {
+  private async change(
+    request: Observable<QueueView>,
+    { place = 'queue', rollBack }: { place?: ErrorPlace; rollBack?: () => void } = {},
+  ) {
     this.changing.set(true);
     this.error.set(null);
     try {
       this.queueChanged.emit(await firstValueFrom(request));
     } catch (err) {
-      this.error.set(queueChangeFailure(err, CHANGE_FAILED));
+      rollBack?.();
+      this.error.set({ message: queueChangeFailure(err, CHANGE_FAILED), place });
       this.queueStale.emit();
     } finally {
       this.changing.set(false);

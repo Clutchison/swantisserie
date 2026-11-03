@@ -4,6 +4,27 @@
     >{{ last ? '.' : ', ' }}
   }
 </ng-template>
+<div class="steal-behavior">
+  <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
+  <span id="steal-behavior-description" class="visually-hidden">{{
+    stealBehaviorExplanation
+  }}</span>
+  <button
+    class="button compact quiet pill"
+    type="button"
+    [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
+    aria-describedby="steal-behavior-description"
+    [disabled]="readOnly() || changing() || loading()"
+    (click)="toggleStealBehavior()"
+  >
+    {{ stealBehaviorName() }}<span class="swap" aria-hidden="true">⇄</span>
+  </button>
+</div>
+@if (error(); as failure) {
+  @if (failure.place === 'stealBehavior') {
+    <p class="error" role="alert">{{ failure.message }}</p>
+  }
+}
 @if (hasNotice()) {
   <div class="notice" role="status">
     <p>
@@ -105,34 +126,8 @@
     </li>
   }
 </ol>
-<fieldset class="steal-behavior">
-  <legend>When another player picks a card in your queue</legend>
-  <label class="choice">
-    <input
-      type="radio"
-      name="stealBehavior"
-      value="ClearQueue"
-      [checked]="queue().stealBehavior === 'ClearQueue'"
-      [disabled]="readOnly() || changing()"
-      (change)="setStealBehavior('ClearQueue')"
-    />
-    <span><strong>Clear queue</strong>: the rest of your queue is cleared.</span>
-  </label>
-  <label class="choice">
-    <input
-      type="radio"
-      name="stealBehavior"
-      value="PickNext"
-      [checked]="queue().stealBehavior === 'PickNext'"
-      [disabled]="readOnly() || changing()"
-      (change)="setStealBehavior('PickNext')"
-    />
-    <span
-      ><strong>Pick next</strong>: the rest of your queue stays, and your next available card is
-      picked on your turn.</span
-    >
-  </label>
-</fieldset>
-@if (error(); as message) {
-  <p class="error" role="alert">{{ message }}</p>
+@if (error(); as failure) {
+  @if (failure.place === 'queue') {
+    <p class="error" role="alert">{{ failure.message }}</p>
+  }
 }
