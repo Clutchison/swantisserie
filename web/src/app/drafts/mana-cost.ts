@@ -15,12 +15,12 @@ export function manaCostOf(card: {
   manaCost: PoolCardView['manaCost'];
   faces: Pick<CardFace, 'manaCost'>[];
 }): ManaSymbol[] {
-  // A card with several costs shows only its first face's: a double-faced card's
-  // front, which alone has the cost, or a split card's, Room's or adventure's
-  // first half, of the halves its cost writes between them //.
+  // A card with several costs shows only its first face's. A double-faced card's
+  // front face holds its cost; a split card, Room or adventure writes both
+  // halves' costs in one, between them //, and shows the first.
   const cost = (card.manaCost ?? card.faces[0]?.manaCost ?? '').split(FACE_SEPARATOR)[0];
   return [...cost.matchAll(/\{[^}]*\}/g)].map(([text]) => {
-    const known = MANA_SYMBOLS[text];
-    return known ? { text, src: `mana/${known.file}`, description: known.description } : { text };
+    const svg = MANA_SYMBOLS[text];
+    return svg ? { text, src: `mana/${svg.file}`, description: svg.description } : { text };
   });
 }

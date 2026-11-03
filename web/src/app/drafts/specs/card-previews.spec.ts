@@ -101,7 +101,7 @@ describe('card previews', () => {
     )!;
   /** The symbols of the cost before `name`, by their alt text, or the text of one with no SVG. */
   const costBefore = (name: HTMLElement) =>
-    [...(name.previousElementSibling?.querySelectorAll('img, span') ?? [])].map((symbol) =>
+    [...(name.closest('app-card-name')?.querySelectorAll('.cost > *') ?? [])].map((symbol) =>
       symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent,
     );
   /** The Card preview's image, if one is open: it's outside the page. */
@@ -409,7 +409,7 @@ describe('card previews', () => {
       expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
-    it('show before names in the pick log and on the Picks tab', async () => {
+    it('show before names in the pick log and on the Export tab', async () => {
       const { fixture, page } = await openBoard();
 
       expect(
@@ -473,7 +473,7 @@ describe('card previews', () => {
       ).toEqual([[['Lightning Bolt', ['one red mana']]], [['Shock', ['one red mana']]]]);
     });
 
-    it('shows mana costs inline in the notice', async () => {
+    it('shows mana costs inline in the Plan notice', async () => {
       const { page } = await openPlan();
 
       const notice = panel(page).querySelector<HTMLElement>('.notice')!;
@@ -542,7 +542,7 @@ describe('card previews', () => {
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
-    it('shows mana costs before queue rows’ names, and inline in the notice', async () => {
+    it('shows mana costs before queue rows’ names, and inline in the Queue notice', async () => {
       const { page } = await openQueue();
 
       expect(costBefore(panel(page).querySelector<HTMLElement>('.queue .name')!)).toEqual([
