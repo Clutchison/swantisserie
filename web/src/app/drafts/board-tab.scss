@@ -17,11 +17,25 @@ ol {
   list-style: none;
 }
 
-/* One column of picks per player, as many across as fit. */
+/*
+ * One column of picks per player, as many across as fit, up to the cap: each column is at least
+ * the Board's width shared among the cap, so one more never fits. Empty tracks keep that share with
+ * fewer players. Never wider than the Board, so a phone shows one column without scrolling sideways.
+ * The 0.1px spares the last column from subpixel rounding.
+ */
 .player-picks {
+  --player-picks-cap: 4;
+  --player-picks-gap: var(--space-lg);
+  --player-picks-share: calc(
+    (100% - (var(--player-picks-cap) - 1) * var(--player-picks-gap)) / var(--player-picks-cap) -
+      0.1px
+  );
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: 0 var(--space-lg);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(12rem, var(--player-picks-share))), 1fr)
+  );
+  gap: 0 var(--player-picks-gap);
 }
 
 /* Each pick numbered in its player's picks, by a counter: a row of card rows is no list item. */
