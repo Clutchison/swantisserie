@@ -58,6 +58,28 @@ describe('readPickImport', () => {
       });
     });
 
+    it('skips blank lines before the header and between rounds', () => {
+      const csv = [
+        '',
+        ',Ann,Ben,',
+        '->,Ash Golem,Brine Wisp,',
+        '',
+        ' , , , ',
+        ',,Cinder Hound,<-',
+      ].join('\n');
+
+      expect(read(csv)).toMatchObject({
+        ok: true,
+        columns: ['Ann', 'Ben'],
+        picks: [
+          { number: 1, seat: 0, poolCardId: 'ash golem' },
+          { number: 2, seat: 1, poolCardId: 'brine wisp' },
+          { number: 3, seat: 1, poolCardId: 'cinder hound' },
+        ],
+        next: { pick: 4, round: 2, seat: 0 },
+      });
+    });
+
     it('takes a file with no last column', () => {
       expect(read(',Ann,Ben\n->,Ash Golem,Brine Wisp')).toMatchObject({
         ok: true,
@@ -101,6 +123,20 @@ describe('readPickImport', () => {
       ).toEqual([
         'Round 1 has “Ash Golem” outside the player columns.',
         'Round 1 has “Dusk Heron” outside the player columns.',
+      ]);
+    });
+
+    it('refuses a direction marker that contradicts snake order', () => {
+      const csv = [
+        ',Ann,Ben,',
+        '<-,Ash Golem,Brine Wisp,',
+        '->,,Cinder Hound,',
+        ',,,->',
+      ].join('\n');
+
+      expect(problems(csv)).toEqual([
+        'Round 1 is marked <- but runs -> in snake order.',
+        'Round 2 is marked -> but runs <- in snake order.',
       ]);
     });
 
