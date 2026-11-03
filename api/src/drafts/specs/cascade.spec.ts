@@ -278,7 +278,7 @@ describe('cascade', () => {
         '1- **Alice** picked **Shock**\n' +
         '2- **Bob** picked **Lava Spike**\n' +
         '3- **Bob** picked **Skewer the Critics**\n' +
-        `<@${alice.id}> you’re up.`,
+        `<@${alice.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
       allowed_mentions: { parse: [], users: [alice.id] },
     });
   });
@@ -310,7 +310,9 @@ describe('cascade', () => {
       return webhookClient.post.mock.calls.map(([, message]) => message);
     });
     expect(messages[1]).toEqual({
-      content: '1- **Alice** picked **Shock**\n' + `<@${bob.id}> you’re up.`,
+      content:
+        '1- **Alice** picked **Shock**\n' +
+        `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
       allowed_mentions: { parse: [], users: [bob.id] },
     });
   });

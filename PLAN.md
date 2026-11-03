@@ -75,18 +75,20 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 - Only app admins and the guild's admins can switch a draft's announcements to one of its guild's webhooks, or back to its draft channel.
 - **Archive chat:** the organizer, guild admins or app admins can move a complete or closed draft's channel to the archive category. Permissions aren't changed: a bot can't mute channels for members. Reopening the draft moves the channel back, and cancelling a lobby draft deletes it.
 - If a draft or archive category was deleted in Discord, the Discord bot recreates it when it's next needed and DMs the guild admin who last ran setup. A failed DM is ignored.
-- **Text only, no card image embeds.** Only the draft started message links to the draft.
+- **Text only, no card image embeds.** An announcement links to the draft exactly when it names someone as up: the up line ends with a masked link, `[Open draft](<draft url>)`, whose angle brackets stop Discord showing a preview. The raw URL never gets a line of its own.
 
-| Event                   | Message                                                                                  |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| Draft started           | Seat order + link to the draft                                                           |
-| Manual pick, no cascade | "23- **Alice** picked **Card**" + "@Bob you're up."                                      |
-| Pick + cascade          | One message listing every pick in order, then ping the next player without a valid queue |
-| Undo                    | "Undone: 23- **Alice** picked **Card**" + ping whoever is now up                         |
-| Draft complete          | "**Draft** is complete"                                                                  |
+| Event                   | Message                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Draft started           | "**Draft** has started. Seat order:" + the seats + "@Alice you're up. `[Open draft](<…>)`"                  |
+| Manual pick, no cascade | "23- **Alice** picked **Card**" + "@Bob you're up. `[Open draft](<…>)`"                                     |
+| Pick + cascade          | One message listing every pick in order, then "@Bob you're up. `[Open draft](<…>)`" for the next player up  |
+| Undo                    | "Undone: 23- **Alice** picked **Card**" + "@Alice you're up. `[Open draft](<…>)`"                           |
+| Resumed / reopened      | "**Draft** has resumed" / "**Draft** has reopened", any cascade, then "@Bob you're up. `[Open draft](<…>)`" |
+| Paused / closed         | "**Draft** is paused" / "**Draft** has been closed", with no link                                           |
+| Draft complete          | "**Draft** is complete", with no link                                                                       |
 
 - Pings use `allowed_mentions: { parse: [], users: [nextId] }`. The mention goes in `content`.
-- A by-hand pick that leaves the same player up, at a round boundary in snake order, doesn't ping them: "**Alice** is up." names them, as it does a bot. A queued pick that leaves its player up, a cascade ending on anyone, and start, resume, reopen and undo announcements all still ping.
+- A by-hand pick that leaves the same player up, at a round boundary in snake order, doesn't ping them: "**Alice** is up. `[Open draft](<…>)`" names them, as it does a bot. A queued pick that leaves its player up, a cascade ending on anyone, and start, resume, reopen and undo announcements all still ping.
 - Possible later upgrade: an HTTP interactions endpoint on the api for slash commands (changing a guild's categories, `/status`, `/pick`) and opt-in DMs to players. It needs no gateway.
 
 ## Card images

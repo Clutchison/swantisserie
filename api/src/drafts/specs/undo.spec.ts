@@ -363,7 +363,7 @@ describe('undo', () => {
     expect(messages[3]).toEqual({
       content:
         'Undone: 2- **Bob** picked **Lightning Bolt**\n' +
-        `<@${bob.id}> you’re up.`,
+        `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
       allowed_mentions: { parse: [], users: [bob.id] },
     });
   });

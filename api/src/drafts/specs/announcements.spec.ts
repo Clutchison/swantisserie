@@ -65,8 +65,7 @@ describe('announcements', () => {
       '**Red** has started. Seat order:\n' +
         '1. **Alice**\n' +
         '2. **Bob**\n' +
-        `<@${alice.id}> you’re up.\n` +
-        `<https://roto.example/drafts/${id}>`,
+        `<@${alice.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
     ]);
     expect(webhookClient.post).toHaveBeenCalledWith(webhookUrl, {
       content: expect.any(String),
@@ -95,7 +94,7 @@ describe('announcements', () => {
       .expect(200);
 
     expect((await posted(4)).slice(1)).toEqual([
-      `1- **Alice** picked **Shock**\n<@${bob.id}> you’re up.`,
+      `1- **Alice** picked **Shock**\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
       '2- **Bob** picked **Lava Spike**',
       '**Red** is complete',
     ]);
@@ -133,7 +132,7 @@ describe('announcements', () => {
       await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
       expect(await lastPost(3)).toEqual({
-        content: '2- **Bob** picked **Lightning Bolt**\n**Bob** is up.',
+        content: `2- **Bob** picked **Lightning Bolt**\n**Bob** is up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [] },
       });
     });
@@ -150,7 +149,7 @@ describe('announcements', () => {
         content:
           '1- **Alice** picked **Shock**\n' +
           '2- **Bob** picked **Lightning Bolt**\n' +
-          `<@${bob.id}> you’re up.`,
+          `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       });
     });
@@ -170,8 +169,7 @@ describe('announcements', () => {
           '2. **Bob**\n' +
           '1- **Alice** picked **Shock**\n' +
           '2- **Bob** picked **Lightning Bolt**\n' +
-          `<@${bob.id}> you’re up.\n` +
-          `<https://roto.example/drafts/${id}>`,
+          `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       });
     });
@@ -201,7 +199,7 @@ describe('announcements', () => {
           content:
             `**Red** ${happened}\n` +
             '2- **Bob** picked **Lightning Bolt**\n' +
-            `<@${bob.id}> you’re up.`,
+            `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
           allowed_mentions: { parse: [], users: [bob.id] },
         });
       },
@@ -220,7 +218,7 @@ describe('announcements', () => {
       expect(await lastPost(5)).toEqual({
         content:
           'Undone: 3- **Bob** picked **Lava Spike**\n' +
-          `<@${bob.id}> you’re up.`,
+          `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       });
     });
@@ -236,7 +234,7 @@ describe('announcements', () => {
       await post(id, 'resume').expect(200);
 
       expect(await lastPost(5)).toEqual({
-        content: `**Red** has resumed\n<@${bob.id}> you’re up.`,
+        content: `**Red** has resumed\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       });
     });
@@ -266,7 +264,7 @@ describe('announcements', () => {
       content:
         '1- **Alice** picked **Shock**\n' +
         '2- **Bob** picked **Lightning Bolt**\n' +
-        '**Bot 1** is up.',
+        `**Bot 1** is up. [Open draft](<https://roto.example/drafts/${id}>)`,
       allowed_mentions: { parse: [], users: [] },
     });
   });

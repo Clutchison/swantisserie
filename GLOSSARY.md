@@ -226,7 +226,7 @@ _Avoid_: Delete, abort
 
 **Active draft**:
 Any draft that is neither closed nor complete.
-_Avoid_: Open draft, current draft
+_Avoid_: Open draft (as its name; "open" as a verb, as in "Open draft" on a link, is fine), current draft
 
 ## Discord
 
