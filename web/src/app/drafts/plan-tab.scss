@@ -209,14 +209,9 @@ ul {
     padding: 0;
     border: 0;
 
+    /* It stays under the next even while pointed at: its Card preview already shows all of it. */
     & + li {
       margin-top: calc(#{$stack-step} - #{$card-height});
-    }
-
-    /* The card under the mouse, or with a button focused, comes out from under the rest. */
-    &:hover,
-    &:focus-within {
-      z-index: 1;
     }
   }
 
@@ -279,6 +274,13 @@ ul {
   li:hover > & button,
   li:focus-within > & button {
     opacity: 1;
+  }
+
+  /* The buttons are taller than the strip of the card that shows, so while they show they sit over the next card.
+     Only then: hidden buttons over the next card would take its clicks. */
+  li:hover > &,
+  li:focus-within > & {
+    z-index: 1;
   }
 }
 
