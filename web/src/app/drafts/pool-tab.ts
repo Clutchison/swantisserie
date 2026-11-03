@@ -24,7 +24,7 @@ import type { DraftView, PlayerView, PoolCardView, QueueView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
-import { isRefusal } from './drafts';
+import { changeFailure, isRefusal } from './drafts';
 import { ImagePreloader } from './image-preloader';
 import {
   applyPoolFilters,
@@ -34,7 +34,7 @@ import {
   type PoolFilterState,
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
-import { QueueApi, queueChangeFailure } from './queue-api';
+import { QueueApi } from './queue-api';
 import { PlayerAvatar } from './player-avatar';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -364,7 +364,7 @@ export class PoolTab {
       this.queueChanged.emit(await firstValueFrom(request));
       if (this.turnPick() === turnPick) this.queueNote.set(done);
     } catch (err) {
-      this.queueNote.set(queueChangeFailure(err, failure));
+      this.queueNote.set(changeFailure(err, failure));
       this.queueStale.emit();
       if (isRefusal(err)) this.draftStale.emit();
     } finally {

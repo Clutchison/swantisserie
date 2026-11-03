@@ -4,6 +4,7 @@ import { readPickImport } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
+import { planPicks } from './plans.service.js';
 import { draftSize, SEAT_ORDER, type Transaction } from './draft-shapes.js';
 import {
   checkCanStart,
@@ -99,6 +100,13 @@ export class PickImportService {
           createdAt,
         })),
       });
+      await planPicks(
+        tx,
+        await tx.pick.findMany({
+          where: { draftId },
+          select: { id: true, playerId: true, poolCardId: true },
+        }),
+      );
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
       await draft.moveTo('Paused');
     });

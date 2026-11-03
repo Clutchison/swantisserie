@@ -8,14 +8,8 @@ import type {
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NotAPlayerError } from './draft-errors.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
-
-/** Thrown when someone who isn't playing in a draft asks for a queue in it. */
-export class NotAPlayerError extends Error {
-  constructor() {
-    super('Only the draft’s players have queues.');
-  }
-}
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -44,7 +38,7 @@ export class QueuesService {
       where: { draftId_userId: { draftId, userId } },
       select: { id: true },
     });
-    if (!player) throw new NotAPlayerError();
+    if (!player) throw new NotAPlayerError('queues');
     return this.read(this.prisma, player.id);
   }
 
@@ -219,7 +213,7 @@ export class QueuesService {
       const [player] = await tx.$queryRaw<{ id: string }[]>`
         SELECT "id" FROM "Player"
         WHERE "draftId" = ${draftId} AND "userId" = ${userId} FOR UPDATE`;
-      if (!draft || !player) throw new NotAPlayerError();
+      if (!draft || !player) throw new NotAPlayerError('queues');
       if (draft.state === 'Closed') {
         throw new QueueRefusedError({
           error: 'draft-closed',

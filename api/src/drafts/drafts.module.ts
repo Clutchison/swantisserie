@@ -12,6 +12,8 @@ import { DraftReadsService } from './draft-reads.service.js';
 import { DraftsController } from './drafts.controller.js';
 import { DraftsGateway } from './drafts.gateway.js';
 import { PickImportService } from './pick-import.service.js';
+import { PlansController } from './plans.controller.js';
+import { PlansService } from './plans.service.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { QueuesController } from './queues.controller.js';
 import { QueuesService } from './queues.service.js';
@@ -19,7 +21,7 @@ import { TurnsService } from './turns.service.js';
 
 @Module({
   imports: [AuthModule, CubeCobraModule, DiscordModule, ScryfallModule],
-  controllers: [DraftsController, QueuesController],
+  controllers: [DraftsController, PlansController, QueuesController],
   providers: [
     DraftLock,
     DraftReadsService,
@@ -31,6 +33,7 @@ import { TurnsService } from './turns.service.js';
     PoolSnapshotService,
     DraftPublisher,
     QueuesService,
+    PlansService,
     { provide: BotPickDelay, useValue: new BotPickDelay(1500) },
     BotPlayers,
   ],

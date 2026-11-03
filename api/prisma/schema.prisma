@@ -142,6 +142,7 @@ model PoolCard {
   pick            Pick?
   queued          QueuedCard[]
   unqueued        UnqueuedCard[]
+  planned         PlannedCard[]
 
   @@index([draftId])
 }
@@ -160,6 +161,8 @@ model Player {
   /// Bots have none.
   queue         QueuedCard[]
   unqueued      UnqueuedCard[]
+  /// Private to the player, like their queue.
+  plan          PlannedCard[]
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
   stealBehavior StealBehavior  @default(ClearQueue)
 
@@ -182,9 +185,33 @@ model Pick {
   createdAt  DateTime       @default(now())
   /// What undoing this pick puts back into queues.
   unqueued   UnqueuedCard[]
+  /// Its place in its player's plan, which undoing it takes away.
+  planned    PlannedCard?
 
   @@unique([draftId, number])
   @@index([playerId])
+}
+
+/// The part of a player's plan a card is on: the mainboard, which they intend to play, or the sideboard.
+enum PlanBoard {
+  Mainboard
+  Sideboard
+}
+
+/// A card in a player's plan: one of their picks, on their mainboard or sideboard.
+model PlannedCard {
+  id         String    @id @default(uuid())
+  playerId   String
+  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  poolCardId String
+  poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  /// The pick that put it in the plan; undoing that pick takes it out.
+  pickId     String    @unique
+  pick       Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  board      PlanBoard @default(Mainboard)
+
+  @@unique([playerId, poolCardId])
+  @@index([poolCardId])
 }
 
 /// A card in a player's queue.

@@ -12,25 +12,26 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import type { DraftView, PickView, PlayerView, PoolCardView, QueueView } from 'contract';
+import type { DraftView, PickView, PlanView, PlayerView, PoolCardView, QueueView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { firstValueFrom } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
-import { EMPTY_QUEUE, isActive } from './drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE, isActive } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';
 import { OrganizerControls } from './organizer-controls';
 import { PicksTab } from './picks-tab';
+import { PlanTab } from './plan-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
 import { WebhookControl } from './webhook-control';
 
 /** The draft view's panels. The Me tab is the Picks panel showing the signed-in player. */
-type Panel = 'Pool' | 'Queue' | 'Board' | 'Picks';
+type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Picks';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -46,6 +47,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
     LobbyControls,
     OrganizerControls,
     PicksTab,
+    PlanTab,
     PoolTab,
     QueueTab,
     RouterLink,
@@ -155,6 +157,22 @@ export class DraftPage {
   protected readonly queued = computed(
     () => new Set(this.queue().cards.map((card) => card.poolCardId)),
   );
+  /**
+   * Gate: until every ticket under #171 is done, only app admins can use
+   * plans. The Plan tab doesn't appear for anyone else.
+   */
+  protected readonly offerPlan = computed(() => !!this.user()?.isAppAdmin);
+  /** Only players have a plan, and it can be changed in every draft state. */
+  protected readonly planResource = httpResource<PlanView>(() =>
+    this.joined() && this.offerPlan() ? `/api/drafts/${this.id()}/plan` : undefined,
+  );
+  protected readonly plan = computed<PlanView>(() =>
+    this.planResource.hasValue() ? this.planResource.value() : EMPTY_PLAN,
+  );
+  protected readonly planFailed = computed(() => !!this.planResource.error());
+  protected readonly planLoading = computed(
+    () => this.planResource.isLoading() && !this.planResource.hasValue(),
+  );
   protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
   protected readonly tab = signal<Panel>('Pool');
@@ -223,13 +241,15 @@ export class DraftPage {
       });
       onCleanup(() => watching.unsubscribe());
     });
-    // The queue is re-read when the draft changes, as a pick may have lost a card.
+    // The queue and plan are re-read when the draft changes, as a pick may
+    // have lost a card, or landed on the mainboard, or been undone.
     let shownVersion: number | undefined;
     effect(() => {
       const version = this.draft()?.version;
       untracked(() => {
         if (shownVersion !== undefined && version !== shownVersion) {
           this.queueResource.reload();
+          this.planResource.reload();
         }
         shownVersion = version;
       });

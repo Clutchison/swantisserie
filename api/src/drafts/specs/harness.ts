@@ -370,3 +370,23 @@ export function setStealBehavior(
     .set('Cookie', cookie)
     .send({ stealBehavior: behavior });
 }
+
+/** The player's plan in the draft. */
+export function plan(id: string, cookie: string) {
+  return request(app.getHttpServer())
+    .get(`/api/drafts/${id}/plan`)
+    .set('Cookie', cookie);
+}
+
+/** Moves a card in the player's plan to `board`. */
+export function movePlanned(
+  id: string,
+  poolCardId: string,
+  board: unknown,
+  cookie: string,
+) {
+  return request(app.getHttpServer())
+    .put(`/api/drafts/${id}/plan/${poolCardId}`)
+    .set('Cookie', cookie)
+    .send({ board });
+}

@@ -1,5 +1,6 @@
 import type {
   DraftState,
+  PlanBoard,
   Platform,
   PoolSnapshotState,
   StealBehavior,
@@ -18,6 +19,7 @@ type Expect<T extends true> = T;
  */
 export type ContractMatchesSchema = [
   Expect<Same<DraftState, Schema.DraftState>>,
+  Expect<Same<PlanBoard, Schema.PlanBoard>>,
   Expect<Same<Platform, Schema.Platform>>,
   Expect<Same<PoolSnapshotState, Schema.PoolSnapshotState>>,
   Expect<Same<StealBehavior, Schema.StealBehavior>>,

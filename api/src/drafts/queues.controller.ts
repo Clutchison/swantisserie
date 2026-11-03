@@ -19,9 +19,9 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
+import { NotAPlayerError } from './draft-errors.js';
 import { DraftReadsService } from './draft-reads.service.js';
 import {
-  NotAPlayerError,
   QueueChangedError,
   QueueRefusedError,
   QueuesService,

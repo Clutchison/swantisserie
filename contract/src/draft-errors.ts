@@ -105,6 +105,13 @@ export interface QueueRefusal {
   message: string;
 }
 
+/** Why a card in a plan can't be moved; sent to the player as is. */
+export interface PlanRefusal {
+  /** The card isn't in the player's plan: its pick was undone. */
+  error: 'not-in-plan';
+  message: string;
+}
+
 /** Why a pick import's file can't be imported: a 422 listing all that's wrong with it. */
 export interface PickImportRefusal {
   error: 'invalid-pick-import';
@@ -123,4 +130,5 @@ export type DraftRefusal =
   | PauseRefusal
   | CloseRefusal
   | DraftChangeRefusal
-  | QueueRefusal;
+  | QueueRefusal
+  | PlanRefusal;

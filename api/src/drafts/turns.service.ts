@@ -10,6 +10,7 @@ import {
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, enginePool, SEAT_ORDER } from './draft-shapes.js';
+import { planPicks } from './plans.service.js';
 import { restoreQueues, takeFromQueues } from './queue-clearing.js';
 
 const PICK_LOG = {
@@ -226,20 +227,17 @@ export class TurnsService {
       poolCardId,
     );
     if (problem) throw new PickRefusedError(problem);
-    const { id: pickId } = await tx.pick.create({
+    const made = await tx.pick.create({
       data: {
         draftId,
         number: pickLog.length + 1,
         playerId: players[seat].id,
         poolCardId: card.id,
       },
-      select: { id: true },
+      select: { id: true, playerId: true, poolCardId: true },
     });
-    await takeFromQueues(tx, {
-      id: pickId,
-      playerId: players[seat].id,
-      poolCardId: card.id,
-    });
+    await planPicks(tx, [made]);
+    await takeFromQueues(tx, made);
     // pickLog was read before this pick, so count it too.
     const picked = pickLog.length + 1;
     const next = currentTurn(size, picked);
