@@ -159,8 +159,12 @@ Describes a queued card that another player picked first when no other copy of i
 _Avoid_: Sniped, taken
 
 **Cleared**:
-Describes a queued card taken out of a player's queue because another player picked a different card in that queue. A cleared card is still available, and the player can queue it again.
+Describes a queued card taken out of a player's queue because another player picked a different card in that queue, when the player's steal behavior is clear queue. A cleared card is still available, and the player can queue it again.
 _Avoid_: Wiped, reset, lost (that is the card that was picked)
+
+**Steal behavior**:
+A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it whenever the draft is in the lobby or active.
+_Avoid_: Loss setting, fallback, keep queue
 
 **Queue tab**:
 The part of a draft's page where a player sees and rearranges their queue.
