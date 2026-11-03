@@ -38,10 +38,15 @@ ol {
   gap: 0 var(--player-picks-gap);
 }
 
-/* Each pick numbered in its player's picks, by a counter: a row of card rows is no list item. */
+/*
+ * Each pick numbered in its player's picks, by a counter: a row of card rows is no list item.
+ * A number and its '.' never wrap apart, and the number column widens past its minimum to fit the
+ * widest, for every row alike.
+ */
 .player-picks {
   ol {
-    --card-row-columns: [number] var(--space-xl) [cost] max-content [name] minmax(0, 1fr);
+    --card-row-columns: [number] minmax(var(--space-xl), max-content) [cost] max-content [name]
+      minmax(0, 1fr);
     counter-reset: pick;
   }
 
@@ -50,6 +55,7 @@ ol {
 
     &::before {
       justify-self: end;
+      white-space: nowrap;
       content: counter(pick) '.';
     }
   }
