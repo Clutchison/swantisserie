@@ -1,6 +1,6 @@
 import type { DraftEvent, EventPlayer } from '../drafts/draft-events.js';
 
-/** A draft as its announcements name it and its start links to it. */
+/** A draft as its announcements name it and link to it. */
 export interface AnnouncedDraft {
   name: string;
   /** The draft's page in the app. */
@@ -52,10 +52,10 @@ export function draftMessages(
         messages.push(draftStartedMessage(draft, event.seats, picks));
         break;
       case 'picked':
-        messages.push(picksMessage([announcedPick(event), ...picks]));
+        messages.push(picksMessage(draft, [announcedPick(event), ...picks]));
         break;
       case 'undone':
-        messages.push(undoneMessage(event));
+        messages.push(undoneMessage(draft, event));
         break;
       case 'paused':
         messages.push(draftPausedMessage(draft));
@@ -87,22 +87,22 @@ export function draftStartedMessage(
   picks: AnnouncedPick[] = [],
 ): WebhookMessage {
   return announcement(
+    draft,
     [
       `${bold(draft.name)} has started. Seat order:`,
       ...seats.map((player, seat) => `${seat + 1}. ${bold(player.name)}`),
       ...picks.map(pickLine),
     ],
     upAfter(picks, seats[0] ?? null),
-    { url: draft.url },
   );
 }
 
 export function draftCompleteMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement([`${bold(draft.name)} is complete`], null);
+  return announcement(draft, [`${bold(draft.name)} is complete`], null);
 }
 
 export function draftPausedMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement([`${bold(draft.name)} is paused`], null);
+  return announcement(draft, [`${bold(draft.name)} is paused`], null);
 }
 
 /**
@@ -118,7 +118,7 @@ export function draftResumedMessage(
 }
 
 export function draftClosedMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement([`${bold(draft.name)} has been closed`], null);
+  return announcement(draft, [`${bold(draft.name)} has been closed`], null);
 }
 
 /**
@@ -134,8 +134,11 @@ export function draftReopenedMessage(
 }
 
 /** The undone pick's player is up again. */
-export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
-  return announcement([`Undone: ${pickLine(undone)}`], undone.player);
+export function undoneMessage(
+  draft: AnnouncedDraft,
+  undone: AnnouncedUndo,
+): WebhookMessage {
+  return announcement(draft, [`Undone: ${pickLine(undone)}`], undone.player);
 }
 
 /**
@@ -143,10 +146,13 @@ export function undoneMessage(undone: AnnouncedUndo): WebhookMessage {
  * player who has just picked by hand and is up again is named, not pinged:
  * they know. A queued pick still pings them, as they may be away.
  */
-export function picksMessage(picks: AnnouncedPick[]): WebhookMessage {
+export function picksMessage(
+  draft: AnnouncedDraft,
+  picks: AnnouncedPick[],
+): WebhookMessage {
   const { player, queued, next } = picks[picks.length - 1];
   const ping = queued || next?.id !== player.id;
-  return announcement(picks.map(pickLine), next, { ping });
+  return announcement(draft, picks.map(pickLine), next, ping);
 }
 
 /** The draft `happened`, then any cascade; `up` is who is next without one. */
@@ -157,6 +163,7 @@ function backToDraftingMessage(
   picks: AnnouncedPick[],
 ): WebhookMessage {
   return announcement(
+    draft,
     [`${bold(draft.name)} ${happened}`, ...picks.map(pickLine)],
     upAfter(picks, up),
   );
@@ -180,22 +187,25 @@ function pickLine({ number, player, card }: AnnouncedUndo): string {
 }
 
 /**
- * `lines`, then who is `up` if anyone is, then a link to `url` if given.
- * Whoever is up is pinged if `ping` and they aren't a bot, and named otherwise.
+ * `lines`, then who is `up` if anyone is, ending with a link to `draft`.
+ * Whoever is up is pinged if `ping` and they aren't a bot, and named
+ * otherwise. With nobody up, there is no link.
  */
 function announcement(
+  draft: AnnouncedDraft,
   lines: string[],
   up: AnnouncedPlayer | null,
-  { url, ping = true }: { url?: string; ping?: boolean } = {},
+  ping = true,
 ): WebhookMessage {
   const pinged = up && ping && !up.isBot ? up : null;
+  const upLine = pinged
+    ? `<@${pinged.id}> you’re up.`
+    : up && `${bold(up.name)} is up.`;
   return {
     content: [
       ...lines,
-      ...(pinged ? [`<@${pinged.id}> you’re up.`] : []),
-      ...(up && !pinged ? [`${bold(up.name)} is up.`] : []),
-      // In angle brackets, so Discord doesn't embed a preview of the page.
-      ...(url ? [`<${url}>`] : []),
+      // Masked, with the URL in angle brackets so Discord shows no preview.
+      ...(upLine ? [`${upLine} [Open draft](<${draft.url}>)`] : []),
     ].join('\n'),
     allowed_mentions: { parse: [], users: pinged ? [pinged.id] : [] },
   };

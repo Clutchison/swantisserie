@@ -158,7 +158,7 @@ describe('pause and resume', () => {
         content:
           '**Red** has resumed\n' +
           '1- **Alice** picked **Shock**\n' +
-          `<@${bob.id}> you’re up.`,
+          `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       },
     ]);
