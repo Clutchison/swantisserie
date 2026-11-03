@@ -155,8 +155,8 @@ A run of queued picks that fire one after another because each next player also 
 _Avoid_: Chain, auto-run
 
 **Lost**:
-Describes a queued card that another player picked first when no other copy of it was available for that queue: every copy left was picked or already in the queue.
-_Avoid_: Sniped, taken
+Describes a queued card, or an unpicked card in a plan, that another player picked first when no other copy of it was available for that queue or plan: every copy left was picked or already in it.
+_Avoid_: Sniped, taken, removed (that is the player's own doing)
 
 **Cleared**:
 Describes a queued card taken out of a player's queue because another player picked a different card in that queue, when the player's steal behavior is clear queue. A cleared card is still available, and the player can queue it again.
@@ -204,6 +204,10 @@ _Avoid_: Main deck, maindeck, board (alone)
 The part of a player's plan holding cards they don't intend to play.
 _Avoid_: Maybeboard, bench, board (alone)
 
+**Unpicked card**:
+A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, or another player picks it when no other copy is available for the plan.
+_Avoid_: Maybe, wishlist card, placeholder, proxy
+
 **Plan board**:
 Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.
 _Avoid_: Board (alone; that is the Board tab), zone, section
@@ -213,7 +217,7 @@ The part of a draft's page where a player builds their plan.
 _Avoid_: Deck tab, deckbuilder, Deck Planner
 
 **Plan notice**:
-The note on the Plan tab naming the unpicked cards taken out of a player's plan because another player picked them when no other copy was available. It builds up until the player dismisses it, and an undo takes off what that pick added.
+The note on the Plan tab naming a player's lost unpicked cards and who picked each. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Deck notice, alert, queue notice (that is the queue's)
 
 **Export tab**:

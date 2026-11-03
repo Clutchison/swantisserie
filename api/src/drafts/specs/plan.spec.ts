@@ -49,6 +49,7 @@ describe('plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [],
+      lost: [],
     });
 
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -58,10 +59,15 @@ describe('plan', () => {
 
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
-        { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+        {
+          poolCardId: ids['Skewer the Critics'],
+          name: 'Skewer the Critics',
+          picked: true,
+        },
       ],
       sideboard: [],
+      lost: [],
     });
   });
 
@@ -73,10 +79,15 @@ describe('plan', () => {
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt']).expect(200);
     await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
-    const spike = { poolCardId: ids['Lava Spike'], name: 'Lava Spike' };
+    const spike = {
+      poolCardId: ids['Lava Spike'],
+      name: 'Lava Spike',
+      picked: true,
+    };
     const skewer = {
       poolCardId: ids['Skewer the Critics'],
       name: 'Skewer the Critics',
+      picked: true,
     };
 
     const moved = await movePlanned(
@@ -86,10 +97,15 @@ describe('plan', () => {
       carolCookie,
     ).expect(200);
 
-    expect(moved.body).toEqual({ mainboard: [skewer], sideboard: [spike] });
+    expect(moved.body).toEqual({
+      mainboard: [skewer],
+      sideboard: [spike],
+      lost: [],
+    });
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [skewer],
       sideboard: [spike],
+      lost: [],
     });
     // Moving it there again changes nothing.
     await movePlanned(id, ids['Lava Spike'], 'Sideboard', carolCookie).expect(
@@ -101,7 +117,11 @@ describe('plan', () => {
       'Mainboard',
       carolCookie,
     ).expect(200);
-    expect(back.body).toEqual({ mainboard: [spike, skewer], sideboard: [] });
+    expect(back.body).toEqual({
+      mainboard: [spike, skewer],
+      sideboard: [],
+      lost: [],
+    });
   });
 
   it('refuses to move a card that isn’t in the plan, or to no board', async () => {
@@ -129,8 +149,11 @@ describe('plan', () => {
       400,
     );
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
-      mainboard: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+      mainboard: [
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+      ],
       sideboard: [],
+      lost: [],
     });
   });
 
@@ -159,8 +182,9 @@ describe('plan', () => {
       })
       .expect(200);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
-      mainboard: [{ poolCardId: ids.Shock, name: 'Shock' }],
+      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
       sideboard: [],
+      lost: [],
     });
     // Alice's plan holds Lightning Bolt, but she isn't an app admin.
     await plan(id, aliceCookie).expect(403);
@@ -189,10 +213,11 @@ describe('plan', () => {
 
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
-        { poolCardId: ids.Shock, name: 'Shock' },
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+        { poolCardId: ids.Shock, name: 'Shock', picked: true },
       ],
       sideboard: [],
+      lost: [],
     });
     // A bot can't sign in to see its plan, but its picks land there too.
     const botPlan = await app.get(PrismaService).plannedCard.findMany({
@@ -200,8 +225,14 @@ describe('plan', () => {
       select: { board: true, poolCard: { select: { name: true } } },
     });
     expect(botPlan).toEqual([
-      { board: 'Mainboard', poolCard: { name: 'Skewer the Critics' } },
-      { board: 'Mainboard', poolCard: { name: 'Burst Lightning' } },
+      {
+        board: 'Mainboard',
+        poolCard: { name: 'Skewer the Critics' },
+      },
+      {
+        board: 'Mainboard',
+        poolCard: { name: 'Burst Lightning' },
+      },
     ]);
   });
 
@@ -227,14 +258,21 @@ describe('plan', () => {
     await undo(id, 4).expect(200);
 
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
-      mainboard: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+      mainboard: [
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+      ],
       sideboard: [],
+      lost: [],
     });
     // Picked again, it lands on the mainboard, not where it was.
     await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body.mainboard).toEqual([
-      { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
-      { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
+      { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+      {
+        poolCardId: ids['Skewer the Critics'],
+        name: 'Skewer the Critics',
+        picked: true,
+      },
     ]);
   });
 
@@ -244,10 +282,15 @@ describe('plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [],
+      lost: [],
     });
     await start(id).expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
-    const spike = { poolCardId: ids['Lava Spike'], name: 'Lava Spike' };
+    const spike = {
+      poolCardId: ids['Lava Spike'],
+      name: 'Lava Spike',
+      picked: true,
+    };
 
     await post(id, 'pause').expect(200);
     const paused = await movePlanned(
@@ -256,7 +299,11 @@ describe('plan', () => {
       'Sideboard',
       carolCookie,
     ).expect(200);
-    expect(paused.body).toEqual({ mainboard: [], sideboard: [spike] });
+    expect(paused.body).toEqual({
+      mainboard: [],
+      sideboard: [spike],
+      lost: [],
+    });
 
     await post(id, 'close').expect(200);
     const closed = await movePlanned(
@@ -265,7 +312,11 @@ describe('plan', () => {
       'Mainboard',
       carolCookie,
     ).expect(200);
-    expect(closed.body).toEqual({ mainboard: [spike], sideboard: [] });
+    expect(closed.body).toEqual({
+      mainboard: [spike],
+      sideboard: [],
+      lost: [],
+    });
 
     await post(id, 'reopen').expect(200);
     const done = await pick(id, ids.Shock).expect(200);
@@ -276,7 +327,11 @@ describe('plan', () => {
       'Sideboard',
       carolCookie,
     ).expect(200);
-    expect(complete.body).toEqual({ mainboard: [], sideboard: [spike] });
+    expect(complete.body).toEqual({
+      mainboard: [],
+      sideboard: [spike],
+      lost: [],
+    });
     // The draft itself is left alone.
     expect((await getDraft(id).expect(200)).body.version).toBe(
       done.body.version,

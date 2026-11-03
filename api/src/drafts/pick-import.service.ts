@@ -5,7 +5,12 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
 import { planPicks } from './plan-picks.js';
-import { draftSize, SEAT_ORDER, type Transaction } from './draft-shapes.js';
+import {
+  draftSize,
+  MADE_PICK,
+  SEAT_ORDER,
+  type Transaction,
+} from './draft-shapes.js';
 import {
   checkCanStart,
   seatPlayers,
@@ -104,7 +109,7 @@ export class PickImportService {
         tx,
         await tx.pick.findMany({
           where: { draftId },
-          select: { id: true, playerId: true, poolCardId: true },
+          select: MADE_PICK,
         }),
       );
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });

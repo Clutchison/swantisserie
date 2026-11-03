@@ -21,6 +21,7 @@ import {
 } from '../auth/session.guard.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftReadsService } from './draft-reads.service.js';
+import { parseCard } from './parse-card.js';
 import {
   QueueChangedError,
   QueueRefusedError,
@@ -55,7 +56,7 @@ export class QueuesController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const poolCardId = parseCard(body);
+    const poolCardId = parseCard(body, 'Say which card to queue.');
     return this.answer(id, () => this.queues.add(id, user.id, poolCardId));
   }
 
@@ -132,18 +133,6 @@ export class QueuesController {
       throw err;
     }
   }
-}
-
-/** The pool card's id, or a 400 if there isn't one. */
-function parseCard(body: unknown): string {
-  const { poolCardId } = (body ?? {}) as Record<string, unknown>;
-  if (typeof poolCardId !== 'string' || !poolCardId) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Say which card to queue.',
-    });
-  }
-  return poolCardId;
 }
 
 /** The queued cards' pool card ids, or a 400 if it isn't a list of distinct ids. */

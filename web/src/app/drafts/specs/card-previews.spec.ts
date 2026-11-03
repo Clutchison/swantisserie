@@ -365,7 +365,11 @@ describe('card previews', () => {
     it('shows on plan rows', async () => {
       const { page, fixture } = await openPicked({
         user: { ...alice, isAppAdmin: true },
-        plan: { mainboard: [{ poolCardId: bolt.id, name: bolt.name }], sideboard: [] },
+        plan: {
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          sideboard: [],
+          lost: [],
+        },
       });
       tabButton(page, 'Plan').click();
       await fixture.whenStable();

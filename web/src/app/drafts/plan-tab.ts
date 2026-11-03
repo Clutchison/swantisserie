@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import type { PlanBoard, PlannedCardView, PlanView, PoolCardView } from 'contract';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 import { CardPreviewName } from './card-preview';
 import { changeFailure } from './drafts';
 import { PlanApi } from './plan-api';
@@ -16,12 +16,13 @@ import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
 
-/** One line of a board: a card, with how many copies of it the board holds. */
+/** One line of a board: a card's picked copies, or its unpicked ones, with how many the board holds. */
 interface PlanLine {
-  /** The first copy's, which is the one a move moves. */
+  /** The first copy's, which is the one a move or removal acts on. */
   poolCardId: string;
   name: string;
   count: number;
+  picked: boolean;
 }
 
 /** Each plan board: its cards, the board its cards move to, as the button names it, and what an empty one says. */
@@ -50,7 +51,8 @@ const BOARDS: Record<
 
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
- * and sideboard, between which they move cards.
+ * and sideboard, between which they move cards, and from which they remove
+ * the unpicked cards they added; and the Plan notice of their lost cards.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -78,23 +80,49 @@ export class PlanTab {
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  /** The mainboard, then the sideboard, each as its lines. */
+  /** The mainboard, then the sideboard, each as its lines and counts. */
   protected readonly boards = computed(() =>
     (['Mainboard', 'Sideboard'] as const).map((board) => {
       const { cards, ...rest } = BOARDS[board];
       const held = cards(this.plan());
-      return { name: board, ...rest, count: held.length, lines: lines(held) };
+      return {
+        name: board,
+        ...rest,
+        count: held.length,
+        picked: held.filter((card) => card.picked).length,
+        lines: lines(held),
+      };
     }),
   );
 
+  /** Whether there are lost cards to note. */
+  protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
+
   /** Moves one copy of a card to `board`, and shows the plan as it then is. */
-  protected async move(poolCardId: string, board: PlanBoard) {
+  protected move(poolCardId: string, board: PlanBoard) {
+    return this.change(this.planApi.move(this.draftId(), poolCardId, board));
+  }
+
+  /** Takes one unpicked copy of a card out of the plan. */
+  protected remove(poolCardId: string) {
+    return this.change(this.planApi.remove(this.draftId(), poolCardId));
+  }
+
+  /** Stops the notice listing the lost cards. */
+  protected dismissNotice() {
+    return this.change(this.planApi.dismissNotice(this.draftId()));
+  }
+
+  /**
+   * Sends a change to the plan and shows the plan it answers with. A
+   * refused change means the plan has moved on, e.g. a card was lost: say
+   * why, and re-read it.
+   */
+  private async change(request: Observable<PlanView>) {
     this.changing.set(true);
     this.error.set(null);
     try {
-      this.planChanged.emit(
-        await firstValueFrom(this.planApi.move(this.draftId(), poolCardId, board)),
-      );
+      this.planChanged.emit(await firstValueFrom(request));
     } catch (err) {
       this.error.set(changeFailure(err, CHANGE_FAILED));
       this.planStale.emit();
@@ -104,13 +132,24 @@ export class PlanTab {
   }
 }
 
-/** One line per distinct name, in the order each first appears, counting its copies. */
+/**
+ * One line per distinct name, picked and unpicked copies apart, in the order
+ * each first appears, counting its copies.
+ */
 function lines(cards: PlannedCardView[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
   for (const card of cards) {
-    const line = byName.get(card.name);
+    const key = `${card.picked ? 'picked' : 'unpicked'} ${card.name}`;
+    const line = byName.get(key);
     if (line) line.count++;
-    else byName.set(card.name, { poolCardId: card.poolCardId, name: card.name, count: 1 });
+    else {
+      byName.set(key, {
+        poolCardId: card.poolCardId,
+        name: card.name,
+        count: 1,
+        picked: card.picked,
+      });
+    }
   }
   return [...byName.values()];
 }

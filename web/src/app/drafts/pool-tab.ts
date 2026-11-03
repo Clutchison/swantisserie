@@ -20,7 +20,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import type { DraftView, PlayerView, PoolCardView, QueueView } from 'contract';
+import type { DraftView, PlanView, PlayerView, PoolCardView, QueueView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
@@ -34,6 +34,7 @@ import {
   type PoolFilterState,
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
+import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { PlayerAvatar } from './player-avatar';
 import { TileImage, TileImageLoader } from './tile-image';
@@ -64,6 +65,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
 export class PoolTab {
   private readonly http = inject(HttpClient);
   private readonly queueApi = inject(QueueApi);
+  private readonly planApi = inject(PlanApi);
   private readonly images = inject(CardImageSource);
   private readonly preloader = inject(ImagePreloader);
   private readonly tileImages = inject(TileImageLoader);
@@ -90,6 +92,11 @@ export class PoolTab {
    * draft is active.
    */
   readonly offerQueue = input(false);
+  /**
+   * Whether the card detail offers Add to Plan for an unpicked card: for
+   * players while the draft is active, behind the Plan tab's gate.
+   */
+  readonly offerAddToPlan = input(false);
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   readonly yourTurn = input(false);
   /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */
@@ -102,6 +109,10 @@ export class PoolTab {
   readonly queueChanged = output<QueueView>();
   /** Adding or removing a card failed, so the queue may have moved on unseen; it should be re-read. */
   readonly queueStale = output<void>();
+  /** A card was added to the plan: the plan as it now is. */
+  readonly planChanged = output<PlanView>();
+  /** Adding a card to the plan failed, so the plan may have moved on unseen; it should be re-read. */
+  readonly planStale = output<void>();
 
   /** The pool search typed into the search box. */
   protected readonly search = signal('');
@@ -197,6 +208,9 @@ export class PoolTab {
   protected readonly queueing = signal(false);
   /** What came of adding the card in the detail view to the queue, or removing it. */
   protected readonly queueNote = signal<string | null>(null);
+  protected readonly planning = signal(false);
+  /** What came of adding the card in the detail view to the plan. */
+  protected readonly planNote = signal<string | null>(null);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
   /** The countdown of the tile the mouse is resting on. */
   private resting?: ReturnType<typeof setTimeout>;
@@ -308,6 +322,7 @@ export class PoolTab {
     this.face.set(0);
     this.pickError.set(null);
     this.queueNote.set(null);
+    this.planNote.set(null);
   }
 
   protected async pick(card: PoolCardView) {
@@ -369,6 +384,28 @@ export class PoolTab {
       if (isRefusal(err)) this.draftStale.emit();
     } finally {
       this.queueing.set(false);
+    }
+  }
+
+  /**
+   * Adds an unpicked copy of the card to the plan. If that fails, notes why
+   * (or that it failed) and has the plan re-read, and the draft too if it
+   * was refused: a stale page may not know the draft has moved on.
+   */
+  protected async addToPlan(card: PoolCardView) {
+    this.planning.set(true);
+    this.planNote.set(null);
+    try {
+      this.planChanged.emit(await firstValueFrom(this.planApi.add(this.draftId(), card.id)));
+      this.planNote.set('Added to your plan.');
+    } catch (err) {
+      this.planNote.set(
+        changeFailure(err, "Couldn't add the card to your plan. Try again in a moment."),
+      );
+      this.planStale.emit();
+      if (isRefusal(err)) this.draftStale.emit();
+    } finally {
+      this.planning.set(false);
     }
   }
 

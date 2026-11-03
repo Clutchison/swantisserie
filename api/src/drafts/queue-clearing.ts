@@ -19,10 +19,7 @@ export async function takeFromQueues(
   tx: Transaction,
   pick: MadePick,
 ): Promise<void> {
-  const { draftId } = await tx.poolCard.findUniqueOrThrow({
-    where: { id: pick.poolCardId },
-    select: { draftId: true },
-  });
+  const { draftId } = pick;
   const players = await tx.player.findMany({
     where: { draftId },
     orderBy: SEAT_ORDER,

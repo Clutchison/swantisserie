@@ -41,14 +41,17 @@ describe('plan tab', () => {
   const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1 });
   const boltAgain = card({ id: 'bolt-card-2', name: 'Lightning Bolt', manaValue: 1 });
   const cards = [shivan, brightclimb, bolt, boltAgain];
-  const planned = (card: { id: string; name: string }) => ({
+  const planned = (card: { id: string; name: string }, picked = true) => ({
     poolCardId: card.id,
     name: card.name,
+    picked,
   });
+  const unpicked = (card: { id: string; name: string }) => planned(card, false);
   /** As the API sorts it: by mana value, then name. */
   const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
     mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain), planned(shivan)],
     sideboard: [],
+    lost: [],
     ...fields,
   });
 
@@ -59,13 +62,14 @@ describe('plan tab', () => {
     return panel(page);
   }
 
-  /** Each board's heading, and its lines as `count name`. */
+  /** Each board's heading, and its lines as `count name`, with ` (unpicked)` after a dimmed unpicked line. */
   function boards(plan: HTMLElement) {
     return [...plan.querySelectorAll('section')].map((board) => ({
-      heading: board.querySelector('h3')?.textContent?.trim(),
+      heading: board.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
       lines: [...board.querySelectorAll('li:not(.empty)')].map(
         (line) =>
-          `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}`,
+          `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}` +
+          (line.classList.contains('unpicked') ? ' (unpicked)' : ''),
       ),
     }));
   }
@@ -105,14 +109,14 @@ describe('plan tab', () => {
     expect(plan.querySelector('h2')?.textContent).toBe('Plan');
     expect(boards(plan)).toEqual([
       {
-        heading: 'Mainboard (4)',
+        heading: 'Mainboard 4 (4 picked)',
         lines: [
           '1 Brightclimb Pathway // Grimclimb Pathway',
           '2 Lightning Bolt',
           '1 Shivan Dragon',
         ],
       },
-      { heading: 'Sideboard (1)', lines: ['1 Shivan Dragon'] },
+      { heading: 'Sideboard 1 (1 picked)', lines: ['1 Shivan Dragon'] },
     ]);
     const [mainboard, sideboard] = plan.querySelectorAll('section');
     expect(
@@ -165,14 +169,14 @@ describe('plan tab', () => {
     await vi.waitFor(() =>
       expect(boards(plan)).toEqual([
         {
-          heading: 'Mainboard (3)',
+          heading: 'Mainboard 3 (3 picked)',
           lines: [
             '1 Brightclimb Pathway // Grimclimb Pathway',
             '1 Lightning Bolt',
             '1 Shivan Dragon',
           ],
         },
-        { heading: 'Sideboard (1)', lines: ['1 Lightning Bolt'] },
+        { heading: 'Sideboard 1 (1 picked)', lines: ['1 Lightning Bolt'] },
       ]),
     );
     expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(false);
@@ -182,7 +186,7 @@ describe('plan tab', () => {
     expect(back.request.body).toEqual({ board: 'Mainboard' });
     back.flush(planOf());
     await vi.waitFor(() =>
-      expect(boards(plan)[1]).toEqual({ heading: 'Sideboard (0)', lines: [] }),
+      expect(boards(plan)[1]).toEqual({ heading: 'Sideboard 0 (0 picked)', lines: [] }),
     );
   });
 
@@ -216,6 +220,99 @@ describe('plan tab', () => {
     ]);
   });
 
+  it('dims unpicked cards, marks them, counts them apart and offers to remove them', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf({
+        mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain), unpicked(shivan)],
+        sideboard: [],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    expect(boards(plan)).toEqual([
+      {
+        heading: 'Mainboard 4 (2 picked)',
+        lines: [
+          '1 Brightclimb Pathway // Grimclimb Pathway',
+          '1 Lightning Bolt',
+          '1 Lightning Bolt (unpicked)',
+          '1 Shivan Dragon (unpicked)',
+        ],
+      },
+      { heading: 'Sideboard 0 (0 picked)', lines: [] },
+    ]);
+    const [mainboard] = plan.querySelectorAll('section');
+    expect(mainboard.querySelectorAll('.unpicked .mark')).toHaveLength(2);
+    expect(mainboard.querySelector('.unpicked .mark')?.textContent?.trim()).toBe('Unpicked');
+    expect(
+      button(plan, 'Remove Brightclimb Pathway // Grimclimb Pathway from your plan'),
+    ).toBeUndefined();
+
+    button(plan, 'Remove Shivan Dragon from your plan')!.click();
+    const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)] }));
+    await vi.waitFor(() =>
+      expect(boards(plan)[0]).toEqual({
+        heading: 'Mainboard 3 (2 picked)',
+        lines: [
+          '1 Brightclimb Pathway // Grimclimb Pathway',
+          '1 Lightning Bolt',
+          '1 Lightning Bolt (unpicked)',
+        ],
+      }),
+    );
+
+    // An unpicked card moves like a pick.
+    button(plan, 'Move Lightning Bolt to the sideboard')!.click();
+    const move = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
+    expect(move.request.body).toEqual({ board: 'Sideboard' });
+    move.flush(
+      planOf({
+        mainboard: [planned(brightclimb), unpicked(boltAgain)],
+        sideboard: [planned(bolt)],
+      }),
+    );
+    await vi.waitFor(() => expect(boards(plan)[1].heading).toBe('Sideboard 1 (1 picked)'));
+    // The second Lightning Bolt line is the unpicked one, so its button moves that copy.
+    const unpickedLine = [...plan.querySelectorAll('li.unpicked')].find((line) =>
+      line.textContent?.includes('Lightning Bolt'),
+    )!;
+    unpickedLine.querySelector<HTMLButtonElement>('button[aria-label^="Move"]')!.click();
+    expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card-2').request.body).toEqual({
+      board: 'Sideboard',
+    });
+  });
+
+  it('notes lost cards, with who picked them, until dismissed', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf({
+        mainboard: [planned(brightclimb)],
+        lost: [
+          { poolCardId: shivan.id, name: shivan.name, pickedBy: 'Bob' },
+          { poolCardId: bolt.id, name: bolt.name, pickedBy: 'Carol' },
+        ],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    const note = plan.querySelector<HTMLElement>('.notice')!;
+    expect(note.getAttribute('role')).toBe('status');
+    expect(note.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Lost to other players: Shivan Dragon (picked by Bob), Lightning Bolt (picked by Carol). Dismiss',
+    );
+
+    button(note, 'Dismiss')!.click();
+    const req = http.expectOne('/api/drafts/draft-1/plan/notice');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(planOf({ mainboard: [planned(brightclimb)] }));
+    await vi.waitFor(() => expect(plan.querySelector('.notice')).toBeNull());
+  });
+
   it('says so while the plan loads', async () => {
     const { page } = await openUrl('/drafts/draft-1', admin);
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
@@ -227,7 +324,7 @@ describe('plan tab', () => {
     await expectLoadingAnimation(() => panel(page), 'Loading your plan…', 64);
 
     req.flush(planOf());
-    await vi.waitFor(() => expect(boards(panel(page))[0].heading).toBe('Mainboard (4)'));
+    await vi.waitFor(() => expect(boards(panel(page))[0].heading).toBe('Mainboard 4 (4 picked)'));
   });
 
   it('says when the plan couldn’t be loaded', async () => {
@@ -254,7 +351,7 @@ describe('plan tab', () => {
       plan: planOf({ mainboard: [planned(shivan)] }),
     });
     const plan = await openPlan(fixture, page);
-    expect(boards(plan)[0].heading).toBe('Mainboard (1)');
+    expect(boards(plan)[0].heading).toBe('Mainboard 1 (1 picked)');
 
     updates.events.next({ type: 'changed', draft: draft(drafting({ version: 1 })) });
     await flushPicks([]);
@@ -262,20 +359,22 @@ describe('plan tab', () => {
     await flushPlan(planOf());
     await fixture.whenStable();
 
-    expect(boards(plan)[0].heading).toBe('Mainboard (4)');
+    expect(boards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
   });
 
   it.each(['Lobby', 'Paused', 'Closed', 'Complete'] as const)(
-    'can be changed while the draft is %s',
+    'can be changed while the draft is %s, unpicked cards included',
     async (state) => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         { players: [alicePlayer, bob], state, turn: null },
-        { cards, user: admin, plan: planOf() },
+        { cards, user: admin, plan: planOf({ sideboard: [unpicked(boltAgain)] }) },
       );
       const plan = await openPlan(fixture, page);
 
       expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(false);
+      expect(boards(plan)[1].lines).toEqual(['1 Lightning Bolt (unpicked)']);
+      expect(button(plan, 'Remove Lightning Bolt from your plan')!.disabled).toBe(false);
     },
   );
 });

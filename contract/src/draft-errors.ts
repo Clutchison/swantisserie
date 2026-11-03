@@ -105,10 +105,19 @@ export interface QueueRefusal {
   message: string;
 }
 
-/** Why a card in a plan can't be moved; sent to the player as is. */
+/** Why a plan can't be changed; sent to the player as is. */
 export interface PlanRefusal {
-  /** The card isn't in the player's plan: its pick was undone. */
-  error: 'not-in-plan';
+  error:
+    /** The card isn't in the player's plan: its pick was undone, or it was lost. */
+    | 'not-in-plan'
+    /** The card is one of the player's picks, so it can't be removed from the plan. */
+    | 'a-pick'
+    | 'not-in-pool'
+    | 'already-picked'
+    /** Every available copy of the card is in the plan already. */
+    | 'no-copies-left'
+    | 'draft-complete'
+    | 'draft-closed';
   message: string;
 }
 

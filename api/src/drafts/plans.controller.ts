@@ -3,10 +3,13 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
+  Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +18,7 @@ import { AdminGuard } from '../auth/admin.guard.js';
 import { CurrentUser, type SessionUser } from '../auth/session.guard.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftReadsService } from './draft-reads.service.js';
+import { parseCard } from './parse-card.js';
 import { PlanRefusedError, PlansService } from './plans.service.js';
 
 /**
@@ -38,6 +42,37 @@ export class PlansController {
     @Param('id') id: string,
   ): Promise<PlanView> {
     return this.answer(id, () => this.plans.plan(id, user.id));
+  }
+
+  /** Adds an unpicked copy of a pool card to the mainboard. */
+  @Post()
+  @HttpCode(200)
+  async add(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<PlanView> {
+    const poolCardId = parseCard(body, 'Say which card to add.');
+    return this.answer(id, () => this.plans.add(id, user.id, poolCardId));
+  }
+
+  /** Stops the Plan notice listing the lost cards. */
+  @Delete('notice')
+  async dismissNotice(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<PlanView> {
+    return this.answer(id, () => this.plans.dismissNotice(id, user.id));
+  }
+
+  /** Takes an unpicked card out of the plan. Declared after `notice`, which it would match. */
+  @Delete(':poolCardId')
+  async remove(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('poolCardId') poolCardId: string,
+  ): Promise<PlanView> {
+    return this.answer(id, () => this.plans.remove(id, user.id, poolCardId));
   }
 
   /** Moves a card in the plan to the mainboard or the sideboard. */
@@ -70,6 +105,9 @@ export class PlansController {
         });
       }
       if (err instanceof PlanRefusedError) {
+        if (err.refusal.error === 'not-in-pool') {
+          throw new NotFoundException(err.refusal);
+        }
         throw new ConflictException(err.refusal);
       }
       throw err;

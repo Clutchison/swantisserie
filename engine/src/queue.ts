@@ -54,13 +54,7 @@ export function queuesAfterPick(
     stealBehaviors?: readonly StealBehavior[];
   },
 ): QueueAfterPick[] {
-  const taken = new Set([...picked, pick.card]);
-  const oracleId = pool.get(pick.card);
-  const copies = [...pool]
-    .filter(
-      ([card, cardOracleId]) => cardOracleId === oracleId && !taken.has(card),
-    )
-    .map(([card]) => card);
+  const copies = availableCopies(pick.card, pool, picked);
   return queues.map((queue, seat) => {
     if (seat === pick.seat) {
       return {
@@ -78,4 +72,23 @@ export function queuesAfterPick(
     }
     return { queue: queue.with(at, copy), swapped: copy, unqueued: [] };
   });
+}
+
+/**
+ * The copies of `card` still available once it is picked: the cards in
+ * `pool` sharing its oracle id, in `pool` order, leaving out `picked` and
+ * the card itself.
+ */
+export function availableCopies(
+  card: string,
+  pool: Pool,
+  picked: readonly string[],
+): string[] {
+  const taken = new Set([...picked, card]);
+  const oracleId = pool.get(card);
+  return [...pool]
+    .filter(
+      ([copy, copyOracleId]) => copyOracleId === oracleId && !taken.has(copy),
+    )
+    .map(([copy]) => copy);
 }

@@ -193,14 +193,14 @@ export class QueuesService {
   }
 
   /**
-   * Runs `change` on the user's queue, with their row locked, and returns
+   * Runs `apply` on the user's queue, with their row locked, and returns
    * the queue as it then is. Throws NotAPlayerError if the user isn't in
    * the draft, and QueueRefusedError if the draft is closed.
    */
   private async change(
     draftId: string,
     userId: string,
-    change: (
+    apply: (
       tx: Transaction,
       playerId: string,
       state: DraftState,
@@ -216,7 +216,7 @@ export class QueuesService {
           message: 'This draft is closed.',
         });
       }
-      await change(tx, playerId, state);
+      await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });
   }
