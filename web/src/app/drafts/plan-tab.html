@@ -37,7 +37,7 @@
       class="button secondary"
       type="button"
       (click)="openQueueing()"
-      [disabled]="queueingUnpicked() || !anythingToQueue()"
+      [disabled]="sendingQueue() || !anythingToQueue()"
     >
       Queue unpicked
     </button>
@@ -288,7 +288,7 @@
   <p class="error" role="alert">{{ message }}</p>
 }
 <!-- Closed as soon as adding to the queue isn't offered, as when the player's turn comes. -->
-@if (offerQueueUnpicked() && queueing(); as queueing) {
+@if (offerQueueUnpicked() && queueDialog(); as dialog) {
   <div class="backdrop" (click)="closeQueueing()">
     <div
       class="queue-unpicked"
@@ -299,17 +299,20 @@
     >
       <h3 id="queue-unpicked-heading">Queue unpicked cards</h3>
       @if (queueCount() === 0) {
-        <p>Nothing on your mainboard to queue.</p>
-      } @else {
         <p>
-          Adds {{ queueCount() }} {{ queueCount() === 1 ? 'card' : 'cards' }} to the end of your
-          queue.
+          {{
+            dialog.includeSideboard
+              ? 'Nothing on your plan to queue.'
+              : 'Nothing on your mainboard to queue.'
+          }}
         </p>
+      } @else {
+        <p>Adds {{ queueCountText() }} to the end of your queue.</p>
       }
       <label>
         <input
           type="checkbox"
-          [checked]="queueing.includeSideboard"
+          [checked]="dialog.includeSideboard"
           (change)="setIncludeSideboard($any($event.target).checked)"
         />
         Include sideboard
@@ -322,9 +325,9 @@
           class="button"
           type="button"
           (click)="queueUnpicked()"
-          [disabled]="queueingUnpicked() || queueCount() === 0"
+          [disabled]="sendingQueue() || queueCount() === 0"
         >
-          Queue {{ queueCount() }} {{ queueCount() === 1 ? 'card' : 'cards' }}
+          Queue {{ queueCountText() }}
         </button>
       </div>
     </div>

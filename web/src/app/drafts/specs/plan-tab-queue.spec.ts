@@ -149,6 +149,22 @@ describe('queueing the unpicked cards on the plan tab', () => {
     expect(button(tab, 'Queue unpicked')!.disabled).toBe(true);
   });
 
+  it('says when the mainboard has nothing to queue, until the sideboard is included', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan,
+      queue: queueOf(bolt, boltAgain),
+    });
+    const tab = await openModal(fixture, page);
+    expect(text(dialog(tab))).toContain('Nothing on your mainboard to queue.');
+
+    sideboardBox(tab).click();
+    await fixture.whenStable();
+    expect(text(dialog(tab))).toContain('Adds 1 card to the end of your queue.');
+    expect(button(dialog(tab)!, 'Queue 1 card')!.disabled).toBe(false);
+  });
+
   it('says why it was refused, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,

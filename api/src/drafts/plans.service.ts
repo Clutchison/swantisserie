@@ -6,11 +6,17 @@ import type {
   PlanRefusal,
   PlanView,
 } from 'contract';
-import type { DraftState } from '../generated/prisma/client.js';
+import type { DraftState, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
+
+/** The order a plan board lists its cards in: by mana value, then name. */
+export const PLAN_ORDER = [
+  { poolCard: { manaValue: 'asc' } },
+  { poolCard: { name: 'asc' } },
+] satisfies Prisma.PlannedCardOrderByWithRelationInput[];
 
 export class PlanRefusedError extends Error {
   constructor(readonly refusal: PlanRefusal) {
@@ -222,10 +228,7 @@ export class PlansService {
   private async read(tx: Transaction, playerId: string): Promise<PlanView> {
     const planned = await tx.plannedCard.findMany({
       where: { playerId },
-      orderBy: [
-        { poolCard: { manaValue: 'asc' } },
-        { poolCard: { name: 'asc' } },
-      ],
+      orderBy: PLAN_ORDER,
       select: {
         poolCardId: true,
         board: true,

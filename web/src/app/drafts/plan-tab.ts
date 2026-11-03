@@ -215,10 +215,10 @@ export class PlanTab {
   protected readonly mostBasics = MOST_BASICS;
 
   /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
-  protected readonly queueing = signal<{ includeSideboard: boolean } | null>(null);
+  protected readonly queueDialog = signal<{ includeSideboard: boolean } | null>(null);
   private readonly cancelQueueing = viewChild<ElementRef<HTMLButtonElement>>('cancelQueueing');
   /** Whether Queue unpicked is on its way. */
-  protected readonly queueingUnpicked = signal(false);
+  protected readonly sendingQueue = signal(false);
   /** The pool card ids Queue unpicked adds from each board: its unpicked copies the queue doesn't hold. */
   private readonly toQueue = computed(() => {
     const toAdd = (cards: PlannedCardView[]) =>
@@ -226,14 +226,18 @@ export class PlanTab {
     return { mainboard: toAdd(this.plan().mainboard), sideboard: toAdd(this.plan().sideboard) };
   });
   /** Whether Queue unpicked has anything to add, from either board. */
-  protected readonly anythingToQueue = computed(
-    () => this.toQueue().mainboard.length + this.toQueue().sideboard.length > 0,
+  protected readonly anythingToQueue = computed(() =>
+    Object.values(this.toQueue()).some((cards) => cards.length > 0),
+  );
+  /** How many cards the open Queue unpicked modal adds, as it says it. */
+  protected readonly queueCountText = computed(
+    () => `${this.queueCount()} ${this.queueCount() === 1 ? 'card' : 'cards'}`,
   );
   /** How many cards the open Queue unpicked modal adds. */
   protected readonly queueCount = computed(
     () =>
       this.toQueue().mainboard.length +
-      (this.queueing()?.includeSideboard ? this.toQueue().sideboard.length : 0),
+      (this.queueDialog()?.includeSideboard ? this.toQueue().sideboard.length : 0),
   );
 
   /** Whether there are lost cards to note. */
@@ -326,15 +330,15 @@ export class PlanTab {
 
   /** Opens the Queue unpicked modal, leaving the sideboard out. */
   protected openQueueing() {
-    this.queueing.set({ includeSideboard: false });
+    this.queueDialog.set({ includeSideboard: false });
   }
 
   protected closeQueueing() {
-    this.queueing.set(null);
+    this.queueDialog.set(null);
   }
 
   protected setIncludeSideboard(includeSideboard: boolean) {
-    this.queueing.set({ includeSideboard });
+    this.queueDialog.set({ includeSideboard });
   }
 
   /**
@@ -343,8 +347,8 @@ export class PlanTab {
    * re-read the queue.
    */
   protected async queueUnpicked() {
-    const { includeSideboard } = this.queueing()!;
-    this.queueingUnpicked.set(true);
+    const { includeSideboard } = this.queueDialog()!;
+    this.sendingQueue.set(true);
     this.error.set(null);
     try {
       this.queueChanged.emit(
@@ -354,7 +358,7 @@ export class PlanTab {
       this.error.set(changeFailure(err, QUEUE_FAILED));
       this.queueStale.emit();
     } finally {
-      this.queueingUnpicked.set(false);
+      this.sendingQueue.set(false);
       this.closeQueueing();
     }
   }

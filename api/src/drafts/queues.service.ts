@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
+import { PLAN_ORDER } from './plans.service.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -121,12 +122,8 @@ export class QueuesService {
           pickId: null,
           ...(includeSideboard ? {} : { board: 'Mainboard' }),
         },
-        // As the plan lists them: see PlansService.
-        orderBy: [
-          { board: 'asc' },
-          { poolCard: { manaValue: 'asc' } },
-          { poolCard: { name: 'asc' } },
-        ],
+        // Postgres orders enums as declared: the mainboard, then the sideboard.
+        orderBy: [{ board: 'asc' }, ...PLAN_ORDER],
         select: { poolCardId: true },
       });
       await this.append(
@@ -230,7 +227,7 @@ export class QueuesService {
 
   /**
    * Adds the pool cards `poolCardIds`, which no one has picked, to the end
-   * of the player's queue in order, and off its cleared list. A card already
+   * of the player's queue in order, and off their Queue notice. A card already
    * queued stays where it is.
    */
   private async append(

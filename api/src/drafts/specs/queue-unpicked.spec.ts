@@ -191,6 +191,25 @@ describe('queueing a plan’s unpicked cards', () => {
     expect(queued.body.cards).toEqual([]);
   });
 
+  it('refuses once the draft is complete', async () => {
+    const { id, ids, first } = await readyDraftWithCopies([
+      carolCookie,
+      aliceCookie,
+    ]);
+    await addToPlan(id, first, carolCookie).expect(200);
+    await start(id).expect(200);
+    await pick(id, ids.Shock, carolCookie).expect(200);
+    await pick(id, ids['Lava Spike']).expect(200);
+
+    const refused = await queueUnpicked(
+      id,
+      { includeSideboard: false },
+      carolCookie,
+    ).expect(409);
+
+    expect(refused.body.error).toBe('draft-complete');
+  });
+
   it('is only for app admins, and needs to know whether to include the sideboard', async () => {
     const { id } = await plannedDraft();
 
