@@ -23,6 +23,8 @@ import {
   post,
   pickLogLines,
   getDraft,
+  poolCardIds,
+  copyIds,
 } from './harness.js';
 
 useDraftsApp();
@@ -144,7 +146,7 @@ describe('unpicked cards in a plan', () => {
     ]);
   });
 
-  it('takes a card out of a plan when no copy is left, naming it and who picked it on the Plan notice until dismissed, and an undo puts it back', async () => {
+  it('loses a planned card when no copy is left, naming it and who picked it on the Plan notice until dismissed, and an undo puts it back', async () => {
     const { id, ids, first, second } = await readyDraftWithCopies(
       [aliceCookie, carolCookie],
       3,
@@ -209,7 +211,7 @@ describe('unpicked cards in a plan', () => {
     });
   });
 
-  it('takes a card out of a plan in the middle of a cascade, and by a bot', async () => {
+  it('loses a planned card in the middle of a cascade, and to a bot', async () => {
     // Seats: Carol, Alice, the bot; two picks each.
     const id = await readyDraft([carolCookie, aliceCookie], 2, [
       'Lightning Bolt',
@@ -224,7 +226,8 @@ describe('unpicked cards in a plan', () => {
       .set('Cookie', carolCookie)
       .expect(201);
     const bot = (withBot as DraftView).players[2];
-    const { ids, first, second } = await copiesIn(id);
+    const ids = await poolCardIds(id);
+    const [first, second] = (await copyIds(id))['Lightning Bolt'];
     await enqueue(id, ids.Shock, aliceCookie).expect(200);
     await addToPlan(id, ids.Shock, carolCookie).expect(200);
     await addToPlan(id, first, carolCookie).expect(200);
@@ -246,12 +249,12 @@ describe('unpicked cards in a plan', () => {
       'Bot: Lightning Bolt',
       'Bot: Lightning Bolt',
     ]);
-    const taken = (await plan(id, carolCookie).expect(200)).body;
-    expect(taken.mainboard).toEqual([
+    const after = (await plan(id, carolCookie).expect(200)).body;
+    expect(after.mainboard).toEqual([
       { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
     ]);
-    expect(taken.sideboard).toEqual([]);
-    expect(taken.lost).toEqual([
+    expect(after.sideboard).toEqual([]);
+    expect(after.lost).toEqual([
       { poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' },
       {
         poolCardId: expect.any(String),
@@ -264,10 +267,10 @@ describe('unpicked cards in a plan', () => {
         pickedBy: bot.name,
       },
     ]);
-    // Carol's removed copies are the two the bot picked.
+    // Carol's lost copies are the two the bot picked.
     expect(
       new Set(
-        taken.lost
+        after.lost
           .slice(1)
           .map((card: { poolCardId: string }) => card.poolCardId),
       ),
@@ -428,21 +431,3 @@ describe('unpicked cards in a plan', () => {
     expect(imported.lost).toEqual([]);
   });
 });
-
-/** The draft's pool card ids by name, and the ids of Lightning Bolt's copies. */
-async function copiesIn(id: string) {
-  const cards = (
-    await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200)
-  ).body as { id: string; name: string }[];
-  const [first, second] = cards
-    .filter((card) => card.name === 'Lightning Bolt')
-    .map((card) => card.id);
-  return {
-    ids: Object.fromEntries(cards.map((card) => [card.name, card.id])),
-    first,
-    second,
-  };
-}

@@ -66,7 +66,7 @@ describe('plansAfterPick', () => {
     ]);
   });
 
-  it('takes the card out of another plan when no copy is left for it', () => {
+  it('loses the card from another plan when no copy is left for it', () => {
     // bolt-2 is picked already, so there is no copy to swap in.
     expect(
       plansAfterPick({ seat: 0, card: 'bolt-1' }, [[], ['spike', 'bolt-1']], {
@@ -76,7 +76,7 @@ describe('plansAfterPick', () => {
     ).toEqual([{ plan: [] }, { plan: ['spike'], unplanned: 'bolt-1' }]);
   });
 
-  it('takes the card out of a plan that already holds every other copy, picked or not', () => {
+  it('loses the card from a plan that already holds every other copy, picked or not', () => {
     expect(
       plansAfterPick({ seat: 0, card: 'bolt-1' }, [[], ['bolt-2', 'bolt-1']], {
         pool,

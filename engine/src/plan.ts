@@ -10,7 +10,7 @@ export interface PlanAfterPick {
    * the picked card itself, which is now their pick.
    */
   swapped?: { out: string; in: string };
-  /** The picked card, if it was taken out: no copy was available for the plan. */
+  /** The picked card, if the plan lost it: no copy was available for the plan. */
   unplanned?: string;
 }
 
@@ -20,10 +20,10 @@ export interface PlanAfterPick {
  * it is now their pick; if it instead holds an unpicked copy of it, that
  * copy becomes the pick. In each other plan holding the card, it is
  * swapped, in the same place, for the first copy in `pool` that is not
- * `picked` and that the plan doesn't hold; with no such copy, it is taken
- * out. Nothing else in a plan changes: a plan never picks, so there is
- * nothing to clear. `picked` is the cards picked before this one, with or
- * without it. Cards are pool card ids.
+ * `picked` and that the plan doesn't hold; with no such copy, it is lost.
+ * Nothing else in a plan changes: a plan never picks, so there is nothing
+ * to clear. `picked` is the cards picked before this one, with or without
+ * it. Cards are pool card ids.
  */
 export function plansAfterPick(
   pick: SeatPick,
