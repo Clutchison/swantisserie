@@ -17,6 +17,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import type { DraftState, PoolCardView, QueueView, StealBehavior } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { LucideArrowDown, LucideArrowLeftRight, LucideArrowUp, LucideTrash } from '@lucide/angular';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
 import { changeFailure, isActive } from './drafts';
@@ -51,7 +52,18 @@ type ErrorPlace = 'stealBehavior' | 'queue';
  */
 @Component({
   selector: 'app-queue-tab',
-  imports: [CardName, CdkDropList, CdkDrag, CdkDragHandle, LoadingAnimation, NgTemplateOutlet],
+  imports: [
+    CardName,
+    CdkDropList,
+    CdkDrag,
+    CdkDragHandle,
+    LoadingAnimation,
+    LucideArrowDown,
+    LucideArrowLeftRight,
+    LucideArrowUp,
+    LucideTrash,
+    NgTemplateOutlet,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-tab.html',
   styleUrls: ['./drafts.scss', './queue-tab.scss'],

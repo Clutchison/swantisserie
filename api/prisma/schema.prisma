@@ -164,6 +164,7 @@ model Player {
   unqueued      UnqueuedCard[]
   /// Private to the player, like their queue.
   plan          PlannedCard[]
+  basics        PlannedBasic[]
   unplanned     UnplannedCard[]
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
   stealBehavior StealBehavior   @default(ClearQueue)
@@ -218,6 +219,28 @@ model PlannedCard {
 
   @@unique([playerId, poolCardId])
   @@index([poolCardId])
+}
+
+/// A basic land, which a plan holds by count on its mainboard, and a pool never holds.
+enum BasicLand {
+  Plains
+  Island
+  Swamp
+  Mountain
+  Forest
+  Wastes
+}
+
+/// The copies of one basic land in a player's plan, always on the mainboard. Never a pool card: no one picks it, it is never queued, and no pick or undo changes it.
+model PlannedBasic {
+  id       String    @id @default(uuid())
+  playerId String
+  player   Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  land     BasicLand
+  /// At least 1: a basic with no copies has no row.
+  count    Int
+
+  @@unique([playerId, land])
 }
 
 /// An unpicked card another player's pick took out of a plan, as no other copy was available for it. Kept until that pick is undone, which puts it back.

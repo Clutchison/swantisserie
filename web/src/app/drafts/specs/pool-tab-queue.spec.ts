@@ -332,6 +332,25 @@ describe('pool tab', () => {
       expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
     });
 
+    it('shows a queued card’s remove button as a trash can', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: {
+          cards: [queued(shivan)],
+          lost: [],
+          cleared: [],
+          restKept: false,
+          stealBehavior: 'ClearQueue',
+        },
+      });
+      const queue = await openQueue(fixture, page);
+
+      const remove = queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!;
+      expect(remove.querySelector('svg')?.classList).toContain('lucide-trash');
+      expect(remove.textContent?.trim()).toBe('');
+      expect(remove.title).toBe('Remove Shivan Dragon');
+    });
+
     it('moves a card up or down the queue, saving the new order', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],

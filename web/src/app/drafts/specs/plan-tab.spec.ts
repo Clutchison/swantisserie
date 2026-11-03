@@ -1,4 +1,4 @@
-import { CdkDropList } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import type { DraftView, PlanView } from 'contract';
@@ -56,6 +56,7 @@ describe('plan tab', () => {
   const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
     mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain), planned(shivan)],
     sideboard: [],
+    basics: [],
     lost: [],
     ...fields,
   });
@@ -193,6 +194,42 @@ describe('plan tab', () => {
     await vi.waitFor(() =>
       expect(boards(plan)[1]).toEqual({ heading: 'Sideboard 0 (0 picked)', lines: [] }),
     );
+  });
+
+  it('shows a line’s move button as minus on the mainboard and plus on the sideboard, and Remove as a trash can', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      user: admin,
+      plan: planOf({
+        mainboard: [planned(brightclimb), unpicked(shivan)],
+        sideboard: [planned(bolt)],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    /** The button's Lucide icon, its visible text, and its tooltip. */
+    const shown = (name: string) => {
+      const found = button(plan, name)!;
+      const icon = [...found.querySelectorAll('svg')].map((svg) =>
+        [...svg.classList].find((name) => name.startsWith('lucide-')),
+      );
+      return { icon, text: found.textContent?.trim(), tooltip: found.title };
+    };
+    expect(shown('Move Shivan Dragon to the sideboard')).toEqual({
+      icon: ['lucide-minus'],
+      text: '',
+      tooltip: 'Move Shivan Dragon to the sideboard',
+    });
+    expect(shown('Move Lightning Bolt to the mainboard')).toEqual({
+      icon: ['lucide-plus'],
+      text: '',
+      tooltip: 'Move Lightning Bolt to the mainboard',
+    });
+    expect(shown('Remove Shivan Dragon from your plan')).toEqual({
+      icon: ['lucide-trash'],
+      text: '',
+      tooltip: 'Remove Shivan Dragon from your plan',
+    });
   });
 
   it('says why a move was refused, and re-reads the plan', async () => {
@@ -492,14 +529,23 @@ describe('plan tab', () => {
       const listOf = (element: DebugElement) => element.injector.get(CdkDropList);
       expect(dropLists().map((list) => listOf(list).data)).toEqual(['Mainboard', 'Sideboard']);
       const [mainboard, sideboard] = dropLists();
-      const dropped = (card: string, from: DebugElement, onto: DebugElement) =>
+      /** Drops the first card named `name` on `from` onto `onto`, as the drag ends. */
+      const dropped = (name: string, from: DebugElement, onto: DebugElement) => {
+        const item = from
+          .queryAll(By.directive(CdkDrag))
+          .find((drag) =>
+            [drag.nativeElement.querySelector('img')?.alt, drag.nativeElement.textContent].some(
+              (text) => text?.includes(name),
+            ),
+          )!;
         onto.triggerEventHandler('cdkDropListDropped', {
-          item: { data: card },
+          item: item.injector.get(CdkDrag),
           previousContainer: listOf(from),
           container: listOf(onto),
         });
+      };
 
-      dropped('bolt-card', mainboard, sideboard);
+      dropped('Lightning Bolt', mainboard, sideboard);
       await fixture.whenStable();
       const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
       expect(req.request.method).toBe('PUT');
@@ -513,7 +559,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['1: Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
-      dropped('shivan-card', mainboard, mainboard);
+      dropped('Shivan Dragon', mainboard, mainboard);
       await fixture.whenStable();
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
 
@@ -521,7 +567,7 @@ describe('plan tab', () => {
       button(plan, 'List')!.click();
       await fixture.whenStable();
       const [listMainboard, listSideboard] = dropLists();
-      dropped('bolt-card', listSideboard, listMainboard);
+      dropped('Lightning Bolt', listSideboard, listMainboard);
       expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card').request.body).toEqual({
         board: 'Mainboard',
       });

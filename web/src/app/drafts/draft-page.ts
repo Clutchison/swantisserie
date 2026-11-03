@@ -15,6 +15,7 @@ import { Router, RouterLink } from '@angular/router';
 import type { DraftView, PickView, PlanView, PlayerView, PoolCardView, QueueView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { firstValueFrom } from 'rxjs';
+import { LucideChevronLeft } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
@@ -45,6 +46,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
     BoardTab,
     LoadingAnimation,
     LobbyControls,
+    LucideChevronLeft,
     OrganizerControls,
     PicksTab,
     PlanTab,

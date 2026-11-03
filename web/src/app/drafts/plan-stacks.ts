@@ -5,10 +5,10 @@ import { frontFace } from './card-faces';
 export type Grouping = 'manaValue' | 'color' | 'type';
 
 /** One stack of stacks mode: the cards of a plan board that share the grouping's value. */
-export interface Stack {
+export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   name: string;
   /** Sorted by mana value, then name. */
-  cards: PlannedCardView[];
+  cards: Card[];
 }
 
 /** What a grouping goes by, from a card's pool card. */
@@ -72,18 +72,18 @@ const RULES: Record<Grouping, StackRule[]> = {
  * leaving out empty stacks. A card whose pool card is unknown counts as a
  * colorless card of mana value 0 with no type.
  */
-export function stacks(
-  cards: PlannedCardView[],
+export function stacks<Card extends PlannedCardView>(
+  cards: Card[],
   grouping: Grouping,
   poolCardsById: ReadonlyMap<string, PoolCardView>,
-): Stack[] {
+): Stack<Card>[] {
   const facts = (card: PlannedCardView) => cardFacts(poolCardsById.get(card.poolCardId));
   const sorted = [...cards].sort((a, b) => {
     return facts(a).manaValue - facts(b).manaValue || a.name.localeCompare(b.name);
   });
   const stacked = RULES[grouping].map((rule) => ({
     name: rule.name,
-    cards: [] as PlannedCardView[],
+    cards: [] as Card[],
   }));
   for (const card of sorted) {
     const stackIndex = RULES[grouping].findIndex((rule) => rule.holds(facts(card)));

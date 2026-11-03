@@ -9,8 +9,18 @@ import {
   output,
   signal,
 } from '@angular/core';
-import type { PlanBoard, PlannedCardView, PlanView, PoolCardView } from 'contract';
+import { NgTemplateOutlet } from '@angular/common';
+import type {
+  BasicLand,
+  PlanBoard,
+  PlannedBasicView,
+  PlannedCardView,
+  PlanView,
+  PoolCardView,
+} from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
+import { BASIC_LANDS, basicCard, MOST_BASICS } from './basic-lands';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
@@ -33,18 +43,28 @@ const CHOICE_KEY = 'plan-view';
 const DEFAULT_CHOICE: PlanChoice = { mode: 'stacks', grouping: 'manaValue' };
 const MODES: PlanMode[] = ['stacks', 'list'];
 
-/** One line of a board: a card's picked copies, or its unpicked ones, with how many the board holds. */
-interface PlanLine {
-  /** The first copy's, which is the one a move or removal acts on. */
-  poolCardId: string;
-  name: string;
-  count: number;
-  picked: boolean;
+/**
+ * A card on a plan board as the tab shows it: a planned pool card, or a
+ * copy of a basic land, which counts as picked and stays on the mainboard.
+ * A basic's `poolCardId` is no pool card's, but keys its card data in the
+ * tab's `cardsById`.
+ */
+interface BoardCard extends PlannedCardView {
+  basic?: BasicLand;
 }
+
+/** One line of a board: a card's picked copies, its unpicked ones, or a basic land's, with how many the board holds. */
+interface PlanLine extends BoardCard {
+  /** How many copies the board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
+  count: number;
+}
+
+/** Each basic land's card data, for the images and Card previews of its copies. */
+const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
 
 /**
  * Each plan board: its cards, the board its cards move to, as the button
- * names it and the stacks' button points to it, and what an empty one says.
+ * names it, and what an empty one says.
  */
 const BOARDS: Record<
   PlanBoard,
@@ -52,8 +72,6 @@ const BOARDS: Record<
     cards: (plan: PlanView) => PlannedCardView[];
     other: PlanBoard;
     otherName: string;
-    /** Which way the other board lies: the sideboard is below the mainboard. */
-    arrow: string;
     empty: string;
   }
 > = {
@@ -61,14 +79,12 @@ const BOARDS: Record<
     cards: (plan) => plan.mainboard,
     other: 'Sideboard',
     otherName: 'sideboard',
-    arrow: '↓',
     empty: 'No picks yet.',
   },
   Sideboard: {
     cards: (plan) => plan.sideboard,
     other: 'Mainboard',
     otherName: 'mainboard',
-    arrow: '↑',
     empty: 'Nothing on your sideboard.',
   },
 };
@@ -83,7 +99,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; and the Plan notice of their lost cards.
+ * the unpicked cards they added; the Basic lands control, which sets how
+ * many of each basic land the mainboard holds; and the Plan notice of their lost
+ * cards.
  *
  * On desktop each board shows as stacks of card images, grouped by mana
  * value, color or card type, or as a list of names, and a card can be
@@ -92,7 +110,18 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  */
 @Component({
   selector: 'app-plan-tab',
-  imports: [CardName, CardPreviewName, CdkDrag, CdkDropList, CdkDropListGroup, LoadingAnimation],
+  imports: [
+    CardName,
+    CardPreviewName,
+    NgTemplateOutlet,
+    CdkDrag,
+    CdkDropList,
+    CdkDropListGroup,
+    LoadingAnimation,
+    LucideMinus,
+    LucidePlus,
+    LucideTrash,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
   styleUrls: ['./drafts.scss', './plan-tab.scss'],
@@ -127,21 +156,47 @@ export class PlanTab {
   /** Whether the boards show as stacks: the chosen mode, on desktop. */
   protected readonly showingStacks = computed(() => this.onDesktop() && this.mode() === 'stacks');
 
+  /** The card data of every card on the boards, the basics' included, by `poolCardId`. */
+  protected readonly cardsById = computed(() => {
+    const byId = new Map(this.poolCardsById());
+    for (const basic of this.plan().basics) {
+      for (const copy of basicCopies(basic))
+        byId.set(copy.poolCardId, BASIC_CARDS.get(basic.land)!);
+    }
+    return byId as ReadonlyMap<string, PoolCardView>;
+  });
+
   /** The mainboard, then the sideboard, each as its lines and counts, and its stacks when showing them. */
   protected readonly boards = computed(() =>
     (['Mainboard', 'Sideboard'] as const).map((board) => {
       const { cards, ...rest } = BOARDS[board];
-      const held = cards(this.plan());
+      // The basic lands are always on the mainboard.
+      const held: BoardCard[] = [
+        ...cards(this.plan()),
+        ...(board === 'Mainboard' ? this.plan().basics.flatMap(basicCopies) : []),
+      ];
       return {
         name: board,
         ...rest,
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
-        stacks: this.showingStacks() ? stacks(held, this.grouping(), this.poolCardsById()) : [],
+        stacks: this.showingStacks() ? stacks(held, this.grouping(), this.cardsById()) : [],
       };
     }),
   );
+
+  /** Each basic land, with how many copies the plan holds. */
+  protected readonly basics = computed(() =>
+    BASIC_LANDS.map((land) => ({
+      land,
+      count: this.plan().basics.find((basic) => basic.land === land)?.count ?? 0,
+    })),
+  );
+  /** Whether the plan holds any basic land, for Clear basics to clear. */
+  protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
+  /** The most copies of one basic land the control offers. */
+  protected readonly mostBasics = MOST_BASICS;
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
@@ -187,9 +242,36 @@ export class PlanTab {
     return this.move(item.data, container.data);
   }
 
-  /** Moves one copy of a card to `board`, and shows the plan as it then is. */
+  /** Moves one copy of a pool card to `board`, and shows the plan as it then is. A basic land never moves. */
   protected move(poolCardId: string, board: PlanBoard) {
     return this.change(this.planApi.move(this.draftId(), poolCardId, board));
+  }
+
+  /** Sets how many copies of a basic land the plan holds. */
+  protected setBasic(land: BasicLand, count: number) {
+    return this.change(this.planApi.setBasic(this.draftId(), land, count));
+  }
+
+  /**
+   * A number typed for a basic land: the plan holds that many, rounded down
+   * and kept within 0 to MOST_BASICS. Anything that isn't a number is put
+   * back to the count the plan holds.
+   */
+  protected typedBasic(land: BasicLand, held: number, input: HTMLInputElement) {
+    const typed = input.value.trim() === '' ? NaN : Number(input.value);
+    if (Number.isNaN(typed)) {
+      input.value = String(held);
+      return;
+    }
+    const count = Math.min(Math.max(Math.floor(typed), 0), MOST_BASICS);
+    // The binding only writes the input when the count changes, as it may not.
+    input.value = String(count);
+    return count === held ? undefined : this.setBasic(land, count);
+  }
+
+  /** Takes every basic land out of the plan. */
+  protected clearBasics() {
+    return this.change(this.planApi.clearBasics(this.draftId()));
   }
 
   /** Takes one unpicked copy of a card out of the plan. */
@@ -241,23 +323,26 @@ const isGrouping = (value: unknown): value is Grouping =>
   GROUPINGS.some((option) => option.grouping === value);
 
 /**
- * One line per distinct name, picked and unpicked copies apart, in the order
- * each first appears, counting its copies.
+ * One line per distinct name, picked, unpicked and basic copies apart, in
+ * the order each first appears, counting its copies.
  */
-function lines(cards: PlannedCardView[]): PlanLine[] {
+function lines(cards: BoardCard[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
   for (const card of cards) {
-    const key = `${card.picked ? 'picked' : 'unpicked'} ${card.name}`;
+    const key = `${card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked'} ${card.name}`;
     const line = byName.get(key);
     if (line) line.count++;
-    else {
-      byName.set(key, {
-        poolCardId: card.poolCardId,
-        name: card.name,
-        count: 1,
-        picked: card.picked,
-      });
-    }
+    else byName.set(key, { ...card, count: 1 });
   }
   return [...byName.values()];
+}
+
+/** One card per copy of a basic land, each with an id of its own to track it by. */
+function basicCopies({ land, count }: PlannedBasicView): BoardCard[] {
+  return Array.from({ length: count }, (_, copy) => ({
+    poolCardId: `basic-${land}-${copy}`,
+    name: land,
+    picked: true,
+    basic: land,
+  }));
 }

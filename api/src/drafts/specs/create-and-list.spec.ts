@@ -52,7 +52,8 @@ it('creates a draft on the platform the organizer chose', async () => {
   scryfallAnswers({
     'c:r': page('Shock'),
     '(c:r) -in:mtgo': null,
-    '(c:r) game:mtgo unique:cards': page('Shock'),
+    '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards':
+      page('Shock'),
   });
 
   const created = await createDraft({

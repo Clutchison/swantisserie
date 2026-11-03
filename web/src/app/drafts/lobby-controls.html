@@ -17,23 +17,29 @@
         @if (inLobby() && canOrganize()) {
           <div class="seat-controls">
             <span class="move">
+              @let earlierName = 'Move ' + player.name + ' earlier';
               <button
                 class="icon"
                 type="button"
-                [attr.aria-label]="'Move ' + player.name + ' earlier'"
+                [attr.aria-label]="earlierName"
+                [title]="earlierName"
                 (click)="moveSeat(i, -1)"
                 [disabled]="first || changingLobby()"
               >
-                <span class="across">←</span><span class="stacked">↑</span>
+                <svg lucideArrowLeft class="across" size="16"></svg>
+                <svg lucideArrowUp class="stacked" size="16"></svg>
               </button>
+              @let laterName = 'Move ' + player.name + ' later';
               <button
                 class="icon"
                 type="button"
-                [attr.aria-label]="'Move ' + player.name + ' later'"
+                [attr.aria-label]="laterName"
+                [title]="laterName"
                 (click)="moveSeat(i, 1)"
                 [disabled]="last || changingLobby()"
               >
-                <span class="across">→</span><span class="stacked">↓</span>
+                <svg lucideArrowRight class="across" size="16"></svg>
+                <svg lucideArrowDown class="stacked" size="16"></svg>
               </button>
             </span>
             @if (isAppAdmin() && player.isBot) {

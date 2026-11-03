@@ -2,7 +2,9 @@
   <h2 id="picks-heading">{{ own() ? 'Your picks' : player.name + '’s picks' }}</h2>
   <div class="controls">
     @if (!own()) {
-      <button class="button secondary" type="button" (click)="boardChosen.emit()">← Board</button>
+      <button class="button secondary" type="button" (click)="boardChosen.emit()">
+        <svg lucideArrowLeft size="16"></svg> Board
+      </button>
     }
     @if (playerPicks().length > 0) {
       @for (target of exportTargets(); track target) {
@@ -16,16 +18,7 @@
           <span class="label">Copy for {{ target }}</span>
           @if (copied() === target) {
             <span class="confirmation">
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                <path
-                  d="M3 8.5l3.5 3.5L13 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
+              <svg lucideCheck size="16"></svg>
               Copied
             </span>
           }

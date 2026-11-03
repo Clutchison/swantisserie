@@ -432,6 +432,7 @@ describe('card previews', () => {
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
           sideboard: [],
+          basics: [],
           lost: [],
         },
       });
@@ -449,6 +450,7 @@ describe('card previews', () => {
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
           sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
+          basics: [],
           lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.name }],
         },
       });
@@ -492,6 +494,25 @@ describe('card previews', () => {
         vi.unstubAllGlobals();
         localStorage.clear();
       }
+    });
+
+    it('shows on a basic land, though it isn’t a pool card', async () => {
+      const { page, fixture } = await openPicked({
+        user: { ...alice, isAppAdmin: true },
+        plan: {
+          mainboard: [],
+          sideboard: [],
+          basics: [{ land: 'Swamp', count: 2 }],
+          lost: [],
+        },
+      });
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      expect(previewImage()?.getAttribute('src')).toBe(
+        'https://api.scryfall.com/cards/named?exact=Swamp&format=image&version=normal',
+      );
     });
   });
 
