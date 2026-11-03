@@ -124,9 +124,7 @@ describe('plan', () => {
       message: 'That card isn’t in your plan.',
     });
     await movePlanned(id, 'no-such-card', 'Sideboard', carolCookie).expect(409);
-    await movePlanned(id, ids['Lava Spike'], 'Maybeboard', carolCookie).expect(
-      400,
-    );
+    await movePlanned(id, ids['Lava Spike'], 'Bench', carolCookie).expect(400);
     await movePlanned(id, ids['Lava Spike'], undefined, carolCookie).expect(
       400,
     );
@@ -166,6 +164,12 @@ describe('plan', () => {
     });
     // Alice's plan holds Lightning Bolt, but she isn't an app admin.
     await plan(id, aliceCookie).expect(403);
+    await movePlanned(
+      id,
+      ids['Lightning Bolt'],
+      'Sideboard',
+      aliceCookie,
+    ).expect(403);
     // The import emptied every queue, so queue this after it.
     await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
 

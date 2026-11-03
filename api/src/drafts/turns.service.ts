@@ -10,7 +10,7 @@ import {
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, enginePool, SEAT_ORDER } from './draft-shapes.js';
-import { planPicks } from './plans.service.js';
+import { planPicks } from './plan-picks.js';
 import { restoreQueues, takeFromQueues } from './queue-clearing.js';
 
 const PICK_LOG = {

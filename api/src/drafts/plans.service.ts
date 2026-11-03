@@ -7,33 +7,13 @@ import type {
 } from 'contract';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
+import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
 
 export class PlanRefusedError extends Error {
   constructor(readonly refusal: PlanRefusal) {
     super(refusal.message);
   }
-}
-
-/** A pick just made, to put in its player's plan. */
-export interface MadePick {
-  id: string;
-  playerId: string;
-  poolCardId: string;
-}
-
-/** Puts each of `picks`, just made, on its player's mainboard. */
-export async function planPicks(
-  tx: Transaction,
-  picks: MadePick[],
-): Promise<void> {
-  await tx.plannedCard.createMany({
-    data: picks.map((pick) => ({
-      pickId: pick.id,
-      playerId: pick.playerId,
-      poolCardId: pick.poolCardId,
-    })),
-  });
 }
 
 /**
@@ -67,17 +47,11 @@ export class PlansService {
     board: PlanBoard,
   ): Promise<PlanView> {
     return this.prisma.$transaction(async (tx) => {
-      // The draft's row is shared-locked, so a pick can't land or be undone
-      // meanwhile, and the player's row locked, so their plan changes one
-      // at a time.
-      const [draft] = await tx.$queryRaw<{ id: string }[]>`
-        SELECT "id" FROM "Draft" WHERE "id" = ${draftId} FOR SHARE`;
-      const [player] = await tx.$queryRaw<{ id: string }[]>`
-        SELECT "id" FROM "Player"
-        WHERE "draftId" = ${draftId} AND "userId" = ${userId} FOR UPDATE`;
-      if (!draft || !player) throw new NotAPlayerError('plans');
+      const locked = await lockPlayer(tx, draftId, userId);
+      if (!locked) throw new NotAPlayerError('plans');
+      const { playerId } = locked;
       const { count } = await tx.plannedCard.updateMany({
-        where: { playerId: player.id, poolCardId },
+        where: { playerId, poolCardId },
         data: { board },
       });
       if (count === 0) {
@@ -86,7 +60,7 @@ export class PlansService {
           message: 'That card isn’t in your plan.',
         });
       }
-      return this.read(tx, player.id);
+      return this.read(tx, playerId);
     });
   }
 

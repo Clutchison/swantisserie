@@ -204,6 +204,10 @@ _Avoid_: Main deck, maindeck, board (alone)
 The part of a player's plan holding cards they don't intend to play.
 _Avoid_: Maybeboard, bench, board (alone)
 
+**Plan board**:
+Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.
+_Avoid_: Board (alone; that is the Board tab), zone, section
+
 **Plan tab**:
 The part of a draft's page where a player builds their plan.
 _Avoid_: Deck tab, deckbuilder, Deck Planner

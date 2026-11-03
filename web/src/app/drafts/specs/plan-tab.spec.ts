@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { DraftView, PlanView } from 'contract';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -245,13 +246,7 @@ describe('plan tab', () => {
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
     await flushPool(cards);
     await flushPicks([]);
-    await flushQueue({
-      cards: [],
-      lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
-    });
+    await flushQueue(EMPTY_QUEUE);
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
     tabButton(page, 'Plan').click();
     await expectLoadingAnimation(() => panel(page), 'Loading your plan…', 64);
@@ -265,13 +260,7 @@ describe('plan tab', () => {
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
     await flushPool(cards);
     await flushPicks([]);
-    await flushQueue({
-      cards: [],
-      lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
-    });
+    await flushQueue(EMPTY_QUEUE);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
       {},
       { status: 500, statusText: 'Server Error' },
@@ -294,13 +283,7 @@ describe('plan tab', () => {
 
     updates.events.next({ type: 'changed', draft: draft(drafting({ version: 1 })) });
     await flushPicks([]);
-    await flushQueue({
-      cards: [],
-      lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
-    });
+    await flushQueue(EMPTY_QUEUE);
     await flushPlan(planOf());
     await fixture.whenStable();
 

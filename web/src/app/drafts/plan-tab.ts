@@ -24,10 +24,28 @@ interface PlanLine {
   count: number;
 }
 
-/** Each board: what it's called, and the one its cards move to. */
-const BOARDS: Record<PlanBoard, { name: string; other: PlanBoard }> = {
-  Mainboard: { name: 'Mainboard', other: 'Sideboard' },
-  Sideboard: { name: 'Sideboard', other: 'Mainboard' },
+/** Each plan board: its cards, the board its cards move to, as the button names it, and what an empty one says. */
+const BOARDS: Record<
+  PlanBoard,
+  {
+    cards: (plan: PlanView) => PlannedCardView[];
+    other: PlanBoard;
+    otherName: string;
+    empty: string;
+  }
+> = {
+  Mainboard: {
+    cards: (plan) => plan.mainboard,
+    other: 'Sideboard',
+    otherName: 'sideboard',
+    empty: 'No picks yet.',
+  },
+  Sideboard: {
+    cards: (plan) => plan.sideboard,
+    other: 'Mainboard',
+    otherName: 'mainboard',
+    empty: 'Nothing on your sideboard.',
+  },
 };
 
 /**
@@ -63,14 +81,9 @@ export class PlanTab {
   /** The mainboard, then the sideboard, each as its lines. */
   protected readonly boards = computed(() =>
     (['Mainboard', 'Sideboard'] as const).map((board) => {
-      const cards = board === 'Mainboard' ? this.plan().mainboard : this.plan().sideboard;
-      return {
-        board,
-        ...BOARDS[board],
-        otherName: BOARDS[BOARDS[board].other].name.toLowerCase(),
-        count: cards.length,
-        lines: lines(cards),
-      };
+      const { cards, ...rest } = BOARDS[board];
+      const held = cards(this.plan());
+      return { board, ...rest, count: held.length, lines: lines(held) };
     }),
   );
 

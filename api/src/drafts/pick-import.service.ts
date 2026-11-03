@@ -4,7 +4,7 @@ import { readPickImport } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
-import { planPicks } from './plans.service.js';
+import { planPicks } from './plan-picks.js';
 import { draftSize, SEAT_ORDER, type Transaction } from './draft-shapes.js';
 import {
   checkCanStart,

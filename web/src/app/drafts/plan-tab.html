@@ -1,7 +1,7 @@
 <p class="detail">Every pick lands on your mainboard. Only you can see your plan.</p>
 @for (board of boards(); track board.board) {
   <section class="plan-board">
-    <h3>{{ board.name }} ({{ board.count }})</h3>
+    <h3>{{ board.board }} ({{ board.count }})</h3>
     <ul>
       @for (line of board.lines; track line.poolCardId) {
         <li>
@@ -24,10 +24,8 @@
         <li class="empty">
           @if (loading()) {
             <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
-          } @else if (board.board === 'Mainboard') {
-            No picks yet.
           } @else {
-            Nothing on your sideboard.
+            {{ board.empty }}
           }
         </li>
       }
