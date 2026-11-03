@@ -11,7 +11,12 @@ describe('pool tab', () => {
     const { page } = await openDraft(completeSnapshot);
 
     const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(['Pool', 'Queue', 'Board', 'Me']);
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+      'Pool',
+      'Queue',
+      'Board',
+      'Export',
+    ]);
     expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual([
       'true',
       'false',

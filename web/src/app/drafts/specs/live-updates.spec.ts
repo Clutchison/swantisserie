@@ -65,7 +65,7 @@ describe('live updates', () => {
     expect(updates.watch).toHaveBeenCalledWith('draft-1');
   });
 
-  it('shows another player’s pick on the Pool, Board and Me tabs, and the turn passing', async () => {
+  it('shows another player’s pick on the Pool, Board and Export tabs, and the turn passing', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
     expect(page.textContent).toContain('Your turn: pick 1, round 1');
 
@@ -81,7 +81,7 @@ describe('live updates', () => {
     tabButton(page, 'Board').click();
     await fixture.whenStable();
     expect(panel(page).querySelector('.log')?.textContent).toContain('Shivan Dragon');
-    tabButton(page, 'Me').click();
+    tabButton(page, 'Export').click();
     await fixture.whenStable();
     expect(panel(page).textContent).toContain('Shivan Dragon');
   });

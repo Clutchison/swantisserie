@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { PickView, PlayerView, PoolCardView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { CardName } from './card-name';
@@ -22,8 +22,6 @@ export class BoardTab {
   readonly loading = input(false);
   /** Whether the picks couldn't be loaded. */
   readonly failed = input(false);
-  /** A player's name was chosen, to open their picks. */
-  readonly playerChosen = output<string>();
 
   /** Each player, in seat order, with their picks in pick order. */
   protected readonly board = computed(() =>

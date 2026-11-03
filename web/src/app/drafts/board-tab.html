@@ -7,9 +7,7 @@
     @for (player of board(); track player.id) {
       <section>
         <h3>
-          <button class="link" type="button" (click)="playerChosen.emit(player.id)">
-            {{ player.name }}
-          </button>
+          {{ player.name }}
           @if (player.isBot) {
             <span class="badge">Bot</span>
           }

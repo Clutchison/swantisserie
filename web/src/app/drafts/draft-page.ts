@@ -21,18 +21,18 @@ import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive } from './drafts';
+import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';
 import { OrganizerControls } from './organizer-controls';
-import { PicksTab } from './picks-tab';
 import { PlanTab } from './plan-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
 import { WebhookControl } from './webhook-control';
 
-/** The draft view's panels. The Me tab is the Picks panel showing the signed-in player. */
-type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Picks';
+/** The draft view's panels. */
+type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Export';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -44,11 +44,11 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
   selector: 'app-draft-page',
   imports: [
     BoardTab,
+    ExportTab,
     LoadingAnimation,
     LobbyControls,
     LucideChevronLeft,
     OrganizerControls,
-    PicksTab,
     PlanTab,
     PoolTab,
     QueueTab,
@@ -70,7 +70,7 @@ export class DraftPage {
   readonly id = input.required<string>();
 
   private readonly lobbyControls = viewChild(LobbyControls);
-  private readonly picksTab = viewChild(PicksTab);
+  private readonly exportTab = viewChild(ExportTab);
 
   protected readonly resource = httpResource<DraftView>(() => `/api/drafts/${this.id()}`);
   protected readonly draft = computed(() =>
@@ -190,29 +190,9 @@ export class DraftPage {
   protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
   protected readonly tab = signal<Panel>('Pool');
-  /** The player whose picks the Picks panel was opened on, if any. */
-  private readonly picksPlayerId = signal<string | null>(null);
-  /**
-   * The Picks panel's player: the signed-in player if it wasn't opened on
-   * anyone, or if that player has left the draft.
-   */
-  protected readonly shownPlayer = computed(() => {
-    const players = this.draft()?.players ?? [];
-    return (
-      players.find((player) => player.id === this.picksPlayerId()) ??
-      players.find((player) => player.id === this.user()?.id) ??
-      null
-    );
-  });
-  /** Whether the Picks panel is showing the signed-in player. */
-  protected readonly ownPicks = computed(() => this.shownPlayer()?.id === this.user()?.id);
-  /**
-   * The Me tab is the Picks panel showing the signed-in player; any other
-   * player's picks are opened from the Board, so it stays selected.
-   */
-  protected readonly onMeTab = computed(() => this.tab() === 'Picks' && this.ownPicks());
-  protected readonly onBoardTab = computed(
-    () => this.tab() === 'Board' || (this.tab() === 'Picks' && !this.onMeTab()),
+  /** The signed-in player, if they have joined: the Export tab shows their picks. */
+  protected readonly ownPlayer = computed(
+    () => this.draft()?.players.find((player) => player.id === this.user()?.id) ?? null,
   );
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
@@ -229,11 +209,10 @@ export class DraftPage {
   });
 
   constructor() {
-    // Opening or closing the Picks panel, or showing another player's picks, forgets any copy.
+    // Opening or closing the Export tab forgets any copy.
     effect(() => {
       this.tab();
-      this.picksPlayerId();
-      untracked(() => this.picksTab()?.clearCopy());
+      untracked(() => this.exportTab()?.clearCopy());
     });
     effect((onCleanup) => {
       if (this.draft()?.snapshot.state !== 'Running') return;
@@ -268,23 +247,6 @@ export class DraftPage {
         shownVersion = version;
       });
     });
-  }
-
-  /** Opens the Picks panel on one player's picks. */
-  protected showPicks(playerId: string) {
-    this.picksPlayerId.set(playerId);
-    this.tab.set('Picks');
-  }
-
-  /** Back from another player's picks to the Board. */
-  protected closePicks() {
-    this.picksPlayerId.set(null);
-    this.tab.set('Board');
-  }
-
-  /** Opens the Picks panel on the signed-in player's picks: the Me tab. */
-  protected showMyPicks() {
-    this.showPicks(this.user()!.id);
   }
 
   /**

@@ -1,16 +1,21 @@
 import type { PickView } from 'contract';
 import { frontFace } from './card-faces';
-import { countedLines } from './counted-lines';
+import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What an Arena export needs of a picked card. */
 export type ArenaExportCard = Pick<PickView, 'name' | 'layout'>;
 
 /**
- * The cards in Arena's import format: a `Deck` header, then `1 Card Name`
- * lines, with copies of a card on one line, as `2 Card Name`.
+ * The plan in Arena's import format: a `Deck` header, then the mainboard's
+ * `1 Card Name` lines, with copies of a card on one line, as `2 Card Name`,
+ * and its basics. A sideboard follows after a blank line, under a
+ * `Sideboard` header, unless it's empty.
  */
-export function arenaExport(cards: ArenaExportCard[]): string {
-  return ['Deck', ...countedLines(cards.map(arenaName))].join('\n');
+export function arenaExport({ mainboard, sideboard, basics }: ExportPlan<ArenaExportCard>): string {
+  const lines = ['Deck', ...planBoardLines(mainboard.map(arenaName), basics)];
+  if (sideboard.length > 0)
+    lines.push('', 'Sideboard', ...planBoardLines(sideboard.map(arenaName)));
+  return lines.join('\n');
 }
 
 /**

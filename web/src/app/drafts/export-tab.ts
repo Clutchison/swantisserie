@@ -4,22 +4,22 @@ import {
   computed,
   input,
   type OnDestroy,
-  output,
   signal,
 } from '@angular/core';
-import type { PickView, Platform, PlayerView, PoolCardView } from 'contract';
-import { LucideArrowLeft, LucideCheck } from '@lucide/angular';
+import type { PickView, Platform, PlanView, PlayerView, PoolCardView } from 'contract';
+import { LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
 import { CardName } from './card-name';
+import type { ExportPlan } from './export-plan';
 import { moxfieldExport } from './moxfield-export';
 import { mtgoExport } from './mtgo-export';
 import { LoadingAnimation } from '../loading/loading-animation';
 
-/** Where a player's picks can be exported to. */
+/** Where a player's plan can be exported to. */
 type ExportTarget = 'Arena' | 'MTGO' | 'Moxfield';
 
-/** Each export target's export of a player's picks. */
-const EXPORTS: Record<ExportTarget, (picks: PickView[]) => string> = {
+/** Each export target's export of a player's plan. */
+const EXPORTS: Record<ExportTarget, (plan: ExportPlan<PickView>) => string> = {
   Arena: arenaExport,
   MTGO: mtgoExport,
   Moxfield: moxfieldExport,
@@ -31,24 +31,35 @@ const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
   MTGO: ['MTGO', 'Moxfield'],
 };
 
+/** The most sideboard cards Arena's import may keep. */
+const ARENA_SIDEBOARD_CAP = 15;
+
 /** How long a copy button shows its confirmation. */
 const CONFIRMATION_MS = 2000;
 
-/** The draft view's Picks panel: one player's picks, which can be exported. */
+/** The draft view's Export tab: the signed-in player's picks, and their exports. */
 @Component({
-  selector: 'app-picks-tab',
-  imports: [CardName, LoadingAnimation, LucideArrowLeft, LucideCheck],
+  selector: 'app-export-tab',
+  imports: [CardName, LoadingAnimation, LucideCheck],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './picks-tab.html',
-  styleUrls: ['./drafts.scss', './draft-panels.scss', './picks-tab.scss'],
+  templateUrl: './export-tab.html',
+  styleUrls: ['./drafts.scss', './draft-panels.scss', './export-tab.scss'],
 })
-export class PicksTab implements OnDestroy {
+export class ExportTab implements OnDestroy {
   /** The draft's platform, which decides the exports offered. */
   readonly platform = input.required<Platform>();
-  /** The player whose picks to show, if any. */
+  /** The signed-in player, if they have joined. */
   readonly player = input.required<PlayerView | null>();
-  /** Whether `player` is the signed-in player. */
-  readonly own = input.required<boolean>();
+  /**
+   * The signed-in player's plan, which decides each pick's plan board and adds
+   * the basics. A player who can't use plans has the empty plan: every pick
+   * on the mainboard, and no basics.
+   */
+  readonly plan = input.required<PlanView>();
+  /** Whether the plan is still on its way. */
+  readonly planLoading = input(false);
+  /** Whether the plan couldn't be loaded. */
+  readonly planFailed = input(false);
   /** The pick log, in pick order. */
   readonly picks = input.required<PickView[]>();
   /** The pool's cards by id, for the Card previews of the names here. */
@@ -57,12 +68,33 @@ export class PicksTab implements OnDestroy {
   readonly loading = input(false);
   /** Whether the picks couldn't be loaded. */
   readonly failed = input(false);
-  /** Back to the Board was chosen. */
-  readonly boardChosen = output<void>();
 
   /** The player's picks, in pick order. */
   protected readonly playerPicks = computed(() =>
     this.picks().filter((pick) => pick.playerId === this.player()?.id),
+  );
+
+  /**
+   * What the exports are made of: the plan without its unpicked cards, each
+   * plan board's picks in pick order. A pick the plan doesn't have yet is on the
+   * mainboard, where every pick lands.
+   */
+  protected readonly exportPlan = computed<ExportPlan<PickView>>(() => {
+    const { sideboard, basics } = this.plan();
+    const onSideboard = new Set(sideboard.map((card) => card.poolCardId));
+    const picks = this.playerPicks();
+    return {
+      mainboard: picks.filter((pick) => !onSideboard.has(pick.poolCardId)),
+      sideboard: picks.filter((pick) => onSideboard.has(pick.poolCardId)),
+      basics,
+    };
+  });
+
+  /** For the warning's text. */
+  protected readonly arenaSideboardCap = ARENA_SIDEBOARD_CAP;
+  /** Whether Arena's import may cut the exported sideboard short. */
+  protected readonly sideboardOverArenaCap = computed(
+    () => this.platform() === 'Arena' && this.exportPlan().sideboard.length > ARENA_SIDEBOARD_CAP,
   );
 
   /** In the order their buttons show. */
@@ -81,15 +113,15 @@ export class PicksTab implements OnDestroy {
     clearTimeout(this.confirmationTimer);
   }
 
-  /** Forgets how the latest copy went, as the panel opens, closes or shows another player. */
+  /** Forgets how the latest copy went, as the panel opens or closes. */
   clearCopy() {
     this.latestCopy++;
     this.clearConfirmation();
     this.copyFailed.set(false);
   }
 
-  /** Copies `picks` to the clipboard as an export for `target`, confirming how it went. */
-  protected async copyFor(target: ExportTarget, picks: PickView[]) {
+  /** Copies the plan to the clipboard as an export for `target`, confirming how it went. */
+  protected async copyFor(target: ExportTarget) {
     const copy = ++this.latestCopy;
     this.copyFailed.set(false);
     // The same button stays confirmed while it copies again, rather than flickering.
@@ -97,7 +129,7 @@ export class PicksTab implements OnDestroy {
       this.clearConfirmation();
     }
     try {
-      await navigator.clipboard.writeText(EXPORTS[target](picks));
+      await navigator.clipboard.writeText(EXPORTS[target](this.exportPlan()));
       if (copy === this.latestCopy) {
         this.confirm(target);
       }

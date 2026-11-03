@@ -17,19 +17,6 @@ ol {
   list-style: none;
 }
 
-/* A player's name on the Board, which opens their picks. */
-.link {
-  padding: var(--space-xs) 0;
-  border: 0;
-  background: none;
-  color: var(--color-accent);
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
 /* One column of picks per player, as many across as fit. */
 .player-picks {
   display: grid;
