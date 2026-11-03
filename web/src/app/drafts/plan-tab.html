@@ -176,6 +176,7 @@
         <ul
           class="lines card-rows"
           [class.with-remove]="board.picked < board.count"
+          [class.capped]="!showingStacks()"
           cdkDropList
           [cdkDropListData]="board.name"
           [cdkDropListDisabled]="changing() || !onDesktop()"
