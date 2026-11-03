@@ -9,7 +9,12 @@ import {
   toEventPlayer,
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
-import { draftSize, enginePool, SEAT_ORDER } from './draft-shapes.js';
+import {
+  draftSize,
+  enginePool,
+  MADE_PICK,
+  SEAT_ORDER,
+} from './draft-shapes.js';
 import { planPick, restorePlans } from './plan-picks.js';
 import { restoreQueues, takeFromQueues } from './queue-clearing.js';
 
@@ -234,7 +239,7 @@ export class TurnsService {
         playerId: players[seat].id,
         poolCardId: card.id,
       },
-      select: { id: true, number: true, playerId: true, poolCardId: true },
+      select: MADE_PICK,
     });
     await planPick(tx, made);
     await takeFromQueues(tx, made);
@@ -260,7 +265,7 @@ export class TurnsService {
 
   /**
    * Undoes pick `number`, the draft's latest: its card returns to the pool,
-   * the queues it cleared and the plans it took from are restored, and the
+   * the queues it cleared and the plans it lost from are restored, and the
    * turn returns to its player.
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */

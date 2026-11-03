@@ -56,7 +56,7 @@ describe('unpicked cards in a plan', () => {
     expect(added.body).toEqual({
       mainboard: [bolt(first)],
       sideboard: [],
-      removed: [],
+      lost: [],
     });
     // The plan holds that copy already, so the other one is added instead.
     const again = await addToPlan(id, first, carolCookie).expect(200);
@@ -75,7 +75,7 @@ describe('unpicked cards in a plan', () => {
         { poolCardId: ids.Shock, name: 'Shock', picked: true },
       ],
       sideboard: [],
-      removed: [],
+      lost: [],
     });
     await addToPlan(id, 'no-such-card', carolCookie).expect(404);
     await addToPlan(id, undefined, carolCookie).expect(400);
@@ -98,13 +98,13 @@ describe('unpicked cards in a plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [{ poolCardId: first, name: 'Lightning Bolt', picked: true }],
-      removed: [],
+      lost: [],
     });
     await undo(id, 1).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [{ poolCardId: first, name: 'Lightning Bolt', picked: false }],
-      removed: [],
+      lost: [],
     });
     // A pick of a card the plan doesn't hold still lands on the mainboard, and undo takes it out.
     await pick(id, ids.Shock, carolCookie).expect(200);
@@ -112,7 +112,7 @@ describe('unpicked cards in a plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [{ poolCardId: first, name: 'Lightning Bolt', picked: false }],
-      removed: [],
+      lost: [],
     });
   });
 
@@ -132,7 +132,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [
         { poolCardId: second, name: 'Lightning Bolt', picked: false },
       ],
-      removed: [],
+      lost: [],
     };
     expect((await plan(id, carolCookie).expect(200)).body).toEqual(swapped);
     await undo(id, 1).expect(200);
@@ -166,9 +166,7 @@ describe('unpicked cards in a plan', () => {
         shock,
       ],
       sideboard: [],
-      removed: [
-        { poolCardId: second, name: 'Lightning Bolt', pickedBy: 'Alice' },
-      ],
+      lost: [{ poolCardId: second, name: 'Lightning Bolt', pickedBy: 'Alice' }],
     });
     // Carol picks around it; the notice builds up as Alice picks on.
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -184,18 +182,18 @@ describe('unpicked cards in a plan', () => {
         picked: true,
       },
     ]);
-    expect(built.removed).toEqual([
+    expect(built.lost).toEqual([
       { poolCardId: second, name: 'Lightning Bolt', pickedBy: 'Alice' },
       { poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' },
     ]);
 
     const dismissed = await dismissPlanNotice(id, carolCookie).expect(200);
-    expect(dismissed.body.removed).toEqual([]);
+    expect(dismissed.body.lost).toEqual([]);
     // Undone even after the dismissal: Shock goes back on the mainboard, Lightning Bolt its sideboard.
     await undo(id, 4).expect(200);
     const restored = (await plan(id, carolCookie).expect(200)).body;
     expect(restored.mainboard).toContainEqual(shock);
-    expect(restored.removed).toEqual([]);
+    expect(restored.lost).toEqual([]);
     await undo(id, 3).expect(200);
     await undo(id, 2).expect(200);
     await undo(id, 1).expect(200);
@@ -207,7 +205,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [
         { poolCardId: second, name: 'Lightning Bolt', picked: false },
       ],
-      removed: [],
+      lost: [],
     });
   });
 
@@ -253,7 +251,7 @@ describe('unpicked cards in a plan', () => {
       { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
     ]);
     expect(taken.sideboard).toEqual([]);
-    expect(taken.removed).toEqual([
+    expect(taken.lost).toEqual([
       { poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' },
       {
         poolCardId: expect.any(String),
@@ -269,7 +267,7 @@ describe('unpicked cards in a plan', () => {
     // Carol's removed copies are the two the bot picked.
     expect(
       new Set(
-        taken.removed
+        taken.lost
           .slice(1)
           .map((card: { poolCardId: string }) => card.poolCardId),
       ),
@@ -307,15 +305,11 @@ describe('unpicked cards in a plan', () => {
         { poolCardId: ids.Shock, name: 'Shock', picked: false },
       ],
       sideboard: [],
-      removed: [
-        { poolCardId: first, name: 'Lightning Bolt', pickedBy: 'Alice' },
-      ],
+      lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: 'Alice' }],
     });
     // Each notice is dismissed on its own.
     await dismissNotice(id, carolCookie).expect(200);
-    expect((await plan(id, carolCookie).expect(200)).body.removed).toHaveLength(
-      1,
-    );
+    expect((await plan(id, carolCookie).expect(200)).body.lost).toHaveLength(1);
     await dismissPlanNotice(id, carolCookie).expect(200);
     expect((await queue(id, carolCookie).expect(200)).body.lost).toEqual([]);
   });
@@ -364,9 +358,7 @@ describe('unpicked cards in a plan', () => {
         { poolCardId: ids.Shock, name: 'Shock', picked: false },
       ],
       sideboard: [],
-      removed: [
-        { poolCardId: first, name: 'Lightning Bolt', pickedBy: 'Alice' },
-      ],
+      lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: 'Alice' }],
     });
   });
 
@@ -389,7 +381,7 @@ describe('unpicked cards in a plan', () => {
         { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
       ],
       sideboard: [],
-      removed: [{ poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' }],
+      lost: [{ poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' }],
     });
     const aPick = await removeFromPlan(
       id,
@@ -433,7 +425,7 @@ describe('unpicked cards in a plan', () => {
       { poolCardId: expect.any(String), name: 'Lightning Bolt', picked: false },
     ]);
     expect([first, second]).toContain(imported.mainboard[0].poolCardId);
-    expect(imported.removed).toEqual([]);
+    expect(imported.lost).toEqual([]);
   });
 });
 

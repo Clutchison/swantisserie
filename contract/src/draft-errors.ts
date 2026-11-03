@@ -108,7 +108,7 @@ export interface QueueRefusal {
 /** Why a plan can't be changed; sent to the player as is. */
 export interface PlanRefusal {
   error:
-    /** The card isn't in the player's plan: its pick was undone, or it was taken out. */
+    /** The card isn't in the player's plan: its pick was undone, or it was lost. */
     | 'not-in-plan'
     /** The card is one of the player's picks, so it can't be removed from the plan. */
     | 'a-pick'

@@ -148,9 +148,8 @@ export class PlansService {
   }
 
   /**
-   * Stops the Plan notice listing the cards taken out of the user's plan.
-   * An undo still restores them. Throws NotAPlayerError if the user isn't
-   * in the draft.
+   * Stops the Plan notice listing the user's lost cards. An undo still
+   * restores them. Throws NotAPlayerError if the user isn't in the draft.
    */
   async dismissNotice(draftId: string, userId: string): Promise<PlanView> {
     return this.change(draftId, userId, async (tx, playerId) => {
@@ -206,7 +205,7 @@ export class PlansService {
           name: card.poolCard.name,
           picked: card.pickId !== null,
         }));
-    const removed = await tx.unplannedCard.findMany({
+    const lost = await tx.unplannedCard.findMany({
       where: { playerId, noticeHidden: false },
       orderBy: { pick: { number: 'asc' } },
       select: {
@@ -220,7 +219,7 @@ export class PlansService {
     return {
       mainboard: onBoard('Mainboard'),
       sideboard: onBoard('Sideboard'),
-      removed: removed.map((card) => ({
+      lost: lost.map((card) => ({
         poolCardId: card.poolCardId,
         name: card.poolCard.name,
         pickedBy: card.pick.player.user.name,

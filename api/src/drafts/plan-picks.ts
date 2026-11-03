@@ -1,20 +1,22 @@
 import { plansAfterPick } from 'engine';
-import { type MadePick, SEAT_ORDER, type Transaction } from './draft-shapes.js';
+import {
+  enginePool,
+  type MadePick,
+  SEAT_ORDER,
+  type Transaction,
+} from './draft-shapes.js';
 
 /**
  * Persists what a new pick, already made, does to plans, as the engine's
  * `plansAfterPick` says: it lands on the picker's mainboard, unless their
  * plan holds it, or another unpicked copy of it, which then becomes the pick
  * where it is. In each other plan holding it unpicked, it is swapped for
- * another copy or taken out; a card taken out is kept against the pick, with
- * its board, so that undoing it can put it back, and listed on the Plan
- * notice. A swapped copy stays swapped: it is as good as the one picked.
+ * another copy or lost; a lost card is kept against the pick, with its
+ * board, so that undoing it can put it back, and listed on the Plan notice.
+ * A swapped copy stays swapped: it is as good as the one picked.
  */
 export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
-  const { draftId } = await tx.poolCard.findUniqueOrThrow({
-    where: { id: pick.poolCardId },
-    select: { draftId: true },
-  });
+  const { draftId } = pick;
   const players = await tx.player.findMany({
     where: { draftId },
     orderBy: SEAT_ORDER,
@@ -23,24 +25,13 @@ export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
       plan: { select: { poolCardId: true, board: true } },
     },
   });
-  // Picks made before this one, so a pick import's land in order.
-  const cards = await tx.poolCard.findMany({
-    where: { draftId },
-    orderBy: { id: 'asc' },
-    select: { id: true, oracleId: true, pick: { select: { number: true } } },
-  });
   const after = plansAfterPick(
     {
       seat: players.findIndex((player) => player.id === pick.playerId),
       card: pick.poolCardId,
     },
     players.map((player) => player.plan.map((planned) => planned.poolCardId)),
-    {
-      pool: new Map(cards.map((card) => [card.id, card.oracleId])),
-      picked: cards
-        .filter((card) => card.pick && card.pick.number < pick.number)
-        .map((card) => card.id),
-    },
+    await enginePool(tx, draftId, pick.number),
   );
   for (const [seat, { swapped, unplanned }] of after.entries()) {
     const { id: playerId, plan } = players[seat];
@@ -93,10 +84,10 @@ export async function planPicks(
 }
 
 /**
- * Puts back what the pick took out of plans, each card on the board it was
+ * Puts back the cards the pick lost from plans, each on the board it was
  * on, and takes the pick out of its player's plan: unless the player added
  * the card before picking it, when it stays, unpicked. Deleting the pick
- * then forgets what it took out.
+ * then forgets what it lost.
  */
 export async function restorePlans(
   tx: Transaction,

@@ -37,5 +37,5 @@ export const EMPTY_QUEUE: QueueView = {
   stealBehavior: 'ClearQueue',
 };
 
-/** A plan with nothing on either board, and nothing taken out of it. */
-export const EMPTY_PLAN: PlanView = { mainboard: [], sideboard: [], removed: [] };
+/** A plan with nothing on either board, and nothing lost from it. */
+export const EMPTY_PLAN: PlanView = { mainboard: [], sideboard: [], lost: [] };

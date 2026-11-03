@@ -25,7 +25,7 @@ export class PlanApi {
     return this.http.delete<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
   }
 
-  /** Stops the Plan notice listing the cards taken out of the plan. */
+  /** Stops the Plan notice listing the lost cards. */
   dismissNotice(draftId: string): Observable<PlanView> {
     return this.http.delete<PlanView>(`${url(draftId)}/notice`);
   }

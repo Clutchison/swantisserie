@@ -47,7 +47,7 @@ describe('pool tab', () => {
       req.flush({
         mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: false }],
         sideboard: [],
-        removed: [],
+        lost: [],
       });
       await fixture.whenStable();
       expect(detail.querySelector('[role="status"]')?.textContent).toContain('Added to your plan.');

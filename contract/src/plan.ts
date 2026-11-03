@@ -9,11 +9,8 @@ export interface PlannedCardView {
   picked: boolean;
 }
 
-/**
- * An unpicked card taken out of the plan because another player picked it
- * when no other copy was available for the plan.
- */
-export interface RemovedCardView {
+/** An unpicked card lost from the plan: another player picked it when no other copy was available for the plan. */
+export interface LostCardView {
   poolCardId: string;
   name: string;
   /** The name of the player who picked it. */
@@ -26,9 +23,6 @@ export interface PlanView {
   mainboard: PlannedCardView[];
   /** Sorted by mana value, then name. */
   sideboard: PlannedCardView[];
-  /**
-   * What the Plan notice lists: the cards taken out of the plan, in the
-   * order they went, until the player dismisses it.
-   */
-  removed: RemovedCardView[];
+  /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
+  lost: LostCardView[];
 }

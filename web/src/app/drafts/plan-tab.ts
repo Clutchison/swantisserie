@@ -51,8 +51,8 @@ const BOARDS: Record<
 
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
- * and sideboard, between which they move cards, and from which they take
- * out the unpicked cards they added; and the Plan notice.
+ * and sideboard, between which they move cards, and from which they remove
+ * the unpicked cards they added; and the Plan notice of their lost cards.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -95,8 +95,8 @@ export class PlanTab {
     }),
   );
 
-  /** Whether any cards have been taken out of the plan since the notice was dismissed. */
-  protected readonly hasNotice = computed(() => this.plan().removed.length > 0);
+  /** Whether there are lost cards to note. */
+  protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
 
   /** Moves one copy of a card to `board`, and shows the plan as it then is. */
   protected move(poolCardId: string, board: PlanBoard) {
@@ -108,15 +108,15 @@ export class PlanTab {
     return this.change(this.planApi.remove(this.draftId(), poolCardId));
   }
 
-  /** Stops the notice listing the cards taken out of the plan. */
+  /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(this.planApi.dismissNotice(this.draftId()));
   }
 
   /**
    * Sends a change to the plan and shows the plan it answers with. A
-   * refused change means the plan has moved on, e.g. a card was taken out:
-   * say why, and re-read it.
+   * refused change means the plan has moved on, e.g. a card was lost: say
+   * why, and re-read it.
    */
   private async change(request: Observable<PlanView>) {
     this.changing.set(true);

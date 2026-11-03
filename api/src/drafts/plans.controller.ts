@@ -18,6 +18,7 @@ import { AdminGuard } from '../auth/admin.guard.js';
 import { CurrentUser, type SessionUser } from '../auth/session.guard.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftReadsService } from './draft-reads.service.js';
+import { parseCard } from './parse-card.js';
 import { PlanRefusedError, PlansService } from './plans.service.js';
 
 /**
@@ -51,11 +52,11 @@ export class PlansController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<PlanView> {
-    const poolCardId = parseCard(body);
+    const poolCardId = parseCard(body, 'Say which card to add.');
     return this.answer(id, () => this.plans.add(id, user.id, poolCardId));
   }
 
-  /** Stops the Plan notice listing the cards taken out of the plan. */
+  /** Stops the Plan notice listing the lost cards. */
   @Delete('notice')
   async dismissNotice(
     @CurrentUser() user: SessionUser,
@@ -124,16 +125,4 @@ function parseBoard(body: unknown): PlanBoard {
     });
   }
   return board;
-}
-
-/** The pool card's id, or a 400 if there isn't one. */
-function parseCard(body: unknown): string {
-  const { poolCardId } = (body ?? {}) as Record<string, unknown>;
-  if (typeof poolCardId !== 'string' || !poolCardId) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Say which card to add.',
-    });
-  }
-  return poolCardId;
 }

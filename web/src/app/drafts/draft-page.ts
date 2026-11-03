@@ -167,7 +167,7 @@ export class DraftPage {
     const draft = this.draft();
     return this.offerPlan() && this.joined() && !!draft && isActive(draft.state);
   });
-  /** Only players have a plan, and it can be changed in every draft state. */
+  /** Only players have a plan. Both the Pool and Plan tabs show it, and change it. */
   protected readonly planResource = httpResource<PlanView>(() =>
     this.joined() && this.offerPlan() ? `/api/drafts/${this.id()}/plan` : undefined,
   );
