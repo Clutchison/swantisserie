@@ -26,24 +26,16 @@
 
 /* One player's picks, numbered as in the pick log. */
 ol.picks {
+  --card-row-columns: [number] auto [cost] max-content [name] minmax(0, 1fr);
+  gap: 0 var(--space-sm);
   margin: 0;
   padding-left: var(--space-xl);
   list-style: none;
-
-  li {
-    display: flex;
-    gap: var(--space-sm);
-  }
 
   .number {
     min-width: 2rem;
     color: var(--color-muted);
     text-align: right;
-  }
-
-  .card {
-    flex: 1 1 0;
-    min-width: 0;
   }
 }
 

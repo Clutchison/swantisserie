@@ -18,7 +18,8 @@ import { NgTemplateOutlet } from '@angular/common';
 import type { DraftState, PoolCardView, QueueView, StealBehavior } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeftRight, LucideArrowUp, LucideTrash } from '@lucide/angular';
-import { CardPreviewName, CardPreviews } from './card-preview';
+import { CardName } from './card-name';
+import { CardPreviews } from './card-preview';
 import { changeFailure, isActive } from './drafts';
 import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -52,7 +53,7 @@ type ErrorPlace = 'stealBehavior' | 'queue';
 @Component({
   selector: 'app-queue-tab',
   imports: [
-    CardPreviewName,
+    CardName,
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
