@@ -1,0 +1,43 @@
+/* Sits inside the draft page, which has the padding. */
+:host {
+  padding: 0;
+}
+
+h3 {
+  margin: var(--space-lg) 0 var(--space-xs);
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  /* The button wraps under the name where the panel is too narrow for both. */
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0;
+  }
+
+  .empty {
+    color: var(--color-muted);
+  }
+}
+
+.count {
+  min-width: 1.5rem;
+  color: var(--color-muted);
+  text-align: right;
+}
+
+.name {
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+/* A list item lays out as a row, so this fills it for the animation to centre. */
+.empty app-loading-animation {
+  flex: 1;
+}

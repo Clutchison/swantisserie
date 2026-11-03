@@ -68,6 +68,13 @@ export class DraftGoneError extends Error {
   }
 }
 
+/** Thrown when someone who isn't playing in a draft asks for a queue or plan in it. */
+export class NotAPlayerError extends Error {
+  constructor(what: 'queues' | 'plans') {
+    super(`Only the draft’s players have ${what}.`);
+  }
+}
+
 /** Thrown when a seat order doesn't list exactly the draft's players. */
 export class PlayersChangedError extends Error {
   constructor() {

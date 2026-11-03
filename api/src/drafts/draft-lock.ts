@@ -39,6 +39,25 @@ class LockedDraft {
 
 export type { LockedDraft };
 
+/**
+ * Locks the player's row in the draft, for a change to what is theirs
+ * alone, such as their queue or plan, so it changes one at a time. The
+ * draft's row is share-locked, so a pick can't land or be undone meanwhile.
+ * Null if there is no such draft or player.
+ */
+export async function lockPlayer(
+  tx: Transaction,
+  draftId: string,
+  userId: string,
+): Promise<{ playerId: string; state: DraftState } | null> {
+  const [draft] = await tx.$queryRaw<{ state: DraftState }[]>`
+    SELECT "state" FROM "Draft" WHERE "id" = ${draftId} FOR SHARE`;
+  const [player] = await tx.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "Player"
+    WHERE "draftId" = ${draftId} AND "userId" = ${userId} FOR UPDATE`;
+  return draft && player ? { playerId: player.id, state: draft.state } : null;
+}
+
 /** Throws DraftGoneError if there is no draft, and DraftStartedError if it has left Lobby. */
 export function checkInLobby<T extends { state: DraftState }>(
   draft: T | null | undefined,

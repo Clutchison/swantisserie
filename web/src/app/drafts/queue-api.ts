@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
 import type { QueueView, StealBehavior } from 'contract';
-import { isRefusal } from './drafts';
 
 /** Changes to the signed-in player's queue, each answered with the queue as it now is. */
 @Injectable({ providedIn: 'root' })
@@ -31,14 +30,6 @@ export class QueueApi {
   dismissNotice(draftId: string): Observable<QueueView> {
     return this.http.delete<QueueView>(`${url(draftId)}/notice`);
   }
-}
-
-/**
- * Why a change to the queue failed: the API's reason when it refused the
- * change because the queue has moved on, e.g. a card was lost; else `fallback`.
- */
-export function queueChangeFailure(err: unknown, fallback: string): string {
-  return (isRefusal(err) && err.error?.message) || fallback;
 }
 
 function url(draftId: string) {

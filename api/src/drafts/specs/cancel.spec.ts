@@ -69,6 +69,7 @@ describe('cancel', () => {
     expect(await prisma.poolCard.count()).toBe(0);
     expect(await prisma.player.count()).toBe(0);
     expect(await prisma.queuedCard.count()).toBe(0);
+    expect(await prisma.plannedCard.count()).toBe(0);
     expect(await prisma.user.count({ where: { isBot: true } })).toBe(0);
     expect(await prisma.user.count({ where: { id: alice.id } })).toBe(1);
   });

@@ -5,6 +5,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import type {
   DraftView,
   PickView,
+  PlanView,
   PoolCardView,
   PoolSnapshotView,
   QueueView,
@@ -15,7 +16,7 @@ import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { DRAFT_POLL_MS } from '../draft-page';
-import { EMPTY_QUEUE } from '../drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 
@@ -192,7 +193,12 @@ export const panel = (root: HTMLElement) =>
  * Opens draft-1's page with the first GET answered by `snapshot`, its pool
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` if
- * they are a player, signed in as `user`.
+ * they are a player, and their plan by `plan` if they are also an app
+ * admin, signed in as `user`.
+ *
+ * Once open, a change's answer (`req.flush(...)`) shows a moment after
+ * `fixture.whenStable()` resolves, as it arrives through a promise: assert
+ * what it shows inside `vi.waitFor`, unless the change showed it early.
  */
 export async function openDraft(
   snapshot: PoolSnapshotView,
@@ -201,11 +207,13 @@ export async function openDraft(
     cards = [],
     picks = [],
     queue = EMPTY_QUEUE,
+    plan = EMPTY_PLAN,
     user = alice,
   }: {
     cards?: PoolCardView[];
     picks?: PickView[];
     queue?: QueueView;
+    plan?: PlanView;
     user?: typeof alice;
   } = {},
 ) {
@@ -214,9 +222,17 @@ export async function openDraft(
   http.expectOne('/api/drafts/draft-1').flush(opened);
   if (snapshot.state === 'Complete') await flushPool(cards);
   if (opened.state !== 'Lobby') await flushPicks(picks);
-  if (opened.players.some((player) => player.id === user.id)) await flushQueue(queue);
+  if (opened.players.some((player) => player.id === user.id)) {
+    await flushQueue(queue);
+    if (user.isAppAdmin) await flushPlan(plan);
+  }
   await fixture.whenStable();
   return { fixture, page };
+}
+
+/** Answers the page's GET of the signed-in player's plan with `plan`. */
+export async function flushPlan(plan: PlanView) {
+  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(plan);
 }
 
 /** Answers the page's GET of the signed-in player's queue with `queue`. */

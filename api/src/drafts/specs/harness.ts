@@ -290,6 +290,11 @@ export async function pickLogLines(id: string) {
 /**
  * A draft whose pool of `cards` (three, unless told otherwise) is
  * snapshotted, joined by each of `cookies` in order.
+ *
+ * Before a spec starts it: a start needs two players and a pool of at
+ * least `cookies.length * picksPerPlayer` cards; a pick import empties
+ * every queue, so queue after importing; and a bot picks at random, so
+ * pin `Math.random` (0 picks the first available card by name).
  */
 export async function readyDraft(
   cookies: string[],
@@ -369,4 +374,24 @@ export function setStealBehavior(
     .put(`/api/drafts/${id}/queue/steal-behavior`)
     .set('Cookie', cookie)
     .send({ stealBehavior: behavior });
+}
+
+/** The player's plan in the draft. */
+export function plan(id: string, cookie: string) {
+  return request(app.getHttpServer())
+    .get(`/api/drafts/${id}/plan`)
+    .set('Cookie', cookie);
+}
+
+/** Moves a card in the player's plan to `board`. */
+export function movePlanned(
+  id: string,
+  poolCardId: string,
+  board: unknown,
+  cookie: string,
+) {
+  return request(app.getHttpServer())
+    .put(`/api/drafts/${id}/plan/${poolCardId}`)
+    .set('Cookie', cookie)
+    .send({ board });
 }

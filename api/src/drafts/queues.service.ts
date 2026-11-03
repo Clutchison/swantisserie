@@ -8,14 +8,9 @@ import type {
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NotAPlayerError } from './draft-errors.js';
+import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
-
-/** Thrown when someone who isn't playing in a draft asks for a queue in it. */
-export class NotAPlayerError extends Error {
-  constructor() {
-    super('Only the draft’s players have queues.');
-  }
-}
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -44,7 +39,7 @@ export class QueuesService {
       where: { draftId_userId: { draftId, userId } },
       select: { id: true },
     });
-    if (!player) throw new NotAPlayerError();
+    if (!player) throw new NotAPlayerError('queues');
     return this.read(this.prisma, player.id);
   }
 
@@ -198,11 +193,9 @@ export class QueuesService {
   }
 
   /**
-   * Runs `change` on the user's queue and returns the queue as it then is.
-   * The draft's row is shared-locked, so a pick can't land meanwhile, and
-   * the player's row locked, so their queue changes one at a time. Throws
-   * NotAPlayerError if the user isn't in the draft, and QueueRefusedError if
-   * the draft is closed.
+   * Runs `change` on the user's queue, with their row locked, and returns
+   * the queue as it then is. Throws NotAPlayerError if the user isn't in
+   * the draft, and QueueRefusedError if the draft is closed.
    */
   private async change(
     draftId: string,
@@ -214,20 +207,17 @@ export class QueuesService {
     ) => Promise<void>,
   ): Promise<QueueView> {
     return this.prisma.$transaction(async (tx) => {
-      const [draft] = await tx.$queryRaw<{ state: DraftState }[]>`
-        SELECT "state" FROM "Draft" WHERE "id" = ${draftId} FOR SHARE`;
-      const [player] = await tx.$queryRaw<{ id: string }[]>`
-        SELECT "id" FROM "Player"
-        WHERE "draftId" = ${draftId} AND "userId" = ${userId} FOR UPDATE`;
-      if (!draft || !player) throw new NotAPlayerError();
-      if (draft.state === 'Closed') {
+      const locked = await lockPlayer(tx, draftId, userId);
+      if (!locked) throw new NotAPlayerError('queues');
+      const { playerId, state } = locked;
+      if (state === 'Closed') {
         throw new QueueRefusedError({
           error: 'draft-closed',
           message: 'This draft is closed.',
         });
       }
-      await change(tx, player.id, draft.state);
-      return this.read(tx, player.id);
+      await change(tx, playerId, state);
+      return this.read(tx, playerId);
     });
   }
 

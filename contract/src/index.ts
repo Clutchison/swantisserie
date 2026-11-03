@@ -7,6 +7,7 @@ export * from './drafts.js';
 export * from './feedback.js';
 export * from './health.js';
 export * from './picks.js';
+export * from './plan.js';
 export * from './pool.js';
 export * from './queue.js';
 export * from './webhooks.js';

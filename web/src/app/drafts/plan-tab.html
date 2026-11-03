@@ -1,0 +1,37 @@
+<p class="detail">Every pick lands on your mainboard. Only you can see your plan.</p>
+@for (board of boards(); track board.name) {
+  <section class="plan-board">
+    <h3>{{ board.name }} ({{ board.count }})</h3>
+    <ul>
+      @for (line of board.lines; track line.poolCardId) {
+        <li>
+          <span class="count">{{ line.count }}</span>
+          <span class="name">
+            <!-- Only the text shows a Card preview, not the rest of the row. -->
+            <span [appCardPreview]="poolCardsById().get(line.poolCardId)">{{ line.name }}</span>
+          </span>
+          <button
+            class="button compact quiet"
+            type="button"
+            [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
+            (click)="move(line.poolCardId, board.other)"
+            [disabled]="changing()"
+          >
+            To {{ board.otherName }}
+          </button>
+        </li>
+      } @empty {
+        <li class="empty">
+          @if (loading()) {
+            <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
+          } @else {
+            {{ board.empty }}
+          }
+        </li>
+      }
+    </ul>
+  </section>
+}
+@if (error(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}

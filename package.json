@@ -14,7 +14,7 @@
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w api\" \"npm start -w web\"",
     "build": "npm run build --workspaces",
     "test": "npm test --workspaces",
-    "typecheck": "npm run typecheck --workspaces",
+    "typecheck": "npm run build -w contract -w engine && npm run typecheck --workspaces",
     "start": "npm run start:prod -w api",
     "lint": "npm run lint --workspaces",
     "format": "npm run format --workspaces",

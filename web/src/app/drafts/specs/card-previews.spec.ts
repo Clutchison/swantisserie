@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { PickView, PoolCardView, QueueView } from 'contract';
+import type { PickView, PlanView, PoolCardView, QueueView, UserView } from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -63,7 +63,13 @@ describe('card previews', () => {
 
   /** Opens a draft with `picks` made and `options` as openDraft takes them. */
   async function openPicked(
-    options: { cards?: PoolCardView[]; picks?: PickView[]; queue?: QueueView } = {},
+    options: {
+      cards?: PoolCardView[];
+      picks?: PickView[];
+      queue?: QueueView;
+      plan?: PlanView;
+      user?: UserView;
+    } = {},
   ) {
     return openDraft(
       completeSnapshot,
@@ -353,6 +359,20 @@ describe('card previews', () => {
     tap(page.querySelector('h1')!);
     tap(panel(page).querySelector<HTMLElement>('.picks .card span')!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+  });
+
+  describe('in the plan', () => {
+    it('shows on plan rows', async () => {
+      const { page, fixture } = await openPicked({
+        user: { ...alice, isAppAdmin: true },
+        plan: { mainboard: [{ poolCardId: bolt.id, name: bolt.name }], sideboard: [] },
+      });
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      tap(panel(page).querySelector<HTMLElement>('li .name span')!);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
   });
 
   describe('in the queue', () => {

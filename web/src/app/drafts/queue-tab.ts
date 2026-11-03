@@ -18,8 +18,8 @@ import { NgTemplateOutlet } from '@angular/common';
 import type { DraftState, PoolCardView, QueueView, StealBehavior } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardPreviewName, CardPreviews } from './card-preview';
-import { isActive } from './drafts';
-import { QueueApi, queueChangeFailure } from './queue-api';
+import { changeFailure, isActive } from './drafts';
+import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
@@ -160,7 +160,7 @@ export class QueueTab {
       this.queueChanged.emit(await firstValueFrom(request));
     } catch (err) {
       rollBack?.();
-      this.error.set({ message: queueChangeFailure(err, CHANGE_FAILED), place });
+      this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
       this.queueStale.emit();
     } finally {
       this.changing.set(false);
