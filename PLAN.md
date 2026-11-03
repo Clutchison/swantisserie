@@ -1,6 +1,6 @@
 # Swantisserie — v1 Plan
 
-A rotisserie ("roto") draft app for Discord servers (guilds), modelled on mtgrotisseriedraft.com with features dropped and added. Drafted pools are played on MTG Arena (decks are built in Arena or Moxfield, not in this app).
+A rotisserie ("roto") draft app for Discord servers (guilds), modelled on mtgrotisseriedraft.com with features dropped and added. Drafted pools are played on MTG Arena or Magic Online; each player builds their deck in the app as a private plan ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171).
 
 Research behind these decisions: [docs/research/](docs/research/) — `mtgrotisserie.md`, `discord.md`, `scryfall.md`, `arena.md`.
 
@@ -56,6 +56,18 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 - Your own pick just leaves your queue. The Queue tab notice names the lost and cleared cards, building up until dismissed; under pick next it also says the rest of your queue is still queued. Losing and clearing are private: they add no announcement or ping.
 - You **can't add to your queue on your own turn**, drafting or paused: that pick is made by hand, including the second of two turns in a row at a snake round boundary. You can add in the lobby and whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
+### Plan
+
+Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171). Only app admins can use it, in the UI and the API, until every ticket under #171 is done.
+
+- Each player has a **private plan** for each draft: a **mainboard** and a **sideboard**. It is private forever, including from organizers and app admins.
+- Every pick lands on the mainboard and can move to the sideboard; a pick can't leave the plan.
+- **Add to Plan** on the card detail adds an unpicked pool card to the mainboard, as many copies as are available. Unpicked cards are dimmed, can be removed, and board counts show the total and how many are picked (basics count as picked).
+- **Basic lands:** − / a number / + for Plains, Island, Swamp, Mountain, Forest and Wastes, plus Clear basics. They go on the mainboard and move like any card.
+- When another player picks an unpicked plan card, the plan takes another available copy it doesn't already hold; otherwise the card is removed and named in the **Plan notice**, which builds up until dismissed. Undo puts it back on its board and takes it off the notice. The queue's lost, cleared and steal behavior rules don't apply to plans.
+- **Queue unpicked** opens a confirmation (showing how many cards it adds) with an **Include sideboard** checkbox, off by default. It adds the plan's unpicked cards to the end of the queue, mainboard first, skipping cards already queued; it never reorders or replaces the queue.
+- The plan is editable in every draft state. Adding unpicked cards and Queue unpicked work only while the draft is active. Unpicked cards stay, dimmed, once the draft is complete. Cancel removes plans with the draft.
+
 ### Organizer tools
 
 - **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo restores what that pick took out of each queue, whatever the steal behavior is now, even if the notice was dismissed: a card lost under pick next goes back in its place; a queue cleared under clear queue comes back in its original order, lost card included, followed by anything queued since. Undo never triggers queued picks; queues fire only on the next real pick.
@@ -110,10 +122,12 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 
 ## Export
 
-Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app):
+Copy to clipboard, from the Export tab, for your own plan: picked cards and basics, mainboard and sideboard as separate sections, never unpicked cards. A player who has never touched their plan has every pick on the mainboard.
 
-- **Arena:** `Deck` header, then `1 Card Name` lines. Name only, no set codes, because Arena set codes differ and a named printing the player doesn't own can show as missing. Multi-face cards use Arena naming (front-face name for transform / MDFC / adventure; `A // B` for split cards).
-- **Moxfield:** `1 Card Name (SET) 123`, using the snapshotted printing on the draft's platform (Moxfield uses Scryfall set codes).
+- **Arena:** `Deck` header, then `1 Card Name` lines, then a `Sideboard` section. Name only, no set codes, because Arena set codes differ and a named printing the player doesn't own can show as missing. Multi-face cards use Arena naming (front-face name for transform / MDFC / adventure; `A // B` for split cards).
+- **MTGO:** mainboard lines, a blank line, then sideboard lines, with no header.
+- **Moxfield:** `1 Card Name (SET) 123`, with the sideboard in its own section, using the snapshotted printing on the draft's platform (Moxfield uses Scryfall set codes).
+- **Arena sideboard cap:** Arena's import is reported to cap the sideboard at 15; the Arena export warns above 15 but still exports every card. Check the cap for Limited before launch.
 - **Before launch:** paste one test export containing a transform, a split and an adventure card into the Arena client to confirm the naming.
 
 ## Out of scope for v1
@@ -122,7 +136,6 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 - Playoffs/standings (best post-v1 candidate), player profiles
 - Email / SMS / push notifications
 - Rarity and wildcard tools
-- Deckbuilding (main/sideboard, basics) in the app
 - Hidden-picks mode
 - Discord bot DMs to players and slash commands (the Discord bot itself is in scope, REST-only)
 
@@ -159,10 +172,11 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, guild setup and guild settings (guild admins), webhooks (app admins and guild admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
-  - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, and **Add to queue** off your turn or **Remove from queue** for a queued card
+  - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, **Add to Plan**, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Queue:** drag to reorder, lost and cleared cards named in a notice, and the steal behavior toggle
+  - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type; the desktop default) or list mode (the only mode on a phone), the basic lands control, the Plan notice and Queue unpicked
   - **Board:** every player's picks and the pick log
-  - **Me:** my picks and export buttons
+  - **Export:** your picks and export buttons
 
 ## Monthly cost
 

@@ -175,20 +175,46 @@ The note on the Queue tab naming a player's lost and cleared cards, and saying w
 _Avoid_: Alert, warning, notification
 
 **Undo**:
-The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, any queue that pick cleared is restored, including the lost card, and the turn returns to the player who picked it. An undo makes no queued picks.
+The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, any queue that pick cleared is restored, including the lost card, any unpicked card it took out of a plan goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
-A player's picks as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
+A player's plan, without its unpicked cards, as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
 _Avoid_: Decklist, Arena import (that is what the player does with it)
 
 **MTGO export**:
-A player's picks as text that Magic Online's deck import accepts, each card named the way MTGO names it. Only MTGO drafts offer it.
+A player's plan, without its unpicked cards, as text that Magic Online's deck import accepts, each card named the way MTGO names it. Only MTGO drafts offer it.
 _Avoid_: Decklist, MTGO import (that is what the player does with it)
 
 **Moxfield export**:
-A player's picks as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
+A player's plan, without its unpicked cards, as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
 _Avoid_: Decklist, Moxfield import (that is what the player does with it)
+
+## Plan
+
+**Plan**:
+A player's private mainboard and sideboard for one draft. It holds every pick they made, plus any unpicked pool cards and basic lands they add.
+_Avoid_: Deck (in user-facing copy), Deck Planner, deck plan, decklist, maybeboard
+
+**Mainboard**:
+The part of a player's plan they intend to play. Each new pick lands in it.
+_Avoid_: Main deck, maindeck, board (alone)
+
+**Sideboard**:
+The part of a player's plan holding cards they don't intend to play.
+_Avoid_: Maybeboard, bench, board (alone)
+
+**Plan tab**:
+The part of a draft's page where a player builds their plan.
+_Avoid_: Deck tab, deckbuilder, Deck Planner
+
+**Plan notice**:
+The note on the Plan tab naming the unpicked cards taken out of a player's plan because another player picked them when no other copy was available. It builds up until the player dismisses it, and an undo takes off what that pick added.
+_Avoid_: Deck notice, alert, queue notice (that is the queue's)
+
+**Export tab**:
+The part of a draft's page where a player reviews their picks and copies their exports.
+_Avoid_: Me tab, Picks tab, picks page
 
 ## Draft lifecycle
 
@@ -221,7 +247,7 @@ The organizer loading picks made outside the app into a draft in the lobby, whic
 _Avoid_: Upload, sheet sync, import (alone)
 
 **Cancel**:
-The organizer permanently removing a draft that is still in the lobby, with its pool, players and queues. It can't be undone, and a started draft can't be cancelled.
+The organizer permanently removing a draft that is still in the lobby, with its pool, players, queues and plans. It can't be undone, and a started draft can't be cancelled.
 _Avoid_: Delete, abort
 
 **Active draft**:
