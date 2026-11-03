@@ -16,7 +16,7 @@ import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { DRAFT_POLL_MS } from '../draft-page';
-import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
+import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 
@@ -262,6 +262,29 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft({ snapshot }));
   if (snapshot.state === 'Complete') await flushPool();
   await fixture.whenStable();
+}
+
+/** What the page has asked to hear of the desktop breakpoint's changes. */
+let breakpointListeners: ((event: { matches: boolean }) => void)[] = [];
+
+/**
+ * Puts the page on a desktop or a mobile screen, by the draft page's
+ * breakpoint, for the test to come. Undo it with `vi.unstubAllGlobals()`.
+ */
+export function viewOn(screen: 'desktop' | 'mobile') {
+  breakpointListeners = [];
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: screen === 'desktop' && query === DESKTOP_QUERY,
+    addEventListener: (_type: 'change', listener: (event: { matches: boolean }) => void) => {
+      if (query === DESKTOP_QUERY) breakpointListeners.push(listener);
+    },
+  }));
+}
+
+/** Resizes the window across the draft page's breakpoint, onto `screen`, and renders what came of it. */
+export function resizeTo(screen: 'desktop' | 'mobile') {
+  breakpointListeners.forEach((listener) => listener({ matches: screen === 'desktop' }));
+  TestBed.tick();
 }
 
 /** Lets `ms` pass on the fake timers, then renders what came of it. */

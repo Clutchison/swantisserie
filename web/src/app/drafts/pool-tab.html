@@ -83,7 +83,7 @@
           <span class="placeholder">{{ card.name }}</span>
           @if (tileImage.requested()) {
             <img
-              [attr.srcset]="tileSrcset(card)"
+              [attr.srcset]="images.srcset(card)"
               [attr.sizes]="tileWidth() + 'px'"
               [src]="image(card, 'normal')"
               [alt]="card.name"

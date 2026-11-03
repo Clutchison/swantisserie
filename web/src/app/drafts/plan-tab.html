@@ -21,53 +21,183 @@
   Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
   and no other copy is available. Only you can see your plan.
 </p>
-@for (board of boards(); track board.name) {
-  <section class="plan-board">
-    <h3>{{ board.name }} {{ board.count }} ({{ board.picked }} picked)</h3>
-    <ul>
-      @for (line of board.lines; track line.poolCardId) {
-        <li [class.unpicked]="!line.picked">
-          <span class="count">{{ line.count }}</span>
-          <span class="name">
-            <!-- Only the text shows a Card preview, not the rest of the row. -->
-            <span [appCardPreview]="poolCardsById().get(line.poolCardId)">{{ line.name }}</span>
-          </span>
-          @if (!line.picked) {
-            <span class="mark">Unpicked</span>
-          }
+@if (onDesktop()) {
+  <div class="mode-controls">
+    <div class="segmented" role="group" aria-label="Mode">
+      <button
+        class="button compact quiet"
+        type="button"
+        [attr.aria-pressed]="mode() === 'stacks'"
+        (click)="setMode('stacks')"
+      >
+        Stacks
+      </button>
+      <button
+        class="button compact quiet"
+        type="button"
+        [attr.aria-pressed]="mode() === 'list'"
+        (click)="setMode('list')"
+      >
+        List
+      </button>
+    </div>
+    @if (mode() === 'stacks') {
+      <div class="segmented" role="group" aria-label="Group by">
+        @for (option of groupings; track option.grouping) {
           <button
             class="button compact quiet"
             type="button"
-            [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
-            (click)="move(line.poolCardId, board.other)"
-            [disabled]="changing()"
+            [attr.aria-pressed]="grouping() === option.grouping"
+            (click)="setGrouping(option.grouping)"
           >
-            To {{ board.otherName }}
+            {{ option.name }}
           </button>
-          @if (!line.picked) {
-            <button
-              class="button compact quiet"
-              type="button"
-              [attr.aria-label]="'Remove ' + line.name + ' from your plan'"
-              (click)="remove(line.poolCardId)"
-              [disabled]="changing()"
-            >
-              Remove
-            </button>
-          }
-        </li>
-      } @empty {
-        <li class="empty">
-          @if (loading()) {
-            <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
-          } @else {
-            {{ board.empty }}
-          }
-        </li>
-      }
-    </ul>
-  </section>
+        }
+      </div>
+    }
+  </div>
 }
+<!-- On desktop, a card dragged from one board's drop list onto the other's moves there. -->
+<div cdkDropListGroup>
+  @for (board of boards(); track board.name) {
+    <section class="plan-board">
+      <h3>{{ board.name }} {{ board.count }} ({{ board.picked }} picked)</h3>
+      <!-- An empty board shows as the list in either mode: what it says, and a drop list to drag onto. -->
+      @if (showingStacks() && board.count > 0) {
+        <div
+          class="stacks"
+          cdkDropList
+          [cdkDropListData]="board.name"
+          [cdkDropListDisabled]="changing()"
+          cdkDropListSortingDisabled
+          (cdkDropListDropped)="dropped($event)"
+        >
+          @for (stack of board.stacks; track stack.name) {
+            <div class="stack">
+              <h4>
+                <span class="stack-name">{{ stack.name }}</span>
+                <span class="count">{{ stack.cards.length }}</span>
+              </h4>
+              <ul>
+                @for (card of stack.cards; track card.poolCardId) {
+                  @let poolCard = poolCardsById().get(card.poolCardId);
+                  <li
+                    [class.unpicked]="!card.picked"
+                    cdkDrag
+                    [cdkDragData]="card.poolCardId"
+                    cdkDragPreviewContainer="parent"
+                    (cdkDragStarted)="previews.dragStarted()"
+                  >
+                    <!-- Only the card shows a Card preview, not its buttons. -->
+                    <div class="card" [appCardPreview]="poolCard">
+                      @if (poolCard) {
+                        <img
+                          [attr.srcset]="images.srcset(poolCard)"
+                          sizes="160px"
+                          [src]="images.url(poolCard, 'normal')"
+                          [alt]="card.name"
+                          width="488"
+                          height="680"
+                          loading="lazy"
+                          (error)="images.failed(poolCard, 'normal')"
+                        />
+                      } @else {
+                        <span class="placeholder">{{ card.name }}</span>
+                      }
+                    </div>
+                    @if (!card.picked) {
+                      <span class="mark">Unpicked</span>
+                    }
+                    <div class="actions">
+                      <button
+                        class="icon"
+                        type="button"
+                        [attr.aria-label]="'Move ' + card.name + ' to the ' + board.otherName"
+                        [title]="'To ' + board.otherName"
+                        (click)="move(card.poolCardId, board.other)"
+                        [disabled]="changing()"
+                      >
+                        {{ board.arrow }}
+                      </button>
+                      @if (!card.picked) {
+                        <button
+                          class="icon"
+                          type="button"
+                          [attr.aria-label]="'Remove ' + card.name + ' from your plan'"
+                          title="Remove"
+                          (click)="remove(card.poolCardId)"
+                          [disabled]="changing()"
+                        >
+                          ×
+                        </button>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      } @else {
+        <ul
+          class="lines"
+          cdkDropList
+          [cdkDropListData]="board.name"
+          [cdkDropListDisabled]="changing() || !onDesktop()"
+          cdkDropListSortingDisabled
+          (cdkDropListDropped)="dropped($event)"
+        >
+          @for (line of board.lines; track line.poolCardId) {
+            <li
+              [class.unpicked]="!line.picked"
+              cdkDrag
+              [cdkDragData]="line.poolCardId"
+              cdkDragPreviewContainer="parent"
+              (cdkDragStarted)="previews.dragStarted()"
+            >
+              <span class="count">{{ line.count }}</span>
+              <span class="name">
+                <!-- Only the text shows a Card preview, not the rest of the row. -->
+                <span [appCardPreview]="poolCardsById().get(line.poolCardId)">{{ line.name }}</span>
+              </span>
+              @if (!line.picked) {
+                <span class="mark">Unpicked</span>
+              }
+              <button
+                class="button compact quiet"
+                type="button"
+                [attr.aria-label]="'Move ' + line.name + ' to the ' + board.otherName"
+                (click)="move(line.poolCardId, board.other)"
+                [disabled]="changing()"
+              >
+                To {{ board.otherName }}
+              </button>
+              @if (!line.picked) {
+                <button
+                  class="button compact quiet"
+                  type="button"
+                  [attr.aria-label]="'Remove ' + line.name + ' from your plan'"
+                  (click)="remove(line.poolCardId)"
+                  [disabled]="changing()"
+                >
+                  Remove
+                </button>
+              }
+            </li>
+          } @empty {
+            <li class="empty">
+              @if (loading()) {
+                <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
+              } @else {
+                {{ board.empty }}
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>
 @if (error(); as message) {
   <p class="error" role="alert">{{ message }}</p>
 }

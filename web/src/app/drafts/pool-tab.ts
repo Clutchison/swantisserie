@@ -66,7 +66,7 @@ export class PoolTab {
   private readonly http = inject(HttpClient);
   private readonly queueApi = inject(QueueApi);
   private readonly planApi = inject(PlanApi);
-  private readonly images = inject(CardImageSource);
+  protected readonly images = inject(CardImageSource);
   private readonly preloader = inject(ImagePreloader);
   private readonly tileImages = inject(TileImageLoader);
 
@@ -276,17 +276,6 @@ export class PoolTab {
     return this.images.url(card, version, face);
   }
 
-  /**
-   * The images a tile offers the browser. A failed image's event doesn't say
-   * which one failed, so the tile marks its normal image broken and drops to the API image.
-   */
-  protected tileSrcset(card: PoolCardView): string | null {
-    const normal = this.images.workingUrl(card, 'normal');
-    return normal
-      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${TILE_WIDTH}w`
-      : null;
-  }
-
   protected imageFailed(card: PoolCardView, version: ImageVersion, face = 0) {
     this.images.failed(card, version, face);
   }
@@ -433,12 +422,6 @@ const TILE_HEIGHT = 680;
 /** The narrowest a tile gets, and the gap between tiles, in px. */
 const TILE_MIN_WIDTH = 144;
 const TILE_GAP = 8;
-/**
- * The width declared to the browser for the small image, though it's really
- * 146px: browsers load the normal image for any tile wider than this at normal
- * pixel density, and desktop tiles run up to about 160px. A little soft at 160px.
- */
-const SMALL_IMAGE_DECLARED_WIDTH = 160;
 
 /** How long the mouse rests on a tile before its large image loads, in ms: crossing tiles stays under this. */
 const REST_MS = 150;
