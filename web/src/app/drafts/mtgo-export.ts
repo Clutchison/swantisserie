@@ -1,16 +1,19 @@
 import type { PickView } from 'contract';
 import { FACE_SEPARATOR, frontFace } from './card-faces';
-import { countedLines } from './counted-lines';
+import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What an MTGO export needs of a picked card. */
 export type MtgoExportCard = Pick<PickView, 'name' | 'layout' | 'typeLine'>;
 
 /**
- * The cards in MTGO's deck import format: `1 Card Name` lines with no header,
- * with copies of a card on one line, as `2 Card Name`.
+ * The plan in MTGO's deck import format, with no header: the mainboard's
+ * `1 Card Name` lines, with copies of a card on one line, as `2 Card Name`,
+ * and its basics. A sideboard follows after a blank line, unless it's empty.
  */
-export function mtgoExport(cards: MtgoExportCard[]): string {
-  return countedLines(cards.map(mtgoName)).join('\n');
+export function mtgoExport({ mainboard, sideboard, basics }: ExportPlan<MtgoExportCard>): string {
+  const lines = planBoardLines(mainboard.map(mtgoName), basics);
+  if (sideboard.length > 0) lines.push('', ...planBoardLines(sideboard.map(mtgoName)));
+  return lines.join('\n');
 }
 
 /**

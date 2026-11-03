@@ -83,7 +83,7 @@ describe('plan tab', () => {
   it('sits between Queue and Board for an app admin who is a player', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), { user: admin });
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Me']);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
     expect(tabButton(page, 'Plan').disabled).toBe(false);
   });
 
@@ -92,7 +92,7 @@ describe('plan tab', () => {
       user: admin,
     });
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Me']);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
     expect(tabButton(page, 'Plan').disabled).toBe(true);
     http.expectNone('/api/drafts/draft-1/plan');
   });
@@ -100,7 +100,7 @@ describe('plan tab', () => {
   it('is not shown at all to a player who isn’t an app admin', async () => {
     const { page } = await openDraft(completeSnapshot, drafting());
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Board', 'Me']);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Board', 'Export']);
     http.expectNone('/api/drafts/draft-1/plan');
   });
 

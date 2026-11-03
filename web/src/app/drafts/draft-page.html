@@ -97,23 +97,23 @@
         id="board-tab"
         type="button"
         role="tab"
-        [attr.aria-selected]="onBoardTab()"
+        [attr.aria-selected]="tab() === 'Board'"
         aria-controls="board-panel"
         (click)="tab.set('Board')"
       >
         Board
       </button>
-      <!-- Only players have picks to show. -->
+      <!-- Only players have picks to export. -->
       <button
-        id="me-tab"
+        id="export-tab"
         type="button"
         role="tab"
-        [attr.aria-selected]="onMeTab()"
-        aria-controls="picks-panel"
-        (click)="showMyPicks()"
+        [attr.aria-selected]="tab() === 'Export'"
+        aria-controls="export-panel"
+        (click)="tab.set('Export')"
         [disabled]="!joined()"
       >
-        Me
+        Export
       </button>
     </div>
 
@@ -264,27 +264,28 @@
         [poolCardsById]="poolCardsById()"
         [loading]="picksLoading()"
         [failed]="picksFailed()"
-        (playerChosen)="showPicks($event)"
       />
     </section>
 
-    <!-- Styled like the Board, which it opens from. -->
+    <!-- Only players have picks to export. -->
     <section
-      id="picks-panel"
-      class="board picks-panel"
+      id="export-panel"
+      class="export"
       role="tabpanel"
-      aria-labelledby="picks-heading"
-      [hidden]="tab() !== 'Picks'"
+      aria-labelledby="export-tab"
+      [hidden]="tab() !== 'Export'"
     >
-      <app-picks-tab
+      <h2>Export</h2>
+      <app-export-tab
         [platform]="draft.platform"
-        [player]="shownPlayer()"
-        [own]="ownPicks()"
+        [player]="ownPlayer()"
+        [plan]="plan()"
+        [planLoading]="planLoading()"
+        [planFailed]="planFailed()"
         [picks]="picks()"
         [poolCardsById]="poolCardsById()"
         [loading]="picksLoading()"
         [failed]="picksFailed()"
-        (boardChosen)="closePicks()"
       />
     </section>
   }
