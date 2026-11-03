@@ -1,4 +1,5 @@
 import type { PickView } from 'contract';
+import { frontFace } from './card-faces';
 import { countedLines } from './counted-lines';
 
 /** What an Arena export needs of a picked card. */
@@ -18,5 +19,5 @@ export function arenaExport(cards: ArenaExportCard[]): string {
  * a lone face of a split card is no card at all.
  */
 function arenaName({ name, layout }: ArenaExportCard): string {
-  return layout === 'split' || layout === null ? name : name.split(' // ')[0];
+  return layout === 'split' || layout === null ? name : frontFace(name);
 }

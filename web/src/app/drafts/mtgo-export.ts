@@ -1,11 +1,9 @@
 import type { PickView } from 'contract';
+import { FACE_SEPARATOR, frontFace } from './card-faces';
 import { countedLines } from './counted-lines';
 
 /** What an MTGO export needs of a picked card. */
 export type MtgoExportCard = Pick<PickView, 'name' | 'layout' | 'typeLine'>;
-
-/** Between the faces of a multi-face card's name, as Scryfall writes it. */
-const FACES = ' // ';
 
 /**
  * The cards in MTGO's deck import format: `1 Card Name` lines with no header,
@@ -23,9 +21,9 @@ export function mtgoExport(cards: MtgoExportCard[]): string {
  * all.
  */
 function mtgoName({ name, layout, typeLine }: MtgoExportCard): string {
-  if (layout === null || layout === 'meld') return name;
-  if (layout === 'split') return isRoom(typeLine) ? name : name.replaceAll(FACES, '/');
-  return name.split(FACES)[0];
+  if (layout === null) return name;
+  if (layout === 'split') return isRoom(typeLine) ? name : name.replaceAll(FACE_SEPARATOR, '/');
+  return frontFace(name);
 }
 
 function isRoom(typeLine: string): boolean {
