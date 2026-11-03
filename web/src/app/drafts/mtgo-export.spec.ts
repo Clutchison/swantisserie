@@ -36,6 +36,7 @@ describe('MTGO export', () => {
     ],
     ['modal_dfc', 'Valki, God of Lies // Tibalt, Cosmic Impostor', 'Valki, God of Lies'],
     ['adventure', 'Bonecrusher Giant // Stomp', 'Bonecrusher Giant'],
+    ['prepare', 'Emeritus of Abundance // Regrowth', 'Emeritus of Abundance'],
     ['flip', 'Akki Lavarunner // Tok-Tok, Volcano Born', 'Akki Lavarunner'],
     ['reversible_card', 'Magmatic Hellkite // Magmatic Hellkite', 'Magmatic Hellkite'],
   ])('names a %s card by its front face', (layout, name, expected) => {
@@ -43,9 +44,10 @@ describe('MTGO export', () => {
   });
 
   it.each([
-    ['split', 'Fire // Ice', 'Fire/Ice'],
-    ['aftermath', 'Commit // Memory', 'Commit/Memory'],
-  ])('names a %s card by both faces, joined by a slash', (_kind, name, expected) => {
+    // Scryfall lays out aftermath cards as split cards too.
+    ['Fire // Ice', 'Fire/Ice'],
+    ['Commit // Memory', 'Commit/Memory'],
+  ])('names split card %s by both faces, joined by a slash', (name, expected) => {
     expect(mtgoExport([card(name, 'split')])).toBe(`1 ${expected}`);
   });
 
