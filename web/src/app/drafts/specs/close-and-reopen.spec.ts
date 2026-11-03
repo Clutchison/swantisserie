@@ -161,6 +161,8 @@ describe('close and reopen', () => {
         cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
         lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       },
     });
 
@@ -180,6 +182,8 @@ describe('close and reopen', () => {
           cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
           lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
           cleared: [],
+          restKept: false,
+          stealBehavior: 'ClearQueue',
         },
       },
     );
@@ -205,6 +209,8 @@ describe('close and reopen', () => {
           cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
           lost: [],
           cleared: [],
+          restKept: false,
+          stealBehavior: 'ClearQueue',
         },
       },
     );

@@ -45,11 +45,15 @@ describe('queue', () => {
       ],
       lost: [],
       cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     });
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [spike, shock],
       lost: [],
       cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     });
   });
 
@@ -203,6 +207,8 @@ describe('queue', () => {
         cards: [],
         lost: [shock],
         cleared: [spike, bolt],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
       // The cards are still available, and it's for Bob to pick by hand.
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -226,6 +232,8 @@ describe('queue', () => {
         cards: [spike],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
 
@@ -252,11 +260,15 @@ describe('queue', () => {
         cards: [],
         lost: [bolt, spike],
         cleared: [shock, skewer],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
       expect((await queue(id).expect(200)).body).toEqual({
         cards: [],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
       const draft = JSON.stringify((await getDraft(id).expect(200)).body);
       expect(draft).not.toContain(ids['Skewer the Critics']);
@@ -284,6 +296,8 @@ describe('queue', () => {
         cards: [shock],
         lost: [bolt],
         cleared: [spike],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
       const removed = await remove(id, ids.Shock, carolCookie).expect(200);
       expect(removed.body.cleared).toEqual([spike]);
@@ -325,6 +339,8 @@ describe('queue', () => {
         cards: [],
         lost: [bolt],
         cleared: [shock],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
 
@@ -340,11 +356,19 @@ describe('queue', () => {
         cards: [],
         lost: [shock],
         cleared: [spike],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
 
       const dismissed = await dismissNotice(id, bobCookie).expect(200);
 
-      expect(dismissed.body).toEqual({ cards: [], lost: [], cleared: [] });
+      expect(dismissed.body).toEqual({
+        cards: [],
+        lost: [],
+        cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
+      });
     });
 
     it('clears a queue for a bot’s pick, too', async () => {
@@ -371,6 +395,8 @@ describe('queue', () => {
           cards: [],
           lost: [shock],
           cleared: [spike],
+          restKept: false,
+          stealBehavior: 'ClearQueue',
         });
       });
     });
@@ -415,6 +441,8 @@ describe('queue', () => {
         ],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
 
@@ -441,6 +469,8 @@ describe('queue', () => {
         cards: [{ poolCardId: second, name: 'Lightning Bolt' }],
         lost: [shock],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
 
@@ -477,6 +507,8 @@ describe('queue', () => {
           { poolCardId: second, name: 'Lightning Bolt' },
           { poolCardId: ids.Shock, name: 'Shock' },
         ],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
 
@@ -499,6 +531,8 @@ describe('queue', () => {
         cards: [],
         lost: [{ poolCardId: first, name: 'Lightning Bolt' }],
         cleared: [{ poolCardId: ids.Shock, name: 'Shock' }],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
   });

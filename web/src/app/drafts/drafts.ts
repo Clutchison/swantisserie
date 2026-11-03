@@ -21,4 +21,10 @@ export type DraftProblem =
   | { error: 'request-failed'; message: string };
 
 /** A queue with no cards in it, and none lost or cleared. */
-export const EMPTY_QUEUE: QueueView = { cards: [], lost: [], cleared: [] };
+export const EMPTY_QUEUE: QueueView = {
+  cards: [],
+  lost: [],
+  cleared: [],
+  restKept: false,
+  stealBehavior: 'ClearQueue',
+};

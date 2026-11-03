@@ -89,6 +89,8 @@ describe('undo', () => {
       ],
       lost: [],
       cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     });
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -138,6 +140,8 @@ describe('undo', () => {
         cards: [shock, bolt, spike],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
       expect(undone.body.turn.playerId).toBe(alice.id);
       expect(await pickLogLines(id)).toEqual([]);
@@ -194,6 +198,8 @@ describe('undo', () => {
         cards: [spike, skewer],
         lost: [bolt],
         cleared: [shock],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
 
       await undo(id, 1).expect(200);
@@ -202,6 +208,8 @@ describe('undo', () => {
         cards: [shock, bolt, spike, skewer],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
   });
@@ -228,6 +236,8 @@ describe('undo', () => {
         ],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
       // The picked copy is back in the pool.
       await pick(id, first).expect(200);
@@ -256,6 +266,8 @@ describe('undo', () => {
         ],
         lost: [],
         cleared: [],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
       });
     });
   });

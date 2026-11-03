@@ -4,6 +4,12 @@
  */
 export type Pool = ReadonlyMap<string, string>;
 
+/**
+ * What a lost card does to the rest of a player's queue: under clear queue
+ * the rest is cleared; under pick next it stays, in order.
+ */
+export type StealBehavior = 'ClearQueue' | 'PickNext';
+
 /** A pick: the seat that made it and the pool card it picked. */
 export interface SeatPick {
   /** 0-based index into the seat order. */
@@ -19,7 +25,8 @@ export interface QueueAfterPick {
   swapped?: string;
   /**
    * The cards taken out because the picked card was lost from this queue:
-   * the lost card and the cleared ones, in queue order. Empty otherwise.
+   * the lost card and, under clear queue, the cleared ones, in queue order.
+   * Empty otherwise.
    */
   unqueued: string[];
 }
@@ -29,13 +36,23 @@ export interface QueueAfterPick {
  * indexed by seat. The picked card leaves the picker's queue. In each other
  * queue holding it, it is swapped, in the same place, for the first copy in
  * `pool` that is not `picked` and that the queue doesn't hold; with no such
- * copy, it is lost and the rest of that queue cleared. `picked` is the cards
- * picked already, with or without this one. Cards are pool card ids.
+ * copy, it is lost, and the rest of that queue is cleared or kept as the
+ * seat's entry in `stealBehaviors` says: clear queue for a seat it omits.
+ * `picked` is the cards picked already, with or without this one. Cards are
+ * pool card ids.
  */
 export function queuesAfterPick(
   pick: SeatPick,
   queues: readonly (readonly string[])[],
-  { pool, picked }: { pool: Pool; picked: readonly string[] },
+  {
+    pool,
+    picked,
+    stealBehaviors = [],
+  }: {
+    pool: Pool;
+    picked: readonly string[];
+    stealBehaviors?: readonly StealBehavior[];
+  },
 ): QueueAfterPick[] {
   const taken = new Set([...picked, pick.card]);
   const oracleId = pool.get(pick.card);
@@ -54,7 +71,11 @@ export function queuesAfterPick(
     const at = queue.indexOf(pick.card);
     if (at === -1) return { queue: [...queue], unqueued: [] };
     const copy = copies.find((card) => !queue.includes(card));
-    if (copy === undefined) return { queue: [], unqueued: [...queue] };
+    if (copy === undefined) {
+      return stealBehaviors[seat] === 'PickNext'
+        ? { queue: queue.toSpliced(at, 1), unqueued: [pick.card] }
+        : { queue: [], unqueued: [...queue] };
+    }
     return { queue: queue.with(at, copy), swapped: copy, unqueued: [] };
   });
 }

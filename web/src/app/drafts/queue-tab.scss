@@ -105,3 +105,25 @@
 .empty app-loading-animation {
   flex: 1;
 }
+
+/* What a lost card does to the rest of the queue. */
+.steal-behavior {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: var(--space-lg) 0 0;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: var(--space-xs);
+    padding: 0;
+    font-weight: 600;
+  }
+
+  .choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+}

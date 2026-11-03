@@ -79,4 +79,22 @@ describe('queuesAfterPick', () => {
       { queue: [], unqueued: ['bolt-2', 'bolt-1'] },
     ]);
   });
+
+  it('under pick next, loses only the card from another queue, keeping the rest in order', () => {
+    expect(
+      queuesAfterPick(
+        { seat: 0, card: 'bolt-1' },
+        [[], ['spike', 'bolt-1', 'shock'], ['bolt-1', 'spike']],
+        {
+          pool,
+          picked: ['bolt-2'],
+          stealBehaviors: ['ClearQueue', 'PickNext', 'ClearQueue'],
+        },
+      ),
+    ).toEqual([
+      { queue: [], unqueued: [] },
+      { queue: ['spike', 'shock'], unqueued: ['bolt-1'] },
+      { queue: [], unqueued: ['bolt-1', 'spike'] },
+    ]);
+  });
 });

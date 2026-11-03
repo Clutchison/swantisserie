@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { QueuedCardView, QueueRefusal, QueueView } from 'contract';
+import type {
+  QueuedCardView,
+  QueueRefusal,
+  QueueView,
+  StealBehavior,
+} from 'contract';
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -25,7 +30,10 @@ export class QueueRefusedError extends Error {
   }
 }
 
-/** Players' queues: the cards each wants picked for them, in order. */
+/**
+ * Players' queues: the cards each wants picked for them, in order, and their
+ * steal behavior.
+ */
 @Injectable()
 export class QueuesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -38,6 +46,31 @@ export class QueuesService {
     });
     if (!player) throw new NotAPlayerError();
     return this.read(this.prisma, player.id);
+  }
+
+  /**
+   * Sets the user's steal behavior in the draft, for cards lost from now on:
+   * the queue and its notice stay as they are. It can be set on the player's
+   * own turn. Throws QueueRefusedError once the draft is closed or complete,
+   * and NotAPlayerError if the user isn't in the draft.
+   */
+  async setStealBehavior(
+    draftId: string,
+    userId: string,
+    stealBehavior: StealBehavior,
+  ): Promise<QueueView> {
+    return this.change(draftId, userId, async (tx, playerId, state) => {
+      if (state === 'Complete') {
+        throw new QueueRefusedError({
+          error: 'draft-complete',
+          message: 'This draft is complete.',
+        });
+      }
+      await tx.player.update({
+        where: { id: playerId },
+        data: { stealBehavior },
+      });
+    });
   }
 
   /**
@@ -223,6 +256,10 @@ export class QueuesService {
   }
 
   private async read(tx: Transaction, playerId: string): Promise<QueueView> {
+    const { stealBehavior } = await tx.player.findUniqueOrThrow({
+      where: { id: playerId },
+      select: { stealBehavior: true },
+    });
     const cards = await tx.queuedCard.findMany({
       where: { playerId },
       orderBy: { position: 'asc' },
@@ -233,16 +270,20 @@ export class QueuesService {
       orderBy: [{ pick: { number: 'asc' } }, { position: 'asc' }],
       select: {
         poolCardId: true,
+        restKept: true,
         pick: { select: { poolCardId: true } },
         poolCard: { select: { name: true } },
       },
     });
     const isLost = (card: (typeof listed)[number]) =>
       card.poolCardId === card.pick.poolCardId;
+    const lost = listed.filter(isLost);
     return {
       cards: cards.map(toQueuedCardView),
-      lost: listed.filter(isLost).map(toQueuedCardView),
+      lost: lost.map(toQueuedCardView),
       cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
+      restKept: lost.at(-1)?.restKept ?? false,
+      stealBehavior,
     };
   }
 }

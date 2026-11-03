@@ -141,6 +141,7 @@ export class TurnsService {
       orderBy: SEAT_ORDER,
       select: {
         userId: true,
+        stealBehavior: true,
         user: { select: { isBot: true } },
         queue: {
           orderBy: { position: 'asc' },
@@ -157,6 +158,7 @@ export class TurnsService {
           : player.queue.map((queued) => queued.poolCardId),
       ),
       pool,
+      players.map((player) => player.stealBehavior),
     );
     const events: DraftEvent[] = [];
     for (const { seat, card } of picks) {

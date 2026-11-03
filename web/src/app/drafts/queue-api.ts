@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type { QueueView } from 'contract';
+import type { QueueView, StealBehavior } from 'contract';
 import { isRefusal } from './drafts';
 
 /** Changes to the signed-in player's queue, each answered with the queue as it now is. */
@@ -20,6 +20,11 @@ export class QueueApi {
   /** Puts the queue's cards in this order, as their pool card ids. */
   reorder(draftId: string, poolCardIds: string[]): Observable<QueueView> {
     return this.http.put<QueueView>(url(draftId), { poolCardIds });
+  }
+
+  /** Sets what a card lost from the queue from now on does to the rest of it. */
+  setStealBehavior(draftId: string, stealBehavior: StealBehavior): Observable<QueueView> {
+    return this.http.put<QueueView>(`${url(draftId)}/steal-behavior`, { stealBehavior });
   }
 
   /** Stops the notice listing the lost and cleared cards. */

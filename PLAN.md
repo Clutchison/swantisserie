@@ -49,12 +49,16 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 - On your turn, the first card in your queue that is still available is picked for you.
 - **Cascade:** if the next player also has a valid queued card, theirs fires too, and so on.
 - If nothing in your queue is available, it stops and waits for you. It never picks randomly.
-- When someone else picks a card in your queue, by hand, from their queue or as a bot, that card is **lost** and the rest of your queue is **cleared**, even mid-cascade, so a stale plan never fires. Your own pick just leaves your queue. The Queue tab notice names the lost and cleared cards, building up until dismissed. Cleared cards are still available and can be queued again. Clearing is private: it adds no announcement or ping.
+- When someone else picks a card in your queue, by hand, from their queue or as a bot, and no other copy is available for it, that card is **lost**. What happens to the rest of your queue is your **steal behavior** for that draft:
+  - **Clear queue** (the default): the rest of your queue is **cleared**, even mid-cascade, so a stale plan never fires. Cleared cards are still available and can be queued again.
+  - **Pick next**: only the lost card leaves; the rest keeps its order, and on your turn your next available queued card is picked as usual, even in the same cascade.
+- You set your steal behavior with a toggle on the Queue tab, in the lobby or while the draft is drafting or paused, including on your own turn; it's locked once the draft is closed or complete. Like the queue, it's private. Changing it affects only cards lost afterwards.
+- Your own pick just leaves your queue. The Queue tab notice names the lost and cleared cards, building up until dismissed; under pick next it also says the rest of your queue is still queued. Losing and clearing are private: they add no announcement or ping.
 - You **can't add to your queue on your own turn**, drafting or paused: that pick is made by hand, including the second of two turns in a row at a snake round boundary. You can add in the lobby and whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
 ### Organizer tools
 
-- **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Any queue that pick cleared is restored in its original order, lost card included and even if the notice was dismissed, followed by anything queued since. Undo never triggers queued picks; queues fire only on the next real pick.
+- **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo restores what that pick took out of each queue, whatever the steal behavior is now, even if the notice was dismissed: a card lost under pick next goes back in its place; a queue cleared under clear queue comes back in its original order, lost card included, followed by anything queued since. Undo never triggers queued picks; queues fire only on the next real pick.
 - **Pause / resume.**
 
 ### Live updates
@@ -154,7 +158,7 @@ Copy to clipboard, for any player's picks (all picks; no deckbuilding in the app
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, guild setup and guild settings (guild admins), webhooks (app admins and guild admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
   - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, and **Add to queue** off your turn or **Remove from queue** for a queued card
-  - **Queue:** drag to reorder, lost and cleared cards named in a notice
+  - **Queue:** drag to reorder, lost and cleared cards named in a notice, and the steal behavior toggle
   - **Board:** every player's picks and the pick log
   - **Me:** my picks and export buttons
 

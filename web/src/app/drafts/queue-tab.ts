@@ -15,7 +15,7 @@ import {
   signal,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import type { DraftState, PoolCardView, QueueView } from 'contract';
+import type { DraftState, PoolCardView, QueueView, StealBehavior } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { isActive } from './drafts';
@@ -24,7 +24,10 @@ import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
-/** The draft view's Queue tab: the signed-in player's queue, which they reorder and prune. */
+/**
+ * The draft view's Queue tab: the signed-in player's queue, which they
+ * reorder and prune, and their steal behavior.
+ */
 @Component({
   selector: 'app-queue-tab',
   imports: [
@@ -63,6 +66,11 @@ export class QueueTab {
   protected readonly changing = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  /** Whether the notice should say the rest of the queue was kept after its latest loss. */
+  protected readonly showRestKept = computed(
+    () => this.queue().restKept && this.queue().cards.length > 0,
+  );
+
   /** Whether there are lost or cleared cards to note. */
   protected readonly hasNotice = computed(
     () => this.queue().lost.length > 0 || this.queue().cleared.length > 0,
@@ -89,6 +97,12 @@ export class QueueTab {
 
   protected remove(poolCardId: string) {
     return this.change(this.queueApi.remove(this.draftId(), poolCardId));
+  }
+
+  /** Sets the steal behavior, showing it chosen at once. */
+  protected setStealBehavior(stealBehavior: StealBehavior) {
+    this.queueChanged.emit({ ...this.queue(), stealBehavior });
+    return this.change(this.queueApi.setStealBehavior(this.draftId(), stealBehavior));
   }
 
   /** Stops the notice listing the lost and cleared cards. */

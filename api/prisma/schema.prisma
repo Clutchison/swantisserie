@@ -92,6 +92,12 @@ enum Platform {
   MTGO
 }
 
+/// What a lost card does to the rest of a player's queue: ClearQueue clears it; PickNext keeps it, in order.
+enum StealBehavior {
+  ClearQueue
+  PickNext
+}
+
 /// Progress of the pool snapshot: copying the pool's cards from Scryfall. A cube link's is Complete from creation.
 enum PoolSnapshotState {
   Running
@@ -101,9 +107,9 @@ enum PoolSnapshotState {
 
 /// One copy of a card in a draft's pool, as snapshotted from Scryfall. A pool can hold several copies of the same card.
 model PoolCard {
-  id              String       @id @default(uuid())
+  id              String         @id @default(uuid())
   draftId         String
-  draft           Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft           Draft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Scryfall id of the printing on the draft's platform.
   scryfallId      String
   /// Identity shared by every printing of the card, and by every copy of it in the pool. A pool card is named by its own id, not this.
@@ -118,8 +124,8 @@ model PoolCard {
   manaCost        String?
   /// Null when the faces carry it.
   oracleText      String?
-  colorIdentity   String[]     @default([])
-  keywords        String[]     @default([])
+  colorIdentity   String[]       @default([])
+  keywords        String[]       @default([])
   /// How the card's faces are laid out, as Scryfall names it: normal, split, transform, adventure etc. Null only on a card snapshotted before layout was stored, until it is backfilled.
   layout          String?
   /// common, uncommon, rare, special, mythic or bonus. Null only on a card snapshotted before rarity was stored, until it is backfilled.
@@ -142,18 +148,20 @@ model PoolCard {
 
 /// A guild member or bot who has joined a draft.
 model Player {
-  id       String       @id @default(uuid())
-  draftId  String
-  draft    Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  userId   String
-  user     User         @relation(fields: [userId], references: [id])
-  joinedAt DateTime     @default(now())
+  id            String         @id @default(uuid())
+  draftId       String
+  draft         Draft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  joinedAt      DateTime       @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
-  seat     Int?
-  picks    Pick[]
+  seat          Int?
+  picks         Pick[]
   /// Bots have none.
-  queue    QueuedCard[]
-  unqueued UnqueuedCard[]
+  queue         QueuedCard[]
+  unqueued      UnqueuedCard[]
+  /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
+  stealBehavior StealBehavior  @default(ClearQueue)
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -161,17 +169,17 @@ model Player {
 
 /// One card taken by one player on their turn.
 model Pick {
-  id         String   @id @default(uuid())
+  id         String         @id @default(uuid())
   draftId    String
-  draft      Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft      Draft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// 1-based, counting every pick in the draft.
   number     Int
   playerId   String
-  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player     Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
   /// Unique: each pool card can be picked once.
-  poolCardId String   @unique
-  poolCard   PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  poolCardId String         @unique
+  poolCard   PoolCard       @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
   /// What undoing this pick puts back into queues.
   unqueued   UnqueuedCard[]
 
@@ -206,6 +214,8 @@ model UnqueuedCard {
   position     Int
   /// Whether the Queue tab notice has stopped listing it: it was dismissed, or the card was queued again.
   noticeHidden Boolean  @default(false)
+  /// Whether anything else stayed queued when this card was lost, as under pick next; false under clear queue, for a cleared card, and for the last card left in a queue.
+  restKept     Boolean  @default(false)
 
   @@unique([pickId, playerId, poolCardId])
   @@index([playerId])

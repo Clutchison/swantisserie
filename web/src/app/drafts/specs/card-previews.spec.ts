@@ -360,6 +360,8 @@ describe('card previews', () => {
       cards: [{ poolCardId: shock.id, name: shock.name }],
       lost: [{ poolCardId: bolt.id, name: bolt.name }],
       cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
     };
 
     async function openQueue() {
