@@ -72,10 +72,14 @@ app-card-name {
   gap: var(--space-xs);
 }
 
-/* The buttons wrap under the name where the panel is too narrow for both. */
+/*
+ * Where the panel is too narrow for all three buttons beside the name, only
+ * Remove stays, and cards are reordered by dragging the handle. Not displayed,
+ * Move up and Move down take no keyboard or screen-reader focus.
+ */
 @container (width < 26rem) {
-  .move {
-    grid-column: name / -1;
+  .reorder {
+    display: none;
   }
 }
 

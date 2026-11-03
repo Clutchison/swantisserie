@@ -84,7 +84,7 @@
         <span class="move">
           @let upName = 'Move ' + card.name + ' up';
           <button
-            class="icon"
+            class="icon reorder"
             type="button"
             [attr.aria-label]="upName"
             [title]="upName"
@@ -95,7 +95,7 @@
           </button>
           @let downName = 'Move ' + card.name + ' down';
           <button
-            class="icon"
+            class="icon reorder"
             type="button"
             [attr.aria-label]="downName"
             [title]="downName"
