@@ -75,7 +75,7 @@ One copy of a card in a pool, with the printing on the platform that the snapsho
 _Avoid_: Card entry, catalog card
 
 **Card preview**:
-A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name, or next to its tile on the Pool tab when a viewer rests the mouse on the tile.
+A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name, or next to its card on the Pool tab or in stacks mode when a viewer rests the mouse on the card.
 _Avoid_: Tooltip, hover card
 
 **Mana cost**:
