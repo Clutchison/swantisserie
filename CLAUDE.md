@@ -33,4 +33,6 @@ When `/triage` is called, before starting work: switch to `main` and pull it up 
 
 ### Implementing a ticket
 
-When `/implement` is called on a ticket, before starting work: switch to `main`, pull it up to date (`git pull --ff-only`), then create and check out a branch named `ST-<NUM>`, where `<NUM>` is the ticket's issue number (e.g. `ST-56` for #56). If the working tree is dirty, stop and ask instead. Then implement as normal.
+When `/implement` is called on a ticket, before starting work: switch to `main`, pull it up to date (`git pull --ff-only`), then create and check out a branch named `ST-<NUM>`, where `<NUM>` is the ticket's issue number (e.g. `ST-56` for #56). If the working tree is dirty, stop and ask instead.
+
+Fetch the ticket with its comments (`gh issue view <NUM> --json number,title,body,labels,comments`) and read the body and every comment before planning or touching code. Comments can narrow, amend or override the body; where they conflict, the latest comment wins. If a comment leaves the scope unclear, ask. Then implement as normal.
