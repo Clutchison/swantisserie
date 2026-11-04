@@ -57,21 +57,28 @@ describe('shutting down', () => {
       );
     });
 
+    /** A post that takes 100 ms, and whether it has finished. */
+    function slowPost() {
+      const post = { finished: false };
+      const send = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        post.finished = true;
+      };
+      return { post, send };
+    }
+
     it('finishes an announcement still being retried', async () => {
       const errors = vi.spyOn(Logger.prototype, 'error');
-      let posted = false;
+      const { post, send } = slowPost();
       webhookClient.post
         .mockRejectedValueOnce(new Error('Discord is down'))
-        .mockImplementationOnce(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          posted = true;
-        });
+        .mockImplementationOnce(send);
       await start(id).expect(200);
       await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
 
       await app.close();
 
-      expect(posted).toBe(true);
+      expect(post.finished).toBe(true);
       expect(webhookClient.post).toHaveBeenCalledTimes(2);
       expect(errors).not.toHaveBeenCalled();
     });
@@ -83,11 +90,8 @@ describe('shutting down', () => {
       await vi.waitFor(() =>
         expect(webhookClient.post).toHaveBeenCalledTimes(1),
       );
-      let posted = false;
-      webhookClient.post.mockImplementationOnce(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        posted = true;
-      });
+      const { post, send } = slowPost();
+      webhookClient.post.mockImplementationOnce(send);
       slowDownDatabase(50);
 
       // `then` sends the request now, rather than when it is awaited.
@@ -96,7 +100,7 @@ describe('shutting down', () => {
       await app.close();
 
       expect((await picked).status).toBe(200);
-      expect(posted).toBe(true);
+      expect(post.finished).toBe(true);
       expect(webhookClient.post).toHaveBeenCalledTimes(2);
       expect(webhookClient.post).toHaveBeenLastCalledWith(
         webhookUrl,
