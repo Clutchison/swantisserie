@@ -26,10 +26,14 @@ export interface WebhookMessage {
   allowed_mentions: { parse: []; users: string[] };
 }
 
+/** The most characters of `content` Discord takes in one webhook post. */
+export const MAX_CONTENT_LENGTH = 2000;
+
 /**
- * One message per announcement `events` make: a run of picks, such as a
- * pick and the cascade after it, is one message, and so is a start, a resume
- * or a reopen and the cascade after it.
+ * The messages to post, in order, for the announcements `events` make: a run
+ * of picks, such as a pick and the cascade after it, is one announcement, and
+ * so is a start, a resume or a reopen and the cascade after it. Each
+ * announcement is one message, or several if it is too long for one post.
  */
 export function draftMessages(
   draft: AnnouncedDraft,
@@ -74,7 +78,34 @@ export function draftMessages(
         break;
     }
   }
-  return messages;
+  return messages.flatMap(splitMessage);
+}
+
+/**
+ * `message` as few posts as Discord takes, broken only between lines. The up
+ * line, if any, is the last line, so only the last post names who is up, and
+ * only it pings.
+ */
+function splitMessage(message: WebhookMessage): WebhookMessage[] {
+  // UTF-16 length is never less than what Discord counts.
+  if (message.content.length <= MAX_CONTENT_LENGTH) return [message];
+  const posts: string[] = [];
+  for (const line of message.content.split('\n')) {
+    const last = posts.length - 1;
+    if (
+      last >= 0 &&
+      posts[last].length + 1 + line.length <= MAX_CONTENT_LENGTH
+    ) {
+      posts[last] += `\n${line}`;
+    } else {
+      posts.push(line);
+    }
+  }
+  return posts.map((content, i) =>
+    i === posts.length - 1
+      ? { ...message, content }
+      : { content, allowed_mentions: { parse: [], users: [] } },
+  );
 }
 
 /**
