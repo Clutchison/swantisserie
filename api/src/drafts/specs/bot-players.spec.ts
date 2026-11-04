@@ -410,12 +410,13 @@ describe('bot players', () => {
       // The bot's second pick fails, but only once released.
       let release!: () => void;
       const released = new Promise<void>((resolve) => (release = resolve));
-      const botPick = TurnsService.prototype.botPick;
+      const turns = app.get(TurnsService);
+      const botPick = turns.botPick.bind(turns);
       let calls = 0;
       const attempts = vi
-        .spyOn(TurnsService.prototype, 'botPick')
-        .mockImplementation(async function (this: TurnsService, turn) {
-          if (++calls !== 2) return botPick.call(this, turn);
+        .spyOn(turns, 'botPick')
+        .mockImplementation(async (turn) => {
+          if (++calls !== 2) return botPick(turn);
           await released;
           throw dropped;
         });
