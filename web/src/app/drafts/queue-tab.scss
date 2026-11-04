@@ -76,9 +76,12 @@ app-card-name {
  * Where the panel is too narrow for all three buttons beside the name, only
  * Remove stays, and cards are reordered by dragging the handle. Not displayed,
  * Move up and Move down take no keyboard or screen-reader focus.
+ *
+ * Scoped to .move so these rules outrank .icon's display wherever .icon sits
+ * in this file: container and media queries add no specificity.
  */
 @container (width < 26rem) {
-  .reorder {
+  .move .reorder {
     display: none;
   }
 }
@@ -89,7 +92,7 @@ app-card-name {
  * trackpad keeps the buttons.
  */
 @media (pointer: coarse) {
-  .reorder {
+  .move .reorder {
     display: none;
   }
 }
