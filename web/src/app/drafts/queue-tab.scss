@@ -83,6 +83,17 @@ app-card-name {
   }
 }
 
+/*
+ * The same at any width where the primary pointer is touch, since dragging the
+ * handle reorders by touch there. A touchscreen laptop used mainly with its
+ * trackpad keeps the buttons.
+ */
+@media (pointer: coarse) {
+  .reorder {
+    display: none;
+  }
+}
+
 .icon {
   display: inline-flex;
   justify-content: center;
