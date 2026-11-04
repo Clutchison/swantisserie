@@ -9,6 +9,7 @@ import { avatarUrl } from '../auth/avatar-url.js';
 import { cubeUrl } from '../cubecobra/cubecobra-client.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
 import { draftSize } from './draft-shapes.js';
+import { UNEXPECTED_SNAPSHOT_FAILURE } from './pool-snapshot.service.js';
 
 /** The draft as viewers see it: never its webhook's URL. */
 export function toDraftView(draft: DraftWithOrganizer): DraftView {
@@ -65,12 +66,12 @@ function toSnapshotView(draft: DraftWithOrganizer): PoolSnapshotView {
       // are the pool, should an older one not have.
       return { state: 'Complete', cards, total: total ?? cards };
     case 'Failed':
-      if (draft.snapshotError === null) {
-        throw new Error(
-          `Draft ${draft.id}'s pool snapshot failed with no error.`,
-        );
-      }
-      return { state: 'Failed', cards, total, error: draft.snapshotError };
+      return {
+        state: 'Failed',
+        cards,
+        total,
+        error: draft.snapshotError ?? UNEXPECTED_SNAPSHOT_FAILURE,
+      };
   }
 }
 

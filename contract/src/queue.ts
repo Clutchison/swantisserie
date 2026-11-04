@@ -5,7 +5,7 @@ export interface QueuedCardView {
 }
 
 /** What every queue view shows, whether or not a card was lost. */
-interface QueueFields {
+interface QueueBase {
   /** In the order they are to be picked. */
   cards: QueuedCardView[];
   /**
@@ -21,7 +21,7 @@ interface QueueFields {
  * The signed-in player's queue and steal behavior, which only they may see.
  * Only a lost card can have left the rest of the queue kept.
  */
-export type QueueView = QueueFields &
+export type QueueView = QueueBase &
   (
     | { lost: []; restKept: false }
     | {

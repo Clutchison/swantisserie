@@ -194,6 +194,10 @@ export class PoolSnapshotService
   }
 }
 
+/** What the organizer is told of a failure with no explanation of its own. */
+export const UNEXPECTED_SNAPSHOT_FAILURE =
+  'Snapshotting the pool failed unexpectedly.';
+
 /** A failure's explanation, fit to show the organizer. */
 function explain(err: unknown): string {
   if (err instanceof PoolSnapshotError || err instanceof NoOracleIdError) {
@@ -205,5 +209,5 @@ function explain(err: unknown): string {
   if (err instanceof ScryfallUnavailableError) {
     return 'Scryfall could not be reached.';
   }
-  return 'Snapshotting the pool failed unexpectedly.';
+  return UNEXPECTED_SNAPSHOT_FAILURE;
 }
