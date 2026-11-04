@@ -25,6 +25,7 @@ import {
   getDraft,
   poolCardIds,
   copyIds,
+  waitForBotPicks,
 } from './harness.js';
 
 useDraftsApp();
@@ -246,7 +247,7 @@ describe('unpicked cards in a plan', () => {
     // Carol's pick 1 cascades Alice's queued pick 2; the bot then picks 3 and 4, the first available by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
-    await vi.waitFor(async () => {
+    await waitForBotPicks(2, async () => {
       const draft = (await getDraft(id).expect(200)).body as DraftView;
       expect(draft.turn?.pick).toBe(5);
     });

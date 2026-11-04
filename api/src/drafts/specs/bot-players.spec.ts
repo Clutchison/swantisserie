@@ -8,6 +8,8 @@ import {
   aliceCookie,
   webhookClient,
   useDraftsApp,
+  slowDownDatabase,
+  waitForBotPicks,
   startApp,
   signIn,
   signInAlice,
@@ -62,9 +64,12 @@ describe('bot players', () => {
     return { id, botIds: draft.players.slice(1).map((player) => player.id) };
   }
 
-  /** The draft once its turn is pick `number`. */
+  /**
+   * The draft once its turn is pick `number`, allowing time for every pick
+   * before it to be a bot's.
+   */
   function atPick(id: string, number: number) {
-    return vi.waitFor(async () => {
+    return waitForBotPicks(number - 1, async () => {
       const draft = (await getDraft(id).expect(200)).body as DraftView;
       expect(draft.turn?.pick).toBe(number);
       return draft;
@@ -82,6 +87,9 @@ describe('bot players', () => {
   it('has bots pick available cards on their turns until it is yours, through to the end', async () => {
     const { id, botIds } = await draftWithBots(3, 2);
     await start(id).expect(200);
+    // Slow enough that a 1 s wait for all six bot picks, as before #291,
+    // fails, as it did on CI under load.
+    slowDownDatabase(5);
 
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
@@ -134,7 +142,7 @@ describe('bot players', () => {
 
     await pick(id, (await poolCardIds(id)).Fireblast).expect(200);
 
-    await vi.waitFor(async () => {
+    await waitForBotPicks(1, async () => {
       expect(
         (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
       ).toEqual(['Fireblast', 'Shock']);
@@ -155,7 +163,7 @@ describe('bot players', () => {
 
     await pick(id, first).expect(200);
 
-    await vi.waitFor(async () => {
+    await waitForBotPicks(1, async () => {
       expect(
         (await pickLog(id)).body.map(
           (logged: { poolCardId: string }) => logged.poolCardId,
@@ -217,7 +225,7 @@ describe('bot players', () => {
       .set('Cookie', aliceCookie)
       .expect(200);
 
-    await vi.waitFor(async () => {
+    await waitForBotPicks(1, async () => {
       expect(
         (await pickLog(id)).body.map(
           (logged: { playerId: string }) => logged.playerId,
@@ -247,7 +255,7 @@ describe('bot players', () => {
       .set('Cookie', aliceCookie)
       .expect(200);
 
-    await vi.waitFor(async () => {
+    await waitForBotPicks(1, async () => {
       expect(
         (await pickLog(id)).body.map(
           (logged: { playerId: string }) => logged.playerId,
@@ -289,7 +297,7 @@ describe('bot players', () => {
 
     await startApp();
 
-    await vi.waitFor(async () => {
+    await waitForBotPicks(1, async () => {
       expect(
         (await pickLog(id)).body.map(
           (logged: { playerId: string }) => logged.playerId,
@@ -313,7 +321,7 @@ describe('bot players', () => {
 
       await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
-      const messages = await vi.waitFor(() => {
+      const messages = await waitForBotPicks(2, () => {
         expect(webhookClient.post).toHaveBeenCalledTimes(4);
         return webhookClient.post.mock.calls.map(([, message]) => message);
       });
