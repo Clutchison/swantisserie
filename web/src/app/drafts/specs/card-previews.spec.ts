@@ -428,7 +428,6 @@ describe('card previews', () => {
   describe('in the plan', () => {
     it('shows on plan rows', async () => {
       const { page, fixture } = await openPicked({
-        user: { ...alice, isAppAdmin: true },
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
           sideboard: [],
@@ -446,7 +445,6 @@ describe('card previews', () => {
     /** Opens the Plan tab with Lightning Bolt on the mainboard, Shock on the sideboard, and Bolt lost. */
     async function openPlan() {
       const opened = await openPicked({
-        user: { ...alice, isAppAdmin: true },
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
           sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
@@ -498,7 +496,6 @@ describe('card previews', () => {
 
     it('shows on a basic land, though it isn’t a pool card', async () => {
       const { page, fixture } = await openPicked({
-        user: { ...alice, isAppAdmin: true },
         plan: {
           mainboard: [],
           sideboard: [],

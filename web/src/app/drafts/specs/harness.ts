@@ -192,9 +192,8 @@ export const panel = (root: HTMLElement) =>
 /**
  * Opens draft-1's page with the first GET answered by `snapshot`, its pool
  * cards by `cards` once the snapshot is complete, and its picks by
- * `picks` once the draft has started, and their queue by `queue` if
- * they are a player, and their plan by `plan` if they are also an app
- * admin, signed in as `user`.
+ * `picks` once the draft has started, and their queue by `queue` and
+ * plan by `plan` if they are a player, signed in as `user`.
  *
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
  * `fixture.whenStable()` resolves, as it arrives through a promise: assert
@@ -227,11 +226,19 @@ export async function openDraft(
   if (snapshot.state === 'Complete') await flushPool(cards);
   if (opened.state !== 'Lobby') await flushPicks(picks);
   if (opened.players.some((player) => player.id === user.id)) {
-    await flushQueue(queue);
-    if (user.isAppAdmin) await flushPlan(plan);
+    await flushQueueAndPlan(queue, plan);
   }
   await fixture.whenStable();
   return { fixture, page };
+}
+
+/**
+ * Answers the page's GETs of the signed-in player's queue and plan, which it
+ * makes on opening a draft they play in and again on every version change.
+ */
+export async function flushQueueAndPlan(queue = EMPTY_QUEUE, plan = EMPTY_PLAN) {
+  await flushQueue(queue);
+  await flushPlan(plan);
 }
 
 /** Answers the page's GET of the signed-in player's plan with `plan`. */

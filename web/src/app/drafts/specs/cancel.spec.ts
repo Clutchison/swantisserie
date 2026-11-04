@@ -1,5 +1,4 @@
 import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -11,7 +10,7 @@ import {
   bob,
   alicePlayer,
   openDraft,
-  flushQueue,
+  flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
   button,
@@ -102,7 +101,7 @@ describe('cancel', () => {
       }),
     );
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain('This draft has started.');

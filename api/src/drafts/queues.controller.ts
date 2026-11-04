@@ -14,7 +14,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { QueueRefusal, QueueView, StealBehavior } from 'contract';
-import { AdminGuard } from '../auth/admin.guard.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -64,13 +63,9 @@ export class QueuesController {
   /**
    * Adds the plan's unpicked cards to the end of the queue: the
    * mainboard's, and the sideboard's if asked.
-   *
-   * Gate: until every ticket under #171 is done, only app admins can use
-   * plans.
    */
   @Post('unpicked')
   @HttpCode(200)
-  @UseGuards(AdminGuard)
   async addUnpicked(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,

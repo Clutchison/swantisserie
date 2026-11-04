@@ -159,19 +159,14 @@ export class DraftPage {
   protected readonly queued = computed(
     () => new Set(this.queue().cards.map((card) => card.poolCardId)),
   );
-  /**
-   * Gate: until every ticket under #171 is done, only app admins can use
-   * plans. The Plan tab doesn't appear for anyone else.
-   */
-  protected readonly offerPlan = computed(() => !!this.user()?.isAppAdmin);
   /** Players may add unpicked cards to their plans, or remove them, while the draft is active, their own turn included. */
   protected readonly offerPlanChange = computed(() => {
     const draft = this.draft();
-    return this.offerPlan() && this.joined() && !!draft && isActive(draft.state);
+    return this.joined() && !!draft && isActive(draft.state);
   });
   /** Only players have a plan. Both the Pool and Plan tabs show it, and change it. */
   protected readonly planResource = httpResource<PlanView>(() =>
-    this.joined() && this.offerPlan() ? `/api/drafts/${this.id()}/plan` : undefined,
+    this.joined() ? `/api/drafts/${this.id()}/plan` : undefined,
   );
   protected readonly plan = computed<PlanView>(() =>
     this.planResource.hasValue() ? this.planResource.value() : EMPTY_PLAN,

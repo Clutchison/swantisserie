@@ -14,4 +14,4 @@ The plan is kept separate from the queue: it never picks anything, and the queue
 
 - Plans are private forever, including from organizers and app admins, the same as queues.
 - A player's exports carry mainboard and sideboard sections. Other players' picks are seen only on the Board tab and are no longer exported.
-- Until every ticket under #171 is done, only app admins can use plans.
+- Only app admins could use plans while the tickets under #171 were built; #246 opened them to every player.

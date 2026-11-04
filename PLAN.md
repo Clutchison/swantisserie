@@ -58,7 +58,7 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 
 ### Plan
 
-Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171). Only app admins can use it, in the UI and the API, until every ticket under #171 is done.
+Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171).
 
 - Each player has a **private plan** for each draft: a **mainboard** and a **sideboard**. It is private forever, including from organizers and app admins.
 - Every pick lands on the mainboard and can move to the sideboard; a pick can't leave the plan.

@@ -1,5 +1,4 @@
 import type { PickView, UndoRefusal } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -8,7 +7,7 @@ import {
   bob,
   alicePlayer,
   openDraft,
-  flushQueue,
+  flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
 } from './harness';
@@ -56,7 +55,7 @@ describe('undo', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(draft({ ...drafting, turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 }));
     await flushPicks(picks.slice(0, 1));
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).toContain('Your turn: pick 2, round 1');
@@ -88,7 +87,7 @@ describe('undo', () => {
         collectorNumber: '1',
       },
     ]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);

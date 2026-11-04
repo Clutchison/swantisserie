@@ -29,7 +29,6 @@ import {
 
 useDraftsApp();
 
-/** Plans are only open to app admins for now, and Carol is one. */
 describe('unpicked cards in a plan', () => {
   let carolCookie: string;
 
@@ -83,8 +82,9 @@ describe('unpicked cards in a plan', () => {
     });
     await addToPlan(id, 'no-such-card', carolCookie).expect(404);
     await addToPlan(id, undefined, carolCookie).expect(400);
-    // Alice's plan would hold Lightning Bolt, but she isn't an app admin.
-    await addToPlan(id, first, aliceCookie).expect(403);
+    // Alice isn't an app admin, and her plan is her own.
+    const alicesPlan = await addToPlan(id, first, aliceCookie).expect(200);
+    expect(alicesPlan.body.mainboard).toEqual([bolt(first)]);
   });
 
   it('makes an unpicked card the pick when its player picks it, on its board, and undo returns it to unpicked', async () => {
@@ -408,8 +408,17 @@ describe('unpicked cards in a plan', () => {
     });
     const gone = await removeFromPlan(id, first, carolCookie).expect(409);
     expect(gone.body.error).toBe('not-in-plan');
-    await removeFromPlan(id, first, aliceCookie).expect(403);
-    await dismissPlanNotice(id, aliceCookie).expect(403);
+    // Alice isn't an app admin: she changes only her own plan.
+    const notHers = await removeFromPlan(
+      id,
+      ids['Lava Spike'],
+      aliceCookie,
+    ).expect(409);
+    expect(notHers.body.error).toBe('not-in-plan');
+    await dismissPlanNotice(id, aliceCookie).expect(200);
+    expect((await plan(id, carolCookie).expect(200)).body).toEqual(
+      removed.body,
+    );
   });
 
   it('lands a pick import’s picks on plans in pick order, as if made one by one', async () => {

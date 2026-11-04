@@ -29,7 +29,6 @@ import {
 
 useDraftsApp();
 
-/** Plans are only open to app admins for now, and Carol is one. */
 describe('plan', () => {
   const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let carolCookie: string;
@@ -193,14 +192,20 @@ describe('plan', () => {
       basics: [],
       lost: [],
     });
-    // Alice's plan holds Lightning Bolt, but she isn't an app admin.
-    await plan(id, aliceCookie).expect(403);
+    // Alice isn't an app admin, and her plan holds Lightning Bolt.
+    expect((await plan(id, aliceCookie).expect(200)).body.mainboard).toEqual([
+      {
+        poolCardId: ids['Lightning Bolt'],
+        name: 'Lightning Bolt',
+        picked: true,
+      },
+    ]);
     await movePlanned(
       id,
       ids['Lightning Bolt'],
       'Sideboard',
       aliceCookie,
-    ).expect(403);
+    ).expect(200);
     // The import emptied every queue, so queue this after it.
     await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
 

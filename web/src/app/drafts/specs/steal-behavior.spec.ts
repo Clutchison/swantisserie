@@ -1,4 +1,5 @@
 import type { DraftView, QueueView } from 'contract';
+import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
   alicePlayer,
@@ -13,6 +14,7 @@ import {
   openUrl,
   flushPool,
   flushPicks,
+  flushPlan,
   expectLoadingAnimation,
   type AppFixture,
 } from './harness';
@@ -168,6 +170,7 @@ describe('steal behavior', () => {
     expect(pill(panel(page)).disabled).toBe(true);
 
     req.flush(queueOf({ stealBehavior: 'PickNext' }));
+    await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
     expect(pill(panel(page)).disabled).toBe(false);
     expect(pill(panel(page)).textContent).toContain('Pick next');

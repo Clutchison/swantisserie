@@ -14,6 +14,7 @@ import {
   openDraft,
   flushPool,
   flushQueue,
+  flushQueueAndPlan,
   completeSnapshot,
   expectLoadingAnimation,
 } from './harness';
@@ -120,7 +121,7 @@ describe('export tab', () => {
     });
     await expectLoadingAnimation(() => panel(page), 'Loading the picks…', 64);
 
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     req.flush([]);
     await fixture.whenStable();
     expect(panel(page).textContent).not.toContain('Loading the picks…');
@@ -186,7 +187,7 @@ describe('export tab', () => {
       expect(copyTargets(page)).toEqual(['Copy for MTGO', 'Copy for Moxfield']);
     });
 
-    describe('for a player who can’t use plans', () => {
+    describe('with every pick on the mainboard', () => {
       const multiFace: PickView[] = [
         { ...pickOf(2, alice.id, 'shock-card', 'Shock'), set: 'm21', collectorNumber: '159' },
         {
@@ -238,9 +239,7 @@ describe('export tab', () => {
       });
     });
 
-    /** Plans are only open to app admins for now, and this Alice is one. */
     describe('from your plan', () => {
-      const admin = { ...alice, isAppAdmin: true };
       const yourPicks: PickView[] = [
         pickOf(1, alice.id, 'shock-card', 'Shock'),
         pickOf(2, bob.id, 'spike-card', 'Lava Spike'),
@@ -268,7 +267,7 @@ describe('export tab', () => {
       };
 
       const openPlanExport = (fields: Partial<DraftView> = {}, yours = plan) =>
-        openExport(yourPicks, fields, { user: admin, plan: yours });
+        openExport(yourPicks, fields, { plan: yours });
 
       it('copies it for Arena: the mainboard and its basics, then the sideboard, without unpicked cards', async () => {
         const opened = await openPlanExport();
@@ -301,7 +300,7 @@ describe('export tab', () => {
       });
 
       it('offers nothing to copy while your plan is still on its way', async () => {
-        const { fixture, page } = await openUrl('/drafts/draft-1', admin);
+        const { fixture, page } = await openUrl('/drafts/draft-1');
         http.expectOne('/api/drafts/draft-1').flush(
           draft({
             snapshot: completeSnapshot,
@@ -325,7 +324,7 @@ describe('export tab', () => {
       });
 
       it('says when your plan couldn’t be loaded, and offers nothing to copy', async () => {
-        const { fixture, page } = await openUrl('/drafts/draft-1', admin);
+        const { fixture, page } = await openUrl('/drafts/draft-1');
         http.expectOne('/api/drafts/draft-1').flush(
           draft({
             snapshot: completeSnapshot,
@@ -370,7 +369,7 @@ describe('export tab', () => {
 
         it('warns that Arena may keep only 15, and still exports every card', async () => {
           const { sideboardPicks, yours } = sideboardOf(16);
-          const opened = await openExport(sideboardPicks, {}, { user: admin, plan: yours });
+          const opened = await openExport(sideboardPicks, {}, { plan: yours });
 
           expect(warning(opened.page)?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
             "Your sideboard has 16 cards. Arena's import may keep only 15 of them, though your export has them all.",
@@ -381,18 +380,14 @@ describe('export tab', () => {
 
         it('doesn’t warn at 15', async () => {
           const { sideboardPicks, yours } = sideboardOf(15);
-          const { page } = await openExport(sideboardPicks, {}, { user: admin, plan: yours });
+          const { page } = await openExport(sideboardPicks, {}, { plan: yours });
 
           expect(warning(page)).toBeNull();
         });
 
         it('doesn’t warn on an MTGO draft', async () => {
           const { sideboardPicks, yours } = sideboardOf(16);
-          const { page } = await openExport(
-            sideboardPicks,
-            { platform: 'MTGO' },
-            { user: admin, plan: yours },
-          );
+          const { page } = await openExport(sideboardPicks, { platform: 'MTGO' }, { plan: yours });
 
           expect(warning(page)).toBeNull();
         });

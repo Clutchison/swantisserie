@@ -20,7 +20,6 @@ import {
 
 useDraftsApp();
 
-/** Plans are only open to app admins for now, and Carol is one. */
 describe('basic lands in a plan', () => {
   const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let carolCookie: string;
@@ -149,8 +148,11 @@ describe('basic lands in a plan', () => {
     ]);
   });
 
-  it('keeps basics private to their player', async () => {
+  it('lets every player set their basics, and keeps them private to that player', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 1, cards);
+    // Alice isn't an app admin.
+    const set = await setBasic(id, 'Plains', 1, aliceCookie).expect(200);
+    expect(set.body.basics).toEqual([{ land: 'Plains', count: 1 }]);
 
     await setBasic(id, 'Plains', 1, carolCookie).expect(403);
     await clearBasics(id, carolCookie).expect(403);

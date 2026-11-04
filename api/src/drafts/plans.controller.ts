@@ -14,8 +14,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { BasicLand, PlanBoard, PlanView } from 'contract';
-import { AdminGuard } from '../auth/admin.guard.js';
-import { CurrentUser, type SessionUser } from '../auth/session.guard.js';
+import {
+  CurrentUser,
+  SessionGuard,
+  type SessionUser,
+} from '../auth/session.guard.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { isBasicLand } from './basic-lands.js';
 import { DraftReadsService } from './draft-reads.service.js';
@@ -25,12 +28,9 @@ import { PlanRefusedError, PlansService } from './plans.service.js';
 /**
  * The signed-in player's plan in a draft. There is no way to see anyone
  * else's: a plan is private to its player.
- *
- * Gate: until every ticket under #171 is done, only app admins can use
- * plans, which is all AdminGuard adds over SessionGuard.
  */
 @Controller('drafts/:id/plan')
-@UseGuards(AdminGuard)
+@UseGuards(SessionGuard)
 export class PlansController {
   constructor(
     private readonly reads: DraftReadsService,

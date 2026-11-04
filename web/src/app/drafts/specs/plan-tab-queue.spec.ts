@@ -17,9 +17,7 @@ import { EMPTY_QUEUE } from '../drafts';
 
 useDraftsApp();
 
-/** Plans are only open to app admins for now, and this Alice is one. */
 describe('queueing the unpicked cards on the plan tab', () => {
-  const admin = { ...alice, isAppAdmin: true };
   /** Started, with Alice then Bob; Bob is up. */
   const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
     state: 'Drafting',
@@ -71,7 +69,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('counts the mainboard’s unpicked copies not yet queued, and the sideboard’s too when included', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
       queue: queueOf(boltAgain),
     });
@@ -89,7 +86,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('appends the mainboard’s unpicked cards, and shows the queue the API answers with', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
     });
     const tab = await openModal(fixture, page);
@@ -114,7 +110,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('closes on a click on the backdrop, but not on a drag out of the modal', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
     });
     const tab = await openModal(fixture, page);
@@ -136,7 +131,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('includes the sideboard when checked, and opens unchecked each time', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
     });
     const tab = await openModal(fixture, page);
@@ -162,7 +156,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('is disabled when every unpicked copy is queued already', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
       queue: queueOf(bolt, boltAgain, shock),
     });
@@ -174,7 +167,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('says when the mainboard has nothing to queue, until the sideboard is included', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
       queue: queueOf(bolt, boltAgain),
     });
@@ -190,7 +182,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it('says why it was refused, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan,
     });
     const tab = await openModal(fixture, page);
@@ -224,7 +215,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
   ])('isn’t offered %s', async (_, fields) => {
     const { fixture, page } = await openDraft(completeSnapshot, fields, {
       cards,
-      user: admin,
       plan,
     });
     const tab = await openPlan(fixture, page);

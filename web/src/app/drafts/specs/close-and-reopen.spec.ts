@@ -1,5 +1,4 @@
 import type { CloseRefusal } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -9,7 +8,7 @@ import {
   bob,
   alicePlayer,
   openDraft,
-  flushQueue,
+  flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
   button,
@@ -40,7 +39,7 @@ describe('close and reopen', () => {
     expect(req.request.method).toBe('POST');
     req.flush(draft({ ...closed, version: 1 }));
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).toContain(banner);
@@ -84,7 +83,7 @@ describe('close and reopen', () => {
     expect(req.request.method).toBe('POST');
     req.flush(draft({ ...drafting, version: 1 }));
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).not.toContain(banner);
@@ -114,7 +113,7 @@ describe('close and reopen', () => {
       draft({ ...closed, version: 1 }),
     );
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
@@ -133,7 +132,7 @@ describe('close and reopen', () => {
       draft: draft({ ...drafting, organizer, version: 1 }),
     });
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await opened.fixture.whenStable();
 
     expect(button(opened.page, 'Close draft')).toBeUndefined();
@@ -149,7 +148,7 @@ describe('close and reopen', () => {
       draft: draft({ ...closed, organizer, version: 1 }),
     });
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).toContain(banner);
