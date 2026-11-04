@@ -3,7 +3,6 @@ import { By } from '@angular/platform-browser';
 import type { DraftView, PlannedBasicView, PlanView } from 'contract';
 import {
   useDraftsApp,
-  alice,
   alicePlayer,
   bob,
   http,
@@ -20,9 +19,7 @@ import { card, useTallScreen, shivan } from './pool-tab-harness';
 useDraftsApp();
 useTallScreen();
 
-/** Plans are only open to app admins for now, and this Alice is one. */
 describe('basic lands on the plan tab', () => {
-  const admin = { ...alice, isAppAdmin: true };
   /** Started, with Alice then Bob; Bob is up. */
   const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
     state: 'Drafting',
@@ -85,7 +82,6 @@ describe('basic lands on the plan tab', () => {
   it('adds and removes each basic with − and +, and by typing a number, on the mainboard', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
@@ -142,7 +138,6 @@ describe('basic lands on the plan tab', () => {
   it('puts back a typed number that isn’t one, and keeps a typed number within 0 to 99', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf([{ land: 'Swamp', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
@@ -161,7 +156,6 @@ describe('basic lands on the plan tab', () => {
   it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf([{ land: 'Forest', count: 3 }]),
     });
     const plan = await openPlan(fixture, page);
@@ -183,7 +177,6 @@ describe('basic lands on the plan tab', () => {
   it('clears every basic', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf([
         { land: 'Mountain', count: 5 },
         { land: 'Wastes', count: 1 },
@@ -207,7 +200,7 @@ describe('basic lands on the plan tab', () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Complete', turn: null }),
-      { cards, user: admin, plan: planOf() },
+      { cards, plan: planOf() },
     );
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
@@ -223,7 +216,6 @@ describe('basic lands on the plan tab', () => {
     });
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf([{ land: 'Island', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
@@ -254,7 +246,6 @@ describe('basic lands on the plan tab', () => {
   it('sets basics in a Basic lands modal, not above the boards, each labelled by its mana symbol', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
@@ -286,7 +277,6 @@ describe('basic lands on the plan tab', () => {
   it('counts the plan’s basics on the button, and only when it holds some', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf([
         { land: 'Mountain', count: 5 },
         { land: 'Wastes', count: 1 },
@@ -316,7 +306,6 @@ describe('basic lands on the plan tab', () => {
   it('closes the modal on Done, on Escape and on a click on the backdrop', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
@@ -346,7 +335,6 @@ describe('basic lands on the plan tab', () => {
   it('shows only the Basic lands button in the mode controls on mobile', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
@@ -362,7 +350,6 @@ describe('basic lands on the plan tab', () => {
     });
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);

@@ -5,7 +5,6 @@ import type { DraftView, PlanView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
-  alice,
   alicePlayer,
   bob,
   http,
@@ -17,7 +16,7 @@ import {
   flushPool,
   flushPicks,
   flushQueue,
-  flushPlan,
+  flushQueueAndPlan,
   expectLoadingAnimation,
   completeSnapshot,
   button,
@@ -31,9 +30,7 @@ import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 useDraftsApp();
 useTallScreen();
 
-/** Plans are only open to app admins for now, and this Alice is one. */
 describe('plan tab', () => {
-  const admin = { ...alice, isAppAdmin: true };
   /** Started, with Alice then Bob; Bob is up. */
   const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
     state: 'Drafting',
@@ -80,34 +77,24 @@ describe('plan tab', () => {
     }));
   }
 
-  it('sits between Queue and Board for an app admin who is a player', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting(), { user: admin });
+  it('sits between Queue and Board for every player', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting());
 
     expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
     expect(tabButton(page, 'Plan').disabled).toBe(false);
   });
 
   it('is offered only to players', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
-      user: admin,
-    });
+    const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
     expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
     expect(tabButton(page, 'Plan').disabled).toBe(true);
     http.expectNone('/api/drafts/draft-1/plan');
   });
 
-  it('is not shown at all to a player who isn’t an app admin', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting());
-
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Board', 'Export']);
-    http.expectNone('/api/drafts/draft-1/plan');
-  });
-
   it('lists the mainboard and the sideboard, each line a count and a name', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf({ sideboard: [planned(shivan)] }),
     });
     const plan = await openPlan(fixture, page);
@@ -140,7 +127,6 @@ describe('plan tab', () => {
   it('says when a board is empty', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
     });
     const plan = await openPlan(fixture, page);
 
@@ -154,7 +140,6 @@ describe('plan tab', () => {
   it('moves one copy of a card to the other board, showing the plan the API answers with', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
@@ -199,7 +184,6 @@ describe('plan tab', () => {
   it('shows a line’s move button as minus on the mainboard and plus on the sideboard, and Remove as a trash can', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf({
         mainboard: [planned(brightclimb), unpicked(shivan)],
         sideboard: [planned(bolt)],
@@ -235,7 +219,6 @@ describe('plan tab', () => {
   it('says why a move was refused, and re-reads the plan', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf(),
     });
     const plan = await openPlan(fixture, page);
@@ -265,7 +248,6 @@ describe('plan tab', () => {
   it('dims unpicked cards, marks them, counts them apart and offers to remove them', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf({
         mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain), unpicked(shivan)],
         sideboard: [],
@@ -331,7 +313,6 @@ describe('plan tab', () => {
   it('notes lost cards, with who picked them, until dismissed', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf({
         mainboard: [planned(brightclimb)],
         lost: [
@@ -356,7 +337,7 @@ describe('plan tab', () => {
   });
 
   it('says so while the plan loads', async () => {
-    const { page } = await openUrl('/drafts/draft-1', admin);
+    const { page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
     await flushPool(cards);
     await flushPicks([]);
@@ -370,7 +351,7 @@ describe('plan tab', () => {
   });
 
   it('says when the plan couldn’t be loaded', async () => {
-    const { fixture, page } = await openUrl('/drafts/draft-1', admin);
+    const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
     await flushPool(cards);
     await flushPicks([]);
@@ -389,7 +370,6 @@ describe('plan tab', () => {
   it('re-reads the plan when the draft changes, as a pick may have landed or been undone', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
-      user: admin,
       plan: planOf({ mainboard: [planned(shivan)] }),
     });
     const plan = await openPlan(fixture, page);
@@ -397,8 +377,7 @@ describe('plan tab', () => {
 
     updates.events.next({ type: 'changed', draft: draft(drafting({ version: 1 })) });
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
-    await flushPlan(planOf());
+    await flushQueueAndPlan(EMPTY_QUEUE, planOf());
     await fixture.whenStable();
 
     expect(boards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
@@ -433,7 +412,6 @@ describe('plan tab', () => {
     it('opens in stacks mode, grouped by mana value, with lands in their own stack', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf({
           mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)],
           sideboard: [planned(shivan)],
@@ -460,7 +438,6 @@ describe('plan tab', () => {
     it('groups by color or type instead, or lists, as chosen, and remembers the choice', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -505,7 +482,6 @@ describe('plan tab', () => {
     it('caps only List mode lines at the Queue tab width, not an empty board in stacks mode', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -525,7 +501,6 @@ describe('plan tab', () => {
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -537,7 +512,6 @@ describe('plan tab', () => {
     it('moves a card dragged onto the other board, as its button does', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -595,7 +569,6 @@ describe('plan tab', () => {
     it('drops to the list as the window narrows below the breakpoint, and back to stacks as it widens', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -620,7 +593,6 @@ describe('plan tab', () => {
       });
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -642,7 +614,6 @@ describe('plan tab', () => {
     try {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
-        user: admin,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
@@ -663,7 +634,7 @@ describe('plan tab', () => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         { players: [alicePlayer, bob], state, turn: null },
-        { cards, user: admin, plan: planOf({ sideboard: [unpicked(boltAgain)] }) },
+        { cards, plan: planOf({ sideboard: [unpicked(boltAgain)] }) },
       );
       const plan = await openPlan(fixture, page);
 

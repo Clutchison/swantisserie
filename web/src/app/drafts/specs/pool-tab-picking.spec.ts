@@ -1,5 +1,4 @@
 import type { DraftView, PickRefusal, PickView } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -11,7 +10,7 @@ import {
   tabButton,
   openDraft,
   flushPicks,
-  flushQueue,
+  flushQueueAndPlan,
   completeSnapshot,
   button,
 } from './harness';
@@ -252,13 +251,13 @@ describe('pool tab', () => {
 
       updates.events.next({ type: 'changed', draft: draft({ ...drafting, version: 1 }) });
       await flushPicks([pickBy(bob.id)]);
-      await flushQueue(EMPTY_QUEUE);
+      await flushQueueAndPlan();
       await fixture.whenStable();
       expect(announced(badge(page))).toBe('Picked by Bob');
 
       updates.events.next({ type: 'changed', draft: draft({ ...drafting, version: 2 }) });
       await flushPicks([]);
-      await flushQueue(EMPTY_QUEUE);
+      await flushQueueAndPlan();
       await fixture.whenStable();
       expect(badge(page)).toBeNull();
     });

@@ -1,5 +1,5 @@
 import type { DraftView, PlanRefusal } from 'contract';
-import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
+import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -11,7 +11,7 @@ import {
   panel,
   openDraft,
   flushPicks,
-  flushQueue,
+  flushQueueAndPlan,
   flushPlan,
   completeSnapshot,
   button,
@@ -21,9 +21,7 @@ import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab
 useDraftsApp();
 useTallScreen();
 
-/** Plans are only open to app admins for now, and this Alice is one. */
 describe('pool tab', () => {
-  const admin = { ...alice, isAppAdmin: true };
   /** Started, with Alice then Bob; Bob is up. */
   const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
     state: 'Drafting',
@@ -36,7 +34,6 @@ describe('pool tab', () => {
     it('adds an unpicked copy of a card to the plan from its detail, and lists it on the Plan tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
-        user: admin,
       });
 
       const detail = await openDetail(fixture, page, 1);
@@ -69,7 +66,6 @@ describe('pool tab', () => {
     it('says why an add was refused, and re-reads the plan and the draft', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        user: admin,
       });
       const detail = await openDetail(fixture, page, 0);
 
@@ -86,8 +82,7 @@ describe('pool tab', () => {
         draft(drafting({ version: 1 })),
       );
       await flushPicks([]);
-      await flushQueue(EMPTY_QUEUE);
-      await flushPlan(EMPTY_PLAN);
+      await flushQueueAndPlan();
       await fixture.whenStable();
 
       expect(detail.querySelector('[role="status"]')?.textContent).toContain(
@@ -98,7 +93,6 @@ describe('pool tab', () => {
     it('says when a card could not be added, and re-reads the plan', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        user: admin,
       });
       const detail = await openDetail(fixture, page, 0);
 
@@ -120,7 +114,6 @@ describe('pool tab', () => {
         drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
         {
           cards: [shivan],
-          user: admin,
           picks: [
             {
               pick: 1,
@@ -148,7 +141,6 @@ describe('pool tab', () => {
     ])('is offered %s', async (_, fields) => {
       const { fixture, page } = await openDraft(completeSnapshot, fields, {
         cards: [shivan],
-        user: admin,
       });
 
       expect(button(await openDetail(fixture, page, 0), 'Add to Plan')!.disabled).toBe(false);
@@ -162,7 +154,6 @@ describe('pool tab', () => {
           drafting({ state, turn: null }),
           {
             cards: [shivan],
-            user: admin,
           },
         );
 
@@ -170,20 +161,11 @@ describe('pool tab', () => {
       },
     );
 
-    it('is not offered to a player who isn’t an app admin', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [shivan],
-      });
-
-      const detail = await openDetail(fixture, page, 0);
-      expect(button(detail, 'Add to Plan')).toBeUndefined();
-      expect(button(detail, 'Add to queue')).toBeDefined();
-    });
-
     it('is not offered to an app admin who isn’t playing', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
         cards: [shivan],
-        user: admin,
+        // Plans stay private even from app admins.
+        user: { ...alice, isAppAdmin: true },
       });
 
       expect(button(await openDetail(fixture, page, 0), 'Add to Plan')).toBeUndefined();
@@ -200,7 +182,6 @@ describe('pool tab', () => {
     it('is offered in place of Add to Plan for the copy in the plan, not for another copy', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan, shivanCopy],
-        user: admin,
         plan: planned(shivan.id),
       });
 
@@ -218,7 +199,6 @@ describe('pool tab', () => {
     it('takes the copy off the sideboard, then offers Add to Plan, and the Plan tab no longer lists it', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        user: admin,
         plan: planned(shivan.id, 'sideboard'),
       });
 
@@ -243,7 +223,6 @@ describe('pool tab', () => {
     it('is disabled while a removal is on its way', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        user: admin,
         plan: planned(shivan.id),
       });
 
@@ -257,7 +236,6 @@ describe('pool tab', () => {
     it('is disabled while an add of another copy is on its way', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan, shivanCopy],
-        user: admin,
         plan: planned(shivan.id),
       });
 
@@ -271,7 +249,6 @@ describe('pool tab', () => {
     it('says why a removal was refused, and re-reads the plan and the draft', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        user: admin,
         plan: planned(shivan.id),
       });
       const detail = await openDetail(fixture, page, 0);
@@ -289,8 +266,7 @@ describe('pool tab', () => {
         draft(drafting({ version: 1 })),
       );
       await flushPicks([]);
-      await flushQueue(EMPTY_QUEUE);
-      await flushPlan(EMPTY_PLAN);
+      await flushQueueAndPlan();
       await fixture.whenStable();
 
       expect(detail.querySelector('[role="status"]')?.textContent).toContain(
@@ -301,7 +277,6 @@ describe('pool tab', () => {
     it('says when a card could not be removed, and re-reads the plan', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        user: admin,
         plan: planned(shivan.id),
       });
       const detail = await openDetail(fixture, page, 0);
@@ -324,7 +299,6 @@ describe('pool tab', () => {
         drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
         {
           cards: [shivan],
-          user: admin,
           plan: {
             ...EMPTY_PLAN,
             mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: true }],
@@ -355,7 +329,6 @@ describe('pool tab', () => {
         drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
         {
           cards: [shivan, shivanCopy],
-          user: admin,
           plan: planned(shivanCopy.id),
           picks: [
             {
@@ -386,7 +359,7 @@ describe('pool tab', () => {
         const { fixture, page } = await openDraft(
           completeSnapshot,
           drafting({ state, turn: null }),
-          { cards: [shivan], user: admin, plan: planned(shivan.id) },
+          { cards: [shivan], plan: planned(shivan.id) },
         );
 
         expect(button(await openDetail(fixture, page, 0), 'Remove from Plan')).toBeUndefined();

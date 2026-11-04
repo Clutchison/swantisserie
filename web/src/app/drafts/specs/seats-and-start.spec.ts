@@ -1,6 +1,5 @@
 import type { PickImportRefusal, StartRefusal } from 'contract';
 import { TestBed } from '@angular/core/testing';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -12,7 +11,7 @@ import {
   bob,
   alicePlayer,
   openDraft,
-  flushQueue,
+  flushQueueAndPlan,
   flushPicks,
   flushPool,
   completeSnapshot,
@@ -213,7 +212,7 @@ describe('seats and start', () => {
         });
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
         picks.flush([]);
-        await flushQueue(EMPTY_QUEUE);
+        await flushQueueAndPlan();
         await fixture.whenStable();
       });
 
@@ -244,7 +243,7 @@ describe('seats and start', () => {
             collectorNumber: '1',
           },
         ]);
-        await flushQueue(EMPTY_QUEUE);
+        await flushQueueAndPlan();
         await fixture.whenStable();
 
         await vi.waitFor(() => expect(page.textContent).toContain('Ash Golem'));
@@ -322,7 +321,7 @@ describe('seats and start', () => {
         draft: draft({ players: [bob, alicePlayer], version: 1 }),
       });
       // Alice is a player, so her queue is re-read too.
-      await flushQueue(EMPTY_QUEUE);
+      await flushQueueAndPlan();
       await fixture.whenStable();
 
       expect(page.querySelector('.pick-import-preview')).toBeNull();
@@ -368,7 +367,7 @@ describe('seats and start', () => {
         players: [alicePlayer, bob],
       }),
     );
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     TestBed.tick();
 
     expect(button(page, 'Start draft')?.disabled).toBe(true);

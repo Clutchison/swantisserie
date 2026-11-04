@@ -1,5 +1,4 @@
 import type { DraftChangeRefusal } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   draft,
@@ -8,7 +7,7 @@ import {
   bob,
   alicePlayer,
   openDraft,
-  flushQueue,
+  flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
   button,
@@ -40,7 +39,7 @@ describe('lobby', () => {
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'));
     expect(req.request.method).toBe('POST');
     req.flush(draft({ players: [bob, alicePlayer] }), { status: 201, statusText: 'Created' });
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(section(page, 'Players').textContent).toContain('Alice');

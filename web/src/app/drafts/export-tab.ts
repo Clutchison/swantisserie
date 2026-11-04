@@ -52,8 +52,7 @@ export class ExportTab implements OnDestroy {
   readonly player = input.required<PlayerView | null>();
   /**
    * The signed-in player's plan, which decides each pick's plan board and adds
-   * the basics. A player who can't use plans has the empty plan: every pick
-   * on the mainboard, and no basics.
+   * the basics.
    */
   readonly plan = input.required<PlanView>();
   /** Whether the plan is still on its way. */

@@ -1,5 +1,4 @@
 import type { PauseRefusal } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -9,7 +8,7 @@ import {
   bob,
   alicePlayer,
   openDraft,
-  flushQueue,
+  flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
   button,
@@ -34,7 +33,7 @@ describe('pause and resume', () => {
     expect(req.request.method).toBe('POST');
     req.flush(draft({ ...paused, version: 1 }));
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).toContain('The draft is paused. No picks until it resumes.');
@@ -50,7 +49,7 @@ describe('pause and resume', () => {
     expect(req.request.method).toBe('POST');
     req.flush(draft({ ...drafting, version: 1 }));
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).not.toContain('The draft is paused');
@@ -70,7 +69,7 @@ describe('pause and resume', () => {
       draft({ ...paused, version: 1 }),
     );
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
@@ -98,7 +97,7 @@ describe('pause and resume', () => {
       draft: draft({ ...paused, organizer: { id: bob.id, name: bob.name }, version: 1 }),
     });
     await flushPicks([]);
-    await flushQueue(EMPTY_QUEUE);
+    await flushQueueAndPlan();
     await fixture.whenStable();
 
     expect(page.textContent).toContain('The draft is paused. No picks until it resumes.');

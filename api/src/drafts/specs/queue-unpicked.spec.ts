@@ -24,7 +24,6 @@ import {
 
 useDraftsApp();
 
-/** Plans are only open to app admins for now, and Carol is one. */
 describe('queueing a plan’s unpicked cards', () => {
   let carolCookie: string;
 
@@ -210,12 +209,20 @@ describe('queueing a plan’s unpicked cards', () => {
     expect(refused.body.error).toBe('draft-complete');
   });
 
-  it('is only for app admins, and needs to know whether to include the sideboard', async () => {
-    const { id } = await plannedDraft();
+  it('is for every player, and needs to know whether to include the sideboard', async () => {
+    const { id, ids } = await plannedDraft();
+    // Alice isn't an app admin; her plan holds only Shock.
+    await addToPlan(id, ids.Shock, aliceCookie).expect(200);
 
-    await queueUnpicked(id, { includeSideboard: false }, aliceCookie).expect(
-      403,
-    );
+    const alicesQueue = await queueUnpicked(
+      id,
+      { includeSideboard: false },
+      aliceCookie,
+    ).expect(200);
+
+    expect(alicesQueue.body.cards).toEqual([
+      { poolCardId: ids.Shock, name: 'Shock' },
+    ]);
     await queueUnpicked(id, {}, carolCookie).expect(400);
     await queueUnpicked(id, { includeSideboard: 'yes' }, carolCookie).expect(
       400,

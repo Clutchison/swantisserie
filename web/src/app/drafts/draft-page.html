@@ -79,20 +79,17 @@
       >
         Queue
       </button>
-      <!-- Only players have a plan, and for now only app admins see it. -->
-      @if (offerPlan()) {
-        <button
-          id="plan-tab"
-          type="button"
-          role="tab"
-          [attr.aria-selected]="tab() === 'Plan'"
-          aria-controls="plan-panel"
-          (click)="tab.set('Plan')"
-          [disabled]="!joined()"
-        >
-          Plan
-        </button>
-      }
+      <button
+        id="plan-tab"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="tab() === 'Plan'"
+        aria-controls="plan-panel"
+        (click)="tab.set('Plan')"
+        [disabled]="!joined()"
+      >
+        Plan
+      </button>
       <button
         id="board-tab"
         type="button"
@@ -219,36 +216,34 @@
       }
     </section>
 
-    @if (offerPlan()) {
-      <section
-        id="plan-panel"
-        class="plan"
-        role="tabpanel"
-        aria-labelledby="plan-tab"
-        [hidden]="tab() !== 'Plan'"
-      >
-        <h2>Plan</h2>
-        @if (planFailed()) {
-          <p class="error">Couldn't load your plan. Try reloading the page.</p>
-        }
-        @if (joined() && !planFailed()) {
-          <app-plan-tab
-            [draftId]="draft.id"
-            [loading]="planLoading()"
-            [plan]="plan()"
-            [poolCardsById]="poolCardsById()"
-            [queued]="queued()"
-            [offerQueueUnpicked]="offerQueue() && !yourTurn()"
-            (planChanged)="planResource.set($event)"
-            (planStale)="planResource.reload()"
-            (queueChanged)="queueResource.set($event)"
-            (queueStale)="queueResource.reload()"
-          />
-        } @else if (!joined()) {
-          <p class="empty">Only players have a plan.</p>
-        }
-      </section>
-    }
+    <section
+      id="plan-panel"
+      class="plan"
+      role="tabpanel"
+      aria-labelledby="plan-tab"
+      [hidden]="tab() !== 'Plan'"
+    >
+      <h2>Plan</h2>
+      @if (planFailed()) {
+        <p class="error">Couldn't load your plan. Try reloading the page.</p>
+      }
+      @if (joined() && !planFailed()) {
+        <app-plan-tab
+          [draftId]="draft.id"
+          [loading]="planLoading()"
+          [plan]="plan()"
+          [poolCardsById]="poolCardsById()"
+          [queued]="queued()"
+          [offerQueueUnpicked]="offerQueue() && !yourTurn()"
+          (planChanged)="planResource.set($event)"
+          (planStale)="planResource.reload()"
+          (queueChanged)="queueResource.set($event)"
+          (queueStale)="queueResource.reload()"
+        />
+      } @else if (!joined()) {
+        <p class="empty">Only players have a plan.</p>
+      }
+    </section>
 
     <section
       id="board-panel"

@@ -14,6 +14,7 @@ describe('pool tab', () => {
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
       'Pool',
       'Queue',
+      'Plan',
       'Board',
       'Export',
     ]);
@@ -22,8 +23,9 @@ describe('pool tab', () => {
       'false',
       'false',
       'false',
+      'false',
     ]);
-    expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, false, true]);
+    expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, true, false, true]);
     expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('540 cards in the pool');
   });
 

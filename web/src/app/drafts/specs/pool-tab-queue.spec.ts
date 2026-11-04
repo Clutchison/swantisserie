@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { DraftView, PoolCardView, QueueRefusal } from 'contract';
-import { EMPTY_QUEUE } from '../drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
   alice,
@@ -14,6 +14,8 @@ import {
   panel,
   openDraft,
   flushQueue,
+  flushQueueAndPlan,
+  flushPlan,
   flushPicks,
   flushPool,
   completeSnapshot,
@@ -241,6 +243,7 @@ describe('pool tab', () => {
         status: 500,
         statusText: 'Server Error',
       });
+      await flushPlan(EMPTY_PLAN);
       await fixture.whenStable();
 
       expect(panel(page).querySelector('.error')?.textContent).toContain(
@@ -259,6 +262,7 @@ describe('pool tab', () => {
       expect(panel(page).textContent).not.toContain('Your queue is empty');
 
       req.flush(EMPTY_QUEUE);
+      await flushPlan(EMPTY_PLAN);
       await fixture.whenStable();
       expect(panel(page).textContent).not.toContain('Loading your queue…');
       expect(panel(page).textContent).toContain('Your queue is empty');
@@ -273,6 +277,7 @@ describe('pool tab', () => {
         status: 500,
         statusText: 'Server Error',
       });
+      await flushPlan(EMPTY_PLAN);
       await fixture.whenStable();
 
       const queue = await openQueue(fixture, page);
@@ -472,6 +477,7 @@ describe('pool tab', () => {
         restKept: false,
         stealBehavior: 'ClearQueue',
       });
+      await flushPlan(EMPTY_PLAN);
       await fixture.whenStable();
 
       expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
@@ -567,7 +573,7 @@ describe('pool tab', () => {
           draft: draft(drafting({ turn, version })),
         });
         await flushPicks([]);
-        await flushQueue(EMPTY_QUEUE);
+        await flushQueueAndPlan();
         await fixture.whenStable();
       }
 
@@ -626,7 +632,7 @@ describe('pool tab', () => {
           draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
         );
         await flushPicks([]);
-        await flushQueue(EMPTY_QUEUE);
+        await flushQueueAndPlan();
         await fixture.whenStable();
 
         // The note outlives the turn change the re-read reveals.
@@ -679,7 +685,7 @@ describe('pool tab', () => {
           draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
         );
         await flushPicks([]);
-        await flushQueue(EMPTY_QUEUE);
+        await flushQueueAndPlan();
         await fixture.whenStable();
         expect(detail.textContent).toContain('You can’t add to your queue on your turn.');
 
@@ -720,7 +726,7 @@ describe('pool tab', () => {
           draft(drafting({ state: 'Closed', version: 1 })),
         );
         await flushPicks([]);
-        await flushQueue({
+        await flushQueueAndPlan({
           cards: [queued(shivan)],
           lost: [],
           cleared: [],
@@ -751,7 +757,7 @@ describe('pool tab', () => {
           draft: draft(drafting({ turn: yourTurn, version: 1 })),
         });
         await flushPicks([]);
-        await flushQueue({
+        await flushQueueAndPlan({
           cards: [queued(shivan)],
           lost: [],
           cleared: [],
