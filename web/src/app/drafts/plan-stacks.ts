@@ -4,10 +4,13 @@ import { frontFace } from './card-faces';
 /** How stacks mode divides a plan board into stacks. */
 export type Grouping = 'manaValue' | 'color' | 'type';
 
-/** One stack of stacks mode: the cards of a plan board that share the grouping's value. */
+/**
+ * One stack of stacks mode: on the mainboard, the cards that share the
+ * grouping's value; on the sideboard, all its cards.
+ */
 export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   name: string;
-  /** Sorted by mana value, then name. */
+  /** Sorted by mana value, then name; on the sideboard, with its lands last. */
   cards: Card[];
 }
 
@@ -77,10 +80,8 @@ export function stacks<Card extends PlannedCardView>(
   grouping: Grouping,
   poolCardsById: ReadonlyMap<string, PoolCardView>,
 ): Stack<Card>[] {
-  const facts = (card: PlannedCardView) => cardFacts(poolCardsById.get(card.poolCardId));
-  const sorted = [...cards].sort((a, b) => {
-    return facts(a).manaValue - facts(b).manaValue || a.name.localeCompare(b.name);
-  });
+  const facts = factsFrom(poolCardsById);
+  const sorted = sortedByManaValue(cards, facts);
   const stacked = RULES[grouping].map((rule) => ({
     name: rule.name,
     cards: [] as Card[],
@@ -90,6 +91,40 @@ export function stacks<Card extends PlannedCardView>(
     if (stackIndex >= 0) stacked[stackIndex].cards.push(card);
   }
   return stacked.filter((stack) => stack.cards.length > 0);
+}
+
+/**
+ * The sideboard's one stack, whatever the grouping: its cards by mana value,
+ * then name, with its lands last, by name.
+ */
+export function sideboardStack<Card extends PlannedCardView>(
+  cards: Card[],
+  poolCardsById: ReadonlyMap<string, PoolCardView>,
+): Stack<Card> {
+  const facts = factsFrom(poolCardsById);
+  const lands = cards.filter((card) => isLand(facts(card)));
+  return {
+    name: 'Sideboard',
+    cards: [
+      ...sortedByManaValue(
+        cards.filter((card) => !isLand(facts(card))),
+        facts,
+      ),
+      ...lands.sort((a, b) => a.name.localeCompare(b.name)),
+    ],
+  };
+}
+
+const factsFrom = (poolCardsById: ReadonlyMap<string, PoolCardView>) => (card: PlannedCardView) =>
+  cardFacts(poolCardsById.get(card.poolCardId));
+
+function sortedByManaValue<Card extends PlannedCardView>(
+  cards: Card[],
+  facts: (card: PlannedCardView) => CardFacts,
+): Card[] {
+  return [...cards].sort(
+    (a, b) => facts(a).manaValue - facts(b).manaValue || a.name.localeCompare(b.name),
+  );
 }
 
 function cardFacts(card: PoolCardView | undefined): CardFacts {

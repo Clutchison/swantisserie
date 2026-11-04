@@ -384,21 +384,23 @@ describe('plan tab', () => {
   });
 
   describe('on desktop', () => {
-    /** Each board's stacks as `name: card, card`, with ` (unpicked)` after a dimmed card. */
+    /**
+     * Each board's stacks as `name: card, card`, with ` (unpicked)` after a dimmed card;
+     * a stack with no header, as the sideboard's, as `card, card`.
+     */
     const stacksOf = (plan: HTMLElement) =>
       [...plan.querySelectorAll('section')].map((board) =>
-        [...board.querySelectorAll('.stack')].map(
-          (stack) =>
-            `${stack.querySelector('.stack-name')?.textContent?.trim()}: ${[
-              ...stack.querySelectorAll('li'),
-            ]
-              .map(
-                (item) =>
-                  item.querySelector('img')?.alt +
-                  (item.classList.contains('unpicked') ? ' (unpicked)' : ''),
-              )
-              .join(', ')}`,
-        ),
+        [...board.querySelectorAll('.stack')].map((stack) => {
+          const name = stack.querySelector('h4 .stack-name')?.textContent?.trim();
+          const held = [...stack.querySelectorAll('li')]
+            .map(
+              (item) =>
+                item.querySelector('img')?.alt +
+                (item.classList.contains('unpicked') ? ' (unpicked)' : ''),
+            )
+            .join(', ');
+          return name === undefined ? held : `${name}: ${held}`;
+        }),
       );
     const pressed = (plan: HTMLElement, label: string) =>
       button(plan, label)?.getAttribute('aria-pressed');
@@ -427,12 +429,41 @@ describe('plan tab', () => {
           '1: Lightning Bolt, Lightning Bolt (unpicked)',
           'Lands: Brightclimb Pathway // Grimclimb Pathway',
         ],
-        ['6: Shivan Dragon'],
+        ['Shivan Dragon'],
       ]);
       expect(boards(plan).map((board) => board.heading)).toEqual([
         'Mainboard 3 (2 picked)',
         'Sideboard 1 (1 picked)',
       ]);
+    });
+
+    it('shows the sideboard as one stack beside the mainboard, whatever the grouping, with lands last', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards,
+        plan: planOf({
+          mainboard: [planned(bolt)],
+          sideboard: [planned(brightclimb), planned(shivan), unpicked(boltAgain)],
+        }),
+      });
+      const plan = await openPlan(fixture, page);
+      const sideboard = [
+        'Lightning Bolt (unpicked), Shivan Dragon, Brightclimb Pathway // Grimclimb Pathway',
+      ];
+
+      expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], sideboard]);
+      expect(plan.querySelector('.boards')?.classList.contains('side-by-side')).toBe(true);
+      // Only the board heading names the sideboard, not a header of its stack.
+      expect(plan.querySelectorAll('section')[1].querySelector('h4')).toBeNull();
+
+      for (const grouping of ['Color', 'Type']) {
+        button(plan, grouping)!.click();
+        await fixture.whenStable();
+        expect(stacksOf(plan)[1]).toEqual(sideboard);
+      }
+
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      expect(plan.querySelector('.boards')?.classList.contains('side-by-side')).toBe(false);
     });
 
     it('groups by color or type instead, or lists, as chosen, and remembers the choice', async () => {
@@ -549,7 +580,7 @@ describe('plan tab', () => {
           sideboard: [planned(bolt)],
         }),
       );
-      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['1: Lightning Bolt']));
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
       dropped('Shivan Dragon', mainboard, mainboard);

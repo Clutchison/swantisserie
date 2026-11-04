@@ -31,7 +31,7 @@ import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
-import { type Grouping, stacks } from './plan-stacks';
+import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { manaSymbol } from './mana-cost';
 
@@ -80,13 +80,20 @@ const BASIC_SYMBOLS: Record<BasicLand, string> = {
 const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
 
 /**
- * Each plan board: its cards, the board its cards move to, as the button
- * names it, and what an empty one says.
+ * Each plan board: its cards, how stacks mode stacks them and whether each
+ * stack has a header, the board its cards move to, as the button names it,
+ * and what an empty one says.
  */
 const BOARDS: Record<
   PlanBoard,
   {
     cards: (plan: PlanView) => PlannedCardView[];
+    stack: (
+      cards: BoardCard[],
+      grouping: Grouping,
+      cardsById: ReadonlyMap<string, PoolCardView>,
+    ) => Stack<BoardCard>[];
+    showsStackHeaders: boolean;
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -94,12 +101,18 @@ const BOARDS: Record<
 > = {
   Mainboard: {
     cards: (plan) => plan.mainboard,
+    stack: stacks,
+    showsStackHeaders: true,
     other: 'Sideboard',
     otherName: 'sideboard',
     empty: 'No picks yet.',
   },
   Sideboard: {
     cards: (plan) => plan.sideboard,
+    // One stack, whatever the grouping, which the board heading names.
+    stack: (cards, _grouping, cardsById) =>
+      cards.length > 0 ? [sideboardStack(cards, cardsById)] : [],
+    showsStackHeaders: false,
     other: 'Mainboard',
     otherName: 'mainboard',
     empty: 'Nothing on your sideboard.',
@@ -193,10 +206,14 @@ export class PlanTab {
     return byId as ReadonlyMap<string, PoolCardView>;
   });
 
-  /** The mainboard, then the sideboard, each as its lines and counts, and its stacks when showing them. */
+  /**
+   * The mainboard, then the sideboard, each as its lines and counts, and its
+   * stacks when showing them: the mainboard's by the grouping, the sideboard's
+   * always one.
+   */
   protected readonly boards = computed(() =>
     (['Mainboard', 'Sideboard'] as const).map((board) => {
-      const { cards, ...rest } = BOARDS[board];
+      const { cards, stack, ...rest } = BOARDS[board];
       // The basic lands are always on the mainboard.
       const held: BoardCard[] = [
         ...cards(this.plan()),
@@ -208,10 +225,12 @@ export class PlanTab {
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
-        stacks: this.showingStacks() ? stacks(held, this.grouping(), this.cardsById()) : [],
+        stacks: this.showingStacks() ? stack(held, this.grouping(), this.cardsById()) : [],
       };
     }),
   );
+  /** How many stacks the mainboard shows, for the stacks' shared width. */
+  protected readonly mainboardStackCount = computed(() => this.boards()[0].stacks.length);
 
   /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
   protected readonly basics = computed(() =>
