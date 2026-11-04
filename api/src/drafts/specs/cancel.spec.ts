@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   ScryfallSearchPage,
@@ -29,17 +28,12 @@ import {
   enqueue,
   addBot,
   registerWebhook,
+  cancel,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('cancel', () => {
-  function cancel(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .delete(`/api/drafts/${id}`)
-      .set('Cookie', cookie);
-  }
-
   it('cancels a lobby draft, so its link is not found and the list omits it', async () => {
     const id = await readyDraft([aliceCookie]);
 

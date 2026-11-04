@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   alice,
@@ -12,18 +11,12 @@ import {
   readyDraft,
   start,
   pickLog,
+  previewPickImport,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('pick import preview', () => {
-  function preview(id: string, csv: unknown, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pick-import/preview`)
-      .set('Cookie', cookie)
-      .send({ csv });
-  }
-
   /** Made up: 'Ann' and 'Ben' are not the draft's players' names. */
   const csv = [
     ',Ann,Ben,',
@@ -35,7 +28,7 @@ describe('pick import preview', () => {
   it('pairs columns with seats by position, counts the picks and names the next turn', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
 
-    const answer = await preview(id, csv).expect(200);
+    const answer = await previewPickImport(id, csv).expect(200);
 
     expect(answer.body).toEqual({
       seats: [
@@ -51,7 +44,7 @@ describe('pick import preview', () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
     const before = await getDraft(id).expect(200);
 
-    await preview(id, csv).expect(200);
+    await previewPickImport(id, csv).expect(200);
 
     expect((await getDraft(id).expect(200)).body).toEqual(before.body);
     const picks = await pickLog(id);
@@ -62,7 +55,7 @@ describe('pick import preview', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
 
-    const refused = await preview(
+    const refused = await previewPickImport(
       id,
       ',Ann,Ben,\n->,Ash Golem,Fen Lurker,\n,Ash Golem,,<-',
     ).expect(422);
@@ -82,19 +75,19 @@ describe('pick import preview', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
 
-    await preview(id, csv, bobCookie).expect(403);
-    await preview(id, csv, await signIn(carol)).expect(200);
+    await previewPickImport(id, csv, bobCookie).expect(403);
+    await previewPickImport(id, csv, await signIn(carol)).expect(200);
   });
 
   it('answers 404 for a draft that does not exist', async () => {
-    await preview('no-such-draft', csv).expect(404);
+    await previewPickImport('no-such-draft', csv).expect(404);
   });
 
   it('refuses a draft that has left the lobby', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
     await start(id).expect(200);
 
-    const refused = await preview(id, csv).expect(409);
+    const refused = await previewPickImport(id, csv).expect(409);
 
     expect(refused.body.error).toBe('draft-started');
   });
@@ -105,19 +98,19 @@ describe('pick import preview', () => {
       .get(PrismaService)
       .draft.update({ where: { id }, data: { snapshotState: 'Running' } });
 
-    const refused = await preview(id, csv).expect(409);
+    const refused = await previewPickImport(id, csv).expect(409);
 
     expect(refused.body.error).toBe('pool-not-ready');
   });
 
   it('refuses a draft that fails the start checks', async () => {
     const tooFew = await readyDraft([aliceCookie], 1, cards);
-    expect((await preview(tooFew, csv).expect(409)).body.error).toBe(
+    expect((await previewPickImport(tooFew, csv).expect(409)).body.error).toBe(
       'player-count',
     );
 
     const tooBig = await readyDraft([aliceCookie, await signIn(bob)], 3, cards);
-    expect((await preview(tooBig, csv).expect(409)).body.error).toBe(
+    expect((await previewPickImport(tooBig, csv).expect(409)).body.error).toBe(
       'pool-too-small',
     );
   });
@@ -125,9 +118,10 @@ describe('pick import preview', () => {
   it('refuses a file over the size limit', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
 
-    const refused = await preview(id, `${csv}\n${' '.repeat(70_000)}`).expect(
-      413,
-    );
+    const refused = await previewPickImport(
+      id,
+      `${csv}\n${' '.repeat(70_000)}`,
+    ).expect(413);
 
     expect(refused.body.error).toBe('file-too-large');
   });
@@ -135,6 +129,6 @@ describe('pick import preview', () => {
   it('refuses a request with no file text', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
 
-    await preview(id, undefined).expect(400);
+    await previewPickImport(id, undefined).expect(400);
   });
 });

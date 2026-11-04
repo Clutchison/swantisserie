@@ -1,10 +1,8 @@
-import request from 'supertest';
 import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   useDraftsApp,
   signIn,
@@ -18,6 +16,7 @@ import {
   start,
   join,
   setSeats,
+  randomizeSeats,
 } from './harness.js';
 
 useDraftsApp();
@@ -148,12 +147,6 @@ describe('seats and start', () => {
     await start('no-such-draft').expect(404);
   });
 
-  function randomize(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/seats/randomize`)
-      .set('Cookie', cookie);
-  }
-
   it('lets the organizer randomize the seats', async () => {
     const id = await readyDraft([
       aliceCookie,
@@ -163,7 +156,7 @@ describe('seats and start', () => {
     // Fisher–Yates with every draw 0: [a, b, c] → [c, b, a] → [b, c, a].
     vi.spyOn(Math, 'random').mockReturnValue(0);
 
-    const randomized = await randomize(id).expect(200);
+    const randomized = await randomizeSeats(id).expect(200);
 
     expect(playerIds(randomized.body)).toEqual([bob.id, carol.id, alice.id]);
     const draft = await getDraft(id).expect(200);
@@ -174,10 +167,10 @@ describe('seats and start', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie]);
 
-    await randomize(id, bobCookie).expect(403);
-    await randomize(id, await signIn(carol)).expect(200);
+    await randomizeSeats(id, bobCookie).expect(403);
+    await randomizeSeats(id, await signIn(carol)).expect(200);
     await start(id).expect(200);
-    const refused = await randomize(id).expect(409);
+    const refused = await randomizeSeats(id).expect(409);
     expect(refused.body.error).toBe('draft-started');
   });
 

@@ -159,3 +159,20 @@ export async function registerWebhook(name = '#roto-main', url = webhookUrl) {
     .expect(201);
   return res.body.id as string;
 }
+
+/** Renames a webhook as Carol, an app admin. */
+export async function renameWebhook(id: string, name: string) {
+  await request(app.getHttpServer())
+    .patch(`/api/admin/webhooks/${id}`)
+    .set('Cookie', await signIn(carol))
+    .send({ name })
+    .expect(200);
+}
+
+/** Removes a webhook as Carol, an app admin. */
+export async function removeWebhook(id: string) {
+  await request(app.getHttpServer())
+    .delete(`/api/admin/webhooks/${id}`)
+    .set('Cookie', await signIn(carol))
+    .expect(204);
+}
