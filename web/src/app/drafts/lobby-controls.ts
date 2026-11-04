@@ -21,7 +21,7 @@ import type {
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
-import { DESKTOP_QUERY, isRefusal } from './drafts';
+import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
 
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;
@@ -43,6 +43,11 @@ export class LobbyControls {
   private readonly user = inject(Auth).user;
 
   readonly draft = input.required<DraftView>();
+  /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
+  protected readonly turnPlayerId = computed(() => {
+    const draft = this.draft();
+    return hasTurn(draft) ? draft.turn.playerId : null;
+  });
   /** Whether the signed-in user is the organizer, or an app admin. */
   readonly canOrganize = input.required<boolean>();
   /** Whether the signed-in user has joined this draft. */

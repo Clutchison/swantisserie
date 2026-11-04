@@ -1,4 +1,4 @@
-import type { DraftView, PickView, PoolCardView } from 'contract';
+import type { PickView, PoolCardView } from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -13,12 +13,13 @@ import {
   openDraft,
   flushPicks,
   completeSnapshot,
+  type DraftFixture,
 } from './harness';
 
 useDraftsApp();
 
 describe('live updates', () => {
-  const drafting = (fields: Partial<DraftView> = {}) =>
+  const drafting = (fields: DraftFixture = {}) =>
     draft({
       state: 'Drafting',
       players: [alicePlayer, bob],

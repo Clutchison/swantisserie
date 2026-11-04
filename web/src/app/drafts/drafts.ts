@@ -1,5 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import type { DraftCreationProblem, DraftRefusal, DraftState, PlanView, QueueView } from 'contract';
+import type {
+  DraftCreationProblem,
+  DraftRefusal,
+  DraftState,
+  DraftView,
+  PlanView,
+  QueueView,
+  TurnState,
+} from 'contract';
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at
@@ -10,6 +18,11 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
 /** An active draft is any draft that is neither closed nor complete. */
 export function isActive(state: DraftState): boolean {
   return state !== 'Complete' && state !== 'Closed';
+}
+
+/** Whether it is someone's turn in the draft: whether it is Drafting or Paused. */
+export function hasTurn(draft: DraftView): draft is Extract<DraftView, { state: TurnState }> {
+  return draft.state === 'Drafting' || draft.state === 'Paused';
 }
 
 /** A 409 from the drafts API; its body, if any, says why. */

@@ -368,6 +368,23 @@ describe('pool snapshot', () => {
     });
   });
 
+  it('still shows a failed snapshot stored without its error, as unexpected', async () => {
+    allOnArena('c:r');
+    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    await snapshotted(created.body.id);
+    await app.get(PrismaService).draft.update({
+      where: { id: created.body.id },
+      data: { snapshotState: 'Failed', snapshotError: null },
+    });
+
+    expect(
+      (await getDraft(created.body.id).expect(200)).body.snapshot,
+    ).toMatchObject({
+      state: 'Failed',
+      error: 'Snapshotting the pool failed unexpectedly.',
+    });
+  });
+
   function retry(id: string, cookie = aliceCookie) {
     return request(app.getHttpServer())
       .post(`/api/drafts/${id}/snapshot`)
