@@ -75,7 +75,7 @@ One copy of a card in a pool, with the printing on the platform that the snapsho
 _Avoid_: Card entry, catalog card
 
 **Card preview**:
-A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name, or next to its card on the Pool tab or in stacks mode when a viewer rests the mouse on the card.
+A view-only image of a pool card that appears next to its name when a viewer hovers over or taps the name, or next to its card on the Pool tab or in stacks mode when a viewer rests the mouse on the card. On the Plan tab, tapping a name opens its Card detail instead.
 _Avoid_: Tooltip, hover card
 
 **Mana cost**:
@@ -83,7 +83,7 @@ The mana symbols shown before a pool card's name wherever the name has a Card pr
 _Avoid_: Casting cost, mana value (that is the cost's total)
 
 **Card detail**:
-The view of a pool card that opens from the Pool tab, showing its large image and the actions a viewer can take on it.
+The view of a pool card that opens from the Pool tab or the Plan tab, showing its large image and the actions a viewer can take on it.
 _Avoid_: Card modal, card popup
 
 **Horizontal card**:
