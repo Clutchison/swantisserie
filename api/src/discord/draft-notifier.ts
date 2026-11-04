@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { setTimeout } from 'node:timers/promises';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -25,7 +25,7 @@ export class DraftNotifierRetries {
  * may help, then logged.
  */
 @Injectable()
-export class DraftNotifier {
+export class DraftNotifier implements OnApplicationShutdown {
   private readonly logger = new Logger(DraftNotifier.name);
   /** Each draft's posts so far, so the next waits for them. */
   private readonly queues = new Map<string, Promise<void>>();
@@ -36,6 +36,18 @@ export class DraftNotifier {
     private readonly config: DiscordConfig,
     private readonly retries: DraftNotifierRetries,
   ) {}
+
+  /**
+   * Waits for every queued post, retries included, so none is dropped at a
+   * deploy or restart. Keeps waiting while more are queued: by bots finishing
+   * their picks and by requests finishing as the HTTP server closed. Runs
+   * before PrismaService disconnects, as announcing reads the database.
+   */
+  async onApplicationShutdown(): Promise<void> {
+    while (this.queues.size > 0) {
+      await Promise.all(this.queues.values());
+    }
+  }
 
   /**
    * Posts the events' announcements to the draft's webhook, if it has one.
