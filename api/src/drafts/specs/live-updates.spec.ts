@@ -1,6 +1,5 @@
 import type { DraftSocketEvents, DraftView } from 'contract';
 import { io, type Socket } from 'socket.io-client';
-import request from 'supertest';
 import {
   alice,
   bob,
@@ -24,6 +23,8 @@ import {
   leave,
   registerWebhook,
   fourCards,
+  cancelDraft,
+  changeWebhook,
 } from './harness.js';
 
 useDraftsApp();
@@ -74,10 +75,7 @@ describe('live updates', () => {
     socket.on('cancelled', cancelled);
     await new Promise<void>((resolve) => socket.on('connect', resolve));
 
-    await request(app.getHttpServer())
-      .delete(`/api/drafts/${id}`)
-      .set('Cookie', aliceCookie)
-      .expect(204);
+    await cancelDraft(id).expect(204);
 
     await vi.waitFor(() => expect(cancelled).toHaveBeenCalledOnce());
   });
@@ -267,11 +265,7 @@ describe('live updates', () => {
     const before = await getDraft(id).expect(200);
     const changes = await watch(id, carolCookie);
 
-    await request(app.getHttpServer())
-      .put(`/api/drafts/${id}/webhook`)
-      .set('Cookie', aliceCookie)
-      .send({ webhookId })
-      .expect(200);
+    await changeWebhook(id, webhookId).expect(200);
 
     await vi.waitFor(() => expect(changes).toHaveLength(1));
     expect(changes[0].webhook).toEqual({

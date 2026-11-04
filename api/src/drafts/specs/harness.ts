@@ -26,6 +26,8 @@ export {
   signIn,
   slowDownDatabase,
   registerWebhook,
+  removeWebhook,
+  renameWebhook,
   webhookClient,
   webhookUrl,
 } from '../../testing/app.js';
@@ -188,6 +190,20 @@ export function getDraft(id: string, cookie = aliceCookie) {
   return draftsRequest('get', `/${id}`, cookie);
 }
 
+/** Cancels the draft. */
+export function cancelDraft(id: string, cookie = aliceCookie) {
+  return draftsRequest('delete', `/${id}`, cookie);
+}
+
+/** Switches the draft's announcements to webhook `webhookId`, or back to its draft channel when null. */
+export function changeWebhook(
+  id: string,
+  webhookId: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/webhook`, cookie, { webhookId });
+}
+
 /** The draft once its snapshot has finished, one way or the other. */
 export async function snapshotted(id: string) {
   return vi.waitFor(async () => {
@@ -234,6 +250,20 @@ export function addBot(id: string, cookie: string) {
   return draftsRequest('post', `/${id}/bots`, cookie);
 }
 
+/** Removes the bot `userId` from the draft; only app admins, such as Carol, may. */
+export function removeBot(id: string, userId: string, cookie: string) {
+  return draftsRequest(
+    'delete',
+    `/${id}/bots/${encodeURIComponent(userId)}`,
+    cookie,
+  );
+}
+
+/** Shuffles the draft's seat order. */
+export function randomizeSeats(id: string, cookie = aliceCookie) {
+  return draftsRequest('post', `/${id}/seats/randomize`, cookie);
+}
+
 /** Sets the draft's seat order to `userIds`. */
 export function setSeats(id: string, userIds: unknown, cookie = aliceCookie) {
   return draftsRequest('put', `/${id}/seats`, cookie, { userIds });
@@ -247,6 +277,15 @@ export function importPicks(
   cookie = aliceCookie,
 ) {
   return draftsRequest('post', `/${id}/pick-import`, cookie, { csv, userIds });
+}
+
+/** What importing the picks in `csv` would do, without importing them. */
+export function previewPickImport(
+  id: string,
+  csv: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('post', `/${id}/pick-import/preview`, cookie, { csv });
 }
 
 export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
@@ -268,6 +307,24 @@ export function queue(id: string, cookie = aliceCookie) {
 
 export function enqueue(id: string, poolCardId: unknown, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/queue`, cookie, { poolCardId });
+}
+
+/** Reorders the player's queue to `poolCardIds`. */
+export function reorderQueue(
+  id: string,
+  poolCardIds: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/queue`, cookie, { poolCardIds });
+}
+
+/** Takes a card out of the player's queue. */
+export function removeFromQueue(
+  id: string,
+  poolCardId: string,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('delete', `/${id}/queue/${poolCardId}`, cookie);
 }
 
 /** Adds the unpicked cards in the player's plan to the end of their queue. */

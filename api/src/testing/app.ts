@@ -150,12 +150,34 @@ export async function signIn(user: {
 export const webhookUrl =
   'https://discord.com/api/webhooks/1234567890/secret-token';
 
+/**
+ * Sends a request to `path` under `/api/admin/webhooks` as Carol, an app
+ * admin, sending `body` when there is one, and expects `status`.
+ */
+async function webhooksRequest(
+  method: 'post' | 'patch' | 'delete',
+  path: string,
+  status: number,
+  body?: object,
+) {
+  const req = request(app.getHttpServer())
+    [method](`/api/admin/webhooks${path}`)
+    .set('Cookie', await signIn(carol));
+  return (body === undefined ? req : req.send(body)).expect(status);
+}
+
 /** Registers a webhook as Carol, an app admin, answering with its id. */
 export async function registerWebhook(name = '#roto-main', url = webhookUrl) {
-  const res = await request(app.getHttpServer())
-    .post('/api/admin/webhooks')
-    .set('Cookie', await signIn(carol))
-    .send({ name, url })
-    .expect(201);
+  const res = await webhooksRequest('post', '', 201, { name, url });
   return res.body.id as string;
+}
+
+/** Renames a webhook as Carol, an app admin. */
+export async function renameWebhook(id: string, name: string) {
+  await webhooksRequest('patch', `/${id}`, 200, { name });
+}
+
+/** Removes a webhook as Carol, an app admin. */
+export async function removeWebhook(id: string) {
+  await webhooksRequest('delete', `/${id}`, 204);
 }

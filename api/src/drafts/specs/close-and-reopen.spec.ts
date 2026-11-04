@@ -1,8 +1,6 @@
-import request from 'supertest';
 import {
   bob,
   carol,
-  app,
   aliceCookie,
   webhookClient,
   useDraftsApp,
@@ -20,6 +18,8 @@ import {
   pool,
   fourCards,
   registerWebhook,
+  reorderQueue,
+  removeFromQueue,
 } from './harness.js';
 
 useDraftsApp();
@@ -147,15 +147,8 @@ describe('close and reopen', () => {
       error: 'draft-closed',
       message: 'This draft is closed.',
     });
-    await request(app.getHttpServer())
-      .put(`/api/drafts/${id}/queue`)
-      .set('Cookie', bobCookie)
-      .send({ poolCardIds: [ids['Lava Spike']] })
-      .expect(409);
-    await request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/queue/${ids['Lava Spike']}`)
-      .set('Cookie', bobCookie)
-      .expect(409);
+    await reorderQueue(id, [ids['Lava Spike']], bobCookie).expect(409);
+    await removeFromQueue(id, ids['Lava Spike'], bobCookie).expect(409);
     await dismissNotice(id, bobCookie).expect(409);
 
     expect((await queue(id, bobCookie).expect(200)).body).toEqual(saved);

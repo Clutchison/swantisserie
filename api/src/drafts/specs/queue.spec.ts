@@ -1,10 +1,8 @@
 import type { DraftView } from 'contract';
-import request from 'supertest';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   useDraftsApp,
   signIn,
@@ -28,6 +26,8 @@ import {
   skewer,
   readyDraftWithCopies,
   waitForBotPicks,
+  reorderQueue,
+  removeFromQueue,
 } from './harness.js';
 
 useDraftsApp();
@@ -112,13 +112,6 @@ describe('queue', () => {
     await enqueue(id, 42).expect(400);
   });
 
-  function reorder(id: string, poolCardIds: unknown, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .put(`/api/drafts/${id}/queue`)
-      .set('Cookie', cookie)
-      .send({ poolCardIds });
-  }
-
   it('lets a player reorder their queue', async () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
@@ -126,7 +119,7 @@ describe('queue', () => {
       await enqueue(id, ids[card.name]).expect(200);
     }
 
-    const reordered = await reorder(id, [
+    const reordered = await reorderQueue(id, [
       ids['Lava Spike'],
       ids.Shock,
       ids['Lightning Bolt'],
@@ -146,23 +139,17 @@ describe('queue', () => {
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Lava Spike']).expect(200);
 
-    const refused = await reorder(id, [ids.Shock]).expect(409);
+    const refused = await reorderQueue(id, [ids.Shock]).expect(409);
 
     expect(refused.body).toEqual({
       error: 'queue-changed',
       message: 'Your queue has changed. Reload and try again.',
     });
-    await reorder(id, [ids.Shock, ids['Lightning Bolt']]).expect(409);
-    await reorder(id, [ids.Shock, ids.Shock]).expect(400);
-    await reorder(id, ids.Shock).expect(400);
+    await reorderQueue(id, [ids.Shock, ids['Lightning Bolt']]).expect(409);
+    await reorderQueue(id, [ids.Shock, ids.Shock]).expect(400);
+    await reorderQueue(id, ids.Shock).expect(400);
     expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
   });
-
-  function remove(id: string, poolCardId: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/queue/${poolCardId}`)
-      .set('Cookie', cookie);
-  }
 
   it('lets a player remove a card from their queue', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -171,13 +158,15 @@ describe('queue', () => {
       await enqueue(id, ids[card.name]).expect(200);
     }
 
-    const removed = await remove(id, ids['Lightning Bolt']).expect(200);
+    const removed = await removeFromQueue(id, ids['Lightning Bolt']).expect(
+      200,
+    );
 
     expect(removed.body.cards).toEqual([shock, spike]);
     // Removing it twice changes nothing.
-    await remove(id, ids['Lightning Bolt']).expect(200);
+    await removeFromQueue(id, ids['Lightning Bolt']).expect(200);
     expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
-    await remove(id, ids.Shock, await signIn(carol)).expect(403);
+    await removeFromQueue(id, ids.Shock, await signIn(carol)).expect(403);
   });
 
   describe('when cards are picked', () => {
@@ -281,7 +270,9 @@ describe('queue', () => {
         restKept: false,
         stealBehavior: 'ClearQueue',
       });
-      const removed = await remove(id, ids.Shock, carolCookie).expect(200);
+      const removed = await removeFromQueue(id, ids.Shock, carolCookie).expect(
+        200,
+      );
       expect(removed.body.cleared).toEqual([spike]);
     });
 
@@ -595,13 +586,13 @@ describe('queue', () => {
       // her turn back with the rest of her queue still waiting.
       await undo(id, 1).expect(200);
 
-      const reordered = await reorder(id, [
+      const reordered = await reorderQueue(id, [
         ids['Lava Spike'],
         ids['Lightning Bolt'],
       ]).expect(200);
       expect(reordered.body.cards).toEqual([spike, bolt]);
 
-      const removed = await remove(id, ids['Lava Spike']).expect(200);
+      const removed = await removeFromQueue(id, ids['Lava Spike']).expect(200);
       expect(removed.body.cards).toEqual([bolt]);
     });
 
@@ -624,7 +615,7 @@ describe('queue', () => {
       const log = await pickLog(id);
       expect(log.body).toEqual([]);
 
-      const removed = await remove(id, ids['Lava Spike']).expect(200);
+      const removed = await removeFromQueue(id, ids['Lava Spike']).expect(200);
       expect(removed.body.cards).toEqual([]);
     });
 

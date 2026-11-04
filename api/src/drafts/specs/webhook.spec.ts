@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import {
   aliceCookie,
@@ -20,6 +19,9 @@ import {
   poolCardIds,
   registerWebhook,
   webhookUrl,
+  changeWebhook,
+  renameWebhook,
+  removeWebhook,
 } from './harness.js';
 
 useDraftsApp();
@@ -84,20 +86,13 @@ describe('webhook', () => {
       webhookId,
     }).expect(201);
 
-    await request(app.getHttpServer())
-      .patch(`/api/admin/webhooks/${webhookId}`)
-      .set('Cookie', carolCookie)
-      .send({ name: '#roto-league' })
-      .expect(200);
+    await renameWebhook(webhookId, '#roto-league');
     expect((await getDraft(body.id).expect(200)).body.webhook).toEqual({
       id: webhookId,
       name: '#roto-league',
     });
 
-    await request(app.getHttpServer())
-      .delete(`/api/admin/webhooks/${webhookId}`)
-      .set('Cookie', carolCookie)
-      .expect(204);
+    await removeWebhook(webhookId);
     expect((await getDraft(body.id).expect(200)).body.webhook).toBeNull();
   });
 
@@ -110,24 +105,6 @@ describe('webhook', () => {
       bobCookie = await signIn(bob);
       otherId = await registerWebhook('#roto-other', otherUrl);
     });
-
-    function changeWebhook(
-      id: string,
-      body: object,
-      cookie: string = aliceCookie,
-    ) {
-      return request(app.getHttpServer())
-        .put(`/api/drafts/${id}/webhook`)
-        .set('Cookie', cookie)
-        .send(body);
-    }
-
-    function removeWebhook(id: string) {
-      return request(app.getHttpServer())
-        .delete(`/api/admin/webhooks/${id}`)
-        .set('Cookie', carolCookie)
-        .expect(204);
-    }
 
     /** The webhook URL of each post, once `count` have been made. */
     async function postedTo(count: number) {
@@ -160,7 +137,7 @@ describe('webhook', () => {
         const id = await joinedDraft();
         await moveTo(id, state);
 
-        const res = await changeWebhook(id, { webhookId: otherId }).expect(200);
+        const res = await changeWebhook(id, otherId).expect(200);
 
         expect(res.body.state).toBe(state);
         expect(res.body.webhook).toEqual({
@@ -177,23 +154,19 @@ describe('webhook', () => {
     it('lets an app admin change it, and refuses anyone else', async () => {
       const id = await joinedDraft();
 
-      await changeWebhook(id, { webhookId: otherId }, bobCookie).expect(403);
+      await changeWebhook(id, otherId, bobCookie).expect(403);
       expect((await getDraft(id).expect(200)).body.webhook.id).toBe(webhookId);
 
-      const res = await changeWebhook(
-        id,
-        { webhookId: otherId },
-        carolCookie,
-      ).expect(200);
+      const res = await changeWebhook(id, otherId, carolCookie).expect(200);
       expect(res.body.webhook.id).toBe(otherId);
     });
 
     it('refuses a body that names no choice, and a draft that doesn’t exist', async () => {
       const id = await joinedDraft();
 
-      await changeWebhook(id, {}).expect(400);
-      await changeWebhook(id, { webhookId: 7 }).expect(400);
-      await changeWebhook('no-such-draft', { webhookId: otherId }).expect(404);
+      await changeWebhook(id, undefined).expect(400);
+      await changeWebhook(id, 7).expect(400);
+      await changeWebhook('no-such-draft', otherId).expect(404);
       expect((await getDraft(id).expect(200)).body.webhook.id).toBe(webhookId);
     });
 
@@ -202,7 +175,7 @@ describe('webhook', () => {
       await start(id).expect(200);
       expect(await postedTo(1)).toEqual([webhookUrl]);
 
-      await changeWebhook(id, { webhookId: otherId }).expect(200);
+      await changeWebhook(id, otherId).expect(200);
       await post(id, 'pause').expect(200);
 
       expect(await postedTo(2)).toEqual([webhookUrl, otherUrl]);
@@ -212,7 +185,7 @@ describe('webhook', () => {
       const id = await joinedDraft();
       const ids = await poolCardIds(id);
 
-      const res = await changeWebhook(id, { webhookId: null }).expect(200);
+      const res = await changeWebhook(id, null).expect(200);
       expect(res.body.webhook).toBeNull();
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
@@ -227,7 +200,7 @@ describe('webhook', () => {
       const id = await readyDraft([aliceCookie, bobCookie]);
       await start(id).expect(200);
 
-      await changeWebhook(id, { webhookId }).expect(200);
+      await changeWebhook(id, webhookId).expect(200);
       await post(id, 'pause').expect(200);
 
       expect(await postedTo(1)).toEqual([webhookUrl]);
@@ -237,7 +210,7 @@ describe('webhook', () => {
       const id = await joinedDraft();
       await removeWebhook(otherId);
 
-      const res = await changeWebhook(id, { webhookId: otherId }).expect(409);
+      const res = await changeWebhook(id, otherId).expect(409);
 
       expect(res.body).toEqual({
         error: 'webhook-removed',
@@ -251,7 +224,7 @@ describe('webhook', () => {
       await removeWebhook(webhookId);
       expect((await getDraft(id).expect(200)).body.webhook).toBeNull();
 
-      const res = await changeWebhook(id, { webhookId: otherId }).expect(200);
+      const res = await changeWebhook(id, otherId).expect(200);
 
       expect(res.body.webhook.id).toBe(otherId);
     });
@@ -269,7 +242,7 @@ describe('webhook', () => {
       expect(await postedTo(1)).toEqual([webhookUrl]);
 
       await post(id, 'pause').expect(200);
-      await changeWebhook(id, { webhookId: otherId }).expect(200);
+      await changeWebhook(id, otherId).expect(200);
       release();
 
       expect(await postedTo(2)).toEqual([webhookUrl, otherUrl]);

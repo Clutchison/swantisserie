@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   alice,
@@ -14,6 +13,7 @@ import {
   join,
   leave,
   addBot,
+  removeBot,
 } from './harness.js';
 
 useDraftsApp();
@@ -93,12 +93,6 @@ describe('lobby', () => {
       carolCookie = await signIn(carol);
     });
 
-    function removeBot(id: string, userId: string, cookie = carolCookie) {
-      return request(app.getHttpServer())
-        .delete(`/api/drafts/${id}/bots/${encodeURIComponent(userId)}`)
-        .set('Cookie', cookie);
-    }
-
     const bot = (name: string) => ({
       id: expect.stringMatching(/^bot:/),
       name,
@@ -160,7 +154,7 @@ describe('lobby', () => {
       const added = await addBot(id, carolCookie).expect(201);
       const botId = added.body.players[0].id;
 
-      const removed = await removeBot(id, botId).expect(200);
+      const removed = await removeBot(id, botId, carolCookie).expect(200);
 
       expect(removed.body.players).toEqual([bot('Bot 2')]);
       expect(
@@ -172,7 +166,7 @@ describe('lobby', () => {
       const id = await lobbyDraft();
       await join(id).expect(201);
 
-      await removeBot(id, alice.id).expect(404);
+      await removeBot(id, alice.id, carolCookie).expect(404);
 
       expect((await getDraft(id).expect(200)).body.players).toEqual([
         player(alice),
@@ -187,7 +181,11 @@ describe('lobby', () => {
         .draft.update({ where: { id }, data: { state: 'Drafting' } });
 
       await addBot(id, carolCookie).expect(409);
-      const refused = await removeBot(id, added.body.players[0].id).expect(409);
+      const refused = await removeBot(
+        id,
+        added.body.players[0].id,
+        carolCookie,
+      ).expect(409);
       expect(refused.body.error).toBe('draft-started');
       expect((await getDraft(id).expect(200)).body.players).toEqual([
         bot('Bot 1'),
@@ -196,7 +194,7 @@ describe('lobby', () => {
 
     it('is 404 for a draft that does not exist', async () => {
       await addBot('no-such-draft', carolCookie).expect(404);
-      await removeBot('no-such-draft', 'bot:x').expect(404);
+      await removeBot('no-such-draft', 'bot:x', carolCookie).expect(404);
     });
   });
 });
