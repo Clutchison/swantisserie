@@ -27,13 +27,13 @@ export interface WebhookMessage {
 }
 
 /** The most characters of `content` Discord takes in one webhook post. */
-export const MAX_CONTENT_LENGTH = 2000;
+const MAX_CONTENT_LENGTH = 2000;
 
 /**
  * The messages to post, in order, for the announcements `events` make: a run
  * of picks, such as a pick and the cascade after it, is one announcement, and
  * so is a start, a resume or a reopen and the cascade after it. Each
- * announcement is one message, or several if it is too long for one post.
+ * announcement is one post, or several if it is too long for one.
  */
 export function draftMessages(
   draft: AnnouncedDraft,
@@ -78,7 +78,7 @@ export function draftMessages(
         break;
     }
   }
-  return messages.flatMap(splitMessage);
+  return messages.flatMap(splitIntoPosts);
 }
 
 /**
@@ -86,7 +86,7 @@ export function draftMessages(
  * line, if any, is the last line, so only the last post names who is up, and
  * only it pings.
  */
-function splitMessage(message: WebhookMessage): WebhookMessage[] {
+function splitIntoPosts(message: WebhookMessage): WebhookMessage[] {
   // UTF-16 length is never less than what Discord counts.
   if (message.content.length <= MAX_CONTENT_LENGTH) return [message];
   const posts: string[] = [];
