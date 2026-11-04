@@ -30,8 +30,7 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
   const draft = {
     id: expect.any(String),
     name: 'Red dragons',
-    poolQuery: 't:dragon c:r',
-    cube: null,
+    poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     picksPerPlayer: 30,
     platform: 'Arena',
     state: 'Lobby',
@@ -279,7 +278,7 @@ it('trims the name and pool query', async () => {
 
   expect(res.body).toMatchObject({
     name: 'Red dragons',
-    poolQuery: 't:dragon c:r',
+    poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
   });
 });
 

@@ -33,8 +33,7 @@ export function draft(fields: Partial<DraftView>): DraftView {
   return {
     id: 'draft-1',
     name: 'Red dragons',
-    poolQuery: 't:dragon c:r',
-    cube: null,
+    poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     picksPerPlayer: 40,
     platform: 'Arena',
     state: 'Lobby',
