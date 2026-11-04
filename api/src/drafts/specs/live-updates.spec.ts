@@ -23,7 +23,7 @@ import {
   leave,
   registerWebhook,
   fourCards,
-  cancel,
+  cancelDraft,
   changeWebhook,
 } from './harness.js';
 
@@ -75,7 +75,7 @@ describe('live updates', () => {
     socket.on('cancelled', cancelled);
     await new Promise<void>((resolve) => socket.on('connect', resolve));
 
-    await cancel(id).expect(204);
+    await cancelDraft(id).expect(204);
 
     await vi.waitFor(() => expect(cancelled).toHaveBeenCalledOnce());
   });

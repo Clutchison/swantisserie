@@ -28,7 +28,7 @@ import {
   enqueue,
   addBot,
   registerWebhook,
-  cancel,
+  cancelDraft,
 } from './harness.js';
 
 useDraftsApp();
@@ -37,7 +37,7 @@ describe('cancel', () => {
   it('cancels a lobby draft, so its link is not found and the list omits it', async () => {
     const id = await readyDraft([aliceCookie]);
 
-    await cancel(id).expect(204);
+    await cancelDraft(id).expect(204);
 
     await getDraft(id).expect(404);
     expect((await listDrafts().expect(200)).body).toEqual([]);
@@ -49,7 +49,7 @@ describe('cancel', () => {
     await enqueue(id, ids.Shock).expect(200);
     await addBot(id, await signIn(carol)).expect(201);
 
-    await cancel(id).expect(204);
+    await cancelDraft(id).expect(204);
 
     const prisma = app.get(PrismaService);
     expect(await prisma.poolCard.count()).toBe(0);
@@ -63,21 +63,21 @@ describe('cancel', () => {
   it('lets an app admin cancel, but not other guild members', async () => {
     const id = await readyDraft([aliceCookie]);
 
-    await cancel(id, await signIn(bob)).expect(403);
+    await cancelDraft(id, await signIn(bob)).expect(403);
     await getDraft(id).expect(200);
 
-    await cancel(id, await signIn(carol)).expect(204);
+    await cancelDraft(id, await signIn(carol)).expect(204);
   });
 
   it('answers 404 for a draft that does not exist', async () => {
-    await cancel('no-such-draft').expect(404);
+    await cancelDraft('no-such-draft').expect(404);
   });
 
   it('refuses to cancel a draft that has left the lobby', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)]);
     await start(id).expect(200);
 
-    const refused = await cancel(id).expect(409);
+    const refused = await cancelDraft(id).expect(409);
 
     expect(refused.body).toEqual({
       error: 'draft-started',
@@ -96,7 +96,7 @@ describe('cancel', () => {
     const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
     await snapshotted(created.body.id);
 
-    await cancel(created.body.id).expect(204);
+    await cancelDraft(created.body.id).expect(204);
 
     await getDraft(created.body.id).expect(404);
   });
@@ -134,7 +134,7 @@ describe('cancel', () => {
     const { id, answer } = await draftWithRunningSnapshot();
     const errors = vi.spyOn(Logger.prototype, 'error');
 
-    await cancel(id).expect(204);
+    await cancelDraft(id).expect(204);
     answer.resolve(page('Lightning Bolt'));
     // Shutting down waits for the snapshot to end.
     await app.close();
@@ -149,7 +149,7 @@ describe('cancel', () => {
     const { id, answer } = await draftWithRunningSnapshot();
     const errors = vi.spyOn(Logger.prototype, 'error');
 
-    await cancel(id).expect(204);
+    await cancelDraft(id).expect(204);
     answer.reject(new ScryfallUnavailableError(503));
     await app.close();
 
@@ -166,7 +166,7 @@ describe('cancel', () => {
       await registerWebhook(),
     );
 
-    await cancel(id).expect(204);
+    await cancelDraft(id).expect(204);
 
     // Announcing isn't awaited, so give a stray post time to be made.
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -177,7 +177,10 @@ describe('cancel', () => {
     const id = await readyDraft([aliceCookie]);
     const carolCookie = await signIn(carol);
 
-    const answers = await Promise.all([cancel(id), cancel(id, carolCookie)]);
+    const answers = await Promise.all([
+      cancelDraft(id),
+      cancelDraft(id, carolCookie),
+    ]);
 
     expect(answers.map((res) => res.status)).toEqual(
       expect.arrayContaining([204, 404]),

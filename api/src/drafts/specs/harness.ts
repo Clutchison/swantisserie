@@ -191,7 +191,7 @@ export function getDraft(id: string, cookie = aliceCookie) {
 }
 
 /** Cancels the draft. */
-export function cancel(id: string, cookie = aliceCookie) {
+export function cancelDraft(id: string, cookie = aliceCookie) {
   return draftsRequest('delete', `/${id}`, cookie);
 }
 
