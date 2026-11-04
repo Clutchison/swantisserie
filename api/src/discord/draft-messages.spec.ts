@@ -8,6 +8,7 @@ import {
   draftStartedMessage,
   picksMessage,
   undoneMessage,
+  type WebhookMessage,
 } from './draft-messages.js';
 
 const draft = { name: 'Red', url: 'https://roto.example/drafts/d1' };
@@ -472,6 +473,140 @@ describe('draftResumedMessage', () => {
           '**Red** has resumed\n' +
           '**Bot 1** is up. [Open draft](<https://roto.example/drafts/d1>)',
         allowed_mentions: { parse: [], users: [] },
+      },
+    ]);
+  });
+});
+
+describe('draftMessages for an announcement too long for one post', () => {
+  const upLine =
+    '<@80351110224678913> you’re up. [Open draft](<https://roto.example/drafts/d1>)';
+
+  /** Picks `from` on, `count` of them, Alice and Bob in turn, queued after the first. */
+  function cascade(from: number, count: number, { byHand = false } = {}) {
+    return Array.from({ length: count }, (_, i) => {
+      const number = from + i;
+      const player = number % 2 === 0 ? bob : alice;
+      return {
+        type: 'picked' as const,
+        number,
+        player,
+        card: `Card With A Long Enough Name ${number}`,
+        queued: !(byHand && i === 0),
+        next: number % 2 === 0 ? alice : bob,
+      };
+    });
+  }
+
+  /** The line each pick of `cascade(from, count)` gets. */
+  function cascadeLines(from: number, count: number) {
+    return Array.from({ length: count }, (_, i) => {
+      const number = from + i;
+      const name = number % 2 === 0 ? 'Bob' : 'Alice';
+      return `${number}- **${name}** picked **Card With A Long Enough Name ${number}**`;
+    });
+  }
+
+  /**
+   * Checks that `messages` are `lines` split into as few posts as fit, with
+   * only the last naming who is up and pinging Bob.
+   */
+  function expectSplit(messages: WebhookMessage[], lines: string[]) {
+    expect(messages.length).toBeGreaterThan(1);
+    for (const { content } of messages) {
+      expect(content.length).toBeLessThanOrEqual(2000);
+    }
+    expect(messages.flatMap(({ content }) => content.split('\n'))).toEqual(
+      lines,
+    );
+    // Each post is as full as it can be: the next line wouldn't have fit.
+    for (let i = 0; i < messages.length - 1; i++) {
+      const nextLine = messages[i + 1].content.split('\n')[0];
+      expect(`${messages[i].content}\n${nextLine}`.length).toBeGreaterThan(
+        2000,
+      );
+    }
+    const earlier = messages.slice(0, -1);
+    for (const message of earlier) {
+      expect(message.allowed_mentions).toEqual({ parse: [], users: [] });
+      expect(message.content).not.toContain('you’re up');
+      expect(message.content).not.toContain('Open draft');
+    }
+    expect(messages[messages.length - 1].allowed_mentions).toEqual({
+      parse: [],
+      users: [bob.id],
+    });
+  }
+
+  it('splits a by-hand pick and its long cascade between lines, pinging only in the last post', () => {
+    expectSplit(draftMessages(draft, cascade(1, 61, { byHand: true })), [
+      ...cascadeLines(1, 61),
+      upLine,
+    ]);
+  });
+
+  it('splits a start and its long cascade, seat order included', () => {
+    const seats = Array.from({ length: 12 }, (_, i) => ({
+      id: `8035111022467900${i}`,
+      name: `Player ${i + 1}`,
+      isBot: false,
+    }));
+    expectSplit(
+      draftMessages(draft, [{ type: 'started', seats }, ...cascade(1, 61)]),
+      [
+        '**Red** has started. Seat order:',
+        ...seats.map((_, i) => `${i + 1}. **Player ${i + 1}**`),
+        ...cascadeLines(1, 61),
+        upLine,
+      ],
+    );
+  });
+
+  it('splits a resume and its long cascade', () => {
+    expectSplit(
+      draftMessages(draft, [
+        { type: 'resumed', number: 9, player: alice },
+        ...cascade(9, 61),
+      ]),
+      ['**Red** has resumed', ...cascadeLines(9, 61), upLine],
+    );
+  });
+
+  it('splits a reopen and its long cascade', () => {
+    expectSplit(
+      draftMessages(draft, [
+        { type: 'reopened', number: 9, player: alice },
+        ...cascade(9, 61),
+      ]),
+      ['**Red** has reopened', ...cascadeLines(9, 61), upLine],
+    );
+  });
+
+  /** A by-hand pick of a card named to make its announcement `length` long. */
+  function pickOfLength(length: number) {
+    const [pick] = cascade(1, 1, { byHand: true });
+    const unpadded = draftMessages(draft, [{ ...pick, card: '' }])[0].content
+      .length;
+    return [{ ...pick, card: 'x'.repeat(length - unpadded) }];
+  }
+
+  it('keeps an announcement of exactly 2000 characters in one post', () => {
+    const [message, ...rest] = draftMessages(draft, pickOfLength(2000));
+    expect(rest).toEqual([]);
+    expect(message.content).toHaveLength(2000);
+    expect(message.allowed_mentions.users).toEqual([bob.id]);
+  });
+
+  it('splits an announcement of 2001 characters into two posts', () => {
+    const events = pickOfLength(2001);
+    expect(draftMessages(draft, events)).toEqual([
+      {
+        content: `1- **Alice** picked **${events[0].card}**`,
+        allowed_mentions: { parse: [], users: [] },
+      },
+      {
+        content: upLine,
+        allowed_mentions: { parse: [], users: [bob.id] },
       },
     ]);
   });

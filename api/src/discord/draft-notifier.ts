@@ -8,7 +8,11 @@ import {
   draftMessages,
   type WebhookMessage,
 } from './draft-messages.js';
-import { WebhookClient, WebhookGoneError } from './webhook-client.js';
+import {
+  WebhookClient,
+  WebhookGoneError,
+  WebhookRefusedError,
+} from './webhook-client.js';
 
 /** How long to wait before each retry of a failed post. */
 export class DraftNotifierRetries {
@@ -17,7 +21,8 @@ export class DraftNotifierRetries {
 
 /**
  * Announces draft events on each draft's webhook. Each draft's posts go one
- * at a time, in the order notified, and a failed post is retried, then logged.
+ * at a time, in the order notified, and a failed post is retried if a retry
+ * may help, then logged.
  */
 @Injectable()
 export class DraftNotifier {
@@ -76,13 +81,21 @@ export class DraftNotifier {
     }
   }
 
-  /** Posts `message`, retrying after each of the retry delays. */
+  /**
+   * Posts `message`, retrying after each of the retry delays unless the
+   * failure is one a retry won't fix.
+   */
   private async post(url: string, message: WebhookMessage): Promise<void> {
     for (const delay of this.retries.delaysMs) {
       try {
         return await this.webhooks.post(url, message);
       } catch (err) {
-        if (err instanceof WebhookGoneError) throw err;
+        if (
+          err instanceof WebhookGoneError ||
+          err instanceof WebhookRefusedError
+        ) {
+          throw err;
+        }
         await setTimeout(delay);
       }
     }
