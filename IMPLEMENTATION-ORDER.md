@@ -27,6 +27,7 @@ Recorded in GitHub:
 #292 → #293
 #205 → #206
 #219, #220 → #221
+#341 → #299, #322
 #208 → #209, #210
 #207 (human), #208 → #211
 #211 → #212
@@ -49,7 +50,6 @@ Judgement calls, not recorded in GitHub:
 - **#316 comes before #292.** The shared Card detail should be built on one dialog shell, not be a fifth copy.
 - **#315 is fixed in #292's shared Card detail,** or straight after it. It can be folded into #292.
 - **#322 comes after #285 and #299, and before #208, #209 and #213.** It is the web side of #299's access seam, and it compares player ids that #285 renames.
-- **#341 is decided before #299 and #322.** Both would otherwise build their own copy of the draft powers rule, one in each workspace.
 - **#344 comes before #284 and #338, which come before #301 and #339.** #344 renames the fields the other three edit. #338 adds the engine's undo rules, which #301 changes, and comes after #307, whose race specs guard the cascade it reworks. #339 rewords `PLAN.md` once #301's wording is settled.
 - **#345 goes with #285,** which already reshapes `PickView`.
 - **#342 comes after #321,** which gives the web's `offer*` rules the one home #342 fixes them in.
