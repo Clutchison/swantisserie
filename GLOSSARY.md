@@ -229,7 +229,7 @@ The note on the Plan tab naming a player's lost unpicked cards and who picked ea
 _Avoid_: Deck notice, alert, queue notice (that is the queue's)
 
 **Stacks mode**:
-The way of showing each plan board as stacks of overlapping card images, offered on desktop, so a player sees their curve at a glance.
+The way of showing a plan as stacks of overlapping card images, offered on desktop, so a player sees their curve at a glance: the mainboard as a grouping's stacks, with the sideboard beside it as one stack.
 _Avoid_: Card view, grid view, visual mode, curve view
 
 **List mode**:
@@ -237,11 +237,11 @@ The way of showing each plan board as lines of card names with counts. The only 
 _Avoid_: Text mode, compact view
 
 **Stack**:
-One column of stacks mode: the cards of a plan board that share a grouping's value, sorted by mana value then name.
+One column of stacks mode. On the mainboard, it holds the cards that share a grouping's value, sorted by mana value then name. The sideboard is always one stack, whatever the grouping: its cards sorted by mana value then name, with lands last.
 _Avoid_: Column, pile
 
 **Grouping**:
-How stacks mode divides a plan board into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies, and one with none of the listed types goes under Other.
+How stacks mode divides the mainboard into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies, and one with none of the listed types goes under Other.
 _Avoid_: Sort, filter, view
 
 **Export tab**:
