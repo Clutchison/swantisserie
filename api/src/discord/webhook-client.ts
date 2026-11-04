@@ -37,11 +37,21 @@ export class FetchWebhookClient extends WebhookClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message),
     });
-    if (res.status === 404) throw new WebhookGoneError();
-    // Never the URL in an error: it is a secret, and errors get logged.
-    if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-      throw new WebhookRefusedError(res.status);
-    }
-    if (!res.ok) throw new Error(`Discord webhook post failed: ${res.status}`);
+    const error = webhookPostError(res.status);
+    if (error) throw error;
   }
+}
+
+/**
+ * What a webhook post answered with `status` failed with, as
+ * WebhookClient.post throws it, or null if it didn't fail.
+ */
+export function webhookPostError(status: number): Error | null {
+  if (status >= 200 && status < 300) return null;
+  if (status === 404) return new WebhookGoneError();
+  // Never the URL in an error: it is a secret, and errors get logged.
+  if (status >= 400 && status < 500 && status !== 429) {
+    return new WebhookRefusedError(status);
+  }
+  return new Error(`Discord webhook post failed: ${status}`);
 }

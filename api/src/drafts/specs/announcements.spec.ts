@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import {
   WebhookGoneError,
+  webhookPostError,
   WebhookRefusedError,
 } from '../../discord/webhook-client.js';
 import {
@@ -272,20 +273,28 @@ describe('announcements', () => {
     });
   });
 
-  it('posts an announcement too long for one post as several, in order, pinging only in the last', async () => {
+  /**
+   * A draft whose start cascades through every pick but the last, Bob's,
+   * making an announcement too long for one post.
+   */
+  async function longCascadeDraft() {
     const cards = Array.from(
       { length: 50 },
       (_, i) => `Card With A Long Enough Name ${String(i).padStart(2, '0')}`,
     );
     const id = await readyDraft([aliceCookie, bobCookie], 25, cards, webhookId);
     const ids = await poolCardIds(id);
-    // Every pick but the last, Bob's, cascades straight after the start.
     for (const card of cards.slice(0, 25)) {
       await enqueue(id, ids[card]).expect(200);
     }
     for (const card of cards.slice(25, 49)) {
       await enqueue(id, ids[card], bobCookie).expect(200);
     }
+    return id;
+  }
+
+  it('posts an announcement too long for one post as several, in order, pinging only in the last', async () => {
+    const id = await longCascadeDraft();
 
     await start(id).expect(200);
 
@@ -309,6 +318,22 @@ describe('announcements', () => {
     );
     expect(first.allowed_mentions).toEqual({ parse: [], users: [] });
     expect(last.allowed_mentions).toEqual({ parse: [], users: [bob.id] });
+  });
+
+  it('still posts the rest of an announcement when one of its posts is refused', async () => {
+    const id = await longCascadeDraft();
+    webhookClient.post.mockRejectedValueOnce(new WebhookRefusedError(400));
+    const logged = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+
+    await start(id).expect(200);
+
+    const [refused, last] = await posted(2);
+    expect(refused).toMatch(/^\*\*Red\*\* has started/);
+    expect(last).toContain(`<@${bob.id}> you’re up.`);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('400'));
   });
 
   it('posts nothing for a draft without a webhook', async () => {
@@ -373,6 +398,24 @@ describe('announcements', () => {
     expect(retried).toBe(first);
     expect(first).toContain('has started');
   });
+
+  it.each([429, 503])(
+    'retries a post that failed with a %i',
+    async (status) => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValueOnce(webhookPostError(status));
+
+      await start(id).expect(200);
+
+      const [first, retried] = await posted(2);
+      expect(retried).toBe(first);
+    },
+  );
 
   it('doesn’t retry a webhook Discord no longer has', async () => {
     const id = await readyDraft(
