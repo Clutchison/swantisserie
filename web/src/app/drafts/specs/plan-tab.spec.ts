@@ -1,5 +1,6 @@
 import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { DraftView, PlanView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
@@ -23,6 +24,10 @@ import {
   updates,
   viewOn,
   resizeTo,
+  wait,
+  previewImage,
+  pointer,
+  tap,
   type AppFixture,
 } from './harness';
 import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -613,6 +618,81 @@ describe('plan tab', () => {
       resizeTo('desktop');
       expect(pressed(plan, 'Stacks')).toBe('true');
       expect(plan.querySelectorAll('.stack')).toHaveLength(3);
+    });
+
+    describe('a stacked card’s Unpicked mark', () => {
+      /** Opens stacks mode with an unpicked Lightning Bolt, and returns its mark, on fake timers. */
+      async function openMark() {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards,
+          plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt)] }),
+        });
+        const plan = await openPlan(fixture, page);
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        const mark = plan.querySelector<HTMLElement>('.stack .unpicked .mark')!;
+        return { mark, image: mark.closest('li')!.querySelector('img')! };
+      }
+      afterEach(() => vi.useRealTimers());
+
+      const ancestry = (element: Element | null | undefined) => {
+        const chain: Element[] = [];
+        for (let at = element; at; at = at.parentElement) chain.push(at);
+        return chain;
+      };
+      /** Moves the mouse from `from`, or from off the page, onto `to`, leaving and entering each element as a browser does. */
+      function moveMouse(to: Element, from?: Element) {
+        for (const left of ancestry(from).filter((at) => !at.contains(to))) {
+          left.dispatchEvent(pointer('pointerleave', 'mouse'));
+        }
+        for (const entered of ancestry(to)
+          .filter((at) => !from || !at.contains(from))
+          .reverse()) {
+          entered.dispatchEvent(pointer('pointerenter', 'mouse'));
+        }
+        TestBed.tick();
+      }
+
+      it('opens the Card preview when the mouse rests on it, as on the card', async () => {
+        const { mark } = await openMark();
+
+        moveMouse(mark);
+        wait(149);
+        expect(previewImage()).toBeNull();
+        wait(1);
+
+        expect(previewImage()?.alt).toBe('Lightning Bolt');
+      });
+
+      it('neither closes the Card preview nor restarts its delay as the mouse moves between it and the card', async () => {
+        const { mark, image } = await openMark();
+
+        moveMouse(image);
+        wait(100);
+        moveMouse(mark, image);
+        wait(50);
+        expect(previewImage()?.alt).toBe('Lightning Bolt');
+
+        moveMouse(image, mark);
+        moveMouse(mark, image);
+        wait(1000);
+        expect(previewImage()?.alt).toBe('Lightning Bolt');
+      });
+
+      it('opens the Card preview on a tap', async () => {
+        const { mark } = await openMark();
+
+        tap(mark);
+
+        expect(previewImage()?.alt).toBe('Lightning Bolt');
+      });
+
+      it('stays shown, undimmed outside the card, and part of the dragged card', async () => {
+        const { mark } = await openMark();
+
+        expect(mark.textContent?.trim()).toBe('Unpicked');
+        expect(mark.closest('.card')).toBeNull();
+        expect(mark.closest('.cdk-drag')).toBe(mark.closest('li'));
+      });
     });
 
     it('falls back to the defaults when the browser offers no storage', async () => {

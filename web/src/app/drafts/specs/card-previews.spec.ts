@@ -16,6 +16,9 @@ import {
   decoded,
   wait,
   viewOn,
+  previewImage,
+  pointer,
+  tap,
 } from './harness';
 import { image } from './pool-tab-harness';
 
@@ -104,11 +107,6 @@ describe('card previews', () => {
     [...(name.closest('app-card-name')?.querySelectorAll('.cost > *') ?? [])].map((symbol) =>
       symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent,
     );
-  /** The Card preview's image, if one is open: it's outside the page. */
-  const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');
-
-  const pointer = (type: string, pointerType: string) =>
-    new PointerEvent(type, { pointerType, bubbles: type === 'pointerdown' });
   function hover(name: HTMLElement) {
     name.dispatchEvent(pointer('pointerenter', 'mouse'));
   }
@@ -175,14 +173,6 @@ describe('card previews', () => {
     TestBed.tick();
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
-
-  function tap(target: HTMLElement) {
-    target.dispatchEvent(pointer('pointerenter', 'touch'));
-    target.dispatchEvent(pointer('pointerdown', 'touch'));
-    target.dispatchEvent(pointer('pointerleave', 'touch'));
-    target.click();
-    TestBed.tick();
-  }
 
   it('opens at once on a tap, and stays open with a touch’s enter and leave', async () => {
     const { page } = await openBoard();
