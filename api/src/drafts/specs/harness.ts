@@ -195,7 +195,7 @@ export function cancel(id: string, cookie = aliceCookie) {
   return draftsRequest('delete', `/${id}`, cookie);
 }
 
-/** Changes the webhook the draft posts to. */
+/** Switches the draft's announcements to webhook `webhookId`, or back to its draft channel when null. */
 export function changeWebhook(
   id: string,
   webhookId: unknown,
