@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import pg from 'pg';
-import { startDatabaseProxy } from './database-proxy.js';
-import { migrations, type TestDatabase } from './test-database.js';
+import { type DatabaseProxy, startDatabaseProxy } from './database-proxy.js';
+import { migrations, type TestDatabase, truncate } from './test-database.js';
 
 /**
  * The env var naming the Postgres server the race specs run on. It is never
@@ -89,7 +89,7 @@ export async function startRaceDatabase(
   const own = new URL(server);
   own.pathname = `/${name}`;
   const db = new pg.Client({ connectionString: own.href });
-  let proxy: Awaited<ReturnType<typeof startDatabaseProxy>>;
+  let proxy: DatabaseProxy;
   try {
     await db.connect();
     for (const migration of migrations()) await db.query(migration);
@@ -119,9 +119,7 @@ export async function startRaceDatabase(
       if (rows.some((row) => row.db !== name)) {
         throw new Error(`Refusing to empty a database that isn't ${name}`);
       }
-      await db.query(
-        `TRUNCATE ${rows.map((r) => `"${r.tablename}"`).join(', ')} CASCADE`,
-      );
+      await db.query(truncate(rows.map((row) => row.tablename)));
     },
     async stop() {
       proxy.reset();

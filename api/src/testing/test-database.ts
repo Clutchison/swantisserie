@@ -49,9 +49,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
         `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
       );
       if (rows.length === 0) return;
-      await db.exec(
-        `TRUNCATE ${rows.map((r) => `"${r.tablename}"`).join(', ')} CASCADE`,
-      );
+      await db.exec(truncate(rows.map((row) => row.tablename)));
     },
     async stop() {
       // A client's socket closes a moment after the app disconnects, and the
@@ -64,4 +62,9 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       await db.close();
     },
   };
+}
+
+/** SQL emptying every one of `tables`. */
+export function truncate(tables: string[]): string {
+  return `TRUNCATE ${tables.map((table) => `"${table}"`).join(', ')} CASCADE`;
 }

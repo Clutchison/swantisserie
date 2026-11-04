@@ -225,7 +225,7 @@ describe('picks', () => {
   });
 
   it('answers a player’s two picks of different cards sent at once with one 200 and one refusal', async () => {
-    // On PGlite the two run one after the other; races.race.spec.ts races
+    // On PGlite the two run one after the other; picks.race.spec.ts races
     // them on a real Postgres.
     const id = await startedDraft(await signIn(bob));
     const ids = await poolCardIds(id);
@@ -244,7 +244,7 @@ describe('picks', () => {
   });
 
   it('answers a pick sent twice at once with one 200 and one refusal', async () => {
-    // On PGlite the two run one after the other; races.race.spec.ts races
+    // On PGlite the two run one after the other; picks.race.spec.ts races
     // them on a real Postgres.
     const id = await startedDraft(await signIn(bob));
     const ids = await poolCardIds(id);
