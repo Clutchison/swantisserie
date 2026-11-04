@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { CardImages, Rarity } from 'contract';
+import {
+  fetchWithTimeout,
+  UnreachableError,
+} from '../http/fetch-with-timeout.js';
 
 const API = 'https://api.scryfall.com';
 /**
@@ -11,6 +15,13 @@ const REQUEST_INTERVAL_MS = 600;
 /** A 429 locks us out for 30 seconds, and ignoring it risks a ban. */
 const RATE_LIMITED_WAIT_MS = 30_000;
 const MAX_RATE_LIMITED_RETRIES = 3;
+/**
+ * How long to wait before each retry after a server error, a timeout or a
+ * network failure. Separate from the retries after a 429.
+ */
+const RETRY_DELAYS_MS = [1000, 2000, 4000];
+/** How long a request, its body included, may take. */
+const REQUEST_TIMEOUT_MS = 10_000;
 /** Scryfall requires an accurate User-Agent and an Accept header on every request. */
 const HEADERS = {
   'User-Agent':
@@ -91,10 +102,22 @@ export class ScryfallRejectedSearchError extends Error {
   }
 }
 
-/** Scryfall failed for reasons of its own, not the query's: an outage or rate limiting. */
+/**
+ * Scryfall failed for reasons of its own, not the query's: an outage, rate
+ * limiting, or it couldn't be reached at all.
+ */
 export class ScryfallUnavailableError extends Error {
-  constructor(readonly status: number) {
-    super(`Scryfall request failed: ${status}`);
+  constructor(
+    /** The HTTP status Scryfall failed with, or undefined if it couldn't be reached. */
+    readonly status?: number,
+    options?: ErrorOptions,
+  ) {
+    super(
+      status === undefined
+        ? 'Scryfall could not be reached.'
+        : `Scryfall request failed: ${status}`,
+      options,
+    );
   }
 }
 
@@ -106,7 +129,8 @@ export abstract class ScryfallClient {
   /**
    * The cards matching `query`, page by page (from 1), or null if none do.
    * Throws ScryfallRejectedSearchError if Scryfall can't run the query, and
-   * ScryfallUnavailableError if Scryfall itself is in trouble.
+   * ScryfallUnavailableError if Scryfall itself is in trouble or can't be
+   * reached, even after retrying.
    */
   abstract search(
     query: string,
@@ -117,7 +141,8 @@ export abstract class ScryfallClient {
    * A printing on `game` (as Scryfall's `game:` search names it) of each card
    * with one of these oracle ids, leaving out cards with none. Asks for as
    * many cards per search as Scryfall's query length allows. Throws
-   * ScryfallUnavailableError if Scryfall itself is in trouble.
+   * ScryfallUnavailableError if Scryfall itself is in trouble or can't be
+   * reached, even after retrying.
    */
   abstract printingsOn(
     game: string,
@@ -135,7 +160,16 @@ export class FetchScryfallClient extends ScryfallClient {
     url.searchParams.set('q', query);
     if (page > 1) url.searchParams.set('page', String(page));
 
-    return this.parse(await this.send(url.toString()));
+    for (let failures = 0; ; failures++) {
+      try {
+        return await this.attempt(url.toString());
+      } catch (err) {
+        if (!isRetryable(err) || failures === RETRY_DELAYS_MS.length) throw err;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, RETRY_DELAYS_MS[failures]),
+      );
+    }
   }
 
   async printingsOn(
@@ -154,11 +188,27 @@ export class FetchScryfallClient extends ScryfallClient {
     return cards;
   }
 
+  /** Sends the search and reads its answer, once. */
+  private async attempt(url: string): Promise<ScryfallSearchPage | null> {
+    try {
+      return await this.parse(await this.send(url));
+    } catch (err) {
+      if (err instanceof UnreachableError) {
+        throw new ScryfallUnavailableError(undefined, { cause: err });
+      }
+      throw err;
+    }
+  }
+
   /** Sends a request in its turn, waiting out rate limiting. */
   private async send(url: string): Promise<Response> {
     for (let rateLimited = 0; ; rateLimited++) {
       await this.waitForTurn();
-      const res = await fetch(url, { headers: HEADERS });
+      const res = await fetchWithTimeout(
+        url,
+        { headers: HEADERS },
+        REQUEST_TIMEOUT_MS,
+      );
       if (res.status !== 429) return res;
       if (rateLimited === MAX_RATE_LIMITED_RETRIES) {
         throw new ScryfallUnavailableError(res.status);
@@ -208,6 +258,14 @@ export class FetchScryfallClient extends ScryfallClient {
       Date.now() + RATE_LIMITED_WAIT_MS,
     );
   }
+}
+
+/** Whether a retry might help: a server error or no answer at all, but not rate limiting. */
+function isRetryable(err: unknown): boolean {
+  return (
+    err instanceof ScryfallUnavailableError &&
+    (err.status === undefined || err.status >= 500)
+  );
 }
 
 /** Searches for a printing on `game` of each of the cards, each as long as Scryfall allows. */

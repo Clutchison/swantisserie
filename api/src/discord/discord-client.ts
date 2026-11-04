@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { fetchWithTimeout } from '../http/fetch-with-timeout.js';
 import { DiscordConfig } from './discord-config.js';
 
 const API = 'https://discord.com/api/v10';
+/** How long each request, its body included, may take: sign-in waits on it. */
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /** The fields of `GET /users/@me` we use. */
 export interface DiscordProfile {
@@ -32,7 +35,7 @@ export class FetchDiscordClient extends DiscordClient {
   async exchangeCode(code: string): Promise<string> {
     const { clientId, clientSecret, redirectUri } = this.config;
     // Discord accepts only form-encoded token requests.
-    const res = await fetch(`${API}/oauth2/token`, {
+    const res = await send(`${API}/oauth2/token`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
@@ -52,7 +55,7 @@ export class FetchDiscordClient extends DiscordClient {
   }
 
   async getCurrentUser(accessToken: string): Promise<DiscordProfile> {
-    const res = await fetch(`${API}/users/@me`, {
+    const res = await send(`${API}/users/@me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) {
@@ -62,7 +65,7 @@ export class FetchDiscordClient extends DiscordClient {
   }
 
   async isGuildMember(accessToken: string, guildId: string): Promise<boolean> {
-    const res = await fetch(`${API}/users/@me/guilds/${guildId}/member`, {
+    const res = await send(`${API}/users/@me/guilds/${guildId}/member`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (res.status === 404) return false;
@@ -71,4 +74,12 @@ export class FetchDiscordClient extends DiscordClient {
     }
     return true;
   }
+}
+
+/** Sends a request to Discord, giving up after the timeout. */
+function send(
+  url: string,
+  init: Omit<RequestInit, 'signal'>,
+): Promise<Response> {
+  return fetchWithTimeout(url, init, REQUEST_TIMEOUT_MS);
 }

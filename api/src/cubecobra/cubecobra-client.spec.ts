@@ -101,6 +101,31 @@ describe('FetchCubeCobraClient', () => {
     );
   });
 
+  it('gives up with CubeCobraUnavailableError after 20 seconds without an answer', async () => {
+    vi.useFakeTimers();
+    try {
+      fetch.mockImplementationOnce(
+        (_url, init) =>
+          new Promise((_, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(init.signal!.reason),
+            );
+          }),
+      );
+
+      const outcome = cubeCobra
+        .cube('thepaupercube')
+        .catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(19_999);
+      expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(await outcome).toBeInstanceOf(CubeCobraUnavailableError);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     ['isn’t JSON', 'Not JSON'],
     ['has no cards', { name: 'The Pauper Cube' }],
