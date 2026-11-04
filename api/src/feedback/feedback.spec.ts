@@ -1,59 +1,18 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../app.module.js';
-import { configureApp } from '../app.setup.js';
-import { AdminConfig } from '../auth/admin-config.js';
-import { SessionService } from '../auth/session.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
-
-const alice = { id: '80351110224678912', name: 'Alice' };
-const carol = { id: '80351110224678914', name: 'Carol' };
-/** Carol is an app admin. */
-const admins = new AdminConfig(carol.id);
+import { alice, app, carol, signIn, useTestApp } from '../testing/app.js';
 
 const pageUrl = 'https://swantisserie.example/drafts/42';
 
 describe('feedback', () => {
-  let database: TestDatabase;
-  let app: INestApplication<App>;
   let aliceCookie: string;
   let carolCookie: string;
 
-  beforeAll(async () => {
-    database = await startTestDatabase();
-    process.env.DATABASE_URL = database.url;
-  });
-
-  afterAll(async () => {
-    await database.stop();
-  });
-
-  /** Signing in through Discord is covered by the auth tests. */
-  async function signIn(user: { id: string; name: string }) {
-    await app.get(PrismaService).user.create({ data: user });
-    const { token } = await app.get(SessionService).create(user.id);
-    return `session=${token}`;
-  }
+  useTestApp();
 
   beforeEach(async () => {
-    await database.reset();
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.register({ webRoot: import.meta.dirname })],
-    })
-      .overrideProvider(AdminConfig)
-      .useValue(admins)
-      .compile();
-    app = configureApp(moduleRef.createNestApplication());
-    await app.init();
     aliceCookie = await signIn(alice);
     carolCookie = await signIn(carol);
-  });
-
-  afterEach(async () => {
-    await app.close();
   });
 
   function send(body: object, cookie = aliceCookie) {

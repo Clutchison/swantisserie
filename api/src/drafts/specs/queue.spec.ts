@@ -18,6 +18,14 @@ import {
   undo,
   dismissNotice,
   poolCardIds,
+  addBot,
+  setSeats,
+  pickLog,
+  fourCards,
+  shock,
+  bolt,
+  spike,
+  skewer,
   readyDraftWithCopies,
   waitForBotPicks,
 } from './harness.js';
@@ -25,13 +33,6 @@ import {
 useDraftsApp();
 
 describe('queue', () => {
-  /** A queued card, named by any pool card id: each test's draft has its own. */
-  const queued = (name: string) => ({ poolCardId: expect.any(String), name });
-  const shock = queued('Shock');
-  const bolt = queued('Lightning Bolt');
-  const spike = queued('Lava Spike');
-  const skewer = queued('Skewer the Critics');
-
   it('lets a player add cards to the end of their queue', async () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
@@ -97,11 +98,7 @@ describe('queue', () => {
     const id = await readyDraft([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     expect((await enqueue(id, ids.Shock).expect(409)).body).toEqual({
       error: 'already-picked',
@@ -184,18 +181,9 @@ describe('queue', () => {
   });
 
   describe('when cards are picked', () => {
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
-
     it('marks a card another player picks as lost and clears the rest of the queue', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 1, [
-        'Shock',
-        'Lightning Bolt',
-        'Lava Spike',
-        'Skewer the Critics',
-      ]);
+      const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
       const ids = await poolCardIds(id);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await enqueue(id, ids.Shock, bobCookie).expect(200);
@@ -217,12 +205,7 @@ describe('queue', () => {
 
     it('leaves the rest of a queue in place after the player’s own pick', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 2, [
-        'Shock',
-        'Lightning Bolt',
-        'Lava Spike',
-        'Skewer the Critics',
-      ]);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock).expect(200);
       await enqueue(id, ids['Lava Spike']).expect(200);
@@ -241,12 +224,11 @@ describe('queue', () => {
     it('builds up the lost and cleared cards across clearings, for that player alone', async () => {
       const bobCookie = await signIn(bob);
       const carolCookie = await signIn(carol);
-      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
-        'Shock',
-        'Lightning Bolt',
-        'Lava Spike',
-        'Skewer the Critics',
-      ]);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        fourCards,
+      );
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
@@ -278,12 +260,11 @@ describe('queue', () => {
     it('takes a cleared card off the list once it is queued again, and for good', async () => {
       const bobCookie = await signIn(bob);
       const carolCookie = await signIn(carol);
-      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
-        'Shock',
-        'Lightning Bolt',
-        'Lava Spike',
-        'Skewer the Critics',
-      ]);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        fourCards,
+      );
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
@@ -322,12 +303,11 @@ describe('queue', () => {
     it('keeps listing a cleared card someone later picks as cleared, not lost', async () => {
       const bobCookie = await signIn(bob);
       const carolCookie = await signIn(carol);
-      const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 1, [
-        'Shock',
-        'Lightning Bolt',
-        'Lava Spike',
-        'Skewer the Critics',
-      ]);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        fourCards,
+      );
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
@@ -375,20 +355,13 @@ describe('queue', () => {
     it('clears a queue for a bot’s pick, too', async () => {
       const id = await readyDraft([aliceCookie], 1, ['Shock', 'Lava Spike']);
       const ids = await poolCardIds(id);
-      await request(app.getHttpServer())
-        .post(`/api/drafts/${id}/bots`)
-        .set('Cookie', await signIn(carol))
-        .expect(201);
+      await addBot(id, await signIn(carol)).expect(201);
       await enqueue(id, ids.Shock).expect(200);
       await enqueue(id, ids['Lava Spike']).expect(200);
       // The bot picks first: the last card by name, Shock.
       vi.spyOn(Math, 'random').mockReturnValue(0.99);
       const draft = (await getDraft(id).expect(200)).body as DraftView;
-      await request(app.getHttpServer())
-        .put(`/api/drafts/${id}/seats`)
-        .set('Cookie', aliceCookie)
-        .send({ userIds: draft.players.map((p) => p.id).reverse() })
-        .expect(200);
+      await setSeats(id, draft.players.map((p) => p.id).reverse()).expect(200);
       await start(id).expect(200);
 
       await waitForBotPicks(1, async () => {
@@ -539,12 +512,6 @@ describe('queue', () => {
   });
 
   describe('on a player’s own turn', () => {
-    const cards = [
-      'Shock',
-      'Lightning Bolt',
-      'Lava Spike',
-      'Skewer the Critics',
-    ];
     const refusedOnTurn = {
       error: 'your-turn',
       message: 'You can’t add to your queue on your turn.',
@@ -552,7 +519,7 @@ describe('queue', () => {
 
     it('refuses an add from the player whose turn it is while drafting, but not from the others', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
 
@@ -569,7 +536,7 @@ describe('queue', () => {
 
     it('refuses an add from the player whose turn it is while paused, but not from the others', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await post(id, 'pause').expect(200);
@@ -583,7 +550,7 @@ describe('queue', () => {
 
     it('allows an add again once the turn has passed', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
@@ -614,7 +581,11 @@ describe('queue', () => {
     });
 
     it('still lets the player on turn reorder and remove', async () => {
-      const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
+      const id = await readyDraft(
+        [aliceCookie, await signIn(bob)],
+        2,
+        fourCards,
+      );
       const ids = await poolCardIds(id);
       for (const card of [shock, bolt, spike]) {
         await enqueue(id, ids[card.name]).expect(200);
@@ -636,7 +607,7 @@ describe('queue', () => {
 
     it('keeps a queued card after an undo, without picking it, and lets it be removed', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock).expect(200);
       await enqueue(id, ids['Lava Spike']).expect(200);
@@ -650,10 +621,7 @@ describe('queue', () => {
         playerId: alice.id,
       });
       expect((await queue(id).expect(200)).body.cards).toEqual([spike]);
-      const log = await request(app.getHttpServer())
-        .get(`/api/drafts/${id}/picks`)
-        .set('Cookie', aliceCookie)
-        .expect(200);
+      const log = await pickLog(id);
       expect(log.body).toEqual([]);
 
       const removed = await remove(id, ids['Lava Spike']).expect(200);
@@ -662,7 +630,7 @@ describe('queue', () => {
 
     it('makes a player on the first of two turns in a row make the second by hand', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);

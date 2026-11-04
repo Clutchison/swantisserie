@@ -17,50 +17,44 @@ import {
   undo,
   dismissNotice,
   poolCardIds,
+  pool,
+  fourCards,
+  registerWebhook,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('close and reopen', () => {
-  const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let bobCookie: string;
 
   beforeEach(async () => {
     bobCookie = await signIn(bob);
   });
 
-  function close(id: string, cookie = aliceCookie) {
-    return post(id, 'close', cookie);
-  }
-
-  function reopen(id: string, cookie = aliceCookie) {
-    return post(id, 'reopen', cookie);
-  }
-
   it('closes a drafting draft with no picks, showing no turn', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     await start(id).expect(200);
 
-    const closed = await close(id).expect(200);
+    const closed = await post(id, 'close').expect(200);
 
     expect(closed.body).toMatchObject({ state: 'Closed', turn: null });
   });
 
   it('closes a paused draft', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     await start(id).expect(200);
     await post(id, 'pause').expect(200);
 
-    expect((await close(id).expect(200)).body.state).toBe('Closed');
+    expect((await post(id, 'close').expect(200)).body.state).toBe('Closed');
   });
 
   it('keeps every pick as made, even mid-round', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
 
-    await close(id).expect(200);
+    await post(id, 'close').expect(200);
 
     expect(
       (await pickLog(id)).body.map((p: { name: string }) => p.name),
@@ -68,58 +62,67 @@ describe('close and reopen', () => {
   });
 
   it('refuses to close a draft in the lobby, complete or already closed', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
-    expect((await close(id).expect(409)).body.error).toBe('not-closable');
+    expect((await post(id, 'close').expect(409)).body.error).toBe(
+      'not-closable',
+    );
 
     await start(id).expect(200);
-    await close(id).expect(200);
-    expect((await close(id).expect(409)).body.error).toBe('not-closable');
+    await post(id, 'close').expect(200);
+    expect((await post(id, 'close').expect(409)).body.error).toBe(
+      'not-closable',
+    );
 
-    await reopen(id).expect(200);
+    await post(id, 'reopen').expect(200);
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
-    expect((await close(id).expect(409)).body.error).toBe('not-closable');
+    expect((await post(id, 'close').expect(409)).body.error).toBe(
+      'not-closable',
+    );
   });
 
   it('refuses to reopen a draft that is not closed, so never a complete one', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
-    expect((await reopen(id).expect(409)).body.error).toBe('not-closed');
+    expect((await post(id, 'reopen').expect(409)).body.error).toBe(
+      'not-closed',
+    );
 
     await start(id).expect(200);
-    expect((await reopen(id).expect(409)).body.error).toBe('not-closed');
+    expect((await post(id, 'reopen').expect(409)).body.error).toBe(
+      'not-closed',
+    );
 
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
-    expect((await reopen(id).expect(409)).body.error).toBe('not-closed');
+    expect((await post(id, 'reopen').expect(409)).body.error).toBe(
+      'not-closed',
+    );
   });
 
   it('lets an app admin close and reopen, but not other players', async () => {
     const carolCookie = await signIn(carol);
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     await start(id).expect(200);
 
-    await close(id, bobCookie).expect(403);
-    await close(id, carolCookie).expect(200);
-    await reopen(id, bobCookie).expect(403);
-    await reopen(id, carolCookie).expect(200);
+    await post(id, 'close', bobCookie).expect(403);
+    await post(id, 'close', carolCookie).expect(200);
+    await post(id, 'reopen', bobCookie).expect(403);
+    await post(id, 'reopen', carolCookie).expect(200);
   });
 
   it('refuses picks and undo while closed, leaving the pool and pick log readable', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
-    await close(id).expect(200);
+    await post(id, 'close').expect(200);
 
     expect(
       (await pick(id, ids['Lightning Bolt'], bobCookie).expect(409)).body.error,
     ).toBe('not-drafting');
-    await request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/picks/1`)
-      .set('Cookie', aliceCookie)
-      .expect(409);
+    await undo(id, 1).expect(409);
     expect((await post(id, 'pause').expect(409)).body.error).toBe(
       'not-drafting',
     );
@@ -128,20 +131,16 @@ describe('close and reopen', () => {
     );
 
     expect((await pickLog(id)).body).toHaveLength(1);
-    const pool = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    expect(pool.body).toHaveLength(cards.length);
+    expect((await pool(id).expect(200)).body).toHaveLength(fourCards.length);
   });
 
   it('refuses every queue edit while closed, and keeps the queue saved', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     const saved = (await queue(id, bobCookie).expect(200)).body;
-    await close(id).expect(200);
+    await post(id, 'close').expect(200);
 
     const refused = await enqueue(id, ids.Shock, bobCookie).expect(409);
     expect(refused.body).toEqual({
@@ -163,7 +162,7 @@ describe('close and reopen', () => {
   });
 
   it('returns to Drafting even if it was paused, and cascades queued picks', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids.Shock).expect(200);
@@ -171,9 +170,9 @@ describe('close and reopen', () => {
     // Lava Spike was picked for Alice; undoing it brings back her turn.
     await undo(id, 1).expect(200);
     await post(id, 'pause').expect(200);
-    await close(id).expect(200);
+    await post(id, 'close').expect(200);
 
-    const reopened = await reopen(id).expect(200);
+    const reopened = await post(id, 'reopen').expect(200);
 
     expect(reopened.body).toMatchObject({
       state: 'Drafting',
@@ -185,19 +184,11 @@ describe('close and reopen', () => {
   });
 
   it('announces a close pinging nobody, and a reopen pinging whoever is up', async () => {
-    const webhook = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
     const id = await readyDraft(
       [aliceCookie, bobCookie],
       2,
-      cards,
-      webhook.body.id,
+      fourCards,
+      await registerWebhook(),
     );
     const ids = await poolCardIds(id);
     await enqueue(id, ids['Lava Spike']).expect(200);
@@ -205,8 +196,8 @@ describe('close and reopen', () => {
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn.
     await undo(id, 1).expect(200);
-    await close(id).expect(200);
-    await reopen(id).expect(200);
+    await post(id, 'close').expect(200);
+    await post(id, 'reopen').expect(200);
 
     const messages = await vi.waitFor(() => {
       expect(webhookClient.post).toHaveBeenCalledTimes(4);

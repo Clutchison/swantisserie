@@ -1,61 +1,26 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../app.module.js';
-import { configureApp } from '../app.setup.js';
-import { AdminConfig } from '../auth/admin-config.js';
-import { SessionService } from '../auth/session.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
-
-const alice = { id: '80351110224678912', name: 'Alice' };
-const carol = { id: '80351110224678914', name: 'Carol' };
-/** Carol is an app admin. */
-const admins = new AdminConfig(carol.id);
+import {
+  alice,
+  app,
+  carol,
+  registerWebhook,
+  signIn,
+  useTestApp,
+} from '../testing/app.js';
 
 const mainUrl =
   'https://discord.com/api/webhooks/1234567890/main-token_ABC-xyz';
 const sideUrl = 'https://discord.com/api/webhooks/1234567891/side-token';
 
 describe('webhook registry', () => {
-  let database: TestDatabase;
-  let app: INestApplication<App>;
   let aliceCookie: string;
   let carolCookie: string;
 
-  beforeAll(async () => {
-    database = await startTestDatabase();
-    process.env.DATABASE_URL = database.url;
-  });
-
-  afterAll(async () => {
-    await database.stop();
-  });
-
-  /** Signing in through Discord is covered by the auth tests. */
-  async function signIn(user: { id: string; name: string }) {
-    await app.get(PrismaService).user.create({ data: user });
-    const { token } = await app.get(SessionService).create(user.id);
-    return `session=${token}`;
-  }
+  useTestApp();
 
   beforeEach(async () => {
-    await database.reset();
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.register({ webRoot: import.meta.dirname })],
-    })
-      .overrideProvider(AdminConfig)
-      .useValue(admins)
-      .compile();
-    app = configureApp(moduleRef.createNestApplication());
-    await app.init();
     aliceCookie = await signIn(alice);
     carolCookie = await signIn(carol);
-  });
-
-  afterEach(async () => {
-    await app.close();
   });
 
   const http = () => request(app.getHttpServer());
@@ -98,7 +63,7 @@ describe('webhook registry', () => {
   });
 
   it('refuses the registry to guild members who are not app admins', async () => {
-    await addWebhook({ name: '#roto-main', url: mainUrl }).expect(201);
+    await registerWebhook('#roto-main', mainUrl);
 
     await adminList(aliceCookie).expect(403);
     await addWebhook({ name: '#roto-side', url: sideUrl }, aliceCookie).expect(
@@ -142,7 +107,7 @@ describe('webhook registry', () => {
   });
 
   it('refuses a name another webhook has', async () => {
-    await addWebhook({ name: '#roto-main', url: mainUrl }).expect(201);
+    await registerWebhook('#roto-main', mainUrl);
 
     const res = await addWebhook({ name: '#roto-main', url: sideUrl }).expect(
       409,
@@ -155,7 +120,7 @@ describe('webhook registry', () => {
   });
 
   it('lists webhooks to every guild member by name, without their URLs', async () => {
-    await addWebhook({ name: '#roto-main', url: mainUrl }).expect(201);
+    await registerWebhook('#roto-main', mainUrl);
 
     for (const cookie of [aliceCookie, carolCookie]) {
       const res = await http()
@@ -174,7 +139,7 @@ describe('webhook registry', () => {
     let mainId: string;
 
     beforeEach(async () => {
-      mainId = (await addWebhook({ name: '#roto-main', url: mainUrl })).body.id;
+      mainId = await registerWebhook('#roto-main', mainUrl);
     });
 
     it('renames a webhook, keeping its URL', async () => {
@@ -186,7 +151,7 @@ describe('webhook registry', () => {
     });
 
     it('refuses a blank name, or one another webhook has', async () => {
-      await addWebhook({ name: '#roto-side', url: sideUrl }).expect(201);
+      await registerWebhook('#roto-side', sideUrl);
 
       const blank = await rename(mainId, { name: ' ' }).expect(400);
       expect(blank.body).toEqual({

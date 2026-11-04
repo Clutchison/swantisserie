@@ -1,74 +1,44 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import type { DraftView, Platform } from 'contract';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../../app.module.js';
-import { configureApp } from '../../app.setup.js';
-import { AdminConfig } from '../../auth/admin-config.js';
-import { SessionService } from '../../auth/session.service.js';
-import { DiscordConfig } from '../../discord/discord-config.js';
-import { DraftNotifierRetries } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
-import { WebhookClient } from '../../discord/webhook-client.js';
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { CubeCobraClient } from '../../cubecobra/cubecobra-client.js';
 import {
   ScryfallCard,
-  ScryfallClient,
   ScryfallSearchPage,
 } from '../../scryfall/scryfall-client.js';
 import {
-  startTestDatabase,
-  TestDatabase,
-} from '../../testing/test-database.js';
+  alice,
+  app,
+  bob,
+  carol,
+  scryfall,
+  signIn,
+  startTestApp,
+  useTestApp,
+} from '../../testing/app.js';
 
-export const alice = { id: '80351110224678912', name: 'Alice' };
-export const bob = { id: '80351110224678913', name: 'Bob' };
-export const carol = { id: '80351110224678914', name: 'Carol' };
-/** Carol is an app admin. */
-const admins = new AdminConfig(carol.id);
-/** Drafts' pages are at https://roto.example/drafts/:id. */
-const discordConfig = new DiscordConfig({
-  DISCORD_REDIRECT_URI: 'https://roto.example/api/auth/discord/callback',
-});
+export {
+  alice,
+  app,
+  bob,
+  carol,
+  cubeCobra,
+  scryfall,
+  signIn,
+  slowDownDatabase,
+  registerWebhook,
+  webhookClient,
+  webhookUrl,
+} from '../../testing/app.js';
 
-let database: TestDatabase;
-export let app: INestApplication<App>;
 /** `session=<token>` for Alice, ready for a Cookie header. */
 export let aliceCookie: string;
-export const scryfall = {
-  search: vi.fn<ScryfallClient['search']>(),
-  printingsOn: vi.fn<ScryfallClient['printingsOn']>(),
-};
-export const cubeCobra = { cube: vi.fn<CubeCobraClient['cube']>() };
-export const webhookClient = { post: vi.fn<WebhookClient['post']>() };
 
-/** Registers the hooks that give each test a fresh database and running app. */
+/** Registers the hooks that give each test a fresh database and running app, with Alice signed in. */
 export function useDraftsApp() {
-  beforeAll(async () => {
-    database = await startTestDatabase();
-    process.env.DATABASE_URL = database.url;
-  });
-
-  afterAll(async () => {
-    await database.stop();
-  });
-
-  beforeEach(async () => {
-    await database.reset();
-    vi.resetAllMocks();
+  useTestApp(async () => {
     await startApp();
     await signInAlice();
   });
-
-  afterEach(async () => {
-    await app.close();
-  });
-}
-
-/** Delays every reply from the database by `ms`, for this test. */
-export function slowDownDatabase(ms: number) {
-  database.slowDown(ms);
 }
 
 /**
@@ -98,46 +68,15 @@ export async function startApp(
   botDelayMs = 0,
   botRetryDelaysMs: readonly number[] = [0, 0],
 ) {
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule.register({ webRoot: import.meta.dirname })],
-  })
-    .overrideProvider(ScryfallClient)
-    .useValue(scryfall)
-    .overrideProvider(CubeCobraClient)
-    .useValue(cubeCobra)
-    .overrideProvider(AdminConfig)
-    .useValue(admins)
-    .overrideProvider(DiscordConfig)
-    .useValue(discordConfig)
-    .overrideProvider(WebhookClient)
-    .useValue(webhookClient)
-    // Retried at once, so tests needn't wait.
-    .overrideProvider(DraftNotifierRetries)
-    .useValue(new DraftNotifierRetries([0, 0]))
-    .overrideProvider(BotPickDelay)
-    .useValue(new BotPickDelay(botDelayMs))
-    .overrideProvider(BotPickRetries)
-    .useValue(new BotPickRetries(botRetryDelaysMs))
-    .compile();
-
-  const started = configureApp(moduleRef.createNestApplication());
-  await started.init();
-  app = started;
-}
-
-/** Signing in through Discord is covered by the auth tests. */
-export async function signIn(user: {
-  id: string;
-  name: string;
-  avatar?: string;
-}) {
-  await app.get(PrismaService).user.upsert({
-    where: { id: user.id },
-    create: user,
-    update: {},
+  await startTestApp({
+    overrides: [
+      { provide: BotPickDelay, useValue: new BotPickDelay(botDelayMs) },
+      {
+        provide: BotPickRetries,
+        useValue: new BotPickRetries(botRetryDelaysMs),
+      },
+    ],
   });
-  const { token } = await app.get(SessionService).create(user.id);
-  return `session=${token}`;
 }
 
 /** Signs Alice in as `aliceCookie`. */
@@ -189,18 +128,25 @@ export function card(
   };
 }
 
-export function page(...names: string[]): ScryfallSearchPage {
+/** A one-page search result of `cards`, each named or given whole. */
+export function page(...cards: (string | ScryfallCard)[]): ScryfallSearchPage {
   return {
-    totalCards: names.length,
+    totalCards: cards.length,
     hasMore: false,
-    cards: names.map((name) => card(name)),
+    cards: cards.map((c) => (typeof c === 'string' ? card(c) : c)),
     warnings: [],
   };
 }
 
-/** The search the snapshot pages through for `poolQuery`, which leaves the basic lands out. */
-export const snapshotQuery = (poolQuery: string) =>
-  `(${poolQuery}) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:arena unique:cards`;
+/**
+ * The search the snapshot pages through for `poolQuery` on `platform`,
+ * which leaves the basic lands out.
+ */
+export const snapshotQuery = (
+  poolQuery: string,
+  platform: Platform = 'Arena',
+) =>
+  `(${poolQuery}) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
 
 /** A pool query whose cards are all on Arena, with a two-card pool. */
 export function allOnArena(poolQuery: string) {
@@ -246,15 +192,61 @@ export async function poolCardIds(id: string): Promise<Record<string, string>> {
 
 /** The ids of every copy of each card in the draft's pool, by card name. */
 export async function copyIds(id: string): Promise<Record<string, string[]>> {
-  const res = await request(app.getHttpServer())
-    .get(`/api/drafts/${id}/pool`)
-    .set('Cookie', aliceCookie)
-    .expect(200);
+  const res = await pool(id).expect(200);
   const copies: Record<string, string[]> = {};
   for (const card of res.body as { id: string; name: string }[]) {
     (copies[card.name] ??= []).push(card.id);
   }
   return copies;
+}
+
+/** The draft's pool. */
+export function pool(id: string, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .get(`/api/drafts/${id}/pool`)
+    .set('Cookie', cookie);
+}
+
+/** Joins the draft as the signed-in player. */
+export function join(id: string, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/players`)
+    .set('Cookie', cookie);
+}
+
+/** Leaves the draft as the signed-in player. */
+export function leave(id: string, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .delete(`/api/drafts/${id}/players/me`)
+    .set('Cookie', cookie);
+}
+
+/** Adds a bot to the draft; only app admins, such as Carol, may. */
+export function addBot(id: string, cookie: string) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/bots`)
+    .set('Cookie', cookie);
+}
+
+/** Sets the draft's seat order to `userIds`. */
+export function setSeats(id: string, userIds: unknown, cookie = aliceCookie) {
+  return request(app.getHttpServer())
+    .put(`/api/drafts/${id}/seats`)
+    .set('Cookie', cookie)
+    .send({ userIds });
+}
+
+/** Imports the picks in `csv`, its players seated as `userIds` lists. */
+export function importPicks(
+  id: string,
+  csv: unknown,
+  userIds: unknown,
+  cookie = aliceCookie,
+) {
+  return request(app.getHttpServer())
+    .post(`/api/drafts/${id}/pick-import`)
+    .set('Cookie', cookie)
+    .send({ csv, userIds });
 }
 
 export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
@@ -303,37 +295,49 @@ export function post(id: string, action: string, cookie = aliceCookie) {
     .set('Cookie', cookie);
 }
 
-/** The draft's pick log, as the API answers with it. */
-export function pickLog(id: string) {
+/** The draft's pick log, as the API answers with it: with 200, unless told otherwise. */
+export function pickLog(id: string, status = 200) {
   return request(app.getHttpServer())
     .get(`/api/drafts/${id}/picks`)
     .set('Cookie', aliceCookie)
-    .expect(200);
-}
-
-/** The pick log as `Player: Card` lines. */
-export async function pickLogLines(id: string) {
-  const res = await pickLog(id);
-  const names = {
-    [alice.id]: 'Alice',
-    [bob.id]: 'Bob',
-    [carol.id]: 'Carol',
-  };
-  return (res.body as { playerId: string; name: string }[]).map(
-    (logged) => `${names[logged.playerId] ?? 'Bot'}: ${logged.name}`,
-  );
+    .expect(status);
 }
 
 /**
- * A draft whose pool of `cards` (three, unless told otherwise) is
- * snapshotted, joined by each of `cookies` in order.
+ * The pick log as `Player: Card` lines, naming the draft's bots "Bot".
+ * Throws on a pick by anyone else but Alice, Bob or Carol.
+ */
+export async function pickLogLines(id: string) {
+  const res = await pickLog(id);
+  const draft = (await getDraft(id).expect(200)).body as DraftView;
+  const names: Record<string, string> = {
+    [alice.id]: alice.name,
+    [bob.id]: bob.name,
+    [carol.id]: carol.name,
+  };
+  for (const player of draft.players) {
+    if (player.isBot) names[player.id] = 'Bot';
+  }
+  return (res.body as { playerId: string; name: string }[]).map((logged) => {
+    const name = names[logged.playerId];
+    if (name === undefined) {
+      throw new Error(`Picked by an unknown player: ${logged.playerId}`);
+    }
+    return `${name}: ${logged.name}`;
+  });
+}
+
+/**
+ * A draft whose pool of `cards` (three, unless told otherwise; each named,
+ * or given whole to set its fields) is snapshotted, joined by each of
+ * `cookies` in order.
  *
  * Before a spec starts it: a start needs two players and a pool of at
  * least `cookies.length * picksPerPlayer` cards; a pick import empties
  * every queue, so queue after importing; and a bot picks at random, so
  * pin `Math.random` (0 picks the first available card by name).
  *
- * Once started: every `card` here has the same mana value, so anything the
+ * Once started: every card given by name has the same mana value, so anything the
  * API sorts by mana value comes out sorted by name; a queued card is picked
  * in the cascade as soon as its player's turn comes, so queue only what the
  * spec means to have picked; and a bot picks again at once when its pick is
@@ -342,7 +346,7 @@ export async function pickLogLines(id: string) {
 export async function readyDraft(
   cookies: string[],
   picksPerPlayer = 1,
-  cards = ['Shock', 'Lightning Bolt', 'Lava Spike'],
+  cards: (string | ScryfallCard)[] = ['Shock', 'Lightning Bolt', 'Lava Spike'],
   webhookId: string | null = null,
 ) {
   scryfallAnswers({
@@ -359,13 +363,28 @@ export async function readyDraft(
   const id = created.body.id as string;
   await snapshotted(id);
   for (const cookie of cookies) {
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', cookie)
-      .expect(201);
+    await join(id, cookie).expect(201);
   }
   return id;
 }
+
+/** Four red cards, for drafts that need more than `readyDraft`'s three. */
+export const fourCards = [
+  'Shock',
+  'Lightning Bolt',
+  'Lava Spike',
+  'Skewer the Critics',
+];
+
+/** A queued card, named by any pool card id: each test's draft has its own. */
+export const queued = (name: string) => ({
+  poolCardId: expect.any(String),
+  name,
+});
+export const shock = queued('Shock');
+export const bolt = queued('Lightning Bolt');
+export const spike = queued('Lava Spike');
+export const skewer = queued('Skewer the Critics');
 
 /** Two copies of Lightning Bolt, with Shock and Lava Spike. */
 export const boltCopies = [

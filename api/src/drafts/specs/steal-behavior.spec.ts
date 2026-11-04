@@ -14,18 +14,16 @@ import {
   undo,
   poolCardIds,
   setStealBehavior,
+  fourCards,
+  shock,
+  bolt,
+  spike,
+  skewer,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('steal behavior', () => {
-  const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
-  /** A queued card, named by any pool card id: each test's draft has its own. */
-  const queued = (name: string) => ({ poolCardId: expect.any(String), name });
-  const shock = queued('Shock');
-  const bolt = queued('Lightning Bolt');
-  const spike = queued('Lava Spike');
-  const skewer = queued('Skewer the Critics');
   let bobCookie: string;
   let carolCookie: string;
 
@@ -34,12 +32,12 @@ describe('steal behavior', () => {
     carolCookie = await signIn(carol);
   });
 
-  /** Alice, Bob and Carol, in that seat order, in a draft of `cards`. */
+  /** Alice, Bob and Carol, in that seat order, in a draft of `fourCards`. */
   function threePlayerDraft(picksPerPlayer = 1) {
     return readyDraft(
       [aliceCookie, bobCookie, carolCookie],
       picksPerPlayer,
-      cards,
+      fourCards,
     );
   }
 
@@ -109,7 +107,7 @@ describe('steal behavior', () => {
     });
 
     it('can’t be changed once the draft is closed or complete, but can after a reopen', async () => {
-      const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+      const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await post(id, 'close').expect(200);

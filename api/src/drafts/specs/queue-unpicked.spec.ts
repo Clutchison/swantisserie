@@ -1,12 +1,7 @@
-import request from 'supertest';
 import {
-  app,
   card,
-  createDraft,
   poolCardIds,
-  scryfallAnswers,
-  snapshotQuery,
-  snapshotted,
+  readyDraft,
   aliceCookie,
   carol,
   useDraftsApp,
@@ -73,33 +68,12 @@ describe('queueing a plan’s unpicked cards', () => {
   });
 
   it('queues by mana value, then name', async () => {
-    const pool = {
-      totalCards: 4,
-      hasMore: false,
-      cards: [
-        card('Fireblast', { cmc: 6 }),
-        card('Shock', { cmc: 1 }),
-        card('Lava Axe', { cmc: 5 }),
-        card('Burst Lightning', { cmc: 1 }),
-      ],
-      warnings: [],
-    };
-    scryfallAnswers({
-      'c:r': pool,
-      '(c:r) -in:arena': null,
-      [snapshotQuery('c:r')]: pool,
-    });
-    const created = await createDraft({
-      name: 'Red',
-      poolQuery: 'c:r',
-      picksPerPlayer: 2,
-    }).expect(201);
-    const id = created.body.id as string;
-    await snapshotted(id);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', carolCookie)
-      .expect(201);
+    const id = await readyDraft([carolCookie], 2, [
+      card('Fireblast', { cmc: 6 }),
+      card('Shock', { cmc: 1 }),
+      card('Lava Axe', { cmc: 5 }),
+      card('Burst Lightning', { cmc: 1 }),
+    ]);
     const ids = await poolCardIds(id);
     for (const name of ['Fireblast', 'Shock', 'Lava Axe', 'Burst Lightning']) {
       await addToPlan(id, ids[name], carolCookie).expect(200);

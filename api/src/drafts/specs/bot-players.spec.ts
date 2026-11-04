@@ -1,6 +1,5 @@
 import type { DraftView } from 'contract';
 import { Logger } from '@nestjs/common';
-import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { DraftPublisher } from '../draft-publisher.js';
 import { TurnsService } from '../turns.service.js';
@@ -9,6 +8,10 @@ import {
   carol,
   app,
   aliceCookie,
+  addBot,
+  post,
+  setSeats,
+  registerWebhook,
   webhookClient,
   useDraftsApp,
   slowDownDatabase,
@@ -58,10 +61,7 @@ describe('bot players', () => {
     const carolCookie = await signIn(carol);
     let draft!: DraftView;
     for (let i = 0; i < bots; i++) {
-      const res = await request(app.getHttpServer())
-        .post(`/api/drafts/${id}/bots`)
-        .set('Cookie', carolCookie)
-        .expect(201);
+      const res = await addBot(id, carolCookie).expect(201);
       draft = res.body;
     }
     return { id, botIds: draft.players.slice(1).map((player) => player.id) };
@@ -78,10 +78,6 @@ describe('bot players', () => {
       return draft;
     });
   }
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
 
   /** Lets any bot timers that are due fire, and their picks land. */
   const settle = (ms: number) =>
@@ -121,11 +117,7 @@ describe('bot players', () => {
 
   it('has a bot in the first seat pick once the draft starts', async () => {
     const { id, botIds } = await draftWithBots(1);
-    await request(app.getHttpServer())
-      .put(`/api/drafts/${id}/seats`)
-      .set('Cookie', aliceCookie)
-      .send({ userIds: [botIds[0], alice.id] })
-      .expect(200);
+    await setSeats(id, [botIds[0], alice.id]).expect(200);
 
     await start(id).expect(200);
 
@@ -157,10 +149,7 @@ describe('bot players', () => {
       'Lightning Bolt',
       'Lightning Bolt',
     ]);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/bots`)
-      .set('Cookie', await signIn(carol))
-      .expect(201);
+    await addBot(id, await signIn(carol)).expect(201);
     await start(id).expect(200);
     const [first, second] = (await copyIds(id))['Lightning Bolt'];
 
@@ -215,18 +204,12 @@ describe('bot players', () => {
     await start(id).expect(200);
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pause`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'pause').expect(200);
     await settle(300);
 
     expect((await pickLog(id)).body).toHaveLength(1);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/resume`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'resume').expect(200);
 
     await waitForBotPicks(1, async () => {
       expect(
@@ -245,18 +228,12 @@ describe('bot players', () => {
     await start(id).expect(200);
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/close`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'close').expect(200);
     await settle(300);
 
     expect((await pickLog(id)).body).toHaveLength(1);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/reopen`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'reopen').expect(200);
 
     await waitForBotPicks(1, async () => {
       expect(
@@ -462,16 +439,9 @@ describe('bot players', () => {
   });
 
   describe('announcements', () => {
-    const webhookUrl =
-      'https://discord.com/api/webhooks/1234567890/secret-token';
-
     it('names a bot whose turn it is without pinging it, and pings you after it picks', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/admin/webhooks')
-        .set('Cookie', await signIn(carol))
-        .send({ name: '#roto-test', url: webhookUrl })
-        .expect(201);
-      const { id } = await draftWithBots(1, 2, res.body.id);
+      const webhookId = await registerWebhook('#roto-test');
+      const { id } = await draftWithBots(1, 2, webhookId);
       await start(id).expect(200);
 
       await pick(id, (await poolCardIds(id)).Shock).expect(200);

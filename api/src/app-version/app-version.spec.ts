@@ -1,17 +1,16 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../app.module.js';
-import { configureApp } from '../app.setup.js';
-import { AdminConfig } from '../auth/admin-config.js';
-import { SessionService } from '../auth/session.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
+import {
+  alice,
+  app,
+  carol,
+  signIn,
+  startTestApp,
+  useTestApp,
+} from '../testing/app.js';
 import { APP_VERSION_FILE } from './app-version.module.js';
 import { AppVersion } from './app-version.js';
 
@@ -20,49 +19,14 @@ const RECORD_SCRIPT = join(API_ROOT, 'scripts/record-app-version.mjs');
 const sha = '0123456789abcdef0123456789abcdef01234567';
 
 describe('GET /api/admin/app-version', () => {
-  const alice = { id: '80351110224678912', name: 'Alice' };
-  const carol = { id: '80351110224678914', name: 'Carol' };
-  /** Carol is an app admin. */
-  const admins = new AdminConfig(carol.id);
   /** The app version as if recorded at build time; each test sets its own. */
   const appVersion: { commit: string | null } = { commit: null };
 
-  let database: TestDatabase;
-  let app: INestApplication<App>;
-
-  beforeAll(async () => {
-    database = await startTestDatabase();
-    process.env.DATABASE_URL = database.url;
-  });
-
-  afterAll(async () => {
-    await database.stop();
-  });
-
-  beforeEach(async () => {
-    await database.reset();
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.register({ webRoot: import.meta.dirname })],
-    })
-      .overrideProvider(AdminConfig)
-      .useValue(admins)
-      .overrideProvider(AppVersion)
-      .useValue(appVersion)
-      .compile();
-    app = configureApp(moduleRef.createNestApplication());
-    await app.init();
-  });
-
-  afterEach(async () => {
-    await app.close();
-  });
-
-  /** Signing in through Discord is covered by the auth tests. */
-  async function signIn(user: { id: string; name: string }) {
-    await app.get(PrismaService).user.create({ data: user });
-    const { token } = await app.get(SessionService).create(user.id);
-    return `session=${token}`;
-  }
+  useTestApp(() =>
+    startTestApp({
+      overrides: [{ provide: AppVersion, useValue: appVersion }],
+    }),
+  );
 
   const get = () => request(app.getHttpServer()).get('/api/admin/app-version');
 

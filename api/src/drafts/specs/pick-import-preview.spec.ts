@@ -11,6 +11,7 @@ import {
   getDraft,
   readyDraft,
   start,
+  pickLog,
 } from './harness.js';
 
 useDraftsApp();
@@ -53,10 +54,7 @@ describe('pick import preview', () => {
     await preview(id, csv).expect(200);
 
     expect((await getDraft(id).expect(200)).body).toEqual(before.body);
-    const picks = await request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    const picks = await pickLog(id);
     expect(picks.body).toEqual([]);
   });
 

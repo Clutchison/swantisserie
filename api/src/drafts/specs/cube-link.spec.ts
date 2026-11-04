@@ -1,18 +1,18 @@
-import request from 'supertest';
 import {
   CubeCobraUnavailableError,
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
 import {
   aliceCookie,
-  app,
   bob,
   card,
   copyIds,
   createDraft,
   cubeCobra,
   getDraft,
+  join,
   listDrafts,
+  pool,
   post,
   scryfall,
   signIn,
@@ -53,13 +53,6 @@ function onPlatform(...names: string[]) {
       .map((name) => card(name, { set: `${game}-set` }))
       .filter((printing) => oracleIds.includes(printing.oracle_id!)),
   );
-}
-
-function pool(id: string) {
-  return request(app.getHttpServer())
-    .get(`/api/drafts/${id}/pool`)
-    .set('Cookie', aliceCookie)
-    .expect(200);
 }
 
 const pauper = cube(
@@ -104,7 +97,9 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
   const copies = await copyIds(created.body.id);
   expect(copies['Lightning Bolt']).toHaveLength(2);
   expect(copies['Deftblade Elite']).toHaveLength(1);
-  const cards = (await pool(created.body.id)).body as { set: string }[];
+  const cards = (await pool(created.body.id).expect(200)).body as {
+    set: string;
+  }[];
   expect(cards.map((c) => c.set)).toEqual([
     'arena-set',
     'arena-set',
@@ -265,7 +260,7 @@ describe('creating a draft from a cube', () => {
     }).expect(201);
     const { id } = created.body;
     for (const cookie of [aliceCookie, await signIn(bob)]) {
-      await post(id, 'players', cookie).expect(201);
+      await join(id, cookie).expect(201);
     }
 
     const refused = await start(id).expect(409);
@@ -316,7 +311,9 @@ describe('the pool snapshot of a cube link', () => {
       total: 1,
     });
     expect(
-      (await pool(created.body.id)).body.map((c: { name: string }) => c.name),
+      (await pool(created.body.id).expect(200)).body.map(
+        (c: { name: string }) => c.name,
+      ),
     ).toEqual(['Lightning Bolt']);
   });
 
@@ -332,7 +329,7 @@ describe('the pool snapshot of a cube link', () => {
 
     await post(id, 'snapshot').expect(409);
 
-    const cards = (await pool(id)).body as { name: string }[];
+    const cards = (await pool(id).expect(200)).body as { name: string }[];
     expect(cards.map((c) => c.name).sort()).toEqual([
       'Deftblade Elite',
       'Lightning Bolt',

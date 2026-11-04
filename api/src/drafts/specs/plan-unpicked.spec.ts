@@ -1,10 +1,10 @@
 import type { DraftView } from 'contract';
-import request from 'supertest';
 import {
   alice,
   aliceCookie,
-  app,
   carol,
+  addBot,
+  importPicks,
   useDraftsApp,
   signIn,
   readyDraft,
@@ -35,10 +35,6 @@ describe('unpicked cards in a plan', () => {
 
   beforeEach(async () => {
     carolCookie = await signIn(carol);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it('adds an unpicked copy of a card to the mainboard, until every available copy is in the plan', async () => {
@@ -230,10 +226,7 @@ describe('unpicked cards in a plan', () => {
       'Skewer the Critics',
       'Play with Fire',
     ]);
-    const { body: withBot } = await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/bots`)
-      .set('Cookie', carolCookie)
-      .expect(201);
+    const { body: withBot } = await addBot(id, carolCookie).expect(201);
     const bot = (withBot as DraftView).players[2];
     const ids = await poolCardIds(id);
     const [first, second] = (await copyIds(id))['Lightning Bolt'];
@@ -356,8 +349,8 @@ describe('unpicked cards in a plan', () => {
       409,
     );
     expect(picked.body.error).toBe('already-picked');
-    const done = await pick(id, first).expect(200);
-    expect(done.body.state).toBe('Complete');
+    const lastPick = await pick(id, first).expect(200);
+    expect(lastPick.body.state).toBe('Complete');
     const complete = await addToPlan(id, ids.Shock, carolCookie).expect(409);
     expect(complete.body).toEqual({
       error: 'draft-complete',
@@ -385,8 +378,8 @@ describe('unpicked cards in a plan', () => {
     await addToPlan(id, ids.Shock, carolCookie).expect(200);
     await start(id).expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
-    const done = await pick(id, ids.Shock).expect(200);
-    expect(done.body.state).toBe('Complete');
+    const lastPick = await pick(id, ids.Shock).expect(200);
+    expect(lastPick.body.state).toBe('Complete');
 
     const removed = await removeFromPlan(id, first, carolCookie).expect(200);
 
@@ -431,14 +424,11 @@ describe('unpicked cards in a plan', () => {
     await movePlanned(id, ids.Shock, 'Sideboard', carolCookie).expect(200);
     await addToPlan(id, first, carolCookie).expect(200);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pick-import`)
-      .set('Cookie', aliceCookie)
-      .send({
-        csv: [',Ann,Ben,', '->,Shock,Lightning Bolt,'].join('\n'),
-        userIds: [carol.id, alice.id],
-      })
-      .expect(200);
+    await importPicks(
+      id,
+      [',Ann,Ben,', '->,Shock,Lightning Bolt,'].join('\n'),
+      [carol.id, alice.id],
+    ).expect(200);
 
     const imported = (await plan(id, carolCookie).expect(200)).body;
     expect(imported.sideboard).toEqual([

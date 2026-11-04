@@ -26,6 +26,9 @@ import {
   readyDraft,
   start,
   poolCardIds,
+  enqueue,
+  addBot,
+  registerWebhook,
 } from './harness.js';
 
 useDraftsApp();
@@ -36,10 +39,6 @@ describe('cancel', () => {
       .delete(`/api/drafts/${id}`)
       .set('Cookie', cookie);
   }
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
 
   it('cancels a lobby draft, so its link is not found and the list omits it', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -53,15 +52,8 @@ describe('cancel', () => {
   it('leaves nothing belonging to the draft, including its bots', async () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/queue`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/bots`)
-      .set('Cookie', await signIn(carol))
-      .expect(201);
+    await enqueue(id, ids.Shock).expect(200);
+    await addBot(id, await signIn(carol)).expect(201);
 
     await cancel(id).expect(204);
 
@@ -173,15 +165,12 @@ describe('cancel', () => {
   });
 
   it('posts no announcement', async () => {
-    const { body: webhook } = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
-    const id = await readyDraft([aliceCookie], 1, undefined, webhook.id);
+    const id = await readyDraft(
+      [aliceCookie],
+      1,
+      undefined,
+      await registerWebhook(),
+    );
 
     await cancel(id).expect(204);
 

@@ -18,23 +18,19 @@ import {
   start,
   webhookClient,
   poolCardIds,
+  registerWebhook,
+  webhookUrl,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('webhook', () => {
-  const webhookUrl = 'https://discord.com/api/webhooks/1234567890/secret-token';
   let carolCookie: string;
   let webhookId: string;
 
   beforeEach(async () => {
     carolCookie = await signIn(carol);
-    const res = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', carolCookie)
-      .send({ name: '#roto-main', url: webhookUrl })
-      .expect(201);
-    webhookId = res.body.id;
+    webhookId = await registerWebhook();
     allOnArena('t:dragon c:r');
   });
 
@@ -112,12 +108,7 @@ describe('webhook', () => {
 
     beforeEach(async () => {
       bobCookie = await signIn(bob);
-      const res = await request(app.getHttpServer())
-        .post('/api/admin/webhooks')
-        .set('Cookie', carolCookie)
-        .send({ name: '#roto-other', url: otherUrl })
-        .expect(201);
-      otherId = res.body.id;
+      otherId = await registerWebhook('#roto-other', otherUrl);
     });
 
     function changeWebhook(

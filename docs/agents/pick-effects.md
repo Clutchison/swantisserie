@@ -20,5 +20,5 @@ Adding a new effect of a pick means: a pure engine function with its own spec, a
 ## Specs
 
 - Engine: `engine/src/*.spec.ts`, pure, with a hand-made `pool` map.
-- API: `api/src/drafts/specs/*.spec.ts` through supertest, built on `harness.ts` there (`readyDraft`, `readyDraftWithCopies`, `pick`, `undo`, `enqueue`). Read the harness and one `it` block of the nearest spec for conventions; the harness doc comments list the gotchas.
+- API: `api/src/drafts/specs/*.spec.ts` through supertest, built on `harness.ts` there (`readyDraft`, `readyDraftWithCopies`, `pick`, `undo`, `enqueue`, `importPicks`, `addBot`), which is built on `api/src/testing/app.ts` (the app with every outbound client faked, and `signIn`). Read the harness and one `it` block of the nearest spec for conventions; the harness doc comments list the gotchas.
 - Web: `web/src/app/drafts/specs/*.spec.ts` through the HTTP stand-in, built on `harness.ts` there (`openDraft`, `flushPlan`, `flushQueue`, `button`) and `pool-tab-harness.ts` (`openDetail`).

@@ -16,12 +16,12 @@ import {
   enqueue,
   post,
   getDraft,
+  fourCards,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('basic lands in a plan', () => {
-  const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let carolCookie: string;
 
   beforeEach(async () => {
@@ -29,7 +29,7 @@ describe('basic lands in a plan', () => {
   });
 
   it('adds basics to the mainboard by count, and takes them out at 0', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     await start(id).expect(200);
 
     await setBasic(id, 'Mountain', 7, carolCookie).expect(200);
@@ -55,7 +55,7 @@ describe('basic lands in a plan', () => {
   });
 
   it('never puts a basic on the sideboard', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     await setBasic(id, 'Island', 3, carolCookie).expect(200);
 
     const moved = await movePlanned(id, 'Island', 'Sideboard', carolCookie);
@@ -69,7 +69,7 @@ describe('basic lands in a plan', () => {
   });
 
   it('clears every basic, leaving the rest of the plan', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock, carolCookie).expect(200);
@@ -87,7 +87,7 @@ describe('basic lands in a plan', () => {
   });
 
   it('refuses a land that isn’t basic, or a count that isn’t a whole number from 0 to 99', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
 
     const notBasic = await setBasic(id, 'Shock', 1, carolCookie).expect(400);
     expect(notBasic.body).toEqual({
@@ -107,7 +107,7 @@ describe('basic lands in a plan', () => {
   });
 
   it('changes basics in the lobby and while active, paused, closed and complete, leaving the draft alone', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 1, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     await setBasic(id, 'Plains', 1, carolCookie).expect(200);
     await start(id).expect(200);
@@ -118,20 +118,20 @@ describe('basic lands in a plan', () => {
     await setBasic(id, 'Plains', 4, carolCookie).expect(200);
     await post(id, 'reopen').expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
-    const done = await pick(id, ids.Shock).expect(200);
-    expect(done.body.state).toBe('Complete');
+    const lastPick = await pick(id, ids.Shock).expect(200);
+    expect(lastPick.body.state).toBe('Complete');
 
     await clearBasics(id, carolCookie).expect(200);
     const complete = await setBasic(id, 'Mountain', 4, carolCookie);
 
     expect(complete.body.basics).toEqual([{ land: 'Mountain', count: 4 }]);
     expect((await getDraft(id).expect(200)).body.version).toBe(
-      done.body.version,
+      lastPick.body.version,
     );
   });
 
   it('keeps basics out of the queue, and through other players’ picks and undo', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await setBasic(id, 'Mountain', 5, carolCookie).expect(200);
@@ -149,7 +149,7 @@ describe('basic lands in a plan', () => {
   });
 
   it('lets every player set their basics, and keeps them private to that player', async () => {
-    const id = await readyDraft([aliceCookie, await signIn(bob)], 1, cards);
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 1, fourCards);
     // Alice isn't an app admin.
     const set = await setBasic(id, 'Plains', 1, aliceCookie).expect(200);
     expect(set.body.basics).toEqual([{ land: 'Plains', count: 1 }]);
