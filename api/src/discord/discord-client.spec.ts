@@ -1,3 +1,4 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import { FetchDiscordClient } from './discord-client.js';
 import { DiscordConfig } from './discord-config.js';
 
@@ -31,18 +32,6 @@ describe('FetchDiscordClient', () => {
 
   function respond(status: number, body: unknown = {}) {
     fetch.mockResolvedValueOnce(Response.json(body, { status }));
-  }
-
-  /** A fetch that never answers, until its signal aborts it. */
-  function hang() {
-    fetch.mockImplementationOnce(
-      (_url, init) =>
-        new Promise((_, reject) => {
-          init?.signal?.addEventListener('abort', () =>
-            reject(init.signal!.reason),
-          );
-        }),
-    );
   }
 
   describe('exchangeCode', () => {
@@ -132,7 +121,7 @@ describe('FetchDiscordClient', () => {
 
     it('gives up with an error after 10 seconds without an answer', async () => {
       vi.useFakeTimers();
-      hang();
+      hangOnce(fetch);
 
       const outcome = call().then(
         () => 'resolved',

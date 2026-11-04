@@ -1,3 +1,4 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import { inspect } from 'node:util';
 import type { WebhookMessage } from './draft-messages.js';
 import {
@@ -116,18 +117,6 @@ describe('FetchWebhookClient', () => {
       'a network error',
       () => fetch.mockRejectedValueOnce(new TypeError('fetch failed')),
     ],
-    [
-      'no answer within 10 seconds',
-      () =>
-        fetch.mockImplementationOnce(
-          (_url, init) =>
-            new Promise((_, reject) => {
-              init?.signal?.addEventListener('abort', () =>
-                reject(init.signal!.reason),
-              );
-            }),
-        ),
-    ],
   ])('throws a failure worth retrying on %s', async (_, fail) => {
     fail();
 
@@ -138,16 +127,9 @@ describe('FetchWebhookClient', () => {
     expect(error).not.toBeInstanceOf(WebhookRefusedError);
   });
 
-  it('gives up after 10 seconds without an answer', async () => {
+  it('gives up after 10 seconds without an answer, with a failure worth retrying', async () => {
     vi.useFakeTimers();
-    fetch.mockImplementationOnce(
-      (_url, init) =>
-        new Promise((_, reject) => {
-          init?.signal?.addEventListener('abort', () =>
-            reject(init.signal!.reason),
-          );
-        }),
-    );
+    hangOnce(fetch);
 
     const outcome = webhooks
       .post(WEBHOOK_URL, message)
@@ -156,7 +138,10 @@ describe('FetchWebhookClient', () => {
     expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(await outcome).toBeInstanceOf(Error);
+    const error = await outcome;
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(WebhookGoneError);
+    expect(error).not.toBeInstanceOf(WebhookRefusedError);
   });
 
   it.each<[string, () => void]>([

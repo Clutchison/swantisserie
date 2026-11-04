@@ -1,3 +1,4 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   FetchScryfallClient,
   ScryfallRejectedSearchError,
@@ -340,16 +341,6 @@ describe('FetchScryfallClient', () => {
         has_more: false,
         data: [balefire],
       });
-    /** A fetch that never answers, until its signal aborts it. */
-    const hang = () =>
-      fetch.mockImplementationOnce(
-        (_url, init) =>
-          new Promise((_, reject) => {
-            init?.signal?.addEventListener('abort', () =>
-              reject(init.signal!.reason),
-            );
-          }),
-      );
     /** The search's error, once every retry has had its time. */
     async function failure(search: Promise<unknown>) {
       const outcome = search.catch((err: unknown) => err);
@@ -409,7 +400,7 @@ describe('FetchScryfallClient', () => {
     });
 
     it('gives up on a request after 10 seconds, and fails plainly once retrying hasn’t helped', async () => {
-      for (let i = 0; i < 4; i++) hang();
+      for (let i = 0; i < 4; i++) hangOnce(fetch);
 
       const outcome = scryfall.search('c:r').catch((err: unknown) => err);
       await vi.advanceTimersByTimeAsync(9_999);

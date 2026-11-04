@@ -1,3 +1,4 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import { fetchWithTimeout, UnreachableError } from './fetch-with-timeout.js';
 
 describe('fetchWithTimeout', () => {
@@ -13,18 +14,6 @@ describe('fetchWithTimeout', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
-
-  /** A fetch that never answers, until its signal aborts it. */
-  function hang() {
-    fetch.mockImplementationOnce(
-      (_url, init) =>
-        new Promise((_, reject) => {
-          init?.signal?.addEventListener('abort', () =>
-            reject(init.signal!.reason),
-          );
-        }),
-    );
-  }
 
   it('sends the request and passes the response through', async () => {
     fetch.mockResolvedValueOnce(Response.json({ ok: true }, { status: 201 }));
@@ -64,7 +53,7 @@ describe('fetchWithTimeout', () => {
   });
 
   it('gives up with UnreachableError once the timeout passes', async () => {
-    hang();
+    hangOnce(fetch);
 
     const outcome = fetchWithTimeout('https://example.com', {}, 1000).catch(
       (err: unknown) => err,

@@ -119,6 +119,11 @@ export class ScryfallUnavailableError extends Error {
       options,
     );
   }
+
+  /** Scryfall couldn't be reached at all: a timeout or a network failure. */
+  static unreachable(cause: unknown): ScryfallUnavailableError {
+    return new ScryfallUnavailableError(undefined, { cause });
+  }
 }
 
 /** The longest query Scryfall will search: https://scryfall.com/docs/api/cards/search */
@@ -194,7 +199,7 @@ export class FetchScryfallClient extends ScryfallClient {
       return await this.parse(await this.send(url));
     } catch (err) {
       if (err instanceof UnreachableError) {
-        throw new ScryfallUnavailableError(undefined, { cause: err });
+        throw ScryfallUnavailableError.unreachable(err);
       }
       throw err;
     }

@@ -1,3 +1,4 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   CubeCobraUnavailableError,
   FetchCubeCobraClient,
@@ -104,14 +105,7 @@ describe('FetchCubeCobraClient', () => {
   it('gives up with CubeCobraUnavailableError after 20 seconds without an answer', async () => {
     vi.useFakeTimers();
     try {
-      fetch.mockImplementationOnce(
-        (_url, init) =>
-          new Promise((_, reject) => {
-            init?.signal?.addEventListener('abort', () =>
-              reject(init.signal!.reason),
-            );
-          }),
-      );
+      hangOnce(fetch);
 
       const outcome = cubeCobra
         .cube('thepaupercube')

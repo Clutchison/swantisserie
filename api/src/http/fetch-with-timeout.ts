@@ -28,6 +28,8 @@ export async function fetchWithTimeout(
       ),
     timeoutMs,
   );
+  // A body nobody reads keeps it running until it fires: don't let that hold the process open.
+  timer.unref?.();
   let res: Response;
   try {
     res = await fetch(url, { ...init, signal: controller.signal });
