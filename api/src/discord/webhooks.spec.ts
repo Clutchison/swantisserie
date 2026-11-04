@@ -1,6 +1,12 @@
 import request from 'supertest';
-import { registerWebhook } from '../testing/app.js';
-import { alice, app, carol, signIn, useTestApp } from '../testing/app.js';
+import {
+  alice,
+  app,
+  carol,
+  registerWebhook,
+  signIn,
+  useTestApp,
+} from '../testing/app.js';
 
 const mainUrl =
   'https://discord.com/api/webhooks/1234567890/main-token_ABC-xyz';

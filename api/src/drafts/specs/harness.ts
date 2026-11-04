@@ -228,7 +228,7 @@ export function addBot(id: string, cookie: string) {
     .set('Cookie', cookie);
 }
 
-/** Puts the draft's players in the seats `userIds` lists, in order. */
+/** Sets the draft's seat order to `userIds`. */
 export function setSeats(id: string, userIds: unknown, cookie = aliceCookie) {
   return request(app.getHttpServer())
     .put(`/api/drafts/${id}/seats`)
@@ -311,9 +311,9 @@ export async function pickLogLines(id: string) {
   const res = await pickLog(id);
   const draft = (await getDraft(id).expect(200)).body as DraftView;
   const names: Record<string, string> = {
-    [alice.id]: 'Alice',
-    [bob.id]: 'Bob',
-    [carol.id]: 'Carol',
+    [alice.id]: alice.name,
+    [bob.id]: bob.name,
+    [carol.id]: carol.name,
   };
   for (const player of draft.players) {
     if (player.isBot) names[player.id] = 'Bot';

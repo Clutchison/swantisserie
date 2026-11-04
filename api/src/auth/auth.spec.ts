@@ -70,7 +70,10 @@ describe('Discord sign-in', () => {
   });
 
   /** Runs the redirect → callback round trip in a cookie-keeping agent. */
-  async function signIn(profile: DiscordProfile, isGuildMember = true) {
+  async function signInThroughDiscord(
+    profile: DiscordProfile,
+    isGuildMember = true,
+  ) {
     discord.exchangeCode.mockResolvedValue('access-token');
     discord.getCurrentUser.mockResolvedValue(profile);
     discord.isGuildMember.mockResolvedValue(isGuildMember);
@@ -97,7 +100,7 @@ describe('Discord sign-in', () => {
   };
 
   it('signs the user in on callback and reports them from /me', async () => {
-    const { agent, callback } = await signIn(aliceProfile);
+    const { agent, callback } = await signInThroughDiscord(aliceProfile);
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/');
@@ -113,7 +116,10 @@ describe('Discord sign-in', () => {
   });
 
   it('flags app admins from config in /me', async () => {
-    const { agent } = await signIn({ ...aliceProfile, id: '222' });
+    const { agent } = await signInThroughDiscord({
+      ...aliceProfile,
+      id: '222',
+    });
 
     const me = await agent.get('/api/auth/me').expect(200);
 
@@ -121,9 +127,9 @@ describe('Discord sign-in', () => {
   });
 
   it('updates a returning user’s name and avatar from Discord', async () => {
-    await signIn(aliceProfile);
+    await signInThroughDiscord(aliceProfile);
 
-    const { agent } = await signIn({
+    const { agent } = await signInThroughDiscord({
       ...aliceProfile,
       global_name: null,
       username: 'alice_renamed',
@@ -140,7 +146,7 @@ describe('Discord sign-in', () => {
   });
 
   it('turns away someone who is not in our guild', async () => {
-    const { agent, callback } = await signIn(aliceProfile, false);
+    const { agent, callback } = await signInThroughDiscord(aliceProfile, false);
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
@@ -152,10 +158,10 @@ describe('Discord sign-in', () => {
   });
 
   it('re-checks guild membership on every sign-in', async () => {
-    const first = await signIn(aliceProfile);
+    const first = await signInThroughDiscord(aliceProfile);
     await first.agent.get('/api/auth/me').expect(200);
 
-    const { agent, callback } = await signIn(aliceProfile, false);
+    const { agent, callback } = await signInThroughDiscord(aliceProfile, false);
 
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
     await agent.get('/api/auth/me').expect(401);
@@ -166,7 +172,7 @@ describe('Discord sign-in', () => {
   });
 
   it('logs out by ending the session, not just clearing the cookie', async () => {
-    const { callback } = await signIn(aliceProfile);
+    const { callback } = await signInThroughDiscord(aliceProfile);
     const sessionCookie = sessionCookieFrom(callback);
 
     const logout = await request(app.getHttpServer())
@@ -189,7 +195,7 @@ describe('Discord sign-in', () => {
       now: new Date('2026-11-01T12:00:00Z'),
     });
     try {
-      const { callback } = await signIn(aliceProfile);
+      const { callback } = await signInThroughDiscord(aliceProfile);
       // Sent by hand: the agent's cookie jar would drop the expired cookie itself.
       const me = () =>
         request(app.getHttpServer())
@@ -275,13 +281,16 @@ describe('Discord sign-in', () => {
 
   describe('admin-only routes', () => {
     it('let app admins through', async () => {
-      const { agent } = await signIn({ ...aliceProfile, id: '111' });
+      const { agent } = await signInThroughDiscord({
+        ...aliceProfile,
+        id: '111',
+      });
 
       await agent.get('/api/admin-only').expect(200).expect({ ok: true });
     });
 
     it('reject signed-in users who are not app admins', async () => {
-      const { agent } = await signIn(aliceProfile);
+      const { agent } = await signInThroughDiscord(aliceProfile);
 
       await agent.get('/api/admin-only').expect(403);
     });
