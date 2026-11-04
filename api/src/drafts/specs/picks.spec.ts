@@ -224,7 +224,9 @@ describe('picks', () => {
     expect(refused.body.error).toBe('not-drafting');
   });
 
-  it('makes concurrent picks one at a time, so only one of a player’s double pick lands', async () => {
+  it('answers a player’s two picks of different cards sent at once with one 200 and one refusal', async () => {
+    // On PGlite the two run one after the other; picks.race.spec.ts races
+    // them on a real Postgres.
     const id = await startedDraft(await signIn(bob));
     const ids = await poolCardIds(id);
 
@@ -241,7 +243,9 @@ describe('picks', () => {
     expect(log[0].playerId).toBe(alice.id);
   });
 
-  it('takes a pick sent twice at once only once', async () => {
+  it('answers a pick sent twice at once with one 200 and one refusal', async () => {
+    // On PGlite the two run one after the other; picks.race.spec.ts races
+    // them on a real Postgres.
     const id = await startedDraft(await signIn(bob));
     const ids = await poolCardIds(id);
 

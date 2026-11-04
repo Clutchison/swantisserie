@@ -266,7 +266,9 @@ describe('undo', () => {
     });
   });
 
-  it('refuses to undo any pick but the latest, so an undo sent twice takes back one', async () => {
+  it('answers an undo sent twice at once with one 200 and one refusal, as it refuses to undo any pick but the latest', async () => {
+    // On PGlite the two run one after the other; undo.race.spec.ts races
+    // them on a real Postgres.
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);

@@ -173,7 +173,9 @@ describe('cancel', () => {
     expect(webhookClient.post).not.toHaveBeenCalled();
   });
 
-  it('answers one of two cancels at once with 404, not a conflict', async () => {
+  it('answers a cancel sent twice at once with one 204 and one 404, not a conflict', async () => {
+    // On PGlite the two run one after the other: this covers the answers,
+    // not the locking.
     const id = await readyDraft([aliceCookie]);
     const carolCookie = await signIn(carol);
 
