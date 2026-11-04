@@ -14,7 +14,7 @@ When a new ticket is filed, put it in by these same rules: a refactor or bug goe
 ## Before starting
 
 - Close **#286**. Its fix was merged in #287 (`f06df97`).
-- Run `/triage` on the tickets still labelled `needs-triage` before implementing them: **#284**, **#285**, **#260**, **#166**, **#168**, the api audit's findings, **#297**–**#311**, and the web audit's findings, **#312**–**#337**, and the cross-cutting audit's findings, **#338**–**#346**.
+- Run `/triage` on the tickets still labelled `needs-triage` before implementing them: **#284**, **#285**, **#260**, **#166**, **#168**, the api audit's findings, **#297**–**#311**, the web audit's findings, **#312**–**#337**, and the cross-cutting audit's findings, **#338**–**#346**.
 - **#301** needs a decision in triage: either undo puts a queued pick's card back in its picker's queue, or `PLAN.md` is reworded to match the glossary.
 - **#341** needs a decision in triage: whether the api tells the web a viewer's draft powers, or the web works them out itself. #299 and #322 are built to it.
 
@@ -50,7 +50,7 @@ Judgement calls, not recorded in GitHub:
 - **#315 is fixed in #292's shared Card detail,** or straight after it. It can be folded into #292.
 - **#322 comes after #285 and #299, and before #208, #209 and #213.** It is the web side of #299's access seam, and it compares player ids that #285 renames.
 - **#341 is decided before #299 and #322.** Both would otherwise build their own copy of the draft powers rule, one in each workspace.
-- **#344, #284, #338, then #301 and #339.** #344 renames the fields the other three edit. #338 adds the engine's undo rules, which #301 changes, and comes after #307, whose race specs guard the cascade it reworks. #339 rewords `PLAN.md` once #301's wording is settled. #301 moved down the table for this.
+- **#344 comes before #284 and #338, which come before #301 and #339.** #344 renames the fields the other three edit. #338 adds the engine's undo rules, which #301 changes, and comes after #307, whose race specs guard the cascade it reworks. #339 rewords `PLAN.md` once #301's wording is settled.
 - **#345 goes with #285,** which already reshapes `PickView`.
 - **#342 comes after #321,** which gives the web's `offer*` rules the one home #342 fixes them in.
 - **Each of these comes before the feature it prepares:** #323 before #205, #324 before #201, #335 and #343 before #209, and #336 before #211.
@@ -79,14 +79,14 @@ Judgement calls, not recorded in GitHub:
 | 17    | **#284** The swap-or-lose copy rule is written once, in engine                  | Needs triage |      | Small, stays inside the engine. Its comment adds `PlansService.add` in the api.                                        |
 | 18    | **#338** The engine owns undo's restore rules, and a cascade is worked out once | Needs triage |      | Medium. With #284, after #307. Gives #303 its in-memory path and #301 an engine function.                              |
 | 19    | **#301** Undo puts a queued pick's card back in its picker's queue              | Needs triage |      | Bug, low. Needs a decision first (see Before starting).                                                                |
-| 20    | **#339** Bring PLAN.md's stale statements into line with the code               | Needs triage |      | Low. Docs only; settles #301's wording in the same edit.                                                               |
+| 20    | **#339** Bring `PLAN.md`'s stale statements into line with the code             | Needs triage |      | Low. Docs only; settles #301's wording in the same edit.                                                               |
 | 21    | **#285** Views identify a player by one id                                      | Needs triage |      | Renames across contract, api and web. Must land before #208.                                                           |
 | 22    | **#345** Contract fields nobody reads, and a slimmer PickView                   | Needs triage |      | Low. With #285, which already reshapes `PickView`.                                                                     |
 | 23    | **#341** Decide which side owns draft powers                                    | Needs triage |      | Medium. A decision for triage; #299 and #322 are built to it.                                                          |
 | 24    | **#299** One draft access seam and one error mapping in the api                 | Needs triage |      | Medium prefactor for #208, #209 and #212, and it makes #225 a one-place change.                                        |
 | 25    | **#225** Draft error codes match what the api sends and what the web reads      | Ready        |      | Changes contract, api and web, and fixes a real bug: a `not-in-pool` refusal (a 404) is shown as a generic failure.    |
 | 26    | **#306** A failed pool snapshot is refused as "isn't complete yet"              | Needs triage |      | Low. After #225, as it may add a refusal code.                                                                         |
-| 27    | **#303** A pick reads the draft once, not per helper, inside the lock           | Needs triage |      | Low, but a long cascade risks Prisma's 5 s transaction timeout. After #307.                                            |
+| 27    | **#303** A pick reads the draft once, not per helper, inside the lock           | Needs triage |      | Low, but a long cascade risks Prisma's 5 s transaction timeout. After #307 and #338.                                   |
 | 28    | **#305** Enforce the pool source and basic land rules in the schema             | Needs triage |      | Low. A migration only; before #205 adds the set list.                                                                  |
 | 29    | **#304** Notice a webhook Discord no longer has                                 | Needs triage |      | Low. Settle with #213 and #215 in mind; can move to Phase 3 if triage ties it to draft channels.                       |
 | 30    | **#320** The status page opens without signing in                               | Needs triage |      | Bug, medium: it can't open during the outage it reports. Small, routes only.                                           |
