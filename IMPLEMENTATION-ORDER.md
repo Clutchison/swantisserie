@@ -43,6 +43,7 @@ Judgement calls, not recorded in GitHub:
 - **#307 comes before #303.** #303 reworks how a pick reads the draft under its lock, and only #307's race specs would catch a lock broken on the way.
 - **#310 comes before #299 and before #208.** The guild tickets add a guild to every spec's setup, so the shared test app should exist first.
 - **#299 comes before #225 and before #208.** It puts the draft access checks and the error mapping in one place each, so #225 changes error codes once and #208 and #209 add guild checks once.
+- **#298 comes after #297.** #297 settles the webhook client's error contract and retry policy, which #298 builds on for `FetchWebhookClient`.
 - **#306 comes after #225.** It may add a refusal code, which should follow #225's settled contract.
 - **#305 comes before #205.** The schema's pool source rules should be enforced before the set list adds a third pool source.
 - **#333 comes before #321, #316 and #292.** Those three move code whose tests are in the spec files #333 splits, so the split and the shared fixtures should come first.
@@ -65,7 +66,7 @@ Judgement calls, not recorded in GitHub:
 | 3     | **#219** Audit the api                                                          | Done         | ✅   | Filed #297–#311.                                                                                                       |
 | 4     | **#220** Audit the web                                                          | Done         | ✅   | Filed #312–#337.                                                                                                       |
 | 5     | **#221** Cross-cutting audit                                                    | Done         | ✅   | Filed #338–#346.                                                                                                       |
-| 6     | **#297** An announcement over Discord's 2000-character limit is dropped         | Needs triage |      | Bug, medium: a long cascade's announcement and ping are lost. Small, Discord code only.                                |
+| 6     | **#297** An announcement over Discord's 2000-character limit is dropped         | Ready        |      | Bug, medium: a long cascade's announcement and ping are lost. Small, Discord code only.                                |
 | 7     | **#298** Outbound clients: timeouts, wrapped Scryfall errors, retry on a 5xx    | Needs triage |      | Bug, medium: a hung Scryfall page strands a pool snapshot. Settles the pattern before #211–#215 add Discord bot calls. |
 | 8     | **#300** A failed bot pick leaves the draft stuck on the bot's turn             | Needs triage |      | Bug, low. Small, bots only.                                                                                            |
 | 9     | **#302** Announcements still queued at shutdown are dropped                     | Needs triage |      | Bug, low. Small, follows #294's shutdown order.                                                                        |
