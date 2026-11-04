@@ -400,6 +400,35 @@ describe('bot players', () => {
       });
     });
 
+    it('does not retry a turn that something else rescheduled while it failed', async () => {
+      await app.close();
+      await startApp(100, [0]);
+      await signInAlice();
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      const { id } = await draftWithBots(1, 2);
+      await start(id).expect(200);
+      // The bot's second pick fails, but only once released.
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const botPick = TurnsService.prototype.botPick;
+      let calls = 0;
+      const attempts = vi
+        .spyOn(TurnsService.prototype, 'botPick')
+        .mockImplementation(async function (this: TurnsService, turn) {
+          if (++calls !== 2) return botPick.call(this, turn);
+          await released;
+          throw dropped;
+        });
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      await waitForBotPicks(2, () => expect(attempts).toHaveBeenCalledTimes(2));
+
+      // The undo schedules pick 2 while pick 3 is failing.
+      await undo(id, 2).expect(200);
+      release();
+
+      expect((await atPick(id, 4)).turn?.playerId).toBe(alice.id);
+    });
+
     it('cancels a retry waiting on its delay when the app shuts down', async () => {
       await app.close();
       await startApp(0, [200]);
