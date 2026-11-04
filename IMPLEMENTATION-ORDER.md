@@ -41,42 +41,42 @@ Judgement calls, not recorded in GitHub:
 
 ## Phase 1: wide refactors and bug fixes
 
-| Order | Ticket | Why it's here |
-|---|---|---|
-| 1 | **#294** Shutting down hangs while a request is still reading the database | A real bug that also makes CI flaky. Triage it first. |
-| 2 | **#259** Run local dev against the Neon dev branch, with guards against prod | Safety. Starts as soon as #258 is done. |
-| 3 | **#219**, **#220**, then **#221** Audits | They file tickets for this phase. Put each finding in this table at its own size. |
-| 4 | **#284** The swap-or-lose copy rule is written once, in engine | Small, stays inside the engine. Triage first. |
-| 5 | **#285** Views identify a player by one id | Renames across contract, api and web. Must land before #208. Triage first. |
-| 6 | **#225** Draft error codes match what the api sends and what the web reads | Changes contract, api and web, and fixes a real bug: a `not-in-pool` refusal (a 404) is shown as a generic failure. |
-| 7 | **#292** Make the Card detail one shared view | Prefactor for #293. |
+| Order | Ticket                                                                       | Why it's here                                                                                                       |
+| ----- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1     | **#294** Shutting down hangs while a request is still reading the database   | A real bug that also makes CI flaky. Triage it first.                                                               |
+| 2     | **#259** Run local dev against the Neon dev branch, with guards against prod | Safety. Starts as soon as #258 is done.                                                                             |
+| 3     | **#219**, **#220**, then **#221** Audits                                     | They file tickets for this phase. Put each finding in this table at its own size.                                   |
+| 4     | **#284** The swap-or-lose copy rule is written once, in engine               | Small, stays inside the engine. Triage first.                                                                       |
+| 5     | **#285** Views identify a player by one id                                   | Renames across contract, api and web. Must land before #208. Triage first.                                          |
+| 6     | **#225** Draft error codes match what the api sends and what the web reads   | Changes contract, api and web, and fixes a real bug: a `not-in-pool` refusal (a 404) is shown as a generic failure. |
+| 7     | **#292** Make the Card detail one shared view                                | Prefactor for #293.                                                                                                 |
 
 ## Phase 2: features, smallest first
 
 Sizes are estimates from the ticket bodies; they weren't measured against the code.
 
-| Order | Ticket | Size | Notes |
-|---|---|---|---|
-| 8 | **#293** Open a plan card's Card detail from the Plan tab | S–M | Builds on #292. |
-| 9 | **#201** Show horizontal cards sideways in Card detail and Card preview | S–M | Web only. |
-| 10 | **#260** Seed the dev database with sample drafts | M | Needs triage. Comes after #259. |
-| 11 | **#166** Improve pool filters and sorting on the Pool tab | M–L | Needs triage; the scope is still open. |
-| 12 | **#205** Define a draft's pool from a set list | L | |
-| 13 | **#206** Draw a random set list | M | Can't move ahead of #205. |
+| Order | Ticket                                                                  | Size | Notes                                  |
+| ----- | ----------------------------------------------------------------------- | ---- | -------------------------------------- |
+| 8     | **#293** Open a plan card's Card detail from the Plan tab               | S–M  | Builds on #292.                        |
+| 9     | **#201** Show horizontal cards sideways in Card detail and Card preview | S–M  | Web only.                              |
+| 10    | **#260** Seed the dev database with sample drafts                       | M    | Needs triage. Comes after #259.        |
+| 11    | **#166** Improve pool filters and sorting on the Pool tab               | M–L  | Needs triage; the scope is still open. |
+| 12    | **#205** Define a draft's pool from a set list                          | L    |                                        |
+| 13    | **#206** Draw a random set list                                         | M    | Can't move ahead of #205.              |
 
 ## Phase 3: multi-guild (#169), last
 
-| Order | Ticket | Size | Notes |
-|---|---|---|---|
-| 14 | **#208** Make drafts and webhooks belong to guilds | L | Wide: sign-in, a migration, and who can see what. |
-| 15 | **#210** Choose a draft's guild, and show and filter drafts by guild | M | Can run alongside #209. |
-| 16 | **#209** Give guild admins app admin powers over their guild's drafts and webhooks | M | |
-| 17 | **#211** Let a guild admin set up their guild | L | Needs #207 (human). |
-| 18 | **#212** Gate draft creation on the guild's organizer role | M | |
-| 19 | **#213** Create a draft channel with each draft | L | |
-| 20 | **#214** Archive, unarchive and delete a draft channel | M | |
-| 21 | **#215** Recreate deleted draft and archive categories | M | |
-| 22 | **#168** Test drafts | M | Blocked by all of #169. Needs triage. |
+| Order | Ticket                                                                             | Size | Notes                                             |
+| ----- | ---------------------------------------------------------------------------------- | ---- | ------------------------------------------------- |
+| 14    | **#208** Make drafts and webhooks belong to guilds                                 | L    | Wide: sign-in, a migration, and who can see what. |
+| 15    | **#210** Choose a draft's guild, and show and filter drafts by guild               | M    | Can run alongside #209.                           |
+| 16    | **#209** Give guild admins app admin powers over their guild's drafts and webhooks | M    |                                                   |
+| 17    | **#211** Let a guild admin set up their guild                                      | L    | Needs #207 (human).                               |
+| 18    | **#212** Gate draft creation on the guild's organizer role                         | M    |                                                   |
+| 19    | **#213** Create a draft channel with each draft                                    | L    |                                                   |
+| 20    | **#214** Archive, unarchive and delete a draft channel                             | M    |                                                   |
+| 21    | **#215** Recreate deleted draft and archive categories                             | M    |                                                   |
+| 22    | **#168** Test drafts                                                               | M    | Blocked by all of #169. Needs triage.             |
 
 If the audits file any multi-guild tickets, put them in this phase, not in Phase 1.
 
