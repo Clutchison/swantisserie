@@ -261,9 +261,9 @@ ul {
     }
   }
 
-  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. */
+  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. Darkened rather than see-through, so the card beneath doesn't show through it. Only the card: its mark and buttons stay bright. */
   .unpicked .card {
-    opacity: 0.6;
+    filter: brightness(0.5);
   }
 }
 
