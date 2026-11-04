@@ -299,3 +299,19 @@ export function wait(ms: number) {
   vi.advanceTimersByTime(ms);
   TestBed.tick();
 }
+
+/** The Card preview's image, if one is open: it's outside the page. */
+export const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');
+
+/** A pointer event of `pointerType`; only a press bubbles, as enter and leave don't. */
+export const pointer = (type: string, pointerType: string) =>
+  new PointerEvent(type, { pointerType, bubbles: type === 'pointerdown' });
+
+/** Taps `target` on a touchscreen, with the enter and leave a touch brings, and renders what came of it. */
+export function tap(target: HTMLElement) {
+  target.dispatchEvent(pointer('pointerenter', 'touch'));
+  target.dispatchEvent(pointer('pointerdown', 'touch'));
+  target.dispatchEvent(pointer('pointerleave', 'touch'));
+  target.click();
+  TestBed.tick();
+}

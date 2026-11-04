@@ -25,6 +25,9 @@ import {
   viewOn,
   resizeTo,
   wait,
+  previewImage,
+  pointer,
+  tap,
   type AppFixture,
 } from './harness';
 import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -618,7 +621,7 @@ describe('plan tab', () => {
     });
 
     describe('a stacked card’s Unpicked mark', () => {
-      /** Opens stacks mode with an unpicked Lightning Bolt, and returns its mark, then takes over the clock. */
+      /** Opens stacks mode with an unpicked Lightning Bolt, and returns its mark, on fake timers. */
       async function openMark() {
         const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
           cards,
@@ -631,8 +634,6 @@ describe('plan tab', () => {
       }
       afterEach(() => vi.useRealTimers());
 
-      /** The Card preview's image, if one is open: it's outside the page. */
-      const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');
       const ancestry = (element: Element | null | undefined) => {
         const chain: Element[] = [];
         for (let at = element; at; at = at.parentElement) chain.push(at);
@@ -640,14 +641,13 @@ describe('plan tab', () => {
       };
       /** Moves the mouse from `from`, or from off the page, onto `to`, leaving and entering each element as a browser does. */
       function moveMouse(to: Element, from?: Element) {
-        const mouse = (type: string) => new PointerEvent(type, { pointerType: 'mouse' });
         for (const left of ancestry(from).filter((at) => !at.contains(to))) {
-          left.dispatchEvent(mouse('pointerleave'));
+          left.dispatchEvent(pointer('pointerleave', 'mouse'));
         }
         for (const entered of ancestry(to)
           .filter((at) => !from || !at.contains(from))
           .reverse()) {
-          entered.dispatchEvent(mouse('pointerenter'));
+          entered.dispatchEvent(pointer('pointerenter', 'mouse'));
         }
         TestBed.tick();
       }
@@ -681,20 +681,17 @@ describe('plan tab', () => {
       it('opens the Card preview on a tap', async () => {
         const { mark } = await openMark();
 
-        mark.dispatchEvent(
-          new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true }),
-        );
-        mark.click();
-        TestBed.tick();
+        tap(mark);
 
         expect(previewImage()?.alt).toBe('Lightning Bolt');
       });
 
-      it('stays shown and part of the dragged card', async () => {
+      it('stays shown, undimmed outside the card, and part of the dragged card', async () => {
         const { mark } = await openMark();
 
         expect(mark.textContent?.trim()).toBe('Unpicked');
-        expect(mark.closest('[cdkDrag], .cdk-drag')).toBe(mark.closest('li'));
+        expect(mark.closest('.card')).toBeNull();
+        expect(mark.closest('.cdk-drag')).toBe(mark.closest('li'));
       });
     });
 
