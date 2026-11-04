@@ -122,26 +122,28 @@
                     cdkDragPreviewContainer="parent"
                     (cdkDragStarted)="previews.dragStarted()"
                   >
-                    <!-- Only the card shows a Card preview, not its buttons. -->
-                    <div class="card" [appCardPreview]="poolCard">
-                      @if (poolCard) {
-                        <img
-                          [attr.srcset]="images.srcset(poolCard)"
-                          sizes="160px"
-                          [src]="images.url(poolCard, 'normal')"
-                          [alt]="card.name"
-                          width="488"
-                          height="680"
-                          loading="lazy"
-                          (error)="images.failed(poolCard, 'normal')"
-                        />
-                      } @else {
-                        <span class="placeholder">{{ card.name }}</span>
+                    <!-- The card and its mark show a Card preview, not its buttons. -->
+                    <div class="face" [appCardPreview]="poolCard">
+                      <div class="card">
+                        @if (poolCard) {
+                          <img
+                            [attr.srcset]="images.srcset(poolCard)"
+                            sizes="160px"
+                            [src]="images.url(poolCard, 'normal')"
+                            [alt]="card.name"
+                            width="488"
+                            height="680"
+                            loading="lazy"
+                            (error)="images.failed(poolCard, 'normal')"
+                          />
+                        } @else {
+                          <span class="placeholder">{{ card.name }}</span>
+                        }
+                      </div>
+                      @if (!card.picked) {
+                        <span class="mark">Unpicked</span>
                       }
                     </div>
-                    @if (!card.picked) {
-                      <span class="mark">Unpicked</span>
-                    }
                     <div class="actions">
                       <!-- A basic land stays on the mainboard. -->
                       @if (!card.basic) {
