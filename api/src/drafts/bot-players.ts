@@ -13,6 +13,11 @@ export class BotPickDelay {
   constructor(readonly ms: number) {}
 }
 
+/** How long a bot waits before each retry of a failed pick. */
+export class BotPickRetries {
+  constructor(readonly delaysMs: readonly number[]) {}
+}
+
 /**
  * Makes bots' picks: when a draft's turn passes to a bot, it picks a random
  * available card after a delay, through the same path as anyone's pick.
@@ -22,6 +27,11 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(BotPlayers.name);
   /** Each draft's next bot pick, waiting on its delay. */
   private readonly timers = new Map<string, NodeJS.Timeout>();
+  /**
+   * Each draft's latest scheduled bot pick, until it is made, so a failing
+   * pick can tell whether something has scheduled another since.
+   */
+  private readonly latest = new Map<string, object>();
   /** Bot picks being made, so shutdown can wait for them. */
   private readonly picking = new Set<Promise<void>>();
   /** Set on shutdown, so a pick finishing meanwhile schedules no more. */
@@ -31,6 +41,7 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly turns: TurnsService,
     private readonly publisher: DraftPublisher,
     private readonly delay: BotPickDelay,
+    private readonly retries: BotPickRetries,
   ) {}
 
   /**
@@ -45,7 +56,7 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  /** Cancels pending picks and lets those being made finish. */
+  /** Cancels pending picks and retries, and lets those being made finish. */
   async onModuleDestroy(): Promise<void> {
     this.stopping = true;
     for (const timer of this.timers.values()) clearTimeout(timer);
@@ -62,32 +73,69 @@ export class BotPlayers implements OnApplicationBootstrap, OnModuleDestroy {
     if (turn) this.schedule(turn);
   }
 
-  /** Has the bot make its pick after the delay; replaces any pick pending. */
-  private schedule(turn: BotTurn): void {
+  /**
+   * Has the bot make its pick after `delayMs`; replaces any pick or retry
+   * pending. `failedTries` counts this turn's tries that have failed.
+   */
+  private schedule(
+    turn: BotTurn,
+    delayMs = this.delay.ms,
+    failedTries = 0,
+  ): void {
     if (this.stopping) return;
-    clearTimeout(this.timers.get(turn.draftId));
+    const { draftId } = turn;
+    clearTimeout(this.timers.get(draftId));
+    const scheduled = {};
+    this.latest.set(draftId, scheduled);
     const timer = setTimeout(() => {
-      this.timers.delete(turn.draftId);
-      const picking = this.pick(turn);
+      this.timers.delete(draftId);
+      const picking = this.pick(turn, failedTries, scheduled);
       this.picking.add(picking);
-      void picking.finally(() => this.picking.delete(picking));
-    }, this.delay.ms);
-    this.timers.set(turn.draftId, timer);
+      void picking.finally(() => {
+        this.picking.delete(picking);
+        if (this.latest.get(draftId) === scheduled) this.latest.delete(draftId);
+      });
+    }, delayMs);
+    this.timers.set(draftId, timer);
   }
 
-  private async pick(turn: BotTurn): Promise<void> {
+  private async pick(
+    turn: BotTurn,
+    failedTries: number,
+    scheduled: object,
+  ): Promise<void> {
+    const which = `pick ${turn.pick} in draft ${turn.draftId}`;
+    let events: DraftEvent[];
     try {
-      const events = await this.turns.botPick(turn);
-      // Empty if the turn moved on meanwhile: nothing to do.
-      if (events.length === 0) return;
-      await this.publisher.publish(turn.draftId, events);
-      this.scheduleNextPick(turn.draftId, events);
+      events = await this.turns.botPick(turn);
     } catch (err) {
-      this.logger.error(
-        `Bot couldn’t make pick ${turn.pick} in draft ${turn.draftId}`,
-        err,
-      );
+      const message = `Bot couldn’t make ${which}`;
+      // Something else has the bot's next pick in hand: shutdown, or a
+      // newer schedule that a retry would replace.
+      if (this.stopping || this.latest.get(turn.draftId) !== scheduled) {
+        this.logger.warn(`${message}; not retrying, superseded`, err);
+        return;
+      }
+      const delayMs = this.retries.delaysMs[failedTries];
+      if (delayMs === undefined) {
+        this.logger.error(`${message}; gave up`, err);
+        return;
+      }
+      // Nothing committed, and `botPick` does nothing once the turn has
+      // moved on, so the same turn is safe to try again.
+      this.logger.warn(`${message}; retrying in ${delayMs} ms`, err);
+      this.schedule(turn, delayMs, failedTries + 1);
+      return;
     }
+    // Empty if the turn moved on meanwhile: nothing to do.
+    if (events.length === 0) return;
+    try {
+      await this.publisher.publish(turn.draftId, events);
+    } catch (err) {
+      this.logger.error(`Couldn’t publish bot ${which}`, err);
+    }
+    // Committed by now, so the next bot picks even if publishing failed.
+    this.scheduleNextPick(turn.draftId, events);
   }
 }
 

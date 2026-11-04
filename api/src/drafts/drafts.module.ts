@@ -3,7 +3,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DiscordModule } from '../discord/discord.module.js';
 import { CubeCobraModule } from '../cubecobra/cubecobra.module.js';
 import { ScryfallModule } from '../scryfall/scryfall.module.js';
-import { BotPickDelay, BotPlayers } from './bot-players.js';
+import { BotPickDelay, BotPickRetries, BotPlayers } from './bot-players.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService } from './draft-lobby.service.js';
 import { DraftLock } from './draft-lock.js';
@@ -35,6 +35,10 @@ import { TurnsService } from './turns.service.js';
     QueuesService,
     PlansService,
     { provide: BotPickDelay, useValue: new BotPickDelay(1500) },
+    {
+      provide: BotPickRetries,
+      useValue: new BotPickRetries([1000, 2000, 4000]),
+    },
     BotPlayers,
   ],
 })

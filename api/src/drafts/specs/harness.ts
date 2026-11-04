@@ -8,7 +8,7 @@ import { AdminConfig } from '../../auth/admin-config.js';
 import { SessionService } from '../../auth/session.service.js';
 import { DiscordConfig } from '../../discord/discord-config.js';
 import { DraftNotifierRetries } from '../../discord/draft-notifier.js';
-import { BotPickDelay } from '../bot-players.js';
+import { BotPickDelay, BotPickRetries } from '../bot-players.js';
 import { WebhookClient } from '../../discord/webhook-client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CubeCobraClient } from '../../cubecobra/cubecobra-client.js';
@@ -90,9 +90,14 @@ export function waitForBotPicks<T>(
 
 /**
  * Starts the app as `app`. `botDelayMs` is how long bots wait before picking:
- * at once, unless told otherwise.
+ * at once, unless told otherwise. `botRetryDelaysMs` are the waits before
+ * each retry of a bot's failed pick: two retries at once, unless told
+ * otherwise.
  */
-export async function startApp(botDelayMs = 0) {
+export async function startApp(
+  botDelayMs = 0,
+  botRetryDelaysMs: readonly number[] = [0, 0],
+) {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule.register({ webRoot: import.meta.dirname })],
   })
@@ -111,6 +116,8 @@ export async function startApp(botDelayMs = 0) {
     .useValue(new DraftNotifierRetries([0, 0]))
     .overrideProvider(BotPickDelay)
     .useValue(new BotPickDelay(botDelayMs))
+    .overrideProvider(BotPickRetries)
+    .useValue(new BotPickRetries(botRetryDelaysMs))
     .compile();
 
   const started = configureApp(moduleRef.createNestApplication());

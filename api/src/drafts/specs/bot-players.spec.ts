@@ -2,6 +2,8 @@ import type { DraftView } from 'contract';
 import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { DraftPublisher } from '../draft-publisher.js';
+import { TurnsService } from '../turns.service.js';
 import {
   alice,
   carol,
@@ -327,6 +329,136 @@ describe('bot players', () => {
       ),
     ).toEqual([alice.id, botIds[0]]);
     expect(errors).not.toHaveBeenCalled();
+  });
+
+  describe('when a pick fails', () => {
+    const dropped = new Error('Connection dropped');
+
+    it('retries the pick, and the draft moves on', async () => {
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      vi.spyOn(TurnsService.prototype, 'botPick').mockRejectedValueOnce(
+        dropped,
+      );
+      const { id, botIds } = await draftWithBots(1, 2);
+      await start(id).expect(200);
+
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+
+      expect((await atPick(id, 4)).turn?.playerId).toBe(alice.id);
+      expect(
+        (await pickLog(id)).body.map(
+          (logged: { playerId: string }) => logged.playerId,
+        ),
+      ).toEqual([alice.id, botIds[0], botIds[0]]);
+    });
+
+    it('gives up once its retries run out, leaving the draft on its turn', async () => {
+      const errors = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+      const botPick = vi
+        .spyOn(TurnsService.prototype, 'botPick')
+        .mockRejectedValue(dropped);
+      const { id, botIds } = await draftWithBots(1);
+      await start(id).expect(200);
+
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+
+      // The first try and the harness's two retries.
+      await waitForBotPicks(3, () => {
+        expect(errors).toHaveBeenCalledWith(
+          expect.stringMatching(/gave up/),
+          dropped,
+        );
+      });
+      await settle(100);
+      expect(botPick).toHaveBeenCalledTimes(3);
+      expect((await getDraft(id).expect(200)).body.turn).toEqual(
+        expect.objectContaining({ pick: 2, playerId: botIds[0] }),
+      );
+    });
+
+    it('still schedules the next bot when telling the world about its pick fails', async () => {
+      await app.close();
+      await startApp(100);
+      await signInAlice();
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      const { id, botIds } = await draftWithBots(2);
+      await start(id).expect(200);
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      // Before the first bot's timer fires, so its publish is the one to fail.
+      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
+        dropped,
+      );
+
+      await waitForBotPicks(2, async () => {
+        expect(
+          (await pickLog(id)).body.map(
+            (logged: { playerId: string }) => logged.playerId,
+          ),
+        ).toEqual([alice.id, botIds[0], botIds[1]]);
+      });
+    });
+
+    it('does not retry a turn that something else rescheduled while it failed', async () => {
+      await app.close();
+      await startApp(100, [0]);
+      await signInAlice();
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      const { id } = await draftWithBots(1, 2);
+      await start(id).expect(200);
+      // The bot's second pick fails, but only once released.
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const turns = app.get(TurnsService);
+      const botPick = turns.botPick.bind(turns);
+      let calls = 0;
+      const attempts = vi
+        .spyOn(turns, 'botPick')
+        .mockImplementation(async (turn) => {
+          if (++calls !== 2) return botPick(turn);
+          await released;
+          throw dropped;
+        });
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      await waitForBotPicks(2, () => expect(attempts).toHaveBeenCalledTimes(2));
+
+      // The undo schedules pick 2 while pick 3 is failing.
+      await undo(id, 2).expect(200);
+      release();
+
+      expect((await atPick(id, 4)).turn?.playerId).toBe(alice.id);
+    });
+
+    it('cancels a retry waiting on its delay when the app shuts down', async () => {
+      await app.close();
+      await startApp(0, [200]);
+      await signInAlice();
+      const errors = vi.spyOn(Logger.prototype, 'error');
+      const warnings = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const botPick = vi
+        .spyOn(TurnsService.prototype, 'botPick')
+        .mockRejectedValueOnce(dropped);
+      const { id } = await draftWithBots(1);
+      await start(id).expect(200);
+
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      await waitForBotPicks(1, () => expect(warnings).toHaveBeenCalled());
+      await app.close();
+      await settle(300);
+
+      expect(botPick).toHaveBeenCalledTimes(1);
+      expect(errors).not.toHaveBeenCalled();
+      // Too slow for the bot to pick before the check below.
+      await startApp(60_000);
+      expect(
+        (await pickLog(id)).body.map(
+          (logged: { playerId: string }) => logged.playerId,
+        ),
+      ).toEqual([alice.id]);
+    });
   });
 
   describe('announcements', () => {
