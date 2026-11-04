@@ -2,7 +2,7 @@ import {
   Injectable,
   Logger,
   OnApplicationBootstrap,
-  OnModuleDestroy,
+  OnApplicationShutdown,
 } from '@nestjs/common';
 import type { Platform } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -39,7 +39,7 @@ class PoolSnapshotError extends Error {}
  */
 @Injectable()
 export class PoolSnapshotService
-  implements OnApplicationBootstrap, OnModuleDestroy
+  implements OnApplicationBootstrap, OnApplicationShutdown
 {
   private readonly logger = new Logger(PoolSnapshotService.name);
   /** Snapshots in flight in this process, by draft id. */
@@ -67,9 +67,15 @@ export class PoolSnapshotService
     }
   }
 
-  /** Lets snapshots finish before the database goes away. */
-  async onModuleDestroy(): Promise<void> {
-    await Promise.all(this.running.values());
+  /**
+   * Lets snapshots finish before the database goes away, including those
+   * that requests started while the HTTP server was closing. Runs after it
+   * has closed, and before PrismaService disconnects.
+   */
+  async onApplicationShutdown(): Promise<void> {
+    while (this.running.size > 0) {
+      await Promise.all(this.running.values());
+    }
   }
 
   /**

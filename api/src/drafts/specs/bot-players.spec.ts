@@ -1,4 +1,5 @@
 import type { DraftView } from 'contract';
+import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -304,6 +305,28 @@ describe('bot players', () => {
         ),
       ).toEqual([alice.id, botIds[0]]);
     });
+  });
+
+  it('lets the pick it is making finish when the app shuts down, and schedules no more', async () => {
+    const errors = vi.spyOn(Logger.prototype, 'error');
+    const { id, botIds } = await draftWithBots(2);
+    await start(id).expect(200);
+    const shock = (await poolCardIds(id)).Shock;
+    slowDownDatabase(50);
+
+    await pick(id, shock).expect(200);
+    // The first bot's pick is under way, each of its queries 50 ms.
+    await settle(30);
+    await app.close();
+
+    // Too slow for the second bot to pick before the check below.
+    await startApp(60_000);
+    expect(
+      (await pickLog(id)).body.map(
+        (logged: { playerId: string }) => logged.playerId,
+      ),
+    ).toEqual([alice.id, botIds[0]]);
+    expect(errors).not.toHaveBeenCalled();
   });
 
   describe('announcements', () => {
