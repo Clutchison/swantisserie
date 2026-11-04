@@ -3,12 +3,15 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type {
+  DraftBase,
+  DraftState,
   DraftView,
   PickView,
   PlanView,
   PoolCardView,
   PoolSnapshotView,
   QueueView,
+  TurnView,
   UserView,
   WebhookView,
 } from 'contract';
@@ -29,23 +32,41 @@ export const alice: UserView = {
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
-export function draft(fields: Partial<DraftView>): DraftView {
-  return {
+/**
+ * A test's changes to the default draft. Any state goes with any turn here,
+ * so partial fixtures spread into each other type-check; `draft` checks they
+ * match instead.
+ */
+export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: TurnView | null };
+
+/**
+ * The default draft with `fields` changed. A Drafting or Paused draft given no
+ * turn gets the first pick's, its first player's or Alice's; a turn that
+ * doesn't match the state throws.
+ */
+export function draft(fields: DraftFixture): DraftView {
+  const { state = 'Lobby', turn, ...rest } = fields;
+  const made: DraftBase = {
     id: 'draft-1',
     name: 'Red dragons',
     poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     picksPerPlayer: 40,
     platform: 'Arena',
-    state: 'Lobby',
     organizer: { id: alice.id, name: alice.name },
     snapshot: completeSnapshot,
     players: [],
-    turn: null,
     webhook: null,
     version: 0,
     createdAt: '2026-10-29T12:00:00.000Z',
-    ...fields,
+    ...rest,
   };
+  if (state === 'Drafting' || state === 'Paused') {
+    if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
+    const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
+    return { ...made, state, turn: turn ?? first };
+  }
+  if (turn) throw new Error(`A ${state} draft has no turn.`);
+  return { ...made, state, turn: null };
 }
 
 export type AppFixture = ComponentFixture<App>;
@@ -204,7 +225,7 @@ export const panel = (root: HTMLElement) =>
  */
 export async function openDraft(
   snapshot: PoolSnapshotView,
-  fields: Partial<DraftView> = {},
+  fields: DraftFixture = {},
   {
     cards = [],
     picks = [],

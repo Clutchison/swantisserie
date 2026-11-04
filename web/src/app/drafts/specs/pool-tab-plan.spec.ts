@@ -1,4 +1,4 @@
-import type { DraftView, PlanRefusal } from 'contract';
+import type { PlanRefusal } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
@@ -15,6 +15,7 @@ import {
   flushPlan,
   completeSnapshot,
   button,
+  type DraftFixture,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
@@ -23,7 +24,7 @@ useTallScreen();
 
 describe('pool tab', () => {
   /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
     state: 'Drafting',
     players: [alicePlayer, bob],
     turn: { pick: 1, round: 1, playerId: bob.id },

@@ -1,4 +1,4 @@
-import type { DraftView, PickRefusal, PickView } from 'contract';
+import type { PickRefusal, PickView } from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -13,6 +13,7 @@ import {
   flushQueueAndPlan,
   completeSnapshot,
   button,
+  type DraftFixture,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
 
@@ -22,7 +23,7 @@ useTallScreen();
 describe('pool tab', () => {
   describe('picking', () => {
     /** Started, with Alice then Bob; Alice is up unless told otherwise. */
-    const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+    const drafting = (fields: DraftFixture = {}): DraftFixture => ({
       state: 'Drafting',
       players: [alicePlayer, bob],
       turn: { pick: 1, round: 1, playerId: alice.id },
@@ -149,7 +150,7 @@ describe('pool tab', () => {
   });
 
   describe('who picked a card', () => {
-    const drafting: Partial<DraftView> = {
+    const drafting: DraftFixture = {
       state: 'Drafting',
       players: [alicePlayer, bob],
       turn: { pick: 2, round: 1, playerId: bob.id },
@@ -164,7 +165,7 @@ describe('pool tab', () => {
       set: 'ima',
       collectorNumber: '1',
     });
-    const openPicked = (playerId: string, fields: Partial<DraftView> = {}) =>
+    const openPicked = (playerId: string, fields: DraftFixture = {}) =>
       openDraft(
         completeSnapshot,
         { ...drafting, ...fields },

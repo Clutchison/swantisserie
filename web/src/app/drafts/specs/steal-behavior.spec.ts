@@ -1,4 +1,4 @@
-import type { DraftView, QueueView } from 'contract';
+import type { QueuedCardView, QueueView } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
@@ -17,6 +17,7 @@ import {
   flushPlan,
   expectLoadingAnimation,
   type AppFixture,
+  type DraftFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 
@@ -25,14 +26,18 @@ useTallScreen();
 
 describe('steal behavior', () => {
   /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
     state: 'Drafting',
     players: [alicePlayer, bob],
     turn: { pick: 1, round: 1, playerId: bob.id },
     ...fields,
   });
   const queued = { poolCardId: shivan.id, name: shivan.name };
-  const queueOf = (fields: Partial<QueueView> = {}): QueueView => ({
+  /** A queue with Shivan queued; any lost cards come with whether the rest was kept. */
+  const queueOf = (
+    fields: Partial<Pick<QueueView, 'cards' | 'stealBehavior'>> &
+      ({ lost?: never } | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept: boolean }) = {},
+  ): QueueView => ({
     cards: [queued],
     lost: [],
     cleared: [],
@@ -68,7 +73,10 @@ describe('steal behavior', () => {
   it('shows the player’s steal behavior above the notice and the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [brightclimb, shivan],
-      queue: queueOf({ lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }] }),
+      queue: queueOf({
+        lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
+        restKept: false,
+      }),
     });
     const queue = await openQueue(fixture, page);
 
@@ -148,7 +156,7 @@ describe('steal behavior', () => {
       'on the player’s own turn while paused',
       drafting({ state: 'Paused', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
-  ] as [string, Partial<DraftView>][])('can be changed %s', async (_when, fields) => {
+  ] as [string, DraftFixture][])('can be changed %s', async (_when, fields) => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer, bob], ...fields },

@@ -331,11 +331,13 @@ export class QueuesService {
     const isLost = (card: (typeof listed)[number]) =>
       card.poolCardId === card.pick.poolCardId;
     const lost = listed.filter(isLost);
+    const [first, ...more] = lost.map(toQueuedCardView);
     return {
       cards: cards.map(toQueuedCardView),
-      lost: lost.map(toQueuedCardView),
+      ...(first === undefined
+        ? { lost: [], restKept: false }
+        : { lost: [first, ...more], restKept: lost[lost.length - 1].restKept }),
       cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
-      restKept: lost.at(-1)?.restKept ?? false,
       stealBehavior,
     };
   }

@@ -1,4 +1,3 @@
-import type { DraftView } from 'contract';
 import {
   useDraftsApp,
   bob,
@@ -8,6 +7,7 @@ import {
   flushPicks,
   updates,
   viewOn,
+  type DraftFixture,
 } from './harness';
 
 useDraftsApp();
@@ -17,7 +17,7 @@ describe('seat order', () => {
 
   const toggle = (page: HTMLElement) => seats(page).querySelector('summary')!.click();
 
-  const drafting = (): Partial<DraftView> => ({
+  const drafting = (): DraftFixture => ({
     state: 'Drafting',
     players: [bob],
     turn: { pick: 1, round: 1, playerId: bob.id },
