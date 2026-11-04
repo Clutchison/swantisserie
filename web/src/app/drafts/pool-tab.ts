@@ -20,7 +20,14 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import type { DraftView, PlanView, PlayerView, PoolCardView, QueueView } from 'contract';
+import type {
+  DraftView,
+  PlanView,
+  PlayerView,
+  PoolCardRequest,
+  PoolCardView,
+  QueueView,
+} from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
@@ -324,7 +331,7 @@ export class PoolTab {
       const draft = await firstValueFrom(
         this.http.post<DraftView>(`/api/drafts/${this.draftId()}/picks`, {
           poolCardId: card.id,
-        }),
+        } satisfies PoolCardRequest),
       );
       this.close();
       this.pickMade.emit(draft);

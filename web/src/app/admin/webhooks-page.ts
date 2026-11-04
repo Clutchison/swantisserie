@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import type { AdminWebhookView } from 'contract';
+import type { AdminWebhookView, NewWebhookRequest, WebhookRenameRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 const API = '/api/admin/webhooks';
@@ -24,11 +24,14 @@ export class WebhooksPage {
   protected readonly problem = signal<string | null>(null);
 
   protected async add() {
-    if (await this.save(this.http.post(API, this.form.getRawValue()))) this.form.reset();
+    if (await this.save(this.http.post(API, this.form.getRawValue() satisfies NewWebhookRequest)))
+      this.form.reset();
   }
 
   protected async rename(webhook: AdminWebhookView, name: string) {
-    await this.save(this.http.patch(`${API}/${webhook.id}`, { name }));
+    await this.save(
+      this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
+    );
   }
 
   protected async remove(webhook: AdminWebhookView) {

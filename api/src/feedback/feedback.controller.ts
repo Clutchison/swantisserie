@@ -12,11 +12,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type {
+  FeedbackRequest,
   FeedbackView,
   ReviewedFeedbackView,
   UnreviewedFeedbackCount,
 } from 'contract';
 import { AdminGuard } from '../auth/admin.guard.js';
+import { bodyFields } from '../request-body.js';
 import { avatarUrl } from '../auth/avatar-url.js';
 import {
   CurrentUser,
@@ -41,7 +43,7 @@ export class FeedbackController {
     @CurrentUser() user: SessionUser,
     @Body() body: unknown,
   ): Promise<void> {
-    const { message, pageUrl } = (body ?? {}) as Record<string, unknown>;
+    const { message, pageUrl } = bodyFields<FeedbackRequest>(body);
     await this.prisma.feedback.create({
       data: {
         message: parseMessage(message),

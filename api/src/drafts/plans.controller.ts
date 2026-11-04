@@ -13,7 +13,14 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import type { BasicLand, PlanBoard, PlanView } from 'contract';
+import type {
+  BasicLand,
+  PlanBoard,
+  PlanMoveRequest,
+  PlannedBasicCountRequest,
+  PlanView,
+} from 'contract';
+import { bodyFields } from '../request-body.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -142,7 +149,7 @@ export class PlansController {
 
 /** The board to move the card to, or a 400 if it isn't one. */
 function parseBoard(body: unknown): PlanBoard {
-  const { board } = (body ?? {}) as Record<string, unknown>;
+  const { board } = bodyFields<PlanMoveRequest>(body);
   if (board !== 'Mainboard' && board !== 'Sideboard') {
     throw new BadRequestException({
       error: 'invalid',
@@ -168,7 +175,7 @@ function parseLand(land: string): BasicLand {
 
 /** How many copies of a basic land to hold, or a 400 if it isn't a whole number up to MOST_BASICS. */
 function parseCount(body: unknown): number {
-  const { count } = (body ?? {}) as Record<string, unknown>;
+  const { count } = bodyFields<PlannedBasicCountRequest>(body);
   if (
     typeof count !== 'number' ||
     !Number.isInteger(count) ||

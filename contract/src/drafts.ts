@@ -86,3 +86,30 @@ export interface DraftSocketEvents {
   /** The draft was cancelled, so it no longer exists. */
   cancelled: () => void;
 }
+
+/**
+ * The create form's fields, as the web sends them to create a draft: a pool
+ * query or a cube link, not both.
+ */
+export interface NewDraftRequest {
+  name: string;
+  poolQuery?: string;
+  cubeLink?: string;
+  /** Missing: the default. Null: a field left blank, which is refused. */
+  picksPerPlayer?: number | null;
+  /** Missing: Arena. */
+  platform?: Platform;
+  /** Missing or null: the draft posts nowhere. */
+  webhookId?: string | null;
+}
+
+/** Where an organizer chooses a draft's later announcements to be posted. */
+export interface WebhookChoiceRequest {
+  /** Null for none. */
+  webhookId: string | null;
+}
+
+/** The seat order an organizer sets, as every player's user id. */
+export interface SeatOrderRequest {
+  userIds: string[];
+}

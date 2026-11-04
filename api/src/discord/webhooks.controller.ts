@@ -14,9 +14,12 @@ import {
 } from '@nestjs/common';
 import type {
   AdminWebhookView,
+  NewWebhookRequest,
   WebhookAdminProblem,
+  WebhookRenameRequest,
   WebhookView,
 } from 'contract';
+import { bodyFields } from '../request-body.js';
 import type { Webhook } from '../generated/prisma/client.js';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { SessionGuard } from '../auth/session.guard.js';
@@ -65,7 +68,7 @@ export class AdminWebhooksController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<AdminWebhookView> {
-    const name = parseName(((body ?? {}) as Record<string, unknown>).name);
+    const name = parseName(bodyFields<WebhookRenameRequest>(body).name);
     const renamed = await refuseTakenName(this.webhooks.rename(id, name));
     if (!renamed) throw new NotFoundException();
     return toAdminView(renamed);
@@ -100,7 +103,7 @@ function invalid(message: string) {
 
 /** The add form's fields, or a 400 saying which one to fix. */
 function parseNewWebhook(body: unknown): NewWebhook {
-  const { name, url } = (body ?? {}) as Record<string, unknown>;
+  const { name, url } = bodyFields<NewWebhookRequest>(body);
   const trimmedUrl = typeof url === 'string' ? url.trim() : '';
   const parsedName = parseName(name);
   if (!WEBHOOK_URL.test(trimmedUrl)) {
