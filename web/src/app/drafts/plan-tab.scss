@@ -2,6 +2,8 @@
 $card-corners: #{4.75% / 3.5%};
 /* A card's height as a share of its width, from its normal image of 488 by 680. */
 $card-height: 139.344%;
+/* How far a card is darkened to set it apart: see the Pool tab's styles. */
+$dimmed-card: brightness(0.35);
 /* How much of a stacked card shows above the next: its name. */
 $stack-step: 16%;
 /* The width of each button on a list line. */
@@ -124,7 +126,7 @@ ul {
     font-weight: 600;
   }
 
-  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. */
+  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. Lines don't overlap, so nothing shows through. */
   .unpicked .count,
   .unpicked app-card-name {
     opacity: 0.6;
@@ -261,9 +263,9 @@ ul {
     }
   }
 
-  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. Darkened rather than see-through, so the card beneath doesn't show through it. Only the card: its mark and buttons stay bright. */
+  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. Darkened rather than see-through, so the card under it doesn't show through. Only the card: its mark and buttons stay bright. */
   .unpicked .card {
-    filter: brightness(0.5);
+    filter: $dimmed-card;
   }
 }
 
