@@ -14,6 +14,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import type { FeedbackRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 /** The modal a signed-in guild member sends feedback to the app admins from. */
@@ -62,7 +63,10 @@ export class FeedbackDialog {
       await firstValueFrom(
         // Closing the modal discards the feedback, even mid-send.
         this.http
-          .post('/api/feedback', { message: this.message(), pageUrl: this.location.href })
+          .post('/api/feedback', {
+            message: this.message(),
+            pageUrl: this.location.href,
+          } satisfies FeedbackRequest)
           .pipe(takeUntilDestroyed(this.destroyRef)),
       );
       this.status.set('Sent');

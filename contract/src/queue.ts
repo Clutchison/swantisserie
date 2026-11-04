@@ -40,3 +40,18 @@ export type QueueView = QueueBase &
  * the rest is cleared; under pick next it stays, in order.
  */
 export type StealBehavior = 'ClearQueue' | 'PickNext';
+
+/** The queue's order, as every queued card's pool card id. */
+export interface QueueOrderRequest {
+  poolCardIds: string[];
+}
+
+/** Whether queuing the plan's unpicked cards takes the sideboard's too. */
+export interface QueueUnpickedRequest {
+  includeSideboard: boolean;
+}
+
+/** The steal behavior a player sets for their queue. */
+export interface StealBehaviorRequest {
+  stealBehavior: StealBehavior;
+}

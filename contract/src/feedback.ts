@@ -19,3 +19,10 @@ export interface ReviewedFeedbackView extends FeedbackView {
 export interface UnreviewedFeedbackCount {
   count: number;
 }
+
+/** Feedback a guild member sends to the app admins. */
+export interface FeedbackRequest {
+  message: string;
+  /** The page they sent it from. */
+  pageUrl: string;
+}

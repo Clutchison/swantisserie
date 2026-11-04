@@ -1,7 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type { BasicLand, PlanBoard, PlanView } from 'contract';
+import type {
+  BasicLand,
+  PlanBoard,
+  PlanMoveRequest,
+  PlannedBasicCountRequest,
+  PlanView,
+  PoolCardRequest,
+} from 'contract';
 
 /** Changes to the signed-in player's plan, each answered with the plan as it now is. */
 @Injectable({ providedIn: 'root' })
@@ -10,14 +17,14 @@ export class PlanApi {
 
   /** Adds an unpicked copy of a pool card to the mainboard. */
   add(draftId: string, poolCardId: string): Observable<PlanView> {
-    return this.http.post<PlanView>(url(draftId), { poolCardId });
+    return this.http.post<PlanView>(url(draftId), { poolCardId } satisfies PoolCardRequest);
   }
 
   /** Moves a card in the plan to the mainboard or the sideboard. */
   move(draftId: string, poolCardId: string, board: PlanBoard): Observable<PlanView> {
     return this.http.put<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`, {
       board,
-    });
+    } satisfies PlanMoveRequest);
   }
 
   /** Takes an unpicked card out of the plan. */
@@ -27,7 +34,9 @@ export class PlanApi {
 
   /** Sets how many copies of a basic land the plan's mainboard holds. */
   setBasic(draftId: string, land: BasicLand, count: number): Observable<PlanView> {
-    return this.http.put<PlanView>(`${url(draftId)}/basics/${land}`, { count });
+    return this.http.put<PlanView>(`${url(draftId)}/basics/${land}`, {
+      count,
+    } satisfies PlannedBasicCountRequest);
   }
 
   /** Takes every basic land out of the plan. */

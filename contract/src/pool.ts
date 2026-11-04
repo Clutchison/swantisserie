@@ -55,3 +55,8 @@ export interface PoolCardView {
   /** One entry per face with its own image. */
   images: CardImages[];
 }
+
+/** One pool card, by id: to pick, to queue or to add to a plan. */
+export interface PoolCardRequest {
+  poolCardId: string;
+}

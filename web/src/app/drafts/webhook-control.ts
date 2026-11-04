@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import type { DraftView, WebhookView } from 'contract';
+import type { DraftView, WebhookChoiceRequest, WebhookView } from 'contract';
 import { firstValueFrom } from 'rxjs';
 import { isRefusal } from './drafts';
 
@@ -70,7 +70,7 @@ export class WebhookControl {
         await firstValueFrom(
           this.http.put<DraftView>(`/api/drafts/${this.draft().id}/webhook`, {
             webhookId: this.choice.value,
-          }),
+          } satisfies WebhookChoiceRequest),
         ),
       );
     } catch (err) {

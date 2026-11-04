@@ -39,3 +39,13 @@ export interface PlanView {
   /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
   lost: LostCardView[];
 }
+
+/** The plan board to move a card in a plan to. */
+export interface PlanMoveRequest {
+  board: PlanBoard;
+}
+
+/** How many copies of a basic land a plan's mainboard is to hold: 0 takes it out. */
+export interface PlannedBasicCountRequest {
+  count: number;
+}

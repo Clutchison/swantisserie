@@ -23,12 +23,18 @@ import type {
   DraftCreationProblem,
   DraftView,
   DraftChangeRefusal,
+  NewDraftRequest,
   PickImportRefusal,
   PickImportPreview,
+  PickImportPreviewRequest,
   PickView,
   PoolCardView,
   Rarity,
+  SeatOrderRequest,
+  WebhookChoiceRequest,
 } from 'contract';
+import { bodyFields } from '../request-body.js';
+import { parseCard } from './parse-card.js';
 import type { PoolCard } from '../generated/prisma/client.js';
 import { ScryfallUnavailableError } from '../scryfall/scryfall-client.js';
 import { CubeCobraUnavailableError } from '../cubecobra/cubecobra-client.js';
@@ -128,7 +134,7 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const poolCardId = parsePick(body);
+    const poolCardId = parseCard(body, 'Say which card to pick.');
     await this.findOr404(id);
     return this.change(id, () => this.turns.pick(id, user.id, poolCardId));
   }
@@ -506,7 +512,7 @@ function pickImportRefused(
 /** The create form's fields, or a 400 saying which one to fix. */
 function parseNewDraft(body: unknown): NewDraft {
   const { name, poolQuery, cubeLink, picksPerPlayer, platform, webhookId } =
-    (body ?? {}) as Record<string, unknown>;
+    bodyFields<NewDraftRequest>(body);
   const invalid = (message: string) =>
     new BadRequestException({
       error: 'invalid',
@@ -574,7 +580,7 @@ function parseNewDraft(body: unknown): NewDraft {
 
 /** The webhook chosen for a draft, null for none, or a 400 if the body doesn't say. */
 function parseWebhookChoice(body: unknown): string | null {
-  const { webhookId } = (body ?? {}) as Record<string, unknown>;
+  const { webhookId } = bodyFields<WebhookChoiceRequest>(body);
   if (webhookId === null) return null;
   if (typeof webhookId !== 'string' || !webhookId) {
     throw new BadRequestException({
@@ -587,7 +593,7 @@ function parseWebhookChoice(body: unknown): string | null {
 
 /** The seat order's user ids, or a 400 if it isn't a list of distinct ids. */
 function parseSeatOrder(body: unknown): string[] {
-  const { userIds } = (body ?? {}) as Record<string, unknown>;
+  const { userIds } = bodyFields<SeatOrderRequest>(body);
   if (
     !Array.isArray(userIds) ||
     !userIds.every((id) => typeof id === 'string') ||
@@ -603,7 +609,7 @@ function parseSeatOrder(body: unknown): string[] {
 
 /** A pick import's file text, or a 400 if there is none and a 413 if it's too long. */
 function parsePickImport(body: unknown): string {
-  const { csv } = (body ?? {}) as Record<string, unknown>;
+  const { csv } = bodyFields<PickImportPreviewRequest>(body);
   if (typeof csv !== 'string') {
     throw new BadRequestException({
       error: 'invalid',
@@ -617,18 +623,6 @@ function parsePickImport(body: unknown): string {
     });
   }
   return csv;
-}
-
-/** The picked pool card's id, or a 400 if there isn't one. */
-function parsePick(body: unknown): string {
-  const { poolCardId } = (body ?? {}) as Record<string, unknown>;
-  if (typeof poolCardId !== 'string' || !poolCardId) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Say which card to pick.',
-    });
-  }
-  return poolCardId;
 }
 
 /** A pick's number from its URL, or a 400 if it isn't one. */

@@ -14,3 +14,15 @@ export interface WebhookAdminProblem {
   error: 'invalid' | 'name-taken';
   message: string;
 }
+
+/** A webhook an app admin registers. */
+export interface NewWebhookRequest {
+  name: string;
+  /** Discord's URL for the webhook. */
+  url: string;
+}
+
+/** A webhook's new name. */
+export interface WebhookRenameRequest {
+  name: string;
+}

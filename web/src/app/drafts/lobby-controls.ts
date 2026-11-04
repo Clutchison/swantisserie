@@ -10,7 +10,14 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { DraftView, PickImportPreview, PickImportRefusal } from 'contract';
+import type {
+  DraftView,
+  PickImportPreview,
+  PickImportPreviewRequest,
+  PickImportRefusal,
+  PickImportRequest,
+  SeatOrderRequest,
+} from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
@@ -134,7 +141,9 @@ export class LobbyControls {
     const userIds = this.draft().players.map((player) => player.id);
     [userIds[index], userIds[index + by]] = [userIds[index + by], userIds[index]];
     return this.changeLobby(
-      this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, { userIds }),
+      this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
+        userIds,
+      } satisfies SeatOrderRequest),
     );
   }
 
@@ -158,7 +167,7 @@ export class LobbyControls {
       const preview = await firstValueFrom(
         this.http.post<PickImportPreview>(`/api/drafts/${this.draft().id}/pick-import/preview`, {
           csv,
-        }),
+        } satisfies PickImportPreviewRequest),
       );
       this.pickImportPreview.set({ ...preview, csv });
     } catch (err) {
@@ -187,7 +196,7 @@ export class LobbyControls {
           this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pick-import`, {
             csv,
             userIds: seats.map((seat) => seat.userId),
-          }),
+          } satisfies PickImportRequest),
         ),
       );
     } catch (err) {

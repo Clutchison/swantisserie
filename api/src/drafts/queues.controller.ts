@@ -13,7 +13,15 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import type { QueueRefusal, QueueView, StealBehavior } from 'contract';
+import type {
+  QueueOrderRequest,
+  QueueRefusal,
+  QueueUnpickedRequest,
+  QueueView,
+  StealBehavior,
+  StealBehaviorRequest,
+} from 'contract';
+import { bodyFields } from '../request-body.js';
 import {
   CurrentUser,
   SessionGuard,
@@ -154,7 +162,7 @@ export class QueuesController {
 
 /** The queued cards' pool card ids, or a 400 if it isn't a list of distinct ids. */
 function parseOrder(body: unknown): string[] {
-  const { poolCardIds } = (body ?? {}) as Record<string, unknown>;
+  const { poolCardIds } = bodyFields<QueueOrderRequest>(body);
   if (
     !Array.isArray(poolCardIds) ||
     !poolCardIds.every((id) => typeof id === 'string') ||
@@ -170,7 +178,7 @@ function parseOrder(body: unknown): string[] {
 
 /** Whether to queue the sideboard's unpicked cards too, or a 400 if it isn't said. */
 function parseIncludeSideboard(body: unknown): boolean {
-  const { includeSideboard } = (body ?? {}) as Record<string, unknown>;
+  const { includeSideboard } = bodyFields<QueueUnpickedRequest>(body);
   if (typeof includeSideboard !== 'boolean') {
     throw new BadRequestException({
       error: 'invalid',
@@ -182,7 +190,7 @@ function parseIncludeSideboard(body: unknown): boolean {
 
 /** The steal behavior to set, or a 400 if it isn't one. */
 function parseStealBehavior(body: unknown): StealBehavior {
-  const { stealBehavior } = (body ?? {}) as Record<string, unknown>;
+  const { stealBehavior } = bodyFields<StealBehaviorRequest>(body);
   if (stealBehavior !== 'ClearQueue' && stealBehavior !== 'PickNext') {
     throw new BadRequestException({
       error: 'invalid',

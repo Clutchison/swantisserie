@@ -10,7 +10,13 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import type { DraftCreationProblem, DraftView, Platform, WebhookView } from 'contract';
+import type {
+  DraftCreationProblem,
+  DraftView,
+  NewDraftRequest,
+  Platform,
+  WebhookView,
+} from 'contract';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 
@@ -65,8 +71,16 @@ export class CreateDraftPage {
 
   /** The form's fields as the API takes them, with only the pool source chosen. */
   private requestBody() {
-    const { poolSource, poolQuery, cubeLink, ...fields } = this.form.getRawValue();
-    return { ...fields, ...(poolSource === 'cubeLink' ? { cubeLink } : { poolQuery }) };
+    // Each field named, as `satisfies` doesn't catch an extra field that arrives by spread.
+    const { name, poolSource, poolQuery, cubeLink, picksPerPlayer, platform, webhookId } =
+      this.form.getRawValue();
+    return {
+      name,
+      picksPerPlayer,
+      platform,
+      webhookId,
+      ...(poolSource === 'cubeLink' ? { cubeLink } : { poolQuery }),
+    } satisfies NewDraftRequest;
   }
 
   protected async create() {

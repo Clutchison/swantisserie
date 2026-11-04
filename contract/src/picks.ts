@@ -1,3 +1,5 @@
+import type { SeatOrderRequest } from './drafts.js';
+
 /** One pick in a draft's pick log. */
 export interface PickView {
   /** 1-based, counting every pick in the draft. */
@@ -19,3 +21,12 @@ export interface PickImportPreview {
   picks: number;
   next: { pick: number; player: string };
 }
+
+/** A file of picks to preview importing into a draft in the lobby. */
+export interface PickImportPreviewRequest {
+  csv: string;
+}
+
+/** A file of picks to import, with the seat order its preview showed. */
+export interface PickImportRequest
+  extends PickImportPreviewRequest, SeatOrderRequest {}
