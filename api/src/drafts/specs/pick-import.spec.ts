@@ -21,6 +21,7 @@ import {
   setSeats,
   registerWebhook,
   post,
+  announcementsSettled,
 } from './harness.js';
 
 useDraftsApp();
@@ -236,14 +237,14 @@ describe('pick import', () => {
 
     await importPicks(id, csv, previewed).expect(200);
 
-    // Announcing isn't awaited, so give a stray post time to be made.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await announcementsSettled(id);
     expect(webhookClient.post).not.toHaveBeenCalled();
     expect((await pickLog(id)).body).toHaveLength(3);
 
     await post(id, 'resume').expect(200);
 
-    await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalledOnce());
+    await announcementsSettled(id);
+    expect(webhookClient.post).toHaveBeenCalledOnce();
     const [, message] = webhookClient.post.mock.calls[0];
     expect(message.content).toContain(`<@${alice.id}>`);
     expect(message.allowed_mentions.users).toEqual([alice.id]);

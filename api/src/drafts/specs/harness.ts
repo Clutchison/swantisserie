@@ -1,5 +1,6 @@
 import type { DraftView, Platform } from 'contract';
 import request from 'supertest';
+import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
 import {
   ScryfallCard,
@@ -26,6 +27,7 @@ export {
   scryfall,
   signIn,
   slowDownDatabase,
+  slowQueryUnderway,
   registerWebhook,
   removeWebhook,
   renameWebhook,
@@ -63,6 +65,17 @@ export function waitForBotPicks<T>(
   check: () => T | Promise<T>,
 ): Promise<T> {
   return vi.waitFor(check, { timeout: botPicks * WAIT_PER_BOT_PICK_MS });
+}
+
+/**
+ * Resolves once every announcement queued so far for the draft has been
+ * posted, or has failed: those of a request that has answered, but not a
+ * bot's pick still to come. Use before checking what was posted, or that
+ * nothing was.
+ */
+export function announcementsSettled(draftId: string): Promise<void> {
+  // Queued behind the draft's announcements, so done once they are.
+  return app.get(DraftNotifier).notify(draftId, []);
 }
 
 /**

@@ -24,6 +24,7 @@ import {
   webhookUrl,
   addBot,
   fourCards,
+  announcementsSettled,
 } from './harness.js';
 
 useDraftsApp();
@@ -319,8 +320,7 @@ describe('announcements', () => {
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
 
-    // Give a stray post the chance to happen.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await announcementsSettled(id);
     expect(webhookClient.post).not.toHaveBeenCalled();
   });
 

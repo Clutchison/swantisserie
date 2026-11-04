@@ -107,6 +107,15 @@ export function slowDownDatabase(ms: number) {
 }
 
 /**
+ * Resolves once a query to the database `slowDownDatabase` slowed is under
+ * way: its reply is being held back. Call before sending the request whose
+ * query it waits for.
+ */
+export function slowQueryUnderway(): Promise<void> {
+  return database.replyHeld();
+}
+
+/**
  * Starts the app on the test database `useTestApp` started, as `app`, with
  * every outbound client faked unless `overrides` provides its own.
  */

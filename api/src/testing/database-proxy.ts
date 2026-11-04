@@ -8,6 +8,11 @@ export interface DatabaseProxy {
   /** Delays every reply from the database by `ms`, as a busy one would. */
   slowDown(ms: number): void;
   /**
+   * Resolves once a reply is next held back by `slowDown`: a query is under
+   * way, its answer not yet back.
+   */
+  replyHeld(): Promise<void>;
+  /**
    * Holds back the next COMMITs sent, on any connection, until `count` of
    * them are waiting, or `timeoutMs` has passed since the first arrived;
    * COMMITs after that pass straight through. Two transactions raced this
@@ -101,6 +106,8 @@ export async function startDatabaseProxy(
 ): Promise<DatabaseProxy> {
   const [host, port] = target.split(':');
   const delay = { ms: 0 };
+  /** Waiting on `replyHeld`, until the next reply is held. */
+  let replyHeldWaiters: (() => void)[] = [];
   let gate: CommitGate | undefined;
 
   const server = createServer((client) => {
@@ -142,6 +149,9 @@ export async function startDatabaseProxy(
         return;
       }
       sendAt = Math.max(Date.now() + delay.ms, sendAt);
+      const waiters = replyHeldWaiters;
+      replyHeldWaiters = [];
+      for (const resolve of waiters) resolve();
       setTimeout(() => client.write(chunk), sendAt - Date.now());
     });
     upstream.on('end', () =>
@@ -162,6 +172,9 @@ export async function startDatabaseProxy(
     address: `127.0.0.1:${address.port}`,
     slowDown(ms) {
       delay.ms = ms;
+    },
+    replyHeld() {
+      return new Promise((resolve) => replyHeldWaiters.push(resolve));
     },
     holdCommits(count, timeoutMs) {
       gate?.release();

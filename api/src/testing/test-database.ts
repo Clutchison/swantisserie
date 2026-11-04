@@ -24,6 +24,8 @@ export interface TestDatabase {
   reset(): Promise<void>;
   /** Delays every reply from the database by `ms`, as a busy one would. */
   slowDown(ms: number): void;
+  /** See DatabaseProxy's `replyHeld`. */
+  replyHeld(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -43,6 +45,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
   return {
     url: `postgresql://postgres@${proxy.address}/postgres`,
     slowDown: (ms) => proxy.slowDown(ms),
+    replyHeld: () => proxy.replyHeld(),
     async reset() {
       proxy.reset();
       const { rows } = await db.query<{ tablename: string }>(

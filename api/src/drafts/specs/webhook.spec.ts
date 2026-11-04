@@ -1,9 +1,7 @@
-import { DraftNotifier } from '../../discord/draft-notifier.js';
 import {
   aliceCookie,
   bob,
   carol,
-  app,
   scryfall,
   useDraftsApp,
   signIn,
@@ -22,6 +20,7 @@ import {
   changeWebhook,
   renameWebhook,
   removeWebhook,
+  announcementsSettled,
 } from './harness.js';
 
 useDraftsApp();
@@ -106,13 +105,20 @@ describe('webhook', () => {
       otherId = await registerWebhook('#roto-other', otherUrl);
     });
 
-    /** The webhook URL of each post, once `count` have been made. */
-    async function postedTo(count: number) {
-      return vi.waitFor(() => {
-        expect(webhookClient.post).toHaveBeenCalledTimes(count);
-        return webhookClient.post.mock.calls.map(([url]) => url);
-      });
+    /**
+     * Each post made once the draft's announcements have settled, as the
+     * webhook URL it went to and the start of its first line.
+     */
+    async function posts(id: string) {
+      await announcementsSettled(id);
+      return webhookClient.post.mock.calls.map(([url, message]) => [
+        url,
+        message.content.split('\n')[0],
+      ]);
     }
+
+    const started = expect.stringMatching(/^\*\*Red\*\* has started/);
+    const paused = expect.stringMatching(/^\*\*Red\*\* is paused/);
 
     /** A draft Alice and Bob have joined, posting to the first webhook. */
     const joinedDraft = () =>
@@ -173,12 +179,15 @@ describe('webhook', () => {
     it('posts later announcements to the new webhook, and nothing for the change', async () => {
       const id = await joinedDraft();
       await start(id).expect(200);
-      expect(await postedTo(1)).toEqual([webhookUrl]);
+      expect(await posts(id)).toEqual([[webhookUrl, started]]);
 
       await changeWebhook(id, otherId).expect(200);
       await post(id, 'pause').expect(200);
 
-      expect(await postedTo(2)).toEqual([webhookUrl, otherUrl]);
+      expect(await posts(id)).toEqual([
+        [webhookUrl, started],
+        [otherUrl, paused],
+      ]);
     });
 
     it('posts nothing once none is chosen', async () => {
@@ -191,8 +200,7 @@ describe('webhook', () => {
       await pick(id, ids.Shock).expect(200);
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
-      // Waits behind the draft's announcements, so they have had their chance.
-      await app.get(DraftNotifier).notify(id, []);
+      await announcementsSettled(id);
       expect(webhookClient.post).not.toHaveBeenCalled();
     });
 
@@ -203,7 +211,7 @@ describe('webhook', () => {
       await changeWebhook(id, webhookId).expect(200);
       await post(id, 'pause').expect(200);
 
-      expect(await postedTo(1)).toEqual([webhookUrl]);
+      expect(await posts(id)).toEqual([[webhookUrl, paused]]);
     });
 
     it('refuses a webhook just removed, leaving the draft’s unchanged', async () => {
@@ -239,13 +247,17 @@ describe('webhook', () => {
           }),
       );
       await start(id).expect(200);
-      expect(await postedTo(1)).toEqual([webhookUrl]);
+      // The start's post is sending, held until released.
+      await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalledOnce());
 
       await post(id, 'pause').expect(200);
       await changeWebhook(id, otherId).expect(200);
       release();
 
-      expect(await postedTo(2)).toEqual([webhookUrl, otherUrl]);
+      expect(await posts(id)).toEqual([
+        [webhookUrl, started],
+        [otherUrl, paused],
+      ]);
     });
   });
 });

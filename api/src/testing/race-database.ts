@@ -108,6 +108,7 @@ export async function startRaceDatabase(
     name,
     url: url.href,
     slowDown: (ms) => proxy.slowDown(ms),
+    replyHeld: () => proxy.replyHeld(),
     holdCommits: (count, timeoutMs) => proxy.holdCommits(count, timeoutMs),
     async reset() {
       proxy.reset();
