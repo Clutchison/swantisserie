@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { fetchWithTimeout } from '../http/fetch-with-timeout.js';
 import type { WebhookMessage } from './draft-messages.js';
+
+/** How long a webhook post may take. */
+const POST_TIMEOUT_MS = 10_000;
 
 /** Thrown when Discord no longer has the webhook: posting again won't help. */
 export class WebhookGoneError extends Error {
@@ -24,7 +28,7 @@ export abstract class WebhookClient {
    * Posts `message` to the webhook at `url`. Throws WebhookGoneError if
    * Discord no longer has it, WebhookRefusedError if Discord refuses the post
    * for good, and another error on a failure worth retrying: a rate limit, a
-   * server error or a network error.
+   * server error, a network error or a timeout.
    */
   abstract post(url: string, message: WebhookMessage): Promise<void>;
 }
@@ -32,11 +36,23 @@ export abstract class WebhookClient {
 @Injectable()
 export class FetchWebhookClient extends WebhookClient {
   async post(url: string, message: WebhookMessage): Promise<void> {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message),
-    });
+    let res: Response;
+    try {
+      res = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message),
+        },
+        POST_TIMEOUT_MS,
+      );
+    } catch {
+      // Not the cause: it may name the URL, which is a secret.
+      throw new Error(
+        'Discord webhook post failed: Discord could not be reached.',
+      );
+    }
     const error = webhookPostError(res.status);
     if (error) throw error;
   }

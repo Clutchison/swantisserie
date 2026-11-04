@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import {
+  fetchWithTimeout,
+  UnreachableError,
+} from '../http/fetch-with-timeout.js';
 
 const SITE = 'https://cubecobra.com';
 /** Scryfall's oracle ids are UUIDs; anything else would break the search for printings. */
 const ORACLE_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** How long fetching a cube, its body included, may take: a cube's JSON can be large. */
+const REQUEST_TIMEOUT_MS = 20_000;
 const HEADERS = {
   'User-Agent':
     'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)',
@@ -50,14 +56,13 @@ export class FetchCubeCobraClient extends CubeCobraClient {
   async cube(cubeId: string): Promise<Cube | null> {
     let res: Response;
     try {
-      res = await fetch(
+      res = await fetchWithTimeout(
         `${SITE}/cube/api/cubeJSON/${encodeURIComponent(cubeId)}`,
         { headers: HEADERS },
+        REQUEST_TIMEOUT_MS,
       );
     } catch (err) {
-      throw new CubeCobraUnavailableError('CubeCobra could not be reached.', {
-        cause: err,
-      });
+      throw unreachable(err);
     }
     if (res.status === 404) return null;
     if (!res.ok) {
@@ -67,6 +72,7 @@ export class FetchCubeCobraClient extends CubeCobraClient {
     try {
       body = await res.json();
     } catch (err) {
+      if (err instanceof UnreachableError) throw unreachable(err);
       throw new CubeCobraUnavailableError(
         'CubeCobra didn’t answer with JSON.',
         {
@@ -76,6 +82,12 @@ export class FetchCubeCobraClient extends CubeCobraClient {
     }
     return toCube(body);
   }
+}
+
+function unreachable(cause: unknown): CubeCobraUnavailableError {
+  return new CubeCobraUnavailableError('CubeCobra could not be reached.', {
+    cause,
+  });
 }
 
 /** The cube in CubeCobra's answer, checked field by field. */

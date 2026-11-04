@@ -1,3 +1,4 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   CubeCobraUnavailableError,
   FetchCubeCobraClient,
@@ -99,6 +100,24 @@ describe('FetchCubeCobraClient', () => {
     await expect(cubeCobra.cube('thepaupercube')).rejects.toBeInstanceOf(
       CubeCobraUnavailableError,
     );
+  });
+
+  it('gives up with CubeCobraUnavailableError after 20 seconds without an answer', async () => {
+    vi.useFakeTimers();
+    try {
+      hangOnce(fetch);
+
+      const outcome = cubeCobra
+        .cube('thepaupercube')
+        .catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(19_999);
+      expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(await outcome).toBeInstanceOf(CubeCobraUnavailableError);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([

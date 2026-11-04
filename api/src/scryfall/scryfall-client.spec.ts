@@ -1,6 +1,8 @@
+import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   FetchScryfallClient,
   ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
 } from './scryfall-client.js';
 
 describe('FetchScryfallClient', () => {
@@ -317,16 +319,109 @@ describe('FetchScryfallClient', () => {
     });
   });
 
-  it('fails plainly when Scryfall itself is in trouble', async () => {
-    respond(503, {
-      object: 'error',
-      status: 503,
-      details: 'Down for maintenance',
+  describe('when Scryfall itself is in trouble', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
     });
 
-    const error = await scryfall.search('c:r').catch((err: unknown) => err);
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-    expect(error).toBeInstanceOf(Error);
-    expect(error).not.toBeInstanceOf(ScryfallRejectedSearchError);
+    const down = () =>
+      respond(503, {
+        object: 'error',
+        status: 503,
+        details: 'Down for maintenance',
+      });
+    const someCards = () =>
+      respond(200, {
+        object: 'list',
+        total_cards: 1,
+        has_more: false,
+        data: [balefire],
+      });
+    /** The search's error, once every retry has had its time. */
+    async function failure(search: Promise<unknown>) {
+      const outcome = search.catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      return outcome;
+    }
+
+    it('fails plainly once retrying hasn’t helped', async () => {
+      for (let i = 0; i < 4; i++) down();
+
+      const error = await failure(scryfall.search('c:r'));
+
+      expect(error).toBeInstanceOf(ScryfallUnavailableError);
+      expect(error).toMatchObject({ status: 503 });
+    });
+
+    it('tries again after a server error', async () => {
+      down();
+      someCards();
+
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(await search).toMatchObject({ cards: [balefire] });
+    });
+
+    it('waits 1, 2 and then 4 seconds between its 4 tries', async () => {
+      for (let i = 0; i < 4; i++) down();
+
+      const outcome = scryfall.search('c:r').catch((err: unknown) => err);
+      for (const [wait, tries] of [
+        [0, 1],
+        [999, 1],
+        [1, 2],
+        [1999, 2],
+        [1, 3],
+        [3999, 3],
+        [1, 4],
+      ]) {
+        await vi.advanceTimersByTimeAsync(wait);
+        expect(fetch).toHaveBeenCalledTimes(tries);
+      }
+
+      expect(await outcome).toBeInstanceOf(ScryfallUnavailableError);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('fails plainly when Scryfall can’t be reached', async () => {
+      fetch.mockRejectedValue(new TypeError('fetch failed'));
+
+      const error = await failure(scryfall.search('c:r'));
+
+      expect(error).toBeInstanceOf(ScryfallUnavailableError);
+      expect(error).toMatchObject({ status: undefined });
+      expect(fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('gives up on a request after 10 seconds, and fails plainly once retrying hasn’t helped', async () => {
+      for (let i = 0; i < 4; i++) hangOnce(fetch);
+
+      const outcome = scryfall.search('c:r').catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fetch).toHaveBeenCalledTimes(2);
+
+      expect(await failure(outcome)).toBeInstanceOf(ScryfallUnavailableError);
+      expect(fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it.each([
+      [400, { object: 'error', status: 400, details: 'Bad query' }],
+      [404, { object: 'error', status: 404, details: 'No cards' }],
+    ])('never retries a %i, which is about the query', async (status, body) => {
+      respond(status, body);
+
+      await failure(scryfall.search('c:r'));
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
   });
 });
