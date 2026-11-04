@@ -20,6 +20,7 @@ import {
   undo,
   poolCardIds,
   readyDraftWithCopies,
+  waitForBotPicks,
 } from './harness.js';
 
 useDraftsApp();
@@ -236,7 +237,7 @@ describe('cascade', () => {
     const started = await start(id).expect(200);
 
     expect(started.body.turn.pick).toBe(2);
-    await vi.waitFor(async () => {
+    await waitForBotPicks(2, async () => {
       expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
     });
     expect(await pickLogLines(id)).toEqual([

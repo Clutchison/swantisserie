@@ -25,6 +25,7 @@ import {
   plan,
   movePlanned,
   poolCardIds,
+  waitForBotPicks,
 } from './harness.js';
 
 useDraftsApp();
@@ -216,7 +217,7 @@ describe('plan', () => {
       .post(`/api/drafts/${id}/resume`)
       .set('Cookie', aliceCookie)
       .expect(200);
-    await vi.waitFor(async () => {
+    await waitForBotPicks(1, async () => {
       const draft = (await getDraft(id).expect(200)).body as DraftView;
       expect(draft.turn?.pick).toBe(5);
     });

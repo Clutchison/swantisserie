@@ -66,6 +66,28 @@ export function useDraftsApp() {
   });
 }
 
+/** Delays every reply from the database by `ms`, for this test. */
+export function slowDownDatabase(ms: number) {
+  database.slowDown(ms);
+}
+
+/**
+ * How long to allow each bot pick: on CI, other spec files share the
+ * machine and can make the database slow.
+ */
+const WAIT_PER_BOT_PICK_MS = 2_000;
+
+/**
+ * Waits until `check` passes, allowing time for `botPicks` bot picks. The
+ * test timeout (`vitest.config.ts`) must outlast the longest such wait.
+ */
+export function waitForBotPicks<T>(
+  botPicks: number,
+  check: () => T | Promise<T>,
+): Promise<T> {
+  return vi.waitFor(check, { timeout: botPicks * WAIT_PER_BOT_PICK_MS });
+}
+
 /**
  * Starts the app as `app`. `botDelayMs` is how long bots wait before picking:
  * at once, unless told otherwise.

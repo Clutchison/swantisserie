@@ -19,6 +19,7 @@ import {
   dismissNotice,
   poolCardIds,
   readyDraftWithCopies,
+  waitForBotPicks,
 } from './harness.js';
 
 useDraftsApp();
@@ -390,7 +391,7 @@ describe('queue', () => {
         .expect(200);
       await start(id).expect(200);
 
-      await vi.waitFor(async () => {
+      await waitForBotPicks(1, async () => {
         expect((await queue(id).expect(200)).body).toEqual({
           cards: [],
           lost: [shock],
