@@ -74,11 +74,15 @@ export let app: INestApplication<App>;
 /**
  * Registers the hooks that give each test a fresh test database and a
  * running app, started by `start`, and close the app after it. The fakes are
- * reset before `start` runs, so it may stub them.
+ * reset before `start` runs, so it may stub them. The database is PGlite,
+ * unless `startDatabase` starts another.
  */
-export function useTestApp(start: () => Promise<unknown> = startTestApp) {
+export function useTestApp(
+  start: () => Promise<unknown> = startTestApp,
+  startDatabase: () => Promise<TestDatabase> = startTestDatabase,
+) {
   beforeAll(async () => {
-    database = await startTestDatabase();
+    database = await startDatabase();
     process.env.DATABASE_URL = database.url;
   });
 

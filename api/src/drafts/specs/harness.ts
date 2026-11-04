@@ -15,6 +15,7 @@ import {
   startTestApp,
   useTestApp,
 } from '../../testing/app.js';
+import type { TestDatabase } from '../../testing/test-database.js';
 
 export {
   alice,
@@ -35,12 +36,16 @@ export {
 /** `session=<token>` for Alice, ready for a Cookie header. */
 export let aliceCookie: string;
 
-/** Registers the hooks that give each test a fresh database and running app, with Alice signed in. */
-export function useDraftsApp() {
+/**
+ * Registers the hooks that give each test a fresh database and running app,
+ * with Alice signed in. The database is PGlite, unless `startDatabase`
+ * starts another.
+ */
+export function useDraftsApp(startDatabase?: () => Promise<TestDatabase>) {
   useTestApp(async () => {
     await startApp();
     await signInAlice();
-  });
+  }, startDatabase);
 }
 
 /**

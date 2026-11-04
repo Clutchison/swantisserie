@@ -17,9 +17,26 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # A throwaway Postgres for the api's race specs, on production's (Neon's)
+    # major version. They create and drop a database of their own on it.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: race
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
     env:
       # prisma.config.ts requires this to resolve, but nothing here connects to a database.
       DIRECT_URL: postgresql://ci@localhost/ci
+      # The race specs' server (api/src/testing/race-database.ts). Not
+      # DIRECT_URL's: the race database refuses to share its database.
+      RACE_DATABASE_URL: postgresql://postgres:race@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
