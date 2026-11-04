@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import request from 'supertest';
 import {
   WebhookGoneError,
   webhookPostError,
@@ -9,7 +8,6 @@ import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   webhookClient,
   useDraftsApp,
@@ -22,27 +20,21 @@ import {
   post,
   undo,
   poolCardIds,
+  registerWebhook,
+  webhookUrl,
+  addBot,
+  fourCards,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('announcements', () => {
-  const webhookUrl = 'https://discord.com/api/webhooks/1234567890/secret-token';
   let bobCookie: string;
   let webhookId: string;
 
   beforeEach(async () => {
     bobCookie = await signIn(bob);
-    const res = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({ name: '#roto-main', url: webhookUrl })
-      .expect(201);
-    webhookId = res.body.id;
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    webhookId = await registerWebhook();
   });
 
   /** Each post's content, once `count` have been made. */
@@ -86,16 +78,8 @@ describe('announcements', () => {
     const ids = await poolCardIds(id);
     await start(id).expect(200);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', bobCookie)
-      .send({ poolCardId: ids['Lava Spike'] })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
+    await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
     expect((await posted(4)).slice(1)).toEqual([
       `1- **Alice** picked **Shock**\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
@@ -109,16 +93,9 @@ describe('announcements', () => {
   });
 
   describe('when a pick leaves its player up', () => {
-    const cards = [
-      'Shock',
-      'Lightning Bolt',
-      'Lava Spike',
-      'Skewer the Critics',
-    ];
-
     /** A draft of Alice then Bob, so Bob makes picks 2 and 3 in a row. */
     function snakeDraft() {
-      return readyDraft([aliceCookie, bobCookie], 2, cards, webhookId);
+      return readyDraft([aliceCookie, bobCookie], 2, fourCards, webhookId);
     }
 
     /** The latest post made, once `count` have been. */
@@ -252,7 +229,7 @@ describe('announcements', () => {
       webhookId,
     );
     const ids = await poolCardIds(id);
-    await post(id, 'bots', await signIn(carol)).expect(201);
+    await addBot(id, await signIn(carol)).expect(201);
     await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await start(id).expect(200);
 
@@ -340,11 +317,7 @@ describe('announcements', () => {
     const id = await readyDraft([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     // Give a stray post the chance to happen.
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -366,11 +339,7 @@ describe('announcements', () => {
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     // The first try and two retries.
     await posted(4);

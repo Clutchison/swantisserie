@@ -1,5 +1,4 @@
 import type { DraftView } from 'contract';
-import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   alice,
@@ -17,11 +16,10 @@ import {
   enqueue,
   post,
   pickLog,
-  scryfallAnswers,
+  addBot,
+  importPicks,
+  fourCards,
   card,
-  snapshotQuery,
-  createDraft,
-  snapshotted,
   plan,
   movePlanned,
   poolCardIds,
@@ -31,19 +29,14 @@ import {
 useDraftsApp();
 
 describe('plan', () => {
-  const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let carolCookie: string;
 
   beforeEach(async () => {
     carolCookie = await signIn(carol);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('puts every pick a player makes by hand on their mainboard', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
@@ -74,7 +67,7 @@ describe('plan', () => {
   });
 
   it('lets a player move a card to the sideboard and back', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -130,7 +123,7 @@ describe('plan', () => {
   });
 
   it('refuses to move a card that isn’t in the plan, or to no board', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 2, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -166,27 +159,20 @@ describe('plan', () => {
   it('puts picks made from the queue, by a bot and by pick import on the mainboard', async () => {
     // A pick import's picks are Carol's and Alice's; the bot's come after.
     const id = await readyDraft([carolCookie, aliceCookie], 2, [
-      ...cards,
+      ...fourCards,
       'Play with Fire',
       'Burst Lightning',
     ]);
     const ids = await poolCardIds(id);
-    const { body: withBot } = await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/bots`)
-      .set('Cookie', carolCookie)
-      .expect(201);
+    const { body: withBot } = await addBot(id, carolCookie).expect(201);
     const botId = (withBot as DraftView).players[2].id;
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pick-import`)
-      .set('Cookie', aliceCookie)
-      .send({
-        csv: [
-          ',Ann,Ben,Bot,',
-          '->,Shock,Lightning Bolt,Skewer the Critics,',
-        ].join('\n'),
-        userIds: [carol.id, alice.id, botId],
-      })
-      .expect(200);
+    await importPicks(
+      id,
+      [',Ann,Ben,Bot,', '->,Shock,Lightning Bolt,Skewer the Critics,'].join(
+        '\n',
+      ),
+      [carol.id, alice.id, botId],
+    ).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
       sideboard: [],
@@ -213,10 +199,7 @@ describe('plan', () => {
     // Resuming has the bot pick 4, the first available card by name; Alice's
     // pick 5 then cascades Carol's queue into pick 6.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/resume`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'resume').expect(200);
     await waitForBotPicks(1, async () => {
       const draft = (await getDraft(id).expect(200)).body as DraftView;
       expect(draft.turn?.pick).toBe(5);
@@ -252,7 +235,7 @@ describe('plan', () => {
 
   it('takes an undone pick out of its player’s plan, whichever board it was on', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 3, [
-      ...cards,
+      ...fourCards,
       'Play with Fire',
       'Burst Lightning',
     ]);
@@ -292,7 +275,7 @@ describe('plan', () => {
   });
 
   it('can be read in the lobby and changed while paused, closed and complete', async () => {
-    const id = await readyDraft([carolCookie, aliceCookie], 1, cards);
+    const id = await readyDraft([carolCookie, aliceCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [],
@@ -337,8 +320,8 @@ describe('plan', () => {
     });
 
     await post(id, 'reopen').expect(200);
-    const done = await pick(id, ids.Shock).expect(200);
-    expect(done.body.state).toBe('Complete');
+    const lastPick = await pick(id, ids.Shock).expect(200);
+    expect(lastPick.body.state).toBe('Complete');
     const complete = await movePlanned(
       id,
       ids['Lava Spike'],
@@ -353,12 +336,12 @@ describe('plan', () => {
     });
     // The draft itself is left alone.
     expect((await getDraft(id).expect(200)).body.version).toBe(
-      done.body.version,
+      lastPick.body.version,
     );
   });
 
   it('keeps each plan private to its player, even from an app admin who isn’t in the draft', async () => {
-    const id = await readyDraft([aliceCookie, await signIn(bob)], 1, cards);
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 1, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -388,37 +371,14 @@ describe('plan', () => {
       'Ironclaw Orcs',
       'Jackal Pup',
     ];
-    const pool = {
-      totalCards: 10,
-      hasMore: false,
-      cards: [
-        card('Shock', { cmc: 1 }),
-        card('Fireblast', { cmc: 6 }),
-        card('Lava Spike', { cmc: 1 }),
-        card('Firebolt', { cmc: 1 }),
-        card('Burst Lightning', { cmc: 1 }),
-        ...fillers.map((name) => card(name, { cmc: 2 })),
-      ],
-      warnings: [],
-    };
-    scryfallAnswers({
-      'c:r': pool,
-      '(c:r) -in:arena': null,
-      [snapshotQuery('c:r')]: pool,
-    });
-    const created = await createDraft({
-      name: 'Red',
-      poolQuery: 'c:r',
-      picksPerPlayer: 5,
-    }).expect(201);
-    const id = created.body.id as string;
-    await snapshotted(id);
-    for (const cookie of [carolCookie, aliceCookie]) {
-      await request(app.getHttpServer())
-        .post(`/api/drafts/${id}/players`)
-        .set('Cookie', cookie)
-        .expect(201);
-    }
+    const id = await readyDraft([carolCookie, aliceCookie], 5, [
+      card('Shock', { cmc: 1 }),
+      card('Fireblast', { cmc: 6 }),
+      card('Lava Spike', { cmc: 1 }),
+      card('Firebolt', { cmc: 1 }),
+      card('Burst Lightning', { cmc: 1 }),
+      ...fillers.map((name) => card(name, { cmc: 2 })),
+    ]);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock, carolCookie).expect(200);

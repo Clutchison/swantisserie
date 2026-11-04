@@ -16,6 +16,8 @@ import {
   snapshotted,
   readyDraft,
   start,
+  join,
+  setSeats,
 } from './harness.js';
 
 useDraftsApp();
@@ -131,10 +133,7 @@ describe('seats and start', () => {
       error: 'draft-started',
       message: 'This draft has started.',
     });
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', await signIn(carol))
-      .expect(409);
+    await join(id, await signIn(carol)).expect(409);
   });
 
   it('lets an app admin start the draft, but not other guild members', async () => {
@@ -162,8 +161,7 @@ describe('seats and start', () => {
       await signIn(carol),
     ]);
     // Fisher–Yates with every draw 0: [a, b, c] → [c, b, a] → [b, c, a].
-    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
-    onTestFinished(() => random.mockRestore());
+    vi.spyOn(Math, 'random').mockReturnValue(0);
 
     const randomized = await randomize(id).expect(200);
 
@@ -183,19 +181,12 @@ describe('seats and start', () => {
     expect(refused.body.error).toBe('draft-started');
   });
 
-  function reorder(id: string, userIds: unknown, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .put(`/api/drafts/${id}/seats`)
-      .set('Cookie', cookie)
-      .send({ userIds });
-  }
-
   it('lets the organizer set the seat order, which the start keeps', async () => {
     const bobCookie = await signIn(bob);
     const carolCookie = await signIn(carol);
     const id = await readyDraft([aliceCookie, bobCookie, carolCookie]);
 
-    const reordered = await reorder(id, [carol.id, alice.id, bob.id]).expect(
+    const reordered = await setSeats(id, [carol.id, alice.id, bob.id]).expect(
       200,
     );
     expect(playerIds(reordered.body)).toEqual([carol.id, alice.id, bob.id]);
@@ -211,12 +202,9 @@ describe('seats and start', () => {
 
   it('seats a player who joins after the order is set last', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)]);
-    await reorder(id, [bob.id, alice.id]).expect(200);
+    await setSeats(id, [bob.id, alice.id]).expect(200);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', await signIn(carol))
-      .expect(201);
+    await join(id, await signIn(carol)).expect(201);
 
     const draft = await getDraft(id).expect(200);
     expect(playerIds(draft.body)).toEqual([bob.id, alice.id, carol.id]);
@@ -225,14 +213,14 @@ describe('seats and start', () => {
   it('refuses a seat order that is not exactly the players', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)]);
 
-    const missing = await reorder(id, [bob.id]).expect(409);
+    const missing = await setSeats(id, [bob.id]).expect(409);
     expect(missing.body).toEqual({
       error: 'players-changed',
       message: 'The players have changed. Reload and try again.',
     });
-    await reorder(id, [bob.id, alice.id, carol.id]).expect(409);
-    await reorder(id, [bob.id, bob.id]).expect(400);
-    await reorder(id, 'bob').expect(400);
+    await setSeats(id, [bob.id, alice.id, carol.id]).expect(409);
+    await setSeats(id, [bob.id, bob.id]).expect(400);
+    await setSeats(id, 'bob').expect(400);
 
     const draft = await getDraft(id).expect(200);
     expect(playerIds(draft.body)).toEqual([alice.id, bob.id]);
@@ -242,7 +230,7 @@ describe('seats and start', () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)]);
     await start(id).expect(200);
 
-    const refused = await reorder(id, [bob.id, alice.id]).expect(409);
+    const refused = await setSeats(id, [bob.id, alice.id]).expect(409);
     expect(refused.body.error).toBe('draft-started');
   });
 
@@ -250,7 +238,7 @@ describe('seats and start', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie]);
 
-    await reorder(id, [bob.id, alice.id], bobCookie).expect(403);
-    await reorder(id, [bob.id, alice.id], await signIn(carol)).expect(200);
+    await setSeats(id, [bob.id, alice.id], bobCookie).expect(403);
+    await setSeats(id, [bob.id, alice.id], await signIn(carol)).expect(200);
   });
 });

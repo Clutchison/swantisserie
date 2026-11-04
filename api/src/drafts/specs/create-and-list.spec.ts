@@ -14,6 +14,7 @@ import {
   allOnArena,
   createDraft,
   listDrafts,
+  snapshotQuery,
 } from './harness.js';
 
 useDraftsApp();
@@ -51,8 +52,7 @@ it('creates a draft on the platform the organizer chose', async () => {
   scryfallAnswers({
     'c:r': page('Shock'),
     '(c:r) -in:mtgo': null,
-    '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards':
-      page('Shock'),
+    [snapshotQuery('c:r', 'MTGO')]: page('Shock'),
   });
 
   const created = await createDraft({

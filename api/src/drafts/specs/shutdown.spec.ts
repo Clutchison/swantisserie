@@ -1,29 +1,25 @@
 import { Logger } from '@nestjs/common';
-import request from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import {
   aliceCookie,
   app,
   bob,
-  carol,
   useDraftsApp,
   slowDownDatabase,
   readyDraft,
   getDraft,
   pick,
   poolCardIds,
+  registerWebhook,
   signIn,
   start,
   webhookClient,
+  webhookUrl,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('shutting down', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('lets a request still reading the database finish first', async () => {
     const errors = vi.spyOn(Logger.prototype, 'error');
     const id = await readyDraft([aliceCookie]);
@@ -40,20 +36,14 @@ describe('shutting down', () => {
   });
 
   describe('with announcements', () => {
-    const webhookUrl = 'https://discord.com/api/webhooks/1234567890/token';
     let id: string;
 
     beforeEach(async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/admin/webhooks')
-        .set('Cookie', await signIn(carol))
-        .send({ name: '#roto-main', url: webhookUrl })
-        .expect(201);
       id = await readyDraft(
         [aliceCookie, await signIn(bob)],
         1,
         undefined,
-        res.body.id,
+        await registerWebhook(),
       );
     });
 

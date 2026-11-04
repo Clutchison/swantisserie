@@ -11,6 +11,9 @@ import {
   allOnArena,
   createDraft,
   getDraft,
+  join,
+  leave,
+  addBot,
 } from './harness.js';
 
 useDraftsApp();
@@ -30,18 +33,6 @@ describe('lobby', () => {
       poolQuery: 'c:r',
     }).expect(201);
     return created.body.id as string;
-  }
-
-  function join(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', cookie);
-  }
-
-  function leave(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/players/me`)
-      .set('Cookie', cookie);
   }
 
   it('lists players in join order, with their avatars', async () => {
@@ -102,12 +93,6 @@ describe('lobby', () => {
       carolCookie = await signIn(carol);
     });
 
-    function addBot(id: string, cookie = carolCookie) {
-      return request(app.getHttpServer())
-        .post(`/api/drafts/${id}/bots`)
-        .set('Cookie', cookie);
-    }
-
     function removeBot(id: string, userId: string, cookie = carolCookie) {
       return request(app.getHttpServer())
         .delete(`/api/drafts/${id}/bots/${encodeURIComponent(userId)}`)
@@ -125,8 +110,8 @@ describe('lobby', () => {
       const id = await lobbyDraft();
       await join(id).expect(201);
 
-      await addBot(id).expect(201);
-      const added = await addBot(id).expect(201);
+      await addBot(id, carolCookie).expect(201);
+      const added = await addBot(id, carolCookie).expect(201);
 
       expect(added.body.players).toEqual([
         player(alice),
@@ -139,16 +124,16 @@ describe('lobby', () => {
     it('numbers bots within each draft', async () => {
       const first = await lobbyDraft();
       const second = await lobbyDraft();
-      await addBot(first).expect(201);
+      await addBot(first, carolCookie).expect(201);
 
-      const added = await addBot(second).expect(201);
+      const added = await addBot(second, carolCookie).expect(201);
 
       expect(added.body.players).toEqual([bot('Bot 1')]);
     });
 
     it('refuses bot changes from anyone but an app admin, the organizer too', async () => {
       const id = await lobbyDraft();
-      const added = await addBot(id).expect(201);
+      const added = await addBot(id, carolCookie).expect(201);
 
       await addBot(id, aliceCookie).expect(403);
       await removeBot(id, added.body.players[0].id, aliceCookie).expect(403);
@@ -158,9 +143,9 @@ describe('lobby', () => {
 
     it('refuses a bot once the draft has 12 players', async () => {
       const id = await lobbyDraft();
-      for (let i = 0; i < 12; i++) await addBot(id).expect(201);
+      for (let i = 0; i < 12; i++) await addBot(id, carolCookie).expect(201);
 
-      const refused = await addBot(id).expect(409);
+      const refused = await addBot(id, carolCookie).expect(409);
 
       expect(refused.body).toEqual({
         error: 'draft-full',
@@ -171,8 +156,8 @@ describe('lobby', () => {
 
     it('lets an app admin remove a bot, deleting it', async () => {
       const id = await lobbyDraft();
-      await addBot(id).expect(201);
-      const added = await addBot(id).expect(201);
+      await addBot(id, carolCookie).expect(201);
+      const added = await addBot(id, carolCookie).expect(201);
       const botId = added.body.players[0].id;
 
       const removed = await removeBot(id, botId).expect(200);
@@ -196,12 +181,12 @@ describe('lobby', () => {
 
     it('refuses adding or removing bots once the draft has started', async () => {
       const id = await lobbyDraft();
-      const added = await addBot(id).expect(201);
+      const added = await addBot(id, carolCookie).expect(201);
       await app
         .get(PrismaService)
         .draft.update({ where: { id }, data: { state: 'Drafting' } });
 
-      await addBot(id).expect(409);
+      await addBot(id, carolCookie).expect(409);
       const refused = await removeBot(id, added.body.players[0].id).expect(409);
       expect(refused.body.error).toBe('draft-started');
       expect((await getDraft(id).expect(200)).body.players).toEqual([
@@ -210,7 +195,7 @@ describe('lobby', () => {
     });
 
     it('is 404 for a draft that does not exist', async () => {
-      await addBot('no-such-draft').expect(404);
+      await addBot('no-such-draft', carolCookie).expect(404);
       await removeBot('no-such-draft', 'bot:x').expect(404);
     });
   });

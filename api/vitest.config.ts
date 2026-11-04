@@ -11,6 +11,8 @@ export default defineConfig({
     // Long enough for the longest wait on bots' picks (`waitForBotPicks`
     // in the drafts specs' harness) on a busy CI machine.
     testTimeout: 30_000,
+    // Puts back what each test's `vi.spyOn` replaced, even when it fails.
+    restoreMocks: true,
     env: {
       // The test database (PGlite) is one Postgres session shared by every
       // connection, so concurrent transactions on two connections would

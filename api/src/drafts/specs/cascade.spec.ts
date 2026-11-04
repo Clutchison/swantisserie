@@ -1,9 +1,7 @@
-import request from 'supertest';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   webhookClient,
   useDraftsApp,
@@ -21,24 +19,22 @@ import {
   poolCardIds,
   readyDraftWithCopies,
   waitForBotPicks,
+  addBot,
+  fourCards,
+  registerWebhook,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('cascade', () => {
-  const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let bobCookie: string;
 
   beforeEach(async () => {
     bobCookie = await signIn(bob);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
@@ -67,7 +63,7 @@ describe('cascade', () => {
   });
 
   it('stops at a player whose queue another player’s pick has just cleared', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await enqueue(id, ids.Shock, bobCookie).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -87,7 +83,7 @@ describe('cascade', () => {
   });
 
   it('clears a queue mid-cascade: a queued pick from a start stops at the player it cleared', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Lightning Bolt']).expect(200);
@@ -118,7 +114,7 @@ describe('cascade', () => {
       const id = await readyDraft(
         [aliceCookie, bobCookie, carolCookie],
         1,
-        cards,
+        fourCards,
       );
       const ids = await poolCardIds(id);
       await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
@@ -208,7 +204,7 @@ describe('cascade', () => {
   });
 
   it('picks the first player’s queued card when the draft starts', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     await enqueue(id, ids['Lightning Bolt']).expect(200);
 
@@ -223,12 +219,9 @@ describe('cascade', () => {
   });
 
   it('stops at a bot’s turn, and carries on after the bot picks', async () => {
-    const id = await readyDraft([aliceCookie], 2, cards);
+    const id = await readyDraft([aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/bots`)
-      .set('Cookie', await signIn(carol))
-      .expect(201);
+    await addBot(id, await signIn(carol)).expect(201);
     // The bot picks the first available card by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
     await enqueue(id, ids.Shock).expect(200);
@@ -249,19 +242,11 @@ describe('cascade', () => {
   });
 
   it('announces a pick and its cascade in one post, pinging who must pick next', async () => {
-    const webhook = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
     const id = await readyDraft(
       [aliceCookie, bobCookie],
       2,
-      cards,
-      webhook.body.id,
+      fourCards,
+      await registerWebhook(),
     );
     const ids = await poolCardIds(id);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -285,19 +270,11 @@ describe('cascade', () => {
   });
 
   it('adds nothing about a cleared queue to the announcement, only the usual ping', async () => {
-    const webhook = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
     const id = await readyDraft(
       [aliceCookie, bobCookie],
       2,
-      cards,
-      webhook.body.id,
+      fourCards,
+      await registerWebhook(),
     );
     const ids = await poolCardIds(id);
     await enqueue(id, ids.Shock, bobCookie).expect(200);

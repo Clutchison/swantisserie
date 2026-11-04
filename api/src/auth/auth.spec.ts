@@ -1,18 +1,14 @@
-import {
-  Controller,
-  Get,
-  INestApplication,
-  Module,
-  UseGuards,
-} from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Controller, Get, Module, UseGuards } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../app.module.js';
-import { configureApp } from '../app.setup.js';
-import { startTestDatabase, TestDatabase } from '../testing/test-database.js';
-import { DiscordClient, DiscordProfile } from '../discord/discord-client.js';
+import { DiscordProfile } from '../discord/discord-client.js';
 import { DiscordConfig } from '../discord/discord-config.js';
+import {
+  alice,
+  app,
+  discord,
+  startTestApp,
+  useTestApp,
+} from '../testing/app.js';
 import { AdminConfig } from './admin-config.js';
 import { AdminGuard } from './admin.guard.js';
 import { AuthModule } from './auth.module.js';
@@ -39,48 +35,15 @@ class AdminOnlyController {
 class AdminOnlyModule {}
 
 describe('Discord sign-in', () => {
-  let database: TestDatabase;
-  let app: INestApplication<App>;
-  const discord = {
-    exchangeCode: vi.fn<DiscordClient['exchangeCode']>(),
-    getCurrentUser: vi.fn<DiscordClient['getCurrentUser']>(),
-    isGuildMember: vi.fn<DiscordClient['isGuildMember']>(),
-  };
-
-  beforeAll(async () => {
-    database = await startTestDatabase();
-    process.env.DATABASE_URL = database.url;
-  });
-
-  afterAll(async () => {
-    await database.stop();
-  });
-
-  beforeEach(async () => {
-    await database.reset();
-    vi.resetAllMocks();
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        AppModule.register({ webRoot: import.meta.dirname }),
-        AdminOnlyModule,
+  useTestApp(() =>
+    startTestApp({
+      overrides: [
+        { provide: DiscordConfig, useValue: config },
+        { provide: AdminConfig, useValue: admins },
       ],
-    })
-      .overrideProvider(DiscordConfig)
-      .useValue(config)
-      .overrideProvider(DiscordClient)
-      .useValue(discord)
-      .overrideProvider(AdminConfig)
-      .useValue(admins)
-      .compile();
-
-    app = configureApp(moduleRef.createNestApplication());
-    await app.init();
-  });
-
-  afterEach(async () => {
-    await app.close();
-  });
+      imports: [AdminOnlyModule],
+    }),
+  );
 
   it('sends the user to Discord with a state that is also set as a cookie', async () => {
     const res = await request(app.getHttpServer())
@@ -126,15 +89,15 @@ describe('Discord sign-in', () => {
     return cookies.find((c) => c.startsWith('session='))!.split(';')[0];
   }
 
-  const alice: DiscordProfile = {
-    id: '80351110224678912',
+  const aliceProfile: DiscordProfile = {
+    id: alice.id,
     username: 'alice',
-    global_name: 'Alice',
+    global_name: alice.name,
     avatar: '8342729096ea3675442027381ff50dfe',
   };
 
   it('signs the user in on callback and reports them from /me', async () => {
-    const { agent, callback } = await signIn(alice);
+    const { agent, callback } = await signIn(aliceProfile);
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/');
@@ -150,7 +113,7 @@ describe('Discord sign-in', () => {
   });
 
   it('flags app admins from config in /me', async () => {
-    const { agent } = await signIn({ ...alice, id: '222' });
+    const { agent } = await signIn({ ...aliceProfile, id: '222' });
 
     const me = await agent.get('/api/auth/me').expect(200);
 
@@ -158,10 +121,10 @@ describe('Discord sign-in', () => {
   });
 
   it('updates a returning user’s name and avatar from Discord', async () => {
-    await signIn(alice);
+    await signIn(aliceProfile);
 
     const { agent } = await signIn({
-      ...alice,
+      ...aliceProfile,
       global_name: null,
       username: 'alice_renamed',
       avatar: null,
@@ -177,7 +140,7 @@ describe('Discord sign-in', () => {
   });
 
   it('turns away someone who is not in our guild', async () => {
-    const { agent, callback } = await signIn(alice, false);
+    const { agent, callback } = await signIn(aliceProfile, false);
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
@@ -189,10 +152,10 @@ describe('Discord sign-in', () => {
   });
 
   it('re-checks guild membership on every sign-in', async () => {
-    const first = await signIn(alice);
+    const first = await signIn(aliceProfile);
     await first.agent.get('/api/auth/me').expect(200);
 
-    const { agent, callback } = await signIn(alice, false);
+    const { agent, callback } = await signIn(aliceProfile, false);
 
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
     await agent.get('/api/auth/me').expect(401);
@@ -203,7 +166,7 @@ describe('Discord sign-in', () => {
   });
 
   it('logs out by ending the session, not just clearing the cookie', async () => {
-    const { callback } = await signIn(alice);
+    const { callback } = await signIn(aliceProfile);
     const sessionCookie = sessionCookieFrom(callback);
 
     const logout = await request(app.getHttpServer())
@@ -226,7 +189,7 @@ describe('Discord sign-in', () => {
       now: new Date('2026-11-01T12:00:00Z'),
     });
     try {
-      const { callback } = await signIn(alice);
+      const { callback } = await signIn(aliceProfile);
       // Sent by hand: the agent's cookie jar would drop the expired cookie itself.
       const me = () =>
         request(app.getHttpServer())
@@ -312,13 +275,13 @@ describe('Discord sign-in', () => {
 
   describe('admin-only routes', () => {
     it('let app admins through', async () => {
-      const { agent } = await signIn({ ...alice, id: '111' });
+      const { agent } = await signIn({ ...aliceProfile, id: '111' });
 
       await agent.get('/api/admin-only').expect(200).expect({ ok: true });
     });
 
     it('reject signed-in users who are not app admins', async () => {
-      const { agent } = await signIn(alice);
+      const { agent } = await signIn(aliceProfile);
 
       await agent.get('/api/admin-only').expect(403);
     });

@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   ScryfallRejectedSearchError,
@@ -10,7 +9,6 @@ import {
   bob,
   carol,
   app,
-  aliceCookie,
   scryfall,
   useDraftsApp,
   startApp,
@@ -25,6 +23,8 @@ import {
   snapshotted,
   readyDraft,
   copyIds,
+  pool,
+  post,
 } from './harness.js';
 
 useDraftsApp();
@@ -78,8 +78,7 @@ describe('pool snapshot', () => {
     scryfallAnswers({
       'c:r': page('Shock'),
       '(c:r) -in:mtgo': null,
-      '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards':
-        page('Shock'),
+      [snapshotQuery('c:r', 'MTGO')]: page('Shock'),
     });
 
     const created = await createDraft({
@@ -91,7 +90,7 @@ describe('pool snapshot', () => {
     const draft = await snapshotted(created.body.id);
     expect(draft.snapshot).toEqual({ state: 'Complete', cards: 1, total: 1 });
     expect(scryfall.search).toHaveBeenCalledWith(
-      '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards',
+      snapshotQuery('c:r', 'MTGO'),
       1,
     );
     expect(scryfall.search).not.toHaveBeenCalledWith(
@@ -104,8 +103,7 @@ describe('pool snapshot', () => {
     scryfallAnswers({
       'c:r': page('Shock'),
       '(c:r) -in:mtgo': null,
-      '(c:r) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:mtgo unique:cards':
-        null,
+      [snapshotQuery('c:r', 'MTGO')]: null,
     });
 
     const created = await createDraft({
@@ -155,11 +153,8 @@ describe('pool snapshot', () => {
     }).expect(201);
     await snapshotted(created.body.id);
 
-    const pool = await request(app.getHttpServer())
-      .get(`/api/drafts/${created.body.id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    expect(pool.body[0]).toMatchObject({
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body[0]).toMatchObject({
       name: 'Birgi // Harnfel',
       colors: ['R'],
       images: [
@@ -175,7 +170,7 @@ describe('pool snapshot', () => {
         },
       ],
     });
-    expect(pool.body[0].images[0]).not.toHaveProperty('png');
+    expect(res.body[0].images[0]).not.toHaveProperty('png');
   });
 
   it('stores each face’s text, cost, colors and stats, so a search can match either face', async () => {
@@ -224,11 +219,8 @@ describe('pool snapshot', () => {
     }).expect(201);
     await snapshotted(created.body.id);
 
-    const pool = await request(app.getHttpServer())
-      .get(`/api/drafts/${created.body.id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    expect(pool.body[0]).toMatchObject({
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body[0]).toMatchObject({
       layout: 'adventure',
       manaCost: '{2}{R} // {1}{R}',
       oracleText: null,
@@ -303,11 +295,8 @@ describe('pool snapshot', () => {
     }).expect(201);
     await snapshotted(created.body.id);
 
-    const pool = await request(app.getHttpServer())
-      .get(`/api/drafts/${created.body.id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    expect(pool.body[0]).toMatchObject({
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body[0]).toMatchObject({
       layout: 'transform',
       defense: null,
       faces: [
@@ -386,12 +375,6 @@ describe('pool snapshot', () => {
     });
   });
 
-  function retry(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .post(`/api/drafts/${id}/snapshot`)
-      .set('Cookie', cookie);
-  }
-
   it('surfaces a failure on the draft, and the organizer can retry it', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
@@ -411,7 +394,7 @@ describe('pool snapshot', () => {
     });
 
     scryfallAnswers({ [query]: page('Balefire Dragon', 'Shivan Dragon') });
-    const retried = await retry(created.body.id).expect(202);
+    const retried = await post(created.body.id, 'snapshot').expect(202);
 
     expect(retried.body.snapshot).toEqual({
       state: 'Running',
@@ -444,18 +427,15 @@ describe('pool snapshot', () => {
     });
 
     scryfallAnswers({ [query]: page('Shivan Dragon') });
-    await retry(created.body.id).expect(202);
+    await post(created.body.id, 'snapshot').expect(202);
 
     expect((await snapshotted(created.body.id)).snapshot).toEqual({
       state: 'Complete',
       cards: 1,
       total: 1,
     });
-    const pool = await request(app.getHttpServer())
-      .get(`/api/drafts/${created.body.id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    expect(pool.body.map((c: { name: string }) => c.name)).toEqual([
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body.map((c: { name: string }) => c.name)).toEqual([
       'Shivan Dragon',
     ]);
   });
@@ -503,7 +483,7 @@ describe('pool snapshot', () => {
     }).expect(201);
     await snapshotted(created.body.id);
 
-    const res = await retry(created.body.id).expect(409);
+    const res = await post(created.body.id, 'snapshot').expect(409);
 
     expect(res.body).toEqual({
       error: 'pool-frozen',
@@ -522,9 +502,9 @@ describe('pool snapshot', () => {
     const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
     await snapshotted(created.body.id);
 
-    await retry(created.body.id, await signIn(bob)).expect(403);
+    await post(created.body.id, 'snapshot', await signIn(bob)).expect(403);
     scryfallAnswers({ [query]: page('Shock') });
-    await retry(created.body.id, await signIn(carol)).expect(202);
+    await post(created.body.id, 'snapshot', await signIn(carol)).expect(202);
 
     expect((await snapshotted(created.body.id)).snapshot.state).toBe(
       'Complete',
@@ -533,11 +513,8 @@ describe('pool snapshot', () => {
 
   it('answers 404 for a draft that does not exist', async () => {
     await getDraft('no-such-draft').expect(404);
-    await retry('no-such-draft').expect(404);
-    await request(app.getHttpServer())
-      .get('/api/drafts/no-such-draft/pool')
-      .set('Cookie', aliceCookie)
-      .expect(404);
+    await post('no-such-draft', 'snapshot').expect(404);
+    await pool('no-such-draft').expect(404);
   });
 
   it('resumes a snapshot a previous process left running', async () => {
@@ -599,11 +576,8 @@ describe('pool snapshot', () => {
     }).expect(201);
     await snapshotted(created.body.id);
 
-    const pool = await request(app.getHttpServer())
-      .get(`/api/drafts/${created.body.id}/pool`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
-    expect(pool.body).toEqual([
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body).toEqual([
       {
         id: expect.any(String),
         scryfallId: '9f0a1c6e-id',
@@ -679,6 +653,5 @@ describe('pool snapshot', () => {
       cards: 2,
       total: 2,
     });
-    errors.mockRestore();
   });
 });

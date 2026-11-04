@@ -1,9 +1,7 @@
-import request from 'supertest';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   webhookClient,
   useDraftsApp,
@@ -18,24 +16,26 @@ import {
   dismissNotice,
   poolCardIds,
   readyDraftWithCopies,
+  post,
+  fourCards,
+  registerWebhook,
+  shock,
+  bolt,
+  spike,
+  skewer,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('undo', () => {
-  const cards = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   let bobCookie: string;
 
   beforeEach(async () => {
     bobCookie = await signIn(bob);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('removes the latest pick, returning its card to the pool and the turn to its player', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -58,7 +58,7 @@ describe('undo', () => {
   });
 
   it('undoes only the last pick of a cascade, and makes no queued picks', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
@@ -74,7 +74,7 @@ describe('undo', () => {
   });
 
   it('returns the card to the queues it was lost from, to be picked on the next real pick', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -103,12 +103,6 @@ describe('undo', () => {
   });
 
   describe('of a pick that cleared a queue', () => {
-    /** A queued card, named by any pool card id: each test's draft has its own. */
-    const queued = (name: string) => ({ poolCardId: expect.any(String), name });
-    const shock = queued('Shock');
-    const bolt = queued('Lightning Bolt');
-    const spike = queued('Lava Spike');
-    const skewer = queued('Skewer the Critics');
     let carolCookie: string;
 
     /** Carol, picking last, has Shock, Bolt and Lava Spike queued, and Alice picks Bolt. */
@@ -117,7 +111,7 @@ describe('undo', () => {
       const id = await readyDraft(
         [aliceCookie, bobCookie, carolCookie],
         1,
-        cards,
+        fourCards,
       );
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
@@ -181,7 +175,7 @@ describe('undo', () => {
       const id = await readyDraft(
         [aliceCookie, bobCookie, carolCookie],
         1,
-        cards,
+        fourCards,
       );
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
@@ -273,7 +267,7 @@ describe('undo', () => {
   });
 
   it('refuses to undo any pick but the latest, so an undo sent twice takes back one', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -290,7 +284,7 @@ describe('undo', () => {
   });
 
   it('refuses an undo with no picks to undo', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     await start(id).expect(200);
 
     const refused = await undo(id, 1).expect(409);
@@ -299,7 +293,7 @@ describe('undo', () => {
   });
 
   it('refuses an undo before the draft starts, or once it is complete', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     expect((await undo(id, 1).expect(409)).body.error).toBe('not-drafting');
     await start(id).expect(200);
@@ -316,14 +310,11 @@ describe('undo', () => {
   });
 
   it('undoes a pick while the draft is paused, leaving it paused', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pause`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'pause').expect(200);
 
     const undone = await undo(id, 1).expect(200);
 
@@ -335,19 +326,11 @@ describe('undo', () => {
   });
 
   it('announces the undo, pinging the player whose turn it is again', async () => {
-    const webhook = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
     const id = await readyDraft(
       [aliceCookie, bobCookie],
       2,
-      cards,
-      webhook.body.id,
+      fourCards,
+      await registerWebhook(),
     );
     const ids = await poolCardIds(id);
     await start(id).expect(200);
@@ -369,7 +352,7 @@ describe('undo', () => {
   });
 
   it('lets an app admin undo, but not other players', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -380,7 +363,7 @@ describe('undo', () => {
   });
 
   it('is a 400 for a pick that is not a number, and 404 for a draft that does not exist', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     await start(id).expect(200);
 
     await undo(id, 'latest').expect(400);

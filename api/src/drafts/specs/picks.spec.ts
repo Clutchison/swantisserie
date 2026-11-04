@@ -1,9 +1,7 @@
-import request from 'supertest';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   useDraftsApp,
   signIn,
@@ -13,6 +11,10 @@ import {
   pick,
   poolCardIds,
   copyIds,
+  pickLog,
+  pickLogLines,
+  listDrafts,
+  fourCards,
 } from './harness.js';
 
 useDraftsApp();
@@ -23,20 +25,13 @@ describe('picks', () => {
    * Spike and Skewer the Critics.
    */
   async function startedDraft(bobCookie: string, picksPerPlayer = 1) {
-    const id = await readyDraft([aliceCookie, bobCookie], picksPerPlayer, [
-      'Shock',
-      'Lightning Bolt',
-      'Lava Spike',
-      'Skewer the Critics',
-    ]);
+    const id = await readyDraft(
+      [aliceCookie, bobCookie],
+      picksPerPlayer,
+      fourCards,
+    );
     await start(id).expect(200);
     return id;
-  }
-
-  function picks(id: string, cookie = aliceCookie) {
-    return request(app.getHttpServer())
-      .get(`/api/drafts/${id}/picks`)
-      .set('Cookie', cookie);
   }
 
   it('lets the player whose turn it is pick a card, and the turn passes on', async () => {
@@ -51,7 +46,7 @@ describe('picks', () => {
       playerId: bob.id,
     });
     expect((await getDraft(id).expect(200)).body.turn.playerId).toBe(bob.id);
-    expect((await picks(id).expect(200)).body).toEqual([
+    expect((await pickLog(id)).body).toEqual([
       {
         pick: 1,
         playerId: alice.id,
@@ -79,7 +74,7 @@ describe('picks', () => {
       round: 2,
       playerId: alice.id,
     });
-    expect((await picks(id).expect(200)).body).toEqual([
+    expect((await pickLog(id)).body).toEqual([
       {
         pick: 1,
         playerId: alice.id,
@@ -124,7 +119,7 @@ describe('picks', () => {
       message: 'It’s not your turn.',
     });
     await pick(id, ids.Shock, await signIn(carol)).expect(409);
-    expect((await picks(id).expect(200)).body).toEqual([]);
+    expect((await pickLog(id)).body).toEqual([]);
   });
 
   it('refuses a card that has already been picked', async () => {
@@ -159,7 +154,7 @@ describe('picks', () => {
     await pick(id, third, bobCookie).expect(200);
 
     expect(
-      (await picks(id).expect(200)).body.map(
+      (await pickLog(id)).body.map(
         ({ pick, playerId, poolCardId, name }: Record<string, unknown>) => ({
           pick,
           playerId,
@@ -212,21 +207,18 @@ describe('picks', () => {
     const ids = await poolCardIds(id);
     await pick(id, ids.Shock).expect(200);
 
-    const last = await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+    const lastPick = await pick(id, ids['Lightning Bolt'], bobCookie).expect(
+      200,
+    );
 
-    expect(last.body).toMatchObject({ state: 'Complete', turn: null });
+    expect(lastPick.body).toMatchObject({ state: 'Complete', turn: null });
     expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
-    const listed = await request(app.getHttpServer())
-      .get('/api/drafts')
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    const listed = await listDrafts().expect(200);
     expect(
       listed.body.find((draft: { id: string }) => draft.id === id).state,
     ).toBe('Complete');
     expect(
-      (await picks(id).expect(200)).body.map(
-        (logged: { name: string }) => logged.name,
-      ),
+      (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
     ).toEqual(['Shock', 'Lightning Bolt']);
     const refused = await pick(id, ids['Lava Spike']).expect(409);
     expect(refused.body.error).toBe('not-drafting');
@@ -244,7 +236,7 @@ describe('picks', () => {
     expect(responses.map((res) => res.status).sort((a, b) => a - b)).toEqual([
       200, 409,
     ]);
-    const log = (await picks(id).expect(200)).body;
+    const log = (await pickLog(id)).body;
     expect(log).toHaveLength(1);
     expect(log[0].playerId).toBe(alice.id);
   });
@@ -261,11 +253,23 @@ describe('picks', () => {
     expect(responses.map((res) => res.status).sort((a, b) => a - b)).toEqual([
       200, 409,
     ]);
-    expect((await picks(id).expect(200)).body).toHaveLength(1);
+    expect((await pickLog(id)).body).toHaveLength(1);
+  });
+
+  it('fails to read the pick log as lines once someone other than Alice, Bob, Carol or a bot has picked', async () => {
+    const dave = { id: '80351110224678915', name: 'Dave' };
+    const daveCookie = await signIn(dave);
+    const id = await readyDraft([daveCookie, aliceCookie]);
+    await start(id).expect(200);
+    const ids = await poolCardIds(id);
+
+    await pick(id, ids.Shock, daveCookie).expect(200);
+
+    await expect(pickLogLines(id)).rejects.toThrow(dave.id);
   });
 
   it('is 404 for a draft that does not exist', async () => {
     await pick('no-such-draft', 'no-such-card').expect(404);
-    await picks('no-such-draft').expect(404);
+    await pickLog('no-such-draft', 404);
   });
 });

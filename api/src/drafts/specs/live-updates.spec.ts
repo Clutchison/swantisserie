@@ -16,6 +16,14 @@ import {
   start,
   undo,
   poolCardIds,
+  importPicks,
+  pick,
+  post,
+  enqueue,
+  join,
+  leave,
+  registerWebhook,
+  fourCards,
 } from './harness.js';
 
 useDraftsApp();
@@ -92,11 +100,10 @@ describe('live updates', () => {
     ]);
     const bobSees = await watch(id, bobCookie);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pick-import`)
-      .set('Cookie', aliceCookie)
-      .send({ csv: ',Ann,Ben,\n->,Ash Golem,,', userIds: [alice.id, bob.id] })
-      .expect(200);
+    await importPicks(id, ',Ann,Ben,\n->,Ash Golem,,', [
+      alice.id,
+      bob.id,
+    ]).expect(200);
 
     await vi.waitFor(() =>
       expect(bobSees.at(-1)).toMatchObject({
@@ -113,11 +120,7 @@ describe('live updates', () => {
     await start(id).expect(200);
     const bobSees = await watch(id, bobCookie);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     await vi.waitFor(() =>
       expect(bobSees).toEqual([
@@ -135,11 +138,7 @@ describe('live updates', () => {
     const id = await readyDraft([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
     const bobSees = await watch(id, bobCookie);
 
     await undo(id, 1).expect(200);
@@ -160,15 +159,9 @@ describe('live updates', () => {
     await start(id).expect(200);
     const bobSees = await watch(id, bobCookie);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/pause`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'pause').expect(200);
     await vi.waitFor(() => expect(bobSees).toHaveLength(1));
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/resume`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'resume').expect(200);
 
     await vi.waitFor(() =>
       expect(bobSees.map((draft) => draft.state)).toEqual([
@@ -184,15 +177,9 @@ describe('live updates', () => {
     await start(id).expect(200);
     const bobSees = await watch(id, bobCookie);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/close`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'close').expect(200);
     await vi.waitFor(() => expect(bobSees).toHaveLength(1));
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/reopen`)
-      .set('Cookie', aliceCookie)
-      .expect(200);
+    await post(id, 'reopen').expect(200);
 
     await vi.waitFor(() =>
       expect(bobSees.map((draft) => draft.state)).toEqual([
@@ -204,26 +191,13 @@ describe('live updates', () => {
 
   it('pushes the draft after a pick with its cascade made, so viewers see every pick', async () => {
     const bobCookie = await signIn(bob);
-    const id = await readyDraft([aliceCookie, bobCookie], 2, [
-      'Shock',
-      'Lightning Bolt',
-      'Lava Spike',
-      'Skewer the Critics',
-    ]);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/queue`)
-      .set('Cookie', bobCookie)
-      .send({ poolCardId: ids['Lava Spike'] })
-      .expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await start(id).expect(200);
     const carolSees = await watch(id, await signIn(carol));
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/picks`)
-      .set('Cookie', aliceCookie)
-      .send({ poolCardId: ids.Shock })
-      .expect(200);
+    await pick(id, ids.Shock).expect(200);
 
     await vi.waitFor(() =>
       expect(carolSees).toEqual([
@@ -235,30 +209,20 @@ describe('live updates', () => {
   });
 
   it('pushes the draft’s webhook by name only', async () => {
-    const webhook = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', await signIn(carol))
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
+    const webhookId = await registerWebhook();
     allOnArena('t:dragon c:r');
     const { body } = await createDraft({
       name: 'Red dragons',
       poolQuery: 't:dragon c:r',
-      webhookId: webhook.body.id,
+      webhookId,
     }).expect(201);
     const aliceSees = await watch(body.id, aliceCookie);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${body.id}/players`)
-      .set('Cookie', await signIn(bob))
-      .expect(201);
+    await join(body.id, await signIn(bob)).expect(201);
 
     await vi.waitFor(() => expect(aliceSees).toHaveLength(1));
     expect(aliceSees[0].webhook).toEqual({
-      id: webhook.body.id,
+      id: webhookId,
       name: '#roto-main',
     });
     expect(JSON.stringify(aliceSees)).not.toContain('secret-token');
@@ -269,14 +233,8 @@ describe('live updates', () => {
     const bobCookie = await signIn(bob);
     const before = (await getDraft(id).expect(200)).body.version as number;
 
-    const joined = await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', bobCookie)
-      .expect(201);
-    const left = await request(app.getHttpServer())
-      .delete(`/api/drafts/${id}/players/me`)
-      .set('Cookie', bobCookie)
-      .expect(200);
+    const joined = await join(id, bobCookie).expect(201);
+    const left = await leave(id, bobCookie).expect(200);
 
     expect(joined.body.version).toBeGreaterThan(before);
     expect(left.body.version).toBeGreaterThan(joined.body.version);
@@ -289,10 +247,7 @@ describe('live updates', () => {
     const bobSees = await watch(id, bobCookie);
     const bobSeesOther = await watch(other, bobCookie);
 
-    await request(app.getHttpServer())
-      .post(`/api/drafts/${id}/players`)
-      .set('Cookie', aliceCookie)
-      .expect(201);
+    await join(id).expect(201);
 
     await vi.waitFor(() =>
       expect(bobSees).toEqual([
@@ -307,14 +262,7 @@ describe('live updates', () => {
 
   it('tells everyone viewing a draft its new webhook, with a newer version', async () => {
     const carolCookie = await signIn(carol);
-    const webhook = await request(app.getHttpServer())
-      .post('/api/admin/webhooks')
-      .set('Cookie', carolCookie)
-      .send({
-        name: '#roto-main',
-        url: 'https://discord.com/api/webhooks/1234567890/secret-token',
-      })
-      .expect(201);
+    const webhookId = await registerWebhook();
     const id = await readyDraft([aliceCookie]);
     const before = await getDraft(id).expect(200);
     const changes = await watch(id, carolCookie);
@@ -322,12 +270,12 @@ describe('live updates', () => {
     await request(app.getHttpServer())
       .put(`/api/drafts/${id}/webhook`)
       .set('Cookie', aliceCookie)
-      .send({ webhookId: webhook.body.id })
+      .send({ webhookId })
       .expect(200);
 
     await vi.waitFor(() => expect(changes).toHaveLength(1));
     expect(changes[0].webhook).toEqual({
-      id: webhook.body.id,
+      id: webhookId,
       name: '#roto-main',
     });
     expect(changes[0].version).toBeGreaterThan(before.body.version);
