@@ -58,10 +58,12 @@ describe('draft page', () => {
 
   it('shows the cube a pool came from, linking to it, in place of a pool query', async () => {
     const { page } = await openDraft(completeSnapshot, {
-      poolQuery: null,
-      cube: {
-        name: 'The Pauper Cube',
-        url: 'https://cubecobra.com/cube/overview/thepaupercube',
+      poolSource: {
+        kind: 'cube',
+        cube: {
+          name: 'The Pauper Cube',
+          url: 'https://cubecobra.com/cube/overview/thepaupercube',
+        },
       },
     });
 

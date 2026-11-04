@@ -80,14 +80,16 @@ it('creates a draft from a cube id, showing the cube’s name and link in place 
 
   expect(created.body).toMatchObject({
     name: 'Pauper',
-    poolQuery: null,
-    cube: {
-      name: 'The Pauper Cube',
-      url: 'https://cubecobra.com/cube/overview/thepaupercube',
+    poolSource: {
+      kind: 'cube',
+      cube: {
+        name: 'The Pauper Cube',
+        url: 'https://cubecobra.com/cube/overview/thepaupercube',
+      },
     },
   });
   const list = await listDrafts().expect(200);
-  expect(list.body[0].cube).toEqual(created.body.cube);
+  expect(list.body[0].poolSource).toEqual(created.body.poolSource);
 });
 
 it('makes the pool from the cube’s mainboard, a pool card per copy, each in a printing on the platform', async () => {
@@ -125,7 +127,7 @@ describe('cube links', () => {
 
     const created = await createDraft({ name: 'Pauper', cubeLink }).expect(201);
 
-    expect(created.body.cube.url).toBe(
+    expect(created.body.poolSource.cube.url).toBe(
       'https://cubecobra.com/cube/overview/thepaupercube',
     );
     expect(cubeCobra.cube).toHaveBeenCalledWith('thepaupercube');

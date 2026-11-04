@@ -178,14 +178,20 @@
         }
       }
       <p class="detail">Platform: {{ draft.platform }}</p>
-      @if (draft.cube; as cube) {
-        <p class="detail">
-          Cube: <a [href]="cube.url" target="_blank" rel="noopener">{{ cube.name }}</a>
-        </p>
-      } @else {
-        <p class="detail">
-          Pool query: <code>{{ draft.poolQuery }}</code>
-        </p>
+      @switch (draft.poolSource.kind) {
+        @case ('cube') {
+          <p class="detail">
+            Cube:
+            <a [href]="draft.poolSource.cube.url" target="_blank" rel="noopener">{{
+              draft.poolSource.cube.name
+            }}</a>
+          </p>
+        }
+        @case ('pool-query') {
+          <p class="detail">
+            Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
+          </p>
+        }
       }
     </section>
 

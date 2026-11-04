@@ -50,14 +50,15 @@ export interface CubeView {
   url: string;
 }
 
+/** What defines a draft's pool, chosen once when the draft is created. */
+export type PoolSourceView =
+  { kind: 'pool-query'; poolQuery: string } | { kind: 'cube'; cube: CubeView };
+
 /** A draft, as every viewer is sent it. */
 export interface DraftView {
   id: string;
   name: string;
-  /** The pool query that defines the pool; null when a cube link does. */
-  poolQuery: string | null;
-  /** The cube that defines the pool; null when a pool query does. */
-  cube: CubeView | null;
+  poolSource: PoolSourceView;
   picksPerPlayer: number;
   platform: Platform;
   state: DraftState;

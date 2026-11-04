@@ -1,4 +1,4 @@
-import type { DraftView, TurnView } from 'contract';
+import type { DraftView, PoolSourceView, TurnView } from 'contract';
 import { currentTurn } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
 import { cubeUrl } from '../cubecobra/cubecobra-client.js';
@@ -10,11 +10,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
   return {
     id: draft.id,
     name: draft.name,
-    poolQuery: draft.poolQuery,
-    cube:
-      draft.cubeId === null || draft.cubeName === null
-        ? null
-        : { name: draft.cubeName, url: cubeUrl(draft.cubeId) },
+    poolSource: toPoolSourceView(draft),
     picksPerPlayer: draft.picksPerPlayer,
     platform: draft.platform,
     state: draft.state,
@@ -41,6 +37,19 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
     version: draft.version,
     createdAt: draft.createdAt.toISOString(),
   };
+}
+
+function toPoolSourceView(draft: DraftWithOrganizer): PoolSourceView {
+  if (draft.cubeId !== null && draft.cubeName !== null) {
+    return {
+      kind: 'cube',
+      cube: { name: draft.cubeName, url: cubeUrl(draft.cubeId) },
+    };
+  }
+  if (draft.poolQuery === null) {
+    throw new Error(`Draft ${draft.id} has neither a pool query nor a cube.`);
+  }
+  return { kind: 'pool-query', poolQuery: draft.poolQuery };
 }
 
 function toTurnView(draft: DraftWithOrganizer): TurnView | null {
