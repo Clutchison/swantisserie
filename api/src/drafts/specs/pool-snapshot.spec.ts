@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -634,5 +635,50 @@ describe('pool snapshot', () => {
         ],
       },
     ]);
+  });
+
+  it('lets a snapshot a request starts while the app shuts down finish first', async () => {
+    const errors = vi.spyOn(Logger.prototype, 'error');
+    const wait = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+    let shuttingDown!: () => void;
+    const shutdownBegun = new Promise<void>((resolve) => {
+      shuttingDown = resolve;
+    });
+    scryfall.search.mockImplementation(async (query) => {
+      if (query === 'c:r') {
+        // Holds the request until shutdown is under way.
+        await shutdownBegun;
+        return page('Shock', 'Lava Spike');
+      }
+      if (query === '(c:r) -in:arena') return null;
+      if (query === snapshotQuery('c:r')) {
+        // Still paging once the HTTP server has closed.
+        await wait(300);
+        return page('Shock', 'Lava Spike');
+      }
+      throw new Error(`Unexpected search: ${query}`);
+    });
+
+    // `then` sends the request now, rather than when it is awaited.
+    const created = createDraft({ name: 'Red', poolQuery: 'c:r' }).then(
+      (res) => res,
+    );
+    await vi.waitFor(() => expect(scryfall.search).toHaveBeenCalled());
+    const closed = app.close();
+    await wait(50);
+    shuttingDown();
+    await closed;
+
+    const res = await created;
+    expect(res.status).toBe(201);
+    expect(errors).not.toHaveBeenCalled();
+    await startApp();
+    expect((await snapshotted(res.body.id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 2,
+      total: 2,
+    });
+    errors.mockRestore();
   });
 });
