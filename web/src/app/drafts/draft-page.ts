@@ -20,7 +20,7 @@ import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
-import { EMPTY_PLAN, EMPTY_QUEUE, isActive } from './drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive } from './drafts';
 import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
@@ -182,7 +182,6 @@ export class DraftPage {
   protected readonly planLoading = computed(
     () => this.planResource.isLoading() && !this.planResource.hasValue(),
   );
-  protected readonly yourTurn = computed(() => this.draft()?.turn?.playerId === this.user()?.id);
 
   protected readonly tab = signal<Panel>('Pool');
   /** The signed-in player, if they have joined: the Export tab shows their picks. */
@@ -192,9 +191,10 @@ export class DraftPage {
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
-    const turn = this.draft()?.turn;
-    if (!turn) return null;
-    const player = this.draft()?.players.find((player) => player.id === turn.playerId);
+    const draft = this.draft();
+    if (!draft || !hasTurn(draft)) return null;
+    const { turn } = draft;
+    const player = draft.players.find((player) => player.id === turn.playerId);
     const whose = turn.playerId === this.user()?.id ? 'Your' : `${player?.name}’s`;
     return {
       ...turn,
@@ -202,6 +202,7 @@ export class DraftPage {
       isBot: !!player?.isBot,
     };
   });
+  protected readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
 
   constructor() {
     // Opening or closing the Export tab forgets any copy.

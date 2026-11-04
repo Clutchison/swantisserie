@@ -2,7 +2,7 @@ import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import type { DraftView, PlanView } from 'contract';
+import type { PlanView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -29,6 +29,7 @@ import {
   pointer,
   tap,
   type AppFixture,
+  type DraftFixture,
 } from './harness';
 import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 
@@ -37,7 +38,7 @@ useTallScreen();
 
 describe('plan tab', () => {
   /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
     state: 'Drafting',
     players: [alicePlayer, bob],
     turn: { pick: 3, round: 2, playerId: bob.id },
@@ -744,7 +745,7 @@ describe('plan tab', () => {
     async (state) => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
-        { players: [alicePlayer, bob], state, turn: null },
+        { players: [alicePlayer, bob], state },
         { cards, plan: planOf({ sideboard: [unpicked(boltAgain)] }) },
       );
       const plan = await openPlan(fixture, page);

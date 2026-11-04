@@ -22,6 +22,7 @@ import {
   button,
   type AppFixture,
   expectLoadingAnimation,
+  type DraftFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
@@ -31,7 +32,7 @@ useTallScreen();
 describe('pool tab', () => {
   describe('queue', () => {
     /** Started, with Alice then Bob; Bob is up. */
-    const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+    const drafting = (fields: DraftFixture = {}): DraftFixture => ({
       state: 'Drafting',
       players: [alicePlayer, bob],
       turn: { pick: 1, round: 1, playerId: bob.id },
@@ -723,7 +724,7 @@ describe('pool tab', () => {
           stealBehavior: 'ClearQueue',
         });
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-          draft(drafting({ state: 'Closed', version: 1 })),
+          draft(drafting({ state: 'Closed', turn: null, version: 1 })),
         );
         await flushPicks([]);
         await flushQueueAndPlan({

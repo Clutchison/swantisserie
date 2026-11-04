@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { DraftView, PickView, PlanView } from 'contract';
+import type { PickView, PlanView } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -17,6 +17,7 @@ import {
   flushQueueAndPlan,
   completeSnapshot,
   expectLoadingAnimation,
+  type DraftFixture,
 } from './harness';
 
 useDraftsApp();
@@ -49,7 +50,7 @@ describe('export tab', () => {
   /** Opens the draft, Bob then Alice, on the Export tab. */
   async function openExport(
     picks: PickView[],
-    fields: Partial<DraftView> = {},
+    fields: DraftFixture = {},
     options: Parameters<typeof openDraft>[2] = {},
   ) {
     const opened = await openDraft(
@@ -266,7 +267,7 @@ describe('export tab', () => {
         lost: [],
       };
 
-      const openPlanExport = (fields: Partial<DraftView> = {}, yours = plan) =>
+      const openPlanExport = (fields: DraftFixture = {}, yours = plan) =>
         openExport(yourPicks, fields, { plan: yours });
 
       it('copies it for Arena: the mainboard and its basics, then the sideboard, without unpicked cards', async () => {

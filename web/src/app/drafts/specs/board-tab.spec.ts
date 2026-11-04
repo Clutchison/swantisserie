@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { DraftView, PickView } from 'contract';
+import type { PickView } from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -14,6 +14,7 @@ import {
   flushPool,
   completeSnapshot,
   expectLoadingAnimation,
+  type DraftFixture,
 } from './harness';
 
 useDraftsApp();
@@ -58,7 +59,7 @@ describe('board tab', () => {
     },
   ];
 
-  async function openBoard(picks: PickView[], fields: Partial<DraftView> = {}) {
+  async function openBoard(picks: PickView[], fields: DraftFixture = {}) {
     const opened = await openDraft(
       completeSnapshot,
       {

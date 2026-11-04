@@ -154,7 +154,7 @@
             [offerQueue]="offerQueue()"
             [offerPlanChange]="offerPlanChange()"
             [yourTurn]="yourTurn()"
-            [turnPick]="draft.turn?.pick ?? null"
+            [turnPick]="turn()?.pick ?? null"
             (pickMade)="showDraft($event)"
             (draftStale)="catchUp()"
             (queueChanged)="queueResource.set($event)"

@@ -1,6 +1,6 @@
 import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import { By } from '@angular/platform-browser';
-import type { DraftView, PlannedBasicView, PlanView } from 'contract';
+import type { PlannedBasicView, PlanView } from 'contract';
 import {
   useDraftsApp,
   alicePlayer,
@@ -13,6 +13,7 @@ import {
   button,
   viewOn,
   type AppFixture,
+  type DraftFixture,
 } from './harness';
 import { card, useTallScreen, shivan } from './pool-tab-harness';
 
@@ -21,7 +22,7 @@ useTallScreen();
 
 describe('basic lands on the plan tab', () => {
   /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
     state: 'Drafting',
     players: [alicePlayer, bob],
     turn: { pick: 3, round: 2, playerId: bob.id },

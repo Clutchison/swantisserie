@@ -1,4 +1,4 @@
-import type { DraftView, PlanView, QueueRefusal, QueueView } from 'contract';
+import type { PlanView, QueueRefusal, QueueView } from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -11,6 +11,7 @@ import {
   completeSnapshot,
   button,
   type AppFixture,
+  type DraftFixture,
 } from './harness';
 import { card, shivan } from './pool-tab-harness';
 import { EMPTY_QUEUE } from '../drafts';
@@ -19,7 +20,7 @@ useDraftsApp();
 
 describe('queueing the unpicked cards on the plan tab', () => {
   /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: Partial<DraftView> = {}): Partial<DraftView> => ({
+  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
     state: 'Drafting',
     players: [alicePlayer, bob],
     turn: { pick: 2, round: 1, playerId: bob.id },
