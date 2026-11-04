@@ -31,7 +31,7 @@ import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
-import { type Grouping, stacks } from './plan-stacks';
+import { type Grouping, sideboardStack, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { manaSymbol } from './mana-cost';
 
@@ -193,7 +193,11 @@ export class PlanTab {
     return byId as ReadonlyMap<string, PoolCardView>;
   });
 
-  /** The mainboard, then the sideboard, each as its lines and counts, and its stacks when showing them. */
+  /**
+   * The mainboard, then the sideboard, each as its lines and counts, and its
+   * stacks when showing them: the mainboard's by the grouping, the sideboard's
+   * always one.
+   */
   protected readonly boards = computed(() =>
     (['Mainboard', 'Sideboard'] as const).map((board) => {
       const { cards, ...rest } = BOARDS[board];
@@ -208,10 +212,16 @@ export class PlanTab {
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
-        stacks: this.showingStacks() ? stacks(held, this.grouping(), this.cardsById()) : [],
+        stacks: this.showingStacks()
+          ? boardStacks(board, held, this.grouping(), this.cardsById())
+          : [],
+        // The sideboard is one stack, which its board heading names.
+        showsStackHeaders: board === 'Mainboard',
       };
     }),
   );
+  /** How many stacks the mainboard shows, for the stacks' shared width. */
+  protected readonly mainboardStackCount = computed(() => this.boards()[0].stacks.length);
 
   /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
   protected readonly basics = computed(() =>
@@ -442,6 +452,17 @@ function rememberedChoice(): PlanChoice {
 const isMode = (value: unknown): value is PlanMode => MODES.includes(value as PlanMode);
 const isGrouping = (value: unknown): value is Grouping =>
   GROUPINGS.some((option) => option.grouping === value);
+
+/** A board's stacks: the mainboard's by the grouping, the sideboard's always one, if it holds any cards. */
+function boardStacks(
+  board: PlanBoard,
+  cards: BoardCard[],
+  grouping: Grouping,
+  cardsById: ReadonlyMap<string, PoolCardView>,
+) {
+  if (board === 'Mainboard') return stacks(cards, grouping, cardsById);
+  return cards.length > 0 ? [sideboardStack(cards, cardsById)] : [];
+}
 
 /**
  * One line per distinct name, picked, unpicked and basic copies apart, in

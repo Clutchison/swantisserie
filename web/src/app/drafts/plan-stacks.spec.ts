@@ -1,6 +1,6 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
 import { describe, expect, it } from 'vitest';
-import { stacks } from './plan-stacks';
+import { sideboardStack, stacks } from './plan-stacks';
 import { card } from './specs/pool-tab-harness';
 
 describe('plan stacks', () => {
@@ -224,6 +224,38 @@ describe('plan stacks', () => {
     expect(stack.cards.map((c) => [c.poolCardId, c.picked])).toEqual([
       ['bolt', false],
       ['shivan', true],
+    ]);
+  });
+
+  it('makes the sideboard one stack, by mana value then name, with lands last by name', () => {
+    const forest = card({
+      id: 'forest',
+      name: 'Forest',
+      manaValue: 0,
+      colors: [],
+      typeLine: 'Basic Land — Forest',
+    });
+    const elemental = card({
+      id: 'elemental',
+      name: 'Air Elemental',
+      manaValue: 5,
+      colors: ['U'],
+      typeLine: 'Creature — Elemental',
+    });
+    const cards = [mountain, ulamog, forest, shivan, elemental, bolt];
+
+    expect(
+      sideboardStack(
+        cards.map((c) => planned(c, c !== bolt)),
+        pool(...cards),
+      ).cards.map((c) => [c.name, c.picked]),
+    ).toEqual([
+      ['Lightning Bolt', false],
+      ['Air Elemental', true],
+      ['Shivan Dragon', true],
+      ['Ulamog, the Ceaseless Hunger', true],
+      ['Forest', true],
+      ['Mountain', true],
     ]);
   });
 

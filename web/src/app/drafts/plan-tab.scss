@@ -110,7 +110,7 @@ ul {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
   container-type: inline-size;
 
-  /* In List mode, as wide as the Queue and Export tabs on desktop, where the draft page sets it; below that, the full width. An empty board in stacks mode keeps the full width. */
+  /* In List mode, as wide as the Queue and Export tabs on desktop, where the draft page sets it; below that, the full width. An empty mainboard in stacks mode keeps the full width. */
   &.capped {
     max-width: var(--capped-tab-width, none);
   }
@@ -181,6 +181,48 @@ ul {
 /* A list item lays out as a row, so this fills it for the animation to centre. */
 .empty app-loading-animation {
   flex: 1;
+}
+
+/*
+ * In stacks mode, the mainboard on the left and the sideboard on the right, past a divider.
+ * Every stack, the sideboard's one included, takes an equal share of the width, between
+ * 5.5rem and 10rem; the mainboard's stacks scroll sideways past what fits, and the
+ * sideboard stays put.
+ * The width they share is the whole less the gaps between the mainboard's stacks, the gap and
+ * padding either side of the divider, and the divider's 1px.
+ */
+.side-by-side {
+  --stack-width: clamp(
+    5.5rem,
+    (100cqw - (var(--mainboard-stacks) - 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
+      (var(--mainboard-stacks) + 1),
+    10rem
+  );
+  container-type: inline-size;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+
+  .plan-board:first-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Stretched to the mainboard's height, so the divider runs the length of both boards. Content-box, as everywhere here: its stack takes the width, and the padding and divider sit outside it. */
+  .plan-board:last-child {
+    align-self: stretch;
+    flex: none;
+    width: var(--stack-width);
+    padding-inline-start: var(--space-md);
+    border-inline-start: 1px solid var(--color-divider);
+  }
+
+  .stack {
+    flex: none;
+    width: var(--stack-width);
+    min-width: 0;
+    max-width: none;
+  }
 }
 
 /* The stacks share the width; past what fits, they scroll sideways. */

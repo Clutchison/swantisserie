@@ -83,8 +83,13 @@
     Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
   </button>
 </div>
-<!-- On desktop, a card dragged from one board's drop list onto the other's moves there. -->
-<div cdkDropListGroup>
+<!-- On desktop, a card dragged from one board's drop list onto the other's moves there. In stacks mode the boards sit side by side, every stack as wide as the others. -->
+<div
+  class="boards"
+  [class.side-by-side]="showingStacks()"
+  [style.--mainboard-stacks]="mainboardStackCount()"
+  cdkDropListGroup
+>
   @for (board of boards(); track board.name) {
     <section class="plan-board">
       <h3>{{ board.name }} {{ board.count }} ({{ board.picked }} picked)</h3>
@@ -100,10 +105,12 @@
         >
           @for (stack of board.stacks; track stack.name) {
             <div class="stack">
-              <h4>
-                <span class="stack-name">{{ stack.name }}</span>
-                <span class="count">{{ stack.cards.length }}</span>
-              </h4>
+              @if (board.showsStackHeaders) {
+                <h4>
+                  <span class="stack-name">{{ stack.name }}</span>
+                  <span class="count">{{ stack.cards.length }}</span>
+                </h4>
+              }
               <ul>
                 @for (card of stack.cards; track card.poolCardId) {
                   @let poolCard = cardsById().get(card.poolCardId);
