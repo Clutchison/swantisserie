@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import request from 'supertest';
+import { DraftNotifier } from '../../discord/draft-notifier.js';
 import {
   aliceCookie,
   app,
@@ -56,7 +57,7 @@ describe('shutting down', () => {
       );
     });
 
-    it('finishes one still being retried', async () => {
+    it('finishes an announcement still being retried', async () => {
       const errors = vi.spyOn(Logger.prototype, 'error');
       let posted = false;
       webhookClient.post
@@ -75,7 +76,7 @@ describe('shutting down', () => {
       expect(errors).not.toHaveBeenCalled();
     });
 
-    it('posts one for a request that finishes as the server closes', async () => {
+    it('posts the announcement of a request that finishes as the server closes', async () => {
       const errors = vi.spyOn(Logger.prototype, 'error');
       await start(id).expect(200);
       const shock = (await poolCardIds(id)).Shock;
@@ -101,6 +102,32 @@ describe('shutting down', () => {
         webhookUrl,
         expect.anything(),
       );
+      expect(errors).not.toHaveBeenCalled();
+    });
+
+    it('posts an announcement queued while it waits for the others', async () => {
+      const errors = vi.spyOn(Logger.prototype, 'error');
+      const notifier = app.get(DraftNotifier);
+      let hookStarted!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        hookStarted = resolve;
+      });
+      const hook = notifier.onApplicationShutdown.bind(notifier);
+      vi.spyOn(notifier, 'onApplicationShutdown').mockImplementation(() => {
+        hookStarted();
+        return hook();
+      });
+      // The start's post queues a pause once shutdown is waiting on it.
+      webhookClient.post.mockImplementationOnce(async () => {
+        await waiting;
+        void notifier.notify(id, [{ type: 'paused' }]);
+      });
+      await start(id).expect(200);
+      await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+
+      await app.close();
+
+      expect(webhookClient.post).toHaveBeenCalledTimes(2);
       expect(errors).not.toHaveBeenCalled();
     });
   });
