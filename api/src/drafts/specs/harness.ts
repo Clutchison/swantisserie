@@ -64,10 +64,13 @@ export function waitForBotPicks<T>(
  * each retry of a bot's failed pick: two retries at once, unless told
  * otherwise.
  */
-export async function startApp(
+export async function startApp({
   botDelayMs = 0,
-  botRetryDelaysMs: readonly number[] = [0, 0],
-) {
+  botRetryDelaysMs = [0, 0],
+}: {
+  botDelayMs?: number;
+  botRetryDelaysMs?: readonly number[];
+} = {}) {
   await startTestApp({
     overrides: [
       { provide: BotPickDelay, useValue: new BotPickDelay(botDelayMs) },
@@ -157,21 +160,32 @@ export function allOnArena(poolQuery: string) {
   });
 }
 
+/**
+ * A request to `path` under `/api/drafts` as the player signed in with
+ * `cookie`, sending `body` when there is one.
+ */
+function drafts(
+  method: 'get' | 'post' | 'put' | 'delete',
+  path: string,
+  cookie: string,
+  body?: unknown,
+) {
+  const req = request(app.getHttpServer())
+    [method](`/api/drafts${path}`)
+    .set('Cookie', cookie);
+  return body === undefined ? req : req.send(body as object);
+}
+
 export function createDraft(body: object, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .post('/api/drafts')
-    .set('Cookie', cookie)
-    .send(body);
+  return drafts('post', '', cookie, body);
 }
 
 export function listDrafts(cookie = aliceCookie) {
-  return request(app.getHttpServer()).get('/api/drafts').set('Cookie', cookie);
+  return drafts('get', '', cookie);
 }
 
 export function getDraft(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .get(`/api/drafts/${id}`)
-    .set('Cookie', cookie);
+  return drafts('get', `/${id}`, cookie);
 }
 
 /** The draft once its snapshot has finished, one way or the other. */
@@ -202,38 +216,27 @@ export async function copyIds(id: string): Promise<Record<string, string[]>> {
 
 /** The draft's pool. */
 export function pool(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .get(`/api/drafts/${id}/pool`)
-    .set('Cookie', cookie);
+  return drafts('get', `/${id}/pool`, cookie);
 }
 
 /** Joins the draft as the signed-in player. */
 export function join(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/players`)
-    .set('Cookie', cookie);
+  return drafts('post', `/${id}/players`, cookie);
 }
 
 /** Leaves the draft as the signed-in player. */
 export function leave(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .delete(`/api/drafts/${id}/players/me`)
-    .set('Cookie', cookie);
+  return drafts('delete', `/${id}/players/me`, cookie);
 }
 
 /** Adds a bot to the draft; only app admins, such as Carol, may. */
 export function addBot(id: string, cookie: string) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/bots`)
-    .set('Cookie', cookie);
+  return drafts('post', `/${id}/bots`, cookie);
 }
 
 /** Sets the draft's seat order to `userIds`. */
 export function setSeats(id: string, userIds: unknown, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .put(`/api/drafts/${id}/seats`)
-    .set('Cookie', cookie)
-    .send({ userIds });
+  return drafts('put', `/${id}/seats`, cookie, { userIds });
 }
 
 /** Imports the picks in `csv`, its players seated as `userIds` lists. */
@@ -243,17 +246,11 @@ export function importPicks(
   userIds: unknown,
   cookie = aliceCookie,
 ) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/pick-import`)
-    .set('Cookie', cookie)
-    .send({ csv, userIds });
+  return drafts('post', `/${id}/pick-import`, cookie, { csv, userIds });
 }
 
 export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/picks`)
-    .set('Cookie', cookie)
-    .send({ poolCardId });
+  return drafts('post', `/${id}/picks`, cookie, { poolCardId });
 }
 
 /** Undoes the draft's pick `number`, by default as the organizer, Alice. */
@@ -262,45 +259,30 @@ export function undo(
   number: number | string,
   cookie = aliceCookie,
 ) {
-  return request(app.getHttpServer())
-    .delete(`/api/drafts/${id}/picks/${number}`)
-    .set('Cookie', cookie);
+  return drafts('delete', `/${id}/picks/${number}`, cookie);
 }
 
 export function queue(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .get(`/api/drafts/${id}/queue`)
-    .set('Cookie', cookie);
+  return drafts('get', `/${id}/queue`, cookie);
 }
 
 export function enqueue(id: string, poolCardId: unknown, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/queue`)
-    .set('Cookie', cookie)
-    .send({ poolCardId });
+  return drafts('post', `/${id}/queue`, cookie, { poolCardId });
 }
 
 /** Adds the unpicked cards in the player's plan to the end of their queue. */
 export function queueUnpicked(id: string, body: unknown, cookie: string) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/queue/unpicked`)
-    .set('Cookie', cookie)
-    .send(body as object);
+  return drafts('post', `/${id}/queue/unpicked`, cookie, body);
 }
 
 /** Posts to the draft's `action` route. */
 export function post(id: string, action: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/${action}`)
-    .set('Cookie', cookie);
+  return drafts('post', `/${id}/${action}`, cookie);
 }
 
 /** The draft's pick log, as the API answers with it: with 200, unless told otherwise. */
 export function pickLog(id: string, status = 200) {
-  return request(app.getHttpServer())
-    .get(`/api/drafts/${id}/picks`)
-    .set('Cookie', aliceCookie)
-    .expect(status);
+  return drafts('get', `/${id}/picks`, aliceCookie).expect(status);
 }
 
 /**
@@ -414,16 +396,12 @@ export async function readyDraftWithCopies(
 }
 
 export function start(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/start`)
-    .set('Cookie', cookie);
+  return drafts('post', `/${id}/start`, cookie);
 }
 
 /** Dismisses the player's Queue notice. */
 export function dismissNotice(id: string, cookie = aliceCookie) {
-  return request(app.getHttpServer())
-    .delete(`/api/drafts/${id}/queue/notice`)
-    .set('Cookie', cookie);
+  return drafts('delete', `/${id}/queue/notice`, cookie);
 }
 
 /** Sets the player's steal behavior in the draft. */
@@ -432,17 +410,14 @@ export function setStealBehavior(
   behavior: unknown,
   cookie = aliceCookie,
 ) {
-  return request(app.getHttpServer())
-    .put(`/api/drafts/${id}/queue/steal-behavior`)
-    .set('Cookie', cookie)
-    .send({ stealBehavior: behavior });
+  return drafts('put', `/${id}/queue/steal-behavior`, cookie, {
+    stealBehavior: behavior,
+  });
 }
 
 /** The player's plan in the draft. */
 export function plan(id: string, cookie: string) {
-  return request(app.getHttpServer())
-    .get(`/api/drafts/${id}/plan`)
-    .set('Cookie', cookie);
+  return drafts('get', `/${id}/plan`, cookie);
 }
 
 /** Moves a card in the player's plan to `board`. */
@@ -452,32 +427,22 @@ export function movePlanned(
   board: unknown,
   cookie: string,
 ) {
-  return request(app.getHttpServer())
-    .put(`/api/drafts/${id}/plan/${poolCardId}`)
-    .set('Cookie', cookie)
-    .send({ board });
+  return drafts('put', `/${id}/plan/${poolCardId}`, cookie, { board });
 }
 
 /** Adds an unpicked copy of a pool card to the player's plan. */
 export function addToPlan(id: string, poolCardId: unknown, cookie: string) {
-  return request(app.getHttpServer())
-    .post(`/api/drafts/${id}/plan`)
-    .set('Cookie', cookie)
-    .send({ poolCardId });
+  return drafts('post', `/${id}/plan`, cookie, { poolCardId });
 }
 
 /** Takes an unpicked card out of the player's plan. */
 export function removeFromPlan(id: string, poolCardId: string, cookie: string) {
-  return request(app.getHttpServer())
-    .delete(`/api/drafts/${id}/plan/${poolCardId}`)
-    .set('Cookie', cookie);
+  return drafts('delete', `/${id}/plan/${poolCardId}`, cookie);
 }
 
 /** Dismisses the player's Plan notice. */
 export function dismissPlanNotice(id: string, cookie: string) {
-  return request(app.getHttpServer())
-    .delete(`/api/drafts/${id}/plan/notice`)
-    .set('Cookie', cookie);
+  return drafts('delete', `/${id}/plan/notice`, cookie);
 }
 
 /** Sets how many copies of a basic land the player's mainboard holds. */
@@ -487,15 +452,10 @@ export function setBasic(
   count: unknown,
   cookie: string,
 ) {
-  return request(app.getHttpServer())
-    .put(`/api/drafts/${id}/plan/basics/${land}`)
-    .set('Cookie', cookie)
-    .send({ count });
+  return drafts('put', `/${id}/plan/basics/${land}`, cookie, { count });
 }
 
 /** Takes every basic land out of the player's plan. */
 export function clearBasics(id: string, cookie: string) {
-  return request(app.getHttpServer())
-    .delete(`/api/drafts/${id}/plan/basics`)
-    .set('Cookie', cookie);
+  return drafts('delete', `/${id}/plan/basics`, cookie);
 }

@@ -167,7 +167,7 @@ describe('bot players', () => {
 
   it('does nothing when its timer fires after the turn has moved on', async () => {
     await app.close();
-    await startApp(100);
+    await startApp({ botDelayMs: 100 });
     await signInAlice();
     const { id, botIds } = await draftWithBots(1, 2);
     await start(id).expect(200);
@@ -198,7 +198,7 @@ describe('bot players', () => {
 
   it('does nothing when its timer fires while the draft is paused, and picks once it resumes', async () => {
     await app.close();
-    await startApp(100);
+    await startApp({ botDelayMs: 100 });
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
@@ -222,7 +222,7 @@ describe('bot players', () => {
 
   it('does nothing when its timer fires while the draft is closed, and picks once it reopens', async () => {
     await app.close();
-    await startApp(100);
+    await startApp({ botDelayMs: 100 });
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
@@ -268,7 +268,7 @@ describe('bot players', () => {
   it('picks after a restart that left it its turn', async () => {
     await app.close();
     // Too slow to pick before the restart.
-    await startApp(60_000);
+    await startApp({ botDelayMs: 60_000 });
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
@@ -299,7 +299,7 @@ describe('bot players', () => {
     await app.close();
 
     // Too slow for the second bot to pick before the check below.
-    await startApp(60_000);
+    await startApp({ botDelayMs: 60_000 });
     expect(
       (await pickLog(id)).body.map(
         (logged: { playerId: string }) => logged.playerId,
@@ -357,7 +357,7 @@ describe('bot players', () => {
 
     it('still schedules the next bot when telling the world about its pick fails', async () => {
       await app.close();
-      await startApp(100);
+      await startApp({ botDelayMs: 100 });
       await signInAlice();
       vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
       const { id, botIds } = await draftWithBots(2);
@@ -379,7 +379,7 @@ describe('bot players', () => {
 
     it('does not retry a turn that something else rescheduled while it failed', async () => {
       await app.close();
-      await startApp(100, [0]);
+      await startApp({ botDelayMs: 100, botRetryDelaysMs: [0] });
       await signInAlice();
       vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
       const { id } = await draftWithBots(1, 2);
@@ -409,7 +409,7 @@ describe('bot players', () => {
 
     it('cancels a retry waiting on its delay when the app shuts down', async () => {
       await app.close();
-      await startApp(0, [200]);
+      await startApp({ botRetryDelaysMs: [200] });
       await signInAlice();
       const errors = vi.spyOn(Logger.prototype, 'error');
       const warnings = vi
@@ -429,7 +429,7 @@ describe('bot players', () => {
       expect(botPick).toHaveBeenCalledTimes(1);
       expect(errors).not.toHaveBeenCalled();
       // Too slow for the bot to pick before the check below.
-      await startApp(60_000);
+      await startApp({ botDelayMs: 60_000 });
       expect(
         (await pickLog(id)).body.map(
           (logged: { playerId: string }) => logged.playerId,
