@@ -4,6 +4,8 @@
  * rounding them away shows the card's own shape; nothing else is cut.
  */
 $card-corners: #{4.75% / 3.5%};
+/* How far a card is darkened to set it apart: a picked card here, an unpicked one in the Plan tab's stacks. */
+$dimmed-card: brightness(0.35);
 
 /* Sits inside the draft page, which has the padding. */
 :host {
@@ -159,7 +161,7 @@ $card-corners: #{4.75% / 3.5%};
 
 /* A picked card stays in the grid, dimmed and labelled. Still opaque, so the name stays hidden behind it. */
 .tile.picked > img {
-  filter: brightness(0.35);
+  filter: $dimmed-card;
 }
 
 .badge {
