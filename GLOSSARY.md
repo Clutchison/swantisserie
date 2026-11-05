@@ -304,6 +304,10 @@ _Avoid_: Onboarding, install, registration
 A named Discord channel destination that an app admin or guild admin registers by hand for one guild. An app admin or guild admin can switch a draft's announcements to one of its guild's webhooks, or back to its draft channel, at any time. Its URL is secret: only app admins and its guild's admins see it.
 _Avoid_: Channel, hook, integration
 
+**Webhook registry**:
+The webhooks registered for a guild. App admins and guild admins add, rename and remove its webhooks.
+_Avoid_: Webhook list, webhook settings
+
 **Draft channel**:
 The Discord channel the app creates for a draft along with the draft, where the draft's announcements go unless they are switched to a webhook. It belongs to its draft, and no other draft can use it.
 _Avoid_: Draft chat, draft webhook, room
