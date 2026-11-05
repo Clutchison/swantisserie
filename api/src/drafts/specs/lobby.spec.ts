@@ -10,6 +10,8 @@ import {
   allOnArena,
   createDraft,
   getDraft,
+  readyDraft,
+  start,
   join,
   leave,
   addBot,
@@ -64,21 +66,18 @@ describe('lobby', () => {
   });
 
   it('refuses joining or leaving once the draft has started', async () => {
-    const id = await lobbyDraft();
-    await join(id).expect(201);
-    const bobCookie = await signIn(bob);
-    await app
-      .get(PrismaService)
-      .draft.update({ where: { id }, data: { state: 'Drafting' } });
+    const id = await readyDraft([aliceCookie, await signIn(bob)]);
+    await start(id).expect(200);
+    const carolCookie = await signIn(carol);
 
-    const refused = await join(id, bobCookie).expect(409);
+    const refused = await join(id, carolCookie).expect(409);
     expect(refused.body).toEqual({
       error: 'draft-started',
       message: 'This draft has started.',
     });
     await leave(id).expect(409);
     const draft = await getDraft(id).expect(200);
-    expect(draft.body.players).toEqual([player(alice)]);
+    expect(draft.body.players).toEqual([player(alice), player(bob)]);
   });
 
   it('is 404 for a draft that does not exist', async () => {
@@ -174,20 +173,20 @@ describe('lobby', () => {
     });
 
     it('refuses adding or removing bots once the draft has started', async () => {
-      const id = await lobbyDraft();
+      // Alice is seated first, so the bot has no turn yet.
+      const id = await readyDraft([aliceCookie]);
       const added = await addBot(id, carolCookie).expect(201);
-      await app
-        .get(PrismaService)
-        .draft.update({ where: { id }, data: { state: 'Drafting' } });
+      await start(id).expect(200);
 
       await addBot(id, carolCookie).expect(409);
       const refused = await removeBot(
         id,
-        added.body.players[0].id,
+        added.body.players[1].id,
         carolCookie,
       ).expect(409);
       expect(refused.body.error).toBe('draft-started');
       expect((await getDraft(id).expect(200)).body.players).toEqual([
+        player(alice),
         bot('Bot 1'),
       ]);
     });

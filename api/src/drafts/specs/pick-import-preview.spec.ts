@@ -1,14 +1,15 @@
-import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   useDraftsApp,
   signIn,
   getDraft,
   readyDraft,
+  draftWithRunningSnapshot,
+  snapshotted,
+  page,
   start,
   pickLog,
   previewPickImport,
@@ -93,14 +94,14 @@ describe('pick import preview', () => {
   });
 
   it('refuses until the pool snapshot is complete', async () => {
-    const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
-    await app
-      .get(PrismaService)
-      .draft.update({ where: { id }, data: { snapshotState: 'Running' } });
+    const { id, answer } = await draftWithRunningSnapshot();
 
     const refused = await previewPickImport(id, csv).expect(409);
 
     expect(refused.body.error).toBe('pool-not-ready');
+    // Shutting down waits for the snapshot, so let it finish.
+    answer.resolve(page('Lightning Bolt'));
+    await snapshotted(id);
   });
 
   it('refuses a draft that fails the start checks', async () => {
