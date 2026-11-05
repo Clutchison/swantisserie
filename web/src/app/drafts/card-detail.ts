@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   Injectable,
@@ -108,6 +109,7 @@ export class CardDetail {
   private readonly images = inject(CardImageSource);
   private readonly requests = inject(CardDetailRequests);
   private readonly dialogRef = inject<DialogRef<CardDetailResult>>(DialogRef);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly card = input.required<PoolCardView>();
   readonly actions = input.required<CardDetailActions>();
@@ -232,11 +234,13 @@ export class CardDetail {
 
   protected async removeFromPlan() {
     if (
-      await this.changePlan(
+      (await this.changePlan(
         this.planApi.remove(this.store.id(), this.card().id),
         'Removed from your plan.',
         "Couldn't remove the card from your plan. Try again in a moment.",
-      )
+      )) &&
+      // It may have closed while the removal was on its way.
+      !this.destroyRef.destroyed
     ) {
       this.removedFromPlan.emit();
     }

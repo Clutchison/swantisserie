@@ -314,6 +314,22 @@ describe('pool tab', () => {
       expect(detail.querySelector('[role="status"]')).toBeNull();
     });
 
+    it('succeeds after its Card detail has closed without a warning, and the card is no longer planned', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        plan: planned(shivan.id),
+      });
+      const warn = vi.spyOn(console, 'warn');
+
+      button(await openDetail(fixture, page, 0), 'Remove from Plan')!.click();
+      button(openDialog()!, 'Close')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(EMPTY_PLAN);
+      await fixture.whenStable();
+
+      expect(warn).not.toHaveBeenCalled();
+      expect(button(await openDetail(fixture, page, 0), 'Add to Plan')!.disabled).toBe(false);
+    });
+
     it('says why a removal was refused, and re-reads the plan and the draft', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
