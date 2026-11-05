@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import type { PickView, PlayerView, PoolCardView } from 'contract';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import type { PlayerView } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { CardName } from './card-name';
+import { DraftStore } from './draft-store';
 
 /** The draft view's Board tab: every player's picks, in seat order, and the pick log. */
 @Component({
@@ -12,16 +13,18 @@ import { CardName } from './card-name';
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './board-tab.scss'],
 })
 export class BoardTab {
+  private readonly store = inject(DraftStore);
+
   /** The draft's players, in seat order. */
-  readonly players = input.required<PlayerView[]>();
+  private readonly players = computed(() => this.store.shown().players);
   /** The pick log, in pick order. */
-  readonly picks = input.required<PickView[]>();
+  protected readonly picks = this.store.picks.value;
   /** The pool's cards by id, for the Card previews of the names here. */
-  readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
+  protected readonly poolCardsById = this.store.poolCardsById;
   /** Whether the picks are still on their way. */
-  readonly loading = input(false);
-  /** Whether the picks couldn't be loaded. */
-  readonly failed = input(false);
+  protected readonly loading = this.store.picks.loading;
+  /** Whether the picks couldn't be loaded. A failed re-read keeps the last ones loaded. */
+  protected readonly failed = this.store.picks.missing;
 
   /** Each player, in seat order, with their picks in pick order. */
   protected readonly board = computed(() =>
@@ -31,8 +34,8 @@ export class BoardTab {
     })),
   );
 
-  /** A player, by their id. */
-  protected player(id: string): PlayerView | undefined {
-    return this.players().find((player) => player.id === id);
+  /** A player, by their id; "another player" for one no longer in the draft. */
+  protected player(id: string): PlayerView {
+    return this.store.player(id);
   }
 }

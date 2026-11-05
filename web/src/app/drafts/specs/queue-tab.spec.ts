@@ -239,7 +239,40 @@ describe('queue tab', () => {
     expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
   });
 
-  it('offers Add to queue and the Queue tab only to players', async () => {
+  it.each([
+    ['Complete', 'draft-complete'],
+    ['Closed', 'draft-closed'],
+  ] as const)(
+    'is read-only once the draft is %s, as the api refuses every queue change with `%s`',
+    async (state, _refusal) => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ state, turn: null }), {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const queue = await openQueue(fixture, page);
+
+      expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
+      expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
+      expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ['in the lobby', drafting({ state: 'Lobby', turn: null })],
+    ['while paused', drafting({ state: 'Paused' })],
+    ['while drafting', drafting()],
+  ])('can be changed %s, as the api allows', async (_, fields) => {
+    const { fixture, page } = await openDraft(completeSnapshot, fields, {
+      cards: [brightclimb, shivan],
+      queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+    });
+    const queue = await openQueue(fixture, page);
+
+    expect(button(queue, 'Remove Shivan Dragon')!.disabled).toBe(false);
+    expect(button(queue, 'Move Shivan Dragon down')!.disabled).toBe(false);
+  });
+
+  it('offers Add to queue and the Queue tab only to players, as the api refuses anyone else with `not-a-player`', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
       cards: [shivan],
     });

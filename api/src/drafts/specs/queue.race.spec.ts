@@ -80,7 +80,7 @@ describeRaces('queue changes against a cascade', () => {
     expect(await pickLogLines(id)).toEqual(throughBobsSecond);
   });
 
-  it('reorders a queue to put first the card the cascade then picks, or is refused once the cascade has picked', async () => {
+  it('reorders a queue to put first the card the cascade then picks, or is refused once the cascade has completed the draft', async () => {
     const { id, ids } = await bobsSecondTurn([...fourCards, 'Fireblast']);
     await enqueue(id, ids['Skewer the Critics']).expect(200);
     await enqueue(id, ids.Fireblast).expect(200);
@@ -97,7 +97,8 @@ describeRaces('queue changes against a cascade', () => {
         queue: { cards: ['Skewer the Critics'], lost: [] },
       },
       {
-        reordered: '409 queue-changed',
+        // The cascade's pick is the draft's last, so the reorder finds it complete.
+        reordered: '409 draft-complete',
         log: [...throughBobsSecond, 'Alice: Skewer the Critics'],
         queue: { cards: ['Fireblast'], lost: [] },
       },

@@ -334,6 +334,8 @@ describe('pool tab', () => {
 
         await turnChanges(fixture, { pick: 2, round: 1, playerId: bob.id });
         add.flush(queueOf({ cards: [queued(shivan)] }));
+        // The answer is older than the draft now shown, so the queue is re-read.
+        await flushQueue(queueOf({ cards: [queued(shivan)] }));
         await vi.waitFor(() => {
           TestBed.tick();
           expect(button(detail, 'Remove from queue')).toBeDefined();

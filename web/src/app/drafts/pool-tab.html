@@ -1,6 +1,9 @@
 @if (failed()) {
   <p class="error">Couldn't load the pool's cards. Try reloading the page.</p>
 }
+@if (picksMissing()) {
+  <p class="error">Couldn't load the picks. Try reloading the page.</p>
+}
 <div class="search-bar">
   <div class="search-field">
     <label for="pool-search">Scryfall Search</label>
@@ -141,7 +144,7 @@
             class="button"
             type="button"
             (click)="pick(card)"
-            [disabled]="!yourTurn() || picked().has(card.id) || picking()"
+            [disabled]="!yourTurn() || picksFailed() || picked().has(card.id) || picking()"
           >
             {{ picking() ? 'Picking…' : 'Pick' }}
           </button>
@@ -168,9 +171,9 @@
             </button>
           }
         }
-        @if (offerPlanChange()) {
-          <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
-          @if (planned().has(card.id) && !picked().has(card.id)) {
+        <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
+        @if (planned().has(card.id) && !picked().has(card.id)) {
+          @if (offerRemoveFromPlan()) {
             <button
               class="button secondary"
               type="button"
@@ -179,16 +182,16 @@
             >
               Remove from Plan
             </button>
-          } @else {
-            <button
-              class="button secondary"
-              type="button"
-              (click)="addToPlan(card)"
-              [disabled]="picked().has(card.id) || planning()"
-            >
-              Add to Plan
-            </button>
           }
+        } @else if (offerAddToPlan()) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="addToPlan(card)"
+            [disabled]="picked().has(card.id) || planning()"
+          >
+            Add to Plan
+          </button>
         }
         @if (card.images.length > 1) {
           <button class="button secondary" type="button" (click)="flip()">Flip</button>
@@ -199,6 +202,10 @@
         <p class="note picked-by">
           <app-player-avatar [src]="picker.avatarUrl" />
           Picked by {{ picker.name }}
+        </p>
+      } @else if (offerPick() && picksFailed()) {
+        <p class="note" role="status">
+          Couldn't load the latest picks. You can pick once they load.
         </p>
       } @else if (offerPick() && !yourTurn()) {
         <p class="note">You can pick on your turn.</p>

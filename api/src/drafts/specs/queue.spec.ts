@@ -28,6 +28,8 @@ import {
   waitForBotPicks,
   reorderQueue,
   removeFromQueue,
+  setStealBehavior,
+  queued,
 } from './harness.js';
 
 useDraftsApp();
@@ -639,6 +641,85 @@ describe('queue', () => {
         round: 2,
         playerId: bob.id,
       });
+    });
+  });
+
+  describe('once the draft is no longer active', () => {
+    it('refuses reordering, removing and dismissing the notice in a complete draft, and keeps the queue readable', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie], 1, [
+        ...fourCards,
+        'Fireblast',
+      ]);
+      const ids = await poolCardIds(id);
+      await setStealBehavior(id, 'PickNext', bobCookie).expect(200);
+      for (const name of ['Shock', 'Lava Spike', 'Skewer the Critics']) {
+        await enqueue(id, ids[name], bobCookie).expect(200);
+      }
+      await enqueue(id, ids.Fireblast, bobCookie).expect(200);
+      await start(id).expect(200);
+      // Bob loses Shock, then his queue picks Lava Spike: the draft's last pick.
+      await pick(id, ids.Shock).expect(200);
+      const saved = (await queue(id, bobCookie).expect(200)).body;
+      expect(saved).toMatchObject({
+        cards: [skewer, queued('Fireblast')],
+        lost: [shock],
+      });
+      const refusal = {
+        error: 'draft-complete',
+        message: 'This draft is complete.',
+      };
+
+      expect(
+        (
+          await reorderQueue(
+            id,
+            [ids.Fireblast, ids['Skewer the Critics']],
+            bobCookie,
+          ).expect(409)
+        ).body,
+      ).toEqual(refusal);
+      expect(
+        (await removeFromQueue(id, ids.Fireblast, bobCookie).expect(409)).body,
+      ).toEqual(refusal);
+      expect((await dismissNotice(id, bobCookie).expect(409)).body).toEqual(
+        refusal,
+      );
+      expect((await queue(id, bobCookie).expect(200)).body).toEqual(saved);
+    });
+
+    it('refuses reordering, removing and dismissing the notice in a closed draft, and keeps the queue readable', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
+      const ids = await poolCardIds(id);
+      await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+      await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
+      await start(id).expect(200);
+      await post(id, 'close').expect(200);
+      const saved = (await queue(id, bobCookie).expect(200)).body;
+      expect(saved).toMatchObject({ cards: [spike, skewer] });
+      const refusal = {
+        error: 'draft-closed',
+        message: 'This draft is closed.',
+      };
+
+      expect(
+        (
+          await reorderQueue(
+            id,
+            [ids['Skewer the Critics'], ids['Lava Spike']],
+            bobCookie,
+          ).expect(409)
+        ).body,
+      ).toEqual(refusal);
+      expect(
+        (await removeFromQueue(id, ids['Lava Spike'], bobCookie).expect(409))
+          .body,
+      ).toEqual(refusal);
+      expect((await dismissNotice(id, bobCookie).expect(409)).body).toEqual(
+        refusal,
+      );
+      expect((await queue(id, bobCookie).expect(200)).body).toEqual(saved);
     });
   });
 

@@ -3,7 +3,7 @@
     <svg lucideChevronLeft size="16"></svg>
     Drafts
   </a>
-  @if (loading() && !draft()) {
+  @if (loading()) {
     <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
     <p class="error">Couldn't load this draft. Try reloading the page.</p>
@@ -15,6 +15,11 @@
     </p>
     @if (reconnecting()) {
       <p role="status">Reconnecting…</p>
+    }
+    @if (refreshFailed()) {
+      <p class="detail" role="status">
+        Couldn't refresh this draft. What's shown may be out of date.
+      </p>
     }
 
     <section class="players">
@@ -33,31 +38,11 @@
       @if (draft.state === 'Closed') {
         <p class="closed" role="status">This draft is closed. No picks until it reopens.</p>
       }
-      <app-organizer-controls
-        [draft]="draft"
-        [picks]="picks()"
-        [canOrganize]="canOrganize()"
-        (draftChanged)="showDraft($event)"
-        (draftStale)="catchUp()"
-      />
+      <app-organizer-controls />
       @if (canOrganize()) {
-        <app-webhook-control
-          [draft]="draft"
-          (draftChanged)="showDraft($event)"
-          (draftStale)="catchUp()"
-          (webhookStale)="resource.reload()"
-        />
+        <app-webhook-control />
       }
-      <app-lobby-controls
-        [draft]="draft"
-        [canOrganize]="canOrganize()"
-        [joined]="joined()"
-        (changeStarted)="retryFailed.set(false)"
-        (draftChanged)="resource.set($event)"
-        (picksImported)="showDraft($event)"
-        (draftStale)="resource.reload()"
-        (cancelled)="leaveCancelled()"
-      />
+      <app-lobby-controls (changeStarted)="retryFailed.set(false)" (cancelled)="leaveCancelled()" />
     </section>
 
     <div class="tabs" appTabList aria-label="Draft">
@@ -140,27 +125,7 @@
           @if (queueFailed()) {
             <p class="error">Couldn't load your queue. Try reloading the page.</p>
           }
-          <app-pool-tab
-            [draftId]="draft.id"
-            [visible]="tab() === 'Pool'"
-            [cards]="poolCards()"
-            [loading]="poolLoading()"
-            [failed]="poolFailed()"
-            [picked]="picked()"
-            [queued]="queued()"
-            [planned]="planned()"
-            [offerPick]="offerPick()"
-            [offerQueue]="offerQueue()"
-            [offerPlanChange]="offerPlanChange()"
-            [yourTurn]="yourTurn()"
-            [turnPick]="turn()?.pick ?? null"
-            (pickMade)="showDraft($event)"
-            (draftStale)="catchUp()"
-            (queueChanged)="queueResource.set($event)"
-            (queueStale)="queueResource.reload()"
-            (planChanged)="planResource.set($event)"
-            (planStale)="planResource.reload()"
-          />
+          <app-pool-tab [visible]="tab() === 'Pool'" />
         }
         @case ('Failed') {
           <div class="error" role="alert">
@@ -207,15 +172,7 @@
         <p class="error">Couldn't load your queue. Try reloading the page.</p>
       }
       @if (joined() && !queueFailed()) {
-        <app-queue-tab
-          [draftId]="draft.id"
-          [loading]="queueLoading()"
-          [queue]="queue()"
-          [poolCardsById]="poolCardsById()"
-          [draftState]="draft.state"
-          (queueChanged)="queueResource.set($event)"
-          (queueStale)="queueResource.reload()"
-        />
+        <app-queue-tab />
       } @else if (!joined()) {
         <p class="empty">Only players have a queue.</p>
       }
@@ -233,19 +190,7 @@
         <p class="error">Couldn't load your plan. Try reloading the page.</p>
       }
       @if (joined() && !planFailed()) {
-        <app-plan-tab
-          [draftId]="draft.id"
-          [loading]="planLoading()"
-          [plan]="plan()"
-          [poolCardsById]="poolCardsById()"
-          [players]="draft.players"
-          [queued]="queued()"
-          [offerQueueUnpicked]="offerQueue() && !yourTurn()"
-          (planChanged)="planResource.set($event)"
-          (planStale)="planResource.reload()"
-          (queueChanged)="queueResource.set($event)"
-          (queueStale)="queueResource.reload()"
-        />
+        <app-plan-tab />
       } @else if (!joined()) {
         <p class="empty">Only players have a plan.</p>
       }
@@ -259,13 +204,7 @@
       [hidden]="tab() !== 'Board'"
     >
       <h2>Board</h2>
-      <app-board-tab
-        [players]="draft.players"
-        [picks]="picks()"
-        [poolCardsById]="poolCardsById()"
-        [loading]="picksLoading()"
-        [failed]="picksFailed()"
-      />
+      <app-board-tab />
     </section>
 
     <!-- Only players have picks to export. -->
@@ -277,17 +216,7 @@
       [hidden]="tab() !== 'Export'"
     >
       <h2>Export</h2>
-      <app-export-tab
-        [platform]="draft.platform"
-        [player]="ownPlayer()"
-        [plan]="plan()"
-        [planLoading]="planLoading()"
-        [planFailed]="planFailed()"
-        [picks]="picks()"
-        [poolCardsById]="poolCardsById()"
-        [loading]="picksLoading()"
-        [failed]="picksFailed()"
-      />
+      <app-export-tab />
     </section>
   }
 </main>

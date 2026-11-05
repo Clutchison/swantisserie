@@ -7,8 +7,6 @@ import {
   effect,
   ElementRef,
   inject,
-  input,
-  output,
   signal,
   untracked,
   viewChild,
@@ -22,11 +20,9 @@ import {
   type PlannedBasicView,
   type PlannedCardView,
   type PlanView,
-  type PlayerView,
   type PoolCardView,
-  type QueueView,
 } from 'contract';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { basicCard } from './basic-lands';
 import { CardImageSource } from './card-image-source';
@@ -34,6 +30,7 @@ import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
+import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
@@ -178,29 +175,24 @@ export class PlanTab {
   protected readonly images = inject(CardImageSource);
   protected readonly previews = inject(CardPreviews);
   private readonly changes = inject(Changes);
+  private readonly store = inject(DraftStore);
 
   /** A draft the signed-in user is playing in. */
-  readonly draftId = input.required<string>();
+  private readonly draftId = this.store.id;
   /** The signed-in player's plan. */
-  readonly plan = input.required<PlanView>();
+  protected readonly plan = this.store.plan.value;
   /** The pool's cards by id, for the Card previews of the names here. */
-  readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
-  /** The draft's players, for the names of who picked the lost cards. */
-  readonly players = input.required<readonly PlayerView[]>();
+  private readonly poolCardsById = this.store.poolCardsById;
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
-  readonly loading = input(false);
+  protected readonly loading = this.store.plan.loading;
   /** The pool card ids of the cards in the signed-in player's queue. */
-  readonly queued = input<ReadonlySet<string>>(new Set());
+  private readonly queued = this.store.queued;
+  /** Whether Remove is offered for an unpicked card: for players in every draft state. */
+  protected readonly offerRemoveFromPlan = this.store.offerRemoveFromPlan;
   /** Whether Queue unpicked is offered: as the queue allows adding, so never on the player's own turn. */
-  readonly offerQueueUnpicked = input(false);
-  /** The plan as a change made it. */
-  readonly planChanged = output<PlanView>();
-  /** A change failed, so the plan may have moved on unseen; it should be re-read. */
-  readonly planStale = output<void>();
-  /** The queue as Queue unpicked left it. */
-  readonly queueChanged = output<QueueView>();
-  /** Queue unpicked failed, so the queue may have moved on unseen; it should be re-read. */
-  readonly queueStale = output<void>();
+  protected readonly offerQueueUnpicked = computed(
+    () => this.store.offerQueue() && !this.store.yourTurn(),
+  );
 
   protected readonly changing = this.changes.changing;
   protected readonly error = signal<string | null>(null);
@@ -308,7 +300,7 @@ export class PlanTab {
 
   /** A player's name, by their id; "another player" for one no longer in the draft. */
   protected playerName(id: string): string {
-    return this.players().find((player) => player.id === id)?.name ?? 'another player';
+    return this.store.player(id).name;
   }
 
   constructor() {
@@ -470,20 +462,17 @@ export class PlanTab {
 
   /**
    * Adds the modal's cards to the end of the queue, in one request, and
-   * closes it. A refusal means the queue or turn has moved on: say why, and
-   * re-read the queue.
+   * closes it. A refusal means the queue or turn has moved on: say why; the
+   * store re-reads the queue.
    */
   protected async queueUnpicked() {
     const { includeSideboard } = this.queueDialog()!;
     this.sendingQueue.set(true);
     this.error.set(null);
     try {
-      this.queueChanged.emit(
-        await firstValueFrom(this.queueApi.addUnpicked(this.draftId(), includeSideboard)),
-      );
+      await this.store.changeQueue(this.queueApi.addUnpicked(this.draftId(), includeSideboard));
     } catch (err) {
       this.error.set(changeFailure(err, QUEUE_FAILED));
-      this.queueStale.emit();
     } finally {
       this.sendingQueue.set(false);
       this.closeQueueing();
@@ -493,7 +482,7 @@ export class PlanTab {
   /**
    * Sends the change `send` makes to the plan and shows the plan it answers
    * with, unless another change is in flight. A refused change means the
-   * plan has moved on, e.g. a card was lost: say why, and re-read it.
+   * plan has moved on, e.g. a card was lost: say why; the store re-reads it.
    * Answers whether the change was made. Focus is kept as `Changes.send`
    * keeps it, and a change made says `status`.
    */
@@ -504,11 +493,10 @@ export class PlanTab {
     return this.changes.send(async () => {
       this.error.set(null);
       try {
-        this.planChanged.emit(await firstValueFrom(send()));
+        await this.store.changePlan(send());
         return true;
       } catch (err) {
         this.error.set(changeFailure(err, CHANGE_FAILED));
-        this.planStale.emit();
         return false;
       }
     }, kept);

@@ -5,13 +5,11 @@ import {
   computed,
   effect,
   inject,
-  input,
-  output,
   signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import type { DraftView, WebhookChoiceRequest, WebhookView } from 'contract';
-import { firstValueFrom } from 'rxjs';
+import { DraftStore } from './draft-store';
 import { isRefusal } from './drafts';
 
 /** The organizer's choice of where a draft's announcements are posted, saved as soon as made. */
@@ -25,16 +23,9 @@ import { isRefusal } from './drafts';
 export class WebhookControl {
   private readonly http = inject(HttpClient);
 
-  readonly draft = input.required<DraftView>();
-  /** The draft as the change made it. */
-  readonly draftChanged = output<DraftView>();
-  /** A save was refused, so the draft may have moved on unseen; it should be caught up with. */
-  readonly draftStale = output<void>();
-  /**
-   * The draft's webhook may have changed unseen; only the draft needs
-   * re-reading, not its pick log.
-   */
-  readonly webhookStale = output<void>();
+  private readonly store = inject(DraftStore);
+
+  private readonly draft = this.store.shown;
 
   private readonly webhookResource = httpResource<WebhookView[]>(() => '/api/webhooks');
   protected readonly webhooksFailed = computed(() => !!this.webhookResource.error());
@@ -67,7 +58,8 @@ export class WebhookControl {
    */
   protected catchUp() {
     this.webhookResource.reload();
-    this.webhookStale.emit();
+    // The draft's webhook may have changed unseen: only the draft needs re-reading, not its pick log.
+    this.store.refresh();
   }
 
   /** Saves the webhook just chosen, or goes back to the current one if that fails. */
@@ -76,20 +68,17 @@ export class WebhookControl {
     this.saveError.set(null);
     const failure = "Couldn't change the webhook. Try again in a moment.";
     try {
-      this.draftChanged.emit(
-        await firstValueFrom(
-          this.http.put<DraftView>(`/api/drafts/${this.draft().id}/webhook`, {
-            webhookId: this.choice.value,
-          } satisfies WebhookChoiceRequest),
-        ),
+      await this.store.changeDraft(
+        this.http.put<DraftView>(`/api/drafts/${this.draft().id}/webhook`, {
+          webhookId: this.choice.value,
+        } satisfies WebhookChoiceRequest),
       );
     } catch (err) {
       this.choice.setValue(this.currentId());
       if (isRefusal(err)) {
-        // What was on offer has moved on: show why, and catch up with it.
+        // What was on offer has moved on: show why, and catch up with it; the store catches up with the draft.
         this.saveError.set(err.error?.message ?? failure);
         this.webhookResource.reload();
-        this.draftStale.emit();
       } else {
         this.saveError.set(failure);
       }

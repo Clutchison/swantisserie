@@ -8,6 +8,10 @@ New feature tests go in that feature's spec file. Split any file before it passe
 
 Before writing or editing a web spec, read `docs/agents/web-specs.md`: query by role and name, assert behaviour, flush requests by URL.
 
+## Running tests
+
+The web workspace's vitest worker cap is built in: `web/vitest.config.mts` sets four workers, so run `npm test -w web` (with `-- --include <spec path>` for one spec) and pass no `--maxWorkers`. `ng test` rejects that flag, which also rules out `npm test -- --maxWorkers=4` from the root. The api and engine workspaces still take `--maxWorkers=4`.
+
 ## Agent skills
 
 ### Issue tracker

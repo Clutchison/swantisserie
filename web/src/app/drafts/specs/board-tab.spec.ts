@@ -16,6 +16,8 @@ import {
   expectLoadingAnimation,
   type DraftFixture,
   pickOf,
+  updates,
+  flushQueueAndPlan,
 } from './harness';
 
 useDraftsApp();
@@ -114,6 +116,35 @@ describe('board tab', () => {
     expect(panel(page).textContent).not.toContain('No picks yet');
   });
 
+  it('keeps the pick log it had when a re-read of the picks fails', async () => {
+    const { fixture, page } = await openBoard(picks);
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft({
+        snapshot: completeSnapshot,
+        state: 'Drafting',
+        players: [bob, alicePlayer],
+        turn: { pick: 4, round: 2, playerId: bob.id },
+        version: 1,
+      }),
+    });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(null, {
+      status: 503,
+      statusText: 'Service Unavailable',
+    });
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(panel(page).textContent).not.toContain("Couldn't load the picks.");
+    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
+    expect(log).toEqual([
+      ['1', 'Bob', 'Shock'],
+      ['2', 'Alice', 'Lightning Bolt'],
+      ['3', 'Alice', 'Lava Spike'],
+    ]);
+  });
+
   it('switches between the Pool and Board tabs', async () => {
     const { fixture, page } = await openBoard(picks);
 
@@ -134,6 +165,16 @@ describe('board tab', () => {
       ['1', 'Bob', 'Shock'],
       ['2', 'Alice', 'Lightning Bolt'],
       ['3', 'Alice', 'Lava Spike'],
+    ]);
+  });
+
+  it('names a pick log player who is no longer among the players as another player', async () => {
+    const { page } = await openBoard([{ ...picks[0]!, playerId: 'gone' }, picks[1]!]);
+
+    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
+    expect(log).toEqual([
+      ['1', 'another player', 'Shock'],
+      ['2', 'Alice', 'Lightning Bolt'],
     ]);
   });
 

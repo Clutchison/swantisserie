@@ -48,6 +48,18 @@ describe('seats and start', () => {
     expect(page.textContent).toContain('Your turn: pick 1, round 1');
   });
 
+  it('names a turn whose player is no longer among the players as another player’s', async () => {
+    const { page } = await openDraft(completeSnapshot, {
+      state: 'Drafting',
+      players: [alicePlayer, bob],
+      turn: { pick: 1, round: 1, playerId: 'gone' },
+    });
+
+    expect(section(page, 'Players').textContent?.replace(/\s+/g, ' ')).toContain(
+      'Another player’s turn: pick 1, round 1',
+    );
+  });
+
   it('lets the organizer randomize the seats', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
