@@ -45,7 +45,7 @@
         </p>
       }
       <app-organizer-controls />
-      @if (canOrganize()) {
+      @if (powers().switchAnnouncements) {
         <app-webhook-control />
       }
       <app-lobby-controls (changeStarted)="retryFailed.set(false)" (cancelled)="leaveCancelled()" />
@@ -136,7 +136,7 @@
         @case ('Failed') {
           <div class="error" role="alert">
             <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
-            @if (canOrganize()) {
+            @if (powers().organize) {
               <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
                 {{ retrying() ? 'Retrying…' : 'Retry' }}
               </button>

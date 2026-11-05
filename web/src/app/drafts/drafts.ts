@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import type {
   DraftCreationProblem,
+  DraftPowersView,
   DraftRefusal,
   DraftState,
   DraftView,
@@ -14,6 +15,13 @@ import type {
  * the top: the breakpoint in `draft-page.scss` and `lobby-controls.scss`.
  */
 export const DESKTOP_QUERY = '(min-width: 1024px)';
+
+/** The draft powers of a viewer who may do nothing to a draft beyond playing in it. */
+export const NO_POWERS: DraftPowersView = {
+  organize: false,
+  addBots: false,
+  switchAnnouncements: false,
+};
 
 /** An active draft is any draft that is neither closed nor complete. */
 export function isActive(state: DraftState): boolean {

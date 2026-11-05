@@ -20,7 +20,6 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import { Auth } from '../auth/auth';
 import { changeFailure, DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
@@ -49,7 +48,6 @@ import { PlayerAvatar } from './player-avatar';
 })
 export class LobbyControls {
   private readonly http = inject(HttpClient);
-  private readonly user = inject(Auth).user;
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
 
@@ -59,7 +57,6 @@ export class LobbyControls {
     const draft = this.draft();
     return hasTurn(draft) ? draft.turn.playerId : null;
   });
-  /** Whether the signed-in user is the organizer, or an app admin. */
   protected readonly canOrganize = this.store.canOrganize;
   /** Whether the signed-in user has joined this draft. */
   protected readonly joined = this.store.joined;
@@ -68,8 +65,7 @@ export class LobbyControls {
   /** The organizer cancelled the draft. */
   readonly cancelled = output<void>();
 
-  /** App admins may add and remove bots in the lobby. */
-  protected readonly isAppAdmin = computed(() => !!this.user()?.isAppAdmin);
+  protected readonly canAddBots = this.store.canAddBots;
   /** A full draft takes no more players: no one joins, and no bot is added. */
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** Joining and leaving are only possible in Lobby. */

@@ -4,6 +4,7 @@ import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type {
   DraftBase,
+  DraftPowersView,
   DraftState,
   DraftView,
   PickView,
@@ -20,7 +21,7 @@ import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { DRAFT_POLL_MS } from '../draft-store';
-import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
+import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import { alice, button, buttons } from '../../specs-harness';
@@ -83,6 +84,34 @@ export function webhooksAnswer(webhooks: WebhookView[] | null) {
   registeredWebhooks = webhooks;
 }
 
+export { NO_POWERS };
+/** The draft powers of a viewer who may only organize. */
+export const ORGANIZE_ONLY: DraftPowersView = { ...NO_POWERS, organize: true };
+/** The draft powers of a viewer who may only add bots. */
+export const ADD_BOTS_ONLY: DraftPowersView = { ...NO_POWERS, addBots: true };
+/** The draft powers of a viewer who may only switch announcements. */
+export const SWITCH_ANNOUNCEMENTS_ONLY: DraftPowersView = {
+  ...NO_POWERS,
+  switchAnnouncements: true,
+};
+/** The draft powers of an app admin: all of them. */
+export const ALL_POWERS: DraftPowersView = {
+  organize: true,
+  addBots: true,
+  switchAnnouncements: true,
+};
+
+/**
+ * What GET /api/drafts/:id/powers answers with, so that a test needn't:
+ * every draft page reads them. Null leaves the request to the test.
+ */
+let registeredPowers: DraftPowersView | null;
+
+/** Has GET /api/drafts/:id/powers answer with `powers`, or (with null) wait for the test to. */
+export function powersAnswer(powers: DraftPowersView | null) {
+  registeredPowers = powers;
+}
+
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useDraftsApp() {
   beforeEach(() => {
@@ -91,6 +120,7 @@ export function useDraftsApp() {
     localStorage.clear();
     decodes = new Map();
     registeredWebhooks = [];
+    registeredPowers = NO_POWERS;
     HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
       return new Promise((resolve, reject) => decodes.set(this, { resolve, reject }));
     };
@@ -105,6 +135,10 @@ export function useDraftsApp() {
             (req, next) =>
               req.url === '/api/webhooks' && registeredWebhooks
                 ? of(new HttpResponse({ body: registeredWebhooks }))
+                : next(req),
+            (req, next) =>
+              /^\/api\/drafts\/[^/]+\/powers$/.test(req.url) && registeredPowers
+                ? of(new HttpResponse({ body: registeredPowers }))
                 : next(req),
           ]),
         ),
@@ -439,7 +473,8 @@ export const panelName = (root: HTMLElement) => {
  * Opens draft-1's page with the first GET answered by `snapshot`, its pool
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` and
- * plan by `plan` if they are a player, signed in as `user`.
+ * plan by `plan` if they are a player, signed in as `user`, whose draft
+ * powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise).
  *
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
  * `fixture.whenStable()` resolves, as it arrives through a promise: assert
@@ -458,14 +493,17 @@ export async function openDraft(
     queue = EMPTY_QUEUE,
     plan = EMPTY_PLAN,
     user = alice,
+    powers,
   }: {
     cards?: PoolCardView[];
     picks?: PickView[];
     queue?: QueueView;
     plan?: PlanView;
     user?: typeof alice;
+    powers?: DraftPowersView;
   } = {},
 ) {
+  if (powers) powersAnswer(powers);
   const { fixture, page } = await openUrl('/drafts/draft-1', user);
   const opened = draft({ snapshot, ...fields });
   http.expectOne('/api/drafts/draft-1').flush(opened);

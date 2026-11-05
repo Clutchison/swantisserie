@@ -12,11 +12,16 @@ import {
   completeSnapshot,
   button,
   drafting,
+  ORGANIZE_ONLY,
+  powersAnswer,
+  ALL_POWERS,
 } from './harness';
 
 useDraftsApp();
 
 describe('pause and resume', () => {
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
+
   /** Alice up, on the draft's first pick. */
   const aliceUp = drafting({ turn: { pick: 1, round: 1, playerId: alice.id } });
   const paused = { ...aliceUp, state: 'Paused' as const };
@@ -73,10 +78,9 @@ describe('pause and resume', () => {
     expect(button(page, 'Resume draft')).toBeDefined();
   });
 
-  it('offers pause and resume only to the organizer or an app admin', async () => {
-    const { page } = await openDraft(completeSnapshot, {
-      ...paused,
-      organizer: { id: bob.id, name: bob.name },
+  it('offers pause and resume only to a viewer who may organize', async () => {
+    const { page } = await openDraft(completeSnapshot, paused, {
+      powers: { ...ALL_POWERS, organize: false },
     });
 
     expect(button(page, 'Resume draft')).toBeUndefined();

@@ -15,10 +15,15 @@ export const link = (root: Element, name: string) =>
     (a) => a.textContent?.trim() === name || a.getAttribute('aria-label') === name,
   );
 
-/** Answers the draft page's request for draft 42 with a 404: these specs only need its URL. */
+/**
+ * Answers the draft page's requests for draft 42 and the viewer's draft
+ * powers in it with a 404: these specs only need its URL.
+ */
 export async function answerDraft42NotFound(http: HttpTestingController) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts/42'))).flush(null, {
-    status: 404,
-    statusText: 'Not Found',
-  });
+  for (const url of ['/api/drafts/42', '/api/drafts/42/powers']) {
+    (await vi.waitFor(() => http.expectOne(url))).flush(null, {
+      status: 404,
+      statusText: 'Not Found',
+    });
+  }
 }

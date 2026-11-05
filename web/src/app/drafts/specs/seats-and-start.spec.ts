@@ -21,11 +21,16 @@ import {
   tabButton,
   panel,
   type AppFixture,
+  ORGANIZE_ONLY,
+  powersAnswer,
+  ALL_POWERS,
 } from './harness';
 
 useDraftsApp();
 
 describe('seats and start', () => {
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
+
   const seatNames = (page: HTMLElement) =>
     [...section(page, 'Players').querySelectorAll('li .name')].map((n) => n.textContent);
 
@@ -339,11 +344,11 @@ describe('seats and start', () => {
       expect(page.querySelector('.pick-import-preview')).toBeNull();
     });
 
-    it('is offered only to the organizer or an app admin', async () => {
+    it('is offered only to a viewer who may organize', async () => {
       const { page } = await openDraft(
         completeSnapshot,
         { players: [alicePlayer, bob] },
-        { user: { ...alice, id: 'carol', isAppAdmin: false } },
+        { powers: { ...ALL_POWERS, organize: false } },
       );
 
       expect(page.textContent).not.toContain('Import picks');
@@ -396,11 +401,12 @@ describe('seats and start', () => {
     expect(section(page, 'Players').textContent).not.toContain('You can start the draft once');
   });
 
-  it('offers seat changes and the start only to the organizer or an app admin', async () => {
-    const { page } = await openDraft(completeSnapshot, {
-      players: [alicePlayer, bob],
-      organizer: { id: bob.id, name: bob.name },
-    });
+  it('offers seat changes and the start only to a viewer who may organize', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      { players: [alicePlayer, bob] },
+      { powers: { ...ALL_POWERS, organize: false } },
+    );
 
     expect(button(page, 'Start draft')).toBeUndefined();
     expect(button(page, 'Randomize seats')).toBeUndefined();

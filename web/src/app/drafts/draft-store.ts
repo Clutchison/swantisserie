@@ -13,6 +13,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import type {
+  DraftPowersView,
   DraftView,
   PickView,
   PlanView,
@@ -23,7 +24,7 @@ import type {
 } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal } from './drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal, NO_POWERS } from './drafts';
 
 /** The name of a player id that isn't among the draft's players, wherever a name is shown. */
 const ANOTHER_PLAYER = 'another player';
@@ -68,11 +69,12 @@ export interface PickedCard extends PickView {
 /**
  * The draft-scoped service: one per open draft page, which provides it, for
  * the draft its route names. It owns the page's reads of the api (the draft,
- * its pick log, the pool's cards, and the signed-in player's queue and plan),
- * the one way a pushed or answered draft is applied, and catching up; it
- * makes the changes the tabs and controls send, re-reading what a refusal
- * says has moved on; and it works out the state rules for what the viewer
- * may do. The tabs and controls inject it rather than being handed its state.
+ * its pick log, the pool's cards, the viewer's draft powers, and the
+ * signed-in player's queue and plan), the one way a pushed or answered draft
+ * is applied, and catching up; it makes the changes the tabs and controls
+ * send, re-reading what a refusal says has moved on; and it works out the
+ * state rules for what the viewer may do. The tabs and controls inject it
+ * rather than being handed its state.
  */
 @Injectable()
 export class DraftStore {
@@ -109,12 +111,22 @@ export class DraftStore {
     return draft;
   });
 
-  /** The organizer, or an app admin: they may retry a failed snapshot, change seats and start. */
-  readonly canOrganize = computed(() => {
-    const user = this.user();
-    const draft = this.draft.value();
-    return !!user && !!draft && (user.isAppAdmin || user.id === draft.organizer.id);
-  });
+  /**
+   * The viewer's draft powers, which the api alone decides (ADR 0003). They
+   * don't change while the draft runs, so they are read once for each draft
+   * id, not again as its version changes.
+   */
+  private readonly powersResource = httpResource<DraftPowersView>(
+    () => `/api/drafts/${this.id()}/powers`,
+  );
+  /** The viewer's draft powers: none until they have loaded, or if they can't be. */
+  readonly powers = computed(() =>
+    this.powersResource.hasValue() ? this.powersResource.value() : NO_POWERS,
+  );
+  /** Whether the viewer's draft powers let them organize the draft. */
+  readonly canOrganize = computed(() => this.powers().organize);
+  /** Whether the viewer's draft powers let them add and remove bots, which they do in the lobby. */
+  readonly canAddBots = computed(() => this.powers().addBots);
   /** Whether the signed-in user is a player in this draft. */
   readonly joined = computed(() => {
     const user = this.user();

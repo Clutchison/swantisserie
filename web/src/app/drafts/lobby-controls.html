@@ -14,37 +14,39 @@
         @if (player.isBot) {
           <span class="badge">Bot</span>
         }
-        @if (inLobby() && canOrganize()) {
+        @if (inLobby() && (canOrganize() || (canAddBots() && player.isBot))) {
           <div class="seat-controls">
-            <span class="move">
-              @let earlierName = 'Move ' + player.name + ' earlier';
-              <button
-                class="icon"
-                type="button"
-                [attr.aria-label]="earlierName"
-                [title]="earlierName"
-                (click)="moveSeat(i, -1)"
-                [disabled]="first"
-                [appSendsChange]="'earlier ' + player.id"
-              >
-                <svg lucideArrowLeft class="across" size="16"></svg>
-                <svg lucideArrowUp class="stacked" size="16"></svg>
-              </button>
-              @let laterName = 'Move ' + player.name + ' later';
-              <button
-                class="icon"
-                type="button"
-                [attr.aria-label]="laterName"
-                [title]="laterName"
-                (click)="moveSeat(i, 1)"
-                [disabled]="last"
-                [appSendsChange]="'later ' + player.id"
-              >
-                <svg lucideArrowRight class="across" size="16"></svg>
-                <svg lucideArrowDown class="stacked" size="16"></svg>
-              </button>
-            </span>
-            @if (isAppAdmin() && player.isBot) {
+            @if (canOrganize()) {
+              <span class="move">
+                @let earlierName = 'Move ' + player.name + ' earlier';
+                <button
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="earlierName"
+                  [title]="earlierName"
+                  (click)="moveSeat(i, -1)"
+                  [disabled]="first"
+                  [appSendsChange]="'earlier ' + player.id"
+                >
+                  <svg lucideArrowLeft class="across" size="16"></svg>
+                  <svg lucideArrowUp class="stacked" size="16"></svg>
+                </button>
+                @let laterName = 'Move ' + player.name + ' later';
+                <button
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="laterName"
+                  [title]="laterName"
+                  (click)="moveSeat(i, 1)"
+                  [disabled]="last"
+                  [appSendsChange]="'later ' + player.id"
+                >
+                  <svg lucideArrowRight class="across" size="16"></svg>
+                  <svg lucideArrowDown class="stacked" size="16"></svg>
+                </button>
+              </span>
+            }
+            @if (canAddBots() && player.isBot) {
               <button
                 class="icon remove"
                 type="button"
@@ -83,17 +85,19 @@
       >
         Randomize seats
       </button>
-      @if (isAppAdmin()) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="addBot()"
-          [disabled]="draftFull()"
-          appSendsChange="add bot"
-        >
-          Add bot
-        </button>
-      }
+    }
+    @if (canAddBots()) {
+      <button
+        class="button secondary"
+        type="button"
+        (click)="addBot()"
+        [disabled]="draftFull()"
+        appSendsChange="add bot"
+      >
+        Add bot
+      </button>
+    }
+    @if (canOrganize()) {
       <button
         class="button"
         type="button"

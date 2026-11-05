@@ -17,6 +17,7 @@ import {
   button,
   pickOf,
   drafting,
+  ALL_POWERS,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
@@ -212,11 +213,11 @@ describe('pool tab', () => {
       },
     );
 
-    it('is not offered to an app admin who isn’t playing, as the api refuses with `not-a-player`', async () => {
+    it('is not offered to a viewer with every draft power who isn’t playing, as the api refuses with `not-a-player`', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
         cards: [shivan],
         // Plans stay private even from app admins.
-        user: { ...alice, isAppAdmin: true },
+        powers: ALL_POWERS,
       });
 
       expect(button(await openDetail(fixture, page, 0), 'Add to Plan')).toBeUndefined();
@@ -448,11 +449,11 @@ describe('pool tab', () => {
       },
     );
 
-    it('is not offered to an app admin who isn’t playing, as the api refuses with `not-a-player`', async () => {
+    it('is not offered to a viewer with every draft power who isn’t playing, as the api refuses with `not-a-player`', async () => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         drafting({ state: 'Complete', turn: null, players: [bob] }),
-        { cards: [shivan], user: { ...alice, isAppAdmin: true } },
+        { cards: [shivan], powers: ALL_POWERS },
       );
 
       expect(button(await openDetail(fixture, page, 0), 'Remove from Plan')).toBeUndefined();
