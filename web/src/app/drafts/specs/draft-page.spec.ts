@@ -9,8 +9,10 @@ import {
   openDraft,
   poll,
   alicePlayer,
+  button,
   tabButton,
-  panel,
+  tabs,
+  panelName,
 } from './harness';
 import { pressKey } from '../../specs-harness';
 
@@ -176,13 +178,11 @@ describe('draft page', () => {
   });
 
   describe('tab bar keys', () => {
-    const tabs = (page: HTMLElement) => [...page.querySelectorAll<HTMLElement>('[role="tab"]')];
     /** The tabs a viewer reaches with Tab: those with no negative tabindex. */
     const tabStops = (page: HTMLElement) =>
       tabs(page)
         .filter((tab) => tab.tabIndex >= 0)
         .map((tab) => tab.textContent?.trim());
-    const shownPanel = (page: HTMLElement) => panel(page).querySelector('h2')?.textContent;
     const openAsPlayer = () => openDraft(completeSnapshot, { players: [alicePlayer] });
 
     /** Focuses the tab named `from`, presses `key` on it, and says which tab has focus. */
@@ -219,8 +219,28 @@ describe('draft page', () => {
 
       expect(tabButton(page, to).getAttribute('aria-selected')).toBe('true');
       expect(tabStops(page)).toEqual([to]);
-      expect(shownPanel(page)).toBe(to);
+      expect(panelName(page)).toBe(to);
     });
+
+    it.each(['Queue', 'Plan', 'Export'])(
+      'goes back to the Pool tab, a Tab stop, when the %s tab closes as the player leaves',
+      async (from) => {
+        const { fixture, page } = await openAsPlayer();
+        tabButton(page, from).click();
+        await fixture.whenStable();
+
+        button(page, 'Leave')!.click();
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players/me'))).flush(
+          draft({ players: [] }),
+        );
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(tabButton(page, from).disabled).toBe(true));
+        expect(tabButton(page, 'Pool').getAttribute('aria-selected')).toBe('true');
+        expect(tabStops(page)).toEqual(['Pool']);
+        expect(panelName(page)).toBe('Pool');
+      },
+    );
 
     it.each([
       ['Pool', 'ArrowRight', 'Board'],
@@ -235,7 +255,7 @@ describe('draft page', () => {
       expect(press(page, from, key)).toBe(to);
       await fixture.whenStable();
 
-      expect(shownPanel(page)).toBe(to);
+      expect(panelName(page)).toBe(to);
     });
   });
 });

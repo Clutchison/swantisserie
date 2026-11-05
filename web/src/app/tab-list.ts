@@ -44,6 +44,8 @@ export class TabList {
   private readonly tabs = contentChildren(Tab, { descendants: true });
   private readonly keys = new FocusKeyManager(this.tabs, inject(Injector))
     .withHorizontalOrientation('ltr')
+    // The tabs run across, so Up and Down are left to the page.
+    .withVerticalOrientation(false)
     .withHomeAndEnd()
     .withWrap();
 

@@ -1,4 +1,4 @@
-<p class="visually-hidden" role="status">{{ statusMessage() }}</p>
+<app-change-status />
 <details [open]="seatOrderOpen()">
   <summary>Seat order</summary>
   <ol>
@@ -25,7 +25,7 @@
                 [title]="earlierName"
                 (click)="moveSeat(i, -1)"
                 [disabled]="first"
-                [attr.aria-disabled]="changingLobby() || null"
+                [appSendsChange]="'earlier ' + player.id"
               >
                 <svg lucideArrowLeft class="across" size="16"></svg>
                 <svg lucideArrowUp class="stacked" size="16"></svg>
@@ -38,7 +38,7 @@
                 [title]="laterName"
                 (click)="moveSeat(i, 1)"
                 [disabled]="last"
-                [attr.aria-disabled]="changingLobby() || null"
+                [appSendsChange]="'later ' + player.id"
               >
                 <svg lucideArrowRight class="across" size="16"></svg>
                 <svg lucideArrowDown class="stacked" size="16"></svg>
@@ -50,7 +50,7 @@
                 type="button"
                 [attr.aria-label]="'Remove ' + player.name"
                 (click)="removeBot(player.id)"
-                [attr.aria-disabled]="changingLobby() || null"
+                [appSendsChange]="'remove ' + player.id"
               >
                 Remove
               </button>
@@ -66,32 +66,20 @@
 @if (inLobby()) {
   <div class="controls">
     @if (joined()) {
-      <button
-        class="button secondary"
-        type="button"
-        (click)="leave()"
-        [attr.aria-disabled]="changingLobby() || null"
-      >
+      <button class="button secondary" type="button" (click)="leave()" appSendsChange="leave">
         Leave
       </button>
     } @else if (draftFull()) {
       <p class="detail">This draft is full.</p>
     } @else {
-      <button
-        class="button"
-        type="button"
-        (click)="join()"
-        [attr.aria-disabled]="changingLobby() || null"
-      >
-        Join
-      </button>
+      <button class="button" type="button" (click)="join()" appSendsChange="join">Join</button>
     }
     @if (canOrganize()) {
       <button
         class="button secondary"
         type="button"
         (click)="randomizeSeats()"
-        [attr.aria-disabled]="changingLobby() || null"
+        appSendsChange="randomize"
       >
         Randomize seats
       </button>
@@ -101,7 +89,7 @@
           type="button"
           (click)="addBot()"
           [disabled]="draftFull()"
-          [attr.aria-disabled]="changingLobby() || null"
+          appSendsChange="add bot"
         >
           Add bot
         </button>
@@ -111,7 +99,7 @@
         type="button"
         (click)="start()"
         [disabled]="!poolReady()"
-        [attr.aria-disabled]="changingLobby() || null"
+        appSendsChange="start"
       >
         Start draft
       </button>
@@ -128,16 +116,11 @@
         type="button"
         (click)="choosePickImport(pickImportFile)"
         [disabled]="!poolReady()"
-        [attr.aria-disabled]="changingLobby() || null"
+        appSendsChange="import picks"
       >
         Import picks
       </button>
-      <button
-        class="button secondary"
-        type="button"
-        (click)="cancel()"
-        [attr.aria-disabled]="changingLobby() || null"
-      >
+      <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
         Cancel draft
       </button>
       @if (!poolReady()) {
@@ -170,7 +153,7 @@
       class="button"
       type="button"
       (click)="confirmPickImport(preview)"
-      [attr.aria-disabled]="changingLobby() || null"
+      appSendsChange="confirm pick import"
     >
       Import and start paused
     </button>

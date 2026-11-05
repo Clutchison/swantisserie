@@ -253,11 +253,14 @@ export const playerAvatar = (page: HTMLElement, name: string) =>
     .find((li) => li.textContent?.includes(name))
     ?.querySelector<HTMLImageElement>('[role="presentation"]');
 
-/** A button inside `root`, by its text or its aria-label. */
-export const button = (root: HTMLElement, label: string) =>
-  [...root.querySelectorAll('button')].find(
+/** Every button inside `root` with this text or aria-label, in page order. */
+export const buttons = (root: HTMLElement, label: string) =>
+  [...root.querySelectorAll('button')].filter(
     (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
   );
+
+/** A button inside `root`, by its text or its aria-label. */
+export const button = (root: HTMLElement, label: string) => buttons(root, label)[0];
 
 /**
  * What a screen reader names `element`: its aria-label, or else its text and
@@ -311,14 +314,21 @@ export const selectByLabel = (root: HTMLElement, label: string) =>
     ),
   );
 
+/** The buttons in the tab bar, in order. */
+export const tabs = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+];
 /** A button in the tab bar, by its label. */
 export const tabButton = (root: HTMLElement, tab: string) =>
-  [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
-    (b) => b.textContent?.trim() === tab,
-  )!;
+  tabs(root).find((b) => b.textContent?.trim() === tab)!;
 /** The tab panel showing. */
 export const panel = (root: HTMLElement) =>
   root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
+/** The name of the tab panel showing: the label of the tab it is labelled by. */
+export const panelName = (root: HTMLElement) => {
+  const labelledBy = panel(root)?.getAttribute('aria-labelledby');
+  return labelledBy ? root.querySelector(`#${labelledBy}`)?.textContent?.trim() : undefined;
+};
 
 /**
  * Opens draft-1's page with the first GET answered by `snapshot`, its pool
@@ -442,8 +452,22 @@ export async function openTab(fixture: AppFixture, page: HTMLElement, name: stri
 export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
   openTab(fixture, page, 'Queue');
 
+/** The images of the Card previews open: one at most, outside the page. */
+export const previewImages = () => [
+  ...document.querySelectorAll<HTMLImageElement>('app-card-preview img'),
+];
 /** The Card preview's image, if one is open: it's outside the page. */
-export const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');
+export const previewImage = () => previewImages()[0] ?? null;
+
+/**
+ * An element inside `root` given a Tab stop of its own, as a card name with
+ * a Card preview is, by its accessible name; buttons and links aren't, as
+ * they are Tab stops already.
+ */
+export const ownTabStop = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('[tabindex="0"]')].find(
+    (element) => accessibleName(element) === name,
+  );
 
 /** A pointer event of `pointerType`; only a press bubbles, as enter and leave don't. */
 export const pointer = (type: string, pointerType: string) =>

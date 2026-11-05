@@ -1,4 +1,6 @@
+import { CdkDrag } from '@angular/cdk/drag-drop';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import type { PickView, PlanView, PoolCardView, QueueView, UserView } from 'contract';
 import {
   useDraftsApp,
@@ -17,12 +19,17 @@ import {
   wait,
   viewOn,
   previewImage,
+  previewImages,
+  ownTabStop,
   pointer,
   tap,
   pickOf,
   queueOf,
+  accessibleName,
+  type AppFixture,
 } from './harness';
 import { image, openDetail } from './pool-tab-harness';
+import { pressKey } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -387,22 +394,26 @@ describe('card previews', () => {
   describe('from the keyboard', () => {
     /** Tabs to `name`, as a keyboard user does, and renders what came of it. */
     function tabTo(name: HTMLElement) {
-      (document.activeElement ?? document.body).dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }),
-      );
+      pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Tab');
       name.focus();
       TestBed.tick();
     }
     /** Tabs on from `name` to somewhere with no Card preview. */
     function tabAway(name: HTMLElement) {
-      name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      pressKey(name, 'Tab');
       name.blur();
       TestBed.tick();
     }
     function pressEscape() {
-      (document.activeElement ?? document.body).dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
-      );
+      pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
+    }
+    /** Starts dragging the queued card named `name`, as the drag's start says. */
+    function dragStarted(fixture: AppFixture, name: string) {
+      fixture.debugElement
+        .query(By.css('app-queue-tab'))
+        .queryAll(By.directive(CdkDrag))
+        .find((drag) => accessibleName(drag.nativeElement).includes(name))!
+        .triggerEventHandler('cdkDragStarted', {});
       TestBed.tick();
     }
 
@@ -423,7 +434,7 @@ describe('card previews', () => {
 
       tabTo(bolt);
       tabTo(boardName(page, 'Shock'));
-      expect(document.querySelectorAll('app-card-preview')).toHaveLength(1);
+      expect(previewImages()).toHaveLength(1);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
       tabAway(boardName(page, 'Shock'));
@@ -521,7 +532,7 @@ describe('card previews', () => {
       vi.useRealTimers();
       await fixture.whenStable();
 
-      tabTo(panel(page).querySelector<HTMLElement>('.picks app-card-name .name')!);
+      tabTo(ownTabStop(panel(page), 'Lightning Bolt')!);
 
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
@@ -533,13 +544,13 @@ describe('card previews', () => {
       const { page, fixture } = opened;
       tabButton(page, 'Queue').click();
       await fixture.whenStable();
-      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
+      const name = ownTabStop(panel(page), 'Shock')!;
 
       tabTo(name);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
       tabAway(name);
 
-      startDrag(panel(page).querySelector<HTMLElement>('.handle')!);
+      dragStarted(fixture, 'Shock');
       tabTo(name);
       expect(previewImage()).toBeNull();
     });
@@ -556,7 +567,7 @@ describe('card previews', () => {
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
 
-      tabTo(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      tabTo(ownTabStop(panel(page), 'Lightning Bolt')!);
 
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
@@ -575,9 +586,8 @@ describe('card previews', () => {
         tabButton(page, 'Plan').click();
         await fixture.whenStable();
 
-        const card = panel(page).querySelector<HTMLElement>('img[alt="Lightning Bolt"]')!;
-        expect(card).not.toBeNull();
-        expect(card.closest('[tabindex="0"]')).toBeNull();
+        expect(panel(page).querySelector('img[alt="Lightning Bolt"]')).not.toBeNull();
+        expect(ownTabStop(panel(page), 'Lightning Bolt')).toBeUndefined();
       } finally {
         vi.unstubAllGlobals();
         localStorage.clear();

@@ -232,6 +232,7 @@ describe('reviewing feedback', () => {
 
       expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
     });
+
     it('makes only the selected view’s tab a Tab stop', async () => {
       const { page } = await openReviewed([]);
 
@@ -259,17 +260,37 @@ describe('reviewing feedback', () => {
       ]);
     });
 
-    it('moves on Home back to the Unreviewed tab, fetching it afresh', async () => {
-      const { fixture, page } = await openReviewed([]);
+    it.each([['Home'], ['ArrowLeft'], ['ArrowRight']])(
+      'moves on %s from the Reviewed tab back to the Unreviewed tab, wrapping round, fetching it afresh',
+      async (key) => {
+        const { fixture, page } = await openReviewed([]);
 
-      tab(page, 'Reviewed').focus();
-      pressKey(tab(page, 'Reviewed'), 'Home');
-      http.expectOne('/api/admin/feedback').flush([fromBob]);
-      await fixture.whenStable();
+        tab(page, 'Reviewed').focus();
+        pressKey(tab(page, 'Reviewed'), key);
+        http.expectOne('/api/admin/feedback').flush([fromBob]);
+        await fixture.whenStable();
 
-      expect(document.activeElement).toBe(tab(page, 'Unreviewed'));
-      expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
-    });
+        expect(document.activeElement).toBe(tab(page, 'Unreviewed'));
+        expect(items(page).map((item) => item.textContent)).toEqual([
+          expect.stringContaining('Bob'),
+        ]);
+      },
+    );
+
+    it.each([['ArrowDown'], ['ArrowUp']])(
+      'stays on the selected tab on %s, as the tabs run across',
+      async (key) => {
+        const { fixture, page } = await openPage([]);
+
+        tab(page, 'Unreviewed').focus();
+        pressKey(tab(page, 'Unreviewed'), key);
+        await fixture.whenStable();
+
+        expect(document.activeElement).toBe(tab(page, 'Unreviewed'));
+        expect(tab(page, 'Unreviewed').getAttribute('aria-selected')).toBe('true');
+        http.expectNone('/api/admin/feedback/reviewed');
+      },
+    );
   });
 
   describe('the unreviewed count in the top bar', () => {
