@@ -12,7 +12,7 @@ const API = '/api/admin/webhooks';
   imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './webhooks-page.html',
-  styleUrls: ['../drafts/drafts.scss', './webhooks-page.scss'],
+  styleUrls: ['../page.scss', './webhooks-page.scss'],
 })
 export class WebhooksPage {
   private readonly http = inject(HttpClient);
