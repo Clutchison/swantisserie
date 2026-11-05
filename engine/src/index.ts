@@ -1,3 +1,4 @@
+export * from './card-faces.js';
 export * from './cascade.js';
 export * from './copies.js';
 export * from './draft-size.js';

@@ -1,4 +1,5 @@
 import type { DraftChangeRefusal } from 'contract';
+import { MAX_PLAYERS } from 'engine';
 import {
   useDraftsApp,
   draft,
@@ -11,6 +12,7 @@ import {
   flushPicks,
   completeSnapshot,
   button,
+  playerAvatar,
 } from './harness';
 
 useDraftsApp();
@@ -22,7 +24,18 @@ describe('lobby', () => {
     const players = section(page, 'Players');
     const items = [...players.querySelectorAll('li')];
     expect(items.map((li) => li.querySelector('.name')?.textContent)).toEqual(['Bob', 'Alice']);
-    expect(items[0].querySelector('img')?.getAttribute('src')).toBe(bob.avatarUrl);
+    expect(playerAvatar(page, 'Bob')?.getAttribute('src')).toBe(bob.avatarUrl);
+  });
+
+  it('leaves out an avatar that fails to load, keeping the other players’', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [bob, alicePlayer] });
+
+    playerAvatar(page, 'Bob')!.dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+
+    expect(playerAvatar(page, 'Bob')).toBeFalsy();
+    expect(playerAvatar(page, 'Alice')?.getAttribute('src')).toBe(alicePlayer.avatarUrl);
+    expect(section(page, 'Players').textContent).toContain('Bob');
   });
 
   it('says when nobody has joined yet', async () => {
@@ -51,6 +64,30 @@ describe('lobby', () => {
     await fixture.whenStable();
 
     expect(section(page, 'Players').textContent).not.toContain('Alice');
+    expect(button(page, 'Join')).toBeDefined();
+  });
+
+  it('shows the draft as full at the most players a draft can have, offering no Join', async () => {
+    const players = Array.from({ length: MAX_PLAYERS }, (_, i) => ({
+      ...bob,
+      id: `player-${i}`,
+      name: `Player ${i + 1}`,
+    }));
+    const { page } = await openDraft(completeSnapshot, { players });
+
+    expect(page.textContent).toContain('This draft is full.');
+    expect(button(page, 'Join')).toBeUndefined();
+  });
+
+  it('offers Join with room for one more player', async () => {
+    const players = Array.from({ length: MAX_PLAYERS - 1 }, (_, i) => ({
+      ...bob,
+      id: `player-${i}`,
+      name: `Player ${i + 1}`,
+    }));
+    const { page } = await openDraft(completeSnapshot, { players });
+
+    expect(page.textContent).not.toContain('This draft is full.');
     expect(button(page, 'Join')).toBeDefined();
   });
 

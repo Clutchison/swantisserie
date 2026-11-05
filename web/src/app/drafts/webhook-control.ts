@@ -28,8 +28,13 @@ export class WebhookControl {
   readonly draft = input.required<DraftView>();
   /** The draft as the change made it. */
   readonly draftChanged = output<DraftView>();
-  /** The draft may have moved on unseen; it should be re-read. */
+  /** A save was refused, so the draft may have moved on unseen; it should be caught up with. */
   readonly draftStale = output<void>();
+  /**
+   * The draft's webhook may have changed unseen; only the draft needs
+   * re-reading, not its pick log.
+   */
+  readonly webhookStale = output<void>();
 
   private readonly webhookResource = httpResource<WebhookView[]>(() => '/api/webhooks');
   protected readonly webhooksFailed = computed(() => !!this.webhookResource.error());
@@ -49,6 +54,11 @@ export class WebhookControl {
   constructor() {
     // The control follows the draft, whoever changed it.
     effect(() => this.choice.setValue(this.currentId()));
+    // No other change is offered while one saves, nor any while there's no list to choose from.
+    effect(() => {
+      if (this.saving() || this.webhooksFailed()) this.choice.disable();
+      else this.choice.enable();
+    });
   }
 
   /**
@@ -57,7 +67,7 @@ export class WebhookControl {
    */
   protected catchUp() {
     this.webhookResource.reload();
-    this.draftStale.emit();
+    this.webhookStale.emit();
   }
 
   /** Saves the webhook just chosen, or goes back to the current one if that fails. */

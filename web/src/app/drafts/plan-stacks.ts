@@ -1,5 +1,5 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
-import { frontFace } from './card-faces';
+import { frontFace } from 'engine';
 
 /** How stacks mode divides a plan board into stacks. */
 export type Grouping = 'manaValue' | 'color' | 'type';

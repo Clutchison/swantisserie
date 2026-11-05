@@ -1,3 +1,4 @@
+import { frontFace } from './card-faces.js';
 import type { DraftSize } from './draft-size.js';
 import { currentTurn, type Turn } from './turn.js';
 
@@ -94,7 +95,7 @@ function cardsByName(pool: PickImportCard[]): (name: string) => CopiesByCard {
   };
   for (const card of pool) {
     add(byFullName, card.name, card);
-    add(byFrontFace, card.name.split(' // ')[0], card);
+    add(byFrontFace, frontFace(card.name), card);
   }
   return (name) => {
     const key = name.toLowerCase();

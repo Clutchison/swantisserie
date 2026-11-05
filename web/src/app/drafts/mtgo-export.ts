@@ -1,5 +1,5 @@
 import type { PickView } from 'contract';
-import { FACE_SEPARATOR, frontFace } from './card-faces';
+import { FACE_SEPARATOR, frontFace } from 'engine';
 import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What an MTGO export needs of a picked card. */
