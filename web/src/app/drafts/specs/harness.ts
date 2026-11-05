@@ -21,7 +21,7 @@ import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { DRAFT_POLL_MS } from '../draft-store';
-import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
+import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import { alice, button, buttons } from '../../specs-harness';
@@ -84,12 +84,7 @@ export function webhooksAnswer(webhooks: WebhookView[] | null) {
   registeredWebhooks = webhooks;
 }
 
-/** Draft powers that let the viewer do nothing beyond playing: the harness's default. */
-export const NO_POWERS: DraftPowersView = {
-  organize: false,
-  addBots: false,
-  switchAnnouncements: false,
-};
+export { NO_POWERS };
 /** The draft powers of a viewer who may only organize. */
 export const ORGANIZE_ONLY: DraftPowersView = { ...NO_POWERS, organize: true };
 /** The draft powers of a viewer who may only add bots. */

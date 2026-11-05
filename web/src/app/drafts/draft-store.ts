@@ -24,13 +24,10 @@ import type {
 } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal } from './drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal, NO_POWERS } from './drafts';
 
 /** The name of a player id that isn't among the draft's players, wherever a name is shown. */
 const ANOTHER_PLAYER = 'another player';
-
-/** The draft powers of a viewer whose powers haven't loaded, or couldn't be: none. */
-const NO_POWERS: DraftPowersView = { organize: false, addBots: false, switchAnnouncements: false };
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -126,6 +123,10 @@ export class DraftStore {
   readonly powers = computed(() =>
     this.powersResource.hasValue() ? this.powersResource.value() : NO_POWERS,
   );
+  /** Whether the viewer's draft powers let them organize the draft. */
+  readonly canOrganize = computed(() => this.powers().organize);
+  /** Whether the viewer's draft powers let them add and remove bots, which they do in the lobby. */
+  readonly canAddBots = computed(() => this.powers().addBots);
   /** Whether the signed-in user is a player in this draft. */
   readonly joined = computed(() => {
     const user = this.user();

@@ -198,21 +198,29 @@ describe('draft page', () => {
       http.expectNone(powersUrl);
     });
 
-    it('are read again for the draft a different draft id names', async () => {
-      const { fixture } = await openUrl('/drafts/draft-1');
+    it('are read again for the draft a different draft id names, and the last draft’s no longer apply', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
-      http.expectOne(powersUrl).flush(NO_POWERS);
+      http.expectOne(powersUrl).flush(ORGANIZE_ONLY);
       await flushPool();
       await fixture.whenStable();
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
 
       await router.navigateByUrl('/drafts/draft-2');
       TestBed.tick();
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2'))).flush(
-        draft({ id: 'draft-2', snapshot: completeSnapshot }),
+        draft({ id: 'draft-2', name: 'Blue sphinxes', snapshot: completeSnapshot }),
       );
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2/powers'))).flush(NO_POWERS);
+      const powers = await vi.waitFor(() => http.expectOne('/api/drafts/draft-2/powers'));
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2/pool'))).flush([]);
+      // Not whenStable: the page isn't stable while the powers are on their way.
+      TestBed.tick();
+      expect(heading(page, 'Blue sphinxes')).toBeDefined();
+      expect(organizerButtons(page)).toEqual([]);
+
+      powers.flush(NO_POWERS);
       await fixture.whenStable();
+      expect(organizerButtons(page)).toEqual([]);
     });
 
     it('show only the organizer’s controls when the viewer may organize alone', async () => {

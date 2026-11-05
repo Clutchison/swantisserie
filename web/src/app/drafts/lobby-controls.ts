@@ -57,8 +57,7 @@ export class LobbyControls {
     const draft = this.draft();
     return hasTurn(draft) ? draft.turn.playerId : null;
   });
-  /** Whether the viewer's draft powers let them organize the draft. */
-  protected readonly canOrganize = computed(() => this.store.powers().organize);
+  protected readonly canOrganize = this.store.canOrganize;
   /** Whether the signed-in user has joined this draft. */
   protected readonly joined = this.store.joined;
   /** A change to the players, seats or state is being sent. */
@@ -66,8 +65,7 @@ export class LobbyControls {
   /** The organizer cancelled the draft. */
   readonly cancelled = output<void>();
 
-  /** Whether the viewer's draft powers let them add and remove bots, which they do in the lobby. */
-  protected readonly canAddBots = computed(() => this.store.powers().addBots);
+  protected readonly canAddBots = this.store.canAddBots;
   /** A full draft takes no more players: no one joins, and no bot is added. */
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** Joining and leaving are only possible in Lobby. */

@@ -24,8 +24,7 @@ export class OrganizerControls {
   private readonly draft = this.store.shown;
   /** The pick log, in pick order. */
   private readonly picks = this.store.picks.value;
-  /** Whether the viewer's draft powers let them organize the draft. */
-  private readonly canOrganize = computed(() => this.store.powers().organize);
+  private readonly canOrganize = this.store.canOrganize;
 
   /** The pick the organizer may undo: the latest, while the draft is drafting or paused. */
   protected readonly undoable = computed(() => {
