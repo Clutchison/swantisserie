@@ -32,6 +32,14 @@ _Avoid_: Version (alone), release, build number
 The guild member who created a draft and runs it. App admins act as organizer on every draft, and guild admins on every draft in their guild.
 _Avoid_: Host, owner, creator
 
+**See** (a draft):
+To be allowed to open a draft and follow it as it changes. A guild's members and app admins see its drafts; to anyone else, the draft does not exist.
+_Avoid_: Visible, hidden, accessible, access (alone)
+
+**Draft powers**:
+What a viewer may do to a draft they see, beyond playing in it: organize it, add bots to it, and switch its announcements. Each viewer has their own draft powers for each draft.
+_Avoid_: Permissions, rights, capabilities, role (that is the organizer role)
+
 ## Drafting
 
 **Draft**:

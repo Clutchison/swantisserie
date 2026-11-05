@@ -135,7 +135,7 @@ export class QueuesController {
     id: string,
     request: () => Promise<QueueView>,
   ): Promise<QueueView> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return request();
   }
 }

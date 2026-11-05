@@ -72,7 +72,7 @@ export class DraftGoneError extends Error {
  * Thrown when a viewer asks for a draft they may not see: for now, one that
  * doesn't exist.
  */
-export class DraftHiddenError extends Error {
+export class CannotSeeDraftError extends Error {
   constructor() {
     super('There is no such draft.');
   }
