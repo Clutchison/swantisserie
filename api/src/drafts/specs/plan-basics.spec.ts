@@ -122,7 +122,7 @@ describe('basic lands in a plan', () => {
     expect(lastPick.body.state).toBe('Complete');
 
     await clearBasics(id, carolCookie).expect(200);
-    const complete = await setBasic(id, 'Mountain', 4, carolCookie);
+    const complete = await setBasic(id, 'Mountain', 4, carolCookie).expect(200);
 
     expect(complete.body.basics).toEqual([{ land: 'Mountain', count: 4 }]);
     expect((await getDraft(id).expect(200)).body.version).toBe(

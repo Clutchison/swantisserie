@@ -219,6 +219,7 @@ describe('plan', () => {
     // A bot can't sign in to see its plan, but its picks land there too.
     const botPlan = await app.get(PrismaService).plannedCard.findMany({
       where: { player: { userId: botId } },
+      orderBy: { pick: { number: 'asc' } },
       select: { board: true, poolCard: { select: { name: true } } },
     });
     expect(botPlan).toEqual([

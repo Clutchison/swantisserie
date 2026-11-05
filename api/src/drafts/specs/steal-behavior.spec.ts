@@ -224,6 +224,8 @@ describe('steal behavior', () => {
       const id = await threePlayerDraft();
       const ids = await poolCardIds(id);
       await enqueue(id, ids['Lightning Bolt']).expect(200);
+      await setStealBehavior(id, 'PickNext', bobCookie).expect(200);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await carolQueues(id, 'Lightning Bolt', 'Shock');
 
@@ -233,6 +235,13 @@ describe('steal behavior', () => {
         'Alice: Lightning Bolt',
         'Bob: Lava Spike',
       ]);
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [],
+        lost: [bolt],
+        cleared: [shock],
+        restKept: false,
+        stealBehavior: 'ClearQueue',
+      });
     });
   });
 

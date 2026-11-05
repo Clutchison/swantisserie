@@ -27,6 +27,7 @@ import {
   poolCardIds,
   enqueue,
   addBot,
+  addToPlan,
   registerWebhook,
   cancelDraft,
   announcementsSettled,
@@ -48,6 +49,7 @@ describe('cancel', () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
     await enqueue(id, ids.Shock).expect(200);
+    await addToPlan(id, ids['Lightning Bolt'], aliceCookie).expect(200);
     await addBot(id, await signIn(carol)).expect(201);
 
     await cancelDraft(id).expect(204);
