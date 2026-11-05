@@ -262,9 +262,9 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const userIds = parseSeatOrder(body);
+    const playerIds = parseSeatOrder(body);
     await this.findAsOrganizer(user, id);
-    return this.change(id, () => this.lobby.reorderSeats(id, userIds));
+    return this.change(id, () => this.lobby.reorderSeats(id, playerIds));
   }
 
   /** Starts the draft with its seats as they are; for the organizer. */
@@ -308,7 +308,7 @@ export class DraftsController {
 
   /**
    * Loads a file of picks and starts the draft paused, for good; the file is
-   * checked again, as the draft may have changed since its preview. `userIds`
+   * checked again, as the draft may have changed since its preview. `playerIds`
    * is the seat order the preview showed. For the organizer.
    */
   @Post(':id/pick-import')
@@ -319,10 +319,10 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<DraftView> {
     const csv = parsePickImport(body);
-    const userIds = parseSeatOrder(body);
+    const playerIds = parseSeatOrder(body);
     await this.findAsOrganizer(user, id);
     return this.change(id, () =>
-      this.pickImports.importPicks(id, csv, userIds),
+      this.pickImports.importPicks(id, csv, playerIds),
     );
   }
 
@@ -591,20 +591,20 @@ function parseWebhookChoice(body: unknown): string | null {
   return webhookId;
 }
 
-/** The seat order's user ids, or a 400 if it isn't a list of distinct ids. */
+/** The seat order's player ids, or a 400 if it isn't a list of distinct ids. */
 function parseSeatOrder(body: unknown): string[] {
-  const { userIds } = bodyFields<SeatOrderRequest>(body);
+  const { playerIds } = bodyFields<SeatOrderRequest>(body);
   if (
-    !Array.isArray(userIds) ||
-    !userIds.every((id) => typeof id === 'string') ||
-    new Set(userIds).size !== userIds.length
+    !Array.isArray(playerIds) ||
+    !playerIds.every((id) => typeof id === 'string') ||
+    new Set(playerIds).size !== playerIds.length
   ) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'List each player once, in seat order.',
     });
   }
-  return userIds;
+  return playerIds;
 }
 
 /** A pick import's file text, or a 400 if there is none and a 413 if it's too long. */

@@ -8,6 +8,7 @@ import {
 import {
   aliceCookie,
   addToPlan,
+  bob,
   carol,
   enqueue,
   pick,
@@ -35,7 +36,7 @@ describeRaces('plan changes against a cascade', () => {
 
     const carols = await planOf(id, carolCookie);
     expect([
-      { added: 200, mainboard: [], lost: ['Lava Spike picked by Bob'] },
+      { added: 200, mainboard: [], lost: [`Lava Spike picked by ${bob.id}`] },
       { added: '409 already-picked', mainboard: [], lost: [] },
     ]).toContainEqual({
       added: answered(added),

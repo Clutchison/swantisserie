@@ -439,7 +439,7 @@ describe('card previews', () => {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
           sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
           basics: [],
-          lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.name }],
+          lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.id }],
         },
       });
       tabButton(opened.page, 'Plan').click();

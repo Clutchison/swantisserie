@@ -25,6 +25,7 @@ import {
   post,
   announcementsSettled,
   addBot,
+  draftsRequest,
 } from './harness.js';
 
 useDraftsApp();
@@ -221,6 +222,24 @@ describe('pick import', () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
 
     await importPicks(id, undefined, previewed).expect(400);
+  });
+
+  it('refuses a seat order sent as userIds rather than playerIds', async () => {
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
+
+    const refused = await draftsRequest(
+      'post',
+      `/${id}/pick-import`,
+      aliceCookie,
+      {
+        csv,
+        userIds: previewed,
+      },
+    ).expect(400);
+    expect(refused.body).toEqual({
+      error: 'invalid',
+      message: 'List each player once, in seat order.',
+    });
   });
 
   it('posts no announcement and makes no queued or bot picks; the resume announces and pings', async () => {

@@ -138,11 +138,11 @@ export class LobbyControls {
 
   /** Swaps the player in seat `index` with the one `by` seats along. */
   protected moveSeat(index: number, by: -1 | 1) {
-    const userIds = this.draft().players.map((player) => player.id);
-    [userIds[index], userIds[index + by]] = [userIds[index + by], userIds[index]];
+    const playerIds = this.draft().players.map((player) => player.id);
+    [playerIds[index], playerIds[index + by]] = [playerIds[index + by], playerIds[index]];
     return this.changeLobby(
       this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
-        userIds,
+        playerIds,
       } satisfies SeatOrderRequest),
     );
   }
@@ -195,7 +195,7 @@ export class LobbyControls {
         await firstValueFrom(
           this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pick-import`, {
             csv,
-            userIds: seats.map((seat) => seat.userId),
+            playerIds: seats.map((seat) => seat.playerId),
           } satisfies PickImportRequest),
         ),
       );

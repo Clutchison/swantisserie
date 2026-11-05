@@ -68,7 +68,7 @@ describe('seats and start', () => {
     button(page, 'Move Bob earlier')!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'));
     expect(req.request.method).toBe('PUT');
-    expect(req.request.body).toEqual({ userIds: [bob.id, alice.id] });
+    expect(req.request.body).toEqual({ playerIds: [bob.id, alice.id] });
     req.flush(draft({ players: [bob, alicePlayer] }));
     await fixture.whenStable();
 
@@ -149,8 +149,8 @@ describe('seats and start', () => {
 
     const preview = {
       seats: [
-        { column: 'Ann', userId: alice.id, player: 'Alice' },
-        { column: 'Ben', userId: bob.id, player: 'Bob' },
+        { column: 'Ann', playerId: alice.id, player: 'Alice' },
+        { column: 'Ben', playerId: bob.id, player: 'Bob' },
       ],
       picks: 70,
       next: { pick: 71, player: 'Bob' },
@@ -182,7 +182,7 @@ describe('seats and start', () => {
         button(page, 'Import and start paused')!.click();
         const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pick-import'));
         expect(req.request.method).toBe('POST');
-        expect(req.request.body).toEqual({ csv: text, userIds: [alice.id, bob.id] });
+        expect(req.request.body).toEqual({ csv: text, playerIds: [alice.id, bob.id] });
         req.flush(answer, { status, statusText: status === 200 ? 'OK' : 'Refused' });
       }
 

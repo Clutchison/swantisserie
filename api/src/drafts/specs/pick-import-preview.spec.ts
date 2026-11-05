@@ -33,8 +33,8 @@ describe('pick import preview', () => {
 
     expect(answer.body).toEqual({
       seats: [
-        { column: 'Ann', userId: alice.id, player: 'Alice' },
-        { column: 'Ben', userId: bob.id, player: 'Bob' },
+        { column: 'Ann', playerId: alice.id, player: 'Alice' },
+        { column: 'Ben', playerId: bob.id, player: 'Bob' },
       ],
       picks: 3,
       next: { pick: 4, player: 'Alice' },

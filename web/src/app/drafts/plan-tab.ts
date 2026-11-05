@@ -19,6 +19,7 @@ import type {
   PlannedBasicView,
   PlannedCardView,
   PlanView,
+  PlayerView,
   PoolCardView,
   QueueView,
 } from 'contract';
@@ -169,6 +170,8 @@ export class PlanTab {
   readonly plan = input.required<PlanView>();
   /** The pool's cards by id, for the Card previews of the names here. */
   readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
+  /** The draft's players, for the names of who picked the lost cards. */
+  readonly players = input.required<readonly PlayerView[]>();
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
   readonly loading = input(false);
   /** The pool card ids of the cards in the signed-in player's queue. */
@@ -287,6 +290,11 @@ export class PlanTab {
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
+
+  /** A player's name, by their id; "another player" for one no longer in the draft. */
+  protected playerName(id: string): string {
+    return this.players().find((player) => player.id === id)?.name ?? 'another player';
+  }
 
   constructor() {
     // The modal takes focus as it opens.

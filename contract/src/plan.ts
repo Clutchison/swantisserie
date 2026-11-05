@@ -24,7 +24,7 @@ export interface PlannedBasicView {
 export interface LostCardView {
   poolCardId: string;
   name: string;
-  /** The name of the player who picked it. */
+  /** The id of the player who picked it: a `PlayerView.id`. */
   pickedBy: string;
 }
 

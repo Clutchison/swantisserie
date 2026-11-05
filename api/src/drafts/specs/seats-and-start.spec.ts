@@ -17,6 +17,7 @@ import {
   join,
   setSeats,
   randomizeSeats,
+  draftsRequest,
 } from './harness.js';
 
 useDraftsApp();
@@ -214,6 +215,13 @@ describe('seats and start', () => {
     await setSeats(id, [bob.id, alice.id, carol.id]).expect(409);
     await setSeats(id, [bob.id, bob.id]).expect(400);
     await setSeats(id, 'bob').expect(400);
+    const oldName = await draftsRequest('put', `/${id}/seats`, aliceCookie, {
+      userIds: [bob.id, alice.id],
+    }).expect(400);
+    expect(oldName.body).toEqual({
+      error: 'invalid',
+      message: 'List each player once, in seat order.',
+    });
 
     const draft = await getDraft(id).expect(200);
     expect(playerIds(draft.body)).toEqual([alice.id, bob.id]);

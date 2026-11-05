@@ -239,6 +239,7 @@
           [loading]="planLoading()"
           [plan]="plan()"
           [poolCardsById]="poolCardsById()"
+          [players]="draft.players"
           [queued]="queued()"
           [offerQueueUnpicked]="offerQueue() && !yourTurn()"
           (planChanged)="planResource.set($event)"

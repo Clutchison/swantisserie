@@ -27,6 +27,10 @@ export type PoolSnapshotView = { cards: number } & (
 
 /** A guild member or bot who has joined a draft. */
 export interface PlayerView {
+  /**
+   * The player's Discord user id. Every `playerId` in the contract, and
+   * `LostCardView.pickedBy`, is one of these.
+   */
   id: string;
   name: string;
   avatarUrl: string;
@@ -119,7 +123,7 @@ export interface WebhookChoiceRequest {
   webhookId: string | null;
 }
 
-/** The seat order an organizer sets, as every player's user id. */
+/** The seat order an organizer sets, as every player's id. */
 export interface SeatOrderRequest {
-  userIds: string[];
+  playerIds: string[];
 }
