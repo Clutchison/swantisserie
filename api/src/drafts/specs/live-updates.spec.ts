@@ -147,6 +147,7 @@ describe('live updates', () => {
         }),
       ]),
     );
+    expect(bobSees[0]).not.toHaveProperty('createdAt');
   });
 
   it('pushes the draft to its viewers after an undo, with the turn back', async () => {

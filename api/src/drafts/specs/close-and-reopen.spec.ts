@@ -12,6 +12,7 @@ import {
   enqueue,
   queue,
   pickLog,
+  pickedNames,
   undo,
   dismissNotice,
   poolCardIds,
@@ -56,9 +57,7 @@ describe('close and reopen', () => {
 
     await post(id, 'close').expect(200);
 
-    expect(
-      (await pickLog(id)).body.map((p: { name: string }) => p.name),
-    ).toEqual(['Shock']);
+    expect(await pickedNames(id)).toEqual(['Shock']);
   });
 
   it('refuses to close a draft in the lobby, complete or already closed', async () => {
@@ -171,9 +170,7 @@ describe('close and reopen', () => {
       state: 'Drafting',
       turn: { pick: 2, round: 1, playerId: bob.id },
     });
-    expect(
-      (await pickLog(id)).body.map((p: { name: string }) => p.name),
-    ).toEqual(['Shock']);
+    expect(await pickedNames(id)).toEqual(['Shock']);
   });
 
   it('announces a close pinging nobody, and a reopen pinging whoever is up', async () => {

@@ -12,6 +12,8 @@ import {
   getDraft,
   readyDraft,
   pickLog,
+  pickedNames,
+  pool,
   undo,
   poolCardIds,
   copyIds,
@@ -61,11 +63,12 @@ describe('pick import', () => {
       playerId: alice.id,
     });
     const log = await pickLog(id);
+    const names = await pickedNames(id);
     expect(
-      log.body.map((pick: { pick: number; playerId: string; name: string }) => [
+      log.body.map((pick: { pick: number; playerId: string }, i: number) => [
         pick.pick,
         pick.playerId,
-        pick.name,
+        names[i],
       ]),
     ).toEqual([
       [1, alice.id, 'Ash Golem'],
@@ -104,8 +107,11 @@ describe('pick import', () => {
     await importPicks(id, csv, previewed).expect(200);
 
     const [first] = (await pickLog(id)).body;
-    expect(first.set).toEqual(expect.any(String));
-    expect(first.collectorNumber).toEqual(expect.any(String));
+    const card = (await pool(id).expect(200)).body.find(
+      (poolCard: { id: string }) => poolCard.id === first.poolCardId,
+    );
+    expect(card.set).toEqual(expect.any(String));
+    expect(card.collectorNumber).toEqual(expect.any(String));
   });
 
   it('times every pick at the pick import', async () => {

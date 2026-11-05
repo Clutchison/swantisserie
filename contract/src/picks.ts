@@ -5,13 +5,8 @@ export interface PickView {
   /** 1-based, counting every pick in the draft. */
   pick: number;
   playerId: string;
+  /** The pool card picked: the pool holds its name and printing. */
   poolCardId: string;
-  name: string;
-  /** How the faces are laid out. */
-  layout: string;
-  typeLine: string;
-  set: string;
-  collectorNumber: string;
 }
 
 /** What a pick import's file would do to a draft in the lobby. */

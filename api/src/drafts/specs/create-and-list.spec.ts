@@ -41,7 +41,6 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
     turn: null,
     webhook: null,
     version: 0,
-    createdAt: expect.any(String),
   };
   expect(created.body).toEqual(draft);
   const list = await listDrafts().expect(200);
@@ -360,12 +359,9 @@ it('lists active and complete drafts, newest first', async () => {
 
   expect(res.body).toEqual([
     expect.objectContaining({ id: created.body.id, state: 'Lobby' }),
-    expect.objectContaining({
-      id: old.id,
-      state: 'Complete',
-      createdAt: '2026-09-01T00:00:00.000Z',
-    }),
+    expect.objectContaining({ id: old.id, state: 'Complete' }),
   ]);
+  expect(res.body[1]).not.toHaveProperty('createdAt');
 });
 
 it('is only for signed-in users', async () => {

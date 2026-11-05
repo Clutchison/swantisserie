@@ -45,7 +45,6 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
       name: draft.webhook.name,
     },
     version: draft.version,
-    createdAt: draft.createdAt.toISOString(),
   };
 }
 
@@ -115,11 +114,6 @@ export function toPickView(pick: LoggedPick): PickView {
     pick: pick.number,
     playerId: pick.player.userId,
     poolCardId: pick.poolCardId,
-    name: pick.poolCard.name,
-    layout: pick.poolCard.layout,
-    typeLine: pick.poolCard.typeLine,
-    set: pick.poolCard.set,
-    collectorNumber: pick.poolCard.collectorNumber,
   };
 }
 
@@ -128,7 +122,6 @@ export function toPoolCardView(card: PoolCard): PoolCardView {
   return {
     id: card.id,
     scryfallId: card.scryfallId,
-    oracleId: card.oracleId,
     name: card.name,
     set: card.set,
     collectorNumber: card.collectorNumber,

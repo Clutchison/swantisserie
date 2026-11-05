@@ -30,7 +30,6 @@ export interface CardFace {
 export interface PoolCardView {
   id: string;
   scryfallId: string;
-  oracleId: string;
   name: string;
   set: string;
   collectorNumber: string;
