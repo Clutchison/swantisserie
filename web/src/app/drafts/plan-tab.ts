@@ -298,7 +298,7 @@ export class PlanTab {
 
   /** A player's name, by their id; "another player" for one no longer in the draft. */
   protected playerName(id: string): string {
-    return this.store.player(id)?.name ?? 'another player';
+    return this.store.player(id).name;
   }
 
   constructor() {

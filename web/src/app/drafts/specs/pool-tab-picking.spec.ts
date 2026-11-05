@@ -242,6 +242,16 @@ describe('pool tab', () => {
       expect(avatar(detail)?.getAttribute('src')).toBe(bot.avatarUrl);
     });
 
+    it('badges a card picked by someone no longer among the players as picked by another player', async () => {
+      const { fixture, page } = await openPicked('gone');
+
+      expect(announced(badge(page))).toBe('Picked by another player');
+      expect(avatar(badge(page))).toBeNull();
+      const detail = await openDetail(fixture, page, 0);
+      expect(detail.textContent).toContain('Picked by another player');
+      expect(avatar(detail)).toBeNull();
+    });
+
     it('shows a new pick’s badge through live updates, and removes it when it’s undone', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, bobUp, { cards: [shivan] });
       expect(badge(page)).toBeNull();

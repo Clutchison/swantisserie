@@ -4,12 +4,13 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal } from '@angula
  * A player's round avatar, which leaves itself out if it fails to load.
  * Decorative: the player's name always sits beside it as text, so the image
  * names nothing and says its presentation role outright for specs to find.
+ * With no image to show, as for a player no longer in the draft, it shows none.
  */
 @Component({
   selector: 'app-player-avatar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (!failed()) {
+    @if (src() && !failed()) {
       <img
         class="avatar"
         role="presentation"
