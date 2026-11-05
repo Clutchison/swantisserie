@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { NewPoolSourceRequest } from 'contract';
 import { MAX_PLAYERS, shuffle } from 'engine';
 import type { Platform, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -39,9 +40,10 @@ import { SCRYFALL_GAME } from './platform.js';
 import { CubeCobraClient } from '../cubecobra/cubecobra-client.js';
 import { cubeIdFrom } from '../cubecobra/cube-link.js';
 import { cubePrintings } from './cube-pool.js';
+import { STORED_POOL_SOURCE_KIND } from './pool-source.js';
 
-/** What defines a new draft's pool: a pool query or a cube link, as the organizer gave it. */
-export type NewPoolSource = { poolQuery: string } | { cubeLink: string };
+/** What defines a new draft's pool, as the organizer gave it, trimmed. */
+export type NewPoolSource = NewPoolSourceRequest;
 
 /** A cube as a draft keeps it, with a printing on the platform of each mainboard copy. */
 interface CheckedCube {
@@ -93,30 +95,41 @@ export class DraftLobbyService {
       throw new UnknownWebhookError();
     }
     const { poolSource, ...fields } = draft;
-    if ('cubeLink' in poolSource) {
-      const { cubeId, cubeName, printings } = await this.checkCubeLink(
-        poolSource.cubeLink,
-        draft.platform,
-      );
-      // One statement, so the draft and its pool cards are saved together or not at all.
-      return this.saveDraft({
-        ...fields,
-        cubeId,
-        cubeName,
-        organizerId,
-        snapshotState: 'Complete',
-        poolTotal: printings.length,
-        pool: { createMany: { data: printings.map(toPoolCard) } },
-      });
+    const poolSourceKind = STORED_POOL_SOURCE_KIND[poolSource.kind];
+    switch (poolSource.kind) {
+      case 'pool-query': {
+        await this.checkPoolQuery(poolSource.poolQuery, draft.platform);
+        const created = await this.saveDraft({
+          ...fields,
+          poolSourceKind,
+          poolQuery: poolSource.poolQuery,
+          organizerId,
+        });
+        await this.snapshots.start(created.id);
+        return created;
+      }
+      case 'cube': {
+        const { cubeId, cubeName, printings } = await this.checkCubeLink(
+          poolSource.cubeLink,
+          draft.platform,
+        );
+        // One statement, so the draft and its pool cards are saved together or not at all.
+        return this.saveDraft({
+          ...fields,
+          poolSourceKind,
+          cubeId,
+          cubeName,
+          organizerId,
+          snapshotState: 'Complete',
+          poolTotal: printings.length,
+          pool: { createMany: { data: printings.map(toPoolCard) } },
+        });
+      }
+      default: {
+        const unhandled: never = poolSource;
+        throw new Error(`Unknown pool source ${JSON.stringify(unhandled)}.`);
+      }
     }
-    await this.checkPoolQuery(poolSource.poolQuery, draft.platform);
-    const created = await this.saveDraft({
-      ...fields,
-      poolQuery: poolSource.poolQuery,
-      organizerId,
-    });
-    await this.snapshots.start(created.id);
-    return created;
   }
 
   private saveDraft(

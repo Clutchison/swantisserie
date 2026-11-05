@@ -38,7 +38,7 @@ describe('webhook', () => {
   it('posts to the webhook the organizer chose, shown by name only', async () => {
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       webhookId,
     }).expect(201);
 
@@ -56,7 +56,7 @@ describe('webhook', () => {
   it('posts nowhere when the organizer chose no webhook', async () => {
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       webhookId: null,
     }).expect(201);
 
@@ -66,7 +66,7 @@ describe('webhook', () => {
   it('refuses a webhook that does not exist', async () => {
     const res = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       webhookId: 'no-such-webhook',
     }).expect(400);
 
@@ -81,7 +81,7 @@ describe('webhook', () => {
   it('shows a webhook’s new name, and posts nowhere once it is removed', async () => {
     const { body } = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       webhookId,
     }).expect(201);
 

@@ -21,6 +21,7 @@ import type {
   DraftPowersView,
   DraftView,
   NewDraftRequest,
+  NewPoolSourceRequest,
   PickImportPreview,
   PickImportPreviewRequest,
   PickImportTooLarge,
@@ -48,7 +49,11 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
-import { DraftLobbyService, type NewDraft } from './draft-lobby.service.js';
+import {
+  DraftLobbyService,
+  type NewDraft,
+  type NewPoolSource,
+} from './draft-lobby.service.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftReadsService } from './draft-reads.service.js';
@@ -65,6 +70,7 @@ import { toDraftView, toPickView, toPoolCardView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
 import { isPlatform, PLATFORMS } from './platform.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
+import { isPoolSourceKind } from './pool-source.js';
 
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
@@ -409,13 +415,8 @@ export class DraftsController {
 
 /** The create form's fields, or a 400 saying which one to fix. */
 function parseNewDraft(body: unknown): NewDraft {
-  const { name, poolQuery, cubeLink, picksPerPlayer, platform, webhookId } =
+  const { name, poolSource, picksPerPlayer, platform, webhookId } =
     bodyFields<NewDraftRequest>(body);
-  const invalid = (message: string) =>
-    new BadRequestException({
-      error: 'invalid',
-      message,
-    } satisfies DraftCreationProblem);
 
   const trimmedName = typeof name === 'string' ? name.trim() : '';
   if (!trimmedName) throw invalid('Give the draft a name.');
@@ -423,22 +424,7 @@ function parseNewDraft(body: unknown): NewDraft {
     throw invalid(`Keep the name to ${MAX_DRAFT_NAME_LENGTH} characters.`);
   }
 
-  const trimmedQuery = typeof poolQuery === 'string' ? poolQuery.trim() : '';
-  const trimmedLink = typeof cubeLink === 'string' ? cubeLink.trim() : '';
-  if (trimmedQuery && trimmedLink) {
-    throw invalid('Enter a pool query or a cube link, not both.');
-  }
-  if (!trimmedQuery && !trimmedLink) {
-    throw invalid('Enter a pool query or a cube link.');
-  }
-  if (trimmedQuery.length > MAX_POOL_QUERY_LENGTH) {
-    throw invalid(
-      `Keep the pool query to ${MAX_POOL_QUERY_LENGTH} characters.`,
-    );
-  }
-  if (trimmedLink.length > MAX_CUBE_LINK_LENGTH) {
-    throw invalid(`Keep the cube link to ${MAX_CUBE_LINK_LENGTH} characters.`);
-  }
+  const parsedPoolSource = parsePoolSource(poolSource);
 
   // Only a missing field gets the default: null is a field left blank.
   const picks =
@@ -467,13 +453,61 @@ function parseNewDraft(body: unknown): NewDraft {
 
   return {
     name: trimmedName,
-    poolSource: trimmedLink
-      ? { cubeLink: trimmedLink }
-      : { poolQuery: trimmedQuery },
+    poolSource: parsedPoolSource,
     picksPerPlayer: picks,
     platform: chosenPlatform,
     webhookId: webhookId ?? null,
   };
+}
+
+/** A 400 for the create form, saying what to fix. */
+function invalid(message: string): BadRequestException {
+  return new BadRequestException({
+    error: 'invalid',
+    message,
+  } satisfies DraftCreationProblem);
+}
+
+/** The create form's pool source, trimmed, or a 400 saying what to fix. */
+function parsePoolSource(poolSource: unknown): NewPoolSource {
+  const missing = () => invalid('Enter a pool query or a cube link.');
+  if (typeof poolSource !== 'object' || poolSource === null) throw missing();
+  const { kind } = bodyFields<NewPoolSourceRequest>(poolSource);
+  if (!isPoolSourceKind(kind)) throw missing();
+  switch (kind) {
+    case 'pool-query': {
+      const { poolQuery } =
+        bodyFields<Extract<NewPoolSourceRequest, { kind: typeof kind }>>(
+          poolSource,
+        );
+      const trimmed = typeof poolQuery === 'string' ? poolQuery.trim() : '';
+      if (!trimmed) throw missing();
+      if (trimmed.length > MAX_POOL_QUERY_LENGTH) {
+        throw invalid(
+          `Keep the pool query to ${MAX_POOL_QUERY_LENGTH} characters.`,
+        );
+      }
+      return { kind, poolQuery: trimmed };
+    }
+    case 'cube': {
+      const { cubeLink } =
+        bodyFields<Extract<NewPoolSourceRequest, { kind: typeof kind }>>(
+          poolSource,
+        );
+      const trimmed = typeof cubeLink === 'string' ? cubeLink.trim() : '';
+      if (!trimmed) throw missing();
+      if (trimmed.length > MAX_CUBE_LINK_LENGTH) {
+        throw invalid(
+          `Keep the cube link to ${MAX_CUBE_LINK_LENGTH} characters.`,
+        );
+      }
+      return { kind, cubeLink: trimmed };
+    }
+    default: {
+      const unhandled: never = kind;
+      throw new Error(`Unknown pool source kind ${String(unhandled)}.`);
+    }
+  }
 }
 
 /** The webhook chosen for a draft, null for none, or a 400 if the body doesn't say. */

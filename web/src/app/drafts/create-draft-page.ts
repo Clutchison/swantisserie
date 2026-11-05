@@ -87,10 +87,11 @@ export class CreateDraftPage {
       this.form.getRawValue();
     return {
       name,
+      poolSource:
+        poolSource === 'cubeLink' ? { kind: 'cube', cubeLink } : { kind: 'pool-query', poolQuery },
       picksPerPlayer,
       platform,
       webhookId,
-      ...(poolSource === 'cubeLink' ? { cubeLink } : { poolQuery }),
     } satisfies NewDraftRequest;
   }
 

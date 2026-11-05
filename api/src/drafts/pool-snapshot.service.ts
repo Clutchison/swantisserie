@@ -4,7 +4,7 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
-import type { Platform } from '../generated/prisma/client.js';
+import type { Platform, PoolSourceKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallClient,
@@ -15,8 +15,10 @@ import { NO_BASIC_LANDS } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
 import { NoOracleIdError, toPoolCard } from './pool-card.js';
 
-/** A draft's pool query, null when a cube link defines its pool, and its platform: what the pool is snapshotted from. */
+/** A draft's pool source and its platform: what the pool is snapshotted from. */
 interface SnapshotSource {
+  poolSourceKind: PoolSourceKind;
+  /** Set for a pool query, by the database's check constraints. */
   poolQuery: string | null;
   platform: Platform;
 }
@@ -114,14 +116,7 @@ export class PoolSnapshotService
     if (source === null) return;
 
     try {
-      if (source.poolQuery === null) {
-        // A cube link's pool is complete from creation; only a draft left
-        // unfinished by an older version gets here.
-        throw new PoolSnapshotError(
-          'A pool from a cube link is taken only when its draft is created. Cancel this draft and create it again.',
-        );
-      }
-      await this.pageThrough(draftId, source.poolQuery, source.platform);
+      await this.takeCards(draftId, source);
       await this.prisma.draft.update({
         where: { id: draftId },
         data: { snapshotState: 'Complete' },
@@ -163,9 +158,30 @@ export class PoolSnapshotService
       await tx.poolCard.deleteMany({ where: { draftId } });
       return tx.draft.findUniqueOrThrow({
         where: { id: draftId },
-        select: { poolQuery: true, platform: true },
+        select: { poolSourceKind: true, poolQuery: true, platform: true },
       });
     });
+  }
+
+  /** Takes the draft's cards in the way its kind of pool source is taken. */
+  private async takeCards(
+    draftId: string,
+    { poolSourceKind: kind, poolQuery, platform }: SnapshotSource,
+  ): Promise<void> {
+    switch (kind) {
+      case 'PoolQuery':
+        return this.pageThrough(draftId, poolQuery ?? '', platform);
+      case 'Cube':
+        // A cube link's pool is complete from creation; only a draft left
+        // unfinished by an older version gets here.
+        throw new PoolSnapshotError(
+          'A pool from a cube link is taken only when its draft is created. Cancel this draft and create it again.',
+        );
+      default: {
+        const unhandled: never = kind;
+        throw new Error(`Unknown pool source kind ${String(unhandled)}.`);
+      }
+    }
   }
 
   private async pageThrough(

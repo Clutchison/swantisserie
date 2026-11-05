@@ -53,11 +53,13 @@ enum DraftState {
 model Draft {
   id             String            @id @default(uuid())
   name           String
-  /// The Scryfall search that defines the pool; null when a cube link does. Exactly one of poolQuery and cubeId is set.
+  /// Which pool source defines the pool. A check constraint per kind requires that kind's columns and refuses the others.
+  poolSourceKind PoolSourceKind
+  /// The Scryfall search that defines the pool: set exactly when poolSourceKind is PoolQuery, by check constraint.
   poolQuery      String?
-  /// The CubeCobra cube whose mainboard defines the pool, by id; null when a pool query does.
+  /// The CubeCobra cube whose mainboard defines the pool, by id: set exactly when poolSourceKind is Cube, by check constraint.
   cubeId         String?
-  /// The cube's name as it was when the draft was created; set exactly when cubeId is.
+  /// The cube's name as it was when the draft was created: set exactly when poolSourceKind is Cube, by check constraint.
   cubeName       String?
   picksPerPlayer Int
   /// The game the draft is played on. Chosen at creation; it never changes.
@@ -84,6 +86,12 @@ model Draft {
 
   @@index([organizerId])
   @@index([webhookId])
+}
+
+/// What defines a draft's pool. The api maps each to the contract's kind in one place (drafts/pool-source.ts).
+enum PoolSourceKind {
+  PoolQuery
+  Cube
 }
 
 /// The game a draft is played on.
@@ -237,7 +245,7 @@ model PlannedBasic {
   playerId String
   player   Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   land     BasicLand
-  /// At least 1: a basic with no copies has no row.
+  /// At least 1, by check constraint: a basic with no copies has no row.
   count    Int
 
   @@unique([playerId, land])

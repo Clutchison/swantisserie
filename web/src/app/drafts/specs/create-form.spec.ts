@@ -133,7 +133,7 @@ describe('create form', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       picksPerPlayer: 30,
       platform: 'Arena',
       webhookId: null,
@@ -183,7 +183,7 @@ describe('create form', () => {
     const req = await vi.waitFor(() => http.expectOne('/api/drafts'));
     expect(req.request.body).toEqual({
       name: 'Pauper',
-      cubeLink: 'https://cubecobra.com/cube/list/thepaupercube',
+      poolSource: { kind: 'cube', cubeLink: 'https://cubecobra.com/cube/list/thepaupercube' },
       picksPerPlayer: 40,
       platform: 'Arena',
       webhookId: null,

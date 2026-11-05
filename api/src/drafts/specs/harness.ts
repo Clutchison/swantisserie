@@ -253,7 +253,10 @@ export async function draftWithRunningSnapshot() {
     }
     return pageTwo;
   });
-  const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+  const created = await createDraft({
+    name: 'Red',
+    poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
+  });
   await vi.waitFor(() =>
     expect(scryfall.search).toHaveBeenCalledWith(query, 2),
   );
@@ -445,7 +448,7 @@ export async function readyDraft(
   });
   const created = await createDraft({
     name: 'Red',
-    poolQuery: 'c:r',
+    poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     picksPerPlayer,
     webhookId,
   }).expect(201);

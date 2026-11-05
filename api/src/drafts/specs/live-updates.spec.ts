@@ -229,7 +229,7 @@ describe('live updates', () => {
     allOnArena('t:dragon c:r');
     const { body } = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       webhookId,
     }).expect(201);
     const aliceSees = await watch(body.id, aliceCookie);
