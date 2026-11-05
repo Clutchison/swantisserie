@@ -585,17 +585,18 @@ describe('queue', () => {
       }
       await start(id).expect(200);
       // Alice's turn came, so Shock was picked for her. Undoing it brings
-      // her turn back with the rest of her queue still waiting.
+      // her turn back with her whole queue, Shock included, waiting.
       await undo(id, 1).expect(200);
 
       const reordered = await reorderQueue(id, [
         ids['Lava Spike'],
+        ids.Shock,
         ids['Lightning Bolt'],
       ]).expect(200);
-      expect(reordered.body.cards).toEqual([spike, bolt]);
+      expect(reordered.body.cards).toEqual([spike, shock, bolt]);
 
       const removed = await removeFromQueue(id, ids['Lava Spike']).expect(200);
-      expect(removed.body.cards).toEqual([bolt]);
+      expect(removed.body.cards).toEqual([shock, bolt]);
     });
 
     it('keeps a queued card after an undo, without picking it, and lets it be removed', async () => {
@@ -613,12 +614,12 @@ describe('queue', () => {
         round: 1,
         playerId: alice.id,
       });
-      expect((await queue(id).expect(200)).body.cards).toEqual([spike]);
+      expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
       const log = await pickLog(id);
       expect(log.body).toEqual([]);
 
       const removed = await removeFromQueue(id, ids['Lava Spike']).expect(200);
-      expect(removed.body.cards).toEqual([]);
+      expect(removed.body.cards).toEqual([shock]);
     });
 
     it('makes a player on the first of two turns in a row make the second by hand', async () => {

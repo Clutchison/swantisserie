@@ -50,9 +50,10 @@ export async function queuesAfter(
  * the engine works it out; `playerIds` are the players by seat, as `after`
  * is indexed. The card leaves the picker's queue, and in each other queue
  * holding it, it is swapped for another copy or lost, clearing that queue or
- * keeping the rest. Lost and cleared cards are kept against the pick, in
- * queue order, so that undoing it can put them back. A swapped copy stays
- * swapped: it is as good as the one picked.
+ * keeping the rest. Lost and cleared cards, and the card the picker had
+ * queued, are kept against the pick, in queue order, so that undoing it can
+ * put them back. A swapped copy stays swapped: it is as good as the one
+ * picked.
  */
 export async function recordQueueEffects(
   tx: Transaction,
@@ -97,10 +98,24 @@ export async function recordQueueEffects(
     } else if (playerId === pick.playerId) {
       // Only the picker's own queue loses cards this way. Any other queue,
       // such as a bot's, which the cascade passes to the engine as empty,
-      // is left as it is.
-      await tx.queuedCard.deleteMany({
-        where: { playerId, poolCardId: { notIn: queue } },
+      // is left as it is. The picked card is kept against the pick, so that
+      // undoing it puts the card back in its place, but never on the notice:
+      // it was picked, not lost.
+      const picked = { playerId, poolCardId: { notIn: queue } };
+      const before = await tx.queuedCard.findMany({
+        where: picked,
+        select: { poolCardId: true, position: true },
       });
+      await tx.takenOutQueuedCard.createMany({
+        data: before.map((queued) => ({
+          ...queued,
+          playerId,
+          pickId: pick.id,
+          restKept: true,
+          noticeHidden: true,
+        })),
+      });
+      await tx.queuedCard.deleteMany({ where: picked });
     }
   }
 }

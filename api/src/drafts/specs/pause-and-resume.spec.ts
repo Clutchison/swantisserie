@@ -60,11 +60,12 @@ describe('pause and resume', () => {
     await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
-    // Bob's cascade ran; undoing its last pick leaves his turn with a card waiting.
+    // Bob's cascade ran; undoing its last pick leaves his turn with Skewer
+    // the Critics back in his queue, waiting.
     await undo(id, 3).expect(200);
     await post(id, 'pause').expect(200);
     // Queued while paused, off turn: nothing is picked yet.
-    await enqueue(id, ids['Skewer the Critics']).expect(200);
+    await enqueue(id, ids['Lightning Bolt']).expect(200);
     expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
 
     const resumed = await post(id, 'resume').expect(200);
@@ -73,8 +74,8 @@ describe('pause and resume', () => {
     expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
       'Bob: Lava Spike',
-      'Bob: Lightning Bolt',
-      'Alice: Skewer the Critics',
+      'Bob: Skewer the Critics',
+      'Alice: Lightning Bolt',
     ]);
   });
 
@@ -127,7 +128,8 @@ describe('pause and resume', () => {
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids.Shock).expect(200);
     await start(id).expect(200);
-    // Lava Spike was picked for Alice; undoing it brings back her turn.
+    // Lava Spike was picked for Alice; undoing it brings back her turn, with
+    // Lava Spike back in her queue.
     await undo(id, 1).expect(200);
     await post(id, 'pause').expect(200);
 
@@ -145,7 +147,7 @@ describe('pause and resume', () => {
       {
         content:
           '**Red** has resumed\n' +
-          '1- **Alice** picked **Shock**\n' +
+          '1- **Alice** picked **Lava Spike**\n' +
           `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       },
