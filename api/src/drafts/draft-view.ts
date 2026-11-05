@@ -1,15 +1,22 @@
 import type {
+  CardFace,
+  CardImages,
   DraftView,
+  PickView,
+  PoolCardView,
   PoolSnapshotView,
   PoolSourceView,
+  Rarity,
   TurnView,
 } from 'contract';
 import { currentTurn } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
 import { cubeUrl } from '../cubecobra/cubecobra-client.js';
+import type { PoolCard } from '../generated/prisma/client.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
 import { draftSize } from './draft-shapes.js';
 import { UNEXPECTED_SNAPSHOT_FAILURE } from './pool-snapshot.service.js';
+import type { LoggedPick } from './turns.service.js';
 
 /** The draft as viewers see it: never its webhook's URL. */
 export function toDraftView(draft: DraftWithOrganizer): DraftView {
@@ -92,5 +99,46 @@ function toTurnView(draft: DraftWithOrganizer): TurnView {
     pick: turn.pick,
     round: turn.round,
     playerId: draft.players[turn.seat].user.id,
+  };
+}
+
+/** A pick in the draft's pick log. */
+export function toPickView(pick: LoggedPick): PickView {
+  return {
+    pick: pick.number,
+    playerId: pick.player.userId,
+    poolCardId: pick.poolCardId,
+    name: pick.poolCard.name,
+    layout: pick.poolCard.layout,
+    typeLine: pick.poolCard.typeLine,
+    set: pick.poolCard.set,
+    collectorNumber: pick.poolCard.collectorNumber,
+  };
+}
+
+/** A card in the draft's pool. */
+export function toPoolCardView(card: PoolCard): PoolCardView {
+  return {
+    id: card.id,
+    scryfallId: card.scryfallId,
+    oracleId: card.oracleId,
+    name: card.name,
+    set: card.set,
+    collectorNumber: card.collectorNumber,
+    typeLine: card.typeLine,
+    colors: card.colors,
+    manaValue: card.manaValue,
+    manaCost: card.manaCost,
+    oracleText: card.oracleText,
+    colorIdentity: card.colorIdentity,
+    keywords: card.keywords,
+    rarity: card.rarity as Rarity,
+    layout: card.layout,
+    power: card.power,
+    toughness: card.toughness,
+    loyalty: card.loyalty,
+    defense: card.defense,
+    faces: card.faces as unknown as CardFace[],
+    images: card.images as unknown as CardImages[],
   };
 }

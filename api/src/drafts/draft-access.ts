@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { DraftPowersView } from 'contract';
 import type { SessionUser } from '../auth/session.guard.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -74,18 +70,4 @@ function powersOf(viewer: DraftViewer, draft: DraftForAccess): DraftPowersView {
     // #213 narrows this to app admins and guild admins.
     switchAnnouncements: organize,
   };
-}
-
-/**
- * Runs an access check, answering a hidden draft with 404 and a missing
- * power with 403. To be replaced by the drafts module's one error mapping.
- */
-export async function withAccessErrors<T>(check: Promise<T>): Promise<T> {
-  try {
-    return await check;
-  } catch (err) {
-    if (err instanceof DraftHiddenError) throw new NotFoundException();
-    if (err instanceof NoDraftPowerError) throw new ForbiddenException();
-    throw err;
-  }
 }

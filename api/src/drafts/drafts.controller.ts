@@ -2,7 +2,6 @@ import {
   BadGatewayException,
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
   Get,
@@ -14,22 +13,18 @@ import {
   Post,
   Put,
   UnprocessableEntityException,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import type {
-  CardFace,
-  CardImages,
   DraftCreationProblem,
   DraftPowersView,
   DraftView,
-  DraftChangeRefusal,
   NewDraftRequest,
-  PickImportRefusal,
   PickImportPreview,
   PickImportPreviewRequest,
   PickView,
   PoolCardView,
-  Rarity,
   SeatOrderRequest,
   WebhookChoiceRequest,
 } from 'contract';
@@ -43,7 +38,6 @@ import {
 } from 'contract';
 import { bodyFields } from '../request-body.js';
 import { parseCard } from './parse-card.js';
-import type { PoolCard } from '../generated/prisma/client.js';
 import { ScryfallUnavailableError } from '../scryfall/scryfall-client.js';
 import { CubeCobraUnavailableError } from '../cubecobra/cubecobra-client.js';
 import {
@@ -53,41 +47,29 @@ import {
 } from '../auth/session.guard.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService, type NewDraft } from './draft-lobby.service.js';
-import { DraftAccess, withAccessErrors } from './draft-access.js';
+import { DraftAccess } from './draft-access.js';
+import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftReadsService } from './draft-reads.service.js';
 import { PickImportService } from './pick-import.service.js';
-import { type LoggedPick, TurnsService } from './turns.service.js';
+import { TurnsService } from './turns.service.js';
 import {
-  CloseRefusedError,
   CubeLinkError,
-  DraftFullError,
-  DraftGoneError,
-  DraftStartedError,
-  PauseRefusedError,
-  PickImportRefusedError,
-  PickRefusedError,
-  PlayersChangedError,
   PoolQueryError,
-  StartRefusedError,
-  UndoRefusedError,
-  UnknownBotError,
   UnknownWebhookError,
 } from './draft-errors.js';
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
-import { toDraftView } from './draft-view.js';
+import { toDraftView, toPickView, toPoolCardView } from './draft-view.js';
 import { BotPlayers } from './bot-players.js';
 import { isPlatform, PLATFORMS } from './platform.js';
-import {
-  PoolFrozenError,
-  PoolSnapshotService,
-} from './pool-snapshot.service.js';
+import { PoolSnapshotService } from './pool-snapshot.service.js';
 
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
 
 @Controller('drafts')
 @UseGuards(SessionGuard)
+@UseFilters(DraftErrorsFilter)
 export class DraftsController {
   private readonly logger = new Logger(DraftsController.name);
 
@@ -113,7 +95,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.visible(user, id);
+    await this.access.visible(user, id);
     const draft = await this.reads.find(id);
     // Cancelled since the check.
     if (!draft) throw new NotFoundException();
@@ -126,7 +108,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftPowersView> {
-    return withAccessErrors(this.access.powers(user, id));
+    return this.access.powers(user, id);
   }
 
   @Get(':id/pool')
@@ -134,7 +116,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PoolCardView[]> {
-    await this.visible(user, id);
+    await this.access.visible(user, id);
     return (await this.reads.pool(id)).map(toPoolCardView);
   }
 
@@ -144,7 +126,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PickView[]> {
-    await this.visible(user, id);
+    await this.access.visible(user, id);
     return (await this.turns.picks(id)).map(toPickView);
   }
 
@@ -157,7 +139,7 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<DraftView> {
     const poolCardId = parseCard(body, 'Say which card to pick.');
-    await this.visible(user, id);
+    await this.access.visible(user, id);
     return this.change(id, () => this.turns.pick(id, user.id, poolCardId));
   }
 
@@ -172,7 +154,7 @@ export class DraftsController {
     @Param('number') number: string,
   ): Promise<DraftView> {
     const pickNumber = parsePickNumber(number);
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.turns.undo(id, pickNumber));
   }
 
@@ -187,7 +169,7 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<DraftView> {
     const webhookId = parseWebhookChoice(body);
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lifecycle.changeWebhook(id, webhookId));
   }
 
@@ -198,7 +180,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lifecycle.pause(id));
   }
 
@@ -209,7 +191,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lifecycle.resume(id));
   }
 
@@ -220,7 +202,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lifecycle.close(id));
   }
 
@@ -231,7 +213,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lifecycle.reopen(id));
   }
 
@@ -242,16 +224,8 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<void> {
-    await this.asOrganizer(user, id);
-    try {
-      await this.lobby.cancel(id);
-    } catch (err) {
-      if (err instanceof DraftGoneError) throw new NotFoundException();
-      if (err instanceof DraftStartedError) {
-        throw conflict('draft-started', err);
-      }
-      throw err;
-    }
+    await this.access.asOrganizer(user, id);
+    await this.lobby.cancel(id);
     this.publisher.cancelled(id);
   }
 
@@ -262,7 +236,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.snapshots.start(id));
   }
 
@@ -273,7 +247,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lobby.randomizeSeats(id));
   }
 
@@ -285,7 +259,7 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<DraftView> {
     const playerIds = parseSeatOrder(body);
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lobby.reorderSeats(id, playerIds));
   }
 
@@ -296,7 +270,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lobby.start(id));
   }
 
@@ -312,20 +286,8 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<PickImportPreview> {
     const csv = parsePickImport(body);
-    await this.asOrganizer(user, id);
-    try {
-      return await this.pickImports.previewPickImport(id, csv);
-    } catch (err) {
-      if (err instanceof DraftGoneError) throw new NotFoundException();
-      if (err instanceof DraftStartedError) {
-        throw conflict('draft-started', err);
-      }
-      if (err instanceof StartRefusedError) {
-        throw new ConflictException(err.refusal);
-      }
-      if (err instanceof PickImportRefusedError) throw pickImportRefused(err);
-      throw err;
-    }
+    await this.access.asOrganizer(user, id);
+    return this.pickImports.previewPickImport(id, csv);
   }
 
   /**
@@ -342,7 +304,7 @@ export class DraftsController {
   ): Promise<DraftView> {
     const csv = parsePickImport(body);
     const playerIds = parseSeatOrder(body);
-    await this.asOrganizer(user, id);
+    await this.access.asOrganizer(user, id);
     return this.change(id, () =>
       this.pickImports.importPicks(id, csv, playerIds),
     );
@@ -354,7 +316,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.visible(user, id);
+    await this.access.visible(user, id);
     return this.change(id, () => this.lobby.join(id, user.id));
   }
 
@@ -364,7 +326,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.visible(user, id);
+    await this.access.visible(user, id);
     return this.change(id, () => this.lobby.leave(id, user.id));
   }
 
@@ -374,7 +336,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.canAddBots(user, id);
+    await this.access.canAddBots(user, id);
     return this.change(id, () => this.lobby.addBot(id));
   }
 
@@ -385,7 +347,7 @@ export class DraftsController {
     @Param('id') id: string,
     @Param('userId') userId: string,
   ): Promise<DraftView> {
-    await this.canAddBots(user, id);
+    await this.access.canAddBots(user, id);
     return this.change(id, () => this.lobby.removeBot(id, userId));
   }
 
@@ -393,72 +355,17 @@ export class DraftsController {
    * Applies `change` to the draft and answers with the draft as it now is,
    * which is published as DraftPublisher says. If the change makes it a
    * bot's turn, the bot then picks. A change the draft's state no longer
-   * allows is a 409 naming why.
+   * allows is refused as DraftErrorsFilter says.
    */
   private async change(
     id: string,
     change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
-    let events: DraftEvent[] | void;
-    try {
-      events = await change();
-    } catch (err) {
-      if (err instanceof DraftGoneError) throw new NotFoundException();
-      if (err instanceof PoolFrozenError) throw conflict('pool-frozen', err);
-      if (err instanceof StartRefusedError) {
-        throw new ConflictException(err.refusal);
-      }
-      if (err instanceof PickRefusedError) {
-        if (err.refusal.error === 'not-in-pool') {
-          throw new NotFoundException(err.refusal);
-        }
-        throw new ConflictException(err.refusal);
-      }
-      if (
-        err instanceof UndoRefusedError ||
-        err instanceof PauseRefusedError ||
-        err instanceof CloseRefusedError
-      ) {
-        throw new ConflictException(err.refusal);
-      }
-      if (err instanceof PickImportRefusedError) throw pickImportRefused(err);
-      if (err instanceof PlayersChangedError) {
-        throw conflict('players-changed', err);
-      }
-      if (err instanceof DraftStartedError) {
-        throw conflict('draft-started', err);
-      }
-      if (err instanceof DraftFullError) throw conflict('draft-full', err);
-      if (err instanceof UnknownWebhookError) {
-        throw conflict('webhook-removed', err);
-      }
-      if (err instanceof UnknownBotError) {
-        throw new NotFoundException({
-          error: 'no-such-bot',
-          message: err.message,
-        });
-      }
-      throw err;
-    }
+    const events = await change();
     const draft = await this.publisher.publish(id, events ?? []);
     if (!draft) throw new NotFoundException();
     if (events) this.bots.scheduleNextPick(id, events);
     return draft;
-  }
-
-  /** A 404 unless `user` may see the draft. */
-  private visible(user: SessionUser, id: string): Promise<void> {
-    return withAccessErrors(this.access.visible(user, id));
-  }
-
-  /** A 404 unless `user` may see the draft, then a 403 unless they may organize it. */
-  private asOrganizer(user: SessionUser, id: string): Promise<void> {
-    return withAccessErrors(this.access.asOrganizer(user, id));
-  }
-
-  /** A 404 unless `user` may see the draft, then a 403 unless they may add bots. */
-  private canAddBots(user: SessionUser, id: string): Promise<void> {
-    return withAccessErrors(this.access.canAddBots(user, id));
   }
 
   @Post()
@@ -496,26 +403,6 @@ export class DraftsController {
       throw err;
     }
   }
-}
-
-function conflict(
-  error: DraftChangeRefusal['error'],
-  cause: Error,
-): ConflictException {
-  return new ConflictException({
-    error,
-    message: cause.message,
-  } satisfies DraftChangeRefusal);
-}
-
-function pickImportRefused(
-  cause: PickImportRefusedError,
-): UnprocessableEntityException {
-  return new UnprocessableEntityException({
-    error: 'invalid-pick-import',
-    message: cause.message,
-    problems: cause.problems,
-  } satisfies PickImportRefusal);
 }
 
 /** The create form's fields, or a 400 saying which one to fix. */
@@ -643,43 +530,4 @@ function parsePickNumber(param: string): number {
     });
   }
   return Number(param);
-}
-
-function toPickView(pick: LoggedPick): PickView {
-  return {
-    pick: pick.number,
-    playerId: pick.player.userId,
-    poolCardId: pick.poolCardId,
-    name: pick.poolCard.name,
-    layout: pick.poolCard.layout,
-    typeLine: pick.poolCard.typeLine,
-    set: pick.poolCard.set,
-    collectorNumber: pick.poolCard.collectorNumber,
-  };
-}
-
-function toPoolCardView(card: PoolCard): PoolCardView {
-  return {
-    id: card.id,
-    scryfallId: card.scryfallId,
-    oracleId: card.oracleId,
-    name: card.name,
-    set: card.set,
-    collectorNumber: card.collectorNumber,
-    typeLine: card.typeLine,
-    colors: card.colors,
-    manaValue: card.manaValue,
-    manaCost: card.manaCost,
-    oracleText: card.oracleText,
-    colorIdentity: card.colorIdentity,
-    keywords: card.keywords,
-    rarity: card.rarity as Rarity,
-    layout: card.layout,
-    power: card.power,
-    toughness: card.toughness,
-    loyalty: card.loyalty,
-    defense: card.defense,
-    faces: card.faces as unknown as CardFace[],
-    images: card.images as unknown as CardImages[],
-  };
 }
