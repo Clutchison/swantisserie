@@ -29,6 +29,7 @@ import { DialogShell } from '../dialog-shell';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
+import { NORMAL_IMAGE } from './card-sizes';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
@@ -165,6 +166,7 @@ export class PlanTab {
   private readonly planApi = inject(PlanApi);
   protected readonly images = inject(CardImageSource);
   protected readonly previews = inject(CardPreviews);
+  protected readonly normalImage = NORMAL_IMAGE;
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
   private readonly dialogs = inject(DialogShell);

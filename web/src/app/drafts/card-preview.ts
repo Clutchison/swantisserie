@@ -21,6 +21,7 @@ import {
 import type { PoolCardView } from 'contract';
 import { CardImage } from './card-image';
 import { CardImageSource } from './card-image-source';
+import { NORMAL_IMAGE } from './card-sizes';
 
 /** How long the mouse rests on a name before its Card preview opens, in ms. */
 const HOVER_MS = 150;
@@ -43,14 +44,15 @@ const POSITIONS: ConnectedPosition[] = [
   template: `<app-card-image
     [src]="images.url(card(), 'normal')"
     [alt]="card().name"
-    [width]="488"
-    [height]="680"
+    [width]="size.width"
+    [height]="size.height"
     (failed)="images.failed(card(), 'normal')"
   />`,
   styleUrl: './card-preview.scss',
 })
 export class CardPreview {
   protected readonly images = inject(CardImageSource);
+  protected readonly size = NORMAL_IMAGE;
 
   readonly card = input.required<PoolCardView>();
 }

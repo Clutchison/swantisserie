@@ -6,13 +6,20 @@
     aria-label="Large image"
     [src]="image(shown, 'large', face())"
     [alt]="shown.name"
-    [width]="672"
-    [height]="936"
+    [width]="largeImage.width"
+    [height]="largeImage.height"
     [instantIfLoaded]="true"
     (failed)="imageFailed(shown, 'large', face())"
   >
     @if (tilePlaceholder(); as src) {
-      <img class="placeholder" [src]="src" alt="" aria-hidden="true" width="488" height="680" />
+      <img
+        class="placeholder"
+        [src]="src"
+        alt=""
+        aria-hidden="true"
+        [width]="normalImage.width"
+        [height]="normalImage.height"
+      />
     } @else {
       <span class="placeholder" aria-hidden="true">{{ shown.name }}</span>
     }

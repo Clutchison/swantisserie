@@ -37,6 +37,7 @@ interface Layer {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './card-image.html',
   styleUrl: './card-image.scss',
+  host: { '[style.aspect-ratio]': 'width() + " / " + height()' },
 })
 export class CardImage {
   readonly src = input.required<string>();

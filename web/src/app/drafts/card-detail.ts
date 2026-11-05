@@ -20,6 +20,7 @@ import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
+import { LARGE_IMAGE, NORMAL_IMAGE } from './card-sizes';
 import { changeFailure, isRefusal } from './drafts';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
@@ -110,6 +111,8 @@ export class CardDetail {
   private readonly requests = inject(CardDetailRequests);
   private readonly dialogRef = inject<DialogRef<CardDetailResult>>(DialogRef);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly largeImage = LARGE_IMAGE;
+  protected readonly normalImage = NORMAL_IMAGE;
 
   readonly card = input.required<PoolCardView>();
   readonly actions = input.required<CardDetailActions>();

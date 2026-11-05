@@ -131,8 +131,8 @@
                             sizes="160px"
                             [src]="images.url(poolCard, 'normal')"
                             [alt]="card.name"
-                            width="488"
-                            height="680"
+                            [width]="normalImage.width"
+                            [height]="normalImage.height"
                             loading="lazy"
                             (error)="images.failed(poolCard, 'normal')"
                           />
