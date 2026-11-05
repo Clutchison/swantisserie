@@ -1,6 +1,6 @@
 <!-- A move button's icon: off the mainboard is minus, onto it is plus. -->
-<ng-template #moveIcon let-board>
-  @if (board.other === 'Sideboard') {
+<ng-template #moveIcon let-planBoard>
+  @if (planBoard.other === 'Sideboard') {
     <svg lucideMinus size="16"></svg>
   } @else {
     <svg lucidePlus size="16"></svg>
@@ -83,29 +83,29 @@
     Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
   </button>
 </div>
-<!-- On desktop, a card dragged from one board's drop list onto the other's moves there. In stacks mode the boards sit side by side, every stack as wide as the others. -->
+<!-- On desktop, a card dragged from one plan board's drop list onto the other's moves there. In stacks mode the plan boards sit side by side, every stack as wide as the others. -->
 <div
-  class="boards"
+  class="plan-boards"
   [class.side-by-side]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
   cdkDropListGroup
 >
-  @for (board of boards(); track board.name) {
+  @for (planBoard of planBoards(); track planBoard.name) {
     <section class="plan-board">
-      <h3>{{ board.name }} {{ board.count }} ({{ board.picked }} picked)</h3>
-      <!-- An empty board shows as the list in either mode: what it says, and a drop list to drag onto. -->
-      @if (showingStacks() && board.count > 0) {
+      <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
+      <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
+      @if (showingStacks() && planBoard.count > 0) {
         <div
           class="stacks"
           cdkDropList
-          [cdkDropListData]="board.name"
+          [cdkDropListData]="planBoard.name"
           [cdkDropListDisabled]="changing()"
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
-          @for (stack of board.stacks; track stack.name) {
+          @for (stack of planBoard.stacks; track stack.name) {
             <div class="stack">
-              @if (board.showsStackHeaders) {
+              @if (planBoard.showsStackHeaders) {
                 <h4>
                   <span class="stack-name">{{ stack.name }}</span>
                   <span class="count">{{ stack.cards.length }}</span>
@@ -147,17 +147,17 @@
                     <div class="actions">
                       <!-- A basic land stays on the mainboard. -->
                       @if (!card.basic) {
-                        @let moveName = 'Move ' + card.name + ' to the ' + board.otherName;
+                        @let moveName = 'Move ' + card.name + ' to the ' + planBoard.otherName;
                         <button
                           class="icon"
                           type="button"
                           [attr.aria-label]="moveName"
                           [title]="moveName"
-                          (click)="move(card.poolCardId, board.other)"
+                          (click)="move(card.poolCardId, planBoard.other)"
                           [disabled]="changing()"
                         >
                           <ng-container
-                            *ngTemplateOutlet="moveIcon; context: { $implicit: board }"
+                            *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
                           />
                         </button>
                       }
@@ -184,15 +184,15 @@
       } @else {
         <ul
           class="lines card-rows"
-          [class.with-remove]="board.picked < board.count"
+          [class.with-remove]="planBoard.picked < planBoard.count"
           [class.capped]="!showingStacks()"
           cdkDropList
-          [cdkDropListData]="board.name"
+          [cdkDropListData]="planBoard.name"
           [cdkDropListDisabled]="changing() || !onDesktop()"
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
-          @for (line of board.lines; track line.poolCardId) {
+          @for (line of planBoard.lines; track line.poolCardId) {
             <li
               [class.unpicked]="!line.picked"
               cdkDrag
@@ -209,16 +209,16 @@
                 }
                 <!-- A basic land stays on the mainboard. -->
                 @if (!line.basic) {
-                  @let moveName = 'Move ' + line.name + ' to the ' + board.otherName;
+                  @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
                   <button
                     class="button compact quiet line-action move"
                     type="button"
                     [attr.aria-label]="moveName"
                     [title]="moveName"
-                    (click)="move(line.poolCardId, board.other)"
+                    (click)="move(line.poolCardId, planBoard.other)"
                     [disabled]="changing()"
                   >
-                    <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: board }" />
+                    <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }" />
                   </button>
                 }
                 @if (!line.picked) {
@@ -241,7 +241,7 @@
               @if (loading()) {
                 <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
               } @else {
-                {{ board.empty }}
+                {{ planBoard.empty }}
               }
             </li>
           }

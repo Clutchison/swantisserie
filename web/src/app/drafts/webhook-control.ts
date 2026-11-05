@@ -20,7 +20,7 @@ import { isRefusal } from './drafts';
   imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './webhook-control.html',
-  styleUrls: ['./drafts.scss', './webhook-control.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './webhook-control.scss'],
 })
 export class WebhookControl {
   private readonly http = inject(HttpClient);

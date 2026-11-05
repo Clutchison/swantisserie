@@ -5,7 +5,8 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import type { FeedbackView, ReviewedFeedbackView, UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
+import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
+import { answerDraft42NotFound, link } from './specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -23,14 +24,14 @@ const carol: UserView = {
 const fromAlice: FeedbackView = {
   id: 'feedback-1',
   message: 'Line one\nLine two',
-  pageUrl: 'https://swantisserie.example/drafts/42',
+  pagePath: '/drafts/42?tab=pool#x',
   sentAt: '2026-10-31T12:00:00.000Z',
   sender: { name: 'Alice', avatarUrl: alice.avatarUrl },
 };
 const fromBob: FeedbackView = {
   id: 'feedback-2',
   message: 'The timer is too short',
-  pageUrl: 'https://swantisserie.example/',
+  pagePath: '/',
   sentAt: '2026-10-30T12:00:00.000Z',
   sender: { name: 'Bob', avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png' },
 };
@@ -93,6 +94,20 @@ describe('reviewing feedback', () => {
   }
 
   const items = (page: HTMLElement) => [...page.querySelectorAll('main li')];
+  const tab = (page: HTMLElement, name: string) =>
+    [...page.querySelectorAll<HTMLButtonElement>('main [role="tab"]')].find(
+      (t) => t.textContent?.trim() === name,
+    )!;
+
+  /** Opens the page, then its Reviewed view with `reviewed` waiting. */
+  async function openReviewed(reviewed: ReviewedFeedbackView[]) {
+    const opened = await openPage([]);
+    tab(opened.page, 'Reviewed').click();
+    TestBed.tick();
+    http.expectOne('/api/admin/feedback/reviewed').flush(reviewed);
+    await opened.fixture.whenStable();
+    return opened;
+  }
   const markReviewed = (item: Element) =>
     [...item.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Mark reviewed')!;
 
@@ -101,7 +116,7 @@ describe('reviewing feedback', () => {
     http.expectOne('/api/health').flush({});
     await fixture.whenStable();
 
-    adminButton(page).click();
+    appAdminButton(page).click();
     await fixture.whenStable();
     page.querySelector<HTMLAnchorElement>('header a[href="/admin/feedback"]')!.click();
     await vi.waitFor(() => http.expectOne('/api/admin/feedback')).then((req) => req.flush([]));
@@ -125,10 +140,24 @@ describe('reviewing feedback', () => {
     expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
     expect(item.textContent).toContain('Alice');
     expect(item.querySelector('time')?.textContent).toContain('Oct 31, 2026');
-    const link = item.querySelector('a')!;
-    expect(link.textContent?.trim()).toBe(fromAlice.pageUrl);
-    expect(link.getAttribute('href')).toBe(fromAlice.pageUrl);
+    expect(link(item, '/drafts/42?tab=pool#x')).toBeDefined();
   });
+
+  it.each([
+    ['unreviewed', () => openPage([fromAlice])],
+    ['reviewed', () => openReviewed([reviewedByCarol])],
+  ])(
+    "opens an item's page in the app from the %s view, query and fragment included",
+    async (_view, openView) => {
+      const { fixture, page } = await openView();
+
+      link(items(page)[0], '/drafts/42?tab=pool#x')!.click();
+      await answerDraft42NotFound(http);
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/drafts/42?tab=pool#x');
+    },
+  );
 
   it('shows the items in the order the API sends, newest first', async () => {
     const { page } = await openPage([fromAlice, fromBob]);
@@ -177,21 +206,6 @@ describe('reviewing feedback', () => {
   });
 
   describe('the Reviewed view', () => {
-    const tab = (page: HTMLElement, name: string) =>
-      [...page.querySelectorAll<HTMLButtonElement>('main [role="tab"]')].find(
-        (t) => t.textContent?.trim() === name,
-      )!;
-
-    /** Opens the page, then its Reviewed view with `reviewed` waiting. */
-    async function openReviewed(reviewed: ReviewedFeedbackView[]) {
-      const opened = await openPage([]);
-      tab(opened.page, 'Reviewed').click();
-      TestBed.tick();
-      http.expectOne('/api/admin/feedback/reviewed').flush(reviewed);
-      await opened.fixture.whenStable();
-      return opened;
-    }
-
     const markUnreviewed = (item: Element) =>
       [...item.querySelectorAll('button')].find(
         (b) => b.textContent?.trim() === 'Mark unreviewed',
@@ -212,7 +226,7 @@ describe('reviewing feedback', () => {
       expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
       expect(item.textContent).toContain('Alice');
       expect(item.querySelector('.message')?.textContent).toBe(fromAlice.message);
-      expect(item.querySelector('a')?.getAttribute('href')).toBe(fromAlice.pageUrl);
+      expect(link(item, '/drafts/42?tab=pool#x')).toBeDefined();
       expect(item.querySelector('time')?.getAttribute('datetime')).toBe(fromAlice.sentAt);
       const review = item.querySelector('.review')!;
       expect(review.textContent).toContain('Reviewed by Carol');
@@ -263,13 +277,13 @@ describe('reviewing feedback', () => {
   });
 
   describe('the unreviewed count in the top bar', () => {
-    /** The labels of the Admin button and, with its menu opened, the Feedback item. */
+    /** The labels of the App admin button and, with its menu opened, the Feedback item. */
     async function labels({ fixture, page }: Awaited<ReturnType<typeof openStatus>>) {
-      const admin = adminButton(page);
-      const adminLabel = admin.textContent?.trim();
-      admin.click();
+      const appAdmin = appAdminButton(page);
+      const appAdminLabel = appAdmin.textContent?.trim();
+      appAdmin.click();
       await fixture.whenStable();
-      return [adminLabel, feedbackItem(page)];
+      return [appAdminLabel, feedbackItem(page)];
     }
 
     /** Opens a page other than the feedback page as Carol, an app admin. */
@@ -283,19 +297,19 @@ describe('reviewing feedback', () => {
     it('shows how many items are unreviewed', async () => {
       const opened = await openStatus(3);
 
-      expect(await labels(opened)).toEqual(['Admin (3)', 'Feedback (3)']);
+      expect(await labels(opened)).toEqual(['App admin (3)', 'Feedback (3)']);
     });
 
-    it('reads just Admin and Feedback at zero', async () => {
+    it('reads just App admin and Feedback at zero', async () => {
       const opened = await openStatus(0);
 
-      expect(await labels(opened)).toEqual(['Admin', 'Feedback']);
+      expect(await labels(opened)).toEqual(['App admin', 'Feedback']);
     });
 
-    it('reads just Admin and Feedback when the count cannot be fetched', async () => {
+    it('reads just App admin and Feedback when the count cannot be fetched', async () => {
       const opened = await openStatus('fails');
 
-      expect(await labels(opened)).toEqual(['Admin', 'Feedback']);
+      expect(await labels(opened)).toEqual(['App admin', 'Feedback']);
     });
 
     it('shows on the Feedback item in the hamburger menu', async () => {

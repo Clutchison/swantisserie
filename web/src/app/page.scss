@@ -1,0 +1,42 @@
+/*
+ * Page and list styles shared by every feature's pages. Load it first in a
+ * component's styleUrls, before any feature or component stylesheet. It stays
+ * a component stylesheet, so view encapsulation scopes its bare `ul`/`li` rules.
+ */
+:host {
+  display: block;
+  padding: var(--space-lg);
+  /* A long name or pool query wraps, rather than widening a phone's page. */
+  overflow-wrap: anywhere;
+}
+
+.error {
+  color: var(--color-error);
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.empty {
+  color: var(--color-muted);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.detail {
+  flex-basis: 100%;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}

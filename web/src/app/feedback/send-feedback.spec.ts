@@ -9,6 +9,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import type { UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
+import { answerDraft42NotFound } from './specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -116,7 +117,21 @@ describe('sending feedback', () => {
 
     expect(req.request.method).toBe('POST');
     expect(req.request.body.message).toBe('Nice app');
-    expect(new URL(req.request.body.pageUrl).pathname).toBe('/status');
+    expect(req.request.body.pagePath).toBe('/status');
+    succeed(req);
+  });
+
+  it("sends the page's path, query and hash, with no scheme or host", async () => {
+    const navigation = TestBed.inject(Router).navigateByUrl('/drafts/42?tab=pool#x');
+    await answerDraft42NotFound(http);
+    await navigation;
+    await fixture.whenStable();
+    await open();
+    await type('Nice app');
+
+    const req = await submit();
+
+    expect(req.request.body.pagePath).toBe('/drafts/42?tab=pool#x');
     succeed(req);
   });
 

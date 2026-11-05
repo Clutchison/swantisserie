@@ -1,4 +1,4 @@
-import { databaseBefore } from './migrations.js';
+import { databaseBefore } from '../../testing/migrations.js';
 
 const QUEUE_CLEARING = '20261101090000_queue_clearing';
 

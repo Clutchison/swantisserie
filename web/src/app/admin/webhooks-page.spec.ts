@@ -2,10 +2,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { AdminWebhookView, UserView, WebhookAdminProblem } from 'contract';
+import type { WebhookWithUrlView, UserView, WebhookRegistryProblem } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton, answerTopBar } from '../top-bar/specs-harness';
+import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -20,12 +20,12 @@ const carol: UserView = {
   isAppAdmin: true,
 };
 
-const main: AdminWebhookView = {
+const main: WebhookWithUrlView = {
   id: 'webhook-main',
   name: '#roto-main',
   url: 'https://discord.com/api/webhooks/1234567890/main-token',
 };
-const side: AdminWebhookView = {
+const side: WebhookWithUrlView = {
   id: 'webhook-side',
   name: '#roto-side',
   url: 'https://discord.com/api/webhooks/1234567891/side-token',
@@ -65,7 +65,7 @@ describe('webhooks page', () => {
   }
 
   /** Opens the page as Carol, an app admin, with `webhooks` registered. */
-  async function openPage(webhooks: AdminWebhookView[]) {
+  async function openPage(webhooks: WebhookWithUrlView[]) {
     const opened = await open('/admin/webhooks', carol);
     http.expectOne('/api/admin/webhooks').flush(webhooks);
     await opened.fixture.whenStable();
@@ -97,7 +97,7 @@ describe('webhooks page', () => {
   /** Answers the list's reload after a change with `webhooks`. */
   async function reloaded(
     fixture: Awaited<ReturnType<typeof openPage>>['fixture'],
-    webhooks: AdminWebhookView[],
+    webhooks: WebhookWithUrlView[],
   ) {
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(webhooks);
     await fixture.whenStable();
@@ -144,7 +144,7 @@ describe('webhooks page', () => {
     button(page.querySelector('form.add')!, 'Add').click();
 
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(
-      { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookAdminProblem,
+      { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookRegistryProblem,
       { status: 400, statusText: 'Bad Request' },
     );
     await fixture.whenStable();
@@ -178,7 +178,7 @@ describe('webhooks page', () => {
       {
         error: 'name-taken',
         message: 'Another webhook is called #roto-side.',
-      } satisfies WebhookAdminProblem,
+      } satisfies WebhookRegistryProblem,
       { status: 409, statusText: 'Conflict' },
     );
     await fixture.whenStable();
@@ -188,7 +188,7 @@ describe('webhooks page', () => {
     );
   });
 
-  it('removes a webhook once the admin confirms', async () => {
+  it('removes a webhook once the app admin confirms', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { fixture, page } = await openPage([main, side]);
     button(row(page, '#roto-main'), 'Remove').click();
@@ -204,7 +204,7 @@ describe('webhooks page', () => {
     expect(rows(page)).toEqual([['#roto-side', side.url]]);
   });
 
-  it('keeps a webhook the admin did not confirm removing', async () => {
+  it('keeps a webhook the app admin did not confirm removing', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     const { fixture, page } = await openPage([main]);
     button(row(page, '#roto-main'), 'Remove').click();
@@ -218,7 +218,7 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
-    adminButton(page).click();
+    appAdminButton(page).click();
     await fixture.whenStable();
 
     const link = page.querySelector<HTMLAnchorElement>('header a[href="/admin/webhooks"]');
@@ -231,7 +231,7 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
-    expect(page.querySelector('header')?.textContent).not.toContain('Admin');
+    expect(page.querySelector('header')?.textContent).not.toContain('App admin');
     expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
     http.expectNone('/api/admin/webhooks');
   });

@@ -2,10 +2,10 @@ import type { HttpTestingController } from '@angular/common/http/testing';
 import type { AppVersionView } from 'contract';
 import { answerUnreviewedCount } from '../feedback/specs-harness';
 
-/** The top bar's Admin button, whatever unreviewed count its label shows. */
-export function adminButton(page: HTMLElement) {
+/** The top bar's App admin button, whatever unreviewed count its label shows. */
+export function appAdminButton(page: HTMLElement) {
   return [...page.querySelectorAll<HTMLButtonElement>('header button')].find((button) =>
-    button.textContent?.trim().startsWith('Admin'),
+    button.textContent?.trim().startsWith('App admin'),
   )!;
 }
 

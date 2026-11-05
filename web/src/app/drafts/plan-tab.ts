@@ -59,13 +59,13 @@ const MODES: PlanMode[] = ['stacks', 'list'];
  * A basic's `poolCardId` is no pool card's, but keys its card data in the
  * tab's `cardsById`.
  */
-interface BoardCard extends PlannedCardView {
+interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
-/** One line of a board: a card's picked copies, its unpicked ones, or a basic land's, with how many the board holds. */
-interface PlanLine extends BoardCard {
-  /** How many copies the board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
+/** One line of a plan board: a card's picked copies, its unpicked ones, or a basic land's, with how many the plan board holds. */
+interface PlanLine extends PlanBoardCard {
+  /** How many copies the plan board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
   count: number;
 }
 
@@ -84,18 +84,18 @@ const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
 
 /**
  * Each plan board: its cards, how stacks mode stacks them and whether each
- * stack has a header, the board its cards move to, as the button names it,
+ * stack has a header, the plan board its cards move to, as the button names it,
  * and what an empty one says.
  */
-const BOARDS: Record<
+const PLAN_BOARDS: Record<
   PlanBoard,
   {
     cards: (plan: PlanView) => PlannedCardView[];
     stack: (
-      cards: BoardCard[],
+      cards: PlanBoardCard[],
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
-    ) => Stack<BoardCard>[];
+    ) => Stack<PlanBoardCard>[];
     showsStackHeaders: boolean;
     other: PlanBoard;
     otherName: string;
@@ -112,7 +112,7 @@ const BOARDS: Record<
   },
   Sideboard: {
     cards: (plan) => plan.sideboard,
-    // One stack, whatever the grouping, which the board heading names.
+    // One stack, whatever the grouping, which the plan board heading names.
     stack: (cards, _grouping, cardsById) =>
       cards.length > 0 ? [sideboardStack(cards, cardsById)] : [],
     showsStackHeaders: false,
@@ -136,9 +136,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * many of each basic land the mainboard holds; and the Plan notice of their lost
  * cards.
  *
- * On desktop each board shows as stacks of card images, grouped by mana
+ * On desktop each plan board shows as stacks of card images, grouped by mana
  * value, color or card type, or as a list of names, and a card can be
- * dragged onto the other board; below the desktop breakpoint only the list
+ * dragged onto the other plan board; below the desktop breakpoint only the list
  * is offered.
  */
 @Component({
@@ -158,7 +158,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
   templateUrl: './plan-tab.html',
-  styleUrls: ['./drafts.scss', './plan-tab.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
 })
 export class PlanTab {
   private readonly planApi = inject(PlanApi);
@@ -198,10 +198,10 @@ export class PlanTab {
   protected readonly mode = signal(this.remembered.mode);
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
-  /** Whether the boards show as stacks: the chosen mode, on desktop. */
+  /** Whether the plan boards show as stacks: the chosen mode, on desktop. */
   protected readonly showingStacks = computed(() => this.onDesktop() && this.mode() === 'stacks');
 
-  /** The card data of every card on the boards, the basics' included, by `poolCardId`. */
+  /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
     const byId = new Map(this.poolCardsById());
     for (const basic of this.plan().basics) {
@@ -216,16 +216,16 @@ export class PlanTab {
    * stacks when showing them: the mainboard's by the grouping, the sideboard's
    * always one.
    */
-  protected readonly boards = computed(() =>
-    (['Mainboard', 'Sideboard'] as const).map((board) => {
-      const { cards, stack, ...rest } = BOARDS[board];
+  protected readonly planBoards = computed(() =>
+    (['Mainboard', 'Sideboard'] as const).map((planBoard) => {
+      const { cards, stack, ...rest } = PLAN_BOARDS[planBoard];
       // The basic lands are always on the mainboard.
-      const held: BoardCard[] = [
+      const held: PlanBoardCard[] = [
         ...cards(this.plan()),
-        ...(board === 'Mainboard' ? this.plan().basics.flatMap(basicCopies) : []),
+        ...(planBoard === 'Mainboard' ? this.plan().basics.flatMap(basicCopies) : []),
       ];
       return {
-        name: board,
+        name: planBoard,
         ...rest,
         count: held.length,
         picked: held.filter((card) => card.picked).length,
@@ -235,7 +235,7 @@ export class PlanTab {
     }),
   );
   /** How many stacks the mainboard shows, for the stacks' shared width. */
-  protected readonly mainboardStackCount = computed(() => this.boards()[0].stacks.length);
+  protected readonly mainboardStackCount = computed(() => this.planBoards()[0].stacks.length);
 
   /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
   protected readonly basics = computed(() =>
@@ -269,13 +269,13 @@ export class PlanTab {
 
   /** Whether Queue unpicked is on its way. */
   protected readonly sendingQueue = signal(false);
-  /** The pool card ids Queue unpicked adds from each board: its unpicked copies the queue doesn't hold. */
+  /** The pool card ids Queue unpicked adds from each plan board: its unpicked copies the queue doesn't hold. */
   private readonly toQueue = computed(() => {
     const toAdd = (cards: PlannedCardView[]) =>
       cards.filter((card) => !card.picked && !this.queued().has(card.poolCardId));
     return { mainboard: toAdd(this.plan().mainboard), sideboard: toAdd(this.plan().sideboard) };
   });
-  /** Whether Queue unpicked has anything to add, from either board. */
+  /** Whether Queue unpicked has anything to add, from either plan board. */
   protected readonly anythingToQueue = computed(() =>
     Object.values(this.toQueue()).some((cards) => cards.length > 0),
   );
@@ -332,7 +332,7 @@ export class PlanTab {
     }
   }
 
-  /** A card dropped on a board: it moves there, unless that's the board it came from. */
+  /** A card dropped on a plan board: it moves there, unless that's the plan board it came from. */
   protected dropped({
     item,
     previousContainer,
@@ -342,9 +342,9 @@ export class PlanTab {
     return this.move(item.data, container.data);
   }
 
-  /** Moves one copy of a pool card to `board`, and shows the plan as it then is. A basic land never moves. */
-  protected move(poolCardId: string, board: PlanBoard) {
-    return this.change(this.planApi.move(this.draftId(), poolCardId, board));
+  /** Moves one copy of a pool card to `planBoard`, and shows the plan as it then is. A basic land never moves. */
+  protected move(poolCardId: string, planBoard: PlanBoard) {
+    return this.change(this.planApi.move(this.draftId(), poolCardId, planBoard));
   }
 
   /** Sets how many copies of a basic land the plan holds. */
@@ -476,7 +476,7 @@ const isGrouping = (value: unknown): value is Grouping =>
  * One line per distinct name, picked, unpicked and basic copies apart, in
  * the order each first appears, counting its copies.
  */
-function lines(cards: BoardCard[]): PlanLine[] {
+function lines(cards: PlanBoardCard[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
   for (const card of cards) {
     const key = `${card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked'} ${card.name}`;
@@ -488,7 +488,7 @@ function lines(cards: BoardCard[]): PlanLine[] {
 }
 
 /** One card per copy of a basic land, each with an id of its own to track it by. */
-function basicCopies({ land, count }: PlannedBasicView): BoardCard[] {
+function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
   return Array.from({ length: count }, (_, copy) => ({
     poolCardId: `basic-${land}-${copy}`,
     name: land,

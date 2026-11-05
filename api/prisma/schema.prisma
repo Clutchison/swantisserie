@@ -317,8 +317,8 @@ model Feedback {
   message      String
   senderId     String
   sender       User      @relation("FeedbackSender", fields: [senderId], references: [id])
-  /// The page it was sent from.
-  pageUrl      String
+  /// The path of the page it was sent from, with its query and hash.
+  pagePath     String
   sentAt       DateTime  @default(now())
   /// The app admin who marked it reviewed; null while it is unreviewed.
   reviewedById String?

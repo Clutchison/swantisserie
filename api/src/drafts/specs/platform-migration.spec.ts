@@ -1,4 +1,4 @@
-import { databaseBefore } from './migrations.js';
+import { databaseBefore } from '../../testing/migrations.js';
 
 const DRAFT_PLATFORM = '20261102140000_draft_platform';
 
