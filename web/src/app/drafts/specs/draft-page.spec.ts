@@ -8,7 +8,11 @@ import {
   openUrl,
   openDraft,
   poll,
+  alicePlayer,
+  tabButton,
+  panel,
 } from './harness';
+import { pressKey } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -169,5 +173,69 @@ describe('draft page', () => {
     expect(tabBar.previousElementSibling?.classList).toContain('players');
     expect(tabBar.nextElementSibling).toBe(panels[0]);
     expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
+  });
+
+  describe('tab bar keys', () => {
+    const tabs = (page: HTMLElement) => [...page.querySelectorAll<HTMLElement>('[role="tab"]')];
+    /** The tabs a viewer reaches with Tab: those with no negative tabindex. */
+    const tabStops = (page: HTMLElement) =>
+      tabs(page)
+        .filter((tab) => tab.tabIndex >= 0)
+        .map((tab) => tab.textContent?.trim());
+    const shownPanel = (page: HTMLElement) => panel(page).querySelector('h2')?.textContent;
+    const openAsPlayer = () => openDraft(completeSnapshot, { players: [alicePlayer] });
+
+    /** Focuses the tab named `from`, presses `key` on it, and says which tab has focus. */
+    function press(page: HTMLElement, from: string, key: string) {
+      tabButton(page, from).focus();
+      pressKey(tabButton(page, from), key);
+      return (document.activeElement as HTMLElement | null)?.textContent?.trim();
+    }
+
+    it('makes only the selected tab a Tab stop, following a click', async () => {
+      const { fixture, page } = await openAsPlayer();
+      expect(tabStops(page)).toEqual(['Pool']);
+
+      tabButton(page, 'Board').click();
+      await fixture.whenStable();
+
+      expect(tabStops(page)).toEqual(['Board']);
+    });
+
+    it.each([
+      ['Pool', 'ArrowRight', 'Queue'],
+      ['Queue', 'ArrowLeft', 'Pool'],
+      ['Export', 'ArrowRight', 'Pool'],
+      ['Pool', 'ArrowLeft', 'Export'],
+      ['Pool', 'End', 'Export'],
+      ['Board', 'Home', 'Pool'],
+    ])('moves from %s on %s to %s, selecting it and showing its panel', async (from, key, to) => {
+      const { fixture, page } = await openAsPlayer();
+      tabButton(page, from).click();
+      await fixture.whenStable();
+
+      expect(press(page, from, key)).toBe(to);
+      await fixture.whenStable();
+
+      expect(tabButton(page, to).getAttribute('aria-selected')).toBe('true');
+      expect(tabStops(page)).toEqual([to]);
+      expect(shownPanel(page)).toBe(to);
+    });
+
+    it.each([
+      ['Pool', 'ArrowRight', 'Board'],
+      ['Board', 'ArrowRight', 'Pool'],
+      ['Pool', 'ArrowLeft', 'Board'],
+      ['Pool', 'End', 'Board'],
+    ])('skips the tabs a non-player can’t open: from %s, %s goes to %s', async (from, key, to) => {
+      const { fixture, page } = await openDraft(completeSnapshot);
+      tabButton(page, from).click();
+      await fixture.whenStable();
+
+      expect(press(page, from, key)).toBe(to);
+      await fixture.whenStable();
+
+      expect(shownPanel(page)).toBe(to);
+    });
   });
 });
