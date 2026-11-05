@@ -17,7 +17,7 @@ import { isRefusal } from './drafts';
   selector: 'app-organizer-controls',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './organizer-controls.html',
-  styleUrls: ['./drafts.scss', './draft-panels.scss', './organizer-controls.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './organizer-controls.scss'],
 })
 export class OrganizerControls {
   private readonly http = inject(HttpClient);

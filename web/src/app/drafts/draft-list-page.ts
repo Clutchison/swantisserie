@@ -11,7 +11,7 @@ import { isActive } from './drafts';
   imports: [LoadingAnimation, NgTemplateOutlet, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-list-page.html',
-  styleUrls: ['./drafts.scss', './draft-list-page.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './draft-list-page.scss'],
 })
 export class DraftListPage {
   private readonly drafts = httpResource<DraftView[]>(() => '/api/drafts');
