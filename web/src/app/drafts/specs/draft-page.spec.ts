@@ -138,4 +138,36 @@ describe('draft page', () => {
 
     expect(page.querySelector('.error')?.textContent).toContain("Couldn't load this draft");
   });
+
+  it('has a tab bar of Pool, Queue, Plan, Board and Export, where only Pool and Board work for a non-player', async () => {
+    const { page } = await openDraft(completeSnapshot);
+
+    const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+      'Pool',
+      'Queue',
+      'Plan',
+      'Board',
+      'Export',
+    ]);
+    expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual([
+      'true',
+      'false',
+      'false',
+      'false',
+      'false',
+    ]);
+    expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, true, false, true]);
+    expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('540 cards in the pool');
+  });
+
+  it('puts the tab bar between the draft header and the panel, showing one panel at a time', async () => {
+    const { page } = await openDraft(completeSnapshot);
+
+    const tabBar = page.querySelector('[role="tablist"]')!;
+    const panels = page.querySelectorAll('[role="tabpanel"]');
+    expect(tabBar.previousElementSibling?.classList).toContain('players');
+    expect(tabBar.nextElementSibling).toBe(panels[0]);
+    expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
+  });
 });

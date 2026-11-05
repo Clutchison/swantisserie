@@ -1,25 +1,8 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { FeedbackView, ReviewedFeedbackView, UserView } from 'contract';
-import { App } from '../app';
-import { routes } from '../app.routes';
+import type { FeedbackView, ReviewedFeedbackView } from 'contract';
+import { alice, carol, http, openApp, router, useApp } from '../specs-harness';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
 import { answerDraft42NotFound, link } from './specs-harness';
-
-const alice: UserView = {
-  id: '80351110224678912',
-  name: 'Alice',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAppAdmin: false,
-};
-const carol: UserView = {
-  id: '80351110224678914',
-  name: 'Carol',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/2.png',
-  isAppAdmin: true,
-};
 
 const fromAlice: FeedbackView = {
   id: 'feedback-1',
@@ -45,49 +28,23 @@ const reviewedByCarol: ReviewedFeedbackView = {
 const COUNT = '/api/admin/feedback/unreviewed-count';
 
 describe('reviewing feedback', () => {
-  let http: HttpTestingController;
-  let router: Router;
+  useApp();
 
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      imports: [App],
-      providers: [
-        provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(),
-        provideHttpClientTesting(),
-      ],
-    });
-    http = TestBed.inject(HttpTestingController);
-    router = TestBed.inject(Router);
-  });
-
-  afterEach(() => {
-    http.verify();
-    vi.restoreAllMocks();
-  });
-
-  /** Opens `url` as `user`. */
-  async function open(url: string, user: typeof alice, unreviewedCount: number | 'fails' = 0) {
-    const fixture = TestBed.createComponent(App);
-    const navigation = router.navigateByUrl(url);
-    (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
-    await navigation;
-    TestBed.tick();
-    if (user.isAppAdmin) {
-      const count = http.expectOne(COUNT);
-      if (unreviewedCount === 'fails') {
-        count.flush(null, { status: 500, statusText: 'Server Error' });
-      } else {
-        count.flush({ count: unreviewedCount });
-      }
-      answerAppVersion(http);
+  /** Answers what an app admin's header asks for: the unreviewed count and app version. */
+  function answerAdminHeader(unreviewedCount: number | 'fails' = 0) {
+    const count = http.expectOne(COUNT);
+    if (unreviewedCount === 'fails') {
+      count.flush(null, { status: 500, statusText: 'Server Error' });
+    } else {
+      count.flush({ count: unreviewedCount });
     }
-    return { fixture, page: fixture.nativeElement as HTMLElement };
+    answerAppVersion(http);
   }
 
   /** Opens the page as Carol, an app admin, with `feedback` waiting. */
   async function openPage(feedback: FeedbackView[]) {
-    const opened = await open('/admin/feedback', carol);
+    const opened = await openApp('/admin/feedback', carol);
+    answerAdminHeader();
     http.expectOne('/api/admin/feedback').flush(feedback);
     await opened.fixture.whenStable();
     return opened;
@@ -112,7 +69,8 @@ describe('reviewing feedback', () => {
     [...item.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Mark reviewed')!;
 
   it('links app admins to the page from the header', async () => {
-    const { fixture, page } = await open('/status', carol);
+    const { fixture, page } = await openApp('/status', carol);
+    answerAdminHeader();
     http.expectOne('/api/health').flush({});
     await fixture.whenStable();
 
@@ -126,7 +84,7 @@ describe('reviewing feedback', () => {
   });
 
   it('keeps other users off the page', async () => {
-    await open('/admin/feedback', alice);
+    await openApp('/admin/feedback', alice);
 
     expect(router.url).toBe('/');
     http.expectNone('/api/admin/feedback');
@@ -288,7 +246,8 @@ describe('reviewing feedback', () => {
 
     /** Opens a page other than the feedback page as Carol, an app admin. */
     async function openStatus(unreviewedCount: number | 'fails') {
-      const opened = await open('/status', carol, unreviewedCount);
+      const opened = await openApp('/status', carol);
+      answerAdminHeader(unreviewedCount);
       http.expectOne('/api/health').flush({});
       await opened.fixture.whenStable();
       return opened;
@@ -322,7 +281,7 @@ describe('reviewing feedback', () => {
     });
 
     it('is not fetched for other users', async () => {
-      await open('/status', alice);
+      await openApp('/status', alice);
 
       http.expectNone(COUNT);
       http.expectOne('/api/health').flush({});
@@ -336,7 +295,8 @@ describe('reviewing feedback', () => {
   });
 
   it('says when the feedback cannot be loaded', async () => {
-    const { fixture, page } = await open('/admin/feedback', carol);
+    const { fixture, page } = await openApp('/admin/feedback', carol);
+    answerAdminHeader();
     http.expectOne('/api/admin/feedback').flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 

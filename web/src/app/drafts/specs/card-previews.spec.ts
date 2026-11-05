@@ -19,6 +19,8 @@ import {
   previewImage,
   pointer,
   tap,
+  pickOf,
+  queueOf,
 } from './harness';
 import { image } from './pool-tab-harness';
 
@@ -54,16 +56,17 @@ describe('card previews', () => {
   });
   const bolt = poolCard('bolt', 'Lightning Bolt');
   const shock = poolCard('shock', 'Shock');
-  const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView => ({
-    pick: number,
-    playerId,
-    poolCardId: card.id,
-    name: card.name,
-    layout: card.layout,
-    typeLine: card.typeLine,
-    set: card.set,
-    collectorNumber: card.collectorNumber,
-  });
+  const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView =>
+    pickOf({
+      pick: number,
+      playerId,
+      poolCardId: card.id,
+      name: card.name,
+      layout: card.layout,
+      typeLine: card.typeLine,
+      set: card.set,
+      collectorNumber: card.collectorNumber,
+    });
 
   /** Opens a draft with `picks` made and `options` as openDraft takes them. */
   async function openPicked(
@@ -498,19 +501,37 @@ describe('card previews', () => {
 
       tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
       expect(previewImage()?.getAttribute('src')).toBe(
-        'https://api.scryfall.com/cards/named?exact=Swamp&format=image&version=normal',
+        'https://cards.scryfall.io/normal/front/0/3/0356ae45-e5ca-46b9-8ebc-42bf4776e89c.jpg',
+      );
+    });
+
+    it('falls back to Scryfall’s API image of a basic land’s default printing', async () => {
+      const { page, fixture } = await openPicked({
+        plan: {
+          mainboard: [],
+          sideboard: [],
+          basics: [{ land: 'Swamp', count: 2 }],
+          lost: [],
+        },
+      });
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      previewImage()!.dispatchEvent(new Event('error'));
+      TestBed.tick();
+
+      expect(previewImage()?.getAttribute('src')).toBe(
+        'https://api.scryfall.com/cards/0356ae45-e5ca-46b9-8ebc-42bf4776e89c?format=image&version=normal',
       );
     });
   });
 
   describe('in the queue', () => {
-    const queue: QueueView = {
+    const queue: QueueView = queueOf({
       cards: [{ poolCardId: shock.id, name: shock.name }],
       lost: [{ poolCardId: bolt.id, name: bolt.name }],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
-    };
+    });
 
     async function openQueue() {
       const opened = await openPicked({ queue });

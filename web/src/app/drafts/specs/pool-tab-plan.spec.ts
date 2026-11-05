@@ -3,7 +3,6 @@ import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
   alice,
-  alicePlayer,
   bob,
   draft,
   http,
@@ -15,7 +14,8 @@ import {
   flushPlan,
   completeSnapshot,
   button,
-  type DraftFixture,
+  pickOf,
+  drafting,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
@@ -23,14 +23,6 @@ useDraftsApp();
 useTallScreen();
 
 describe('pool tab', () => {
-  /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-    state: 'Drafting',
-    players: [alicePlayer, bob],
-    turn: { pick: 1, round: 1, playerId: bob.id },
-    ...fields,
-  });
-
   describe('Add to Plan', () => {
     it('adds an unpicked copy of a card to the plan from its detail, and lists it on the Plan tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
@@ -116,16 +108,14 @@ describe('pool tab', () => {
         {
           cards: [shivan],
           picks: [
-            {
-              pick: 1,
+            pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
-              layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
               collectorNumber: '1',
-            },
+            }),
           ],
         },
       );
@@ -305,16 +295,13 @@ describe('pool tab', () => {
             mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: true }],
           },
           picks: [
-            {
-              pick: 1,
-              playerId: alice.id,
+            pickOf({
               poolCardId: shivan.id,
               name: shivan.name,
-              layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
               collectorNumber: '1',
-            },
+            }),
           ],
         },
       );
@@ -332,16 +319,14 @@ describe('pool tab', () => {
           cards: [shivan, shivanCopy],
           plan: planned(shivanCopy.id),
           picks: [
-            {
-              pick: 1,
+            pickOf({
               playerId: bob.id,
               poolCardId: shivan.id,
               name: shivan.name,
-              layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
               collectorNumber: '1',
-            },
+            }),
           ],
         },
       );

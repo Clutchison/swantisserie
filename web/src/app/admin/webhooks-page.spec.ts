@@ -1,24 +1,6 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { WebhookWithUrlView, UserView, WebhookRegistryProblem } from 'contract';
-import { App } from '../app';
-import { routes } from '../app.routes';
+import type { WebhookWithUrlView, WebhookRegistryProblem } from 'contract';
+import { alice, carol, http, openApp, router, useApp } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
-
-const alice: UserView = {
-  id: '80351110224678912',
-  name: 'Alice',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAppAdmin: false,
-};
-const carol: UserView = {
-  id: '80351110224678914',
-  name: 'Carol',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/2.png',
-  isAppAdmin: true,
-};
 
 const main: WebhookWithUrlView = {
   id: 'webhook-main',
@@ -32,41 +14,12 @@ const side: WebhookWithUrlView = {
 };
 
 describe('webhooks page', () => {
-  let http: HttpTestingController;
-  let router: Router;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      imports: [App],
-      providers: [
-        provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(),
-        provideHttpClientTesting(),
-      ],
-    });
-    http = TestBed.inject(HttpTestingController);
-    router = TestBed.inject(Router);
-  });
-
-  afterEach(() => {
-    http.verify();
-    vi.restoreAllMocks();
-  });
-
-  /** Opens `url` as `user`. */
-  async function open(url: string, user: typeof alice) {
-    const fixture = TestBed.createComponent(App);
-    const navigation = router.navigateByUrl(url);
-    (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
-    await navigation;
-    TestBed.tick();
-    answerTopBar(http);
-    return { fixture, page: fixture.nativeElement as HTMLElement };
-  }
+  useApp();
 
   /** Opens the page as Carol, an app admin, with `webhooks` registered. */
   async function openPage(webhooks: WebhookWithUrlView[]) {
-    const opened = await open('/admin/webhooks', carol);
+    const opened = await openApp('/admin/webhooks', carol);
+    answerTopBar(http);
     http.expectOne('/api/admin/webhooks').flush(webhooks);
     await opened.fixture.whenStable();
     return opened;
@@ -214,7 +167,8 @@ describe('webhooks page', () => {
   });
 
   it('links app admins to it from the header', async () => {
-    const { fixture, page } = await open('/', carol);
+    const { fixture, page } = await openApp('/', carol);
+    answerTopBar(http);
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
@@ -226,7 +180,8 @@ describe('webhooks page', () => {
   });
 
   it('is only for app admins', async () => {
-    const { fixture, page } = await open('/admin/webhooks', alice);
+    const { fixture, page } = await openApp('/admin/webhooks', alice);
+    answerTopBar(http);
     await vi.waitFor(() => expect(router.url).toBe('/'));
     (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();

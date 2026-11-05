@@ -254,7 +254,7 @@
   <p class="error" role="alert">{{ message }}</p>
 }
 <!-- Closed as soon as adding to the queue isn't offered, as when the player's turn comes. -->
-@if (offerQueueUnpicked() && queueDialog(); as dialog) {
+@if (queueDialog(); as dialog) {
   <div
     class="backdrop"
     (mousedown)="backdropPressed($event)"

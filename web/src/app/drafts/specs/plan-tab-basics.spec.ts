@@ -3,49 +3,33 @@ import { By } from '@angular/platform-browser';
 import type { PlannedBasicView, PlanView } from 'contract';
 import {
   useDraftsApp,
-  alicePlayer,
-  bob,
   http,
-  tabButton,
-  panel,
   openDraft,
   completeSnapshot,
   button,
   viewOn,
   type AppFixture,
-  type DraftFixture,
+  drafting,
 } from './harness';
-import { card, useTallScreen, shivan } from './pool-tab-harness';
+import { useTallScreen, shivan } from './pool-tab-harness';
+import { bobsTurn, bolt, openPlan, planBoards, planned } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
 
 describe('basic lands on the plan tab', () => {
-  /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-    state: 'Drafting',
-    players: [alicePlayer, bob],
-    turn: { pick: 3, round: 2, playerId: bob.id },
-    ...fields,
-  });
-  const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1, typeLine: 'Instant' });
   const cards = [shivan, bolt];
-  const planOf = (basics: PlannedBasicView[] = [], fields: Partial<PlanView> = {}): PlanView => ({
-    mainboard: [
-      { poolCardId: bolt.id, name: bolt.name, picked: true },
-      { poolCardId: shivan.id, name: shivan.name, picked: true },
-    ],
+  /** Lightning Bolt and Shivan Dragon picked on the mainboard, and `basics`. */
+  const boltAndShivanWith = (
+    basics: PlannedBasicView[] = [],
+    fields: Partial<PlanView> = {},
+  ): PlanView => ({
+    mainboard: [planned(bolt), planned(shivan)],
     sideboard: [],
     basics,
     lost: [],
     ...fields,
   });
-
-  async function openPlan(fixture: AppFixture, page: HTMLElement) {
-    tabButton(page, 'Plan').click();
-    await fixture.whenStable();
-    return panel(page);
-  }
 
   /** The Basic lands button, whatever count it shows. */
   const basicsButton = (plan: HTMLElement) =>
@@ -61,15 +45,6 @@ describe('basic lands on the plan tab', () => {
     return dialog(plan)!;
   }
 
-  /** Each plan board's heading, and its lines as `count name`. */
-  const planBoards = (plan: HTMLElement) =>
-    [...plan.querySelectorAll('section')].map((planBoard) => ({
-      heading: planBoard.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
-      lines: [...planBoard.querySelectorAll('li:not(.empty)')].map(
-        (line) =>
-          `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}`,
-      ),
-    }));
   /** The Basic lands control's number for `land`. */
   const countOf = (plan: HTMLElement, land: string) =>
     plan.querySelector<HTMLInputElement>(`#basic-${land}`)!;
@@ -81,9 +56,9 @@ describe('basic lands on the plan tab', () => {
   }
 
   it('adds and removes each basic with − and +, and by typing a number, on the mainboard', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf(),
+      plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
@@ -98,7 +73,7 @@ describe('basic lands on the plan tab', () => {
     const added = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
     expect(added.request.method).toBe('PUT');
     expect(added.request.body).toEqual({ count: 1 });
-    added.flush(planOf([{ land: 'Plains', count: 1 }]));
+    added.flush(boltAndShivanWith([{ land: 'Plains', count: 1 }]));
     await vi.waitFor(() => expect(countOf(plan, 'Plains').value).toBe('1'));
     expect(planBoards(plan)[0]).toEqual({
       heading: 'Mainboard 3 (3 picked)',
@@ -109,7 +84,7 @@ describe('basic lands on the plan tab', () => {
     const typed = http.expectOne('/api/drafts/draft-1/plan/basics/Island');
     expect(typed.request.body).toEqual({ count: 8 });
     typed.flush(
-      planOf([
+      boltAndShivanWith([
         { land: 'Plains', count: 1 },
         { land: 'Island', count: 8 },
       ]),
@@ -126,20 +101,20 @@ describe('basic lands on the plan tab', () => {
     button(plan, 'One fewer Plains')!.click();
     const fewer = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
     expect(fewer.request.body).toEqual({ count: 0 });
-    fewer.flush(planOf([{ land: 'Island', count: 8 }]));
+    fewer.flush(boltAndShivanWith([{ land: 'Island', count: 8 }]));
     await vi.waitFor(() => expect(countOf(plan, 'Plains').value).toBe('0'));
 
     typeCount(plan, 'Island', '0');
-    http.expectOne('/api/drafts/draft-1/plan/basics/Island').flush(planOf([]));
+    http.expectOne('/api/drafts/draft-1/plan/basics/Island').flush(boltAndShivanWith([]));
     await vi.waitFor(() =>
       expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']),
     );
   });
 
   it('puts back a typed number that isn’t one, and keeps a typed number within 0 to 99', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf([{ land: 'Swamp', count: 2 }]),
+      plan: boltAndShivanWith([{ land: 'Swamp', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
@@ -154,10 +129,33 @@ describe('basic lands on the plan tab', () => {
     });
   });
 
-  it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+  it('puts back a typed count the api refuses', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf([{ land: 'Forest', count: 3 }]),
+      plan: boltAndShivanWith(),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    typeCount(plan, 'Island', '8');
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(
+        { error: 'draft-not-open', message: 'This draft isn’t open.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
+    reread.flush(boltAndShivanWith());
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(countOf(plan, 'Island').value).toBe('0'));
+    expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands');
+  });
+
+  it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Forest', count: 3 }]),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
@@ -176,9 +174,9 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('clears every basic', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf([
+      plan: boltAndShivanWith([
         { land: 'Mountain', count: 5 },
         { land: 'Wastes', count: 1 },
       ]),
@@ -189,7 +187,7 @@ describe('basic lands on the plan tab', () => {
     button(plan, 'Clear basics')!.click();
     const cleared = http.expectOne('/api/drafts/draft-1/plan/basics');
     expect(cleared.request.method).toBe('DELETE');
-    cleared.flush(planOf());
+    cleared.flush(boltAndShivanWith());
 
     await vi.waitFor(() => expect(countOf(plan, 'Mountain').value).toBe('0'));
     expect(countOf(plan, 'Wastes').value).toBe('0');
@@ -201,7 +199,7 @@ describe('basic lands on the plan tab', () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Complete', turn: null }),
-      { cards, plan: planOf() },
+      { cards, plan: boltAndShivanWith() },
     );
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
@@ -215,9 +213,9 @@ describe('basic lands on the plan tab', () => {
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf([{ land: 'Island', count: 2 }]),
+      plan: boltAndShivanWith([{ land: 'Island', count: 2 }]),
     });
     const plan = await openPlan(fixture, page);
 
@@ -227,7 +225,7 @@ describe('basic lands on the plan tab', () => {
     const images = [...lands.querySelectorAll('img')];
     expect(images.map((image) => image.alt)).toEqual(['Island', 'Island']);
     expect(images[0].getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/named?exact=Island&format=image&version=normal',
+      'https://cards.scryfall.io/normal/front/3/6/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17.jpg',
     );
 
     // The Queue tab has a drop list of its own.
@@ -244,10 +242,30 @@ describe('basic lands on the plan tab', () => {
     expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
   });
 
-  it('sets basics in a Basic lands modal, not above the plan boards, each labelled by its mana symbol', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+  it('falls back to Scryfall’s API image of a basic land’s default printing when its image fails in the stacks', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf(),
+      plan: boltAndShivanWith([{ land: 'Island', count: 1 }]),
+    });
+    const plan = await openPlan(fixture, page);
+    const island = () => plan.querySelector<HTMLImageElement>('img[alt="Island"]')!;
+
+    island().dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+
+    expect(island().getAttribute('src')).toBe(
+      'https://api.scryfall.com/cards/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17?format=image&version=normal',
+    );
+  });
+
+  it('sets basics in a Basic lands modal, not above the plan boards, each labelled by its mana symbol', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     expect(countOf(plan, 'Plains')).toBeNull();
@@ -276,9 +294,9 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('counts the plan’s basics on the button, and only when it holds some', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf([
+      plan: boltAndShivanWith([
         { land: 'Mountain', count: 5 },
         { land: 'Wastes', count: 1 },
       ]),
@@ -289,7 +307,7 @@ describe('basic lands on the plan tab', () => {
     const modal = await openBasics(fixture, plan);
     button(modal, 'One more Wastes')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Wastes').flush(
-      planOf([
+      boltAndShivanWith([
         { land: 'Mountain', count: 5 },
         { land: 'Wastes', count: 2 },
       ]),
@@ -299,15 +317,15 @@ describe('basic lands on the plan tab', () => {
     expect(planBoards(plan)[0].lines).toContain('2 Wastes');
 
     button(modal, 'Clear basics')!.click();
-    http.expectOne('/api/drafts/draft-1/plan/basics').flush(planOf());
+    http.expectOne('/api/drafts/draft-1/plan/basics').flush(boltAndShivanWith());
     await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands'));
     expect(dialog(plan)).not.toBeNull();
   });
 
   it('closes the modal on Done, on Escape and on a click on the backdrop', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf(),
+      plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
 
@@ -334,9 +352,9 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('shows only the Basic lands button in the mode controls on mobile', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf(),
+      plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     const controls = (plan: HTMLElement) =>
@@ -349,9 +367,9 @@ describe('basic lands on the plan tab', () => {
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf(),
+      plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     const controls = () =>

@@ -10,6 +10,7 @@ import type {
   PlanView,
   PoolCardView,
   PoolSnapshotView,
+  QueuedCardView,
   QueueView,
   TurnView,
   UserView,
@@ -22,13 +23,9 @@ import { DRAFT_POLL_MS } from '../draft-page';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
+import { alice } from '../../specs-harness';
 
-export const alice: UserView = {
-  id: '80351110224678912',
-  name: 'Alice',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAppAdmin: false,
-};
+export { alice };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -90,6 +87,9 @@ export function webhooksAnswer(webhooks: WebhookView[] | null) {
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useDraftsApp() {
   beforeEach(() => {
+    // Spec files share one environment, so a choice saved by an earlier file
+    // (such as the Plan tab's List mode) would otherwise carry into this one.
+    localStorage.clear();
     decodes = new Map();
     registeredWebhooks = [];
     HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
@@ -193,6 +193,55 @@ export const alicePlayer = {
   avatarUrl: alice.avatarUrl,
   isBot: false,
 };
+
+/** A Drafting draft with `fields` changed: Alice then Bob, with Bob up on the first pick. */
+export const drafting = (fields: DraftFixture = {}): DraftFixture => ({
+  state: 'Drafting',
+  players: [alicePlayer, bob],
+  turn: { pick: 1, round: 1, playerId: bob.id },
+  ...fields,
+});
+
+/** A pool card as a queue or a plan names it: by its id and name. */
+export type NamedPoolCard = Pick<PoolCardView, 'id' | 'name'>;
+
+/** A card as a queue lists it. */
+export const queued = (card: NamedPoolCard): QueuedCardView => ({
+  poolCardId: card.id,
+  name: card.name,
+});
+
+/**
+ * An empty queue, under Clear queue, with `fields` changed. Only a queue that
+ * lost a card can say whether the rest was kept.
+ */
+export const queueOf = (
+  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior'>> &
+    (
+      | { lost?: []; restKept?: false }
+      | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept?: boolean }
+    ) = {},
+): QueueView => ({
+  cards: [],
+  lost: [],
+  cleared: [],
+  restKept: false,
+  stealBehavior: 'ClearQueue',
+  ...fields,
+});
+
+/** A pick of a normal card, Alice's and the draft's first, with `fields` changed. */
+export const pickOf = (fields: Partial<PickView> = {}): PickView => ({
+  pick: 1,
+  playerId: alice.id,
+  poolCardId: '',
+  name: '',
+  layout: 'normal',
+  typeLine: '',
+  set: '',
+  collectorNumber: '',
+  ...fields,
+});
 
 /**
  * The avatar beside a player's name in the Players section. An avatar is
@@ -363,6 +412,17 @@ export function wait(ms: number) {
   vi.advanceTimersByTime(ms);
   TestBed.tick();
 }
+
+/** Opens the tab named `name` and returns its panel. */
+export async function openTab(fixture: AppFixture, page: HTMLElement, name: string) {
+  tabButton(page, name).click();
+  await fixture.whenStable();
+  return panel(page);
+}
+
+/** Opens the Queue tab and returns its panel. */
+export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
+  openTab(fixture, page, 'Queue');
 
 /** The Card preview's image, if one is open: it's outside the page. */
 export const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');

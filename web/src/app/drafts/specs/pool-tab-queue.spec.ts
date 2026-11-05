@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { DraftView, PoolCardView, QueueRefusal } from 'contract';
+import type { DraftView, QueueRefusal } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -9,8 +9,6 @@ import {
   updates,
   openUrl,
   bob,
-  alicePlayer,
-  tabButton,
   panel,
   openDraft,
   flushQueue,
@@ -21,8 +19,11 @@ import {
   completeSnapshot,
   button,
   type AppFixture,
-  expectLoadingAnimation,
-  type DraftFixture,
+  pickOf,
+  queueOf,
+  drafting,
+  queued,
+  openQueue,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
@@ -31,22 +32,6 @@ useTallScreen();
 
 describe('pool tab', () => {
   describe('queue', () => {
-    /** Started, with Alice then Bob; Bob is up. */
-    const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-      state: 'Drafting',
-      players: [alicePlayer, bob],
-      turn: { pick: 1, round: 1, playerId: bob.id },
-      ...fields,
-    });
-    const queued = (card: PoolCardView) => ({ poolCardId: card.id, name: card.name });
-
-    /** Opens the Queue tab and returns its panel. */
-    async function openQueue(fixture: AppFixture, page: HTMLElement) {
-      tabButton(page, 'Queue').click();
-      await fixture.whenStable();
-      return panel(page);
-    }
-
     it('adds a card to your queue from its detail, and lists it on the Queue tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
@@ -57,13 +42,7 @@ describe('pool tab', () => {
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ poolCardId: 'shivan-card' });
-      req.flush({
-        cards: [queued(shivan)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
+      req.flush(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
       expect(detail.textContent).toContain('Added to your queue.');
       expect(button(detail, 'Add to queue')).toBeUndefined();
@@ -79,13 +58,7 @@ describe('pool tab', () => {
     it('offers to remove a queued card from its detail', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
+        queue: queueOf({ cards: [queued(shivan)] }),
       });
 
       expect(button(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
@@ -103,26 +76,14 @@ describe('pool tab', () => {
     it('removes a queued card from its detail, then offers to add it again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(shivan), queued(brightclimb)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
       });
 
       const detail = await openDetail(fixture, page, 1);
       button(detail, 'Remove from queue')!.click();
       const req = http.expectOne('/api/drafts/draft-1/queue/shivan-card');
       expect(req.request.method).toBe('DELETE');
-      req.flush({
-        cards: [queued(brightclimb)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
+      req.flush(queueOf({ cards: [queued(brightclimb)] }));
       await fixture.whenStable();
 
       expect(detail.querySelector('[role="status"]')?.textContent).toContain(
@@ -138,13 +99,7 @@ describe('pool tab', () => {
     it('says when a card could not be removed from your queue, and re-reads it', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        queue: {
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
+        queue: queueOf({ cards: [queued(shivan)] }),
       });
 
       const detail = await openDetail(fixture, page, 0);
@@ -153,13 +108,7 @@ describe('pool tab', () => {
         .expectOne('/api/drafts/draft-1/queue/shivan-card')
         .flush(null, { status: 500, statusText: 'Server Error' });
       // The queue is re-read, as it may have moved on.
-      await flushQueue({
-        cards: [queued(shivan)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
+      await flushQueue(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
 
       expect(detail.querySelector('[role="status"]')?.textContent).toContain(
@@ -176,24 +125,16 @@ describe('pool tab', () => {
         {
           cards: [shivan],
           picks: [
-            {
-              pick: 1,
+            pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
-              layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
               collectorNumber: '1',
-            },
+            }),
           ],
-          queue: {
-            cards: [queued(shivan)],
-            lost: [],
-            cleared: [],
-            restKept: false,
-            stealBehavior: 'ClearQueue',
-          },
+          queue: queueOf({ cards: [queued(shivan)] }),
         },
       );
 
@@ -209,24 +150,16 @@ describe('pool tab', () => {
         {
           cards: [shivan],
           picks: [
-            {
-              pick: 1,
+            pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
-              layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
               collectorNumber: '1',
-            },
+            }),
           ],
-          queue: {
-            cards: [],
-            lost: [queued(shivan)],
-            cleared: [],
-            restKept: false,
-            stealBehavior: 'ClearQueue',
-          },
+          queue: queueOf({ lost: [queued(shivan)] }),
         },
       );
 
@@ -250,247 +183,6 @@ describe('pool tab', () => {
       expect(panel(page).querySelector('.error')?.textContent).toContain(
         "Couldn't load your queue.",
       );
-    });
-
-    it('says the queue is loading, not empty, until it arrives', async () => {
-      const { fixture, page } = await openUrl('/drafts/draft-1');
-      http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
-      await flushPool([]);
-      await flushPicks([]);
-      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
-      tabButton(page, 'Queue').click();
-      await expectLoadingAnimation(() => panel(page), 'Loading your queue…', 64);
-      expect(panel(page).textContent).not.toContain('Your queue is empty');
-
-      req.flush(EMPTY_QUEUE);
-      await flushPlan(EMPTY_PLAN);
-      await fixture.whenStable();
-      expect(panel(page).textContent).not.toContain('Loading your queue…');
-      expect(panel(page).textContent).toContain('Your queue is empty');
-    });
-
-    it('does not call a queue that failed to load empty', async () => {
-      const { fixture, page } = await openUrl('/drafts/draft-1');
-      http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
-      await flushPool([]);
-      await flushPicks([]);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
-      await flushPlan(EMPTY_PLAN);
-      await fixture.whenStable();
-
-      const queue = await openQueue(fixture, page);
-      expect(queue.textContent).toContain("Couldn't load your queue.");
-      expect(queue.textContent).not.toContain('Your queue is empty');
-    });
-
-    it('offers to add a card again once it is removed on the Queue tab', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [shivan],
-        queue: {
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-
-      const queue = await openQueue(fixture, page);
-      queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
-      http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
-      await fixture.whenStable();
-      tabButton(page, 'Pool').click();
-      await fixture.whenStable();
-
-      const detail = await openDetail(fixture, page, 0);
-      expect(button(detail, 'Add to queue')).toBeDefined();
-      expect(button(detail, 'Remove from queue')).toBeUndefined();
-    });
-
-    it('removes a card from the Queue tab', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(shivan), queued(brightclimb)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-
-      queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/queue/shivan-card');
-      expect(req.request.method).toBe('DELETE');
-      req.flush({
-        cards: [queued(brightclimb)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-      await fixture.whenStable();
-
-      expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
-    });
-
-    it('shows a queued card’s remove button as a trash can', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [shivan],
-        queue: {
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-
-      const remove = queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!;
-      expect(remove.querySelector('svg')?.classList).toContain('lucide-trash');
-      expect(remove.textContent?.trim()).toBe('');
-      expect(remove.title).toBe('Remove Shivan Dragon');
-    });
-
-    it('moves a card up or down the queue, saving the new order', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(shivan), queued(brightclimb)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-      expect(
-        queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon up"]')!.disabled,
-      ).toBe(true);
-
-      queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
-      await fixture.whenStable();
-      // Shown at once, before the API answers.
-      expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Shivan Dragon']);
-      const req = http.expectOne('/api/drafts/draft-1/queue');
-      expect(req.request.method).toBe('PUT');
-      expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
-      req.flush({
-        cards: [queued(brightclimb), queued(shivan)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-      await fixture.whenStable();
-
-      expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Shivan Dragon']);
-    });
-
-    it('notes cards lost to other players, until dismissed', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(brightclimb)],
-          lost: [queued(shivan)],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-
-      const note = queue.querySelector<HTMLElement>('.notice')!;
-      expect(note.textContent).toContain('Lost to other players');
-      expect(note.textContent).toContain('Shivan Dragon');
-      expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
-
-      button(note, 'Dismiss')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/queue/notice');
-      expect(req.request.method).toBe('DELETE');
-      req.flush({
-        cards: [queued(brightclimb)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-      await fixture.whenStable();
-
-      expect(queue.querySelector('.notice')).toBeNull();
-    });
-
-    it('names lost and cleared cards apart, and dismiss hides them alike', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: {
-          cards: [],
-          lost: [queued(shivan)],
-          cleared: [queued(brightclimb)],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-
-      const note = queue.querySelector<HTMLElement>('.notice')!;
-      expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Lost to other players: Shivan Dragon. ' +
-          'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
-      );
-
-      button(note, 'Dismiss')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/notice')
-        .flush({ cards: [], lost: [], cleared: [], restKept: false, stealBehavior: 'ClearQueue' });
-      await fixture.whenStable();
-
-      expect(queue.querySelector('.notice')).toBeNull();
-    });
-
-    it('re-reads the queue when the draft changes, so a lost card shows', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-
-      updates.events.next({
-        type: 'changed',
-        draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
-      });
-      await flushPicks([]);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush({
-        cards: [],
-        lost: [queued(shivan)],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-      await flushPlan(EMPTY_PLAN);
-      await fixture.whenStable();
-
-      expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
-    });
-
-    it('offers Add to queue and the Queue tab only to players', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
-        cards: [shivan],
-      });
-
-      expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
-      expect(tabButton(page, 'Queue').disabled).toBe(true);
     });
 
     it('offers no Add to queue once the draft is complete', async () => {
@@ -547,13 +239,7 @@ describe('pool tab', () => {
       it('still offers to remove a queued card', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: yourTurn }), {
           cards: [shivan],
-          queue: {
-            cards: [queued(shivan)],
-            lost: [],
-            cleared: [],
-            restKept: false,
-            stealBehavior: 'ClearQueue',
-          },
+          queue: queueOf({ cards: [queued(shivan)] }),
         });
 
         const detail = await openDetail(fixture, page, 0);
@@ -598,13 +284,7 @@ describe('pool tab', () => {
         });
         const detail = await openDetail(fixture, page, 0);
         button(detail, 'Add to queue')!.click();
-        http.expectOne('/api/drafts/draft-1/queue').flush({
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        });
+        http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
         await fixture.whenStable();
         expect(detail.textContent).toContain('Added to your queue.');
 
@@ -653,13 +333,7 @@ describe('pool tab', () => {
         const add = http.expectOne('/api/drafts/draft-1/queue');
 
         await turnChanges(fixture, { pick: 2, round: 1, playerId: bob.id });
-        add.flush({
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        });
+        add.flush(queueOf({ cards: [queued(shivan)] }));
         await vi.waitFor(() => {
           TestBed.tick();
           expect(button(detail, 'Remove from queue')).toBeDefined();
@@ -699,13 +373,7 @@ describe('pool tab', () => {
       it('re-reads the draft when a removal is refused, too', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
           cards: [shivan],
-          queue: {
-            cards: [queued(shivan)],
-            lost: [],
-            cleared: [],
-            restKept: false,
-            stealBehavior: 'ClearQueue',
-          },
+          queue: queueOf({ cards: [queued(shivan)] }),
         });
         const detail = await openDetail(fixture, page, 0);
 
@@ -716,24 +384,12 @@ describe('pool tab', () => {
             { error: 'draft-closed', message: 'This draft is closed.' } satisfies QueueRefusal,
             { status: 409, statusText: 'Conflict' },
           );
-        await flushQueue({
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        });
+        await flushQueue(queueOf({ cards: [queued(shivan)] }));
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
           draft(drafting({ state: 'Closed', turn: null, version: 1 })),
         );
         await flushPicks([]);
-        await flushQueueAndPlan({
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        });
+        await flushQueueAndPlan(queueOf({ cards: [queued(shivan)] }));
         await fixture.whenStable();
 
         expect(detail.textContent).toContain('This draft is closed.');
@@ -743,13 +399,7 @@ describe('pool tab', () => {
       it('shows a queued card still available after an undo as removable, on your turn', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
           cards: [shivan],
-          queue: {
-            cards: [queued(shivan)],
-            lost: [],
-            cleared: [],
-            restKept: false,
-            stealBehavior: 'ClearQueue',
-          },
+          queue: queueOf({ cards: [queued(shivan)] }),
         });
         const detail = await openDetail(fixture, page, 0);
 
@@ -758,53 +408,11 @@ describe('pool tab', () => {
           draft: draft(drafting({ turn: yourTurn, version: 1 })),
         });
         await flushPicks([]);
-        await flushQueueAndPlan({
-          cards: [queued(shivan)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        });
+        await flushQueueAndPlan(queueOf({ cards: [queued(shivan)] }));
         await fixture.whenStable();
 
         expect(button(detail, 'Remove from queue')).toBeDefined();
       });
-    });
-
-    it('says why a new order was refused, and re-reads the queue', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: {
-          cards: [queued(shivan), queued(brightclimb)],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
-      });
-      const queue = await openQueue(fixture, page);
-
-      queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
-      http.expectOne('/api/drafts/draft-1/queue').flush(
-        {
-          error: 'queue-changed',
-          message: 'Your queue has changed. Reload and try again.',
-        } satisfies QueueRefusal,
-        { status: 409, statusText: 'Conflict' },
-      );
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush({
-        cards: [queued(shivan)],
-        lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-      await fixture.whenStable();
-
-      expect(queue.querySelector('[role="alert"]')?.textContent).toContain(
-        'Your queue has changed.',
-      );
-      expect(names(queue)).toEqual(['Shivan Dragon']);
     });
   });
 });

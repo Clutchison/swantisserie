@@ -14,6 +14,8 @@ import {
   completeSnapshot,
   button,
   type DraftFixture,
+  pickOf,
+  drafting,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
 
@@ -22,26 +24,18 @@ useTallScreen();
 
 describe('pool tab', () => {
   describe('picking', () => {
-    /** Started, with Alice then Bob; Alice is up unless told otherwise. */
-    const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-      state: 'Drafting',
-      players: [alicePlayer, bob],
-      turn: { pick: 1, round: 1, playerId: alice.id },
-      ...fields,
-    });
-    const shivanPick: PickView = {
-      pick: 1,
-      playerId: alice.id,
+    /** Alice's turn, on the draft's first pick: she is up unless told otherwise. */
+    const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
+    const shivanPick: PickView = pickOf({
       poolCardId: 'shivan-card',
       name: 'Shivan Dragon',
-      layout: 'normal',
       typeLine: 'Creature — Dragon',
       set: 'ima',
       collectorNumber: '1',
-    };
+    });
 
     it('lets the player whose turn it is pick a card from its detail', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
         cards: [brightclimb, shivan],
       });
 
@@ -109,9 +103,13 @@ describe('pool tab', () => {
     });
 
     it('offers no Pick to someone who is not a player', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
-        cards: [shivan],
-      });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ turn: alicesTurn, players: [bob] }),
+        {
+          cards: [shivan],
+        },
+      );
 
       expect(button(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
     });
@@ -127,7 +125,9 @@ describe('pool tab', () => {
     });
 
     it('says why a pick was refused, and catches up with the draft', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [shivan],
+      });
 
       const detail = await openDetail(fixture, page, 0);
       button(detail, 'Pick')!.click();
@@ -150,25 +150,21 @@ describe('pool tab', () => {
   });
 
   describe('who picked a card', () => {
-    const drafting: DraftFixture = {
-      state: 'Drafting',
-      players: [alicePlayer, bob],
-      turn: { pick: 2, round: 1, playerId: bob.id },
-    };
-    const pickBy = (playerId: string): PickView => ({
-      pick: 1,
-      playerId,
-      poolCardId: 'shivan-card',
-      name: 'Shivan Dragon',
-      layout: 'normal',
-      typeLine: 'Creature — Dragon',
-      set: 'ima',
-      collectorNumber: '1',
-    });
+    /** Bob is up, on the draft's second pick. */
+    const bobUp = drafting({ turn: { pick: 2, round: 1, playerId: bob.id } });
+    const pickBy = (playerId: string): PickView =>
+      pickOf({
+        playerId,
+        poolCardId: 'shivan-card',
+        name: 'Shivan Dragon',
+        typeLine: 'Creature — Dragon',
+        set: 'ima',
+        collectorNumber: '1',
+      });
     const openPicked = (playerId: string, fields: DraftFixture = {}) =>
       openDraft(
         completeSnapshot,
-        { ...drafting, ...fields },
+        { ...bobUp, ...fields },
         { cards: [shivan], picks: [pickBy(playerId)] },
       );
     const badge = (page: HTMLElement) => tiles(page)[0].querySelector<HTMLElement>('.badge')!;
@@ -247,16 +243,16 @@ describe('pool tab', () => {
     });
 
     it('shows a new pick’s badge through live updates, and removes it when it’s undone', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting, { cards: [shivan] });
+      const { fixture, page } = await openDraft(completeSnapshot, bobUp, { cards: [shivan] });
       expect(badge(page)).toBeNull();
 
-      updates.events.next({ type: 'changed', draft: draft({ ...drafting, version: 1 }) });
+      updates.events.next({ type: 'changed', draft: draft({ ...bobUp, version: 1 }) });
       await flushPicks([pickBy(bob.id)]);
       await flushQueueAndPlan();
       await fixture.whenStable();
       expect(announced(badge(page))).toBe('Picked by Bob');
 
-      updates.events.next({ type: 'changed', draft: draft({ ...drafting, version: 2 }) });
+      updates.events.next({ type: 'changed', draft: draft({ ...bobUp, version: 2 }) });
       await flushPicks([]);
       await flushQueueAndPlan();
       await fixture.whenStable();
@@ -275,16 +271,13 @@ describe('pool tab', () => {
       {
         cards: [brightclimb],
         picks: [
-          {
-            pick: 1,
-            playerId: alice.id,
+          pickOf({
             poolCardId: brightclimb.id,
             name: brightclimb.name,
-            layout: 'normal',
             typeLine: brightclimb.typeLine,
             set: brightclimb.set,
             collectorNumber: brightclimb.collectorNumber,
-          },
+          }),
         ],
       },
     );

@@ -6,29 +6,29 @@ import {
   http,
   updates,
   bob,
-  alicePlayer,
   openDraft,
   flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
   button,
+  queueOf,
+  drafting,
 } from './harness';
 
 useDraftsApp();
 
 describe('close and reopen', () => {
-  const drafting = {
-    state: 'Drafting' as const,
-    players: [alicePlayer, bob],
+  /** 37 of 90 picks made, with Alice up. */
+  const underway = drafting({
     picksPerPlayer: 45,
     turn: { pick: 38, round: 19, playerId: alice.id },
-  };
-  const closed = { ...drafting, state: 'Closed' as const, turn: null };
+  });
+  const closed = { ...underway, state: 'Closed' as const, turn: null };
   const banner = 'This draft is closed. No picks until it reopens.';
 
   it('closes a drafting draft once the organizer confirms, showing the progress', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { fixture, page } = await openDraft(completeSnapshot, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, underway);
 
     button(page, 'Close draft')!.click();
 
@@ -49,12 +49,12 @@ describe('close and reopen', () => {
   });
 
   it('offers closing a paused draft', async () => {
-    const { page } = await openDraft(completeSnapshot, { ...drafting, state: 'Paused' });
+    const { page } = await openDraft(completeSnapshot, { ...underway, state: 'Paused' });
     expect(button(page, 'Close draft')).toBeDefined();
   });
 
   it.each(['Lobby', 'Complete'] as const)('offers neither in %s', async (state) => {
-    const { page } = await openDraft(completeSnapshot, { ...drafting, state, turn: null });
+    const { page } = await openDraft(completeSnapshot, { ...underway, state, turn: null });
 
     expect(button(page, 'Close draft')).toBeUndefined();
     expect(button(page, 'Reopen draft')).toBeUndefined();
@@ -62,7 +62,7 @@ describe('close and reopen', () => {
 
   it('keeps a draft the organizer did not confirm closing', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(completeSnapshot, drafting);
+    const { page } = await openDraft(completeSnapshot, underway);
 
     button(page, 'Close draft')!.click();
 
@@ -81,7 +81,7 @@ describe('close and reopen', () => {
     );
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/reopen'));
     expect(req.request.method).toBe('POST');
-    req.flush(draft({ ...drafting, version: 1 }));
+    req.flush(draft({ ...underway, version: 1 }));
     await flushPicks([]);
     await flushQueueAndPlan();
     await fixture.whenStable();
@@ -101,7 +101,7 @@ describe('close and reopen', () => {
 
   it('says why a close was refused, and catches up with the draft', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { fixture, page } = await openDraft(completeSnapshot, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, underway);
 
     button(page, 'Close draft')!.click();
     const message = 'Only a drafting or paused draft can be closed.';
@@ -129,7 +129,7 @@ describe('close and reopen', () => {
 
     updates.events.next({
       type: 'changed',
-      draft: draft({ ...drafting, organizer, version: 1 }),
+      draft: draft({ ...underway, organizer, version: 1 }),
     });
     await flushPicks([]);
     await flushQueueAndPlan();
@@ -141,7 +141,7 @@ describe('close and reopen', () => {
 
   it('shows every viewer the draft closing as it happens', async () => {
     const organizer = { id: bob.id, name: bob.name };
-    const { fixture, page } = await openDraft(completeSnapshot, { ...drafting, organizer });
+    const { fixture, page } = await openDraft(completeSnapshot, { ...underway, organizer });
 
     updates.events.next({
       type: 'changed',
@@ -156,13 +156,10 @@ describe('close and reopen', () => {
 
   it('makes the queue read-only while closed, keeping it on show', async () => {
     const { page } = await openDraft(completeSnapshot, closed, {
-      queue: {
+      queue: queueOf({
         cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
         lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      },
+      }),
     });
 
     const queue = page.querySelector('#queue-panel')!;
@@ -175,15 +172,12 @@ describe('close and reopen', () => {
   it('makes the queue read-only once complete, without promising a reopen', async () => {
     const { page } = await openDraft(
       completeSnapshot,
-      { ...drafting, state: 'Complete', turn: null },
+      { ...underway, state: 'Complete', turn: null },
       {
-        queue: {
+        queue: queueOf({
           cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
           lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
+        }),
       },
     );
 
@@ -197,20 +191,14 @@ describe('close and reopen', () => {
 
   it.each([
     { state: 'Lobby', turn: null },
-    { state: 'Drafting', turn: drafting.turn },
-    { state: 'Paused', turn: drafting.turn },
+    { state: 'Drafting', turn: underway.turn },
+    { state: 'Paused', turn: underway.turn },
   ] as const)('keeps the queue controls in $state', async ({ state, turn }) => {
     const { page } = await openDraft(
       completeSnapshot,
-      { ...drafting, state, turn },
+      { ...underway, state, turn },
       {
-        queue: {
-          cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
-          lost: [],
-          cleared: [],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
-        },
+        queue: queueOf({ cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }] }),
       },
     );
 

@@ -109,9 +109,15 @@ export class QueueTab {
     () => this.queue().lost.length > 0 || this.queue().cleared.length > 0,
   );
 
-  /** A card dragged to a new place in the queue. */
-  protected dropped(event: CdkDragDrop<unknown>) {
-    return this.move(event.previousIndex, event.currentIndex);
+  /**
+   * A card dragged to a new place in the queue. It's found by id, as the
+   * queue may have been re-read since the drag began; if it has left the
+   * queue, the drop does nothing.
+   */
+  protected dropped({ item, currentIndex }: CdkDragDrop<unknown, unknown, string>) {
+    const from = this.queue().cards.findIndex((card) => card.poolCardId === item.data);
+    if (from === -1) return;
+    return this.move(from, currentIndex);
   }
 
   /** Moves the card at `from` to `to`, showing the new order at once. */
