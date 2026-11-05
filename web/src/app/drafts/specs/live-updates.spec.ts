@@ -137,4 +137,16 @@ describe('live updates', () => {
     expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     expect(page.querySelector('.tile')?.classList).toContain('picked');
   });
+
+  it('signs the player out when the socket is refused for a session that has ended', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting());
+
+    updates.events.next({ type: 'unauthorized' });
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    await fixture.whenStable();
+
+    expect(page.textContent).toContain('Sign in with Discord');
+    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+    http.expectNone('/api/auth/logout');
+  });
 });

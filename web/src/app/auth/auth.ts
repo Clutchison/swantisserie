@@ -34,6 +34,15 @@ export class Auth {
       // Sign out here anyway: a dead button is worse than a session that
       // outlives this tab (a reload would sign the user back in).
     }
+    await this.signedOut();
+  }
+
+  /**
+   * Signs the viewer out of this tab once the API has ended their session,
+   * sending them to the sign-in page. The session is already gone, so the
+   * API isn't told.
+   */
+  async signedOut(): Promise<void> {
     this.user.set(null);
     await this.router.navigate([SIGN_IN_PATH]);
   }

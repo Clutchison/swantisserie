@@ -63,7 +63,8 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 export class DraftPage {
   private readonly http = inject(HttpClient);
   private readonly pollMs = inject(DRAFT_POLL_MS);
-  private readonly user = inject(Auth).user;
+  private readonly auth = inject(Auth);
+  private readonly user = this.auth.user;
   private readonly updates = inject(DraftUpdates);
   private readonly router = inject(Router);
 
@@ -224,6 +225,8 @@ export class DraftPage {
           this.showDraft(event.draft);
         } else if (event.type === 'cancelled') {
           void this.leaveCancelled();
+        } else if (event.type === 'unauthorized') {
+          void this.auth.signedOut();
         } else {
           this.catchUp();
         }
