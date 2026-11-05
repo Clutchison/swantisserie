@@ -57,6 +57,11 @@ export interface DraftRead<T> {
   readonly missing: Signal<boolean>;
 }
 
+/** A pick in the pick log, with the pool card it picked: the one source of its name and printing. */
+export interface PickedCard extends PickView {
+  card: PoolCardView;
+}
+
 /**
  * The draft-scoped service: one per open draft page, which provides it, for
  * the draft its route names. It owns the page's reads of the api (the draft,
@@ -180,6 +185,23 @@ export class DraftStore {
   });
   /** The pick log, in pick order. */
   readonly picks = keptRead(this.picksResource, []);
+  /**
+   * The pick log with each pick's pool card, which names it: loading until
+   * both the picks and the pool have loaded, and missing if either can't be.
+   */
+  readonly pickLog: DraftRead<PickedCard[]> = {
+    value: computed(() => {
+      const cards = this.poolCardsById();
+      return this.picks.value().flatMap((pick) => {
+        const card = cards.get(pick.poolCardId);
+        return card ? [{ ...pick, card }] : [];
+      });
+    }),
+    loaded: computed(() => this.picks.loaded() && this.pool.loaded()),
+    loading: computed(() => this.picks.loading() || this.pool.loading()),
+    failed: computed(() => this.picks.failed() || this.pool.failed()),
+    missing: computed(() => this.picks.missing() || this.pool.missing()),
+  };
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   readonly picked = computed(() => {
     const picked = new Map<string, PlayerView>();

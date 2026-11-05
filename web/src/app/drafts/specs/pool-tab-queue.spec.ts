@@ -129,10 +129,6 @@ describe('pool tab', () => {
             pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
-              name: 'Shivan Dragon',
-              typeLine: 'Creature — Dragon',
-              set: 'ima',
-              collectorNumber: '1',
             }),
           ],
           queue: queueOf({ cards: [queued(shivan)] }),
@@ -154,10 +150,6 @@ describe('pool tab', () => {
             pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
-              name: 'Shivan Dragon',
-              typeLine: 'Creature — Dragon',
-              set: 'ima',
-              collectorNumber: '1',
             }),
           ],
           queue: queueOf({ lost: [queued(shivan)] }),

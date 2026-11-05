@@ -6,7 +6,7 @@ import {
   type OnDestroy,
   signal,
 } from '@angular/core';
-import type { PickView, Platform } from 'contract';
+import type { Platform, PoolCardView } from 'contract';
 import { LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
 import { CardName } from './card-name';
@@ -20,7 +20,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
 type ExportTarget = 'Arena' | 'MTGO' | 'Moxfield';
 
 /** Each export target's export of a player's plan. */
-const EXPORTS: Record<ExportTarget, (plan: ExportPlan<PickView>) => string> = {
+const EXPORTS: Record<ExportTarget, (plan: ExportPlan<PoolCardView>) => string> = {
   Arena: arenaExport,
   MTGO: mtgoExport,
   Moxfield: moxfieldExport,
@@ -62,14 +62,15 @@ export class ExportTab implements OnDestroy {
   protected readonly planLoading = this.store.plan.loading;
   /** Whether the plan couldn't be loaded. */
   protected readonly planFailed = this.store.plan.missing;
-  /** The pick log, in pick order. */
-  private readonly picks = this.store.picks.value;
-  /** The pool's cards by id, for the Card previews of the names here. */
-  protected readonly poolCardsById = this.store.poolCardsById;
-  /** Whether the picks are still on their way. */
-  protected readonly loading = this.store.picks.loading;
-  /** Whether the picks couldn't be loaded. A failed re-read keeps the last ones loaded. */
-  protected readonly failed = this.store.picks.missing;
+  /** The pick log, in pick order, with each pick's pool card. */
+  private readonly picks = this.store.pickLog.value;
+  /** Whether the picks, or the pool that names them, are still on their way. */
+  protected readonly loading = this.store.pickLog.loading;
+  /**
+   * Whether the picks, or the pool that names them, couldn't be loaded. A
+   * failed re-read keeps the last ones loaded.
+   */
+  protected readonly failed = this.store.pickLog.missing;
 
   /** The player's picks, in pick order. */
   protected readonly playerPicks = computed(() =>
@@ -81,13 +82,13 @@ export class ExportTab implements OnDestroy {
    * plan board's picks in pick order. A pick the plan doesn't have yet is on the
    * mainboard, where every pick lands.
    */
-  protected readonly exportPlan = computed<ExportPlan<PickView>>(() => {
+  protected readonly exportPlan = computed<ExportPlan<PoolCardView>>(() => {
     const { sideboard, basics } = this.plan();
     const onSideboard = new Set(sideboard.map((card) => card.poolCardId));
     const picks = this.playerPicks();
     return {
-      mainboard: picks.filter((pick) => !onSideboard.has(pick.poolCardId)),
-      sideboard: picks.filter((pick) => onSideboard.has(pick.poolCardId)),
+      mainboard: picks.filter((pick) => !onSideboard.has(pick.poolCardId)).map((pick) => pick.card),
+      sideboard: picks.filter((pick) => onSideboard.has(pick.poolCardId)).map((pick) => pick.card),
       basics,
     };
   });

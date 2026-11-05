@@ -33,6 +33,16 @@ export class OrganizerControls {
     if (!this.canOrganize() || (state !== 'Drafting' && state !== 'Paused')) return null;
     return this.picks().at(-1) ?? null;
   });
+  /**
+   * The undo button's label: the undoable pick's number, and its card's name
+   * once the pool that holds it has loaded. Undo itself doesn't wait for it.
+   */
+  protected readonly undoLabel = computed(() => {
+    const pick = this.undoable();
+    if (!pick) return '';
+    const name = this.store.poolCardsById().get(pick.poolCardId)?.name;
+    return name ? `Undo pick ${pick.pick} (${name})` : `Undo pick ${pick.pick}`;
+  });
   /** The organizer may pause a drafting draft and resume a paused one. */
   protected readonly offerPause = computed(
     () => this.canOrganize() && this.draft().state === 'Drafting',

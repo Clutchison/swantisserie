@@ -54,7 +54,6 @@ export function draft(fields: DraftFixture): DraftView {
     players: [],
     webhook: null,
     version: 0,
-    createdAt: '2026-10-29T12:00:00.000Z',
     ...rest,
   };
   if (state === 'Drafting' || state === 'Paused') {
@@ -230,16 +229,49 @@ export const queueOf = (
   ...fields,
 });
 
-/** A pick of a normal card, Alice's and the draft's first, with `fields` changed. */
+/** A pick, Alice's and the draft's first, with `fields` changed. */
 export const pickOf = (fields: Partial<PickView> = {}): PickView => ({
   pick: 1,
   playerId: alice.id,
   poolCardId: '',
-  name: '',
+  ...fields,
+});
+
+/**
+ * A pool card named `name`, with the id `${id}-card`: a normal red instant
+ * printed as IMA 1, with `fields` changed.
+ */
+export const poolCardOf = (
+  id: string,
+  name: string,
+  fields: Partial<PoolCardView> = {},
+): PoolCardView => ({
+  id: `${id}-card`,
+  scryfallId: `${id}-id`,
+  name,
+  set: 'ima',
+  collectorNumber: '1',
+  typeLine: 'Instant',
+  colors: ['R'],
+  manaValue: 1,
+  manaCost: '{R}',
+  oracleText: null,
+  colorIdentity: ['R'],
+  keywords: [],
+  rarity: 'common',
   layout: 'normal',
-  typeLine: '',
-  set: '',
-  collectorNumber: '',
+  power: null,
+  toughness: null,
+  loyalty: null,
+  defense: null,
+  faces: [],
+  images: [
+    {
+      small: `https://cards.scryfall.io/small/front/${id}-id.jpg`,
+      normal: `https://cards.scryfall.io/normal/front/${id}-id.jpg`,
+      large: `https://cards.scryfall.io/large/front/${id}-id.jpg`,
+    },
+  ],
   ...fields,
 });
 

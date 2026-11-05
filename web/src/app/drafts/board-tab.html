@@ -15,7 +15,7 @@
         <ol class="card-rows">
           @for (pick of player.picks; track pick.pick) {
             <li>
-              <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
+              <app-card-name [card]="pick.card" [name]="pick.card.name" />
             </li>
           } @empty {
             <li class="empty">No picks yet.</li>
@@ -37,7 +37,7 @@
               <span class="badge">Bot</span>
             }
           </span>
-          <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
+          <app-card-name [card]="pick.card" [name]="pick.card.name" />
         </li>
       } @empty {
         <li class="empty">No picks yet.</li>

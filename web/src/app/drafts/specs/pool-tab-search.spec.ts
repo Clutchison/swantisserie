@@ -74,10 +74,6 @@ describe('pool tab', () => {
           picks: [
             pickOf({
               poolCardId: shivan.id,
-              name: shivan.name,
-              typeLine: shivan.typeLine,
-              set: 'm20',
-              collectorNumber: '332',
             }),
           ],
         },
@@ -142,7 +138,6 @@ describe('pool tab', () => {
       const thundermaw = card({
         id: 'thundermaw-card',
         scryfallId: 'thundermaw-id',
-        oracleId: 'thundermaw-oracle',
         name: 'Thundermaw Hellkite',
       });
       const { fixture, page } = await openDraft(
@@ -154,10 +149,6 @@ describe('pool tab', () => {
             pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
-              name: 'Shivan Dragon',
-              typeLine: 'Creature — Dragon',
-              set: 'ima',
-              collectorNumber: '1',
             }),
           ],
         },
@@ -186,7 +177,7 @@ describe('pool tab', () => {
 
     describe('color filter', () => {
       const colored = (name: string, colors: string[], typeLine = 'Creature — Bear') =>
-        card({ id: name, scryfallId: name, oracleId: name, name, colors, typeLine });
+        card({ id: name, scryfallId: name, name, colors, typeLine });
       const white = colored('White Bear', ['W']);
       const blue = colored('Blue Bear', ['U']);
       const azorius = colored('Azorius Bear', ['W', 'U']);
@@ -248,10 +239,6 @@ describe('pool tab', () => {
               pickOf({
                 playerId: bob.id,
                 poolCardId: white.id,
-                name: white.name,
-                typeLine: white.typeLine,
-                set: 'm20',
-                collectorNumber: '332',
               }),
             ],
           },

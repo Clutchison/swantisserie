@@ -150,7 +150,6 @@ describe('pool tab', () => {
     const third = card({
       id: 'third-card',
       scryfallId: 'third-id',
-      oracleId: 'third-oracle',
       name: 'Third',
     });
 

@@ -42,7 +42,6 @@ describe('live updates', () => {
   const shivan: PoolCardView = {
     id: 'shivan-card',
     scryfallId: 'shivan-id',
-    oracleId: 'shivan-oracle',
     name: 'Shivan Dragon',
     set: 'm10',
     collectorNumber: '155',
@@ -64,10 +63,6 @@ describe('live updates', () => {
   };
   const shivanPick: PickView = pickOf({
     poolCardId: 'shivan-card',
-    name: 'Shivan Dragon',
-    typeLine: 'Creature — Dragon',
-    set: 'ima',
-    collectorNumber: '1',
   });
 
   it('watches the draft it shows', async () => {
@@ -210,9 +205,8 @@ describe('live updates', () => {
         pick: 1,
         playerId: bob.id,
         poolCardId: shivan.id,
-        name: shivan.name,
       });
-      const alicePicked = pickOf({ pick: 2, poolCardId: brightclimb.id, name: brightclimb.name });
+      const alicePicked = pickOf({ pick: 2, poolCardId: brightclimb.id });
 
       // Bob picks Shivan Dragon, and then Alice's queue picks Brightclimb Pathway.
       const older = await push(
@@ -297,7 +291,7 @@ describe('live updates', () => {
     await settle();
     expect(reread.cancelled).toBe(false);
     reread.flush(queueOf({ lost: [queued(shivan)] }));
-    await flushPicks([pickOf({ playerId: bob.id, poolCardId: shivan.id, name: shivan.name })]);
+    await flushPicks([pickOf({ playerId: bob.id, poolCardId: shivan.id })]);
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
 

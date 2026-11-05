@@ -174,10 +174,6 @@ describe('pool tab', () => {
             pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
-              name: 'Shivan Dragon',
-              typeLine: 'Creature — Dragon',
-              set: 'ima',
-              collectorNumber: '1',
             }),
           ],
         },
@@ -390,10 +386,6 @@ describe('pool tab', () => {
           picks: [
             pickOf({
               poolCardId: shivan.id,
-              name: shivan.name,
-              typeLine: 'Creature — Dragon',
-              set: 'ima',
-              collectorNumber: '1',
             }),
           ],
         },
@@ -415,10 +407,6 @@ describe('pool tab', () => {
             pickOf({
               playerId: bob.id,
               poolCardId: shivan.id,
-              name: shivan.name,
-              typeLine: 'Creature — Dragon',
-              set: 'ima',
-              collectorNumber: '1',
             }),
           ],
         },

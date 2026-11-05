@@ -11,6 +11,7 @@ import {
   completeSnapshot,
   button,
   pickOf,
+  poolCardOf,
 } from './harness';
 
 useDraftsApp();
@@ -37,22 +38,15 @@ describe('bots', () => {
         turn: { pick: 3, round: 2, playerId: bot.id },
       },
       {
+        cards: [poolCardOf('shock', 'Shock'), poolCardOf('bolt', 'Lightning Bolt')],
         picks: [
           pickOf({
             playerId: bot.id,
             poolCardId: 'shock-card',
-            name: 'Shock',
-            typeLine: 'Instant',
-            set: 'ima',
-            collectorNumber: '1',
           }),
           pickOf({
             pick: 2,
             poolCardId: 'bolt-card',
-            name: 'Lightning Bolt',
-            typeLine: 'Instant',
-            set: 'ima',
-            collectorNumber: '1',
           }),
         ],
       },

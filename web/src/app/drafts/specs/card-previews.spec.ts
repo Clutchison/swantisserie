@@ -25,6 +25,8 @@ import {
   tap,
   pickOf,
   queueOf,
+  queued,
+  flushQueueAndPlan,
   accessibleName,
   type AppFixture,
 } from './harness';
@@ -37,7 +39,6 @@ describe('card previews', () => {
   const poolCard = (id: string, name: string, faces = ['front']): PoolCardView => ({
     id: `${id}-card`,
     scryfallId: `${id}-id`,
-    oracleId: `${id}-oracle`,
     name,
     set: 'ima',
     collectorNumber: '1',
@@ -68,11 +69,6 @@ describe('card previews', () => {
       pick: number,
       playerId,
       poolCardId: card.id,
-      name: card.name,
-      layout: card.layout,
-      typeLine: card.typeLine,
-      set: card.set,
-      collectorNumber: card.collectorNumber,
     });
 
   /** Opens a draft with `picks` made and `options` as openDraft takes them. */
@@ -105,8 +101,55 @@ describe('card previews', () => {
     return opened;
   }
 
+  /**
+   * Opens the Queue tab of a draft whose pool has only Shock, with Bolt then
+   * Shock queued, then takes over the clock. A queue names its cards, so Bolt
+   * shows a name with no pool card.
+   */
+  async function openQueueWithoutBolt() {
+    const opened = await openPicked({
+      cards: [shock],
+      picks: [],
+      queue: queueOf({ cards: [queued(bolt), queued(shock)] }),
+    });
+    tabButton(opened.page, 'Queue').click();
+    await opened.fixture.whenStable();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    return opened;
+  }
+
+  /**
+   * Opens the Queue tab with Bolt queued, the pool's GET left for the test to
+   * answer.
+   */
+  async function openQueueUnanswered() {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http.expectOne('/api/drafts/draft-1').flush(
+      draft({
+        snapshot: completeSnapshot,
+        state: 'Drafting',
+        players: [alicePlayer, bob],
+        turn: { pick: 1, round: 1, playerId: bob.id },
+      }),
+    );
+    await flushPicks([]);
+    await flushQueueAndPlan(queueOf({ cards: [queued(bolt)] }));
+    const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
+    tabButton(page, 'Queue').click();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(cardName(page, 'Lightning Bolt')).toBeDefined();
+    });
+    return { fixture, page, request };
+  }
+
   afterEach(() => vi.useRealTimers());
 
+  /** A card name in the open tab, by its text. */
+  const cardName = (page: HTMLElement, name: string) =>
+    [...panel(page).querySelectorAll<HTMLElement>('app-card-name .name')].find(
+      (span) => span.textContent?.trim() === name,
+    )!;
   /** A card name in the Board's pick lists, by its text. */
   const boardName = (page: HTMLElement, name: string) =>
     [...page.querySelectorAll<HTMLElement>('.player-picks li span')].find(
@@ -342,38 +385,26 @@ describe('card previews', () => {
   });
 
   it('leaves a name out of the pool as plain text', async () => {
-    const { page } = await openBoard({ cards: [shock] });
+    const { page } = await openQueueWithoutBolt();
 
-    tap(boardName(page, 'Lightning Bolt'));
-    hover(boardName(page, 'Lightning Bolt'));
+    tap(cardName(page, 'Lightning Bolt'));
+    hover(cardName(page, 'Lightning Bolt'));
     wait(150);
 
     expect(previewImage()).toBeNull();
   });
 
   it('leaves names as plain text while the pool is loading or failed to load', async () => {
-    const { fixture, page } = await openUrl('/drafts/draft-1');
-    http
-      .expectOne('/api/drafts/draft-1')
-      .flush(draft({ snapshot: completeSnapshot, state: 'Drafting', players: [bob] }));
-    await flushPicks([pick(1, bolt, bob.id)]);
-    const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
-    await vi.waitFor(() => {
-      TestBed.tick();
-      expect(boardName(page, 'Lightning Bolt')).toBeDefined();
-    });
-    tabButton(page, 'Board').click();
-    TestBed.tick();
+    const { fixture, page, request } = await openQueueUnanswered();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(page, 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
 
     request.flush('', { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(page, 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
-    expect(panel(page).querySelector('.error')).toBeNull();
   });
 
   it('shows on names in the pick log and on your picks on the Export tab', async () => {
@@ -454,10 +485,10 @@ describe('card previews', () => {
     });
 
     it('skips a name with no pool card', async () => {
-      const { page } = await openBoard({ cards: [shock] });
+      const { page } = await openQueueWithoutBolt();
 
-      expect(boardName(page, 'Lightning Bolt').tabIndex).toBe(-1);
-      expect(boardName(page, 'Shock').tabIndex).toBe(0);
+      expect(cardName(page, 'Lightning Bolt').tabIndex).toBe(-1);
+      expect(cardName(page, 'Shock').tabIndex).toBe(0);
     });
 
     it('opens nothing through focus when a name is clicked with a mouse', async () => {
@@ -615,23 +646,13 @@ describe('card previews', () => {
     });
 
     it('show once the pool card has loaded, the name alone until then', async () => {
-      const { fixture, page } = await openUrl('/drafts/draft-1');
-      http
-        .expectOne('/api/drafts/draft-1')
-        .flush(draft({ snapshot: completeSnapshot, state: 'Drafting', players: [bob] }));
-      await flushPicks([pick(1, bolt, bob.id)]);
-      const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
-      tabButton(page, 'Board').click();
-      await vi.waitFor(() => {
-        TestBed.tick();
-        expect(boardName(page, 'Lightning Bolt')).toBeDefined();
-      });
+      const { fixture, page, request } = await openQueueUnanswered();
 
-      expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual([]);
+      expect(costBefore(cardName(page, 'Lightning Bolt'))).toEqual([]);
 
       request.flush([bolt]);
       await fixture.whenStable();
-      expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual(['one red mana']);
+      expect(costBefore(cardName(page, 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
     it('show before names in the pick log and on the Export tab', async () => {

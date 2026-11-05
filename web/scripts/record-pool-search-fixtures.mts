@@ -35,7 +35,6 @@ interface ScryfallFace {
 
 interface ScryfallCard extends Omit<ScryfallFace, 'type_line'> {
   id: string;
-  oracle_id: string;
   set: string;
   collector_number: string;
   type_line: string;
@@ -74,7 +73,6 @@ async function searchScryfall(query: string): Promise<ScryfallCard[]> {
 function toPoolCard(card: ScryfallCard) {
   return {
     scryfallId: card.id,
-    oracleId: card.oracle_id,
     name: card.name,
     set: card.set,
     collectorNumber: card.collector_number,
