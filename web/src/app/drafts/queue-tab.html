@@ -5,6 +5,7 @@
     >{{ last ? '.' : ', ' }}
   }
 </ng-template>
+<p class="visually-hidden" role="status">{{ statusMessage() }}</p>
 <div class="steal-behavior">
   <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
   <span id="steal-behavior-description" class="visually-hidden">{{
@@ -15,7 +16,8 @@
     type="button"
     [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
     aria-describedby="steal-behavior-description"
-    [disabled]="readOnly() || changing() || loading()"
+    [disabled]="readOnly() || loading()"
+    [attr.aria-disabled]="changing() || null"
     (click)="toggleStealBehavior()"
   >
     {{ stealBehaviorName() }}<svg lucideArrowLeftRight class="swap" size="16"></svg>
@@ -46,7 +48,7 @@
         class="button secondary"
         type="button"
         (click)="dismissNotice()"
-        [disabled]="changing()"
+        [attr.aria-disabled]="changing() || null"
       >
         Dismiss
       </button>
@@ -90,7 +92,8 @@
             [attr.aria-label]="upName"
             [title]="upName"
             (click)="move(i, i - 1)"
-            [disabled]="first || changing()"
+            [disabled]="first"
+            [attr.aria-disabled]="changing() || null"
           >
             <svg lucideArrowUp size="16"></svg>
           </button>
@@ -101,7 +104,8 @@
             [attr.aria-label]="downName"
             [title]="downName"
             (click)="move(i, i + 1)"
-            [disabled]="last || changing()"
+            [disabled]="last"
+            [attr.aria-disabled]="changing() || null"
           >
             <svg lucideArrowDown size="16"></svg>
           </button>
@@ -112,7 +116,7 @@
             [attr.aria-label]="removeName"
             [title]="removeName"
             (click)="remove(card.poolCardId)"
-            [disabled]="changing()"
+            [attr.aria-disabled]="changing() || null"
           >
             <svg lucideTrash size="16"></svg>
           </button>

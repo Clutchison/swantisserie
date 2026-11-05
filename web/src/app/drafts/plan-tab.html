@@ -1,4 +1,5 @@
 <!-- A move button's icon: off the mainboard is minus, onto it is plus. -->
+<p class="visually-hidden" role="status">{{ statusMessage() }}</p>
 <ng-template #moveIcon let-planBoard>
   @if (planBoard.other === 'Sideboard') {
     <svg lucideMinus size="16"></svg>
@@ -21,7 +22,7 @@
       class="button secondary"
       type="button"
       (click)="dismissNotice()"
-      [disabled]="changing()"
+      [attr.aria-disabled]="changing() || null"
     >
       Dismiss
     </button>
@@ -154,7 +155,7 @@
                           [attr.aria-label]="moveName"
                           [title]="moveName"
                           (click)="move(card.poolCardId, planBoard.other)"
-                          [disabled]="changing()"
+                          [attr.aria-disabled]="changing() || null"
                         >
                           <ng-container
                             *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
@@ -169,7 +170,7 @@
                           [attr.aria-label]="removeName"
                           [title]="removeName"
                           (click)="remove(card.poolCardId)"
-                          [disabled]="changing()"
+                          [attr.aria-disabled]="changing() || null"
                         >
                           <svg lucideTrash size="16"></svg>
                         </button>
@@ -192,7 +193,7 @@
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
-          @for (line of planBoard.lines; track line.poolCardId) {
+          @for (line of planBoard.lines; track line.key) {
             <li
               [class.unpicked]="!line.picked"
               cdkDrag
@@ -216,7 +217,7 @@
                     [attr.aria-label]="moveName"
                     [title]="moveName"
                     (click)="move(line.poolCardId, planBoard.other)"
-                    [disabled]="changing()"
+                    [attr.aria-disabled]="changing() || null"
                   >
                     <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }" />
                   </button>
@@ -229,7 +230,7 @@
                     [attr.aria-label]="removeName"
                     [title]="removeName"
                     (click)="remove(line.poolCardId)"
-                    [disabled]="changing()"
+                    [attr.aria-disabled]="changing() || null"
                   >
                     <svg lucideTrash size="16"></svg>
                   </button>
@@ -328,7 +329,8 @@
               [attr.aria-label]="'One fewer ' + basic.land"
               [title]="'One fewer ' + basic.land"
               (click)="setBasic(basic.land, basic.count - 1)"
-              [disabled]="changing() || basic.count === 0"
+              [disabled]="basic.count === 0"
+              [attr.aria-disabled]="changing() || null"
             >
               <svg lucideMinus size="16"></svg>
             </button>
@@ -348,7 +350,8 @@
               [attr.aria-label]="'One more ' + basic.land"
               [title]="'One more ' + basic.land"
               (click)="setBasic(basic.land, basic.count + 1)"
-              [disabled]="changing() || basic.count >= mostBasics"
+              [disabled]="basic.count >= mostBasics"
+              [attr.aria-disabled]="changing() || null"
             >
               <svg lucidePlus size="16"></svg>
             </button>
@@ -360,7 +363,8 @@
           class="button secondary"
           type="button"
           (click)="clearBasics()"
-          [disabled]="changing() || !hasBasics()"
+          [disabled]="!hasBasics()"
+          [attr.aria-disabled]="changing() || null"
         >
           Clear basics
         </button>

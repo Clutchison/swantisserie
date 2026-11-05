@@ -19,6 +19,7 @@ import {
   updates,
   viewOn,
   drafting,
+  statusMessage,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -112,7 +113,9 @@ describe('plan tab', () => {
 
     button(plan, 'Move Lightning Bolt to the sideboard')!.click();
     await fixture.whenStable();
-    expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(true);
+    expect(button(plan, 'Move Shivan Dragon to the sideboard')!.getAttribute('aria-disabled')).toBe(
+      'true',
+    );
     const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ board: 'Sideboard' });
@@ -136,7 +139,9 @@ describe('plan tab', () => {
         { heading: 'Sideboard 1 (1 picked)', lines: ['1 Lightning Bolt'] },
       ]),
     );
-    expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(false);
+    expect(
+      button(plan, 'Move Shivan Dragon to the sideboard')!.getAttribute('aria-disabled'),
+    ).toBeNull();
 
     button(plan, 'Move Lightning Bolt to the mainboard')!.click();
     const back = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
@@ -409,4 +414,77 @@ describe('plan tab', () => {
       expect(button(plan, 'Remove Lightning Bolt from your plan')!.disabled).toBe(false);
     },
   );
+
+  describe('focus after a change', () => {
+    it('keeps a line of several copies, and focus in it, as one copy moves, and says where it went', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      const line = button(plan, 'Move Lightning Bolt to the sideboard')!;
+
+      line.focus();
+      line.click();
+      await fixture.whenStable();
+      expect(line.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(line);
+      line.click();
+      http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(boltAgain), planned(shivan)],
+          sideboard: [planned(bolt)],
+        }),
+      );
+      await vi.waitFor(() => expect(planBoards(plan)[1].lines).toEqual(['1 Lightning Bolt']));
+
+      // The same line, not one rebuilt in its place.
+      expect(button(plan, 'Move Lightning Bolt to the sideboard')).toBe(line);
+      expect(document.activeElement).toBe(line);
+      expect(line.getAttribute('aria-disabled')).toBeNull();
+      expect(statusMessage(plan, 'Lightning Bolt moved to the sideboard')).toBeDefined();
+    });
+
+    it('moves focus to the card on the other plan board once its line is gone', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      button(plan, 'Move Shivan Dragon to the sideboard')!.focus();
+      button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      );
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the mainboard')),
+      );
+      expect(statusMessage(plan, 'Shivan Dragon moved to the sideboard')).toBeDefined();
+    });
+
+    it('keeps focus on the pressed button when a move fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      const move = button(plan, 'Move Shivan Dragon to the sideboard')!;
+
+      move.focus();
+      move.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
+
+      await vi.waitFor(() => expect(plan.querySelector('[role="alert"]')).not.toBeNull());
+      await fixture.whenStable();
+      expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard'));
+    });
+  });
 });

@@ -23,6 +23,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import { KeptFocus } from './kept-focus';
 import { PlayerAvatar } from './player-avatar';
 
 /**
@@ -33,6 +34,7 @@ import { PlayerAvatar } from './player-avatar';
 @Component({
   selector: 'app-lobby-controls',
   imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp, PlayerAvatar],
+  providers: [KeptFocus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
@@ -40,6 +42,7 @@ import { PlayerAvatar } from './player-avatar';
 export class LobbyControls {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
+  private readonly keptFocus = inject(KeptFocus);
 
   readonly draft = input.required<DraftView>();
   /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
@@ -77,7 +80,10 @@ export class LobbyControls {
   protected readonly seatOrderOpen = computed(() => this.onDesktop || this.inLobby());
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
+  /** A change is in flight: until it settles, the buttons that send one ignore presses. */
   protected readonly changingLobby = signal(false);
+  /** Where the latest seat move put its player, for screen readers. */
+  protected readonly statusMessage = signal('');
   protected readonly lobbyError = signal<string | null>(null);
 
   /**
@@ -105,15 +111,19 @@ export class LobbyControls {
     this.lobbyError.set(null);
   }
 
+  /** Joins the draft; focus goes to Leave, which takes Join's place. */
   protected join() {
     return this.changeLobby(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/players`, null),
+      { fallbacks: ['Leave'] },
     );
   }
 
+  /** Leaves the draft; focus goes to Join, which takes Leave's place. */
   protected leave() {
     return this.changeLobby(
       this.http.delete<DraftView>(`/api/drafts/${this.draft().id}/players/me`),
+      { fallbacks: ['Join'] },
     );
   }
 
@@ -135,28 +145,43 @@ export class LobbyControls {
     );
   }
 
-  /** Swaps the player in seat `index` with the one `by` seats along. */
+  /**
+   * Swaps the player in seat `index` with the one `by` seats along. Focus
+   * stays on the button pressed, or on the player's other move button if
+   * they have reached the end, and a status message names their new seat.
+   */
   protected moveSeat(index: number, by: -1 | 1) {
-    const playerIds = this.draft().players.map((player) => player.id);
+    const players = this.draft().players;
+    const playerIds = players.map((player) => player.id);
     [playerIds[index], playerIds[index + by]] = [playerIds[index + by], playerIds[index]];
+    const { name } = players[index];
     return this.changeLobby(
       this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
         playerIds,
       } satisfies SeatOrderRequest),
+      {
+        fallbacks: [`Move ${name} ${by > 0 ? 'earlier' : 'later'}`],
+        status: `${name} moved to seat ${index + by + 1}`,
+      },
     );
   }
 
   protected start() {
     return this.changeLobby(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/start`, null),
-      "Couldn't start the draft. Try again in a moment.",
+      { failure: "Couldn't start the draft. Try again in a moment." },
     );
+  }
+
+  /** Opens the file picker for a pick import, unless a change is in flight. */
+  protected choosePickImport(input: HTMLInputElement) {
+    if (!this.changingLobby()) input.click();
   }
 
   /** Previews the pick import of the file chosen in `input`, which changes nothing. */
   protected async previewPickImport(input: HTMLInputElement) {
     const file = input.files?.[0];
-    if (!file) return;
+    if (!file || this.changingLobby()) return;
     this.changingLobby.set(true);
     this.lobbyError.set(null);
     this.clearPickImport();
@@ -187,6 +212,7 @@ export class LobbyControls {
 
   /** Imports the previewed file, which the API checks again; the draft starts paused. */
   protected async confirmPickImport({ csv, seats }: PickImportPreview & { csv: string }) {
+    if (this.changingLobby()) return;
     this.changingLobby.set(true);
     this.lobbyError.set(null);
     try {
@@ -217,6 +243,7 @@ export class LobbyControls {
 
   /** Cancels the draft, once the organizer confirms: it can't be undone. */
   protected async cancel() {
+    if (this.changingLobby()) return;
     const { id, name } = this.draft();
     if (!confirm(`Cancel ${name}? This removes the draft for everyone and can't be undone.`)) {
       return;
@@ -245,21 +272,34 @@ export class LobbyControls {
 
   /**
    * Sends a change to the draft and passes on the draft it answers with, with
-   * `changingLobby` set meanwhile; `failure` is shown if it fails.
+   * `changingLobby` set meanwhile, and ignored while another is in flight.
+   * Once it settles, focus is back on the control it was pressed on, or the
+   * first of `fallbacks` here should that be gone or disabled. A change
+   * made gives its `status` message, if it has one; `failure` is shown if
+   * it fails.
    */
   private async changeLobby(
     request: Observable<DraftView>,
-    failure = "Couldn't update the players. Try again in a moment.",
+    {
+      fallbacks = [],
+      status = '',
+      failure = "Couldn't update the players. Try again in a moment.",
+    }: { fallbacks?: string[]; status?: string; failure?: string } = {},
   ) {
+    if (this.changingLobby()) return;
+    this.keptFocus.press(...fallbacks);
     this.changingLobby.set(true);
     this.lobbyError.set(null);
+    this.statusMessage.set('');
     this.changeStarted.emit();
     try {
       this.draftChanged.emit(await firstValueFrom(request));
+      this.statusMessage.set(status);
     } catch (err) {
       this.lobbyFailed(err, failure);
     } finally {
       this.changingLobby.set(false);
+      this.keptFocus.restore();
     }
   }
 }
