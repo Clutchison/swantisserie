@@ -17,6 +17,7 @@ import type {
   PlanMoveRequest,
   PlannedBasicCountRequest,
   PlanView,
+  RequestProblem,
 } from 'contract';
 import { MOST_BASICS } from 'contract';
 import { bodyFields } from '../request-body.js';
@@ -141,7 +142,7 @@ function parseBoard(body: unknown): PlanBoard {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose the mainboard or the sideboard.',
-    });
+    } satisfies RequestProblem);
   }
   return board;
 }
@@ -152,7 +153,7 @@ function parseLand(land: string): BasicLand {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose a basic land.',
-    });
+    } satisfies RequestProblem);
   }
   return land;
 }
@@ -169,7 +170,7 @@ function parseCount(body: unknown): number {
     throw new BadRequestException({
       error: 'invalid',
       message: `Choose a number of copies from 0 to ${MOST_BASICS}.`,
-    });
+    } satisfies RequestProblem);
   }
   return count;
 }

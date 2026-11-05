@@ -23,8 +23,10 @@ import type {
   NewDraftRequest,
   PickImportPreview,
   PickImportPreviewRequest,
+  PickImportTooLarge,
   PickView,
   PoolCardView,
+  RequestProblem,
   SeatOrderRequest,
   WebhookChoiceRequest,
 } from 'contract';
@@ -482,7 +484,7 @@ function parseWebhookChoice(body: unknown): string | null {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose a webhook from the list.',
-    });
+    } satisfies RequestProblem);
   }
   return webhookId;
 }
@@ -498,7 +500,7 @@ function parseSeatOrder(body: unknown): string[] {
     throw new BadRequestException({
       error: 'invalid',
       message: 'List each player once, in seat order.',
-    });
+    } satisfies RequestProblem);
   }
   return playerIds;
 }
@@ -510,13 +512,13 @@ function parsePickImport(body: unknown): string {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose a file to import.',
-    });
+    } satisfies RequestProblem);
   }
   if (csv.length > MAX_PICK_IMPORT_LENGTH) {
     throw new PayloadTooLargeException({
       error: 'file-too-large',
       message: 'That file is too large to be a sheet of picks.',
-    });
+    } satisfies PickImportTooLarge);
   }
   return csv;
 }
@@ -527,7 +529,7 @@ function parsePickNumber(param: string): number {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say which pick to undo, by its number.',
-    });
+    } satisfies RequestProblem);
   }
   return Number(param);
 }

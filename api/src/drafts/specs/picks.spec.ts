@@ -108,7 +108,7 @@ describe('picks', () => {
     ]);
   });
 
-  it('refuses a pick out of turn, or by someone not in the draft', async () => {
+  it('refuses a pick out of turn', async () => {
     const bobCookie = await signIn(bob);
     const id = await startedDraft(bobCookie);
     const ids = await poolCardIds(id);
@@ -118,7 +118,18 @@ describe('picks', () => {
       error: 'not-your-turn',
       message: 'It’s not your turn.',
     });
-    await pick(id, ids.Shock, await signIn(carol)).expect(409);
+    expect((await pickLog(id)).body).toEqual([]);
+  });
+
+  it('refuses a pick by someone not in the draft as not a player', async () => {
+    const id = await startedDraft(await signIn(bob));
+    const ids = await poolCardIds(id);
+
+    const refused = await pick(id, ids.Shock, await signIn(carol)).expect(403);
+    expect(refused.body).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can pick.',
+    });
     expect((await pickLog(id)).body).toEqual([]);
   });
 
