@@ -4,6 +4,12 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { DraftGoneError, DraftStartedError } from './draft-errors.js';
 import type { Transaction } from './draft-shapes.js';
 
+/**
+ * How long a locked change may run, a long cascade included, before it
+ * rolls back: well over Prisma's 5 s default, for a slow database.
+ */
+const LOCKED_CHANGE_TIMEOUT_MS = 15_000;
+
 /** What a change reads from the draft row it locks. */
 type LockedRow = Pick<Draft, 'state' | 'picksPerPlayer' | 'snapshotState'>;
 
@@ -106,25 +112,30 @@ export class DraftLock {
   /**
    * Runs `change` in a transaction with the draft's row locked, and bumps
    * the draft's version; `draft` is undefined if there is no such draft.
-   * Returns what `change` does.
+   * Returns what `change` does. A change still running after
+   * `LOCKED_CHANGE_TIMEOUT_MS` rolls back and throws, so it can't hold the
+   * lock indefinitely.
    */
   async run<T>(
     draftId: string,
     change: (draft: LockedDraft | undefined) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
-      // FOR UPDATE, not a conditional update: Prisma writes a draft's
-      // players and picks after a plain SELECT of the draft, which takes no
-      // lock.
-      const [row] = await tx.$queryRaw<LockedRow[]>`
-        SELECT "state", "picksPerPlayer", "snapshotState"
-        FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
-      const result = await change(
-        row ? new LockedDraft(tx, draftId, row) : undefined,
-      );
-      await tx.$executeRaw`
-        UPDATE "Draft" SET "version" = "version" + 1 WHERE "id" = ${draftId}`;
-      return result;
-    });
+    return this.prisma.$transaction(
+      async (tx) => {
+        // FOR UPDATE, not a conditional update: Prisma writes a draft's
+        // players and picks after a plain SELECT of the draft, which takes no
+        // lock.
+        const [row] = await tx.$queryRaw<LockedRow[]>`
+          SELECT "state", "picksPerPlayer", "snapshotState"
+          FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
+        const result = await change(
+          row ? new LockedDraft(tx, draftId, row) : undefined,
+        );
+        await tx.$executeRaw`
+          UPDATE "Draft" SET "version" = "version" + 1 WHERE "id" = ${draftId}`;
+        return result;
+      },
+      { timeout: LOCKED_CHANGE_TIMEOUT_MS },
+    );
   }
 }
