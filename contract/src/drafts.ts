@@ -99,8 +99,6 @@ export interface DraftBase {
   webhook: WebhookView | null;
   /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
   version: number;
-  /** ISO timestamp. */
-  createdAt: string;
 }
 
 /** A draft, as every viewer is sent it: with a turn only while Drafting or Paused. */

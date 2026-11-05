@@ -168,15 +168,15 @@ _Avoid_: Chain, auto-run
 
 **Lost**:
 Describes a queued card, or an unpicked card in a plan, that another player picked first when no other copy of it was available for that queue or plan: every copy left was picked or already in it.
-_Avoid_: Sniped, taken, removed (that is the player's own doing)
+_Avoid_: Sniped, taken, removed (that is the player taking a card out by hand)
 
 **Cleared**:
 Describes a queued card taken out of a player's queue because another player picked a different card in that queue, when the player's steal behavior is clear queue. A cleared card is still available, and the player can queue it again.
 _Avoid_: Wiped, reset, lost (that is the card that was picked)
 
 **Taken out**:
-Describes a queued card that another player's pick removed from a player's queue: the lost card, and any cards it cleared. An undo of that pick puts every taken-out card back.
-_Avoid_: Unqueued, removed (that is the player's own doing), taken (that is a lost card alone)
+Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or, after another player's pick, the lost card and any cards it cleared. An undo of that pick puts every taken-out card back.
+_Avoid_: Unqueued, removed (that is the player taking a card out by hand), taken (that is a lost card alone)
 
 **Steal behavior**:
 A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it whenever the draft is in the lobby or active.

@@ -12,10 +12,10 @@
             <span class="badge">Bot</span>
           }
         </h3>
-        <ol class="card-rows">
+        <ol class="card-rows" [attr.aria-label]="player.name + '’s picks'">
           @for (pick of player.picks; track pick.pick) {
             <li>
-              <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
+              <app-card-name [card]="pick.card" [name]="pick.card.name" />
             </li>
           } @empty {
             <li class="empty">No picks yet.</li>
@@ -26,7 +26,7 @@
   </div>
   <section class="log">
     <h3>Pick log</h3>
-    <ol class="card-rows">
+    <ol class="card-rows" aria-label="Pick log">
       @for (pick of picks(); track pick.pick) {
         <li>
           <span class="number">{{ pick.pick }}</span>
@@ -37,7 +37,7 @@
               <span class="badge">Bot</span>
             }
           </span>
-          <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
+          <app-card-name [card]="pick.card" [name]="pick.card.name" />
         </li>
       } @empty {
         <li class="empty">No picks yet.</li>

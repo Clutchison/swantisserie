@@ -624,7 +624,6 @@ describe('pool snapshot', () => {
       {
         id: expect.any(String),
         scryfallId: '9f0a1c6e-id',
-        oracleId: '9f0a1c6e-oracle',
         name: 'Balefire Dragon',
         set: 'ima',
         collectorNumber: '119',

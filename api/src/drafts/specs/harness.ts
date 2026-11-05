@@ -401,12 +401,31 @@ export function pickLog(id: string, status = 200) {
   return draftsRequest('get', `/${id}/picks`, aliceCookie).expect(status);
 }
 
+/** The names of the cards picked, in pick order, taken from the draft's pool. */
+export async function pickedNames(id: string): Promise<string[]> {
+  const [log, cards] = await Promise.all([pickLog(id), pool(id).expect(200)]);
+  const names = new Map(
+    (cards.body as { id: string; name: string }[]).map((card) => [
+      card.id,
+      card.name,
+    ]),
+  );
+  return (log.body as { poolCardId: string }[]).map((logged) => {
+    const name = names.get(logged.poolCardId);
+    if (name === undefined) {
+      throw new Error(`Picked a card not in the pool: ${logged.poolCardId}`);
+    }
+    return name;
+  });
+}
+
 /**
  * The pick log as `Player: Card` lines, naming the draft's bots "Bot".
  * Throws on a pick by anyone else but Alice, Bob or Carol.
  */
 export async function pickLogLines(id: string) {
   const res = await pickLog(id);
+  const picked = await pickedNames(id);
   const draft = (await getDraft(id).expect(200)).body as DraftView;
   const names: Record<string, string> = {
     [alice.id]: alice.name,
@@ -416,12 +435,12 @@ export async function pickLogLines(id: string) {
   for (const player of draft.players) {
     if (player.isBot) names[player.id] = 'Bot';
   }
-  return (res.body as { playerId: string; name: string }[]).map((logged) => {
+  return (res.body as { playerId: string }[]).map((logged, i) => {
     const name = names[logged.playerId];
     if (name === undefined) {
       throw new Error(`Picked by an unknown player: ${logged.playerId}`);
     }
-    return `${name}: ${logged.name}`;
+    return `${name}: ${picked[i]}`;
   });
 }
 

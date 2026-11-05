@@ -1,8 +1,8 @@
-import type { PickView } from 'contract';
+import type { PoolCardView } from 'contract';
 import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What a Moxfield export needs of a picked card. */
-export type MoxfieldExportCard = Pick<PickView, 'name' | 'set' | 'collectorNumber'>;
+export type MoxfieldExportCard = Pick<PoolCardView, 'name' | 'set' | 'collectorNumber'>;
 
 /**
  * The plan in Moxfield's bulk edit format: the mainboard's

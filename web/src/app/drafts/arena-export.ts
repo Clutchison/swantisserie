@@ -1,9 +1,9 @@
-import type { PickView } from 'contract';
+import type { PoolCardView } from 'contract';
 import { frontFace } from 'engine';
 import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What an Arena export needs of a picked card. */
-export type ArenaExportCard = Pick<PickView, 'name' | 'layout'>;
+export type ArenaExportCard = Pick<PoolCardView, 'name' | 'layout'>;
 
 /**
  * The plan in Arena's import format: a `Deck` header, then the mainboard's

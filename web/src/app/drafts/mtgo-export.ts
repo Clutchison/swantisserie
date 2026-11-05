@@ -1,9 +1,9 @@
-import type { PickView } from 'contract';
+import type { PoolCardView } from 'contract';
 import { FACE_SEPARATOR, frontFace } from 'engine';
 import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What an MTGO export needs of a picked card. */
-export type MtgoExportCard = Pick<PickView, 'name' | 'layout' | 'typeLine'>;
+export type MtgoExportCard = Pick<PoolCardView, 'name' | 'layout' | 'typeLine'>;
 
 /**
  * The plan in MTGO's deck import format, with no header: the mainboard's

@@ -11,6 +11,7 @@ import {
   openUrl,
   panel,
   pickOf,
+  poolCardOf,
   tabButton,
   updates,
   useDraftsApp,
@@ -141,17 +142,17 @@ describe('changing a draft’s webhook', () => {
   });
 
   it('re-reads the pick log when catching up on focus finds a newer draft', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, {
-      state: 'Drafting',
-      webhook: main,
-      version: 3,
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      { state: 'Drafting', webhook: main, version: 3 },
+      { cards: [poolCardOf('shock', 'Shock')] },
+    );
 
     control(page)!.dispatchEvent(new Event('focus'));
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
       draft({ state: 'Drafting', webhook: main, version: 4 }),
     );
-    await flushPicks([pickOf({ poolCardId: 'shock-card', name: 'Shock' })]);
+    await flushPicks([pickOf({ poolCardId: 'shock-card' })]);
     await fixture.whenStable();
 
     tabButton(page, 'Board').click();

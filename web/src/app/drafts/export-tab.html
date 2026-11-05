@@ -1,6 +1,6 @@
 @if (player()) {
   <div class="controls">
-    @if (playerPicks().length > 0 && !planLoading() && !planFailed()) {
+    @if (playerPicks().length > 0 && !loading() && !failed() && !planLoading() && !planFailed()) {
       @for (target of exportTargets(); track target) {
         <button
           class="button secondary copy"
@@ -45,11 +45,11 @@
   } @else if (loading()) {
     <app-loading-animation size="tab">Loading the picks…</app-loading-animation>
   } @else {
-    <ol class="picks card-rows">
+    <ol class="picks card-rows" aria-label="Your picks">
       @for (pick of playerPicks(); track pick.pick) {
         <li>
           <span class="number">{{ pick.pick }}</span>
-          <app-card-name [card]="poolCardsById().get(pick.poolCardId)" [name]="pick.name" />
+          <app-card-name [card]="pick.card" [name]="pick.card.name" />
         </li>
       } @empty {
         <li class="empty">No picks yet.</li>

@@ -107,11 +107,8 @@ export class PickImportService {
       });
       await planPicks(
         tx,
-        await tx.pick.findMany({
-          where: { draftId },
-          select: MADE_PICK,
-        }),
-        players.map((player) => player.id),
+        draftId,
+        await tx.pick.findMany({ where: { draftId }, select: MADE_PICK }),
       );
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
       await draft.moveTo('Paused');

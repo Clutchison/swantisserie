@@ -1,5 +1,8 @@
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { readTurnState } from '../turn-state.js';
 import {
   alice,
+  app,
   bob,
   carol,
   aliceCookie,
@@ -12,6 +15,7 @@ import {
   poolCardIds,
   copyIds,
   pickLog,
+  pickedNames,
   pickLogLines,
   listDrafts,
   fourCards,
@@ -51,11 +55,6 @@ describe('picks', () => {
         pick: 1,
         playerId: alice.id,
         poolCardId: ids.Shock,
-        name: 'Shock',
-        layout: 'normal',
-        typeLine: 'Creature — Dragon',
-        set: 'ima',
-        collectorNumber: '1',
       },
     ]);
   });
@@ -79,31 +78,16 @@ describe('picks', () => {
         pick: 1,
         playerId: alice.id,
         poolCardId: ids.Shock,
-        name: 'Shock',
-        layout: 'normal',
-        typeLine: 'Creature — Dragon',
-        set: 'ima',
-        collectorNumber: '1',
       },
       {
         pick: 2,
         playerId: bob.id,
         poolCardId: ids['Lightning Bolt'],
-        name: 'Lightning Bolt',
-        layout: 'normal',
-        typeLine: 'Creature — Dragon',
-        set: 'ima',
-        collectorNumber: '1',
       },
       {
         pick: 3,
         playerId: bob.id,
         poolCardId: ids['Lava Spike'],
-        name: 'Lava Spike',
-        layout: 'normal',
-        typeLine: 'Creature — Dragon',
-        set: 'ima',
-        collectorNumber: '1',
       },
     ]);
   });
@@ -164,24 +148,10 @@ describe('picks', () => {
     await pick(id, second, bobCookie).expect(200);
     await pick(id, third, bobCookie).expect(200);
 
-    expect(
-      (await pickLog(id)).body.map(
-        ({ pick, playerId, poolCardId, name }: Record<string, unknown>) => ({
-          pick,
-          playerId,
-          poolCardId,
-          name,
-        }),
-      ),
-    ).toEqual([
-      {
-        pick: 1,
-        playerId: alice.id,
-        poolCardId: first,
-        name: 'Lightning Bolt',
-      },
-      { pick: 2, playerId: bob.id, poolCardId: second, name: 'Lightning Bolt' },
-      { pick: 3, playerId: bob.id, poolCardId: third, name: 'Lightning Bolt' },
+    expect((await pickLog(id)).body).toEqual([
+      { pick: 1, playerId: alice.id, poolCardId: first },
+      { pick: 2, playerId: bob.id, poolCardId: second },
+      { pick: 3, playerId: bob.id, poolCardId: third },
     ]);
   });
 
@@ -228,9 +198,7 @@ describe('picks', () => {
     expect(
       listed.body.find((draft: { id: string }) => draft.id === id).state,
     ).toBe('Complete');
-    expect(
-      (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
-    ).toEqual(['Shock', 'Lightning Bolt']);
+    expect(await pickedNames(id)).toEqual(['Shock', 'Lightning Bolt']);
     const refused = await pick(id, ids['Lava Spike']).expect(409);
     expect(refused.body.error).toBe('not-drafting');
   });
@@ -281,6 +249,21 @@ describe('picks', () => {
     await pick(id, ids.Shock, daveCookie).expect(200);
 
     await expect(pickLogLines(id)).rejects.toThrow(dave.id);
+  });
+
+  it('reads the cards picked so far, for a turn, in pick order', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await startedDraft(bobCookie, 2);
+    const ids = Object.values(await poolCardIds(id)).toSorted();
+    const [first, second] = [ids.at(-1), ids[0]];
+    await pick(id, first).expect(200);
+    await pick(id, second, bobCookie).expect(200);
+
+    const state = await app
+      .get(PrismaService)
+      .$transaction((tx) => readTurnState(tx, id));
+
+    expect(state.picked).toEqual([first, second]);
   });
 
   it('is 404 for a draft that does not exist', async () => {

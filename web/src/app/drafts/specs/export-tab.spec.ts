@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import type { PickView, PlanView } from 'contract';
+import type { PickView, PlanView, PoolCardView } from 'contract';
+import type { PickedCard } from '../draft-store';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -19,6 +20,8 @@ import {
   expectLoadingAnimation,
   type DraftFixture,
   pickOf,
+  poolCardOf,
+  namedList,
 } from './harness';
 
 useDraftsApp();
@@ -29,20 +32,29 @@ const rowText = (li: Element) =>
     cell.textContent?.trim(),
   );
 
-/** A pick of `name` by `playerId`, of a normal card printed as IMA 1. */
-const imaPick = (pick: number, playerId: string, poolCardId: string, name: string): PickView =>
-  pickOf({
-    pick,
-    playerId,
-    poolCardId,
-    name,
-    typeLine: 'Instant',
-    set: 'ima',
-    collectorNumber: '1',
-  });
+/**
+ * A pick of `name` by `playerId`: of a normal card printed as IMA 1, unless
+ * `fields` change its pool card.
+ */
+const imaPick = (
+  pick: number,
+  playerId: string,
+  poolCardId: string,
+  name: string,
+  fields: Partial<PoolCardView> = {},
+): PickedCard => ({
+  ...pickOf({ pick, playerId, poolCardId }),
+  card: poolCardOf(poolCardId, name, { id: poolCardId, ...fields }),
+});
+
+/** The pool cards `picked` picked, to answer the pool with. */
+const cardsOf = (picked: PickedCard[]) => picked.map(({ card }) => card);
+/** The picks of `picked`, to answer the pick log with. */
+const picksOf = (picked: PickedCard[]): PickView[] =>
+  picked.map(({ pick, playerId, poolCardId }) => ({ pick, playerId, poolCardId }));
 
 describe('export tab', () => {
-  const picks: PickView[] = [
+  const picks: PickedCard[] = [
     imaPick(1, bob.id, 'shock-card', 'Shock'),
     imaPick(2, alice.id, 'bolt-card', 'Lightning Bolt'),
     imaPick(3, alice.id, 'spike-card', 'Lava Spike'),
@@ -50,7 +62,7 @@ describe('export tab', () => {
 
   /** Opens the draft, Bob then Alice, on the Export tab. */
   async function openExport(
-    picks: PickView[],
+    picked: PickedCard[],
     fields: DraftFixture = {},
     options: Parameters<typeof openDraft>[2] = {},
   ) {
@@ -62,7 +74,7 @@ describe('export tab', () => {
         turn: { pick: 4, round: 2, playerId: bob.id },
         ...fields,
       },
-      { picks, ...options },
+      { cards: cardsOf(picked), picks: picksOf(picked), ...options },
     );
     tabButton(opened.page, 'Export').click();
     await opened.fixture.whenStable();
@@ -71,7 +83,7 @@ describe('export tab', () => {
 
   /** The Export tab's picks: pick number and card. */
   const shownPicks = (root: HTMLElement) =>
-    [...panel(root).querySelectorAll('.picks li')].map((li) => rowText(li));
+    [...namedList(panel(root), 'Your picks').querySelectorAll('li')].map((li) => rowText(li));
 
   it('lists only your picks, in pick order, under the Export tab', async () => {
     const { page } = await openExport(picks);
@@ -128,6 +140,53 @@ describe('export tab', () => {
     await fixture.whenStable();
     expect(panel(page).textContent).not.toContain('Loading the picks…');
     expect(panel(page).textContent).toContain('No picks yet');
+  });
+
+  /** Opens the Export tab with your picks and plan answered, and the pool left for the test to answer. */
+  async function openExportPoolUnanswered() {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http.expectOne('/api/drafts/draft-1').flush(
+      draft({
+        snapshot: completeSnapshot,
+        state: 'Drafting',
+        players: [bob, alicePlayer],
+        turn: { pick: 4, round: 2, playerId: bob.id },
+      }),
+    );
+    const poolReq = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(picksOf(picks));
+    await flushQueueAndPlan();
+    tabButton(page, 'Export').click();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(panel(page).querySelector('h2')?.textContent).toBe('Export');
+    });
+    return { fixture, page, poolReq };
+  }
+
+  it('says your picks are loading, and offers nothing to copy, until the pool arrives too', async () => {
+    const { fixture, page, poolReq } = await openExportPoolUnanswered();
+    await expectLoadingAnimation(() => panel(page), 'Loading the picks…', 64);
+    expect(panel(page).querySelectorAll('button')).toHaveLength(0);
+
+    poolReq.flush(cardsOf(picks));
+    await fixture.whenStable();
+    expect(panel(page).textContent).not.toContain('Loading the picks…');
+    expect(shownPicks(page)).toEqual([
+      ['2', 'Lightning Bolt'],
+      ['3', 'Lava Spike'],
+    ]);
+    expect(panel(page).textContent).toContain('Copy for Arena');
+  });
+
+  it('says your picks couldn’t be loaded, and offers nothing to copy, when the pool failed', async () => {
+    const { fixture, page, poolReq } = await openExportPoolUnanswered();
+
+    poolReq.flush(null, { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+
+    expect(panel(page).textContent).toContain("Couldn't load the picks.");
+    expect(panel(page).querySelectorAll('button')).toHaveLength(0);
   });
 
   describe('copying picks', () => {
@@ -190,21 +249,15 @@ describe('export tab', () => {
     });
 
     describe('with every pick on the mainboard', () => {
-      const multiFace: PickView[] = [
-        { ...imaPick(2, alice.id, 'shock-card', 'Shock'), set: 'm21', collectorNumber: '159' },
-        pickOf({
-          pick: 4,
-          poolCardId: 'giant-card',
-          name: 'Bonecrusher Giant // Stomp',
+      const multiFace: PickedCard[] = [
+        imaPick(2, alice.id, 'shock-card', 'Shock', { set: 'm21', collectorNumber: '159' }),
+        imaPick(4, alice.id, 'giant-card', 'Bonecrusher Giant // Stomp', {
           layout: 'adventure',
           typeLine: 'Creature — Giant // Sorcery — Adventure',
           set: 'eld',
           collectorNumber: '115',
         }),
-        pickOf({
-          pick: 6,
-          poolCardId: 'commit-card',
-          name: 'Commit // Memory',
+        imaPick(6, alice.id, 'commit-card', 'Commit // Memory', {
           layout: 'split',
           typeLine: 'Instant // Sorcery',
           set: 'akh',
@@ -240,7 +293,7 @@ describe('export tab', () => {
     });
 
     describe('from your plan', () => {
-      const yourPicks: PickView[] = [
+      const yourPicks: PickedCard[] = [
         imaPick(1, alice.id, 'shock-card', 'Shock'),
         imaPick(2, bob.id, 'spike-card', 'Lava Spike'),
         imaPick(3, alice.id, 'bolt-card', 'Lightning Bolt'),
@@ -309,8 +362,10 @@ describe('export tab', () => {
             turn: { pick: 8, round: 4, playerId: bob.id },
           }),
         );
-        await flushPool();
-        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(yourPicks);
+        await flushPool(cardsOf(yourPicks));
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(
+          picksOf(yourPicks),
+        );
         await flushQueue(EMPTY_QUEUE);
         const planRequest = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
         tabButton(page, 'Export').click();
@@ -333,8 +388,10 @@ describe('export tab', () => {
             turn: { pick: 8, round: 4, playerId: bob.id },
           }),
         );
-        await flushPool();
-        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(yourPicks);
+        await flushPool(cardsOf(yourPicks));
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(
+          picksOf(yourPicks),
+        );
         await flushQueue(EMPTY_QUEUE);
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(null, {
           status: 500,
@@ -357,9 +414,9 @@ describe('export tab', () => {
           );
           const yours: PlanView = {
             ...EMPTY_PLAN,
-            sideboard: sideboardPicks.map(({ poolCardId, name }) => ({
-              poolCardId,
-              name,
+            sideboard: sideboardPicks.map(({ card }) => ({
+              poolCardId: card.id,
+              name: card.name,
               picked: true,
             })),
           };

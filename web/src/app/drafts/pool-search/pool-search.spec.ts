@@ -10,7 +10,6 @@ function poolCard(name: string, manaCost: string): PoolSearchCard {
   return {
     id: name,
     scryfallId: name,
-    oracleId: name,
     name,
     set: 'unf',
     collectorNumber: '1',

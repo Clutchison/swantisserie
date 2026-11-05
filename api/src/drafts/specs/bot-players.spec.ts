@@ -25,6 +25,7 @@ import {
   start,
   pick,
   pickLog,
+  pickedNames,
   undo,
   poolCardIds,
   copyIds,
@@ -118,10 +119,7 @@ describe('bot players', () => {
     // Snake order: Alice, bots 1-3, then bots 3-1 and Alice again.
     const draft = await atPick(id, 8);
     expect(draft.turn).toEqual({ pick: 8, round: 2, playerId: alice.id });
-    const log = (await pickLog(id)).body as {
-      playerId: string;
-      name: string;
-    }[];
+    const log = (await pickLog(id)).body as { playerId: string }[];
     expect(log.map((logged) => logged.playerId)).toEqual([
       alice.id,
       botIds[0],
@@ -131,7 +129,7 @@ describe('bot players', () => {
       botIds[1],
       botIds[0],
     ]);
-    const picked = log.map((logged) => logged.name);
+    const picked = await pickedNames(id);
     expect(new Set(picked).size).toBe(7);
     const [last] = cards.filter((name) => !picked.includes(name));
     const final = await pick(id, (await poolCardIds(id))[last]).expect(200);
@@ -161,9 +159,7 @@ describe('bot players', () => {
     await pick(id, (await poolCardIds(id)).Fireblast).expect(200);
 
     await waitForBotPicks(1, async () => {
-      expect(
-        (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
-      ).toEqual(['Fireblast', 'Shock']);
+      expect(await pickedNames(id)).toEqual(['Fireblast', 'Shock']);
     });
   });
 
@@ -215,9 +211,7 @@ describe('bot players', () => {
     });
 
     expect(await botPick.made()).toEqual([]);
-    expect(
-      (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
-    ).toEqual(['Shock', 'Firebolt']);
+    expect(await pickedNames(id)).toEqual(['Shock', 'Firebolt']);
   });
 
   it('does nothing when its timer fires while the draft is paused, and picks once it resumes', async () => {
@@ -281,13 +275,15 @@ describe('bot players', () => {
     await undo(id, 3).expect(200);
 
     await atPick(id, 4);
-    expect((await pickLog(id)).body).toEqual([
-      expect.objectContaining({ playerId: alice.id, name: 'Shock' }),
-      expect.objectContaining({
-        playerId: botIds[0],
-        name: 'Burst Lightning',
-      }),
-      expect.objectContaining({ playerId: botIds[0], name: 'Fireblast' }),
+    expect(
+      (await pickLog(id)).body.map(
+        (logged: { playerId: string }) => logged.playerId,
+      ),
+    ).toEqual([alice.id, botIds[0], botIds[0]]);
+    expect(await pickedNames(id)).toEqual([
+      'Shock',
+      'Burst Lightning',
+      'Fireblast',
     ]);
   });
 

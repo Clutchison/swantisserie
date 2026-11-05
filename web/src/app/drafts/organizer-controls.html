@@ -11,7 +11,7 @@
   }
   @if (undoable(); as pick) {
     <button class="button secondary" type="button" (click)="undo(pick)" appSendsChange="undo">
-      Undo pick {{ pick.pick }} ({{ pick.name }})
+      {{ undoLabel() }}
     </button>
   }
   @if (offerClose()) {

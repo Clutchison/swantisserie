@@ -123,9 +123,9 @@ describe('cascade', () => {
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
-      // Bob's turn is back, with Lava Spike still queued, and waits for him.
+      // Bob's turn is back, with his queue put back, and waits for him.
       await undo(id, 2).expect(200);
-      await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
+      await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
       await enqueue(id, ids['Skewer the Critics'], carolCookie).expect(200);
       await post(id, stop).expect(200);
 
@@ -134,11 +134,11 @@ describe('cascade', () => {
       expect(restarted.body.turn.playerId).toBe(carol.id);
       expect(await pickLogLines(id)).toEqual([
         'Alice: Shock',
-        'Bob: Lava Spike',
+        'Bob: Lightning Bolt',
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [],
-        lost: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+        lost: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
         cleared: [
           { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
         ],

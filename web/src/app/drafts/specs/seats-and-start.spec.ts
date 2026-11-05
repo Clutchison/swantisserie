@@ -16,6 +16,10 @@ import {
   flushPool,
   completeSnapshot,
   button,
+  pickOf,
+  poolCardOf,
+  tabButton,
+  panel,
   type AppFixture,
 } from './harness';
 
@@ -229,9 +233,11 @@ describe('seats and start', () => {
       });
 
       it('moves a viewer in the lobby to the paused draft and its picks without a reload', async () => {
-        const { fixture, page } = await openDraft(completeSnapshot, {
-          players: [alicePlayer, bob],
-        });
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          { players: [alicePlayer, bob] },
+          { cards: [poolCardOf('ash-golem', 'Ash Golem')] },
+        );
 
         updates.events.next({
           type: 'changed',
@@ -244,21 +250,15 @@ describe('seats and start', () => {
         });
 
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
-        picks.flush([
-          {
-            pick: 1,
-            playerId: alice.id,
-            poolCardId: 'ash-golem-card',
-            name: 'Ash Golem',
-            layout: 'normal',
-            set: 'tst',
-            collectorNumber: '1',
-          },
-        ]);
+        picks.flush([pickOf({ poolCardId: 'ash-golem-card' })]);
         await flushQueueAndPlan();
         await fixture.whenStable();
 
-        await vi.waitFor(() => expect(page.textContent).toContain('Ash Golem'));
+        tabButton(page, 'Board').click();
+        await vi.waitFor(() => {
+          TestBed.tick();
+          expect(panel(page).textContent).toContain('Ash Golem');
+        });
         expect(button(page, 'Import picks')).toBeUndefined();
       });
 

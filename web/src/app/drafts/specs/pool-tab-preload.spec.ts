@@ -140,7 +140,6 @@ describe('preloading the first results', () => {
       return card({
         id: `${id}-card`,
         scryfallId: id,
-        oracleId: `${id}-oracle`,
         name: id,
         images: [
           {
@@ -155,8 +154,7 @@ describe('preloading the first results', () => {
   const dragons = (from: number, to: number) =>
     Array.from({ length: to - from + 1 }, (_, i) => `dragon-${from + i}`);
 
-  const picked = ({ id, name, typeLine }: PoolCardView): PickView =>
-    pickOf({ playerId: bob.id, poolCardId: id, name, typeLine, set: 'm20', collectorNumber: '1' });
+  const picked = ({ id }: PoolCardView): PickView => pickOf({ playerId: bob.id, poolCardId: id });
 
   /** Types `text` into the Pool tab's search box, as a keystroke would. */
   function search(page: HTMLElement, text: string) {

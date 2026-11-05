@@ -17,14 +17,15 @@ export class BoardTab {
 
   /** The draft's players, in seat order. */
   private readonly players = computed(() => this.store.shown().players);
-  /** The pick log, in pick order. */
-  protected readonly picks = this.store.picks.value;
-  /** The pool's cards by id, for the Card previews of the names here. */
-  protected readonly poolCardsById = this.store.poolCardsById;
-  /** Whether the picks are still on their way. */
-  protected readonly loading = this.store.picks.loading;
-  /** Whether the picks couldn't be loaded. A failed re-read keeps the last ones loaded. */
-  protected readonly failed = this.store.picks.missing;
+  /** The pick log, in pick order, with each pick's pool card. */
+  protected readonly picks = this.store.pickLog.value;
+  /** Whether the picks, or the pool that names them, are still on their way. */
+  protected readonly loading = this.store.pickLog.loading;
+  /**
+   * Whether the picks, or the pool that names them, couldn't be loaded. A
+   * failed re-read keeps the last ones loaded.
+   */
+  protected readonly failed = this.store.pickLog.missing;
 
   /** Each player, in seat order, with their picks in pick order. */
   protected readonly board = computed(() =>

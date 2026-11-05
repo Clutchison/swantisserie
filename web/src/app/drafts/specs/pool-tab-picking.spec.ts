@@ -44,10 +44,6 @@ describe('pool tab', () => {
     const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
     const shivanPick: PickView = pickOf({
       poolCardId: 'shivan-card',
-      name: 'Shivan Dragon',
-      typeLine: 'Creature — Dragon',
-      set: 'ima',
-      collectorNumber: '1',
     });
 
     it('lets the player whose turn it is pick a card from its detail', async () => {
@@ -265,7 +261,7 @@ describe('pool tab', () => {
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
         draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
       );
-      await flushPicks([{ ...shivanPick, poolCardId: 'other-card', name: 'Other' }]);
+      await flushPicks([{ ...shivanPick, poolCardId: 'other-card' }]);
       await fixture.whenStable();
 
       expect(detail.querySelector('[role="alert"]')?.textContent).toContain('It’s not your turn.');
@@ -336,10 +332,6 @@ describe('pool tab', () => {
       pickOf({
         playerId,
         poolCardId: 'shivan-card',
-        name: 'Shivan Dragon',
-        typeLine: 'Creature — Dragon',
-        set: 'ima',
-        collectorNumber: '1',
       });
     const openPicked = (playerId: string, fields: DraftFixture = {}) =>
       openDraft(
@@ -463,10 +455,6 @@ describe('pool tab', () => {
         picks: [
           pickOf({
             poolCardId: brightclimb.id,
-            name: brightclimb.name,
-            typeLine: brightclimb.typeLine,
-            set: brightclimb.set,
-            collectorNumber: brightclimb.collectorNumber,
           }),
         ],
       },

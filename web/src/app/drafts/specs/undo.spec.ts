@@ -1,9 +1,11 @@
+import { TestBed } from '@angular/core/testing';
 import type { PickView, UndoRefusal } from 'contract';
 import {
   useDraftsApp,
   alice,
   draft,
   http,
+  openUrl,
   bob,
   alicePlayer,
   openDraft,
@@ -11,28 +13,26 @@ import {
   flushPicks,
   completeSnapshot,
   pickOf,
+  poolCardOf,
   drafting,
 } from './harness';
 
 useDraftsApp();
 
 describe('undo', () => {
+  const cards = [
+    poolCardOf('shock', 'Shock'),
+    poolCardOf('bolt', 'Lightning Bolt'),
+    poolCardOf('spike', 'Lava Spike'),
+  ];
   const picks: PickView[] = [
     pickOf({
       playerId: bob.id,
       poolCardId: 'shock-card',
-      name: 'Shock',
-      typeLine: 'Instant',
-      set: 'ima',
-      collectorNumber: '1',
     }),
     pickOf({
       pick: 2,
       poolCardId: 'bolt-card',
-      name: 'Lightning Bolt',
-      typeLine: 'Instant',
-      set: 'ima',
-      collectorNumber: '1',
     }),
   ];
   /** Bob then Alice, with Alice up on the draft's third pick. */
@@ -45,7 +45,7 @@ describe('undo', () => {
     [...page.querySelectorAll('button')].find((b) => b.textContent?.includes('Undo'));
 
   it('lets the organizer undo the latest pick, handing the turn back', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { picks: picks });
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
 
     undoButton(page)!.click();
@@ -60,8 +60,49 @@ describe('undo', () => {
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 1 (Shock)');
   });
 
+  it('names the latest pick by number alone while the pool is loading, and still undoes it', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http.expectOne('/api/drafts/draft-1').flush(draft(aliceUp));
+    const poolReq = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
+    await flushPicks(picks);
+    await flushQueueAndPlan();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2');
+    });
+
+    undoButton(page)!.click();
+    const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'));
+    expect(req.request.method).toBe('DELETE');
+    poolReq.flush(cards);
+    req.flush(draft({ ...aliceUp, turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 }));
+    await flushPicks(picks.slice(0, 1));
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(page.textContent).toContain('Your turn: pick 2, round 1');
+    expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 1 (Shock)');
+  });
+
+  it('names the latest pick by number alone when the pool failed to load', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http.expectOne('/api/drafts/draft-1').flush(draft(aliceUp));
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(null, {
+      status: 500,
+      statusText: 'Server Error',
+    });
+    await flushPicks(picks);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2');
+    undoButton(page)!.click();
+    const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'));
+    expect(req.request.method).toBe('DELETE');
+  });
+
   it('says why an undo was refused, and catches up with the draft', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { picks: picks });
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
 
     undoButton(page)!.click();
     const message = 'Only the latest pick can be undone, and the picks have changed.';
@@ -77,10 +118,6 @@ describe('undo', () => {
       pickOf({
         pick: 3,
         poolCardId: 'spike-card',
-        name: 'Lava Spike',
-        typeLine: 'Sorcery — Arcane',
-        set: 'ima',
-        collectorNumber: '1',
       }),
     ]);
     await flushQueueAndPlan();
@@ -94,7 +131,7 @@ describe('undo', () => {
     const { page } = await openDraft(
       completeSnapshot,
       { ...aliceUp, organizer: { id: bob.id, name: bob.name } },
-      { picks: picks },
+      { cards, picks },
     );
 
     expect(undoButton(page)).toBeUndefined();
@@ -113,7 +150,7 @@ describe('undo', () => {
     const { page } = await openDraft(
       completeSnapshot,
       { ...aliceUp, state: 'Complete', turn: null },
-      { picks: picks },
+      { cards, picks },
     );
 
     expect(undoButton(page)).toBeUndefined();
