@@ -228,7 +228,7 @@ describe('webhooks page', () => {
   it('is only for app admins', async () => {
     const { fixture, page } = await open('/admin/webhooks', alice);
     await vi.waitFor(() => expect(router.url).toBe('/'));
-    http.expectOne('/api/drafts').flush([]);
+    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();
 
     expect(page.querySelector('header')?.textContent).not.toContain('App admin');
