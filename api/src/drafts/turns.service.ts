@@ -25,7 +25,7 @@ import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
-import { readTurnState, type TurnState } from './turn-state.js';
+import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
   orderBy: { number: 'asc' },
@@ -37,6 +37,12 @@ const PICK_LOG = {
 } satisfies Prisma.PickFindManyArgs;
 
 export type LoggedPick = Prisma.PickGetPayload<typeof PICK_LOG>;
+
+/** What a pick does to each queue and plan, by seat, as the engine works it out. */
+interface PickEffects {
+  queues: QueueAfterPick[];
+  plans: PlanAfterPick[];
+}
 
 /** A bot's turn: the pick it is to make in a draft. */
 export interface BotTurn {
@@ -102,6 +108,9 @@ export class TurnsService {
       const { tx } = draft;
       const state = await readTurnState(tx, draftId);
       if (state.picked.length !== pick - 1) return [];
+      // Read again, rather than taken from the state's pool, to keep the
+      // database's name order (its collation), which the random pick and
+      // its specs rely on. The pool is a fixed size, so the read is too.
       const available = await tx.poolCard.findMany({
         where: { draftId, pick: null },
         orderBy: { name: 'asc' },
@@ -159,15 +168,13 @@ export class TurnsService {
     state: TurnState,
   ): Promise<DraftEvent[]> {
     const { players } = state;
+    const { queues, context } = engineView(state);
     const picks = cascade(
-      { ...draftSize(draft, players.length), picked: state.picked },
-      players.map((player, seat) =>
-        player.user.isBot
-          ? []
-          : state.queues[seat].map((queued) => queued.poolCardId),
-      ),
-      state.pool,
-      players.map((player) => player.stealBehavior),
+      { ...draftSize(draft, players.length), picked: context.picked },
+      // A bot picks on its own timer, so the cascade sees its queue as empty.
+      queues.map((queue, seat) => (players[seat].user.isBot ? [] : queue)),
+      context.pool,
+      context.stealBehaviors,
       state.plans,
     );
     const events: DraftEvent[] = [];
@@ -222,13 +229,13 @@ export class TurnsService {
       effects,
     }: {
       queued: boolean;
-      effects?: { queues: QueueAfterPick[]; plans: PlanAfterPick[] };
+      effects?: PickEffects;
     },
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
     const { players, picked } = state;
-    const card = state.names.get(poolCardId);
-    if (card === undefined) {
+    const name = state.names.get(poolCardId);
+    if (name === undefined) {
       throw new PickRefusedError({
         error: 'not-in-pool',
         message: 'That card isn’t in this pool.',
@@ -249,21 +256,7 @@ export class TurnsService {
       select: MADE_PICK,
     });
     // Worked out once, by the cascade or here, and persisted the same way.
-    const { queues, plans } = effects ?? {
-      queues: queuesAfterPick(
-        { seat, card: poolCardId },
-        state.queues.map((queue) => queue.map((queued) => queued.poolCardId)),
-        {
-          pool: state.pool,
-          picked,
-          stealBehaviors: players.map((player) => player.stealBehavior),
-        },
-      ),
-      plans: plansAfterPick({ seat, card: poolCardId }, state.plans, {
-        pool: state.pool,
-        picked,
-      }),
-    };
+    const { queues, plans } = effects ?? effectsOf(state, seat, poolCardId);
     const playerIds = players.map((player) => player.id);
     state.plans = await recordPlanEffects(tx, made, playerIds, plans);
     state.queues = await recordQueueEffects(
@@ -280,7 +273,7 @@ export class TurnsService {
         type: 'picked',
         number: picked.length,
         player: toEventPlayer(players[seat]),
-        card,
+        card: name,
         queued,
         next: next ? toEventPlayer(players[next.seat]) : null,
       },
@@ -340,4 +333,21 @@ export class TurnsService {
       },
     );
   }
+}
+
+/**
+ * What the engine says `seat`'s pick of `poolCardId` does to each queue and
+ * plan, from `state`, the draft as the turn holds it before the pick.
+ */
+function effectsOf(
+  state: TurnState,
+  seat: number,
+  poolCardId: string,
+): PickEffects {
+  const { queues, context } = engineView(state);
+  const pick = { seat, card: poolCardId };
+  return {
+    queues: queuesAfterPick(pick, queues, context),
+    plans: plansAfterPick(pick, state.plans, context),
+  };
 }

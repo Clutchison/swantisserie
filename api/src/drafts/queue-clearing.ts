@@ -21,28 +21,29 @@ export async function recordQueueEffects(
   after: readonly QueueAfterPick[],
 ): Promise<QueuedRow[][]> {
   const now = queues.map((queue) => [...queue]);
+  /** Takes `out` out of the seat's queue, keeping it against the pick. */
+  async function takeOut(
+    seat: number,
+    out: readonly string[],
+    kept: { restKept: boolean; noticeHidden?: boolean },
+  ): Promise<void> {
+    const playerId = playerIds[seat];
+    const isOut = (queued: QueuedRow) => out.includes(queued.poolCardId);
+    await tx.takenOutQueuedCard.createMany({
+      data: now[seat]
+        .filter(isOut)
+        .map((queued) => ({ ...queued, playerId, pickId: pick.id, ...kept })),
+    });
+    await tx.queuedCard.deleteMany({
+      where: { playerId, poolCardId: { in: [...out] } },
+    });
+    now[seat] = now[seat].filter((queued) => !isOut(queued));
+  }
   for (const [seat, { queue, swapped, lost, cleared }] of after.entries()) {
     const playerId = playerIds[seat];
     if (lost !== undefined) {
-      const takenOut = [lost, ...cleared];
       // Only under pick next does anything stay queued.
-      const restKept = queue.length > 0;
-      await tx.takenOutQueuedCard.createMany({
-        data: now[seat]
-          .filter((queued) => takenOut.includes(queued.poolCardId))
-          .map((queued) => ({
-            ...queued,
-            playerId,
-            pickId: pick.id,
-            restKept,
-          })),
-      });
-      await tx.queuedCard.deleteMany({
-        where: { playerId, poolCardId: { in: takenOut } },
-      });
-      now[seat] = now[seat].filter(
-        (queued) => !takenOut.includes(queued.poolCardId),
-      );
+      await takeOut(seat, [lost, ...cleared], { restKept: queue.length > 0 });
     } else if (swapped !== undefined) {
       await tx.queuedCard.update({
         where: {
@@ -66,22 +67,12 @@ export async function recordQueueEffects(
       // is left as it is. The picked card is kept against the pick, so that
       // undoing it puts the card back in its place, but never on the notice:
       // it was picked, not lost.
-      await tx.takenOutQueuedCard.createMany({
-        data: now[seat]
-          .filter((queued) => !queue.includes(queued.poolCardId))
-          .map((queued) => ({
-            ...queued,
-            playerId,
-            pickId: pick.id,
-            restKept: true,
-            noticeHidden: true,
-          })),
-      });
-      await tx.queuedCard.deleteMany({
-        where: { playerId, poolCardId: { notIn: queue } },
-      });
-      now[seat] = now[seat].filter((queued) =>
-        queue.includes(queued.poolCardId),
+      await takeOut(
+        seat,
+        now[seat]
+          .map((queued) => queued.poolCardId)
+          .filter((poolCardId) => !queue.includes(poolCardId)),
+        { restKept: true, noticeHidden: true },
       );
     }
   }
