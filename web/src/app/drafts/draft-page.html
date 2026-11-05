@@ -38,6 +38,12 @@
       @if (draft.state === 'Closed') {
         <p class="closed" role="status">This draft is closed. No picks until it reopens.</p>
       }
+      @if (draft.webhook?.gone) {
+        <p class="webhook-gone" role="status">
+          This draft’s announcements aren’t posting: Discord no longer accepts posts on its webhook,
+          {{ draft.webhook?.name }}. An app admin can replace its URL.
+        </p>
+      }
       <app-organizer-controls />
       @if (canOrganize()) {
         <app-webhook-control />

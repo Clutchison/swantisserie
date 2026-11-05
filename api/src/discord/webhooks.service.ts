@@ -47,6 +47,18 @@ export class WebhooksService {
   }
 
   /**
+   * Gives the webhook a new URL, keeping its name and the drafts using it,
+   * and clears gone. Returns null if there is no such webhook.
+   */
+  async replaceUrl(id: string, url: string): Promise<Webhook | null> {
+    const { count } = await this.prisma.webhook.updateMany({
+      where: { id },
+      data: { url, goneAt: null },
+    });
+    return count ? this.prisma.webhook.findUnique({ where: { id } }) : null;
+  }
+
+  /**
    * Removes the webhook; drafts that posted to it post nowhere. Returns
    * whether there was such a webhook.
    */

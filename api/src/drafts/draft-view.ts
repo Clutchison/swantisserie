@@ -43,6 +43,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
     webhook: draft.webhook && {
       id: draft.webhook.id,
       name: draft.webhook.name,
+      gone: draft.webhook.goneAt !== null,
     },
     version: draft.version,
   };

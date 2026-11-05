@@ -21,8 +21,8 @@ import {
 useDraftsApp();
 
 describe('changing a draft’s webhook', () => {
-  const main = { id: 'main', name: '#roto-main' };
-  const other = { id: 'other', name: '#roto-other' };
+  const main = { id: 'main', name: '#roto-main', gone: false };
+  const other = { id: 'other', name: '#roto-other', gone: false };
   const removedMessage = 'That webhook has been removed. Choose another.';
 
   beforeEach(() => webhooksAnswer([main, other]));
@@ -108,7 +108,7 @@ describe('changing a draft’s webhook', () => {
       webhook: main,
       version: 3,
     });
-    const newer = { id: 'newer', name: '#roto-newer' };
+    const newer = { id: 'newer', name: '#roto-newer', gone: false };
 
     updates.events.next({
       type: 'changed',
@@ -126,7 +126,7 @@ describe('changing a draft’s webhook', () => {
       webhook: main,
       version: 3,
     });
-    const newer = { id: 'newer', name: '#roto-newer' };
+    const newer = { id: 'newer', name: '#roto-newer', gone: false };
     webhooksAnswer([other, newer]);
 
     control(page)!.dispatchEvent(new Event('focus'));
@@ -210,6 +210,55 @@ describe('changing a draft’s webhook', () => {
       "Couldn't change the webhook. Try again in a moment.",
     );
     expect(shownOption(control(page)!)).toBe('#roto-main');
+  });
+
+  describe('when a webhook is gone', () => {
+    const goneNotice = (page: HTMLElement) =>
+      [...page.querySelectorAll('[role="status"]')].find((el) =>
+        el.textContent?.includes('aren’t posting'),
+      );
+
+    it('lists it but doesn’t let it be chosen', async () => {
+      webhooksAnswer([main, { ...other, gone: true }]);
+      const { page } = await openDraft(completeSnapshot, { webhook: main });
+
+      const select = control(page)!;
+      expect(optionNames(select)).toEqual(['#roto-main', '#roto-other (gone)', 'None']);
+      expect(select.options[1].disabled).toBe(true);
+      expect(select.options[0].disabled).toBe(false);
+    });
+
+    it('shows the draft’s webhook as gone, and lets another be chosen', async () => {
+      webhooksAnswer([{ ...main, gone: true }, other]);
+      const { page } = await openDraft(completeSnapshot, { webhook: { ...main, gone: true } });
+
+      const select = control(page)!;
+      expect(shownOption(select)).toBe('#roto-main (gone)');
+      choose(select, '#roto-other');
+      expect(http.expectOne('/api/drafts/draft-1/webhook').request.body).toEqual({
+        webhookId: 'other',
+      });
+    });
+
+    it.each([
+      ['the organizer', alice],
+      ['a player who doesn’t organize it', { ...alice, id: 'bob' }],
+    ])('tells %s the draft’s announcements aren’t posting', async (_, user) => {
+      webhooksAnswer([{ ...main, gone: true }]);
+      const { page } = await openDraft(
+        completeSnapshot,
+        { webhook: { ...main, gone: true } },
+        { user },
+      );
+
+      expect(goneNotice(page)?.textContent).toContain('#roto-main');
+    });
+
+    it('says nothing while the draft’s webhook isn’t gone', async () => {
+      const { page } = await openDraft(completeSnapshot, { webhook: main });
+
+      expect(goneNotice(page)).toBeUndefined();
+    });
   });
 
   it('keeps showing the current webhook if the list can’t load, and offers no change', async () => {

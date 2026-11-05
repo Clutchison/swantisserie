@@ -169,7 +169,7 @@ export const webhookUrl =
  * admin, sending `body` when there is one, and expects `status`.
  */
 async function webhooksRequest(
-  method: 'post' | 'patch' | 'delete',
+  method: 'post' | 'patch' | 'put' | 'delete',
   path: string,
   status: number,
   body?: object,
@@ -189,6 +189,11 @@ export async function registerWebhook(name = '#roto-main', url = webhookUrl) {
 /** Renames a webhook as Carol, an app admin. */
 export async function renameWebhook(id: string, name: string) {
   await webhooksRequest('patch', `/${id}`, 200, { name });
+}
+
+/** Replaces a webhook's URL as Carol, an app admin. */
+export async function replaceWebhookUrl(id: string, url: string) {
+  await webhooksRequest('put', `/${id}/url`, 200, { url });
 }
 
 /** Removes a webhook as Carol, an app admin. */

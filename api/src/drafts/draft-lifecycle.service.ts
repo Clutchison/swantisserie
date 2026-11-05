@@ -4,6 +4,7 @@ import {
   CloseRefusedError,
   DraftGoneError,
   PauseRefusedError,
+  refuseUnchoosableWebhook,
   rethrowMissingWebhook,
 } from './draft-errors.js';
 import {
@@ -26,6 +27,7 @@ export class DraftLifecycleService {
   /**
    * Chooses the webhook the draft's later announcements are posted to, null
    * for none, in any state. Throws UnknownWebhookError if it doesn't exist,
+   * GoneWebhookError if it is gone,
    * and DraftGoneError if the draft doesn't.
    */
   async changeWebhook(
@@ -34,6 +36,9 @@ export class DraftLifecycleService {
   ): Promise<void> {
     await this.lock.run(draftId, async (draft) => {
       if (!draft) throw new DraftGoneError();
+      if (webhookId !== null) {
+        await refuseUnchoosableWebhook(draft.tx, webhookId);
+      }
       await draft.tx.draft
         .update({ where: { id: draftId }, data: { webhookId } })
         .catch(rethrowMissingWebhook);

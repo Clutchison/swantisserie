@@ -241,6 +241,7 @@ describe('live updates', () => {
     expect(aliceSees[0].webhook).toEqual({
       id: webhookId,
       name: '#roto-main',
+      gone: false,
     });
     expect(JSON.stringify(aliceSees)).not.toContain('secret-token');
   });
@@ -290,6 +291,7 @@ describe('live updates', () => {
     expect(changes[0].webhook).toEqual({
       id: webhookId,
       name: '#roto-main',
+      gone: false,
     });
     expect(changes[0].version).toBeGreaterThan(before.body.version);
   });

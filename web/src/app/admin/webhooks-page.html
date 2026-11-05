@@ -34,7 +34,29 @@
           >
             Remove
           </button>
+          @if (webhook.gone) {
+            <p class="gone">
+              <strong>Gone:</strong> Discord no longer accepts posts here, so drafts' announcements
+              on it are dropped. Replace its URL with a working webhook's.
+            </p>
+          }
           <span class="url">{{ webhook.url }}</span>
+          <div class="replace">
+            <input
+              #url
+              type="url"
+              aria-label="New URL"
+              placeholder="https://discord.com/api/webhooks/…"
+            />
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="saving()"
+              (click)="replaceUrl(webhook, url.value)"
+            >
+              Replace URL
+            </button>
+          </div>
         </li>
       } @empty {
         <li class="empty">No webhooks yet.</li>

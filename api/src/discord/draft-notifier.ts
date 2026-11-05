@@ -22,7 +22,8 @@ export class DraftNotifierRetries {
 /**
  * Announces draft events on each draft's webhook. Each draft's posts go one
  * at a time, in the order notified, and a failed post is retried if a retry
- * may help, then logged.
+ * may help, then logged. A post that finds the webhook gone marks it so, and
+ * nothing more is posted on it until its URL is replaced.
  */
 @Injectable()
 export class DraftNotifier implements OnApplicationShutdown {
@@ -75,21 +76,49 @@ export class DraftNotifier implements OnApplicationShutdown {
   private async announce(draftId: string, events: DraftEvent[]): Promise<void> {
     const row = await this.prisma.draft.findUnique({
       where: { id: draftId },
-      select: { name: true, webhook: { select: { url: true } } },
+      select: {
+        name: true,
+        webhook: { select: { id: true, url: true, goneAt: true } },
+      },
     });
-    if (!row?.webhook) return;
+    const webhook = row?.webhook;
+    // Announcements on a gone webhook are dropped, not kept for its new URL.
+    if (!webhook || webhook.goneAt) return;
     const draft: AnnouncedDraft = {
       name: row.name,
       url: new URL(`/drafts/${draftId}`, this.config.redirectUri).href,
     };
     for (const message of draftMessages(draft, events)) {
       try {
-        await this.post(row.webhook.url, message);
+        await this.post(webhook.url, message);
       } catch (err) {
+        if (err instanceof WebhookGoneError) {
+          // The rest of the announcement would only find it gone too.
+          return this.markGone(webhook, err);
+        }
         this.logger.error(
           `Couldn’t post an announcement on draft ${draftId}: ${String(err)}`,
         );
       }
+    }
+  }
+
+  /**
+   * Records that the webhook is gone, unless its URL has been replaced since
+   * `url` failed or it is already marked, logging it only when marked here.
+   */
+  private async markGone(
+    { id, url }: { id: string; url: string },
+    err: WebhookGoneError,
+  ): Promise<void> {
+    const { count } = await this.prisma.webhook.updateMany({
+      where: { id, url, goneAt: null },
+      data: { goneAt: new Date() },
+    });
+    if (count) {
+      this.logger.error(
+        `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
+      );
     }
   }
 

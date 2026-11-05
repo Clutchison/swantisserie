@@ -13,11 +13,14 @@ describe('webhookPostError', () => {
     expect(webhookPostError(204)).toBeNull();
   });
 
-  it('says Discord no longer has the webhook on a 404', () => {
-    expect(webhookPostError(404)).toBeInstanceOf(WebhookGoneError);
-  });
+  it.each([404, 401])(
+    'says Discord no longer accepts posts on the webhook on a %i',
+    (status) => {
+      expect(webhookPostError(status)).toBeInstanceOf(WebhookGoneError);
+    },
+  );
 
-  it.each([400, 401, 403, 413])(
+  it.each([400, 403, 413])(
     'says Discord refused the post on a %i',
     (status) => {
       const error = webhookPostError(status);

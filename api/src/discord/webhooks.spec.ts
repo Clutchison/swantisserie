@@ -40,6 +40,13 @@ describe('webhook registry', () => {
       .send(body);
   }
 
+  function replaceUrl(id: string, body: object, cookie = carolCookie) {
+    return http()
+      .put(`/api/admin/webhooks/${id}/url`)
+      .set('Cookie', cookie)
+      .send(body);
+  }
+
   function remove(id: string, cookie = carolCookie) {
     return http().delete(`/api/admin/webhooks/${id}`).set('Cookie', cookie);
   }
@@ -54,11 +61,12 @@ describe('webhook registry', () => {
       id: expect.any(String),
       name: '#roto-side',
       url: sideUrl,
+      gone: false,
     });
     const list = await adminList().expect(200);
     expect(list.body).toEqual([
-      { id: expect.any(String), name: '#roto-main', url: mainUrl },
-      { id: added.body.id, name: '#roto-side', url: sideUrl },
+      { id: expect.any(String), name: '#roto-main', url: mainUrl, gone: false },
+      { id: added.body.id, name: '#roto-side', url: sideUrl, gone: false },
     ]);
   });
 
@@ -71,10 +79,11 @@ describe('webhook registry', () => {
     );
     const { id } = (await adminList().expect(200)).body[0];
     await rename(id, { name: '#renamed' }, aliceCookie).expect(403);
+    await replaceUrl(id, { url: sideUrl }, aliceCookie).expect(403);
     await remove(id, aliceCookie).expect(403);
     await http().get('/api/admin/webhooks').expect(401);
     expect((await adminList().expect(200)).body).toEqual([
-      { id, name: '#roto-main', url: mainUrl },
+      { id, name: '#roto-main', url: mainUrl, gone: false },
     ]);
   });
 
@@ -128,14 +137,14 @@ describe('webhook registry', () => {
         .set('Cookie', cookie)
         .expect(200);
       expect(res.body).toEqual([
-        { id: expect.any(String), name: '#roto-main' },
+        { id: expect.any(String), name: '#roto-main', gone: false },
       ]);
       expect(res.text).not.toContain('main-token');
     }
     await http().get('/api/webhooks').expect(401);
   });
 
-  describe('rename and remove', () => {
+  describe('rename, replace URL and remove', () => {
     let mainId: string;
 
     beforeEach(async () => {
@@ -145,7 +154,12 @@ describe('webhook registry', () => {
     it('renames a webhook, keeping its URL', async () => {
       const res = await rename(mainId, { name: ' #roto-league ' }).expect(200);
 
-      const renamed = { id: mainId, name: '#roto-league', url: mainUrl };
+      const renamed = {
+        id: mainId,
+        name: '#roto-league',
+        url: mainUrl,
+        gone: false,
+      };
       expect(res.body).toEqual(renamed);
       expect((await adminList().expect(200)).body).toEqual([renamed]);
     });
@@ -165,6 +179,36 @@ describe('webhook registry', () => {
       });
     });
 
+    it('replaces a webhook’s URL, trimmed, keeping its name', async () => {
+      const res = await replaceUrl(mainId, { url: ` ${sideUrl} ` }).expect(200);
+
+      const replaced = {
+        id: mainId,
+        name: '#roto-main',
+        url: sideUrl,
+        gone: false,
+      };
+      expect(res.body).toEqual(replaced);
+      expect((await adminList().expect(200)).body).toEqual([replaced]);
+    });
+
+    it.each<[string, object]>([
+      [
+        'a URL that isn’t a Discord webhook’s',
+        { url: 'https://example.com/x' },
+      ],
+      ['a blank URL', { url: ' ' }],
+      ['no URL', {}],
+    ])('refuses %s, keeping the old one', async (_, body) => {
+      const res = await replaceUrl(mainId, body).expect(400);
+
+      expect(res.body).toEqual({
+        error: 'invalid',
+        message: 'Paste the webhook’s URL from Discord.',
+      });
+      expect((await adminList().expect(200)).body[0].url).toBe(mainUrl);
+    });
+
     it('removes a webhook', async () => {
       await remove(mainId).expect(204);
 
@@ -175,6 +219,7 @@ describe('webhook registry', () => {
       await remove(mainId).expect(204);
 
       await rename(mainId, { name: '#renamed' }).expect(404);
+      await replaceUrl(mainId, { url: sideUrl }).expect(404);
       await remove(mainId).expect(404);
     });
   });

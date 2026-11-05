@@ -384,22 +384,72 @@ describe('announcements', () => {
     },
   );
 
-  it('doesn’t retry a webhook Discord no longer has', async () => {
-    const id = await readyDraft(
-      [aliceCookie, bobCookie],
-      1,
-      undefined,
-      webhookId,
+  describe('when its webhook is gone', () => {
+    it.each([404, 401])(
+      'marks the webhook gone on a %i without retrying, and logs it once',
+      async (status) => {
+        const id = await readyDraft(
+          [aliceCookie, bobCookie],
+          1,
+          undefined,
+          webhookId,
+        );
+        webhookClient.post.mockRejectedValueOnce(webhookPostError(status));
+        const logged = vi
+          .spyOn(Logger.prototype, 'error')
+          .mockImplementation(() => {});
+
+        await start(id).expect(200);
+
+        await posted(id, 1);
+        expect(logged).toHaveBeenCalledOnce();
+        expect(logged).toHaveBeenCalledWith(
+          expect.stringContaining(String(status)),
+        );
+        expect(JSON.stringify(logged.mock.calls)).not.toContain('secret-token');
+        expect((await getDraft(id).expect(200)).body.webhook.gone).toBe(true);
+      },
     );
-    webhookClient.post.mockRejectedValue(new WebhookGoneError());
-    const logged = vi
-      .spyOn(Logger.prototype, 'error')
-      .mockImplementation(() => {});
 
-    await start(id).expect(200);
+    it('posts no later announcement on it, from any draft, and logs none', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      // Made while the webhook can still be chosen.
+      const other = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      const ids = await poolCardIds(id);
+      webhookClient.post.mockRejectedValueOnce(new WebhookGoneError(404));
+      const logged = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+      await start(id).expect(200);
+      await posted(id, 1);
 
-    await vi.waitFor(() => expect(logged).toHaveBeenCalled());
-    expect(webhookClient.post).toHaveBeenCalledTimes(1);
+      await pick(id, ids.Shock).expect(200);
+      await start(other).expect(200);
+
+      await announcementsSettled(other);
+      await posted(id, 1);
+      expect(logged).toHaveBeenCalledOnce();
+    });
+
+    it('doesn’t attempt the rest of the announcement whose post found it gone', async () => {
+      const id = await longCascadeDraft();
+      webhookClient.post.mockRejectedValueOnce(new WebhookGoneError(404));
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
+      await start(id).expect(200);
+
+      await posted(id, 1);
+    });
   });
 
   it('doesn’t retry a post Discord refuses, and logs it', async () => {
@@ -420,5 +470,42 @@ describe('announcements', () => {
       expect(logged).toHaveBeenCalledWith(expect.stringContaining('400')),
     );
     expect(webhookClient.post).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([403, 400, 429, 503])(
+    'doesn’t mark the webhook gone on a %i',
+    async (status) => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValue(webhookPostError(status));
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
+      await start(id).expect(200);
+
+      await announcementsSettled(id);
+      expect((await getDraft(id).expect(200)).body.webhook.gone).toBe(false);
+    },
+  );
+
+  it('doesn’t mark the webhook gone on a network error', async () => {
+    const id = await readyDraft(
+      [aliceCookie, bobCookie],
+      1,
+      undefined,
+      webhookId,
+    );
+    webhookClient.post.mockRejectedValue(
+      new Error('Discord webhook post failed: Discord could not be reached.'),
+    );
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
+    await start(id).expect(200);
+
+    await announcementsSettled(id);
+    expect((await getDraft(id).expect(200)).body.webhook.gone).toBe(false);
   });
 });

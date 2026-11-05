@@ -5,15 +5,18 @@ import type { WebhookMessage } from './draft-messages.js';
 /** How long a webhook post may take. */
 const POST_TIMEOUT_MS = 10_000;
 
-/** Thrown when Discord no longer has the webhook: posting again won't help. */
+/**
+ * Thrown when Discord no longer accepts posts on the webhook: it was deleted
+ * (a 404) or its token was reset (a 401). Posting again won't help.
+ */
 export class WebhookGoneError extends Error {
-  constructor() {
-    super('Discord no longer has this webhook.');
+  constructor(readonly status: number) {
+    super(`Discord no longer accepts posts on this webhook: ${status}`);
   }
 }
 
 /**
- * Thrown when Discord refuses a post, other than for a missing webhook or a
+ * Thrown when Discord refuses a post, other than for a gone webhook or a
  * rate limit: posting it again won't help.
  */
 export class WebhookRefusedError extends Error {
@@ -26,7 +29,7 @@ export class WebhookRefusedError extends Error {
 export abstract class WebhookClient {
   /**
    * Posts `message` to the webhook at `url`. Throws WebhookGoneError if
-   * Discord no longer has it, WebhookRefusedError if Discord refuses the post
+   * the webhook is gone, WebhookRefusedError if Discord refuses the post
    * for good, and another error on a failure worth retrying: a rate limit, a
    * server error, a network error or a timeout.
    */
@@ -64,7 +67,7 @@ export class FetchWebhookClient extends WebhookClient {
  */
 export function webhookPostError(status: number): Error | null {
   if (status >= 200 && status < 300) return null;
-  if (status === 404) return new WebhookGoneError();
+  if (status === 404 || status === 401) return new WebhookGoneError(status);
   // Never the URL in an error: it is a secret, and errors get logged.
   if (status >= 400 && status < 500 && status !== 429) {
     return new WebhookRefusedError(status);

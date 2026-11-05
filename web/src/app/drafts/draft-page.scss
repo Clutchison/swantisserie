@@ -31,6 +31,10 @@ h1 {
   font-weight: 600;
 }
 
+.webhook-gone {
+  color: var(--color-error);
+}
+
 progress {
   display: block;
   width: 100%;

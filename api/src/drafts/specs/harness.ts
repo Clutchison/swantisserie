@@ -31,6 +31,7 @@ export {
   registerWebhook,
   removeWebhook,
   renameWebhook,
+  replaceWebhookUrl,
   webhookClient,
   webhookUrl,
 } from '../../testing/app.js';

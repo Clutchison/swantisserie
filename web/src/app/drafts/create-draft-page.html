@@ -86,7 +86,9 @@
       Announcements
       <select name="webhookId" formControlName="webhookId">
         @for (webhook of webhooks(); track webhook.id) {
-          <option [ngValue]="webhook.id">{{ webhook.name }}</option>
+          <option [ngValue]="webhook.id" [disabled]="webhook.gone">
+            {{ webhook.name }}{{ webhook.gone ? ' (gone)' : '' }}
+          </option>
         }
         <option [ngValue]="null">None</option>
       </select>

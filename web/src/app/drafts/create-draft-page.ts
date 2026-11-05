@@ -82,9 +82,9 @@ export class CreateDraftPage {
   protected readonly problem = signal<DraftProblem | null>(null);
 
   constructor() {
-    // Most drafts post to the usual channel, so start on the first.
+    // Most drafts post to the usual channel, so start on the first that isn't gone.
     effect(() => {
-      const [first] = this.webhooks();
+      const first = this.webhooks().find((webhook) => !webhook.gone);
       if (first) this.form.controls.webhookId.setValue(first.id);
     });
   }

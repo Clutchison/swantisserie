@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -17,6 +18,7 @@ import type {
   NewWebhookRequest,
   WebhookRegistryProblem,
   WebhookRenameRequest,
+  WebhookUrlReplaceRequest,
   WebhookView,
 } from 'contract';
 import { MAX_WEBHOOK_NAME_LENGTH } from 'contract';
@@ -42,7 +44,7 @@ export class WebhooksController {
 
   @Get()
   async list(): Promise<WebhookView[]> {
-    return (await this.webhooks.list()).map(({ id, name }) => ({ id, name }));
+    return (await this.webhooks.list()).map(toView);
   }
 }
 
@@ -72,6 +74,17 @@ export class WebhookRegistryController {
     const renamed = await refuseTakenName(this.webhooks.rename(id, name));
     if (!renamed) throw new NotFoundException();
     return toViewWithUrl(renamed);
+  }
+
+  @Put(':id/url')
+  async replaceUrl(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<WebhookWithUrlView> {
+    const url = parseUrl(bodyFields<WebhookUrlReplaceRequest>(body).url);
+    const replaced = await this.webhooks.replaceUrl(id, url);
+    if (!replaced) throw new NotFoundException();
+    return toViewWithUrl(replaced);
   }
 
   @Delete(':id')
@@ -104,12 +117,17 @@ function invalid(message: string) {
 /** The add form's fields, or a 400 saying which one to fix. */
 function parseNewWebhook(body: unknown): NewWebhook {
   const { name, url } = bodyFields<NewWebhookRequest>(body);
-  const trimmedUrl = typeof url === 'string' ? url.trim() : '';
   const parsedName = parseName(name);
-  if (!WEBHOOK_URL.test(trimmedUrl)) {
+  return { name: parsedName, url: parseUrl(url) };
+}
+
+/** A Discord webhook URL, trimmed, or a 400 asking for one. */
+function parseUrl(url: unknown): string {
+  const trimmed = typeof url === 'string' ? url.trim() : '';
+  if (!WEBHOOK_URL.test(trimmed)) {
     throw invalid('Paste the webhook’s URL from Discord.');
   }
-  return { name: parsedName, url: trimmedUrl };
+  return trimmed;
 }
 
 /** A webhook's name, trimmed, or a 400 saying what's wrong with it. */
@@ -122,6 +140,11 @@ function parseName(name: unknown): string {
   return trimmed;
 }
 
-function toViewWithUrl({ id, name, url }: Webhook): WebhookWithUrlView {
-  return { id, name, url };
+/** A webhook as organizers see it: never its URL. */
+function toView({ id, name, goneAt }: Webhook): WebhookView {
+  return { id, name, gone: goneAt !== null };
+}
+
+function toViewWithUrl(webhook: Webhook): WebhookWithUrlView {
+  return { ...toView(webhook), url: webhook.url };
 }

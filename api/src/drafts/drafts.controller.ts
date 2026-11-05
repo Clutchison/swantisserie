@@ -59,6 +59,7 @@ import {
   CubeLinkError,
   PoolQueryError,
   UnknownWebhookError,
+  GoneWebhookError,
 } from './draft-errors.js';
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
@@ -381,7 +382,10 @@ export class DraftsController {
     try {
       return toDraftView(await this.lobby.create(user.id, draft));
     } catch (err) {
-      if (err instanceof UnknownWebhookError) {
+      if (
+        err instanceof UnknownWebhookError ||
+        err instanceof GoneWebhookError
+      ) {
         throw new BadRequestException({
           error: 'invalid',
           message: err.message,
