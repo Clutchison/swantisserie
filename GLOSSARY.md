@@ -191,7 +191,7 @@ The note on the Queue tab naming a player's lost and cleared cards, and saying w
 _Avoid_: Alert, warning, notification
 
 **Undo**:
-The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, any queue that pick cleared is restored, including the lost card, any unpicked card it took out of a plan goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
+The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue, a lost card, and a cleared queue, any unpicked card it took out of a plan goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
