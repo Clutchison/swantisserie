@@ -10,6 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { MAX_PLAYERS } from 'engine';
 import type {
   DraftView,
   PickImportPreview,
@@ -22,9 +23,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
-
-/** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
-const MAX_PLAYERS = 12;
+import { PlayerAvatar } from './player-avatar';
 
 /**
  * The seat order, which stays on show once the draft starts, and all the
@@ -33,7 +32,7 @@ const MAX_PLAYERS = 12;
  */
 @Component({
   selector: 'app-lobby-controls',
-  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp],
+  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp, PlayerAvatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
@@ -65,7 +64,7 @@ export class LobbyControls {
 
   /** App admins may add and remove bots in the lobby. */
   protected readonly isAppAdmin = computed(() => !!this.user()?.isAppAdmin);
-  /** A full draft takes no more bots. */
+  /** A full draft takes no more players: no one joins, and no bot is added. */
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');

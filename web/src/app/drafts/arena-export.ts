@@ -1,5 +1,5 @@
 import type { PickView } from 'contract';
-import { frontFace } from './card-faces';
+import { frontFace } from 'engine';
 import { planBoardLines, type ExportPlan } from './export-plan';
 
 /** What an Arena export needs of a picked card. */

@@ -1,7 +1,4 @@
-import { BasicLand } from '../generated/prisma/enums.js';
-
-/** The basic lands, which a plan holds by count and a pool never holds. */
-export const BASIC_LANDS: readonly BasicLand[] = Object.values(BasicLand);
+import { BASIC_LANDS, type BasicLand } from 'contract';
 
 /** Whether `name` is a basic land's: a snow-covered basic is not one. */
 export function isBasicLand(name: string): name is BasicLand {

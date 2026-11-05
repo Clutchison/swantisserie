@@ -8,6 +8,7 @@ import {
   http,
   openDraft,
   openUrl,
+  selectByLabel,
   updates,
   useDraftsApp,
   webhooksAnswer,
@@ -22,8 +23,7 @@ describe('changing a draft’s webhook', () => {
 
   beforeEach(() => webhooksAnswer([main, other]));
 
-  const control = (page: HTMLElement) =>
-    page.querySelector<HTMLSelectElement>('select[name="draftWebhook"]');
+  const control = (page: HTMLElement) => selectByLabel(page, 'Announcements');
   const shownOption = (select: HTMLSelectElement) => select.selectedOptions[0].textContent?.trim();
   const optionNames = (select: HTMLSelectElement) =>
     [...select.options].map((option) => option.textContent?.trim());
@@ -69,7 +69,7 @@ describe('changing a draft’s webhook', () => {
       { user: { ...alice, id: 'bob' } },
     );
 
-    expect(control(page)).toBeNull();
+    expect(control(page)).toBeUndefined();
     http.expectNone('/api/webhooks');
   });
 
@@ -117,18 +117,37 @@ describe('changing a draft’s webhook', () => {
   });
 
   it('catches up on focus: a webhook registered since is offered, and one removed shows none', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, { webhook: main, version: 3 });
+    const { fixture, page } = await openDraft(completeSnapshot, {
+      state: 'Drafting',
+      webhook: main,
+      version: 3,
+    });
     const newer = { id: 'newer', name: '#roto-newer' };
     webhooksAnswer([other, newer]);
 
     control(page)!.dispatchEvent(new Event('focus'));
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-      draft({ webhook: null, version: 3 }),
+      draft({ state: 'Drafting', webhook: null, version: 3 }),
     );
     await fixture.whenStable();
 
     expect(optionNames(control(page)!)).toEqual(['#roto-other', '#roto-newer', 'None']);
     expect(shownOption(control(page)!)).toBe('None');
+    // Only the draft says which webhook it has: the pick log isn't re-read.
+    http.expectNone('/api/drafts/draft-1/picks');
+  });
+
+  it('offers no other change while one is saving', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { webhook: main, version: 3 });
+    const select = control(page)!;
+    expect(select.disabled).toBe(false);
+
+    choose(select, '#roto-other');
+    await fixture.whenStable();
+    expect(control(page)!.disabled).toBe(true);
+
+    http.expectOne('/api/drafts/draft-1/webhook').flush(draft({ webhook: other, version: 4 }));
+    await vi.waitFor(() => expect(control(page)!.disabled).toBe(false));
   });
 
   it('says so when the chosen webhook was just removed, and goes back to the current one', async () => {

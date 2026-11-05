@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  BasicLand,
-  PlanBoard,
-  PlannedCardView,
-  PlanRefusal,
-  PlanView,
+import {
+  BASIC_LANDS,
+  type BasicLand,
+  type PlanBoard,
+  type PlannedBasicView,
+  type PlannedCardView,
+  type PlanRefusal,
+  type PlanView,
 } from 'contract';
 import { availableCopies } from 'engine';
 import type { DraftState, Prisma } from '../generated/prisma/client.js';
@@ -251,11 +253,17 @@ export class PlansService {
           name: card.poolCard.name,
           picked: card.pickId !== null,
         }));
-    // Postgres orders enums as declared, which is the order a plan lists the basics in.
-    const basics = await tx.plannedBasic.findMany({
+    const plannedBasics = await tx.plannedBasic.findMany({
       where: { playerId },
-      orderBy: { land: 'asc' },
       select: { land: true, count: true },
+    });
+    const counts = new Map(
+      plannedBasics.map(({ land, count }) => [land, count]),
+    );
+    // A plan lists its basics in the order of `BASIC_LANDS`.
+    const basics = BASIC_LANDS.flatMap((land): PlannedBasicView[] => {
+      const count = counts.get(land);
+      return count === undefined ? [] : [{ land, count }];
     });
     const lost = await tx.lostPlannedCard.findMany({
       where: { playerId, noticeHidden: false },
