@@ -63,7 +63,8 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 export class DraftPage {
   private readonly http = inject(HttpClient);
   private readonly pollMs = inject(DRAFT_POLL_MS);
-  private readonly user = inject(Auth).user;
+  private readonly auth = inject(Auth);
+  private readonly user = this.auth.user;
   private readonly updates = inject(DraftUpdates);
   private readonly router = inject(Router);
 
@@ -231,6 +232,8 @@ export class DraftPage {
         } else if (event.type === 'connected') {
           this.reconnecting.set(false);
           this.catchUp();
+        } else if (event.type === 'unauthorized') {
+          void this.auth.signedOut();
         }
       });
       onCleanup(() => watching.unsubscribe());

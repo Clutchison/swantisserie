@@ -1,10 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type { UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
+import { signOutWhenSessionEnds } from './auth/signed-out-interceptor';
 import { expectLoadingAnimation } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
@@ -18,7 +19,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
         provideHttpClientTesting(),
       ],
     });
@@ -352,6 +353,44 @@ describe('App', () => {
 
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
     expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+  });
+
+  describe('when the session ends mid-visit', () => {
+    /** Opens the draft list as Alice, leaving its request for the drafts to the test. */
+    async function openDraftList() {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/');
+      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(alice);
+      await navigation;
+      TestBed.tick();
+      const page = fixture.nativeElement as HTMLElement;
+      expect(page.querySelector('header')?.textContent).toContain('Alice');
+      return { fixture, page, drafts: http.expectOne('/api/drafts') };
+    }
+
+    it('signs the viewer out and sends them to sign-in when a request is refused as unauthorized', async () => {
+      const { fixture, page, drafts } = await openDraftList();
+
+      drafts.flush(null, { status: 401, statusText: 'Unauthorized' });
+      await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+      await fixture.whenStable();
+
+      expect(page.textContent).toContain('Sign in with Discord');
+      expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+      // The session is already gone: there's nothing to log out of.
+      http.expectNone('/api/auth/logout');
+    });
+
+    it('keeps the page’s own error when a request fails for another reason', async () => {
+      const { fixture, page, drafts } = await openDraftList();
+
+      drafts.flush(null, { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/');
+      expect(page.textContent).toContain("Couldn't load the drafts.");
+      expect(page.querySelector('header')?.textContent).toContain('Alice');
+    });
   });
 
   it('sends signed-out users on any page to the sign-in page', async () => {
