@@ -1,5 +1,5 @@
 import type { CardFace, PoolCardView } from 'contract';
-import { FACE_SEPARATOR } from './card-faces';
+import { FACE_SEPARATOR } from 'engine';
 import { MANA_SYMBOLS } from './mana-symbols';
 
 /** One symbol of a mana cost, with Scryfall's SVG and description of it if the app has them. */

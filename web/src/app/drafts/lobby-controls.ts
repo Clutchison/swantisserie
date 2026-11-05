@@ -10,6 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { MAX_PLAYERS } from 'engine';
 import type {
   DraftView,
   PickImportPreview,
@@ -22,9 +23,6 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
-
-/** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
-const MAX_PLAYERS = 12;
 
 /**
  * The seat order, which stays on show once the draft starts, and all the

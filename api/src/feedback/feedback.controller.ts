@@ -17,6 +17,7 @@ import type {
   ReviewedFeedbackView,
   UnreviewedFeedbackCount,
 } from 'contract';
+import { MAX_FEEDBACK_LENGTH } from 'contract';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { bodyFields } from '../request-body.js';
 import { avatarUrl } from '../auth/avatar-url.js';
@@ -28,7 +29,6 @@ import {
 import type { Feedback, User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-const MAX_MESSAGE_LENGTH = 2000;
 const MAX_PAGE_URL_LENGTH = 2048;
 
 /** Where signed-in guild members send feedback to the app admins. */
@@ -143,8 +143,8 @@ function invalid(message: string) {
 function parseMessage(message: unknown): string {
   const trimmed = typeof message === 'string' ? message.trim() : '';
   if (!trimmed) throw invalid('Write your feedback first.');
-  if (trimmed.length > MAX_MESSAGE_LENGTH) {
-    throw invalid(`Keep your feedback to ${MAX_MESSAGE_LENGTH} characters.`);
+  if (trimmed.length > MAX_FEEDBACK_LENGTH) {
+    throw invalid(`Keep your feedback to ${MAX_FEEDBACK_LENGTH} characters.`);
   }
   return trimmed;
 }

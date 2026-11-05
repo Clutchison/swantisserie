@@ -10,12 +10,17 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import type {
-  DraftCreationProblem,
-  DraftView,
-  NewDraftRequest,
-  Platform,
-  WebhookView,
+import {
+  DEFAULT_PICKS_PER_PLAYER,
+  MAX_CUBE_LINK_LENGTH,
+  MAX_DRAFT_NAME_LENGTH,
+  MAX_PICKS_PER_PLAYER,
+  MAX_POOL_QUERY_LENGTH,
+  type DraftCreationProblem,
+  type DraftView,
+  type NewDraftRequest,
+  type Platform,
+  type WebhookView,
 } from 'contract';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
@@ -40,11 +45,15 @@ export class CreateDraftPage {
     poolSource: 'poolQuery' as PoolSource,
     poolQuery: '',
     cubeLink: '',
-    picksPerPlayer: 40,
+    picksPerPlayer: DEFAULT_PICKS_PER_PLAYER,
     platform: 'Arena' as Platform,
     webhookId: null as string | null,
   });
   protected readonly platforms: Platform[] = ['Arena', 'MTGO'];
+  protected readonly maxNameLength = MAX_DRAFT_NAME_LENGTH;
+  protected readonly maxPoolQueryLength = MAX_POOL_QUERY_LENGTH;
+  protected readonly maxCubeLinkLength = MAX_CUBE_LINK_LENGTH;
+  protected readonly maxPicksPerPlayer = MAX_PICKS_PER_PLAYER;
   protected readonly poolSource = toSignal(this.form.controls.poolSource.valueChanges, {
     initialValue: this.form.controls.poolSource.value,
   });

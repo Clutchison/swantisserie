@@ -101,6 +101,17 @@ export interface DraftSocketEvents {
   cancelled: () => void;
 }
 
+/** The most characters in a draft's name. */
+export const MAX_DRAFT_NAME_LENGTH = 100;
+/** The most characters in a pool query: Scryfall takes up to 1000, and the api wraps the query in more terms. */
+export const MAX_POOL_QUERY_LENGTH = 900;
+/** The most characters in a cube link: far longer than any CubeCobra cube URL. */
+export const MAX_CUBE_LINK_LENGTH = 300;
+/** The picks per player of a draft created without choosing them. */
+export const DEFAULT_PICKS_PER_PLAYER = 40;
+/** The most picks per player a draft can have. */
+export const MAX_PICKS_PER_PLAYER = 100;
+
 /**
  * The create form's fields, as the web sends them to create a draft: a pool
  * query or a cube link, not both.

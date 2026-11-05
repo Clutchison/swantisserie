@@ -33,6 +33,13 @@ import type {
   SeatOrderRequest,
   WebhookChoiceRequest,
 } from 'contract';
+import {
+  DEFAULT_PICKS_PER_PLAYER,
+  MAX_CUBE_LINK_LENGTH,
+  MAX_DRAFT_NAME_LENGTH,
+  MAX_PICKS_PER_PLAYER,
+  MAX_POOL_QUERY_LENGTH,
+} from 'contract';
 import { bodyFields } from '../request-body.js';
 import { parseCard } from './parse-card.js';
 import type { PoolCard } from '../generated/prisma/client.js';
@@ -77,13 +84,6 @@ import {
   PoolSnapshotService,
 } from './pool-snapshot.service.js';
 
-const DEFAULT_PICKS_PER_PLAYER = 40;
-const MAX_PICKS_PER_PLAYER = 100;
-const MAX_NAME_LENGTH = 100;
-/** Scryfall takes up to 1000 characters, and we wrap the query in more terms. */
-const MAX_POOL_QUERY_LENGTH = 900;
-/** Far longer than any CubeCobra cube URL. */
-const MAX_CUBE_LINK_LENGTH = 300;
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
 
@@ -521,8 +521,8 @@ function parseNewDraft(body: unknown): NewDraft {
 
   const trimmedName = typeof name === 'string' ? name.trim() : '';
   if (!trimmedName) throw invalid('Give the draft a name.');
-  if (trimmedName.length > MAX_NAME_LENGTH) {
-    throw invalid(`Keep the name to ${MAX_NAME_LENGTH} characters.`);
+  if (trimmedName.length > MAX_DRAFT_NAME_LENGTH) {
+    throw invalid(`Keep the name to ${MAX_DRAFT_NAME_LENGTH} characters.`);
   }
 
   const trimmedQuery = typeof poolQuery === 'string' ? poolQuery.trim() : '';
