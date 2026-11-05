@@ -1,8 +1,16 @@
+import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import request from 'supertest';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { alice, app, carol, signIn, useTestApp } from '../testing/app.js';
 
 const pageUrl = 'https://swantisserie.example/drafts/42';
+const aliceAvatar = 'https://cdn.discordapp.com/embed/avatars/5.png';
+
+/** Whether ISO timestamp `iso` falls between `since` and now, allowing a second either way. */
+function isRecent(iso: string, since: number) {
+  const time = Date.parse(iso);
+  return time >= since - 1000 && time <= Date.now() + 1000;
+}
 
 describe('feedback', () => {
   let aliceCookie: string;
@@ -22,31 +30,52 @@ describe('feedback', () => {
       .send(body);
   }
 
-  /** Sending has no API of its own to read back, so tests look at what was saved directly. */
-  const saved = () => app.get(PrismaService).feedback.findMany();
+  const list = (cookie = carolCookie) =>
+    request(app.getHttpServer())
+      .get('/api/admin/feedback')
+      .set('Cookie', cookie);
+
+  const listReviewed = (cookie = carolCookie) =>
+    request(app.getHttpServer())
+      .get('/api/admin/feedback/reviewed')
+      .set('Cookie', cookie);
+
+  /** Everything saved, as the app admins' two lists show it. */
+  async function saved(): Promise<{
+    unreviewed: FeedbackView[];
+    reviewed: ReviewedFeedbackView[];
+  }> {
+    return {
+      unreviewed: (await list().expect(200)).body,
+      reviewed: (await listReviewed().expect(200)).body,
+    };
+  }
+
+  const nothingSaved = { unreviewed: [], reviewed: [] };
 
   it('saves the sender, time sent and page URL, starting unreviewed', async () => {
     const before = Date.now();
 
     await send({ message: 'The pool tab is great', pageUrl }).expect(204);
 
-    const [feedback, ...others] = await saved();
-    expect(others).toEqual([]);
-    expect(feedback).toMatchObject({
-      message: 'The pool tab is great',
-      senderId: alice.id,
-      pageUrl,
-      reviewedById: null,
-      reviewedAt: null,
-    });
-    expect(feedback.sentAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
-    expect(feedback.sentAt.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+    const { unreviewed, reviewed } = await saved();
+    expect(reviewed).toEqual([]);
+    expect(unreviewed).toEqual([
+      {
+        id: expect.any(String),
+        message: 'The pool tab is great',
+        pageUrl,
+        sentAt: expect.any(String),
+        sender: { name: 'Alice', avatarUrl: aliceAvatar },
+      },
+    ]);
+    expect(isRecent(unreviewed[0].sentAt, before)).toBe(true);
   });
 
   it('accepts feedback from app admins too', async () => {
     await send({ message: 'Hello', pageUrl }, carolCookie).expect(204);
 
-    expect((await saved())[0].senderId).toBe(carol.id);
+    expect((await saved()).unreviewed[0].sender.name).toBe('Carol');
   });
 
   it('rejects anyone not signed in', async () => {
@@ -55,7 +84,7 @@ describe('feedback', () => {
       .send({ message: 'Hello', pageUrl })
       .expect(401);
 
-    expect(await saved()).toEqual([]);
+    expect(await saved()).toEqual(nothingSaved);
   });
 
   it.each([
@@ -68,7 +97,7 @@ describe('feedback', () => {
     const res = await send({ message, pageUrl }).expect(400);
 
     expect(res.body).toMatchObject({ error: 'invalid' });
-    expect(await saved()).toEqual([]);
+    expect(await saved()).toEqual(nothingSaved);
   });
 
   it('accepts a message of exactly 2,000 characters', async () => {
@@ -76,13 +105,13 @@ describe('feedback', () => {
 
     await send({ message, pageUrl }).expect(204);
 
-    expect((await saved())[0].message).toBe(message);
+    expect((await saved()).unreviewed[0].message).toBe(message);
   });
 
   it('counts and saves the message without its surrounding whitespace', async () => {
     await send({ message: `  ${'x'.repeat(2000)}\n`, pageUrl }).expect(204);
 
-    expect((await saved())[0].message).toBe('x'.repeat(2000));
+    expect((await saved()).unreviewed[0].message).toBe('x'.repeat(2000));
   });
 
   it.each([
@@ -93,21 +122,19 @@ describe('feedback', () => {
   ])('rejects a page URL that is %s', async (_, url) => {
     await send({ message: 'Hello', pageUrl: url }).expect(400);
 
-    expect(await saved()).toEqual([]);
+    expect(await saved()).toEqual(nothingSaved);
   });
 
   describe('reviewing', () => {
-    const list = (cookie = carolCookie) =>
-      request(app.getHttpServer())
-        .get('/api/admin/feedback')
-        .set('Cookie', cookie);
-
     const markReviewed = (id: string, cookie = carolCookie) =>
       request(app.getHttpServer())
         .put(`/api/admin/feedback/${id}/reviewed`)
         .set('Cookie', cookie);
 
-    /** Saved with a known time sent, so order and details can be checked. */
+    /**
+     * Saved with a known time sent, so order and details can be checked.
+     * Written directly, as sending always stamps the current time.
+     */
     const received = (message: string, sentAt: string) =>
       app.get(PrismaService).feedback.create({
         data: {
@@ -132,10 +159,7 @@ describe('feedback', () => {
           message: 'Line one\nLine two',
           pageUrl,
           sentAt: '2026-10-31T12:00:00.000Z',
-          sender: {
-            name: 'Alice',
-            avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-          },
+          sender: { name: 'Alice', avatarUrl: aliceAvatar },
         },
       ]);
     });
@@ -158,25 +182,26 @@ describe('feedback', () => {
 
       await markReviewed(id).expect(204);
 
-      expect((await list().expect(200)).body).toEqual([]);
-      const [kept] = await saved();
-      expect(kept).toMatchObject({
-        id,
-        message: 'Hello',
-        reviewedById: carol.id,
-      });
-      expect(kept.reviewedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
-      expect(kept.reviewedAt!.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+      const { unreviewed, reviewed } = await saved();
+      expect(unreviewed).toEqual([]);
+      expect(reviewed).toEqual([
+        expect.objectContaining({
+          id,
+          message: 'Hello',
+          reviewedBy: { name: 'Carol' },
+        }),
+      ]);
+      expect(isRecent(reviewed[0].reviewedAt, before)).toBe(true);
     });
 
     it('keeps the first review when an item is marked again', async () => {
       const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
       await markReviewed(id).expect(204);
-      const [first] = await saved();
+      const [first] = (await saved()).reviewed;
 
       await markReviewed(id).expect(204);
 
-      expect((await saved())[0].reviewedAt).toEqual(first.reviewedAt);
+      expect((await saved()).reviewed[0].reviewedAt).toBe(first.reviewedAt);
     });
 
     it('says when there is no such feedback to mark', async () => {
@@ -184,18 +209,11 @@ describe('feedback', () => {
     });
 
     describe('the reviewed list', () => {
-      const listReviewed = (cookie = carolCookie) =>
-        request(app.getHttpServer())
-          .get('/api/admin/feedback/reviewed')
-          .set('Cookie', cookie);
-
       it('shows the same details plus who reviewed it and when', async () => {
         const { id } = await received('Hello', '2026-10-31T12:00:00.000Z');
         await received('Still unreviewed', '2026-10-31T13:00:00.000Z');
+        const before = Date.now();
         await markReviewed(id).expect(204);
-        const [{ reviewedAt }] = await app
-          .get(PrismaService)
-          .feedback.findMany({ where: { id } });
 
         const res = await listReviewed().expect(200);
 
@@ -205,14 +223,12 @@ describe('feedback', () => {
             message: 'Hello',
             pageUrl,
             sentAt: '2026-10-31T12:00:00.000Z',
-            sender: {
-              name: 'Alice',
-              avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-            },
-            reviewedAt: reviewedAt!.toISOString(),
+            sender: { name: 'Alice', avatarUrl: aliceAvatar },
+            reviewedAt: expect.any(String),
             reviewedBy: { name: 'Carol' },
           },
         ]);
+        expect(isRecent(res.body[0].reviewedAt, before)).toBe(true);
       });
 
       it('lists the newest sent first, whatever order they were reviewed in', async () => {
@@ -250,14 +266,9 @@ describe('feedback', () => {
 
         await markUnreviewed(id).expect(204);
 
-        const res = await list().expect(200);
-        expect((res.body as { id: string }[]).map((item) => item.id)).toEqual([
-          id,
-        ]);
-        expect((await saved())[0]).toMatchObject({
-          reviewedById: null,
-          reviewedAt: null,
-        });
+        const { unreviewed, reviewed } = await saved();
+        expect(unreviewed.map((item) => item.id)).toEqual([id]);
+        expect(reviewed).toEqual([]);
       });
 
       it('changes nothing when the item is already unreviewed', async () => {
@@ -265,7 +276,9 @@ describe('feedback', () => {
 
         await markUnreviewed(id).expect(204);
 
-        expect((await saved())[0].reviewedById).toBeNull();
+        const { unreviewed, reviewed } = await saved();
+        expect(unreviewed.map((item) => item.id)).toEqual([id]);
+        expect(reviewed).toEqual([]);
       });
 
       it('says when there is no such feedback', async () => {
@@ -281,7 +294,11 @@ describe('feedback', () => {
           .delete(`/api/admin/feedback/${id}/reviewed`)
           .expect(401);
 
-        expect((await saved())[0].reviewedById).toBe(carol.id);
+        const { unreviewed, reviewed } = await saved();
+        expect(unreviewed).toEqual([]);
+        expect(reviewed).toEqual([
+          expect.objectContaining({ id, reviewedBy: { name: 'Carol' } }),
+        ]);
       });
     });
 
@@ -320,7 +337,9 @@ describe('feedback', () => {
         .put(`/api/admin/feedback/${id}/reviewed`)
         .expect(401);
 
-      expect((await saved())[0].reviewedById).toBeNull();
+      const { unreviewed, reviewed } = await saved();
+      expect(unreviewed.map((item) => item.id)).toEqual([id]);
+      expect(reviewed).toEqual([]);
     });
   });
 });
