@@ -1,7 +1,14 @@
 import { Dialog, type DialogRef } from '@angular/cdk/dialog';
 import { createNoopScrollStrategy, type PositionStrategy } from '@angular/cdk/overlay';
 import type { ComponentType } from '@angular/cdk/portal';
-import { type Binding, DOCUMENT, inject, Injectable, type Injector } from '@angular/core';
+import {
+  type Binding,
+  DestroyRef,
+  DOCUMENT,
+  inject,
+  Injectable,
+  type Injector,
+} from '@angular/core';
 
 /** How a dialog opened on the shell is named, shown and closed. */
 export interface DialogShellConfig {
@@ -13,8 +20,9 @@ export interface DialogShellConfig {
   labelledBy?: string;
   /**
    * The injector the dialog's component is made from, for what it injects
-   * from its opener's context: pass the opener's own. Without one it gets
-   * only what the app provides.
+   * from its opener's context: pass the opener's own. The dialog closes
+   * once that injector's component, or whatever else owns it, is destroyed.
+   * Without one it gets only what the app provides.
    */
   injector?: Injector;
   /** The component's inputs and outputs, as `inputBinding` and `outputBinding` make them. */
@@ -89,7 +97,11 @@ export class DialogShell {
       if (pressedBackdrop) ref.close();
     });
 
+    // Made for the opener, the dialog goes with it: as when a page it was opened from closes.
+    const unlisten = config.injector?.get(DestroyRef, null)?.onDestroy(() => ref.close());
+
     ref.closed.subscribe(() => {
+      unlisten?.();
       this.document.removeEventListener('mousedown', pressed, true);
       const target = config.returnFocus ? config.returnFocus(opener) : opener;
       const active = this.document.activeElement;

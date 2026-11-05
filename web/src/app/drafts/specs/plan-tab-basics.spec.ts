@@ -11,6 +11,7 @@ import {
   viewOn,
   type AppFixture,
   drafting,
+  router,
 } from './harness';
 import {
   clickBackdrop,
@@ -482,5 +483,19 @@ describe('basic lands on the plan tab', () => {
 
     expect(openDialog()).toBeNull();
     expect(document.activeElement).toBe(basicsButton(plan));
+  });
+
+  it('closes with the page it was opened from', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
+    });
+    await openBasics(fixture, await openPlan(fixture, page));
+
+    await router.navigateByUrl('/');
+    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
   });
 });
