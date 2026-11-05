@@ -6,6 +6,8 @@ Rotisserie draft app for our Discord server; drafted pools are played on MTG Are
 
 New feature tests go in that feature's spec file. Split any file before it passes 1000 lines: lint enforces this for TypeScript under `src/`, while templates, styles and JSON fixtures rely on this convention alone.
 
+Before writing or editing a web spec, read `docs/agents/web-specs.md`: query by role and name, assert behaviour, flush requests by URL.
+
 ## Agent skills
 
 ### Issue tracker
