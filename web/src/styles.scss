@@ -186,16 +186,42 @@ textarea {
   }
 }
 
-/* Behind every modal. Above everything a page can stack, such as the draft page's tabs. */
-.backdrop {
-  position: fixed;
+/* The dialog shell's backdrop, behind every dialog opened on it. */
+.cdk-overlay-backdrop.dialog-backdrop {
+  background: var(--color-overlay);
+}
+
+/*
+ * The dialog shell's pane: the whole screen less a margin, with the dialog
+ * centred in it. Only the dialog's own box takes presses: one beside it
+ * goes through to the backdrop. The box is the first element in the
+ * dialog's component, which lays itself out as if it weren't there.
+ */
+.cdk-overlay-pane.dialog-pane {
   inset: 0;
-  z-index: 3;
-  display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-lg);
-  background: var(--color-overlay);
+  pointer-events: none;
+
+  > .cdk-dialog-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    outline: none;
+
+    > * {
+      display: contents;
+    }
+
+    > * > * {
+      min-height: 0;
+      pointer-events: auto;
+    }
+  }
 }
 
 .visually-hidden {
@@ -210,7 +236,7 @@ textarea {
 
 /* Only the opening: nothing here waits for it, and buttons work from the start. */
 @media (prefers-reduced-motion: no-preference) {
-  .backdrop {
+  .cdk-overlay-backdrop.dialog-backdrop {
     animation: backdrop-fade-in 150ms ease-out;
   }
 }

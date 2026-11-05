@@ -60,53 +60,6 @@ ul {
   list-style: none;
 }
 
-/* A modal on the page's backdrop: its heading, what it holds, then its actions. */
-.modal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border-radius: 0.5rem;
-  background: var(--color-bg);
-  color: var(--color-text);
-
-  h3 {
-    margin: 0;
-  }
-}
-
-/* The Basic lands modal: a row per basic land, its symbol, −, number and +. */
-.basics {
-  width: min(20rem, 100%);
-
-  ul {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-
-  li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-  }
-
-  label {
-    display: flex;
-    margin-inline-end: var(--space-sm);
-  }
-
-  img {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  input {
-    width: 3.5rem;
-    text-align: center;
-  }
-}
-
 /* The count, cost, name, and what's after: an unpicked card's mark, and the buttons. */
 .lines {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
@@ -362,26 +315,4 @@ ul {
   flex-wrap: wrap;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
-}
-
-/* The Queue unpicked modal. */
-.queue-unpicked {
-  width: min(24rem, 100%);
-
-  p {
-    margin: 0;
-  }
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-}
-
-.dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-sm);
 }

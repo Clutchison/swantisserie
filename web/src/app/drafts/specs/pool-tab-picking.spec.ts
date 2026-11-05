@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import type { PickRefusal, PickView } from 'contract';
 import {
   useDraftsApp,
@@ -20,8 +21,19 @@ import {
   flushPool,
   panel,
   statusMessage,
+  controlByLabel,
+  type AppFixture,
 } from './harness';
-import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
+import { openDialog } from '../../specs-harness';
+import {
+  useTallScreen,
+  card,
+  shivan,
+  brightclimb,
+  tiles,
+  openDetail,
+  searchBox,
+} from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -52,11 +64,46 @@ describe('pool tab', () => {
       await flushPicks([shivanPick]);
       await fixture.whenStable();
 
-      expect(page.querySelector('[role="dialog"]')).toBeNull();
+      expect(openDialog()).toBeNull();
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
       expect(tiles(page)[1].classList).toContain('picked');
       expect(tiles(page)[1].textContent).toContain('Picked');
       expect(tiles(page)[0].classList).not.toContain('picked');
+    });
+
+    /** Picks Shivan Dragon from its Card detail, opened from its focused tile, and answers the pick. */
+    async function pickFromTile(fixture: AppFixture, page: HTMLElement) {
+      tiles(page)[1].focus();
+      button(await openDetail(fixture, page, 1), 'Pick')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+      await flushPicks([shivanPick]);
+      await fixture.whenStable();
+    }
+
+    it('returns focus to the picked card’s tile once its Card detail closes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [brightclimb, shivan],
+      });
+
+      await pickFromTile(fixture, page);
+
+      expect(openDialog()).toBeNull();
+      expect(document.activeElement).toBe(tiles(page)[1]);
+    });
+
+    it('returns focus to the pool search box when the picked card is hidden', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [brightclimb, shivan],
+      });
+      controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+      await fixture.whenStable();
+
+      await pickFromTile(fixture, page);
+
+      expect(tiles(page)).toHaveLength(1);
+      expect(document.activeElement).toBe(searchBox(page));
     });
 
     it('disables Pick when it is not your turn', async () => {
@@ -223,6 +270,62 @@ describe('pool tab', () => {
 
       expect(detail.querySelector('[role="alert"]')?.textContent).toContain('It’s not your turn.');
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+    });
+
+    describe('made from a Card detail since closed', () => {
+      /** Opens Shivan Dragon's Card detail, picks it, closes it, and opens Brightclimb's. */
+      async function pickThenOpenAnother() {
+        const opened = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+          cards: [brightclimb, shivan],
+        });
+        button(await openDetail(opened.fixture, opened.page, 1), 'Pick')!.click();
+        button(openDialog()!, 'Close')!.click();
+        const other = await openDetail(opened.fixture, opened.page, 0);
+        return { ...opened, other, pick: http.expectOne('/api/drafts/draft-1/picks') };
+      }
+
+      /** Waits until `detail` no longer says a pick is on its way. */
+      async function answered(detail: HTMLElement) {
+        await vi.waitFor(() => {
+          TestBed.tick();
+          expect(button(detail, 'Pick')).toBeDefined();
+        });
+      }
+
+      it('does not close the Card detail now open once it succeeds, and the card is picked', async () => {
+        const { fixture, page, other, pick } = await pickThenOpenAnother();
+
+        pick.flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+        await flushPicks([shivanPick]);
+        await fixture.whenStable();
+        await answered(other);
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="alert"]')).toBeNull();
+        expect(button(other, 'Pick')!.disabled).toBe(true);
+        expect(tiles(page)[1].textContent).toContain('Picked');
+      });
+
+      it('shows no refusal in the Card detail now open', async () => {
+        const { fixture, other, pick } = await pickThenOpenAnother();
+
+        pick.flush(
+          { error: 'not-your-turn', message: 'It’s not your turn.' } satisfies PickRefusal,
+          {
+            status: 409,
+            statusText: 'Conflict',
+          },
+        );
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
+        );
+        await flushPicks([]);
+        await fixture.whenStable();
+        await answered(other);
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="alert"]')).toBeNull();
+      });
     });
   });
 

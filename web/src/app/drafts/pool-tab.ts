@@ -12,17 +12,22 @@ import {
   effect,
   ElementRef,
   inject,
+  Injector,
   input,
   linkedSignal,
   signal,
-  untracked,
   viewChild,
 } from '@angular/core';
-import type { PlanView, PoolCardView, QueueView } from 'contract';
-import type { Observable } from 'rxjs';
-import { CardImage } from './card-image';
+import type { DialogRef } from '@angular/cdk/dialog';
+import type { PoolCardView } from 'contract';
+import { DialogShell } from '../dialog-shell';
+import {
+  type CardDetail,
+  CardDetailRequests,
+  type CardDetailResult,
+  openCardDetail,
+} from './card-detail';
 import { CardImageSource, type ImageVersion } from './card-image-source';
-import { changeFailure, isRefusal } from './drafts';
 import { DraftStore } from './draft-store';
 import { ImagePreloader } from './image-preloader';
 import {
@@ -33,15 +38,13 @@ import {
   type PoolFilterState,
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
-import { PlanApi } from './plan-api';
-import { QueueApi } from './queue-api';
 import { PlayerAvatar } from './player-avatar';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
- * search and pool filters, and a detail view of one.
+ * search and pool filters, each opening its Card detail.
  */
 @Component({
   selector: 'app-pool-tab',
@@ -52,19 +55,18 @@ import { LoadingAnimation } from '../loading/loading-animation';
     CdkFixedSizeVirtualScroll,
     CdkVirtualForOf,
     TileImage,
-    CardImage,
     PlayerAvatar,
   ],
-  providers: [TileImageLoader],
+  providers: [TileImageLoader, CardDetailRequests],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pool-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './pool-tab.scss'],
-  host: { '(document:keydown.escape)': 'close()' },
 })
 export class PoolTab {
   private readonly store = inject(DraftStore);
-  private readonly queueApi = inject(QueueApi);
-  private readonly planApi = inject(PlanApi);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   protected readonly images = inject(CardImageSource);
   private readonly preloader = inject(ImagePreloader);
   private readonly tileImages = inject(TileImageLoader);
@@ -72,8 +74,6 @@ export class PoolTab {
   /** Whether the Pool tab is the draft page's visible tab. */
   readonly visible = input(true);
 
-  /** A draft whose pool snapshot is complete. */
-  private readonly draftId = this.store.id;
   /** The pool's cards. */
   private readonly cards = this.store.pool.value;
   /** Whether the pool's cards are still on their way. */
@@ -82,34 +82,15 @@ export class PoolTab {
   protected readonly failed = this.store.pool.missing;
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = this.store.picked;
-  /**
-   * Whether the pick log's latest read failed. The picked badges are then the
-   * last ones loaded, or none, and a card picked since may look available, so
-   * Pick is disabled until the pick log loads.
-   */
-  protected readonly picksFailed = this.store.picks.failed;
   /** Whether the pick log has never loaded, as its first read failed. */
   protected readonly picksMissing = this.store.picks.missing;
-  /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
-  protected readonly offerPick = this.store.offerPick;
-  /** The pool card ids of the cards in the signed-in player's queue. */
-  protected readonly queued = this.store.queued;
-  /**
-   * Whether the card detail offers Remove from queue for a queued card, or
-   * else Add to queue, except on the player's own turn: for players while the
-   * draft is active.
-   */
-  protected readonly offerQueue = this.store.offerQueue;
-  /** The pool card ids of the unpicked cards in the signed-in player's plan. */
-  protected readonly planned = this.store.planned;
-  /** Whether the card detail offers Add to Plan for a card not in the plan: for players while the draft is active. */
-  protected readonly offerAddToPlan = this.store.offerAddToPlan;
-  /** Whether the card detail offers Remove from Plan for an unpicked copy in the plan: for players in every draft state. */
-  protected readonly offerRemoveFromPlan = this.store.offerRemoveFromPlan;
-  /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
-  protected readonly yourTurn = this.store.yourTurn;
-  /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */
-  private readonly turnPick = computed(() => this.store.turn()?.pick ?? null);
+  /** Which actions the Card detail offers, by the draft's state and the viewer's part in it. */
+  private readonly actions = computed(() => ({
+    pick: this.store.offerPick(),
+    queue: this.store.offerQueue(),
+    addToPlan: this.store.offerAddToPlan(),
+    removeFromPlan: this.store.offerRemoveFromPlan(),
+  }));
 
   /** The pool search typed into the search box. */
   protected readonly search = signal('');
@@ -194,41 +175,17 @@ export class PoolTab {
     return rows;
   });
 
-  /** The card in the detail view, if one is open. */
-  protected readonly detail = signal<PoolCardView | null>(null);
-  /** The image the Card detail's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
-  protected readonly tilePlaceholder = signal<string | null>(null);
-  /** Which face the detail view shows: 0 is the front. */
-  protected readonly face = signal(0);
-  protected readonly picking = signal(false);
-  protected readonly pickError = signal<string | null>(null);
-  protected readonly queueing = signal(false);
-  /** What came of adding the card in the detail view to the queue, or removing it. */
-  protected readonly queueNote = signal<string | null>(null);
-  protected readonly planning = signal(false);
-  /** What came of adding the card in the detail view to the plan, or removing it. */
-  protected readonly planNote = signal<string | null>(null);
-  private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
+  /** The Card detail open, if any. */
+  private detail: DialogRef<CardDetailResult, CardDetail> | null = null;
+  private readonly searchBox = viewChild.required<ElementRef<HTMLInputElement>>('searchBox');
   /** The countdown of the tile the mouse is resting on. */
   private resting?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    effect(() => this.closeButton()?.nativeElement.focus());
-    // Only this note: a refusal must outlast the turn change its re-read reveals...
-    effect(() => {
-      this.turnPick();
-      untracked(() => {
-        if (this.queueNote() === ADDED_TO_QUEUE) this.queueNote.set(null);
-      });
-    });
-    // ...until the player's own turn has passed, when it no longer holds.
-    effect(() => {
-      if (!this.yourTurn()) untracked(() => this.queueNote.set(null));
-    });
     // Not in every test environment; the grid then lays out one column.
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
-      observer.observe(inject<ElementRef<HTMLElement>>(ElementRef).nativeElement);
+      observer.observe(this.host);
       inject(DestroyRef).onDestroy(() => observer.disconnect());
     }
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
@@ -296,118 +253,39 @@ export class PoolTab {
     if (url) this.preloader.preload(url);
   }
 
+  /**
+   * Opens a card's Card detail. Once it closes, focus goes back to the
+   * card's tile, wherever the grid has put it, or else to the search box:
+   * as for a card just picked while picked cards are hidden, whose tile is
+   * about to go.
+   */
   protected open(card: PoolCardView, tile: HTMLElement) {
-    this.detail.set(card);
     this.preloader.noteRequested(this.images.url(card, 'large'));
     for (let face = 1; face < card.images.length; face++) this.preloadLarge(card, face);
     const loaded = tile.querySelector('img');
     const normal = this.images.url(card, 'normal');
-    this.tilePlaceholder.set(
-      loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
+    this.detail?.close();
+    const detail = openCardDetail(this.dialogs, {
+      card,
+      actions: this.actions,
+      tilePlaceholder:
+        loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
+      injector: this.injector,
+      returnFocus: (result) =>
+        (result === 'picked' && this.hidePicked() ? null : this.tileOf(card.id)) ??
+        this.searchBox().nativeElement,
+    });
+    this.detail = detail;
+    detail.closed.subscribe(() => {
+      if (this.detail === detail) this.detail = null;
+    });
+  }
+
+  /** The grid's tile for a card, if one is rendered. */
+  private tileOf(poolCardId: string) {
+    return [...this.host.querySelectorAll<HTMLElement>('[data-pool-card-id]')].find(
+      (tile) => tile.dataset['poolCardId'] === poolCardId,
     );
-    this.face.set(0);
-    this.pickError.set(null);
-    this.queueNote.set(null);
-    this.planNote.set(null);
-  }
-
-  protected async pick(card: PoolCardView) {
-    this.picking.set(true);
-    this.pickError.set(null);
-    try {
-      await this.store.pick(card.id);
-      this.close();
-    } catch (err) {
-      if (isRefusal(err)) {
-        // The draft has moved on, e.g. another pick was made: show why. The store catches up with it.
-        this.pickError.set(err.error?.message ?? PICK_FAILED);
-      } else {
-        this.pickError.set(PICK_FAILED);
-      }
-    } finally {
-      this.picking.set(false);
-    }
-  }
-
-  protected addToQueue(card: PoolCardView) {
-    return this.changeQueue(
-      this.queueApi.add(this.draftId(), card.id),
-      ADDED_TO_QUEUE,
-      "Couldn't add the card to your queue. Try again in a moment.",
-    );
-  }
-
-  protected removeFromQueue(card: PoolCardView) {
-    return this.changeQueue(
-      this.queueApi.remove(this.draftId(), card.id),
-      'Removed from your queue.',
-      "Couldn't remove the card from your queue. Try again in a moment.",
-    );
-  }
-
-  /**
-   * Sends a change to the queue, noting `done` once it's made, unless the turn
-   * has moved on meanwhile. If it fails,
-   * notes why (`failure`, unless the API says); the store re-reads the
-   * queue, and the draft too if it was refused: a stale page may not know whose turn it is.
-   */
-  private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
-    this.queueing.set(true);
-    this.queueNote.set(null);
-    const turnPick = this.turnPick();
-    try {
-      await this.store.changeQueue(request);
-      if (this.turnPick() === turnPick) this.queueNote.set(done);
-    } catch (err) {
-      this.queueNote.set(changeFailure(err, failure));
-      if (isRefusal(err)) this.store.catchUp();
-    } finally {
-      this.queueing.set(false);
-    }
-  }
-
-  protected addToPlan(card: PoolCardView) {
-    return this.changePlan(
-      this.planApi.add(this.draftId(), card.id),
-      'Added to your plan.',
-      "Couldn't add the card to your plan. Try again in a moment.",
-    );
-  }
-
-  protected removeFromPlan(card: PoolCardView) {
-    return this.changePlan(
-      this.planApi.remove(this.draftId(), card.id),
-      'Removed from your plan.',
-      "Couldn't remove the card from your plan. Try again in a moment.",
-    );
-  }
-
-  /**
-   * Sends a change to the plan, noting `done` once it's made. If it fails,
-   * notes why (`failure`, unless the API says); the store re-reads the
-   * plan, and the draft too if it was refused: a stale page may not know the draft has
-   * moved on.
-   */
-  private async changePlan(request: Observable<PlanView>, done: string, failure: string) {
-    this.planning.set(true);
-    this.planNote.set(null);
-    try {
-      await this.store.changePlan(request);
-      this.planNote.set(done);
-    } catch (err) {
-      this.planNote.set(changeFailure(err, failure));
-      if (isRefusal(err)) this.store.catchUp();
-    } finally {
-      this.planning.set(false);
-    }
-  }
-
-  protected close() {
-    this.detail.set(null);
-  }
-
-  protected flip() {
-    this.face.update((face) => (face + 1) % this.detail()!.images.length);
   }
 }
 
@@ -442,6 +320,3 @@ function constrainedConnection() {
   };
   return !!connection?.saveData || !!connection?.effectiveType?.endsWith('2g');
 }
-
-const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
-const ADDED_TO_QUEUE = 'Added to your queue.';

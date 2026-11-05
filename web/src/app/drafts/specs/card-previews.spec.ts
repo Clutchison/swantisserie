@@ -29,7 +29,7 @@ import {
   type AppFixture,
 } from './harness';
 import { image, openDetail } from './pool-tab-harness';
-import { pressKey } from '../../specs-harness';
+import { openDialog, pressKey } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -523,7 +523,7 @@ describe('card previews', () => {
       await fixture.whenStable();
 
       expect(previewImage()).toBeNull();
-      expect(page.querySelector('[role="dialog"]')).toBeNull();
+      expect(openDialog()).toBeNull();
     });
 
     it('opens on names tabbed to on the Export tab', async () => {

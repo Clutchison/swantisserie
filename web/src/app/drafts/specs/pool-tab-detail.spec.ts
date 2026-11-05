@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
   openDraft,
@@ -8,8 +9,16 @@ import {
   wait,
 } from './harness';
 import {
+  clickBackdrop,
+  hiddenFromAssistiveTech,
+  openDialog,
+  pressEscape,
+  pressTab,
+} from '../../specs-harness';
+import {
   useTallScreen,
   image,
+  card,
   shivan,
   brightclimb,
   openDetail,
@@ -17,6 +26,10 @@ import {
   largeImages,
   newestLarge,
   tileLoaded,
+  largePlaceholder,
+  searchBox,
+  searchFor,
+  scrollWindowTo,
 } from './pool-tab-harness';
 
 useDraftsApp();
@@ -32,12 +45,12 @@ describe('pool tab', () => {
 
     const detail = await openDetail(fixture, page, 1);
     expect(detail.getAttribute('aria-label')).toBe('Shivan Dragon');
-    expect(detail.querySelector('img')?.getAttribute('src')).toBe(image('large', 'shivan-id'));
+    expect(newestLarge(detail).getAttribute('src')).toBe(image('large', 'shivan-id'));
     expect(button(detail, 'Flip')).toBeUndefined();
 
     button(detail, 'Close')!.click();
     await fixture.whenStable();
-    expect(page.querySelector('[role="dialog"]')).toBeNull();
+    expect(openDialog()).toBeNull();
   });
 
   it('keeps the large image hidden until it has decoded', async () => {
@@ -87,6 +100,92 @@ describe('pool tab', () => {
     );
   });
 
+  describe('focus', () => {
+    /** Opens the Pool tab with Brightclimb Pathway and Shivan Dragon, and the Card detail of the `index`th, from its focused tile. */
+    async function openFromTile(index: number) {
+      const opened = await openDraft(completeSnapshot, {}, { cards: [brightclimb, shivan] });
+      tiles(opened.page)[index].focus();
+      const detail = await openDetail(opened.fixture, opened.page, index);
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(detail, 'Close')));
+      return { ...opened, detail };
+    }
+
+    it('stays inside the Card detail, wrapping from its last control to its first and back', async () => {
+      const { detail } = await openFromTile(0);
+
+      pressTab();
+      expect(document.activeElement).toBe(button(detail, 'Flip'));
+      pressTab({ shift: true });
+      expect(document.activeElement).toBe(button(detail, 'Close'));
+    });
+
+    it('hides the page behind the Card detail from assistive technology while it is open', async () => {
+      const { fixture, page, detail } = await openFromTile(1);
+
+      expect(hiddenFromAssistiveTech(tiles(page)[1])).toBe(true);
+      expect(hiddenFromAssistiveTech(detail)).toBe(false);
+
+      button(detail, 'Close')!.click();
+      await fixture.whenStable();
+      expect(hiddenFromAssistiveTech(tiles(page)[1])).toBe(false);
+    });
+
+    it.each<[string, () => void]>([
+      ['Close', () => button(openDialog()!, 'Close')!.click()],
+      ['Escape', pressEscape],
+      ['a backdrop click', clickBackdrop],
+    ])('returns to the card’s tile on %s', async (_, close) => {
+      const { fixture, page } = await openFromTile(1);
+
+      close();
+      await fixture.whenStable();
+
+      expect(openDialog()).toBeNull();
+      expect(document.activeElement).toBe(tiles(page)[1]);
+    });
+
+    it('returns to the card’s tile when the grid has moved it to another', async () => {
+      const { fixture, page } = await openFromTile(1);
+
+      // Moves the card up a row, which gives it a new tile.
+      searchFor(page, 'shivan');
+      button(openDialog()!, 'Close')!.click();
+      await fixture.whenStable();
+
+      expect(tiles(page)).toHaveLength(1);
+      expect(document.activeElement).toBe(tiles(page)[0]);
+    });
+
+    it('goes to the pool search box when the card’s tile is no longer in the grid', async () => {
+      const { fixture, page } = await openFromTile(1);
+
+      searchFor(page, 'brightclimb');
+      pressEscape();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(searchBox(page));
+    });
+
+    it('goes to the pool search box when the grid has scrolled the card’s tile out of view', async () => {
+      const cards = Array.from({ length: 40 }, (_, i) =>
+        card({ id: `card-${i}`, scryfallId: `id-${i}`, name: `Card ${i}` }),
+      );
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards });
+      tiles(page)[0].focus();
+      await openDetail(fixture, page, 0);
+
+      scrollWindowTo(20_000);
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(tiles(page).some((tile) => tile.textContent?.includes('Card 0'))).toBe(false);
+      });
+      button(openDialog()!, 'Close')!.click();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(searchBox(page));
+    });
+  });
+
   describe('while its image is on the way', () => {
     /** Opens the Card detail of the only tile, with `prepare` run on the tile first. */
     async function openOne(
@@ -99,7 +198,7 @@ describe('pool tab', () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       return { ...opened, detail };
     }
-    const placeholder = (detail: HTMLElement) => detail.querySelector('.placeholder');
+    const placeholder = largePlaceholder;
     const shownSrcs = (detail: HTMLElement) =>
       largeImages(detail)
         .filter((img) => img.classList.contains('shown'))
@@ -227,11 +326,11 @@ describe('pool tab', () => {
         {},
         { cards: [brightclimb, shivan] },
       );
-      const detail = await openDetail(fixture, page, 0);
-      await decoded(newestLarge(detail));
+      await decoded(newestLarge(await openDetail(fixture, page, 0)));
 
-      await openDetail(fixture, page, 1);
+      const detail = await openDetail(fixture, page, 1);
 
+      expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
       expect(shownSrcs(detail)).toEqual([]);
       expect(largeImages(detail).map((img) => img.getAttribute('src'))).toEqual([
         image('large', 'shivan-id'),

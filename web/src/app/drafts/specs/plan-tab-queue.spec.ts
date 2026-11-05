@@ -18,6 +18,14 @@ import {
   type AppFixture,
   drafting,
 } from './harness';
+import {
+  clickBackdrop,
+  dialogBackdrop,
+  hiddenFromAssistiveTech,
+  openDialog,
+  pressEscape,
+  pressTab,
+} from '../../specs-harness';
 import { card, shivan } from './pool-tab-harness';
 import { bolt, boltAgain, openPlan, planOf, planned, unpicked } from './plan-tab-harness';
 import { EMPTY_QUEUE } from '../drafts';
@@ -35,15 +43,16 @@ describe('queueing the unpicked cards on the plan tab', () => {
     sideboard: [unpicked(shock)],
   });
 
-  const dialog = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="dialog"]');
-  const sideboardBox = (root: HTMLElement) =>
-    [...dialog(root)!.querySelectorAll('label')]
+  /** The open dialog, if any: it opens over the page, outside the tab. */
+  const dialog = openDialog;
+  const sideboardBox = () =>
+    [...openDialog()!.querySelectorAll('label')]
       .find((label) => label.textContent?.trim() === 'Include sideboard')!
       .querySelector('input')!;
   const text = (element: HTMLElement | null) => element?.textContent?.replace(/\s+/g, ' ').trim();
 
-  /** Opens the Queue unpicked modal on the Plan tab. */
-  async function openModal(fixture: AppFixture, page: HTMLElement) {
+  /** Opens the Queue unpicked dialog on the Plan tab. */
+  async function openQueueUnpicked(fixture: AppFixture, page: HTMLElement) {
     const tab = await openPlan(fixture, page);
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
@@ -60,15 +69,15 @@ describe('queueing the unpicked cards on the plan tab', () => {
         queue: queueOf({ cards: [queued(boltAgain)] }),
       },
     );
-    const tab = await openModal(fixture, page);
+    await openQueueUnpicked(fixture, page);
 
-    expect(dialog(tab)!.getAttribute('aria-modal')).toBe('true');
-    expect(sideboardBox(tab).checked).toBe(false);
-    expect(text(dialog(tab))).toContain('Adds 1 card to the end of your queue.');
+    expect(dialog()!.getAttribute('aria-modal')).toBe('true');
+    expect(sideboardBox().checked).toBe(false);
+    expect(text(dialog())).toContain('Adds 1 card to the end of your queue.');
 
-    sideboardBox(tab).click();
+    sideboardBox().click();
     await fixture.whenStable();
-    expect(text(dialog(tab))).toContain('Adds 2 cards to the end of your queue.');
+    expect(text(dialog())).toContain('Adds 2 cards to the end of your queue.');
   });
 
   it('appends the mainboard’s unpicked cards, and shows the queue the API answers with', async () => {
@@ -80,26 +89,26 @@ describe('queueing the unpicked cards on the plan tab', () => {
         plan,
       },
     );
-    const tab = await openModal(fixture, page);
+    const tab = await openQueueUnpicked(fixture, page);
 
-    button(dialog(tab)!, 'Queue 2 cards')!.click();
+    button(dialog()!, 'Queue 2 cards')!.click();
     const sent = http.expectOne('/api/drafts/draft-1/queue/unpicked');
     expect(sent.request.method).toBe('POST');
     expect(sent.request.body).toEqual({ includeSideboard: false });
     sent.flush(queueOf({ cards: [queued(bolt), queued(boltAgain)] }));
 
-    await vi.waitFor(() => expect(dialog(tab)).toBeNull());
+    await vi.waitFor(() => expect(dialog()).toBeNull());
     // Every mainboard copy is queued now, though the sideboard's Shock isn't.
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
-    expect(text(dialog(tab))).toContain('Nothing on your mainboard to queue.');
-    expect(button(dialog(tab)!, 'Queue 0 cards')!.disabled).toBe(true);
+    expect(text(dialog())).toContain('Nothing on your mainboard to queue.');
+    expect(button(dialog()!, 'Queue 0 cards')!.disabled).toBe(true);
     tabButton(page, 'Queue').click();
     await fixture.whenStable();
     expect(panel(page).textContent).toContain('Lightning Bolt');
   });
 
-  it('closes on a click on the backdrop, but not on a drag out of the modal', async () => {
+  it('closes on a click on the backdrop, but not on a drag out of the dialog', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ turn: bobsSecondPick }),
@@ -108,20 +117,20 @@ describe('queueing the unpicked cards on the plan tab', () => {
         plan,
       },
     );
-    const tab = await openModal(fixture, page);
-    const modal = dialog(tab)!;
-    const backdrop = modal.parentElement!;
+    await openQueueUnpicked(fixture, page);
+    const queueUnpicked = dialog()!;
+    const backdrop = dialogBackdrop();
 
-    // A press inside the modal, let go on the backdrop, as a text selection dragged out.
-    modal.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    // A press inside the dialog, let go on the backdrop, as a text selection dragged out.
+    queueUnpicked.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     backdrop.click();
     await fixture.whenStable();
-    expect(dialog(tab)).not.toBeNull();
+    expect(dialog()).not.toBeNull();
 
     backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     backdrop.click();
     await fixture.whenStable();
-    expect(dialog(tab)).toBeNull();
+    expect(dialog()).toBeNull();
   });
 
   it('includes the sideboard when checked, and opens unchecked each time', async () => {
@@ -133,24 +142,24 @@ describe('queueing the unpicked cards on the plan tab', () => {
         plan,
       },
     );
-    const tab = await openModal(fixture, page);
-    sideboardBox(tab).click();
+    const tab = await openQueueUnpicked(fixture, page);
+    sideboardBox().click();
     await fixture.whenStable();
-    button(dialog(tab)!, 'Cancel')!.click();
+    button(dialog()!, 'Cancel')!.click();
     await fixture.whenStable();
-    expect(dialog(tab)).toBeNull();
+    expect(dialog()).toBeNull();
 
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
-    expect(sideboardBox(tab).checked).toBe(false);
-    sideboardBox(tab).click();
+    expect(sideboardBox().checked).toBe(false);
+    sideboardBox().click();
     await fixture.whenStable();
-    button(dialog(tab)!, 'Queue 3 cards')!.click();
+    button(dialog()!, 'Queue 3 cards')!.click();
 
     const sent = http.expectOne('/api/drafts/draft-1/queue/unpicked');
     expect(sent.request.body).toEqual({ includeSideboard: true });
     sent.flush(queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shock)] }));
-    await vi.waitFor(() => expect(dialog(tab)).toBeNull());
+    await vi.waitFor(() => expect(dialog()).toBeNull());
   });
 
   it('is disabled when every unpicked copy is queued already', async () => {
@@ -178,13 +187,13 @@ describe('queueing the unpicked cards on the plan tab', () => {
         queue: queueOf({ cards: [queued(bolt), queued(boltAgain)] }),
       },
     );
-    const tab = await openModal(fixture, page);
-    expect(text(dialog(tab))).toContain('Nothing on your mainboard to queue.');
+    await openQueueUnpicked(fixture, page);
+    expect(text(dialog())).toContain('Nothing on your mainboard to queue.');
 
-    sideboardBox(tab).click();
+    sideboardBox().click();
     await fixture.whenStable();
-    expect(text(dialog(tab))).toContain('Adds 1 card to the end of your queue.');
-    expect(button(dialog(tab)!, 'Queue 1 card')!.disabled).toBe(false);
+    expect(text(dialog())).toContain('Adds 1 card to the end of your queue.');
+    expect(button(dialog()!, 'Queue 1 card')!.disabled).toBe(false);
   });
 
   it('says why it was refused, and re-reads the queue', async () => {
@@ -196,9 +205,9 @@ describe('queueing the unpicked cards on the plan tab', () => {
         plan,
       },
     );
-    const tab = await openModal(fixture, page);
+    const tab = await openQueueUnpicked(fixture, page);
 
-    button(dialog(tab)!, 'Queue 2 cards')!.click();
+    button(dialog()!, 'Queue 2 cards')!.click();
     http.expectOne('/api/drafts/draft-1/queue/unpicked').flush(
       {
         error: 'your-turn',
@@ -212,7 +221,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
         'You can’t add to your queue on your turn.',
       ),
     );
-    expect(dialog(tab)).toBeNull();
+    expect(dialog()).toBeNull();
     await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
   });
 
@@ -225,8 +234,8 @@ describe('queueing the unpicked cards on the plan tab', () => {
         plan,
       },
     );
-    const tab = await openModal(fixture, page);
-    sideboardBox(tab).click();
+    const tab = await openQueueUnpicked(fixture, page);
+    sideboardBox().click();
     await fixture.whenStable();
 
     updates.events.next({
@@ -236,7 +245,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await flushPicks([]);
     await flushQueueAndPlan(EMPTY_QUEUE, plan);
     await fixture.whenStable();
-    expect(dialog(tab)).toBeNull();
+    expect(dialog()).toBeNull();
     // The player moves on, and the turn passes to Bob.
     tabButton(page, 'Plan').focus();
     updates.events.next({
@@ -247,11 +256,83 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await flushQueueAndPlan(EMPTY_QUEUE, plan);
     await fixture.whenStable();
 
-    expect(dialog(tab)).toBeNull();
+    expect(dialog()).toBeNull();
     expect(document.activeElement).toBe(tabButton(page, 'Plan'));
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
-    expect(sideboardBox(tab).checked).toBe(false);
+    expect(sideboardBox().checked).toBe(false);
+  });
+
+  it('opens on Cancel, and keeps Tab and Shift+Tab inside the dialog, wrapping at either end', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      { cards, plan },
+    );
+    await openQueueUnpicked(fixture, page);
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(dialog()!, 'Cancel')));
+
+    pressTab();
+    expect(document.activeElement).toBe(button(dialog()!, 'Queue 2 cards'));
+    pressTab();
+    expect(document.activeElement).toBe(sideboardBox());
+    pressTab({ shift: true });
+    expect(document.activeElement).toBe(button(dialog()!, 'Queue 2 cards'));
+  });
+
+  it('hides the page behind the dialog from assistive technology while it is open', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      { cards, plan },
+    );
+    const tab = await openQueueUnpicked(fixture, page);
+
+    await vi.waitFor(() => expect(hiddenFromAssistiveTech(tab)).toBe(true));
+    expect(hiddenFromAssistiveTech(dialog()!)).toBe(false);
+  });
+
+  it.each<[string, () => void]>([
+    ['Cancel', () => button(dialog()!, 'Cancel')!.click()],
+    ['Escape', pressEscape],
+    ['a backdrop click', clickBackdrop],
+  ])('returns focus to the Queue unpicked button on %s', async (_, close) => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      { cards, plan },
+    );
+    const tab = await openPlan(fixture, page);
+    button(tab, 'Queue unpicked')!.focus();
+    button(tab, 'Queue unpicked')!.click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(dialog()!, 'Cancel')));
+
+    close();
+    await fixture.whenStable();
+
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(button(tab, 'Queue unpicked'));
+  });
+
+  it('returns focus to the Queue unpicked button once its cards are queued', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      { cards, plan },
+    );
+    const tab = await openPlan(fixture, page);
+    button(tab, 'Queue unpicked')!.focus();
+    button(tab, 'Queue unpicked')!.click();
+    await fixture.whenStable();
+
+    button(dialog()!, 'Queue 2 cards')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/queue/unpicked')
+      .flush(queueOf({ cards: [queued(bolt), queued(boltAgain)] }));
+
+    await vi.waitFor(() => expect(dialog()).toBeNull());
+    expect(document.activeElement).toBe(button(tab, 'Queue unpicked'));
   });
 
   it.each([

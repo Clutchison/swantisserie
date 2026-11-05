@@ -23,9 +23,9 @@ import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
-import { alice } from '../../specs-harness';
+import { alice, button, buttons } from '../../specs-harness';
 
-export { alice };
+export { alice, button, buttons };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -253,15 +253,6 @@ export const playerAvatar = (page: HTMLElement, name: string) =>
     .find((li) => li.textContent?.includes(name))
     ?.querySelector<HTMLImageElement>('[role="presentation"]');
 
-/** Every button inside `root` with this text or aria-label, in page order. */
-export const buttons = (root: HTMLElement, label: string) =>
-  [...root.querySelectorAll('button')].filter(
-    (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
-  );
-
-/** A button inside `root`, by its text or its aria-label. */
-export const button = (root: HTMLElement, label: string) => buttons(root, label)[0];
-
 /**
  * What a screen reader names `element`: its aria-label, or else its text and
  * images' alt text, leaving out what's hidden from assistive tech. A rough
@@ -283,6 +274,16 @@ export function accessibleName(element: Element): string {
 /** A link inside `root`, by its accessible name. */
 export const link = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].find((a) => accessibleName(a) === name);
+
+/** A heading inside `root`, by its accessible name. */
+export const heading = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]')].find(
+    (element) => accessibleName(element) === name,
+  );
+
+/** The images inside `root` that a screen reader names, in page order. */
+export const namedImages = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLImageElement>('img')].filter((image) => image.alt !== '');
 
 /** The first alert inside `root`: an error shown to the viewer, if any. */
 export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
@@ -328,6 +329,7 @@ const CONTROLS = {
   textbox: 'textarea, input:not([type]), input[type="text"], input[type="url"]',
   spinbutton: 'input[type="number"]',
   radio: 'input[type="radio"]',
+  checkbox: 'input[type="checkbox"]',
   combobox: 'select',
 } as const;
 type ControlRole = keyof typeof CONTROLS;
@@ -335,14 +337,23 @@ type ControlOf = {
   textbox: HTMLInputElement | HTMLTextAreaElement;
   spinbutton: HTMLInputElement;
   radio: HTMLInputElement;
+  checkbox: HTMLInputElement;
   combobox: HTMLSelectElement;
 };
 
-/** A label's own text, leaving out any hint, option or other element it wraps. */
+/**
+ * A label's own text, and the alt text of an image it holds in place of
+ * text, leaving out any hint, option or other element it wraps.
+ */
 const ownText = (label: HTMLLabelElement) =>
   [...label.childNodes]
-    .filter((node) => node.nodeType === Node.TEXT_NODE)
-    .map((node) => node.textContent)
+    .map((node) =>
+      node.nodeType === Node.TEXT_NODE
+        ? node.textContent
+        : node instanceof HTMLImageElement
+          ? node.alt
+          : '',
+    )
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();

@@ -1,10 +1,8 @@
 @if (user(); as user) {
   <header role="banner">
     <div class="left-group">
-      <app-top-bar-menu class="narrow-only" accessibleName="Menu">
-        <button class="menu-item" type="button" (click)="feedbackOpen.set(true)">
-          Send feedback
-        </button>
+      <app-top-bar-menu #narrowMenu class="narrow-only" accessibleName="Menu">
+        <button class="menu-item" type="button" (click)="openFeedback()">Send feedback</button>
         @if (user.isAppAdmin) {
           <div role="group" aria-labelledby="narrow-app-admin-heading">
             <div class="menu-heading" id="narrow-app-admin-heading">App admin</div>
@@ -22,7 +20,7 @@
             <ng-container [ngTemplateOutlet]="appAdminItems" />
           </app-top-bar-menu>
         }
-        <button class="button quiet compact" type="button" (click)="feedbackOpen.set(true)">
+        <button class="button quiet compact" type="button" (click)="openFeedback()">
           Send feedback
         </button>
       </div>
@@ -55,6 +53,3 @@
   </p>
 }
 <router-outlet />
-@if (feedbackOpen()) {
-  <app-feedback-dialog (closed)="feedbackOpen.set(false)" />
-}

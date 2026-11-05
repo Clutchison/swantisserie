@@ -1,0 +1,29 @@
+/* The dialog's box: its heading, how many cards it adds and whether the sideboard's are in, then its actions. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(24rem, 100%);
+  padding: var(--space-lg);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h3,
+p {
+  margin: 0;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

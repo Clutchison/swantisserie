@@ -1,3 +1,4 @@
+import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
   ChangeDetectionStrategy,
@@ -5,16 +6,14 @@ import {
   computed,
   DestroyRef,
   effect,
-  ElementRef,
   inject,
+  Injector,
   signal,
   untracked,
-  viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   BASIC_LANDS,
-  MOST_BASICS,
   type BasicLand,
   type PlanBoard,
   type PlannedBasicView,
@@ -25,6 +24,8 @@ import {
 import type { Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { basicCard } from './basic-lands';
+import { BASIC_LANDS_HEADING, BasicLandsDialog } from './basic-lands-dialog';
+import { DialogShell } from '../dialog-shell';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
@@ -32,13 +33,16 @@ import { changeFailure, DESKTOP_QUERY } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
-import { QueueApi } from './queue-api';
+import {
+  QUEUE_UNPICKED_HEADING,
+  QueueUnpickedDialog,
+  type QueueUnpickedResult,
+  unpickedToQueue,
+} from './queue-unpicked-dialog';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { manaSymbol } from './mana-cost';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
-const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
 
 /** How a plan board shows: as stacks of card images, or as a list of names. */
 export type PlanMode = 'stacks' | 'list';
@@ -73,16 +77,6 @@ interface PlanLine extends PlanBoardCard {
    */
   key: string;
 }
-
-/** Each basic land's mana symbol, which labels it in the Basic lands modal: Wastes's is colorless. */
-const BASIC_SYMBOLS: Record<BasicLand, string> = {
-  Plains: '{W}',
-  Island: '{U}',
-  Swamp: '{B}',
-  Mountain: '{R}',
-  Forest: '{G}',
-  Wastes: '{C}',
-};
 
 /** Each basic land's card data, for the images and Card previews of its copies. */
 const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
@@ -137,9 +131,8 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; the Basic lands modal, which sets how
- * many of each basic land the mainboard holds; and the Plan notice of their lost
- * cards.
+ * the unpicked cards they added; the buttons that open the Queue unpicked
+ * and Basic lands dialogs; and the Plan notice of their lost cards.
  *
  * On desktop each plan board shows as stacks of card images, grouped by mana
  * value, color or card type, or as a list of names, and a card can be
@@ -165,17 +158,17 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
   ],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
   templateUrl: './plan-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
 })
 export class PlanTab {
   private readonly planApi = inject(PlanApi);
-  private readonly queueApi = inject(QueueApi);
   protected readonly images = inject(CardImageSource);
   protected readonly previews = inject(CardPreviews);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
@@ -242,57 +235,16 @@ export class PlanTab {
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.planBoards()[0].stacks.length);
 
-  /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
-  protected readonly basics = computed(() =>
-    BASIC_LANDS.map((land) => ({
-      land,
-      count: this.heldBasic(land),
-      symbol: manaSymbol(BASIC_SYMBOLS[land]).src,
-    })),
-  );
   /** How many basic lands the plan holds in all, for the Basic lands button. */
   protected readonly basicsTotal = computed(() =>
     this.plan().basics.reduce((total, basic) => total + basic.count, 0),
   );
-  /** Whether the Basic lands modal is open. */
-  protected readonly basicsOpen = signal(false);
-  private readonly doneWithBasics = viewChild<ElementRef<HTMLButtonElement>>('doneWithBasics');
-  /** Whether the plan holds any basic land, for Clear basics to clear. */
-  protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
-  /** The most copies of one basic land the Basic lands modal offers. */
-  protected readonly mostBasics = MOST_BASICS;
 
-  /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
-  protected readonly queueDialog = signal<{ includeSideboard: boolean } | null>(null);
-  private readonly cancelQueueing = viewChild<ElementRef<HTMLButtonElement>>('cancelQueueing');
-  /**
-   * Whether the current press began on a modal's backdrop. Only a click
-   * that both begins and ends there closes the modal: dragging a text
-   * selection out of the modal also ends in a click on the backdrop.
-   */
-  private pressedBackdrop = false;
-
-  /** Whether Queue unpicked is on its way. */
-  protected readonly sendingQueue = signal(false);
-  /** The pool card ids Queue unpicked adds from each plan board: its unpicked copies the queue doesn't hold. */
-  private readonly toQueue = computed(() => {
-    const toAdd = (cards: PlannedCardView[]) =>
-      cards.filter((card) => !card.picked && !this.queued().has(card.poolCardId));
-    return { mainboard: toAdd(this.plan().mainboard), sideboard: toAdd(this.plan().sideboard) };
-  });
+  /** The Queue unpicked dialog, while it's open. */
+  private queueing: DialogRef<QueueUnpickedResult, QueueUnpickedDialog> | null = null;
   /** Whether Queue unpicked has anything to add, from either plan board. */
   protected readonly anythingToQueue = computed(() =>
-    Object.values(this.toQueue()).some((cards) => cards.length > 0),
-  );
-  /** How many cards the open Queue unpicked modal adds, as it says it. */
-  protected readonly queueCountText = computed(
-    () => `${this.queueCount()} ${this.queueCount() === 1 ? 'card' : 'cards'}`,
-  );
-  /** How many cards the open Queue unpicked modal adds. */
-  protected readonly queueCount = computed(
-    () =>
-      this.toQueue().mainboard.length +
-      (this.queueDialog()?.includeSideboard ? this.toQueue().sideboard.length : 0),
+    Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
   );
 
   /** Whether there are lost cards to note. */
@@ -304,13 +256,10 @@ export class PlanTab {
   }
 
   constructor() {
-    // The modal takes focus as it opens.
-    effect(() => this.cancelQueueing()?.nativeElement.focus());
-    effect(() => this.doneWithBasics()?.nativeElement.focus());
     // Queue unpicked stops being offered as the player's turn comes: close its
-    // modal then, so it can't come back by itself once the turn passes.
+    // dialog then, so it can't come back by itself once the turn passes.
     effect(() => {
-      if (!this.offerQueueUnpicked()) untracked(() => this.closeQueueing());
+      if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
     });
     // Not every test environment's `matchMedia` reports changes.
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
@@ -383,43 +332,12 @@ export class PlanTab {
     });
   }
 
-  /**
-   * Sets how many copies of a basic land the plan holds. Should the button
-   * pressed be disabled at the new count, focus goes to the other one.
-   */
-  protected setBasic(land: BasicLand, count: number) {
-    return this.tryChange(() => this.planApi.setBasic(this.draftId(), land, count), {
-      keep: [count > this.heldBasic(land) ? `fewer ${land}` : `more ${land}`],
+  /** Opens the Basic lands dialog; focus returns to the button that opened it. */
+  protected openBasics() {
+    this.dialogs.open(BasicLandsDialog, {
+      labelledBy: BASIC_LANDS_HEADING,
+      injector: this.injector,
     });
-  }
-
-  /**
-   * A number typed for a basic land: the plan holds that many, rounded down
-   * and kept within 0 to MOST_BASICS. Anything that isn't a number is put
-   * back to the count the plan holds, as is a count the api refuses.
-   */
-  protected async typedBasic(land: BasicLand, held: number, input: HTMLInputElement) {
-    const typed = input.value.trim() === '' ? NaN : Number(input.value);
-    if (Number.isNaN(typed)) {
-      input.value = String(held);
-      return;
-    }
-    const count = Math.min(Math.max(Math.floor(typed), 0), MOST_BASICS);
-    // The binding only writes the input when the count changes, as it may not.
-    input.value = String(count);
-    if (count === held || (await this.setBasic(land, count))) return;
-    // Put back the early write: the binding writes the input only if the re-read plan's count differs.
-    input.value = String(this.heldBasic(land));
-  }
-
-  /** How many copies of `land` the plan holds. */
-  private heldBasic(land: BasicLand) {
-    return this.plan().basics.find((basic) => basic.land === land)?.count ?? 0;
-  }
-
-  /** Takes every basic land out of the plan. */
-  protected clearBasics() {
-    return this.tryChange(() => this.planApi.clearBasics(this.draftId()), { keep: ['done'] });
   }
 
   /** Takes one unpicked copy of a card out of the plan; should its line go, focus goes to the next. */
@@ -432,51 +350,21 @@ export class PlanTab {
     return this.tryChange(() => this.planApi.dismissNotice(this.draftId()));
   }
 
-  protected backdropPressed(event: MouseEvent) {
-    this.pressedBackdrop = event.target === event.currentTarget;
-  }
-
-  /** A click on a modal's backdrop closes that modal, if the press began there too. */
-  protected backdropClicked(event: MouseEvent, modal: 'queueing' | 'basics') {
-    if (!this.pressedBackdrop || event.target !== event.currentTarget) return;
-    if (modal === 'queueing') this.closeQueueing();
-    else this.closeBasics();
-  }
-
-  protected closeBasics() {
-    this.basicsOpen.set(false);
-  }
-
-  /** Opens the Queue unpicked modal, leaving the sideboard out. */
-  protected openQueueing() {
-    this.queueDialog.set({ includeSideboard: false });
-  }
-
-  protected closeQueueing() {
-    this.queueDialog.set(null);
-  }
-
-  protected setIncludeSideboard(includeSideboard: boolean) {
-    this.queueDialog.set({ includeSideboard });
-  }
-
   /**
-   * Adds the modal's cards to the end of the queue, in one request, and
-   * closes it. A refusal means the queue or turn has moved on: say why; the
-   * store re-reads the queue.
+   * Opens the Queue unpicked dialog, leaving the sideboard out. Once it has
+   * sent, a refusal is said here, where focus returns: to the button that
+   * opened it.
    */
-  protected async queueUnpicked() {
-    const { includeSideboard } = this.queueDialog()!;
-    this.sendingQueue.set(true);
-    this.error.set(null);
-    try {
-      await this.store.changeQueue(this.queueApi.addUnpicked(this.draftId(), includeSideboard));
-    } catch (err) {
-      this.error.set(changeFailure(err, QUEUE_FAILED));
-    } finally {
-      this.sendingQueue.set(false);
-      this.closeQueueing();
-    }
+  protected openQueueing() {
+    const queueing = this.dialogs.open<QueueUnpickedDialog, QueueUnpickedResult>(
+      QueueUnpickedDialog,
+      { labelledBy: QUEUE_UNPICKED_HEADING, injector: this.injector },
+    );
+    this.queueing = queueing;
+    queueing.closed.subscribe((result) => {
+      this.queueing = null;
+      if (result) this.error.set(result.error);
+    });
   }
 
   /**

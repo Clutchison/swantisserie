@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import type { PlanRefusal } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
@@ -17,6 +18,7 @@ import {
   pickOf,
   drafting,
 } from './harness';
+import { openDialog } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
@@ -99,6 +101,67 @@ describe('pool tab', () => {
       expect(detail.querySelector('[role="status"]')?.textContent).toContain(
         "Couldn't add the card to your plan.",
       );
+    });
+
+    describe('made from a Card detail since closed', () => {
+      /** Opens Shivan Dragon's Card detail, adds it to the plan, closes it, and opens Brightclimb's. */
+      async function addThenOpenAnother() {
+        const opened = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        button(await openDetail(opened.fixture, opened.page, 1), 'Add to Plan')!.click();
+        button(openDialog()!, 'Close')!.click();
+        const other = await openDetail(opened.fixture, opened.page, 0);
+        return { ...opened, other, add: http.expectOne('/api/drafts/draft-1/plan') };
+      }
+
+      /** Waits until `detail` offers Add to Plan again, as the add has been answered. */
+      async function answered(detail: HTMLElement) {
+        await vi.waitFor(() => {
+          TestBed.tick();
+          expect(button(detail, 'Add to Plan')!.disabled).toBe(false);
+        });
+      }
+
+      it('says nothing in the Card detail now open once it succeeds, and the card is planned', async () => {
+        const { fixture, page, other, add } = await addThenOpenAnother();
+
+        add.flush({
+          ...EMPTY_PLAN,
+          mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: false }],
+        });
+        await answered(other);
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="status"]')).toBeNull();
+        button(other, 'Close')!.click();
+        await fixture.whenStable();
+        expect(button(await openDetail(fixture, page, 1), 'Remove from Plan')!.disabled).toBe(
+          false,
+        );
+      });
+
+      it('says nothing in the Card detail now open when it is refused', async () => {
+        const { other, add } = await addThenOpenAnother();
+
+        add.flush(
+          {
+            error: 'no-copies-left',
+            message: 'Every available copy of that card is in your plan already.',
+          } satisfies PlanRefusal,
+          { status: 409, statusText: 'Conflict' },
+        );
+        await flushPlan(EMPTY_PLAN);
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft(drafting({ version: 1 })),
+        );
+        await flushPicks([]);
+        await flushQueueAndPlan();
+        await answered(other);
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="status"]')).toBeNull();
+      });
     });
 
     it('is disabled for a picked card', async () => {
@@ -232,10 +295,39 @@ describe('pool tab', () => {
       });
 
       button(await openDetail(fixture, page, 1), 'Add to Plan')!.click();
-      button(page.querySelector<HTMLElement>('[role="dialog"]')!, 'Close')!.click();
+      button(openDialog()!, 'Close')!.click();
       const detail = await openDetail(fixture, page, 0);
       expect(button(detail, 'Remove from Plan')!.disabled).toBe(true);
-      http.expectOne('/api/drafts/draft-1/plan').flush(planned(shivan.id));
+      http.expectOne('/api/drafts/draft-1/plan').flush({
+        ...planned(shivan.id),
+        mainboard: [
+          { poolCardId: shivan.id, name: shivan.name, picked: false },
+          { poolCardId: shivanCopy.id, name: shivanCopy.name, picked: false },
+        ],
+      });
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(button(detail, 'Remove from Plan')!.disabled).toBe(false);
+      });
+
+      // The add's note belongs to the other copy's Card detail, now closed.
+      expect(detail.querySelector('[role="status"]')).toBeNull();
+    });
+
+    it('succeeds after its Card detail has closed without a warning, and the card is no longer planned', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        plan: planned(shivan.id),
+      });
+      const warn = vi.spyOn(console, 'warn');
+
+      button(await openDetail(fixture, page, 0), 'Remove from Plan')!.click();
+      button(openDialog()!, 'Close')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(EMPTY_PLAN);
+      await fixture.whenStable();
+
+      expect(warn).not.toHaveBeenCalled();
+      expect(button(await openDetail(fixture, page, 0), 'Add to Plan')!.disabled).toBe(false);
     });
 
     it('says why a removal was refused, and re-reads the plan and the draft', async () => {

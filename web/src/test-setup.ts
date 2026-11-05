@@ -27,3 +27,13 @@ if (!(vi.waitFor as WaitFor)[wrappedFlag]) {
   waitFor[wrappedFlag] = true;
   vi.waitFor = waitFor;
 }
+
+/*
+ * jsdom lays nothing out, so no element has a box, and the CDK counts an
+ * element without one as hidden: a dialog's focus trap would find nothing to
+ * focus. Give every element in the page a box, unless it's hidden.
+ */
+Element.prototype.getClientRects = function (this: Element) {
+  const shown = this.isConnected && !this.closest('[hidden]');
+  return (shown ? [new DOMRect(0, 0, 1, 1)] : []) as unknown as DOMRectList;
+};

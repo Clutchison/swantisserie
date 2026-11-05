@@ -17,6 +17,7 @@ import {
   card,
   image,
   openDetail,
+  largeImages,
   shivan,
   tiles,
   useTallScreen,
@@ -126,8 +127,8 @@ describe('preloading a single card', () => {
     requests[0].image.onerror?.();
     const detail = await openDetail(fixture, page, 0);
 
-    expect(detail.querySelector('.large img:not(.placeholder)')?.getAttribute('src')).toBe(large);
-    expect(page.querySelector('[role="alert"]')).toBeNull();
+    expect(largeImages(detail)[0]?.getAttribute('src')).toBe(large);
+    expect(document.querySelector('[role="alert"]')).toBeNull();
   });
 });
 
@@ -246,7 +247,7 @@ describe('preloading the first results', () => {
     const { fixture, page } = await openPool(numbered(21));
 
     const detail = await openDetail(fixture, page, 0);
-    detail.querySelector('.large img:not(.placeholder)')!.dispatchEvent(new Event('error'));
+    largeImages(detail)[0].dispatchEvent(new Event('error'));
     TestBed.tick();
     wait(500);
 

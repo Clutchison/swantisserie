@@ -1,0 +1,68 @@
+<div class="dialog">
+  <app-change-status />
+  <h3 [id]="headingId">Basic lands</h3>
+  <ul>
+    @for (basic of basics(); track basic.land) {
+      <li>
+        <label [for]="'basic-' + basic.land">
+          <img
+            [src]="basic.symbol"
+            [alt]="basic.land"
+            [title]="basic.land"
+            width="24"
+            height="24"
+          />
+        </label>
+        <button
+          class="button compact quiet"
+          type="button"
+          [attr.aria-label]="'One fewer ' + basic.land"
+          [title]="'One fewer ' + basic.land"
+          (click)="setBasic(basic.land, basic.count - 1)"
+          [disabled]="basic.count === 0"
+          [appSendsChange]="'fewer ' + basic.land"
+        >
+          <svg lucideMinus size="16"></svg>
+        </button>
+        <input
+          [id]="'basic-' + basic.land"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          [max]="mostBasics"
+          [value]="basic.count"
+          (change)="typedBasic(basic.land, basic.count, $any($event.target))"
+          [disabled]="changing()"
+        />
+        <button
+          class="button compact quiet"
+          type="button"
+          [attr.aria-label]="'One more ' + basic.land"
+          [title]="'One more ' + basic.land"
+          (click)="setBasic(basic.land, basic.count + 1)"
+          [disabled]="basic.count >= mostBasics"
+          [appSendsChange]="'more ' + basic.land"
+        >
+          <svg lucidePlus size="16"></svg>
+        </button>
+      </li>
+    }
+  </ul>
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+  <div class="dialog-actions">
+    <button
+      class="button secondary"
+      type="button"
+      (click)="clearBasics()"
+      [disabled]="!hasBasics()"
+      appSendsChange="clear basics"
+    >
+      Clear basics
+    </button>
+    <button class="button" type="button" cdkFocusInitial appFocusKey="done" (click)="close()">
+      Done
+    </button>
+  </div>
+</div>

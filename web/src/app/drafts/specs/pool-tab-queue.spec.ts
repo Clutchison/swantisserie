@@ -25,6 +25,7 @@ import {
   queued,
   openQueue,
 } from './harness';
+import { openDialog } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
@@ -62,7 +63,7 @@ describe('pool tab', () => {
       });
 
       expect(button(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
-      button(page.querySelector('[role="dialog"]')!, 'Close')!.click();
+      button(openDialog()!, 'Close')!.click();
       await fixture.whenStable();
       const detail = await openDetail(fixture, page, 0);
       expect(button(detail, 'Add to queue')).toBeDefined();
@@ -193,6 +194,111 @@ describe('pool tab', () => {
       );
 
       expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
+    });
+
+    describe('made from a Card detail since closed', () => {
+      /**
+       * Opens Shivan Dragon's Card detail, presses `action` in it, closes it,
+       * and opens Brightclimb's, leaving the request unanswered.
+       */
+      async function requestThenOpenAnother(
+        action: 'Add to queue' | 'Remove from queue',
+        queue = EMPTY_QUEUE,
+      ) {
+        const opened = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue,
+        });
+        button(await openDetail(opened.fixture, opened.page, 1), action)!.click();
+        button(openDialog()!, 'Close')!.click();
+        const other = await openDetail(opened.fixture, opened.page, 0);
+        return { ...opened, other };
+      }
+
+      /** Waits until `check` holds of what the page shows. */
+      async function until(check: () => void) {
+        await vi.waitFor(() => {
+          TestBed.tick();
+          check();
+        });
+      }
+
+      it('says nothing in the Card detail now open once an add succeeds, and the card is queued', async () => {
+        const { fixture, page, other } = await requestThenOpenAnother('Add to queue');
+
+        http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
+        await until(() => expect(button(other, 'Add to queue')!.disabled).toBe(false));
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="status"]')).toBeNull();
+        button(other, 'Close')!.click();
+        await fixture.whenStable();
+        expect(button(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
+      });
+
+      it('says nothing in the Card detail now open when an add is refused', async () => {
+        const { fixture, other } = await requestThenOpenAnother('Add to queue');
+
+        http.expectOne('/api/drafts/draft-1/queue').flush(
+          {
+            error: 'your-turn',
+            message: 'You can’t add to your queue on your turn.',
+          } satisfies QueueRefusal,
+          { status: 409, statusText: 'Conflict' },
+        );
+        await flushQueue(EMPTY_QUEUE);
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
+        );
+        await flushPicks([]);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+        await until(() => expect(button(other, 'Pick')!.disabled).toBe(false));
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="status"]')).toBeNull();
+      });
+
+      it('says nothing in the Card detail now open once a removal succeeds, and the card is no longer queued', async () => {
+        const { fixture, page, other } = await requestThenOpenAnother(
+          'Remove from queue',
+          queueOf({ cards: [queued(shivan)] }),
+        );
+
+        http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
+        await until(() => expect(button(other, 'Add to queue')!.disabled).toBe(false));
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="status"]')).toBeNull();
+        button(other, 'Close')!.click();
+        await fixture.whenStable();
+        expect(button(await openDetail(fixture, page, 1), 'Add to queue')).toBeDefined();
+      });
+
+      it('says nothing in the Card detail now open when a removal is refused', async () => {
+        const { fixture, other } = await requestThenOpenAnother(
+          'Remove from queue',
+          queueOf({ cards: [queued(shivan)] }),
+        );
+
+        http
+          .expectOne('/api/drafts/draft-1/queue/shivan-card')
+          .flush(
+            { error: 'draft-closed', message: 'This draft is closed.' } satisfies QueueRefusal,
+            { status: 409, statusText: 'Conflict' },
+          );
+        await flushQueue(queueOf({ cards: [queued(shivan)] }));
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft(drafting({ state: 'Closed', turn: null, version: 1 })),
+        );
+        await flushPicks([]);
+        await flushQueueAndPlan(queueOf({ cards: [queued(shivan)] }));
+        await fixture.whenStable();
+        await until(() => expect(button(other, 'Add to queue')).toBeUndefined());
+
+        expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
+        expect(other.querySelector('[role="status"]')).toBeNull();
+      });
     });
 
     describe('on your own turn', () => {
