@@ -43,7 +43,7 @@ const CONFIRMATION_MS = 2000;
   imports: [CardName, LoadingAnimation, LucideCheck],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './export-tab.html',
-  styleUrls: ['./drafts.scss', './draft-panels.scss', './export-tab.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './export-tab.scss'],
 })
 export class ExportTab implements OnDestroy {
   /** The draft's platform, which decides the exports offered. */

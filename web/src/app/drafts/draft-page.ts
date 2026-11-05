@@ -58,7 +58,7 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
   providers: [CardImageSource, CardPreviews, ImagePreloader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
-  styleUrls: ['./drafts.scss', './draft-panels.scss', './draft-page.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './draft-page.scss'],
 })
 export class DraftPage {
   private readonly http = inject(HttpClient);

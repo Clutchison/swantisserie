@@ -36,7 +36,7 @@ const MAX_PLAYERS = 12;
   imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
-  styleUrls: ['./drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
 })
 export class LobbyControls {
   private readonly http = inject(HttpClient);

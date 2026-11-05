@@ -156,7 +156,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
   templateUrl: './plan-tab.html',
-  styleUrls: ['./drafts.scss', './plan-tab.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
 })
 export class PlanTab {
   private readonly planApi = inject(PlanApi);

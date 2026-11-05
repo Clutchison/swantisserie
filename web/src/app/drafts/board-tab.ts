@@ -9,7 +9,7 @@ import { CardName } from './card-name';
   imports: [CardName, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './board-tab.html',
-  styleUrls: ['./drafts.scss', './draft-panels.scss', './board-tab.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './board-tab.scss'],
 })
 export class BoardTab {
   /** The draft's players, in seat order. */
