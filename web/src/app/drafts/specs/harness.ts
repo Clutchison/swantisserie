@@ -324,6 +324,40 @@ export const selectByLabel = (root: HTMLElement, label: string) =>
     ),
   );
 
+/** The form controls with each role, by the selector that finds them. */
+const CONTROLS = {
+  textbox: 'textarea, input:not([type]), input[type="text"], input[type="url"]',
+  spinbutton: 'input[type="number"]',
+  radio: 'input[type="radio"]',
+  combobox: 'select',
+} as const;
+type ControlRole = keyof typeof CONTROLS;
+type ControlOf = {
+  textbox: HTMLInputElement | HTMLTextAreaElement;
+  spinbutton: HTMLInputElement;
+  radio: HTMLInputElement;
+  combobox: HTMLSelectElement;
+};
+
+/** A label's own text, leaving out any hint, option or other element it wraps. */
+const ownText = (label: HTMLLabelElement) =>
+  [...label.childNodes]
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Every form control inside `root` with this role and label, in page order. */
+export const controlsByLabel = <R extends ControlRole>(root: HTMLElement, role: R, label: string) =>
+  [...root.querySelectorAll<ControlOf[R]>(CONTROLS[role])].filter((control) =>
+    [...(control.labels ?? [])].some((l) => ownText(l) === label),
+  );
+
+/** A form control inside `root`, by its role and its label's own text. */
+export const controlByLabel = <R extends ControlRole>(root: HTMLElement, role: R, label: string) =>
+  controlsByLabel(root, role, label)[0];
+
 /** The buttons in the tab bar, in order. */
 export const tabs = (root: HTMLElement) => [
   ...root.querySelectorAll<HTMLButtonElement>('[role="tab"]'),

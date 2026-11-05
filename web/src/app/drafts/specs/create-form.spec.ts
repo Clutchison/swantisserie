@@ -6,7 +6,16 @@ import {
   type DraftCreationProblem,
   type WebhookView,
 } from 'contract';
-import { useDraftsApp, draft, http, router, openUrl, webhooksAnswer } from './harness';
+import {
+  useDraftsApp,
+  button,
+  controlByLabel,
+  draft,
+  http,
+  router,
+  openUrl,
+  webhooksAnswer,
+} from './harness';
 
 useDraftsApp();
 beforeEach(() => webhooksAnswer(null));
@@ -23,19 +32,24 @@ describe('create form', () => {
     return { fixture, page };
   }
 
-  function fill(page: HTMLElement, field: string, value: string) {
-    const input = page.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${field}"]`)!;
+  /** The text box labelled `label`, if it's showing. */
+  const textBox = (page: HTMLElement, label: string) => controlByLabel(page, 'textbox', label);
+  const picksPerPlayer = (page: HTMLElement) =>
+    controlByLabel(page, 'spinbutton', 'Picks per player')!;
+
+  /** Types `value` into the field labelled `label`. */
+  function fill(page: HTMLElement, label: string, value: string) {
+    const input = textBox(page, label) ?? picksPerPlayer(page);
     input.value = value;
     input.dispatchEvent(new Event('input'));
   }
 
-  const webhookOptions = (page: HTMLElement) => [
-    ...page.querySelectorAll<HTMLOptionElement>('[name="webhookId"] option'),
-  ];
+  const webhookSelect = (page: HTMLElement) => controlByLabel(page, 'combobox', 'Announcements')!;
+  const webhookOptions = (page: HTMLElement) => [...webhookSelect(page).options];
 
   /** Chooses the webhook option labelled `label`. */
   function chooseWebhook(page: HTMLElement, label: string) {
-    const select = page.querySelector<HTMLSelectElement>('[name="webhookId"]')!;
+    const select = webhookSelect(page);
     select.selectedIndex = webhookOptions(page).findIndex(
       (option) => option.textContent?.trim() === label,
     );
@@ -43,18 +57,19 @@ describe('create form', () => {
   }
 
   const chosenWebhook = (page: HTMLElement) =>
-    page
-      .querySelector<HTMLSelectElement>('[name="webhookId"]')!
-      .selectedOptions[0]?.textContent?.trim();
+    webhookSelect(page).selectedOptions[0]?.textContent?.trim();
 
   function submit(page: HTMLElement) {
-    page.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    button(page, 'Create draft')!.click();
   }
+
+  /** The error the form shows, if any. */
+  const alert = (page: HTMLElement) => page.querySelector('[role="alert"]');
 
   /** Fills in and submits the form, and returns the POST it sends. */
   async function create({ fixture, page }: Awaited<ReturnType<typeof openForm>>) {
-    fill(page, 'name', 'Red dragons');
-    fill(page, 'poolQuery', 't:dragon c:r');
+    fill(page, 'Name', 'Red dragons');
+    fill(page, 'Pool query', 't:dragon c:r');
     await fixture.whenStable();
     submit(page);
     return vi.waitFor(() => http.expectOne('/api/drafts'));
@@ -66,7 +81,7 @@ describe('create form', () => {
     const cancel = page.querySelector<HTMLAnchorElement>('.actions a.button.secondary')!;
     expect(cancel.textContent?.trim()).toBe('Cancel');
     expect(cancel.getAttribute('href')).toBe('/');
-    expect(cancel.parentElement?.querySelector('button[type="submit"]')).not.toBeNull();
+    expect(cancel.parentElement?.contains(button(page, 'Create draft')!)).toBe(true);
   });
 
   it('keeps the Scryfall search link a plain link', async () => {
@@ -97,7 +112,7 @@ describe('create form', () => {
     http.expectOne('/api/webhooks').flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    expect(page.querySelector('.hint.error')?.textContent).toContain(
+    expect(page.textContent).toContain(
       "Couldn't load the webhooks, so this draft will post nowhere.",
     );
     expect(chosenWebhook(page)).toBe('None');
@@ -106,14 +121,12 @@ describe('create form', () => {
   it('starts picks per player at 40', async () => {
     const { page } = await openForm();
 
-    expect(page.querySelector<HTMLInputElement>('[name="picksPerPlayer"]')?.value).toBe('40');
+    expect(picksPerPlayer(page).value).toBe('40');
   });
 
   it('refuses picks per player outside the range the api accepts', async () => {
     const { page } = await openForm();
-    const picks = [...page.querySelectorAll('input')].find((input) =>
-      [...(input.labels ?? [])].some((label) => label.textContent?.trim() === 'Picks per player'),
-    )!;
+    const picks = picksPerPlayer(page);
     const validFor = (value: number) => {
       picks.value = String(value);
       return picks.checkValidity();
@@ -127,7 +140,7 @@ describe('create form', () => {
 
   it('creates the draft and goes to its page', async () => {
     const form = await openForm();
-    fill(form.page, 'picksPerPlayer', '30');
+    fill(form.page, 'Picks per player', '30');
 
     const req = await create(form);
     expect(req.request.method).toBe('POST');
@@ -156,27 +169,62 @@ describe('create form', () => {
     { fixture, page }: Awaited<ReturnType<typeof openForm>>,
     label: string,
   ) {
-    const radio = [...page.querySelectorAll<HTMLInputElement>('[name="poolSource"]')].find(
-      (input) => input.closest('label')?.textContent?.trim() === label,
-    )!;
-    radio.click();
+    controlByLabel(page, 'radio', label)!.click();
     await fixture.whenStable();
   }
 
   it('starts on a pool query, with no cube link field', async () => {
     const { page } = await openForm();
 
-    expect(page.querySelector('[name="poolQuery"]')).not.toBeNull();
-    expect(page.querySelector('[name="cubeLink"]')).toBeNull();
+    expect(controlByLabel(page, 'radio', 'Pool query')!.checked).toBe(true);
+    expect(textBox(page, 'Pool query')).toBeDefined();
+    expect(textBox(page, 'Cube link')).toBeUndefined();
+  });
+
+  it('shows only the field for the pool source chosen', async () => {
+    const form = await openForm();
+
+    await choosePoolSource(form, 'Cube link');
+    expect(textBox(form.page, 'Cube link')).toBeDefined();
+    expect(textBox(form.page, 'Pool query')).toBeUndefined();
+
+    await choosePoolSource(form, 'Pool query');
+    expect(textBox(form.page, 'Pool query')).toBeDefined();
+    expect(textBox(form.page, 'Cube link')).toBeUndefined();
+  });
+
+  it('keeps what was typed for each pool source when switching between them', async () => {
+    const form = await openForm();
+    fill(form.page, 'Pool query', 't:dragon c:r');
+    await choosePoolSource(form, 'Cube link');
+    fill(form.page, 'Cube link', 'thepaupercube');
+
+    await choosePoolSource(form, 'Pool query');
+    expect(textBox(form.page, 'Pool query')!.value).toBe('t:dragon c:r');
+    await choosePoolSource(form, 'Cube link');
+    expect(textBox(form.page, 'Cube link')!.value).toBe('thepaupercube');
+  });
+
+  it('sends only the pool query when a cube link was typed and then left', async () => {
+    const form = await openForm();
+    await choosePoolSource(form, 'Cube link');
+    fill(form.page, 'Cube link', 'thepaupercube');
+    await choosePoolSource(form, 'Pool query');
+
+    const req = await create(form);
+    expect(req.request.body.poolSource).toEqual({ kind: 'pool-query', poolQuery: 't:dragon c:r' });
+    req.flush({ error: 'invalid', message: 'Stop here.' } satisfies DraftCreationProblem, {
+      status: 400,
+      statusText: 'Error',
+    });
   });
 
   it('creates a draft from a cube link in place of a pool query', async () => {
     const form = await openForm();
-    fill(form.page, 'poolQuery', 't:dragon c:r');
+    fill(form.page, 'Pool query', 't:dragon c:r');
     await choosePoolSource(form, 'Cube link');
-    expect(form.page.querySelector('[name="poolQuery"]')).toBeNull();
-    fill(form.page, 'name', 'Pauper');
-    fill(form.page, 'cubeLink', 'https://cubecobra.com/cube/list/thepaupercube');
+    fill(form.page, 'Name', 'Pauper');
+    fill(form.page, 'Cube link', 'https://cubecobra.com/cube/list/thepaupercube');
     await form.fixture.whenStable();
     submit(form.page);
 
@@ -198,13 +246,12 @@ describe('create form', () => {
     const form = await openForm();
     await choosePoolSource(form, 'Cube link');
 
-    expect(form.page.querySelector('[name="cubeLink"] ~ .hint')?.textContent).toContain(
+    expect(textBox(form.page, 'Cube link')!.labels?.[0]?.textContent).toContain(
       'every card must be on Arena.',
     );
   });
 
-  const platformSelect = (page: HTMLElement) =>
-    page.querySelector<HTMLSelectElement>('[name="platform"]')!;
+  const platformSelect = (page: HTMLElement) => controlByLabel(page, 'combobox', 'Platform')!;
 
   /** Chooses the platform option labelled `label`. */
   function choosePlatform(page: HTMLElement, label: string) {
@@ -240,7 +287,7 @@ describe('create form', () => {
 
   it('says the pool’s cards must be on the platform chosen', async () => {
     const { fixture, page } = await openForm();
-    const hint = () => page.querySelector('[name="poolQuery"] ~ .hint')?.textContent;
+    const hint = () => textBox(page, 'Pool query')!.labels?.[0]?.textContent;
     expect(hint()).toContain('they must all be on Arena.');
 
     choosePlatform(page, 'MTGO');
@@ -323,7 +370,7 @@ describe('create form', () => {
     } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
-    const error = page.querySelector('.error')!;
+    const error = alert(page)!;
     expect(error.textContent).toContain('2 cards in this pool query are not on Arena.');
     expect([...error.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
       'Ancient Hellkite',
@@ -344,7 +391,7 @@ describe('create form', () => {
     } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
-    expect(page.querySelector('.error')?.textContent).toContain('…and 4998 more.');
+    expect(alert(page)?.textContent).toContain('…and 4998 more.');
   });
 
   it('shows what Scryfall said about a rejected pool query', async () => {
@@ -358,7 +405,7 @@ describe('create form', () => {
     } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
-    const error = page.querySelector('.error')!.textContent;
+    const error = alert(page)!.textContent;
     expect(error).toContain('Scryfall ignored part of this pool query.');
     expect(error).toContain('Invalid expression “foo:bar” was ignored. Unknown keyword “foo”.');
   });
@@ -389,7 +436,7 @@ describe('create form', () => {
     fail(await create(form), status, body);
     await fixture.whenStable();
 
-    expect(page.querySelector('.error')?.textContent).toContain(body.message);
+    expect(alert(page)?.textContent).toContain(body.message);
   });
 
   it('still says something when the request fails without a message', async () => {
@@ -399,6 +446,6 @@ describe('create form', () => {
     (await create(form)).error(new ProgressEvent('error'));
     await fixture.whenStable();
 
-    expect(page.querySelector('.error')?.textContent).toContain('Creating the draft failed');
+    expect(alert(page)?.textContent).toContain('Creating the draft failed');
   });
 });
