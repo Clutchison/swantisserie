@@ -1,9 +1,5 @@
-import {
-  availableCopies,
-  swapOrLose,
-  type Pool,
-  type SeatPick,
-} from './queue.js';
+import { availableCopies, type Pool, type Swap, swapOrLose } from './copies.js';
+import type { SeatPick } from './queue.js';
 
 /** One seat's plan after a pick. */
 export interface PlanAfterPick {
@@ -14,7 +10,7 @@ export interface PlanAfterPick {
    * picked card for an available copy; in the picker's, an unpicked copy for
    * the picked card itself, which is now their pick.
    */
-  swapped?: { out: string; in: string };
+  swapped?: Swap;
   /** The picked card, if the plan lost it: no copy was available for the plan. */
   lost?: string;
 }
@@ -48,7 +44,7 @@ export function plansAfterPick(
             swapped: { out: plan[unpicked], in: pick.card },
           };
     }
-    const { list, ...swappedOrLost } = swapOrLose(plan, pick.card, copies);
-    return { plan: list, ...swappedOrLost };
+    const { cards, ...swappedOrLost } = swapOrLose(plan, pick.card, copies);
+    return { plan: cards, ...swappedOrLost };
   });
 }

@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { cascade } from './cascade.js';
 
-/** The picks a cascade makes, without their effects. */
-function picks(...args: Parameters<typeof cascade>) {
-  return cascade(...args).map(({ pick }) => pick);
+/** The picks a cascade makes with no plans, without their effects. */
+function picks(
+  draft: Parameters<typeof cascade>[0],
+  queues: Parameters<typeof cascade>[1],
+  pool: Parameters<typeof cascade>[2],
+  stealBehaviors: Parameters<typeof cascade>[3] = [],
+) {
+  return cascade(draft, queues, pool, stealBehaviors, []).map(
+    ({ pick }) => pick,
+  );
 }
 
 // A pool holding one copy of each card.
@@ -169,6 +176,8 @@ describe('cascade', () => {
           { players: 3, picksPerPlayer: 1, picked: [] },
           [['bolt-1'], ['bolt-1', 'shock'], []],
           bolts,
+          [],
+          [],
         ),
       ).toEqual([
         {
@@ -235,6 +244,8 @@ describe('cascade', () => {
         { players: 2, picksPerPlayer: 2, picked: [] },
         [['shock'], ['shock', 'bolt-1']],
         bolts,
+        [],
+        [],
       );
       expect(first.queues[1]).toEqual({
         queue: [],
@@ -249,6 +260,7 @@ describe('cascade', () => {
         [['shock'], ['shock', 'bolt-1']],
         bolts,
         ['ClearQueue', 'PickNext'],
+        [],
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],

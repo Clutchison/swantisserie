@@ -1,7 +1,7 @@
 import type { DraftPicks } from './pick.js';
 import { type PlanAfterPick, plansAfterPick } from './plan.js';
+import type { Pool } from './copies.js';
 import {
-  type Pool,
   type QueueAfterPick,
   queuesAfterPick,
   type SeatPick,
@@ -39,8 +39,8 @@ export function cascade(
   draft: DraftPicks,
   queues: readonly (readonly string[])[],
   pool: Pool,
-  stealBehaviors: readonly StealBehavior[] = [],
-  plans: readonly (readonly string[])[] = [],
+  stealBehaviors: readonly StealBehavior[],
+  plans: readonly (readonly string[])[],
 ): CascadePick[] {
   const picked = [...draft.picked];
   const taken = new Set(picked);
