@@ -1,4 +1,6 @@
-import type { QueueRefusal } from 'contract';
+import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
+import { By } from '@angular/platform-browser';
+import type { QueueRefusal, QueueView } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -20,8 +22,10 @@ import {
   openQueue,
   queued,
   queueOf,
+  type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
+import { bolt } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -30,6 +34,42 @@ describe('queue tab', () => {
   /** The names in the Queue tab's list, in order. */
   const names = (queue: HTMLElement) =>
     [...queue.querySelectorAll('li .name')].map((name) => name.textContent);
+
+  /**
+   * Starts dragging the queued card named `name`, and returns what drops it
+   * at `currentIndex` in the queue as it is then. Like CDK, the drop says the
+   * card's index from when the drag started.
+   */
+  const startDrag = (fixture: AppFixture, name: string) => {
+    const list = fixture.debugElement
+      .query(By.css('app-queue-tab'))
+      .query(By.directive(CdkDropList));
+    const drags = list.queryAll(By.directive(CdkDrag));
+    const previousIndex = drags.findIndex((drag) => drag.nativeElement.textContent.includes(name));
+    const item = drags[previousIndex].injector.get(CdkDrag);
+    return (currentIndex: number) => {
+      const container = list.injector.get(CdkDropList);
+      list.triggerEventHandler('cdkDropListDropped', {
+        item,
+        previousIndex,
+        currentIndex,
+        container,
+        previousContainer: container,
+      });
+    };
+  };
+
+  /** A new draft version, so the queue is re-read, answered with `queue`. */
+  const reread = async (fixture: AppFixture, queue: QueueView) => {
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
+    });
+    await flushPicks([]);
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queue);
+    await flushPlan(EMPTY_PLAN);
+    await fixture.whenStable();
+  };
 
   it('says the queue is loading, not empty, until it arrives', async () => {
     const { fixture, page } = await openUrl('/drafts/draft-1');
@@ -228,5 +268,41 @@ describe('queue tab', () => {
 
     expect(queue.querySelector('[role="alert"]')?.textContent).toContain('Your queue has changed.');
     expect(names(queue)).toEqual(['Shivan Dragon']);
+  });
+
+  it('moves the dragged card, even if the queue was re-read during the drag', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [bolt, brightclimb, shivan],
+      queue: queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] }),
+    });
+    const queue = await openQueue(fixture, page);
+
+    const drop = startDrag(fixture, 'Shivan Dragon');
+    await reread(fixture, queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
+    drop(1);
+    await fixture.whenStable();
+
+    expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Shivan Dragon']);
+    const req = http.expectOne('/api/drafts/draft-1/queue');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
+    req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
+    await fixture.whenStable();
+  });
+
+  it('ignores a drop of a card that left the queue during the drag', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [bolt, brightclimb, shivan],
+      queue: queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] }),
+    });
+    const queue = await openQueue(fixture, page);
+
+    const drop = startDrag(fixture, 'Lightning Bolt');
+    await reread(fixture, queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
+    drop(1);
+    await fixture.whenStable();
+
+    expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
+    http.expectNone('/api/drafts/draft-1/queue');
   });
 });

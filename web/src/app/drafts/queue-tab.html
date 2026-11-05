@@ -71,6 +71,7 @@
   ) {
     <li
       cdkDrag
+      [cdkDragData]="card.poolCardId"
       cdkDragLockAxis="y"
       cdkDragPreviewContainer="parent"
       (cdkDragStarted)="previews.dragStarted()"
