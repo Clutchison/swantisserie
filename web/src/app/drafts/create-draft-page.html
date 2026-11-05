@@ -17,48 +17,58 @@
     <fieldset class="pool-source">
       <legend>Pool from</legend>
       <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="poolQuery" />
+        <input type="radio" name="poolSource" formControlName="poolSource" value="pool-query" />
         Pool query
       </label>
       <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="cubeLink" />
+        <input type="radio" name="poolSource" formControlName="poolSource" value="cube" />
         Cube link
       </label>
     </fieldset>
-    @if (poolSource() === 'cubeLink') {
-      <label>
-        Cube link
-        <input
-          name="cubeLink"
-          formControlName="cubeLink"
-          [maxlength]="maxCubeLinkLength"
-          required
-          placeholder="e.g. https://cubecobra.com/cube/list/thepaupercube"
-        />
-        <span class="hint">
-          A <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a> cube’s link
-          or id. Its mainboard goes in the pool, and every card must be on {{ platform() }}.
-        </span>
-      </label>
-    } @else {
-      <label>
-        Pool query
-        <textarea
-          name="poolQuery"
-          formControlName="poolQuery"
-          rows="3"
-          [maxlength]="maxPoolQueryLength"
-          required
-          placeholder="e.g. cube:arena"
-        ></textarea>
-        <span class="hint">
-          A
-          <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener"
-            >Scryfall search</a
-          >. Every card it finds goes in the pool, and they must all be on {{ platform() }}.
-        </span>
-      </label>
-    }
+    <!-- Only the chosen pool source's group shows; the others keep what was typed. -->
+    <ng-container formGroupName="poolSources">
+      <!-- Read once, so the exhaustive check sees the value each case narrowed. -->
+      @let kind = poolSource();
+      @switch (kind) {
+        @case ('pool-query') {
+          <label formGroupName="pool-query">
+            Pool query
+            <textarea
+              name="poolQuery"
+              formControlName="poolQuery"
+              rows="3"
+              [maxlength]="maxPoolQueryLength"
+              required
+              placeholder="e.g. cube:arena"
+            ></textarea>
+            <span class="hint">
+              A
+              <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener"
+                >Scryfall search</a
+              >. Every card it finds goes in the pool, and they must all be on {{ platform() }}.
+            </span>
+          </label>
+        }
+        @case ('cube') {
+          <label formGroupName="cube">
+            Cube link
+            <input
+              name="cubeLink"
+              formControlName="cubeLink"
+              [maxlength]="maxCubeLinkLength"
+              required
+              placeholder="e.g. https://cubecobra.com/cube/list/thepaupercube"
+            />
+            <span class="hint">
+              A <a href="https://cubecobra.com" target="_blank" rel="noopener">CubeCobra</a> cube’s
+              link or id. Its mainboard goes in the pool, and every card must be on
+              {{ platform() }}.
+            </span>
+          </label>
+        }
+        @default never;
+      }
+    </ng-container>
     <label>
       Picks per player
       <input

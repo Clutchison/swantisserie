@@ -156,6 +156,8 @@
             Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
           </p>
         }
+        <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
+        @default never(draft.poolSource);
       }
     </section>
 
