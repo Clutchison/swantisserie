@@ -141,22 +141,22 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 
 ## Stack
 
-| Layer    | Choice                                                                                                                                                                |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repo     | npm workspaces monorepo: `engine`, `api`, `web`                                                                                                                       |
-| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turn calculation, cascade resolution, undo, queue pruning. Returns domain events. Built test-first. |
-| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                       |
-| `web`    | Angular + Angular Material + CDK, mobile-first                                                                                                                        |
-| DB       | Neon Postgres (free tier)                                                                                                                                             |
-| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.     |
-| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                             |
+| Layer    | Choice                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo     | npm workspaces monorepo: `engine`, `api`, `web`                                                                                                                        |
+| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns, pick checks, cascades, and what a pick or an undo does to queues and plans. Built test-first. |
+| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                        |
+| `web`    | Angular + Angular Material + CDK, mobile-first                                                                                                                         |
+| DB       | Neon Postgres (free tier)                                                                                                                                              |
+| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.      |
+| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                              |
 
 ### Pick flow (api)
 
 1. Open a transaction and lock the draft row (`SELECT … FOR UPDATE`).
-2. The engine validates the pick (your turn, card available, draft is Drafting), applies it, resolves the cascade, and prunes queues.
-3. Persist the picks and queue changes, then commit.
-4. **After commit**, pass the engine's events to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
+2. Under the draft row lock, the api checks that the draft is Drafting. The engine checks the pick (your turn, card available), and works out the cascade after it and what every pick does to queues and plans.
+3. The api persists the picks and their effects on queues and plans, then commits.
+4. **After commit**, the api builds the announcement's events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
 5. Push the draft as it now is to the draft's Socket.IO room.
 
 ### Where the Discord code lives
