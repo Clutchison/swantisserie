@@ -161,7 +161,7 @@
                           />
                         </button>
                       }
-                      @if (!card.picked) {
+                      @if (!card.picked && offerRemoveFromPlan()) {
                         @let removeName = 'Remove ' + card.name + ' from your plan';
                         <button
                           class="icon"
@@ -221,7 +221,7 @@
                     <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }" />
                   </button>
                 }
-                @if (!line.picked) {
+                @if (!line.picked && offerRemoveFromPlan()) {
                   @let removeName = 'Remove ' + line.name + ' from your plan';
                   <button
                     class="button compact quiet line-action"

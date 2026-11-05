@@ -166,21 +166,38 @@ export class DraftStore {
     );
   });
 
-  /** Offering a pick: to players, while the draft is Drafting. */
+  /**
+   * Offering a pick: to players, while the draft is Drafting. The api refuses
+   * anyone else with `not-a-player`, and any other draft state with
+   * `not-drafting`.
+   */
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is active; adding to
-   * the queue is still not offered on the player's own turn.
+   * the queue is still not offered on the player's own turn. The Queue tab is
+   * read-only when this is false. The api refuses anyone else with
+   * `not-a-player`, a Complete or Closed draft with `draft-complete` or
+   * `draft-closed`, and adding on the player's own turn with `your-turn`.
    */
   readonly offerQueue = computed(() => {
     const draft = this.draft.value();
     return this.joined() && !!draft && isActive(draft.state);
   });
-  /** Offering adding to and removing from the plan: to players, while the draft is active. */
-  readonly offerPlanChange = computed(() => {
+  /**
+   * Offering adding to the plan: to players, while the draft is active. The
+   * api refuses anyone else with `not-a-player`, and a Complete or Closed
+   * draft with `draft-complete` or `draft-closed`.
+   */
+  readonly offerAddToPlan = computed(() => {
     const draft = this.draft.value();
     return this.joined() && !!draft && isActive(draft.state);
   });
+  /**
+   * Offering removing an unpicked card from the plan: to players, in every
+   * draft state. The api refuses only someone who isn't a player, with
+   * `not-a-player`.
+   */
+  readonly offerRemoveFromPlan = this.joined;
 
   constructor() {
     effect((onCleanup) => {
