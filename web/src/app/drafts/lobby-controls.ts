@@ -64,7 +64,7 @@ export class LobbyControls {
 
   /** App admins may add and remove bots in the lobby. */
   protected readonly isAppAdmin = computed(() => !!this.user()?.isAppAdmin);
-  /** A full draft takes no more bots. */
+  /** A full draft takes no more players: no one joins, and no bot is added. */
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');

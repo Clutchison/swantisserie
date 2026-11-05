@@ -66,6 +66,8 @@
       <button class="button secondary" type="button" (click)="leave()" [disabled]="changingLobby()">
         Leave
       </button>
+    } @else if (draftFull()) {
+      <p class="detail">This draft is full.</p>
     } @else {
       <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
         Join

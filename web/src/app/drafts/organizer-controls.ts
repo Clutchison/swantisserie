@@ -82,7 +82,8 @@ export class OrganizerControls {
   /** Closes the draft, once the organizer confirms. */
   protected close() {
     const draft = this.draft();
-    // Only a drafting or paused draft is offered this, so there is a turn.
+    // Only a drafting or paused draft is offered this, and both have a turn:
+    // the guard never returns early, it only narrows the type to read `turn`.
     if (!hasTurn(draft)) return;
     const { id, name, players, picksPerPlayer, turn } = draft;
     const made = turn.pick - 1;

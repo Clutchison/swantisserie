@@ -8,6 +8,7 @@ import {
   http,
   openDraft,
   openUrl,
+  selectByLabel,
   updates,
   useDraftsApp,
   webhooksAnswer,
@@ -22,8 +23,7 @@ describe('changing a draft’s webhook', () => {
 
   beforeEach(() => webhooksAnswer([main, other]));
 
-  const control = (page: HTMLElement) =>
-    page.querySelector<HTMLSelectElement>('select[name="draftWebhook"]');
+  const control = (page: HTMLElement) => selectByLabel(page, 'Announcements');
   const shownOption = (select: HTMLSelectElement) => select.selectedOptions[0].textContent?.trim();
   const optionNames = (select: HTMLSelectElement) =>
     [...select.options].map((option) => option.textContent?.trim());
@@ -69,7 +69,7 @@ describe('changing a draft’s webhook', () => {
       { user: { ...alice, id: 'bob' } },
     );
 
-    expect(control(page)).toBeNull();
+    expect(control(page)).toBeUndefined();
     http.expectNone('/api/webhooks');
   });
 

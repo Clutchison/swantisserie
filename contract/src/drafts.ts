@@ -109,6 +109,8 @@ export const MAX_POOL_QUERY_LENGTH = 900;
 export const MAX_CUBE_LINK_LENGTH = 300;
 /** The picks per player of a draft created without choosing them. */
 export const DEFAULT_PICKS_PER_PLAYER = 40;
+/** The fewest picks per player a draft can have. */
+export const MIN_PICKS_PER_PLAYER = 1;
 /** The most picks per player a draft can have. */
 export const MAX_PICKS_PER_PLAYER = 100;
 

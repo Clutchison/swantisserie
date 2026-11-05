@@ -16,6 +16,7 @@ import {
   MAX_DRAFT_NAME_LENGTH,
   MAX_PICKS_PER_PLAYER,
   MAX_POOL_QUERY_LENGTH,
+  MIN_PICKS_PER_PLAYER,
   type DraftCreationProblem,
   type DraftView,
   type NewDraftRequest,
@@ -53,6 +54,7 @@ export class CreateDraftPage {
   protected readonly maxNameLength = MAX_DRAFT_NAME_LENGTH;
   protected readonly maxPoolQueryLength = MAX_POOL_QUERY_LENGTH;
   protected readonly maxCubeLinkLength = MAX_CUBE_LINK_LENGTH;
+  protected readonly minPicksPerPlayer = MIN_PICKS_PER_PLAYER;
   protected readonly maxPicksPerPlayer = MAX_PICKS_PER_PLAYER;
   protected readonly poolSource = toSignal(this.form.controls.poolSource.valueChanges, {
     initialValue: this.form.controls.poolSource.value,

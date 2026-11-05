@@ -39,6 +39,7 @@ import {
   MAX_DRAFT_NAME_LENGTH,
   MAX_PICKS_PER_PLAYER,
   MAX_POOL_QUERY_LENGTH,
+  MIN_PICKS_PER_PLAYER,
 } from 'contract';
 import { bodyFields } from '../request-body.js';
 import { parseCard } from './parse-card.js';
@@ -548,11 +549,11 @@ function parseNewDraft(body: unknown): NewDraft {
   if (
     typeof picks !== 'number' ||
     !Number.isInteger(picks) ||
-    picks < 1 ||
+    picks < MIN_PICKS_PER_PLAYER ||
     picks > MAX_PICKS_PER_PLAYER
   ) {
     throw invalid(
-      `Picks per player must be a whole number from 1 to ${MAX_PICKS_PER_PLAYER}.`,
+      `Picks per player must be a whole number from ${MIN_PICKS_PER_PLAYER} to ${MAX_PICKS_PER_PLAYER}.`,
     );
   }
 

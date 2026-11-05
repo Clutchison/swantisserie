@@ -1,12 +1,24 @@
 import { ChangeDetectionStrategy, Component, input, linkedSignal } from '@angular/core';
 
-/** A player's round avatar, which leaves itself out if it fails to load. */
+/**
+ * A player's round avatar, which leaves itself out if it fails to load.
+ * Decorative: the player's name always sits beside it as text, so the image
+ * names nothing and says its presentation role outright for specs to find.
+ */
 @Component({
   selector: 'app-player-avatar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!failed()) {
-      <img class="avatar" [src]="src()" alt="" width="32" height="32" (error)="failed.set(true)" />
+      <img
+        class="avatar"
+        role="presentation"
+        [src]="src()"
+        alt=""
+        width="32"
+        height="32"
+        (error)="failed.set(true)"
+      />
     }
   `,
   styles: `

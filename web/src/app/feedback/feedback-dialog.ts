@@ -36,7 +36,7 @@ export class FeedbackDialog {
 
   readonly closed = output();
 
-  protected readonly maxLength = MAX_FEEDBACK_LENGTH;
+  protected readonly maxFeedbackLength = MAX_FEEDBACK_LENGTH;
   protected readonly message = signal('');
   protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
   protected readonly canSubmit = computed(

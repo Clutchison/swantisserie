@@ -65,7 +65,7 @@
         name="picksPerPlayer"
         formControlName="picksPerPlayer"
         type="number"
-        min="1"
+        [min]="minPicksPerPlayer"
         [max]="maxPicksPerPlayer"
         step="1"
         required
