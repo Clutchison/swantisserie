@@ -5,22 +5,15 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  input,
-  output,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import type { DraftState, PoolCardView, QueueView, StealBehavior } from 'contract';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { QueueView, StealBehavior } from 'contract';
+import type { Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeftRight, LucideArrowUp, LucideTrash } from '@lucide/angular';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
-import { changeFailure, isActive } from './drafts';
+import { changeFailure } from './drafts';
+import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -76,24 +69,21 @@ export class QueueTab {
   private readonly queueApi = inject(QueueApi);
   protected readonly previews = inject(CardPreviews);
   private readonly changes = inject(Changes);
+  private readonly store = inject(DraftStore);
 
   /** A draft the signed-in user is playing in. */
-  readonly draftId = input.required<string>();
+  private readonly draftId = this.store.id;
   /** The signed-in player's queue. */
-  readonly queue = input.required<QueueView>();
+  protected readonly queue = this.store.queue.value;
   /** The pool's cards by id, for the Card previews of the names here. */
-  readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
+  protected readonly poolCardsById = this.store.poolCardsById;
   /** Whether the queue is still on its way, so `queue` says nothing yet. */
-  readonly loading = input(false);
+  protected readonly loading = this.store.queue.loading;
   /** The state of the draft this queue is in. */
-  readonly draftState = input.required<DraftState>();
-  /** The queue as a change made it. */
-  readonly queueChanged = output<QueueView>();
-  /** A change failed, so the queue may have moved on unseen; it should be re-read. */
-  readonly queueStale = output<void>();
+  protected readonly draftState = computed(() => this.store.shown().state);
 
-  /** While the draft is not active, the queue can only be looked at. */
-  protected readonly readOnly = computed(() => !isActive(this.draftState()));
+  /** Unless queue changes are offered, the queue can only be looked at. */
+  protected readonly readOnly = computed(() => !this.store.offerQueue());
   protected readonly changing = this.changes.changing;
   protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
@@ -139,7 +129,7 @@ export class QueueTab {
     moveItemInArray(cards, from, to);
     return this.change(
       () => {
-        this.queueChanged.emit({ ...this.queue(), cards });
+        this.store.showQueue({ ...this.queue(), cards });
         // The row moved at once, so focus is put back now, as well as once it settles.
         this.changes.refocus();
         return this.queueApi.reorder(
@@ -151,7 +141,7 @@ export class QueueTab {
         keep: [`${to > from ? 'up' : 'down'} ${poolCardId}`, `remove ${poolCardId}`],
         status: `${name} moved to position ${to + 1} in your queue`,
         // Put the card back, so focus can go back to the button pressed.
-        rollBack: () => this.queueChanged.emit({ ...this.queue(), cards: before }),
+        rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
       },
     );
   }
@@ -175,12 +165,12 @@ export class QueueTab {
     const stealBehavior = STEAL_BEHAVIORS[previous].other;
     return this.change(
       () => {
-        this.queueChanged.emit({ ...this.queue(), stealBehavior });
+        this.store.showQueue({ ...this.queue(), stealBehavior });
         return this.queueApi.setStealBehavior(this.draftId(), stealBehavior);
       },
       {
         place: 'stealBehavior',
-        rollBack: () => this.queueChanged.emit({ ...this.queue(), stealBehavior: previous }),
+        rollBack: () => this.store.showQueue({ ...this.queue(), stealBehavior: previous }),
       },
     );
   }
@@ -194,7 +184,7 @@ export class QueueTab {
    * Sends the change `send` makes, which may show early what it does, and
    * shows the queue it answers with, unless another change is in flight. A
    * refused change means the queue has moved on, e.g. a card was lost: say
-   * why, at `place`, roll back what it showed early, and re-read it. Focus
+   * why, at `place`, and roll back what it showed early; the store re-reads it. Focus
    * is kept as `Changes.send` keeps it, and a change made says `status`.
    */
   private change(
@@ -208,12 +198,10 @@ export class QueueTab {
     return this.changes.send(async () => {
       this.error.set(null);
       try {
-        this.queueChanged.emit(await firstValueFrom(send()));
+        await this.store.changeQueue(send(), { rollBack });
         return true;
       } catch (err) {
-        rollBack?.();
         this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
-        this.queueStale.emit();
         return false;
       }
     }, kept);
