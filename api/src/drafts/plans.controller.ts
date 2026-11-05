@@ -29,7 +29,7 @@ import {
 } from '../auth/session.guard.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { isBasicLand } from './basic-lands.js';
-import { DraftReadsService } from './draft-reads.service.js';
+import { DraftAccess, withAccessErrors } from './draft-access.js';
 import { parseCard } from './parse-card.js';
 import { PlanRefusedError, PlansService } from './plans.service.js';
 
@@ -41,7 +41,7 @@ import { PlanRefusedError, PlansService } from './plans.service.js';
 @UseGuards(SessionGuard)
 export class PlansController {
   constructor(
-    private readonly reads: DraftReadsService,
+    private readonly access: DraftAccess,
     private readonly plans: PlansService,
   ) {}
 
@@ -50,7 +50,7 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PlanView> {
-    return this.answer(id, () => this.plans.plan(id, user.id));
+    return this.answer(user, id, () => this.plans.plan(id, user.id));
   }
 
   /** Adds an unpicked copy of a pool card to the mainboard. */
@@ -62,7 +62,7 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const poolCardId = parseCard(body, 'Say which card to add.');
-    return this.answer(id, () => this.plans.add(id, user.id, poolCardId));
+    return this.answer(user, id, () => this.plans.add(id, user.id, poolCardId));
   }
 
   /** Stops the Plan notice listing the lost cards. */
@@ -71,7 +71,7 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PlanView> {
-    return this.answer(id, () => this.plans.dismissNotice(id, user.id));
+    return this.answer(user, id, () => this.plans.dismissNotice(id, user.id));
   }
 
   /** Sets how many copies of a basic land the mainboard holds. */
@@ -84,7 +84,7 @@ export class PlansController {
   ): Promise<PlanView> {
     const basic = parseLand(land);
     const count = parseCount(body);
-    return this.answer(id, () =>
+    return this.answer(user, id, () =>
       this.plans.setBasic(id, user.id, basic, count),
     );
   }
@@ -95,7 +95,7 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PlanView> {
-    return this.answer(id, () => this.plans.clearBasics(id, user.id));
+    return this.answer(user, id, () => this.plans.clearBasics(id, user.id));
   }
 
   /** Takes an unpicked card out of the plan. Declared after `notice` and `basics`, which it would match. */
@@ -105,7 +105,9 @@ export class PlansController {
     @Param('id') id: string,
     @Param('poolCardId') poolCardId: string,
   ): Promise<PlanView> {
-    return this.answer(id, () => this.plans.remove(id, user.id, poolCardId));
+    return this.answer(user, id, () =>
+      this.plans.remove(id, user.id, poolCardId),
+    );
   }
 
   /** Moves a card in the plan to the mainboard or the sideboard. */
@@ -117,17 +119,18 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const board = parseBoard(body);
-    return this.answer(id, () =>
+    return this.answer(user, id, () =>
       this.plans.move(id, user.id, poolCardId, board),
     );
   }
 
   /** Answers with the plan as `request` leaves it, or why it can’t. */
   private async answer(
+    user: SessionUser,
     id: string,
     request: () => Promise<PlanView>,
   ): Promise<PlanView> {
-    if (!(await this.reads.find(id))) throw new NotFoundException();
+    await withAccessErrors(this.access.visible(user, id));
     try {
       return await request();
     } catch (err) {

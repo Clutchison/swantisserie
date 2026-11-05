@@ -101,6 +101,21 @@ export interface DraftSocketEvents {
   cancelled: () => void;
 }
 
+/**
+ * What the signed-in viewer may do to one draft, from
+ * `GET /api/drafts/:id/powers`. The api alone decides these (ADR 0003), and
+ * they don't change while the draft runs, so the web reads them once. They
+ * aren't on DraftView, which goes to the whole room over the socket.
+ */
+export interface DraftPowersView {
+  /** Act as the draft's organizer: run it, start it, undo, import picks. */
+  organize: boolean;
+  /** Add bots to the draft and remove them. */
+  addBots: boolean;
+  /** Choose where the draft's announcements are posted. */
+  switchAnnouncements: boolean;
+}
+
 /** The most characters in a draft's name. */
 export const MAX_DRAFT_NAME_LENGTH = 100;
 /** The most characters in a pool query: Scryfall takes up to 1000, and the api wraps the query in more terms. */

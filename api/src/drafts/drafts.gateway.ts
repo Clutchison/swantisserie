@@ -11,8 +11,18 @@ import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { API_PREFIX } from '../app.setup.js';
 import { sessionToken } from '../auth/session.guard.js';
 import { SessionService } from '../auth/session.service.js';
+import { AppAdminConfig } from '../auth/app-admin-config.js';
+import type { User } from '../generated/prisma/client.js';
+import { DraftAccess } from './draft-access.js';
+import { DraftHiddenError } from './draft-errors.js';
 
 const parseCookies = cookieParser();
+
+/** What the gateway keeps on each socket. */
+interface SocketData {
+  /** The draft whose room the socket joins: one its viewer may see. */
+  draftId?: string;
+}
 
 /** The room of everyone viewing one draft. */
 const room = (draftId: string) => `draft:${draftId}`;
@@ -28,15 +38,22 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   private readonly server!: Server<DefaultEventsMap, DraftSocketEvents>;
 
-  constructor(private readonly sessions: SessionService) {}
+  constructor(
+    private readonly sessions: SessionService,
+    private readonly appAdmins: AppAdminConfig,
+    private readonly access: DraftAccess,
+  ) {}
 
-  /** Refuses sockets without a live session, as SessionGuard does requests. */
+  /**
+   * Refuses sockets without a live session, as SessionGuard does requests,
+   * and notes the draft whose room the socket may join: the one it names,
+   * if its viewer may see it.
+   */
   afterInit(server: Server): void {
     server.use((socket, next) => {
       const req = socket.request as Request;
       parseCookies(req, {} as Response, () => {
-        const token = sessionToken(req);
-        (token ? this.sessions.findUser(token) : Promise.resolve(null)).then(
+        this.admit(socket, sessionToken(req)).then(
           (user) => next(user ? undefined : new Error('unauthorized')),
           next,
         );
@@ -44,9 +61,34 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     });
   }
 
+  /** Joins the socket to the room of the draft it was admitted to, if any. */
   handleConnection(socket: Socket): void {
+    const { draftId } = socket.data as SocketData;
+    if (draftId) void socket.join(room(draftId));
+  }
+
+  /** The socket's signed-in user, having noted any draft it may watch. */
+  private async admit(
+    socket: Socket,
+    token: string | undefined,
+  ): Promise<User | null> {
+    const user = token ? await this.sessions.findUser(token) : null;
+    if (!user) return null;
     const { draftId } = socket.handshake.auth as { draftId?: unknown };
-    if (typeof draftId === 'string') void socket.join(room(draftId));
+    if (typeof draftId !== 'string') return user;
+    const viewer = {
+      id: user.id,
+      isAppAdmin: this.appAdmins.isAppAdmin(user.id),
+    };
+    try {
+      await this.access.visible(viewer, draftId);
+    } catch (err) {
+      // No room: the client's reads of the draft already 404.
+      if (err instanceof DraftHiddenError) return user;
+      throw err;
+    }
+    (socket.data as SocketData).draftId = draftId;
+    return user;
   }
 
   /** Tells everyone viewing the draft how it now is. */
