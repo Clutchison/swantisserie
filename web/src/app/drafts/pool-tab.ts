@@ -79,9 +79,17 @@ export class PoolTab {
   /** Whether the pool's cards are still on their way. */
   protected readonly loading = this.store.pool.loading;
   /** Whether the pool's cards couldn't be loaded. */
-  protected readonly failed = this.store.pool.failed;
+  protected readonly failed = this.store.pool.missing;
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = this.store.picked;
+  /**
+   * Whether the pick log's latest read failed. The picked badges are then the
+   * last ones loaded, or none, and a card picked since may look available, so
+   * Pick is disabled until the pick log loads.
+   */
+  protected readonly picksFailed = this.store.picks.failed;
+  /** Whether the pick log has never loaded, as its first read failed. */
+  protected readonly picksMissing = this.store.picks.missing;
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
   protected readonly offerPick = this.store.offerPick;
   /** The pool card ids of the cards in the signed-in player's queue. */

@@ -66,16 +66,20 @@ export class DraftPage {
 
   protected readonly draft = this.store.draft.value;
   protected readonly loading = this.store.draft.loading;
-  protected readonly failed = this.store.draft.failed;
+  /** Whether the draft never loaded: a failed re-read keeps the last one, with a note. */
+  protected readonly failed = this.store.draft.missing;
   protected readonly retrying = signal(false);
   protected readonly retryFailed = signal(false);
   /** Whether the draft socket is down, so pushed changes may be missed. */
   protected readonly reconnecting = signal(false);
+  /** Whether a re-read failed, so what the page shows may be out of date. */
+  protected readonly refreshFailed = this.store.refreshFailed;
 
   protected readonly canOrganize = this.store.canOrganize;
   protected readonly joined = this.store.joined;
-  protected readonly queueFailed = this.store.queue.failed;
-  protected readonly planFailed = this.store.plan.failed;
+  /** Whether the queue or plan couldn't be loaded. A failed re-read keeps the last one loaded. */
+  protected readonly queueFailed = this.store.queue.missing;
+  protected readonly planFailed = this.store.plan.missing;
 
   /**
    * The tab selected. Only players have the Queue, Plan and Export tabs: one

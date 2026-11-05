@@ -13,6 +13,8 @@ import {
   tabButton,
   tabs,
   panelName,
+  statusMessage,
+  updates,
 } from './harness';
 import { pressKey } from '../../specs-harness';
 
@@ -143,6 +145,81 @@ describe('draft page', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('.error')?.textContent).toContain("Couldn't load this draft");
+  });
+
+  describe('when a re-read fails after the draft has loaded', () => {
+    const couldntRefresh = (page: HTMLElement) =>
+      statusMessage(page, "Couldn't refresh this draft. What's shown may be out of date.");
+
+    it('keeps the draft on screen when catching up fails, saying it couldn’t refresh', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
+      expect(couldntRefresh(page)).toBeUndefined();
+
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+
+      expect(page.querySelector('h1')?.textContent).toBe('Friday Cube');
+      expect(page.textContent).toContain('540 cards in the pool');
+      expect(page.textContent).not.toContain("Couldn't load this draft");
+      expect(couldntRefresh(page)).toBeDefined();
+    });
+
+    it('stops saying it couldn’t refresh once a later read succeeds', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+      expect(couldntRefresh(page)).toBeDefined();
+
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft({ snapshot: completeSnapshot, name: 'Friday Cube' }),
+      );
+      await fixture.whenStable();
+
+      expect(couldntRefresh(page)).toBeUndefined();
+    });
+
+    it('stops saying it couldn’t refresh once a newer draft is pushed', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: completeSnapshot, name: 'Friday Cube', version: 2 }),
+      });
+      await fixture.whenStable();
+
+      expect(couldntRefresh(page)).toBeUndefined();
+    });
+
+    it('keeps polling a running snapshot after a poll fails', async () => {
+      const { fixture, page } = await openDraft({ state: 'Running', cards: 0, total: null });
+
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+      expect(page.textContent).toContain('Snapshotting the pool');
+      expect(couldntRefresh(page)).toBeDefined();
+
+      await poll(fixture, { state: 'Running', cards: 175, total: 540 });
+      expect(page.textContent).toContain('175 of 540 cards');
+      expect(couldntRefresh(page)).toBeUndefined();
+    });
   });
 
   it('has a tab bar of Pool, Queue, Plan, Board and Export, where only Pool and Board work for a non-player', async () => {

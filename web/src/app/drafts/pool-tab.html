@@ -1,6 +1,9 @@
 @if (failed()) {
   <p class="error">Couldn't load the pool's cards. Try reloading the page.</p>
 }
+@if (picksMissing()) {
+  <p class="error">Couldn't load the picks. Try reloading the page.</p>
+}
 <div class="search-bar">
   <div class="search-field">
     <label for="pool-search">Scryfall Search</label>
@@ -141,7 +144,7 @@
             class="button"
             type="button"
             (click)="pick(card)"
-            [disabled]="!yourTurn() || picked().has(card.id) || picking()"
+            [disabled]="!yourTurn() || picksFailed() || picked().has(card.id) || picking()"
           >
             {{ picking() ? 'Picking…' : 'Pick' }}
           </button>
@@ -199,6 +202,10 @@
         <p class="note picked-by">
           <app-player-avatar [src]="picker.avatarUrl" />
           Picked by {{ picker.name }}
+        </p>
+      } @else if (offerPick() && picksFailed()) {
+        <p class="note" role="status">
+          Couldn't load the latest picks. You can pick once they load.
         </p>
       } @else if (offerPick() && !yourTurn()) {
         <p class="note">You can pick on your turn.</p>

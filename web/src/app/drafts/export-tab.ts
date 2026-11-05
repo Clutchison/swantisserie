@@ -61,15 +61,15 @@ export class ExportTab implements OnDestroy {
   /** Whether the plan is still on its way. */
   protected readonly planLoading = this.store.plan.loading;
   /** Whether the plan couldn't be loaded. */
-  protected readonly planFailed = this.store.plan.failed;
+  protected readonly planFailed = this.store.plan.missing;
   /** The pick log, in pick order. */
   private readonly picks = this.store.picks.value;
   /** The pool's cards by id, for the Card previews of the names here. */
   protected readonly poolCardsById = this.store.poolCardsById;
   /** Whether the picks are still on their way. */
   protected readonly loading = this.store.picks.loading;
-  /** Whether the picks couldn't be loaded. */
-  protected readonly failed = this.store.picks.failed;
+  /** Whether the picks couldn't be loaded. A failed re-read keeps the last ones loaded. */
+  protected readonly failed = this.store.picks.missing;
 
   /** The player's picks, in pick order. */
   protected readonly playerPicks = computed(() =>

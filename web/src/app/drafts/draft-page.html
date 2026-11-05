@@ -3,7 +3,7 @@
     <svg lucideChevronLeft size="16"></svg>
     Drafts
   </a>
-  @if (loading() && !draft()) {
+  @if (loading()) {
     <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
     <p class="error">Couldn't load this draft. Try reloading the page.</p>
@@ -15,6 +15,11 @@
     </p>
     @if (reconnecting()) {
       <p role="status">Reconnecting…</p>
+    }
+    @if (refreshFailed()) {
+      <p class="detail" role="status">
+        Couldn't refresh this draft. What's shown may be out of date.
+      </p>
     }
 
     <section class="players">

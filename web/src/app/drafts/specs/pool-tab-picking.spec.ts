@@ -16,6 +16,10 @@ import {
   type DraftFixture,
   pickOf,
   drafting,
+  openUrl,
+  flushPool,
+  panel,
+  statusMessage,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
 
@@ -79,6 +83,78 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 1);
       expect(button(detail, 'Pick')!.disabled).toBe(true);
       expect(detail.textContent).toContain('Picked by Bob');
+    });
+
+    describe('when the pick log fails to load', () => {
+      const failPicks = async () =>
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(null, {
+          status: 503,
+          statusText: 'Service Unavailable',
+        });
+      const alicesTurnAgain = drafting({ turn: { pick: 2, round: 1, playerId: alice.id } });
+      const picksDidntLoad = "Couldn't load the latest picks. You can pick once they load.";
+
+      /** Opens Alice's turn with Shivan picked by Bob, then has the pick log's re-read fail. */
+      async function openWithFailedReRead() {
+        const opened = await openDraft(completeSnapshot, alicesTurnAgain, {
+          cards: [brightclimb, shivan],
+          picks: [{ ...shivanPick, playerId: bob.id }],
+        });
+        updates.events.next({ type: 'changed', draft: draft({ ...alicesTurnAgain, version: 1 }) });
+        await failPicks();
+        await flushQueueAndPlan();
+        await opened.fixture.whenStable();
+        return opened;
+      }
+
+      it('keeps the picked badges it had when a re-read fails', async () => {
+        const { fixture, page } = await openWithFailedReRead();
+
+        expect(tiles(page)[1].textContent).toContain('Picked');
+        const detail = await openDetail(fixture, page, 1);
+        expect(button(detail, 'Pick')!.disabled).toBe(true);
+        expect(detail.textContent).toContain('Picked by Bob');
+      });
+
+      it('offers no card as available to pick when a re-read fails, as one may have been picked since', async () => {
+        const { fixture, page } = await openWithFailedReRead();
+
+        expect(tiles(page)[0].textContent).not.toContain('Picked');
+        const detail = await openDetail(fixture, page, 0);
+        expect(button(detail, 'Pick')!.disabled).toBe(true);
+        expect(statusMessage(detail, picksDidntLoad)).toBeDefined();
+      });
+
+      it('offers Pick again once a later re-read loads the pick log', async () => {
+        const { fixture, page } = await openWithFailedReRead();
+
+        updates.events.next({ type: 'connected' });
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft({ ...alicesTurnAgain, version: 1 }),
+        );
+        await flushPicks([{ ...shivanPick, playerId: bob.id }]);
+        await fixture.whenStable();
+
+        const detail = await openDetail(fixture, page, 0);
+        expect(button(detail, 'Pick')!.disabled).toBe(false);
+        expect(statusMessage(detail, picksDidntLoad)).toBeUndefined();
+      });
+
+      it('says so, and offers no card as available to pick, when the first load fails', async () => {
+        const { fixture, page } = await openUrl('/drafts/draft-1');
+        http.expectOne('/api/drafts/draft-1').flush(draft({ ...alicesTurnAgain }));
+        await flushPool([brightclimb, shivan]);
+        await failPicks();
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+
+        expect(panel(page).textContent).toContain(
+          "Couldn't load the picks. Try reloading the page.",
+        );
+        const detail = await openDetail(fixture, page, 1);
+        expect(button(detail, 'Pick')!.disabled).toBe(true);
+        expect(statusMessage(detail, picksDidntLoad)).toBeDefined();
+      });
     });
 
     it('shows a tile per copy of a card, each picked and badged on its own', async () => {
