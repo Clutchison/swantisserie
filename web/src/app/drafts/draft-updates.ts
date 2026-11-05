@@ -42,11 +42,12 @@ export class DraftUpdates {
       socket.on('cancelled', () => subscriber.next({ type: 'cancelled' }));
       socket.on('disconnect', () => subscriber.next({ type: 'disconnected' }));
       socket.on('connect_error', (err) => {
-        if (err.message !== 'unauthorized') subscriber.next({ type: 'disconnected' });
+        const unauthorized = err.message === 'unauthorized';
+        if (!unauthorized) subscriber.next({ type: 'disconnected' });
         // Socket.IO gives up after a refused handshake. Try again unless the
         // session is gone: a lookup can fail while the server is waking.
         if (socket.active) return;
-        if (err.message === 'unauthorized') {
+        if (unauthorized) {
           subscriber.next({ type: 'unauthorized' });
         } else {
           retry = setTimeout(() => socket.connect(), RETRY_MS);

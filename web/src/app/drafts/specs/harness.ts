@@ -210,6 +210,28 @@ export const button = (root: HTMLElement, label: string) =>
     (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
   );
 
+/** The app's header, shown to signed-in viewers. */
+export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');
+
+/**
+ * Expects `user` to have been signed out of this tab because the API ended
+ * their session: sent to sign-in, gone from the header, and the API not told.
+ * Takes the router and HTTP mock as specs outside the drafts app have their own.
+ */
+export async function expectSignedOut(
+  fixture: ComponentFixture<unknown>,
+  { router, http, user }: { router: Router; http: HttpTestingController; user: UserView },
+) {
+  await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+  await fixture.whenStable();
+
+  const page = fixture.nativeElement as HTMLElement;
+  expect(page.textContent).toContain('Sign in with Discord');
+  expect(banner(page)?.textContent ?? '').not.toContain(user.name);
+  // The session is already gone: there's nothing to log out of.
+  http.expectNone('/api/auth/logout');
+}
+
 /** A status message inside `root`, by its text. */
 export const statusMessage = (root: HTMLElement, text: string) =>
   [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);

@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import type { PickView, PoolCardView } from 'contract';
 import {
   useDraftsApp,
@@ -14,6 +15,7 @@ import {
   flushPicks,
   completeSnapshot,
   statusMessage,
+  expectSignedOut,
   type DraftFixture,
 } from './harness';
 
@@ -138,6 +140,7 @@ describe('live updates', () => {
     expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     expect(page.querySelector('.tile')?.classList).toContain('picked');
   });
+
   describe('when the socket is down', () => {
     const notice = (page: HTMLElement) => statusMessage(page, 'Reconnecting…');
 
@@ -185,17 +188,27 @@ describe('live updates', () => {
       expect(notice(page)).toBeUndefined();
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     });
+
+    it('clears the notice at once when the reconnect is refused for a session that has ended', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+      updates.events.next({ type: 'disconnected' });
+      await fixture.whenStable();
+      expect(notice(page)).toBeDefined();
+
+      updates.events.next({ type: 'unauthorized' });
+      // Not yet whenStable(): the notice must go before sign-in replaces the page.
+      TestBed.tick();
+
+      expect(notice(page)).toBeUndefined();
+      await expectSignedOut(fixture, { router, http, user: alice });
+    });
   });
 
   it('signs the player out when the socket is refused for a session that has ended', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting());
+    const { fixture } = await openDraft(completeSnapshot, drafting());
 
     updates.events.next({ type: 'unauthorized' });
-    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
-    await fixture.whenStable();
 
-    expect(page.textContent).toContain('Sign in with Discord');
-    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
-    http.expectNone('/api/auth/logout');
+    await expectSignedOut(fixture, { router, http, user: alice });
   });
 });
