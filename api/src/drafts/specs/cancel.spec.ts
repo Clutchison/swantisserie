@@ -29,6 +29,7 @@ import {
   addBot,
   registerWebhook,
   cancelDraft,
+  announcementsSettled,
 } from './harness.js';
 
 useDraftsApp();
@@ -168,8 +169,7 @@ describe('cancel', () => {
 
     await cancelDraft(id).expect(204);
 
-    // Announcing isn't awaited, so give a stray post time to be made.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await announcementsSettled(id);
     expect(webhookClient.post).not.toHaveBeenCalled();
   });
 

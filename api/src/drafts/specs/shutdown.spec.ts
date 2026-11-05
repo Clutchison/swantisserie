@@ -6,6 +6,7 @@ import {
   bob,
   useDraftsApp,
   slowDownDatabase,
+  slowQueryUnderway,
   readyDraft,
   getDraft,
   pick,
@@ -24,11 +25,13 @@ describe('shutting down', () => {
     const errors = vi.spyOn(Logger.prototype, 'error');
     const id = await readyDraft([aliceCookie]);
     slowDownDatabase(50);
+    const reading = slowQueryUnderway();
 
     // `then` sends the request now, rather than when it is awaited.
     const read = getDraft(id).then((res) => res);
-    // Before #294, closing 200 ms into this read hung for good.
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Before #294, closing while this request's queries were under way hung
+    // for good.
+    await reading;
     await app.close();
 
     expect((await read).status).toBe(200);
@@ -83,10 +86,11 @@ describe('shutting down', () => {
       const { post, send } = slowPost();
       webhookClient.post.mockImplementationOnce(send);
       slowDownDatabase(50);
+      const picking = slowQueryUnderway();
 
       // `then` sends the request now, rather than when it is awaited.
       const picked = pick(id, shock).then((res) => res);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await picking;
       await app.close();
 
       expect((await picked).status).toBe(200);

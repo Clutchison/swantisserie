@@ -1,6 +1,7 @@
 import type { DraftView } from 'contract';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import type { DraftEvent } from '../draft-events.js';
 import { DraftPublisher } from '../draft-publisher.js';
 import { TurnsService } from '../turns.service.js';
 import {
@@ -79,7 +80,29 @@ describe('bot players', () => {
     });
   }
 
-  /** Lets any bot timers that are due fire, and their picks land. */
+  /**
+   * Watches the first bot pick from now, letting it through: `started`
+   * resolves once it is under way, and `made` with what it answered, once
+   * it has.
+   */
+  function watchBotPick() {
+    const botPick = vi.spyOn(TurnsService.prototype, 'botPick');
+    const started = () =>
+      waitForBotPicks(1, () => expect(botPick).toHaveBeenCalled());
+    return {
+      started,
+      made: async () => {
+        await started();
+        return botPick.mock.results[0].value as Promise<DraftEvent[]>;
+      },
+    };
+  }
+
+  /**
+   * Waits out `ms`, for checks that nothing more happens: a timer that was
+   * never set, or was cancelled, gives no signal. Fake timers can't stand in,
+   * as the app, PGlite and supertest run on the real ones.
+   */
   const settle = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -171,6 +194,7 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1, 2);
     await start(id).expect(200);
+    const botPick = watchBotPick();
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     // Pick 2 is made some other way before the bot's timer fires.
@@ -189,8 +213,8 @@ describe('bot players', () => {
         poolCardId: card.id,
       },
     });
-    await settle(300);
 
+    expect(await botPick.made()).toEqual([]);
     expect(
       (await pickLog(id)).body.map((logged: { name: string }) => logged.name),
     ).toEqual(['Shock', 'Firebolt']);
@@ -202,11 +226,12 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
+    const botPick = watchBotPick();
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     await post(id, 'pause').expect(200);
-    await settle(300);
 
+    expect(await botPick.made()).toEqual([]);
     expect((await pickLog(id)).body).toHaveLength(1);
 
     await post(id, 'resume').expect(200);
@@ -226,11 +251,12 @@ describe('bot players', () => {
     await signInAlice();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
+    const botPick = watchBotPick();
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     await post(id, 'close').expect(200);
-    await settle(300);
 
+    expect(await botPick.made()).toEqual([]);
     expect((await pickLog(id)).body).toHaveLength(1);
 
     await post(id, 'reopen').expect(200);
@@ -291,11 +317,12 @@ describe('bot players', () => {
     const { id, botIds } = await draftWithBots(2);
     await start(id).expect(200);
     const shock = (await poolCardIds(id)).Shock;
+    const botPick = watchBotPick();
     slowDownDatabase(50);
 
     await pick(id, shock).expect(200);
     // The first bot's pick is under way, each of its queries 50 ms.
-    await settle(30);
+    await botPick.started();
     await app.close();
 
     // Too slow for the second bot to pick before the check below.
@@ -348,6 +375,7 @@ describe('bot players', () => {
           dropped,
         );
       });
+      // Time for a fourth try, were one scheduled.
       await settle(100);
       expect(botPick).toHaveBeenCalledTimes(3);
       expect((await getDraft(id).expect(200)).body.turn).toEqual(
@@ -424,6 +452,7 @@ describe('bot players', () => {
       await pick(id, (await poolCardIds(id)).Shock).expect(200);
       await waitForBotPicks(1, () => expect(warnings).toHaveBeenCalled());
       await app.close();
+      // Past the retry's delay, so it would have fired had it not been cancelled.
       await settle(300);
 
       expect(botPick).toHaveBeenCalledTimes(1);

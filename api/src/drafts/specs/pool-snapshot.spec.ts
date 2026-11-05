@@ -1,3 +1,4 @@
+import type { Server } from 'node:http';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -619,6 +620,13 @@ describe('pool snapshot', () => {
     const shutdownBegun = new Promise<void>((resolve) => {
       shuttingDown = resolve;
     });
+    // Shutdown closes the HTTP server once the destroy hooks have run.
+    const server = app.getHttpServer() as Server;
+    const close = server.close.bind(server);
+    vi.spyOn(server, 'close').mockImplementation((callback) => {
+      shuttingDown();
+      return close(callback);
+    });
     scryfall.search.mockImplementation(async (query) => {
       if (query === 'c:r') {
         // Holds the request until shutdown is under way.
@@ -639,10 +647,7 @@ describe('pool snapshot', () => {
       (res) => res,
     );
     await vi.waitFor(() => expect(scryfall.search).toHaveBeenCalled());
-    const closed = app.close();
-    await wait(50);
-    shuttingDown();
-    await closed;
+    await app.close();
 
     const res = await created;
     expect(res.status).toBe(201);
