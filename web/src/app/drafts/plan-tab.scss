@@ -75,38 +75,6 @@ ul {
   }
 }
 
-/* The Basic lands modal: a row per basic land, its symbol, −, number and +. */
-.basics {
-  width: min(20rem, 100%);
-
-  ul {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-
-  li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-  }
-
-  label {
-    display: flex;
-    margin-inline-end: var(--space-sm);
-  }
-
-  img {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  input {
-    width: 3.5rem;
-    text-align: center;
-  }
-}
-
 /* The count, cost, name, and what's after: an unpicked card's mark, and the buttons. */
 .lines {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;

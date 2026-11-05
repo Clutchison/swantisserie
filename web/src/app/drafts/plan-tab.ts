@@ -7,6 +7,7 @@ import {
   effect,
   ElementRef,
   inject,
+  Injector,
   signal,
   untracked,
   viewChild,
@@ -14,7 +15,6 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import {
   BASIC_LANDS,
-  MOST_BASICS,
   type BasicLand,
   type PlanBoard,
   type PlannedBasicView,
@@ -25,6 +25,8 @@ import {
 import type { Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { basicCard } from './basic-lands';
+import { BASIC_LANDS_HEADING, BasicLandsDialog } from './basic-lands-dialog';
+import { DialogShell } from '../dialog-shell';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
@@ -35,7 +37,6 @@ import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { manaSymbol } from './mana-cost';
 
 const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
 const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
@@ -73,16 +74,6 @@ interface PlanLine extends PlanBoardCard {
    */
   key: string;
 }
-
-/** Each basic land's mana symbol, which labels it in the Basic lands modal: Wastes's is colorless. */
-const BASIC_SYMBOLS: Record<BasicLand, string> = {
-  Plains: '{W}',
-  Island: '{U}',
-  Swamp: '{B}',
-  Mountain: '{R}',
-  Forest: '{G}',
-  Wastes: '{C}',
-};
 
 /** Each basic land's card data, for the images and Card previews of its copies. */
 const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
@@ -165,7 +156,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
   ],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
+  host: { '(document:keydown.escape)': 'closeQueueing()' },
   templateUrl: './plan-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
 })
@@ -176,6 +167,8 @@ export class PlanTab {
   protected readonly previews = inject(CardPreviews);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
@@ -242,25 +235,10 @@ export class PlanTab {
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.planBoards()[0].stacks.length);
 
-  /** Each basic land, with how many copies the plan holds and its mana symbol's image. */
-  protected readonly basics = computed(() =>
-    BASIC_LANDS.map((land) => ({
-      land,
-      count: this.heldBasic(land),
-      symbol: manaSymbol(BASIC_SYMBOLS[land]).src,
-    })),
-  );
   /** How many basic lands the plan holds in all, for the Basic lands button. */
   protected readonly basicsTotal = computed(() =>
     this.plan().basics.reduce((total, basic) => total + basic.count, 0),
   );
-  /** Whether the Basic lands modal is open. */
-  protected readonly basicsOpen = signal(false);
-  private readonly doneWithBasics = viewChild<ElementRef<HTMLButtonElement>>('doneWithBasics');
-  /** Whether the plan holds any basic land, for Clear basics to clear. */
-  protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
-  /** The most copies of one basic land the Basic lands modal offers. */
-  protected readonly mostBasics = MOST_BASICS;
 
   /** Whether the Queue unpicked modal is open, and whether it includes the sideboard. */
   protected readonly queueDialog = signal<{ includeSideboard: boolean } | null>(null);
@@ -306,7 +284,6 @@ export class PlanTab {
   constructor() {
     // The modal takes focus as it opens.
     effect(() => this.cancelQueueing()?.nativeElement.focus());
-    effect(() => this.doneWithBasics()?.nativeElement.focus());
     // Queue unpicked stops being offered as the player's turn comes: close its
     // modal then, so it can't come back by itself once the turn passes.
     effect(() => {
@@ -383,43 +360,12 @@ export class PlanTab {
     });
   }
 
-  /**
-   * Sets how many copies of a basic land the plan holds. Should the button
-   * pressed be disabled at the new count, focus goes to the other one.
-   */
-  protected setBasic(land: BasicLand, count: number) {
-    return this.tryChange(() => this.planApi.setBasic(this.draftId(), land, count), {
-      keep: [count > this.heldBasic(land) ? `fewer ${land}` : `more ${land}`],
+  /** Opens the Basic lands dialog; focus returns to the button that opened it. */
+  protected openBasics() {
+    this.dialogs.open(BasicLandsDialog, {
+      labelledBy: BASIC_LANDS_HEADING,
+      injector: this.injector,
     });
-  }
-
-  /**
-   * A number typed for a basic land: the plan holds that many, rounded down
-   * and kept within 0 to MOST_BASICS. Anything that isn't a number is put
-   * back to the count the plan holds, as is a count the api refuses.
-   */
-  protected async typedBasic(land: BasicLand, held: number, input: HTMLInputElement) {
-    const typed = input.value.trim() === '' ? NaN : Number(input.value);
-    if (Number.isNaN(typed)) {
-      input.value = String(held);
-      return;
-    }
-    const count = Math.min(Math.max(Math.floor(typed), 0), MOST_BASICS);
-    // The binding only writes the input when the count changes, as it may not.
-    input.value = String(count);
-    if (count === held || (await this.setBasic(land, count))) return;
-    // Put back the early write: the binding writes the input only if the re-read plan's count differs.
-    input.value = String(this.heldBasic(land));
-  }
-
-  /** How many copies of `land` the plan holds. */
-  private heldBasic(land: BasicLand) {
-    return this.plan().basics.find((basic) => basic.land === land)?.count ?? 0;
-  }
-
-  /** Takes every basic land out of the plan. */
-  protected clearBasics() {
-    return this.tryChange(() => this.planApi.clearBasics(this.draftId()), { keep: ['done'] });
   }
 
   /** Takes one unpicked copy of a card out of the plan; should its line go, focus goes to the next. */
@@ -436,15 +382,9 @@ export class PlanTab {
     this.pressedBackdrop = event.target === event.currentTarget;
   }
 
-  /** A click on a modal's backdrop closes that modal, if the press began there too. */
-  protected backdropClicked(event: MouseEvent, modal: 'queueing' | 'basics') {
-    if (!this.pressedBackdrop || event.target !== event.currentTarget) return;
-    if (modal === 'queueing') this.closeQueueing();
-    else this.closeBasics();
-  }
-
-  protected closeBasics() {
-    this.basicsOpen.set(false);
+  /** A click on the Queue unpicked modal's backdrop closes it, if the press began there too. */
+  protected backdropClicked(event: MouseEvent) {
+    if (this.pressedBackdrop && event.target === event.currentTarget) this.closeQueueing();
   }
 
   /** Opens the Queue unpicked modal, leaving the sideboard out. */
