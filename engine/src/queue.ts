@@ -23,7 +23,7 @@ export interface QueueAfterPick {
   queue: string[];
   /** The copy swapped in for the picked card, if one was. */
   swapped?: string;
-  /** The picked card, if this queue lost it: no copy was available for it. */
+  /** The picked card, if this queue lost it: no copy was available for the queue. */
   lost?: string;
   /**
    * The cards cleared from this queue because it lost the picked card under
