@@ -15,9 +15,9 @@ import {
   updates,
   useDraftsApp,
   webhooksAnswer,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
-  SWITCH_ANNOUNCEMENTS,
+  SWITCH_ANNOUNCEMENTS_ONLY,
 } from './harness';
 
 useDraftsApp();
@@ -29,7 +29,7 @@ describe('changing a draft’s webhook', () => {
 
   beforeEach(() => {
     webhooksAnswer([main, other]);
-    powersAnswer(SWITCH_ANNOUNCEMENTS);
+    powersAnswer(SWITCH_ANNOUNCEMENTS_ONLY);
   });
 
   const control = (page: HTMLElement) => controlByLabel(page, 'combobox', 'Announcements');
@@ -62,7 +62,11 @@ describe('changing a draft’s webhook', () => {
 
   it('hides the control from a viewer who may organize but not switch announcements, and loads no webhooks for them', async () => {
     webhooksAnswer(null);
-    const { page } = await openDraft(completeSnapshot, { webhook: main }, { powers: ORGANIZE });
+    const { page } = await openDraft(
+      completeSnapshot,
+      { webhook: main },
+      { powers: ORGANIZE_ONLY },
+    );
 
     expect(control(page)).toBeUndefined();
     http.expectNone('/api/webhooks');

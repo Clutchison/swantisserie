@@ -12,9 +12,9 @@ import {
   button,
   pickOf,
   poolCardOf,
-  ADD_BOTS,
+  ADD_BOTS_ONLY,
   ALL_POWERS,
-  ORGANIZE,
+  ORGANIZE_ONLY,
 } from './harness';
 
 useDraftsApp();
@@ -75,7 +75,7 @@ describe('bots', () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer] },
-      { powers: ADD_BOTS },
+      { powers: ADD_BOTS_ONLY },
     );
 
     button(page, 'Add bot')!.click();
@@ -160,7 +160,11 @@ describe('bots', () => {
       id: `bot:${i}`,
       name: `Bot ${i + 1}`,
     }));
-    const { page } = await openDraft(completeSnapshot, { players: bots }, { powers: ADD_BOTS });
+    const { page } = await openDraft(
+      completeSnapshot,
+      { players: bots },
+      { powers: ADD_BOTS_ONLY },
+    );
 
     expect(button(page, 'Add bot')?.disabled).toBe(true);
   });
@@ -169,7 +173,7 @@ describe('bots', () => {
     const { page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer, bot] },
-      { powers: ORGANIZE },
+      { powers: ORGANIZE_ONLY },
     );
 
     expect(button(page, 'Add bot')).toBeUndefined();
@@ -184,7 +188,7 @@ describe('bots', () => {
         players: [alicePlayer, bot],
         turn: { pick: 1, round: 1, playerId: alice.id },
       },
-      { powers: ADD_BOTS },
+      { powers: ADD_BOTS_ONLY },
     );
 
     expect(button(page, 'Add bot')).toBeUndefined();

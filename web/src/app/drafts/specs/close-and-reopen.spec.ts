@@ -13,7 +13,7 @@ import {
   button,
   queueOf,
   drafting,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
 } from './harness';
@@ -21,7 +21,7 @@ import {
 useDraftsApp();
 
 describe('close and reopen', () => {
-  beforeEach(() => powersAnswer(ORGANIZE));
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
   /** 37 of 90 picks made, with Alice up. */
   const underway = drafting({

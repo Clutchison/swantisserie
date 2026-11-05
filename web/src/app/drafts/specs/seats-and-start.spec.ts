@@ -21,7 +21,7 @@ import {
   tabButton,
   panel,
   type AppFixture,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
 } from './harness';
@@ -29,7 +29,7 @@ import {
 useDraftsApp();
 
 describe('seats and start', () => {
-  beforeEach(() => powersAnswer(ORGANIZE));
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
   const seatNames = (page: HTMLElement) =>
     [...section(page, 'Players').querySelectorAll('li .name')].map((n) => n.textContent);

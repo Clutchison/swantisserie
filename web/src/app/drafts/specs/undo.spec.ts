@@ -15,7 +15,7 @@ import {
   pickOf,
   poolCardOf,
   drafting,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
 } from './harness';
@@ -23,7 +23,7 @@ import {
 useDraftsApp();
 
 describe('undo', () => {
-  beforeEach(() => powersAnswer(ORGANIZE));
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
   const cards = [
     poolCardOf('shock', 'Shock'),

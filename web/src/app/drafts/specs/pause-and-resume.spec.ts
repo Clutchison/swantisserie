@@ -12,7 +12,7 @@ import {
   completeSnapshot,
   button,
   drafting,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
 } from './harness';
@@ -20,7 +20,7 @@ import {
 useDraftsApp();
 
 describe('pause and resume', () => {
-  beforeEach(() => powersAnswer(ORGANIZE));
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
   /** Alice up, on the draft's first pick. */
   const aliceUp = drafting({ turn: { pick: 1, round: 1, playerId: alice.id } });

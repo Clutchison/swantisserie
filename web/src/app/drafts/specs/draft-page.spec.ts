@@ -1,14 +1,16 @@
 import { TestBed } from '@angular/core/testing';
 import {
   ALL_POWERS,
+  alertIn,
   alice,
   useDraftsApp,
   completeSnapshot,
   draft,
   expectLoadingAnimation,
+  heading,
   flushPool,
   http,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
   openUrl,
   openDraft,
@@ -115,14 +117,11 @@ describe('draft page', () => {
     const { fixture, page } = await openDraft(
       { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
       {},
-      { powers: ORGANIZE },
+      { powers: ORGANIZE_ONLY },
     );
-    expect(page.querySelector('.error')?.textContent).toContain('Scryfall could not be reached.');
+    expect(alertIn(page)?.textContent).toContain('Scryfall could not be reached.');
 
-    const retry = [...page.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Retry'),
-    )!;
-    retry.click();
+    button(page, 'Retry')!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'));
     expect(req.request.method).toBe('POST');
     req.flush(draft({ snapshot: { state: 'Running', cards: 0, total: null } }), {
@@ -181,7 +180,7 @@ describe('draft page', () => {
     it('are read once when the page opens, not again as the draft changes or catches up', async () => {
       const { fixture } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
-      http.expectOne(powersUrl).flush(ORGANIZE);
+      http.expectOne(powersUrl).flush(ORGANIZE_ONLY);
       await flushPool();
       await fixture.whenStable();
 
@@ -222,7 +221,7 @@ describe('draft page', () => {
       const { page } = await openDraft(
         completeSnapshot,
         { players: [alicePlayer, bot] },
-        { powers: ORGANIZE },
+        { powers: ORGANIZE_ONLY },
       );
 
       expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
@@ -240,10 +239,10 @@ describe('draft page', () => {
       // Not whenStable: the page isn't stable while the powers are on their way.
       TestBed.tick();
 
-      expect(page.querySelector('h1')?.textContent).toBe('Red dragons');
+      expect(heading(page, 'Red dragons')).toBeDefined();
       expect(organizerButtons(page)).toEqual([]);
 
-      powers.flush(ORGANIZE);
+      powers.flush(ORGANIZE_ONLY);
       await fixture.whenStable();
       expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
     });
@@ -255,7 +254,7 @@ describe('draft page', () => {
       await flushPool();
       await fixture.whenStable();
 
-      expect(page.querySelector('h1')?.textContent).toBe('Red dragons');
+      expect(heading(page, 'Red dragons')).toBeDefined();
       expect(page.textContent).toContain('540 cards in the pool');
       expect(organizerButtons(page)).toEqual([]);
       expect(button(page, 'Add bot')).toBeUndefined();

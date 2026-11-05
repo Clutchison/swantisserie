@@ -15,7 +15,7 @@ import {
   completeSnapshot,
   button,
   type AppFixture,
-  ORGANIZE,
+  ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
 } from './harness';
@@ -23,7 +23,7 @@ import {
 useDraftsApp();
 
 describe('cancel', () => {
-  beforeEach(() => powersAnswer(ORGANIZE));
+  beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
   const running: PoolSnapshotView = { state: 'Running', cards: 0, total: null };
   const failed: PoolSnapshotView = { state: 'Failed', cards: 0, total: null, error: 'Nope' };

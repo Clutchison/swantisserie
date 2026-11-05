@@ -90,12 +90,15 @@ export const NO_POWERS: DraftPowersView = {
   addBots: false,
   switchAnnouncements: false,
 };
-/** The draft powers of an organizer, who may not add bots or switch announcements. */
-export const ORGANIZE: DraftPowersView = { ...NO_POWERS, organize: true };
+/** The draft powers of a viewer who may only organize. */
+export const ORGANIZE_ONLY: DraftPowersView = { ...NO_POWERS, organize: true };
 /** The draft powers of a viewer who may only add bots. */
-export const ADD_BOTS: DraftPowersView = { ...NO_POWERS, addBots: true };
+export const ADD_BOTS_ONLY: DraftPowersView = { ...NO_POWERS, addBots: true };
 /** The draft powers of a viewer who may only switch announcements. */
-export const SWITCH_ANNOUNCEMENTS: DraftPowersView = { ...NO_POWERS, switchAnnouncements: true };
+export const SWITCH_ANNOUNCEMENTS_ONLY: DraftPowersView = {
+  ...NO_POWERS,
+  switchAnnouncements: true,
+};
 /** The draft powers of an app admin: all of them. */
 export const ALL_POWERS: DraftPowersView = {
   organize: true,
@@ -104,7 +107,7 @@ export const ALL_POWERS: DraftPowersView = {
 };
 
 /**
- * What GET /api/drafts/:id/powers answers with, without a test having to:
+ * What GET /api/drafts/:id/powers answers with, so that a test needn't:
  * every draft page reads them. Null leaves the request to the test.
  */
 let registeredPowers: DraftPowersView | null;
