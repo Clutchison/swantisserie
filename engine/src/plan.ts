@@ -11,7 +11,7 @@ export interface PlanAfterPick {
    */
   swapped?: { out: string; in: string };
   /** The picked card, if the plan lost it: no copy was available for the plan. */
-  unplanned?: string;
+  lost?: string;
 }
 
 /**
@@ -46,7 +46,7 @@ export function plansAfterPick(
     if (at === -1) return { plan: [...plan] };
     const copy = copies.find((card) => !plan.includes(card));
     return copy === undefined
-      ? { plan: plan.toSpliced(at, 1), unplanned: pick.card }
+      ? { plan: plan.toSpliced(at, 1), lost: pick.card }
       : { plan: plan.with(at, copy), swapped: { out: pick.card, in: copy } };
   });
 }

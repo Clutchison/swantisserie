@@ -23,8 +23,8 @@ describe('the steal behavior migration', () => {
       { id: 'a', stealBehavior: 'ClearQueue' },
       { id: 'b', stealBehavior: 'ClearQueue' },
     ]);
-    const unqueued = await db.query(`SELECT "restKept" FROM "UnqueuedCard"`);
-    expect(unqueued.rows).toEqual([{ restKept: false }]);
+    const takenOut = await db.query(`SELECT "restKept" FROM "UnqueuedCard"`);
+    expect(takenOut.rows).toEqual([{ restKept: false }]);
     await db.close();
     // Starting Postgres and applying every migration can pass 5s on CI.
   }, 30_000);

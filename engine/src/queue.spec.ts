@@ -17,8 +17,8 @@ describe('queuesAfterPick', () => {
         picked: [],
       }),
     ).toEqual([
-      { queue: ['spike'], unqueued: [] },
-      { queue: [], unqueued: [] },
+      { queue: ['spike'], cleared: [] },
+      { queue: [], cleared: [] },
     ]);
   });
 
@@ -30,11 +30,11 @@ describe('queuesAfterPick', () => {
         { pool, picked: [] },
       ),
     ).toEqual([
-      { queue: [], unqueued: [] },
+      { queue: [], cleared: [] },
       {
         queue: ['spike', 'bolt-2', 'shock'],
         swapped: 'bolt-2',
-        unqueued: [],
+        cleared: [],
       },
     ]);
   });
@@ -47,9 +47,9 @@ describe('queuesAfterPick', () => {
         { pool, picked: [] },
       ),
     ).toEqual([
-      { queue: [], unqueued: [] },
-      { queue: ['bolt-2'], swapped: 'bolt-2', unqueued: [] },
-      { queue: ['shock', 'bolt-2'], swapped: 'bolt-2', unqueued: [] },
+      { queue: [], cleared: [] },
+      { queue: ['bolt-2'], swapped: 'bolt-2', cleared: [] },
+      { queue: ['shock', 'bolt-2'], swapped: 'bolt-2', cleared: [] },
     ]);
   });
 
@@ -62,9 +62,9 @@ describe('queuesAfterPick', () => {
         { pool, picked: ['bolt-2'] },
       ),
     ).toEqual([
-      { queue: [], unqueued: [] },
-      { queue: [], unqueued: ['spike', 'bolt-1'] },
-      { queue: ['shock'], unqueued: [] },
+      { queue: [], cleared: [] },
+      { queue: [], lost: 'bolt-1', cleared: ['spike'] },
+      { queue: ['shock'], cleared: [] },
     ]);
   });
 
@@ -75,8 +75,8 @@ describe('queuesAfterPick', () => {
         picked: [],
       }),
     ).toEqual([
-      { queue: [], unqueued: [] },
-      { queue: [], unqueued: ['bolt-2', 'bolt-1'] },
+      { queue: [], cleared: [] },
+      { queue: [], lost: 'bolt-1', cleared: ['bolt-2'] },
     ]);
   });
 
@@ -92,9 +92,9 @@ describe('queuesAfterPick', () => {
         },
       ),
     ).toEqual([
-      { queue: [], unqueued: [] },
-      { queue: ['spike', 'shock'], unqueued: ['bolt-1'] },
-      { queue: [], unqueued: ['bolt-1', 'spike'] },
+      { queue: [], cleared: [] },
+      { queue: ['spike', 'shock'], lost: 'bolt-1', cleared: [] },
+      { queue: [], lost: 'bolt-1', cleared: ['spike'] },
     ]);
   });
 });

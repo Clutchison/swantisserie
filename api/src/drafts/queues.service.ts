@@ -190,7 +190,7 @@ export class QueuesService {
    */
   async dismissNotice(draftId: string, userId: string): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      await tx.unqueuedCard.updateMany({
+      await tx.takenOutQueuedCard.updateMany({
         where: { playerId },
         data: { noticeHidden: true },
       });
@@ -249,7 +249,7 @@ export class QueuesService {
         position: next + offset,
       })),
     });
-    await tx.unqueuedCard.updateMany({
+    await tx.takenOutQueuedCard.updateMany({
       where: { playerId, poolCardId: { in: poolCardIds } },
       data: { noticeHidden: true },
     });
@@ -318,7 +318,7 @@ export class QueuesService {
       orderBy: { position: 'asc' },
       select: { poolCardId: true, poolCard: { select: { name: true } } },
     });
-    const listed = await tx.unqueuedCard.findMany({
+    const listed = await tx.takenOutQueuedCard.findMany({
       where: { playerId, noticeHidden: false },
       orderBy: [{ pick: { number: 'asc' } }, { position: 'asc' }],
       select: {
