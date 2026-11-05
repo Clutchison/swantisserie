@@ -1,0 +1,33 @@
+<div class="modal">
+  <h3 [id]="headingId">Queue unpicked cards</h3>
+  @if (queueCount() === 0) {
+    <p>
+      {{
+        includeSideboard()
+          ? 'Nothing on your plan to queue.'
+          : 'Nothing on your mainboard to queue.'
+      }}
+    </p>
+  } @else {
+    <p>Adds {{ queueCountText() }} to the end of your queue.</p>
+  }
+  <label>
+    <input
+      type="checkbox"
+      [checked]="includeSideboard()"
+      (change)="includeSideboard.set($any($event.target).checked)"
+    />
+    Include sideboard
+  </label>
+  <div class="dialog-actions">
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
+    <button
+      class="button"
+      type="button"
+      (click)="queueUnpicked()"
+      [disabled]="sending() || queueCount() === 0"
+    >
+      Queue {{ queueCountText() }}
+    </button>
+  </div>
+</div>
