@@ -23,8 +23,8 @@ useDraftsApp();
 beforeEach(() => webhooksAnswer(null));
 
 describe('create form', () => {
-  const main = { id: 'webhook-main', name: '#roto-main' };
-  const side = { id: 'webhook-side', name: '#roto-side' };
+  const main = { id: 'webhook-main', name: '#roto-main', gone: false };
+  const side = { id: 'webhook-side', name: '#roto-side', gone: false };
 
   /** Opens the form with GET /api/webhooks answered by `webhooks`. */
   async function openForm(webhooks: WebhookView[] = []) {
@@ -313,6 +313,24 @@ describe('create form', () => {
       status: 400,
       statusText: 'Error',
     });
+  });
+
+  it('lists gone webhooks but doesn’t let them be chosen, starting on the first that isn’t', async () => {
+    const { page } = await openForm([{ ...main, gone: true }, side]);
+
+    expect(webhookOptions(page).map((option) => option.textContent?.trim())).toEqual([
+      '#roto-main (gone)',
+      '#roto-side',
+      'None',
+    ]);
+    expect(webhookOptions(page)[0].disabled).toBe(true);
+    expect(chosenWebhook(page)).toBe('#roto-side');
+  });
+
+  it('starts on None when every webhook is gone', async () => {
+    const { page } = await openForm([{ ...main, gone: true }]);
+
+    expect(chosenWebhook(page)).toBe('None');
   });
 
   it('can post nowhere', async () => {

@@ -43,6 +43,31 @@ export class UnknownWebhookError extends Error {
   }
 }
 
+/** Thrown when a draft is given a webhook that is gone. */
+export class GoneWebhookChosenError extends Error {
+  constructor() {
+    super('That webhook is gone. Choose another.');
+  }
+}
+
+/**
+ * Throws UnknownWebhookError if the webhook doesn't exist, and
+ * GoneWebhookChosenError if it is gone: either can't be chosen for a draft.
+ * Choosing none (null) is always allowed.
+ */
+export async function refuseUnchoosableWebhook(
+  db: Pick<Prisma.TransactionClient, 'webhook'>,
+  webhookId: string | null,
+): Promise<void> {
+  if (webhookId === null) return;
+  const webhook = await db.webhook.findUnique({
+    where: { id: webhookId },
+    select: { goneAt: true },
+  });
+  if (!webhook) throw new UnknownWebhookError();
+  if (webhook.goneAt) throw new GoneWebhookChosenError();
+}
+
 /** Rethrows a failed save of a draft, as UnknownWebhookError if its webhook doesn't exist. */
 export function rethrowMissingWebhook(err: unknown): never {
   if (

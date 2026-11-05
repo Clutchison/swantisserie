@@ -6,11 +6,13 @@ const main: WebhookWithUrlView = {
   id: 'webhook-main',
   name: '#roto-main',
   url: 'https://discord.com/api/webhooks/1234567890/main-token',
+  gone: false,
 };
 const side: WebhookWithUrlView = {
   id: 'webhook-side',
   name: '#roto-side',
   url: 'https://discord.com/api/webhooks/1234567891/side-token',
+  gone: false,
 };
 
 describe('webhooks page', () => {
@@ -25,17 +27,20 @@ describe('webhooks page', () => {
     return opened;
   }
 
+  const nameField = (li: Element) => li.querySelector<HTMLInputElement>('input[aria-label="Name"]');
+
   /** The list's rows, as their name field's value and their URL. */
   const rows = (page: HTMLElement) =>
     [...page.querySelectorAll('li')].map((li) => [
-      li.querySelector<HTMLInputElement>('input')?.value,
+      nameField(li)?.value,
       li.querySelector('.url')?.textContent?.trim(),
     ]);
 
   const row = (page: HTMLElement, name: string) =>
-    [...page.querySelectorAll('li')].find(
-      (li) => li.querySelector<HTMLInputElement>('input')?.value === name,
-    )!;
+    [...page.querySelectorAll('li')].find((li) => nameField(li)?.value === name)!;
+
+  const newUrlField = (li: Element) =>
+    li.querySelector<HTMLInputElement>('input[aria-label="New URL"]')!;
 
   const button = (root: Element, label: string) =>
     [...root.querySelectorAll<HTMLButtonElement>('button')].find(
@@ -108,7 +113,7 @@ describe('webhooks page', () => {
   it('renames a webhook', async () => {
     const { fixture, page } = await openPage([main]);
     const li = row(page, '#roto-main');
-    fill(li.querySelector('input')!, '#roto-league');
+    fill(nameField(li)!, '#roto-league');
     button(li, 'Rename').click();
 
     const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
@@ -124,7 +129,7 @@ describe('webhooks page', () => {
   it('says why a rename was refused', async () => {
     const { fixture, page } = await openPage([main, side]);
     const li = row(page, '#roto-main');
-    fill(li.querySelector('input')!, '#roto-side');
+    fill(nameField(li)!, '#roto-side');
     button(li, 'Rename').click();
 
     (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(
@@ -138,6 +143,51 @@ describe('webhooks page', () => {
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(
       'Another webhook is called #roto-side.',
+    );
+  });
+
+  it('marks gone webhooks', async () => {
+    const { page } = await openPage([{ ...main, gone: true }, side]);
+
+    expect(row(page, '#roto-main').textContent).toContain('Gone');
+    expect(row(page, '#roto-side').textContent).not.toContain('Gone');
+  });
+
+  it('replaces a gone webhook’s URL', async () => {
+    const newUrl = 'https://discord.com/api/webhooks/1234567890/new-token';
+    const { fixture, page } = await openPage([{ ...main, gone: true }]);
+    const li = row(page, '#roto-main');
+    fill(newUrlField(li), newUrl);
+    button(li, 'Replace URL').click();
+
+    const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}/url`));
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ url: newUrl });
+    const replaced = { ...main, url: newUrl };
+    req.flush(replaced);
+    await reloaded(fixture, [replaced]);
+
+    expect(rows(page)).toEqual([['#roto-main', newUrl]]);
+    expect(row(page, '#roto-main').textContent).not.toContain('Gone');
+  });
+
+  it('says why a replacement URL was refused', async () => {
+    const { fixture, page } = await openPage([main]);
+    const li = row(page, '#roto-main');
+    fill(newUrlField(li), 'https://example.com/x');
+    button(li, 'Replace URL').click();
+
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}/url`))).flush(
+      {
+        error: 'invalid',
+        message: 'Paste the webhook’s URL from Discord.',
+      } satisfies WebhookRegistryProblem,
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await fixture.whenStable();
+
+    expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+      'Paste the webhook’s URL from Discord.',
     );
   });
 

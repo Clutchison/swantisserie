@@ -21,6 +21,7 @@ import {
   DraftGoneError,
   CannotSeeDraftError,
   DraftStartedError,
+  GoneWebhookChosenError,
   NoDraftPowerError,
   NotAPlayerError,
   PauseRefusedError,
@@ -124,4 +125,5 @@ const DRAFT_CHANGE_REFUSALS: [
   [DraftStartedError, 'draft-started'],
   [DraftFullError, 'draft-full'],
   [UnknownWebhookError, 'webhook-removed'],
+  [GoneWebhookChosenError, 'webhook-gone'],
 ];

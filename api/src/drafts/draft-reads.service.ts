@@ -7,7 +7,7 @@ export const WITH_ORGANIZER = {
   include: {
     organizer: { select: { id: true, name: true } },
     // Never the URL: it is a secret only app admins may see.
-    webhook: { select: { id: true, name: true } },
+    webhook: { select: { id: true, name: true, goneAt: true } },
     players: {
       orderBy: SEAT_ORDER,
       select: {

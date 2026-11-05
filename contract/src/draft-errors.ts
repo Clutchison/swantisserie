@@ -43,7 +43,7 @@ export type CubeLinkProblem =
 export type DraftCreationProblem =
   | PoolQueryProblem
   | CubeLinkProblem
-  /** A field to fix, or a webhook that has since been removed. */
+  /** A field to fix, or a webhook that has since been removed or gone. */
   | RequestProblem
   | { error: 'scryfall-unavailable'; message: string }
   | {
@@ -111,7 +111,8 @@ export interface DraftChangeRefusal {
     | 'draft-full'
     | 'players-changed'
     | 'pool-frozen'
-    | 'webhook-removed';
+    | 'webhook-removed'
+    | 'webhook-gone';
   message: string;
 }
 

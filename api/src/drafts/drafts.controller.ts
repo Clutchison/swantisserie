@@ -57,6 +57,7 @@ import { PickImportService } from './pick-import.service.js';
 import { TurnsService } from './turns.service.js';
 import {
   CubeLinkError,
+  GoneWebhookChosenError,
   PoolQueryError,
   UnknownWebhookError,
 } from './draft-errors.js';
@@ -381,7 +382,10 @@ export class DraftsController {
     try {
       return toDraftView(await this.lobby.create(user.id, draft));
     } catch (err) {
-      if (err instanceof UnknownWebhookError) {
+      if (
+        err instanceof UnknownWebhookError ||
+        err instanceof GoneWebhookChosenError
+      ) {
         throw new BadRequestException({
           error: 'invalid',
           message: err.message,

@@ -314,6 +314,8 @@ model Webhook {
   name      String   @unique
   /// A secret: only app admins may see it.
   url       String
+  /// When Discord stopped accepting posts on it (a 404 or 401); null while it does. Replacing its URL clears it.
+  goneAt    DateTime?
   drafts    Draft[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

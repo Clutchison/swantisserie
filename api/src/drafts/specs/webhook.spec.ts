@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+import { WebhookGoneError } from '../../discord/webhook-client.js';
 import {
   aliceCookie,
   bob,
@@ -20,6 +22,7 @@ import {
   changeWebhook,
   renameWebhook,
   removeWebhook,
+  replaceWebhookUrl,
   announcementsSettled,
 } from './harness.js';
 
@@ -42,7 +45,7 @@ describe('webhook', () => {
       webhookId,
     }).expect(201);
 
-    const webhook = { id: webhookId, name: '#roto-main' };
+    const webhook = { id: webhookId, name: '#roto-main', gone: false };
     expect(created.body.webhook).toEqual(webhook);
     const shown = await getDraft(created.body.id).expect(200);
     expect(shown.body.webhook).toEqual(webhook);
@@ -89,6 +92,7 @@ describe('webhook', () => {
     expect((await getDraft(body.id).expect(200)).body.webhook).toEqual({
       id: webhookId,
       name: '#roto-league',
+      gone: false,
     });
 
     await removeWebhook(webhookId);
@@ -149,6 +153,7 @@ describe('webhook', () => {
         expect(res.body.webhook).toEqual({
           id: otherId,
           name: '#roto-other',
+          gone: false,
         });
         expect(res.text).not.toContain('other-secret');
         expect((await getDraft(id).expect(200)).body.webhook).toEqual(
@@ -258,6 +263,125 @@ describe('webhook', () => {
         [webhookUrl, started],
         [otherUrl, paused],
       ]);
+    });
+  });
+
+  describe('when it is gone', () => {
+    const newUrl = 'https://discord.com/api/webhooks/1234567890/new-token';
+    let bobCookie: string;
+
+    beforeEach(async () => {
+      bobCookie = await signIn(bob);
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    });
+
+    /** A started draft whose start's post found its webhook gone. */
+    async function goneDraft() {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValueOnce(new WebhookGoneError(404));
+      await start(id).expect(200);
+      await announcementsSettled(id);
+      return id;
+    }
+
+    it('shows it gone on the draft, by name only', async () => {
+      const id = await goneDraft();
+
+      const shown = await getDraft(id).expect(200);
+
+      expect(shown.body.webhook).toEqual({
+        id: webhookId,
+        name: '#roto-main',
+        gone: true,
+      });
+      expect(shown.text).not.toContain('secret-token');
+    });
+
+    it('posts again, to the new URL, once its URL is replaced, keeping its drafts', async () => {
+      const id = await goneDraft();
+      webhookClient.post.mockClear();
+
+      await replaceWebhookUrl(webhookId, newUrl);
+
+      expect((await getDraft(id).expect(200)).body.webhook).toEqual({
+        id: webhookId,
+        name: '#roto-main',
+        gone: false,
+      });
+      await post(id, 'pause').expect(200);
+      await announcementsSettled(id);
+      expect(webhookClient.post.mock.calls.map(([url]) => url)).toEqual([
+        newUrl,
+      ]);
+    });
+
+    it('isn’t marked gone by a failure on a URL replaced since', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      let fail = () => {};
+      webhookClient.post.mockImplementationOnce(
+        () =>
+          new Promise<void>((_, reject) => {
+            fail = () => reject(new WebhookGoneError(401));
+          }),
+      );
+      await start(id).expect(200);
+      // The start's post is sending on the old URL, held until it fails.
+      await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalledOnce());
+
+      await replaceWebhookUrl(webhookId, newUrl);
+      fail();
+
+      await announcementsSettled(id);
+      expect((await getDraft(id).expect(200)).body.webhook.gone).toBe(false);
+    });
+
+    it('refuses it for a new draft', async () => {
+      await goneDraft();
+
+      const res = await createDraft({
+        name: 'Red dragons',
+        poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
+        webhookId,
+      }).expect(400);
+
+      expect(res.body).toEqual({
+        error: 'invalid',
+        message: 'That webhook is gone. Choose another.',
+      });
+    });
+
+    it('refuses changing a draft to it, leaving the draft’s unchanged', async () => {
+      await goneDraft();
+      const id = await readyDraft([aliceCookie, bobCookie]);
+
+      const res = await changeWebhook(id, webhookId).expect(409);
+
+      expect(res.body).toEqual({
+        error: 'webhook-gone',
+        message: 'That webhook is gone. Choose another.',
+      });
+      expect((await getDraft(id).expect(200)).body.webhook).toBeNull();
+    });
+
+    it('lets a draft using it change to another, or none', async () => {
+      const id = await goneDraft();
+      const otherId = await registerWebhook(
+        '#roto-other',
+        'https://discord.com/api/webhooks/987/other-secret',
+      );
+
+      await changeWebhook(id, otherId).expect(200);
+      await changeWebhook(id, null).expect(200);
     });
   });
 });

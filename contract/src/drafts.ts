@@ -50,6 +50,11 @@ export interface TurnView {
 export interface WebhookView {
   id: string;
   name: string;
+  /**
+   * Discord no longer accepts posts on it: announcements on it are dropped
+   * until an app admin replaces its URL, and it can't be chosen for a draft.
+   */
+  gone: boolean;
 }
 
 /** The CubeCobra cube a draft's pool was made from. */

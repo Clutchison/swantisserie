@@ -29,3 +29,9 @@ export interface NewWebhookRequest {
 export interface WebhookRenameRequest {
   name: string;
 }
+
+/** A webhook's new URL, replacing a gone one or any other. */
+export interface WebhookUrlReplaceRequest {
+  /** Discord's URL for the webhook. */
+  url: string;
+}

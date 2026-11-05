@@ -6,12 +6,16 @@ import {
   type WebhookWithUrlView,
   type NewWebhookRequest,
   type WebhookRenameRequest,
+  type WebhookUrlReplaceRequest,
 } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 const API = '/api/admin/webhooks';
 
-/** Where app admins add, rename and remove the webhooks drafts announce to. */
+/**
+ * Where app admins add, rename, replace the URLs of and remove the webhooks
+ * drafts announce to, and see which are gone.
+ */
 @Component({
   selector: 'app-webhooks-page',
   imports: [ReactiveFormsModule],
@@ -37,6 +41,12 @@ export class WebhooksPage {
   protected async rename(webhook: WebhookWithUrlView, name: string) {
     await this.save(
       this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
+    );
+  }
+
+  protected async replaceUrl(webhook: WebhookWithUrlView, url: string) {
+    await this.save(
+      this.http.put(`${API}/${webhook.id}/url`, { url } satisfies WebhookUrlReplaceRequest),
     );
   }
 
