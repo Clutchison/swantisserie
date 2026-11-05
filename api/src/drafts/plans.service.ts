@@ -84,15 +84,12 @@ export class PlansService {
         });
       }
       // The pool, as far as this card goes: its unpicked copies, in pool order.
-      const pool = new Map(
-        (
-          await tx.poolCard.findMany({
-            where: { draftId, oracleId: card.oracleId, pick: null },
-            orderBy: { id: 'asc' },
-            select: { id: true, oracleId: true },
-          })
-        ).map((copy) => [copy.id, copy.oracleId]),
-      );
+      const unpicked = await tx.poolCard.findMany({
+        where: { draftId, oracleId: card.oracleId, pick: null },
+        orderBy: { id: 'asc' },
+        select: { id: true, oracleId: true },
+      });
+      const pool = new Map(unpicked.map((copy) => [copy.id, copy.oracleId]));
       const held = new Set(
         (
           await tx.plannedCard.findMany({
@@ -101,9 +98,10 @@ export class PlansService {
           })
         ).map((planned) => planned.poolCardId),
       );
-      const copy = [card.id, ...availableCopies(card.id, pool, [])].find(
-        (copy) => !held.has(copy),
-      );
+      // The requested card, then its available copies: the first the plan
+      // doesn't hold.
+      const candidates = [card.id, ...availableCopies(card.id, pool, [])];
+      const copy = candidates.find((candidate) => !held.has(candidate));
       if (!copy) {
         throw new PlanRefusedError({
           error: 'no-copies-left',
