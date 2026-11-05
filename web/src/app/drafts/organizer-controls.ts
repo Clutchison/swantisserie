@@ -11,19 +11,20 @@ import {
 import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { hasTurn, isRefusal } from './drafts';
-import { KeptFocus } from './kept-focus';
+import { Changes, SendsChange } from './changes';
 
 /** The organizer's buttons on a started draft: pause, resume, undo, close and reopen. */
 @Component({
   selector: 'app-organizer-controls',
-  providers: [KeptFocus],
+  imports: [SendsChange],
+  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './organizer-controls.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './organizer-controls.scss'],
 })
 export class OrganizerControls {
   private readonly http = inject(HttpClient);
-  private readonly keptFocus = inject(KeptFocus);
+  private readonly changes = inject(Changes);
 
   readonly draft = input.required<DraftView>();
   /** The pick log, in pick order. */
@@ -56,96 +57,96 @@ export class OrganizerControls {
   protected readonly offerReopen = computed(
     () => this.canOrganize() && this.draft().state === 'Closed',
   );
-  /** An undo, pause, resume, close or reopen is being sent: until it settles, the buttons ignore presses. */
-  protected readonly sending = signal(false);
   protected readonly sendError = signal<string | null>(null);
 
   /** Undoes `pick`, the latest; refused if the picks have moved on meanwhile. */
   protected undo(pick: PickView) {
     return this.send(
-      this.http.delete<DraftView>(`/api/drafts/${this.draft().id}/picks/${pick.pick}`),
-      "Couldn't undo the pick. Try again in a moment.",
+      () => this.http.delete<DraftView>(`/api/drafts/${this.draft().id}/picks/${pick.pick}`),
+      { failure: "Couldn't undo the pick. Try again in a moment." },
     );
   }
 
   /** Pauses the draft; focus goes to Resume draft, which takes Pause draft's place. */
   protected pause() {
     return this.send(
-      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pause`, null),
-      "Couldn't pause the draft. Try again in a moment.",
-      ['Resume draft'],
+      () => this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pause`, null),
+      { failure: "Couldn't pause the draft. Try again in a moment.", keep: ['resume'] },
     );
   }
 
   /** Resumes the draft; focus goes to Pause draft, which takes Resume draft's place. */
   protected resume() {
     return this.send(
-      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/resume`, null),
-      "Couldn't resume the draft. Try again in a moment.",
-      ['Pause draft'],
+      () => this.http.post<DraftView>(`/api/drafts/${this.draft().id}/resume`, null),
+      { failure: "Couldn't resume the draft. Try again in a moment.", keep: ['pause'] },
     );
   }
 
   /** Closes the draft, once the organizer confirms. */
   protected close() {
-    if (this.sending()) return;
-    const draft = this.draft();
-    // Only a drafting or paused draft is offered this, and both have a turn:
-    // the guard never returns early, it only narrows the type to read `turn`.
-    if (!hasTurn(draft)) return;
-    const { id, name, players, picksPerPlayer, turn } = draft;
-    const made = turn.pick - 1;
-    const total = players.length * picksPerPlayer;
-    if (
-      !confirm(
-        `Close ${name}? ${made} of ${total} picks made. The picks stand as made, and the draft is read-only until it is reopened.`,
-      )
-    ) {
-      return;
-    }
     return this.send(
-      this.http.post<DraftView>(`/api/drafts/${id}/close`, null),
-      "Couldn't close the draft. Try again in a moment.",
+      () => {
+        const draft = this.draft();
+        // Only a drafting or paused draft is offered this, and both have a turn:
+        // the guard never returns early, it only narrows the type to read `turn`.
+        if (!hasTurn(draft)) return;
+        const { id, name, players, picksPerPlayer, turn } = draft;
+        const made = turn.pick - 1;
+        const total = players.length * picksPerPlayer;
+        const sure = confirm(
+          `Close ${name}? ${made} of ${total} picks made. The picks stand as made, and the draft is read-only until it is reopened.`,
+        );
+        return sure ? this.http.post<DraftView>(`/api/drafts/${id}/close`, null) : undefined;
+      },
+      { failure: "Couldn't close the draft. Try again in a moment." },
     );
   }
 
   /** Reopens the draft, once the organizer confirms. */
   protected reopen() {
-    if (this.sending()) return;
-    const { id, name } = this.draft();
-    if (!confirm(`Reopen ${name}? The turn comes back, and queued picks are made straight away.`)) {
-      return;
-    }
     return this.send(
-      this.http.post<DraftView>(`/api/drafts/${id}/reopen`, null),
-      "Couldn't reopen the draft. Try again in a moment.",
+      () => {
+        const { id, name } = this.draft();
+        const sure = confirm(
+          `Reopen ${name}? The turn comes back, and queued picks are made straight away.`,
+        );
+        return sure ? this.http.post<DraftView>(`/api/drafts/${id}/reopen`, null) : undefined;
+      },
+      { failure: "Couldn't reopen the draft. Try again in a moment." },
     );
   }
 
   /**
-   * Sends an organizer's change to a started draft and passes on the draft it
-   * answers with, ignored while another is in flight; `failure` is shown if
-   * it fails. Once it settles, focus is back on the button it was pressed
-   * on, or the first of `fallbacks` should that be gone.
+   * Sends an organizer's change to a started draft, the request `send`
+   * makes, and passes on the draft it answers with, unless another change
+   * is in flight; `send` makes none if the organizer thinks better of it.
+   * `failure` is shown if it fails. Focus is kept as `Changes.send` keeps it.
    */
-  private async send(request: Observable<DraftView>, failure: string, fallbacks: string[] = []) {
-    if (this.sending()) return;
-    this.keptFocus.press(...fallbacks);
-    this.sending.set(true);
-    this.sendError.set(null);
-    try {
-      this.draftChanged.emit(await firstValueFrom(request));
-    } catch (err) {
-      if (isRefusal(err)) {
-        // The draft has moved on: show why, and catch up with it.
-        this.sendError.set(err.error?.message ?? failure);
-        this.draftStale.emit();
-      } else {
-        this.sendError.set(failure);
-      }
-    } finally {
-      this.sending.set(false);
-      this.keptFocus.restore();
-    }
+  private send(
+    send: () => Observable<DraftView> | undefined,
+    { failure, keep }: { failure: string; keep?: string[] },
+  ) {
+    return this.changes.send(
+      async () => {
+        const request = send();
+        if (!request) return;
+        this.sendError.set(null);
+        try {
+          this.draftChanged.emit(await firstValueFrom(request));
+          return true;
+        } catch (err) {
+          if (isRefusal(err)) {
+            // The draft has moved on: show why, and catch up with it.
+            this.sendError.set(err.error?.message ?? failure);
+            this.draftStale.emit();
+          } else {
+            this.sendError.set(failure);
+          }
+          return false;
+        }
+      },
+      { keep },
+    );
   }
 }

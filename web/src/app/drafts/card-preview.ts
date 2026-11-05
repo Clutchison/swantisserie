@@ -182,13 +182,13 @@ export class CardPreviews implements OnDestroy {
     '(pointerdown)': 'pressedWith = $event.pointerType',
     '(click)': 'clicked()',
     '(focus)': 'focused()',
-    '(blur)': 'previews.blurred(element)',
+    '(blur)': 'blurred()',
     '[attr.tabindex]': 'tabIndex()',
   },
 })
 export class CardPreviewName implements OnDestroy {
-  protected readonly previews = inject(CardPreviews);
-  protected readonly element = inject<ElementRef<Element>>(ElementRef).nativeElement;
+  private readonly previews = inject(CardPreviews);
+  private readonly element = inject<ElementRef<Element>>(ElementRef).nativeElement;
   /** A control is a Tab stop of its own, which needs no other. */
   private readonly control = this.element.matches(
     'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable]',
@@ -218,6 +218,10 @@ export class CardPreviewName implements OnDestroy {
   protected focused() {
     const card = this.card();
     if (card && this.element.matches(':focus-visible')) this.previews.open(this.element, card);
+  }
+
+  protected blurred() {
+    this.previews.blurred(this.element);
   }
 
   protected clicked() {

@@ -17,6 +17,7 @@ import {
   flushPool,
   completeSnapshot,
   button,
+  buttons,
   expectLoadingAnimation,
   drafting,
   openQueue,
@@ -26,7 +27,7 @@ import {
   type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
-import { bolt } from './plan-tab-harness';
+import { bolt, boltAgain } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -385,6 +386,47 @@ describe('queue tab', () => {
         ),
       );
       expect(document.activeElement?.getAttribute('aria-label')).toBe('Move Shivan Dragon up');
+    });
+
+    it('keeps focus on the copy moved when two queued cards share a name', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, boltAgain, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
+      });
+      const queue = await openQueue(fixture, page);
+
+      buttons(queue, 'Move Lightning Bolt down')[0].focus();
+      buttons(queue, 'Move Lightning Bolt down')[0].click();
+      const req = http.expectOne('/api/drafts/draft-1/queue');
+      expect(req.request.body).toEqual({
+        poolCardIds: ['bolt-card-2', 'bolt-card', 'shivan-card'],
+      });
+      req.flush(queueOf({ cards: [queued(boltAgain), queued(bolt), queued(shivan)] }));
+      await fixture.whenStable();
+
+      // The second row's: the copy pressed, now one place down.
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(buttons(queue, 'Move Lightning Bolt down')[1]),
+      );
+    });
+
+    it('moves focus to the next card’s Remove when a card is removed, even one of the same name', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, boltAgain, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
+      });
+      const queue = await openQueue(fixture, page);
+
+      buttons(queue, 'Remove Lightning Bolt')[1].focus();
+      buttons(queue, 'Remove Lightning Bolt')[1].click();
+      http
+        .expectOne('/api/drafts/draft-1/queue/bolt-card-2')
+        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(queue, 'Remove Shivan Dragon')),
+      );
     });
   });
 });

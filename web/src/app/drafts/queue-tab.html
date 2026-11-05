@@ -5,7 +5,7 @@
     >{{ last ? '.' : ', ' }}
   }
 </ng-template>
-<p class="visually-hidden" role="status">{{ statusMessage() }}</p>
+<app-change-status />
 <div class="steal-behavior">
   <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
   <span id="steal-behavior-description" class="visually-hidden">{{
@@ -17,7 +17,7 @@
     [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
     aria-describedby="steal-behavior-description"
     [disabled]="readOnly() || loading()"
-    [attr.aria-disabled]="changing() || null"
+    appSendsChange="steal behavior"
     (click)="toggleStealBehavior()"
   >
     {{ stealBehaviorName() }}<svg lucideArrowLeftRight class="swap" size="16"></svg>
@@ -44,12 +44,7 @@
       }
     </p>
     @if (!readOnly()) {
-      <button
-        class="button secondary"
-        type="button"
-        (click)="dismissNotice()"
-        [attr.aria-disabled]="changing() || null"
-      >
+      <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
         Dismiss
       </button>
     }
@@ -93,7 +88,7 @@
             [title]="upName"
             (click)="move(i, i - 1)"
             [disabled]="first"
-            [attr.aria-disabled]="changing() || null"
+            [appSendsChange]="'up ' + card.poolCardId"
           >
             <svg lucideArrowUp size="16"></svg>
           </button>
@@ -105,7 +100,7 @@
             [title]="downName"
             (click)="move(i, i + 1)"
             [disabled]="last"
-            [attr.aria-disabled]="changing() || null"
+            [appSendsChange]="'down ' + card.poolCardId"
           >
             <svg lucideArrowDown size="16"></svg>
           </button>
@@ -116,7 +111,7 @@
             [attr.aria-label]="removeName"
             [title]="removeName"
             (click)="remove(card.poolCardId)"
-            [attr.aria-disabled]="changing() || null"
+            [appSendsChange]="'remove ' + card.poolCardId"
           >
             <svg lucideTrash size="16"></svg>
           </button>

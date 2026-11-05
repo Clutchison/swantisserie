@@ -228,6 +228,38 @@ describe('plan tab', () => {
       });
     });
 
+    it('does nothing with a card dropped once it has left the plan', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const dropLists = () =>
+        fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
+      const [mainboard] = dropLists();
+      const from = mainboard.injector.get(CdkDropList);
+      const boltDrag = mainboard
+        .queryAll(By.directive(CdkDrag))
+        .find((drag) => drag.nativeElement.querySelector('img')?.alt === 'Lightning Bolt')!
+        .injector.get(CdkDrag);
+
+      // Bolt is lost while it is being dragged.
+      button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(planOf({ mainboard: [], sideboard: [planned(shivan)] }));
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Shivan Dragon']));
+      const sideboard = dropLists()[1];
+      sideboard.triggerEventHandler('cdkDropListDropped', {
+        item: boltDrag,
+        previousContainer: from,
+        container: sideboard.injector.get(CdkDropList),
+      });
+      await fixture.whenStable();
+
+      http.expectNone('/api/drafts/draft-1/plan/bolt-card');
+    });
+
     it('drops to the list as the window narrows below the breakpoint, and back to stacks as it widens', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,

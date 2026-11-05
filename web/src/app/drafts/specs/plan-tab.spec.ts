@@ -486,5 +486,23 @@ describe('plan tab', () => {
       await fixture.whenStable();
       expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard'));
     });
+
+    it('moves focus to the next line once removing a card’s last copy takes its line', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), unpicked(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      button(plan, 'Remove Lightning Bolt from your plan')!.focus();
+      button(plan, 'Remove Lightning Bolt from your plan')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/bolt-card')
+        .flush(planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }));
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard')),
+      );
+    });
   });
 });
