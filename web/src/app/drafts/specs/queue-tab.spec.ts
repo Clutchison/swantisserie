@@ -610,6 +610,49 @@ describe('queue tab', () => {
       expect(queue.textContent).toContain('12 picks left');
     });
 
+    /** The picks left count, found by its text. */
+    const picksLeftCount = (queue: HTMLElement) =>
+      [...queue.querySelectorAll('p')].find((p) => /^\d+ picks? left$/.test(p.textContent.trim()));
+
+    /** Whether the picks left count is highlighted, as near the end of the viewer's picks. */
+    const highlighted = (queue: HTMLElement) =>
+      picksLeftCount(queue)?.getAttribute('data-highlighted') === 'true';
+
+    it.each([
+      [10, true],
+      [11, false],
+    ])('at %i picks left, highlights the count: %s', async (picksPerPlayer, expected) => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer }));
+
+      const queue = await openQueue(fixture, page);
+      expect(picksLeftCount(queue)?.textContent).toContain(`${picksPerPlayer} picks left`);
+      expect(highlighted(queue)).toBe(expected);
+    });
+
+    it('highlights the count as a pick takes the viewer to 10 picks left, and not once an undo takes it back', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 11 }));
+      const queue = await openQueue(fixture, page);
+      expect(highlighted(queue)).toBe(false);
+
+      /** A new draft version, with the pick log re-read as `picks`. */
+      const changed = async (version: number, picks: PickView[]) => {
+        updates.events.next({
+          type: 'changed',
+          draft: draft(drafting({ picksPerPlayer: 11, version })),
+        });
+        await flushPicks(picks);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+      };
+      await changed(1, [pickOf({ poolCardId: 'a' })]);
+      expect(picksLeftCount(queue)?.textContent).toContain('10 picks left');
+      expect(highlighted(queue)).toBe(true);
+
+      await changed(2, []);
+      expect(picksLeftCount(queue)?.textContent).toContain('11 picks left');
+      expect(highlighted(queue)).toBe(false);
+    });
+
     it('waits for the pick log before counting the picks left', async () => {
       const { fixture, page } = await openUrl('/drafts/draft-1');
       http
