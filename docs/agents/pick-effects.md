@@ -4,14 +4,14 @@ A pick changes more than the pick log. Read this before touching picks, queues, 
 
 ## The chain
 
-Every pick, however it is made, goes through `TurnsService.pickCard` in `api/src/drafts/turns.service.ts`: by hand (`pick`), from a queue (`cascade`), by a bot (`botPick`, which calls `takeTurn`). A pick import (`api/src/drafts/pick-import.service.ts`) creates its picks in bulk and then records their effects the same way. After creating the `Pick` row, `pickCard` hands the made pick, as the `MadePick` shape in `api/src/drafts/draft-shapes.ts`, to one helper per thing a pick touches:
+Every pick, however it is made, goes through `TurnsService.pickCard` in `api/src/drafts/turns.service.ts`: by hand (`pick`), from a queue (`cascade`), by a bot (`botPick`, which calls `takeTurn`). A pick import (`api/src/drafts/pick-import.service.ts`) creates its picks in bulk and then records their effects on plans the same way. After creating the `Pick` row, `pickCard` hands the made pick, as the `MadePick` shape in `api/src/drafts/draft-shapes.ts`, to one helper per thing a pick touches:
 
-- `api/src/drafts/plan-picks.ts`: what the pick does to players' plans.
-- `api/src/drafts/queue-clearing.ts`: what the pick does to players' queues (`takeFromQueues`), and how an undo puts it back (`restoreQueues`).
+- `api/src/drafts/plan-picks.ts`: what the pick does to players' plans (`plansAfter` works it out with the engine, `recordPlanEffects` persists it), and how an undo puts it back (`restorePlans`).
+- `api/src/drafts/queue-clearing.ts`: what the pick does to players' queues (`queuesAfter` works it out with the engine, `recordQueueEffects` persists it), and how an undo puts it back (`restoreQueues`).
 
-Each helper persists what an engine function decides: `queuesAfterPick` in `engine/src/queue.ts` for queues, and the cascade itself is `engine/src/cascade.ts`. Rows a pick loses or takes out (`LostPlannedCard` and `TakenOutQueuedCard` in `api/prisma/schema.prisma`) are kept against the pick so that `TurnsService.undo` can put them back, then deleted with the pick.
+The engine decides every effect; the api only persists it. `queuesAfterPick` in `engine/src/queue.ts` and `plansAfterPick` in `engine/src/plan.ts` work out one pick's effects, both through `swapOrLose` in `engine/src/copies.ts` for the copy rule, and `queueAfterUndo` in `engine/src/queue.ts` is where an undo puts taken-out queued cards back. The cascade, `engine/src/cascade.ts`, returns each pick with its effects on every queue and plan, so for a cascade pick `pickCard` passes them straight to the `record…` halves; a by-hand pick, a bot's pick and a pick import work out their one pick's effects first, then pass them to the same halves. `recordQueueEffects` and `recordPlanEffects` are the only writers of a pick's effects on queues and plans, for every kind of pick. Rows a pick loses or takes out (`LostPlannedCard` and `TakenOutQueuedCard` in `api/prisma/schema.prisma`) are kept against the pick so that `TurnsService.undo` can put them back, then deleted with the pick. The plan restore stays in the api: it is bookkeeping about plan boards, which the engine doesn't model.
 
-Adding a new effect of a pick means: a pure engine function with its own spec, a helper beside the two above that `pickCard` and the pick import call, and a restore that `undo` calls before deleting the pick. The pick import applies effects in pick order, so `enginePool` in `draft-shapes.ts` is where "picked so far" comes from.
+Adding a new effect of a pick means: a pure engine function with its own spec, which `cascade` also returns for each pick, a helper beside the two above that `pickCard` and the pick import call, and a restore that `undo` calls before deleting the pick. The pick import applies effects in pick order, so `enginePool` in `draft-shapes.ts` is where "picked so far" comes from.
 
 ## The web side
 

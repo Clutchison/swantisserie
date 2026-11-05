@@ -1,4 +1,9 @@
-import { queuesAfterPick } from 'engine';
+import {
+  type QueueAfterPick,
+  type QueuedCardAt,
+  queueAfterUndo,
+  queuesAfterPick,
+} from 'engine';
 import {
   enginePool,
   type MadePick,
@@ -7,18 +12,13 @@ import {
 } from './draft-shapes.js';
 
 /**
- * Persists what a new pick, already made, does to queues, as the engine's
- * `queuesAfterPick` says: its card leaves the picker's queue, and in each
- * other queue holding it, it is swapped for another copy or lost, clearing
- * that queue or keeping the rest as its player's steal behavior says. Lost
- * and cleared cards are kept against the pick, in queue order, so that
- * undoing it can put them back. A swapped copy stays swapped: it is as good
- * as the one picked.
+ * What a new pick, already made, does to each queue, by seat, as the
+ * engine's `queuesAfterPick` works it out; `recordQueueEffects` persists it.
  */
-export async function takeFromQueues(
+export async function queuesAfter(
   tx: Transaction,
   pick: MadePick,
-): Promise<void> {
+): Promise<QueueAfterPick[]> {
   const { draftId } = pick;
   const players = await tx.player.findMany({
     where: { draftId },
@@ -28,11 +28,11 @@ export async function takeFromQueues(
       stealBehavior: true,
       queue: {
         orderBy: { position: 'asc' },
-        select: { poolCardId: true, position: true },
+        select: { poolCardId: true },
       },
     },
   });
-  const after = queuesAfterPick(
+  return queuesAfterPick(
     {
       seat: players.findIndex((player) => player.id === pick.playerId),
       card: pick.poolCardId,
@@ -43,21 +43,41 @@ export async function takeFromQueues(
       stealBehaviors: players.map((player) => player.stealBehavior),
     },
   );
+}
+
+/**
+ * Persists `after`, what a new pick, already made, does to each queue, as
+ * the engine works it out; `playerIds` are the players by seat, as `after`
+ * is indexed. The card leaves the picker's queue, and in each other queue
+ * holding it, it is swapped for another copy or lost, clearing that queue or
+ * keeping the rest. Lost and cleared cards are kept against the pick, in
+ * queue order, so that undoing it can put them back. A swapped copy stays
+ * swapped: it is as good as the one picked.
+ */
+export async function recordQueueEffects(
+  tx: Transaction,
+  pick: MadePick,
+  playerIds: readonly string[],
+  after: readonly QueueAfterPick[],
+): Promise<void> {
   for (const [seat, { queue, swapped, lost, cleared }] of after.entries()) {
-    const { id: playerId, queue: before } = players[seat];
+    const playerId = playerIds[seat];
     if (lost !== undefined) {
       const takenOut = [lost, ...cleared];
       // Only under pick next does anything stay queued.
       const restKept = queue.length > 0;
+      const before = await tx.queuedCard.findMany({
+        where: { playerId, poolCardId: { in: takenOut } },
+        orderBy: { position: 'asc' },
+        select: { poolCardId: true, position: true },
+      });
       await tx.takenOutQueuedCard.createMany({
-        data: before
-          .filter((queued) => takenOut.includes(queued.poolCardId))
-          .map((queued) => ({
-            ...queued,
-            playerId,
-            pickId: pick.id,
-            restKept,
-          })),
+        data: before.map((queued) => ({
+          ...queued,
+          playerId,
+          pickId: pick.id,
+          restKept,
+        })),
       });
       await tx.queuedCard.deleteMany({
         where: { playerId, poolCardId: { in: takenOut } },
@@ -65,17 +85,19 @@ export async function takeFromQueues(
     } else if (swapped !== undefined) {
       await tx.queuedCard.update({
         where: {
-          playerId_poolCardId: { playerId, poolCardId: pick.poolCardId },
+          playerId_poolCardId: { playerId, poolCardId: swapped.out },
         },
-        data: { poolCardId: swapped },
+        data: { poolCardId: swapped.in },
       });
       // Queued again, so off the notice, as when the player queues it.
       await tx.takenOutQueuedCard.updateMany({
-        where: { playerId, poolCardId: swapped },
+        where: { playerId, poolCardId: swapped.in },
         data: { noticeHidden: true },
       });
-    } else {
-      // Only the picker's own queue loses cards this way.
+    } else if (playerId === pick.playerId) {
+      // Only the picker's own queue loses cards this way. Any other queue,
+      // such as a bot's, which the cascade passes to the engine as empty,
+      // is left as it is.
       await tx.queuedCard.deleteMany({
         where: { playerId, poolCardId: { notIn: queue } },
       });
@@ -84,10 +106,8 @@ export async function takeFromQueues(
 }
 
 /**
- * Puts back what the pick took out of queues. A card lost while the rest of
- * its queue was kept goes back in its old place among the cards there now;
- * a cleared queue comes back in its original order, ahead of anything queued
- * since. Deleting the pick then forgets them.
+ * Puts back what the pick took out of queues, in the order the engine's
+ * `queueAfterUndo` gives. Deleting the pick then forgets them.
  */
 export async function restoreQueues(
   tx: Transaction,
@@ -110,20 +130,27 @@ export async function restoreQueues(
       orderBy: { position: 'asc' },
       select: { poolCardId: true, position: true },
     });
-    // A kept queue's cards are where they were, unless since reordered.
-    const at = restored[0].restKept
-      ? since.filter((card) => card.position < restored[0].position).length
-      : 0;
-    const order = new Set(
-      since.toSpliced(at, 0, ...restored).map((card) => card.poolCardId),
-    );
+    const order = queueAfterUndo(since.map(toQueued), restored.map(toQueued), {
+      restKept: restored[0].restKept,
+    });
     await tx.queuedCard.deleteMany({ where: { playerId } });
     await tx.queuedCard.createMany({
-      data: [...order].map((poolCardId, position) => ({
+      data: order.map((poolCardId, position) => ({
         playerId,
         poolCardId,
         position,
       })),
     });
   }
+}
+
+/** A queued card row as the engine's `queueAfterUndo` takes it. */
+function toQueued({
+  poolCardId,
+  position,
+}: {
+  poolCardId: string;
+  position: number;
+}): QueuedCardAt {
+  return { card: poolCardId, position };
 }
