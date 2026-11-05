@@ -146,6 +146,14 @@ _Avoid_: Go, move
 One pool card taken by one player on their turn. Each pool card can be picked once.
 _Avoid_: Selection, draft (as a verb)
 
+**Picks per player**:
+How many picks each player makes in a draft. The organizer sets it when creating the draft, and it is locked once the draft starts.
+_Avoid_: Pick count, rounds
+
+**Picks left**:
+How many picks a player still has to make in a draft: their picks per player less the picks they have made.
+_Avoid_: Picks remaining, remaining picks
+
 **Picked badge**:
 The mark on a picked card in the Pool tab, showing that it was picked and which player picked it.
 _Avoid_: Taken badge, picked label
@@ -185,6 +193,10 @@ _Avoid_: Loss setting, fallback, keep queue
 **Queue tab**:
 The part of a draft's page where a player sees and rearranges their queue.
 _Avoid_: Queue page
+
+**Queue cutoff**:
+The line on the Queue tab after the last queued card that a player's picks left can reach, as their queue stands. It shows only when the queue holds more cards than the player has picks left.
+_Avoid_: Divider, pick line
 
 **Queue notice**:
 The note on the Queue tab naming a player's lost and cleared cards, and saying when the rest of the queue was kept under pick next. It builds up until the player dismisses it, and an undo takes off what that pick added.
