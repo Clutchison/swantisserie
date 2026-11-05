@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import type { User } from '../generated/prisma/client.js';
-import { AdminConfig } from './admin-config.js';
+import { AppAdminConfig } from './app-admin-config.js';
 import { SessionService } from './session.service.js';
 
 export const SESSION_COOKIE = 'session';
@@ -31,7 +31,7 @@ export function sessionToken(req: Request): string | undefined {
 export class SessionGuard implements CanActivate {
   constructor(
     private readonly sessions: SessionService,
-    private readonly admins: AdminConfig,
+    private readonly admins: AppAdminConfig,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
