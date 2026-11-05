@@ -186,18 +186,6 @@ textarea {
   }
 }
 
-/* Behind every modal. Above everything a page can stack, such as the draft page's tabs. */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-lg);
-  background: var(--color-overlay);
-}
-
 /* The dialog shell's backdrop, behind every dialog opened on it. */
 .cdk-overlay-backdrop.dialog-backdrop {
   background: var(--color-overlay);
@@ -248,7 +236,6 @@ textarea {
 
 /* Only the opening: nothing here waits for it, and buttons work from the start. */
 @media (prefers-reduced-motion: no-preference) {
-  .backdrop,
   .cdk-overlay-backdrop.dialog-backdrop {
     animation: backdrop-fade-in 150ms ease-out;
   }

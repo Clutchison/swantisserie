@@ -7,7 +7,13 @@ import {
   decodeRefused,
   wait,
 } from './harness';
-import { openDialog } from '../../specs-harness';
+import {
+  clickBackdrop,
+  hiddenFromAssistiveTech,
+  openDialog,
+  pressEscape,
+  pressTab,
+} from '../../specs-harness';
 import {
   useTallScreen,
   image,
@@ -19,6 +25,8 @@ import {
   newestLarge,
   tileLoaded,
   largePlaceholder,
+  searchBox,
+  searchFor,
 } from './pool-tab-harness';
 
 useDraftsApp();
@@ -87,6 +95,73 @@ describe('pool tab', () => {
     expect(newestLarge(detail).getAttribute('src')).toBe(
       'https://api.scryfall.com/cards/brightclimb-id?format=image&version=large&face=back',
     );
+  });
+
+  describe('focus', () => {
+    /** Opens the Pool tab with Brightclimb Pathway and Shivan Dragon, and the Card detail of the `index`th, from its focused tile. */
+    async function openFromTile(index: number) {
+      const opened = await openDraft(completeSnapshot, {}, { cards: [brightclimb, shivan] });
+      tiles(opened.page)[index].focus();
+      const detail = await openDetail(opened.fixture, opened.page, index);
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(detail, 'Close')));
+      return { ...opened, detail };
+    }
+
+    it('stays inside the Card detail, wrapping from its last control to its first and back', async () => {
+      const { detail } = await openFromTile(0);
+
+      pressTab();
+      expect(document.activeElement).toBe(button(detail, 'Flip'));
+      pressTab({ shift: true });
+      expect(document.activeElement).toBe(button(detail, 'Close'));
+    });
+
+    it('hides the page behind the Card detail from assistive technology while it is open', async () => {
+      const { fixture, page, detail } = await openFromTile(1);
+
+      expect(hiddenFromAssistiveTech(tiles(page)[1])).toBe(true);
+      expect(hiddenFromAssistiveTech(detail)).toBe(false);
+
+      button(detail, 'Close')!.click();
+      await fixture.whenStable();
+      expect(hiddenFromAssistiveTech(tiles(page)[1])).toBe(false);
+    });
+
+    it.each<[string, () => void]>([
+      ['Close', () => button(openDialog()!, 'Close')!.click()],
+      ['Escape', pressEscape],
+      ['a backdrop click', clickBackdrop],
+    ])('returns to the card’s tile on %s', async (_, close) => {
+      const { fixture, page } = await openFromTile(1);
+
+      close();
+      await fixture.whenStable();
+
+      expect(openDialog()).toBeNull();
+      expect(document.activeElement).toBe(tiles(page)[1]);
+    });
+
+    it('returns to the card’s tile when the grid has moved it to another', async () => {
+      const { fixture, page } = await openFromTile(1);
+
+      // Moves the card up a row, which gives it a new tile.
+      searchFor(page, 'shivan');
+      button(openDialog()!, 'Close')!.click();
+      await fixture.whenStable();
+
+      expect(tiles(page)).toHaveLength(1);
+      expect(document.activeElement).toBe(tiles(page)[0]);
+    });
+
+    it('goes to the pool search box when the card’s tile is no longer in the grid', async () => {
+      const { fixture, page } = await openFromTile(1);
+
+      searchFor(page, 'brightclimb');
+      pressEscape();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(searchBox(page));
+    });
   });
 
   describe('while its image is on the way', () => {
@@ -229,11 +304,11 @@ describe('pool tab', () => {
         {},
         { cards: [brightclimb, shivan] },
       );
-      const detail = await openDetail(fixture, page, 0);
-      await decoded(newestLarge(detail));
+      await decoded(newestLarge(await openDetail(fixture, page, 0)));
 
-      await openDetail(fixture, page, 1);
+      const detail = await openDetail(fixture, page, 1);
 
+      expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
       expect(shownSrcs(detail)).toEqual([]);
       expect(largeImages(detail).map((img) => img.getAttribute('src'))).toEqual([
         image('large', 'shivan-id'),

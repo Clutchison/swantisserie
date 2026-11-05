@@ -1,0 +1,99 @@
+@let shown = card();
+<div class="card-detail">
+  <app-card-image
+    class="large"
+    role="group"
+    aria-label="Large image"
+    [src]="image(shown, 'large', face())"
+    [alt]="shown.name"
+    [width]="672"
+    [height]="936"
+    [instantIfLoaded]="true"
+    (failed)="imageFailed(shown, 'large', face())"
+  >
+    @if (tilePlaceholder(); as src) {
+      <img class="placeholder" [src]="src" alt="" aria-hidden="true" width="488" height="680" />
+    } @else {
+      <span class="placeholder" aria-hidden="true">{{ shown.name }}</span>
+    }
+  </app-card-image>
+  <div class="actions">
+    @if (actions().pick) {
+      <button
+        class="button"
+        type="button"
+        (click)="pick()"
+        [disabled]="!yourTurn() || picksFailed() || picked().has(shown.id) || picking()"
+      >
+        {{ picking() ? 'Picking…' : 'Pick' }}
+      </button>
+    }
+    @if (actions().queue) {
+      <!-- A picked card, even one lost from the queue, is never offered for removal. -->
+      @if (queued().has(shown.id) && !picked().has(shown.id)) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="removeFromQueue()"
+          [disabled]="queueing()"
+        >
+          Remove from queue
+        </button>
+      } @else if (!yourTurn()) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="addToQueue()"
+          [disabled]="picked().has(shown.id) || queueing()"
+        >
+          Add to queue
+        </button>
+      }
+    }
+    <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
+    @if (planned().has(shown.id) && !picked().has(shown.id)) {
+      @if (actions().removeFromPlan) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="removeFromPlan()"
+          [disabled]="planning()"
+        >
+          Remove from Plan
+        </button>
+      }
+    } @else if (actions().addToPlan) {
+      <button
+        class="button secondary"
+        type="button"
+        (click)="addToPlan()"
+        [disabled]="picked().has(shown.id) || planning()"
+      >
+        Add to Plan
+      </button>
+    }
+    @if (shown.images.length > 1) {
+      <button class="button secondary" type="button" (click)="flip()">Flip</button>
+    }
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Close</button>
+  </div>
+  @if (picked().get(shown.id); as picker) {
+    <p class="note picked-by">
+      <app-player-avatar [src]="picker.avatarUrl" />
+      Picked by {{ picker.name }}
+    </p>
+  } @else if (actions().pick && picksFailed()) {
+    <p class="note" role="status">Couldn't load the latest picks. You can pick once they load.</p>
+  } @else if (actions().pick && !yourTurn()) {
+    <p class="note">You can pick on your turn.</p>
+  }
+  @if (queueNote(); as message) {
+    <p class="note" role="status">{{ message }}</p>
+  }
+  @if (planNote(); as message) {
+    <p class="note" role="status">{{ message }}</p>
+  }
+  @if (pickError(); as message) {
+    <p class="note error" role="alert">{{ message }}</p>
+  }
+</div>

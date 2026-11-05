@@ -20,9 +20,19 @@ import {
   flushPool,
   panel,
   statusMessage,
+  controlByLabel,
+  type AppFixture,
 } from './harness';
 import { openDialog } from '../../specs-harness';
-import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
+import {
+  useTallScreen,
+  card,
+  shivan,
+  brightclimb,
+  tiles,
+  openDetail,
+  searchBox,
+} from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -58,6 +68,41 @@ describe('pool tab', () => {
       expect(tiles(page)[1].classList).toContain('picked');
       expect(tiles(page)[1].textContent).toContain('Picked');
       expect(tiles(page)[0].classList).not.toContain('picked');
+    });
+
+    /** Picks Shivan Dragon from its Card detail, opened from its focused tile, and answers the pick. */
+    async function pickFromTile(fixture: AppFixture, page: HTMLElement) {
+      tiles(page)[1].focus();
+      button(await openDetail(fixture, page, 1), 'Pick')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+      await flushPicks([shivanPick]);
+      await fixture.whenStable();
+    }
+
+    it('returns focus to the picked card’s tile once its Card detail closes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [brightclimb, shivan],
+      });
+
+      await pickFromTile(fixture, page);
+
+      expect(openDialog()).toBeNull();
+      expect(document.activeElement).toBe(tiles(page)[1]);
+    });
+
+    it('returns focus to the pool search box when the picked card is hidden', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [brightclimb, shivan],
+      });
+      controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+      await fixture.whenStable();
+
+      await pickFromTile(fixture, page);
+
+      expect(tiles(page)).toHaveLength(1);
+      expect(document.activeElement).toBe(searchBox(page));
     });
 
     it('disables Pick when it is not your turn', async () => {
