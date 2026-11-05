@@ -82,6 +82,20 @@ export class QueueTab {
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
 
+  /** The viewer's picks left, shown until the draft is complete, as is the queue cutoff. */
+  protected readonly picksLeft = computed(() =>
+    this.draftState() === 'Complete' ? null : this.store.picksLeft(),
+  );
+
+  /**
+   * Where the queue cutoff goes: before the queued card at this index, the
+   * first one past the picks left. Null when the queue fits in them.
+   */
+  protected readonly cutoffIndex = computed(() => {
+    const left = this.picksLeft();
+    return left !== null && this.queue().cards.length > left ? left : null;
+  });
+
   /** Unless queue changes are offered, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !this.store.offerQueue());
   protected readonly changing = this.changes.changing;
