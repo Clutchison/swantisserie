@@ -7,38 +7,6 @@ useDraftsApp();
 useTallScreen();
 
 describe('pool tab', () => {
-  it('has a tab bar where Pool and Board work, and Me for players', async () => {
-    const { page } = await openDraft(completeSnapshot);
-
-    const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
-      'Pool',
-      'Queue',
-      'Plan',
-      'Board',
-      'Export',
-    ]);
-    expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual([
-      'true',
-      'false',
-      'false',
-      'false',
-      'false',
-    ]);
-    expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, true, false, true]);
-    expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('540 cards in the pool');
-  });
-
-  it('puts the tab bar between the draft header and the panel, showing one panel at a time', async () => {
-    const { page } = await openDraft(completeSnapshot);
-
-    const tabBar = page.querySelector('[role="tablist"]')!;
-    const panels = page.querySelectorAll('[role="tabpanel"]');
-    expect(tabBar.previousElementSibling?.classList).toContain('players');
-    expect(tabBar.nextElementSibling).toBe(panels[0]);
-    expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
-  });
-
   it('shows the pool as a grid of normal images with name placeholders', async () => {
     const { page } = await openDraft(completeSnapshot, {}, { cards: [brightclimb, shivan] });
 

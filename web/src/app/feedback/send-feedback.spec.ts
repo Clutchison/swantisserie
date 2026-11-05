@@ -1,50 +1,21 @@
-import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-  TestRequest,
-} from '@angular/common/http/testing';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { UserView } from 'contract';
-import { App } from '../app';
-import { routes } from '../app.routes';
+import type { TestRequest } from '@angular/common/http/testing';
+import type { ComponentFixture } from '@angular/core/testing';
+import type { App } from '../app';
+import { alice, http, openApp, router, useApp } from '../specs-harness';
 import { answerDraft42NotFound } from './specs-harness';
 
-const alice: UserView = {
-  id: '80351110224678912',
-  name: 'Alice',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAppAdmin: false,
-};
-
 describe('sending feedback', () => {
-  let http: HttpTestingController;
   let fixture: ComponentFixture<App>;
   let page: HTMLElement;
 
+  useApp();
+
   beforeEach(async () => {
-    TestBed.configureTestingModule({
-      imports: [App],
-      providers: [
-        provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(),
-        provideHttpClientTesting(),
-      ],
-    });
-    http = TestBed.inject(HttpTestingController);
-    fixture = TestBed.createComponent(App);
-    page = fixture.nativeElement as HTMLElement;
-    const navigation = TestBed.inject(Router).navigateByUrl('/status');
-    (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(alice);
-    await navigation;
+    ({ fixture, page } = await openApp('/status', alice));
     // The page checks the API's health; answer it so the app can settle.
-    TestBed.tick();
     http.expectOne('/api/health').flush({});
     await fixture.whenStable();
   });
-
-  afterEach(() => http.verify());
 
   const dialog = () => page.querySelector<HTMLElement>('[role="dialog"]');
   const backdrop = () => dialog()!.parentElement!;
@@ -122,7 +93,7 @@ describe('sending feedback', () => {
   });
 
   it("sends the page's path, query and hash, with no scheme or host", async () => {
-    const navigation = TestBed.inject(Router).navigateByUrl('/drafts/42?tab=pool#x');
+    const navigation = router.navigateByUrl('/drafts/42?tab=pool#x');
     await answerDraft42NotFound(http);
     await navigation;
     await fixture.whenStable();

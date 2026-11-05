@@ -7,7 +7,7 @@ import {
   flushPicks,
   updates,
   viewOn,
-  type DraftFixture,
+  drafting,
 } from './harness';
 
 useDraftsApp();
@@ -17,15 +17,12 @@ describe('seat order', () => {
 
   const toggle = (page: HTMLElement) => seats(page).querySelector('summary')!.click();
 
-  const drafting = (): DraftFixture => ({
-    state: 'Drafting',
-    players: [bob],
-    turn: { pick: 1, round: 1, playerId: bob.id },
-  });
-
   /** Starts the draft while the page is open, as a pushed update. */
   async function startLive(fixture: { whenStable(): Promise<unknown> }) {
-    updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
+    updates.events.next({
+      type: 'changed',
+      draft: draft({ ...drafting({ players: [bob] }), version: 1 }),
+    });
     await flushPicks([]);
     await fixture.whenStable();
   }
@@ -44,7 +41,7 @@ describe('seat order', () => {
     });
 
     it('stays open once the draft has started, showing every seat', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       expect(seats(page).open).toBe(true);
       expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
@@ -60,7 +57,7 @@ describe('seat order', () => {
     });
 
     it('can be collapsed and expanded by hand', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       toggle(page);
       expect(seats(page).open).toBe(false);
@@ -79,7 +76,7 @@ describe('seat order', () => {
     });
 
     it('collapses once the draft has started, out of the way of the panels', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       expect(seats(page).open).toBe(false);
       expect(page.querySelector('.turn')?.textContent).toContain('Bob’s turn');
@@ -95,7 +92,7 @@ describe('seat order', () => {
     });
 
     it('can be expanded and collapsed by hand', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       toggle(page);
       expect(seats(page).open).toBe(true);

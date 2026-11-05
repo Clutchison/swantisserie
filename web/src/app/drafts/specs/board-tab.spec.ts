@@ -15,6 +15,7 @@ import {
   completeSnapshot,
   expectLoadingAnimation,
   type DraftFixture,
+  pickOf,
 } from './harness';
 
 useDraftsApp();
@@ -27,36 +28,30 @@ const rowText = (li: Element) =>
 
 describe('board tab', () => {
   const picks: PickView[] = [
-    {
-      pick: 1,
+    pickOf({
       playerId: bob.id,
       poolCardId: 'shock-card',
       name: 'Shock',
-      layout: 'normal',
       typeLine: 'Instant',
       set: 'ima',
       collectorNumber: '1',
-    },
-    {
+    }),
+    pickOf({
       pick: 2,
-      playerId: alice.id,
       poolCardId: 'bolt-card',
       name: 'Lightning Bolt',
-      layout: 'normal',
       typeLine: 'Instant',
       set: 'ima',
       collectorNumber: '1',
-    },
-    {
+    }),
+    pickOf({
       pick: 3,
-      playerId: alice.id,
       poolCardId: 'spike-card',
       name: 'Lava Spike',
-      layout: 'normal',
       typeLine: 'Sorcery — Arcane',
       set: 'ima',
       collectorNumber: '1',
-    },
+    }),
   ];
 
   async function openBoard(picks: PickView[], fields: DraftFixture = {}) {

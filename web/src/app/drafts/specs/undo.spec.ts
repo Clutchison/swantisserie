@@ -10,50 +10,48 @@ import {
   flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
+  pickOf,
+  drafting,
 } from './harness';
 
 useDraftsApp();
 
 describe('undo', () => {
   const picks: PickView[] = [
-    {
-      pick: 1,
+    pickOf({
       playerId: bob.id,
       poolCardId: 'shock-card',
       name: 'Shock',
-      layout: 'normal',
       typeLine: 'Instant',
       set: 'ima',
       collectorNumber: '1',
-    },
-    {
+    }),
+    pickOf({
       pick: 2,
-      playerId: alice.id,
       poolCardId: 'bolt-card',
       name: 'Lightning Bolt',
-      layout: 'normal',
       typeLine: 'Instant',
       set: 'ima',
       collectorNumber: '1',
-    },
+    }),
   ];
-  const drafting = {
-    state: 'Drafting' as const,
+  /** Bob then Alice, with Alice up on the draft's third pick. */
+  const aliceUp = drafting({
     players: [bob, alicePlayer],
     turn: { pick: 3, round: 2, playerId: alice.id },
-  };
+  });
 
   const undoButton = (page: HTMLElement) =>
     [...page.querySelectorAll('button')].find((b) => b.textContent?.includes('Undo'));
 
   it('lets the organizer undo the latest pick, handing the turn back', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting, { picks: picks });
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { picks: picks });
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
 
     undoButton(page)!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'));
     expect(req.request.method).toBe('DELETE');
-    req.flush(draft({ ...drafting, turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 }));
+    req.flush(draft({ ...aliceUp, turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 }));
     await flushPicks(picks.slice(0, 1));
     await flushQueueAndPlan();
     await fixture.whenStable();
@@ -63,7 +61,7 @@ describe('undo', () => {
   });
 
   it('says why an undo was refused, and catches up with the draft', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting, { picks: picks });
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { picks: picks });
 
     undoButton(page)!.click();
     const message = 'Only the latest pick can be undone, and the picks have changed.';
@@ -72,20 +70,18 @@ describe('undo', () => {
       { status: 409, statusText: 'Conflict' },
     );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-      draft({ ...drafting, turn: { pick: 4, round: 2, playerId: bob.id }, version: 1 }),
+      draft({ ...aliceUp, turn: { pick: 4, round: 2, playerId: bob.id }, version: 1 }),
     );
     await flushPicks([
       ...picks,
-      {
+      pickOf({
         pick: 3,
-        playerId: alice.id,
         poolCardId: 'spike-card',
         name: 'Lava Spike',
-        layout: 'normal',
         typeLine: 'Sorcery — Arcane',
         set: 'ima',
         collectorNumber: '1',
-      },
+      }),
     ]);
     await flushQueueAndPlan();
     await fixture.whenStable();
@@ -97,7 +93,7 @@ describe('undo', () => {
   it('offers undo only to the organizer or an app admin', async () => {
     const { page } = await openDraft(
       completeSnapshot,
-      { ...drafting, organizer: { id: bob.id, name: bob.name } },
+      { ...aliceUp, organizer: { id: bob.id, name: bob.name } },
       { picks: picks },
     );
 
@@ -106,7 +102,7 @@ describe('undo', () => {
 
   it('offers no undo before the first pick', async () => {
     const { page } = await openDraft(completeSnapshot, {
-      ...drafting,
+      ...aliceUp,
       turn: { pick: 1, round: 1, playerId: bob.id },
     });
 
@@ -116,7 +112,7 @@ describe('undo', () => {
   it('offers no undo once the draft is complete', async () => {
     const { page } = await openDraft(
       completeSnapshot,
-      { ...drafting, state: 'Complete', turn: null },
+      { ...aliceUp, state: 'Complete', turn: null },
       { picks: picks },
     );
 

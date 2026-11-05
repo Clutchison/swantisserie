@@ -19,6 +19,8 @@ import {
   previewImage,
   pointer,
   tap,
+  pickOf,
+  queueOf,
 } from './harness';
 import { image } from './pool-tab-harness';
 
@@ -54,16 +56,17 @@ describe('card previews', () => {
   });
   const bolt = poolCard('bolt', 'Lightning Bolt');
   const shock = poolCard('shock', 'Shock');
-  const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView => ({
-    pick: number,
-    playerId,
-    poolCardId: card.id,
-    name: card.name,
-    layout: card.layout,
-    typeLine: card.typeLine,
-    set: card.set,
-    collectorNumber: card.collectorNumber,
-  });
+  const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView =>
+    pickOf({
+      pick: number,
+      playerId,
+      poolCardId: card.id,
+      name: card.name,
+      layout: card.layout,
+      typeLine: card.typeLine,
+      set: card.set,
+      collectorNumber: card.collectorNumber,
+    });
 
   /** Opens a draft with `picks` made and `options` as openDraft takes them. */
   async function openPicked(
@@ -525,13 +528,10 @@ describe('card previews', () => {
   });
 
   describe('in the queue', () => {
-    const queue: QueueView = {
+    const queue: QueueView = queueOf({
       cards: [{ poolCardId: shock.id, name: shock.name }],
       lost: [{ poolCardId: bolt.id, name: bolt.name }],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
-    };
+    });
 
     async function openQueue() {
       const opened = await openPicked({ queue });

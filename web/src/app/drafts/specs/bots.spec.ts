@@ -10,6 +10,7 @@ import {
   openDraft,
   completeSnapshot,
   button,
+  pickOf,
 } from './harness';
 
 useDraftsApp();
@@ -37,26 +38,22 @@ describe('bots', () => {
       },
       {
         picks: [
-          {
-            pick: 1,
+          pickOf({
             playerId: bot.id,
             poolCardId: 'shock-card',
             name: 'Shock',
-            layout: 'normal',
             typeLine: 'Instant',
             set: 'ima',
             collectorNumber: '1',
-          },
-          {
+          }),
+          pickOf({
             pick: 2,
-            playerId: alice.id,
             poolCardId: 'bolt-card',
             name: 'Lightning Bolt',
-            layout: 'normal',
             typeLine: 'Instant',
             set: 'ima',
             collectorNumber: '1',
-          },
+          }),
         ],
       },
     );

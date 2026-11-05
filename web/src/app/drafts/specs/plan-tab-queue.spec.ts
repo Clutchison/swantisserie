@@ -2,7 +2,6 @@ import type { PlanView, QueueRefusal, QueueView } from 'contract';
 import {
   useDraftsApp,
   alice,
-  alicePlayer,
   bob,
   http,
   tabButton,
@@ -15,7 +14,7 @@ import {
   draft,
   button,
   type AppFixture,
-  type DraftFixture,
+  drafting,
 } from './harness';
 import { card, shivan } from './pool-tab-harness';
 import { EMPTY_QUEUE } from '../drafts';
@@ -23,13 +22,8 @@ import { EMPTY_QUEUE } from '../drafts';
 useDraftsApp();
 
 describe('queueing the unpicked cards on the plan tab', () => {
-  /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-    state: 'Drafting',
-    players: [alicePlayer, bob],
-    turn: { pick: 2, round: 1, playerId: bob.id },
-    ...fields,
-  });
+  /** Bob's turn, on the draft's second pick. */
+  const bobsTurn = { pick: 2, round: 1, playerId: bob.id };
   const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1 });
   const boltAgain = card({ id: 'bolt-again', name: 'Lightning Bolt', manaValue: 1 });
   const shock = card({ id: 'shock-card', name: 'Shock', manaValue: 1 });
@@ -72,7 +66,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   }
 
   it('counts the mainboard’s unpicked copies not yet queued, and the sideboard’s too when included', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
       queue: queueOf(boltAgain),
@@ -89,7 +83,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('appends the mainboard’s unpicked cards, and shows the queue the API answers with', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
     });
@@ -113,7 +107,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('closes on a click on the backdrop, but not on a drag out of the modal', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
     });
@@ -134,7 +128,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('includes the sideboard when checked, and opens unchecked each time', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
     });
@@ -159,7 +153,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('is disabled when every unpicked copy is queued already', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
       queue: queueOf(bolt, boltAgain, shock),
@@ -170,7 +164,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('says when the mainboard has nothing to queue, until the sideboard is included', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
       queue: queueOf(bolt, boltAgain),
@@ -185,7 +179,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('says why it was refused, and re-reads the queue', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
     });
@@ -210,7 +204,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('closes when the player’s turn comes, and stays closed once it passes', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan,
     });

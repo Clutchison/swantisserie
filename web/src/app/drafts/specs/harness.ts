@@ -10,6 +10,7 @@ import type {
   PlanView,
   PoolCardView,
   PoolSnapshotView,
+  QueuedCardView,
   QueueView,
   TurnView,
   UserView,
@@ -22,13 +23,9 @@ import { DRAFT_POLL_MS } from '../draft-page';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
+import { alice } from '../../specs-harness';
 
-export const alice: UserView = {
-  id: '80351110224678912',
-  name: 'Alice',
-  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-  isAppAdmin: false,
-};
+export { alice };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -193,6 +190,52 @@ export const alicePlayer = {
   avatarUrl: alice.avatarUrl,
   isBot: false,
 };
+
+/** A Drafting draft with `fields` changed: Alice then Bob, with Bob up on the first pick. */
+export const drafting = (fields: DraftFixture = {}): DraftFixture => ({
+  state: 'Drafting',
+  players: [alicePlayer, bob],
+  turn: { pick: 1, round: 1, playerId: bob.id },
+  ...fields,
+});
+
+/** A card as a queue lists it. */
+export const queued = (card: { id: string; name: string }): QueuedCardView => ({
+  poolCardId: card.id,
+  name: card.name,
+});
+
+/**
+ * An empty queue, under Clear queue, with `fields` changed. Only a queue that
+ * lost a card can say whether the rest was kept.
+ */
+export const queueOf = (
+  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior'>> &
+    (
+      | { lost?: []; restKept?: false }
+      | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept?: boolean }
+    ) = {},
+): QueueView => ({
+  cards: [],
+  lost: [],
+  cleared: [],
+  restKept: false,
+  stealBehavior: 'ClearQueue',
+  ...fields,
+});
+
+/** A pick of a normal card, Alice's and the draft's first, with `fields` changed. */
+export const pickOf = (fields: Partial<PickView> = {}): PickView => ({
+  pick: 1,
+  playerId: alice.id,
+  poolCardId: '',
+  name: '',
+  layout: 'normal',
+  typeLine: '',
+  set: '',
+  collectorNumber: '',
+  ...fields,
+});
 
 /**
  * The avatar beside a player's name in the Players section. An avatar is
@@ -362,6 +405,13 @@ export function resizeTo(screen: 'desktop' | 'mobile') {
 export function wait(ms: number) {
   vi.advanceTimersByTime(ms);
   TestBed.tick();
+}
+
+/** Opens the Queue tab and returns its panel. */
+export async function openQueue(fixture: AppFixture, page: HTMLElement) {
+  tabButton(page, 'Queue').click();
+  await fixture.whenStable();
+  return panel(page);
 }
 
 /** The Card preview's image, if one is open: it's outside the page. */
