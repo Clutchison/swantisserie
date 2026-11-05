@@ -29,7 +29,7 @@ import type { Feedback, User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_PAGE_URL_LENGTH = 2048;
+const MAX_PAGE_PATH_LENGTH = 2048;
 
 /** Where signed-in guild members send feedback to the app admins. */
 @Controller('feedback')
@@ -43,11 +43,11 @@ export class FeedbackController {
     @CurrentUser() user: SessionUser,
     @Body() body: unknown,
   ): Promise<void> {
-    const { message, pageUrl } = bodyFields<FeedbackRequest>(body);
+    const { message, pagePath } = bodyFields<FeedbackRequest>(body);
     await this.prisma.feedback.create({
       data: {
         message: parseMessage(message),
-        pageUrl: parsePageUrl(pageUrl),
+        pagePath: parsePagePath(pagePath),
         senderId: user.id,
       },
     });
@@ -122,14 +122,14 @@ export class AdminFeedbackController {
 function toFeedbackView({
   id,
   message,
-  pageUrl,
+  pagePath,
   sentAt,
   sender,
 }: Feedback & { sender: User }): FeedbackView {
   return {
     id,
     message,
-    pageUrl,
+    pagePath,
     sentAt: sentAt.toISOString(),
     sender: { name: sender.name, avatarUrl: avatarUrl(sender) },
   };
@@ -149,11 +149,18 @@ function parseMessage(message: unknown): string {
   return trimmed;
 }
 
-/** The page's URL, or a 400: app admins will open it, so it must be a web page. */
-function parsePageUrl(pageUrl: unknown): string {
-  if (typeof pageUrl === 'string' && pageUrl.length <= MAX_PAGE_URL_LENGTH) {
-    const protocol = URL.parse(pageUrl)?.protocol;
-    if (protocol === 'https:' || protocol === 'http:') return pageUrl;
+/**
+ * The page's path, or a 400. App admins open it as one of this app's pages,
+ * so it must start with exactly one `/`: a browser reads `//` or `/\` as
+ * naming another host, and a scheme names another site.
+ */
+function parsePagePath(pagePath: unknown): string {
+  if (
+    typeof pagePath === 'string' &&
+    pagePath.length <= MAX_PAGE_PATH_LENGTH &&
+    /^\/(?![/\\])/.test(pagePath)
+  ) {
+    return pagePath;
   }
-  throw invalid('The page URL is not valid.');
+  throw invalid('The page is not valid.');
 }
