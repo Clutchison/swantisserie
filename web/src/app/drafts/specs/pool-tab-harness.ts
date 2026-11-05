@@ -1,4 +1,6 @@
+import { TestBed } from '@angular/core/testing';
 import type { PoolCardView } from 'contract';
+import { openDialog } from '../../specs-harness';
 import { type AppFixture } from './harness';
 
 // jsdom lays nothing out, so the window is 0px tall and the grid, which
@@ -71,17 +73,37 @@ export const tiles = (page: HTMLElement) => [
   ...page.querySelectorAll<HTMLButtonElement>('[role="tabpanel"] .grid button'),
 ];
 
-/** Taps the grid's `index`th card and returns the detail view it opens. */
+/** Taps the grid's `index`th card and returns the Card detail it opens. */
 export async function openDetail(fixture: AppFixture, page: HTMLElement, index: number) {
   tiles(page)[index].click();
   await fixture.whenStable();
-  return page.querySelector<HTMLElement>('[role="dialog"]')!;
+  return openDialog()!;
 }
+
+/** The pool search box. */
+export const searchBox = (page: HTMLElement) =>
+  page.querySelector<HTMLInputElement>('input[type="search"]')!;
+
+/** Types `search` into the pool search box. */
+export function searchFor(page: HTMLElement, search: string) {
+  const box = searchBox(page);
+  box.value = search;
+  box.dispatchEvent(new Event('input'));
+  TestBed.tick();
+}
+
+/** The Card detail's large image, named as such: its images, and whatever shows while they load. */
+const largeImage = (detail: HTMLElement) =>
+  detail.querySelector<HTMLElement>('[role="group"][aria-label="Large image"]')!;
 
 /** The images of the Card detail's large image, oldest first, leaving out any placeholder. */
 export const largeImages = (detail: HTMLElement) => [
-  ...detail.querySelectorAll<HTMLImageElement>('.large img:not(.placeholder)'),
+  ...largeImage(detail).querySelectorAll<HTMLImageElement>('img:not([aria-hidden="true"])'),
 ];
+
+/** What the Card detail's large image shows while its image loads, hidden from screen readers, if anything. */
+export const largePlaceholder = (detail: HTMLElement) =>
+  largeImage(detail).querySelector<HTMLElement>('[aria-hidden="true"]');
 
 /** The latest image the Card detail has asked for. */
 export const newestLarge = (detail: HTMLElement) => largeImages(detail).at(-1)!;

@@ -25,6 +25,7 @@ import {
   queued,
   openQueue,
 } from './harness';
+import { openDialog } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
@@ -62,7 +63,7 @@ describe('pool tab', () => {
       });
 
       expect(button(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
-      button(page.querySelector('[role="dialog"]')!, 'Close')!.click();
+      button(openDialog()!, 'Close')!.click();
       await fixture.whenStable();
       const detail = await openDetail(fixture, page, 0);
       expect(button(detail, 'Add to queue')).toBeDefined();

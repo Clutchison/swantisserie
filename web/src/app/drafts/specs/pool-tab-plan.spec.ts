@@ -17,6 +17,7 @@ import {
   pickOf,
   drafting,
 } from './harness';
+import { openDialog } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
@@ -232,7 +233,7 @@ describe('pool tab', () => {
       });
 
       button(await openDetail(fixture, page, 1), 'Add to Plan')!.click();
-      button(page.querySelector<HTMLElement>('[role="dialog"]')!, 'Close')!.click();
+      button(openDialog()!, 'Close')!.click();
       const detail = await openDetail(fixture, page, 0);
       expect(button(detail, 'Remove from Plan')!.disabled).toBe(true);
       http.expectOne('/api/drafts/draft-1/plan').flush(planned(shivan.id));

@@ -7,6 +7,7 @@ import {
   decodeRefused,
   wait,
 } from './harness';
+import { openDialog } from '../../specs-harness';
 import {
   useTallScreen,
   image,
@@ -17,6 +18,7 @@ import {
   largeImages,
   newestLarge,
   tileLoaded,
+  largePlaceholder,
 } from './pool-tab-harness';
 
 useDraftsApp();
@@ -32,12 +34,12 @@ describe('pool tab', () => {
 
     const detail = await openDetail(fixture, page, 1);
     expect(detail.getAttribute('aria-label')).toBe('Shivan Dragon');
-    expect(detail.querySelector('img')?.getAttribute('src')).toBe(image('large', 'shivan-id'));
+    expect(newestLarge(detail).getAttribute('src')).toBe(image('large', 'shivan-id'));
     expect(button(detail, 'Flip')).toBeUndefined();
 
     button(detail, 'Close')!.click();
     await fixture.whenStable();
-    expect(page.querySelector('[role="dialog"]')).toBeNull();
+    expect(openDialog()).toBeNull();
   });
 
   it('keeps the large image hidden until it has decoded', async () => {
@@ -99,7 +101,7 @@ describe('pool tab', () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       return { ...opened, detail };
     }
-    const placeholder = (detail: HTMLElement) => detail.querySelector('.placeholder');
+    const placeholder = largePlaceholder;
     const shownSrcs = (detail: HTMLElement) =>
       largeImages(detail)
         .filter((img) => img.classList.contains('shown'))

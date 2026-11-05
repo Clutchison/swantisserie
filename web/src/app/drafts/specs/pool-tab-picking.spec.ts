@@ -21,6 +21,7 @@ import {
   panel,
   statusMessage,
 } from './harness';
+import { openDialog } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, tiles, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
@@ -52,7 +53,7 @@ describe('pool tab', () => {
       await flushPicks([shivanPick]);
       await fixture.whenStable();
 
-      expect(page.querySelector('[role="dialog"]')).toBeNull();
+      expect(openDialog()).toBeNull();
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
       expect(tiles(page)[1].classList).toContain('picked');
       expect(tiles(page)[1].textContent).toContain('Picked');
