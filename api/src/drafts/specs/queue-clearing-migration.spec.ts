@@ -18,10 +18,10 @@ describe('the queue clearing migration', () => {
 
     await applyMigration();
 
-    const unqueued = await db.query(
+    const takenOut = await db.query(
       `SELECT "pickId", "playerId", "poolCardId", "position", "noticeHidden" FROM "UnqueuedCard"`,
     );
-    expect(unqueued.rows).toEqual([
+    expect(takenOut.rows).toEqual([
       {
         pickId: 'pick',
         playerId: 'player',

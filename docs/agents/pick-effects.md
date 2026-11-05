@@ -9,7 +9,7 @@ Every pick, however it is made, goes through `TurnsService.pickCard` in `api/src
 - `api/src/drafts/plan-picks.ts`: what the pick does to players' plans.
 - `api/src/drafts/queue-clearing.ts`: what the pick does to players' queues (`takeFromQueues`), and how an undo puts it back (`restoreQueues`).
 
-Each helper persists what an engine function decides: `queuesAfterPick` in `engine/src/queue.ts` for queues, and the cascade itself is `engine/src/cascade.ts`. Rows a pick takes out (`UnqueuedCard` in `api/prisma/schema.prisma`) are kept against the pick so that `TurnsService.undo` can put them back, then deleted with the pick.
+Each helper persists what an engine function decides: `queuesAfterPick` in `engine/src/queue.ts` for queues, and the cascade itself is `engine/src/cascade.ts`. Rows a pick takes out (`TakenOutQueuedCard` and `LostPlannedCard` in `api/prisma/schema.prisma`) are kept against the pick so that `TurnsService.undo` can put them back, then deleted with the pick.
 
 Adding a new effect of a pick means: a pure engine function with its own spec, a helper beside the two above that `pickCard` and the pick import call, and a restore that `undo` calls before deleting the pick. The pick import applies effects in pick order, so `enginePool` in `draft-shapes.ts` is where "picked so far" comes from.
 

@@ -43,14 +43,15 @@ export async function takeFromQueues(
       stealBehaviors: players.map((player) => player.stealBehavior),
     },
   );
-  for (const [seat, { queue, swapped, unqueued }] of after.entries()) {
+  for (const [seat, { queue, swapped, lost, cleared }] of after.entries()) {
     const { id: playerId, queue: before } = players[seat];
-    if (unqueued.length > 0) {
+    if (lost !== undefined) {
+      const takenOut = [lost, ...cleared];
       // Only under pick next does anything stay queued.
       const restKept = queue.length > 0;
-      await tx.unqueuedCard.createMany({
+      await tx.takenOutQueuedCard.createMany({
         data: before
-          .filter((queued) => unqueued.includes(queued.poolCardId))
+          .filter((queued) => takenOut.includes(queued.poolCardId))
           .map((queued) => ({
             ...queued,
             playerId,
@@ -59,7 +60,7 @@ export async function takeFromQueues(
           })),
       });
       await tx.queuedCard.deleteMany({
-        where: { playerId, poolCardId: { in: unqueued } },
+        where: { playerId, poolCardId: { in: takenOut } },
       });
     } else if (swapped !== undefined) {
       await tx.queuedCard.update({
@@ -69,7 +70,7 @@ export async function takeFromQueues(
         data: { poolCardId: swapped },
       });
       // Queued again, so off the notice, as when the player queues it.
-      await tx.unqueuedCard.updateMany({
+      await tx.takenOutQueuedCard.updateMany({
         where: { playerId, poolCardId: swapped },
         data: { noticeHidden: true },
       });
@@ -92,7 +93,7 @@ export async function restoreQueues(
   tx: Transaction,
   pickId: string,
 ): Promise<void> {
-  const unqueued = await tx.unqueuedCard.findMany({
+  const takenOut = await tx.takenOutQueuedCard.findMany({
     where: { pickId },
     orderBy: { position: 'asc' },
     select: {
@@ -102,8 +103,8 @@ export async function restoreQueues(
       restKept: true,
     },
   });
-  for (const playerId of new Set(unqueued.map((card) => card.playerId))) {
-    const restored = unqueued.filter((card) => card.playerId === playerId);
+  for (const playerId of new Set(takenOut.map((card) => card.playerId))) {
+    const restored = takenOut.filter((card) => card.playerId === playerId);
     const since = await tx.queuedCard.findMany({
       where: { playerId },
       orderBy: { position: 'asc' },

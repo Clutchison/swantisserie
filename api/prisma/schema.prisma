@@ -107,9 +107,9 @@ enum PoolSnapshotState {
 
 /// One copy of a card in a draft's pool, as snapshotted from Scryfall. A pool can hold several copies of the same card.
 model PoolCard {
-  id              String          @id @default(uuid())
+  id              String               @id @default(uuid())
   draftId         String
-  draft           Draft           @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft           Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Scryfall id of the printing on the draft's platform.
   scryfallId      String
   /// Identity shared by every printing of the card, and by every copy of it in the pool. A pool card is named by its own id, not this.
@@ -124,8 +124,8 @@ model PoolCard {
   manaCost        String?
   /// Null when the faces carry it.
   oracleText      String?
-  colorIdentity   String[]        @default([])
-  keywords        String[]        @default([])
+  colorIdentity   String[]             @default([])
+  keywords        String[]             @default([])
   /// How the card's faces are laid out, as Scryfall names it: normal, split, transform, adventure etc.
   layout          String
   /// common, uncommon, rare, special, mythic or bonus.
@@ -141,33 +141,33 @@ model PoolCard {
   /// Null until a player picks this card.
   pick            Pick?
   queued          QueuedCard[]
-  unqueued        UnqueuedCard[]
+  takenOutQueued  TakenOutQueuedCard[]
   planned         PlannedCard[]
-  unplanned       UnplannedCard[]
+  lostPlanned     LostPlannedCard[]
 
   @@index([draftId])
 }
 
 /// A guild member or bot who has joined a draft.
 model Player {
-  id            String          @id @default(uuid())
-  draftId       String
-  draft         Draft           @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  userId        String
-  user          User            @relation(fields: [userId], references: [id])
-  joinedAt      DateTime        @default(now())
+  id             String               @id @default(uuid())
+  draftId        String
+  draft          Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id])
+  joinedAt       DateTime             @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
-  seat          Int?
-  picks         Pick[]
+  seat           Int?
+  picks          Pick[]
   /// Bots have none.
-  queue         QueuedCard[]
-  unqueued      UnqueuedCard[]
+  queue          QueuedCard[]
+  takenOutQueued TakenOutQueuedCard[]
   /// Private to the player, like their queue.
-  plan          PlannedCard[]
-  basics        PlannedBasic[]
-  unplanned     UnplannedCard[]
+  plan           PlannedCard[]
+  basics         PlannedBasic[]
+  lostPlanned    LostPlannedCard[]
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
-  stealBehavior StealBehavior   @default(ClearQueue)
+  stealBehavior  StealBehavior        @default(ClearQueue)
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -175,23 +175,23 @@ model Player {
 
 /// One card taken by one player on their turn.
 model Pick {
-  id         String          @id @default(uuid())
-  draftId    String
-  draft      Draft           @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  id             String               @id @default(uuid())
+  draftId        String
+  draft          Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// 1-based, counting every pick in the draft.
-  number     Int
-  playerId   String
-  player     Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  number         Int
+  playerId       String
+  player         Player               @relation(fields: [playerId], references: [id], onDelete: Cascade)
   /// Unique: each pool card can be picked once.
-  poolCardId String          @unique
-  poolCard   PoolCard        @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
-  createdAt  DateTime        @default(now())
+  poolCardId     String               @unique
+  poolCard       PoolCard             @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  createdAt      DateTime             @default(now())
   /// What undoing this pick puts back into queues.
-  unqueued   UnqueuedCard[]
+  takenOutQueued TakenOutQueuedCard[]
   /// Its place in its player's plan, which undoing it takes away unless the player added the card first.
-  planned    PlannedCard?
+  planned        PlannedCard?
   /// What undoing this pick puts back into plans.
-  unplanned  UnplannedCard[]
+  lostPlanned    LostPlannedCard[]
 
   @@unique([draftId, number])
   @@index([playerId])
@@ -243,8 +243,8 @@ model PlannedBasic {
   @@unique([playerId, land])
 }
 
-/// An unpicked card another player's pick took out of a plan, as no other copy was available for it. Kept until that pick is undone, which puts it back.
-model UnplannedCard {
+/// An unpicked card lost from a plan: another player picked it, and no other copy was available for the plan. Kept until that pick is undone, which puts it back.
+model LostPlannedCard {
   id           String    @id @default(uuid())
   pickId       String
   pick         Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
@@ -260,6 +260,7 @@ model UnplannedCard {
   @@unique([pickId, playerId])
   @@index([playerId])
   @@index([poolCardId])
+  @@map("UnplannedCard")
 }
 
 /// A card in a player's queue.
@@ -276,8 +277,8 @@ model QueuedCard {
   @@index([poolCardId])
 }
 
-/// A card another player's pick took out of a queue: lost if it is the card that pick took, else cleared. Kept until that pick is undone, which puts it back.
-model UnqueuedCard {
+/// A queued card taken out by another player's pick: lost if it is the card that pick took, else cleared. Kept until that pick is undone, which puts it back.
+model TakenOutQueuedCard {
   id           String   @id @default(uuid())
   pickId       String
   pick         Pick     @relation(fields: [pickId], references: [id], onDelete: Cascade)
@@ -295,6 +296,7 @@ model UnqueuedCard {
   @@unique([pickId, playerId, poolCardId])
   @@index([playerId])
   @@index([poolCardId])
+  @@map("UnqueuedCard")
 }
 
 /// A named Discord webhook an app admin registered, which organizers choose for a draft's announcements.

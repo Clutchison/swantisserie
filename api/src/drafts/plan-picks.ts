@@ -33,7 +33,7 @@ export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
     players.map((player) => player.plan.map((planned) => planned.poolCardId)),
     await enginePool(tx, draftId, pick.number),
   );
-  for (const [seat, { swapped, unplanned }] of after.entries()) {
+  for (const [seat, { swapped, lost }] of after.entries()) {
     const { id: playerId, plan } = players[seat];
     if (playerId === pick.playerId) {
       const held = plan.some(
@@ -59,15 +59,13 @@ export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
         where: { playerId_poolCardId: { playerId, poolCardId: swapped.out } },
         data: { poolCardId: swapped.in },
       });
-    } else if (unplanned !== undefined) {
-      const { board } = plan.find(
-        (planned) => planned.poolCardId === unplanned,
-      )!;
-      await tx.unplannedCard.create({
-        data: { pickId: pick.id, playerId, poolCardId: unplanned, board },
+    } else if (lost !== undefined) {
+      const { board } = plan.find((planned) => planned.poolCardId === lost)!;
+      await tx.lostPlannedCard.create({
+        data: { pickId: pick.id, playerId, poolCardId: lost, board },
       });
       await tx.plannedCard.delete({
-        where: { playerId_poolCardId: { playerId, poolCardId: unplanned } },
+        where: { playerId_poolCardId: { playerId, poolCardId: lost } },
       });
     }
   }
@@ -98,11 +96,11 @@ export async function restorePlans(
     where: { pickId },
     data: { pickId: null },
   });
-  const unplanned = await tx.unplannedCard.findMany({
+  const lost = await tx.lostPlannedCard.findMany({
     where: { pickId },
     select: { playerId: true, poolCardId: true, board: true },
   });
   await tx.plannedCard.createMany({
-    data: unplanned.map((card) => ({ ...card, added: true })),
+    data: lost.map((card) => ({ ...card, added: true })),
   });
 }
