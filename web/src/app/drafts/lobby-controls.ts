@@ -23,6 +23,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import { PlayerAvatar } from './player-avatar';
 
 /**
  * The seat order, which stays on show once the draft starts, and all the
@@ -31,7 +32,7 @@ import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
  */
 @Component({
   selector: 'app-lobby-controls',
-  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp],
+  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp, PlayerAvatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './lobby-controls.scss'],

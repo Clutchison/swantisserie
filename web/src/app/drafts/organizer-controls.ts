@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
-import { isRefusal } from './drafts';
+import { hasTurn, isRefusal } from './drafts';
 
 /** The organizer's buttons on a started draft: pause, resume, undo, close and reopen. */
 @Component({
@@ -81,9 +81,11 @@ export class OrganizerControls {
 
   /** Closes the draft, once the organizer confirms. */
   protected close() {
-    const { id, name, players, picksPerPlayer, turn } = this.draft();
+    const draft = this.draft();
     // Only a drafting or paused draft is offered this, so there is a turn.
-    const made = turn!.pick - 1;
+    if (!hasTurn(draft)) return;
+    const { id, name, players, picksPerPlayer, turn } = draft;
+    const made = turn.pick - 1;
     const total = players.length * picksPerPlayer;
     if (
       !confirm(
