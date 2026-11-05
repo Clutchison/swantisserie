@@ -7,7 +7,7 @@ import { type AuthedRequest, SessionGuard } from './session.guard.js';
 
 /** Like SessionGuard, but also rejects users who are not app admins. */
 @Injectable()
-export class AdminGuard extends SessionGuard {
+export class AppAdminGuard extends SessionGuard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (!(await super.canActivate(context))) return false;
     const { user } = context.switchToHttp().getRequest<AuthedRequest>();

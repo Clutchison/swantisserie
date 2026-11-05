@@ -66,7 +66,7 @@ type ErrorPlace = 'stealBehavior' | 'queue';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-tab.html',
-  styleUrls: ['./drafts.scss', './queue-tab.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './queue-tab.scss'],
 })
 export class QueueTab {
   private readonly queueApi = inject(QueueApi);

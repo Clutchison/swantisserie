@@ -34,7 +34,7 @@ type PoolSource = 'poolQuery' | 'cubeLink';
   imports: [ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './create-draft-page.html',
-  styleUrls: ['./drafts.scss', './create-draft-page.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './create-draft-page.scss'],
 })
 export class CreateDraftPage {
   private readonly http = inject(HttpClient);

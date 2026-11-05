@@ -4,7 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
-import { AdminConfig } from '../auth/admin-config.js';
+import { AppAdminConfig } from '../auth/app-admin-config.js';
 import { SessionService } from '../auth/session.service.js';
 import { CubeCobraClient } from '../cubecobra/cubecobra-client.js';
 import { DiscordClient } from '../discord/discord-client.js';
@@ -17,7 +17,7 @@ import { startTestDatabase, TestDatabase } from './test-database.js';
 
 export const alice = { id: '80351110224678912', name: 'Alice' };
 export const bob = { id: '80351110224678913', name: 'Bob' };
-/** Carol is an app admin, unless a spec overrides `AdminConfig`. */
+/** Carol is an app admin, unless a spec overrides `AppAdminConfig`. */
 export const carol = { id: '80351110224678914', name: 'Carol' };
 
 /**
@@ -54,7 +54,7 @@ function defaults(): Map<Token, unknown> {
     [CubeCobraClient, cubeCobra],
     [WebhookClient, webhookClient],
     [DiscordClient, discord],
-    [AdminConfig, new AdminConfig(carol.id)],
+    [AppAdminConfig, new AppAdminConfig(carol.id)],
     // Drafts' pages are at https://roto.example/drafts/:id.
     [
       DiscordConfig,

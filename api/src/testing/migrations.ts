@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const MIGRATIONS = join(import.meta.dirname, '../../../prisma/migrations');
+const MIGRATIONS = join(import.meta.dirname, '../../prisma/migrations');
 
 /**
  * A fresh database with every migration before `migration` applied, and a

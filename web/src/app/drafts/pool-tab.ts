@@ -66,7 +66,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
   providers: [TileImageLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pool-tab.html',
-  styleUrls: ['./drafts.scss', './pool-tab.scss'],
+  styleUrls: ['../page.scss', './drafts.scss', './pool-tab.scss'],
   host: { '(document:keydown.escape)': 'close()' },
 })
 export class PoolTab {

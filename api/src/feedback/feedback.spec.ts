@@ -3,7 +3,7 @@ import request from 'supertest';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { alice, app, carol, signIn, useTestApp } from '../testing/app.js';
 
-const pageUrl = 'https://swantisserie.example/drafts/42';
+const pagePath = '/drafts/42?tab=pool#x';
 const aliceAvatar = 'https://cdn.discordapp.com/embed/avatars/5.png';
 
 /** Whether ISO timestamp `iso` falls between `since` and now, allowing a second either way. */
@@ -53,10 +53,10 @@ describe('feedback', () => {
 
   const nothingSaved = { unreviewed: [], reviewed: [] };
 
-  it('saves the sender, time sent and page URL, starting unreviewed', async () => {
+  it('saves the sender, time sent and page path, starting unreviewed', async () => {
     const before = Date.now();
 
-    await send({ message: 'The pool tab is great', pageUrl }).expect(204);
+    await send({ message: 'The pool tab is great', pagePath }).expect(204);
 
     const { unreviewed, reviewed } = await saved();
     expect(reviewed).toEqual([]);
@@ -64,7 +64,7 @@ describe('feedback', () => {
       {
         id: expect.any(String),
         message: 'The pool tab is great',
-        pageUrl,
+        pagePath,
         sentAt: expect.any(String),
         sender: { name: 'Alice', avatarUrl: aliceAvatar },
       },
@@ -73,7 +73,7 @@ describe('feedback', () => {
   });
 
   it('accepts feedback from app admins too', async () => {
-    await send({ message: 'Hello', pageUrl }, carolCookie).expect(204);
+    await send({ message: 'Hello', pagePath }, carolCookie).expect(204);
 
     expect((await saved()).unreviewed[0].sender.name).toBe('Carol');
   });
@@ -81,7 +81,7 @@ describe('feedback', () => {
   it('rejects anyone not signed in', async () => {
     await request(app.getHttpServer())
       .post('/api/feedback')
-      .send({ message: 'Hello', pageUrl })
+      .send({ message: 'Hello', pagePath })
       .expect(401);
 
     expect(await saved()).toEqual(nothingSaved);
@@ -94,7 +94,7 @@ describe('feedback', () => {
     ['only whitespace', ' \n\t '],
     ['over 2,000 characters', 'x'.repeat(2001)],
   ])('rejects a message that is %s', async (_, message) => {
-    const res = await send({ message, pageUrl }).expect(400);
+    const res = await send({ message, pagePath }).expect(400);
 
     expect(res.body).toMatchObject({ error: 'invalid' });
     expect(await saved()).toEqual(nothingSaved);
@@ -103,26 +103,42 @@ describe('feedback', () => {
   it('accepts a message of exactly 2,000 characters', async () => {
     const message = 'x'.repeat(2000);
 
-    await send({ message, pageUrl }).expect(204);
+    await send({ message, pagePath }).expect(204);
 
     expect((await saved()).unreviewed[0].message).toBe(message);
   });
 
   it('counts and saves the message without its surrounding whitespace', async () => {
-    await send({ message: `  ${'x'.repeat(2000)}\n`, pageUrl }).expect(204);
+    await send({ message: `  ${'x'.repeat(2000)}\n`, pagePath }).expect(204);
 
     expect((await saved()).unreviewed[0].message).toBe('x'.repeat(2000));
   });
 
   it.each([
     ['missing', undefined],
-    ['not a URL', 'somewhere'],
-    ['not a web page', 'javascript:alert(1)'],
-    ['absurdly long', `https://example.com/${'x'.repeat(2048)}`],
-  ])('rejects a page URL that is %s', async (_, url) => {
-    await send({ message: 'Hello', pageUrl: url }).expect(400);
+    ['not text', 42],
+    ['empty', ''],
+    ['relative', 'drafts/42'],
+    ['a full URL', 'https://evil.example/'],
+    ['protocol-relative', '//evil.example/'],
+    ['backslash-relative', '/\\evil.example'],
+    ['a script', 'javascript:alert(1)'],
+    ['over 2,048 characters', `/${'x'.repeat(2048)}`],
+  ])('rejects a page path that is %s', async (_, path) => {
+    const res = await send({ message: 'Hello', pagePath: path }).expect(400);
 
+    expect(res.body).toMatchObject({ error: 'invalid' });
     expect(await saved()).toEqual(nothingSaved);
+  });
+
+  it.each([
+    ['the root', '/'],
+    ['with a query and hash', '/drafts/42?x=1#y'],
+    ['of exactly 2,048 characters', `/${'x'.repeat(2047)}`],
+  ])('accepts a page path that is %s', async (_, path) => {
+    await send({ message: 'Hello', pagePath: path }).expect(204);
+
+    expect((await saved()).unreviewed[0].pagePath).toBe(path);
   });
 
   describe('reviewing', () => {
@@ -139,7 +155,7 @@ describe('feedback', () => {
       app.get(PrismaService).feedback.create({
         data: {
           message,
-          pageUrl,
+          pagePath,
           senderId: alice.id,
           sentAt: new Date(sentAt),
         },
@@ -157,7 +173,7 @@ describe('feedback', () => {
         {
           id,
           message: 'Line one\nLine two',
-          pageUrl,
+          pagePath,
           sentAt: '2026-10-31T12:00:00.000Z',
           sender: { name: 'Alice', avatarUrl: aliceAvatar },
         },
@@ -221,7 +237,7 @@ describe('feedback', () => {
           {
             id,
             message: 'Hello',
-            pageUrl,
+            pagePath,
             sentAt: '2026-10-31T12:00:00.000Z',
             sender: { name: 'Alice', avatarUrl: aliceAvatar },
             reviewedAt: expect.any(String),

@@ -1,4 +1,4 @@
-import { databaseBefore } from './migrations.js';
+import { databaseBefore } from '../../testing/migrations.js';
 
 const STEAL_BEHAVIOR = '20261103090000_steal_behavior';
 

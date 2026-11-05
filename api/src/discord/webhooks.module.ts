@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import {
-  AdminWebhooksController,
+  WebhookRegistryController,
   WebhooksController,
 } from './webhooks.controller.js';
 import { WebhooksService } from './webhooks.service.js';
@@ -10,7 +10,7 @@ import { WebhooksService } from './webhooks.service.js';
 // registry's guards need AuthModule, and the two can't import each other.
 @Module({
   imports: [AuthModule],
-  controllers: [AdminWebhooksController, WebhooksController],
+  controllers: [WebhookRegistryController, WebhooksController],
   providers: [WebhooksService],
 })
 export class WebhooksModule {}

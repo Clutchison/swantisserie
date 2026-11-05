@@ -132,7 +132,7 @@ ul {
     opacity: 0.6;
   }
 
-  /* A line's move and Remove buttons share a width, so they line up down the board. */
+  /* A line's move and Remove buttons share a width, so they line up down the plan board. */
   .line-action {
     display: inline-flex;
     justify-content: center;
@@ -141,7 +141,7 @@ ul {
     padding-inline: 0;
   }
 
-  /* Where a board has a Remove button, a line without one keeps its place, so the move buttons line up too. */
+  /* Where a plan board has a Remove button, a line without one keeps its place, so the move buttons line up too. */
   &.with-remove .move:last-child {
     margin-inline-end: calc(#{$line-action-width} + var(--space-sm));
   }
@@ -210,7 +210,7 @@ ul {
     min-width: 0;
   }
 
-  /* Stretched to the mainboard's height, so the divider runs the length of both boards. Content-box, as everywhere here: its stack takes the width, and the padding and divider sit outside it. */
+  /* Stretched to the mainboard's height, so the divider runs the length of both plan boards. Content-box, as everywhere here: its stack takes the width, and the padding and divider sit outside it. */
   .plan-board:last-child {
     align-self: stretch;
     flex: none;

@@ -21,9 +21,9 @@ export class PlanApi {
   }
 
   /** Moves a card in the plan to the mainboard or the sideboard. */
-  move(draftId: string, poolCardId: string, board: PlanBoard): Observable<PlanView> {
+  move(draftId: string, poolCardId: string, planBoard: PlanBoard): Observable<PlanView> {
     return this.http.put<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`, {
-      board,
+      board: planBoard,
     } satisfies PlanMoveRequest);
   }
 
