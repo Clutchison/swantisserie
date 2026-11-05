@@ -72,6 +72,38 @@ export function queuesAfterPick(
   });
 }
 
+/** A queued card and its place in the queue: lowest first, not necessarily consecutive. */
+export interface QueuedCardAt {
+  card: string;
+  position: number;
+}
+
+/**
+ * A player's queue, in order, once an undo puts back the cards its pick took
+ * out of it. `queue` is the queue as it is now, and `takenOut` the cards the
+ * pick took out, each where it was then, both lowest position first;
+ * `restKept` is whether the rest of the queue stayed when the card was lost,
+ * as under pick next. A card lost while the rest was kept goes back in its
+ * old place among the cards queued now: after those whose positions come
+ * before it, so after as many as were ahead of it, unless since reordered. A
+ * cleared queue comes back at the front in its original order, ahead of
+ * anything queued since. A card both put back and queued again since is
+ * held once, in the first of its two places.
+ */
+export function queueAfterUndo(
+  queue: readonly QueuedCardAt[],
+  takenOut: readonly QueuedCardAt[],
+  { restKept }: { restKept: boolean },
+): string[] {
+  const at =
+    restKept && takenOut.length > 0
+      ? queue.filter((queued) => queued.position < takenOut[0].position).length
+      : 0;
+  return [
+    ...new Set(queue.toSpliced(at, 0, ...takenOut).map(({ card }) => card)),
+  ];
+}
+
 /**
  * The copies of `card` still available once it is picked: the cards in
  * `pool` sharing its oracle id, in `pool` order, leaving out `picked` and
