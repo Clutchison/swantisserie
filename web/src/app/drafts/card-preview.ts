@@ -44,15 +44,15 @@ const POSITIONS: ConnectedPosition[] = [
   template: `<app-card-image
     [src]="images.url(card(), 'normal')"
     [alt]="card().name"
-    [width]="size.width"
-    [height]="size.height"
+    [width]="normalImage.width"
+    [height]="normalImage.height"
     (failed)="images.failed(card(), 'normal')"
   />`,
   styleUrl: './card-preview.scss',
 })
 export class CardPreview {
   protected readonly images = inject(CardImageSource);
-  protected readonly size = NORMAL_IMAGE;
+  protected readonly normalImage = NORMAL_IMAGE;
 
   readonly card = input.required<PoolCardView>();
 }

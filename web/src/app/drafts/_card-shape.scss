@@ -10,9 +10,9 @@ $normal-height: 680;
 $large-width: 672;
 $large-height: 936;
 
-// Each image's shape, for `aspect-ratio`. They differ slightly, so each image keeps its own.
+// The normal image's shape, for `aspect-ratio`. The large image's differs slightly, so
+// it isn't shared; `CardImage` takes each image's shape from the size it's given.
 $normal-ratio: #{$normal-width} / #{$normal-height};
-$large-ratio: #{$large-width} / #{$large-height};
 // A card's height as a share of its width, from its normal image: for stacking cards.
 $normal-height-share: math.percentage(math.div($normal-height, $normal-width));
 
