@@ -1,5 +1,7 @@
+import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   alice,
+  app,
   bob,
   carol,
   aliceCookie,
@@ -239,6 +241,44 @@ describe('cascade', () => {
       'Bot: Lightning Bolt',
       'Alice: Skewer the Critics',
     ]);
+  });
+
+  it('leaves a bot’s queued cards alone when another player’s queued pick is made', async () => {
+    // Bots can't queue, so the card is queued for the bot directly.
+    const id = await readyDraft([aliceCookie], 2, fourCards);
+    const ids = await poolCardIds(id);
+    const added = await addBot(id, await signIn(carol)).expect(201);
+    const prisma = app.get(PrismaService);
+    const bot = await prisma.player.findFirstOrThrow({
+      where: { draftId: id, userId: added.body.players[1].id },
+    });
+    await prisma.queuedCard.create({
+      data: {
+        playerId: bot.id,
+        poolCardId: ids['Skewer the Critics'],
+        position: 0,
+      },
+    });
+    // The bot picks the first available card by name.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    await enqueue(id, ids.Shock).expect(200);
+
+    await start(id).expect(200);
+
+    await waitForBotPicks(2, async () => {
+      expect((await getDraft(id).expect(200)).body.turn.pick).toBe(4);
+    });
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Bot: Lava Spike',
+      'Bot: Lightning Bolt',
+    ]);
+    expect(
+      await prisma.queuedCard.findMany({
+        where: { playerId: bot.id },
+        select: { poolCardId: true },
+      }),
+    ).toEqual([{ poolCardId: ids['Skewer the Critics'] }]);
   });
 
   it('announces a pick and its cascade in one post, pinging who must pick next', async () => {

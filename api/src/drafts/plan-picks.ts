@@ -7,30 +7,26 @@ import {
 } from './draft-shapes.js';
 
 /**
- * Persists what a new pick, already made, does to plans, working it out
- * with the engine's `plansAfterPick`, then recording it as
- * `recordPlanEffects` does.
+ * What a new pick, already made, does to each plan, by seat, as the
+ * engine's `plansAfterPick` works it out; `recordPlanEffects` persists it.
  */
-export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
+export async function plansAfter(
+  tx: Transaction,
+  pick: MadePick,
+): Promise<PlanAfterPick[]> {
   const { draftId } = pick;
   const players = await tx.player.findMany({
     where: { draftId },
     orderBy: SEAT_ORDER,
     select: { id: true, plan: { select: { poolCardId: true } } },
   });
-  const after = plansAfterPick(
+  return plansAfterPick(
     {
       seat: players.findIndex((player) => player.id === pick.playerId),
       card: pick.poolCardId,
     },
     players.map((player) => player.plan.map((planned) => planned.poolCardId)),
     await enginePool(tx, draftId, pick.number),
-  );
-  await recordPlanEffects(
-    tx,
-    pick,
-    players.map((player) => player.id),
-    after,
   );
 }
 
@@ -86,13 +82,17 @@ export async function recordPlanEffects(
   }
 }
 
-/** Does what each of `picks`, just made, does to plans, in pick order. */
+/**
+ * Does what each of `picks`, just made, does to plans, in pick order;
+ * `playerIds` are the draft's players by seat.
+ */
 export async function planPicks(
   tx: Transaction,
   picks: MadePick[],
+  playerIds: readonly string[],
 ): Promise<void> {
   for (const pick of picks.toSorted((a, b) => a.number - b.number)) {
-    await planPick(tx, pick);
+    await recordPlanEffects(tx, pick, playerIds, await plansAfter(tx, pick));
   }
 }
 

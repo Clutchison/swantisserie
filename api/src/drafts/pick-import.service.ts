@@ -111,6 +111,7 @@ export class PickImportService {
           where: { draftId },
           select: MADE_PICK,
         }),
+        players.map((player) => player.id),
       );
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
       await draft.moveTo('Paused');

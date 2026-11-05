@@ -22,11 +22,11 @@ import {
   MADE_PICK,
   SEAT_ORDER,
 } from './draft-shapes.js';
-import { planPick, recordPlanEffects, restorePlans } from './plan-picks.js';
+import { plansAfter, recordPlanEffects, restorePlans } from './plan-picks.js';
 import {
+  queuesAfter,
   recordQueueEffects,
   restoreQueues,
-  takeFromQueues,
 } from './queue-clearing.js';
 
 const PICK_LOG = {
@@ -212,9 +212,9 @@ export class TurnsService {
   /**
    * The user picks the pool card `poolCardId` on their turn, in a draft
    * that is Drafting; `queued` if it was picked from their queue. Its
-   * `effects` on queues and plans, if a cascade has worked them out already,
-   * are persisted as they are; otherwise they are worked out here. Throws
-   * PickRefusedError if they can't.
+   * `effects` on queues and plans are worked out here unless a cascade has
+   * worked them out already; either way they are persisted the same way.
+   * Throws PickRefusedError if they can't.
    */
   private async pickCard(
     draft: LockedDraft,
@@ -266,14 +266,14 @@ export class TurnsService {
       },
       select: MADE_PICK,
     });
-    if (effects) {
-      const playerIds = players.map((player) => player.id);
-      await recordPlanEffects(tx, made, playerIds, effects.plans);
-      await recordQueueEffects(tx, made, playerIds, effects.queues);
-    } else {
-      await planPick(tx, made);
-      await takeFromQueues(tx, made);
-    }
+    // Worked out once, by the cascade or here, and persisted the same way.
+    const { queues, plans } = effects ?? {
+      queues: await queuesAfter(tx, made),
+      plans: await plansAfter(tx, made),
+    };
+    const playerIds = players.map((player) => player.id);
+    await recordPlanEffects(tx, made, playerIds, plans);
+    await recordQueueEffects(tx, made, playerIds, queues);
     // pickLog was read before this pick, so count it too.
     const picked = pickLog.length + 1;
     const next = currentTurn(size, picked);

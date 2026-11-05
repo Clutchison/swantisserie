@@ -1,4 +1,9 @@
-import { type QueueAfterPick, queueAfterUndo, queuesAfterPick } from 'engine';
+import {
+  type QueueAfterPick,
+  type QueuedCardAt,
+  queueAfterUndo,
+  queuesAfterPick,
+} from 'engine';
 import {
   enginePool,
   type MadePick,
@@ -7,14 +12,13 @@ import {
 } from './draft-shapes.js';
 
 /**
- * Persists what a new pick, already made, does to queues, working it out
- * with the engine's `queuesAfterPick`, then recording it as
- * `recordQueueEffects` does.
+ * What a new pick, already made, does to each queue, by seat, as the
+ * engine's `queuesAfterPick` works it out; `recordQueueEffects` persists it.
  */
-export async function takeFromQueues(
+export async function queuesAfter(
   tx: Transaction,
   pick: MadePick,
-): Promise<void> {
+): Promise<QueueAfterPick[]> {
   const { draftId } = pick;
   const players = await tx.player.findMany({
     where: { draftId },
@@ -28,7 +32,7 @@ export async function takeFromQueues(
       },
     },
   });
-  const after = queuesAfterPick(
+  return queuesAfterPick(
     {
       seat: players.findIndex((player) => player.id === pick.playerId),
       card: pick.poolCardId,
@@ -38,12 +42,6 @@ export async function takeFromQueues(
       ...(await enginePool(tx, draftId)),
       stealBehaviors: players.map((player) => player.stealBehavior),
     },
-  );
-  await recordQueueEffects(
-    tx,
-    pick,
-    players.map((player) => player.id),
-    after,
   );
 }
 
@@ -96,8 +94,10 @@ export async function recordQueueEffects(
         where: { playerId, poolCardId: swapped.in },
         data: { noticeHidden: true },
       });
-    } else {
-      // Only the picker's own queue loses cards this way.
+    } else if (playerId === pick.playerId) {
+      // Only the picker's own queue loses cards this way. Any other queue,
+      // such as a bot's, which the cascade passes to the engine as empty,
+      // is left as it is.
       await tx.queuedCard.deleteMany({
         where: { playerId, poolCardId: { notIn: queue } },
       });
@@ -130,14 +130,9 @@ export async function restoreQueues(
       orderBy: { position: 'asc' },
       select: { poolCardId: true, position: true },
     });
-    const order = queueAfterUndo(
-      since.map(({ poolCardId, position }) => ({ card: poolCardId, position })),
-      restored.map(({ poolCardId, position }) => ({
-        card: poolCardId,
-        position,
-      })),
-      { restKept: restored[0].restKept },
-    );
+    const order = queueAfterUndo(since.map(toQueued), restored.map(toQueued), {
+      restKept: restored[0].restKept,
+    });
     await tx.queuedCard.deleteMany({ where: { playerId } });
     await tx.queuedCard.createMany({
       data: order.map((poolCardId, position) => ({
@@ -147,4 +142,15 @@ export async function restoreQueues(
       })),
     });
   }
+}
+
+/** A queued card row as the engine's `queueAfterUndo` takes it. */
+function toQueued({
+  poolCardId,
+  position,
+}: {
+  poolCardId: string;
+  position: number;
+}): QueuedCardAt {
+  return { card: poolCardId, position };
 }
