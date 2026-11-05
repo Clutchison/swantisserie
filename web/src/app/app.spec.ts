@@ -3,7 +3,7 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NavigationStart } from '@angular/router';
 import { App } from './app';
-import { alice, http, openApp, router, useApp } from './specs-harness';
+import { alice, http, openApp, openDialog, router, useApp } from './specs-harness';
 import { banner, button, expectLoadingAnimation, expectSignedOut } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
@@ -327,7 +327,7 @@ describe('App', () => {
       TestBed.tick();
 
       expect(page.querySelector('.panel')).toBeNull();
-      expect(page.querySelector('[role="dialog"]')).not.toBeNull();
+      expect(openDialog()).not.toBeNull();
     });
   });
 

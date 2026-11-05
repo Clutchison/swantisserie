@@ -1,6 +1,13 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  Injector,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NavigationCancel,
@@ -14,19 +21,13 @@ import {
 import type { AppVersionView, UnreviewedFeedbackCount } from 'contract';
 import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
+import { DialogShell } from './dialog-shell';
 import { FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 import { TopBarMenu } from './top-bar/top-bar-menu';
 
 @Component({
-  imports: [
-    FeedbackDialog,
-    LoadingAnimation,
-    NgTemplateOutlet,
-    RouterLink,
-    RouterOutlet,
-    TopBarMenu,
-  ],
+  imports: [LoadingAnimation, NgTemplateOutlet, RouterLink, RouterOutlet, TopBarMenu],
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',
@@ -35,8 +36,11 @@ import { TopBarMenu } from './top-bar/top-bar-menu';
 export class App {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
   protected readonly user = this.auth.user;
-  protected readonly feedbackOpen = signal(false);
+  /** The narrow top bar's menu, whose items are gone once it closes. */
+  private readonly narrowMenu = viewChild<TopBarMenu>('narrowMenu');
 
   /** Fetched once per page load: it is a nudge, not a live figure. */
   private readonly unreviewed = httpResource<UnreviewedFeedbackCount>(() =>
@@ -82,6 +86,18 @@ export class App {
     ),
     { initialValue: null },
   );
+
+  /**
+   * Opens the feedback dialog. Focus returns to what opened it, or, should
+   * that have gone with the narrow top bar's menu, to the menu's button.
+   */
+  protected openFeedback() {
+    this.dialogs.open(FeedbackDialog, {
+      label: 'Send feedback',
+      injector: this.injector,
+      returnFocus: (opener) => (opener?.isConnected ? opener : this.narrowMenu()?.button()),
+    });
+  }
 
   protected logout() {
     void this.auth.logout();

@@ -9,6 +9,18 @@ export function appAdminButton(page: HTMLElement) {
   )!;
 }
 
+/**
+ * The narrow top bar's Menu button, shown as on a narrow screen: jsdom's
+ * media queries never match one, and it won't focus what isn't shown.
+ */
+export function narrowMenuButton(page: HTMLElement) {
+  const menu = [...page.querySelectorAll<HTMLButtonElement>('header button')].find(
+    (button) => button.getAttribute('aria-label') === 'Menu',
+  )!;
+  menu.closest<HTMLElement>('.narrow-only')!.style.display = 'flex';
+  return menu;
+}
+
 /** App admins' menus ask which version of the app is live; answers that, if it was asked. */
 export function answerAppVersion(
   http: HttpTestingController,

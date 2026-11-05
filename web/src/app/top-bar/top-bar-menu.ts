@@ -33,6 +33,11 @@ export class TopBarMenu {
 
   protected readonly open = signal(false);
 
+  /** The button that opens the panel, for focus to return to once an item it held has gone. */
+  button(): HTMLButtonElement {
+    return this.trigger().nativeElement;
+  }
+
   protected toggle() {
     this.open.update((open) => !open);
   }

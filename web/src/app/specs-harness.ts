@@ -69,6 +69,8 @@ export async function openApp(url: string, user: UserView | ((me: TestRequest) =
 
 /** The legacy key codes some handlers (such as the CDK's key managers) read, by key. */
 const KEY_CODES: Record<string, number> = {
+  Tab: 9,
+  Escape: 27,
   End: 35,
   Home: 36,
   ArrowLeft: 37,
@@ -84,3 +86,62 @@ export function pressKey(target: HTMLElement, key: string) {
   );
   TestBed.tick();
 }
+
+/** Presses Escape where focus is, as the keyboard would. */
+export const pressEscape = () => pressKey(document.activeElement as HTMLElement, 'Escape');
+
+/** The controls Tab stops on, in page order: jsdom doesn't move focus on Tab itself. */
+const tabStops = () =>
+  [
+    ...document.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, [tabindex]',
+    ),
+  ].filter(
+    (element) =>
+      element.tabIndex >= 0 &&
+      !(element as HTMLButtonElement).disabled &&
+      !element.closest('[hidden], [inert]'),
+  );
+
+/**
+ * Presses Tab, or Shift+Tab, where focus is, and moves focus to the next Tab
+ * stop in the page, or the one before, as a browser would. Only page order
+ * counts: no positive `tabindex`, and no browser controls past either end.
+ */
+export function pressTab({ shift = false } = {}) {
+  const from = document.activeElement as HTMLElement;
+  const event = new KeyboardEvent('keydown', {
+    key: 'Tab',
+    keyCode: KEY_CODES['Tab'],
+    shiftKey: shift,
+    bubbles: true,
+    cancelable: true,
+  });
+  from.dispatchEvent(event);
+  if (!event.defaultPrevented) {
+    const stops = tabStops();
+    const at = stops.indexOf(from);
+    stops.at(at === -1 ? (shift ? -1 : 0) : (at + (shift ? -1 : 1)) % stops.length)?.focus();
+  }
+  TestBed.tick();
+}
+
+/** The dialog open over the page, if any: it shows outside the page, so this looks in the whole document. */
+export const openDialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
+
+/** The backdrop behind the open dialog, which a click outside the dialog lands on. */
+export const dialogBackdrop = () =>
+  openDialog()!.closest('.cdk-overlay-pane')!.parentElement!.previousElementSibling as HTMLElement;
+
+/** Clicks the open dialog's backdrop, the press beginning and ending there. */
+export function clickBackdrop() {
+  const backdrop = dialogBackdrop();
+  for (const type of ['mousedown', 'mouseup', 'click']) {
+    backdrop.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+  }
+  TestBed.tick();
+}
+
+/** Whether `element` is hidden from assistive technology, as the page behind an open dialog is. */
+export const hiddenFromAssistiveTech = (element: Element) =>
+  element.closest('[aria-hidden="true"]') !== null;

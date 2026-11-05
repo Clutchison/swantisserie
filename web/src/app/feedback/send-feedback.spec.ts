@@ -1,7 +1,20 @@
 import type { TestRequest } from '@angular/common/http/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { App } from '../app';
-import { alice, http, openApp, router, useApp } from '../specs-harness';
+import {
+  alice,
+  clickBackdrop,
+  dialogBackdrop,
+  hiddenFromAssistiveTech,
+  http,
+  openApp,
+  openDialog,
+  pressEscape,
+  pressTab,
+  router,
+  useApp,
+} from '../specs-harness';
+import { narrowMenuButton } from '../top-bar/specs-harness';
 import { answerDraft42NotFound } from './specs-harness';
 
 describe('sending feedback', () => {
@@ -17,12 +30,12 @@ describe('sending feedback', () => {
     await fixture.whenStable();
   });
 
-  const dialog = () => page.querySelector<HTMLElement>('[role="dialog"]');
-  const backdrop = () => dialog()!.parentElement!;
+  const dialog = openDialog;
   const field = () => dialog()!.querySelector('textarea')!;
 
+  /** A button by its text, in the page or the dialog open over it. */
   function button(label: string) {
-    return [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
+    return [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
   }
 
   async function open() {
@@ -156,13 +169,8 @@ describe('sending feedback', () => {
 
   describe.each<[string, () => Promise<void>]>([
     ['Cancel', async () => button('Cancel')!.click()],
-    [
-      'Escape',
-      async () => {
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      },
-    ],
-    ['a backdrop click', () => press(backdrop(), 'mousedown', 'mouseup', 'click')],
+    ['Escape', async () => pressEscape()],
+    ['a backdrop click', async () => clickBackdrop()],
   ])('closing with %s', (_, close) => {
     it('closes the modal and discards the text', async () => {
       await open();
@@ -202,9 +210,72 @@ describe('sending feedback', () => {
     await type('Nice app');
 
     await press(field(), 'mousedown');
-    // A click spanning two elements fires on their common ancestor: here, the backdrop.
-    await press(backdrop(), 'mouseup', 'click');
+    // Let go on the backdrop: however the browser aims the click, the press began in the field.
+    await press(dialogBackdrop(), 'mouseup', 'click');
 
     expect(field().value).toBe('Nice app');
+  });
+
+  it('keeps Tab and Shift+Tab inside the modal, wrapping at either end', async () => {
+    await open();
+    await vi.waitFor(() => expect(document.activeElement).toBe(field()));
+    await type('Nice app');
+
+    pressTab();
+    expect(document.activeElement).toBe(button('Cancel'));
+    pressTab();
+    expect(document.activeElement).toBe(button('Submit'));
+    pressTab();
+    expect(document.activeElement).toBe(field());
+
+    pressTab({ shift: true });
+    expect(document.activeElement).toBe(button('Submit'));
+  });
+
+  it('hides the page behind the modal from assistive technology while it is open', async () => {
+    const opener = button('Send feedback')!;
+    const modal = await open();
+
+    await vi.waitFor(() => expect(hiddenFromAssistiveTech(opener)).toBe(true));
+    expect(hiddenFromAssistiveTech(modal)).toBe(false);
+
+    button('Cancel')!.click();
+    await fixture.whenStable();
+    expect(hiddenFromAssistiveTech(opener)).toBe(false);
+  });
+
+  it.each<[string, () => void]>([
+    ['Cancel', () => button('Cancel')!.click()],
+    ['Escape', pressEscape],
+    ['a backdrop click', clickBackdrop],
+  ])('returns focus to the button that opened it, on %s', async (_, close) => {
+    const opener = button('Send feedback')!;
+    opener.focus();
+    await open();
+    await vi.waitFor(() => expect(document.activeElement).toBe(field()));
+
+    close();
+    await fixture.whenStable();
+
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('returns focus to the menu button when opened from the narrow menu, whose item is gone', async () => {
+    const menu = narrowMenuButton(page);
+    menu.click();
+    await fixture.whenStable();
+    const item = button('Send feedback')!;
+    expect(menu.parentElement!.contains(item)).toBe(true);
+    item.focus();
+    item.click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(document.activeElement).toBe(field()));
+    expect(item.isConnected).toBe(false);
+
+    button('Cancel')!.click();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(menu);
   });
 });
