@@ -9,7 +9,11 @@ import {
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { PickRefusedError, UndoRefusedError } from './draft-errors.js';
+import {
+  NotAPlayerError,
+  PickRefusedError,
+  UndoRefusedError,
+} from './draft-errors.js';
 import {
   type DraftEvent,
   EVENT_PLAYER,
@@ -74,7 +78,8 @@ export class TurnsService {
   /**
    * The user picks the pool card `poolCardId` on their turn, and the
    * cascade after it is picked; the last pick moves the draft to Complete.
-   * Throws PickRefusedError if they can't.
+   * Throws PickRefusedError if they can't, and NotAPlayerError if the user
+   * isn't in the draft.
    */
   async pick(
     draftId: string,
@@ -214,7 +219,8 @@ export class TurnsService {
    * that is Drafting; `queued` if it was picked from their queue. Its
    * `effects` on queues and plans are worked out here unless a cascade has
    * worked them out already; either way they are persisted the same way.
-   * Throws PickRefusedError if they can't.
+   * Throws PickRefusedError if they can't, and NotAPlayerError, before the
+   * engine's pick check, if the user has no seat.
    */
   private async pickCard(
     draft: LockedDraft,
@@ -250,6 +256,7 @@ export class TurnsService {
       ...PICK_LOG,
     });
     const seat = players.findIndex((player) => player.userId === userId);
+    if (seat === -1) throw new NotAPlayerError('picks');
     const size = draftSize(draft, players.length);
     const problem = pickProblem(
       { ...size, picked: pickLog.map((pick) => pick.poolCardId) },

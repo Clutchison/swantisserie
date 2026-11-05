@@ -25,10 +25,17 @@ export function hasTurn(draft: DraftView): draft is Extract<DraftView, { state: 
   return draft.state === 'Drafting' || draft.state === 'Paused';
 }
 
-/** A 409 from the drafts API; its body, if any, says why. */
+/**
+ * A 409 from the drafts API; its body, if any, says why. Its `error` is any
+ * DraftRefusal code but `not-in-pool`, which comes as a 404.
+ */
 export type RefusalResponse = HttpErrorResponse & { error: DraftRefusal | null };
 
-/** Whether the API refused a request because the draft has moved on; its body says why. */
+/**
+ * Whether the API refused a request because the draft has moved on: whether
+ * it answered 409, whatever the code. Any other failure, `not-in-pool`'s
+ * 404 included, is not a refusal and shows as a generic failure.
+ */
 export function isRefusal(err: unknown): err is RefusalResponse {
   return err instanceof HttpErrorResponse && err.status === 409;
 }

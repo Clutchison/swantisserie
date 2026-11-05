@@ -15,6 +15,7 @@ import type {
   QueueOrderRequest,
   QueueUnpickedRequest,
   QueueView,
+  RequestProblem,
   StealBehavior,
   StealBehaviorRequest,
 } from 'contract';
@@ -150,7 +151,7 @@ function parseOrder(body: unknown): string[] {
     throw new BadRequestException({
       error: 'invalid',
       message: 'List each queued card once, in order.',
-    });
+    } satisfies RequestProblem);
   }
   return poolCardIds;
 }
@@ -162,7 +163,7 @@ function parseIncludeSideboard(body: unknown): boolean {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say whether to include the sideboard.',
-    });
+    } satisfies RequestProblem);
   }
   return includeSideboard;
 }
@@ -174,7 +175,7 @@ function parseStealBehavior(body: unknown): StealBehavior {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose clear queue or pick next.',
-    });
+    } satisfies RequestProblem);
   }
   return stealBehavior;
 }

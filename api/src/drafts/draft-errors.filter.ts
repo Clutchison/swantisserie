@@ -10,8 +10,10 @@ import {
 import { BaseExceptionFilter } from '@nestjs/core';
 import type {
   DraftChangeRefusal,
+  NotAPlayerProblem,
   PickImportRefusal,
   QueueRefusal,
+  UnknownBotProblem,
 } from 'contract';
 import {
   CloseRefusedError,
@@ -61,7 +63,7 @@ export function toHttpError(err: unknown): HttpException | undefined {
     return new ForbiddenException({
       error: 'not-a-player',
       message: err.message,
-    });
+    } satisfies NotAPlayerProblem);
   }
   if (
     err instanceof PickRefusedError ||
@@ -91,7 +93,7 @@ export function toHttpError(err: unknown): HttpException | undefined {
     return new NotFoundException({
       error: 'no-such-bot',
       message: err.message,
-    });
+    } satisfies UnknownBotProblem);
   }
   if (err instanceof QueueChangedError) {
     return new ConflictException({
