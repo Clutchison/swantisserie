@@ -222,7 +222,10 @@ describe('cascade', () => {
           [[], ['bolt-1']],
         ).map(({ plans }) => plans),
       ).toEqual([
-        [{ plan: [] }, { plan: ['bolt-2'], swapped: { out: 'bolt-1', in: 'bolt-2' } }],
+        [
+          { plan: [] },
+          { plan: ['bolt-2'], swapped: { out: 'bolt-1', in: 'bolt-2' } },
+        ],
         [{ plan: [] }, { plan: ['bolt-2'] }],
       ]);
     });
