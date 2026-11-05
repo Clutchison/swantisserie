@@ -77,6 +77,8 @@ Every push and pull request runs [CI](.github/workflows/ci.yml): lint, build, ty
 
 Heroku app `swantisserie` builds with the Node buildpack (`npm run build`). The `Procfile` release phase runs `prisma migrate deploy` before each release goes live. Health check: `GET /api/health` returns `{"api":"ok","db":"ok"}`, or a 503 with `"db":"error"`. The status page at `/` (after signing in with Discord) shows the result.
 
+If a migration fails in the release phase, prod stays on the previous release and Prisma records the migration as failed. Every later deploy is then refused (error P3009) until it is cleared. Fix whatever the migration's error names (some migrations check existing rows first and name the ones they would reject), then mark it rolled back and redeploy: `heroku run -a swantisserie "cd api && npx prisma migrate resolve --rolled-back <migration name>"`.
+
 ## Credits
 
 Card data and images are provided by [Scryfall](https://scryfall.com). Magic: The Gathering is © Wizards of the Coast. This is an unofficial fan project, not affiliated with or endorsed by Wizards of the Coast or Scryfall.
