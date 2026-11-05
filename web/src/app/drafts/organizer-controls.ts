@@ -11,16 +11,19 @@ import {
 import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { hasTurn, isRefusal } from './drafts';
+import { KeptFocus } from './kept-focus';
 
 /** The organizer's buttons on a started draft: pause, resume, undo, close and reopen. */
 @Component({
   selector: 'app-organizer-controls',
+  providers: [KeptFocus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './organizer-controls.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './organizer-controls.scss'],
 })
 export class OrganizerControls {
   private readonly http = inject(HttpClient);
+  private readonly keptFocus = inject(KeptFocus);
 
   readonly draft = input.required<DraftView>();
   /** The pick log, in pick order. */
@@ -53,7 +56,7 @@ export class OrganizerControls {
   protected readonly offerReopen = computed(
     () => this.canOrganize() && this.draft().state === 'Closed',
   );
-  /** An undo, pause, resume, close or reopen is being sent. */
+  /** An undo, pause, resume, close or reopen is being sent: until it settles, the buttons ignore presses. */
   protected readonly sending = signal(false);
   protected readonly sendError = signal<string | null>(null);
 
@@ -65,22 +68,27 @@ export class OrganizerControls {
     );
   }
 
+  /** Pauses the draft; focus goes to Resume draft, which takes Pause draft's place. */
   protected pause() {
     return this.send(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pause`, null),
       "Couldn't pause the draft. Try again in a moment.",
+      ['Resume draft'],
     );
   }
 
+  /** Resumes the draft; focus goes to Pause draft, which takes Resume draft's place. */
   protected resume() {
     return this.send(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/resume`, null),
       "Couldn't resume the draft. Try again in a moment.",
+      ['Pause draft'],
     );
   }
 
   /** Closes the draft, once the organizer confirms. */
   protected close() {
+    if (this.sending()) return;
     const draft = this.draft();
     // Only a drafting or paused draft is offered this, and both have a turn:
     // the guard never returns early, it only narrows the type to read `turn`.
@@ -103,6 +111,7 @@ export class OrganizerControls {
 
   /** Reopens the draft, once the organizer confirms. */
   protected reopen() {
+    if (this.sending()) return;
     const { id, name } = this.draft();
     if (!confirm(`Reopen ${name}? The turn comes back, and queued picks are made straight away.`)) {
       return;
@@ -115,9 +124,13 @@ export class OrganizerControls {
 
   /**
    * Sends an organizer's change to a started draft and passes on the draft it
-   * answers with; `failure` is shown if it fails.
+   * answers with, ignored while another is in flight; `failure` is shown if
+   * it fails. Once it settles, focus is back on the button it was pressed
+   * on, or the first of `fallbacks` should that be gone.
    */
-  private async send(request: Observable<DraftView>, failure: string) {
+  private async send(request: Observable<DraftView>, failure: string, fallbacks: string[] = []) {
+    if (this.sending()) return;
+    this.keptFocus.press(...fallbacks);
     this.sending.set(true);
     this.sendError.set(null);
     try {
@@ -132,6 +145,7 @@ export class OrganizerControls {
       }
     } finally {
       this.sending.set(false);
+      this.keptFocus.restore();
     }
   }
 }

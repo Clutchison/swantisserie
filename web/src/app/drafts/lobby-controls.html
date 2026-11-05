@@ -1,3 +1,4 @@
+<p class="visually-hidden" role="status">{{ statusMessage() }}</p>
 <details [open]="seatOrderOpen()">
   <summary>Seat order</summary>
   <ol>
@@ -23,7 +24,8 @@
                 [attr.aria-label]="earlierName"
                 [title]="earlierName"
                 (click)="moveSeat(i, -1)"
-                [disabled]="first || changingLobby()"
+                [disabled]="first"
+                [attr.aria-disabled]="changingLobby() || null"
               >
                 <svg lucideArrowLeft class="across" size="16"></svg>
                 <svg lucideArrowUp class="stacked" size="16"></svg>
@@ -35,7 +37,8 @@
                 [attr.aria-label]="laterName"
                 [title]="laterName"
                 (click)="moveSeat(i, 1)"
-                [disabled]="last || changingLobby()"
+                [disabled]="last"
+                [attr.aria-disabled]="changingLobby() || null"
               >
                 <svg lucideArrowRight class="across" size="16"></svg>
                 <svg lucideArrowDown class="stacked" size="16"></svg>
@@ -47,7 +50,7 @@
                 type="button"
                 [attr.aria-label]="'Remove ' + player.name"
                 (click)="removeBot(player.id)"
-                [disabled]="changingLobby()"
+                [attr.aria-disabled]="changingLobby() || null"
               >
                 Remove
               </button>
@@ -63,13 +66,23 @@
 @if (inLobby()) {
   <div class="controls">
     @if (joined()) {
-      <button class="button secondary" type="button" (click)="leave()" [disabled]="changingLobby()">
+      <button
+        class="button secondary"
+        type="button"
+        (click)="leave()"
+        [attr.aria-disabled]="changingLobby() || null"
+      >
         Leave
       </button>
     } @else if (draftFull()) {
       <p class="detail">This draft is full.</p>
     } @else {
-      <button class="button" type="button" (click)="join()" [disabled]="changingLobby()">
+      <button
+        class="button"
+        type="button"
+        (click)="join()"
+        [attr.aria-disabled]="changingLobby() || null"
+      >
         Join
       </button>
     }
@@ -78,7 +91,7 @@
         class="button secondary"
         type="button"
         (click)="randomizeSeats()"
-        [disabled]="changingLobby()"
+        [attr.aria-disabled]="changingLobby() || null"
       >
         Randomize seats
       </button>
@@ -87,7 +100,8 @@
           class="button secondary"
           type="button"
           (click)="addBot()"
-          [disabled]="draftFull() || changingLobby()"
+          [disabled]="draftFull()"
+          [attr.aria-disabled]="changingLobby() || null"
         >
           Add bot
         </button>
@@ -96,7 +110,8 @@
         class="button"
         type="button"
         (click)="start()"
-        [disabled]="!poolReady() || changingLobby()"
+        [disabled]="!poolReady()"
+        [attr.aria-disabled]="changingLobby() || null"
       >
         Start draft
       </button>
@@ -111,8 +126,9 @@
       <button
         class="button secondary"
         type="button"
-        (click)="pickImportFile.click()"
-        [disabled]="!poolReady() || changingLobby()"
+        (click)="choosePickImport(pickImportFile)"
+        [disabled]="!poolReady()"
+        [attr.aria-disabled]="changingLobby() || null"
       >
         Import picks
       </button>
@@ -120,7 +136,7 @@
         class="button secondary"
         type="button"
         (click)="cancel()"
-        [disabled]="changingLobby()"
+        [attr.aria-disabled]="changingLobby() || null"
       >
         Cancel draft
       </button>
@@ -154,7 +170,7 @@
       class="button"
       type="button"
       (click)="confirmPickImport(preview)"
-      [disabled]="changingLobby()"
+      [attr.aria-disabled]="changingLobby() || null"
     >
       Import and start paused
     </button>

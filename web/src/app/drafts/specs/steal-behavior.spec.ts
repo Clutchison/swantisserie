@@ -105,7 +105,7 @@ describe('steal behavior', () => {
     pill(queue).click();
     await fixture.whenStable();
     expect(pill(queue).textContent).toContain('Pick next');
-    expect(pill(queue).disabled).toBe(true);
+    expect(pill(queue).getAttribute('aria-disabled')).toBe('true');
     const req = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ stealBehavior: 'PickNext' });
@@ -114,7 +114,7 @@ describe('steal behavior', () => {
 
     expect(pill(queue).textContent).toContain('Pick next');
     expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Pick next');
-    await vi.waitFor(() => expect(pill(queue).disabled).toBe(false));
+    await vi.waitFor(() => expect(pill(queue).getAttribute('aria-disabled')).toBeNull());
 
     pill(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');

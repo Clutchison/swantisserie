@@ -33,6 +33,7 @@ import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { changeFailure, DESKTOP_QUERY } from './drafts';
+import { KeptFocus } from './kept-focus';
 import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
@@ -68,6 +69,12 @@ interface PlanBoardCard extends PlannedCardView {
 interface PlanLine extends PlanBoardCard {
   /** How many copies the plan board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
   count: number;
+  /**
+   * What the line is tracked by: whether its copies are picked, unpicked or
+   * a basic land's, and their name. Unlike `poolCardId`, it stays the same
+   * as the first copy moves away, so the line isn't rebuilt under focus.
+   */
+  key: string;
 }
 
 /** Each basic land's mana symbol, which labels it in the Basic lands modal: Wastes's is colorless. */
@@ -156,6 +163,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucidePlus,
     LucideTrash,
   ],
+  providers: [KeptFocus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'closeQueueing(); closeBasics()' },
   templateUrl: './plan-tab.html',
@@ -166,6 +174,7 @@ export class PlanTab {
   private readonly queueApi = inject(QueueApi);
   protected readonly images = inject(CardImageSource);
   protected readonly previews = inject(CardPreviews);
+  private readonly keptFocus = inject(KeptFocus);
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
@@ -190,7 +199,10 @@ export class PlanTab {
   /** Queue unpicked failed, so the queue may have moved on unseen; it should be re-read. */
   readonly queueStale = output<void>();
 
+  /** A change is in flight: until it settles, the buttons that send one ignore presses. */
   protected readonly changing = signal(false);
+  /** Where the latest move put its card, for screen readers. */
+  protected readonly statusMessage = signal('');
   protected readonly error = signal<string | null>(null);
 
   /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
@@ -348,13 +360,29 @@ export class PlanTab {
     return this.move(item.data, container.data);
   }
 
-  /** Moves one copy of a pool card to `planBoard`, and shows the plan as it then is. A basic land never moves. */
+  /**
+   * Moves one copy of a pool card to `planBoard`, and shows the plan as it
+   * then is. A basic land never moves. If the card's line is gone from the
+   * plan board it left, focus follows the card to `planBoard`.
+   */
   protected move(poolCardId: string, planBoard: PlanBoard) {
-    return this.tryChange(this.planApi.move(this.draftId(), poolCardId, planBoard));
+    if (this.changing()) return;
+    const name = [...this.plan().mainboard, ...this.plan().sideboard].find(
+      (card) => card.poolCardId === poolCardId,
+    )?.name;
+    this.keptFocus.press(`Move ${name} to the ${PLAN_BOARDS[planBoard].otherName}`);
+    return this.tryChange(this.planApi.move(this.draftId(), poolCardId, planBoard), {
+      status: `${name} moved to the ${planBoard.toLowerCase()}`,
+    });
   }
 
-  /** Sets how many copies of a basic land the plan holds. */
+  /**
+   * Sets how many copies of a basic land the plan holds. Should the button
+   * pressed be disabled at the new count, focus goes to the other one.
+   */
   protected setBasic(land: BasicLand, count: number) {
+    if (this.changing()) return Promise.resolve(false);
+    this.keptFocus.press(count > this.heldBasic(land) ? `One fewer ${land}` : `One more ${land}`);
     return this.tryChange(this.planApi.setBasic(this.draftId(), land, count));
   }
 
@@ -384,16 +412,21 @@ export class PlanTab {
 
   /** Takes every basic land out of the plan. */
   protected clearBasics() {
+    if (this.changing()) return;
+    this.keptFocus.press('Done');
     return this.tryChange(this.planApi.clearBasics(this.draftId()));
   }
 
   /** Takes one unpicked copy of a card out of the plan. */
   protected remove(poolCardId: string) {
+    if (this.changing()) return;
+    this.keptFocus.press();
     return this.tryChange(this.planApi.remove(this.draftId(), poolCardId));
   }
 
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
+    if (this.changing()) return;
     return this.tryChange(this.planApi.dismissNotice(this.draftId()));
   }
 
@@ -450,13 +483,20 @@ export class PlanTab {
   /**
    * Sends a change to the plan and shows the plan it answers with. A
    * refused change means the plan has moved on, e.g. a card was lost: say
-   * why, and re-read it. Answers whether the change was made.
+   * why, and re-read it. Answers whether the change was made. A change made
+   * gives its `status` message, if it has one. Either way, focus goes back
+   * to the control it was pressed on.
    */
-  private async tryChange(request: Observable<PlanView>): Promise<boolean> {
+  private async tryChange(
+    request: Observable<PlanView>,
+    { status = '' }: { status?: string } = {},
+  ): Promise<boolean> {
     this.changing.set(true);
     this.error.set(null);
+    this.statusMessage.set('');
     try {
       this.planChanged.emit(await firstValueFrom(request));
+      this.statusMessage.set(status);
       return true;
     } catch (err) {
       this.error.set(changeFailure(err, CHANGE_FAILED));
@@ -464,6 +504,7 @@ export class PlanTab {
       return false;
     } finally {
       this.changing.set(false);
+      this.keptFocus.restore();
     }
   }
 }
@@ -497,7 +538,7 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
     const key = `${card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked'} ${card.name}`;
     const line = byName.get(key);
     if (line) line.count++;
-    else byName.set(key, { ...card, count: 1 });
+    else byName.set(key, { ...card, count: 1, key });
   }
   return [...byName.values()];
 }

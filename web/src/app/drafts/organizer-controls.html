@@ -1,26 +1,51 @@
 <div class="controls">
   @if (offerPause()) {
-    <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
+    <button
+      class="button secondary"
+      type="button"
+      (click)="pause()"
+      [attr.aria-disabled]="sending() || null"
+    >
       Pause draft
     </button>
   }
   @if (offerResume()) {
-    <button class="button" type="button" (click)="resume()" [disabled]="sending()">
+    <button
+      class="button"
+      type="button"
+      (click)="resume()"
+      [attr.aria-disabled]="sending() || null"
+    >
       Resume draft
     </button>
   }
   @if (undoable(); as pick) {
-    <button class="button secondary" type="button" (click)="undo(pick)" [disabled]="sending()">
+    <button
+      class="button secondary"
+      type="button"
+      (click)="undo(pick)"
+      [attr.aria-disabled]="sending() || null"
+    >
       Undo pick {{ pick.pick }} ({{ pick.name }})
     </button>
   }
   @if (offerClose()) {
-    <button class="button secondary" type="button" (click)="close()" [disabled]="sending()">
+    <button
+      class="button secondary"
+      type="button"
+      (click)="close()"
+      [attr.aria-disabled]="sending() || null"
+    >
       Close draft
     </button>
   }
   @if (offerReopen()) {
-    <button class="button" type="button" (click)="reopen()" [disabled]="sending()">
+    <button
+      class="button"
+      type="button"
+      (click)="reopen()"
+      [attr.aria-disabled]="sending() || null"
+    >
       Reopen draft
     </button>
   }

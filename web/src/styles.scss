@@ -99,7 +99,7 @@ button {
   color: var(--color-text);
 
   /* No specificity, so a component's own button colours win. */
-  &:where(:hover:not(:disabled)) {
+  &:where(:hover:not(:disabled, [aria-disabled='true'])) {
     background: var(--color-raised);
   }
 }
@@ -115,11 +115,12 @@ button {
   text-decoration: none;
   cursor: pointer;
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled, [aria-disabled='true']) {
     filter: brightness(1.1);
   }
 
-  &:disabled {
+  &:disabled,
+  &[aria-disabled='true'] {
     opacity: 0.6;
     cursor: default;
   }
@@ -142,7 +143,7 @@ button {
     background: transparent;
     color: var(--color-text);
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled, [aria-disabled='true']) {
       background: var(--color-raised);
       filter: none;
     }
