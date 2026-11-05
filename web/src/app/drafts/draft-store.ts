@@ -6,7 +6,7 @@ import {
   Injectable,
   InjectionToken,
   type Signal,
-  untracked,
+  signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
@@ -66,6 +66,8 @@ export class DraftStore {
     loading: this.draftResource.isLoading,
     failed: computed(() => !!this.draftResource.error()),
   };
+  /** The version of the draft shown, which the queue and plan are read for. */
+  private readonly version = computed(() => this.draft.value()?.version);
   /**
    * The draft as the page shows it. Only for the tabs and controls, which the
    * page shows once the draft has loaded: it throws before then.
@@ -126,9 +128,16 @@ export class DraftStore {
     const state = this.draft.value()?.state;
     return !!state && state !== 'Lobby';
   });
-  private readonly picksResource = httpResource<PickView[]>(() =>
-    this.started() ? `/api/drafts/${this.id()}/picks` : undefined,
-  );
+  /**
+   * Counts the re-reads of the pick log asked for. Each one starts a fresh
+   * request, which replaces one in flight: a resource's `reload()` does
+   * nothing while it is loading, so the newest re-read would be dropped.
+   */
+  private readonly picksAsked = signal(0);
+  private readonly picksResource = httpResource<PickView[]>(() => {
+    this.picksAsked();
+    return this.started() ? `/api/drafts/${this.id()}/picks` : undefined;
+  });
   /** The pick log, in pick order. */
   readonly picks = settledRead(this.picksResource, []);
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
@@ -141,10 +150,15 @@ export class DraftStore {
     return picked;
   });
 
-  /** Only players have a queue. */
-  private readonly queueResource = httpResource<QueueView>(() =>
-    this.joined() ? `/api/drafts/${this.id()}/queue` : undefined,
-  );
+  /**
+   * Only players have a queue. It is read for the draft's version, and so
+   * re-read whenever that changes, as a pick may have lost a card: a newer
+   * version replaces a read in flight.
+   */
+  private readonly queueResource = httpResource<QueueView>(() => {
+    this.version();
+    return this.joined() ? `/api/drafts/${this.id()}/queue` : undefined;
+  });
   /** The signed-in player's queue. */
   readonly queue = settledRead(this.queueResource, EMPTY_QUEUE);
   /** The pool card ids of the cards in the signed-in player's queue. */
@@ -152,10 +166,14 @@ export class DraftStore {
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
   );
 
-  /** Only players have a plan. */
-  private readonly planResource = httpResource<PlanView>(() =>
-    this.joined() ? `/api/drafts/${this.id()}/plan` : undefined,
-  );
+  /**
+   * Only players have a plan, read for the draft's version as the queue is:
+   * a pick may have landed on the mainboard, lost a card, or been undone.
+   */
+  private readonly planResource = httpResource<PlanView>(() => {
+    this.version();
+    return this.joined() ? `/api/drafts/${this.id()}/plan` : undefined;
+  });
   /** The signed-in player's plan. */
   readonly plan = settledRead(this.planResource, EMPTY_PLAN);
   /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
@@ -188,19 +206,6 @@ export class DraftStore {
       const timer = setTimeout(() => this.draftResource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
-    // The queue and plan are re-read when the draft changes, as a pick may
-    // have lost a card, or landed on the mainboard, or been undone.
-    let shownVersion: number | undefined;
-    effect(() => {
-      const version = this.draft.value()?.version;
-      untracked(() => {
-        if (shownVersion !== undefined && version !== shownVersion) {
-          this.queueResource.reload();
-          this.planResource.reload();
-        }
-        shownVersion = version;
-      });
-    });
   }
 
   /**
@@ -209,15 +214,15 @@ export class DraftStore {
    * push race.
    */
   apply(draft: DraftView) {
-    if (draft.version < (this.draft.value()?.version ?? -1)) return;
+    if (draft.version < (this.version() ?? -1)) return;
     this.draftResource.set(draft);
-    this.picksResource.reload();
+    this.picksAsked.update((asked) => asked + 1);
   }
 
   /** Re-reads the draft and its picks, which may have moved on unseen. */
   catchUp() {
     this.draftResource.reload();
-    this.picksResource.reload();
+    this.picksAsked.update((asked) => asked + 1);
   }
 
   /** Re-reads the draft alone, as something only it shows may have moved on unseen. */
@@ -241,23 +246,6 @@ export class DraftStore {
     }
   }
 
-  /**
-   * Sends a change to a draft in Lobby, which has no picks: shows the draft
-   * it answers with as it comes, without the version check `apply` makes,
-   * and re-reads the draft alone if it is refused. Answers the draft, or
-   * throws the failure for the caller to explain.
-   */
-  async changeLobby(request: Observable<DraftView>): Promise<DraftView> {
-    try {
-      const draft = await firstValueFrom(request);
-      this.draftResource.set(draft);
-      return draft;
-    } catch (err) {
-      if (isRefusal(err)) this.refresh();
-      throw err;
-    }
-  }
-
   /** Picks a pool card for the signed-in player, as `changeDraft` sends a change. */
   pick(poolCardId: string): Promise<DraftView> {
     return this.changeDraft(
@@ -267,16 +255,17 @@ export class DraftStore {
     );
   }
 
-  /** Asks for a failed pool snapshot to start again, showing the draft it answers with. */
+  /** Asks for a failed pool snapshot to start again, applying the draft it answers with. */
   async retrySnapshot(): Promise<void> {
-    this.draftResource.set(
+    this.apply(
       await firstValueFrom(this.http.post<DraftView>(`/api/drafts/${this.id()}/snapshot`, null)),
     );
   }
 
   /**
    * Sends a change to the signed-in player's queue and shows the queue it
-   * answers with. If it fails, the queue may have moved on unseen: first
+   * answers with, unless the draft has moved on meanwhile (see
+   * `showAnswer`). If it fails, the queue may have moved on unseen: first
    * `rollBack` puts back what `showQueue` showed early, then the queue is
    * re-read, and the failure thrown for the caller to explain.
    */
@@ -284,9 +273,10 @@ export class DraftStore {
     request: Observable<QueueView>,
     { rollBack }: { rollBack?: () => void } = {},
   ): Promise<QueueView> {
+    const sentFor = this.version();
     try {
       const queue = await firstValueFrom(request);
-      this.queueResource.set(queue);
+      this.showAnswer(this.queueResource, queue, sentFor);
       return queue;
     } catch (err) {
       rollBack?.();
@@ -302,14 +292,27 @@ export class DraftStore {
 
   /** Sends a change to the signed-in player's plan, as `changeQueue` does the queue. */
   async changePlan(request: Observable<PlanView>): Promise<PlanView> {
+    const sentFor = this.version();
     try {
       const plan = await firstValueFrom(request);
-      this.planResource.set(plan);
+      this.showAnswer(this.planResource, plan, sentFor);
       return plan;
     } catch (err) {
       this.planResource.reload();
       throw err;
     }
+  }
+
+  /**
+   * Shows the queue or plan a change sent for draft version `sentFor`
+   * answered with, unless a newer draft has been shown since. Its re-read
+   * then wins, as the answer may predate the pick that moved the draft on:
+   * the re-read is kept if it is still loading, or else started again, as it
+   * may have been served before the change was made.
+   */
+  private showAnswer<T>(resource: HttpResourceRef<T | undefined>, answer: T, sentFor?: number) {
+    if (this.version() === sentFor) resource.set(answer);
+    else if (!resource.isLoading()) resource.reload();
   }
 }
 
