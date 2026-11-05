@@ -82,24 +82,16 @@ export class QueueTab {
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
 
-  /**
-   * The viewer's picks left: their picks per player less the picks they have
-   * made, so picks per player in the lobby. Null once the draft is complete,
-   * when neither it nor the queue cutoff shows.
-   */
-  protected readonly picksLeft = computed(() => {
-    const draft = this.store.shown();
-    if (draft.state === 'Complete') return null;
-    const id = this.store.ownPlayer()?.id;
-    const made = this.store.picks.value().filter((pick) => pick.playerId === id).length;
-    return Math.max(draft.picksPerPlayer - made, 0);
-  });
+  /** The viewer's picks left, shown until the draft is complete, as is the queue cutoff. */
+  protected readonly picksLeft = computed(() =>
+    this.draftState() === 'Complete' ? null : this.store.picksLeft(),
+  );
 
   /**
    * Where the queue cutoff goes: before the queued card at this index, the
    * first one past the picks left. Null when the queue fits in them.
    */
-  protected readonly cutoff = computed(() => {
+  protected readonly cutoffIndex = computed(() => {
     const left = this.picksLeft();
     return left !== null && this.queue().cards.length > left ? left : null;
   });

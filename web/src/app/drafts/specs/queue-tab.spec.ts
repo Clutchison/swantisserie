@@ -474,7 +474,7 @@ describe('queue tab', () => {
     /** The Queue tab's rows in order: each queued card's name, and the cutoff's accessible name. */
     const rows = (queue: HTMLElement) =>
       [...queueList(queue).children].map((row) =>
-        row.getAttribute('role') === 'separator'
+        row.textContent?.includes('Queue cutoff')
           ? accessibleName(row)
           : row.querySelector('.name')?.textContent,
       );
@@ -495,21 +495,29 @@ describe('queue tab', () => {
       ]);
     });
 
+    /** Lightning Bolt then Shivan Dragon, queued. */
+    const boltThenShivan = {
+      cards: [bolt, shivan],
+      queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
+    };
+
     it('draws no queue cutoff when the queue fits in the picks left', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 2 }), {
-        cards: [bolt, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
-      });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ picksPerPlayer: 2 }),
+        boltThenShivan,
+      );
 
       const queue = await openQueue(fixture, page);
       expect(rows(queue)).toEqual(['Lightning Bolt', 'Shivan Dragon']);
     });
 
     it('keeps the cutoff in place as cards move across it, which can still be moved and removed', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }), {
-        cards: [bolt, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
-      });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ picksPerPlayer: 1 }),
+        boltThenShivan,
+      );
       const queue = await openQueue(fixture, page);
       expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
 
@@ -540,7 +548,7 @@ describe('queue tab', () => {
         const { fixture, page } = await openDraft(
           completeSnapshot,
           drafting({ state, picksPerPlayer: 1, turn: state === 'Paused' ? undefined : null }),
-          { cards: [bolt, shivan], queue: queueOf({ cards: [queued(bolt), queued(shivan)] }) },
+          boltThenShivan,
         );
 
         const queue = await openQueue(fixture, page);
@@ -553,11 +561,11 @@ describe('queue tab', () => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         drafting({ state: 'Complete', picksPerPlayer: 1, turn: null }),
-        { cards: [bolt, shivan], queue: queueOf({ cards: [queued(bolt), queued(shivan)] }) },
+        boltThenShivan,
       );
 
       const queue = await openQueue(fixture, page);
-      expect(queue.textContent).not.toContain('left');
+      expect(queue.textContent).not.toMatch(/picks? left/);
       expect(rows(queue)).toEqual(['Lightning Bolt', 'Shivan Dragon']);
     });
 
@@ -600,6 +608,27 @@ describe('queue tab', () => {
 
       await changed(2, []);
       expect(queue.textContent).toContain('12 picks left');
+    });
+
+    it('waits for the pick log before counting the picks left', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http
+        .expectOne('/api/drafts/draft-1')
+        .flush(
+          draft(drafting({ picksPerPlayer: 12, turn: { pick: 2, round: 1, playerId: bob.id } })),
+        );
+      await flushPool([]);
+      await flushQueueAndPlan();
+      const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
+      // Not stable while the pick log is on its way, so rendered by hand.
+      tabButton(page, 'Queue').click();
+      fixture.detectChanges();
+      const queue = panel(page);
+      expect(queue.textContent).not.toMatch(/picks? left/);
+
+      picks.flush([pickOf({ poolCardId: 'a' })]);
+      await fixture.whenStable();
+      expect(queue.textContent).toContain('11 picks left');
     });
 
     it('shows picks per player as the picks left in the lobby', async () => {

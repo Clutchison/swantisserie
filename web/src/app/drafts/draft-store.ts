@@ -231,6 +231,21 @@ export class DraftStore {
   });
 
   /**
+   * The signed-in player's picks left: their picks per player less the picks
+   * they have made, so picks per player in the lobby. Null for a viewer who
+   * isn't a player, and until the pick log has loaded.
+   */
+  readonly picksLeft = computed(() => {
+    const draft = this.draft.value();
+    const own = this.ownPlayer();
+    if (!draft || !own) return null;
+    if (draft.state === 'Lobby') return draft.picksPerPlayer;
+    if (!this.picks.loaded()) return null;
+    const made = this.picks.value().filter((pick) => pick.playerId === own.id).length;
+    return Math.max(draft.picksPerPlayer - made, 0);
+  });
+
+  /**
    * Only players have a queue. It is read for the draft's version, and so
    * re-read whenever that changes, as a pick may have lost a card: a newer
    * version replaces a read in flight.
