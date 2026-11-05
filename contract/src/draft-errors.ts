@@ -1,3 +1,12 @@
+/**
+ * The 400 any malformed request to the drafts api gets: a field is missing
+ * or isn't one the route accepts. `message` says what to fix.
+ */
+export interface RequestProblem {
+  error: 'invalid';
+  message: string;
+}
+
 /** Some of a pool query's or cube's cards aren't on the draft's platform. */
 export interface NotOnPlatformProblem {
   error: 'not-on-platform';
@@ -34,11 +43,8 @@ export type CubeLinkProblem =
 export type DraftCreationProblem =
   | PoolQueryProblem
   | CubeLinkProblem
-  | {
-      /** A field to fix, or a webhook that has since been removed. */
-      error: 'invalid';
-      message: string;
-    }
+  /** A field to fix, or a webhook that has since been removed. */
+  | RequestProblem
   | { error: 'scryfall-unavailable'; message: string }
   | {
       /** CubeCobra failed, or answered with something we can't read. */
@@ -49,9 +55,16 @@ export type DraftCreationProblem =
 /**
  * Why the organizer can't start the draft; sent to them as is. The api
  * passes on engine's StartProblem codes, so typecheck ties the two.
+ * `pool-not-ready` and `pool-snapshot-failed` come from the api's own
+ * snapshot check: the snapshot is still running, or it failed and must
+ * be retried.
  */
 export interface StartRefusal {
-  error: 'player-count' | 'pool-too-small' | 'pool-not-ready';
+  error:
+    | 'player-count'
+    | 'pool-too-small'
+    | 'pool-not-ready'
+    | 'pool-snapshot-failed';
   message: string;
 }
 
@@ -79,6 +92,15 @@ export interface PauseRefusal {
 /** Why the organizer can't close or reopen the draft; sent to them as is. */
 export interface CloseRefusal {
   error: 'not-closable' | 'not-closed';
+  message: string;
+}
+
+/**
+ * The 404 adding or removing a bot gets when the bot named isn't one. Not a
+ * DraftRefusal: the draft hasn't moved on, the request named nothing.
+ */
+export interface UnknownBotProblem {
+  error: 'no-such-bot';
   message: string;
 }
 
@@ -128,9 +150,31 @@ export interface PickImportRefusal {
   problems: string[];
 }
 
+/** The 413 a pick import or its preview gets when the file is too long to be a sheet of picks. */
+export interface PickImportTooLarge {
+  error: 'file-too-large';
+  message: string;
+}
+
+/**
+ * The 403 a pick, queue or plan request gets from a signed-in viewer who
+ * isn't a player in the draft. Not a DraftRefusal: it isn't a 409.
+ */
+export interface NotAPlayerProblem {
+  error: 'not-a-player';
+  message: string;
+}
+
 /**
  * Why the drafts API refused a request because the draft or queue has moved
- * on since the viewer last saw it: a 409, or a 404 for `not-in-pool`.
+ * on since the viewer last saw it. Refusals are 409s, except `not-in-pool`:
+ * that one is a 404, and the web shows it as a generic failure. That's fine,
+ * since a draft's pool is fixed once it starts, so only a stale or forged
+ * card id can reach it.
+ *
+ * The web shows a refusal's `message`, and recognises a refusal by its 409
+ * status, not by its `error` code. The codes are there for the api's specs
+ * and for any branching the web may do later.
  */
 export type DraftRefusal =
   | StartRefusal
@@ -141,3 +185,12 @@ export type DraftRefusal =
   | DraftChangeRefusal
   | QueueRefusal
   | PlanRefusal;
+
+/** Every error body a pick request can get, besides a 404 for a draft that is gone. */
+export type PickFailure = PickRefusal | NotAPlayerProblem | RequestProblem;
+
+/** Every error body a queue request can get, besides a 404 for a draft that is gone. */
+export type QueueFailure = QueueRefusal | NotAPlayerProblem | RequestProblem;
+
+/** Every error body a plan request can get, besides a 404 for a draft that is gone. */
+export type PlanFailure = PlanRefusal | NotAPlayerProblem | RequestProblem;

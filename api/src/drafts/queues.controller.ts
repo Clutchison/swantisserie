@@ -1,23 +1,21 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   HttpCode,
-  NotFoundException,
   Param,
   Post,
   Put,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import type {
   QueueOrderRequest,
-  QueueRefusal,
   QueueUnpickedRequest,
   QueueView,
+  RequestProblem,
   StealBehavior,
   StealBehaviorRequest,
 } from 'contract';
@@ -27,14 +25,10 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
-import { NotAPlayerError } from './draft-errors.js';
-import { DraftReadsService } from './draft-reads.service.js';
+import { DraftAccess } from './draft-access.js';
+import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
-import {
-  QueueChangedError,
-  QueueRefusedError,
-  QueuesService,
-} from './queues.service.js';
+import { QueuesService } from './queues.service.js';
 
 /**
  * The signed-in player's queue in a draft, and their steal behavior. There
@@ -42,9 +36,10 @@ import {
  */
 @Controller('drafts/:id/queue')
 @UseGuards(SessionGuard)
+@UseFilters(DraftErrorsFilter)
 export class QueuesController {
   constructor(
-    private readonly reads: DraftReadsService,
+    private readonly access: DraftAccess,
     private readonly queues: QueuesService,
   ) {}
 
@@ -53,7 +48,7 @@ export class QueuesController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.queue(id, user.id));
+    return this.answer(user, id, () => this.queues.queue(id, user.id));
   }
 
   /** Adds a pool card to the end of the queue. */
@@ -65,7 +60,9 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const poolCardId = parseCard(body, 'Say which card to queue.');
-    return this.answer(id, () => this.queues.add(id, user.id, poolCardId));
+    return this.answer(user, id, () =>
+      this.queues.add(id, user.id, poolCardId),
+    );
   }
 
   /**
@@ -80,7 +77,7 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const includeSideboard = parseIncludeSideboard(body);
-    return this.answer(id, () =>
+    return this.answer(user, id, () =>
       this.queues.addUnpicked(id, user.id, includeSideboard),
     );
   }
@@ -93,7 +90,9 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const poolCardIds = parseOrder(body);
-    return this.answer(id, () => this.queues.reorder(id, user.id, poolCardIds));
+    return this.answer(user, id, () =>
+      this.queues.reorder(id, user.id, poolCardIds),
+    );
   }
 
   /** Sets what a lost card does to the rest of the queue. */
@@ -104,7 +103,7 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const stealBehavior = parseStealBehavior(body);
-    return this.answer(id, () =>
+    return this.answer(user, id, () =>
       this.queues.setStealBehavior(id, user.id, stealBehavior),
     );
   }
@@ -115,7 +114,7 @@ export class QueuesController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.dismissNotice(id, user.id));
+    return this.answer(user, id, () => this.queues.dismissNotice(id, user.id));
   }
 
   /** Takes a card out of the queue. Declared after `notice`, which it would match. */
@@ -125,38 +124,19 @@ export class QueuesController {
     @Param('id') id: string,
     @Param('poolCardId') poolCardId: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.remove(id, user.id, poolCardId));
+    return this.answer(user, id, () =>
+      this.queues.remove(id, user.id, poolCardId),
+    );
   }
 
   /** Answers with the queue as `request` leaves it, or why it can’t. */
   private async answer(
+    user: SessionUser,
     id: string,
     request: () => Promise<QueueView>,
   ): Promise<QueueView> {
-    if (!(await this.reads.find(id))) throw new NotFoundException();
-    try {
-      return await request();
-    } catch (err) {
-      if (err instanceof NotAPlayerError) {
-        throw new ForbiddenException({
-          error: 'not-a-player',
-          message: err.message,
-        });
-      }
-      if (err instanceof QueueChangedError) {
-        throw new ConflictException({
-          error: 'queue-changed',
-          message: err.message,
-        } satisfies QueueRefusal);
-      }
-      if (err instanceof QueueRefusedError) {
-        if (err.refusal.error === 'not-in-pool') {
-          throw new NotFoundException(err.refusal);
-        }
-        throw new ConflictException(err.refusal);
-      }
-      throw err;
-    }
+    await this.access.canSee(user, id);
+    return request();
   }
 }
 
@@ -171,7 +151,7 @@ function parseOrder(body: unknown): string[] {
     throw new BadRequestException({
       error: 'invalid',
       message: 'List each queued card once, in order.',
-    });
+    } satisfies RequestProblem);
   }
   return poolCardIds;
 }
@@ -183,7 +163,7 @@ function parseIncludeSideboard(body: unknown): boolean {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say whether to include the sideboard.',
-    });
+    } satisfies RequestProblem);
   }
   return includeSideboard;
 }
@@ -195,7 +175,7 @@ function parseStealBehavior(body: unknown): StealBehavior {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose clear queue or pick next.',
-    });
+    } satisfies RequestProblem);
   }
   return stealBehavior;
 }

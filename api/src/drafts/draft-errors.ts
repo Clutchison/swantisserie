@@ -68,10 +68,31 @@ export class DraftGoneError extends Error {
   }
 }
 
-/** Thrown when someone who isn't playing in a draft asks for a queue or plan in it. */
+/**
+ * Thrown when a viewer asks for a draft they may not see: for now, one that
+ * doesn't exist.
+ */
+export class CannotSeeDraftError extends Error {
+  constructor() {
+    super('There is no such draft.');
+  }
+}
+
+/** Thrown when a viewer asks to do something their draft powers don't allow. */
+export class NoDraftPowerError extends Error {
+  constructor() {
+    super('You can’t do that in this draft.');
+  }
+}
+
+/** Thrown when someone who isn't playing in a draft asks to pick, or for a queue or plan, in it. */
 export class NotAPlayerError extends Error {
-  constructor(what: 'queues' | 'plans') {
-    super(`Only the draft’s players have ${what}.`);
+  constructor(what: 'queues' | 'plans' | 'picks') {
+    super(
+      what === 'picks'
+        ? 'Only the draft’s players can pick.'
+        : `Only the draft’s players have ${what}.`,
+    );
   }
 }
 
