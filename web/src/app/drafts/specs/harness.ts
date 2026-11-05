@@ -259,6 +259,24 @@ export const button = (root: HTMLElement, label: string) =>
     (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
   );
 
+/**
+ * What a screen reader names `element`: its aria-label, or else its text and
+ * images' alt text, leaving out what's hidden from assistive tech. A rough
+ * take on the accessible name computation, enough for buttons and tiles.
+ */
+export function accessibleName(element: Element): string {
+  const nameOf = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+    if (!(node instanceof Element)) return '';
+    if (node.getAttribute('aria-hidden') === 'true' || node.hasAttribute('hidden')) return '';
+    const label = node.getAttribute('aria-label');
+    if (label) return label;
+    if (node instanceof HTMLImageElement) return node.alt;
+    return [...node.childNodes].map(nameOf).join(' ');
+  };
+  return nameOf(element).replace(/\s+/g, ' ').trim();
+}
+
 /** The app's header, shown to signed-in viewers. */
 export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');
 

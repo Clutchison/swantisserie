@@ -188,6 +188,35 @@ describe('App', () => {
       expect(document.activeElement).toBe(trigger);
     });
 
+    it('closes when focus moves out of it, leaving focus where it went', async () => {
+      const { page, trigger } = await openAppAdmin();
+      const lastItem = [...page.querySelectorAll<HTMLElement>('header .panel a')].at(-1)!;
+      const logOut = logOutButton(page)!;
+
+      trigger.focus();
+      lastItem.focus();
+      TestBed.tick();
+      expect(menuLinks(page)).not.toEqual([]);
+
+      logOut.focus();
+      TestBed.tick();
+
+      expect(menuLinks(page)).toEqual([]);
+      expect(document.activeElement).toBe(logOut);
+    });
+
+    it('stays open while focus moves between its button and its items', async () => {
+      const { page, trigger } = await openAppAdmin();
+      const [first, second] = page.querySelectorAll<HTMLElement>('header .panel a');
+
+      first.focus();
+      second.focus();
+      trigger.focus();
+      TestBed.tick();
+
+      expect(menuText(page)).toEqual(['Webhooks', 'Feedback', 'App version 0123456']);
+    });
+
     it('closes when an item is chosen, and goes there', async () => {
       const { page } = await openAppAdmin();
 
