@@ -163,7 +163,9 @@ function manaCosts(card: PoolSearchCard): Counts[] {
     ...(card.manaCost ?? '').split(' // '),
     ...card.faces.map((face) => face.manaCost ?? ''),
   ].filter(Boolean);
-  return (costs.length ? costs : ['']).map(cardManaCost);
+  // A symbol the grammar doesn't know ({H/W}, {½}) counts as a symbol of its
+  // own, so a pool card's cost never fails to parse and can still be searched.
+  return (costs.length ? costs : ['']).map((cost) => countManaSymbols(cost).counts);
 }
 
 function colorCounts(colors: string[]): Counts {
@@ -345,7 +347,7 @@ function colorTerm(field: 'colors' | 'identity'): (term: Term) => Matcher {
     if (!/^[wubrg]*$/.test(letters)) {
       throw new SearchError(
         'parse-error',
-        `${keyword}: takes colors like wu, a color, guild or college name, or a number.`,
+        `${keyword}: takes colors like wu, a name like red, azorius or quandrix, or a number.`,
       );
     }
     const wanted = colorCounts(letters.split(''));
@@ -380,14 +382,6 @@ const MANA_SYMBOL = /^(?:\d+|[WUBRGCXYZS]|(?:[WUBRGC2]\/){1,2}P|[WUBRGC2]\/[WUBR
 function parseManaCost(cost: string): Counts | undefined {
   const { counts, allKnown } = countManaSymbols(cost);
   return allKnown ? counts : undefined;
-}
-
-/**
- * The symbols in a pool card's mana cost. A symbol the grammar doesn't know
- * ({H/W}, {½}) counts as a symbol of its own, so the card can still be searched.
- */
-function cardManaCost(cost: string): Counts {
-  return countManaSymbols(cost).counts;
 }
 
 /**

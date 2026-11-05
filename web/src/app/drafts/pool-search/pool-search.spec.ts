@@ -31,8 +31,8 @@ function poolCard(name: string, manaCost: string): PoolSearchCard {
   };
 }
 
-function namesFound(search: string): string[] {
-  const result = searchPool(cards, search);
+function namesFound(search: string, pool: PoolSearchCard[] = cards): string[] {
+  const result = searchPool(pool, search);
   if (!result.ok) throw new Error(`${search}: ${result.error.message}`);
   return result.cards.map((card) => card.name).sort();
 }
@@ -59,12 +59,6 @@ describe('pool search', () => {
       poolCard('Plain White', '{W}{2}'),
     ];
 
-    function oddNamesFound(search: string): string[] {
-      const result = searchPool(odd, search);
-      if (!result.ok) throw new Error(`${search}: ${result.error.message}`);
-      return result.cards.map((card) => card.name).sort();
-    }
-
     it.each([
       ['m:W', ['Plain White']],
       ['m:{2}', ['Half Two', 'Half White', 'Plain White']],
@@ -84,7 +78,7 @@ describe('pool search', () => {
         ['Bare Half', 'Half Two', 'Half White', 'Plain White', 'Real Hybrid', 'Two Halves'],
       ],
     ])('answers %s', (search, names) => {
-      expect(oddNamesFound(search)).toEqual(names);
+      expect(namesFound(search, odd)).toEqual(names);
     });
   });
 
