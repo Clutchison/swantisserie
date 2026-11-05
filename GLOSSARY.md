@@ -329,8 +329,12 @@ A named Discord channel destination that an app admin or guild admin registers b
 _Avoid_: Channel, hook, integration
 
 **Webhook registry**:
-The webhooks registered for a guild. App admins and guild admins add, rename and remove its webhooks.
+The webhooks registered for a guild. App admins and guild admins add, rename and remove its webhooks, and replace their URLs.
 _Avoid_: Webhook list, webhook settings
+
+**Gone**:
+Describes a webhook Discord no longer accepts posts on, because it was deleted or its URL's token was reset. Announcements on it are dropped until its URL is replaced, and it can't be chosen for a draft meanwhile.
+_Avoid_: Broken, dead, invalid, disabled
 
 **Draft channel**:
 The Discord channel the app creates for a draft along with the draft, where the draft's announcements go unless they are switched to a webhook. It belongs to its draft, and no other draft can use it.
