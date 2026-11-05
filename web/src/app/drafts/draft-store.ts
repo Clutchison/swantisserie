@@ -23,6 +23,9 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal } from './drafts';
 
+/** The name of a player id that isn't among the draft's players, wherever a name is shown. */
+export const ANOTHER_PLAYER = 'another player';
+
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
   providedIn: 'root',
@@ -90,12 +93,22 @@ export class DraftStore {
   /** The signed-in player, if they have joined. */
   readonly ownPlayer = computed(() => {
     const id = this.user()?.id;
-    return (id !== undefined && this.player(id)) || null;
+    return this.draft.value()?.players.find((player) => player.id === id) ?? null;
   });
 
-  /** A player in the draft, by their id. */
-  player(id: string): PlayerView | undefined {
-    return this.draft.value()?.players.find((player) => player.id === id);
+  /**
+   * A player in the draft, by their id. An id that isn't among the draft's
+   * players gets one fallback, named "another player", with no avatar.
+   */
+  player(id: string): PlayerView {
+    return (
+      this.draft.value()?.players.find((player) => player.id === id) ?? {
+        id,
+        name: ANOTHER_PLAYER,
+        avatarUrl: '',
+        isBot: false,
+      }
+    );
   }
 
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */
@@ -135,8 +148,7 @@ export class DraftStore {
   readonly picked = computed(() => {
     const picked = new Map<string, PlayerView>();
     for (const pick of this.picks.value()) {
-      const player = this.player(pick.playerId);
-      if (player) picked.set(pick.poolCardId, player);
+      picked.set(pick.poolCardId, this.player(pick.playerId));
     }
     return picked;
   });
