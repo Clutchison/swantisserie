@@ -23,6 +23,9 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal } from './drafts';
 
+/** The name of a player id that isn't among the draft's players, wherever a name is shown. */
+export const ANOTHER_PLAYER = 'another player';
+
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
   providedIn: 'root',
@@ -92,12 +95,22 @@ export class DraftStore {
   /** The signed-in player, if they have joined. */
   readonly ownPlayer = computed(() => {
     const id = this.user()?.id;
-    return (id !== undefined && this.player(id)) || null;
+    return this.draft.value()?.players.find((player) => player.id === id) ?? null;
   });
 
-  /** A player in the draft, by their id. */
-  player(id: string): PlayerView | undefined {
-    return this.draft.value()?.players.find((player) => player.id === id);
+  /**
+   * A player in the draft, by their id. An id that isn't among the draft's
+   * players gets one fallback, named "another player", with no avatar.
+   */
+  player(id: string): PlayerView {
+    return (
+      this.draft.value()?.players.find((player) => player.id === id) ?? {
+        id,
+        name: ANOTHER_PLAYER,
+        avatarUrl: '',
+        isBot: false,
+      }
+    );
   }
 
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */
@@ -144,8 +157,7 @@ export class DraftStore {
   readonly picked = computed(() => {
     const picked = new Map<string, PlayerView>();
     for (const pick of this.picks.value()) {
-      const player = this.player(pick.playerId);
-      if (player) picked.set(pick.poolCardId, player);
+      picked.set(pick.poolCardId, this.player(pick.playerId));
     }
     return picked;
   });
@@ -184,21 +196,38 @@ export class DraftStore {
     );
   });
 
-  /** Offering a pick: to players, while the draft is Drafting. */
+  /**
+   * Offering a pick: to players, while the draft is Drafting. The api refuses
+   * anyone else with `not-a-player`, and any other draft state with
+   * `not-drafting`.
+   */
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is active; adding to
-   * the queue is still not offered on the player's own turn.
+   * the queue is still not offered on the player's own turn. The Queue tab is
+   * read-only when this is false. The api refuses anyone else with
+   * `not-a-player`, a Complete or Closed draft with `draft-complete` or
+   * `draft-closed`, and adding on the player's own turn with `your-turn`.
    */
   readonly offerQueue = computed(() => {
     const draft = this.draft.value();
     return this.joined() && !!draft && isActive(draft.state);
   });
-  /** Offering adding to and removing from the plan: to players, while the draft is active. */
-  readonly offerPlanChange = computed(() => {
+  /**
+   * Offering adding to the plan: to players, while the draft is active. The
+   * api refuses anyone else with `not-a-player`, and a Complete or Closed
+   * draft with `draft-complete` or `draft-closed`.
+   */
+  readonly offerAddToPlan = computed(() => {
     const draft = this.draft.value();
     return this.joined() && !!draft && isActive(draft.state);
   });
+  /**
+   * Offering removing an unpicked card from the plan: to players, in every
+   * draft state. The api refuses only someone who isn't a player, with
+   * `not-a-player`.
+   */
+  readonly offerRemoveFromPlan = this.joined;
 
   constructor() {
     effect((onCleanup) => {

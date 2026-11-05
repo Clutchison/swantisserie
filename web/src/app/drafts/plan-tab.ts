@@ -187,6 +187,8 @@ export class PlanTab {
   protected readonly loading = this.store.plan.loading;
   /** The pool card ids of the cards in the signed-in player's queue. */
   private readonly queued = this.store.queued;
+  /** Whether Remove is offered for an unpicked card: for players in every draft state. */
+  protected readonly offerRemoveFromPlan = this.store.offerRemoveFromPlan;
   /** Whether Queue unpicked is offered: as the queue allows adding, so never on the player's own turn. */
   protected readonly offerQueueUnpicked = computed(
     () => this.store.offerQueue() && !this.store.yourTurn(),
@@ -298,7 +300,7 @@ export class PlanTab {
 
   /** A player's name, by their id; "another player" for one no longer in the draft. */
   protected playerName(id: string): string {
-    return this.store.player(id)?.name ?? 'another player';
+    return this.store.player(id).name;
   }
 
   constructor() {

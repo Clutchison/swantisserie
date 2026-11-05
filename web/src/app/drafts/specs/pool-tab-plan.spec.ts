@@ -137,22 +137,23 @@ describe('pool tab', () => {
       expect(button(await openDetail(fixture, page, 0), 'Add to Plan')!.disabled).toBe(false);
     });
 
-    it.each(['Closed', 'Complete'] as const)(
-      'is not offered once the draft is %s',
-      async (state) => {
+    it.each([
+      ['Closed', 'draft-closed'],
+      ['Complete', 'draft-complete'],
+    ] as const)(
+      'is not offered once the draft is %s, as the api refuses with `%s`',
+      async (state, _refusal) => {
         const { fixture, page } = await openDraft(
           completeSnapshot,
           drafting({ state, turn: null }),
-          {
-            cards: [shivan],
-          },
+          { cards: [shivan] },
         );
 
         expect(button(await openDetail(fixture, page, 0), 'Add to Plan')).toBeUndefined();
       },
     );
 
-    it('is not offered to an app admin who isn’t playing', async () => {
+    it('is not offered to an app admin who isn’t playing, as the api refuses with `not-a-player`', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ players: [bob] }), {
         cards: [shivan],
         // Plans stay private even from app admins.
@@ -339,17 +340,42 @@ describe('pool tab', () => {
       expect(button(await openDetail(fixture, page, 1), 'Remove from Plan')!.disabled).toBe(false);
     });
 
-    it.each(['Closed', 'Complete'] as const)(
-      'is not offered once the draft is %s',
-      async (state) => {
-        const { fixture, page } = await openDraft(
-          completeSnapshot,
-          drafting({ state, turn: null }),
-          { cards: [shivan], plan: planned(shivan.id) },
-        );
+    // The api removes an unpicked card from a plan in every draft state, as the Plan tab does.
+    it.each([
+      ['Lobby', drafting({ state: 'Lobby', turn: null })],
+      ['Paused', drafting({ state: 'Paused' })],
+      ['Closed', drafting({ state: 'Closed', turn: null })],
+      ['Complete', drafting({ state: 'Complete', turn: null })],
+    ])(
+      'is offered while the draft is %s, and removing works, as the api never refuses it for the draft’s state',
+      async (_, fields) => {
+        const { fixture, page } = await openDraft(completeSnapshot, fields, {
+          cards: [shivan],
+          plan: planned(shivan.id),
+        });
 
-        expect(button(await openDetail(fixture, page, 0), 'Remove from Plan')).toBeUndefined();
+        const detail = await openDetail(fixture, page, 0);
+        button(detail, 'Remove from Plan')!.click();
+        const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+        expect(req.request.method).toBe('DELETE');
+        req.flush(EMPTY_PLAN);
+        await fixture.whenStable();
+
+        expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+          'Removed from your plan.',
+        );
+        expect(button(detail, 'Remove from Plan')).toBeUndefined();
       },
     );
+
+    it('is not offered to an app admin who isn’t playing, as the api refuses with `not-a-player`', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Complete', turn: null, players: [bob] }),
+        { cards: [shivan], user: { ...alice, isAppAdmin: true } },
+      );
+
+      expect(button(await openDetail(fixture, page, 0), 'Remove from Plan')).toBeUndefined();
+    });
   });
 });

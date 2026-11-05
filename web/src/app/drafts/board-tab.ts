@@ -34,8 +34,8 @@ export class BoardTab {
     })),
   );
 
-  /** A player, by their id. */
-  protected player(id: string): PlayerView | undefined {
+  /** A player, by their id; "another player" for one no longer in the draft. */
+  protected player(id: string): PlayerView {
     return this.store.player(id);
   }
 }

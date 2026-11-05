@@ -94,12 +94,10 @@ export class PoolTab {
   protected readonly offerQueue = this.store.offerQueue;
   /** The pool card ids of the unpicked cards in the signed-in player's plan. */
   protected readonly planned = this.store.planned;
-  /**
-   * Whether the card detail offers Remove from Plan for an unpicked copy in
-   * the plan, or else Add to Plan: for players while the draft is active,
-   * behind the Plan tab's gate.
-   */
-  protected readonly offerPlanChange = this.store.offerPlanChange;
+  /** Whether the card detail offers Add to Plan for a card not in the plan: for players while the draft is active. */
+  protected readonly offerAddToPlan = this.store.offerAddToPlan;
+  /** Whether the card detail offers Remove from Plan for an unpicked copy in the plan: for players in every draft state. */
+  protected readonly offerRemoveFromPlan = this.store.offerRemoveFromPlan;
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   protected readonly yourTurn = this.store.yourTurn;
   /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */

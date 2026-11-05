@@ -137,6 +137,16 @@ describe('board tab', () => {
     ]);
   });
 
+  it('names a pick log player who is no longer among the players as another player', async () => {
+    const { page } = await openBoard([{ ...picks[0]!, playerId: 'gone' }, picks[1]!]);
+
+    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
+    expect(log).toEqual([
+      ['1', 'another player', 'Shock'],
+      ['2', 'Alice', 'Lightning Bolt'],
+    ]);
+  });
+
   it('gives a pick log player’s full name on hover, with a bot’s badge outside the name', async () => {
     const longName = 'Bartholomew the Exceedingly Long';
     const bot = { ...bob, id: 'bot:1', name: longName, isBot: true };
