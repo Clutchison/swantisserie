@@ -49,9 +49,16 @@ export type DraftCreationProblem =
 /**
  * Why the organizer can't start the draft; sent to them as is. The api
  * passes on engine's StartProblem codes, so typecheck ties the two.
+ * `pool-not-ready` and `pool-snapshot-failed` come from the api's own
+ * snapshot check: the snapshot is still running, or it failed and must
+ * be retried.
  */
 export interface StartRefusal {
-  error: 'player-count' | 'pool-too-small' | 'pool-not-ready';
+  error:
+    | 'player-count'
+    | 'pool-too-small'
+    | 'pool-not-ready'
+    | 'pool-snapshot-failed';
   message: string;
 }
 

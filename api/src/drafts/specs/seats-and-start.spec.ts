@@ -12,6 +12,7 @@ import {
   createDraft,
   getDraft,
   snapshotted,
+  draftWithRunningSnapshot,
   readyDraft,
   start,
   join,
@@ -105,7 +106,7 @@ describe('seats and start', () => {
     });
   });
 
-  it('refuses a start before the pool snapshot is complete', async () => {
+  it('refuses a start when the pool snapshot failed', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
       'c:r': page('Shock'),
@@ -118,9 +119,23 @@ describe('seats and start', () => {
     const refused = await start(created.body.id).expect(409);
 
     expect(refused.body).toEqual({
+      error: 'pool-snapshot-failed',
+      message: 'The pool snapshot failed. Retry it before starting.',
+    });
+  });
+
+  it('refuses a start while the pool snapshot is running', async () => {
+    const { id, answer } = await draftWithRunningSnapshot();
+
+    const refused = await start(id).expect(409);
+
+    expect(refused.body).toEqual({
       error: 'pool-not-ready',
       message: 'The pool snapshot isn’t complete yet.',
     });
+    // Shutting down waits for the snapshot, so let it finish.
+    answer.resolve(page('Lightning Bolt'));
+    await snapshotted(id);
   });
 
   it('refuses starting twice, and joining once started', async () => {
