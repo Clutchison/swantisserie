@@ -118,6 +118,7 @@ describe('cancel', () => {
   it('stops a running snapshot cleanly when Scryfall then fails', async () => {
     const { id, answer } = await draftWithRunningSnapshot();
     const errors = vi.spyOn(Logger.prototype, 'error');
+    scryfall.search.mockClear();
 
     await cancelDraft(id).expect(204);
     answer.reject(new ScryfallUnavailableError(503));
@@ -126,7 +127,7 @@ describe('cancel', () => {
     expect(errors).not.toHaveBeenCalled();
     await startApp();
     // Neither the failed snapshot nor the restart searched again.
-    expect(scryfall.search).toHaveBeenLastCalledWith(snapshotQuery('c:r'), 2);
+    expect(scryfall.search).not.toHaveBeenCalled();
     await getDraft(id).expect(404);
   });
 
