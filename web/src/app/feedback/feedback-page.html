@@ -34,7 +34,7 @@
               item.sentAt | date: 'medium'
             }}</time>
             <p class="message">{{ item.message }}</p>
-            <a class="page-url" [href]="item.pageUrl">{{ item.pageUrl }}</a>
+            <a class="page-path" [routerLink]="pageLink(item)">{{ item.pagePath }}</a>
             @if ('reviewedBy' in item) {
               <p class="review">
                 Reviewed by {{ item.reviewedBy.name }},

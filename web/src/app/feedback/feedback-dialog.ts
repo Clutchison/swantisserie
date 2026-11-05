@@ -48,6 +48,12 @@ export class FeedbackDialog {
     effect(() => this.closeButton()?.nativeElement.focus());
   }
 
+  /** The current page's path, query and hash: never its scheme or host. */
+  private pagePath() {
+    const { pathname, search, hash } = this.location;
+    return `${pathname}${search}${hash}`;
+  }
+
   protected backdropPressed(event: MouseEvent) {
     this.pressedBackdrop = event.target === event.currentTarget;
   }
@@ -65,7 +71,7 @@ export class FeedbackDialog {
         this.http
           .post('/api/feedback', {
             message: this.message(),
-            pageUrl: this.location.href,
+            pagePath: this.pagePath(),
           } satisfies FeedbackRequest)
           .pipe(takeUntilDestroyed(this.destroyRef)),
       );

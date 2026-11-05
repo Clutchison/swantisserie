@@ -116,7 +116,25 @@ describe('sending feedback', () => {
 
     expect(req.request.method).toBe('POST');
     expect(req.request.body.message).toBe('Nice app');
-    expect(new URL(req.request.body.pageUrl).pathname).toBe('/status');
+    expect(req.request.body.pagePath).toBe('/status');
+    succeed(req);
+  });
+
+  it("sends the page's path, query and hash, with no scheme or host", async () => {
+    const navigation = TestBed.inject(Router).navigateByUrl('/drafts/42?tab=pool#x');
+    // The draft page asks for its draft; it needn't load for feedback to send.
+    (await vi.waitFor(() => http.expectOne('/api/drafts/42'))).flush(null, {
+      status: 404,
+      statusText: 'Not Found',
+    });
+    await navigation;
+    await fixture.whenStable();
+    await open();
+    await type('Nice app');
+
+    const req = await submit();
+
+    expect(req.request.body.pagePath).toBe('/drafts/42?tab=pool#x');
     succeed(req);
   });
 

@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type { FeedbackView, ReviewedFeedbackView, UserView } from 'contract';
 import { App } from '../app';
@@ -23,14 +23,14 @@ const carol: UserView = {
 const fromAlice: FeedbackView = {
   id: 'feedback-1',
   message: 'Line one\nLine two',
-  pageUrl: 'https://swantisserie.example/drafts/42',
+  pagePath: '/drafts/42?tab=pool#x',
   sentAt: '2026-10-31T12:00:00.000Z',
   sender: { name: 'Alice', avatarUrl: alice.avatarUrl },
 };
 const fromBob: FeedbackView = {
   id: 'feedback-2',
   message: 'The timer is too short',
-  pageUrl: 'https://swantisserie.example/',
+  pagePath: '/',
   sentAt: '2026-10-30T12:00:00.000Z',
   sender: { name: 'Bob', avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png' },
 };
@@ -93,6 +93,16 @@ describe('reviewing feedback', () => {
   }
 
   const items = (page: HTMLElement) => [...page.querySelectorAll('main li')];
+  /** An item's only link: the page it was sent from. */
+  const pageLink = (item: Element) => item.querySelector<HTMLAnchorElement>('a[href]')!;
+
+  /** Clicks `link`; the draft page it opens needn't load. */
+  async function follow(fixture: ComponentFixture<App>, link: HTMLAnchorElement) {
+    link.click();
+    const draft = await vi.waitFor(() => http.expectOne('/api/drafts/42'));
+    draft.flush(null, { status: 404, statusText: 'Not Found' });
+    await fixture.whenStable();
+  }
   const markReviewed = (item: Element) =>
     [...item.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Mark reviewed')!;
 
@@ -125,9 +135,15 @@ describe('reviewing feedback', () => {
     expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
     expect(item.textContent).toContain('Alice');
     expect(item.querySelector('time')?.textContent).toContain('Oct 31, 2026');
-    const link = item.querySelector('a')!;
-    expect(link.textContent?.trim()).toBe(fromAlice.pageUrl);
-    expect(link.getAttribute('href')).toBe(fromAlice.pageUrl);
+    expect(pageLink(item).textContent?.trim()).toBe('/drafts/42?tab=pool#x');
+  });
+
+  it("opens an item's page in the app, query and fragment included", async () => {
+    const { fixture, page } = await openPage([fromAlice]);
+
+    await follow(fixture, pageLink(items(page)[0]));
+
+    expect(router.url).toBe('/drafts/42?tab=pool#x');
   });
 
   it('shows the items in the order the API sends, newest first', async () => {
@@ -212,7 +228,7 @@ describe('reviewing feedback', () => {
       expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
       expect(item.textContent).toContain('Alice');
       expect(item.querySelector('.message')?.textContent).toBe(fromAlice.message);
-      expect(item.querySelector('a')?.getAttribute('href')).toBe(fromAlice.pageUrl);
+      expect(pageLink(item).textContent?.trim()).toBe('/drafts/42?tab=pool#x');
       expect(item.querySelector('time')?.getAttribute('datetime')).toBe(fromAlice.sentAt);
       const review = item.querySelector('.review')!;
       expect(review.textContent).toContain('Reviewed by Carol');
@@ -220,6 +236,14 @@ describe('reviewing feedback', () => {
         reviewedByCarol.reviewedAt,
       );
       expect(markReviewed(item)).toBeUndefined();
+    });
+
+    it("opens an item's page in the app, query and fragment included", async () => {
+      const { fixture, page } = await openReviewed([reviewedByCarol]);
+
+      await follow(fixture, pageLink(items(page)[0]));
+
+      expect(router.url).toBe('/drafts/42?tab=pool#x');
     });
 
     it('marks an item unreviewed in one click, with no confirmation, and removes it', async () => {
