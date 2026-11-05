@@ -8,6 +8,7 @@ const cards = fixtureCards as PoolSearchCard[];
 /** A one-faced creature costing `manaCost`, with nothing else of note. */
 function poolCard(name: string, manaCost: string): PoolSearchCard {
   return {
+    id: name,
     scryfallId: name,
     oracleId: name,
     name,
