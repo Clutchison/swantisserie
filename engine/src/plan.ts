@@ -1,4 +1,9 @@
-import { availableCopies, type Pool, type SeatPick } from './queue.js';
+import {
+  availableCopies,
+  swapOrLose,
+  type Pool,
+  type SeatPick,
+} from './queue.js';
 
 /** One seat's plan after a pick. */
 export interface PlanAfterPick {
@@ -19,8 +24,8 @@ export interface PlanAfterPick {
  * not, indexed by seat. The picker's plan keeps the card, if it holds it:
  * it is now their pick; if it instead holds an unpicked copy of it, that
  * copy becomes the pick. In each other plan holding the card, it is
- * swapped, in the same place, for the first copy in `pool` that is not
- * `picked` and that the plan doesn't hold; with no such copy, it is lost.
+ * swapped for a copy or lost, as `swapOrLose` says, with the copies in
+ * `pool` that are not `picked`.
  * Nothing else in a plan changes: a plan never picks, so there is nothing
  * to clear. `picked` is the cards picked before this one, with or without
  * it. Cards are pool card ids.
@@ -43,10 +48,7 @@ export function plansAfterPick(
             swapped: { out: plan[unpicked], in: pick.card },
           };
     }
-    if (at === -1) return { plan: [...plan] };
-    const copy = copies.find((card) => !plan.includes(card));
-    return copy === undefined
-      ? { plan: plan.toSpliced(at, 1), lost: pick.card }
-      : { plan: plan.with(at, copy), swapped: { out: pick.card, in: copy } };
+    const { list, ...swappedOrLost } = swapOrLose(plan, pick.card, copies);
+    return { plan: list, ...swappedOrLost };
   });
 }

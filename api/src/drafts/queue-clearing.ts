@@ -65,13 +65,13 @@ export async function takeFromQueues(
     } else if (swapped !== undefined) {
       await tx.queuedCard.update({
         where: {
-          playerId_poolCardId: { playerId, poolCardId: pick.poolCardId },
+          playerId_poolCardId: { playerId, poolCardId: swapped.out },
         },
-        data: { poolCardId: swapped },
+        data: { poolCardId: swapped.in },
       });
       // Queued again, so off the notice, as when the player queues it.
       await tx.takenOutQueuedCard.updateMany({
-        where: { playerId, poolCardId: swapped },
+        where: { playerId, poolCardId: swapped.in },
         data: { noticeHidden: true },
       });
     } else {

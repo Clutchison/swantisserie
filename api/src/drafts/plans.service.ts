@@ -6,6 +6,7 @@ import type {
   PlanRefusal,
   PlanView,
 } from 'contract';
+import { availableCopies } from 'engine';
 import type { DraftState, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
@@ -82,12 +83,16 @@ export class PlansService {
           message: 'That card has already been picked.',
         });
       }
-      // Copies are offered in id order, as the engine offers them.
-      const copies = await tx.poolCard.findMany({
-        where: { draftId, oracleId: card.oracleId, pick: null },
-        orderBy: { id: 'asc' },
-        select: { id: true },
-      });
+      // The pool, as far as this card goes: its unpicked copies, in pool order.
+      const pool = new Map(
+        (
+          await tx.poolCard.findMany({
+            where: { draftId, oracleId: card.oracleId, pick: null },
+            orderBy: { id: 'asc' },
+            select: { id: true, oracleId: true },
+          })
+        ).map((copy) => [copy.id, copy.oracleId]),
+      );
       const held = new Set(
         (
           await tx.plannedCard.findMany({
@@ -96,7 +101,9 @@ export class PlansService {
           })
         ).map((planned) => planned.poolCardId),
       );
-      const copy = [card, ...copies].find((copy) => !held.has(copy.id));
+      const copy = [card.id, ...availableCopies(card.id, pool, [])].find(
+        (copy) => !held.has(copy),
+      );
       if (!copy) {
         throw new PlanRefusedError({
           error: 'no-copies-left',
@@ -104,7 +111,7 @@ export class PlansService {
         });
       }
       await tx.plannedCard.create({
-        data: { playerId, poolCardId: copy.id, added: true },
+        data: { playerId, poolCardId: copy, added: true },
       });
     });
   }

@@ -21,8 +21,8 @@ export interface SeatPick {
 export interface QueueAfterPick {
   /** The queued cards, in order. */
   queue: string[];
-  /** The copy swapped in for the picked card, if one was. */
-  swapped?: string;
+  /** The picked card and the copy swapped in for it, if one was. */
+  swapped?: { out: string; in: string };
   /** The picked card, if this queue lost it: no copy was available for the queue. */
   lost?: string;
   /**
@@ -35,9 +35,9 @@ export interface QueueAfterPick {
 /**
  * What a pick does to queues, which are each seat's queued cards in order,
  * indexed by seat. The picked card leaves the picker's queue. In each other
- * queue holding it, it is swapped, in the same place, for the first copy in
- * `pool` that is not `picked` and that the queue doesn't hold; with no such
- * copy, it is lost, and the rest of that queue is cleared or kept as the
+ * queue holding it, it is swapped for a copy or lost, as `swapOrLose` says,
+ * with the copies in `pool` that are not `picked`; once lost, the rest of
+ * that queue is cleared or kept as the
  * seat's entry in `stealBehaviors` says: clear queue for a seat it omits.
  * `picked` is the cards picked already, with or without this one. Cards are
  * pool card ids.
@@ -63,15 +63,12 @@ export function queuesAfterPick(
         cleared: [],
       };
     }
-    const at = queue.indexOf(pick.card);
-    if (at === -1) return { queue: [...queue], cleared: [] };
-    const copy = copies.find((card) => !queue.includes(card));
-    if (copy === undefined) {
-      return stealBehaviors[seat] === 'PickNext'
-        ? { queue: queue.toSpliced(at, 1), lost: pick.card, cleared: [] }
-        : { queue: [], lost: pick.card, cleared: queue.toSpliced(at, 1) };
+    const after = swapOrLose(queue, pick.card, copies);
+    if (after.lost === undefined || stealBehaviors[seat] === 'PickNext') {
+      const { list, ...swappedOrLost } = after;
+      return { queue: list, ...swappedOrLost, cleared: [] };
     }
-    return { queue: queue.with(at, copy), swapped: copy, cleared: [] };
+    return { queue: [], lost: after.lost, cleared: after.list };
   });
 }
 
@@ -92,4 +89,34 @@ export function availableCopies(
       ([copy, copyOracleId]) => copyOracleId === oracleId && !taken.has(copy),
     )
     .map(([copy]) => copy);
+}
+
+/** A list of cards, queued or planned, after another player picks one it holds. */
+export interface SwappedOrLost {
+  /** The list's cards, in order. */
+  list: string[];
+  /** The picked card and the copy swapped in for it, in the same place. */
+  swapped?: { out: string; in: string };
+  /** The picked card, if the list lost it: no copy was available for it. */
+  lost?: string;
+}
+
+/**
+ * What another player's pick of `card` does to a list holding it: the card
+ * is swapped, in the same place, for the first of `copies` the list doesn't
+ * hold; with no such copy, it is lost and leaves the list. A list that
+ * doesn't hold the card comes back as it is. `copies` is the card's
+ * available copies, as `availableCopies` offers them.
+ */
+export function swapOrLose(
+  list: readonly string[],
+  card: string,
+  copies: readonly string[],
+): SwappedOrLost {
+  const at = list.indexOf(card);
+  if (at === -1) return { list: [...list] };
+  const copy = copies.find((copy) => !list.includes(copy));
+  return copy === undefined
+    ? { list: list.toSpliced(at, 1), lost: card }
+    : { list: list.with(at, copy), swapped: { out: card, in: copy } };
 }
