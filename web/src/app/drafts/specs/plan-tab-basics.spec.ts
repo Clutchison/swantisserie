@@ -154,6 +154,29 @@ describe('basic lands on the plan tab', () => {
     });
   });
 
+  it('puts back a typed count the api refuses', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    typeCount(plan, 'Island', '8');
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(
+        { error: 'draft-not-open', message: 'This draft isn’t open.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
+    reread.flush(planOf());
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(countOf(plan, 'Island').value).toBe('0'));
+    expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands');
+  });
+
   it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
