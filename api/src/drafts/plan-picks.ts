@@ -1,4 +1,4 @@
-import { plansAfterPick } from 'engine';
+import { type PlanAfterPick, plansAfterPick } from 'engine';
 import {
   enginePool,
   type MadePick,
@@ -7,23 +7,16 @@ import {
 } from './draft-shapes.js';
 
 /**
- * Persists what a new pick, already made, does to plans, as the engine's
- * `plansAfterPick` says: it lands on the picker's mainboard, unless their
- * plan holds it, or another unpicked copy of it, which then becomes the pick
- * where it is. In each other plan holding it unpicked, it is swapped for
- * another copy or lost; a lost card is kept against the pick, with its
- * board, so that undoing it can put it back, and listed on the Plan notice.
- * A swapped copy stays swapped: it is as good as the one picked.
+ * Persists what a new pick, already made, does to plans, working it out
+ * with the engine's `plansAfterPick`, then recording it as
+ * `recordPlanEffects` does.
  */
 export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
   const { draftId } = pick;
   const players = await tx.player.findMany({
     where: { draftId },
     orderBy: SEAT_ORDER,
-    select: {
-      id: true,
-      plan: { select: { poolCardId: true, board: true } },
-    },
+    select: { id: true, plan: { select: { poolCardId: true } } },
   });
   const after = plansAfterPick(
     {
@@ -33,13 +26,35 @@ export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
     players.map((player) => player.plan.map((planned) => planned.poolCardId)),
     await enginePool(tx, draftId, pick.number),
   );
-  for (const [seat, { swapped, lost }] of after.entries()) {
-    const { id: playerId, plan } = players[seat];
+  await recordPlanEffects(
+    tx,
+    pick,
+    players.map((player) => player.id),
+    after,
+  );
+}
+
+/**
+ * Persists `after`, what a new pick, already made, does to each plan, as
+ * the engine works it out; `playerIds` are the players by seat, as `after`
+ * is indexed. The pick lands on the picker's mainboard, unless their plan
+ * holds it, or another unpicked copy of it, which then becomes the pick
+ * where it is. In each other plan holding it unpicked, it is swapped for
+ * another copy or lost; a lost card is kept against the pick, with its
+ * board, so that undoing it can put it back, and listed on the Plan notice.
+ * A swapped copy stays swapped: it is as good as the one picked.
+ */
+export async function recordPlanEffects(
+  tx: Transaction,
+  pick: MadePick,
+  playerIds: readonly string[],
+  after: readonly PlanAfterPick[],
+): Promise<void> {
+  for (const [seat, { plan, swapped, lost }] of after.entries()) {
+    const playerId = playerIds[seat];
     if (playerId === pick.playerId) {
-      const held = plan.some(
-        (planned) => planned.poolCardId === pick.poolCardId,
-      );
-      if (swapped || held) {
+      // The plan holds the pick now if it held it, or a copy swapped for it.
+      if (plan.includes(pick.poolCardId)) {
         await tx.plannedCard.update({
           where: {
             playerId_poolCardId: {
@@ -60,12 +75,12 @@ export async function planPick(tx: Transaction, pick: MadePick): Promise<void> {
         data: { poolCardId: swapped.in },
       });
     } else if (lost !== undefined) {
-      const { board } = plan.find((planned) => planned.poolCardId === lost)!;
+      const { board } = await tx.plannedCard.delete({
+        where: { playerId_poolCardId: { playerId, poolCardId: lost } },
+        select: { board: true },
+      });
       await tx.lostPlannedCard.create({
         data: { pickId: pick.id, playerId, poolCardId: lost, board },
-      });
-      await tx.plannedCard.delete({
-        where: { playerId_poolCardId: { playerId, poolCardId: lost } },
       });
     }
   }

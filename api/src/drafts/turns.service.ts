@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { cascade, currentTurn, draftComplete, pickProblem } from 'engine';
+import {
+  cascade,
+  currentTurn,
+  draftComplete,
+  type PlanAfterPick,
+  pickProblem,
+  type QueueAfterPick,
+} from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PickRefusedError, UndoRefusedError } from './draft-errors.js';
@@ -15,8 +22,12 @@ import {
   MADE_PICK,
   SEAT_ORDER,
 } from './draft-shapes.js';
-import { planPick, restorePlans } from './plan-picks.js';
-import { restoreQueues, takeFromQueues } from './queue-clearing.js';
+import { planPick, recordPlanEffects, restorePlans } from './plan-picks.js';
+import {
+  recordQueueEffects,
+  restoreQueues,
+  takeFromQueues,
+} from './queue-clearing.js';
 
 const PICK_LOG = {
   orderBy: { number: 'asc' },
@@ -134,10 +145,11 @@ export class TurnsService {
   }
 
   /**
-   * Picks each card the cascade from the draft's current turn makes. The
-   * caller holds the draft row lock, and has moved the draft to Drafting; a
-   * draft its last pick has just completed makes no picks. A cascade stops at
-   * a bot's turn: the bot picks on its own timer.
+   * Picks each card the cascade from the draft's current turn makes, and
+   * persists what the engine says each does to queues and plans. The caller
+   * holds the draft row lock, and has moved the draft to Drafting; a draft
+   * its last pick has just completed makes no picks. A cascade stops at a
+   * bot's turn: the bot picks on its own timer.
    */
   async cascade(draft: LockedDraft): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
@@ -153,6 +165,7 @@ export class TurnsService {
           orderBy: { position: 'asc' },
           select: { poolCardId: true },
         },
+        plan: { select: { poolCardId: true } },
       },
     });
     const { pool, picked } = await enginePool(tx, draftId);
@@ -165,12 +178,16 @@ export class TurnsService {
       ),
       pool,
       players.map((player) => player.stealBehavior),
+      players.map((player) => player.plan.map((planned) => planned.poolCardId)),
     );
     const events: DraftEvent[] = [];
-    for (const { seat, card } of picks) {
-      const { userId } = players[seat];
+    for (const { pick, queues, plans } of picks) {
+      const { userId } = players[pick.seat];
       events.push(
-        ...(await this.pickCard(draft, userId, card, { queued: true })),
+        ...(await this.pickCard(draft, userId, pick.card, {
+          queued: true,
+          effects: { queues, plans },
+        })),
       );
     }
     return events;
@@ -194,14 +211,22 @@ export class TurnsService {
 
   /**
    * The user picks the pool card `poolCardId` on their turn, in a draft
-   * that is Drafting; `queued` if it was picked from their queue. Throws
+   * that is Drafting; `queued` if it was picked from their queue. Its
+   * `effects` on queues and plans, if a cascade has worked them out already,
+   * are persisted as they are; otherwise they are worked out here. Throws
    * PickRefusedError if they can't.
    */
   private async pickCard(
     draft: LockedDraft,
     userId: string,
     poolCardId: string,
-    { queued }: { queued: boolean },
+    {
+      queued,
+      effects,
+    }: {
+      queued: boolean;
+      effects?: { queues: QueueAfterPick[]; plans: PlanAfterPick[] };
+    },
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
     const card = await tx.poolCard.findFirst({
@@ -241,8 +266,14 @@ export class TurnsService {
       },
       select: MADE_PICK,
     });
-    await planPick(tx, made);
-    await takeFromQueues(tx, made);
+    if (effects) {
+      const playerIds = players.map((player) => player.id);
+      await recordPlanEffects(tx, made, playerIds, effects.plans);
+      await recordQueueEffects(tx, made, playerIds, effects.queues);
+    } else {
+      await planPick(tx, made);
+      await takeFromQueues(tx, made);
+    }
     // pickLog was read before this pick, so count it too.
     const picked = pickLog.length + 1;
     const next = currentTurn(size, picked);
