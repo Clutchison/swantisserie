@@ -38,14 +38,14 @@ describe('announcements', () => {
     webhookId = await registerWebhook();
   });
 
-  /** Each post's content, once `count` have been made. */
-  async function posted(count: number) {
-    return vi.waitFor(() => {
-      expect(webhookClient.post).toHaveBeenCalledTimes(count);
-      return webhookClient.post.mock.calls.map(
-        ([, message]) => message.content,
-      );
-    });
+  /**
+   * Each post's content, once the draft's announcements have settled,
+   * expecting exactly `count` posts.
+   */
+  async function posted(id: string, count: number) {
+    await announcementsSettled(id);
+    expect(webhookClient.post).toHaveBeenCalledTimes(count);
+    return webhookClient.post.mock.calls.map(([, message]) => message.content);
   }
 
   it('announces the start to the draft’s webhook, with the seat order', async () => {
@@ -58,7 +58,7 @@ describe('announcements', () => {
 
     await start(id).expect(200);
 
-    expect(await posted(1)).toEqual([
+    expect(await posted(id, 1)).toEqual([
       '**Red** has started. Seat order:\n' +
         '1. **Alice**\n' +
         '2. **Bob**\n' +
@@ -82,7 +82,7 @@ describe('announcements', () => {
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
-    expect((await posted(4)).slice(1)).toEqual([
+    expect((await posted(id, 4)).slice(1)).toEqual([
       `1- **Alice** picked **Shock**\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
       '2- **Bob** picked **Lava Spike**',
       '**Red** is complete',
@@ -99,9 +99,9 @@ describe('announcements', () => {
       return readyDraft([aliceCookie, bobCookie], 2, fourCards, webhookId);
     }
 
-    /** The latest post made, once `count` have been. */
-    async function lastPost(count: number) {
-      await posted(count);
+    /** The latest post, once the draft's announcements have settled, expecting exactly `count`. */
+    async function lastPost(id: string, count: number) {
+      await posted(id, count);
       return webhookClient.post.mock.calls[count - 1][1];
     }
 
@@ -113,7 +113,7 @@ describe('announcements', () => {
 
       await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
-      expect(await lastPost(3)).toEqual({
+      expect(await lastPost(id, 3)).toEqual({
         content: `2- **Bob** picked **Lightning Bolt**\n**Bob** is up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [] },
       });
@@ -127,7 +127,7 @@ describe('announcements', () => {
 
       await pick(id, ids.Shock).expect(200);
 
-      expect(await lastPost(2)).toEqual({
+      expect(await lastPost(id, 2)).toEqual({
         content:
           '1- **Alice** picked **Shock**\n' +
           '2- **Bob** picked **Lightning Bolt**\n' +
@@ -144,7 +144,7 @@ describe('announcements', () => {
 
       await start(id).expect(200);
 
-      expect(await lastPost(1)).toEqual({
+      expect(await lastPost(id, 1)).toEqual({
         content:
           '**Red** has started. Seat order:\n' +
           '1. **Alice**\n' +
@@ -177,7 +177,7 @@ describe('announcements', () => {
 
         await post(id, carryOn).expect(200);
 
-        expect(await lastPost(6)).toEqual({
+        expect(await lastPost(id, 6)).toEqual({
           content:
             `**Red** ${happened}\n` +
             '2- **Bob** picked **Lightning Bolt**\n' +
@@ -197,7 +197,7 @@ describe('announcements', () => {
 
       await undo(id, 3).expect(200);
 
-      expect(await lastPost(5)).toEqual({
+      expect(await lastPost(id, 5)).toEqual({
         content:
           'Undone: 3- **Bob** picked **Lava Spike**\n' +
           `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
@@ -215,7 +215,7 @@ describe('announcements', () => {
 
       await post(id, 'resume').expect(200);
 
-      expect(await lastPost(5)).toEqual({
+      expect(await lastPost(id, 5)).toEqual({
         content: `**Red** has resumed\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       });
@@ -276,7 +276,8 @@ describe('announcements', () => {
 
     await start(id).expect(200);
 
-    await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalledTimes(2));
+    await announcementsSettled(id);
+    expect(webhookClient.post).toHaveBeenCalledTimes(2);
     const calls = webhookClient.post.mock.calls;
     expect(calls.map(([url]) => url)).toEqual([webhookUrl, webhookUrl]);
     const [first, last] = calls.map(([, message]) => message);
@@ -307,7 +308,7 @@ describe('announcements', () => {
 
     await start(id).expect(200);
 
-    const [refused, last] = await posted(2);
+    const [refused, last] = await posted(id, 2);
     expect(refused).toMatch(/^\*\*Red\*\* has started/);
     expect(last).toContain(`<@${bob.id}> you’re up.`);
     expect(logged).toHaveBeenCalledTimes(1);
@@ -333,7 +334,7 @@ describe('announcements', () => {
     );
     const ids = await poolCardIds(id);
     await start(id).expect(200);
-    await posted(1);
+    await posted(id, 1);
     webhookClient.post.mockRejectedValue(new Error('Discord is down'));
     const logged = vi
       .spyOn(Logger.prototype, 'error')
@@ -342,7 +343,7 @@ describe('announcements', () => {
     await pick(id, ids.Shock).expect(200);
 
     // The first try and two retries.
-    await posted(4);
+    await posted(id, 4);
     await vi.waitFor(() =>
       expect(logged).toHaveBeenCalledWith(
         expect.stringContaining('Discord is down'),
@@ -363,7 +364,7 @@ describe('announcements', () => {
 
     await start(id).expect(200);
 
-    const [first, retried] = await posted(2);
+    const [first, retried] = await posted(id, 2);
     expect(retried).toBe(first);
     expect(first).toContain('has started');
   });
@@ -381,7 +382,7 @@ describe('announcements', () => {
 
       await start(id).expect(200);
 
-      const [first, retried] = await posted(2);
+      const [first, retried] = await posted(id, 2);
       expect(retried).toBe(first);
     },
   );

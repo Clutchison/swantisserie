@@ -108,8 +108,9 @@ export function slowDownDatabase(ms: number) {
 
 /**
  * Resolves once a query to the database `slowDownDatabase` slowed is under
- * way: its reply is being held back. Call before sending the request whose
- * query it waits for.
+ * way: its reply is being held back (the proxy's `replyHeld`). Any
+ * connection's query counts, so call it just before sending the request
+ * whose query it waits for, with nothing else querying.
  */
 export function slowQueryUnderway(): Promise<void> {
   return database.replyHeld();

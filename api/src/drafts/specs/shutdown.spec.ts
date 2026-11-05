@@ -29,7 +29,8 @@ describe('shutting down', () => {
 
     // `then` sends the request now, rather than when it is awaited.
     const read = getDraft(id).then((res) => res);
-    // Before #294, closing while this read was under way hung for good.
+    // Before #294, closing while this request's queries were under way hung
+    // for good.
     await reading;
     await app.close();
 

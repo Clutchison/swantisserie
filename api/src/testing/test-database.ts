@@ -24,7 +24,7 @@ export interface TestDatabase {
   reset(): Promise<void>;
   /** Delays every reply from the database by `ms`, as a busy one would. */
   slowDown(ms: number): void;
-  /** See DatabaseProxy's `replyHeld`. */
+  /** Resolves once `slowDown` next holds a reply back: a query under way. */
   replyHeld(): Promise<void>;
   stop(): Promise<void>;
 }

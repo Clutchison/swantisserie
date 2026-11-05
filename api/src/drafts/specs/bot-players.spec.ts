@@ -81,8 +81,9 @@ describe('bot players', () => {
   }
 
   /**
-   * Watches the next bot pick, letting it through: `started` resolves once
-   * it is under way, and `made` with what it answered, once it has.
+   * Watches the first bot pick from now, letting it through: `started`
+   * resolves once it is under way, and `made` with what it answered, once
+   * it has.
    */
   function watchBotPick() {
     const botPick = vi.spyOn(TurnsService.prototype, 'botPick');
@@ -98,8 +99,9 @@ describe('bot players', () => {
   }
 
   /**
-   * Waits out `ms`, for checks that nothing more happens: no bot timer is
-   * left to signal it never fired.
+   * Waits out `ms`, for checks that nothing more happens: a timer that was
+   * never set, or was cancelled, gives no signal. Fake timers can't stand in,
+   * as the app, PGlite and supertest run on the real ones.
    */
   const settle = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));

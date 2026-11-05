@@ -8,8 +8,9 @@ export interface DatabaseProxy {
   /** Delays every reply from the database by `ms`, as a busy one would. */
   slowDown(ms: number): void;
   /**
-   * Resolves once a reply is next held back by `slowDown`: a query is under
-   * way, its answer not yet back.
+   * Resolves once a reply, on any connection, is next held back by
+   * `slowDown`: a query is under way, its answer not yet back. Slow the
+   * database down first, or it may never resolve.
    */
   replyHeld(): Promise<void>;
   /**
