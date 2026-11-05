@@ -31,10 +31,12 @@ describe.skipIf(!server)('the race database, on a real Postgres', () => {
     expect(await databases()).toContain(database.name);
     const client = new pg.Client({ connectionString: database.url });
     await client.connect();
-    const { rows: own } = await client.query(`SELECT current_database()`);
+    const { rows: connectedTo } = await client.query(
+      `SELECT current_database()`,
+    );
     const { rows } = await client.query(`SELECT count(*) FROM "Draft"`);
     await client.end();
-    expect(own).toEqual([{ current_database: database.name }]);
+    expect(connectedTo).toEqual([{ current_database: database.name }]);
     expect(rows).toEqual([{ count: '0' }]);
     await database.reset();
     await database.stop();
