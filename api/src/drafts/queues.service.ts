@@ -55,13 +55,7 @@ export class QueuesService {
     userId: string,
     stealBehavior: StealBehavior,
   ): Promise<QueueView> {
-    return this.change(draftId, userId, async (tx, playerId, state) => {
-      if (state === 'Complete') {
-        throw new QueueRefusedError({
-          error: 'draft-complete',
-          message: 'This draft is complete.',
-        });
-      }
+    return this.change(draftId, userId, async (tx, playerId) => {
       await tx.player.update({
         where: { id: playerId },
         data: { stealBehavior },
@@ -198,9 +192,9 @@ export class QueuesService {
   }
 
   /**
-   * Throws QueueRefusedError if the player can't add to their queue now: in
-   * a complete draft, or on their own turn, drafting or paused, when they
-   * make that pick by hand. `change` refuses a closed draft.
+   * Throws QueueRefusedError if the player can't add to their queue now: on
+   * their own turn, drafting or paused, when they make that pick by hand.
+   * `change` refuses a closed or complete draft.
    */
   private async checkCanAdd(
     tx: Transaction,
@@ -208,12 +202,6 @@ export class QueuesService {
     playerId: string,
     state: DraftState,
   ): Promise<void> {
-    if (state === 'Complete') {
-      throw new QueueRefusedError({
-        error: 'draft-complete',
-        message: 'This draft is complete.',
-      });
-    }
     if (
       state !== 'Lobby' &&
       (await this.isPlayersTurn(tx, draftId, playerId))
@@ -258,7 +246,7 @@ export class QueuesService {
   /**
    * Runs `apply` on the user's queue, with their row locked, and returns
    * the queue as it then is. Throws NotAPlayerError if the user isn't in
-   * the draft, and QueueRefusedError if the draft is closed.
+   * the draft, and QueueRefusedError if the draft is closed or complete.
    */
   private async change(
     draftId: string,
@@ -277,6 +265,12 @@ export class QueuesService {
         throw new QueueRefusedError({
           error: 'draft-closed',
           message: 'This draft is closed.',
+        });
+      }
+      if (state === 'Complete') {
+        throw new QueueRefusedError({
+          error: 'draft-complete',
+          message: 'This draft is complete.',
         });
       }
       await apply(tx, playerId, state);
