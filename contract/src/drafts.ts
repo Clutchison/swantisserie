@@ -64,6 +64,26 @@ export interface CubeView {
 export type PoolSourceView =
   { kind: 'pool-query'; poolQuery: string } | { kind: 'cube'; cube: CubeView };
 
+/**
+ * Each kind of pool source, by the name the whole app uses for it: the
+ * source of truth for these strings.
+ */
+export type PoolSourceKind = PoolSourceView['kind'];
+
+/**
+ * The fields the create form gives for each kind of pool source. Keyed by
+ * {@link PoolSourceKind}, so a new kind fails to compile until it has them.
+ */
+interface NewPoolSourceFields {
+  'pool-query': { poolQuery: string };
+  cube: { cubeLink: string };
+}
+
+/** A new draft's pool source, as the organizer gives it on the create form. */
+export type NewPoolSourceRequest = {
+  [K in PoolSourceKind]: { kind: K } & NewPoolSourceFields[K];
+}[PoolSourceKind];
+
 /** What every draft shows, whatever its state. */
 export interface DraftBase {
   id: string;
@@ -129,14 +149,10 @@ export const MIN_PICKS_PER_PLAYER = 1;
 /** The most picks per player a draft can have. */
 export const MAX_PICKS_PER_PLAYER = 100;
 
-/**
- * The create form's fields, as the web sends them to create a draft: a pool
- * query or a cube link, not both.
- */
+/** The create form's fields, as the web sends them to create a draft. */
 export interface NewDraftRequest {
   name: string;
-  poolQuery?: string;
-  cubeLink?: string;
+  poolSource: NewPoolSourceRequest;
   /** Missing: the default. Null: a field left blank, which is refused. */
   picksPerPlayer?: number | null;
   /** Missing: Arena. */

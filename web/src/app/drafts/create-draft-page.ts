@@ -20,14 +20,19 @@ import {
   type DraftCreationProblem,
   type DraftView,
   type NewDraftRequest,
+  type NewPoolSourceRequest,
   type Platform,
+  type PoolSourceKind,
   type WebhookView,
 } from 'contract';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 
-/** Where a new draft's pool comes from. */
-type PoolSource = 'poolQuery' | 'cubeLink';
+/** What was typed for each pool source, whichever is chosen. */
+interface PoolSourceFields {
+  'pool-query': { poolQuery: string };
+  cube: { cubeLink: string };
+}
 
 @Component({
   selector: 'app-create-draft-page',
@@ -39,13 +44,17 @@ type PoolSource = 'poolQuery' | 'cubeLink';
 export class CreateDraftPage {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder).nonNullable;
 
   // Validated by the API, whose messages say exactly what to fix.
-  protected readonly form = inject(FormBuilder).nonNullable.group({
+  protected readonly form = this.fb.group({
     name: '',
-    poolSource: 'poolQuery' as PoolSource,
-    poolQuery: '',
-    cubeLink: '',
+    poolSource: 'pool-query' as PoolSourceKind,
+    // One group per pool source, so each keeps what was typed while another is chosen.
+    poolSources: this.fb.group({
+      'pool-query': this.fb.group({ poolQuery: '' }),
+      cube: this.fb.group({ cubeLink: '' }),
+    } satisfies Record<PoolSourceKind, unknown>),
     picksPerPlayer: DEFAULT_PICKS_PER_PLAYER,
     platform: 'Arena' as Platform,
     webhookId: null as string | null,
@@ -83,14 +92,14 @@ export class CreateDraftPage {
   /** The form's fields as the API takes them, with only the pool source chosen. */
   private requestBody() {
     // Each field named, as `satisfies` doesn't catch an extra field that arrives by spread.
-    const { name, poolSource, poolQuery, cubeLink, picksPerPlayer, platform, webhookId } =
+    const { name, poolSource, poolSources, picksPerPlayer, platform, webhookId } =
       this.form.getRawValue();
     return {
       name,
+      poolSource: poolSourceRequest(poolSource, poolSources),
       picksPerPlayer,
       platform,
       webhookId,
-      ...(poolSource === 'cubeLink' ? { cubeLink } : { poolQuery }),
     } satisfies NewDraftRequest;
   }
 
@@ -108,6 +117,20 @@ export class CreateDraftPage {
       this.problem.set(problemFrom(err));
     } finally {
       this.saving.set(false);
+    }
+  }
+}
+
+/** The chosen pool source as the API takes it, leaving out what was typed for the others. */
+function poolSourceRequest(kind: PoolSourceKind, fields: PoolSourceFields): NewPoolSourceRequest {
+  switch (kind) {
+    case 'pool-query':
+      return { kind, poolQuery: fields[kind].poolQuery };
+    case 'cube':
+      return { kind, cubeLink: fields[kind].cubeLink };
+    default: {
+      const unknown: never = kind;
+      throw new Error(`No request for the pool source ${String(unknown)}`);
     }
   }
 }

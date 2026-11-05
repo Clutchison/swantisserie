@@ -42,7 +42,7 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     }).expect(201);
 
     expect(created.body.snapshot).toEqual({
@@ -65,7 +65,7 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Lands',
-      poolQuery: 't:land',
+      poolSource: { kind: 'pool-query', poolQuery: 't:land' },
     }).expect(201);
 
     await snapshotted(created.body.id);
@@ -84,7 +84,6 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Red',
-      poolQuery: 'c:r',
       platform: 'MTGO',
     }).expect(201);
 
@@ -109,7 +108,6 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Red',
-      poolQuery: 'c:r',
       platform: 'MTGO',
     }).expect(201);
 
@@ -150,7 +148,7 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Dragons',
-      poolQuery: 't:dragon',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon' },
     }).expect(201);
     await snapshotted(created.body.id);
 
@@ -216,7 +214,7 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Giants',
-      poolQuery: 't:giant',
+      poolSource: { kind: 'pool-query', poolQuery: 't:giant' },
     }).expect(201);
     await snapshotted(created.body.id);
 
@@ -292,7 +290,7 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Battles',
-      poolQuery: 't:battle',
+      poolSource: { kind: 'pool-query', poolQuery: 't:battle' },
     }).expect(201);
     await snapshotted(created.body.id);
 
@@ -315,7 +313,9 @@ describe('pool snapshot', () => {
       [query]: { ...page('Shock'), totalCards: 200, hasMore: true },
       [`${query} page 2`]: null,
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
 
     expect((await snapshotted(created.body.id)).snapshot).toEqual({
       state: 'Failed',
@@ -336,7 +336,9 @@ describe('pool snapshot', () => {
         cards: [card('Shock', { oracle_id: undefined })],
       },
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
 
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
       state: 'Failed',
@@ -351,7 +353,9 @@ describe('pool snapshot', () => {
       '(c:r) -in:arena': null,
       [query]: new TypeError('connect ECONNREFUSED 10.0.0.7:5432'),
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
 
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
       state: 'Failed',
@@ -361,7 +365,9 @@ describe('pool snapshot', () => {
 
   it('still shows a failed snapshot stored without its error, as unexpected', async () => {
     allOnArena('c:r');
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
     await snapshotted(created.body.id);
     await app.get(PrismaService).draft.update({
       where: { id: created.body.id },
@@ -385,7 +391,7 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     }).expect(201);
     expect((await snapshotted(created.body.id)).snapshot).toEqual({
       state: 'Failed',
@@ -419,7 +425,7 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     }).expect(201);
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
       state: 'Failed',
@@ -448,7 +454,9 @@ describe('pool snapshot', () => {
       '(c:r) -in:arena': null,
       [query]: new ScryfallRejectedSearchError('Too many terms.', []),
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
 
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
       state: 'Failed',
@@ -480,7 +488,7 @@ describe('pool snapshot', () => {
     allOnArena('t:dragon c:r');
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     }).expect(201);
     await snapshotted(created.body.id);
     scryfall.search.mockClear();
@@ -502,7 +510,9 @@ describe('pool snapshot', () => {
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
     await snapshotted(created.body.id);
 
     await post(created.body.id, 'snapshot', await signIn(bob)).expect(403);
@@ -527,6 +537,7 @@ describe('pool snapshot', () => {
     const { id } = await app.get(PrismaService).draft.create({
       data: {
         name: 'Red',
+        poolSourceKind: 'PoolQuery',
         poolQuery: 'c:r',
         picksPerPlayer: 40,
         organizerId: alice.id,
@@ -542,6 +553,34 @@ describe('pool snapshot', () => {
       cards: 2,
       total: 2,
     });
+  });
+
+  it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
+    // Written directly: a cube link's snapshot is complete from creation, so
+    // only a draft left running by an older version reaches the snapshot.
+    const { id } = await app.get(PrismaService).draft.create({
+      data: {
+        name: 'Vintage cube',
+        poolSourceKind: 'Cube',
+        cubeId: 'vintage',
+        cubeName: 'Vintage Cube',
+        picksPerPlayer: 40,
+        organizerId: alice.id,
+        snapshotState: 'Running',
+      },
+    });
+    await app.close();
+
+    await startApp();
+
+    expect((await snapshotted(id)).snapshot).toEqual({
+      state: 'Failed',
+      cards: 0,
+      total: null,
+      error:
+        'A pool from a cube link is taken only when its draft is created. Cancel this draft and create it again.',
+    });
+    expect(scryfall.search).not.toHaveBeenCalled();
   });
 
   it('stores each card’s identity, printing, images and the fields the pool search needs', async () => {
@@ -576,7 +615,7 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Red dragons',
-      poolQuery: 't:dragon c:r',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     }).expect(201);
     await snapshotted(created.body.id);
 
@@ -646,9 +685,9 @@ describe('pool snapshot', () => {
     });
 
     // `then` sends the request now, rather than when it is awaited.
-    const created = createDraft({ name: 'Red', poolQuery: 'c:r' }).then(
-      (res) => res,
-    );
+    const created = createDraft({
+      name: 'Red',
+    }).then((res) => res);
     await vi.waitFor(() => expect(scryfall.search).toHaveBeenCalled());
     await app.close();
 

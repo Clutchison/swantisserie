@@ -68,7 +68,7 @@ it('creates a draft from a cube id, showing the cube’s name and link in place 
 
   const created = await createDraft({
     name: 'Pauper',
-    cubeLink: 'thepaupercube',
+    poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
   }).expect(201);
 
   expect(created.body).toMatchObject({
@@ -91,7 +91,7 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
 
   const created = await createDraft({
     name: 'Pauper',
-    cubeLink: 'thepaupercube',
+    poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
   }).expect(201);
 
   const copies = await copyIds(created.body.id);
@@ -120,7 +120,10 @@ describe('cube links', () => {
     cubesAre({ thepaupercube: pauper });
     onPlatform('Lightning Bolt', 'Deftblade Elite');
 
-    const created = await createDraft({ name: 'Pauper', cubeLink }).expect(201);
+    const created = await createDraft({
+      name: 'Pauper',
+      poolSource: { kind: 'cube', cubeLink },
+    }).expect(201);
 
     expect(created.body.poolSource.cube.url).toBe(
       'https://cubecobra.com/cube/overview/thepaupercube',
@@ -136,7 +139,10 @@ describe('cube links', () => {
     'ftp://cubecobra.com/cube/list/thepaupercube',
     'the pauper cube',
   ])('refuses %j as not a cube link, creating no draft', async (cubeLink) => {
-    const res = await createDraft({ name: 'Pauper', cubeLink }).expect(422);
+    const res = await createDraft({
+      name: 'Pauper',
+      poolSource: { kind: 'cube', cubeLink },
+    }).expect(422);
 
     expect(res.body).toEqual({
       error: 'not-a-cube-link',
@@ -146,23 +152,11 @@ describe('cube links', () => {
     await listDrafts().expect(200).expect([]);
   });
 
-  it('refuses both a pool query and a cube link', async () => {
+  it('refuses a blank cube link', async () => {
     const res = await createDraft({
       name: 'Pauper',
-      poolQuery: 'c:r',
-      cubeLink: 'thepaupercube',
+      poolSource: { kind: 'cube', cubeLink: '  ' },
     }).expect(400);
-
-    expect(res.body).toEqual({
-      error: 'invalid',
-      message: 'Enter a pool query or a cube link, not both.',
-    });
-  });
-
-  it('refuses neither a pool query nor a cube link', async () => {
-    const res = await createDraft({ name: 'Pauper', cubeLink: '  ' }).expect(
-      400,
-    );
 
     expect(res.body).toEqual({
       error: 'invalid',
@@ -177,7 +171,10 @@ describe('creating a draft from a cube', () => {
 
     const res = await createDraft({
       name: 'Secret',
-      cubeLink: 'https://cubecobra.com/cube/list/secretcube',
+      poolSource: {
+        kind: 'cube',
+        cubeLink: 'https://cubecobra.com/cube/list/secretcube',
+      },
     }).expect(422);
 
     expect(res.body).toEqual({
@@ -194,7 +191,7 @@ describe('creating a draft from a cube', () => {
 
     const res = await createDraft({
       name: 'Pauper',
-      cubeLink: 'thepaupercube',
+      poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
     }).expect(502);
 
     expect(res.body).toEqual({
@@ -209,7 +206,7 @@ describe('creating a draft from a cube', () => {
 
     const res = await createDraft({
       name: 'Empty',
-      cubeLink: 'emptycube',
+      poolSource: { kind: 'cube', cubeLink: 'emptycube' },
     }).expect(422);
 
     expect(res.body).toEqual({
@@ -233,7 +230,7 @@ describe('creating a draft from a cube', () => {
 
     const res = await createDraft({
       name: 'Paper',
-      cubeLink: 'papercube',
+      poolSource: { kind: 'cube', cubeLink: 'papercube' },
       platform: 'MTGO',
     }).expect(422);
 
@@ -255,7 +252,7 @@ describe('creating a draft from a cube', () => {
     onPlatform('Lightning Bolt', 'Deftblade Elite');
     const created = await createDraft({
       name: 'Pauper',
-      cubeLink: 'thepaupercube',
+      poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
       picksPerPlayer: 2,
     }).expect(201);
     const { id } = created.body;
@@ -279,7 +276,7 @@ describe('the pool snapshot of a cube link', () => {
 
     const created = await createDraft({
       name: 'Pauper',
-      cubeLink: 'thepaupercube',
+      poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
     }).expect(201);
 
     expect(created.body.snapshot).toEqual({
@@ -302,7 +299,7 @@ describe('the pool snapshot of a cube link', () => {
 
     const created = await createDraft({
       name: 'Lands',
-      cubeLink: 'landcube',
+      poolSource: { kind: 'cube', cubeLink: 'landcube' },
     }).expect(201);
 
     expect(created.body.snapshot).toEqual({
@@ -322,7 +319,7 @@ describe('the pool snapshot of a cube link', () => {
     onPlatform('Lightning Bolt', 'Deftblade Elite', 'Shock');
     const created = await createDraft({
       name: 'Pauper',
-      cubeLink: 'thepaupercube',
+      poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
     }).expect(201);
     const { id } = created.body;
     cubesAre({ thepaupercube: cube('The Pauper Cube', 'Shock') });

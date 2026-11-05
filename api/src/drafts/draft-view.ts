@@ -50,16 +50,23 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
 }
 
 function toPoolSourceView(draft: DraftWithOrganizer): PoolSourceView {
-  if (draft.cubeId !== null && draft.cubeName !== null) {
-    return {
-      kind: 'cube',
-      cube: { name: draft.cubeName, url: cubeUrl(draft.cubeId) },
-    };
+  // The database's check constraints set exactly the kind's own columns.
+  const { poolSourceKind: kind, poolQuery, cubeId, cubeName } = draft;
+  switch (kind) {
+    case 'PoolQuery':
+      return { kind: 'pool-query', poolQuery: poolQuery ?? '' };
+    case 'Cube':
+      return {
+        kind: 'cube',
+        cube: { name: cubeName ?? '', url: cubeUrl(cubeId ?? '') },
+      };
+    default: {
+      const unhandled: never = kind;
+      throw new Error(
+        `Draft ${draft.id} has pool source kind ${String(unhandled)}.`,
+      );
+    }
   }
-  if (draft.poolQuery === null) {
-    throw new Error(`Draft ${draft.id} has neither a pool query nor a cube.`);
-  }
-  return { kind: 'pool-query', poolQuery: draft.poolQuery };
 }
 
 function toSnapshotView(draft: DraftWithOrganizer): PoolSnapshotView {

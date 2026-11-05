@@ -113,7 +113,9 @@ describe('seats and start', () => {
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
     await snapshotted(created.body.id);
 
     const refused = await start(created.body.id).expect(409);

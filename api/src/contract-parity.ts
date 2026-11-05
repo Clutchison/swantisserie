@@ -4,9 +4,11 @@ import type {
   PlanBoard,
   Platform,
   PoolSnapshotState,
+  PoolSourceKind,
   StealBehavior,
 } from 'contract';
 import type { StealBehavior as EngineStealBehavior } from 'engine';
+import type { STORED_POOL_SOURCE_KIND } from './drafts/pool-source.js';
 import type * as Schema from './generated/prisma/enums.js';
 
 /** True when A and B are the same union of values. */
@@ -24,6 +26,13 @@ export type ContractMatchesSchema = [
   Expect<Same<PlanBoard, Schema.PlanBoard>>,
   Expect<Same<Platform, Schema.Platform>>,
   Expect<Same<PoolSnapshotState, Schema.PoolSnapshotState>>,
+  // Each contract kind is stored as its own schema kind, and every schema kind is one.
+  Expect<
+    Same<
+      (typeof STORED_POOL_SOURCE_KIND)[PoolSourceKind],
+      Schema.PoolSourceKind
+    >
+  >,
   Expect<Same<StealBehavior, Schema.StealBehavior>>,
   Expect<Same<EngineStealBehavior, Schema.StealBehavior>>,
 ];

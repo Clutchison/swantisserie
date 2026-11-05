@@ -94,7 +94,9 @@ describe('cancel', () => {
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+    const created = await createDraft({
+      name: 'Red',
+    });
     await snapshotted(created.body.id);
 
     await cancelDraft(created.body.id).expect(204);

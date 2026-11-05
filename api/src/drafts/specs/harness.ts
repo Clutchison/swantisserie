@@ -196,8 +196,15 @@ export function draftsRequest(
   return body === undefined ? req : req.send(body as object);
 }
 
+/**
+ * Creates a draft from `body`, with the pool query `c:r` as its pool source
+ * when `body` doesn't give one. Give `poolSource: undefined` to send none.
+ */
 export function createDraft(body: object, cookie = aliceCookie) {
-  return draftsRequest('post', '', cookie, body);
+  return draftsRequest('post', '', cookie, {
+    poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
+    ...body,
+  });
 }
 
 export function listDrafts(cookie = aliceCookie) {
@@ -253,7 +260,9 @@ export async function draftWithRunningSnapshot() {
     }
     return pageTwo;
   });
-  const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+  const created = await createDraft({
+    name: 'Red',
+  });
   await vi.waitFor(() =>
     expect(scryfall.search).toHaveBeenCalledWith(query, 2),
   );
@@ -445,7 +454,6 @@ export async function readyDraft(
   });
   const created = await createDraft({
     name: 'Red',
-    poolQuery: 'c:r',
     picksPerPlayer,
     webhookId,
   }).expect(201);
