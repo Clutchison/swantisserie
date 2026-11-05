@@ -32,7 +32,6 @@ describe('lobby', () => {
     allOnArena('c:r');
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     }).expect(201);
     return created.body.id as string;
   }

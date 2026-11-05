@@ -57,7 +57,6 @@ it('creates a draft on the platform the organizer chose', async () => {
 
   const created = await createDraft({
     name: 'Red',
-    poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     platform: 'MTGO',
   }).expect(201);
 
@@ -69,7 +68,6 @@ it('creates a draft on the platform the organizer chose', async () => {
 it('refuses a platform other than Arena or MTGO', async () => {
   const res = await createDraft({
     name: 'Red',
-    poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     platform: 'Paper',
   }).expect(400);
 
@@ -217,25 +215,18 @@ it('answers 502 when Scryfall cannot be reached', async () => {
 });
 
 it.each([
-  [
-    'no name',
-    { poolSource: { kind: 'pool-query', poolQuery: 'c:r' } },
-    'Give the draft a name.',
-  ],
-  [
-    'a blank name',
-    { name: '  ', poolSource: { kind: 'pool-query', poolQuery: 'c:r' } },
-    'Give the draft a name.',
-  ],
+  ['no name', {}, 'Give the draft a name.'],
+  ['a blank name', { name: '  ' }, 'Give the draft a name.'],
   [
     'a name over 100 characters',
-    {
-      name: 'x'.repeat(101),
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
-    },
+    { name: 'x'.repeat(101) },
     'Keep the name to 100 characters.',
   ],
-  ['no pool source', { name: 'Red' }, 'Enter a pool query or a cube link.'],
+  [
+    'no pool source',
+    { name: 'Red', poolSource: undefined },
+    'Enter a pool query or a cube link.',
+  ],
   [
     'a pool source that is only text',
     { name: 'Red', poolSource: 'c:r' },
@@ -289,7 +280,6 @@ it.each([
     'zero picks per player',
     {
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       picksPerPlayer: 0,
     },
     'Picks per player must be a whole number from 1 to 100.',
@@ -298,7 +288,6 @@ it.each([
     'fractional picks per player',
     {
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       picksPerPlayer: 2.5,
     },
     'Picks per player must be a whole number from 1 to 100.',
@@ -307,7 +296,6 @@ it.each([
     'picks per player left blank',
     {
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       picksPerPlayer: null,
     },
     'Picks per player must be a whole number from 1 to 100.',
@@ -316,7 +304,6 @@ it.each([
     'picks per player as text',
     {
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       picksPerPlayer: '40',
     },
     'Picks per player must be a whole number from 1 to 100.',
@@ -325,7 +312,6 @@ it.each([
     'a webhook that is not an id',
     {
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       webhookId: 7,
     },
     'Choose a webhook from the list.',

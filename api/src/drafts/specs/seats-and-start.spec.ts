@@ -115,7 +115,6 @@ describe('seats and start', () => {
     });
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
     await snapshotted(created.body.id);
 

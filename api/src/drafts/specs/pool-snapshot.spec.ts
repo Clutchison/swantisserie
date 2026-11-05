@@ -84,7 +84,6 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       platform: 'MTGO',
     }).expect(201);
 
@@ -109,7 +108,6 @@ describe('pool snapshot', () => {
 
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
       platform: 'MTGO',
     }).expect(201);
 
@@ -317,7 +315,6 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
 
     expect((await snapshotted(created.body.id)).snapshot).toEqual({
@@ -341,7 +338,6 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
 
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
@@ -359,7 +355,6 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
 
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
@@ -372,7 +367,6 @@ describe('pool snapshot', () => {
     allOnArena('c:r');
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
     await snapshotted(created.body.id);
     await app.get(PrismaService).draft.update({
@@ -462,7 +456,6 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
 
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
@@ -519,7 +512,6 @@ describe('pool snapshot', () => {
     });
     const created = await createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     });
     await snapshotted(created.body.id);
 
@@ -695,7 +687,6 @@ describe('pool snapshot', () => {
     // `then` sends the request now, rather than when it is awaited.
     const created = createDraft({
       name: 'Red',
-      poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
     }).then((res) => res);
     await vi.waitFor(() => expect(scryfall.search).toHaveBeenCalled());
     await app.close();
