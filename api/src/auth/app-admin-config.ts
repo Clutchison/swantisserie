@@ -1,5 +1,5 @@
 /** App admins: Discord user IDs with organizer powers on every draft. */
-export class AdminConfig {
+export class AppAdminConfig {
   private readonly ids: ReadonlySet<string>;
 
   /** `adminIds` is ADMIN_DISCORD_IDS: comma-separated, blanks ignored. */

@@ -17,7 +17,7 @@ import type {
   ReviewedFeedbackView,
   UnreviewedFeedbackCount,
 } from 'contract';
-import { AdminGuard } from '../auth/admin.guard.js';
+import { AppAdminGuard } from '../auth/app-admin.guard.js';
 import { bodyFields } from '../request-body.js';
 import { avatarUrl } from '../auth/avatar-url.js';
 import {
@@ -56,8 +56,8 @@ export class FeedbackController {
 
 /** Where app admins review feedback; reviewed is one state they all share. */
 @Controller('admin/feedback')
-@UseGuards(AdminGuard)
-export class AdminFeedbackController {
+@UseGuards(AppAdminGuard)
+export class AppAdminFeedbackController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()

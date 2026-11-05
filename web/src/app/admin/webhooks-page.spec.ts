@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { AdminWebhookView, UserView, WebhookAdminProblem } from 'contract';
+import type { WebhookWithUrlView, UserView, WebhookRegistryProblem } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { adminButton, answerTopBar } from '../top-bar/specs-harness';
@@ -20,12 +20,12 @@ const carol: UserView = {
   isAppAdmin: true,
 };
 
-const main: AdminWebhookView = {
+const main: WebhookWithUrlView = {
   id: 'webhook-main',
   name: '#roto-main',
   url: 'https://discord.com/api/webhooks/1234567890/main-token',
 };
-const side: AdminWebhookView = {
+const side: WebhookWithUrlView = {
   id: 'webhook-side',
   name: '#roto-side',
   url: 'https://discord.com/api/webhooks/1234567891/side-token',
@@ -65,7 +65,7 @@ describe('webhooks page', () => {
   }
 
   /** Opens the page as Carol, an app admin, with `webhooks` registered. */
-  async function openPage(webhooks: AdminWebhookView[]) {
+  async function openPage(webhooks: WebhookWithUrlView[]) {
     const opened = await open('/admin/webhooks', carol);
     http.expectOne('/api/admin/webhooks').flush(webhooks);
     await opened.fixture.whenStable();
@@ -97,7 +97,7 @@ describe('webhooks page', () => {
   /** Answers the list's reload after a change with `webhooks`. */
   async function reloaded(
     fixture: Awaited<ReturnType<typeof openPage>>['fixture'],
-    webhooks: AdminWebhookView[],
+    webhooks: WebhookWithUrlView[],
   ) {
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(webhooks);
     await fixture.whenStable();
@@ -144,7 +144,7 @@ describe('webhooks page', () => {
     button(page.querySelector('form.add')!, 'Add').click();
 
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(
-      { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookAdminProblem,
+      { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookRegistryProblem,
       { status: 400, statusText: 'Bad Request' },
     );
     await fixture.whenStable();
@@ -178,7 +178,7 @@ describe('webhooks page', () => {
       {
         error: 'name-taken',
         message: 'Another webhook is called #roto-side.',
-      } satisfies WebhookAdminProblem,
+      } satisfies WebhookRegistryProblem,
       { status: 409, statusText: 'Conflict' },
     );
     await fixture.whenStable();

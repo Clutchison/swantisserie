@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DiscordModule } from '../discord/discord.module.js';
-import { AdminConfig } from './admin-config.js';
+import { AppAdminConfig } from './app-admin-config.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { SessionService } from './session.service.js';
@@ -12,12 +12,12 @@ import { SessionService } from './session.service.js';
     AuthService,
     SessionService,
     {
-      provide: AdminConfig,
-      useFactory: () => new AdminConfig(process.env.ADMIN_DISCORD_IDS),
+      provide: AppAdminConfig,
+      useFactory: () => new AppAdminConfig(process.env.ADMIN_DISCORD_IDS),
     },
   ],
-  // What SessionGuard and AdminGuard need: Nest builds a guard inside each
+  // What SessionGuard and AppAdminGuard need: Nest builds a guard inside each
   // module that uses it, from that module's providers and imports.
-  exports: [SessionService, AdminConfig],
+  exports: [SessionService, AppAdminConfig],
 })
 export class AuthModule {}
