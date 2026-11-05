@@ -1,34 +1,6 @@
 import { type PlanAfterPick, plansAfterPick } from 'engine';
-import {
-  enginePool,
-  type MadePick,
-  SEAT_ORDER,
-  type Transaction,
-} from './draft-shapes.js';
-
-/**
- * What a new pick, already made, does to each plan, by seat, as the
- * engine's `plansAfterPick` works it out; `recordPlanEffects` persists it.
- */
-export async function plansAfter(
-  tx: Transaction,
-  pick: MadePick,
-): Promise<PlanAfterPick[]> {
-  const { draftId } = pick;
-  const players = await tx.player.findMany({
-    where: { draftId },
-    orderBy: SEAT_ORDER,
-    select: { id: true, plan: { select: { poolCardId: true } } },
-  });
-  return plansAfterPick(
-    {
-      seat: players.findIndex((player) => player.id === pick.playerId),
-      card: pick.poolCardId,
-    },
-    players.map((player) => player.plan.map((planned) => planned.poolCardId)),
-    await enginePool(tx, draftId, pick.number),
-  );
-}
+import type { MadePick, Transaction } from './draft-shapes.js';
+import { readTurnState } from './turn-state.js';
 
 /**
  * Persists `after`, what a new pick, already made, does to each plan, as
@@ -39,13 +11,14 @@ export async function plansAfter(
  * another copy or lost; a lost card is kept against the pick, with its
  * board, so that undoing it can put it back, and listed on the Plan notice.
  * A swapped copy stays swapped: it is as good as the one picked.
+ * Returns each player's planned cards, picked or not, as they now are.
  */
 export async function recordPlanEffects(
   tx: Transaction,
   pick: MadePick,
   playerIds: readonly string[],
   after: readonly PlanAfterPick[],
-): Promise<void> {
+): Promise<string[][]> {
   for (const [seat, { plan, swapped, lost }] of after.entries()) {
     const playerId = playerIds[seat];
     if (playerId === pick.playerId) {
@@ -80,19 +53,38 @@ export async function recordPlanEffects(
       });
     }
   }
+  return after.map(({ plan }, seat) =>
+    playerIds[seat] === pick.playerId && !plan.includes(pick.poolCardId)
+      ? [...plan, pick.poolCardId]
+      : plan,
+  );
 }
 
 /**
- * Does what each of `picks`, just made, does to plans, in pick order;
- * `playerIds` are the draft's players by seat.
+ * Does what each of `picks`, just made in the draft `draftId` and all its
+ * picks, does to plans, in pick order. The draft is read once, and each
+ * pick applied to it in turn, as the engine works out.
  */
 export async function planPicks(
   tx: Transaction,
-  picks: MadePick[],
-  playerIds: readonly string[],
+  draftId: string,
+  picks: readonly MadePick[],
 ): Promise<void> {
+  const { players, plans, pool } = await readTurnState(tx, draftId);
+  const playerIds = players.map((player) => player.id);
+  let planned = plans;
+  const picked: string[] = [];
   for (const pick of picks.toSorted((a, b) => a.number - b.number)) {
-    await recordPlanEffects(tx, pick, playerIds, await plansAfter(tx, pick));
+    const after = plansAfterPick(
+      {
+        seat: playerIds.indexOf(pick.playerId),
+        card: pick.poolCardId,
+      },
+      planned,
+      { pool, picked },
+    );
+    planned = await recordPlanEffects(tx, pick, playerIds, after);
+    picked.push(pick.poolCardId);
   }
 }
 
