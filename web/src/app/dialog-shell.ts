@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 
 /** How a dialog opened on the shell is named, shown and closed. */
-export interface DialogShellConfig {
+export interface DialogShellConfig<R = unknown> {
   /**
    * The dialog's accessible name: `label` names it outright, `labelledBy`
    * by the id of an element in it, such as its heading. Give one.
@@ -30,10 +30,13 @@ export interface DialogShellConfig {
   /**
    * Where focus goes once the dialog has closed, however it closed. It's
    * given the element focused when the dialog opened, its opener, which is
-   * where focus goes without this; an element gone from the page, or none,
-   * leaves focus where it is.
+   * where focus goes without this, and what the dialog closed with, if
+   * anything; an element gone from the page, or none, leaves focus where it is.
    */
-  returnFocus?: (opener: HTMLElement | null) => HTMLElement | null | undefined;
+  returnFocus?: (
+    opener: HTMLElement | null,
+    result: R | undefined,
+  ) => HTMLElement | null | undefined;
 }
 
 /**
@@ -59,7 +62,7 @@ export class DialogShell {
   private readonly dialog = inject(Dialog);
   private readonly document = inject(DOCUMENT);
 
-  open<C, R = unknown>(component: ComponentType<C>, config: DialogShellConfig): DialogRef<R, C> {
+  open<C, R = unknown>(component: ComponentType<C>, config: DialogShellConfig<R>): DialogRef<R, C> {
     const focused = this.document.activeElement;
     const opener =
       focused instanceof HTMLElement && focused !== this.document.body ? focused : null;
@@ -100,10 +103,10 @@ export class DialogShell {
     // Made for the opener, the dialog goes with it: as when a page it was opened from closes.
     const unlisten = config.injector?.get(DestroyRef, null)?.onDestroy(() => ref.close());
 
-    ref.closed.subscribe(() => {
+    ref.closed.subscribe((result) => {
       unlisten?.();
       this.document.removeEventListener('mousedown', pressed, true);
-      const target = config.returnFocus ? config.returnFocus(opener) : opener;
+      const target = config.returnFocus ? config.returnFocus(opener, result) : opener;
       const active = this.document.activeElement;
       // Focus moved on by the viewer, or by whatever closed the dialog, stays put.
       if (active && active !== this.document.body) return;
