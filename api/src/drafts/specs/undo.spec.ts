@@ -77,6 +77,51 @@ describe('undo', () => {
     ]);
   });
 
+  describe('of a by-hand pick of a card from the middle of its picker’s queue', () => {
+    /**
+     * Alice's turn comes back by an undo with Shock, Bolt and Lava Spike
+     * queued, which wait for her, and she picks Bolt by hand.
+     */
+    async function pickedFromOwnQueue() {
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await pick(id, ids['Skewer the Critics']).expect(200);
+      await enqueue(id, ids.Shock).expect(200);
+      await enqueue(id, ids['Lightning Bolt']).expect(200);
+      await enqueue(id, ids['Lava Spike']).expect(200);
+      await undo(id, 1).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
+      return id;
+    }
+
+    it('puts the card back in the same place in that queue', async () => {
+      const id = await pickedFromOwnQueue();
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id).expect(200)).body.cards).toEqual([
+        shock,
+        bolt,
+        spike,
+      ]);
+    });
+
+    it('never puts the card on the picker’s Queue notice', async () => {
+      const id = await pickedFromOwnQueue();
+      const notice = {
+        lost: [],
+        cleared: [],
+        restKept: false,
+      };
+      expect((await queue(id).expect(200)).body).toMatchObject(notice);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id).expect(200)).body).toMatchObject(notice);
+    });
+  });
+
   it('returns the card to the queues it was lost from, to be picked on the next real pick', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
