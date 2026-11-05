@@ -1,4 +1,4 @@
-import type { PlanView, QueueRefusal, QueueView } from 'contract';
+import type { QueueRefusal } from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -7,6 +7,8 @@ import {
   tabButton,
   panel,
   openDraft,
+  queueOf,
+  queued,
   completeSnapshot,
   flushPicks,
   flushQueueAndPlan,
@@ -17,38 +19,21 @@ import {
   drafting,
 } from './harness';
 import { card, shivan } from './pool-tab-harness';
+import { bolt, boltAgain, openPlan, planOf, planned, unpicked } from './plan-tab-harness';
 import { EMPTY_QUEUE } from '../drafts';
 
 useDraftsApp();
 
 describe('queueing the unpicked cards on the plan tab', () => {
   /** Bob's turn, on the draft's second pick. */
-  const bobsTurn = { pick: 2, round: 1, playerId: bob.id };
-  const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1 });
-  const boltAgain = card({ id: 'bolt-again', name: 'Lightning Bolt', manaValue: 1 });
+  const bobsSecondPick = { pick: 2, round: 1, playerId: bob.id };
   const shock = card({ id: 'shock-card', name: 'Shock', manaValue: 1 });
   const cards = [shivan, bolt, boltAgain, shock];
   /** Shivan Dragon picked and two unpicked Lightning Bolts on the mainboard, and an unpicked Shock on the sideboard. */
-  const plan: PlanView = {
-    mainboard: [
-      { poolCardId: bolt.id, name: bolt.name, picked: false },
-      { poolCardId: boltAgain.id, name: boltAgain.name, picked: false },
-      { poolCardId: shivan.id, name: shivan.name, picked: true },
-    ],
-    sideboard: [{ poolCardId: shock.id, name: shock.name, picked: false }],
-    basics: [],
-    lost: [],
-  };
-  const queueOf = (...queued: { id: string; name: string }[]): QueueView => ({
-    ...EMPTY_QUEUE,
-    cards: queued.map(({ id, name }) => ({ poolCardId: id, name })),
+  const plan = planOf({
+    mainboard: [unpicked(bolt), unpicked(boltAgain), planned(shivan)],
+    sideboard: [unpicked(shock)],
   });
-
-  async function openPlan(fixture: AppFixture, page: HTMLElement) {
-    tabButton(page, 'Plan').click();
-    await fixture.whenStable();
-    return panel(page);
-  }
 
   const dialog = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="dialog"]');
   const sideboardBox = (root: HTMLElement) =>
@@ -66,11 +51,15 @@ describe('queueing the unpicked cards on the plan tab', () => {
   }
 
   it('counts the mainboard’s unpicked copies not yet queued, and the sideboard’s too when included', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-      queue: queueOf(boltAgain),
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+        queue: queueOf({ cards: [queued(boltAgain)] }),
+      },
+    );
     const tab = await openModal(fixture, page);
 
     expect(dialog(tab)!.getAttribute('aria-modal')).toBe('true');
@@ -83,17 +72,21 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('appends the mainboard’s unpicked cards, and shows the queue the API answers with', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+      },
+    );
     const tab = await openModal(fixture, page);
 
     button(dialog(tab)!, 'Queue 2 cards')!.click();
     const sent = http.expectOne('/api/drafts/draft-1/queue/unpicked');
     expect(sent.request.method).toBe('POST');
     expect(sent.request.body).toEqual({ includeSideboard: false });
-    sent.flush(queueOf(bolt, boltAgain));
+    sent.flush(queueOf({ cards: [queued(bolt), queued(boltAgain)] }));
 
     await vi.waitFor(() => expect(dialog(tab)).toBeNull());
     // Every mainboard copy is queued now, though the sideboard's Shock isn't.
@@ -107,10 +100,14 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('closes on a click on the backdrop, but not on a drag out of the modal', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+      },
+    );
     const tab = await openModal(fixture, page);
     const modal = dialog(tab)!;
     const backdrop = modal.parentElement!;
@@ -128,10 +125,14 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('includes the sideboard when checked, and opens unchecked each time', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+      },
+    );
     const tab = await openModal(fixture, page);
     sideboardBox(tab).click();
     await fixture.whenStable();
@@ -148,27 +149,35 @@ describe('queueing the unpicked cards on the plan tab', () => {
 
     const sent = http.expectOne('/api/drafts/draft-1/queue/unpicked');
     expect(sent.request.body).toEqual({ includeSideboard: true });
-    sent.flush(queueOf(bolt, boltAgain, shock));
+    sent.flush(queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shock)] }));
     await vi.waitFor(() => expect(dialog(tab)).toBeNull());
   });
 
   it('is disabled when every unpicked copy is queued already', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-      queue: queueOf(bolt, boltAgain, shock),
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shock)] }),
+      },
+    );
     const tab = await openPlan(fixture, page);
 
     expect(button(tab, 'Queue unpicked')!.disabled).toBe(true);
   });
 
   it('says when the mainboard has nothing to queue, until the sideboard is included', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-      queue: queueOf(bolt, boltAgain),
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain)] }),
+      },
+    );
     const tab = await openModal(fixture, page);
     expect(text(dialog(tab))).toContain('Nothing on your mainboard to queue.');
 
@@ -179,10 +188,14 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('says why it was refused, and re-reads the queue', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+      },
+    );
     const tab = await openModal(fixture, page);
 
     button(dialog(tab)!, 'Queue 2 cards')!.click();
@@ -204,10 +217,14 @@ describe('queueing the unpicked cards on the plan tab', () => {
   });
 
   it('closes when the player’s turn comes, and stays closed once it passes', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan,
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+      },
+    );
     const tab = await openModal(fixture, page);
     sideboardBox(tab).click();
     await fixture.whenStable();

@@ -199,8 +199,11 @@ export const drafting = (fields: DraftFixture = {}): DraftFixture => ({
   ...fields,
 });
 
+/** A pool card as a queue or a plan names it: by its id and name. */
+export type NamedPoolCard = Pick<PoolCardView, 'id' | 'name'>;
+
 /** A card as a queue lists it. */
-export const queued = (card: { id: string; name: string }): QueuedCardView => ({
+export const queued = (card: NamedPoolCard): QueuedCardView => ({
   poolCardId: card.id,
   name: card.name,
 });
@@ -407,12 +410,16 @@ export function wait(ms: number) {
   TestBed.tick();
 }
 
-/** Opens the Queue tab and returns its panel. */
-export async function openQueue(fixture: AppFixture, page: HTMLElement) {
-  tabButton(page, 'Queue').click();
+/** Opens the tab named `name` and returns its panel. */
+export async function openTab(fixture: AppFixture, page: HTMLElement, name: string) {
+  tabButton(page, name).click();
   await fixture.whenStable();
   return panel(page);
 }
+
+/** Opens the Queue tab and returns its panel. */
+export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
+  openTab(fixture, page, 'Queue');
 
 /** The Card preview's image, if one is open: it's outside the page. */
 export const previewImage = () => document.querySelector<HTMLImageElement>('app-card-preview img');

@@ -1,5 +1,5 @@
 import type { PlanView } from 'contract';
-import { bob, tabButton, panel, type AppFixture } from './harness';
+import { bob, openTab, type AppFixture, type NamedPoolCard } from './harness';
 import { card, shivan, brightclimb } from './pool-tab-harness';
 
 /** Bob's turn, on the draft's third pick. */
@@ -12,12 +12,12 @@ export const bolt = card({
 });
 export const boltAgain = card({ ...bolt, id: 'bolt-card-2' });
 export const cards = [shivan, brightclimb, bolt, boltAgain];
-export const planned = (card: { id: string; name: string }, picked = true) => ({
+export const planned = (card: NamedPoolCard, picked = true) => ({
   poolCardId: card.id,
   name: card.name,
   picked,
 });
-export const unpicked = (card: { id: string; name: string }) => planned(card, false);
+export const unpicked = (card: NamedPoolCard) => planned(card, false);
 /** As the API sorts it: by mana value, then name. */
 export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain), planned(shivan)],
@@ -28,11 +28,7 @@ export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
 });
 
 /** Opens the Plan tab and returns its panel. */
-export async function openPlan(fixture: AppFixture, page: HTMLElement) {
-  tabButton(page, 'Plan').click();
-  await fixture.whenStable();
-  return panel(page);
-}
+export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Plan');
 
 /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
 export function planBoards(plan: HTMLElement) {
