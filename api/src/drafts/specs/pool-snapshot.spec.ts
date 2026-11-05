@@ -563,6 +563,34 @@ describe('pool snapshot', () => {
     });
   });
 
+  it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
+    // Written directly: a cube link's snapshot is complete from creation, so
+    // only a draft left running by an older version reaches the snapshot.
+    const { id } = await app.get(PrismaService).draft.create({
+      data: {
+        name: 'Vintage cube',
+        poolSourceKind: 'Cube',
+        cubeId: 'vintage',
+        cubeName: 'Vintage Cube',
+        picksPerPlayer: 40,
+        organizerId: alice.id,
+        snapshotState: 'Running',
+      },
+    });
+    await app.close();
+
+    await startApp();
+
+    expect((await snapshotted(id)).snapshot).toEqual({
+      state: 'Failed',
+      cards: 0,
+      total: null,
+      error:
+        'A pool from a cube link is taken only when its draft is created. Cancel this draft and create it again.',
+    });
+    expect(scryfall.search).not.toHaveBeenCalled();
+  });
+
   it('stores each card’s identity, printing, images and the fields the pool search needs', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
