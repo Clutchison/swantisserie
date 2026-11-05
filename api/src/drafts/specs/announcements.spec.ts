@@ -164,20 +164,17 @@ describe('announcements', () => {
       async (stop, carryOn, happened) => {
         const id = await snakeDraft();
         const ids = await poolCardIds(id);
-        await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-        await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
         await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
         await start(id).expect(200);
         await pick(id, ids.Shock).expect(200);
-        // Undoing both of Bob's queued picks leaves his turn with one card
-        // waiting, which fires as pick 2 and leaves him up for pick 3.
-        await undo(id, 3).expect(200);
+        // Undoing Bob's queued pick puts its card back in his queue, waiting,
+        // which fires as pick 2 and leaves him up for pick 3.
         await undo(id, 2).expect(200);
         await post(id, stop).expect(200);
 
         await post(id, carryOn).expect(200);
 
-        expect(await lastPost(id, 6)).toEqual({
+        expect(await lastPost(id, 5)).toEqual({
           content:
             `**Red** ${happened}\n` +
             '2- **Bob** picked **Lightning Bolt**\n' +

@@ -160,7 +160,8 @@ describe('close and reopen', () => {
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids.Shock).expect(200);
     await start(id).expect(200);
-    // Lava Spike was picked for Alice; undoing it brings back her turn.
+    // Lava Spike was picked for Alice; undoing it brings back her turn, with
+    // Lava Spike back in her queue.
     await undo(id, 1).expect(200);
     await post(id, 'pause').expect(200);
     await post(id, 'close').expect(200);
@@ -173,7 +174,7 @@ describe('close and reopen', () => {
     });
     expect(
       (await pickLog(id)).body.map((p: { name: string }) => p.name),
-    ).toEqual(['Shock']);
+    ).toEqual(['Lava Spike']);
   });
 
   it('announces a close pinging nobody, and a reopen pinging whoever is up', async () => {
@@ -187,7 +188,8 @@ describe('close and reopen', () => {
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids.Shock).expect(200);
     await start(id).expect(200);
-    // Lava Spike was picked for Alice; undoing it brings back her turn.
+    // Lava Spike was picked for Alice; undoing it brings back her turn, with
+    // Lava Spike back in her queue.
     await undo(id, 1).expect(200);
     await post(id, 'close').expect(200);
     await post(id, 'reopen').expect(200);
@@ -204,7 +206,7 @@ describe('close and reopen', () => {
       {
         content:
           '**Red** has reopened\n' +
-          '1- **Alice** picked **Shock**\n' +
+          '1- **Alice** picked **Lava Spike**\n' +
           `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       },

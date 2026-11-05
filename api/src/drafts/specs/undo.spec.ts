@@ -68,9 +68,13 @@ describe('undo', () => {
 
     const undone = await undo(id, 3).expect(200);
 
-    // Bob's queue still has Lightning Bolt, but it waits for him.
+    // Skewer the Critics is back in Bob's queue, but it waits for him.
     expect(undone.body.turn).toEqual({ pick: 3, round: 2, playerId: bob.id });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+    expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
+      skewer,
+      bolt,
+    ]);
   });
 
   it('returns the card to the queues it was lost from, to be picked on the next real pick', async () => {
