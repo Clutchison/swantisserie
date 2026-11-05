@@ -87,6 +87,9 @@ export function webhooksAnswer(webhooks: WebhookView[] | null) {
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useDraftsApp() {
   beforeEach(() => {
+    // Spec files share one environment, so a choice saved by an earlier file
+    // (such as the Plan tab's List mode) would otherwise carry into this one.
+    localStorage.clear();
     decodes = new Map();
     registeredWebhooks = [];
     HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
