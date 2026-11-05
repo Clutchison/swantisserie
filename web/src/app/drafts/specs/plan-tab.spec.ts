@@ -400,7 +400,7 @@ describe('plan tab', () => {
   });
 
   it.each(['Lobby', 'Paused', 'Closed', 'Complete'] as const)(
-    'can be changed while the draft is %s, unpicked cards included',
+    'can be changed while the draft is %s, unpicked cards included, as the api never refuses removing one for the draft’s state',
     async (state) => {
       const { fixture, page } = await openDraft(
         completeSnapshot,

@@ -102,7 +102,7 @@ describe('pool tab', () => {
       });
     });
 
-    it('offers no Pick to someone who is not a player', async () => {
+    it('offers no Pick to someone who is not a player, as the api refuses with `not-a-player`', async () => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         drafting({ turn: alicesTurn, players: [bob] }),
@@ -114,12 +114,13 @@ describe('pool tab', () => {
       expect(button(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
     });
 
-    it('offers no Pick before the draft starts', async () => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        { players: [alicePlayer, bob] },
-        { cards: [shivan] },
-      );
+    it.each([
+      ['in the lobby', { players: [alicePlayer, bob] }],
+      ['while paused', drafting({ state: 'Paused', turn: alicesTurn })],
+      ['once the draft is Complete', drafting({ state: 'Complete', turn: null })],
+      ['once the draft is Closed', drafting({ state: 'Closed', turn: null })],
+    ])('offers no Pick %s, as the api refuses with `not-drafting`', async (_, fields) => {
+      const { fixture, page } = await openDraft(completeSnapshot, fields, { cards: [shivan] });
 
       expect(button(await openDetail(fixture, page, 0), 'Pick')).toBeUndefined();
     });
