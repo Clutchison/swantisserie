@@ -15,6 +15,9 @@ export interface WebhookRegistryProblem {
   message: string;
 }
 
+/** The most characters in a webhook's name. */
+export const MAX_WEBHOOK_NAME_LENGTH = 100;
+
 /** A webhook an app admin registers. */
 export interface NewWebhookRequest {
   name: string;

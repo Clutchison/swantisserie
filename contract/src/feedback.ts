@@ -21,6 +21,12 @@ export interface UnreviewedFeedbackCount {
   count: number;
 }
 
+/** The most characters in a feedback message. */
+export const MAX_FEEDBACK_LENGTH = 2000;
+
+/** The most characters in a feedback's page path. */
+export const MAX_PAGE_PATH_LENGTH = 2048;
+
 /** Feedback a guild member sends to the app admins. */
 export interface FeedbackRequest {
   message: string;

@@ -13,19 +13,21 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import type {
-  BasicLand,
-  PlanBoard,
-  PlannedBasicView,
-  PlannedCardView,
-  PlanView,
-  PlayerView,
-  PoolCardView,
-  QueueView,
+import {
+  BASIC_LANDS,
+  MOST_BASICS,
+  type BasicLand,
+  type PlanBoard,
+  type PlannedBasicView,
+  type PlannedCardView,
+  type PlanView,
+  type PlayerView,
+  type PoolCardView,
+  type QueueView,
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
-import { BASIC_LANDS, basicCard, MOST_BASICS } from './basic-lands';
+import { basicCard } from './basic-lands';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';

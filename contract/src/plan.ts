@@ -9,9 +9,21 @@ export interface PlannedCardView {
   picked: boolean;
 }
 
+/** The basic lands, in the order the Basic lands modal and the api list them. */
+export const BASIC_LANDS = [
+  'Plains',
+  'Island',
+  'Swamp',
+  'Mountain',
+  'Forest',
+  'Wastes',
+] as const;
+
 /** A basic land, which a plan holds by count on its mainboard, and a pool never holds. */
-export type BasicLand =
-  'Plains' | 'Island' | 'Swamp' | 'Mountain' | 'Forest' | 'Wastes';
+export type BasicLand = (typeof BASIC_LANDS)[number];
+
+/** The most copies of one basic land a plan holds. */
+export const MOST_BASICS = 99;
 
 /** The copies of one basic land in a plan, always on the mainboard. Never a pool card: no one picks it, and it is never queued. */
 export interface PlannedBasicView {
@@ -34,7 +46,7 @@ export interface PlanView {
   mainboard: PlannedCardView[];
   /** Sorted by mana value, then name. */
   sideboard: PlannedCardView[];
-  /** The mainboard's basic lands, in the order Plains, Island, Swamp, Mountain, Forest, Wastes. A sideboard never holds one. */
+  /** The mainboard's basic lands, in the order of `BASIC_LANDS`. A sideboard never holds one. */
   basics: PlannedBasicView[];
   /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
   lost: LostCardView[];

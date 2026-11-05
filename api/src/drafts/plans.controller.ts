@@ -20,6 +20,7 @@ import type {
   PlannedBasicCountRequest,
   PlanView,
 } from 'contract';
+import { MOST_BASICS } from 'contract';
 import { bodyFields } from '../request-body.js';
 import {
   CurrentUser,
@@ -158,9 +159,6 @@ function parseBoard(body: unknown): PlanBoard {
   }
   return board;
 }
-
-/** The most copies of one basic land a plan holds. */
-const MOST_BASICS = 99;
 
 /** The basic land named in the path, or a 400 if it isn't one. */
 function parseLand(land: string): BasicLand {

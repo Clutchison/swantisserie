@@ -17,7 +17,7 @@
     <ul>
       @for (webhook of webhooks.value(); track webhook.id) {
         <li>
-          <input #name [value]="webhook.name" maxlength="100" aria-label="Name" />
+          <input #name [value]="webhook.name" [maxLength]="maxNameLength" aria-label="Name" />
           <button
             class="button secondary"
             type="button"
@@ -46,7 +46,12 @@
   <form class="add" [formGroup]="form" (ngSubmit)="add()">
     <label>
       Name
-      <input name="name" formControlName="name" maxlength="100" placeholder="e.g. #roto-main" />
+      <input
+        name="name"
+        formControlName="name"
+        [maxlength]="maxNameLength"
+        placeholder="e.g. #roto-main"
+      />
     </label>
     <label>
       URL

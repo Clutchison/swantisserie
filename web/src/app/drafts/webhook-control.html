@@ -1,13 +1,7 @@
 <div class="webhook-control">
   <label>
     Announcements
-    <select
-      name="draftWebhook"
-      [formControl]="choice"
-      [attr.disabled]="saving() || webhooksFailed() ? '' : null"
-      (focus)="catchUp()"
-      (change)="save()"
-    >
+    <select name="draftWebhook" [formControl]="choice" (focus)="catchUp()" (change)="save()">
       @for (webhook of webhooks(); track webhook.id) {
         <option [ngValue]="webhook.id">{{ webhook.name }}</option>
       }

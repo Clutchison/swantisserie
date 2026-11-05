@@ -1,7 +1,12 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import type { WebhookWithUrlView, NewWebhookRequest, WebhookRenameRequest } from 'contract';
+import {
+  MAX_WEBHOOK_NAME_LENGTH,
+  type WebhookWithUrlView,
+  type NewWebhookRequest,
+  type WebhookRenameRequest,
+} from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 const API = '/api/admin/webhooks';
@@ -21,6 +26,7 @@ export class WebhooksPage {
   // Validated by the API, whose messages say exactly what to fix.
   protected readonly form = inject(FormBuilder).nonNullable.group({ name: '', url: '' });
   protected readonly saving = signal(false);
+  protected readonly maxNameLength = MAX_WEBHOOK_NAME_LENGTH;
   protected readonly problem = signal<string | null>(null);
 
   protected async add() {

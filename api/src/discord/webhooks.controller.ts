@@ -19,6 +19,7 @@ import type {
   WebhookRenameRequest,
   WebhookView,
 } from 'contract';
+import { MAX_WEBHOOK_NAME_LENGTH } from 'contract';
 import { bodyFields } from '../request-body.js';
 import type { Webhook } from '../generated/prisma/client.js';
 import { AppAdminGuard } from '../auth/app-admin.guard.js';
@@ -29,7 +30,6 @@ import {
   WebhooksService,
 } from './webhooks.service.js';
 
-const MAX_NAME_LENGTH = 100;
 /** Discord's webhook URLs, on any of its hosts: /api/webhooks/{id}/{token}. */
 const WEBHOOK_URL =
   /^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\d+\/[\w-]+$/;
@@ -116,8 +116,8 @@ function parseNewWebhook(body: unknown): NewWebhook {
 function parseName(name: unknown): string {
   const trimmed = typeof name === 'string' ? name.trim() : '';
   if (!trimmed) throw invalid('Give the webhook a name.');
-  if (trimmed.length > MAX_NAME_LENGTH) {
-    throw invalid(`Keep the name to ${MAX_NAME_LENGTH} characters.`);
+  if (trimmed.length > MAX_WEBHOOK_NAME_LENGTH) {
+    throw invalid(`Keep the name to ${MAX_WEBHOOK_NAME_LENGTH} characters.`);
   }
   return trimmed;
 }

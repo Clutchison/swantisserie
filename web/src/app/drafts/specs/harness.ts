@@ -194,10 +194,28 @@ export const alicePlayer = {
   isBot: false,
 };
 
+/**
+ * The avatar beside a player's name in the Players section. An avatar is
+ * decorative, so it has no name of its own: it is found by its role within
+ * the list item that names the player.
+ */
+export const playerAvatar = (page: HTMLElement, name: string) =>
+  [...section(page, 'Players').querySelectorAll('li')]
+    .find((li) => li.textContent?.includes(name))
+    ?.querySelector<HTMLImageElement>('[role="presentation"]');
+
 /** A button inside `root`, by its text or its aria-label. */
 export const button = (root: HTMLElement, label: string) =>
   [...root.querySelectorAll('button')].find(
     (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
+  );
+
+/** A select inside `root`, by its label's own text (leaving out its options'). */
+export const selectByLabel = (root: HTMLElement, label: string) =>
+  [...root.querySelectorAll('select')].find((select) =>
+    [...(select.labels ?? [])].some(
+      (l) => l.textContent?.replace(select.textContent ?? '', '').trim() === label,
+    ),
   );
 
 /** A button in the tab bar, by its label. */

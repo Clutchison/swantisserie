@@ -1,18 +1,5 @@
 import type { BasicLand, PoolCardView } from 'contract';
 
-/** The basic lands, in the order the Basic lands modal and the API list them. */
-export const BASIC_LANDS: readonly BasicLand[] = [
-  'Plains',
-  'Island',
-  'Swamp',
-  'Mountain',
-  'Forest',
-  'Wastes',
-];
-
-/** The most copies of one basic land a plan holds, as the API allows. */
-export const MOST_BASICS = 99;
-
 const COLORS: Record<BasicLand, string[]> = {
   Plains: ['W'],
   Island: ['U'],

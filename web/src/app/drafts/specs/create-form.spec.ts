@@ -1,6 +1,11 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { DraftCreationProblem, WebhookView } from 'contract';
+import {
+  MAX_PICKS_PER_PLAYER,
+  MIN_PICKS_PER_PLAYER,
+  type DraftCreationProblem,
+  type WebhookView,
+} from 'contract';
 import { useDraftsApp, draft, http, router, openUrl, webhooksAnswer } from './harness';
 
 useDraftsApp();
@@ -102,6 +107,22 @@ describe('create form', () => {
     const { page } = await openForm();
 
     expect(page.querySelector<HTMLInputElement>('[name="picksPerPlayer"]')?.value).toBe('40');
+  });
+
+  it('refuses picks per player outside the range the api accepts', async () => {
+    const { page } = await openForm();
+    const picks = [...page.querySelectorAll('input')].find((input) =>
+      [...(input.labels ?? [])].some((label) => label.textContent?.trim() === 'Picks per player'),
+    )!;
+    const validFor = (value: number) => {
+      picks.value = String(value);
+      return picks.checkValidity();
+    };
+
+    expect(validFor(MIN_PICKS_PER_PLAYER - 1)).toBe(false);
+    expect(validFor(MIN_PICKS_PER_PLAYER)).toBe(true);
+    expect(validFor(MAX_PICKS_PER_PLAYER)).toBe(true);
+    expect(validFor(MAX_PICKS_PER_PLAYER + 1)).toBe(false);
   });
 
   it('creates the draft and goes to its page', async () => {
