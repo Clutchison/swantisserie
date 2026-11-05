@@ -8,10 +8,12 @@ import {
 } from 'contract';
 import {
   useDraftsApp,
+  alertIn,
   button,
   controlByLabel,
   draft,
   http,
+  link,
   router,
   openUrl,
   webhooksAnswer,
@@ -37,9 +39,10 @@ describe('create form', () => {
   const picksPerPlayer = (page: HTMLElement) =>
     controlByLabel(page, 'spinbutton', 'Picks per player')!;
 
-  /** Types `value` into the field labelled `label`. */
+  /** Types `value` into the text box or number field labelled `label`. */
   function fill(page: HTMLElement, label: string, value: string) {
-    const input = textBox(page, label) ?? picksPerPlayer(page);
+    const input = textBox(page, label) ?? controlByLabel(page, 'spinbutton', label);
+    if (!input) throw new Error(`No field labelled ${label} is showing.`);
     input.value = value;
     input.dispatchEvent(new Event('input'));
   }
@@ -63,9 +66,6 @@ describe('create form', () => {
     button(page, 'Create draft')!.click();
   }
 
-  /** The error the form shows, if any. */
-  const alert = (page: HTMLElement) => page.querySelector('[role="alert"]');
-
   /** Fills in and submits the form, and returns the POST it sends. */
   async function create({ fixture, page }: Awaited<ReturnType<typeof openForm>>) {
     fill(page, 'Name', 'Red dragons');
@@ -75,22 +75,22 @@ describe('create form', () => {
     return vi.waitFor(() => http.expectOne('/api/drafts'));
   }
 
-  it('offers a way back to the draft list as a secondary button beside submit', async () => {
-    const { page } = await openForm();
+  it('offers a way back to the draft list', async () => {
+    const { fixture, page } = await openForm();
 
-    const cancel = page.querySelector<HTMLAnchorElement>('.actions a.button.secondary')!;
-    expect(cancel.textContent?.trim()).toBe('Cancel');
-    expect(cancel.getAttribute('href')).toBe('/');
-    expect(cancel.parentElement?.contains(button(page, 'Create draft')!)).toBe(true);
+    link(page, 'Cancel')!.click();
+
+    await vi.waitFor(() => expect(router.url).toBe('/'));
+    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+    await fixture.whenStable();
   });
 
-  it('keeps the Scryfall search link a plain link', async () => {
+  it('links the pool query to Scryfall’s search syntax, in a new tab', async () => {
     const { page } = await openForm();
 
-    const scryfall = [...page.querySelectorAll('a')].find(
-      (link) => link.textContent?.trim() === 'Scryfall search',
-    )!;
-    expect(scryfall.classList.contains('button')).toBe(false);
+    const scryfall = link(page, 'Scryfall search')!;
+    expect(scryfall.href).toBe('https://scryfall.com/docs/syntax');
+    expect(scryfall.target).toBe('_blank');
   });
 
   it('says so while the webhooks load, and when there are none', async () => {
@@ -370,7 +370,7 @@ describe('create form', () => {
     } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
-    const error = alert(page)!;
+    const error = alertIn(page)!;
     expect(error.textContent).toContain('2 cards in this pool query are not on Arena.');
     expect([...error.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
       'Ancient Hellkite',
@@ -391,7 +391,7 @@ describe('create form', () => {
     } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
-    expect(alert(page)?.textContent).toContain('…and 4998 more.');
+    expect(alertIn(page)?.textContent).toContain('…and 4998 more.');
   });
 
   it('shows what Scryfall said about a rejected pool query', async () => {
@@ -405,7 +405,7 @@ describe('create form', () => {
     } satisfies DraftCreationProblem);
     await fixture.whenStable();
 
-    const error = alert(page)!.textContent;
+    const error = alertIn(page)!.textContent;
     expect(error).toContain('Scryfall ignored part of this pool query.');
     expect(error).toContain('Invalid expression “foo:bar” was ignored. Unknown keyword “foo”.');
   });
@@ -436,7 +436,7 @@ describe('create form', () => {
     fail(await create(form), status, body);
     await fixture.whenStable();
 
-    expect(alert(page)?.textContent).toContain(body.message);
+    expect(alertIn(page)?.textContent).toContain(body.message);
   });
 
   it('still says something when the request fails without a message', async () => {
@@ -446,6 +446,6 @@ describe('create form', () => {
     (await create(form)).error(new ProgressEvent('error'));
     await fixture.whenStable();
 
-    expect(alert(page)?.textContent).toContain('Creating the draft failed');
+    expect(alertIn(page)?.textContent).toContain('Creating the draft failed');
   });
 });

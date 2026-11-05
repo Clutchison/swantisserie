@@ -280,6 +280,13 @@ export function accessibleName(element: Element): string {
   return nameOf(element).replace(/\s+/g, ' ').trim();
 }
 
+/** A link inside `root`, by its accessible name. */
+export const link = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].find((a) => accessibleName(a) === name);
+
+/** The first alert inside `root`: an error shown to the viewer, if any. */
+export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
+
 /** The app's header, shown to signed-in viewers. */
 export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');
 
@@ -315,14 +322,6 @@ export const statusTexts = (root: HTMLElement) =>
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) =>
   root.querySelector<HTMLElement>('[aria-label="Your queue"]')!;
-
-/** A select inside `root`, by its label's own text (leaving out its options'). */
-export const selectByLabel = (root: HTMLElement, label: string) =>
-  [...root.querySelectorAll('select')].find((select) =>
-    [...(select.labels ?? [])].some(
-      (l) => l.textContent?.replace(select.textContent ?? '', '').trim() === label,
-    ),
-  );
 
 /** The form controls with each role, by the selector that finds them. */
 const CONTROLS = {

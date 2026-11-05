@@ -2,6 +2,7 @@ import type { DraftState, DraftChangeRefusal } from 'contract';
 import {
   alice,
   completeSnapshot,
+  controlByLabel,
   draft,
   flushPicks,
   flushPool,
@@ -10,7 +11,6 @@ import {
   openUrl,
   panel,
   pickOf,
-  selectByLabel,
   tabButton,
   updates,
   useDraftsApp,
@@ -26,7 +26,7 @@ describe('changing a draft’s webhook', () => {
 
   beforeEach(() => webhooksAnswer([main, other]));
 
-  const control = (page: HTMLElement) => selectByLabel(page, 'Announcements');
+  const control = (page: HTMLElement) => controlByLabel(page, 'combobox', 'Announcements');
   const shownOption = (select: HTMLSelectElement) => select.selectedOptions[0].textContent?.trim();
   const optionNames = (select: HTMLSelectElement) =>
     [...select.options].map((option) => option.textContent?.trim());
