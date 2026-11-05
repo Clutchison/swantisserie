@@ -231,6 +231,35 @@ export async function snapshotted(id: string) {
   });
 }
 
+/**
+ * A draft whose snapshot is waiting on Scryfall for page 2 of
+ * `snapshotQuery('c:r')`, having saved page 1. `answer` settles that wait.
+ */
+export async function draftWithRunningSnapshot() {
+  const query = snapshotQuery('c:r');
+  let answer!: {
+    resolve: (page: ScryfallSearchPage) => void;
+    reject: (err: Error) => void;
+  };
+  const pageTwo = new Promise<ScryfallSearchPage>((resolve, reject) => {
+    answer = { resolve, reject };
+  });
+  scryfall.search.mockImplementation(async (searched, number = 1) => {
+    if (searched !== query) {
+      return searched === 'c:r' ? page('Shock') : null;
+    }
+    if (number === 1) {
+      return { ...page('Shock'), totalCards: 2, hasMore: true };
+    }
+    return pageTwo;
+  });
+  const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
+  await vi.waitFor(() =>
+    expect(scryfall.search).toHaveBeenCalledWith(query, 2),
+  );
+  return { id: created.body.id as string, answer };
+}
+
 /** The ids of the draft's pool cards, by card name: the last copy's, for a card with copies. */
 export async function poolCardIds(id: string): Promise<Record<string, string>> {
   return Object.fromEntries(

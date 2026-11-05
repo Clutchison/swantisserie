@@ -23,12 +23,13 @@ export interface QueueAfterPick {
   queue: string[];
   /** The copy swapped in for the picked card, if one was. */
   swapped?: string;
+  /** The picked card, if this queue lost it: no copy was available for the queue. */
+  lost?: string;
   /**
-   * The cards taken out because the picked card was lost from this queue:
-   * the lost card and, under clear queue, the cleared ones, in queue order.
-   * Empty otherwise.
+   * The cards cleared from this queue because it lost the picked card under
+   * clear queue, in queue order. Empty otherwise.
    */
-  unqueued: string[];
+  cleared: string[];
 }
 
 /**
@@ -59,18 +60,18 @@ export function queuesAfterPick(
     if (seat === pick.seat) {
       return {
         queue: queue.filter((queued) => queued !== pick.card),
-        unqueued: [],
+        cleared: [],
       };
     }
     const at = queue.indexOf(pick.card);
-    if (at === -1) return { queue: [...queue], unqueued: [] };
+    if (at === -1) return { queue: [...queue], cleared: [] };
     const copy = copies.find((card) => !queue.includes(card));
     if (copy === undefined) {
       return stealBehaviors[seat] === 'PickNext'
-        ? { queue: queue.toSpliced(at, 1), unqueued: [pick.card] }
-        : { queue: [], unqueued: [...queue] };
+        ? { queue: queue.toSpliced(at, 1), lost: pick.card, cleared: [] }
+        : { queue: [], lost: pick.card, cleared: queue.toSpliced(at, 1) };
     }
-    return { queue: queue.with(at, copy), swapped: copy, unqueued: [] };
+    return { queue: queue.with(at, copy), swapped: copy, cleared: [] };
   });
 }
 

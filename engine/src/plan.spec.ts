@@ -73,7 +73,7 @@ describe('plansAfterPick', () => {
         pool,
         picked: ['bolt-2'],
       }),
-    ).toEqual([{ plan: [] }, { plan: ['spike'], unplanned: 'bolt-1' }]);
+    ).toEqual([{ plan: [] }, { plan: ['spike'], lost: 'bolt-1' }]);
   });
 
   it('loses the card from a plan that already holds every other copy, picked or not', () => {
@@ -82,7 +82,7 @@ describe('plansAfterPick', () => {
         pool,
         picked: [],
       }),
-    ).toEqual([{ plan: [] }, { plan: ['bolt-2'], unplanned: 'bolt-1' }]);
+    ).toEqual([{ plan: [] }, { plan: ['bolt-2'], lost: 'bolt-1' }]);
   });
 
   it('swaps the same copy into each other plan that held the card', () => {

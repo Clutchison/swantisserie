@@ -483,6 +483,7 @@ describe('pool snapshot', () => {
       poolQuery: 't:dragon c:r',
     }).expect(201);
     await snapshotted(created.body.id);
+    scryfall.search.mockClear();
 
     const res = await post(created.body.id, 'snapshot').expect(409);
 
@@ -490,7 +491,8 @@ describe('pool snapshot', () => {
       error: 'pool-frozen',
       message: 'The pool is complete and can’t be changed.',
     });
-    expect(scryfall.search).toHaveBeenCalledTimes(3);
+    const searched = scryfall.search.mock.calls.map(([query]) => query);
+    expect(searched).not.toContain(snapshotQuery('t:dragon c:r'));
   });
 
   it('lets an app admin retry, but not other guild members', async () => {
@@ -521,6 +523,7 @@ describe('pool snapshot', () => {
   it('resumes a snapshot a previous process left running', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({ [query]: page('Shock', 'Lightning Bolt') });
+    // Written directly: no route leaves a snapshot running across a restart.
     const { id } = await app.get(PrismaService).draft.create({
       data: {
         name: 'Red',

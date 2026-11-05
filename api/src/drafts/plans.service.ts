@@ -195,7 +195,7 @@ export class PlansService {
    */
   async dismissNotice(draftId: string, userId: string): Promise<PlanView> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      await tx.unplannedCard.updateMany({
+      await tx.lostPlannedCard.updateMany({
         where: { playerId },
         data: { noticeHidden: true },
       });
@@ -250,7 +250,7 @@ export class PlansService {
       orderBy: { land: 'asc' },
       select: { land: true, count: true },
     });
-    const lost = await tx.unplannedCard.findMany({
+    const lost = await tx.lostPlannedCard.findMany({
       where: { playerId, noticeHidden: false },
       orderBy: { pick: { number: 'asc' } },
       select: {

@@ -1,9 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import {
-  ScryfallSearchPage,
-  ScryfallUnavailableError,
-} from '../../scryfall/scryfall-client.js';
+import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
 import {
   alice,
   bob,
@@ -22,6 +19,7 @@ import {
   listDrafts,
   getDraft,
   snapshotted,
+  draftWithRunningSnapshot,
   readyDraft,
   start,
   poolCardIds,
@@ -104,35 +102,6 @@ describe('cancel', () => {
     await getDraft(created.body.id).expect(404);
   });
 
-  /**
-   * A draft whose snapshot is waiting on Scryfall for page 2, having saved
-   * page 1. `answer` settles that wait.
-   */
-  async function draftWithRunningSnapshot() {
-    const query = snapshotQuery('c:r');
-    let answer!: {
-      resolve: (page: ScryfallSearchPage) => void;
-      reject: (err: Error) => void;
-    };
-    const pageTwo = new Promise<ScryfallSearchPage>((resolve, reject) => {
-      answer = { resolve, reject };
-    });
-    scryfall.search.mockImplementation(async (searched, number = 1) => {
-      if (searched !== query) {
-        return searched === 'c:r' ? page('Shock') : null;
-      }
-      if (number === 1) {
-        return { ...page('Shock'), totalCards: 2, hasMore: true };
-      }
-      return pageTwo;
-    });
-    const created = await createDraft({ name: 'Red', poolQuery: 'c:r' });
-    await vi.waitFor(() =>
-      expect(scryfall.search).toHaveBeenCalledWith(query, 2),
-    );
-    return { id: created.body.id as string, answer };
-  }
-
   it('stops a running snapshot cleanly when its next page arrives', async () => {
     const { id, answer } = await draftWithRunningSnapshot();
     const errors = vi.spyOn(Logger.prototype, 'error');
@@ -151,6 +120,7 @@ describe('cancel', () => {
   it('stops a running snapshot cleanly when Scryfall then fails', async () => {
     const { id, answer } = await draftWithRunningSnapshot();
     const errors = vi.spyOn(Logger.prototype, 'error');
+    scryfall.search.mockClear();
 
     await cancelDraft(id).expect(204);
     answer.reject(new ScryfallUnavailableError(503));
@@ -158,7 +128,9 @@ describe('cancel', () => {
 
     expect(errors).not.toHaveBeenCalled();
     await startApp();
-    expect(scryfall.search).toHaveBeenCalledTimes(4);
+    // Neither the failed snapshot nor the restart searched again.
+    expect(scryfall.search).not.toHaveBeenCalled();
+    await getDraft(id).expect(404);
   });
 
   it('posts no announcement', async () => {

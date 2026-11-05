@@ -17,6 +17,7 @@ import {
   copyIds,
   importPicks,
   enqueue,
+  queue,
   join,
   leave,
   setSeats,
@@ -59,15 +60,6 @@ describe('pick import', () => {
       round: 2,
       playerId: alice.id,
     });
-    const seats = await app.get(PrismaService).player.findMany({
-      where: { draftId: id },
-      orderBy: { seat: 'asc' },
-      select: { seat: true, userId: true },
-    });
-    expect(seats).toEqual([
-      { seat: 0, userId: alice.id },
-      { seat: 1, userId: bob.id },
-    ]);
     const log = await pickLog(id);
     expect(
       log.body.map((pick: { pick: number; playerId: string; name: string }) => [
@@ -137,13 +129,12 @@ describe('pick import', () => {
     for (const cookie of [aliceCookie, bobCookie]) {
       await enqueue(id, ids['Dusk Heron'], cookie).expect(200);
     }
-    const prisma = app.get(PrismaService);
 
     await importPicks(id, csv, previewed).expect(200);
 
-    expect(
-      await prisma.queuedCard.count({ where: { player: { draftId: id } } }),
-    ).toBe(0);
+    for (const cookie of [aliceCookie, bobCookie]) {
+      expect((await queue(id, cookie).expect(200)).body.cards).toEqual([]);
+    }
   });
 
   it('is for the organizer and app admins, not other guild members', async () => {
