@@ -498,7 +498,28 @@ describe('card previews', () => {
 
       tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
       expect(previewImage()?.getAttribute('src')).toBe(
-        'https://api.scryfall.com/cards/named?exact=Swamp&format=image&version=normal',
+        'https://cards.scryfall.io/normal/front/0/3/0356ae45-e5ca-46b9-8ebc-42bf4776e89c.jpg',
+      );
+    });
+
+    it('falls back to Scryfall’s API image of a basic land’s default printing', async () => {
+      const { page, fixture } = await openPicked({
+        plan: {
+          mainboard: [],
+          sideboard: [],
+          basics: [{ land: 'Swamp', count: 2 }],
+          lost: [],
+        },
+      });
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      previewImage()!.dispatchEvent(new Event('error'));
+      TestBed.tick();
+
+      expect(previewImage()?.getAttribute('src')).toBe(
+        'https://api.scryfall.com/cards/0356ae45-e5ca-46b9-8ebc-42bf4776e89c?format=image&version=normal',
       );
     });
   });

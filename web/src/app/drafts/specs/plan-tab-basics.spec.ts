@@ -250,7 +250,7 @@ describe('basic lands on the plan tab', () => {
     const images = [...lands.querySelectorAll('img')];
     expect(images.map((image) => image.alt)).toEqual(['Island', 'Island']);
     expect(images[0].getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/named?exact=Island&format=image&version=normal',
+      'https://cards.scryfall.io/normal/front/3/6/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17.jpg',
     );
 
     // The Queue tab has a drop list of its own.
@@ -265,6 +265,26 @@ describe('basic lands on the plan tab', () => {
     expect(disabled('Island')).toEqual([true, true]);
     expect(disabled('Shivan Dragon')).toEqual([false]);
     expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
+  });
+
+  it('falls back to Scryfall’s API image of a basic land’s default printing when its image fails in the stacks', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      plan: planOf([{ land: 'Island', count: 1 }]),
+    });
+    const plan = await openPlan(fixture, page);
+    const island = () => plan.querySelector<HTMLImageElement>('img[alt="Island"]')!;
+
+    island().dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+
+    expect(island().getAttribute('src')).toBe(
+      'https://api.scryfall.com/cards/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17?format=image&version=normal',
+    );
   });
 
   it('sets basics in a Basic lands modal, not above the plan boards, each labelled by its mana symbol', async () => {
