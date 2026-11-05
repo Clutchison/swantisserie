@@ -12,6 +12,9 @@ import {
   button,
   pickOf,
   poolCardOf,
+  ADD_BOTS,
+  ALL_POWERS,
+  ORGANIZE,
 } from './harness';
 
 useDraftsApp();
@@ -23,7 +26,6 @@ describe('bots', () => {
     avatarUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
     isBot: true,
   };
-  const admin = { ...alice, isAppAdmin: true };
 
   /** The text of each badge in `root`. */
   const badges = (root: Element | null) =>
@@ -69,11 +71,11 @@ describe('bots', () => {
     expect(badges(log[1])).toEqual([]);
   });
 
-  it('lets an app admin add a bot, then remove it', async () => {
+  it('lets a viewer who may only add bots add a bot, then remove it', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer] },
-      { user: admin },
+      { powers: ADD_BOTS },
     );
 
     button(page, 'Add bot')!.click();
@@ -97,7 +99,11 @@ describe('bots', () => {
 
     it('moves focus to the next control once adding a bot fills the draft', async () => {
       const players = [alicePlayer, ...Array.from({ length: 10 }, (_, i) => botNumber(i + 1))];
-      const { fixture, page } = await openDraft(completeSnapshot, { players }, { user: admin });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players },
+        { powers: ALL_POWERS },
+      );
 
       button(page, 'Add bot')!.focus();
       button(page, 'Add bot')!.click();
@@ -113,7 +119,11 @@ describe('bots', () => {
 
     it('moves focus to the next bot’s Remove once a bot is removed', async () => {
       const players = [alicePlayer, botNumber(1), botNumber(2)];
-      const { fixture, page } = await openDraft(completeSnapshot, { players }, { user: admin });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players },
+        { powers: ALL_POWERS },
+      );
 
       button(page, 'Remove Bot 1')!.focus();
       button(page, 'Remove Bot 1')!.click();
@@ -127,7 +137,11 @@ describe('bots', () => {
 
     it('moves focus to the bot before once the last bot is removed', async () => {
       const players = [alicePlayer, botNumber(1), botNumber(2)];
-      const { fixture, page } = await openDraft(completeSnapshot, { players }, { user: admin });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players },
+        { powers: ALL_POWERS },
+      );
 
       button(page, 'Remove Bot 2')!.focus();
       button(page, 'Remove Bot 2')!.click();
@@ -146,13 +160,17 @@ describe('bots', () => {
       id: `bot:${i}`,
       name: `Bot ${i + 1}`,
     }));
-    const { page } = await openDraft(completeSnapshot, { players: bots }, { user: admin });
+    const { page } = await openDraft(completeSnapshot, { players: bots }, { powers: ADD_BOTS });
 
     expect(button(page, 'Add bot')?.disabled).toBe(true);
   });
 
-  it('offers bot controls only to app admins, not the organizer', async () => {
-    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bot] });
+  it('offers bot controls only to a viewer who may add bots, not one who may only organize', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      { players: [alicePlayer, bot] },
+      { powers: ORGANIZE },
+    );
 
     expect(button(page, 'Add bot')).toBeUndefined();
     expect(button(page, 'Remove Bot 1')).toBeUndefined();
@@ -166,7 +184,7 @@ describe('bots', () => {
         players: [alicePlayer, bot],
         turn: { pick: 1, round: 1, playerId: alice.id },
       },
-      { user: admin },
+      { powers: ADD_BOTS },
     );
 
     expect(button(page, 'Add bot')).toBeUndefined();

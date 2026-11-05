@@ -13,11 +13,16 @@ import {
   button,
   queueOf,
   drafting,
+  ORGANIZE,
+  powersAnswer,
+  ALL_POWERS,
 } from './harness';
 
 useDraftsApp();
 
 describe('close and reopen', () => {
+  beforeEach(() => powersAnswer(ORGANIZE));
+
   /** 37 of 90 picks made, with Alice up. */
   const underway = drafting({
     picksPerPlayer: 45,
@@ -120,7 +125,8 @@ describe('close and reopen', () => {
     expect(button(page, 'Reopen draft')).toBeDefined();
   });
 
-  it('offers closing and reopening only to the organizer or an app admin', async () => {
+  it('offers closing and reopening only to a viewer who may organize', async () => {
+    powersAnswer({ ...ALL_POWERS, organize: false });
     const organizer = { id: bob.id, name: bob.name };
     const opened = await openDraft(completeSnapshot, { ...closed, organizer });
 

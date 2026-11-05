@@ -30,6 +30,7 @@ import {
   queueOf,
   section,
   statusTexts,
+  ORGANIZE,
 } from './harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 
@@ -305,6 +306,7 @@ describe('live updates', () => {
     const { page } = await openDraft(
       { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
       { version: 1 },
+      { powers: ORGANIZE },
     );
 
     button(page, 'Retry')!.click();

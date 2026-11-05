@@ -1,11 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import {
+  ALL_POWERS,
   alice,
   useDraftsApp,
   completeSnapshot,
   draft,
   expectLoadingAnimation,
+  flushPool,
   http,
+  ORGANIZE,
+  powersAnswer,
   openUrl,
   openDraft,
   poll,
@@ -17,6 +21,10 @@ import {
   statusMessage,
   statusTexts,
   updates,
+  NO_POWERS,
+  router,
+  webhooksAnswer,
+  controlByLabel,
 } from './harness';
 import { pressKey } from '../../specs-harness';
 
@@ -103,13 +111,12 @@ describe('draft page', () => {
     http.expectNone('/api/drafts/draft-1');
   });
 
-  it('shows why the snapshot failed and lets the organizer retry', async () => {
-    const { fixture, page } = await openDraft({
-      state: 'Failed',
-      cards: 0,
-      total: null,
-      error: 'Scryfall could not be reached.',
-    });
+  it('shows why the snapshot failed and lets a viewer who may organize retry', async () => {
+    const { fixture, page } = await openDraft(
+      { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
+      {},
+      { powers: ORGANIZE },
+    );
     expect(page.querySelector('.error')?.textContent).toContain('Scryfall could not be reached.');
 
     const retry = [...page.querySelectorAll('button')].find((b) =>
@@ -129,10 +136,11 @@ describe('draft page', () => {
     expect(page.textContent).toContain('540 cards in the pool');
   });
 
-  it('offers retry only to the organizer or an app admin', async () => {
+  it('offers retry only to a viewer who may organize', async () => {
     const { page } = await openDraft(
       { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
-      { organizer: { id: 'someone-else', name: 'Bob' } },
+      {},
+      { powers: { ...ALL_POWERS, organize: false } },
     );
 
     expect(page.querySelector('.error')?.textContent).toContain('Scryfall could not be reached.');
@@ -160,6 +168,98 @@ describe('draft page', () => {
       const { page } = await openDraft(completeSnapshot, { webhook: { ...webhook, gone: false } });
 
       expect(statusTexts(page)).not.toContain(goneNotice);
+    });
+  });
+
+  describe('the viewer’s draft powers', () => {
+    beforeEach(() => powersAnswer(null));
+
+    const powersUrl = '/api/drafts/draft-1/powers';
+    const organizerButtons = (page: HTMLElement) =>
+      ['Randomize seats', 'Start draft', 'Cancel draft'].filter((name) => button(page, name));
+
+    it('are read once when the page opens, not again as the draft changes or catches up', async () => {
+      const { fixture } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      http.expectOne(powersUrl).flush(ORGANIZE);
+      await flushPool();
+      await fixture.whenStable();
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: completeSnapshot, version: 2 }),
+      });
+      await fixture.whenStable();
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft({ snapshot: completeSnapshot, version: 3 }),
+      );
+      await fixture.whenStable();
+
+      http.expectNone(powersUrl);
+    });
+
+    it('are read again for the draft a different draft id names', async () => {
+      const { fixture } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      http.expectOne(powersUrl).flush(NO_POWERS);
+      await flushPool();
+      await fixture.whenStable();
+
+      await router.navigateByUrl('/drafts/draft-2');
+      TestBed.tick();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2'))).flush(
+        draft({ id: 'draft-2', snapshot: completeSnapshot }),
+      );
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2/powers'))).flush(NO_POWERS);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2/pool'))).flush([]);
+      await fixture.whenStable();
+    });
+
+    it('show only the organizer’s controls when the viewer may organize alone', async () => {
+      webhooksAnswer([]);
+      const bot = { id: 'bot:1', name: 'Bot 1', avatarUrl: '', isBot: true };
+      const { page } = await openDraft(
+        completeSnapshot,
+        { players: [alicePlayer, bot] },
+        { powers: ORGANIZE },
+      );
+
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(button(page, 'Move Bot 1 earlier')).toBeDefined();
+      expect(button(page, 'Add bot')).toBeUndefined();
+      expect(button(page, 'Remove Bot 1')).toBeUndefined();
+      expect(controlByLabel(page, 'combobox', 'Announcements')).toBeUndefined();
+    });
+
+    it('show no controls they gate while they load, and the draft itself', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      const powers = http.expectOne(powersUrl);
+      await flushPool();
+      // Not whenStable: the page isn't stable while the powers are on their way.
+      TestBed.tick();
+
+      expect(page.querySelector('h1')?.textContent).toBe('Red dragons');
+      expect(organizerButtons(page)).toEqual([]);
+
+      powers.flush(ORGANIZE);
+      await fixture.whenStable();
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+    });
+
+    it('show no controls they gate when they can’t be read, and the draft itself', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      http.expectOne(powersUrl).flush(null, { status: 503, statusText: 'Service Unavailable' });
+      await flushPool();
+      await fixture.whenStable();
+
+      expect(page.querySelector('h1')?.textContent).toBe('Red dragons');
+      expect(page.textContent).toContain('540 cards in the pool');
+      expect(organizerButtons(page)).toEqual([]);
+      expect(button(page, 'Add bot')).toBeUndefined();
+      expect(controlByLabel(page, 'combobox', 'Announcements')).toBeUndefined();
     });
   });
 

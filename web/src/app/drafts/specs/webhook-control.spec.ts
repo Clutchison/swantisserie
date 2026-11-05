@@ -1,6 +1,5 @@
 import type { DraftState, DraftChangeRefusal } from 'contract';
 import {
-  alice,
   completeSnapshot,
   controlByLabel,
   draft,
@@ -16,6 +15,9 @@ import {
   updates,
   useDraftsApp,
   webhooksAnswer,
+  ORGANIZE,
+  powersAnswer,
+  SWITCH_ANNOUNCEMENTS,
 } from './harness';
 
 useDraftsApp();
@@ -25,7 +27,10 @@ describe('changing a draft’s webhook', () => {
   const other = { id: 'other', name: '#roto-other', gone: false };
   const removedMessage = 'That webhook has been removed. Choose another.';
 
-  beforeEach(() => webhooksAnswer([main, other]));
+  beforeEach(() => {
+    webhooksAnswer([main, other]);
+    powersAnswer(SWITCH_ANNOUNCEMENTS);
+  });
 
   const control = (page: HTMLElement) => controlByLabel(page, 'combobox', 'Announcements');
   const shownOption = (select: HTMLSelectElement) => select.selectedOptions[0].textContent?.trim();
@@ -55,23 +60,9 @@ describe('changing a draft’s webhook', () => {
     expect(shownOption(control(page)!)).toBe('None');
   });
 
-  it('shows app admins the control on any draft', async () => {
-    const { page } = await openDraft(
-      completeSnapshot,
-      { webhook: main },
-      { user: { ...alice, id: 'carol', isAppAdmin: true } },
-    );
-
-    expect(shownOption(control(page)!)).toBe('#roto-main');
-  });
-
-  it('hides the control from anyone else, and loads no webhooks for them', async () => {
+  it('hides the control from a viewer who may organize but not switch announcements, and loads no webhooks for them', async () => {
     webhooksAnswer(null);
-    const { page } = await openDraft(
-      completeSnapshot,
-      { webhook: main },
-      { user: { ...alice, id: 'bob' } },
-    );
+    const { page } = await openDraft(completeSnapshot, { webhook: main }, { powers: ORGANIZE });
 
     expect(control(page)).toBeUndefined();
     http.expectNone('/api/webhooks');

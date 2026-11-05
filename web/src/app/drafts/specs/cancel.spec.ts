@@ -15,11 +15,16 @@ import {
   completeSnapshot,
   button,
   type AppFixture,
+  ORGANIZE,
+  powersAnswer,
+  ALL_POWERS,
 } from './harness';
 
 useDraftsApp();
 
 describe('cancel', () => {
+  beforeEach(() => powersAnswer(ORGANIZE));
+
   const running: PoolSnapshotView = { state: 'Running', cards: 0, total: null };
   const failed: PoolSnapshotView = { state: 'Failed', cards: 0, total: null, error: 'Nope' };
 
@@ -59,17 +64,12 @@ describe('cancel', () => {
     expect(router.url).toBe('/drafts/draft-1');
   });
 
-  it('offers it to an app admin', async () => {
-    const admin = await openDraft(
+  it('does not offer it to a viewer who may not organize', async () => {
+    const { page } = await openDraft(
       completeSnapshot,
       {},
-      { user: { ...alice, id: 'c', isAppAdmin: true } },
+      { powers: { ...ALL_POWERS, organize: false } },
     );
-    expect(button(admin.page, 'Cancel draft')).toBeDefined();
-  });
-
-  it('does not offer it to other guild members', async () => {
-    const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
     expect(button(page, 'Cancel draft')).toBeUndefined();
   });
 

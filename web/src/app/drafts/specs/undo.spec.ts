@@ -15,11 +15,16 @@ import {
   pickOf,
   poolCardOf,
   drafting,
+  ORGANIZE,
+  powersAnswer,
+  ALL_POWERS,
 } from './harness';
 
 useDraftsApp();
 
 describe('undo', () => {
+  beforeEach(() => powersAnswer(ORGANIZE));
+
   const cards = [
     poolCardOf('shock', 'Shock'),
     poolCardOf('bolt', 'Lightning Bolt'),
@@ -127,12 +132,12 @@ describe('undo', () => {
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 3 (Lava Spike)');
   });
 
-  it('offers undo only to the organizer or an app admin', async () => {
-    const { page } = await openDraft(
-      completeSnapshot,
-      { ...aliceUp, organizer: { id: bob.id, name: bob.name } },
-      { cards, picks },
-    );
+  it('offers undo only to a viewer who may organize', async () => {
+    const { page } = await openDraft(completeSnapshot, aliceUp, {
+      cards,
+      picks,
+      powers: { ...ALL_POWERS, organize: false },
+    });
 
     expect(undoButton(page)).toBeUndefined();
   });

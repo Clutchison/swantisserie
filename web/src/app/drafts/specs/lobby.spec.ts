@@ -15,6 +15,8 @@ import {
   button,
   playerAvatar,
   statusMessage,
+  ORGANIZE,
+  powersAnswer,
 } from './harness';
 
 useDraftsApp();
@@ -125,6 +127,7 @@ describe('lobby', () => {
 
   describe('focus after a change', () => {
     const carol = { ...bob, id: 'carol', name: 'Carol' };
+    beforeEach(() => powersAnswer(ORGANIZE));
 
     it('keeps focus on a player’s move button as they move a seat, and says where they went', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, {

@@ -75,7 +75,8 @@ export class DraftPage {
   /** Whether a re-read failed, so what the page shows may be out of date. */
   protected readonly refreshFailed = this.store.refreshFailed;
 
-  protected readonly canOrganize = this.store.canOrganize;
+  /** The viewer's draft powers, which gate retrying a failed snapshot and the webhook control. */
+  protected readonly powers = this.store.powers;
   protected readonly joined = this.store.joined;
   /** Whether the queue or plan couldn't be loaded. A failed re-read keeps the last one loaded. */
   protected readonly queueFailed = this.store.queue.missing;
