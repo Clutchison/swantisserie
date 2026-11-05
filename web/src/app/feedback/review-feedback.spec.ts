@@ -1,11 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type { FeedbackView, ReviewedFeedbackView, UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
+import { answerDraft42NotFound, link } from './specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -93,15 +94,19 @@ describe('reviewing feedback', () => {
   }
 
   const items = (page: HTMLElement) => [...page.querySelectorAll('main li')];
-  /** An item's only link: the page it was sent from. */
-  const pageLink = (item: Element) => item.querySelector<HTMLAnchorElement>('a[href]')!;
+  const tab = (page: HTMLElement, name: string) =>
+    [...page.querySelectorAll<HTMLButtonElement>('main [role="tab"]')].find(
+      (t) => t.textContent?.trim() === name,
+    )!;
 
-  /** Clicks `link`; the draft page it opens needn't load. */
-  async function follow(fixture: ComponentFixture<App>, link: HTMLAnchorElement) {
-    link.click();
-    const draft = await vi.waitFor(() => http.expectOne('/api/drafts/42'));
-    draft.flush(null, { status: 404, statusText: 'Not Found' });
-    await fixture.whenStable();
+  /** Opens the page, then its Reviewed view with `reviewed` waiting. */
+  async function openReviewed(reviewed: ReviewedFeedbackView[]) {
+    const opened = await openPage([]);
+    tab(opened.page, 'Reviewed').click();
+    TestBed.tick();
+    http.expectOne('/api/admin/feedback/reviewed').flush(reviewed);
+    await opened.fixture.whenStable();
+    return opened;
   }
   const markReviewed = (item: Element) =>
     [...item.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Mark reviewed')!;
@@ -135,16 +140,24 @@ describe('reviewing feedback', () => {
     expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
     expect(item.textContent).toContain('Alice');
     expect(item.querySelector('time')?.textContent).toContain('Oct 31, 2026');
-    expect(pageLink(item).textContent?.trim()).toBe('/drafts/42?tab=pool#x');
+    expect(link(item, '/drafts/42?tab=pool#x')).toBeDefined();
   });
 
-  it("opens an item's page in the app, query and fragment included", async () => {
-    const { fixture, page } = await openPage([fromAlice]);
+  it.each([
+    ['unreviewed', () => openPage([fromAlice])],
+    ['reviewed', () => openReviewed([reviewedByCarol])],
+  ])(
+    "opens an item's page in the app from the %s view, query and fragment included",
+    async (_view, openView) => {
+      const { fixture, page } = await openView();
 
-    await follow(fixture, pageLink(items(page)[0]));
+      link(items(page)[0], '/drafts/42?tab=pool#x')!.click();
+      await answerDraft42NotFound(http);
+      await fixture.whenStable();
 
-    expect(router.url).toBe('/drafts/42?tab=pool#x');
-  });
+      expect(router.url).toBe('/drafts/42?tab=pool#x');
+    },
+  );
 
   it('shows the items in the order the API sends, newest first', async () => {
     const { page } = await openPage([fromAlice, fromBob]);
@@ -193,21 +206,6 @@ describe('reviewing feedback', () => {
   });
 
   describe('the Reviewed view', () => {
-    const tab = (page: HTMLElement, name: string) =>
-      [...page.querySelectorAll<HTMLButtonElement>('main [role="tab"]')].find(
-        (t) => t.textContent?.trim() === name,
-      )!;
-
-    /** Opens the page, then its Reviewed view with `reviewed` waiting. */
-    async function openReviewed(reviewed: ReviewedFeedbackView[]) {
-      const opened = await openPage([]);
-      tab(opened.page, 'Reviewed').click();
-      TestBed.tick();
-      http.expectOne('/api/admin/feedback/reviewed').flush(reviewed);
-      await opened.fixture.whenStable();
-      return opened;
-    }
-
     const markUnreviewed = (item: Element) =>
       [...item.querySelectorAll('button')].find(
         (b) => b.textContent?.trim() === 'Mark unreviewed',
@@ -228,7 +226,7 @@ describe('reviewing feedback', () => {
       expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
       expect(item.textContent).toContain('Alice');
       expect(item.querySelector('.message')?.textContent).toBe(fromAlice.message);
-      expect(pageLink(item).textContent?.trim()).toBe('/drafts/42?tab=pool#x');
+      expect(link(item, '/drafts/42?tab=pool#x')).toBeDefined();
       expect(item.querySelector('time')?.getAttribute('datetime')).toBe(fromAlice.sentAt);
       const review = item.querySelector('.review')!;
       expect(review.textContent).toContain('Reviewed by Carol');
@@ -236,14 +234,6 @@ describe('reviewing feedback', () => {
         reviewedByCarol.reviewedAt,
       );
       expect(markReviewed(item)).toBeUndefined();
-    });
-
-    it("opens an item's page in the app, query and fragment included", async () => {
-      const { fixture, page } = await openReviewed([reviewedByCarol]);
-
-      await follow(fixture, pageLink(items(page)[0]));
-
-      expect(router.url).toBe('/drafts/42?tab=pool#x');
     });
 
     it('marks an item unreviewed in one click, with no confirmation, and removes it', async () => {

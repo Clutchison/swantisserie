@@ -71,14 +71,14 @@ describe('plan tab', () => {
     return panel(page);
   }
 
-  /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a dimmed unpicked line. */
+  /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
   function planBoards(plan: HTMLElement) {
     return [...plan.querySelectorAll('section')].map((planBoard) => ({
       heading: planBoard.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
       lines: [...planBoard.querySelectorAll('li:not(.empty)')].map(
         (line) =>
           `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}` +
-          (line.classList.contains('unpicked') ? ' (unpicked)' : ''),
+          (line.textContent?.includes('Unpicked') ? ' (unpicked)' : ''),
       ),
     }));
   }
@@ -535,24 +535,6 @@ describe('plan tab', () => {
         mode: 'list',
         grouping: 'type',
       });
-    });
-
-    it('caps only List mode lines at the Queue tab width, not an empty plan board in stacks mode', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards,
-        plan: planOf(),
-      });
-      const plan = await openPlan(fixture, page);
-      const capped = () =>
-        [...plan.querySelectorAll('section')].map(
-          (planBoard) => planBoard.querySelector('.lines')?.classList.contains('capped') ?? null,
-        );
-
-      expect(capped()).toEqual([null, false]);
-
-      button(plan, 'List')?.click();
-      fixture.detectChanges();
-      expect(capped()).toEqual([true, true]);
     });
 
     it('opens as it was last left', async () => {

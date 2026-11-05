@@ -9,6 +9,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import type { UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
+import { answerDraft42NotFound } from './specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -122,11 +123,7 @@ describe('sending feedback', () => {
 
   it("sends the page's path, query and hash, with no scheme or host", async () => {
     const navigation = TestBed.inject(Router).navigateByUrl('/drafts/42?tab=pool#x');
-    // The draft page asks for its draft; it needn't load for feedback to send.
-    (await vi.waitFor(() => http.expectOne('/api/drafts/42'))).flush(null, {
-      status: 404,
-      statusText: 'Not Found',
-    });
+    await answerDraft42NotFound(http);
     await navigation;
     await fixture.whenStable();
     await open();
