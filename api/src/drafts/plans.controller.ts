@@ -1,16 +1,14 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   HttpCode,
-  NotFoundException,
   Param,
   Post,
   Put,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -27,11 +25,11 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
-import { NotAPlayerError } from './draft-errors.js';
 import { isBasicLand } from './basic-lands.js';
-import { DraftAccess, withAccessErrors } from './draft-access.js';
+import { DraftAccess } from './draft-access.js';
+import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
-import { PlanRefusedError, PlansService } from './plans.service.js';
+import { PlansService } from './plans.service.js';
 
 /**
  * The signed-in player's plan in a draft. There is no way to see anyone
@@ -39,6 +37,7 @@ import { PlanRefusedError, PlansService } from './plans.service.js';
  */
 @Controller('drafts/:id/plan')
 @UseGuards(SessionGuard)
+@UseFilters(DraftErrorsFilter)
 export class PlansController {
   constructor(
     private readonly access: DraftAccess,
@@ -130,24 +129,8 @@ export class PlansController {
     id: string,
     request: () => Promise<PlanView>,
   ): Promise<PlanView> {
-    await withAccessErrors(this.access.visible(user, id));
-    try {
-      return await request();
-    } catch (err) {
-      if (err instanceof NotAPlayerError) {
-        throw new ForbiddenException({
-          error: 'not-a-player',
-          message: err.message,
-        });
-      }
-      if (err instanceof PlanRefusedError) {
-        if (err.refusal.error === 'not-in-pool') {
-          throw new NotFoundException(err.refusal);
-        }
-        throw new ConflictException(err.refusal);
-      }
-      throw err;
-    }
+    await this.access.visible(user, id);
+    return request();
   }
 }
 

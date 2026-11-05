@@ -1,21 +1,18 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   HttpCode,
-  NotFoundException,
   Param,
   Post,
   Put,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import type {
   QueueOrderRequest,
-  QueueRefusal,
   QueueUnpickedRequest,
   QueueView,
   StealBehavior,
@@ -27,14 +24,10 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
-import { NotAPlayerError } from './draft-errors.js';
-import { DraftAccess, withAccessErrors } from './draft-access.js';
+import { DraftAccess } from './draft-access.js';
+import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
-import {
-  QueueChangedError,
-  QueueRefusedError,
-  QueuesService,
-} from './queues.service.js';
+import { QueuesService } from './queues.service.js';
 
 /**
  * The signed-in player's queue in a draft, and their steal behavior. There
@@ -42,6 +35,7 @@ import {
  */
 @Controller('drafts/:id/queue')
 @UseGuards(SessionGuard)
+@UseFilters(DraftErrorsFilter)
 export class QueuesController {
   constructor(
     private readonly access: DraftAccess,
@@ -140,30 +134,8 @@ export class QueuesController {
     id: string,
     request: () => Promise<QueueView>,
   ): Promise<QueueView> {
-    await withAccessErrors(this.access.visible(user, id));
-    try {
-      return await request();
-    } catch (err) {
-      if (err instanceof NotAPlayerError) {
-        throw new ForbiddenException({
-          error: 'not-a-player',
-          message: err.message,
-        });
-      }
-      if (err instanceof QueueChangedError) {
-        throw new ConflictException({
-          error: 'queue-changed',
-          message: err.message,
-        } satisfies QueueRefusal);
-      }
-      if (err instanceof QueueRefusedError) {
-        if (err.refusal.error === 'not-in-pool') {
-          throw new NotFoundException(err.refusal);
-        }
-        throw new ConflictException(err.refusal);
-      }
-      throw err;
-    }
+    await this.access.visible(user, id);
+    return request();
   }
 }
 
