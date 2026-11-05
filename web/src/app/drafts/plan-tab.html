@@ -14,7 +14,7 @@
         <strong
           ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name"
         /></strong>
-        (picked by {{ card.pickedBy }}){{ last ? '.' : ',' }}
+        (picked by {{ playerName(card.pickedBy) }}){{ last ? '.' : ',' }}
       }
     </p>
     <button

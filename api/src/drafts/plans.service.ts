@@ -257,7 +257,7 @@ export class PlansService {
         poolCardId: true,
         poolCard: { select: { name: true } },
         pick: {
-          select: { player: { select: { user: { select: { name: true } } } } },
+          select: { player: { select: { userId: true } } },
         },
       },
     });
@@ -268,7 +268,7 @@ export class PlansService {
       lost: lost.map((card) => ({
         poolCardId: card.poolCardId,
         name: card.poolCard.name,
-        pickedBy: card.pick.player.user.name,
+        pickedBy: card.pick.player.userId,
       })),
     };
   }

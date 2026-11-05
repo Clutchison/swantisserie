@@ -54,7 +54,7 @@ export class PickImportService {
     return {
       seats: reading.columns.map((column, seat) => ({
         column,
-        userId: players[seat].userId,
+        playerId: players[seat].userId,
         player: players[seat].user.name,
       })),
       picks: reading.picks.length,

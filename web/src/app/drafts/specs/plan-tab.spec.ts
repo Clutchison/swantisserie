@@ -317,16 +317,21 @@ describe('plan tab', () => {
   });
 
   it('notes lost cards, with who picked them, until dismissed', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-      cards,
-      plan: planOf({
-        mainboard: [planned(brightclimb)],
-        lost: [
-          { poolCardId: shivan.id, name: shivan.name, pickedBy: 'Bob' },
-          { poolCardId: bolt.id, name: bolt.name, pickedBy: 'Carol' },
-        ],
-      }),
-    });
+    const carol = { ...bob, id: 'carol', name: 'Carol', isBot: true };
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ players: [alicePlayer, bob, carol] }),
+      {
+        cards,
+        plan: planOf({
+          mainboard: [planned(brightclimb)],
+          lost: [
+            { poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id },
+            { poolCardId: bolt.id, name: bolt.name, pickedBy: carol.id },
+          ],
+        }),
+      },
+    );
     const plan = await openPlan(fixture, page);
 
     const note = plan.querySelector<HTMLElement>('.notice')!;
@@ -340,6 +345,21 @@ describe('plan tab', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf({ mainboard: [planned(brightclimb)] }));
     await vi.waitFor(() => expect(plan.querySelector('.notice')).toBeNull());
+  });
+
+  it('still notes a lost card whose picker is no longer among the players', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      plan: planOf({
+        mainboard: [planned(brightclimb)],
+        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: 'gone' }],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    expect(plan.querySelector('.notice')!.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Lost to other players: Shivan Dragon (picked by another player). Dismiss',
+    );
   });
 
   it('says so while the plan loads', async () => {

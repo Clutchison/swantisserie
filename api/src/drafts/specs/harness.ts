@@ -184,7 +184,7 @@ export function allOnArena(poolQuery: string) {
  * A request to `path` under `/api/drafts` as whoever is signed in with
  * `cookie`, sending `body` when there is one.
  */
-function draftsRequest(
+export function draftsRequest(
   method: 'get' | 'post' | 'put' | 'delete',
   path: string,
   cookie: string,
@@ -282,19 +282,22 @@ export function randomizeSeats(id: string, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/seats/randomize`, cookie);
 }
 
-/** Sets the draft's seat order to `userIds`. */
-export function setSeats(id: string, userIds: unknown, cookie = aliceCookie) {
-  return draftsRequest('put', `/${id}/seats`, cookie, { userIds });
+/** Sets the draft's seat order to `playerIds`. */
+export function setSeats(id: string, playerIds: unknown, cookie = aliceCookie) {
+  return draftsRequest('put', `/${id}/seats`, cookie, { playerIds });
 }
 
-/** Imports the picks in `csv`, its players seated as `userIds` lists. */
+/** Imports the picks in `csv`, its players seated as `playerIds` lists. */
 export function importPicks(
   id: string,
   csv: unknown,
-  userIds: unknown,
+  playerIds: unknown,
   cookie = aliceCookie,
 ) {
-  return draftsRequest('post', `/${id}/pick-import`, cookie, { csv, userIds });
+  return draftsRequest('post', `/${id}/pick-import`, cookie, {
+    csv,
+    playerIds,
+  });
 }
 
 /** What importing the picks in `csv` would do, without importing them. */

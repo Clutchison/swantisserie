@@ -172,7 +172,9 @@ describe('unpicked cards in a plan', () => {
       ],
       sideboard: [],
       basics: [],
-      lost: [{ poolCardId: second, name: 'Lightning Bolt', pickedBy: 'Alice' }],
+      lost: [
+        { poolCardId: second, name: 'Lightning Bolt', pickedBy: alice.id },
+      ],
     });
     // Carol picks around it; the notice builds up as Alice picks on.
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -189,8 +191,8 @@ describe('unpicked cards in a plan', () => {
       },
     ]);
     expect(built.lost).toEqual([
-      { poolCardId: second, name: 'Lightning Bolt', pickedBy: 'Alice' },
-      { poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' },
+      { poolCardId: second, name: 'Lightning Bolt', pickedBy: alice.id },
+      { poolCardId: ids.Shock, name: 'Shock', pickedBy: alice.id },
     ]);
 
     const dismissed = await dismissPlanNotice(id, carolCookie).expect(200);
@@ -257,16 +259,16 @@ describe('unpicked cards in a plan', () => {
     ]);
     expect(after.sideboard).toEqual([]);
     expect(after.lost).toEqual([
-      { poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' },
+      { poolCardId: ids.Shock, name: 'Shock', pickedBy: alice.id },
       {
         poolCardId: expect.any(String),
         name: 'Lightning Bolt',
-        pickedBy: bot.name,
+        pickedBy: bot.id,
       },
       {
         poolCardId: expect.any(String),
         name: 'Lightning Bolt',
-        pickedBy: bot.name,
+        pickedBy: bot.id,
       },
     ]);
     // Carol's lost copies are the two the bot picked.
@@ -311,7 +313,7 @@ describe('unpicked cards in a plan', () => {
       ],
       sideboard: [],
       basics: [],
-      lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: 'Alice' }],
+      lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: alice.id }],
     });
     // Each notice is dismissed on its own.
     await dismissNotice(id, carolCookie).expect(200);
@@ -365,7 +367,7 @@ describe('unpicked cards in a plan', () => {
       ],
       sideboard: [],
       basics: [],
-      lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: 'Alice' }],
+      lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: alice.id }],
     });
   });
 
@@ -389,7 +391,7 @@ describe('unpicked cards in a plan', () => {
       ],
       sideboard: [],
       basics: [],
-      lost: [{ poolCardId: ids.Shock, name: 'Shock', pickedBy: 'Alice' }],
+      lost: [{ poolCardId: ids.Shock, name: 'Shock', pickedBy: alice.id }],
     });
     const aPick = await removeFromPlan(
       id,
