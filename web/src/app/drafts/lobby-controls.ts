@@ -22,6 +22,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
 import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import { PlayerAvatar } from './player-avatar';
 
 /** The most players a draft can have; the engine's MAX_PLAYERS, which the API enforces. */
 const MAX_PLAYERS = 12;
@@ -33,7 +34,7 @@ const MAX_PLAYERS = 12;
  */
 @Component({
   selector: 'app-lobby-controls',
-  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp],
+  imports: [LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp, PlayerAvatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './lobby-controls.scss'],

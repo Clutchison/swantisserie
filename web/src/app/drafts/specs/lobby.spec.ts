@@ -25,6 +25,21 @@ describe('lobby', () => {
     expect(items[0].querySelector('img')?.getAttribute('src')).toBe(bob.avatarUrl);
   });
 
+  it('leaves out an avatar that fails to load, keeping the other players’', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [bob, alicePlayer] });
+    const avatar = (name: string) =>
+      [...section(page, 'Players').querySelectorAll('li')]
+        .find((li) => li.textContent?.includes(name))
+        ?.querySelector('img');
+
+    avatar('Bob')!.dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+
+    expect(avatar('Bob')).toBeFalsy();
+    expect(avatar('Alice')?.getAttribute('src')).toBe(alicePlayer.avatarUrl);
+    expect(section(page, 'Players').textContent).toContain('Bob');
+  });
+
   it('says when nobody has joined yet', async () => {
     const { page } = await openDraft(completeSnapshot, { players: [] });
 
