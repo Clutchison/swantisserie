@@ -126,6 +126,15 @@ export function pressTab({ shift = false } = {}) {
   TestBed.tick();
 }
 
+/** Every button inside `root` with this text or aria-label, in page order. */
+export const buttons = (root: HTMLElement, label: string) =>
+  [...root.querySelectorAll('button')].filter(
+    (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
+  );
+
+/** A button inside `root`, by its text or its aria-label. */
+export const button = (root: HTMLElement, label: string) => buttons(root, label)[0];
+
 /** The dialog open over the page, if any: it shows outside the page, so this looks in the whole document. */
 export const openDialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
 

@@ -23,9 +23,9 @@ import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
-import { alice } from '../../specs-harness';
+import { alice, button, buttons } from '../../specs-harness';
 
-export { alice };
+export { alice, button, buttons };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -252,15 +252,6 @@ export const playerAvatar = (page: HTMLElement, name: string) =>
   [...section(page, 'Players').querySelectorAll('li')]
     .find((li) => li.textContent?.includes(name))
     ?.querySelector<HTMLImageElement>('[role="presentation"]');
-
-/** Every button inside `root` with this text or aria-label, in page order. */
-export const buttons = (root: HTMLElement, label: string) =>
-  [...root.querySelectorAll('button')].filter(
-    (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
-  );
-
-/** A button inside `root`, by its text or its aria-label. */
-export const button = (root: HTMLElement, label: string) => buttons(root, label)[0];
 
 /**
  * What a screen reader names `element`: its aria-label, or else its text and

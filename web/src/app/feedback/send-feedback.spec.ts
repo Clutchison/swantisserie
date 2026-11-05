@@ -3,6 +3,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import type { App } from '../app';
 import {
   alice,
+  button,
   clickBackdrop,
   dialogBackdrop,
   hiddenFromAssistiveTech,
@@ -33,13 +34,11 @@ describe('sending feedback', () => {
   const dialog = openDialog;
   const field = () => dialog()!.querySelector('textarea')!;
 
-  /** A button by its text, in the page or the dialog open over it. */
-  function button(label: string) {
-    return [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
-  }
+  /** A button by its text or aria-label, in the page or the dialog open over it. */
+  const anyButton = (label: string) => button(document.body, label);
 
   async function open() {
-    button('Send feedback')!.click();
+    anyButton('Send feedback')!.click();
     await fixture.whenStable();
     return dialog()!;
   }
@@ -51,7 +50,7 @@ describe('sending feedback', () => {
   }
 
   async function submit() {
-    button('Submit')!.click();
+    anyButton('Submit')!.click();
     await fixture.whenStable();
     return http.expectOne('/api/feedback');
   }
@@ -73,24 +72,24 @@ describe('sending feedback', () => {
     await fixture.whenStable();
   }
 
-  it('opens a labelled modal with one plain-text field and focuses it', async () => {
-    const modal = await open();
+  it('opens a labelled dialog with one plain-text field and focuses it', async () => {
+    const opened = await open();
 
-    expect(modal.getAttribute('aria-label')).toBe('Send feedback');
-    expect(modal.querySelectorAll('textarea, input')).toHaveLength(1);
+    expect(opened.getAttribute('aria-label')).toBe('Send feedback');
+    expect(opened.querySelectorAll('textarea, input')).toHaveLength(1);
     expect(field().maxLength).toBe(2000);
     await vi.waitFor(() => expect(document.activeElement).toBe(field()));
   });
 
   it('disables Submit while the field is empty or only whitespace', async () => {
     await open();
-    expect(button('Submit')!.disabled).toBe(true);
+    expect(anyButton('Submit')!.disabled).toBe(true);
 
     await type(' \n ');
-    expect(button('Submit')!.disabled).toBe(true);
+    expect(anyButton('Submit')!.disabled).toBe(true);
 
     await type('Nice app');
-    expect(button('Submit')!.disabled).toBe(false);
+    expect(anyButton('Submit')!.disabled).toBe(false);
   });
 
   it('sends the message and the page it was sent from', async () => {
@@ -124,8 +123,8 @@ describe('sending feedback', () => {
     await type('Nice app');
 
     const req = await submit();
-    expect(button('Submit')!.disabled).toBe(true);
-    button('Submit')!.click();
+    expect(anyButton('Submit')!.disabled).toBe(true);
+    anyButton('Submit')!.click();
     http.expectNone('/api/feedback');
 
     succeed(req);
@@ -140,10 +139,10 @@ describe('sending feedback', () => {
     await expectThanks();
 
     expect(dialog()!.querySelector('textarea')).toBeNull();
-    expect(button('Submit')).toBeUndefined();
-    await vi.waitFor(() => expect(document.activeElement).toBe(button('Close')));
+    expect(anyButton('Submit')).toBeUndefined();
+    await vi.waitFor(() => expect(document.activeElement).toBe(anyButton('Close')));
 
-    button('Close')!.click();
+    anyButton('Close')!.click();
     await fixture.whenStable();
     expect(dialog()).toBeNull();
   });
@@ -161,18 +160,18 @@ describe('sending feedback', () => {
     });
 
     expect(field().value).toBe('Nice app');
-    expect(button('Submit')!.disabled).toBe(false);
+    expect(anyButton('Submit')!.disabled).toBe(false);
 
     succeed(await submit());
     await expectThanks();
   });
 
   describe.each<[string, () => Promise<void>]>([
-    ['Cancel', async () => button('Cancel')!.click()],
+    ['Cancel', async () => anyButton('Cancel')!.click()],
     ['Escape', async () => pressEscape()],
     ['a backdrop click', async () => clickBackdrop()],
   ])('closing with %s', (_, close) => {
-    it('closes the modal and discards the text', async () => {
+    it('closes the dialog and discards the text', async () => {
       await open();
       await type('Nice app');
 
@@ -190,19 +189,19 @@ describe('sending feedback', () => {
     await type('Nice app');
 
     const req = await submit();
-    button('Cancel')!.click();
+    anyButton('Cancel')!.click();
     await fixture.whenStable();
 
     expect(req.cancelled).toBe(true);
     expect(dialog()).toBeNull();
   });
 
-  it('stays open when a click lands inside the modal', async () => {
-    const modal = await open();
+  it('stays open when a click lands inside the dialog', async () => {
+    const opened = await open();
 
     await press(field(), 'mousedown', 'mouseup', 'click');
 
-    expect(dialog()).toBe(modal);
+    expect(dialog()).toBe(opened);
   });
 
   it('stays open when dragging a text selection out of the field onto the backdrop', async () => {
@@ -216,40 +215,40 @@ describe('sending feedback', () => {
     expect(field().value).toBe('Nice app');
   });
 
-  it('keeps Tab and Shift+Tab inside the modal, wrapping at either end', async () => {
+  it('keeps Tab and Shift+Tab inside the dialog, wrapping at either end', async () => {
     await open();
     await vi.waitFor(() => expect(document.activeElement).toBe(field()));
     await type('Nice app');
 
     pressTab();
-    expect(document.activeElement).toBe(button('Cancel'));
+    expect(document.activeElement).toBe(anyButton('Cancel'));
     pressTab();
-    expect(document.activeElement).toBe(button('Submit'));
+    expect(document.activeElement).toBe(anyButton('Submit'));
     pressTab();
     expect(document.activeElement).toBe(field());
 
     pressTab({ shift: true });
-    expect(document.activeElement).toBe(button('Submit'));
+    expect(document.activeElement).toBe(anyButton('Submit'));
   });
 
-  it('hides the page behind the modal from assistive technology while it is open', async () => {
-    const opener = button('Send feedback')!;
-    const modal = await open();
+  it('hides the page behind the dialog from assistive technology while it is open', async () => {
+    const opener = anyButton('Send feedback')!;
+    const opened = await open();
 
     await vi.waitFor(() => expect(hiddenFromAssistiveTech(opener)).toBe(true));
-    expect(hiddenFromAssistiveTech(modal)).toBe(false);
+    expect(hiddenFromAssistiveTech(opened)).toBe(false);
 
-    button('Cancel')!.click();
+    anyButton('Cancel')!.click();
     await fixture.whenStable();
     expect(hiddenFromAssistiveTech(opener)).toBe(false);
   });
 
   it.each<[string, () => void]>([
-    ['Cancel', () => button('Cancel')!.click()],
+    ['Cancel', () => anyButton('Cancel')!.click()],
     ['Escape', pressEscape],
     ['a backdrop click', clickBackdrop],
   ])('returns focus to the button that opened it, on %s', async (_, close) => {
-    const opener = button('Send feedback')!;
+    const opener = anyButton('Send feedback')!;
     opener.focus();
     await open();
     await vi.waitFor(() => expect(document.activeElement).toBe(field()));
@@ -265,7 +264,7 @@ describe('sending feedback', () => {
     const menu = narrowMenuButton(page);
     menu.click();
     await fixture.whenStable();
-    const item = button('Send feedback')!;
+    const item = anyButton('Send feedback')!;
     expect(menu.parentElement!.contains(item)).toBe(true);
     item.focus();
     item.click();
@@ -273,7 +272,7 @@ describe('sending feedback', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(field()));
     expect(item.isConnected).toBe(false);
 
-    button('Cancel')!.click();
+    anyButton('Cancel')!.click();
     await fixture.whenStable();
 
     expect(document.activeElement).toBe(menu);
