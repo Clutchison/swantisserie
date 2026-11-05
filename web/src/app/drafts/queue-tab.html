@@ -57,6 +57,7 @@
 }
 <ol
   class="queue card-rows"
+  aria-label="Your queue"
   cdkDropList
   [cdkDropListDisabled]="changing() || readOnly()"
   (cdkDropListDropped)="dropped($event)"

@@ -8,7 +8,10 @@ import {
   http,
   openDraft,
   openUrl,
+  panel,
+  pickOf,
   selectByLabel,
+  tabButton,
   updates,
   useDraftsApp,
   webhooksAnswer,
@@ -135,6 +138,25 @@ describe('changing a draft’s webhook', () => {
     expect(shownOption(control(page)!)).toBe('None');
     // Only the draft says which webhook it has: the pick log isn't re-read.
     http.expectNone('/api/drafts/draft-1/picks');
+  });
+
+  it('re-reads the pick log when catching up on focus finds a newer draft', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, {
+      state: 'Drafting',
+      webhook: main,
+      version: 3,
+    });
+
+    control(page)!.dispatchEvent(new Event('focus'));
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+      draft({ state: 'Drafting', webhook: main, version: 4 }),
+    );
+    await flushPicks([pickOf({ poolCardId: 'shock-card', name: 'Shock' })]);
+    await fixture.whenStable();
+
+    tabButton(page, 'Board').click();
+    await fixture.whenStable();
+    expect(panel(page).textContent).toContain('Shock');
   });
 
   it('offers no other change while one is saving', async () => {

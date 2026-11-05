@@ -306,6 +306,16 @@ export async function expectSignedOut(
 export const statusMessage = (root: HTMLElement, text: string) =>
   [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);
 
+/** The text of every status message inside `root`, with its whitespace collapsed. */
+export const statusTexts = (root: HTMLElement) =>
+  [...root.querySelectorAll('[role="status"]')].map((el) =>
+    (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
+  );
+
+/** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
+export const queueList = (root: HTMLElement) =>
+  root.querySelector<HTMLElement>('[aria-label="Your queue"]')!;
+
 /** A select inside `root`, by its label's own text (leaving out its options'). */
 export const selectByLabel = (root: HTMLElement, label: string) =>
   [...root.querySelectorAll('select')].find((select) =>

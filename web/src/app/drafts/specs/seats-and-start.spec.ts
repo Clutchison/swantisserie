@@ -55,7 +55,7 @@ describe('seats and start', () => {
       turn: { pick: 1, round: 1, playerId: 'gone' },
     });
 
-    expect(page.querySelector('.turn')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    expect(section(page, 'Players').textContent?.replace(/\s+/g, ' ')).toContain(
       'Another player’s turn: pick 1, round 1',
     );
   });
