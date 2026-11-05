@@ -285,7 +285,7 @@ model QueuedCard {
   @@index([poolCardId])
 }
 
-/// A queued card taken out by a pick: by another player's pick, lost if it is the card that pick took, else cleared; or by its own player's pick of it. Kept until that pick is undone, which puts it back.
+/// A taken-out queued card: one a pick took out of a player's queue, the card the player picked from their own queue, or, after another player's pick, the lost card or a card it cleared. Kept until that pick is undone, which puts it back.
 model TakenOutQueuedCard {
   id           String   @id @default(uuid())
   pickId       String
