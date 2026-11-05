@@ -9,8 +9,8 @@ import {
   startTestApp,
   useTestApp,
 } from '../testing/app.js';
-import { AdminConfig } from './admin-config.js';
-import { AdminGuard } from './admin.guard.js';
+import { AppAdminConfig } from './app-admin-config.js';
+import { AppAdminGuard } from './app-admin.guard.js';
 import { AuthModule } from './auth.module.js';
 
 const config = new DiscordConfig({
@@ -19,29 +19,29 @@ const config = new DiscordConfig({
   DISCORD_REDIRECT_URI: 'http://localhost:4200/api/auth/discord/callback',
   DISCORD_GUILD_ID: 'guild-1',
 });
-const admins = new AdminConfig('111, 222');
+const admins = new AppAdminConfig('111, 222');
 
-/** Stands in for the admin-only routes later tickets add. */
+/** Stands in for the app-admin-only routes later tickets add. */
 @Controller('admin-only')
-class AdminOnlyController {
+class AppAdminOnlyController {
   @Get()
-  @UseGuards(AdminGuard)
+  @UseGuards(AppAdminGuard)
   get() {
     return { ok: true };
   }
 }
 
-@Module({ imports: [AuthModule], controllers: [AdminOnlyController] })
-class AdminOnlyModule {}
+@Module({ imports: [AuthModule], controllers: [AppAdminOnlyController] })
+class AppAdminOnlyModule {}
 
 describe('Discord sign-in', () => {
   useTestApp(() =>
     startTestApp({
       overrides: [
         { provide: DiscordConfig, useValue: config },
-        { provide: AdminConfig, useValue: admins },
+        { provide: AppAdminConfig, useValue: admins },
       ],
-      imports: [AdminOnlyModule],
+      imports: [AppAdminOnlyModule],
     }),
   );
 

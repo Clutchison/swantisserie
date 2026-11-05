@@ -15,7 +15,7 @@ const API = '/api/admin/feedback';
   imports: [DatePipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feedback-page.html',
-  styleUrls: ['../drafts/drafts.scss', './feedback-page.scss'],
+  styleUrls: ['../page.scss', './feedback-page.scss'],
 })
 export class FeedbackPage {
   private readonly http = inject(HttpClient);

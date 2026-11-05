@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import type { AdminWebhookView, NewWebhookRequest, WebhookRenameRequest } from 'contract';
+import type { WebhookWithUrlView, NewWebhookRequest, WebhookRenameRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 const API = '/api/admin/webhooks';
@@ -12,12 +12,12 @@ const API = '/api/admin/webhooks';
   imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './webhooks-page.html',
-  styleUrls: ['../drafts/drafts.scss', './webhooks-page.scss'],
+  styleUrls: ['../page.scss', './webhooks-page.scss'],
 })
 export class WebhooksPage {
   private readonly http = inject(HttpClient);
 
-  protected readonly webhooks = httpResource<AdminWebhookView[]>(() => API);
+  protected readonly webhooks = httpResource<WebhookWithUrlView[]>(() => API);
   // Validated by the API, whose messages say exactly what to fix.
   protected readonly form = inject(FormBuilder).nonNullable.group({ name: '', url: '' });
   protected readonly saving = signal(false);
@@ -28,13 +28,13 @@ export class WebhooksPage {
       this.form.reset();
   }
 
-  protected async rename(webhook: AdminWebhookView, name: string) {
+  protected async rename(webhook: WebhookWithUrlView, name: string) {
     await this.save(
       this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
     );
   }
 
-  protected async remove(webhook: AdminWebhookView) {
+  protected async remove(webhook: WebhookWithUrlView) {
     if (!confirm(`Remove ${webhook.name}? Drafts that announce there will announce nowhere.`)) {
       return;
     }

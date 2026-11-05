@@ -13,15 +13,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type {
-  AdminWebhookView,
+  WebhookWithUrlView,
   NewWebhookRequest,
-  WebhookAdminProblem,
+  WebhookRegistryProblem,
   WebhookRenameRequest,
   WebhookView,
 } from 'contract';
 import { bodyFields } from '../request-body.js';
 import type { Webhook } from '../generated/prisma/client.js';
-import { AdminGuard } from '../auth/admin.guard.js';
+import { AppAdminGuard } from '../auth/app-admin.guard.js';
 import { SessionGuard } from '../auth/session.guard.js';
 import {
   type NewWebhook,
@@ -48,30 +48,30 @@ export class WebhooksController {
 
 /** The webhook registry, for app admins only: webhook URLs are secrets. */
 @Controller('admin/webhooks')
-@UseGuards(AdminGuard)
-export class AdminWebhooksController {
+@UseGuards(AppAdminGuard)
+export class WebhookRegistryController {
   constructor(private readonly webhooks: WebhooksService) {}
 
   @Get()
-  async list(): Promise<AdminWebhookView[]> {
-    return (await this.webhooks.list()).map(toAdminView);
+  async list(): Promise<WebhookWithUrlView[]> {
+    return (await this.webhooks.list()).map(toViewWithUrl);
   }
 
   @Post()
-  async add(@Body() body: unknown): Promise<AdminWebhookView> {
+  async add(@Body() body: unknown): Promise<WebhookWithUrlView> {
     const webhook = parseNewWebhook(body);
-    return toAdminView(await refuseTakenName(this.webhooks.add(webhook)));
+    return toViewWithUrl(await refuseTakenName(this.webhooks.add(webhook)));
   }
 
   @Patch(':id')
   async rename(
     @Param('id') id: string,
     @Body() body: unknown,
-  ): Promise<AdminWebhookView> {
+  ): Promise<WebhookWithUrlView> {
     const name = parseName(bodyFields<WebhookRenameRequest>(body).name);
     const renamed = await refuseTakenName(this.webhooks.rename(id, name));
     if (!renamed) throw new NotFoundException();
-    return toAdminView(renamed);
+    return toViewWithUrl(renamed);
   }
 
   @Delete(':id')
@@ -86,7 +86,7 @@ async function refuseTakenName<T>(saving: Promise<T>): Promise<T> {
     return await saving;
   } catch (err) {
     if (err instanceof WebhookNameTakenError) {
-      const problem: WebhookAdminProblem = {
+      const problem: WebhookRegistryProblem = {
         error: 'name-taken',
         message: err.message,
       };
@@ -97,7 +97,7 @@ async function refuseTakenName<T>(saving: Promise<T>): Promise<T> {
 }
 
 function invalid(message: string) {
-  const problem: WebhookAdminProblem = { error: 'invalid', message };
+  const problem: WebhookRegistryProblem = { error: 'invalid', message };
   return new BadRequestException(problem);
 }
 
@@ -122,6 +122,6 @@ function parseName(name: unknown): string {
   return trimmed;
 }
 
-function toAdminView({ id, name, url }: Webhook): AdminWebhookView {
+function toViewWithUrl({ id, name, url }: Webhook): WebhookWithUrlView {
   return { id, name, url };
 }

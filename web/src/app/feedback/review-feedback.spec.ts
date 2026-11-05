@@ -5,7 +5,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import type { FeedbackView, ReviewedFeedbackView, UserView } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton, answerAppVersion } from '../top-bar/specs-harness';
+import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -111,7 +111,7 @@ describe('reviewing feedback', () => {
     http.expectOne('/api/health').flush({});
     await fixture.whenStable();
 
-    adminButton(page).click();
+    appAdminButton(page).click();
     await fixture.whenStable();
     page.querySelector<HTMLAnchorElement>('header a[href="/admin/feedback"]')!.click();
     await vi.waitFor(() => http.expectOne('/api/admin/feedback')).then((req) => req.flush([]));
@@ -287,13 +287,13 @@ describe('reviewing feedback', () => {
   });
 
   describe('the unreviewed count in the top bar', () => {
-    /** The labels of the Admin button and, with its menu opened, the Feedback item. */
+    /** The labels of the App admin button and, with its menu opened, the Feedback item. */
     async function labels({ fixture, page }: Awaited<ReturnType<typeof openStatus>>) {
-      const admin = adminButton(page);
-      const adminLabel = admin.textContent?.trim();
-      admin.click();
+      const appAdmin = appAdminButton(page);
+      const appAdminLabel = appAdmin.textContent?.trim();
+      appAdmin.click();
       await fixture.whenStable();
-      return [adminLabel, feedbackItem(page)];
+      return [appAdminLabel, feedbackItem(page)];
     }
 
     /** Opens a page other than the feedback page as Carol, an app admin. */
@@ -307,19 +307,19 @@ describe('reviewing feedback', () => {
     it('shows how many items are unreviewed', async () => {
       const opened = await openStatus(3);
 
-      expect(await labels(opened)).toEqual(['Admin (3)', 'Feedback (3)']);
+      expect(await labels(opened)).toEqual(['App admin (3)', 'Feedback (3)']);
     });
 
-    it('reads just Admin and Feedback at zero', async () => {
+    it('reads just App admin and Feedback at zero', async () => {
       const opened = await openStatus(0);
 
-      expect(await labels(opened)).toEqual(['Admin', 'Feedback']);
+      expect(await labels(opened)).toEqual(['App admin', 'Feedback']);
     });
 
-    it('reads just Admin and Feedback when the count cannot be fetched', async () => {
+    it('reads just App admin and Feedback when the count cannot be fetched', async () => {
       const opened = await openStatus('fails');
 
-      expect(await labels(opened)).toEqual(['Admin', 'Feedback']);
+      expect(await labels(opened)).toEqual(['App admin', 'Feedback']);
     });
 
     it('shows on the Feedback item in the hamburger menu', async () => {

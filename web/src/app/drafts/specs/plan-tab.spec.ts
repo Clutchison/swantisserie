@@ -71,11 +71,11 @@ describe('plan tab', () => {
     return panel(page);
   }
 
-  /** Each board's heading, and its lines as `count name`, with ` (unpicked)` after a dimmed unpicked line. */
-  function boards(plan: HTMLElement) {
-    return [...plan.querySelectorAll('section')].map((board) => ({
-      heading: board.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
-      lines: [...board.querySelectorAll('li:not(.empty)')].map(
+  /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a dimmed unpicked line. */
+  function planBoards(plan: HTMLElement) {
+    return [...plan.querySelectorAll('section')].map((planBoard) => ({
+      heading: planBoard.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
+      lines: [...planBoard.querySelectorAll('li:not(.empty)')].map(
         (line) =>
           `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}` +
           (line.classList.contains('unpicked') ? ' (unpicked)' : ''),
@@ -106,7 +106,7 @@ describe('plan tab', () => {
     const plan = await openPlan(fixture, page);
 
     expect(plan.querySelector('h2')?.textContent).toBe('Plan');
-    expect(boards(plan)).toEqual([
+    expect(planBoards(plan)).toEqual([
       {
         heading: 'Mainboard 4 (4 picked)',
         lines: [
@@ -130,7 +130,7 @@ describe('plan tab', () => {
     ).toEqual(['Move Shivan Dragon to the mainboard']);
   });
 
-  it('says when a board is empty', async () => {
+  it('says when a plan board is empty', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
     });
@@ -143,7 +143,7 @@ describe('plan tab', () => {
     );
   });
 
-  it('moves one copy of a card to the other board, showing the plan the API answers with', async () => {
+  it('moves one copy of a card to the other plan board, showing the plan the API answers with', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       plan: planOf(),
@@ -164,7 +164,7 @@ describe('plan tab', () => {
     );
     // The answer shows once its promise settles, a moment after the fixture is stable.
     await vi.waitFor(() =>
-      expect(boards(plan)).toEqual([
+      expect(planBoards(plan)).toEqual([
         {
           heading: 'Mainboard 3 (3 picked)',
           lines: [
@@ -183,7 +183,7 @@ describe('plan tab', () => {
     expect(back.request.body).toEqual({ board: 'Mainboard' });
     back.flush(planOf());
     await vi.waitFor(() =>
-      expect(boards(plan)[1]).toEqual({ heading: 'Sideboard 0 (0 picked)', lines: [] }),
+      expect(planBoards(plan)[1]).toEqual({ heading: 'Sideboard 0 (0 picked)', lines: [] }),
     );
   });
 
@@ -245,7 +245,7 @@ describe('plan tab', () => {
 
     reread.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)] }));
     await fixture.whenStable();
-    expect(boards(plan)[0].lines).toEqual([
+    expect(planBoards(plan)[0].lines).toEqual([
       '1 Brightclimb Pathway // Grimclimb Pathway',
       '2 Lightning Bolt',
     ]);
@@ -261,7 +261,7 @@ describe('plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    expect(boards(plan)).toEqual([
+    expect(planBoards(plan)).toEqual([
       {
         heading: 'Mainboard 4 (2 picked)',
         lines: [
@@ -285,7 +285,7 @@ describe('plan tab', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)] }));
     await vi.waitFor(() =>
-      expect(boards(plan)[0]).toEqual({
+      expect(planBoards(plan)[0]).toEqual({
         heading: 'Mainboard 3 (2 picked)',
         lines: [
           '1 Brightclimb Pathway // Grimclimb Pathway',
@@ -305,7 +305,7 @@ describe('plan tab', () => {
         sideboard: [planned(bolt)],
       }),
     );
-    await vi.waitFor(() => expect(boards(plan)[1].heading).toBe('Sideboard 1 (1 picked)'));
+    await vi.waitFor(() => expect(planBoards(plan)[1].heading).toBe('Sideboard 1 (1 picked)'));
     // The second Lightning Bolt line is the unpicked one, so its button moves that copy.
     const unpickedLine = [...plan.querySelectorAll('li.unpicked')].find((line) =>
       line.textContent?.includes('Lightning Bolt'),
@@ -373,7 +373,9 @@ describe('plan tab', () => {
     await expectLoadingAnimation(() => panel(page), 'Loading your plan…', 64);
 
     req.flush(planOf());
-    await vi.waitFor(() => expect(boards(panel(page))[0].heading).toBe('Mainboard 4 (4 picked)'));
+    await vi.waitFor(() =>
+      expect(planBoards(panel(page))[0].heading).toBe('Mainboard 4 (4 picked)'),
+    );
   });
 
   it('says when the plan couldn’t be loaded', async () => {
@@ -399,24 +401,24 @@ describe('plan tab', () => {
       plan: planOf({ mainboard: [planned(shivan)] }),
     });
     const plan = await openPlan(fixture, page);
-    expect(boards(plan)[0].heading).toBe('Mainboard 1 (1 picked)');
+    expect(planBoards(plan)[0].heading).toBe('Mainboard 1 (1 picked)');
 
     updates.events.next({ type: 'changed', draft: draft(drafting({ version: 1 })) });
     await flushPicks([]);
     await flushQueueAndPlan(EMPTY_QUEUE, planOf());
     await fixture.whenStable();
 
-    expect(boards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
+    expect(planBoards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
   });
 
   describe('on desktop', () => {
     /**
-     * Each board's stacks as `name: card, card`, with ` (unpicked)` after a dimmed card;
+     * Each plan board's stacks as `name: card, card`, with ` (unpicked)` after a dimmed card;
      * a stack with no header, as the sideboard's, as `card, card`.
      */
     const stacksOf = (plan: HTMLElement) =>
-      [...plan.querySelectorAll('section')].map((board) =>
-        [...board.querySelectorAll('.stack')].map((stack) => {
+      [...plan.querySelectorAll('section')].map((planBoard) =>
+        [...planBoard.querySelectorAll('.stack')].map((stack) => {
           const name = stack.querySelector('h4 .stack-name')?.textContent?.trim();
           const held = [...stack.querySelectorAll('li')]
             .map(
@@ -457,7 +459,7 @@ describe('plan tab', () => {
         ],
         ['Shivan Dragon'],
       ]);
-      expect(boards(plan).map((board) => board.heading)).toEqual([
+      expect(planBoards(plan).map((planBoard) => planBoard.heading)).toEqual([
         'Mainboard 3 (2 picked)',
         'Sideboard 1 (1 picked)',
       ]);
@@ -477,8 +479,7 @@ describe('plan tab', () => {
       ];
 
       expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], sideboard]);
-      expect(plan.querySelector('.boards')?.classList.contains('side-by-side')).toBe(true);
-      // Only the board heading names the sideboard, not a header of its stack.
+      // Only the plan board heading names the sideboard, not a header of its stack.
       expect(plan.querySelectorAll('section')[1].querySelector('h4')).toBeNull();
 
       for (const grouping of ['Color', 'Type']) {
@@ -489,7 +490,7 @@ describe('plan tab', () => {
 
       button(plan, 'List')!.click();
       await fixture.whenStable();
-      expect(plan.querySelector('.boards')?.classList.contains('side-by-side')).toBe(false);
+      expect(stacksOf(plan)).toEqual([[], []]);
     });
 
     it('groups by color or type instead, or lists, as chosen, and remembers the choice', async () => {
@@ -525,7 +526,7 @@ describe('plan tab', () => {
       expect(pressed(plan, 'List')).toBe('true');
       expect(button(plan, 'Type')).toBeUndefined();
       expect(plan.querySelector('.stack')).toBeNull();
-      expect(boards(plan)[0].lines).toEqual([
+      expect(planBoards(plan)[0].lines).toEqual([
         '1 Brightclimb Pathway // Grimclimb Pathway',
         '2 Lightning Bolt',
         '1 Shivan Dragon',
@@ -536,7 +537,7 @@ describe('plan tab', () => {
       });
     });
 
-    it('caps only List mode lines at the Queue tab width, not an empty board in stacks mode', async () => {
+    it('caps only List mode lines at the Queue tab width, not an empty plan board in stacks mode', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
         plan: planOf(),
@@ -544,7 +545,7 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
       const capped = () =>
         [...plan.querySelectorAll('section')].map(
-          (board) => board.querySelector('.lines')?.classList.contains('capped') ?? null,
+          (planBoard) => planBoard.querySelector('.lines')?.classList.contains('capped') ?? null,
         );
 
       expect(capped()).toEqual([null, false]);
@@ -566,14 +567,14 @@ describe('plan tab', () => {
       expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
     });
 
-    it('moves a card dragged onto the other board, as its button does', async () => {
+    it('moves a card dragged onto the other plan board, as its button does', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
 
-      /** Each board's drop list, which a dragged card lands in. The Queue tab has one of its own. */
+      /** Each plan board's drop list, which a dragged card lands in. The Queue tab has one of its own. */
       const dropLists = () =>
         fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
       const listOf = (element: DebugElement) => element.injector.get(CdkDropList);
@@ -634,7 +635,7 @@ describe('plan tab', () => {
       resizeTo('mobile');
       expect(button(plan, 'Stacks')).toBeUndefined();
       expect(plan.querySelector('.stack')).toBeNull();
-      expect(boards(plan)[0].lines).toHaveLength(3);
+      expect(planBoards(plan)[0].lines).toHaveLength(3);
 
       resizeTo('desktop');
       expect(pressed(plan, 'Stacks')).toBe('true');
@@ -753,7 +754,7 @@ describe('plan tab', () => {
       expect(button(plan, 'Stacks')).toBeUndefined();
       expect(button(plan, 'List')).toBeUndefined();
       expect(plan.querySelector('.stack')).toBeNull();
-      expect(boards(plan)[0].lines).toHaveLength(3);
+      expect(planBoards(plan)[0].lines).toHaveLength(3);
     } finally {
       vi.unstubAllGlobals();
       localStorage.clear();
@@ -771,7 +772,7 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
 
       expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(false);
-      expect(boards(plan)[1].lines).toEqual(['1 Lightning Bolt (unpicked)']);
+      expect(planBoards(plan)[1].lines).toEqual(['1 Lightning Bolt (unpicked)']);
       expect(button(plan, 'Remove Lightning Bolt from your plan')!.disabled).toBe(false);
     },
   );

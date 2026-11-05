@@ -175,9 +175,9 @@ describe('pool tab', () => {
 
   describe('Remove from Plan', () => {
     const shivanCopy = card({ id: 'shivan-card-2' });
-    const planned = (poolCardId: string, board: 'mainboard' | 'sideboard' = 'mainboard') => ({
+    const planned = (poolCardId: string, planBoard: 'mainboard' | 'sideboard' = 'mainboard') => ({
       ...EMPTY_PLAN,
-      [board]: [{ poolCardId, name: 'Shivan Dragon', picked: false }],
+      [planBoard]: [{ poolCardId, name: 'Shivan Dragon', picked: false }],
     });
 
     it('is offered in place of Add to Plan for the copy in the plan, not for another copy', async () => {

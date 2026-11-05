@@ -61,11 +61,11 @@ describe('basic lands on the plan tab', () => {
     return dialog(plan)!;
   }
 
-  /** Each board's heading, and its lines as `count name`. */
-  const boards = (plan: HTMLElement) =>
-    [...plan.querySelectorAll('section')].map((board) => ({
-      heading: board.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
-      lines: [...board.querySelectorAll('li:not(.empty)')].map(
+  /** Each plan board's heading, and its lines as `count name`. */
+  const planBoards = (plan: HTMLElement) =>
+    [...plan.querySelectorAll('section')].map((planBoard) => ({
+      heading: planBoard.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
+      lines: [...planBoard.querySelectorAll('li:not(.empty)')].map(
         (line) =>
           `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}`,
       ),
@@ -100,7 +100,7 @@ describe('basic lands on the plan tab', () => {
     expect(added.request.body).toEqual({ count: 1 });
     added.flush(planOf([{ land: 'Plains', count: 1 }]));
     await vi.waitFor(() => expect(countOf(plan, 'Plains').value).toBe('1'));
-    expect(boards(plan)[0]).toEqual({
+    expect(planBoards(plan)[0]).toEqual({
       heading: 'Mainboard 3 (3 picked)',
       lines: ['1 Lightning Bolt', '1 Shivan Dragon', '1 Plains'],
     });
@@ -115,7 +115,7 @@ describe('basic lands on the plan tab', () => {
       ]),
     );
     await vi.waitFor(() =>
-      expect(boards(plan)[0].lines).toEqual([
+      expect(planBoards(plan)[0].lines).toEqual([
         '1 Lightning Bolt',
         '1 Shivan Dragon',
         '1 Plains',
@@ -132,7 +132,7 @@ describe('basic lands on the plan tab', () => {
     typeCount(plan, 'Island', '0');
     http.expectOne('/api/drafts/draft-1/plan/basics/Island').flush(planOf([]));
     await vi.waitFor(() =>
-      expect(boards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']),
+      expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']),
     );
   });
 
@@ -162,7 +162,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    expect(boards(plan)).toEqual([
+    expect(planBoards(plan)).toEqual([
       {
         heading: 'Mainboard 5 (5 picked)',
         lines: ['1 Lightning Bolt', '1 Shivan Dragon', '3 Forest'],
@@ -193,7 +193,7 @@ describe('basic lands on the plan tab', () => {
 
     await vi.waitFor(() => expect(countOf(plan, 'Mountain').value).toBe('0'));
     expect(countOf(plan, 'Wastes').value).toBe('0');
-    expect(boards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']);
+    expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']);
     expect(button(plan, 'Clear basics')!.disabled).toBe(true);
   });
 
@@ -244,7 +244,7 @@ describe('basic lands on the plan tab', () => {
     expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
   });
 
-  it('sets basics in a Basic lands modal, not above the boards, each labelled by its mana symbol', async () => {
+  it('sets basics in a Basic lands modal, not above the plan boards, each labelled by its mana symbol', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards,
       plan: planOf(),
@@ -296,7 +296,7 @@ describe('basic lands on the plan tab', () => {
     );
     // The plan behind the modal updates as each change saves.
     await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (7)'));
-    expect(boards(plan)[0].lines).toContain('2 Wastes');
+    expect(planBoards(plan)[0].lines).toContain('2 Wastes');
 
     button(modal, 'Clear basics')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics').flush(planOf());

@@ -1,13 +1,4 @@
-:host {
-  display: block;
-  padding: var(--space-lg);
-  /* A long name or pool query wraps, rather than widening a phone's page. */
-  overflow-wrap: anywhere;
-}
-
-.error {
-  color: var(--color-error);
-}
+/* Drafts-only styles. Load after ../page.scss, which holds the page and list styles. */
 
 .notice {
   padding: var(--space-sm) var(--space-lg);
@@ -15,37 +6,10 @@
   background: var(--color-surface);
 }
 
-ul {
-  list-style: none;
-  padding: 0;
-}
-
-li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-divider);
-}
-
-.empty {
-  color: var(--color-muted);
-}
-
-.name {
-  font-weight: 600;
-}
-
 .state {
   padding: 0 var(--space-sm);
   border-radius: 0.25rem;
   background: var(--color-raised);
-  font-size: var(--font-size-sm);
-}
-
-.detail {
-  flex-basis: 100%;
-  color: var(--color-muted);
   font-size: var(--font-size-sm);
 }
 
