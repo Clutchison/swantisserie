@@ -122,6 +122,10 @@ c:azorius
 c:esper
 c:abzan
 c=simic
+c:quandrix
+c:Silverquill
+c=artifice
+c:aggression
 color<=grixis
 c:wubrg
 c=2
@@ -140,6 +144,12 @@ id>r
 id<wu
 id:esper
 identity:selesnya
+id:witherbloom
+id=prismari
+id<=lorehold
+id:chaos
+id:altruism
+id>=growth
 id:c
 id=c
 id:m

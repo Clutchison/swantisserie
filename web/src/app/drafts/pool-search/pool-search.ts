@@ -163,7 +163,9 @@ function manaCosts(card: PoolSearchCard): Counts[] {
     ...(card.manaCost ?? '').split(' // '),
     ...card.faces.map((face) => face.manaCost ?? ''),
   ].filter(Boolean);
-  return (costs.length ? costs : ['']).map((cost) => parseManaCost(cost)!);
+  // A symbol the grammar doesn't know ({H/W}, {½}) counts as a symbol of its
+  // own, so a pool card's cost never fails to parse and can still be searched.
+  return (costs.length ? costs : ['']).map((cost) => countManaSymbols(cost).counts);
 }
 
 function colorCounts(colors: string[]): Counts {
@@ -306,6 +308,16 @@ const COLOR_NAMES: Record<string, string> = {
   sultai: 'bgu',
   mardu: 'rwb',
   temur: 'gur',
+  silverquill: 'wb',
+  prismari: 'ur',
+  witherbloom: 'bg',
+  lorehold: 'rw',
+  quandrix: 'gu',
+  chaos: 'ubrg',
+  aggression: 'wbrg',
+  altruism: 'wurg',
+  growth: 'wubg',
+  artifice: 'wubr',
 };
 
 /**
@@ -335,7 +347,7 @@ function colorTerm(field: 'colors' | 'identity'): (term: Term) => Matcher {
     if (!/^[wubrg]*$/.test(letters)) {
       throw new SearchError(
         'parse-error',
-        `${keyword}: takes colors like wu, a color or guild name, or a number.`,
+        `${keyword}: takes colors like wu, a name like red, azorius or quandrix, or a number.`,
       );
     }
     const wanted = colorCounts(letters.split(''));
@@ -363,25 +375,46 @@ function manaTerm({ keyword, operator, value }: Term): Matcher {
 const MANA_SYMBOL = /^(?:\d+|[WUBRGCXYZS]|(?:[WUBRGC2]\/){1,2}P|[WUBRGC2]\/[WUBRGC])$/;
 
 /**
- * The symbols in a mana cost, written with braces ({2}{G/U}) or, for single
- * letters and numbers, without (2GG). Undefined if it isn't one.
+ * The symbols in a mana cost the viewer typed, written with braces
+ * ({2}{G/U}) or, for single letters and numbers, without (2GG). Undefined if
+ * it isn't one.
  */
 function parseManaCost(cost: string): Counts | undefined {
+  const { counts, allKnown } = countManaSymbols(cost);
+  return allKnown ? counts : undefined;
+}
+
+/**
+ * Counts each symbol in a mana cost. A symbol outside MANA_SYMBOL is keyed by
+ * its braced form, which no known symbol's key has, and clears allKnown.
+ */
+function countManaSymbols(cost: string): { counts: Counts; allKnown: boolean } {
   const counts: Counts = new Map();
+  const add = (key: string, count: number) => counts.set(key, (counts.get(key) ?? 0) + count);
+  let allKnown = true;
   for (const [, braced, bare] of cost.toUpperCase().matchAll(/\{([^}]*)\}|(\d+|.)/g)) {
     const symbol = braced ?? bare;
-    if (!MANA_SYMBOL.test(symbol)) return undefined;
-    if (/^\d+$/.test(symbol)) {
-      counts.set('', (counts.get('') ?? 0) + Number(symbol));
-      continue;
+    if (!MANA_SYMBOL.test(symbol)) {
+      allKnown = false;
+      add(unknownSymbolKey(symbol), 1);
+    } else if (/^\d+$/.test(symbol)) {
+      add('', Number(symbol));
+    } else {
+      // Hybrid halves in a fixed order, so {U/R} and {R/U} are the same symbol.
+      const halves = symbol.split('/');
+      const phyrexian = halves.at(-1) === 'P' ? halves.pop() : undefined;
+      add([...halves.sort(), ...(phyrexian ? [phyrexian] : [])].join('/'), 1);
     }
-    // Hybrid halves in a fixed order, so {U/R} and {R/U} are the same symbol.
-    const halves = symbol.split('/');
-    const phyrexian = halves.at(-1) === 'P' ? halves.pop() : undefined;
-    const key = [...halves.sort(), ...(phyrexian ? [phyrexian] : [])].join('/');
-    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  return counts;
+  return { counts, allKnown };
+}
+
+function unknownSymbolKey(symbol: string): string {
+  return `{${symbol}}`;
+}
+
+function isUnknownSymbolKey(key: string): boolean {
+  return key.startsWith('{');
 }
 
 /**
@@ -463,9 +496,12 @@ function anyCreature(test: (face: FaceIndex) => boolean): Matcher {
   return anyFace((face) => /\bcreature\b/.test(face.type) && test(face));
 }
 
-/** Whether any face's mana cost has a symbol for which `test` holds. */
+/** Whether any face's mana cost has a known symbol for which `test` holds. */
 function hasSymbol(test: (symbol: string) => boolean): Matcher {
-  return (card) => card.manaCosts.some((cost) => [...cost.keys()].some(test));
+  return (card) =>
+    card.manaCosts.some((cost) =>
+      [...cost.keys()].some((key) => !isUnknownSymbolKey(key) && test(key)),
+    );
 }
 
 /**
