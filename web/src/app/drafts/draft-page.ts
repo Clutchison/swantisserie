@@ -16,7 +16,7 @@ import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
-import { ANOTHER_PLAYER, DraftStore } from './draft-store';
+import { DraftStore } from './draft-store';
 import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
@@ -96,12 +96,13 @@ export class DraftPage {
   protected readonly turn = computed(() => {
     const turn = this.store.turn();
     if (!turn) return null;
-    const player = this.store.player(turn.playerId);
-    const whose = this.store.yourTurn() ? 'Your' : `${atSentenceStart(player.name)}’s`;
+    // A player no longer in the draft is the fallback, capitalized to start the sentence.
+    const player = this.store.findPlayer(turn.playerId);
+    const whose = this.store.yourTurn() ? 'Your' : `${player?.name ?? 'Another player'}’s`;
     return {
       ...turn,
       text: `${whose} turn: pick ${turn.pick}, round ${turn.round}`,
-      isBot: player.isBot,
+      isBot: !!player?.isBot,
     };
   });
 
@@ -165,6 +166,3 @@ export class DraftPage {
     }
   }
 }
-
-/** A player's name to start a sentence with: the fallback's is capitalized, a player's own is as they wrote it. */
-const atSentenceStart = (name: string) => (name === ANOTHER_PLAYER ? 'Another player' : name);

@@ -26,8 +26,10 @@ import {
   flushQueueAndPlan,
   openQueue,
   queued,
+  queueList,
   queueOf,
   section,
+  statusTexts,
 } from './harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 
@@ -157,6 +159,37 @@ describe('live updates', () => {
     expect(page.querySelector('.tile')?.classList).toContain('picked');
   });
 
+  it('catches up again when it reconnects while the last catch-up is loading', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      draft(drafting({ turn: alicesTurn, version: 1 })),
+      { cards: [shivan] },
+    );
+    const url = '/api/drafts/draft-1';
+
+    updates.events.next({ type: 'connected' });
+    const earlier = await vi.waitFor(() => http.expectOne(url));
+    updates.events.next({ type: 'disconnected' });
+    updates.events.next({ type: 'connected' });
+    const later = await vi.waitFor(() => http.expectOne(url));
+    // Bob's pick lands between the two catch-ups' reads.
+    if (!earlier.cancelled) earlier.flush(draft(drafting({ turn: alicesTurn, version: 1 })));
+    later.flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 2 })));
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+    });
+    // Each catch-up and the newer version asked for the pick log: only the newest is still open.
+    for (const req of http.match('/api/drafts/draft-1/picks')) {
+      if (!req.cancelled) req.flush([shivanPick]);
+    }
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+    expect(tiles(page).map(accessibleName)).toEqual([expect.stringContaining('Picked by Alice')]);
+  });
+
   describe('when the draft moves on again before its re-reads answer', () => {
     const reads = ['picks', 'queue', 'plan'].map((read) => `/api/drafts/draft-1/${read}`);
     /** What the pick log, queue and plan re-reads answer with for one version of the draft. */
@@ -210,8 +243,10 @@ describe('live updates', () => {
         expect.stringContaining('Picked by Bob'),
       ]);
       const queue = await openQueue(fixture, page);
-      expect(queue.querySelectorAll('li .name')).toHaveLength(0);
-      expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
+      expect(queueList(queue).textContent).toContain('Your queue is empty');
+      expect(statusTexts(queue)).toContainEqual(
+        expect.stringContaining('Lost to other players: Shivan Dragon'),
+      );
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
       expect(panel(page).textContent?.replace(/\s+/g, ' ')).toContain('Mainboard 1 (1 picked)');
@@ -266,8 +301,10 @@ describe('live updates', () => {
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
 
-    expect(queue.querySelectorAll('li .name')).toHaveLength(0);
-    expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
+    expect(queueList(queue).textContent).toContain('Your queue is empty');
+    expect(statusTexts(queue)).toContainEqual(
+      expect.stringContaining('Lost to other players: Shivan Dragon'),
+    );
   });
 
   it('ignores a Retry answer older than the draft it shows', async () => {
