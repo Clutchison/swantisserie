@@ -38,7 +38,7 @@ export interface TurnState {
   readonly pool: Pool;
   /** Each pool card's name, by pool card id. */
   readonly names: ReadonlyMap<string, string>;
-  /** The pool cards picked so far. */
+  /** The pool cards picked so far, in pick order. */
   readonly picked: string[];
 }
 
@@ -66,7 +66,7 @@ export async function readTurnState(
       id: true,
       oracleId: true,
       name: true,
-      pick: { select: { id: true } },
+      pick: { select: { number: true } },
     },
   });
   return {
@@ -82,6 +82,9 @@ export async function readTurnState(
     ),
     pool: new Map(cards.map((card) => [card.id, card.oracleId])),
     names: new Map(cards.map((card) => [card.id, card.name])),
-    picked: cards.filter((card) => card.pick).map((card) => card.id),
+    picked: cards
+      .flatMap(({ id, pick }) => (pick ? [{ id, number: pick.number }] : []))
+      .sort((a, b) => a.number - b.number)
+      .map((card) => card.id),
   };
 }

@@ -1,5 +1,8 @@
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { readTurnState } from '../turn-state.js';
 import {
   alice,
+  app,
   bob,
   carol,
   aliceCookie,
@@ -246,6 +249,21 @@ describe('picks', () => {
     await pick(id, ids.Shock, daveCookie).expect(200);
 
     await expect(pickLogLines(id)).rejects.toThrow(dave.id);
+  });
+
+  it('reads the cards picked so far, for a turn, in pick order', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await startedDraft(bobCookie, 2);
+    const ids = Object.values(await poolCardIds(id)).toSorted();
+    const [first, second] = [ids.at(-1), ids[0]];
+    await pick(id, first).expect(200);
+    await pick(id, second, bobCookie).expect(200);
+
+    const state = await app
+      .get(PrismaService)
+      .$transaction((tx) => readTurnState(tx, id));
+
+    expect(state.picked).toEqual([first, second]);
   });
 
   it('is 404 for a draft that does not exist', async () => {
