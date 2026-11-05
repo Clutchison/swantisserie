@@ -15,7 +15,14 @@ export function useTallScreen() {
   });
   afterEach(() => {
     delete (document.documentElement as { clientHeight?: number }).clientHeight;
+    delete (document.documentElement as { scrollTop?: number }).scrollTop;
   });
+}
+
+/** Scrolls the page `top` px down, as a viewer scrolling the grid would; jsdom keeps it at the top otherwise. */
+export function scrollWindowTo(top: number) {
+  Object.defineProperty(document.documentElement, 'scrollTop', { configurable: true, value: top });
+  document.dispatchEvent(new Event('scroll'));
 }
 
 /** Scryfall's image URL for one face of a printing. */

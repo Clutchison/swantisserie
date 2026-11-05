@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
   openDraft,
@@ -17,6 +18,7 @@ import {
 import {
   useTallScreen,
   image,
+  card,
   shivan,
   brightclimb,
   openDetail,
@@ -27,6 +29,7 @@ import {
   largePlaceholder,
   searchBox,
   searchFor,
+  scrollWindowTo,
 } from './pool-tab-harness';
 
 useDraftsApp();
@@ -158,6 +161,25 @@ describe('pool tab', () => {
 
       searchFor(page, 'brightclimb');
       pressEscape();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(searchBox(page));
+    });
+
+    it('goes to the pool search box when the grid has scrolled the card’s tile out of view', async () => {
+      const cards = Array.from({ length: 40 }, (_, i) =>
+        card({ id: `card-${i}`, scryfallId: `id-${i}`, name: `Card ${i}` }),
+      );
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards });
+      tiles(page)[0].focus();
+      await openDetail(fixture, page, 0);
+
+      scrollWindowTo(20_000);
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(tiles(page).some((tile) => tile.textContent?.includes('Card 0'))).toBe(false);
+      });
+      button(openDialog()!, 'Close')!.click();
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(searchBox(page));
