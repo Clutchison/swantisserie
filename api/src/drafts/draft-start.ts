@@ -12,13 +12,19 @@ export type StartableDraft = Pick<
 
 /**
  * Throws StartRefusedError if the draft, with `players` players, can't
- * start: its pool snapshot isn't complete, or a start check fails.
+ * start: its pool snapshot failed or isn't complete, or a start check fails.
  */
 export async function checkCanStart(
   client: Pick<Transaction, 'poolCard'>,
   draft: StartableDraft,
   players: number,
 ): Promise<void> {
+  if (draft.snapshotState === 'Failed') {
+    throw new StartRefusedError({
+      error: 'pool-snapshot-failed',
+      message: 'The pool snapshot failed. Retry it before starting.',
+    });
+  }
   if (draft.snapshotState !== 'Complete') {
     throw new StartRefusedError({
       error: 'pool-not-ready',
