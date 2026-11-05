@@ -144,7 +144,8 @@ describe('create form', () => {
     });
 
     await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-9'));
-    http.expectOne('/api/drafts/draft-9').flush(draft({ id: 'draft-9' }));
+    // The draft page is lazy-loaded, so it may ask for the draft after the URL changes.
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9'))).flush(draft({ id: 'draft-9' }));
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
     // The organizer's control on the draft's page loads them too.
     (await vi.waitFor(() => http.expectOne('/api/webhooks'))).flush([]);

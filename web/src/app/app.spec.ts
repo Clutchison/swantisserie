@@ -1,11 +1,13 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { NavigationStart, provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type { UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
-import { expectLoadingAnimation } from './drafts/specs/harness';
+import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
+import { banner, button, expectLoadingAnimation, expectSignedOut } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
 
@@ -18,7 +20,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
         provideHttpClientTesting(),
       ],
     });
@@ -341,7 +343,7 @@ describe('App', () => {
     logout.flush(null, { status: 204, statusText: 'No Content' });
 
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
-    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+    expect(banner(page)?.textContent ?? '').not.toContain('Alice');
   });
 
   it('signs the user out locally even when the logout request fails', async () => {
@@ -351,13 +353,151 @@ describe('App', () => {
     (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).error(new ProgressEvent('error'));
 
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
-    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+    expect(banner(page)?.textContent ?? '').not.toContain('Alice');
+  });
+
+  it('goes to sign-in once when the logout request finds the session already gone', async () => {
+    const page = await open('/', (req) => req.flush(alice));
+    const toSignIn = countNavigationsToSignIn();
+
+    clickLogOut(page);
+    (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).flush(null, {
+      status: 401,
+      statusText: 'Unauthorized',
+    });
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(toSignIn()).toBe(1);
+  });
+
+  /** Counts the navigations to sign-in from now on. */
+  function countNavigationsToSignIn() {
+    let count = 0;
+    const counting = router.events.subscribe((event) => {
+      if (event instanceof NavigationStart && event.url === '/sign-in') count++;
+    });
+    onTestFinished(() => counting.unsubscribe());
+    return () => count;
+  }
+
+  describe('when the session ends mid-visit', () => {
+    /** Opens the draft list as Alice, leaving its request for the drafts to the test. */
+    async function openDraftList() {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/');
+      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(alice);
+      await navigation;
+      TestBed.tick();
+      const page = fixture.nativeElement as HTMLElement;
+      expect(banner(page)?.textContent).toContain('Alice');
+      return { fixture, page, drafts: http.expectOne('/api/drafts') };
+    }
+
+    it('signs the viewer out and sends them to sign-in when a request is refused as unauthorized', async () => {
+      const { fixture, drafts } = await openDraftList();
+
+      drafts.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+      await expectSignedOut(fixture, { router, http, user: alice });
+    });
+
+    it('goes to sign-in once when several requests are refused together', async () => {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/');
+      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush({
+        ...alice,
+        isAppAdmin: true,
+      });
+      await navigation;
+      TestBed.tick();
+      const toSignIn = countNavigationsToSignIn();
+
+      const unauthorized = { status: 401, statusText: 'Unauthorized' };
+      http.expectOne('/api/drafts').flush(null, unauthorized);
+      http.expectOne('/api/admin/feedback/unreviewed-count').flush(null, unauthorized);
+      for (const req of http.match('/api/admin/app-version')) req.flush(null, unauthorized);
+
+      await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+      await fixture.whenStable();
+      expect(toSignIn()).toBe(1);
+    });
+
+    it('keeps the page’s own error when a request fails for another reason', async () => {
+      const { fixture, page, drafts } = await openDraftList();
+
+      drafts.flush(null, { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/');
+      expect(page.textContent).toContain("Couldn't load the drafts.");
+      expect(banner(page)?.textContent).toContain('Alice');
+    });
   });
 
   it('sends signed-out users on any page to the sign-in page', async () => {
     await open('/drafts/42', (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }));
 
     expect(router.url).toBe('/sign-in');
+  });
+
+  describe('status page', () => {
+    type Answer = (req: ReturnType<HttpTestingController['expectOne']>) => void;
+    const serverError: Answer = (req) =>
+      req.flush(null, { status: 500, statusText: 'Server Error' });
+
+    /** Opens /status with /api/auth/me answered by `me` and /api/health by `health`. */
+    async function openStatus(me: Answer, health: Answer) {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/status');
+      me(await vi.waitFor(() => http.expectOne('/api/auth/me')));
+      await navigation.catch(() => undefined);
+      // Not whenStable() yet: it would wait on the health check we have yet to answer.
+      TestBed.tick();
+      health(await vi.waitFor(() => http.expectOne('/api/health')));
+      answerUnreviewedCount(http);
+      answerAppVersion(http, { commit: sha });
+      await fixture.whenStable();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('says the API is unreachable when it can’t tell who is signed in', async () => {
+      const page = await openStatus(serverError, (req) => req.error(new ProgressEvent('error')));
+
+      expect(router.url).toBe('/status');
+      expect(page.textContent).toContain('API unreachable');
+      expect(page.textContent).not.toContain("Couldn't load this page.");
+    });
+
+    it('says the database is down when the API reports it, even when it can’t tell who is signed in', async () => {
+      const page = await openStatus(serverError, (req) =>
+        req.flush({ api: 'ok', db: 'error' }, { status: 503, statusText: 'Service Unavailable' }),
+      );
+
+      expect(page.textContent).toContain('DB error');
+    });
+
+    it('opens for signed-out visitors, without sending them to sign in', async () => {
+      const page = await openStatus(
+        (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }),
+        (req) => req.flush({ api: 'ok', db: 'ok' }),
+      );
+
+      expect(router.url).toBe('/status');
+      expect(page.textContent).toContain('API ok');
+      expect(page.textContent).toContain('DB ok');
+      expect(logOutButton(page)).toBeUndefined();
+    });
+
+    it('shows signed-in users the header', async () => {
+      const page = await openStatus(
+        (req) => req.flush(alice),
+        (req) => req.flush({ api: 'ok', db: 'ok' }),
+      );
+
+      expect(page.textContent).toContain('API ok');
+      expect(logOutButton(page)).toBeDefined();
+    });
   });
 });
 
@@ -391,9 +531,10 @@ function versionLink(page: HTMLElement) {
   return page.querySelector<HTMLAnchorElement>('header .panel a[href*="/commit/"]');
 }
 
+function logOutButton(page: HTMLElement) {
+  return button(page, 'Log out');
+}
+
 function clickLogOut(page: HTMLElement) {
-  const button = [...page.querySelectorAll('header button')].find((b) =>
-    b.textContent?.includes('Log out'),
-  ) as HTMLButtonElement;
-  button.click();
+  logOutButton(page)!.click();
 }

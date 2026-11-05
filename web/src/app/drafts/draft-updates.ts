@@ -16,7 +16,15 @@ export type DraftUpdate =
    * The socket (re)connected. Changes may have been missed while it was
    * down, e.g. while the server slept, so the draft should be re-read.
    */
-  | { type: 'connected' };
+  | { type: 'connected' }
+  /**
+   * The socket dropped, or its handshake was refused for a reason other than
+   * the session being gone, and it is retrying. Nothing is pushed until the
+   * next `connected`.
+   */
+  | { type: 'disconnected' }
+  /** The API refused the socket because the session has ended. It stops retrying. */
+  | { type: 'unauthorized' };
 
 /** Pushed updates of drafts, over the API's Socket.IO gateway. */
 @Injectable({ providedIn: 'root' })
@@ -32,10 +40,16 @@ export class DraftUpdates {
       socket.on('connect', () => subscriber.next({ type: 'connected' }));
       socket.on('changed', (draft) => subscriber.next({ type: 'changed', draft }));
       socket.on('cancelled', () => subscriber.next({ type: 'cancelled' }));
+      socket.on('disconnect', () => subscriber.next({ type: 'disconnected' }));
       socket.on('connect_error', (err) => {
+        const unauthorized = err.message === 'unauthorized';
+        if (!unauthorized) subscriber.next({ type: 'disconnected' });
         // Socket.IO gives up after a refused handshake. Try again unless the
         // session is gone: a lookup can fail while the server is waking.
-        if (!socket.active && err.message !== 'unauthorized') {
+        if (socket.active) return;
+        if (unauthorized) {
+          subscriber.next({ type: 'unauthorized' });
+        } else {
           retry = setTimeout(() => socket.connect(), RETRY_MS);
         }
       });
