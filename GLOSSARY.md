@@ -220,6 +220,22 @@ _Avoid_: Maybe, wishlist card, placeholder, proxy
 A Plains, Island, Swamp, Mountain, Forest or Wastes in a player's plan, added by count. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked, and it is always on the mainboard. A snow-covered basic is not one: it can be a pool card.
 _Avoid_: Land (alone; a pool card can be a land), free land
 
+**Basic land printing**:
+The printing whose art a basic land shows, wherever it appears in a plan. Every copy of a basic land in a plan shows the same one. It changes only how the land looks, never an export.
+_Avoid_: Basic land art, land skin
+
+**Preferred printing**:
+The basic land printing a player chose for one basic land. It applies to their plans in every draft, whatever the platform. Without one, a basic land shows its default printing.
+_Avoid_: Land preference, favourite art
+
+**Default printing**:
+The basic land printing a basic land shows to a player with no preferred printing for it. It is the same for everyone.
+_Avoid_: Stock art
+
+**Printing picker**:
+The view that opens from a basic land in a player's plan, where they browse its printings set by set and choose their preferred printing, or go back to the default printing.
+_Avoid_: Art picker, Card detail (that is a pool card's)
+
 **Plan board**:
 Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.
 _Avoid_: Board (alone; that is the Board tab), zone, section
