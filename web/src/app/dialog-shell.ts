@@ -46,7 +46,7 @@ export interface DialogShellConfig<R = unknown> {
 const PLACED_BY_CSS: PositionStrategy = { attach() {}, apply() {}, dispose() {} };
 
 /**
- * Opens every dialog in the app, as a modal over the page: a backdrop
+ * Opens every dialog in the app as a modal dialog over the page: a backdrop
  * behind it, focus moved into it and kept there, the page behind hidden
  * from assistive technology, and focus put back once it closes.
  *

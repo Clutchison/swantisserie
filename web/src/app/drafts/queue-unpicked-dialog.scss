@@ -1,5 +1,5 @@
 /* The dialog's box: its heading, how many cards it adds and whether the sideboard's are in, then its actions. */
-.modal {
+.dialog {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);

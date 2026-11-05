@@ -17,7 +17,7 @@ import { MAX_FEEDBACK_LENGTH, type FeedbackRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 /**
- * The modal a signed-in guild member sends feedback to the app admins from,
+ * The dialog a signed-in guild member sends feedback to the app admins from,
  * opened on the dialog shell. It opens on its field.
  */
 @Component({
@@ -60,7 +60,7 @@ export class FeedbackDialog {
     this.status.set('Sending');
     try {
       await firstValueFrom(
-        // Closing the modal discards the feedback, even mid-send.
+        // Closing the dialog discards the feedback, even mid-send.
         this.http
           .post('/api/feedback', {
             message: this.message(),
