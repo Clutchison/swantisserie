@@ -80,6 +80,8 @@ export class DraftPage {
   protected readonly failed = computed(() => !!this.resource.error());
   protected readonly retrying = signal(false);
   protected readonly retryFailed = signal(false);
+  /** Whether the draft socket is down, so pushed changes may be missed. */
+  protected readonly reconnecting = signal(false);
 
   /** The organizer, or an app admin: they may retry a failed snapshot, change seats and start. */
   protected readonly canOrganize = computed(() => {
@@ -224,7 +226,10 @@ export class DraftPage {
           this.showDraft(event.draft);
         } else if (event.type === 'cancelled') {
           void this.leaveCancelled();
-        } else {
+        } else if (event.type === 'disconnected') {
+          this.reconnecting.set(true);
+        } else if (event.type === 'connected') {
+          this.reconnecting.set(false);
           this.catchUp();
         }
       });
