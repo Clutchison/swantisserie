@@ -306,6 +306,16 @@ const COLOR_NAMES: Record<string, string> = {
   sultai: 'bgu',
   mardu: 'rwb',
   temur: 'gur',
+  silverquill: 'wb',
+  prismari: 'ur',
+  witherbloom: 'bg',
+  lorehold: 'rw',
+  quandrix: 'gu',
+  chaos: 'ubrg',
+  aggression: 'wbrg',
+  altruism: 'wurg',
+  growth: 'wubg',
+  artifice: 'wubr',
 };
 
 /**
@@ -335,7 +345,7 @@ function colorTerm(field: 'colors' | 'identity'): (term: Term) => Matcher {
     if (!/^[wubrg]*$/.test(letters)) {
       throw new SearchError(
         'parse-error',
-        `${keyword}: takes colors like wu, a color or guild name, or a number.`,
+        `${keyword}: takes colors like wu, a color, guild or college name, or a number.`,
       );
     }
     const wanted = colorCounts(letters.split(''));

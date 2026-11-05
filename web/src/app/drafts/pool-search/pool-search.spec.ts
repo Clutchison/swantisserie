@@ -52,6 +52,8 @@ describe('pool search', () => {
     't<giant',
     'c:purple',
     'id>=m',
+    'id:glint',
+    'c:sansgreen',
     'm:{Q}',
     'm:2W/',
     'mv>big',
