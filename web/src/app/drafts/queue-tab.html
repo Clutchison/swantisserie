@@ -50,11 +50,16 @@
     }
   </div>
 }
+@let left = picksLeft();
+@if (left !== null) {
+  <p class="detail">{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</p>
+}
 @if (draftState() === 'Closed') {
   <p class="detail">Cards are picked for you in this order if the draft reopens.</p>
 } @else if (!readOnly()) {
   <p class="detail">Cards are picked for you in this order. Drag to reorder.</p>
 }
+@let cutoffAt = cutoff();
 <ol
   class="queue card-rows"
   aria-label="Your queue"
@@ -67,7 +72,15 @@
     track card.poolCardId;
     let i = $index, first = $first, last = $last
   ) {
+    @if (i === cutoffAt) {
+      <li
+        class="cutoff"
+        role="separator"
+        aria-label="Queue cutoff: cards after this are past your picks left"
+      ></li>
+    }
     <li
+      [class.past-cutoff]="cutoffAt !== null && i >= cutoffAt"
       cdkDrag
       [cdkDragData]="card.poolCardId"
       cdkDragLockAxis="y"

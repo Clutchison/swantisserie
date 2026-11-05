@@ -1,6 +1,6 @@
 import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import { By } from '@angular/platform-browser';
-import type { QueueRefusal, QueueView } from 'contract';
+import type { PickView, QueueRefusal, QueueView } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -24,6 +24,11 @@ import {
   queued,
   queueOf,
   statusMessage,
+  alicePlayer,
+  pickOf,
+  flushQueueAndPlan,
+  queueList,
+  accessibleName,
   type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
@@ -460,6 +465,152 @@ describe('queue tab', () => {
       await vi.waitFor(() =>
         expect(document.activeElement).toBe(button(queue, 'Remove Shivan Dragon')),
       );
+    });
+  });
+
+  describe('picks left and the queue cutoff', () => {
+    const CUTOFF = 'Queue cutoff: cards after this are past your picks left';
+
+    /** The Queue tab's rows in order: each queued card's name, and the cutoff's accessible name. */
+    const rows = (queue: HTMLElement) =>
+      [...queueList(queue).children].map((row) =>
+        row.getAttribute('role') === 'separator'
+          ? accessibleName(row)
+          : row.querySelector('.name')?.textContent,
+      );
+
+    it('draws the queue cutoff after the last card the picks left reach', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 3 }), {
+        cards: [bolt, shivan, brightclimb],
+        picks: [pickOf({ poolCardId: 'a' })],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] }),
+      });
+
+      const queue = await openQueue(fixture, page);
+      expect(rows(queue)).toEqual([
+        'Lightning Bolt',
+        'Shivan Dragon',
+        CUTOFF,
+        'Brightclimb Pathway // Grimclimb Pathway',
+      ]);
+    });
+
+    it('draws no queue cutoff when the queue fits in the picks left', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 2 }), {
+        cards: [bolt, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      });
+
+      const queue = await openQueue(fixture, page);
+      expect(rows(queue)).toEqual(['Lightning Bolt', 'Shivan Dragon']);
+    });
+
+    it('keeps the cutoff in place as cards move across it, which can still be moved and removed', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }), {
+        cards: [bolt, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      });
+      const queue = await openQueue(fixture, page);
+      expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+
+      button(queue, 'Move Shivan Dragon up').click();
+      await fixture.whenStable();
+      expect(rows(queue)).toEqual(['Shivan Dragon', CUTOFF, 'Lightning Bolt']);
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
+      await fixture.whenStable();
+
+      expect(rows(queue)).toEqual(['Shivan Dragon', CUTOFF, 'Lightning Bolt']);
+      // Removable once the move has settled, though past the cutoff.
+      await vi.waitFor(() =>
+        expect(button(queue, 'Remove Lightning Bolt').getAttribute('aria-disabled')).toBeNull(),
+      );
+      button(queue, 'Remove Lightning Bolt').click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue/bolt-card'))).flush(
+        queueOf({ cards: [queued(shivan)] }),
+      );
+      await fixture.whenStable();
+      expect(rows(queue)).toEqual(['Shivan Dragon']);
+    });
+
+    it.each(['Lobby', 'Paused', 'Closed'] as const)(
+      'shows the picks left and the cutoff while the draft is %s',
+      async (state) => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          drafting({ state, picksPerPlayer: 1, turn: state === 'Paused' ? undefined : null }),
+          { cards: [bolt, shivan], queue: queueOf({ cards: [queued(bolt), queued(shivan)] }) },
+        );
+
+        const queue = await openQueue(fixture, page);
+        expect(queue.textContent).toContain('1 pick left');
+        expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+      },
+    );
+
+    it('shows neither the picks left nor the cutoff once the draft is complete', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Complete', picksPerPlayer: 1, turn: null }),
+        { cards: [bolt, shivan], queue: queueOf({ cards: [queued(bolt), queued(shivan)] }) },
+      );
+
+      const queue = await openQueue(fixture, page);
+      expect(queue.textContent).not.toContain('left');
+      expect(rows(queue)).toEqual(['Lightning Bolt', 'Shivan Dragon']);
+    });
+
+    it('shows the viewer’s picks left, less the picks they have made, even with the queue empty', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ picksPerPlayer: 12 }),
+        {
+          picks: [
+            pickOf({ pick: 1, playerId: alicePlayer.id, poolCardId: 'a' }),
+            pickOf({ pick: 2, playerId: bob.id, poolCardId: 'b' }),
+            pickOf({ pick: 3, playerId: bob.id, poolCardId: 'c' }),
+            pickOf({ pick: 4, playerId: alicePlayer.id, poolCardId: 'd' }),
+          ],
+        },
+      );
+
+      const queue = await openQueue(fixture, page);
+      expect(queue.textContent).toContain('10 picks left');
+      expect(queue.textContent).toContain('Your queue is empty');
+    });
+
+    it('counts down as the viewer picks, and back up when an undo takes one back', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }));
+      const queue = await openQueue(fixture, page);
+      expect(queue.textContent).toContain('12 picks left');
+
+      /** A new draft version, with the pick log re-read as `picks`. */
+      const changed = async (version: number, picks: PickView[]) => {
+        updates.events.next({
+          type: 'changed',
+          draft: draft(drafting({ picksPerPlayer: 12, version })),
+        });
+        await flushPicks(picks);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+      };
+      await changed(1, [pickOf({ poolCardId: 'a' })]);
+      expect(queue.textContent).toContain('11 picks left');
+
+      await changed(2, []);
+      expect(queue.textContent).toContain('12 picks left');
+    });
+
+    it('shows picks per player as the picks left in the lobby', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        state: 'Lobby',
+        players: [alicePlayer, bob],
+        picksPerPlayer: 12,
+      });
+
+      const queue = await openQueue(fixture, page);
+      expect(queue.textContent).toContain('12 picks left');
     });
   });
 });

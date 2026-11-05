@@ -38,6 +38,19 @@
   .empty {
     color: var(--color-muted);
   }
+
+  /* The queue cutoff: a line in the accent colour, not a row of its own. */
+  li.cutoff {
+    display: block;
+    height: 0;
+    padding: 0;
+    border-top: 2px solid var(--color-accent);
+  }
+
+  /* Dimmed, but still dragged, moved and removed as any queued card. */
+  li.past-cutoff {
+    opacity: 0.5;
+  }
 }
 
 /* Finger-sized, and a long press on it starts no text selection or callout. */
