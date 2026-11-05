@@ -63,7 +63,8 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
 export class DraftPage {
   private readonly http = inject(HttpClient);
   private readonly pollMs = inject(DRAFT_POLL_MS);
-  private readonly user = inject(Auth).user;
+  private readonly auth = inject(Auth);
+  private readonly user = this.auth.user;
   private readonly updates = inject(DraftUpdates);
   private readonly router = inject(Router);
 
@@ -80,6 +81,8 @@ export class DraftPage {
   protected readonly failed = computed(() => !!this.resource.error());
   protected readonly retrying = signal(false);
   protected readonly retryFailed = signal(false);
+  /** Whether the draft socket is down, so pushed changes may be missed. */
+  protected readonly reconnecting = signal(false);
 
   /** The organizer, or an app admin: they may retry a failed snapshot, change seats and start. */
   protected readonly canOrganize = computed(() => {
@@ -220,12 +223,29 @@ export class DraftPage {
     // but before the socket joined the draft's room would otherwise be lost.
     effect((onCleanup) => {
       const watching = this.updates.watch(this.id()).subscribe((event) => {
-        if (event.type === 'changed') {
-          this.showDraft(event.draft);
-        } else if (event.type === 'cancelled') {
-          void this.leaveCancelled();
-        } else {
-          this.catchUp();
+        switch (event.type) {
+          case 'changed':
+            this.showDraft(event.draft);
+            break;
+          case 'cancelled':
+            void this.leaveCancelled();
+            break;
+          case 'disconnected':
+            this.reconnecting.set(true);
+            break;
+          case 'connected':
+            this.reconnecting.set(false);
+            this.catchUp();
+            break;
+          case 'unauthorized':
+            // It won't reconnect: sign-in replaces the page.
+            this.reconnecting.set(false);
+            void this.auth.signedOut();
+            break;
+          default: {
+            const unhandled: never = event;
+            throw new Error(`Unhandled draft update: ${JSON.stringify(unhandled)}`);
+          }
         }
       });
       onCleanup(() => watching.unsubscribe());

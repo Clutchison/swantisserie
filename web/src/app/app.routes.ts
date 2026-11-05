@@ -1,12 +1,18 @@
 import { Routes } from '@angular/router';
-import { appAdmin, SIGN_IN_PATH, signedIn } from './auth/auth';
+import { appAdmin, knownUser, SIGN_IN_PATH, signedIn } from './auth/auth';
 import { SignInPage } from './auth/sign-in-page';
 import { DraftListPage } from './drafts/draft-list-page';
 
 export const routes: Routes = [
   { path: SIGN_IN_PATH, component: SignInPage },
   {
-    // Every page but sign-in goes in here, so it is guarded by default.
+    // Open to anyone, even when the API is down: it's where to look when the app seems down.
+    path: 'status',
+    loadComponent: () => import('./status/status-page').then((m) => m.StatusPage),
+    canActivate: [knownUser],
+  },
+  {
+    // Every page but sign-in and status goes in here, so it is guarded by default.
     path: '',
     canActivateChild: [signedIn],
     children: [
@@ -28,10 +34,6 @@ export const routes: Routes = [
         path: 'admin/feedback',
         loadComponent: () => import('./feedback/feedback-page').then((m) => m.FeedbackPage),
         canActivate: [appAdmin],
-      },
-      {
-        path: 'status',
-        loadComponent: () => import('./status/status-page').then((m) => m.StatusPage),
       },
     ],
   },

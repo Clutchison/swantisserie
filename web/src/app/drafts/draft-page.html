@@ -13,6 +13,9 @@
       <span class="state">{{ draft.state }}</span>
       <span class="detail">Organized by {{ draft.organizer.name }}</span>
     </p>
+    @if (reconnecting()) {
+      <p role="status">Reconnecting…</p>
+    }
 
     <section class="players">
       <h2>Players</h2>

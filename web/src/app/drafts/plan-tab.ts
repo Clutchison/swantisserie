@@ -242,7 +242,7 @@ export class PlanTab {
   protected readonly basics = computed(() =>
     BASIC_LANDS.map((land) => ({
       land,
-      count: this.plan().basics.find((basic) => basic.land === land)?.count ?? 0,
+      count: this.heldBasic(land),
       symbol: manaSymbol(BASIC_SYMBOLS[land]).src,
     })),
   );
@@ -361,9 +361,9 @@ export class PlanTab {
   /**
    * A number typed for a basic land: the plan holds that many, rounded down
    * and kept within 0 to MOST_BASICS. Anything that isn't a number is put
-   * back to the count the plan holds.
+   * back to the count the plan holds, as is a count the api refuses.
    */
-  protected typedBasic(land: BasicLand, held: number, input: HTMLInputElement) {
+  protected async typedBasic(land: BasicLand, held: number, input: HTMLInputElement) {
     const typed = input.value.trim() === '' ? NaN : Number(input.value);
     if (Number.isNaN(typed)) {
       input.value = String(held);
@@ -372,7 +372,14 @@ export class PlanTab {
     const count = Math.min(Math.max(Math.floor(typed), 0), MOST_BASICS);
     // The binding only writes the input when the count changes, as it may not.
     input.value = String(count);
-    return count === held ? undefined : this.setBasic(land, count);
+    if (count === held || (await this.setBasic(land, count))) return;
+    // Undo the early write: the binding writes the input only if the re-read plan's count differs.
+    input.value = String(this.heldBasic(land));
+  }
+
+  /** How many copies of `land` the plan holds. */
+  private heldBasic(land: BasicLand) {
+    return this.plan().basics.find((basic) => basic.land === land)?.count ?? 0;
   }
 
   /** Takes every basic land out of the plan. */
@@ -443,16 +450,18 @@ export class PlanTab {
   /**
    * Sends a change to the plan and shows the plan it answers with. A
    * refused change means the plan has moved on, e.g. a card was lost: say
-   * why, and re-read it.
+   * why, and re-read it. Answers whether the change was made.
    */
-  private async change(request: Observable<PlanView>) {
+  private async change(request: Observable<PlanView>): Promise<boolean> {
     this.changing.set(true);
     this.error.set(null);
     try {
       this.planChanged.emit(await firstValueFrom(request));
+      return true;
     } catch (err) {
       this.error.set(changeFailure(err, CHANGE_FAILED));
       this.planStale.emit();
+      return false;
     } finally {
       this.changing.set(false);
     }
