@@ -6,6 +6,9 @@ import { firstValueFrom } from 'rxjs';
 
 export const SIGN_IN_PATH = 'sign-in';
 
+/** Where the API says who is signed in. */
+export const CURRENT_USER_URL = '/api/auth/me';
+
 /** The signed-in Discord user, as reported by the API's session cookie. */
 @Injectable({ providedIn: 'root' })
 export class Auth {
@@ -14,12 +17,14 @@ export class Auth {
 
   /** undefined until first checked; null when signed out. */
   readonly user = signal<UserView | null | undefined>(undefined);
+  /** Set once this tab starts signing out; signing back in reloads the app. */
+  private signingOut?: Promise<void>;
 
   async currentUser(): Promise<UserView | null> {
     const known = this.user();
     if (known !== undefined) return known;
     try {
-      this.user.set(await firstValueFrom(this.http.get<UserView>('/api/auth/me')));
+      this.user.set(await firstValueFrom(this.http.get<UserView>(CURRENT_USER_URL)));
     } catch (err) {
       if (!(err instanceof HttpErrorResponse && err.status === 401)) throw err;
       this.user.set(null);
@@ -40,9 +45,15 @@ export class Auth {
   /**
    * Signs the viewer out of this tab once the API has ended their session,
    * sending them to the sign-in page. The session is already gone, so the
-   * API isn't told.
+   * API isn't told. Only the first call does anything, so a logout refused
+   * as unauthorized, or several refusals at once, leave just once.
    */
-  async signedOut(): Promise<void> {
+  signedOut(): Promise<void> {
+    this.signingOut ??= this.leave();
+    return this.signingOut;
+  }
+
+  private async leave(): Promise<void> {
     this.user.set(null);
     await this.router.navigate([SIGN_IN_PATH]);
   }

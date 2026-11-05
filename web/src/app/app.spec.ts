@@ -1,12 +1,13 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { NavigationStart, provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type { UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
-import { signOutWhenSessionEnds } from './auth/signed-out-interceptor';
-import { expectLoadingAnimation } from './drafts/specs/harness';
+import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
+import { banner, button, expectLoadingAnimation, expectSignedOut } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
 
@@ -342,7 +343,7 @@ describe('App', () => {
     logout.flush(null, { status: 204, statusText: 'No Content' });
 
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
-    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+    expect(banner(page)?.textContent ?? '').not.toContain('Alice');
   });
 
   it('signs the user out locally even when the logout request fails', async () => {
@@ -352,8 +353,33 @@ describe('App', () => {
     (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).error(new ProgressEvent('error'));
 
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
-    expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
+    expect(banner(page)?.textContent ?? '').not.toContain('Alice');
   });
+
+  it('goes to sign-in once when the logout request finds the session already gone', async () => {
+    const page = await open('/', (req) => req.flush(alice));
+    const toSignIn = countNavigationsToSignIn();
+
+    clickLogOut(page);
+    (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).flush(null, {
+      status: 401,
+      statusText: 'Unauthorized',
+    });
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(toSignIn()).toBe(1);
+  });
+
+  /** Counts the navigations to sign-in from now on. */
+  function countNavigationsToSignIn() {
+    let count = 0;
+    const counting = router.events.subscribe((event) => {
+      if (event instanceof NavigationStart && event.url === '/sign-in') count++;
+    });
+    onTestFinished(() => counting.unsubscribe());
+    return () => count;
+  }
 
   describe('when the session ends mid-visit', () => {
     /** Opens the draft list as Alice, leaving its request for the drafts to the test. */
@@ -364,21 +390,37 @@ describe('App', () => {
       await navigation;
       TestBed.tick();
       const page = fixture.nativeElement as HTMLElement;
-      expect(page.querySelector('header')?.textContent).toContain('Alice');
+      expect(banner(page)?.textContent).toContain('Alice');
       return { fixture, page, drafts: http.expectOne('/api/drafts') };
     }
 
     it('signs the viewer out and sends them to sign-in when a request is refused as unauthorized', async () => {
-      const { fixture, page, drafts } = await openDraftList();
+      const { fixture, drafts } = await openDraftList();
 
       drafts.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+      await expectSignedOut(fixture, { router, http, user: alice });
+    });
+
+    it('goes to sign-in once when several requests are refused together', async () => {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/');
+      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush({
+        ...alice,
+        isAppAdmin: true,
+      });
+      await navigation;
+      TestBed.tick();
+      const toSignIn = countNavigationsToSignIn();
+
+      const unauthorized = { status: 401, statusText: 'Unauthorized' };
+      http.expectOne('/api/drafts').flush(null, unauthorized);
+      http.expectOne('/api/admin/feedback/unreviewed-count').flush(null, unauthorized);
+      for (const req of http.match('/api/admin/app-version')) req.flush(null, unauthorized);
+
       await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
       await fixture.whenStable();
-
-      expect(page.textContent).toContain('Sign in with Discord');
-      expect(page.querySelector('header')?.textContent ?? '').not.toContain('Alice');
-      // The session is already gone: there's nothing to log out of.
-      http.expectNone('/api/auth/logout');
+      expect(toSignIn()).toBe(1);
     });
 
     it('keeps the page’s own error when a request fails for another reason', async () => {
@@ -389,7 +431,7 @@ describe('App', () => {
 
       expect(router.url).toBe('/');
       expect(page.textContent).toContain("Couldn't load the drafts.");
-      expect(page.querySelector('header')?.textContent).toContain('Alice');
+      expect(banner(page)?.textContent).toContain('Alice');
     });
   });
 
@@ -490,9 +532,7 @@ function versionLink(page: HTMLElement) {
 }
 
 function logOutButton(page: HTMLElement) {
-  return [...page.querySelectorAll<HTMLButtonElement>('button')].find(
-    (b) => b.textContent?.trim() === 'Log out',
-  );
+  return button(page, 'Log out');
 }
 
 function clickLogOut(page: HTMLElement) {

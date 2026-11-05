@@ -223,17 +223,29 @@ export class DraftPage {
     // but before the socket joined the draft's room would otherwise be lost.
     effect((onCleanup) => {
       const watching = this.updates.watch(this.id()).subscribe((event) => {
-        if (event.type === 'changed') {
-          this.showDraft(event.draft);
-        } else if (event.type === 'cancelled') {
-          void this.leaveCancelled();
-        } else if (event.type === 'disconnected') {
-          this.reconnecting.set(true);
-        } else if (event.type === 'connected') {
-          this.reconnecting.set(false);
-          this.catchUp();
-        } else if (event.type === 'unauthorized') {
-          void this.auth.signedOut();
+        switch (event.type) {
+          case 'changed':
+            this.showDraft(event.draft);
+            break;
+          case 'cancelled':
+            void this.leaveCancelled();
+            break;
+          case 'disconnected':
+            this.reconnecting.set(true);
+            break;
+          case 'connected':
+            this.reconnecting.set(false);
+            this.catchUp();
+            break;
+          case 'unauthorized':
+            // It won't reconnect: sign-in replaces the page.
+            this.reconnecting.set(false);
+            void this.auth.signedOut();
+            break;
+          default: {
+            const unhandled: never = event;
+            throw new Error(`Unhandled draft update: ${JSON.stringify(unhandled)}`);
+          }
         }
       });
       onCleanup(() => watching.unsubscribe());

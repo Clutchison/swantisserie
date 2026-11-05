@@ -2,7 +2,7 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
-import { signOutWhenSessionEnds } from './auth/signed-out-interceptor';
+import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
 
 export const appConfig: ApplicationConfig = {
   providers: [
