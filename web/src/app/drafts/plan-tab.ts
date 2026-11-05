@@ -350,12 +350,12 @@ export class PlanTab {
 
   /** Moves one copy of a pool card to `planBoard`, and shows the plan as it then is. A basic land never moves. */
   protected move(poolCardId: string, planBoard: PlanBoard) {
-    return this.change(this.planApi.move(this.draftId(), poolCardId, planBoard));
+    return this.tryChange(this.planApi.move(this.draftId(), poolCardId, planBoard));
   }
 
   /** Sets how many copies of a basic land the plan holds. */
   protected setBasic(land: BasicLand, count: number) {
-    return this.change(this.planApi.setBasic(this.draftId(), land, count));
+    return this.tryChange(this.planApi.setBasic(this.draftId(), land, count));
   }
 
   /**
@@ -373,7 +373,7 @@ export class PlanTab {
     // The binding only writes the input when the count changes, as it may not.
     input.value = String(count);
     if (count === held || (await this.setBasic(land, count))) return;
-    // Undo the early write: the binding writes the input only if the re-read plan's count differs.
+    // Put back the early write: the binding writes the input only if the re-read plan's count differs.
     input.value = String(this.heldBasic(land));
   }
 
@@ -384,17 +384,17 @@ export class PlanTab {
 
   /** Takes every basic land out of the plan. */
   protected clearBasics() {
-    return this.change(this.planApi.clearBasics(this.draftId()));
+    return this.tryChange(this.planApi.clearBasics(this.draftId()));
   }
 
   /** Takes one unpicked copy of a card out of the plan. */
   protected remove(poolCardId: string) {
-    return this.change(this.planApi.remove(this.draftId(), poolCardId));
+    return this.tryChange(this.planApi.remove(this.draftId(), poolCardId));
   }
 
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
-    return this.change(this.planApi.dismissNotice(this.draftId()));
+    return this.tryChange(this.planApi.dismissNotice(this.draftId()));
   }
 
   protected backdropPressed(event: MouseEvent) {
@@ -452,7 +452,7 @@ export class PlanTab {
    * refused change means the plan has moved on, e.g. a card was lost: say
    * why, and re-read it. Answers whether the change was made.
    */
-  private async change(request: Observable<PlanView>): Promise<boolean> {
+  private async tryChange(request: Observable<PlanView>): Promise<boolean> {
     this.changing.set(true);
     this.error.set(null);
     try {
