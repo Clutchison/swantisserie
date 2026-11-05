@@ -13,15 +13,17 @@ const WAIT_FOR_TIMEOUT_MS = 10_000;
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 // Spec files share a module scope (the suite isn't isolated), so wrap only once.
-const marker = Symbol.for('swantisserie.waitForDefault');
-type WaitFor = typeof vi.waitFor & { [marker]?: true };
-if (!(vi.waitFor as WaitFor)[marker]) {
-  const original = vi.waitFor.bind(vi);
+const wrappedFlag = Symbol.for('swantisserie.waitForDefault');
+type WaitFor = typeof vi.waitFor & { [wrappedFlag]?: true };
+if (!(vi.waitFor as WaitFor)[wrappedFlag]) {
+  const originalWaitFor = vi.waitFor.bind(vi);
   const waitFor: WaitFor = ((callback, options) =>
-    original(
+    originalWaitFor(
       callback,
-      typeof options === 'number' ? options : { timeout: WAIT_FOR_TIMEOUT_MS, ...options },
+      typeof options === 'number'
+        ? options
+        : { ...options, timeout: options?.timeout ?? WAIT_FOR_TIMEOUT_MS },
     )) as WaitFor;
-  waitFor[marker] = true;
+  waitFor[wrappedFlag] = true;
   vi.waitFor = waitFor;
 }
