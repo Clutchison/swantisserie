@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PlanView, PoolCardView } from 'contract';
+import type { PickedCard } from '../draft-store';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -20,6 +21,7 @@ import {
   type DraftFixture,
   pickOf,
   poolCardOf,
+  namedList,
 } from './harness';
 
 useDraftsApp();
@@ -29,12 +31,6 @@ const rowText = (li: Element) =>
   [...li.querySelectorAll(':scope > span, :scope > app-card-name')].map((cell) =>
     cell.textContent?.trim(),
   );
-
-/** A pick, and the pool card it picked, which names it. */
-interface Picked {
-  pick: PickView;
-  card: PoolCardView;
-}
 
 /**
  * A pick of `name` by `playerId`: of a normal card printed as IMA 1, unless
@@ -46,18 +42,19 @@ const imaPick = (
   poolCardId: string,
   name: string,
   fields: Partial<PoolCardView> = {},
-): Picked => ({
-  pick: pickOf({ pick, playerId, poolCardId }),
+): PickedCard => ({
+  ...pickOf({ pick, playerId, poolCardId }),
   card: poolCardOf(poolCardId, name, { id: poolCardId, ...fields }),
 });
 
 /** The pool cards `picked` picked, to answer the pool with. */
-const cardsOf = (picked: Picked[]) => picked.map(({ card }) => card);
+const cardsOf = (picked: PickedCard[]) => picked.map(({ card }) => card);
 /** The picks of `picked`, to answer the pick log with. */
-const picksOf = (picked: Picked[]) => picked.map(({ pick }) => pick);
+const picksOf = (picked: PickedCard[]): PickView[] =>
+  picked.map(({ pick, playerId, poolCardId }) => ({ pick, playerId, poolCardId }));
 
 describe('export tab', () => {
-  const picks: Picked[] = [
+  const picks: PickedCard[] = [
     imaPick(1, bob.id, 'shock-card', 'Shock'),
     imaPick(2, alice.id, 'bolt-card', 'Lightning Bolt'),
     imaPick(3, alice.id, 'spike-card', 'Lava Spike'),
@@ -65,7 +62,7 @@ describe('export tab', () => {
 
   /** Opens the draft, Bob then Alice, on the Export tab. */
   async function openExport(
-    picked: Picked[],
+    picked: PickedCard[],
     fields: DraftFixture = {},
     options: Parameters<typeof openDraft>[2] = {},
   ) {
@@ -86,7 +83,7 @@ describe('export tab', () => {
 
   /** The Export tab's picks: pick number and card. */
   const shownPicks = (root: HTMLElement) =>
-    [...panel(root).querySelectorAll('.picks li')].map((li) => rowText(li));
+    [...namedList(panel(root), 'Your picks').querySelectorAll('li')].map((li) => rowText(li));
 
   it('lists only your picks, in pick order, under the Export tab', async () => {
     const { page } = await openExport(picks);
@@ -252,7 +249,7 @@ describe('export tab', () => {
     });
 
     describe('with every pick on the mainboard', () => {
-      const multiFace: Picked[] = [
+      const multiFace: PickedCard[] = [
         imaPick(2, alice.id, 'shock-card', 'Shock', { set: 'm21', collectorNumber: '159' }),
         imaPick(4, alice.id, 'giant-card', 'Bonecrusher Giant // Stomp', {
           layout: 'adventure',
@@ -296,7 +293,7 @@ describe('export tab', () => {
     });
 
     describe('from your plan', () => {
-      const yourPicks: Picked[] = [
+      const yourPicks: PickedCard[] = [
         imaPick(1, alice.id, 'shock-card', 'Shock'),
         imaPick(2, bob.id, 'spike-card', 'Lava Spike'),
         imaPick(3, alice.id, 'bolt-card', 'Lightning Bolt'),

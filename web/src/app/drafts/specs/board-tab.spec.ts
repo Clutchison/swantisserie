@@ -16,6 +16,7 @@ import {
   type DraftFixture,
   pickOf,
   poolCardOf,
+  namedList,
   updates,
   flushQueueAndPlan,
 } from './harness';
@@ -68,7 +69,7 @@ describe('board tab', () => {
     return opened;
   }
 
-  const pickLog = (root: HTMLElement) => panel(root).querySelector<HTMLElement>('.log')!;
+  const pickLog = (root: HTMLElement) => namedList(panel(root), 'Pick log');
 
   /** Opens the Board tab with the GETs of the pool and the picks left for the test to answer. */
   async function openBoardUnanswered(players = [bob]) {
@@ -263,7 +264,7 @@ describe('board tab', () => {
       ['2', 'Alice', 'Lightning Bolt'],
       ['3', 'Alice', 'Lightning Bolt'],
     ]);
-    const alicePicks = panel(page).querySelectorAll('.player-picks section')[1]!;
+    const alicePicks = namedList(panel(page), 'Alice’s picks');
     expect([...alicePicks.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
       'Lightning Bolt',
       'Lightning Bolt',

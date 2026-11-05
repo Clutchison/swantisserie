@@ -24,10 +24,15 @@ import {
   pointer,
   tap,
   pickOf,
+  poolCardOf,
+  faceImages,
   queueOf,
   queued,
   flushQueueAndPlan,
   accessibleName,
+  cardName,
+  cardNames,
+  namedList,
   type AppFixture,
 } from './harness';
 import { image, openDetail } from './pool-tab-harness';
@@ -36,34 +41,8 @@ import { openDialog, pressKey } from '../../specs-harness';
 useDraftsApp();
 
 describe('card previews', () => {
-  const poolCard = (id: string, name: string, faces = ['front']): PoolCardView => ({
-    id: `${id}-card`,
-    scryfallId: `${id}-id`,
-    name,
-    set: 'ima',
-    collectorNumber: '1',
-    typeLine: 'Instant',
-    colors: ['R'],
-    manaValue: 1,
-    manaCost: '{R}',
-    oracleText: null,
-    colorIdentity: ['R'],
-    keywords: [],
-    rarity: 'common',
-    layout: 'normal',
-    power: null,
-    toughness: null,
-    loyalty: null,
-    defense: null,
-    faces: [],
-    images: faces.map((face) => ({
-      small: image('small', `${id}-id`, face),
-      normal: image('normal', `${id}-id`, face),
-      large: image('large', `${id}-id`, face),
-    })),
-  });
-  const bolt = poolCard('bolt', 'Lightning Bolt');
-  const shock = poolCard('shock', 'Shock');
+  const bolt = poolCardOf('bolt', 'Lightning Bolt');
+  const shock = poolCardOf('shock', 'Shock');
   const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView =>
     pickOf({
       pick: number,
@@ -138,23 +117,13 @@ describe('card previews', () => {
     tabButton(page, 'Queue').click();
     await vi.waitFor(() => {
       TestBed.tick();
-      expect(cardName(page, 'Lightning Bolt')).toBeDefined();
+      expect(cardName(panel(page), 'Lightning Bolt')).toBeDefined();
     });
     return { fixture, page, request };
   }
 
   afterEach(() => vi.useRealTimers());
 
-  /** A card name in the open tab, by its text. */
-  const cardName = (page: HTMLElement, name: string) =>
-    [...panel(page).querySelectorAll<HTMLElement>('app-card-name .name')].find(
-      (span) => span.textContent?.trim() === name,
-    )!;
-  /** A card name in the Board's pick lists, by its text. */
-  const boardName = (page: HTMLElement, name: string) =>
-    [...page.querySelectorAll<HTMLElement>('.player-picks li span')].find(
-      (span) => span.textContent?.trim() === name,
-    )!;
   /** The symbols of the cost before `name`, by their alt text, or the text of one with no SVG. */
   const costBefore = (name: HTMLElement) =>
     [...(name.closest('app-card-name')?.querySelectorAll('.cost > *') ?? [])].map((symbol) =>
@@ -192,7 +161,7 @@ describe('card previews', () => {
   it('opens on the card’s normal front image after hovering a name for about 150ms', async () => {
     const { page } = await openBoard();
 
-    hover(boardName(page, 'Lightning Bolt'));
+    hover(cardName(panel(page), 'Lightning Bolt'));
     wait(149);
     expect(previewImage()).toBeNull();
     wait(1);
@@ -203,7 +172,7 @@ describe('card previews', () => {
 
   it('closes as soon as the mouse leaves the name', async () => {
     const { page } = await openBoard();
-    const name = boardName(page, 'Lightning Bolt');
+    const name = cardName(panel(page), 'Lightning Bolt');
 
     hover(name);
     wait(150);
@@ -216,9 +185,9 @@ describe('card previews', () => {
     const { page } = await openBoard();
 
     for (const text of ['Lightning Bolt', 'Shock']) {
-      hover(boardName(page, text));
+      hover(cardName(panel(page), text));
       wait(100);
-      unhover(boardName(page, text));
+      unhover(cardName(panel(page), text));
     }
     wait(500);
 
@@ -227,7 +196,7 @@ describe('card previews', () => {
 
   it('does nothing beyond hovering when a name is clicked with a mouse', async () => {
     const { page } = await openBoard();
-    const name = boardName(page, 'Lightning Bolt');
+    const name = cardName(panel(page), 'Lightning Bolt');
 
     // Unhovered: the click alone opens nothing.
     name.dispatchEvent(pointer('pointerdown', 'mouse'));
@@ -251,7 +220,7 @@ describe('card previews', () => {
   it('opens at once on a tap, and stays open with a touch’s enter and leave', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     wait(1000);
 
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
@@ -260,8 +229,8 @@ describe('card previews', () => {
   it('switches to the card of another name tapped', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
-    tap(boardName(page, 'Shock'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Shock'));
 
     expect(document.querySelectorAll('app-card-preview')).toHaveLength(1);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
@@ -270,7 +239,7 @@ describe('card previews', () => {
   it('closes on a tap elsewhere', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     tap(page.querySelector('h1')!);
 
     expect(previewImage()).toBeNull();
@@ -279,7 +248,7 @@ describe('card previews', () => {
   it('closes on scrolling', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     document.dispatchEvent(new Event('scroll'));
     TestBed.tick();
 
@@ -289,20 +258,22 @@ describe('card previews', () => {
   it('takes each event’s pointer type, so one screen works with both', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
-    hover(boardName(page, 'Shock'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    hover(cardName(panel(page), 'Shock'));
     wait(150);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
-    unhover(boardName(page, 'Shock'));
+    unhover(cardName(panel(page), 'Shock'));
     expect(previewImage()).toBeNull();
   });
 
   it('is view-only, with the front face only and the card’s shape reserved', async () => {
-    const pathway = poolCard('pathway', 'Brightclimb Pathway', ['front', 'back']);
+    const pathway = poolCardOf('pathway', 'Brightclimb Pathway', {
+      images: faceImages('pathway-id', ['front', 'back']),
+    });
     const { page } = await openBoard({ cards: [pathway], picks: [pick(1, pathway)] });
 
-    tap(boardName(page, 'Brightclimb Pathway'));
+    tap(cardName(panel(page), 'Brightclimb Pathway'));
 
     const preview = document.querySelector('app-card-preview')!;
     expect(preview.querySelectorAll('button, a')).toHaveLength(0);
@@ -325,7 +296,7 @@ describe('card previews', () => {
   it('falls back to Scryfall’s API image, as the Pool tab does', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     previewImage()!.dispatchEvent(new Event('error'));
     TestBed.tick();
 
@@ -337,7 +308,7 @@ describe('card previews', () => {
   it('fades its image in only once decoded, with no placeholder', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     const preview = document.querySelector('app-card-preview')!;
     expect(previewImage()!.classList).not.toContain('shown');
     expect(preview.querySelector('.placeholder')).toBeNull();
@@ -352,7 +323,7 @@ describe('card previews', () => {
     vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(488);
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     await decoded(previewImage()!);
 
     expect(previewImage()!.classList).not.toContain('instant');
@@ -361,7 +332,7 @@ describe('card previews', () => {
   it('reveals the fallback once a failed image’s retry has decoded', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     previewImage()!.dispatchEvent(new Event('error'));
     TestBed.tick();
     expect(previewImage()!.classList).not.toContain('shown');
@@ -375,7 +346,7 @@ describe('card previews', () => {
   it('fetches the pool once, for the Pool tab too', async () => {
     const { page } = await openBoard();
 
-    tap(boardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     tabButton(page, 'Pool').click();
     TestBed.tick();
 
@@ -387,8 +358,8 @@ describe('card previews', () => {
   it('leaves a name out of the pool as plain text', async () => {
     const { page } = await openQueueWithoutBolt();
 
-    tap(cardName(page, 'Lightning Bolt'));
-    hover(cardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    hover(cardName(panel(page), 'Lightning Bolt'));
     wait(150);
 
     expect(previewImage()).toBeNull();
@@ -397,20 +368,20 @@ describe('card previews', () => {
   it('leaves names as plain text while the pool is loading or failed to load', async () => {
     const { fixture, page, request } = await openQueueUnanswered();
 
-    tap(cardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
 
     request.flush('', { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    tap(cardName(page, 'Lightning Bolt'));
+    tap(cardName(panel(page), 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
   });
 
   it('shows on names in the pick log and on your picks on the Export tab', async () => {
     const { fixture, page } = await openBoard();
 
-    tap(panel(page).querySelector<HTMLElement>('.log app-card-name .name')!);
+    tap(cardNames(namedList(page, 'Pick log'))[0]!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
 
     tabButton(page, 'Export').click();
@@ -418,7 +389,7 @@ describe('card previews', () => {
     vi.useRealTimers();
     await fixture.whenStable();
     tap(page.querySelector('h1')!);
-    tap(panel(page).querySelector<HTMLElement>('.picks app-card-name .name')!);
+    tap(cardNames(namedList(page, 'Your picks'))[0]!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
@@ -450,7 +421,7 @@ describe('card previews', () => {
 
     it('opens at once on tabbing to a name on the Board tab', async () => {
       const { page } = await openBoard();
-      const name = boardName(page, 'Lightning Bolt');
+      const name = cardName(panel(page), 'Lightning Bolt');
 
       expect(name.tabIndex).toBe(0);
       tabTo(name);
@@ -461,23 +432,23 @@ describe('card previews', () => {
 
     it('closes on tabbing away, and moves to the next name tabbed to', async () => {
       const { page } = await openBoard();
-      const bolt = boardName(page, 'Lightning Bolt');
+      const bolt = cardName(panel(page), 'Lightning Bolt');
 
       tabTo(bolt);
-      tabTo(boardName(page, 'Shock'));
+      tabTo(cardName(panel(page), 'Shock'));
       expect(previewImages()).toHaveLength(1);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
 
-      tabAway(boardName(page, 'Shock'));
+      tabAway(cardName(panel(page), 'Shock'));
       expect(previewImage()).toBeNull();
     });
 
     it('leaves open a preview the mouse has opened on another name', async () => {
       const { page } = await openBoard();
-      const bolt = boardName(page, 'Lightning Bolt');
+      const bolt = cardName(panel(page), 'Lightning Bolt');
 
       tabTo(bolt);
-      hover(boardName(page, 'Shock'));
+      hover(cardName(panel(page), 'Shock'));
       wait(150);
       tabAway(bolt);
 
@@ -487,13 +458,13 @@ describe('card previews', () => {
     it('skips a name with no pool card', async () => {
       const { page } = await openQueueWithoutBolt();
 
-      expect(cardName(page, 'Lightning Bolt').tabIndex).toBe(-1);
-      expect(cardName(page, 'Shock').tabIndex).toBe(0);
+      expect(cardName(panel(page), 'Lightning Bolt').tabIndex).toBe(-1);
+      expect(cardName(panel(page), 'Shock').tabIndex).toBe(0);
     });
 
     it('opens nothing through focus when a name is clicked with a mouse', async () => {
       const { page } = await openBoard();
-      const name = boardName(page, 'Lightning Bolt');
+      const name = cardName(panel(page), 'Lightning Bolt');
 
       hover(name);
       name.dispatchEvent(pointer('pointerdown', 'mouse'));
@@ -512,7 +483,7 @@ describe('card previews', () => {
 
     it('closes on Escape however it opened, leaving focus where it was', async () => {
       const { page } = await openBoard();
-      const name = boardName(page, 'Lightning Bolt');
+      const name = cardName(panel(page), 'Lightning Bolt');
 
       hover(name);
       wait(150);
@@ -533,7 +504,7 @@ describe('card previews', () => {
     it('cancels a pending hover on Escape', async () => {
       const { page } = await openBoard();
 
-      hover(boardName(page, 'Lightning Bolt'));
+      hover(cardName(panel(page), 'Lightning Bolt'));
       wait(100);
       pressEscape();
       wait(500);
@@ -543,7 +514,7 @@ describe('card previews', () => {
 
     it('closes the Pool tab’s Card detail on the same Escape', async () => {
       const { fixture, page } = await openBoard();
-      tap(boardName(page, 'Lightning Bolt'));
+      tap(cardName(panel(page), 'Lightning Bolt'));
       tabButton(page, 'Pool').click();
       vi.useRealTimers();
       await fixture.whenStable();
@@ -632,7 +603,7 @@ describe('card previews', () => {
         cards: [{ ...bolt, manaCost: '{1}{R}' }, shock],
       });
 
-      const name = boardName(page, 'Lightning Bolt');
+      const name = cardName(panel(page), 'Lightning Bolt');
       expect(costBefore(name)).toEqual(['one generic mana', 'one red mana']);
       const symbol = name.previousElementSibling!.querySelector('img')!;
       expect(symbol.getAttribute('src')).toBe('mana/1.svg');
@@ -642,32 +613,28 @@ describe('card previews', () => {
     it('show a symbol the app has no SVG for as its text', async () => {
       const { page } = await openBoard({ cards: [{ ...bolt, manaCost: '{H}{R}' }, shock] });
 
-      expect(costBefore(boardName(page, 'Lightning Bolt'))).toEqual(['{H}', 'one red mana']);
+      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual(['{H}', 'one red mana']);
     });
 
     it('show once the pool card has loaded, the name alone until then', async () => {
       const { fixture, page, request } = await openQueueUnanswered();
 
-      expect(costBefore(cardName(page, 'Lightning Bolt'))).toEqual([]);
+      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual([]);
 
       request.flush([bolt]);
       await fixture.whenStable();
-      expect(costBefore(cardName(page, 'Lightning Bolt'))).toEqual(['one red mana']);
+      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
     it('show before names in the pick log and on the Export tab', async () => {
       const { fixture, page } = await openBoard();
 
-      expect(
-        costBefore(panel(page).querySelector<HTMLElement>('.log app-card-name .name')!),
-      ).toEqual(['one red mana']);
+      expect(costBefore(cardNames(namedList(page, 'Pick log'))[0]!)).toEqual(['one red mana']);
 
       tabButton(page, 'Export').click();
       vi.useRealTimers();
       await fixture.whenStable();
-      expect(
-        costBefore(panel(page).querySelector<HTMLElement>('.picks app-card-name .name')!),
-      ).toEqual(['one red mana']);
+      expect(costBefore(cardNames(namedList(page, 'Your picks'))[0]!)).toEqual(['one red mana']);
     });
   });
 

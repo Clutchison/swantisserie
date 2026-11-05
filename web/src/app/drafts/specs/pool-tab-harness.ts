@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import type { PoolCardView } from 'contract';
 import { openDialog } from '../../specs-harness';
-import { type AppFixture } from './harness';
+import { type AppFixture, faceImages, poolCardOf } from './harness';
+
+export { image } from './harness';
 
 // jsdom lays nothing out, so the window is 0px tall and the grid, which
 // only renders the rows on screen, would render just a few. Give it a
@@ -25,38 +27,21 @@ export function scrollWindowTo(top: number) {
   document.dispatchEvent(new Event('scroll'));
 }
 
-/** Scryfall's image URL for one face of a printing. */
-export const image = (version: string, id: string, face = 'front') =>
-  `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
-export const card = (fields: Partial<PoolCardView>): PoolCardView => ({
-  id: 'shivan-card',
-  scryfallId: 'shivan-id',
-  name: 'Shivan Dragon',
-  set: 'm20',
-  collectorNumber: '332',
-  typeLine: 'Creature — Dragon',
-  colors: ['R'],
-  manaValue: 6,
-  manaCost: '{4}{R}{R}',
-  oracleText: 'Flying\n{R}: Shivan Dragon gets +1/+0 until end of turn.',
-  colorIdentity: ['R'],
-  keywords: ['Flying'],
-  rarity: 'rare',
-  layout: 'normal',
-  power: '5',
-  toughness: '5',
-  loyalty: null,
-  defense: null,
-  faces: [],
-  images: [
-    {
-      small: image('small', 'shivan-id'),
-      normal: image('normal', 'shivan-id'),
-      large: image('large', 'shivan-id'),
-    },
-  ],
-  ...fields,
-});
+/** A pool card, Shivan Dragon unless `fields` change it. */
+export const card = (fields: Partial<PoolCardView>): PoolCardView =>
+  poolCardOf('shivan', 'Shivan Dragon', {
+    set: 'm20',
+    collectorNumber: '332',
+    typeLine: 'Creature — Dragon',
+    manaValue: 6,
+    manaCost: '{4}{R}{R}',
+    oracleText: 'Flying\n{R}: Shivan Dragon gets +1/+0 until end of turn.',
+    keywords: ['Flying'],
+    rarity: 'rare',
+    power: '5',
+    toughness: '5',
+    ...fields,
+  });
 export const shivan = card({});
 export const brightclimb = card({
   id: 'brightclimb-card',
@@ -66,11 +51,7 @@ export const brightclimb = card({
   layout: 'modal_dfc',
   colors: [],
   manaValue: 0,
-  images: (['front', 'back'] as const).map((face) => ({
-    small: image('small', 'brightclimb-id', face),
-    normal: image('normal', 'brightclimb-id', face),
-    large: image('large', 'brightclimb-id', face),
-  })),
+  images: faceImages('brightclimb-id', ['front', 'back']),
 });
 
 /** The grid's tiles, one per pool card. */

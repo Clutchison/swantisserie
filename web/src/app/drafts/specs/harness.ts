@@ -237,6 +237,18 @@ export const pickOf = (fields: Partial<PickView> = {}): PickView => ({
   ...fields,
 });
 
+/** Scryfall's image URL for one face of a printing. */
+export const image = (version: string, id: string, face = 'front') =>
+  `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
+
+/** A printing's images, one entry per face, as a pool card holds them. */
+export const faceImages = (scryfallId: string, faces = ['front']) =>
+  faces.map((face) => ({
+    small: image('small', scryfallId, face),
+    normal: image('normal', scryfallId, face),
+    large: image('large', scryfallId, face),
+  }));
+
 /**
  * A pool card named `name`, with the id `${id}-card`: a normal red instant
  * printed as IMA 1, with `fields` changed.
@@ -265,13 +277,7 @@ export const poolCardOf = (
   loyalty: null,
   defense: null,
   faces: [],
-  images: [
-    {
-      small: `https://cards.scryfall.io/small/front/${id}-id.jpg`,
-      normal: `https://cards.scryfall.io/normal/front/${id}-id.jpg`,
-      large: `https://cards.scryfall.io/large/front/${id}-id.jpg`,
-    },
-  ],
+  images: faceImages(`${id}-id`),
   ...fields,
 });
 
@@ -351,6 +357,19 @@ export const statusTexts = (root: HTMLElement) =>
   [...root.querySelectorAll('[role="status"]')].map((el) =>
     (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
   );
+
+/** A list inside `root`, by its accessible name, such as "Pick log" or "Your picks". */
+export const namedList = (root: HTMLElement, name: string) =>
+  root.querySelector<HTMLElement>(`[aria-label="${name}"]`)!;
+
+/** The card names inside `root`, each the name a card preview opens from, in page order. */
+export const cardNames = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('app-card-name .name'),
+];
+
+/** A card name inside `root`, by its visible text. */
+export const cardName = (root: HTMLElement, name: string) =>
+  cardNames(root).find((span) => span.textContent?.trim() === name)!;
 
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) =>
