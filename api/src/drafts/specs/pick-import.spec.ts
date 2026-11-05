@@ -1,3 +1,4 @@
+import type { DraftView } from 'contract';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   alice,
@@ -23,6 +24,7 @@ import {
   registerWebhook,
   post,
   announcementsSettled,
+  addBot,
 } from './harness.js';
 
 useDraftsApp();
@@ -222,11 +224,22 @@ describe('pick import', () => {
   });
 
   it('posts no announcement and makes no queued or bot picks; the resume announces and pings', async () => {
-    const bobCookie = await signIn(bob);
     const webhookId = await registerWebhook();
-    const id = await readyDraft([aliceCookie, bobCookie], 2, cards, webhookId);
+    // Seats: Alice, the bot; three picks each.
+    const id = await readyDraft(
+      [aliceCookie],
+      3,
+      [...cards, 'Ember Lynx', 'Frost Imp'],
+      webhookId,
+    );
+    const { body: withBot } = await addBot(id, await signIn(carol)).expect(201);
+    const bot = (withBot as DraftView).players[1];
+    // Unless the import empties them, these are Alice's picks 4 and 5, then the bot picks 6.
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids['Dusk Heron']).expect(200);
+    await enqueue(id, ids['Ember Lynx']).expect(200);
 
-    await importPicks(id, csv, previewed).expect(200);
+    await importPicks(id, csv, [alice.id, bot.id]).expect(200);
 
     await announcementsSettled(id);
     expect(webhookClient.post).not.toHaveBeenCalled();
@@ -235,6 +248,7 @@ describe('pick import', () => {
     await post(id, 'resume').expect(200);
 
     await announcementsSettled(id);
+    expect((await pickLog(id)).body).toHaveLength(3);
     expect(webhookClient.post).toHaveBeenCalledOnce();
     const [, message] = webhookClient.post.mock.calls[0];
     expect(message.content).toContain(`<@${alice.id}>`);

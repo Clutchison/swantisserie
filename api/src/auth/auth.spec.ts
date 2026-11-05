@@ -275,6 +275,7 @@ describe('Discord sign-in', () => {
       .query({ code: 'auth-code', state })
       .expect(302);
 
+    expect(discord.exchangeCode).toHaveBeenCalledWith('auth-code');
     expect(callback.headers.location).toBe('/sign-in?error=failed');
     await agent.get('/api/auth/me').expect(401);
   });

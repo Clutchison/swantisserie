@@ -19,10 +19,5 @@
     "lint": "oxlint --type-aware src/",
     "format": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --write",
     "format:check": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --check"
-  },
-  "devDependencies": {
-    "prettier": "^3.8.1",
-    "typescript": "~6.0.2",
-    "vitest": "^5.0.0"
   }
 }
