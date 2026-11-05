@@ -87,6 +87,9 @@ export class QueueTab {
     this.draftState() === 'Complete' ? null : this.store.picksLeft(),
   );
 
+  /** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
+  protected readonly highlightPicksLeftAt = 10;
+
   /**
    * Where the queue cutoff goes: before the queued card at this index, the
    * first one past the picks left. Null when the queue fits in them.

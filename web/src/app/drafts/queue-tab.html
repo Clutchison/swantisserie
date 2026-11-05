@@ -52,7 +52,12 @@
 }
 @let left = picksLeft();
 @if (left !== null) {
-  <p class="detail">{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</p>
+  <p
+    class="detail picks-left"
+    [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
+  >
+    {{ left }} {{ left === 1 ? 'pick' : 'picks' }} left
+  </p>
 }
 @if (draftState() === 'Closed') {
   <p class="detail">Cards are picked for you in this order if the draft reopens.</p>
