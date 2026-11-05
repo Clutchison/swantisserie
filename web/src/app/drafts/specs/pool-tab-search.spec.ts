@@ -12,6 +12,7 @@ import {
   type AppFixture,
   expectLoadingAnimation,
   pickOf,
+  accessibleName,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
@@ -20,8 +21,9 @@ useTallScreen();
 
 describe('pool tab', () => {
   describe('search and hide picked', () => {
+    /** Each tile's card name, from its accessible name less who picked it. */
     const names = (page: HTMLElement) =>
-      tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent);
+      tiles(page).map((tile) => accessibleName(tile).replace(/ Picked by .*$/, ''));
 
     /** Types `text` into the Pool tab's search box, as a keystroke would. */
     async function search(fixture: AppFixture, page: HTMLElement, text: string) {

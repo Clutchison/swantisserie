@@ -60,12 +60,11 @@
       />
     </section>
 
-    <div class="tabs" role="tablist" aria-label="Draft">
+    <div class="tabs" appTabList aria-label="Draft">
       <button
         id="pool-tab"
         type="button"
-        role="tab"
-        [attr.aria-selected]="tab() === 'Pool'"
+        [appTab]="tab() === 'Pool'"
         aria-controls="pool-panel"
         (click)="tab.set('Pool')"
       >
@@ -75,8 +74,7 @@
       <button
         id="queue-tab"
         type="button"
-        role="tab"
-        [attr.aria-selected]="tab() === 'Queue'"
+        [appTab]="tab() === 'Queue'"
         aria-controls="queue-panel"
         (click)="tab.set('Queue')"
         [disabled]="!joined()"
@@ -86,8 +84,7 @@
       <button
         id="plan-tab"
         type="button"
-        role="tab"
-        [attr.aria-selected]="tab() === 'Plan'"
+        [appTab]="tab() === 'Plan'"
         aria-controls="plan-panel"
         (click)="tab.set('Plan')"
         [disabled]="!joined()"
@@ -97,8 +94,7 @@
       <button
         id="board-tab"
         type="button"
-        role="tab"
-        [attr.aria-selected]="tab() === 'Board'"
+        [appTab]="tab() === 'Board'"
         aria-controls="board-panel"
         (click)="tab.set('Board')"
       >
@@ -108,8 +104,7 @@
       <button
         id="export-tab"
         type="button"
-        role="tab"
-        [attr.aria-selected]="tab() === 'Export'"
+        [appTab]="tab() === 'Export'"
         aria-controls="export-panel"
         (click)="tab.set('Export')"
         [disabled]="!joined()"

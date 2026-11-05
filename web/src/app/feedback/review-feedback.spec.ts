@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
-import { alice, carol, http, openApp, router, useApp } from '../specs-harness';
+import { alice, carol, http, openApp, pressKey, router, useApp } from '../specs-harness';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
 import { answerDraft42NotFound, link } from './specs-harness';
 
@@ -230,6 +230,44 @@ describe('reviewing feedback', () => {
       http.expectOne('/api/admin/feedback').flush([fromBob]);
       await fixture.whenStable();
 
+      expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
+    });
+    it('makes only the selected view’s tab a Tab stop', async () => {
+      const { page } = await openReviewed([]);
+
+      expect(tab(page, 'Reviewed').tabIndex).toBe(0);
+      expect(tab(page, 'Unreviewed').tabIndex).toBe(-1);
+    });
+
+    it.each([
+      ['ArrowRight', 'Reviewed'],
+      ['ArrowLeft', 'Reviewed'],
+      ['End', 'Reviewed'],
+    ])('moves on %s to the %s tab, showing that view', async (key, to) => {
+      const { fixture, page } = await openPage([]);
+
+      tab(page, 'Unreviewed').focus();
+      pressKey(tab(page, 'Unreviewed'), key);
+      http.expectOne('/api/admin/feedback/reviewed').flush([reviewedByCarol]);
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(tab(page, to));
+      expect(tab(page, to).getAttribute('aria-selected')).toBe('true');
+      expect(tab(page, to).tabIndex).toBe(0);
+      expect(items(page).map((item) => item.textContent)).toEqual([
+        expect.stringContaining('Reviewed by Carol'),
+      ]);
+    });
+
+    it('moves on Home back to the Unreviewed tab, fetching it afresh', async () => {
+      const { fixture, page } = await openReviewed([]);
+
+      tab(page, 'Reviewed').focus();
+      pressKey(tab(page, 'Reviewed'), 'Home');
+      http.expectOne('/api/admin/feedback').flush([fromBob]);
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(tab(page, 'Unreviewed'));
       expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
     });
   });

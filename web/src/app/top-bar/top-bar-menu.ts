@@ -19,6 +19,7 @@ import { LucideMenu } from '@lucide/angular';
   host: {
     '(document:click)': 'documentClicked($event)',
     '(document:keydown.escape)': 'escapePressed()',
+    '(focusout)': 'focusLeft($event)',
   },
 })
 export class TopBarMenu {
@@ -43,6 +44,12 @@ export class TopBarMenu {
 
   protected documentClicked(event: MouseEvent) {
     if (!this.host.nativeElement.contains(event.target as Node)) this.open.set(false);
+  }
+
+  /** Focus moving to the page outside, as by tabbing past the last item, closes it where focus went. */
+  protected focusLeft(event: FocusEvent) {
+    const to = event.relatedTarget as Node | null;
+    if (to && !this.host.nativeElement.contains(to)) this.open.set(false);
   }
 
   protected escapePressed() {

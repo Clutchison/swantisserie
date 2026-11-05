@@ -22,7 +22,7 @@ import {
   pickOf,
   queueOf,
 } from './harness';
-import { image } from './pool-tab-harness';
+import { image, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
 
@@ -115,6 +115,27 @@ describe('card previews', () => {
   }
   function unhover(name: HTMLElement) {
     name.dispatchEvent(pointer('pointerleave', 'mouse'));
+    TestBed.tick();
+  }
+
+  /** Starts dragging a queue row by its `handle`, with the mouse. */
+  function startDrag(handle: HTMLElement) {
+    handle.dispatchEvent(pointer('pointerdown', 'mouse'));
+    handle.dispatchEvent(
+      new MouseEvent('mousedown', {
+        bubbles: true,
+        buttons: 1,
+        detail: 1,
+        clientX: 10,
+        clientY: 10,
+      }),
+    );
+    document.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 10, clientY: 60 }),
+    );
+    document.dispatchEvent(
+      new MouseEvent('mousemove', { bubbles: true, clientX: 10, clientY: 90 }),
+    );
     TestBed.tick();
   }
 
@@ -363,6 +384,207 @@ describe('card previews', () => {
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
+  describe('from the keyboard', () => {
+    /** Tabs to `name`, as a keyboard user does, and renders what came of it. */
+    function tabTo(name: HTMLElement) {
+      (document.activeElement ?? document.body).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }),
+      );
+      name.focus();
+      TestBed.tick();
+    }
+    /** Tabs on from `name` to somewhere with no Card preview. */
+    function tabAway(name: HTMLElement) {
+      name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      name.blur();
+      TestBed.tick();
+    }
+    function pressEscape() {
+      (document.activeElement ?? document.body).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      TestBed.tick();
+    }
+
+    it('opens at once on tabbing to a name on the Board tab', async () => {
+      const { page } = await openBoard();
+      const name = boardName(page, 'Lightning Bolt');
+
+      expect(name.tabIndex).toBe(0);
+      tabTo(name);
+
+      expect(document.activeElement).toBe(name);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    it('closes on tabbing away, and moves to the next name tabbed to', async () => {
+      const { page } = await openBoard();
+      const bolt = boardName(page, 'Lightning Bolt');
+
+      tabTo(bolt);
+      tabTo(boardName(page, 'Shock'));
+      expect(document.querySelectorAll('app-card-preview')).toHaveLength(1);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+
+      tabAway(boardName(page, 'Shock'));
+      expect(previewImage()).toBeNull();
+    });
+
+    it('leaves open a preview the mouse has opened on another name', async () => {
+      const { page } = await openBoard();
+      const bolt = boardName(page, 'Lightning Bolt');
+
+      tabTo(bolt);
+      hover(boardName(page, 'Shock'));
+      wait(150);
+      tabAway(bolt);
+
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+    });
+
+    it('skips a name with no pool card', async () => {
+      const { page } = await openBoard({ cards: [shock] });
+
+      expect(boardName(page, 'Lightning Bolt').tabIndex).toBe(-1);
+      expect(boardName(page, 'Shock').tabIndex).toBe(0);
+    });
+
+    it('opens nothing through focus when a name is clicked with a mouse', async () => {
+      const { page } = await openBoard();
+      const name = boardName(page, 'Lightning Bolt');
+
+      hover(name);
+      name.dispatchEvent(pointer('pointerdown', 'mouse'));
+      name.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      name.focus();
+      name.click();
+      TestBed.tick();
+      expect(document.activeElement).toBe(name);
+      expect(previewImage()).toBeNull();
+
+      wait(149);
+      expect(previewImage()).toBeNull();
+      wait(1);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    it('closes on Escape however it opened, leaving focus where it was', async () => {
+      const { page } = await openBoard();
+      const name = boardName(page, 'Lightning Bolt');
+
+      hover(name);
+      wait(150);
+      pressEscape();
+      expect(previewImage()).toBeNull();
+      unhover(name);
+
+      tap(name);
+      pressEscape();
+      expect(previewImage()).toBeNull();
+
+      tabTo(name);
+      pressEscape();
+      expect(previewImage()).toBeNull();
+      expect(document.activeElement).toBe(name);
+    });
+
+    it('cancels a pending hover on Escape', async () => {
+      const { page } = await openBoard();
+
+      hover(boardName(page, 'Lightning Bolt'));
+      wait(100);
+      pressEscape();
+      wait(500);
+
+      expect(previewImage()).toBeNull();
+    });
+
+    it('closes the Pool tab’s Card detail on the same Escape', async () => {
+      const { fixture, page } = await openBoard();
+      tap(boardName(page, 'Lightning Bolt'));
+      tabButton(page, 'Pool').click();
+      vi.useRealTimers();
+      await fixture.whenStable();
+      expect(await openDetail(fixture, page, 0)).not.toBeNull();
+      expect(previewImage()).not.toBeNull();
+
+      pressEscape();
+      await fixture.whenStable();
+
+      expect(previewImage()).toBeNull();
+      expect(page.querySelector('[role="dialog"]')).toBeNull();
+    });
+
+    it('opens on names tabbed to on the Export tab', async () => {
+      const { fixture, page } = await openBoard();
+      tabButton(page, 'Export').click();
+      vi.useRealTimers();
+      await fixture.whenStable();
+
+      tabTo(panel(page).querySelector<HTMLElement>('.picks app-card-name .name')!);
+
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    it('opens on names tabbed to on the Queue tab, but not while a drag is under way', async () => {
+      const opened = await openPicked({
+        queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
+      });
+      const { page, fixture } = opened;
+      tabButton(page, 'Queue').click();
+      await fixture.whenStable();
+      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
+
+      tabTo(name);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+      tabAway(name);
+
+      startDrag(panel(page).querySelector<HTMLElement>('.handle')!);
+      tabTo(name);
+      expect(previewImage()).toBeNull();
+    });
+
+    it('opens on list mode names tabbed to on the Plan tab', async () => {
+      const { page, fixture } = await openPicked({
+        plan: {
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          sideboard: [],
+          basics: [],
+          lost: [],
+        },
+      });
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      tabTo(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    it('adds no Tab stop for a card shown in stacks mode', async () => {
+      viewOn('desktop');
+      try {
+        const { page, fixture } = await openPicked({
+          plan: {
+            mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+            sideboard: [],
+            basics: [],
+            lost: [],
+          },
+        });
+        tabButton(page, 'Plan').click();
+        await fixture.whenStable();
+
+        const card = panel(page).querySelector<HTMLElement>('img[alt="Lightning Bolt"]')!;
+        expect(card).not.toBeNull();
+        expect(card.closest('[tabindex="0"]')).toBeNull();
+      } finally {
+        vi.unstubAllGlobals();
+        localStorage.clear();
+      }
+    });
+  });
+
   describe('mana costs', () => {
     it('show before names on the Board tab, as symbols with alt and title text', async () => {
       const { page } = await openBoard({
@@ -569,24 +791,7 @@ describe('card previews', () => {
       tap(name);
       expect(previewImage()).not.toBeNull();
 
-      const handle = panel(page).querySelector<HTMLElement>('.handle')!;
-      handle.dispatchEvent(pointer('pointerdown', 'mouse'));
-      handle.dispatchEvent(
-        new MouseEvent('mousedown', {
-          bubbles: true,
-          buttons: 1,
-          detail: 1,
-          clientX: 10,
-          clientY: 10,
-        }),
-      );
-      document.dispatchEvent(
-        new MouseEvent('mousemove', { bubbles: true, clientX: 10, clientY: 60 }),
-      );
-      document.dispatchEvent(
-        new MouseEvent('mousemove', { bubbles: true, clientX: 10, clientY: 90 }),
-      );
-      TestBed.tick();
+      startDrag(panel(page).querySelector<HTMLElement>('.handle')!);
       expect(document.querySelector('.cdk-drag-preview')).not.toBeNull();
       expect(previewImage()).toBeNull();
 

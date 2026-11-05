@@ -123,8 +123,12 @@
                     cdkDragPreviewContainer="parent"
                     (cdkDragStarted)="previews.dragStarted()"
                   >
-                    <!-- The card and its mark show a Card preview, not its buttons. -->
-                    <div class="preview-target" [appCardPreview]="poolCard">
+                    <!-- The card and its mark show a Card preview, not its buttons. It shows its card already, so it is no Tab stop. -->
+                    <div
+                      class="preview-target"
+                      [appCardPreview]="poolCard"
+                      [appCardPreviewTabStop]="false"
+                    >
                       <div class="card">
                         @if (poolCard) {
                           <img

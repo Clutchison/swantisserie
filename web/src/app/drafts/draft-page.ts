@@ -30,6 +30,7 @@ import { PlanTab } from './plan-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
 import { WebhookControl } from './webhook-control';
+import { Tab, TabList } from '../tab-list';
 
 /** The draft view's panels. */
 type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Export';
@@ -53,6 +54,8 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
     PoolTab,
     QueueTab,
     RouterLink,
+    Tab,
+    TabList,
     WebhookControl,
   ],
   providers: [CardImageSource, CardPreviews, ImagePreloader],
