@@ -5,6 +5,7 @@ import {
   inject,
   Injectable,
   InjectionToken,
+  linkedSignal,
   type Signal,
   signal,
 } from '@angular/core';
@@ -32,14 +33,27 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
   factory: () => 2000,
 });
 
-/** One of the page's reads of the api: its value, and whether it is loading or has failed. */
+/**
+ * One of the page's reads of the api: the last value it loaded, and whether
+ * it is loading or its latest read failed.
+ */
 export interface DraftRead<T> {
-  /** What the read has loaded, or its empty value until it has. */
+  /**
+   * The last value the read loaded, kept when a later re-read fails, or its
+   * empty value until it has loaded.
+   */
   readonly value: Signal<T>;
+  /** Whether the read has loaded a value, which `value` then holds. */
+  readonly loaded: Signal<boolean>;
   /** Whether the read is on its way and has nothing to show yet. */
   readonly loading: Signal<boolean>;
-  /** Whether the read failed. */
+  /**
+   * Whether the latest read failed: with nothing loaded if `loaded` is false,
+   * or else a re-read, while `value` keeps the last good one.
+   */
   readonly failed: Signal<boolean>;
+  /** Whether the read failed with nothing loaded, so there is nothing to show. */
+  readonly missing: Signal<boolean>;
 }
 
 /**
@@ -64,11 +78,7 @@ export class DraftStore {
 
   private readonly draftResource = httpResource<DraftView>(() => `/api/drafts/${this.id()}`);
   /** The draft, undefined until it has loaded. */
-  readonly draft: DraftRead<DraftView | undefined> = {
-    value: computed(() => (this.draftResource.hasValue() ? this.draftResource.value() : undefined)),
-    loading: this.draftResource.isLoading,
-    failed: computed(() => !!this.draftResource.error()),
-  };
+  readonly draft = keptRead(this.draftResource, undefined);
   /** The version of the draft shown, which the queue and plan are read for. */
   private readonly version = computed(() => this.draft.value()?.version);
   /**
@@ -126,11 +136,7 @@ export class DraftStore {
     this.poolReady() ? `/api/drafts/${this.id()}/pool` : undefined,
   );
   /** The pool's cards, which the Pool, Queue and Plan tabs and the Card previews share. */
-  readonly pool: DraftRead<PoolCardView[]> = {
-    value: computed(() => (this.poolResource.hasValue() ? this.poolResource.value() : [])),
-    loading: this.poolResource.isLoading,
-    failed: computed(() => !!this.poolResource.error()),
-  };
+  readonly pool = keptRead(this.poolResource, []);
   /** The pool's cards by id, for finding the card a name is of. */
   readonly poolCardsById = computed<ReadonlyMap<string, PoolCardView>>(
     () => new Map(this.pool.value().map((card) => [card.id, card])),
@@ -152,7 +158,7 @@ export class DraftStore {
     return this.started() ? `/api/drafts/${this.id()}/picks` : undefined;
   });
   /** The pick log, in pick order. */
-  readonly picks = settledRead(this.picksResource, []);
+  readonly picks = keptRead(this.picksResource, []);
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   readonly picked = computed(() => {
     const picked = new Map<string, PlayerView>();
@@ -172,7 +178,7 @@ export class DraftStore {
     return this.joined() ? `/api/drafts/${this.id()}/queue` : undefined;
   });
   /** The signed-in player's queue. */
-  readonly queue = settledRead(this.queueResource, EMPTY_QUEUE);
+  readonly queue = keptRead(this.queueResource, EMPTY_QUEUE);
   /** The pool card ids of the cards in the signed-in player's queue. */
   readonly queued = computed(
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
@@ -187,7 +193,7 @@ export class DraftStore {
     return this.joined() ? `/api/drafts/${this.id()}/plan` : undefined;
   });
   /** The signed-in player's plan. */
-  readonly plan = settledRead(this.planResource, EMPTY_PLAN);
+  readonly plan = keptRead(this.planResource, EMPTY_PLAN);
   /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
   readonly planned = computed(() => {
     const { mainboard, sideboard } = this.plan.value();
@@ -229,9 +235,20 @@ export class DraftStore {
    */
   readonly offerRemoveFromPlan = this.joined;
 
+  /**
+   * Whether a re-read failed after its read had loaded, so the page shows its
+   * last good value, which may be out of date. A later read or push that
+   * succeeds clears it.
+   */
+  readonly refreshFailed = computed(() =>
+    [this.draft, this.picks, this.queue, this.plan].some((read) => read.loaded() && read.failed()),
+  );
+
   constructor() {
+    // Polls a running snapshot once each read has settled, a failed one too.
     effect((onCleanup) => {
-      if (this.draft.value()?.snapshot.state !== 'Running') return;
+      if (this.draft.value()?.snapshot.state !== 'Running' || this.draftResource.isLoading())
+        return;
       const timer = setTimeout(() => this.draftResource.reload(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
@@ -345,14 +362,40 @@ export class DraftStore {
   }
 }
 
+/** What a read keeps: the last value it loaded, if it has loaded one. */
+interface Kept<T> {
+  readonly value: T;
+  readonly loaded: boolean;
+}
+
 /**
- * A read that, once it has loaded, is no longer loading as it re-reads:
- * `value` is `empty` until it has loaded, or while it has failed.
+ * A read that keeps the last value it loaded when a later re-read fails, and
+ * isn't loading as it re-reads once it has a value: `value` is `empty` until
+ * it has loaded, and again once there is nothing to read (the resource is
+ * idle).
  */
-function settledRead<T>(resource: HttpResourceRef<T | undefined>, empty: T): DraftRead<T> {
+function keptRead<T>(resource: HttpResourceRef<T | undefined>, empty: T): DraftRead<T> {
+  const kept = linkedSignal<Kept<T> | 'idle' | 'none', Kept<T>>({
+    source: () =>
+      resource.status() === 'idle'
+        ? 'idle'
+        : resource.hasValue()
+          ? { value: resource.value()!, loaded: true }
+          : 'none',
+    computation: (latest, previous) =>
+      latest === 'idle'
+        ? { value: empty, loaded: false }
+        : latest === 'none'
+          ? (previous?.value ?? { value: empty, loaded: false })
+          : latest,
+  });
+  const loaded = computed(() => kept().loaded);
+  const failed = computed(() => !!resource.error());
   return {
-    value: computed(() => (resource.hasValue() ? resource.value()! : empty)),
-    loading: computed(() => resource.isLoading() && !resource.hasValue()),
-    failed: computed(() => !!resource.error()),
+    value: computed(() => kept().value),
+    loaded,
+    loading: computed(() => resource.isLoading() && !loaded()),
+    failed,
+    missing: computed(() => failed() && !loaded()),
   };
 }

@@ -23,8 +23,8 @@ export class BoardTab {
   protected readonly poolCardsById = this.store.poolCardsById;
   /** Whether the picks are still on their way. */
   protected readonly loading = this.store.picks.loading;
-  /** Whether the picks couldn't be loaded. */
-  protected readonly failed = this.store.picks.failed;
+  /** Whether the picks couldn't be loaded. A failed re-read keeps the last ones loaded. */
+  protected readonly failed = this.store.picks.missing;
 
   /** Each player, in seat order, with their picks in pick order. */
   protected readonly board = computed(() =>
