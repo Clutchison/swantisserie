@@ -3,7 +3,7 @@
   <form [formGroup]="form" (ngSubmit)="create()">
     <label>
       Name
-      <input name="name" formControlName="name" maxlength="100" required />
+      <input name="name" formControlName="name" [maxlength]="maxNameLength" required />
     </label>
     <label>
       Platform
@@ -31,7 +31,7 @@
         <input
           name="cubeLink"
           formControlName="cubeLink"
-          maxlength="300"
+          [maxlength]="maxCubeLinkLength"
           required
           placeholder="e.g. https://cubecobra.com/cube/list/thepaupercube"
         />
@@ -47,7 +47,7 @@
           name="poolQuery"
           formControlName="poolQuery"
           rows="3"
-          maxlength="900"
+          [maxlength]="maxPoolQueryLength"
           required
           placeholder="e.g. cube:arena"
         ></textarea>
@@ -65,8 +65,8 @@
         name="picksPerPlayer"
         formControlName="picksPerPlayer"
         type="number"
-        min="1"
-        max="100"
+        [min]="minPicksPerPlayer"
+        [max]="maxPicksPerPlayer"
         step="1"
         required
       />

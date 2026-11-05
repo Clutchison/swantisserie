@@ -14,7 +14,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import type { FeedbackRequest } from 'contract';
+import { MAX_FEEDBACK_LENGTH, type FeedbackRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 /** The modal a signed-in guild member sends feedback to the app admins from. */
@@ -36,6 +36,7 @@ export class FeedbackDialog {
 
   readonly closed = output();
 
+  protected readonly maxFeedbackLength = MAX_FEEDBACK_LENGTH;
   protected readonly message = signal('');
   protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
   protected readonly canSubmit = computed(

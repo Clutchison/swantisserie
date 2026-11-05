@@ -42,6 +42,7 @@
           [draft]="draft"
           (draftChanged)="showDraft($event)"
           (draftStale)="catchUp()"
+          (webhookStale)="resource.reload()"
         />
       }
       <app-lobby-controls

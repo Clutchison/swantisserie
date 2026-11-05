@@ -1,4 +1,5 @@
 import type { PoolCardView, Rarity } from 'contract';
+import { FACE_SEPARATOR } from 'engine';
 
 /** The pool card fields a pool search looks at. */
 export type PoolSearchCard = Omit<PoolCardView, 'images'>;
@@ -160,7 +161,7 @@ function statValues(card: PoolSearchCard, stat: 'power' | 'toughness' | 'loyalty
 
 function manaCosts(card: PoolSearchCard): Counts[] {
   const costs = [
-    ...(card.manaCost ?? '').split(' // '),
+    ...(card.manaCost ?? '').split(FACE_SEPARATOR),
     ...card.faces.map((face) => face.manaCost ?? ''),
   ].filter(Boolean);
   // A symbol the grammar doesn't know ({H/W}, {½}) counts as a symbol of its
