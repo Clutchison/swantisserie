@@ -21,6 +21,7 @@ import {
   DraftGoneError,
   CannotSeeDraftError,
   DraftStartedError,
+  GoneWebhookChosenError,
   NoDraftPowerError,
   NotAPlayerError,
   PauseRefusedError,
@@ -31,7 +32,6 @@ import {
   UndoRefusedError,
   UnknownBotError,
   UnknownWebhookError,
-  GoneWebhookError,
 } from './draft-errors.js';
 import { PlanRefusedError } from './plans.service.js';
 import { PoolFrozenError } from './pool-snapshot.service.js';
@@ -125,5 +125,5 @@ const DRAFT_CHANGE_REFUSALS: [
   [DraftStartedError, 'draft-started'],
   [DraftFullError, 'draft-full'],
   [UnknownWebhookError, 'webhook-removed'],
-  [GoneWebhookError, 'webhook-gone'],
+  [GoneWebhookChosenError, 'webhook-gone'],
 ];

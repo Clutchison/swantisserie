@@ -76,7 +76,7 @@ export class DraftLobbyService {
    * snapshot: complete straight away for a cube link, which the check has
    * already looked up every card of, and started in the background for a
    * pool query. Throws UnknownWebhookError if its webhook doesn't exist,
-   * GoneWebhookError if it is gone,
+   * GoneWebhookChosenError if it is gone,
    * PoolQueryError or CubeLinkError if its pool source can't make a pool, and
    * ScryfallUnavailableError or CubeCobraUnavailableError if that can't be
    * checked.
@@ -85,9 +85,7 @@ export class DraftLobbyService {
     organizerId: string,
     draft: NewDraft,
   ): Promise<DraftWithOrganizer> {
-    if (draft.webhookId !== null) {
-      await refuseUnchoosableWebhook(this.prisma, draft.webhookId);
-    }
+    await refuseUnchoosableWebhook(this.prisma, draft.webhookId);
     const { poolSource, ...fields } = draft;
     const poolSourceKind = STORED_POOL_SOURCE_KIND[poolSource.kind];
     switch (poolSource.kind) {

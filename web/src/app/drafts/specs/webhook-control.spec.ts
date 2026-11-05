@@ -213,11 +213,6 @@ describe('changing a draft’s webhook', () => {
   });
 
   describe('when a webhook is gone', () => {
-    const goneNotice = (page: HTMLElement) =>
-      [...page.querySelectorAll('[role="status"]')].find((el) =>
-        el.textContent?.includes('aren’t posting'),
-      );
-
     it('lists it but doesn’t let it be chosen', async () => {
       webhooksAnswer([main, { ...other, gone: true }]);
       const { page } = await openDraft(completeSnapshot, { webhook: main });
@@ -238,26 +233,6 @@ describe('changing a draft’s webhook', () => {
       expect(http.expectOne('/api/drafts/draft-1/webhook').request.body).toEqual({
         webhookId: 'other',
       });
-    });
-
-    it.each([
-      ['the organizer', alice],
-      ['a player who doesn’t organize it', { ...alice, id: 'bob' }],
-    ])('tells %s the draft’s announcements aren’t posting', async (_, user) => {
-      webhooksAnswer([{ ...main, gone: true }]);
-      const { page } = await openDraft(
-        completeSnapshot,
-        { webhook: { ...main, gone: true } },
-        { user },
-      );
-
-      expect(goneNotice(page)?.textContent).toContain('#roto-main');
-    });
-
-    it('says nothing while the draft’s webhook isn’t gone', async () => {
-      const { page } = await openDraft(completeSnapshot, { webhook: main });
-
-      expect(goneNotice(page)).toBeUndefined();
     });
   });
 

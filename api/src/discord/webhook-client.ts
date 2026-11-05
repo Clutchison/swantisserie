@@ -10,7 +10,7 @@ const POST_TIMEOUT_MS = 10_000;
  * (a 404) or its token was reset (a 401). Posting again won't help.
  */
 export class WebhookGoneError extends Error {
-  constructor(readonly status: number) {
+  constructor(status: number) {
     super(`Discord no longer accepts posts on this webhook: ${status}`);
   }
 }

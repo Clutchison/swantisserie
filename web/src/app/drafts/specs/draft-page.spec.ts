@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import {
+  alice,
   useDraftsApp,
   completeSnapshot,
   draft,
@@ -14,6 +15,7 @@ import {
   tabs,
   panelName,
   statusMessage,
+  statusTexts,
   updates,
 } from './harness';
 import { pressKey } from '../../specs-harness';
@@ -137,6 +139,28 @@ describe('draft page', () => {
     expect([...page.querySelectorAll('button')].some((b) => b.textContent?.includes('Retry'))).toBe(
       false,
     );
+  });
+
+  describe('when its webhook is gone', () => {
+    const webhook = { id: 'main', name: '#roto-main', gone: true };
+    const goneNotice =
+      'This draft’s announcements aren’t posting: Discord no longer accepts posts on its ' +
+      'webhook, #roto-main. An app admin can replace its URL.';
+
+    it.each([
+      ['the organizer', alice.id],
+      ['a player who doesn’t organize it', 'bob'],
+    ])('tells %s its announcements aren’t posting', async (_, id) => {
+      const { page } = await openDraft(completeSnapshot, { webhook }, { user: { ...alice, id } });
+
+      expect(statusTexts(page)).toContain(goneNotice);
+    });
+
+    it('says nothing while its webhook isn’t gone', async () => {
+      const { page } = await openDraft(completeSnapshot, { webhook: { ...webhook, gone: false } });
+
+      expect(statusTexts(page)).not.toContain(goneNotice);
+    });
   });
 
   it('says when the draft cannot be loaded', async () => {
