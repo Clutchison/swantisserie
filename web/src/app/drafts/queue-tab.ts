@@ -21,6 +21,7 @@ import { LucideArrowDown, LucideArrowLeftRight, LucideArrowUp, LucideTrash } fro
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
 import { changeFailure, isActive } from './drafts';
+import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -54,6 +55,7 @@ type ErrorPlace = 'stealBehavior' | 'queue';
   selector: 'app-queue-tab',
   imports: [
     CardName,
+    ChangeStatus,
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
@@ -63,7 +65,9 @@ type ErrorPlace = 'stealBehavior' | 'queue';
     LucideArrowUp,
     LucideTrash,
     NgTemplateOutlet,
+    SendsChange,
   ],
+  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './queue-tab.scss'],
@@ -71,6 +75,7 @@ type ErrorPlace = 'stealBehavior' | 'queue';
 export class QueueTab {
   private readonly queueApi = inject(QueueApi);
   protected readonly previews = inject(CardPreviews);
+  private readonly changes = inject(Changes);
 
   /** A draft the signed-in user is playing in. */
   readonly draftId = input.required<string>();
@@ -89,7 +94,7 @@ export class QueueTab {
 
   /** While the draft is not active, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !isActive(this.draftState()));
-  protected readonly changing = signal(false);
+  protected readonly changing = this.changes.changing;
   protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
   protected readonly stealBehaviorName = computed(
@@ -120,22 +125,45 @@ export class QueueTab {
     return this.move(from, currentIndex);
   }
 
-  /** Moves the card at `from` to `to`, showing the new order at once. */
+  /**
+   * Moves the card at `from` to `to`, showing the new order at once, and
+   * the old one again if that fails, until the queue is re-read. Focus
+   * stays on the button pressed, or on the card's other move button if it
+   * has reached the end, and a status message says where the card went.
+   */
   protected move(from: number, to: number) {
     if (from === to) return;
-    const cards = [...this.queue().cards];
+    const before = this.queue().cards;
+    const cards = [...before];
+    const { name, poolCardId } = cards[from];
     moveItemInArray(cards, from, to);
-    this.queueChanged.emit({ ...this.queue(), cards });
     return this.change(
-      this.queueApi.reorder(
-        this.draftId(),
-        cards.map((card) => card.poolCardId),
-      ),
+      () => {
+        this.queueChanged.emit({ ...this.queue(), cards });
+        // The row moved at once, so focus is put back now, as well as once it settles.
+        this.changes.refocus();
+        return this.queueApi.reorder(
+          this.draftId(),
+          cards.map((card) => card.poolCardId),
+        );
+      },
+      {
+        keep: [`${to > from ? 'up' : 'down'} ${poolCardId}`, `remove ${poolCardId}`],
+        status: `${name} moved to position ${to + 1} in your queue`,
+        // Put the card back, so focus can go back to the button pressed.
+        rollBack: () => this.queueChanged.emit({ ...this.queue(), cards: before }),
+      },
     );
   }
 
+  /** Removes a card from the queue; focus goes to the card after it, or else the one before. */
   protected remove(poolCardId: string) {
-    return this.change(this.queueApi.remove(this.draftId(), poolCardId));
+    const cards = this.queue().cards;
+    const at = cards.findIndex((card) => card.poolCardId === poolCardId);
+    const neighbours = [cards[at + 1], cards[at - 1]].filter((card) => card !== undefined);
+    return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
+      keep: neighbours.map((card) => `remove ${card.poolCardId}`),
+    });
   }
 
   /**
@@ -145,37 +173,49 @@ export class QueueTab {
   protected toggleStealBehavior() {
     const previous = this.queue().stealBehavior;
     const stealBehavior = STEAL_BEHAVIORS[previous].other;
-    this.queueChanged.emit({ ...this.queue(), stealBehavior });
-    return this.change(this.queueApi.setStealBehavior(this.draftId(), stealBehavior), {
-      place: 'stealBehavior',
-      rollBack: () => this.queueChanged.emit({ ...this.queue(), stealBehavior: previous }),
-    });
+    return this.change(
+      () => {
+        this.queueChanged.emit({ ...this.queue(), stealBehavior });
+        return this.queueApi.setStealBehavior(this.draftId(), stealBehavior);
+      },
+      {
+        place: 'stealBehavior',
+        rollBack: () => this.queueChanged.emit({ ...this.queue(), stealBehavior: previous }),
+      },
+    );
   }
 
   /** Stops the notice listing the lost and cleared cards. */
   protected dismissNotice() {
-    return this.change(this.queueApi.dismissNotice(this.draftId()));
+    return this.change(() => this.queueApi.dismissNotice(this.draftId()));
   }
 
   /**
-   * Sends a change to the queue and shows the queue it answers with. A
-   * refused change means the queue has moved on, e.g. a card was lost:
-   * say why, at `place`, roll back what it showed early, and re-read it.
+   * Sends the change `send` makes, which may show early what it does, and
+   * shows the queue it answers with, unless another change is in flight. A
+   * refused change means the queue has moved on, e.g. a card was lost: say
+   * why, at `place`, roll back what it showed early, and re-read it. Focus
+   * is kept as `Changes.send` keeps it, and a change made says `status`.
    */
-  private async change(
-    request: Observable<QueueView>,
-    { place = 'queue', rollBack }: { place?: ErrorPlace; rollBack?: () => void } = {},
+  private change(
+    send: () => Observable<QueueView>,
+    {
+      place = 'queue',
+      rollBack,
+      ...kept
+    }: { place?: ErrorPlace; rollBack?: () => void; keep?: string[]; status?: string } = {},
   ) {
-    this.changing.set(true);
-    this.error.set(null);
-    try {
-      this.queueChanged.emit(await firstValueFrom(request));
-    } catch (err) {
-      rollBack?.();
-      this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
-      this.queueStale.emit();
-    } finally {
-      this.changing.set(false);
-    }
+    return this.changes.send(async () => {
+      this.error.set(null);
+      try {
+        this.queueChanged.emit(await firstValueFrom(send()));
+        return true;
+      } catch (err) {
+        rollBack?.();
+        this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
+        this.queueStale.emit();
+        return false;
+      }
+    }, kept);
   }
 }

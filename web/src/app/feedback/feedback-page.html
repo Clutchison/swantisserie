@@ -1,12 +1,11 @@
 <main>
   <h1>Feedback</h1>
 
-  <div class="tabs" role="tablist" aria-label="Feedback">
+  <div class="tabs" appTabList aria-label="Feedback">
     @for (name of views; track name) {
       <button
         type="button"
-        role="tab"
-        [attr.aria-selected]="view() === name"
+        [appTab]="view() === name"
         aria-controls="feedback-panel"
         (click)="show(name)"
       >

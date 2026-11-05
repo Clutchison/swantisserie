@@ -66,3 +66,21 @@ export async function openApp(url: string, user: UserView | ((me: TestRequest) =
   TestBed.tick();
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
+
+/** The legacy key codes some handlers (such as the CDK's key managers) read, by key. */
+const KEY_CODES: Record<string, number> = {
+  End: 35,
+  Home: 36,
+  ArrowLeft: 37,
+  ArrowUp: 38,
+  ArrowRight: 39,
+  ArrowDown: 40,
+};
+
+/** Presses `key` on `target`, as the keyboard would with focus there, and renders what came of it. */
+export function pressKey(target: HTMLElement, key: string) {
+  target.dispatchEvent(
+    new KeyboardEvent('keydown', { key, keyCode: KEY_CODES[key], bubbles: true, cancelable: true }),
+  );
+  TestBed.tick();
+}

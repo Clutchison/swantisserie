@@ -1,3 +1,4 @@
+<app-change-status />
 <!-- A move button's icon: off the mainboard is minus, onto it is plus. -->
 <ng-template #moveIcon let-planBoard>
   @if (planBoard.other === 'Sideboard') {
@@ -17,12 +18,7 @@
         (picked by {{ playerName(card.pickedBy) }}){{ last ? '.' : ',' }}
       }
     </p>
-    <button
-      class="button secondary"
-      type="button"
-      (click)="dismissNotice()"
-      [disabled]="changing()"
-    >
+    <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
       Dismiss
     </button>
   </div>
@@ -122,8 +118,12 @@
                     cdkDragPreviewContainer="parent"
                     (cdkDragStarted)="previews.dragStarted()"
                   >
-                    <!-- The card and its mark show a Card preview, not its buttons. -->
-                    <div class="preview-target" [appCardPreview]="poolCard">
+                    <!-- The card and its mark show a Card preview, not its buttons. It shows its card already, so it is no Tab stop. -->
+                    <div
+                      class="preview-target"
+                      [appCardPreview]="poolCard"
+                      [appCardPreviewTabStop]="false"
+                    >
                       <div class="card">
                         @if (poolCard) {
                           <img
@@ -153,8 +153,8 @@
                           type="button"
                           [attr.aria-label]="moveName"
                           [title]="moveName"
-                          (click)="move(card.poolCardId, planBoard.other)"
-                          [disabled]="changing()"
+                          (click)="move(card, planBoard.other)"
+                          [appSendsChange]="moveKey(planBoard.name, card)"
                         >
                           <ng-container
                             *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
@@ -169,7 +169,7 @@
                           [attr.aria-label]="removeName"
                           [title]="removeName"
                           (click)="remove(card.poolCardId)"
-                          [disabled]="changing()"
+                          [appSendsChange]="removeKey(planBoard.name, card)"
                         >
                           <svg lucideTrash size="16"></svg>
                         </button>
@@ -192,7 +192,7 @@
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
-          @for (line of planBoard.lines; track line.poolCardId) {
+          @for (line of planBoard.lines; track line.key) {
             <li
               [class.unpicked]="!line.picked"
               cdkDrag
@@ -215,8 +215,8 @@
                     type="button"
                     [attr.aria-label]="moveName"
                     [title]="moveName"
-                    (click)="move(line.poolCardId, planBoard.other)"
-                    [disabled]="changing()"
+                    (click)="move(line, planBoard.other)"
+                    [appSendsChange]="moveKey(planBoard.name, line)"
                   >
                     <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }" />
                   </button>
@@ -229,7 +229,7 @@
                     [attr.aria-label]="removeName"
                     [title]="removeName"
                     (click)="remove(line.poolCardId)"
-                    [disabled]="changing()"
+                    [appSendsChange]="removeKey(planBoard.name, line)"
                   >
                     <svg lucideTrash size="16"></svg>
                   </button>
@@ -328,7 +328,8 @@
               [attr.aria-label]="'One fewer ' + basic.land"
               [title]="'One fewer ' + basic.land"
               (click)="setBasic(basic.land, basic.count - 1)"
-              [disabled]="changing() || basic.count === 0"
+              [disabled]="basic.count === 0"
+              [appSendsChange]="'fewer ' + basic.land"
             >
               <svg lucideMinus size="16"></svg>
             </button>
@@ -348,7 +349,8 @@
               [attr.aria-label]="'One more ' + basic.land"
               [title]="'One more ' + basic.land"
               (click)="setBasic(basic.land, basic.count + 1)"
-              [disabled]="changing() || basic.count >= mostBasics"
+              [disabled]="basic.count >= mostBasics"
+              [appSendsChange]="'more ' + basic.land"
             >
               <svg lucidePlus size="16"></svg>
             </button>
@@ -360,11 +362,20 @@
           class="button secondary"
           type="button"
           (click)="clearBasics()"
-          [disabled]="changing() || !hasBasics()"
+          [disabled]="!hasBasics()"
+          appSendsChange="clear basics"
         >
           Clear basics
         </button>
-        <button class="button" type="button" #doneWithBasics (click)="closeBasics()">Done</button>
+        <button
+          class="button"
+          type="button"
+          #doneWithBasics
+          appFocusKey="done"
+          (click)="closeBasics()"
+        >
+          Done
+        </button>
       </div>
     </div>
   </div>

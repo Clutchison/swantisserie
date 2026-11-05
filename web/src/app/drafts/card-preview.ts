@@ -8,6 +8,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   Directive,
   DOCUMENT,
   ElementRef,
@@ -83,6 +84,14 @@ export class CardPreviews implements OnDestroy {
       },
       { capture: true, signal },
     );
+    // Doesn't stop the event, so a dialog under the preview closes on the same press.
+    document.addEventListener(
+      'keydown',
+      ({ key }) => {
+        if (key === 'Escape') this.close();
+      },
+      { signal },
+    );
     // Rather than the drag's own end, which never comes if its card is lost and its row removed.
     for (const released of ['pointerup', 'pointercancel']) {
       document.addEventListener(released, () => (this.dragging = false), {
@@ -123,6 +132,11 @@ export class CardPreviews implements OnDestroy {
     if (this.hovering?.anchor === anchor) this.cancelHover();
   }
 
+  /** Focus has left the name: closes its Card preview, but not one the mouse has opened elsewhere. */
+  blurred(anchor: Element) {
+    if (this.shown?.anchor === anchor) this.close();
+  }
+
   /** A drag of a card has started: closes any Card preview, and opens none until it's released. */
   dragStarted() {
     this.dragging = true;
@@ -150,6 +164,11 @@ export class CardPreviews implements OnDestroy {
  * Marks a card's name, which shows the card's Card preview. The name stays
  * plain text if it has no pool card, as while the pool is loading.
  *
+ * A name with a pool card is a Tab stop, unless it's a control already, and
+ * keyboard focus opens its preview at once. A mouse's focus doesn't: the mouse
+ * has its hover. `appCardPreviewTabStop` leaves out of the tab order a target
+ * that shows its card already, as a card image in stacks mode does.
+ *
  * Each event's pointer type decides what it means, so touchscreen laptops work
  * both ways. A touch's own enter and leave say nothing, and a click is the
  * sure sign of a tap, not a scroll, but doesn't say its pointer type in every
@@ -162,14 +181,28 @@ export class CardPreviews implements OnDestroy {
     '(pointerleave)': 'left($event)',
     '(pointerdown)': 'pressedWith = $event.pointerType',
     '(click)': 'clicked()',
+    '(focus)': 'focused()',
+    '(blur)': 'blurred()',
+    '[attr.tabindex]': 'tabIndex()',
   },
 })
 export class CardPreviewName implements OnDestroy {
   private readonly previews = inject(CardPreviews);
   private readonly element = inject<ElementRef<Element>>(ElementRef).nativeElement;
+  /** A control is a Tab stop of its own, which needs no other. */
+  private readonly control = this.element.matches(
+    'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable]',
+  );
 
   /** The name's pool card, if it has one. */
   readonly card = input.required<PoolCardView | undefined>({ alias: 'appCardPreview' });
+  /** Whether keyboard focus may come to the target to see its preview. */
+  readonly tabStop = input(true, { alias: 'appCardPreviewTabStop' });
+
+  /** The tabindex that makes the target a Tab stop, if it should be one and isn't already. */
+  protected readonly tabIndex = computed(() =>
+    this.card() && this.tabStop() && !this.control ? 0 : null,
+  );
 
   protected pressedWith?: string;
 
@@ -180,6 +213,15 @@ export class CardPreviewName implements OnDestroy {
 
   protected left({ pointerType }: PointerEvent) {
     if (pointerType === 'mouse') this.previews.leave(this.element);
+  }
+
+  protected focused() {
+    const card = this.card();
+    if (card && this.element.matches(':focus-visible')) this.previews.open(this.element, card);
+  }
+
+  protected blurred() {
+    this.previews.blurred(this.element);
   }
 
   protected clicked() {

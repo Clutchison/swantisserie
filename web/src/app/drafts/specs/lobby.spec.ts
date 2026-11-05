@@ -2,6 +2,7 @@ import type { DraftChangeRefusal } from 'contract';
 import { MAX_PLAYERS } from 'engine';
 import {
   useDraftsApp,
+  alice,
   draft,
   http,
   section,
@@ -13,6 +14,7 @@ import {
   completeSnapshot,
   button,
   playerAvatar,
+  statusMessage,
 } from './harness';
 
 useDraftsApp();
@@ -119,5 +121,92 @@ describe('lobby', () => {
     expect(page.querySelector('.error')?.textContent).toContain('This draft has started.');
     expect(page.textContent).toContain('Drafting');
     expect(button(page, 'Join')).toBeUndefined();
+  });
+
+  describe('focus after a change', () => {
+    const carol = { ...bob, id: 'carol', name: 'Carol' };
+
+    it('keeps focus on a player’s move button as they move a seat, and says where they went', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob, carol],
+      });
+      const players = section(page, 'Players');
+
+      button(players, 'Move Bob later')!.focus();
+      button(players, 'Move Bob later')!.click();
+      await fixture.whenStable();
+      const pressed = button(players, 'Move Bob later')!;
+      expect(pressed.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(pressed);
+      pressed.click();
+      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'));
+      expect(req.request.body).toEqual({ playerIds: [alice.id, carol.id, bob.id] });
+      req.flush(draft({ players: [alicePlayer, carol, bob] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(statusMessage(players, 'Bob moved to seat 3')).toBeDefined());
+      // Bob is now last, so his Move later is gone; focus goes to his other move button.
+      expect(document.activeElement).toBe(button(players, 'Move Bob earlier'));
+    });
+
+    it('keeps focus on the same move button while the player can still move that way', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob, carol],
+      });
+      const players = section(page, 'Players');
+
+      button(players, 'Move Alice later')!.focus();
+      button(players, 'Move Alice later')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
+        draft({ players: [bob, alicePlayer, carol] }),
+      );
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(statusMessage(players, 'Alice moved to seat 2')).toBeDefined());
+      expect(document.activeElement).toBe(button(players, 'Move Alice later'));
+    });
+
+    it('moves focus from Join to Leave, and back', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      button(page, 'Join')!.focus();
+      button(page, 'Join')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
+        draft({ players: [bob, alicePlayer] }),
+        { status: 201, statusText: 'Created' },
+      );
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Leave')));
+
+      button(page, 'Leave')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players/me'))).flush(
+        draft({ players: [bob] }),
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Join')));
+    });
+
+    it('keeps focus on Join when joining fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      button(page, 'Join')!.focus();
+      button(page, 'Join')!.click();
+      await fixture.whenStable();
+      expect(button(page, 'Join')!.getAttribute('aria-disabled')).toBe('true');
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(null, {
+        status: 500,
+        statusText: 'Server Error',
+      });
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+          "Couldn't update the players.",
+        ),
+      );
+      expect(button(page, 'Join')!.getAttribute('aria-disabled')).toBeNull();
+      expect(document.activeElement).toBe(button(page, 'Join'));
+    });
   });
 });

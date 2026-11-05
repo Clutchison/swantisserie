@@ -17,15 +17,17 @@ import {
   flushPool,
   completeSnapshot,
   button,
+  buttons,
   expectLoadingAnimation,
   drafting,
   openQueue,
   queued,
   queueOf,
+  statusMessage,
   type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
-import { bolt } from './plan-tab-harness';
+import { bolt, boltAgain } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -304,5 +306,127 @@ describe('queue tab', () => {
 
     expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
     http.expectNone('/api/drafts/draft-1/queue');
+  });
+
+  describe('focus after a change', () => {
+    const threeQueued = () =>
+      queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] });
+
+    it('keeps focus on Move down as the card moves, and says where it went', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = await openQueue(fixture, page);
+
+      button(queue, 'Move Lightning Bolt down')!.focus();
+      button(queue, 'Move Lightning Bolt down')!.click();
+      await fixture.whenStable();
+      // While the change is in flight, the pressed button stays focused but sends nothing more.
+      const pressed = button(queue, 'Move Lightning Bolt down')!;
+      expect(pressed.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(pressed);
+      pressed.click();
+      await fixture.whenStable();
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(queue, 'Move Lightning Bolt down')),
+      );
+      await vi.waitFor(() =>
+        expect(button(queue, 'Move Lightning Bolt down')!.getAttribute('aria-disabled')).toBeNull(),
+      );
+      expect(document.activeElement).toBe(button(queue, 'Move Lightning Bolt down'));
+      expect(names(queue)[1]).toBe('Lightning Bolt');
+      expect(
+        statusMessage(queue, 'Lightning Bolt moved to position 2 in your queue'),
+      ).toBeDefined();
+    });
+
+    it('moves focus to Move up once a card reaches the bottom', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      });
+      const queue = await openQueue(fixture, page);
+
+      button(queue, 'Move Lightning Bolt down')!.focus();
+      button(queue, 'Move Lightning Bolt down')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(queue, 'Move Lightning Bolt up')),
+      );
+    });
+
+    it('keeps focus on the pressed button when the change fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = await openQueue(fixture, page);
+
+      button(queue, 'Move Shivan Dragon up')!.focus();
+      button(queue, 'Move Shivan Dragon up')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(queue.querySelector('[role="alert"]')?.textContent).toContain(
+          "Couldn't change your queue.",
+        ),
+      );
+      expect(document.activeElement?.getAttribute('aria-label')).toBe('Move Shivan Dragon up');
+    });
+
+    it('keeps focus on the copy moved when two queued cards share a name', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, boltAgain, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
+      });
+      const queue = await openQueue(fixture, page);
+
+      buttons(queue, 'Move Lightning Bolt down')[0].focus();
+      buttons(queue, 'Move Lightning Bolt down')[0].click();
+      const req = http.expectOne('/api/drafts/draft-1/queue');
+      expect(req.request.body).toEqual({
+        poolCardIds: ['bolt-card-2', 'bolt-card', 'shivan-card'],
+      });
+      req.flush(queueOf({ cards: [queued(boltAgain), queued(bolt), queued(shivan)] }));
+      await fixture.whenStable();
+
+      // The second row's: the copy pressed, now one place down.
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(buttons(queue, 'Move Lightning Bolt down')[1]),
+      );
+    });
+
+    it('moves focus to the next card’s Remove when a card is removed, even one of the same name', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, boltAgain, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
+      });
+      const queue = await openQueue(fixture, page);
+
+      buttons(queue, 'Remove Lightning Bolt')[1].focus();
+      buttons(queue, 'Remove Lightning Bolt')[1].click();
+      http
+        .expectOne('/api/drafts/draft-1/queue/bolt-card-2')
+        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(queue, 'Remove Shivan Dragon')),
+      );
+    });
   });
 });

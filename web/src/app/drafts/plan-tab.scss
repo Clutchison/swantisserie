@@ -345,11 +345,12 @@ ul {
   color: var(--color-text);
   cursor: pointer;
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled, [aria-disabled='true']) {
     background: var(--color-raised);
   }
 
-  &:disabled {
+  &:disabled,
+  &[aria-disabled='true'] {
     opacity: 0.4;
     cursor: default;
   }

@@ -5,6 +5,7 @@
     >{{ last ? '.' : ', ' }}
   }
 </ng-template>
+<app-change-status />
 <div class="steal-behavior">
   <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
   <span id="steal-behavior-description" class="visually-hidden">{{
@@ -15,7 +16,8 @@
     type="button"
     [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
     aria-describedby="steal-behavior-description"
-    [disabled]="readOnly() || changing() || loading()"
+    [disabled]="readOnly() || loading()"
+    appSendsChange="steal behavior"
     (click)="toggleStealBehavior()"
   >
     {{ stealBehaviorName() }}<svg lucideArrowLeftRight class="swap" size="16"></svg>
@@ -42,12 +44,7 @@
       }
     </p>
     @if (!readOnly()) {
-      <button
-        class="button secondary"
-        type="button"
-        (click)="dismissNotice()"
-        [disabled]="changing()"
-      >
+      <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
         Dismiss
       </button>
     }
@@ -90,7 +87,8 @@
             [attr.aria-label]="upName"
             [title]="upName"
             (click)="move(i, i - 1)"
-            [disabled]="first || changing()"
+            [disabled]="first"
+            [appSendsChange]="'up ' + card.poolCardId"
           >
             <svg lucideArrowUp size="16"></svg>
           </button>
@@ -101,7 +99,8 @@
             [attr.aria-label]="downName"
             [title]="downName"
             (click)="move(i, i + 1)"
-            [disabled]="last || changing()"
+            [disabled]="last"
+            [appSendsChange]="'down ' + card.poolCardId"
           >
             <svg lucideArrowDown size="16"></svg>
           </button>
@@ -112,7 +111,7 @@
             [attr.aria-label]="removeName"
             [title]="removeName"
             (click)="remove(card.poolCardId)"
-            [disabled]="changing()"
+            [appSendsChange]="'remove ' + card.poolCardId"
           >
             <svg lucideTrash size="16"></svg>
           </button>

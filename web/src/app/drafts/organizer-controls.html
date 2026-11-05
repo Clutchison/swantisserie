@@ -1,26 +1,26 @@
 <div class="controls">
   @if (offerPause()) {
-    <button class="button secondary" type="button" (click)="pause()" [disabled]="sending()">
+    <button class="button secondary" type="button" (click)="pause()" appSendsChange="pause">
       Pause draft
     </button>
   }
   @if (offerResume()) {
-    <button class="button" type="button" (click)="resume()" [disabled]="sending()">
+    <button class="button" type="button" (click)="resume()" appSendsChange="resume">
       Resume draft
     </button>
   }
   @if (undoable(); as pick) {
-    <button class="button secondary" type="button" (click)="undo(pick)" [disabled]="sending()">
+    <button class="button secondary" type="button" (click)="undo(pick)" appSendsChange="undo">
       Undo pick {{ pick.pick }} ({{ pick.name }})
     </button>
   }
   @if (offerClose()) {
-    <button class="button secondary" type="button" (click)="close()" [disabled]="sending()">
+    <button class="button secondary" type="button" (click)="close()" appSendsChange="close">
       Close draft
     </button>
   }
   @if (offerReopen()) {
-    <button class="button" type="button" (click)="reopen()" [disabled]="sending()">
+    <button class="button" type="button" (click)="reopen()" appSendsChange="reopen">
       Reopen draft
     </button>
   }

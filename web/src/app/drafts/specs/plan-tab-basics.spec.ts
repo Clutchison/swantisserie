@@ -380,4 +380,47 @@ describe('basic lands on the plan tab', () => {
     await fixture.whenStable();
     expect(controls()).toEqual(['Stacks', 'List', 'Basic lands']);
   });
+
+  it('adds two basics with + pressed twice in a row, focus staying on +', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+    const more = button(plan, 'One more Island')!;
+
+    more.focus();
+    more.click();
+    await fixture.whenStable();
+    expect(more.getAttribute('aria-disabled')).toBe('true');
+    expect(document.activeElement).toBe(more);
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(boltAndShivanWith([{ land: 'Island', count: 1 }]));
+    await vi.waitFor(() => expect(more.getAttribute('aria-disabled')).toBeNull());
+    expect(document.activeElement).toBe(more);
+
+    more.click();
+    const second = http.expectOne('/api/drafts/draft-1/plan/basics/Island');
+    expect(second.request.body).toEqual({ count: 2 });
+    second.flush(boltAndShivanWith([{ land: 'Island', count: 2 }]));
+    await vi.waitFor(() => expect(countOf(plan, 'Island').value).toBe('2'));
+    expect(document.activeElement).toBe(more);
+  });
+
+  it('moves focus to + once − takes a basic to none', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Island', count: 1 }]),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    button(plan, 'One fewer Island')!.focus();
+    button(plan, 'One fewer Island')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/basics/Island').flush(boltAndShivanWith());
+
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(plan, 'One more Island')));
+  });
 });

@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { Tab, TabList } from '../tab-list';
 
 type View = 'Unreviewed' | 'Reviewed';
 
@@ -12,7 +13,7 @@ const API = '/api/admin/feedback';
 /** Where app admins see feedback and mark it reviewed or unreviewed. */
 @Component({
   selector: 'app-feedback-page',
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, Tab, TabList],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feedback-page.html',
   styleUrls: ['../page.scss', './feedback-page.scss'],

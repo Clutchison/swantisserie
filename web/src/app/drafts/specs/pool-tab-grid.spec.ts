@@ -1,16 +1,25 @@
 import { TestBed } from '@angular/core/testing';
 import type { PoolCardView } from 'contract';
-import { useDraftsApp, openDraft, completeSnapshot, wait } from './harness';
+import {
+  useDraftsApp,
+  openDraft,
+  completeSnapshot,
+  wait,
+  accessibleName,
+  bob,
+  drafting,
+  pickOf,
+} from './harness';
 import { useTallScreen, image, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
 
 describe('pool tab', () => {
-  it('shows the pool as a grid of normal images with name placeholders', async () => {
+  it('shows the pool as a grid of normal images, each tile named by its card once', async () => {
     const { page } = await openDraft(completeSnapshot, {}, { cards: [brightclimb, shivan] });
 
-    expect(tiles(page).map((tile) => tile.querySelector('.placeholder')?.textContent)).toEqual([
+    expect(tiles(page).map(accessibleName)).toEqual([
       'Brightclimb Pathway // Grimclimb Pathway',
       'Shivan Dragon',
     ]);
@@ -20,6 +29,16 @@ describe('pool tab', () => {
       image('normal', 'shivan-id'),
     ]);
     expect(images[1].getAttribute('alt')).toBe('Shivan Dragon');
+  });
+
+  it('names a picked card’s tile by its card once, then who picked it', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+      { cards: [shivan], picks: [pickOf({ playerId: bob.id, poolCardId: 'shivan-card' })] },
+    );
+
+    expect(accessibleName(tiles(page)[0])).toBe('Shivan Dragon Picked by Bob');
   });
 
   it('falls back to Scryfall’s API image when a grid image fails to load', async () => {
@@ -107,7 +126,8 @@ describe('pool tab', () => {
       report(tile, true);
       wait(99);
       expect(src(tile)).toBeUndefined();
-      expect(tile.querySelector('.placeholder')?.textContent).toBe('Shivan Dragon');
+      expect(tile.textContent?.trim()).toBe('Shivan Dragon');
+      expect(accessibleName(tile)).toBe('Shivan Dragon');
 
       wait(51);
       expect(src(tile)).toBe(image('normal', 'shivan-id'));

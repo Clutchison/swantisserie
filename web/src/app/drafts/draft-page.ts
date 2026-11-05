@@ -7,6 +7,7 @@ import {
   inject,
   InjectionToken,
   input,
+  linkedSignal,
   signal,
   untracked,
   viewChild,
@@ -30,9 +31,12 @@ import { PlanTab } from './plan-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
 import { WebhookControl } from './webhook-control';
+import { Tab, TabList } from '../tab-list';
 
 /** The draft view's panels. */
 type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Export';
+/** The panels only players have. */
+const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -53,6 +57,8 @@ export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
     PoolTab,
     QueueTab,
     RouterLink,
+    Tab,
+    TabList,
     WebhookControl,
   ],
   providers: [CardImageSource, CardPreviews, ImagePreloader],
@@ -186,7 +192,16 @@ export class DraftPage {
     () => this.planResource.isLoading() && !this.planResource.hasValue(),
   );
 
-  protected readonly tab = signal<Panel>('Pool');
+  /**
+   * The tab selected. Only players have the Queue, Plan and Export tabs: one
+   * of them selected goes back to Pool as the viewer stops being a player,
+   * so the selected tab is always one they can open, and Tab to.
+   */
+  protected readonly tab = linkedSignal<boolean, Panel>({
+    source: this.joined,
+    computation: (joined, previous) =>
+      previous && (joined || !PLAYERS_ONLY.has(previous.value)) ? previous.value : 'Pool',
+  });
   /** The signed-in player, if they have joined: the Export tab shows their picks. */
   protected readonly ownPlayer = computed(
     () => this.draft()?.players.find((player) => player.id === this.user()?.id) ?? null,
