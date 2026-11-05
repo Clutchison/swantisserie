@@ -5,6 +5,32 @@ import { searchPool, type PoolSearchCard } from './pool-search';
 
 const cards = fixtureCards as PoolSearchCard[];
 
+/** A one-faced creature costing `manaCost`, with nothing else of note. */
+function poolCard(name: string, manaCost: string): PoolSearchCard {
+  return {
+    id: name,
+    scryfallId: name,
+    oracleId: name,
+    name,
+    set: 'unf',
+    collectorNumber: '1',
+    typeLine: 'Creature — Test',
+    colors: [],
+    manaValue: 0,
+    manaCost,
+    oracleText: '',
+    colorIdentity: [],
+    keywords: [],
+    rarity: 'common',
+    layout: 'normal',
+    power: '1',
+    toughness: '1',
+    loyalty: null,
+    defense: null,
+    faces: [],
+  };
+}
+
 function namesFound(search: string): string[] {
   const result = searchPool(cards, search);
   if (!result.ok) throw new Error(`${search}: ${result.error.message}`);
@@ -21,6 +47,45 @@ describe('pool search', () => {
   it('finds every card for an empty search', () => {
     expect(searchPool(cards, '')).toEqual({ ok: true, cards });
     expect(searchPool(cards, '   ')).toEqual({ ok: true, cards });
+  });
+
+  describe('over pool cards whose mana costs hold symbols it does not know', () => {
+    const odd = [
+      poolCard('Half White', '{H/W}{2}'),
+      poolCard('Bare Half', '{HW}'),
+      poolCard('Half Two', '{HW}{2}'),
+      poolCard('Two Halves', '{HW}{HW}'), // two of one unknown symbol
+      poolCard('Real Hybrid', '{W/U}'),
+      poolCard('Plain White', '{W}{2}'),
+    ];
+
+    function oddNamesFound(search: string): string[] {
+      const result = searchPool(odd, search);
+      if (!result.ok) throw new Error(`${search}: ${result.error.message}`);
+      return result.cards.map((card) => card.name).sort();
+    }
+
+    it.each([
+      ['m:W', ['Plain White']],
+      ['m:{2}', ['Half Two', 'Half White', 'Plain White']],
+      ['m>{2}', ['Half Two', 'Half White', 'Plain White']],
+      ['m={2}', []],
+      ['m<={2}', []],
+      [
+        'm!={2}',
+        ['Bare Half', 'Half Two', 'Half White', 'Plain White', 'Real Hybrid', 'Two Halves'],
+      ],
+      ['m<{W}{W}{2}', ['Plain White']],
+      ['is:hybrid', ['Real Hybrid']],
+      ['not:hybrid', ['Bare Half', 'Half Two', 'Half White', 'Plain White', 'Two Halves']],
+      ['is:phyrexian', []],
+      [
+        't:creature',
+        ['Bare Half', 'Half Two', 'Half White', 'Plain White', 'Real Hybrid', 'Two Halves'],
+      ],
+    ])('answers %s', (search, names) => {
+      expect(oddNamesFound(search)).toEqual(names);
+    });
   });
 
   it.each([
