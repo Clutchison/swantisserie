@@ -18,6 +18,7 @@ import {
   completeSnapshot,
   expectLoadingAnimation,
   type DraftFixture,
+  pickOf,
 } from './harness';
 
 useDraftsApp();
@@ -29,22 +30,22 @@ const rowText = (li: Element) =>
   );
 
 /** A pick of `name` by `playerId`, of a normal card printed as IMA 1. */
-const pickOf = (pick: number, playerId: string, poolCardId: string, name: string): PickView => ({
-  pick,
-  playerId,
-  poolCardId,
-  name,
-  layout: 'normal',
-  typeLine: 'Instant',
-  set: 'ima',
-  collectorNumber: '1',
-});
+const imaPick = (pick: number, playerId: string, poolCardId: string, name: string): PickView =>
+  pickOf({
+    pick,
+    playerId,
+    poolCardId,
+    name,
+    typeLine: 'Instant',
+    set: 'ima',
+    collectorNumber: '1',
+  });
 
 describe('export tab', () => {
   const picks: PickView[] = [
-    pickOf(1, bob.id, 'shock-card', 'Shock'),
-    pickOf(2, alice.id, 'bolt-card', 'Lightning Bolt'),
-    pickOf(3, alice.id, 'spike-card', 'Lava Spike'),
+    imaPick(1, bob.id, 'shock-card', 'Shock'),
+    imaPick(2, alice.id, 'bolt-card', 'Lightning Bolt'),
+    imaPick(3, alice.id, 'spike-card', 'Lava Spike'),
   ];
 
   /** Opens the draft, Bob then Alice, on the Export tab. */
@@ -190,28 +191,26 @@ describe('export tab', () => {
 
     describe('with every pick on the mainboard', () => {
       const multiFace: PickView[] = [
-        { ...pickOf(2, alice.id, 'shock-card', 'Shock'), set: 'm21', collectorNumber: '159' },
-        {
+        { ...imaPick(2, alice.id, 'shock-card', 'Shock'), set: 'm21', collectorNumber: '159' },
+        pickOf({
           pick: 4,
-          playerId: alice.id,
           poolCardId: 'giant-card',
           name: 'Bonecrusher Giant // Stomp',
           layout: 'adventure',
           typeLine: 'Creature — Giant // Sorcery — Adventure',
           set: 'eld',
           collectorNumber: '115',
-        },
-        {
+        }),
+        pickOf({
           pick: 6,
-          playerId: alice.id,
           poolCardId: 'commit-card',
           name: 'Commit // Memory',
           layout: 'split',
           typeLine: 'Instant // Sorcery',
           set: 'akh',
           collectorNumber: '211',
-        },
-        pickOf(7, bob.id, 'bolt-card', 'Lightning Bolt'),
+        }),
+        imaPick(7, bob.id, 'bolt-card', 'Lightning Bolt'),
       ];
 
       it('copies your picks for Arena, with multi-face cards named its way', async () => {
@@ -242,11 +241,11 @@ describe('export tab', () => {
 
     describe('from your plan', () => {
       const yourPicks: PickView[] = [
-        pickOf(1, alice.id, 'shock-card', 'Shock'),
-        pickOf(2, bob.id, 'spike-card', 'Lava Spike'),
-        pickOf(3, alice.id, 'bolt-card', 'Lightning Bolt'),
-        pickOf(5, alice.id, 'opt-card', 'Opt'),
-        pickOf(7, alice.id, 'shock-card-2', 'Shock'),
+        imaPick(1, alice.id, 'shock-card', 'Shock'),
+        imaPick(2, bob.id, 'spike-card', 'Lava Spike'),
+        imaPick(3, alice.id, 'bolt-card', 'Lightning Bolt'),
+        imaPick(5, alice.id, 'opt-card', 'Opt'),
+        imaPick(7, alice.id, 'shock-card-2', 'Shock'),
       ];
       /** Bolt and a Shock on the mainboard with basics, Opt and the other Shock on the sideboard, and an unpicked card on each. */
       const plan: PlanView = {
@@ -354,7 +353,7 @@ describe('export tab', () => {
         /** Your plan with `count` picks on the sideboard, each its own card. */
         function sideboardOf(count: number) {
           const sideboardPicks = Array.from({ length: count }, (_, i) =>
-            pickOf(i + 1, alice.id, `card-${i}`, `Card ${i}`),
+            imaPick(i + 1, alice.id, `card-${i}`, `Card ${i}`),
           );
           const yours: PlanView = {
             ...EMPTY_PLAN,

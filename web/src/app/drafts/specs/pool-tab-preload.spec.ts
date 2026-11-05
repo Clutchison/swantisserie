@@ -10,6 +10,7 @@ import {
   tabButton,
   useDraftsApp,
   wait,
+  pickOf,
 } from './harness';
 import {
   brightclimb,
@@ -153,16 +154,8 @@ describe('preloading the first results', () => {
   const dragons = (from: number, to: number) =>
     Array.from({ length: to - from + 1 }, (_, i) => `dragon-${from + i}`);
 
-  const picked = ({ id, name, typeLine }: PoolCardView): PickView => ({
-    pick: 1,
-    playerId: bob.id,
-    poolCardId: id,
-    name,
-    layout: 'normal',
-    typeLine,
-    set: 'm20',
-    collectorNumber: '1',
-  });
+  const picked = ({ id, name, typeLine }: PoolCardView): PickView =>
+    pickOf({ playerId: bob.id, poolCardId: id, name, typeLine, set: 'm20', collectorNumber: '1' });
 
   /** Types `text` into the Pool tab's search box, as a keystroke would. */
   function search(page: HTMLElement, text: string) {

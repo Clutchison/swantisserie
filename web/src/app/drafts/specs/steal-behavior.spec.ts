@@ -1,4 +1,3 @@
-import type { QueuedCardView, QueueView } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
@@ -16,8 +15,11 @@ import {
   flushPicks,
   flushPlan,
   expectLoadingAnimation,
-  type AppFixture,
   type DraftFixture,
+  drafting,
+  queued,
+  queueOf,
+  openQueue,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 
@@ -25,34 +27,6 @@ useDraftsApp();
 useTallScreen();
 
 describe('steal behavior', () => {
-  /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-    state: 'Drafting',
-    players: [alicePlayer, bob],
-    turn: { pick: 1, round: 1, playerId: bob.id },
-    ...fields,
-  });
-  const queued = { poolCardId: shivan.id, name: shivan.name };
-  /** A queue with Shivan queued; any lost cards come with whether the rest was kept. */
-  const queueOf = (
-    fields: Partial<Pick<QueueView, 'cards' | 'stealBehavior'>> &
-      ({ lost?: never } | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept: boolean }) = {},
-  ): QueueView => ({
-    cards: [queued],
-    lost: [],
-    cleared: [],
-    restKept: false,
-    stealBehavior: 'ClearQueue',
-    ...fields,
-  });
-
-  /** Opens the Queue tab and returns its panel. */
-  async function openQueue(fixture: AppFixture, page: HTMLElement) {
-    tabButton(page, 'Queue').click();
-    await fixture.whenStable();
-    return panel(page);
-  }
-
   const EXPLANATION =
     'Clear queue: the rest of your queue is cleared. ' +
     'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
@@ -74,6 +48,7 @@ describe('steal behavior', () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [brightclimb, shivan],
       queue: queueOf({
+        cards: [queued(shivan)],
         lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
         restKept: false,
       }),
@@ -93,7 +68,7 @@ describe('steal behavior', () => {
   it('explains itself in a tooltip and as the pill’s description', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
-      queue: queueOf(),
+      queue: queueOf({ cards: [queued(shivan)] }),
     });
     const queue = await openQueue(fixture, page);
 
@@ -123,7 +98,7 @@ describe('steal behavior', () => {
   it('switches to the other steal behavior when clicked, and saves it', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
-      queue: queueOf(),
+      queue: queueOf({ cards: [queued(shivan)] }),
     });
     const queue = await openQueue(fixture, page);
 
@@ -134,7 +109,7 @@ describe('steal behavior', () => {
     const req = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ stealBehavior: 'PickNext' });
-    req.flush(queueOf({ stealBehavior: 'PickNext' }));
+    req.flush(queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }));
     await fixture.whenStable();
 
     expect(pill(queue).textContent).toContain('Pick next');
@@ -144,7 +119,7 @@ describe('steal behavior', () => {
     pill(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
     expect(back.request.body).toEqual({ stealBehavior: 'ClearQueue' });
-    back.flush(queueOf());
+    back.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
 
     expect(pill(queue).textContent).toContain('Clear queue');
@@ -160,7 +135,7 @@ describe('steal behavior', () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer, bob], ...fields },
-      { cards: [shivan], queue: queueOf() },
+      { cards: [shivan], queue: queueOf({ cards: [queued(shivan)] }) },
     );
     const queue = await openQueue(fixture, page);
 
@@ -177,7 +152,7 @@ describe('steal behavior', () => {
     await expectLoadingAnimation(() => panel(page), 'Loading your queue…', 64);
     expect(pill(panel(page)).disabled).toBe(true);
 
-    req.flush(queueOf({ stealBehavior: 'PickNext' }));
+    req.flush(queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }));
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
     expect(pill(panel(page)).disabled).toBe(false);
@@ -189,7 +164,7 @@ describe('steal behavior', () => {
     async (state) => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ state, turn: null }), {
         cards: [shivan],
-        queue: queueOf({ stealBehavior: 'PickNext' }),
+        queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
       });
       const queue = await openQueue(fixture, page);
 
@@ -201,7 +176,7 @@ describe('steal behavior', () => {
   it('says when it couldn’t be changed, shows the previous value again, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
-      queue: queueOf(),
+      queue: queueOf({ cards: [queued(shivan)] }),
     });
     const queue = await openQueue(fixture, page);
 
@@ -223,7 +198,7 @@ describe('steal behavior', () => {
     const list = queue.querySelector('.queue')!;
     expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    reread.flush(queueOf());
+    reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
     expect(pill(queue).textContent).toContain('Clear queue');
   });
@@ -233,6 +208,7 @@ describe('steal behavior', () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({
+          cards: [queued(shivan)],
           lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
           restKept: true,
           stealBehavior: 'PickNext',
@@ -246,7 +222,9 @@ describe('steal behavior', () => {
           'The rest of your queue is still queued.',
       );
       button(note, 'Dismiss')!.click();
-      http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf());
+      http
+        .expectOne('/api/drafts/draft-1/queue/notice')
+        .flush(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
     });
 

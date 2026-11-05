@@ -3,7 +3,6 @@ import { By } from '@angular/platform-browser';
 import type { PlannedBasicView, PlanView } from 'contract';
 import {
   useDraftsApp,
-  alicePlayer,
   bob,
   http,
   tabButton,
@@ -13,7 +12,7 @@ import {
   button,
   viewOn,
   type AppFixture,
-  type DraftFixture,
+  drafting,
 } from './harness';
 import { card, useTallScreen, shivan } from './pool-tab-harness';
 
@@ -21,13 +20,8 @@ useDraftsApp();
 useTallScreen();
 
 describe('basic lands on the plan tab', () => {
-  /** Started, with Alice then Bob; Bob is up. */
-  const drafting = (fields: DraftFixture = {}): DraftFixture => ({
-    state: 'Drafting',
-    players: [alicePlayer, bob],
-    turn: { pick: 3, round: 2, playerId: bob.id },
-    ...fields,
-  });
+  /** Bob's turn, on the draft's third pick. */
+  const bobsTurn = { pick: 3, round: 2, playerId: bob.id };
   const bolt = card({ id: 'bolt-card', name: 'Lightning Bolt', manaValue: 1, typeLine: 'Instant' });
   const cards = [shivan, bolt];
   const planOf = (basics: PlannedBasicView[] = [], fields: Partial<PlanView> = {}): PlanView => ({
@@ -81,7 +75,7 @@ describe('basic lands on the plan tab', () => {
   }
 
   it('adds and removes each basic with − and +, and by typing a number, on the mainboard', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
     });
@@ -137,7 +131,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('puts back a typed number that isn’t one, and keeps a typed number within 0 to 99', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf([{ land: 'Swamp', count: 2 }]),
     });
@@ -155,7 +149,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('puts back a typed count the api refuses', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
     });
@@ -178,7 +172,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf([{ land: 'Forest', count: 3 }]),
     });
@@ -199,7 +193,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('clears every basic', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf([
         { land: 'Mountain', count: 5 },
@@ -238,7 +232,7 @@ describe('basic lands on the plan tab', () => {
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf([{ land: 'Island', count: 2 }]),
     });
@@ -272,7 +266,7 @@ describe('basic lands on the plan tab', () => {
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf([{ land: 'Island', count: 1 }]),
     });
@@ -288,7 +282,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('sets basics in a Basic lands modal, not above the plan boards, each labelled by its mana symbol', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
     });
@@ -319,7 +313,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('counts the plan’s basics on the button, and only when it holds some', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf([
         { land: 'Mountain', count: 5 },
@@ -348,7 +342,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('closes the modal on Done, on Escape and on a click on the backdrop', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
     });
@@ -377,7 +371,7 @@ describe('basic lands on the plan tab', () => {
   });
 
   it('shows only the Basic lands button in the mode controls on mobile', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
     });
@@ -392,7 +386,7 @@ describe('basic lands on the plan tab', () => {
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
     });

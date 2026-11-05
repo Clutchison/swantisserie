@@ -11,6 +11,7 @@ import {
   completeSnapshot,
   type AppFixture,
   expectLoadingAnimation,
+  pickOf,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
@@ -69,16 +70,13 @@ describe('pool tab', () => {
         {
           cards: [shivan],
           picks: [
-            {
-              pick: 1,
-              playerId: alice.id,
+            pickOf({
               poolCardId: shivan.id,
               name: shivan.name,
-              layout: 'normal',
               typeLine: shivan.typeLine,
               set: 'm20',
               collectorNumber: '332',
-            },
+            }),
           ],
         },
       );
@@ -151,16 +149,14 @@ describe('pool tab', () => {
         {
           cards: [brightclimb, shivan, thundermaw],
           picks: [
-            {
-              pick: 1,
+            pickOf({
               playerId: bob.id,
               poolCardId: 'shivan-card',
               name: 'Shivan Dragon',
-              layout: 'normal',
               typeLine: 'Creature — Dragon',
               set: 'ima',
               collectorNumber: '1',
-            },
+            }),
           ],
         },
       );
@@ -247,16 +243,14 @@ describe('pool tab', () => {
           {
             cards: pool,
             picks: [
-              {
-                pick: 1,
+              pickOf({
                 playerId: bob.id,
                 poolCardId: white.id,
                 name: white.name,
-                layout: 'normal',
                 typeLine: white.typeLine,
                 set: 'm20',
                 collectorNumber: '332',
-              },
+              }),
             ],
           },
         );

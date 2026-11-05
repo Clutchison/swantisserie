@@ -16,19 +16,15 @@ import {
   completeSnapshot,
   statusMessage,
   expectSignedOut,
-  type DraftFixture,
+  pickOf,
+  drafting,
 } from './harness';
 
 useDraftsApp();
 
 describe('live updates', () => {
-  const drafting = (fields: DraftFixture = {}) =>
-    draft({
-      state: 'Drafting',
-      players: [alicePlayer, bob],
-      turn: { pick: 1, round: 1, playerId: alice.id },
-      ...fields,
-    });
+  /** Alice's turn, on the draft's first pick. */
+  const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
   const shivan: PoolCardView = {
     id: 'shivan-card',
     scryfallId: 'shivan-id',
@@ -52,30 +48,31 @@ describe('live updates', () => {
     faces: [],
     images: [{ small: 's.jpg', normal: 'n.jpg', large: 'l.jpg' }],
   };
-  const shivanPick: PickView = {
-    pick: 1,
-    playerId: alice.id,
+  const shivanPick: PickView = pickOf({
     poolCardId: 'shivan-card',
     name: 'Shivan Dragon',
-    layout: 'normal',
     typeLine: 'Creature — Dragon',
     set: 'ima',
     collectorNumber: '1',
-  };
+  });
 
   it('watches the draft it shows', async () => {
-    await openDraft(completeSnapshot, drafting());
+    await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })));
 
     expect(updates.watch).toHaveBeenCalledWith('draft-1');
   });
 
   it('shows another player’s pick on the Pool, Board and Export tabs, and the turn passing', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      draft(drafting({ turn: alicesTurn })),
+      { cards: [shivan] },
+    );
     expect(page.textContent).toContain('Your turn: pick 1, round 1');
 
     updates.events.next({
       type: 'changed',
-      draft: drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+      draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
     });
     await flushPicks([shivanPick]);
     await fixture.whenStable();
@@ -95,7 +92,7 @@ describe('live updates', () => {
       players: [alicePlayer, bob],
     });
 
-    updates.events.next({ type: 'changed', draft: drafting() });
+    updates.events.next({ type: 'changed', draft: draft(drafting({ turn: alicesTurn })) });
     await flushPicks([]);
     await fixture.whenStable();
 
@@ -106,11 +103,14 @@ describe('live updates', () => {
   it('ignores a pushed draft older than the one it shows', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
-      drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 5 }),
+      draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 5 })),
       { cards: [shivan], picks: [shivanPick] },
     );
 
-    updates.events.next({ type: 'changed', draft: drafting({ version: 4 }) });
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: alicesTurn, version: 4 })),
+    });
     await fixture.whenStable();
 
     expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
@@ -118,7 +118,7 @@ describe('live updates', () => {
   });
 
   it('stops watching when the page closes', async () => {
-    await openDraft(completeSnapshot, drafting());
+    await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })));
     expect(updates.events.observed).toBe(true);
 
     await router.navigateByUrl('/');
@@ -128,11 +128,15 @@ describe('live updates', () => {
   });
 
   it('catches up with the draft and its picks when it reconnects', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      draft(drafting({ turn: alicesTurn })),
+      { cards: [shivan] },
+    );
 
     updates.events.next({ type: 'connected' });
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-      drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+      draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
     );
     await flushPicks([shivanPick]);
     await fixture.whenStable();
@@ -145,15 +149,20 @@ describe('live updates', () => {
     const notice = (page: HTMLElement) => statusMessage(page, 'Reconnecting…');
 
     it('says nothing before the socket first connects', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
+      const { page } = await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })));
 
       expect(notice(page)).toBeUndefined();
     });
 
     it('says it is reconnecting when the socket drops', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        draft(drafting({ turn: alicesTurn })),
+      );
       updates.events.next({ type: 'connected' });
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(drafting());
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(drafting({ turn: alicesTurn })),
+      );
       await flushPicks([]);
       await fixture.whenStable();
 
@@ -164,7 +173,10 @@ describe('live updates', () => {
     });
 
     it('says it is reconnecting while a refused first connect retries', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        draft(drafting({ turn: alicesTurn })),
+      );
 
       updates.events.next({ type: 'disconnected' });
       await fixture.whenStable();
@@ -173,14 +185,18 @@ describe('live updates', () => {
     });
 
     it('clears the notice and catches up when the socket reconnects', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        draft(drafting({ turn: alicesTurn })),
+        { cards: [shivan] },
+      );
       updates.events.next({ type: 'disconnected' });
       await fixture.whenStable();
       expect(notice(page)).toBeDefined();
 
       updates.events.next({ type: 'connected' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-        drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+        draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
       );
       await flushPicks([shivanPick]);
       await fixture.whenStable();
@@ -190,7 +206,10 @@ describe('live updates', () => {
     });
 
     it('clears the notice at once when the reconnect is refused for a session that has ended', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        draft(drafting({ turn: alicesTurn })),
+      );
       updates.events.next({ type: 'disconnected' });
       await fixture.whenStable();
       expect(notice(page)).toBeDefined();
@@ -205,7 +224,7 @@ describe('live updates', () => {
   });
 
   it('signs the player out when the socket is refused for a session that has ended', async () => {
-    const { fixture } = await openDraft(completeSnapshot, drafting());
+    const { fixture } = await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })));
 
     updates.events.next({ type: 'unauthorized' });
 

@@ -6,26 +6,23 @@ import {
   http,
   updates,
   bob,
-  alicePlayer,
   openDraft,
   flushQueueAndPlan,
   flushPicks,
   completeSnapshot,
   button,
+  drafting,
 } from './harness';
 
 useDraftsApp();
 
 describe('pause and resume', () => {
-  const drafting = {
-    state: 'Drafting' as const,
-    players: [alicePlayer, bob],
-    turn: { pick: 1, round: 1, playerId: alice.id },
-  };
-  const paused = { ...drafting, state: 'Paused' as const };
+  /** Alice up, on the draft's first pick. */
+  const aliceUp = drafting({ turn: { pick: 1, round: 1, playerId: alice.id } });
+  const paused = { ...aliceUp, state: 'Paused' as const };
 
   it('lets the organizer pause the draft, telling everyone picks have stopped', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp);
     expect(button(page, 'Resume draft')).toBeUndefined();
 
     button(page, 'Pause draft')!.click();
@@ -47,7 +44,7 @@ describe('pause and resume', () => {
     button(page, 'Resume draft')!.click();
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/resume'));
     expect(req.request.method).toBe('POST');
-    req.flush(draft({ ...drafting, version: 1 }));
+    req.flush(draft({ ...aliceUp, version: 1 }));
     await flushPicks([]);
     await flushQueueAndPlan();
     await fixture.whenStable();
@@ -57,7 +54,7 @@ describe('pause and resume', () => {
   });
 
   it('says why a pause was refused, and catches up with the draft', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting);
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp);
 
     button(page, 'Pause draft')!.click();
     const message = 'Only a drafting draft can be paused.';
@@ -88,7 +85,7 @@ describe('pause and resume', () => {
 
   it('shows every viewer the draft pausing as it happens', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, {
-      ...drafting,
+      ...aliceUp,
       organizer: { id: bob.id, name: bob.name },
     });
 

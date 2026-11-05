@@ -1,59 +1,36 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController } from '@angular/common/http/testing';
 import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { NavigationStart, provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { UserView } from 'contract';
+import { NavigationStart } from '@angular/router';
 import { App } from './app';
-import { routes } from './app.routes';
-import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
+import { alice, http, openApp, router, useApp } from './specs-harness';
 import { banner, button, expectLoadingAnimation, expectSignedOut } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
 
 describe('App', () => {
-  let http: HttpTestingController;
-  let router: Router;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      imports: [App],
-      providers: [
-        provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
-        provideHttpClientTesting(),
-      ],
-    });
-    http = TestBed.inject(HttpTestingController);
-    router = TestBed.inject(Router);
-  });
-
-  afterEach(() => http.verify());
+  useApp();
 
   const sha = '0123456789abcdef0123456789abcdef01234567';
   const commitUrl = `https://github.com/Clutchison/swantisserie/commit/${sha}`;
 
   /**
-   * Opens `url` with /api/auth/me answered by `respond`, and an app admin's
-   * request for the app version by `appVersion`, unless left unanswered.
+   * Opens `url` signed in as `user` (or with /api/auth/me answered by it), and
+   * an app admin's request for the app version answered by `appVersion`,
+   * unless left unanswered.
    */
-  async function open(
+  async function openSettled(
     url: string,
-    respond: (req: ReturnType<HttpTestingController['expectOne']>) => void,
+    user: Parameters<typeof openApp>[1],
     appVersion: Parameters<typeof answerAppVersion>[1] | 'unanswered' = { commit: sha },
   ) {
-    const fixture = TestBed.createComponent(App);
-    const navigation = router.navigateByUrl(url);
-    // The guard asks asynchronously, once navigation has started.
-    respond(await vi.waitFor(() => http.expectOne('/api/auth/me')));
-    await navigation;
+    const { fixture, page } = await openApp(url, user);
     // The home page lists drafts; answer it so the app can settle.
-    TestBed.tick();
     for (const req of http.match('/api/drafts')) req.flush([]);
     answerUnreviewedCount(http);
     if (appVersion !== 'unanswered') answerAppVersion(http, appVersion);
     await fixture.whenStable();
-    return fixture.nativeElement as HTMLElement;
+    return page;
   }
 
   it('says so while the first page loads', async () => {
@@ -63,13 +40,7 @@ describe('App', () => {
     const page = fixture.nativeElement as HTMLElement;
     await expectLoadingAnimation(() => page, 'Loading…', 288);
 
-    const user: UserView = {
-      id: '1',
-      name: 'Alice',
-      avatarUrl: 'https://example.com/a.png',
-      isAppAdmin: false,
-    };
-    req.flush(user);
+    req.flush(alice);
     await navigation;
     TestBed.tick();
     for (const drafts of http.match('/api/drafts')) drafts.flush([]);
@@ -92,7 +63,7 @@ describe('App', () => {
   });
 
   it('sends signed-out users to the sign-in page', async () => {
-    const page = await open('/', (req) =>
+    const page = await openSettled('/', (req) =>
       req.flush(null, { status: 401, statusText: 'Unauthorized' }),
     );
 
@@ -112,15 +83,8 @@ describe('App', () => {
     );
   });
 
-  const alice: UserView = {
-    id: '80351110224678912',
-    name: 'Alice',
-    avatarUrl: 'https://cdn.discordapp.com/embed/avatars/5.png',
-    isAppAdmin: false,
-  };
-
   it('shows the signed-in user’s avatar and name in the header', async () => {
-    const page = await open('/', (req) => req.flush(alice));
+    const page = await openSettled('/', alice);
 
     expect(router.url).toBe('/');
     const header = page.querySelector('header')!;
@@ -130,7 +94,7 @@ describe('App', () => {
 
   describe('desktop top bar', () => {
     it('links the logo and title to the home page as one link', async () => {
-      const page = await open('/', (req) => req.flush(alice));
+      const page = await openSettled('/', alice);
 
       const logo = page.querySelector<HTMLImageElement>('header img[src="logo.svg"]');
       const link = logo?.closest('a');
@@ -141,13 +105,13 @@ describe('App', () => {
     });
 
     it('shows an app admin the home link, App admin and Send feedback on the left, in order', async () => {
-      const page = await open('/', (req) => req.flush({ ...alice, isAppAdmin: true }));
+      const page = await openSettled('/', { ...alice, isAppAdmin: true });
 
       expect(leftControls(page)).toEqual(['Swantisserie', 'App admin', 'Send feedback']);
     });
 
     it('shows guild members who aren’t app admins no App admin, Webhooks or Feedback', async () => {
-      const page = await open('/', (req) => req.flush(alice), 'unanswered');
+      const page = await openSettled('/', alice, 'unanswered');
 
       expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
       expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
@@ -158,7 +122,7 @@ describe('App', () => {
     });
 
     it('shows the username, user image and Log out on the right, in order', async () => {
-      const page = await open('/', (req) => req.flush(alice));
+      const page = await openSettled('/', alice);
 
       const right = [...page.querySelector('header .right-group')!.children];
       expect(right.map((el) => el.textContent?.trim() || el.tagName)).toEqual([
@@ -171,7 +135,7 @@ describe('App', () => {
 
   describe('App admin dropdown', () => {
     async function openAppAdmin(appVersion?: Parameters<typeof answerAppVersion>[1]) {
-      const page = await open('/', (req) => req.flush({ ...alice, isAppAdmin: true }), appVersion);
+      const page = await openSettled('/', { ...alice, isAppAdmin: true }, appVersion);
       const trigger = appAdminButton(page);
       expect(menuLinks(page)).toEqual([]);
       trigger.click();
@@ -238,14 +202,14 @@ describe('App', () => {
 
   describe('hamburger menu', () => {
     async function openMenu(user: typeof alice) {
-      const page = await open('/', (req) => req.flush(user));
+      const page = await openSettled('/', user);
       page.querySelector<HTMLElement>('button[aria-label="Menu"]')!.click();
       TestBed.tick();
       return page;
     }
 
     it('comes before the logo in the bar', async () => {
-      const page = await open('/', (req) => req.flush(alice));
+      const page = await openSettled('/', alice);
 
       const left = page.querySelector('header .left-group')!;
       expect(left.children[0].querySelector('button')?.getAttribute('aria-label')).toBe('Menu');
@@ -275,9 +239,13 @@ describe('App', () => {
     });
 
     it('shows an app admin an unknown app version, with no link', async () => {
-      const page = await open('/', (req) => req.flush({ ...alice, isAppAdmin: true }), {
-        commit: null,
-      });
+      const page = await openSettled(
+        '/',
+        { ...alice, isAppAdmin: true },
+        {
+          commit: null,
+        },
+      );
       page.querySelector<HTMLElement>('button[aria-label="Menu"]')!.click();
       TestBed.tick();
 
@@ -335,7 +303,7 @@ describe('App', () => {
   });
 
   it('logs out and returns to the sign-in page', async () => {
-    const page = await open('/', (req) => req.flush(alice));
+    const page = await openSettled('/', alice);
 
     clickLogOut(page);
     const logout = await vi.waitFor(() => http.expectOne('/api/auth/logout'));
@@ -347,7 +315,7 @@ describe('App', () => {
   });
 
   it('signs the user out locally even when the logout request fails', async () => {
-    const page = await open('/', (req) => req.flush(alice));
+    const page = await openSettled('/', alice);
 
     clickLogOut(page);
     (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).error(new ProgressEvent('error'));
@@ -357,7 +325,7 @@ describe('App', () => {
   });
 
   it('goes to sign-in once when the logout request finds the session already gone', async () => {
-    const page = await open('/', (req) => req.flush(alice));
+    const page = await openSettled('/', alice);
     const toSignIn = countNavigationsToSignIn();
 
     clickLogOut(page);
@@ -436,7 +404,9 @@ describe('App', () => {
   });
 
   it('sends signed-out users on any page to the sign-in page', async () => {
-    await open('/drafts/42', (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }));
+    await openSettled('/drafts/42', (req) =>
+      req.flush(null, { status: 401, statusText: 'Unauthorized' }),
+    );
 
     expect(router.url).toBe('/sign-in');
   });
