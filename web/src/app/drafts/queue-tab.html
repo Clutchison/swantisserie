@@ -52,7 +52,10 @@
 }
 @let left = picksLeft();
 @if (left !== null) {
-  <p class="detail picks-left" [attr.data-highlighted]="left <= highlightPicksLeftAt">
+  <p
+    class="detail picks-left"
+    [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
+  >
     {{ left }} {{ left === 1 ? 'pick' : 'picks' }} left
   </p>
 }

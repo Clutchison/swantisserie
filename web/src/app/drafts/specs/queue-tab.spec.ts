@@ -28,6 +28,7 @@ import {
   pickOf,
   flushQueueAndPlan,
   queueList,
+  picksLeftCount,
   accessibleName,
   type AppFixture,
 } from './harness';
@@ -588,31 +589,33 @@ describe('queue tab', () => {
       expect(queue.textContent).toContain('Your queue is empty');
     });
 
+    /** A new version of a draft of `picksPerPlayer`, with the pick log re-read as `picks`. */
+    const changed = async (
+      fixture: AppFixture,
+      picksPerPlayer: number,
+      version: number,
+      picks: PickView[],
+    ) => {
+      updates.events.next({
+        type: 'changed',
+        draft: draft(drafting({ picksPerPlayer, version })),
+      });
+      await flushPicks(picks);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+    };
+
     it('counts down as the viewer picks, and back up when an undo takes one back', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }));
       const queue = await openQueue(fixture, page);
       expect(queue.textContent).toContain('12 picks left');
 
-      /** A new draft version, with the pick log re-read as `picks`. */
-      const changed = async (version: number, picks: PickView[]) => {
-        updates.events.next({
-          type: 'changed',
-          draft: draft(drafting({ picksPerPlayer: 12, version })),
-        });
-        await flushPicks(picks);
-        await flushQueueAndPlan();
-        await fixture.whenStable();
-      };
-      await changed(1, [pickOf({ poolCardId: 'a' })]);
+      await changed(fixture, 12, 1, [pickOf({ poolCardId: 'a' })]);
       expect(queue.textContent).toContain('11 picks left');
 
-      await changed(2, []);
+      await changed(fixture, 12, 2, []);
       expect(queue.textContent).toContain('12 picks left');
     });
-
-    /** The picks left count, found by its text. */
-    const picksLeftCount = (queue: HTMLElement) =>
-      [...queue.querySelectorAll('p')].find((p) => /^\d+ picks? left$/.test(p.textContent.trim()));
 
     /** Whether the picks left count is highlighted, as near the end of the viewer's picks. */
     const highlighted = (queue: HTMLElement) =>
@@ -634,21 +637,11 @@ describe('queue tab', () => {
       const queue = await openQueue(fixture, page);
       expect(highlighted(queue)).toBe(false);
 
-      /** A new draft version, with the pick log re-read as `picks`. */
-      const changed = async (version: number, picks: PickView[]) => {
-        updates.events.next({
-          type: 'changed',
-          draft: draft(drafting({ picksPerPlayer: 11, version })),
-        });
-        await flushPicks(picks);
-        await flushQueueAndPlan();
-        await fixture.whenStable();
-      };
-      await changed(1, [pickOf({ poolCardId: 'a' })]);
+      await changed(fixture, 11, 1, [pickOf({ poolCardId: 'a' })]);
       expect(picksLeftCount(queue)?.textContent).toContain('10 picks left');
       expect(highlighted(queue)).toBe(true);
 
-      await changed(2, []);
+      await changed(fixture, 11, 2, []);
       expect(picksLeftCount(queue)?.textContent).toContain('11 picks left');
       expect(highlighted(queue)).toBe(false);
     });
