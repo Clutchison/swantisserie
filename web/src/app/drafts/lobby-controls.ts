@@ -271,7 +271,7 @@ export class LobbyControls {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       this.lobbyError.set(err.error?.message ?? failure);
-      this.store.refresh();
+      this.store.catchUp();
     } else {
       this.lobbyError.set(failure);
     }
@@ -280,7 +280,7 @@ export class LobbyControls {
   /**
    * Sends a change to the draft and shows the draft it answers with, unless
    * another change is in flight; `failure` is shown if it fails, and a
-   * refusal has the store re-read the draft.
+   * refusal has the store catch up with the draft.
    * Focus is kept as `Changes.send` keeps it, and a change made says `status`.
    */
   private changeLobby(
@@ -294,7 +294,7 @@ export class LobbyControls {
       this.lobbyError.set(null);
       this.changeStarted.emit();
       try {
-        await this.store.changeLobby(request);
+        await this.store.changeDraft(request);
         return true;
       } catch (err) {
         this.lobbyError.set(changeFailure(err, failure));
