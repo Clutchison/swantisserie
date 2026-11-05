@@ -19,7 +19,7 @@ import type {
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
-import { DRAFT_POLL_MS } from '../draft-page';
+import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';

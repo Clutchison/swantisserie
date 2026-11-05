@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  input,
   output,
   signal,
   untracked,
@@ -22,7 +21,8 @@ import type {
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { Auth } from '../auth/auth';
-import { DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import { changeFailure, DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
 
@@ -51,25 +51,20 @@ export class LobbyControls {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
   private readonly changes = inject(Changes);
+  private readonly store = inject(DraftStore);
 
-  readonly draft = input.required<DraftView>();
+  private readonly draft = this.store.shown;
   /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
   protected readonly turnPlayerId = computed(() => {
     const draft = this.draft();
     return hasTurn(draft) ? draft.turn.playerId : null;
   });
   /** Whether the signed-in user is the organizer, or an app admin. */
-  readonly canOrganize = input.required<boolean>();
+  protected readonly canOrganize = this.store.canOrganize;
   /** Whether the signed-in user has joined this draft. */
-  readonly joined = input.required<boolean>();
+  protected readonly joined = this.store.joined;
   /** A change to the players, seats or state is being sent. */
   readonly changeStarted = output<void>();
-  /** The draft as a change made it. */
-  readonly draftChanged = output<DraftView>();
-  /** The draft as a pick import started it. */
-  readonly picksImported = output<DraftView>();
-  /** A change was refused, so the draft has moved on unseen; it should be re-read. */
-  readonly draftStale = output<void>();
   /** The organizer cancelled the draft. */
   readonly cancelled = output<void>();
 
@@ -225,7 +220,7 @@ export class LobbyControls {
     return this.changes.send(async () => {
       this.lobbyError.set(null);
       try {
-        this.picksImported.emit(
+        this.store.apply(
           await firstValueFrom(
             this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pick-import`, {
               csv,
@@ -276,15 +271,16 @@ export class LobbyControls {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       this.lobbyError.set(err.error?.message ?? failure);
-      this.draftStale.emit();
+      this.store.refresh();
     } else {
       this.lobbyError.set(failure);
     }
   }
 
   /**
-   * Sends a change to the draft and passes on the draft it answers with,
-   * unless another change is in flight; `failure` is shown if it fails.
+   * Sends a change to the draft and shows the draft it answers with, unless
+   * another change is in flight; `failure` is shown if it fails, and a
+   * refusal has the store re-read the draft.
    * Focus is kept as `Changes.send` keeps it, and a change made says `status`.
    */
   private changeLobby(
@@ -298,10 +294,10 @@ export class LobbyControls {
       this.lobbyError.set(null);
       this.changeStarted.emit();
       try {
-        this.draftChanged.emit(await firstValueFrom(request));
+        await this.store.changeLobby(request);
         return true;
       } catch (err) {
-        this.lobbyFailed(err, failure);
+        this.lobbyError.set(changeFailure(err, failure));
         return false;
       }
     }, kept);

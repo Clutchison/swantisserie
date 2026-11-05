@@ -4,7 +4,6 @@ import {
   CdkVirtualScrollableWindow,
   CdkVirtualScrollViewport,
 } from '@angular/cdk/scrolling';
-import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,23 +14,16 @@ import {
   inject,
   input,
   linkedSignal,
-  output,
   signal,
   untracked,
   viewChild,
 } from '@angular/core';
-import type {
-  DraftView,
-  PlanView,
-  PlayerView,
-  PoolCardRequest,
-  PoolCardView,
-  QueueView,
-} from 'contract';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { PlanView, PoolCardView, QueueView } from 'contract';
+import type { Observable } from 'rxjs';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
 import { changeFailure, isRefusal } from './drafts';
+import { DraftStore } from './draft-store';
 import { ImagePreloader } from './image-preloader';
 import {
   applyPoolFilters,
@@ -70,59 +62,48 @@ import { LoadingAnimation } from '../loading/loading-animation';
   host: { '(document:keydown.escape)': 'close()' },
 })
 export class PoolTab {
-  private readonly http = inject(HttpClient);
+  private readonly store = inject(DraftStore);
   private readonly queueApi = inject(QueueApi);
   private readonly planApi = inject(PlanApi);
   protected readonly images = inject(CardImageSource);
   private readonly preloader = inject(ImagePreloader);
   private readonly tileImages = inject(TileImageLoader);
 
-  /** A draft whose pool snapshot is complete. */
-  readonly draftId = input.required<string>();
   /** Whether the Pool tab is the draft page's visible tab. */
   readonly visible = input(true);
-  /** The pool's cards, which the draft page loads. */
-  readonly cards = input.required<PoolCardView[]>();
+
+  /** A draft whose pool snapshot is complete. */
+  private readonly draftId = this.store.id;
+  /** The pool's cards. */
+  private readonly cards = this.store.pool.value;
   /** Whether the pool's cards are still on their way. */
-  readonly loading = input(false);
+  protected readonly loading = this.store.pool.loading;
   /** Whether the pool's cards couldn't be loaded. */
-  readonly failed = input(false);
+  protected readonly failed = this.store.pool.failed;
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
-  readonly picked = input<ReadonlyMap<string, PlayerView>>(new Map());
+  protected readonly picked = this.store.picked;
   /** Whether the card detail offers a Pick button: for players while the draft is Drafting. */
-  readonly offerPick = input(false);
+  protected readonly offerPick = this.store.offerPick;
   /** The pool card ids of the cards in the signed-in player's queue. */
-  readonly queued = input<ReadonlySet<string>>(new Set());
+  protected readonly queued = this.store.queued;
   /**
    * Whether the card detail offers Remove from queue for a queued card, or
    * else Add to queue, except on the player's own turn: for players while the
    * draft is active.
    */
-  readonly offerQueue = input(false);
+  protected readonly offerQueue = this.store.offerQueue;
   /** The pool card ids of the unpicked cards in the signed-in player's plan. */
-  readonly planned = input<ReadonlySet<string>>(new Set());
+  protected readonly planned = this.store.planned;
   /**
    * Whether the card detail offers Remove from Plan for an unpicked copy in
    * the plan, or else Add to Plan: for players while the draft is active,
    * behind the Plan tab's gate.
    */
-  readonly offerPlanChange = input(false);
+  protected readonly offerPlanChange = this.store.offerPlanChange;
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
-  readonly yourTurn = input(false);
+  protected readonly yourTurn = this.store.yourTurn;
   /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */
-  readonly turnPick = input<number | null>(null);
-  /** A pick was made: the draft as it now is. */
-  readonly pickMade = output<DraftView>();
-  /** A pick or a change to the queue was refused because the draft has changed; it should be re-read. */
-  readonly draftStale = output<void>();
-  /** A card was added to or removed from the queue: the queue as it now is. */
-  readonly queueChanged = output<QueueView>();
-  /** Adding or removing a card failed, so the queue may have moved on unseen; it should be re-read. */
-  readonly queueStale = output<void>();
-  /** A card was added to or removed from the plan: the plan as it now is. */
-  readonly planChanged = output<PlanView>();
-  /** Adding or removing a card failed, so the plan may have moved on unseen; it should be re-read. */
-  readonly planStale = output<void>();
+  private readonly turnPick = computed(() => this.store.turn()?.pick ?? null);
 
   /** The pool search typed into the search box. */
   protected readonly search = signal('');
@@ -328,18 +309,12 @@ export class PoolTab {
     this.picking.set(true);
     this.pickError.set(null);
     try {
-      const draft = await firstValueFrom(
-        this.http.post<DraftView>(`/api/drafts/${this.draftId()}/picks`, {
-          poolCardId: card.id,
-        } satisfies PoolCardRequest),
-      );
+      await this.store.pick(card.id);
       this.close();
-      this.pickMade.emit(draft);
     } catch (err) {
       if (isRefusal(err)) {
-        // The draft has moved on, e.g. another pick was made: show why, and catch up with it.
+        // The draft has moved on, e.g. another pick was made: show why. The store catches up with it.
         this.pickError.set(err.error?.message ?? PICK_FAILED);
-        this.draftStale.emit();
       } else {
         this.pickError.set(PICK_FAILED);
       }
@@ -367,20 +342,19 @@ export class PoolTab {
   /**
    * Sends a change to the queue, noting `done` once it's made, unless the turn
    * has moved on meanwhile. If it fails,
-   * notes why (`failure`, unless the API says) and has the queue re-read,
-   * and the draft too if it was refused: a stale page may not know whose turn it is.
+   * notes why (`failure`, unless the API says); the store re-reads the
+   * queue, and the draft too if it was refused: a stale page may not know whose turn it is.
    */
   private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
     this.queueing.set(true);
     this.queueNote.set(null);
     const turnPick = this.turnPick();
     try {
-      this.queueChanged.emit(await firstValueFrom(request));
+      await this.store.changeQueue(request);
       if (this.turnPick() === turnPick) this.queueNote.set(done);
     } catch (err) {
       this.queueNote.set(changeFailure(err, failure));
-      this.queueStale.emit();
-      if (isRefusal(err)) this.draftStale.emit();
+      if (isRefusal(err)) this.store.catchUp();
     } finally {
       this.queueing.set(false);
     }
@@ -404,20 +378,19 @@ export class PoolTab {
 
   /**
    * Sends a change to the plan, noting `done` once it's made. If it fails,
-   * notes why (`failure`, unless the API says) and has the plan re-read, and
-   * the draft too if it was refused: a stale page may not know the draft has
+   * notes why (`failure`, unless the API says); the store re-reads the
+   * plan, and the draft too if it was refused: a stale page may not know the draft has
    * moved on.
    */
   private async changePlan(request: Observable<PlanView>, done: string, failure: string) {
     this.planning.set(true);
     this.planNote.set(null);
     try {
-      this.planChanged.emit(await firstValueFrom(request));
+      await this.store.changePlan(request);
       this.planNote.set(done);
     } catch (err) {
       this.planNote.set(changeFailure(err, failure));
-      this.planStale.emit();
-      if (isRefusal(err)) this.draftStale.emit();
+      if (isRefusal(err)) this.store.catchUp();
     } finally {
       this.planning.set(false);
     }

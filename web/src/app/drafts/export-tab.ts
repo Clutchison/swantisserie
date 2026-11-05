@@ -2,14 +2,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  input,
+  inject,
   type OnDestroy,
   signal,
 } from '@angular/core';
-import type { PickView, Platform, PlanView, PlayerView, PoolCardView } from 'contract';
+import type { PickView, Platform } from 'contract';
 import { LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
 import { CardName } from './card-name';
+import { DraftStore } from './draft-store';
 import type { ExportPlan } from './export-plan';
 import { moxfieldExport } from './moxfield-export';
 import { mtgoExport } from './mtgo-export';
@@ -46,27 +47,29 @@ const CONFIRMATION_MS = 2000;
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './export-tab.scss'],
 })
 export class ExportTab implements OnDestroy {
+  private readonly store = inject(DraftStore);
+
   /** The draft's platform, which decides the exports offered. */
-  readonly platform = input.required<Platform>();
+  private readonly platform = computed<Platform>(() => this.store.shown().platform);
   /** The signed-in player, if they have joined. */
-  readonly player = input.required<PlayerView | null>();
+  protected readonly player = this.store.ownPlayer;
   /**
    * The signed-in player's plan, which decides each pick's plan board and adds
    * the basics.
    */
-  readonly plan = input.required<PlanView>();
+  private readonly plan = this.store.plan.value;
   /** Whether the plan is still on its way. */
-  readonly planLoading = input(false);
+  protected readonly planLoading = this.store.plan.loading;
   /** Whether the plan couldn't be loaded. */
-  readonly planFailed = input(false);
+  protected readonly planFailed = this.store.plan.failed;
   /** The pick log, in pick order. */
-  readonly picks = input.required<PickView[]>();
+  private readonly picks = this.store.picks.value;
   /** The pool's cards by id, for the Card previews of the names here. */
-  readonly poolCardsById = input.required<ReadonlyMap<string, PoolCardView>>();
+  protected readonly poolCardsById = this.store.poolCardsById;
   /** Whether the picks are still on their way. */
-  readonly loading = input(false);
+  protected readonly loading = this.store.picks.loading;
   /** Whether the picks couldn't be loaded. */
-  readonly failed = input(false);
+  protected readonly failed = this.store.picks.failed;
 
   /** The player's picks, in pick order. */
   protected readonly playerPicks = computed(() =>
