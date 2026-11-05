@@ -19,20 +19,20 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 ## Pool
 
 - The organizer pastes a **Scryfall query**. Every card in the results is in the pool.
-- **Arena-only validation:** the app runs `(q) -in:arena`. If that returns any cards, creation fails and lists the offending cards. (Not `-game:arena`: `game:` matches printings, so it would also catch Arena cards that have a paper-only printing.)
-- **Snapshot:** a background job pages through `(q) game:arena unique:cards` (175/page, ≤2 req/s, progress bar) and stores per card:
-  - name, `oracle_id`, Arena print `id`, set code, collector number
+- **Platform validation:** the app runs `(q) -in:<platform>` for the draft's platform (`arena` or `mtgo`). If that returns any cards, creation fails and lists the cards that aren't on the platform. (Not `-game:<platform>`: `game:` matches printings, so it would also catch cards on the platform that have a printing off it.)
+- **Snapshot:** a background job pages through `(q) <no basic lands> game:<platform> unique:cards` (175/page, ≤2 req/s, progress bar), which leaves out the basic lands, and stores per card:
+  - name, `oracle_id`, the `id` of its printing on the platform, set code, collector number
   - type line, colors, mana value
   - for the pool search: oracle text, mana cost, color identity, keywords, rarity, power/toughness/loyalty, per face
   - image URLs (`small`/`normal`/`large`, per face for double-faced cards)
 - The pool is **frozen at creation**: no changes after the snapshot.
-- Creation fails if `picks per player × players > pool size`.
+- Starting the draft fails if `picks per player × players > pool size`. It is checked at start, not at creation, since a new draft has no players.
 - No local Scryfall bulk database.
 
 ## Draft
 
 - 2–12 players. Guild members click **Join** in the lobby.
-- The organizer starts the draft. Seats are randomized at start and the organizer can edit them manually.
+- The organizer sets the seat order in the lobby, by hand or with a randomize action that shuffles it, and starts the draft. Start keeps the seats as they are, and they are fixed from then on.
 - **Standard snake order** (1→N, N→1). Default **40 picks per player**, set per draft.
 - **Singleton**: a card can be picked only once.
 - **No turn timers.**
@@ -77,7 +77,7 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 - Socket.IO room per draft. After each change (a pick, a lobby change, a state change) the draft as it now is is pushed to everyone viewing, and they re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
 - On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, so nothing missed while it was away stays missing.
-- Undos and queue-lost will need their own events, alongside the pushed draft.
+- The pushed draft is the only event besides a cancel. Every pick, undo and state change bumps the draft's version, and on a version change the client re-reads the pick log and the signed-in player's queue and plan, which is how it learns of an undo or a lost card.
 
 ## Discord (Discord bot and webhooks)
 
@@ -143,10 +143,10 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 
 | Layer    | Choice                                                                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repo     | npm workspaces monorepo: `engine`, `api`, `web`                                                                                                                        |
+| Repo     | npm workspaces monorepo: `contract`, `engine`, `api`, `web`. `contract` holds the view and request types the api and web share.                                        |
 | `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns, pick checks, cascades, and what a pick or an undo does to queues and plans. Built test-first. |
 | `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                        |
-| `web`    | Angular + Angular Material + CDK, mobile-first                                                                                                                         |
+| `web`    | Angular + CDK, mobile-first                                                                                                                                            |
 | DB       | Neon Postgres (free tier)                                                                                                                                              |
 | Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.      |
 | CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                              |
