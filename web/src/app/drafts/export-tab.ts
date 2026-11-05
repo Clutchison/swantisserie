@@ -85,12 +85,11 @@ export class ExportTab implements OnDestroy {
   protected readonly exportPlan = computed<ExportPlan<PoolCardView>>(() => {
     const { sideboard, basics } = this.plan();
     const onSideboard = new Set(sideboard.map((card) => card.poolCardId));
-    const picks = this.playerPicks();
-    return {
-      mainboard: picks.filter((pick) => !onSideboard.has(pick.poolCardId)).map((pick) => pick.card),
-      sideboard: picks.filter((pick) => onSideboard.has(pick.poolCardId)).map((pick) => pick.card),
-      basics,
-    };
+    const plan: ExportPlan<PoolCardView> = { mainboard: [], sideboard: [], basics };
+    for (const { poolCardId, card } of this.playerPicks()) {
+      (onSideboard.has(poolCardId) ? plan.sideboard : plan.mainboard).push(card);
+    }
+    return plan;
   });
 
   /** For the warning's text. */
