@@ -146,6 +146,31 @@ describe('lobby', () => {
       expect((await getDraft(id).expect(200)).body.players).toHaveLength(12);
     });
 
+    it('refuses a guild member joining once the draft has 12 players', async () => {
+      const id = await lobbyDraft();
+      for (let i = 0; i < 12; i++) await addBot(id, carolCookie).expect(201);
+
+      const refused = await join(id).expect(409);
+
+      expect(refused.body).toEqual({
+        error: 'draft-full',
+        message: 'A draft can have at most 12 players.',
+      });
+      const { players } = (await getDraft(id).expect(200)).body;
+      expect(players).toHaveLength(12);
+      expect(players).not.toContainEqual(player(alice));
+    });
+
+    it('lets a player in a full draft join again, changing nothing', async () => {
+      const id = await lobbyDraft();
+      await join(id).expect(201);
+      for (let i = 0; i < 11; i++) await addBot(id, carolCookie).expect(201);
+
+      await join(id).expect(201);
+
+      expect((await getDraft(id).expect(200)).body.players).toHaveLength(12);
+    });
+
     it('lets an app admin remove a bot, deleting it', async () => {
       const id = await lobbyDraft();
       await addBot(id, carolCookie).expect(201);

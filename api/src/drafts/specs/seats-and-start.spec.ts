@@ -1,5 +1,7 @@
+import { PrismaService } from '../../prisma/prisma.service.js';
 import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
 import {
+  app,
   alice,
   bob,
   carol,
@@ -91,12 +93,18 @@ describe('seats and start', () => {
 
   it('refuses a start with more than 12 players', async () => {
     const cookies = [aliceCookie];
-    for (let i = 1; i < 13; i++) {
+    for (let i = 1; i < 12; i++) {
       cookies.push(
         await signIn({ id: `8035111022467900${i}`, name: `Player ${i}` }),
       );
     }
     const id = await readyDraft(cookies);
+    // Joining refuses a 13th player, so one is put in directly.
+    const thirteenth = { id: '803511102246790012', name: 'Player 12' };
+    await signIn(thirteenth);
+    await app
+      .get(PrismaService)
+      .player.create({ data: { draftId: id, userId: thirteenth.id } });
 
     const refused = await start(id).expect(409);
 

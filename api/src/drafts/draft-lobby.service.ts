@@ -143,14 +143,16 @@ export class DraftLobbyService {
 
   /**
    * Adds the user to the draft's players; a no-op if they're already in.
-   * Throws DraftStartedError once the draft has left Lobby.
+   * Throws DraftFullError if they aren't and the draft has as many players
+   * as it can, and DraftStartedError once it has left Lobby.
    */
   async join(draftId: string, userId: string): Promise<void> {
     await this.lock.inLobby(draftId, async ({ tx }) => {
-      await tx.player.createMany({
-        data: { draftId, userId },
-        skipDuplicates: true,
-      });
+      if (await tx.player.findFirst({ where: { draftId, userId } })) return;
+      if ((await tx.player.count({ where: { draftId } })) >= MAX_PLAYERS) {
+        throw new DraftFullError();
+      }
+      await tx.player.create({ data: { draftId, userId } });
     });
   }
 
