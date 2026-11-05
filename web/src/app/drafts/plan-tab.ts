@@ -10,6 +10,7 @@ import {
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
@@ -302,6 +303,11 @@ export class PlanTab {
     // The modal takes focus as it opens.
     effect(() => this.cancelQueueing()?.nativeElement.focus());
     effect(() => this.doneWithBasics()?.nativeElement.focus());
+    // Queue unpicked stops being offered as the player's turn comes: close its
+    // modal then, so it can't come back by itself once the turn passes.
+    effect(() => {
+      if (!this.offerQueueUnpicked()) untracked(() => this.closeQueueing());
+    });
     // Not every test environment's `matchMedia` reports changes.
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;

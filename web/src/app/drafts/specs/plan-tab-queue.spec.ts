@@ -9,6 +9,10 @@ import {
   panel,
   openDraft,
   completeSnapshot,
+  flushPicks,
+  flushQueueAndPlan,
+  updates,
+  draft,
   button,
   type AppFixture,
   type DraftFixture,
@@ -203,6 +207,40 @@ describe('queueing the unpicked cards on the plan tab', () => {
     );
     expect(dialog(tab)).toBeNull();
     await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+  });
+
+  it('closes when the player’s turn comes, and stays closed once it passes', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards,
+      plan,
+    });
+    const tab = await openModal(fixture, page);
+    sideboardBox(tab).click();
+    await fixture.whenStable();
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: { pick: 1, round: 1, playerId: alice.id }, version: 1 })),
+    });
+    await flushPicks([]);
+    await flushQueueAndPlan(EMPTY_QUEUE, plan);
+    await fixture.whenStable();
+    expect(dialog(tab)).toBeNull();
+    // The player moves on, and the turn passes to Bob.
+    tabButton(page, 'Plan').focus();
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 2 })),
+    });
+    await flushPicks([]);
+    await flushQueueAndPlan(EMPTY_QUEUE, plan);
+    await fixture.whenStable();
+
+    expect(dialog(tab)).toBeNull();
+    expect(document.activeElement).toBe(tabButton(page, 'Plan'));
+    button(tab, 'Queue unpicked')!.click();
+    await fixture.whenStable();
+    expect(sideboardBox(tab).checked).toBe(false);
   });
 
   it.each([
