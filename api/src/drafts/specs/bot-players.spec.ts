@@ -152,7 +152,7 @@ describe('bot players', () => {
     ).toEqual([botIds[0]]);
   });
 
-  it('picks uniformly at random from the cards not yet picked', async () => {
+  it('picks the available card the random value lands on, with the available cards sorted by name', async () => {
     const { id } = await draftWithBots(1);
     await start(id).expect(200);
     // Of the seven cards left, by name, the last but one.
