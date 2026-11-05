@@ -373,7 +373,9 @@ describe('plan tab', () => {
     await expectLoadingAnimation(() => panel(page), 'Loading your plan…', 64);
 
     req.flush(planOf());
-    await vi.waitFor(() => expect(planBoards(panel(page))[0].heading).toBe('Mainboard 4 (4 picked)'));
+    await vi.waitFor(() =>
+      expect(planBoards(panel(page))[0].heading).toBe('Mainboard 4 (4 picked)'),
+    );
   });
 
   it('says when the plan couldn’t be loaded', async () => {
