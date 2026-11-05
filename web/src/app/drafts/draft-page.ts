@@ -171,7 +171,7 @@ export class DraftPage {
   protected readonly plan = computed<PlanView>(() =>
     this.planResource.hasValue() ? this.planResource.value() : EMPTY_PLAN,
   );
-  /** The pool card ids of the unpicked cards in the signed-in player's plan, on either board. */
+  /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
   protected readonly planned = computed(() => {
     const { mainboard, sideboard } = this.plan();
     return new Set(
