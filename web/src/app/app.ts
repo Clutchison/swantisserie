@@ -46,7 +46,7 @@ export class App {
     const count = this.unreviewed.hasValue() ? this.unreviewed.value().count : 0;
     return count > 0 ? ` (${count})` : '';
   });
-  protected readonly adminLabel = computed(() => `Admin${this.unreviewedSuffix()}`);
+  protected readonly appAdminLabel = computed(() => `App admin${this.unreviewedSuffix()}`);
   protected readonly feedbackLabel = computed(() => `Feedback${this.unreviewedSuffix()}`);
 
   /** Which commit is live, for app admins; left out of the menu until known, or if it can't be. */

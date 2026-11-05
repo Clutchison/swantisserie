@@ -16,7 +16,7 @@ header {
   gap: var(--space-sm);
 }
 
-/* The bar's full height, which the Admin dropdown measures its panel's position from. */
+/* The bar's full height, which the App admin dropdown measures its panel's position from. */
 .wide-only {
   align-self: stretch;
 }
@@ -82,7 +82,7 @@ header {
   font-weight: 600;
 }
 
-/* The app version: a footnote to the Admin items, not one of them. */
+/* The app version: a footnote to the App admin items, not one of them. */
 .menu-item.muted,
 .menu-note {
   color: var(--color-muted);

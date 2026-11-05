@@ -6,9 +6,9 @@
           Send feedback
         </button>
         @if (user.isAppAdmin) {
-          <div role="group" aria-labelledby="narrow-admin-heading">
-            <div class="menu-heading" id="narrow-admin-heading">Admin</div>
-            <ng-container [ngTemplateOutlet]="adminItems" />
+          <div role="group" aria-labelledby="narrow-app-admin-heading">
+            <div class="menu-heading" id="narrow-app-admin-heading">App admin</div>
+            <ng-container [ngTemplateOutlet]="appAdminItems" />
           </div>
         }
       </app-top-bar-menu>
@@ -18,8 +18,8 @@
       </a>
       <div class="wide-only">
         @if (user.isAppAdmin) {
-          <app-top-bar-menu [label]="adminLabel()">
-            <ng-container [ngTemplateOutlet]="adminItems" />
+          <app-top-bar-menu [label]="appAdminLabel()">
+            <ng-container [ngTemplateOutlet]="appAdminItems" />
           </app-top-bar-menu>
         }
         <button class="button quiet compact" type="button" (click)="feedbackOpen.set(true)">
@@ -33,7 +33,7 @@
       <button class="button quiet compact" type="button" (click)="logout()">Log out</button>
     </div>
   </header>
-  <ng-template #adminItems>
+  <ng-template #appAdminItems>
     <a class="menu-item" routerLink="/admin/webhooks">Webhooks</a>
     <a class="menu-item" routerLink="/admin/feedback">{{ feedbackLabel() }}</a>
     @if (appVersion(); as version) {

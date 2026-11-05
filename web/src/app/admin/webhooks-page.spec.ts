@@ -5,7 +5,7 @@ import { provideRouter, Router, withComponentInputBinding } from '@angular/route
 import type { AdminWebhookView, UserView, WebhookAdminProblem } from 'contract';
 import { App } from '../app';
 import { routes } from '../app.routes';
-import { adminButton, answerTopBar } from '../top-bar/specs-harness';
+import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
 
 const alice: UserView = {
   id: '80351110224678912',
@@ -188,7 +188,7 @@ describe('webhooks page', () => {
     );
   });
 
-  it('removes a webhook once the admin confirms', async () => {
+  it('removes a webhook once the app admin confirms', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { fixture, page } = await openPage([main, side]);
     button(row(page, '#roto-main'), 'Remove').click();
@@ -204,7 +204,7 @@ describe('webhooks page', () => {
     expect(rows(page)).toEqual([['#roto-side', side.url]]);
   });
 
-  it('keeps a webhook the admin did not confirm removing', async () => {
+  it('keeps a webhook the app admin did not confirm removing', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     const { fixture, page } = await openPage([main]);
     button(row(page, '#roto-main'), 'Remove').click();
@@ -218,7 +218,7 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
-    adminButton(page).click();
+    appAdminButton(page).click();
     await fixture.whenStable();
 
     const link = page.querySelector<HTMLAnchorElement>('header a[href="/admin/webhooks"]');
@@ -231,7 +231,7 @@ describe('webhooks page', () => {
     http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
 
-    expect(page.querySelector('header')?.textContent).not.toContain('Admin');
+    expect(page.querySelector('header')?.textContent).not.toContain('App admin');
     expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
     http.expectNone('/api/admin/webhooks');
   });
