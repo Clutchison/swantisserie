@@ -156,7 +156,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 1. Open a transaction and lock the draft row (`SELECT … FOR UPDATE`).
 2. Under the draft row lock, the api checks that the draft is Drafting. The engine checks the pick (your turn, card available), and works out the cascade after it and what every pick does to queues and plans.
 3. The api persists the picks and their effects on queues and plans, then commits.
-4. **After commit**, the api builds the announcement's events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
+4. **After commit**, the api builds the announcements' events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
 5. Push the draft as it now is to the draft's Socket.IO room.
 
 ### Where the Discord code lives
