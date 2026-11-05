@@ -359,6 +359,65 @@ describe('App', () => {
 
     expect(router.url).toBe('/sign-in');
   });
+
+  describe('status page', () => {
+    type Answer = (req: ReturnType<HttpTestingController['expectOne']>) => void;
+    const serverError: Answer = (req) =>
+      req.flush(null, { status: 500, statusText: 'Server Error' });
+
+    /** Opens /status with /api/auth/me answered by `me` and /api/health by `health`. */
+    async function openStatus(me: Answer, health: Answer) {
+      const fixture = TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/status');
+      me(await vi.waitFor(() => http.expectOne('/api/auth/me')));
+      await navigation.catch(() => undefined);
+      // Not whenStable() yet: it would wait on the health check we have yet to answer.
+      TestBed.tick();
+      health(await vi.waitFor(() => http.expectOne('/api/health')));
+      answerUnreviewedCount(http);
+      answerAppVersion(http, { commit: sha });
+      await fixture.whenStable();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('says the API is unreachable when it can’t tell who is signed in', async () => {
+      const page = await openStatus(serverError, (req) => req.error(new ProgressEvent('error')));
+
+      expect(router.url).toBe('/status');
+      expect(page.textContent).toContain('API unreachable');
+      expect(page.textContent).not.toContain("Couldn't load this page.");
+    });
+
+    it('says the database is down when the API reports it, even when it can’t tell who is signed in', async () => {
+      const page = await openStatus(serverError, (req) =>
+        req.flush({ api: 'ok', db: 'error' }, { status: 503, statusText: 'Service Unavailable' }),
+      );
+
+      expect(page.textContent).toContain('DB error');
+    });
+
+    it('opens for signed-out visitors, without sending them to sign in', async () => {
+      const page = await openStatus(
+        (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }),
+        (req) => req.flush({ api: 'ok', db: 'ok' }),
+      );
+
+      expect(router.url).toBe('/status');
+      expect(page.textContent).toContain('API ok');
+      expect(page.textContent).toContain('DB ok');
+      expect(logOutButton(page)).toBeUndefined();
+    });
+
+    it('shows signed-in users the header', async () => {
+      const page = await openStatus(
+        (req) => req.flush(alice),
+        (req) => req.flush({ api: 'ok', db: 'ok' }),
+      );
+
+      expect(page.textContent).toContain('API ok');
+      expect(logOutButton(page)).toBeDefined();
+    });
+  });
 });
 
 /** The visible text of the desktop left group's controls, in order. */
@@ -391,9 +450,12 @@ function versionLink(page: HTMLElement) {
   return page.querySelector<HTMLAnchorElement>('header .panel a[href*="/commit/"]');
 }
 
+function logOutButton(page: HTMLElement) {
+  return [...page.querySelectorAll<HTMLButtonElement>('button')].find(
+    (b) => b.textContent?.trim() === 'Log out',
+  );
+}
+
 function clickLogOut(page: HTMLElement) {
-  const button = [...page.querySelectorAll('header button')].find((b) =>
-    b.textContent?.includes('Log out'),
-  ) as HTMLButtonElement;
-  button.click();
+  logOutButton(page)!.click();
 }

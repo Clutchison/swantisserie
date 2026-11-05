@@ -47,6 +47,19 @@ export const signedIn: CanActivateFn = async () => {
   return (await auth.currentUser()) ? true : router.createUrlTree([SIGN_IN_PATH]);
 };
 
+/**
+ * Lets everyone through, after finding out who is signed in if it can, so a
+ * page that must open during an outage still shows the header when it can.
+ */
+export const knownUser: CanActivateFn = async () => {
+  try {
+    await inject(Auth).currentUser();
+  } catch {
+    // Signed in or not, the page opens anyway.
+  }
+  return true;
+};
+
 /** Sends anyone but app admins to the draft list. */
 export const appAdmin: CanActivateFn = async () => {
   const auth = inject(Auth);
