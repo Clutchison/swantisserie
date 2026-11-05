@@ -70,10 +70,19 @@ export type PoolSourceView =
  */
 export type PoolSourceKind = PoolSourceView['kind'];
 
+/**
+ * The fields the create form gives for each kind of pool source. Keyed by
+ * {@link PoolSourceKind}, so a new kind fails to compile until it has them.
+ */
+interface NewPoolSourceFields {
+  'pool-query': { poolQuery: string };
+  cube: { cubeLink: string };
+}
+
 /** A new draft's pool source, as the organizer gives it on the create form. */
-export type NewPoolSourceRequest =
-  | { kind: 'pool-query'; poolQuery: string }
-  | { kind: 'cube'; cubeLink: string };
+export type NewPoolSourceRequest = {
+  [K in PoolSourceKind]: { kind: K } & NewPoolSourceFields[K];
+}[PoolSourceKind];
 
 /** What every draft shows, whatever its state. */
 export interface DraftBase {

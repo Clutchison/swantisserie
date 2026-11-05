@@ -42,9 +42,6 @@ import { cubeIdFrom } from '../cubecobra/cube-link.js';
 import { cubePrintings } from './cube-pool.js';
 import { STORED_POOL_SOURCE_KIND } from './pool-source.js';
 
-/** What defines a new draft's pool, as the organizer gave it, trimmed. */
-export type NewPoolSource = NewPoolSourceRequest;
-
 /** A cube as a draft keeps it, with a printing on the platform of each mainboard copy. */
 interface CheckedCube {
   cubeId: string;
@@ -54,7 +51,8 @@ interface CheckedCube {
 
 export interface NewDraft {
   name: string;
-  poolSource: NewPoolSource;
+  /** As the organizer gave it, trimmed. */
+  poolSource: NewPoolSourceRequest;
   picksPerPlayer: number;
   platform: Platform;
   /** Where its announcements are posted; null for none. */

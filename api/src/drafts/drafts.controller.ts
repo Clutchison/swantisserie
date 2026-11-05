@@ -49,11 +49,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
-import {
-  DraftLobbyService,
-  type NewDraft,
-  type NewPoolSource,
-} from './draft-lobby.service.js';
+import { DraftLobbyService, type NewDraft } from './draft-lobby.service.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftReadsService } from './draft-reads.service.js';
@@ -469,7 +465,7 @@ function invalid(message: string): BadRequestException {
 }
 
 /** The create form's pool source, trimmed, or a 400 saying what to fix. */
-function parsePoolSource(poolSource: unknown): NewPoolSource {
+function parsePoolSource(poolSource: unknown): NewPoolSourceRequest {
   const missing = () => invalid('Enter a pool query or a cube link.');
   if (typeof poolSource !== 'object' || poolSource === null) throw missing();
   const { kind } = bodyFields<NewPoolSourceRequest>(poolSource);
