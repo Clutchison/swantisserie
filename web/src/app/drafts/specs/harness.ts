@@ -284,6 +284,16 @@ export function accessibleName(element: Element): string {
 export const link = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].find((a) => accessibleName(a) === name);
 
+/** A heading inside `root`, by its accessible name. */
+export const heading = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]')].find(
+    (element) => accessibleName(element) === name,
+  );
+
+/** The images inside `root` that a screen reader names, in page order. */
+export const namedImages = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLImageElement>('img')].filter((image) => image.alt !== '');
+
 /** The first alert inside `root`: an error shown to the viewer, if any. */
 export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
 
@@ -340,11 +350,19 @@ type ControlOf = {
   combobox: HTMLSelectElement;
 };
 
-/** A label's own text, leaving out any hint, option or other element it wraps. */
+/**
+ * A label's own text, and the alt text of an image it holds in place of
+ * text, leaving out any hint, option or other element it wraps.
+ */
 const ownText = (label: HTMLLabelElement) =>
   [...label.childNodes]
-    .filter((node) => node.nodeType === Node.TEXT_NODE)
-    .map((node) => node.textContent)
+    .map((node) =>
+      node.nodeType === Node.TEXT_NODE
+        ? node.textContent
+        : node instanceof HTMLImageElement
+          ? node.alt
+          : '',
+    )
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();

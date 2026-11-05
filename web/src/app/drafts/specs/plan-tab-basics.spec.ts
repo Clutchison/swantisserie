@@ -8,6 +8,9 @@ import {
   completeSnapshot,
   alertIn,
   button,
+  controlByLabel,
+  heading,
+  namedImages,
   viewOn,
   type AppFixture,
   drafting,
@@ -45,17 +48,17 @@ describe('basic lands on the plan tab', () => {
     [...plan.querySelectorAll('button')].find((b) =>
       b.textContent?.trim().startsWith('Basic lands'),
     );
-  /** Opens the Basic lands modal, and answers with it. */
+  /** Opens the Basic lands dialog, and answers with it. */
   async function openBasics(fixture: AppFixture, plan: HTMLElement) {
     basicsButton(plan)!.click();
     await fixture.whenStable();
     return openDialog()!;
   }
-  /** A button in the open modal, by its text or aria-label. */
-  const inModal = (label: string) => button(openDialog()!, label);
+  /** A button in the open dialog, by its text or aria-label. */
+  const inDialog = (label: string) => button(openDialog()!, label);
 
-  /** The Basic lands control's number for `land`, if the modal is open. */
-  const countOf = (land: string) => document.querySelector<HTMLInputElement>(`#basic-${land}`)!;
+  /** The Basic lands control's number for `land`, labelled by the land, if the dialog is open. */
+  const countOf = (land: string) => controlByLabel(document.body, 'spinbutton', land)!;
   /** Types `value` into the number for `land`, as a player does before leaving it. */
   function typeCount(land: string, value: string) {
     const input = countOf(land);
@@ -75,9 +78,9 @@ describe('basic lands on the plan tab', () => {
         (land) => countOf(land).value,
       ),
     ).toEqual(['0', '0', '0', '0', '0', '0']);
-    expect(inModal('One fewer Plains')!.disabled).toBe(true);
+    expect(inDialog('One fewer Plains')!.disabled).toBe(true);
 
-    inModal('One more Plains')!.click();
+    inDialog('One more Plains')!.click();
     const added = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
     expect(added.request.method).toBe('PUT');
     expect(added.request.body).toEqual({ count: 1 });
@@ -106,7 +109,7 @@ describe('basic lands on the plan tab', () => {
       ]),
     );
 
-    inModal('One fewer Plains')!.click();
+    inDialog('One fewer Plains')!.click();
     const fewer = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
     expect(fewer.request.body).toEqual({ count: 0 });
     fewer.flush(boltAndShivanWith([{ land: 'Island', count: 8 }]));
@@ -158,7 +161,7 @@ describe('basic lands on the plan tab', () => {
 
     await vi.waitFor(() => expect(countOf('Island').value).toBe('0'));
     expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands');
-    // Said in the modal, as the page behind it is hidden from assistive technology.
+    // Said in the dialog, as the page behind it is hidden from assistive technology.
     expect(alertIn(openDialog()!)?.textContent).toContain('This draft isn’t open.');
   });
 
@@ -194,7 +197,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    inModal('Clear basics')!.click();
+    inDialog('Clear basics')!.click();
     const cleared = http.expectOne('/api/drafts/draft-1/plan/basics');
     expect(cleared.request.method).toBe('DELETE');
     cleared.flush(boltAndShivanWith());
@@ -202,7 +205,7 @@ describe('basic lands on the plan tab', () => {
     await vi.waitFor(() => expect(countOf('Mountain').value).toBe('0'));
     expect(countOf('Wastes').value).toBe('0');
     expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']);
-    expect(inModal('Clear basics')!.disabled).toBe(true);
+    expect(inDialog('Clear basics')!.disabled).toBe(true);
   });
 
   it('can change basics once the draft is complete', async () => {
@@ -214,7 +217,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    inModal('One more Wastes')!.click();
+    inDialog('One more Wastes')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Wastes');
   });
 
@@ -272,19 +275,19 @@ describe('basic lands on the plan tab', () => {
     );
   });
 
-  it('sets basics in a Basic lands modal, not above the plan boards, each labelled by its mana symbol', async () => {
+  it('sets basics in a Basic lands dialog, not above the plan boards, each labelled by its mana symbol', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
-    expect(countOf('Plains')).toBeNull();
+    expect(countOf('Plains')).toBeUndefined();
     expect(openDialog()).toBeNull();
 
-    const modal = await openBasics(fixture, plan);
-    expect(modal.getAttribute('aria-modal')).toBe('true');
-    expect(modal.querySelector('h3')?.textContent?.trim()).toBe('Basic lands');
-    const symbols = [...modal.querySelectorAll<HTMLImageElement>('label img')];
+    const dialog = await openBasics(fixture, plan);
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(heading(dialog, 'Basic lands')).toBeDefined();
+    const symbols = namedImages(dialog);
     expect(symbols.map((symbol) => [symbol.getAttribute('src'), symbol.alt, symbol.title])).toEqual(
       [
         ['mana/W.svg', 'Plains', 'Plains'],
@@ -296,11 +299,9 @@ describe('basic lands on the plan tab', () => {
       ],
     );
     // Each number is labelled by its land, through its symbol's alt text.
-    expect(modal.querySelector('label[for="basic-Wastes"] img')?.getAttribute('alt')).toBe(
-      'Wastes',
-    );
-    expect(button(modal, 'Clear basics')).toBeDefined();
-    expect(button(modal, 'Done')).toBeDefined();
+    expect(countOf('Wastes')).toBeDefined();
+    expect(button(dialog, 'Clear basics')).toBeDefined();
+    expect(button(dialog, 'Done')).toBeDefined();
   });
 
   it('counts the plan’s basics on the button, and only when it holds some', async () => {
@@ -314,25 +315,25 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (6)');
 
-    const modal = await openBasics(fixture, plan);
-    button(modal, 'One more Wastes')!.click();
+    const dialog = await openBasics(fixture, plan);
+    button(dialog, 'One more Wastes')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Wastes').flush(
       boltAndShivanWith([
         { land: 'Mountain', count: 5 },
         { land: 'Wastes', count: 2 },
       ]),
     );
-    // The plan behind the modal updates as each change saves.
+    // The plan behind the dialog updates as each change saves.
     await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (7)'));
     expect(planBoards(plan)[0].lines).toContain('2 Wastes');
 
-    button(modal, 'Clear basics')!.click();
+    button(dialog, 'Clear basics')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics').flush(boltAndShivanWith());
     await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands'));
     expect(openDialog()).not.toBeNull();
   });
 
-  it('closes the modal on Done, on Escape and on a click on the backdrop', async () => {
+  it('closes the dialog on Done, on Escape and on a click on the backdrop', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
@@ -348,10 +349,10 @@ describe('basic lands on the plan tab', () => {
     await fixture.whenStable();
     expect(openDialog()).toBeNull();
 
-    // A click inside the modal leaves it open.
-    const modal = await openBasics(fixture, plan);
-    modal.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    modal.click();
+    // A click inside the dialog leaves it open.
+    const dialog = await openBasics(fixture, plan);
+    dialog.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    dialog.click();
     await fixture.whenStable();
     expect(openDialog()).not.toBeNull();
     clickBackdrop();
@@ -396,7 +397,7 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
-    const more = inModal('One more Island')!;
+    const more = inDialog('One more Island')!;
 
     more.focus();
     more.click();
@@ -425,47 +426,47 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    inModal('One fewer Island')!.focus();
-    inModal('One fewer Island')!.click();
+    inDialog('One fewer Island')!.focus();
+    inDialog('One fewer Island')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Island').flush(boltAndShivanWith());
 
-    await vi.waitFor(() => expect(document.activeElement).toBe(inModal('One more Island')));
+    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
   });
 
-  it('opens on Done, and keeps Tab and Shift+Tab inside the modal, wrapping at either end', async () => {
+  it('opens on Done, and keeps Tab and Shift+Tab inside the dialog, wrapping at either end', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
-    await vi.waitFor(() => expect(document.activeElement).toBe(inModal('Done')));
+    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('Done')));
 
     // With no basics, − and Clear basics are disabled: Plains's number is the first control.
     pressTab();
     expect(document.activeElement).toBe(countOf('Plains'));
     pressTab({ shift: true });
-    expect(document.activeElement).toBe(inModal('Done'));
+    expect(document.activeElement).toBe(inDialog('Done'));
   });
 
-  it('hides the page behind the modal from assistive technology while it is open', async () => {
+  it('hides the page behind the dialog from assistive technology while it is open', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
-    const modal = await openBasics(fixture, plan);
+    const dialog = await openBasics(fixture, plan);
 
     await vi.waitFor(() => expect(hiddenFromAssistiveTech(basicsButton(plan)!)).toBe(true));
-    expect(hiddenFromAssistiveTech(modal)).toBe(false);
+    expect(hiddenFromAssistiveTech(dialog)).toBe(false);
 
-    inModal('Done')!.click();
+    inDialog('Done')!.click();
     await fixture.whenStable();
     expect(hiddenFromAssistiveTech(basicsButton(plan)!)).toBe(false);
   });
 
   it.each<[string, () => void]>([
-    ['Done', () => inModal('Done')!.click()],
+    ['Done', () => inDialog('Done')!.click()],
     ['Escape', pressEscape],
     ['a backdrop click', clickBackdrop],
   ])('returns focus to the Basic lands button on %s', async (_, close) => {
@@ -476,7 +477,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     basicsButton(plan)!.focus();
     await openBasics(fixture, plan);
-    await vi.waitFor(() => expect(document.activeElement).toBe(inModal('Done')));
+    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('Done')));
 
     close();
     await fixture.whenStable();
