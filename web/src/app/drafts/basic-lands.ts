@@ -9,8 +9,8 @@ const COLORS: Record<BasicLand, string[]> = {
   Wastes: [],
 };
 
-/** One plain printing of a basic land on Scryfall. */
-interface Printing {
+/** A basic land printing on Scryfall. */
+interface BasicLandPrinting {
   scryfallId: string;
   oracleId: string;
   set: string;
@@ -18,10 +18,10 @@ interface Printing {
 }
 
 /**
- * The printing each basic land shows: Onslaught's first of each, and Oath of
+ * Each basic land's default printing: Onslaught's first of each, and Oath of
  * the Gatewatch's plain Wastes, which Onslaught lacks.
  */
-const PRINTINGS: Record<BasicLand, Printing> = {
+const DEFAULT_PRINTINGS: Record<BasicLand, BasicLandPrinting> = {
   Plains: {
     scryfallId: '7bf7d68a-dbd0-45f3-acbb-59ee38e6057e',
     oracleId: 'bc71ebf6-2056-41f7-be35-b2e5c34afa99',
@@ -62,13 +62,13 @@ const PRINTINGS: Record<BasicLand, Printing> = {
 
 /**
  * What the page needs to show and preview a basic land that isn't in the
- * pool, as if it were a pool card: its name, type and one fixed printing, with
+ * pool, as if it were a pool card: its name, type and default printing, with
  * that printing's images on Scryfall's CDN. Every platform has its basics, so
  * which printing shows doesn't matter. It has no mana cost, and its id is no
  * pool card's.
  */
 export function basicCard(land: BasicLand): PoolCardView {
-  const printing = PRINTINGS[land];
+  const printing = DEFAULT_PRINTINGS[land];
   const id = printing.scryfallId;
   const image = (version: string) =>
     `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;

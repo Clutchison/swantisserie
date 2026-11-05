@@ -267,7 +267,7 @@ describe('basic lands on the plan tab', () => {
     expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
   });
 
-  it('falls back to Scryfall’s API image of a basic land’s printing when its image fails in the stacks', async () => {
+  it('falls back to Scryfall’s API image of a basic land’s default printing when its image fails in the stacks', async () => {
     viewOn('desktop');
     onTestFinished(() => {
       vi.unstubAllGlobals();

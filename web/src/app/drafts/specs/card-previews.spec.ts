@@ -502,7 +502,7 @@ describe('card previews', () => {
       );
     });
 
-    it('falls back to Scryfall’s API image of a basic land’s printing', async () => {
+    it('falls back to Scryfall’s API image of a basic land’s default printing', async () => {
       const { page, fixture } = await openPicked({
         plan: {
           mainboard: [],
