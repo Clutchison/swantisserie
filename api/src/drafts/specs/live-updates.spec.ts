@@ -90,6 +90,24 @@ describe('live updates', () => {
     expect(socket.connected).toBe(false);
   });
 
+  it('joins a socket naming a draft that doesn’t exist to no room, so it gets no push', async () => {
+    const id = await readyDraft([]);
+    const bobCookie = await signIn(bob);
+    const cancelledDraft = await readyDraft([]);
+    await cancelDraft(cancelledDraft).expect(204);
+    const ghost = await socketFor(cancelledDraft, bobCookie);
+    const ghostHeard = vi.fn();
+    ghost.onAny(ghostHeard);
+    await new Promise<void>((resolve) => ghost.on('connect', resolve));
+    const bobSees = await watch(id, bobCookie);
+
+    await join(id).expect(201);
+
+    await vi.waitFor(() => expect(bobSees).toHaveLength(1));
+    expect(ghost.connected).toBe(true);
+    expect(ghostHeard).not.toHaveBeenCalled();
+  });
+
   it('pushes the paused draft to its viewers after a pick import', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 1, [
