@@ -28,7 +28,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { DraftReadsService } from './draft-reads.service.js';
+import { DraftAccess, withAccessErrors } from './draft-access.js';
 import { parseCard } from './parse-card.js';
 import {
   QueueChangedError,
@@ -44,7 +44,7 @@ import {
 @UseGuards(SessionGuard)
 export class QueuesController {
   constructor(
-    private readonly reads: DraftReadsService,
+    private readonly access: DraftAccess,
     private readonly queues: QueuesService,
   ) {}
 
@@ -53,7 +53,7 @@ export class QueuesController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.queue(id, user.id));
+    return this.answer(user, id, () => this.queues.queue(id, user.id));
   }
 
   /** Adds a pool card to the end of the queue. */
@@ -65,7 +65,9 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const poolCardId = parseCard(body, 'Say which card to queue.');
-    return this.answer(id, () => this.queues.add(id, user.id, poolCardId));
+    return this.answer(user, id, () =>
+      this.queues.add(id, user.id, poolCardId),
+    );
   }
 
   /**
@@ -80,7 +82,7 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const includeSideboard = parseIncludeSideboard(body);
-    return this.answer(id, () =>
+    return this.answer(user, id, () =>
       this.queues.addUnpicked(id, user.id, includeSideboard),
     );
   }
@@ -93,7 +95,9 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const poolCardIds = parseOrder(body);
-    return this.answer(id, () => this.queues.reorder(id, user.id, poolCardIds));
+    return this.answer(user, id, () =>
+      this.queues.reorder(id, user.id, poolCardIds),
+    );
   }
 
   /** Sets what a lost card does to the rest of the queue. */
@@ -104,7 +108,7 @@ export class QueuesController {
     @Body() body: unknown,
   ): Promise<QueueView> {
     const stealBehavior = parseStealBehavior(body);
-    return this.answer(id, () =>
+    return this.answer(user, id, () =>
       this.queues.setStealBehavior(id, user.id, stealBehavior),
     );
   }
@@ -115,7 +119,7 @@ export class QueuesController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.dismissNotice(id, user.id));
+    return this.answer(user, id, () => this.queues.dismissNotice(id, user.id));
   }
 
   /** Takes a card out of the queue. Declared after `notice`, which it would match. */
@@ -125,15 +129,18 @@ export class QueuesController {
     @Param('id') id: string,
     @Param('poolCardId') poolCardId: string,
   ): Promise<QueueView> {
-    return this.answer(id, () => this.queues.remove(id, user.id, poolCardId));
+    return this.answer(user, id, () =>
+      this.queues.remove(id, user.id, poolCardId),
+    );
   }
 
   /** Answers with the queue as `request` leaves it, or why it can’t. */
   private async answer(
+    user: SessionUser,
     id: string,
     request: () => Promise<QueueView>,
   ): Promise<QueueView> {
-    if (!(await this.reads.find(id))) throw new NotFoundException();
+    await withAccessErrors(this.access.visible(user, id));
     try {
       return await request();
     } catch (err) {

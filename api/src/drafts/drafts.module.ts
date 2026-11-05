@@ -8,6 +8,7 @@ import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService } from './draft-lobby.service.js';
 import { DraftLock } from './draft-lock.js';
 import { DraftPublisher } from './draft-publisher.js';
+import { DraftAccess } from './draft-access.js';
 import { DraftReadsService } from './draft-reads.service.js';
 import { DraftsController } from './drafts.controller.js';
 import { DraftsGateway } from './drafts.gateway.js';
@@ -24,6 +25,7 @@ import { TurnsService } from './turns.service.js';
   controllers: [DraftsController, PlansController, QueuesController],
   providers: [
     DraftLock,
+    DraftAccess,
     DraftReadsService,
     DraftLobbyService,
     PickImportService,
