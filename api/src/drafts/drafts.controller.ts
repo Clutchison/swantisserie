@@ -97,7 +97,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     const draft = await this.reads.find(id);
     // Cancelled since the check.
     if (!draft) throw new NotFoundException();
@@ -118,7 +118,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PoolCardView[]> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return (await this.reads.pool(id)).map(toPoolCardView);
   }
 
@@ -128,7 +128,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PickView[]> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return (await this.turns.picks(id)).map(toPickView);
   }
 
@@ -141,7 +141,7 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<DraftView> {
     const poolCardId = parseCard(body, 'Say which card to pick.');
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return this.change(id, () => this.turns.pick(id, user.id, poolCardId));
   }
 
@@ -318,7 +318,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return this.change(id, () => this.lobby.join(id, user.id));
   }
 
@@ -328,7 +328,7 @@ export class DraftsController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return this.change(id, () => this.lobby.leave(id, user.id));
   }
 

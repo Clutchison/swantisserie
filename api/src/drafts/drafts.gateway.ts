@@ -9,12 +9,12 @@ import cookieParser from 'cookie-parser';
 import type { Request, Response } from 'express';
 import type { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { API_PREFIX } from '../app.setup.js';
-import { sessionToken } from '../auth/session.guard.js';
+import { sessionToken, toSessionUser } from '../auth/session.guard.js';
 import { SessionService } from '../auth/session.service.js';
 import { AppAdminConfig } from '../auth/app-admin-config.js';
 import type { User } from '../generated/prisma/client.js';
 import { DraftAccess } from './draft-access.js';
-import { DraftHiddenError } from './draft-errors.js';
+import { CannotSeeDraftError } from './draft-errors.js';
 
 const parseCookies = cookieParser();
 
@@ -76,15 +76,11 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     if (!user) return null;
     const { draftId } = socket.handshake.auth as { draftId?: unknown };
     if (typeof draftId !== 'string') return user;
-    const viewer = {
-      id: user.id,
-      isAppAdmin: this.appAdmins.isAppAdmin(user.id),
-    };
     try {
-      await this.access.visible(viewer, draftId);
+      await this.access.canSee(toSessionUser(user, this.appAdmins), draftId);
     } catch (err) {
       // No room: the client's reads of the draft already 404.
-      if (err instanceof DraftHiddenError) return user;
+      if (err instanceof CannotSeeDraftError) return user;
       throw err;
     }
     (socket.data as SocketData).draftId = draftId;

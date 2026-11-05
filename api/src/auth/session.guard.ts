@@ -18,6 +18,14 @@ export interface SessionUser extends User {
   isAppAdmin: boolean;
 }
 
+/** The signed-in user as SessionUser, with their app admin status read now. */
+export function toSessionUser(
+  user: User,
+  appAdmins: AppAdminConfig,
+): SessionUser {
+  return { ...user, isAppAdmin: appAdmins.isAppAdmin(user.id) };
+}
+
 export type AuthedRequest = Request & { user?: SessionUser };
 
 /** The session token from the request's cookie, if it has one. */
@@ -39,7 +47,7 @@ export class SessionGuard implements CanActivate {
     const token = sessionToken(req);
     const user = token ? await this.sessions.findUser(token) : null;
     if (!user) throw new UnauthorizedException();
-    req.user = { ...user, isAppAdmin: this.appAdmins.isAppAdmin(user.id) };
+    req.user = toSessionUser(user, this.appAdmins);
     return true;
   }
 }

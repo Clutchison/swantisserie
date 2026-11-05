@@ -130,7 +130,7 @@ export class PlansController {
     id: string,
     request: () => Promise<PlanView>,
   ): Promise<PlanView> {
-    await this.access.visible(user, id);
+    await this.access.canSee(user, id);
     return request();
   }
 }
