@@ -1,3 +1,4 @@
+import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
 import {
   alice,
   bob,
@@ -102,6 +103,19 @@ describe('pick import preview', () => {
     // Shutting down waits for the snapshot, so let it finish.
     answer.resolve(page('Lightning Bolt'));
     await snapshotted(id);
+  });
+
+  it('refuses a draft whose pool snapshot failed', async () => {
+    const { id, answer } = await draftWithRunningSnapshot();
+    answer.reject(new ScryfallUnavailableError(503));
+    await snapshotted(id);
+
+    const refused = await previewPickImport(id, csv).expect(409);
+
+    expect(refused.body).toEqual({
+      error: 'pool-snapshot-failed',
+      message: 'The pool snapshot failed. Retry it before starting.',
+    });
   });
 
   it('refuses a draft that fails the start checks', async () => {
