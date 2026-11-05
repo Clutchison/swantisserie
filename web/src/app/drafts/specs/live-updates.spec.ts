@@ -13,6 +13,7 @@ import {
   openDraft,
   flushPicks,
   completeSnapshot,
+  statusMessage,
   type DraftFixture,
 } from './harness';
 
@@ -136,5 +137,53 @@ describe('live updates', () => {
 
     expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     expect(page.querySelector('.tile')?.classList).toContain('picked');
+  });
+  describe('when the socket is down', () => {
+    const notice = (page: HTMLElement) => statusMessage(page, 'Reconnecting…');
+
+    it('says nothing before the socket first connects', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting());
+
+      expect(notice(page)).toBeUndefined();
+    });
+
+    it('says it is reconnecting when the socket drops', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(drafting());
+      await flushPicks([]);
+      await fixture.whenStable();
+
+      updates.events.next({ type: 'disconnected' });
+      await fixture.whenStable();
+
+      expect(notice(page)).toBeDefined();
+    });
+
+    it('says it is reconnecting while a refused first connect retries', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+
+      updates.events.next({ type: 'disconnected' });
+      await fixture.whenStable();
+
+      expect(notice(page)).toBeDefined();
+    });
+
+    it('clears the notice and catches up when the socket reconnects', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), { cards: [shivan] });
+      updates.events.next({ type: 'disconnected' });
+      await fixture.whenStable();
+      expect(notice(page)).toBeDefined();
+
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        drafting({ turn: { pick: 2, round: 1, playerId: bob.id } }),
+      );
+      await flushPicks([shivanPick]);
+      await fixture.whenStable();
+
+      expect(notice(page)).toBeUndefined();
+      expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+    });
   });
 });

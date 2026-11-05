@@ -210,6 +210,10 @@ export const button = (root: HTMLElement, label: string) =>
     (b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label,
   );
 
+/** A status message inside `root`, by its text. */
+export const statusMessage = (root: HTMLElement, text: string) =>
+  [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);
+
 /** A select inside `root`, by its label's own text (leaving out its options'). */
 export const selectByLabel = (root: HTMLElement, label: string) =>
   [...root.querySelectorAll('select')].find((select) =>
