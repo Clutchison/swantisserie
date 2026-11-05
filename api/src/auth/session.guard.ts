@@ -31,7 +31,7 @@ export function sessionToken(req: Request): string | undefined {
 export class SessionGuard implements CanActivate {
   constructor(
     private readonly sessions: SessionService,
-    private readonly admins: AppAdminConfig,
+    private readonly appAdmins: AppAdminConfig,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -39,7 +39,7 @@ export class SessionGuard implements CanActivate {
     const token = sessionToken(req);
     const user = token ? await this.sessions.findUser(token) : null;
     if (!user) throw new UnauthorizedException();
-    req.user = { ...user, isAppAdmin: this.admins.isAppAdmin(user.id) };
+    req.user = { ...user, isAppAdmin: this.appAdmins.isAppAdmin(user.id) };
     return true;
   }
 }

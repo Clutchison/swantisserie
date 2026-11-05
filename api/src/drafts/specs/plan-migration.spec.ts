@@ -1,4 +1,4 @@
-import { databaseBefore } from './migrations.js';
+import { databaseBefore } from '../../testing/migrations.js';
 
 const PLANS = '20261103150000_plans';
 
