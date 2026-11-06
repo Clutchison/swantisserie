@@ -582,6 +582,20 @@ describe('draft page', () => {
       expect(panelName(page)).toBe(to);
     });
 
+    it('writes the Export tab an arrow key moves to from the Play tab in a complete draft', async () => {
+      const { fixture, page } = await openComplete(playing(), {
+        fields: threePlayers,
+        url: '/drafts/draft-1?tab=play',
+      });
+
+      tabButton(page, 'Play').focus();
+      pressKey(tabButton(page, 'Play'), 'ArrowRight');
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/drafts/draft-1?tab=export');
+      expect(panelName(page)).toBe('Export');
+    });
+
     it('takes the tab out of the URL when the Pool tab is clicked', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, asPlayer, {
         url: '/drafts/draft-1?tab=board',
