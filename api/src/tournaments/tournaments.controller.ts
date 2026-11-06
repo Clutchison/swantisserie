@@ -18,6 +18,7 @@ import {
   type DraftView,
   type GameScore,
   type GrantedDrawRequest,
+  type GrantedWinRequest,
   type MatchReportRequest,
   type RequestProblem,
   type SwissRoundOption,
@@ -221,9 +222,10 @@ export class TournamentsController {
   }
 
   /**
-   * Completes the Swiss tournament's current tournament round, granting
-   * draws in its unreported matches and dropping players as the body lists
-   * them: it pairs the next one, or completes the tournament after the last
+   * Completes the tournament's current tournament round, settling its
+   * unreported matches as the body lists them: in Swiss, granting draws
+   * and dropping players; in single elimination, granting wins. It pairs
+   * the next one, or completes the tournament after the last
    * or once too few undropped players remain. For the organizer.
    */
   @Post('complete-round')
@@ -233,11 +235,9 @@ export class TournamentsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const { grantedDraws } = parseCompleteRound(body);
+    const request = parseCompleteRound(body);
     await this.access.asOrganizer(user, id);
-    return this.change(id, () =>
-      this.tournaments.completeRound(id, grantedDraws),
-    );
+    return this.change(id, () => this.tournaments.completeRound(id, request));
   }
 
   /** Applies `change` and answers with the draft as it now is, published to its viewers. */
@@ -259,31 +259,45 @@ export class TournamentsController {
 function parseSetup(body: unknown): TournamentSetupRequest {
   const { format, swissRoundOption } =
     bodyFields<Extract<TournamentSetupRequest, { format: 'Swiss' }>>(body);
-  if (format === 'RoundRobin') return { format };
+  if (format === 'RoundRobin' || format === 'SingleElimination') {
+    return { format };
+  }
   if (format === 'Swiss' && isSwissRoundOption(swissRoundOption)) {
     return { format, swissRoundOption };
   }
   throw new BadRequestException({
     error: 'invalid',
-    message: `Choose round robin, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
+    message: `Choose round robin, single elimination, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
   } satisfies RequestProblem);
 }
 
 /**
- * The granted draws, with their drop choices, that Complete round's body
- * lists for the tournament round's unreported matches; none if it has no
- * body. A 400 if they aren't match ids each with a list of user ids.
+ * The granted draws, with their drop choices, and the granted wins, with
+ * their winners, that Complete round's body lists for the tournament
+ * round's unreported matches; none of either it leaves out. A 400 if they
+ * aren't match ids each with a list of user ids, or with a user id.
  */
-function parseCompleteRound(body: unknown): CompleteRoundRequest {
-  const { grantedDraws = [] } = bodyFields<CompleteRoundRequest>(body);
-  if (Array.isArray(grantedDraws) && grantedDraws.every(isGrantedDrawRequest)) {
-    return { grantedDraws };
+function parseCompleteRound(body: unknown): Required<CompleteRoundRequest> {
+  const { grantedDraws = [], grantedWins = [] } =
+    bodyFields<CompleteRoundRequest>(body);
+  if (
+    Array.isArray(grantedDraws) &&
+    grantedDraws.every(isGrantedDrawRequest) &&
+    Array.isArray(grantedWins) &&
+    grantedWins.every(isGrantedWinRequest)
+  ) {
+    return { grantedDraws, grantedWins };
   }
   throw new BadRequestException({
     error: 'invalid',
     message:
-      'List each unreported match to grant a draw in, with the players to drop from it.',
+      'List each unreported match to grant a draw in, with the players to drop from it, or to grant a win in, with its winner.',
   } satisfies RequestProblem);
+}
+
+function isGrantedWinRequest(value: unknown): value is GrantedWinRequest {
+  const { matchId, winner } = bodyFields<GrantedWinRequest>(value);
+  return typeof matchId === 'string' && typeof winner === 'string';
 }
 
 function isGrantedDrawRequest(value: unknown): value is GrantedDrawRequest {

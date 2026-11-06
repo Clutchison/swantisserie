@@ -30,7 +30,8 @@ export interface ClearGameScore {
 
 /**
  * A tournament's standings, best first, and its matches by tournament
- * round with their outcomes, confirmations and byes. The signed-in
+ * round with their outcomes, confirmations and byes, each player with their
+ * seed in single elimination. The signed-in
  * player's other open matches offer Report, which makes that match the one
  * shown as theirs, and their matches someone else reported offer Confirm.
  * Organizers report, correct and clear any match.
@@ -84,24 +85,35 @@ export class TournamentResults {
     })),
   );
 
+  /** Each player's seed by their id: single elimination's, and none in other formats. */
+  private readonly seeds = computed(
+    () =>
+      new Map(
+        this.tournament().entries.flatMap(({ playerId, seed }) =>
+          seed === null ? [] : [[playerId, seed] as const],
+        ),
+      ),
+  );
+
   /**
    * The tournament rounds with their matches: in order for round robin,
-   * which plays them all at once, and the current round first for Swiss.
+   * which plays them all at once, and single elimination, which reads like
+   * its bracket, and the current round first for Swiss.
    */
   protected readonly rounds = computed(() => {
     const { format, rounds } = this.tournament();
     const shown = rounds.map((round) => ({
       round: round.round,
       label: `Tournament round ${round.round}`,
-      bye: round.bye && this.name(round.bye),
-      matches: round.matches.map((match) => this.line(match)),
+      byes: round.byes.map((id) => this.seeded(id)),
+      matches: round.matches.map((match) => this.line(round.round, match)),
     }));
     return format === 'Swiss' ? shown.reverse() : shown;
   });
 
-  /** How a match reads in its round's list, and the opponent to report it against, if any. */
-  private line(match: MatchView) {
-    const [first, second] = match.players.map((id) => this.name(id));
+  /** How a match of tournament round `round` reads in its list, and the opponent to report it against, if any. */
+  private line(round: number, match: MatchView) {
+    const [first, second] = match.players.map((id) => this.seeded(id));
     const { outcome } = match;
     const own = this.ownId();
     const reportable =
@@ -122,13 +134,22 @@ export class TournamentResults {
             ? 'Granted draw'
             : outcome.kind === 'Forfeit'
               ? `${this.name(outcome.forfeitedBy)} forfeited`
-              : null,
+              : outcome.kind === 'GrantedWin'
+                ? `Granted win for ${this.name(outcome.winner)}`
+                : null,
       opponent: reportable ? this.name(match.players.find((id) => id !== own)!) : null,
       confirmed: match.confirmed,
       confirmAgainst: this.confirmable(match)
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
-      organize: this.organize() ? this.organizerControls(match, first, second) : null,
+      organize: this.organize()
+        ? this.organizerControls(
+            round,
+            match,
+            this.name(match.players[0]),
+            this.name(match.players[1]),
+          )
+        : null,
     };
   }
 
@@ -154,13 +175,14 @@ export class TournamentResults {
   }
 
   /**
-   * What an organizer can do with `match`, its players `first` and
-   * `second`: set any game score, and clear it if that changes anything.
+   * What an organizer can do with `match` of tournament round `round`, its
+   * players `first` and `second`: set any game score, and clear it if that
+   * changes anything.
    */
-  private organizerControls(match: MatchView, first: string, second: string) {
+  private organizerControls(round: number, match: MatchView, first: string, second: string) {
     const label = `${first} vs ${second}`;
     const verb = match.outcome.kind === 'Unreported' ? 'Report' : 'Correct';
-    const after = this.afterClearing(match);
+    const after = this.afterClearing(round, match);
     return {
       label,
       verb,
@@ -174,13 +196,19 @@ export class TournamentResults {
   }
 
   /**
-   * What clearing `match` leaves it as, or null if it already is that. Once
-   * the tournament is complete it becomes a granted draw. While it is
+   * What clearing `match` of tournament round `round` leaves it as, or null
+   * if it already is that or can't be cleared. Single elimination never
+   * clears a match of a completed round: its winner has advanced. Otherwise,
+   * once the tournament is complete it becomes a granted draw. While it is
    * playing it is unreported again, unless one of its players has dropped:
    * then it is their forfeit.
    */
-  private afterClearing({ players, outcome }: MatchView) {
-    if (this.tournament().state === 'Complete') {
+  private afterClearing(round: number, { players, outcome }: MatchView) {
+    const { format, state, lastCompletedRound } = this.tournament();
+    if (format === 'SingleElimination' && (state === 'Complete' || round <= lastCompletedRound)) {
+      return null;
+    }
+    if (state === 'Complete') {
       return outcome.kind === 'GrantedDraw' ? null : 'The match becomes a granted draw.';
     }
     const dropped = new Set(
@@ -199,6 +227,12 @@ export class TournamentResults {
 
   private name(playerId: string) {
     return this.store.player(playerId).name;
+  }
+
+  /** The player's name, with their seed in single elimination, as in "Alice (seed 1)". */
+  private seeded(playerId: string) {
+    const seed = this.seeds().get(playerId);
+    return seed === undefined ? this.name(playerId) : `${this.name(playerId)} (seed ${seed})`;
   }
 }
 

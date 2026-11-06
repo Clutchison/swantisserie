@@ -42,9 +42,9 @@ describe('dropping from a tournament', () => {
 
     const view = await tournamentView(id);
     expect(view.entries).toEqual([
-      { playerId: alice.id, dropped: false },
-      { playerId: bob.id, dropped: false },
-      { playerId: carol.id, dropped: true },
+      { playerId: alice.id, dropped: false, seed: null },
+      { playerId: bob.id, dropped: false, seed: null },
+      { playerId: carol.id, dropped: true, seed: null },
     ]);
     expect((await matchOf(id, alice.id, carol.id)).outcome).toEqual({
       kind: 'Forfeit',

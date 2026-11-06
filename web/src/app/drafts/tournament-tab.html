@@ -194,7 +194,7 @@
     }
     @if (organizePlay()) {
       <div class="controls">
-        @if (tournament.format === 'Swiss') {
+        @if (tournament.format !== 'RoundRobin') {
           <button
             class="button"
             type="button"

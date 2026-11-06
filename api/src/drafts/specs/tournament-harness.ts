@@ -29,21 +29,32 @@ export function swiss(
   return { format: 'Swiss', swissRoundOption };
 }
 
+/** Single elimination tournament setup. */
+export const singleElimination = {
+  format: 'SingleElimination',
+} satisfies TournamentSetupRequest;
+
+/** The cards `completeDraft`'s players pick, one each in seat order. */
+const DRAFTED = [
+  'Shock',
+  'Lightning Bolt',
+  'Lava Spike',
+  'Skewer the Critics',
+  'Fireblast',
+  'Chain Lightning',
+];
+
 /**
  * A complete draft, organized by Alice, whose players are the cookies'
- * users in seat order: each picks one card, Shock, Lightning Bolt, Lava Spike
- * and Skewer the Critics in turn. Their decks hold just that pick, so give
- * them `fullDeck` before they join a tournament.
+ * users in seat order, at most 6: each picks one card, Shock, Lightning
+ * Bolt, Lava Spike, Skewer the Critics, Fireblast and Chain Lightning in
+ * turn, from a pool of at least the first four. Their decks hold just that
+ * pick, so give them `fullDeck` before they join a tournament.
  */
 export async function completeDraft(cookies: string[]) {
-  const id = await readyDraft(cookies, 1, [
-    'Shock',
-    'Lightning Bolt',
-    'Lava Spike',
-    'Skewer the Critics',
-  ]);
+  const names = DRAFTED.slice(0, Math.max(4, cookies.length));
+  const id = await readyDraft(cookies, 1, names);
   const ids = await poolCardIds(id);
-  const names = ['Shock', 'Lightning Bolt', 'Lava Spike', 'Skewer the Critics'];
   await start(id).expect(200);
   for (const [seat, cookie] of cookies.entries()) {
     await pick(id, ids[names[seat]], cookie).expect(200);

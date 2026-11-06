@@ -350,10 +350,11 @@ model Feedback {
   @@index([reviewedById])
 }
 
-/// How a tournament pairs its players. Single elimination arrives with its spec.
+/// How a tournament pairs its players.
 enum TournamentFormat {
   RoundRobin
   Swiss
+  SingleElimination
 }
 
 /// How many tournament rounds a Swiss tournament plays: until there's a winner, or capped at 3.
@@ -377,13 +378,13 @@ model Tournament {
   draft              Draft             @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Chosen at tournament setup; it never changes.
   format             TournamentFormat
-  /// A Swiss tournament's round option, chosen at tournament setup; null for round robin.
+  /// A Swiss tournament's round option, chosen at tournament setup; null in other formats.
   swissRoundOption   SwissRoundOption?
   state              TournamentState   @default(Registration)
   /// The last tournament round an organizer completed, from 1; 0 before any, and always in round robin.
   lastCompletedRound Int               @default(0)
   entries            TournamentEntry[]
-  /// Byes included. Round robin makes every match at Start; Swiss makes round 1's at Start and each later round's when the one before is completed.
+  /// Byes included. Round robin makes every match at Start; Swiss and single elimination make round 1's at Start and each later round's when the one before is completed.
   matches            Match[]
   createdAt          DateTime          @default(now())
   /// When the organizer started it; null during registration.
@@ -401,6 +402,8 @@ model TournamentEntry {
   joinedAt      DateTime   @default(now())
   /// Whether the player has dropped from the tournament; their played matches stand.
   dropped       Boolean    @default(false)
+  /// Single elimination only: the entry's place in the seed order, from 1, shuffled at Start; null otherwise.
+  seed          Int?
   /// Matches this entry plays first, whose game scores list its games first, and its byes.
   firstMatches  Match[]    @relation("FirstEntry")
   /// Matches this entry plays second.
@@ -409,12 +412,13 @@ model TournamentEntry {
   @@index([tournamentId])
 }
 
-/// How a match stands: unreported, or decided by a game score, a granted draw or a forfeit.
+/// How a match stands: unreported, or decided by a game score, a granted draw, a forfeit or, in single elimination, a granted win.
 enum MatchOutcomeKind {
   Unreported
   GameScore
   GrantedDraw
   Forfeit
+  GrantedWin
 }
 
 /// One of a match's two entries: the first, whose games a game score lists first, or the second.
@@ -430,6 +434,8 @@ model Match {
   tournament    Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   /// The tournament round, from 1: the suggested order to play matches in.
   round         Int
+  /// Single elimination only: its bracket place within its tournament round, from 0; bracket place p is fed by places 2p and 2p + 1 of the round before. Null otherwise.
+  bracketPlace  Int?
   firstEntryId  String
   firstEntry    TournamentEntry  @relation("FirstEntry", fields: [firstEntryId], references: [id], onDelete: Cascade)
   /// Null for a bye, whose one entry is the first.
@@ -445,12 +451,15 @@ model Match {
   drawnGames    Int              @default(0)
   /// The side that forfeited, for a forfeit; null otherwise.
   forfeitedBy   MatchSide?
-  /// Who reported it, a player or an organizer; null until it is reported, and for a granted draw.
+  /// The side the organizer picked to win, for a granted win; null otherwise.
+  grantedTo     MatchSide?
+  /// Who reported it, a player or an organizer; null until it is reported, and for a granted draw or win.
   reportedById  String?
   reportedBy    User?            @relation(fields: [reportedById], references: [id], onDelete: SetNull)
   /// Whether the other player confirmed the game score it was reported with.
   confirmed     Boolean          @default(false)
 
+  @@unique([tournamentId, round, bracketPlace])
   @@index([tournamentId])
   @@index([firstEntryId])
   @@index([secondEntryId])
