@@ -465,7 +465,7 @@ The organizer taking back the completion of the last completed Swiss or single e
 _Avoid_: Undo (that is a pick's), uncomplete, roll back, Reopen (alone; that is a draft's)
 
 **Advance**:
-In single elimination, a player going on from a match or bye to the next tournament round: the match's winner, or the player with the bye. Nobody advances from a forfeit both its players dropped from before the next tournament round was paired, nor from a dropped player's bye. A player who has advanced keeps it if they drop later.
+In single elimination, a player going on from a match or bye to the next tournament round: the match's winner, or the player with the bye. Nobody advances from a forfeit both its players dropped from before the next tournament round was paired, nor from a bye whose player dropped before then. A player who has advanced keeps it if they drop later.
 _Avoid_: Progress, move up, go through, qualify
 
 **Complete tournament**:
