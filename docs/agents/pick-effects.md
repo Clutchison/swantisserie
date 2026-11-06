@@ -1,6 +1,6 @@
 # What a pick does, and where
 
-A pick changes more than the pick log. Read this before touching picks, queues, plans, cascades, bots, pick import or undo, so you open only the files you will edit.
+A pick changes more than the pick log.
 
 ## The chain
 

@@ -47,6 +47,8 @@ State transitions: an unlabeled issue normally goes to `needs-triage` first; fro
 
 ## Invocation
 
+Before starting, switch to `main` and pull it up to date (`git pull --ff-only`); if the working tree is dirty, stop and ask instead. Triage is finished only once every `GLOSSARY.md` and `docs/adr/` change it made is committed to `main` and pushed.
+
 The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
 
 - "Show me anything that needs my attention"

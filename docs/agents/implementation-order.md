@@ -6,7 +6,7 @@ The order in which to implement the open tickets lives in three `tracking` issue
 - **#351** Phase 2: features, smallest first
 - **#352** Phase 3: multi-guild
 
-Each phase's sub-issues are its tickets, in order. A sub-issue that is itself a tracking issue (#217, #174, #169) holds its tickets in its own sub-issues, in order. The phases run in sequence.
+Each phase's sub-issues are its tickets, in order. A sub-issue that is itself a tracking issue (such as #174 or #169) holds its tickets in its own sub-issues, in order. The phases run in sequence.
 
 ## The next ticket
 
@@ -33,4 +33,4 @@ gh api --method PATCH repos/Clutchison/swantisserie/issues/<phase>/sub_issues/pr
   -F sub_issue_id=<n-db-id> -F before_id=<next-db-id>   # or after_id=<prev-db-id>
 ```
 
-Database ids come from `gh api repos/Clutchison/swantisserie/issues/<n> --jq .id`. An issue has one parent at most, so a ticket that already has a tracking parent stays there; place its parent instead.
+Ids are database ids (see `issue-tracker.md`). An issue has one parent at most, so a ticket that already has a tracking parent stays there; place its parent instead.

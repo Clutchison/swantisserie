@@ -1,6 +1,6 @@
 # Writing web specs
 
-A web spec asserts what a viewer sees or can do, so it fails when behaviour changes and passes through a restyle. Read this before writing or editing a spec under `web/src/`.
+A web spec asserts what a viewer sees or can do, so it fails when behaviour changes and passes through a restyle.
 
 ## Query like a viewer
 
@@ -21,4 +21,4 @@ Answer each pending request by its URL with `http.expectOne(url)` or a URL-match
 
 ## Fix in passing
 
-Older specs break these rules (#334 lists examples). Bring a spec in line when you next edit that file for its own sake, as part of that change; the rules are not a sweep of their own.
+Older specs break these rules. Bring a spec in line when you next edit that file for its own sake, as part of that change; the rules are not a sweep of their own.
