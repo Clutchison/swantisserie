@@ -309,6 +309,15 @@ export class DraftStore {
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
+   * Whether the Queue tab is shown: until the draft is complete, as its queue
+   * can't change after. A closed draft keeps it, as it can reopen. Undefined
+   * while the draft is loading.
+   */
+  readonly showQueueTab = computed(() => {
+    const draft = this.draft.value();
+    return draft ? draft.state !== 'Complete' : undefined;
+  });
+  /**
    * Whether the Tournament tab is shown: only for a complete draft, and
    * before its tournament is set up only to organizers, who set it up there.
    * Undefined while the draft or the viewer's powers that decide it are

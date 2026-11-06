@@ -159,19 +159,20 @@ describe('steal behavior', () => {
     expect(pill(panel(page)).textContent).toContain('Pick next');
   });
 
-  it.each(['Closed', 'Complete'] as const)(
-    'is shown but can’t be changed once the draft is %s',
-    async (state) => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ state, turn: null }), {
+  it('is shown but can’t be changed once the draft is closed', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Closed', turn: null }),
+      {
         cards: [shivan],
         queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
-      });
-      const queue = await openQueue(fixture, page);
+      },
+    );
+    const queue = await openQueue(fixture, page);
 
-      expect(pill(queue).textContent).toContain('Pick next');
-      expect(pill(queue).disabled).toBe(true);
-    },
-  );
+    expect(pill(queue).textContent).toContain('Pick next');
+    expect(pill(queue).disabled).toBe(true);
+  });
 
   it('says when it couldn’t be changed, shows the previous value again, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {

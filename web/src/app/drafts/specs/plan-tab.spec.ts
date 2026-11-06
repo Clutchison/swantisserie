@@ -526,7 +526,7 @@ describe('plan tab as the deck', () => {
       plan: planOf({ basics: [{ land: 'Mountain', count: 2 }] }),
     });
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
     const deck = await openTab(fixture, page, 'Deck');
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');
@@ -537,7 +537,7 @@ describe('plan tab as the deck', () => {
   it('tells a viewer who isn’t a player that only players have a deck', async () => {
     const { page } = await openDraft(completeSnapshot, { ...complete, players: [bob] });
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
     expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
   });
 

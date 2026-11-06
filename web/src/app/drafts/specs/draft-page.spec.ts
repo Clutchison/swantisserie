@@ -12,6 +12,7 @@ import {
   flushPool,
   http,
   ORGANIZE_ONLY,
+  flushPicks,
   flushQueueAndPlan,
   powersAnswer,
   openUrl,
@@ -20,6 +21,7 @@ import {
   alicePlayer,
   button,
   tabButton,
+  tabLabels,
   tabs,
   panelName,
   statusMessage,
@@ -477,6 +479,35 @@ describe('draft page', () => {
     });
   });
 
+  describe('the Queue tab', () => {
+    it('is gone for a player once the draft is complete', async () => {
+      const { page } = await openDraft(completeSnapshot, {
+        state: 'Complete',
+        players: [alicePlayer],
+      });
+
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+    });
+
+    it.each(['Lobby', 'Drafting', 'Paused', 'Closed'] as const)(
+      'stays for a player while the draft is %s',
+      async (state) => {
+        const { page } = await openDraft(completeSnapshot, { state, players: [alicePlayer] });
+
+        expect(tabButton(page, 'Queue').disabled).toBe(false);
+      },
+    );
+
+    it.each(['Lobby', 'Drafting', 'Paused', 'Closed'] as const)(
+      'stays disabled for a non-player while the draft is %s',
+      async (state) => {
+        const { page } = await openDraft(completeSnapshot, { state });
+
+        expect(tabButton(page, 'Queue').disabled).toBe(true);
+      },
+    );
+  });
+
   describe('the tab in the URL', () => {
     const asPlayer = { players: [alicePlayer] };
 
@@ -664,6 +695,39 @@ describe('draft page', () => {
           expect(panelName(page)).toBe('Pool');
         },
       );
+
+      it('for a player opening ?tab=queue on a complete draft', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          { ...asPlayer, state: 'Complete' },
+          { url: '/drafts/draft-1?tab=queue' },
+        );
+
+        expect(panelName(page)).toBe('Pool');
+        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+      });
+
+      it('when the draft completes while a player is on the Queue tab', async () => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          { ...asPlayer, state: 'Drafting' },
+          { url: '/drafts/draft-1?tab=queue' },
+        );
+        expect(panelName(page)).toBe('Queue');
+
+        // As when the player's own queued pick is the draft's last.
+        updates.events.next({
+          type: 'changed',
+          draft: draft({ ...asPlayer, state: 'Complete', version: 1 }),
+        });
+        await flushPicks([]);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+        expect(panelName(page)).toBe('Pool');
+        expect(tabLabels(page)).not.toContain('Queue');
+      });
 
       it('when the draft fails to load', async () => {
         const { fixture } = await openUrl('/drafts/draft-1?tab=board');
