@@ -21,6 +21,9 @@ import {
   registration,
   reported,
   roundLabels,
+  standing,
+  standingsColumns,
+  standingsRows,
   swissPlaying,
   threePlayers,
 } from './tournament-tab-harness';
@@ -131,5 +134,53 @@ describe('Swiss tournaments on the Tournament tab', () => {
     const { tab } = await openPlaying(swissPlaying());
 
     expect(button(tab, 'Complete round')).toBeUndefined();
+  });
+
+  it('shows the standings with the MTR’s tiebreak columns', async () => {
+    const { tab } = await openPlaying(
+      swissPlaying({
+        standings: [
+          standing(carol.id, 1, {
+            matchPoints: 3,
+            matches: { won: 1, lost: 0, drawn: 0 },
+            games: { won: 2, lost: 0, drawn: 0 },
+            gameWinPercent: 100,
+            opponentsMatchWinPercent: 33,
+            opponentsGameWinPercent: 33,
+          }),
+          standing(alice.id, 1, {
+            matchPoints: 3,
+            matches: { won: 1, lost: 0, drawn: 0 },
+            games: { won: 2, lost: 0, drawn: 0 },
+            gameWinPercent: 100,
+            opponentsMatchWinPercent: 33,
+            opponentsGameWinPercent: 33,
+          }),
+          standing(bob.id, 3, {
+            matches: { won: 0, lost: 1, drawn: 0 },
+            games: { won: 0, lost: 2, drawn: 0 },
+            gameWinPercent: 33,
+            opponentsMatchWinPercent: 100,
+            opponentsGameWinPercent: 200 / 3,
+          }),
+        ],
+      }),
+      { user: dave },
+    );
+
+    expect(standingsColumns(tab)).toEqual([
+      'Rank',
+      'Player',
+      'Match points',
+      'Matches won, lost and drawn',
+      'Opponents’ match-win %',
+      'Game-win %',
+      'Opponents’ game-win %',
+    ]);
+    expect(standingsRows(tab)).toEqual([
+      ['1', 'Carol', '3', '1–0–0', '33%', '100%', '33%'],
+      ['1', 'Alice', '3', '1–0–0', '33%', '100%', '33%'],
+      ['3', 'Bob', '0', '0–1–0', '100%', '33%', '67%'],
+    ]);
   });
 });
