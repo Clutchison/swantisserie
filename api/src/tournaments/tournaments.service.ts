@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  MIN_MAINBOARD_CARDS,
   type CompleteRoundRequest,
   type GameScore,
   type CorrectionPreview,
@@ -25,6 +24,7 @@ import {
   type ChangeSteps,
   type MatchChange,
 } from './change-steps.js';
+import { joinRefusal, WOULD_BE_ENTRANT } from './join-rules.js';
 import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
@@ -140,32 +140,11 @@ export class TournamentsService {
     await this.inRegistration(draftId, async (tx, tournament) => {
       const player = await tx.player.findUnique({
         where: { draftId_userId: { draftId, userId } },
-        select: {
-          id: true,
-          user: { select: { isBot: true } },
-          tournamentEntry: { select: { id: true } },
-        },
+        select: { id: true, ...WOULD_BE_ENTRANT },
       });
       if (!player) throw new NotAPlayerError('tournaments');
-      if (player.user.isBot) {
-        throw new TournamentRefusedError({
-          error: 'bots-cannot-join',
-          message: 'Bots never play in tournaments.',
-        });
-      }
-      if (player.tournamentEntry) {
-        throw new TournamentRefusedError({
-          error: 'already-joined',
-          message: 'You have already joined this tournament.',
-        });
-      }
-      const cards = await mainboardSize(tx, player.id);
-      if (cards < MIN_MAINBOARD_CARDS) {
-        throw new TournamentRefusedError({
-          error: 'deck-too-small',
-          message: `Your mainboard holds ${cards} ${cards === 1 ? 'card' : 'cards'}. A tournament deck needs at least ${MIN_MAINBOARD_CARDS}.`,
-        });
-      }
+      const refusal = joinRefusal(player);
+      if (refusal) throw new TournamentRefusedError(refusal);
       await tx.tournamentEntry.create({
         data: { tournamentId: tournament.id, playerId: player.id },
       });
@@ -806,21 +785,6 @@ async function findMatch(
     players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
     dropped: [match.firstEntry.dropped, !!match.secondEntry?.dropped],
   };
-}
-
-/** How many cards the player's mainboard holds: its cards plus its basic lands. */
-async function mainboardSize(
-  tx: Transaction,
-  playerId: string,
-): Promise<number> {
-  const cards = await tx.plannedCard.count({
-    where: { playerId, board: 'Mainboard' },
-  });
-  const basics = await tx.plannedBasic.aggregate({
-    where: { playerId },
-    _sum: { count: true },
-  });
-  return cards + (basics._sum.count ?? 0);
 }
 
 /**

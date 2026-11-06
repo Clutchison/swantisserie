@@ -1,4 +1,4 @@
-import type { TournamentSummaryView } from './tournaments.js';
+import type { TournamentState, TournamentSummaryView } from './tournaments.js';
 
 /**
  * Lobby → Drafting, or → Paused by a pick import; Drafting ⇄ Paused; Drafting → Complete;
@@ -116,6 +116,31 @@ export type DraftView = DraftBase &
     | { state: TurnState; turn: TurnView }
     | { state: Exclude<DraftState, TurnState>; turn: null }
   );
+
+/**
+ * What the draft list shows of a complete draft's tournament, for the
+ * signed-in viewer: its tournament badge.
+ */
+export interface TournamentBadgeView {
+  state: TournamentState;
+  /**
+   * Whether the viewer may join it now, as joining would let them: during
+   * registration, one of the draft's human players who hasn't joined and
+   * whose mainboard holds at least MIN_MAINBOARD_CARDS.
+   */
+  canJoin: boolean;
+  /** The trophy holders' Discord user ids, each a `PlayerView.id`; empty until it is complete. */
+  trophyHolders: string[];
+}
+
+/**
+ * A draft as the draft list sends it to one viewer, never broadcast: its
+ * tournament badge depends on who is asking (ADR 0003).
+ */
+export type DraftListItemView = DraftView & {
+  /** The draft's tournament badge; null for a draft without a tournament. */
+  tournamentBadge: TournamentBadgeView | null;
+};
 
 /**
  * What the api pushes over Socket.IO to everyone viewing a draft, by event

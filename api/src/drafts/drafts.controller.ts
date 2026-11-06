@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import type {
   DraftCreationProblem,
+  DraftListItemView,
   DraftPowersView,
   DraftView,
   NewDraftRequest,
@@ -90,9 +91,17 @@ export class DraftsController {
     private readonly bots: BotPlayers,
   ) {}
 
+  /** Every draft, newest first, each with its tournament badge as the viewer sees it. */
   @Get()
-  async list(): Promise<DraftView[]> {
-    return (await this.reads.list()).map(toDraftView);
+  async list(@CurrentUser() user: SessionUser): Promise<DraftListItemView[]> {
+    const [drafts, badges] = await Promise.all([
+      this.reads.list(),
+      this.reads.tournamentBadges(user.id),
+    ]);
+    return drafts.map((draft) => ({
+      ...toDraftView(draft),
+      tournamentBadge: badges.get(draft.id) ?? null,
+    }));
   }
 
   @Get(':id')
