@@ -13,7 +13,11 @@ export const TOURNAMENT_VIEW = {
   state: true,
   entries: {
     orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
-    select: { id: true, player: { select: { userId: true } } },
+    select: {
+      id: true,
+      dropped: true,
+      player: { select: { userId: true } },
+    },
   },
   matches: {
     orderBy: [{ round: 'asc' }, { id: 'asc' }],
@@ -75,7 +79,10 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   return {
     format: row.format,
     state: row.state,
-    entries: players.map((playerId) => ({ playerId })),
+    entries: row.entries.map((entry) => ({
+      playerId: entry.player.userId,
+      dropped: entry.dropped,
+    })),
     rounds,
     standings: table,
     trophyHolders: row.state === 'Complete' ? trophyHolders(table) : [],

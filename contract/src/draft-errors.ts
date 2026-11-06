@@ -167,14 +167,17 @@ export interface TournamentRefusal {
     | 'not-joined'
     /** Start needs at least 2 joined players. */
     | 'too-few-entries'
-    /** Reporting and completing happen only while the tournament is playing. */
+    /** Reporting, dropping and completing happen only while the tournament is playing. */
     | 'not-playing'
     /** Only a match's own players report it. */
     | 'not-your-match'
     /** A reported match is locked to its players. */
     | 'match-reported'
     | 'draw'
-    | 'not-best-of-three';
+    | 'not-best-of-three'
+    /** A dropped player can't drop again; only a drop can be taken back. */
+    | 'already-dropped'
+    | 'not-dropped';
   message: string;
 }
 
