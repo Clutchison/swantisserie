@@ -174,11 +174,20 @@ export const table = (root: HTMLElement, name: string) =>
 /** The row headers and cells of a row, by role: column headers left out. */
 const CELLS = 'td, th[scope="row"], [role="cell"], [role="rowheader"]';
 
+/** `element`'s text as a viewer reads it, its whitespace collapsed. */
+const cellText = (element: Element) => (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+
 /**
  * The text of each cell of each row of `table` that has cells, row
  * headers included: its header row left out.
  */
 export const tableRows = (table: HTMLElement) =>
   [...table.querySelectorAll('tr, [role="row"]')]
-    .map((row) => [...row.querySelectorAll(CELLS)].map((cell) => cell.textContent?.trim()))
+    .map((row) => [...row.querySelectorAll(CELLS)].map(cellText))
     .filter((cells) => cells.length > 0);
+
+/** The column headers of `table`, in order, each spelled out where it is abbreviated. */
+export const tableColumns = (table: HTMLElement) =>
+  [...table.querySelectorAll('th[scope="col"], [role="columnheader"]')].map(
+    (header) => header.querySelector('abbr')?.title ?? cellText(header),
+  );

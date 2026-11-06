@@ -34,6 +34,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
+import { table, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -400,17 +401,14 @@ export async function openPlaying(
   return { ...opened, tab };
 }
 
+/** The standings table inside `root`. */
+const standingsTable = (root: HTMLElement) => table(root, 'Standings')!;
+
 /** The standings' column headers inside `root`, each spelled out where it is abbreviated. */
-export const standingsColumns = (root: HTMLElement) =>
-  [...namedList(root, 'Standings').querySelectorAll('thead th')].map(
-    (header) => header.querySelector('abbr')?.title ?? text(header),
-  );
+export const standingsColumns = (root: HTMLElement) => tableColumns(standingsTable(root));
 
 /** Each row of the standings inside `root`, best first, as its cells' text. */
-export const standingsRows = (root: HTMLElement) =>
-  [...namedList(root, 'Standings').querySelectorAll<HTMLTableRowElement>('tbody tr')].map((row) =>
-    [...row.cells].map((cell) => text(cell)),
-  );
+export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(root));
 
 /** The names of the lists of matches by tournament round inside `root`, in page order. */
 export const roundLabels = (root: HTMLElement) =>
