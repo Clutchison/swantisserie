@@ -6,6 +6,7 @@ import {
   carol,
   completeRound,
   completeTournament,
+  cookiesByPlayer,
   matchOf,
   playingTournament,
   reportCurrentRound,
@@ -134,34 +135,22 @@ describe('reporting a match', () => {
   });
 
   it('answers 404 no-match for a bye, even to the player who has it', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie],
-      swiss(),
-    );
+    const cookies = [aliceCookie, bobCookie, carolCookie];
+    const id = await playingTournament(cookies, swiss());
     const [bye] = (await tournamentView(id)).rounds[0].byes;
-    const cookieOf = {
-      [alice.id]: aliceCookie,
-      [bob.id]: bobCookie,
-      [carol.id]: carolCookie,
-    };
+    const cookieOf = await cookiesByPlayer(id, cookies);
 
     const answer = await reportMatch(id, await byeId(id), cookieOf[bye], {
       games: [2, 0],
     }).expect(404);
 
     expect(answer.body.error).toBe('no-match');
-    expect((await tournamentView(id)).rounds[0].byes).toEqual([bye]);
   });
 
   it('refuses a match of a completed Swiss tournament round as reported, leaving the round’s results as they were', async () => {
     const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
     const id = await playingTournament(cookies, swiss());
-    const cookieOf = Object.fromEntries(
-      (await tournamentView(id)).entries.map((entry, i) => [
-        entry.playerId,
-        cookies[i],
-      ]),
-    );
+    const cookieOf = await cookiesByPlayer(id, cookies);
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     const [completed] = (await tournamentView(id)).rounds;

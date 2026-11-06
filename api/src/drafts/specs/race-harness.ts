@@ -60,9 +60,11 @@ export function race(...requests: (() => PromiseLike<Response>)[]) {
   return Promise.all(requests.map((send) => send()));
 }
 
-/** The answer's status and, for a refusal, its error. */
+/** The answer's status, 200 or 201, or for a refusal its status and error. */
 export const answered = (res: Response) =>
-  res.status === 200 ? 200 : `${res.status} ${res.body.error}`;
+  res.status === 200 || res.status === 201
+    ? res.status
+    : `${res.status} ${res.body.error}`;
 
 /** What `answered` says of each of `answers`, the 200 first. */
 export const sortedAnswers = (answers: Response[]) =>

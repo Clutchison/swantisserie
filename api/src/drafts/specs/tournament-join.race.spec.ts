@@ -1,5 +1,10 @@
-import type { Response } from 'supertest';
-import { bobCookie, describeRaces, planOf, race } from './race-harness.js';
+import {
+  answered,
+  bobCookie,
+  describeRaces,
+  planOf,
+  race,
+} from './race-harness.js';
 import {
   aliceCookie,
   bob,
@@ -11,11 +16,7 @@ import {
   setUpTournament,
 } from './tournament-harness.js';
 
-/** The answer's status and, for a refusal, its error. */
-const answered = (res: Response) =>
-  res.status < 300 ? res.status : `${res.status} ${res.body.error}`;
-
-describeRaces('joining a tournament against a plan write', () => {
+describeRaces('joining a tournament against a deck change', () => {
   it('locks the deck the player had before the write, which is then refused, or refuses the deck the write left', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await fullDeck(id, bobCookie);

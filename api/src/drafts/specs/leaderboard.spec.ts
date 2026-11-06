@@ -298,7 +298,7 @@ describe('the leaderboard', () => {
     ]);
   });
 
-  it('counts only the result a reopened round was completed again with', async () => {
+  it('counts only the game score a reopened tournament round was completed again with', async () => {
     const daveCookie = await signIn({ id: '80351110224678915', name: 'Dave' });
     const { id, seeds } = await playingSingleElimination([
       aliceCookie,
@@ -343,10 +343,10 @@ describe('the leaderboard', () => {
         tournamentsPlayed: 1,
         matches: tally(2, 0),
         games: tally(4, 1),
-        opponents: expect.arrayContaining([
-          { playerId: first, matches: tally(1, 0), games: tally(2, 1) },
+        opponents: [
           { playerId: second, matches: tally(1, 0), games: tally(2, 0) },
-        ]),
+          { playerId: first, matches: tally(1, 0), games: tally(2, 1) },
+        ],
       },
       [first]: {
         trophies: 0,
@@ -362,10 +362,10 @@ describe('the leaderboard', () => {
         tournamentsPlayed: 1,
         matches: tally(1, 1),
         games: tally(2, 2),
-        opponents: expect.arrayContaining([
-          { playerId: third, matches: tally(1, 0), games: tally(2, 0) },
+        opponents: [
           { playerId: fourth, matches: tally(0, 1), games: tally(0, 2) },
-        ]),
+          { playerId: third, matches: tally(1, 0), games: tally(2, 0) },
+        ],
       },
       [third]: {
         trophies: 0,
@@ -377,9 +377,6 @@ describe('the leaderboard', () => {
         ],
       },
     });
-    for (const player of [fourth, second]) {
-      expect(byPlayer[player].opponents).toHaveLength(2);
-    }
   });
 
   it('is only for signed-in users', async () => {

@@ -5,6 +5,7 @@ import {
   carol,
   completeRound,
   completeTournament,
+  cookiesByPlayer,
   confirmMatch,
   matchOf,
   playingTournament,
@@ -101,12 +102,7 @@ describe('confirming a match', () => {
   it('lets the opponent confirm a match of a completed Swiss tournament round, changing nothing else in it', async () => {
     const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
     const id = await playingTournament(cookies, swiss());
-    const cookieOf = Object.fromEntries(
-      (await tournamentView(id)).entries.map((entry, i) => [
-        entry.playerId,
-        cookies[i],
-      ]),
-    );
+    const cookieOf = await cookiesByPlayer(id, cookies);
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     const [completed] = (await tournamentView(id)).rounds;
