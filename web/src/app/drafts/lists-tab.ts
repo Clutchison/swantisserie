@@ -31,19 +31,19 @@ interface DecklistBoard {
 }
 
 /**
- * The Decklists tab: each joined player's decklist, in join order, read-only,
+ * The Lists tab: each joined player's decklist, in join order, read-only,
  * as the tournament locked it at its start. Each lists its mainboard, basic
  * lands last, and its sideboard, as the player's own deck does, every card
  * name showing its Card preview.
  */
 @Component({
-  selector: 'app-decklists-tab',
+  selector: 'app-lists-tab',
   imports: [CardName, LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './decklists-tab.html',
-  styleUrls: ['../page.scss', './drafts.scss', './decklists-tab.scss'],
+  templateUrl: './lists-tab.html',
+  styleUrls: ['../page.scss', './drafts.scss', './lists-tab.scss'],
 })
-export class DecklistsTab {
+export class ListsTab {
   private readonly store = inject(DraftStore);
 
   protected readonly loading = this.store.decklists.loading;

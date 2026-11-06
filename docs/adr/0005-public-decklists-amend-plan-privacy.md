@@ -1,6 +1,6 @@
 # Public decklists amend plan privacy
 
-ADR 0002 made plans private forever, including from organizers and app admins. A tournament can now be set up with **public decklists**: once it starts, every joined player's locked deck is shown on a Decklists tab to everyone who sees the draft, and stays shown. We made it a per-tournament choice, settled once at tournament setup and announced on the join button, so a player always knows before joining whether their deck will be public. Without public decklists, ADR 0002 stands: nobody but its player sees a deck, organizers included.
+ADR 0002 made plans private forever, including from organizers and app admins. A tournament can now be set up with **public decklists**: once it starts, every joined player's locked deck is shown on a Lists tab to everyone who sees the draft, and stays shown. We made it a per-tournament choice, settled once at tournament setup and announced on the join button, so a player always knows before joining whether their deck will be public. Without public decklists, ADR 0002 stands: nobody but its player sees a deck, organizers included.
 
 ## Considered Options
 

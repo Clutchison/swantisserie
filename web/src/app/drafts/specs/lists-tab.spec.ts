@@ -72,15 +72,15 @@ const openAsViewer = (tournament: ViewerTournamentView) =>
     fields: threePlayers,
   });
 
-/** The tabs of the complete draft once the Decklists tab has taken the Board tab's place. */
-const DECKLISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Decklists', 'Export', 'Play'];
+/** The tabs of the complete draft once the Lists tab has taken the Board tab's place. */
+const LISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Lists', 'Export', 'Play'];
 
-describe('decklists tab', () => {
+describe('lists tab', () => {
   it('is absent without public decklists, while the tournament is played', async () => {
     const { page } = await openAsViewer(playing());
 
     expect(tabLabels(page)).toContain('Play');
-    expect(tabLabels(page)).not.toContain('Decklists');
+    expect(tabLabels(page)).not.toContain('Lists');
   });
 
   it('is absent under public decklists during registration', async () => {
@@ -89,15 +89,15 @@ describe('decklists tab', () => {
       publicDecklists: true,
     });
 
-    expect(tabButton(page, 'Decklists')).toBeUndefined();
+    expect(tabButton(page, 'Lists')).toBeUndefined();
   });
 
   it('shows everyone who sees the draft each joined player’s mainboard, basic lands and sideboard', async () => {
     const { fixture, page } = await openAsViewer(publicPlaying());
 
-    const tab = await openTab(fixture, page, 'Decklists');
+    const tab = await openTab(fixture, page, 'Lists');
 
-    expect(heading(tab, 'Decklists')).toBeDefined();
+    expect(heading(tab, 'Lists')).toBeDefined();
     for (const name of ['Alice', 'Bob', 'Carol']) expect(heading(tab, name)).toBeDefined();
     expect(
       [...tab.querySelectorAll<HTMLElement>('[aria-label$="’s mainboard"]')].map(accessibleName),
@@ -118,7 +118,7 @@ describe('decklists tab', () => {
   it('gives each card and basic land a card preview', async () => {
     const { fixture, page } = await openAsViewer(publicPlaying());
 
-    const tab = await openTab(fixture, page, 'Decklists');
+    const tab = await openTab(fixture, page, 'Lists');
 
     for (const name of ['Lightning Bolt', 'Shock', 'Lava Spike', 'Mountain', 'Island']) {
       expect(ownTabStop(tab, name)).toBeDefined();
@@ -130,7 +130,7 @@ describe('decklists tab', () => {
       publicPlaying({ state: 'Complete', trophyHolders: [alice.id] }),
     );
 
-    const tab = await openTab(fixture, page, 'Decklists');
+    const tab = await openTab(fixture, page, 'Lists');
 
     expect(items(tab, 'Bob’s mainboard')).toEqual(['1 Lava Spike', '39 Mountain']);
   });
@@ -140,10 +140,10 @@ describe('decklists tab', () => {
       user: dave,
       decklists,
       fields: threePlayers,
-      url: '/drafts/draft-1?tab=decklists',
+      url: '/drafts/draft-1?tab=lists',
     });
 
-    expect(panelName(page)).toBe('Decklists');
+    expect(panelName(page)).toBe('Lists');
   });
 
   describe('in the Board tab’s place', () => {
@@ -152,7 +152,7 @@ describe('decklists tab', () => {
       ['an organizer', dave, ORGANIZE_ONLY],
       ['a spectator', dave, undefined],
     ] as const)(
-      'shows %s no Board tab, and the Decklists tab where it was, while the tournament is played',
+      'shows %s no Board tab, and the Lists tab where it was, while the tournament is played',
       async (_, user, powers) => {
         const { page } = await openComplete(publicPlaying(), {
           user,
@@ -161,7 +161,7 @@ describe('decklists tab', () => {
           fields: threePlayers,
         });
 
-        expect(tabLabels(page)).toEqual(DECKLISTS_IN_BOARDS_PLACE);
+        expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
       },
     );
 
@@ -170,7 +170,7 @@ describe('decklists tab', () => {
         publicPlaying({ state: 'Complete', trophyHolders: [alice.id] }),
       );
 
-      expect(tabLabels(page)).toEqual(DECKLISTS_IN_BOARDS_PLACE);
+      expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
     });
 
     it.each([
@@ -198,7 +198,7 @@ describe('decklists tab', () => {
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
     });
 
-    it('moves a viewer on the Board tab to the Decklists tab as the tournament starts', async () => {
+    it('moves a viewer on the Board tab to the Lists tab as the tournament starts', async () => {
       const { fixture, page } = await openAsViewer({
         ...registration(alice.id, bob.id, carol.id),
         publicDecklists: true,
@@ -218,11 +218,11 @@ describe('decklists tab', () => {
       );
       await fixture.whenStable();
 
-      expect(panelName(page)).toBe('Decklists');
-      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=decklists'));
+      expect(panelName(page)).toBe('Lists');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=lists'));
     });
 
-    it('opens the Decklists tab when the Board tab is asked for by URL', async () => {
+    it('opens the Lists tab when the Board tab is asked for by URL', async () => {
       const { page } = await openComplete(publicPlaying(), {
         user: dave,
         decklists,
@@ -230,8 +230,8 @@ describe('decklists tab', () => {
         url: '/drafts/draft-1?tab=board',
       });
 
-      expect(panelName(page)).toBe('Decklists');
-      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=decklists'));
+      expect(panelName(page)).toBe('Lists');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=lists'));
     });
   });
 });
