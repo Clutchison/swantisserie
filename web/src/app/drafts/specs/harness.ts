@@ -489,7 +489,8 @@ export const panelName = (root: HTMLElement) => {
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` and
  * plan by `plan` if they are a player, signed in as `user`, whose draft
- * powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise).
+ * powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
+ * at `url`: the draft's plain URL, unless told otherwise.
  *
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
  * `fixture.whenStable()` resolves, as it arrives through a promise: assert
@@ -509,6 +510,7 @@ export async function openDraft(
     plan = EMPTY_PLAN,
     user = alice,
     powers,
+    url = '/drafts/draft-1',
   }: {
     cards?: PoolCardView[];
     picks?: PickView[];
@@ -516,10 +518,11 @@ export async function openDraft(
     plan?: PlanView;
     user?: typeof alice;
     powers?: DraftPowersView;
+    url?: string;
   } = {},
 ) {
   if (powers) powersAnswer(powers);
-  const { fixture, page } = await openUrl('/drafts/draft-1', user);
+  const { fixture, page } = await openUrl(url, user);
   const opened = draft({ snapshot, ...fields });
   http.expectOne('/api/drafts/draft-1').flush(opened);
   if (snapshot.state === 'Complete') await flushPool(cards);

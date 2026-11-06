@@ -4,7 +4,6 @@ import {
   computed,
   effect,
   inject,
-  linkedSignal,
   signal,
   untracked,
   viewChild,
@@ -27,6 +26,7 @@ import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
 import { WebhookControl } from './webhook-control';
 import { Tab, TabList } from '../tab-list';
+import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels. */
 type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Export';
@@ -83,15 +83,16 @@ export class DraftPage {
   protected readonly planFailed = this.store.plan.missing;
 
   /**
-   * The tab selected. Only players have the Queue, Plan and Export tabs: one
-   * of them selected goes back to Pool as the viewer stops being a player,
-   * so the selected tab is always one they can open, and Tab to.
+   * The tab selected, kept in the URL. Only players have the Queue, Plan and
+   * Export tabs: one of them selected goes back to Pool as the viewer stops
+   * being a player, so the selected tab is always one they can open, and Tab to.
    */
-  protected readonly tab = linkedSignal<boolean, Panel>({
-    source: this.joined,
-    computation: (joined, previous) =>
-      previous && (joined || !PLAYERS_ONLY.has(previous.value)) ? previous.value : 'Pool',
+  protected readonly tabs = tabInUrl<Panel>({
+    tabs: ['Pool', 'Queue', 'Plan', 'Board', 'Export'],
+    defaultTab: 'Pool',
+    canOpen: (tab) => this.joined() || !PLAYERS_ONLY.has(tab),
   });
+  protected readonly tab = this.tabs.selected;
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
