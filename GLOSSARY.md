@@ -432,6 +432,10 @@ _Avoid_: Running, in progress, live, active
 The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament. In Swiss its unreported matches become granted draws, and the organizer chooses whether to drop either player of each, except in the final tournament round. In single elimination the organizer picks the winner of each unreported match, who gets a granted win, or drops one or both of its players, and the players who advance meet in the next round; completing the final completes the tournament. Once fewer than 2 players haven't dropped, or in single elimination fewer than 2 are left in the bracket, it completes the tournament.
 _Avoid_: Advance (as the organizer's action; that is a player's), next round, close round
 
+**Reopen round**:
+The organizer taking back the completion of the last completed Swiss or single elimination tournament round, so its results can be corrected or cleared again. Only the last completed round can be reopened, and its results leave the standings until it is completed again.
+_Avoid_: Undo (that is a pick's), uncomplete, roll back, Reopen (alone; that is a draft's)
+
 **Advance**:
 In single elimination, a player going on from a match or bye to the next tournament round: the match's winner, or the player with the bye. Nobody advances from a forfeit both its players dropped from, nor from a dropped player's bye.
 _Avoid_: Progress, move up, go through, qualify
@@ -473,11 +477,11 @@ A player in a match entering its game score. Only the organizer can change a rep
 _Avoid_: Submit, record, enter (alone)
 
 **Correct**:
-An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed. In single elimination, a correction that changes who advances from a match clears every later match it fed: the next is paired again with whoever advances now, and those after it are unpaired until their tournament rounds are paired again.
+An organizer setting a match's game score, whether it was reported or not, while its tournament round is open, or in round robin while the tournament is playing. A completed tournament round's results, and a complete tournament's, are final, except through reopening the last completed round. A corrected match is unconfirmed. In single elimination, a correction that changes who advances from a match clears every later match it fed: the next is paired again with whoever advances now, and those after it are unpaired until their tournament rounds are paired again.
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:
-An organizer taking a match's game score, granted draw, granted win or forfeit away. While the tournament is playing, a match with a dropped player is their forfeit again. Otherwise the match is unreported again while its tournament round is open, and becomes a granted draw once its round or the tournament is complete. Single elimination, which never has a draw, makes it unreported or a forfeit again and reopens its tournament round, clearing every later match it fed, as a correction does.
+An organizer taking a match's game score, granted draw, granted win or forfeit away, when they could correct it. A match with a dropped player is their forfeit again; otherwise it is unreported again. In single elimination it clears every later match it fed, as a correction does.
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
@@ -517,7 +521,7 @@ An unplayed match decided because one of its players dropped. In single eliminat
 _Avoid_: Default, walkover, no-show
 
 **Standings**:
-A tournament's players ranked by their results so far: by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Single elimination ranks players by the tournament round they reached instead, the winner of the final alone first. Players still tied after every tiebreaker share their place.
+A tournament's players ranked by their results: in round robin every result so far; in Swiss and single elimination only the completed tournament rounds', so they change when a round is completed, not with each result, and every player is level until round 1 is. Players rank by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Single elimination ranks players by the tournament round they reached instead, the winner of the final alone first. Players still tied after every tiebreaker share their place.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
 **Match points**:
