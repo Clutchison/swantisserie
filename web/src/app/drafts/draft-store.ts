@@ -240,12 +240,12 @@ export class DraftStore {
   /**
    * The signed-in player's picks left: their picks per player less the picks
    * they have made, so picks per player in the lobby. Null for a viewer who
-   * isn't a player, and until the pick log has loaded.
+   * isn't a player, in a complete draft, and until the pick log has loaded.
    */
   readonly picksLeft = computed(() => {
     const draft = this.draft.value();
     const own = this.ownPlayer();
-    if (!draft || !own) return null;
+    if (!draft || !own || draft.state === 'Complete') return null;
     if (draft.state === 'Lobby') return draft.picksPerPlayer;
     if (!this.picks.loaded()) return null;
     const made = this.picks.value().filter((pick) => pick.playerId === own.id).length;

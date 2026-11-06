@@ -8,6 +8,22 @@
   } @else if (failed()) {
     <p class="error">Couldn't load this draft. Try reloading the page.</p>
   } @else if (draft(); as draft) {
+    <!-- A panel's heading, with the viewer's picks left beside it: outside the
+         heading, so its name stays the panel's. -->
+    <ng-template #headingWithPicksLeft let-name>
+      <div class="panel-heading">
+        <h2>{{ name }}</h2>
+        @let left = picksLeft();
+        @if (left !== null) {
+          <span
+            class="picks-left"
+            [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
+            ><span aria-hidden="true">– </span>{{ left }}
+            {{ left === 1 ? 'pick' : 'picks' }} left</span
+          >
+        }
+      </div>
+    </ng-template>
     <h1>{{ draft.name }}</h1>
     <p>
       <span class="state">{{ draft.state }}</span>
@@ -135,7 +151,7 @@
       aria-labelledby="pool-tab"
       [hidden]="selectedTab() !== 'Pool'"
     >
-      <h2>Pool</h2>
+      <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Pool' }" />
       @switch (draft.snapshot.state) {
         @case ('Running') {
           <p>
@@ -200,7 +216,7 @@
         aria-labelledby="queue-tab"
         [hidden]="selectedTab() !== 'Queue'"
       >
-        <h2>Queue</h2>
+        <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Queue' }" />
         @if (queueFailed()) {
           <p class="error">Couldn't load your queue. Try reloading the page.</p>
         }
@@ -220,7 +236,12 @@
       aria-labelledby="plan-tab"
       [hidden]="selectedTab() !== 'Plan'"
     >
-      <h2>{{ planName() === 'deck' ? 'Deck' : 'Plan' }}</h2>
+      <ng-container
+        *ngTemplateOutlet="
+          headingWithPicksLeft;
+          context: { $implicit: planName() === 'deck' ? 'Deck' : 'Plan' }
+        "
+      />
       @if (planFailed()) {
         <p class="error">Couldn't load your {{ planName() }}. Try reloading the page.</p>
       }

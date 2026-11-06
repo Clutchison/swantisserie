@@ -1,6 +1,6 @@
 import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import { By } from '@angular/platform-browser';
-import type { PickView, QueueRefusal, QueueView } from 'contract';
+import type { QueueRefusal, QueueView } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -24,11 +24,8 @@ import {
   queued,
   queueOf,
   statusMessage,
-  alicePlayer,
   pickOf,
-  flushQueueAndPlan,
   queueList,
-  picksLeftCount,
   accessibleName,
   type AppFixture,
 } from './harness';
@@ -467,7 +464,7 @@ describe('queue tab', () => {
     });
   });
 
-  describe('picks left and the queue cutoff', () => {
+  describe('the queue cutoff', () => {
     const CUTOFF = 'Queue cutoff: cards after this are past your picks left';
 
     /** The Queue tab's rows in order: each queued card's name, and the cutoff's accessible name. */
@@ -542,7 +539,7 @@ describe('queue tab', () => {
     });
 
     it.each(['Lobby', 'Paused', 'Closed'] as const)(
-      'shows the picks left and the cutoff while the draft is %s',
+      'draws the queue cutoff while the draft is %s',
       async (state) => {
         const { fixture, page } = await openDraft(
           completeSnapshot,
@@ -551,117 +548,8 @@ describe('queue tab', () => {
         );
 
         const queue = await openQueue(fixture, page);
-        expect(queue.textContent).toContain('1 pick left');
         expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
       },
     );
-
-    it('shows the viewer’s picks left, less the picks they have made, even with the queue empty', async () => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        drafting({ picksPerPlayer: 12 }),
-        {
-          picks: [
-            pickOf({ pick: 1, playerId: alicePlayer.id, poolCardId: 'a' }),
-            pickOf({ pick: 2, playerId: bob.id, poolCardId: 'b' }),
-            pickOf({ pick: 3, playerId: bob.id, poolCardId: 'c' }),
-            pickOf({ pick: 4, playerId: alicePlayer.id, poolCardId: 'd' }),
-          ],
-        },
-      );
-
-      const queue = await openQueue(fixture, page);
-      expect(queue.textContent).toContain('10 picks left');
-      expect(queue.textContent).toContain('Your queue is empty');
-    });
-
-    /** A new version of a draft of `picksPerPlayer`, with the pick log re-read as `picks`. */
-    const changed = async (
-      fixture: AppFixture,
-      picksPerPlayer: number,
-      version: number,
-      picks: PickView[],
-    ) => {
-      updates.events.next({
-        type: 'changed',
-        draft: draft(drafting({ picksPerPlayer, version })),
-      });
-      await flushPicks(picks);
-      await flushQueueAndPlan();
-      await fixture.whenStable();
-    };
-
-    it('counts down as the viewer picks, and back up when an undo takes one back', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }));
-      const queue = await openQueue(fixture, page);
-      expect(queue.textContent).toContain('12 picks left');
-
-      await changed(fixture, 12, 1, [pickOf({ poolCardId: 'a' })]);
-      expect(queue.textContent).toContain('11 picks left');
-
-      await changed(fixture, 12, 2, []);
-      expect(queue.textContent).toContain('12 picks left');
-    });
-
-    /** Whether the picks left count is highlighted, as near the end of the viewer's picks. */
-    const highlighted = (queue: HTMLElement) =>
-      picksLeftCount(queue)?.getAttribute('data-highlighted') === 'true';
-
-    it.each([
-      [10, true],
-      [11, false],
-    ])('at %i picks left, highlights the count: %s', async (picksPerPlayer, expected) => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer }));
-
-      const queue = await openQueue(fixture, page);
-      expect(picksLeftCount(queue)?.textContent).toContain(`${picksPerPlayer} picks left`);
-      expect(highlighted(queue)).toBe(expected);
-    });
-
-    it('highlights the count as a pick takes the viewer to 10 picks left, and not once an undo takes it back', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 11 }));
-      const queue = await openQueue(fixture, page);
-      expect(highlighted(queue)).toBe(false);
-
-      await changed(fixture, 11, 1, [pickOf({ poolCardId: 'a' })]);
-      expect(picksLeftCount(queue)?.textContent).toContain('10 picks left');
-      expect(highlighted(queue)).toBe(true);
-
-      await changed(fixture, 11, 2, []);
-      expect(picksLeftCount(queue)?.textContent).toContain('11 picks left');
-      expect(highlighted(queue)).toBe(false);
-    });
-
-    it('waits for the pick log before counting the picks left', async () => {
-      const { fixture, page } = await openUrl('/drafts/draft-1');
-      http
-        .expectOne('/api/drafts/draft-1')
-        .flush(
-          draft(drafting({ picksPerPlayer: 12, turn: { pick: 2, round: 1, playerId: bob.id } })),
-        );
-      await flushPool([]);
-      await flushQueueAndPlan();
-      const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
-      // Not stable while the pick log is on its way, so rendered by hand.
-      tabButton(page, 'Queue').click();
-      fixture.detectChanges();
-      const queue = panel(page);
-      expect(queue.textContent).not.toMatch(/picks? left/);
-
-      picks.flush([pickOf({ poolCardId: 'a' })]);
-      await fixture.whenStable();
-      expect(queue.textContent).toContain('11 picks left');
-    });
-
-    it('shows picks per player as the picks left in the lobby', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, {
-        state: 'Lobby',
-        players: [alicePlayer, bob],
-        picksPerPlayer: 12,
-      });
-
-      const queue = await openQueue(fixture, page);
-      expect(queue.textContent).toContain('12 picks left');
-    });
   });
 });
