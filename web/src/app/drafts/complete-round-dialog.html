@@ -2,8 +2,8 @@
   <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
   <p>
     @if (finalRound() && noTrophyHolder()) {
-      It is the final tournament round, so completing it will complete the tournament. Nobody
-      advances from the final, so nobody will hold the trophy.
+      It is the final tournament round, so completing it will complete the tournament. Nobody will
+      advance from the final, so nobody will hold the trophy.
     } @else if (finalRound()) {
       It is the final tournament round, so completing it will complete the tournament and award the
       trophy.
@@ -63,7 +63,7 @@
     </ul>
   } @else if (unreported().length > 0) {
     <p>
-      Its unreported matches become granted draws.
+      Its unreported matches will become granted draws.
       @if (!finalRound()) {
         Drop any player who won’t play on.
       }

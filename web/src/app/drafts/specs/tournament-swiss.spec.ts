@@ -150,7 +150,7 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(text(dialog)).toContain(
       'Completing the round will pair tournament round 2 and open its matches.',
     );
-    expect(text(dialog)).toContain('Its unreported matches become granted draws.');
+    expect(text(dialog)).toContain('Its unreported matches will become granted draws.');
     const choices = group(dialog, 'Drop from Carol vs Bob')!;
     expect(controlByLabel(choices, 'checkbox', 'Drop Carol')!.checked).toBe(false);
     controlByLabel(choices, 'checkbox', 'Drop Bob')!.click();

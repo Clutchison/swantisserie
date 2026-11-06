@@ -210,7 +210,7 @@ describe('both finalists dropping', () => {
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
-      'It is the final tournament round, so completing it will complete the tournament. Nobody advances from the final, so nobody will hold the trophy.',
+      'It is the final tournament round, so completing it will complete the tournament. Nobody will advance from the final, so nobody will hold the trophy.',
     );
     expect(text(dialog)).not.toContain('award the trophy');
     button(dialog, 'Complete round')!.click();
