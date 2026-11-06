@@ -1,40 +1,30 @@
-import type { TournamentView } from 'contract';
-import { ORGANIZE_ONLY, alice, bob, button, http, namedList, panel, useDraftsApp } from './harness';
+import {
+  ORGANIZE_ONLY,
+  alice,
+  bob,
+  button,
+  group,
+  http,
+  items,
+  namedList,
+  panel,
+  text,
+  useDraftsApp,
+} from './harness';
 import {
   answerChange,
   carol,
   dave,
-  openComplete,
+  forfeited,
   openMatch,
-  openTournament,
+  openPlaying,
   playing,
   reported,
   threePlayers,
+  withDrops,
 } from './tournament-tab-harness';
 
 useDraftsApp();
-
-/** `element`'s text, its whitespace collapsed. */
-const text = (element: Element | null | undefined) =>
-  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
-
-/** The text of the first item in the list named `name`: its round's match. */
-const firstItem = (root: HTMLElement, name: string) =>
-  text(namedList(root, name).querySelector('li'));
-
-/** The group of controls inside `root` named `name`. */
-const group = (root: HTMLElement, name: string) =>
-  root.querySelector<HTMLElement>(`[role="group"][aria-label="${name}"]`);
-
-/** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
-async function openPlaying(
-  tournament: TournamentView,
-  options: Parameters<typeof openComplete>[1] = {},
-) {
-  const opened = await openComplete(tournament, { fields: threePlayers, ...options });
-  const tab = await openTournament(opened.fixture, opened.page);
-  return { ...opened, tab };
-}
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
@@ -54,15 +44,33 @@ describe('confirming a match', () => {
     );
 
     expect(req.request.body).toBeNull();
-    expect(firstItem(panel(page), 'Tournament round 2')).toBe('Alice 1–2 Bob · Confirmed');
+    expect(items(panel(page), 'Tournament round 2')[0]).toBe('Alice 1–2 Bob · Confirmed');
     expect(button(panel(page), 'Confirm your match against Bob')).toBeUndefined();
+  });
+
+  it('lets the opponent confirm once the tournament is complete', async () => {
+    const complete = (m2: ReturnType<typeof openMatch>) =>
+      playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
+    const { fixture, page, tab } = await openPlaying(complete(bobBeatAlice));
+
+    button(tab, 'Confirm your match against Bob')!.click();
+    await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/matches/m2/confirm',
+      'POST',
+      complete({ ...bobBeatAlice, confirmed: true }),
+      1,
+      threePlayers,
+    );
+
+    expect(items(panel(page), 'Tournament round 2')[0]).toBe('Alice 1–2 Bob · Confirmed');
   });
 
   it('shows a confirmed match as confirmed to everyone', async () => {
     const m1 = { ...reported(openMatch('m1', bob.id, carol.id), [2, 1]), confirmed: true };
     const { tab } = await openPlaying(playing([m1]), { user: dave });
 
-    expect(firstItem(tab, 'Tournament round 1')).toBe('Bob 2–1 Carol · Confirmed');
+    expect(items(tab, 'Tournament round 1')[0]).toBe('Bob 2–1 Carol · Confirmed');
   });
 
   it('isn’t offered to the player who reported it, or for a match that isn’t reported', async () => {
@@ -80,17 +88,17 @@ describe('confirming a match', () => {
   });
 });
 
-describe('organizer results', () => {
+describe('organizer reports, corrections and clears', () => {
   it('lets an organizer report a match for its players', async () => {
     const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Report Bob vs Carol')!.click();
     await fixture.whenStable();
-    button(group(tab, 'Result of Bob vs Carol')!, 'Carol won 2–1')!.click();
+    button(group(tab, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
     const after = playing([reported(openMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/result',
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
       'PUT',
       after,
       1,
@@ -98,7 +106,7 @@ describe('organizer results', () => {
     );
 
     expect(req.request.body).toEqual({ games: [1, 2] });
-    expect(firstItem(panel(page), 'Tournament round 1')).toContain('Bob 1–2 Carol');
+    expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob 1–2 Carol');
   });
 
   it('lets an organizer correct a match once the tournament is complete', async () => {
@@ -111,10 +119,10 @@ describe('organizer results', () => {
 
     button(tab, 'Correct Bob vs Carol')!.click();
     await fixture.whenStable();
-    button(group(tab, 'Result of Bob vs Carol')!, 'Carol won 2–0')!.click();
+    button(group(tab, 'Game score of Bob vs Carol')!, 'Carol won 2–0')!.click();
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/result',
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
       'PUT',
       complete(reported(m1, [0, 2], alice.id), carol.id),
       1,
@@ -132,20 +140,20 @@ describe('organizer results', () => {
 
     button(tab, 'Correct Bob vs Carol')!.click();
     await fixture.whenStable();
-    button(group(tab, 'Result of Bob vs Carol')!, 'Clear result')!.click();
+    button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
     expect(confirm).toHaveBeenCalledWith(
-      'Clear the result of Bob vs Carol? The match is unreported again.',
+      'Clear the game score of Bob vs Carol? The match is unreported again.',
     );
     await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/result',
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
       'DELETE',
       playing(),
       1,
       threePlayers,
     );
 
-    expect(firstItem(panel(page), 'Tournament round 1')).toContain('Bob vs Carol · Unreported');
+    expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob vs Carol · Unreported');
     expect(button(panel(page), 'Report Bob vs Carol')).toBeDefined();
   });
 
@@ -156,19 +164,48 @@ describe('organizer results', () => {
 
     button(tab, 'Correct Bob vs Carol')!.click();
     await fixture.whenStable();
-    button(group(tab, 'Result of Bob vs Carol')!, 'Clear result')!.click();
+    button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
     await fixture.whenStable();
 
-    http.expectNone('/api/drafts/draft-1/tournament/matches/m1/result');
+    http.expectNone('/api/drafts/draft-1/tournament/matches/m1/game-score');
   });
 
-  it('offers Clear result only for a match with a result', async () => {
+  it('offers Clear game score only for a match with a game score', async () => {
     const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Report Bob vs Carol')!.click();
     await fixture.whenStable();
 
-    expect(button(group(tab, 'Result of Bob vs Carol')!, 'Clear result')).toBeUndefined();
+    expect(button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')).toBeUndefined();
+  });
+
+  it('says clearing a match against a dropped player makes it their forfeit', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const m3 = reported(openMatch('m3', carol.id, alice.id), [0, 2], alice.id);
+    const { fixture, tab } = await openPlaying(withDrops([carol.id], [m3]), {
+      powers: ORGANIZE_ONLY,
+    });
+
+    button(tab, 'Correct Carol vs Alice')!.click();
+    await fixture.whenStable();
+    button(group(tab, 'Game score of Carol vs Alice')!, 'Clear game score')!.click();
+
+    expect(confirm).toHaveBeenCalledWith(
+      'Clear the game score of Carol vs Alice? It becomes a forfeit by Carol, who has dropped.',
+    );
+  });
+
+  it('offers no Clear game score for a dropped player’s forfeit while the tournament is playing', async () => {
+    const m3 = forfeited(openMatch('m3', carol.id, alice.id), carol.id);
+    const { fixture, tab } = await openPlaying(withDrops([carol.id], [m3]), {
+      powers: ORGANIZE_ONLY,
+    });
+
+    button(tab, 'Correct Carol vs Alice')!.click();
+    await fixture.whenStable();
+
+    expect(button(group(tab, 'Game score of Carol vs Alice')!, 'Carol won 2–0')).toBeDefined();
+    expect(button(group(tab, 'Game score of Carol vs Alice')!, 'Clear game score')).toBeUndefined();
   });
 
   it('aren’t offered to anyone without the power to organize the draft', async () => {

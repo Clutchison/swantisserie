@@ -361,6 +361,22 @@ export const heading = (root: HTMLElement, name: string) =>
 export const namedImages = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLImageElement>('img')].filter((image) => image.alt !== '');
 
+/** `element`'s text as a viewer reads it, its whitespace collapsed; empty if there is no element. */
+export const text = (element: Element | null | undefined) =>
+  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+/** A region inside `root`, such as a section, by its accessible name; null if there is none. */
+export const region = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('section[aria-label], [role="region"]')].find(
+    (element) => element.getAttribute('aria-label') === name,
+  ) ?? null;
+
+/** A group of controls inside `root`, by its accessible name; null if there is none. */
+export const group = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('[role="group"]')].find(
+    (element) => element.getAttribute('aria-label') === name,
+  ) ?? null;
+
 /** The first alert inside `root`: an error shown to the viewer, if any. */
 export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
 
@@ -406,6 +422,10 @@ export const statusTexts = (root: HTMLElement) =>
 /** A list inside `root`, by its accessible name, such as "Pick log" or "Your picks". */
 export const namedList = (root: HTMLElement, name: string) =>
   root.querySelector<HTMLElement>(`[aria-label="${name}"]`)!;
+
+/** Each item's text in the list inside `root` named `name`, in order. */
+export const items = (root: HTMLElement, name: string) =>
+  [...namedList(root, name).querySelectorAll('li')].map((li) => text(li));
 
 /** The card names inside `root`, each the name a card preview opens from, in page order. */
 export const cardNames = (root: HTMLElement) => [
@@ -477,6 +497,11 @@ export const tabs = (root: HTMLElement) => [
 /** A button in the tab bar, by its label. */
 export const tabButton = (root: HTMLElement, tab: string) =>
   tabs(root).find((b) => b.textContent?.trim() === tab)!;
+/** The tab bar's labels, in order. */
+export const tabLabels = (root: HTMLElement) => tabs(root).map((tab) => tab.textContent?.trim());
+/** The panel of the tab labelled `tab`, whether it is showing or not. */
+export const tabPanel = (root: HTMLElement, tab: string) =>
+  root.querySelector<HTMLElement>(`#${tabButton(root, tab).getAttribute('aria-controls')}`)!;
 /** The tab panel showing. */
 export const panel = (root: HTMLElement) =>
   root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;

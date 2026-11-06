@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   MIN_MAINBOARD_CARDS,
+  type GameScore,
   type TournamentFormat,
   type TournamentRefusal,
   type TournamentView,
@@ -151,7 +152,7 @@ export class TournamentsService {
         throw new TournamentRefusedError({
           error: 'tournament-complete',
           message:
-            'A complete tournament can’t be cancelled. An organizer can still correct its results.',
+            'A complete tournament can’t be cancelled. An organizer can still correct its matches.',
         });
       }
       await tx.tournament.delete({ where: { id: tournament.id } });
@@ -162,15 +163,16 @@ export class TournamentsService {
    * Confirms the match `matchId`'s game score as the draft's user `userId`:
    * a player of it who didn't report it. Throws NoMatchError if the
    * tournament has no such match, and TournamentRefusedError if the user
-   * isn't one of its players, reported it, it has no reported game score,
-   * or the tournament isn't playing.
+   * isn't one of its players, reported it, or it has no reported game
+   * score. A match can be confirmed while the tournament is playing or once
+   * it is complete.
    */
   async confirm(
     draftId: string,
     matchId: string,
     userId: string,
   ): Promise<void> {
-    await this.inPlay(draftId, async (tx, tournament) => {
+    await this.withTournament(draftId, async (tx, tournament) => {
       const match = await findMatch(tx, tournament.id, matchId);
       if (!match.players.includes(userId)) {
         throw new TournamentRefusedError({
@@ -206,11 +208,11 @@ export class TournamentsService {
    * TournamentRefusedError if the game score isn't 2–0 or 2–1 for either
    * side.
    */
-  async setResult(
+  async setGameScore(
     draftId: string,
     matchId: string,
     userId: string,
-    games: [number, number],
+    games: GameScore,
   ): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
       await findMatch(tx, tournament.id, matchId);
@@ -232,23 +234,37 @@ export class TournamentsService {
   }
 
   /**
-   * Clears the match `matchId`'s result, as an organizer does: it is
-   * unreported again while the tournament is playing, and a granted draw
-   * once it is complete, as completing it would have made it. Throws
-   * NoMatchError if the tournament has no such match.
+   * Clears the match `matchId`'s game score, as an organizer does. While the
+   * tournament is playing it is unreported again, unless one of its players
+   * has dropped: then it is their forfeit again, as reinstating a player
+   * leaves a match against a player still dropped. Once the tournament is
+   * complete it is a granted draw, as completing it would have made it.
+   * Throws NoMatchError if the tournament has no such match.
    */
-  async clearResult(draftId: string, matchId: string): Promise<void> {
+  async clearGameScore(draftId: string, matchId: string): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
-      await findMatch(tx, tournament.id, matchId);
+      const { dropped } = await findMatch(tx, tournament.id, matchId);
+      const forfeitedBy =
+        tournament.state !== 'Playing'
+          ? null
+          : dropped[0]
+            ? ('First' as const)
+            : dropped[1]
+              ? ('Second' as const)
+              : null;
       await tx.match.update({
         where: { id: matchId },
         data: {
           outcome:
-            tournament.state === 'Complete' ? 'GrantedDraw' : 'Unreported',
+            tournament.state === 'Complete'
+              ? 'GrantedDraw'
+              : forfeitedBy
+                ? 'Forfeit'
+                : 'Unreported',
           firstGames: 0,
           secondGames: 0,
           drawnGames: 0,
-          forfeitedBy: null,
+          forfeitedBy,
           reportedById: null,
           confirmed: false,
         },
@@ -271,7 +287,7 @@ export class TournamentsService {
       });
       if (entries.length < 2) {
         throw new TournamentRefusedError({
-          error: 'too-few-entries',
+          error: 'too-few-players-joined',
           message: 'A tournament needs at least 2 players to start.',
         });
       }
@@ -307,7 +323,7 @@ export class TournamentsService {
     draftId: string,
     matchId: string,
     userId: string,
-    games: [number, number],
+    games: GameScore,
   ): Promise<void> {
     await this.inPlay(draftId, async (tx, tournament) => {
       const match = await tx.match.findFirst({
@@ -400,12 +416,12 @@ export class TournamentsService {
   }
 
   /**
-   * Takes back the drop of the draft's player `userId`: their forfeits
+   * Reinstates the draft's dropped player `userId`: their forfeits
    * become unreported matches again, except against an opponent who has
    * dropped too, whose forfeit they become. Throws TournamentRefusedError if
    * they haven't joined or haven't dropped, or the tournament isn't playing.
    */
-  async undoDrop(draftId: string, userId: string): Promise<void> {
+  async reinstate(draftId: string, userId: string): Promise<void> {
     await this.inPlay(draftId, async (tx, tournament) => {
       const entry = await entryOf(tx, tournament, draftId, userId);
       if (!entry.dropped) {
@@ -476,23 +492,17 @@ export class TournamentsService {
    * `state`. Throws NoTournamentError if it has none, and
    * TournamentRefusedError with `refusal` if it is in another state.
    */
-  private async whileIn(
+  private whileIn(
     draftId: string,
     state: TournamentState,
     change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
     refusal: TournamentRefusal,
   ): Promise<void> {
-    await this.lock.run(draftId, async (draft) => {
-      if (!draft) throw new DraftGoneError();
-      const tournament = await draft.tx.tournament.findUnique({
-        where: { draftId },
-        select: { id: true, state: true },
-      });
-      if (!tournament) throw new NoTournamentError();
+    return this.withTournament(draftId, async (tx, tournament) => {
       if (tournament.state !== state) {
         throw new TournamentRefusedError(refusal);
       }
-      await change(draft.tx, tournament);
+      await change(tx, tournament);
     });
   }
 
@@ -516,8 +526,15 @@ export class TournamentsService {
   }
 }
 
+/** What findMatch reads of each of a match's entries. */
+const ENTRY_OF_MATCH = {
+  dropped: true,
+  player: { select: { userId: true } },
+} as const;
+
 /**
- * The tournament's match `matchId`, with its players' Discord user ids.
+ * The tournament's match `matchId`, with its players' Discord user ids and
+ * whether each has dropped, in its player order.
  * Throws NoMatchError if it has no such match; a bye is no match.
  */
 async function findMatch(
@@ -530,8 +547,8 @@ async function findMatch(
     select: {
       outcome: true,
       reportedById: true,
-      firstEntry: { select: { player: { select: { userId: true } } } },
-      secondEntry: { select: { player: { select: { userId: true } } } },
+      firstEntry: { select: ENTRY_OF_MATCH },
+      secondEntry: { select: ENTRY_OF_MATCH },
     },
   });
   if (!match) throw new NoMatchError();
@@ -539,6 +556,7 @@ async function findMatch(
     outcome: match.outcome,
     reportedById: match.reportedById,
     players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
+    dropped: [match.firstEntry.dropped, !!match.secondEntry?.dropped],
   };
 }
 

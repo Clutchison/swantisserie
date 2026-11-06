@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
 import type {
   DraftView,
+  GameScore,
   MatchReportRequest,
   TournamentFormat,
   TournamentSetupRequest,
@@ -34,7 +35,7 @@ export class TournamentApi {
   }
 
   /** Reports a match's game score, `games` in its player order; for its players. */
-  report(draftId: string, matchId: string, games: [number, number]): Observable<DraftView> {
+  report(draftId: string, matchId: string, games: GameScore): Observable<DraftView> {
     return this.http.post<DraftView>(
       `${url(draftId)}/matches/${encodeURIComponent(matchId)}/report`,
       { games } satisfies MatchReportRequest,
@@ -47,15 +48,15 @@ export class TournamentApi {
   }
 
   /** Sets a match's game score, `games` in its player order, reporting or correcting it; for organizers. */
-  setResult(draftId: string, matchId: string, games: [number, number]): Observable<DraftView> {
-    return this.http.put<DraftView>(`${matchUrl(draftId, matchId)}/result`, {
+  setGameScore(draftId: string, matchId: string, games: GameScore): Observable<DraftView> {
+    return this.http.put<DraftView>(`${matchUrl(draftId, matchId)}/game-score`, {
       games,
     } satisfies MatchReportRequest);
   }
 
-  /** Clears a match's result; for organizers. */
-  clearResult(draftId: string, matchId: string): Observable<DraftView> {
-    return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/result`);
+  /** Clears a match's game score; for organizers. */
+  clearGameScore(draftId: string, matchId: string): Observable<DraftView> {
+    return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/game-score`);
   }
 
   /** Completes the draft's round robin tournament; for organizers. */
@@ -68,8 +69,8 @@ export class TournamentApi {
     return this.http.post<DraftView>(dropUrl(draftId, playerId), null);
   }
 
-  /** Takes back a player's drop; for organizers. */
-  undoDrop(draftId: string, playerId: string): Observable<DraftView> {
+  /** Reinstates a dropped player; for organizers. */
+  reinstate(draftId: string, playerId: string): Observable<DraftView> {
     return this.http.delete<DraftView>(dropUrl(draftId, playerId));
   }
 

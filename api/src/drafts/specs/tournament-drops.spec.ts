@@ -16,7 +16,7 @@ import {
   setUpTournament,
   signIn,
   tournamentView,
-  undoDrop,
+  reinstate,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -138,13 +138,13 @@ describe('dropping from a tournament', () => {
   });
 });
 
-describe('undoing a drop', () => {
-  it('lets an organizer take a drop back, the forfeits becoming unreported matches', async () => {
+describe('reinstating a dropped player', () => {
+  it('lets an organizer reinstate a dropped player, their forfeits becoming unreported matches', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await reportWin(id, [bob.id, carol.id], [2, 1], carolCookie);
     await dropPlayer(id, carol.id, carolCookie).expect(200);
 
-    await undoDrop(id, carol.id).expect(200);
+    await reinstate(id, carol.id).expect(200);
 
     const view = await tournamentView(id);
     expect(view.entries.some((e) => e.dropped)).toBe(false);
@@ -166,7 +166,7 @@ describe('undoing a drop', () => {
     await dropPlayer(id, bob.id, bobCookie).expect(200);
     await dropPlayer(id, carol.id, carolCookie).expect(200);
 
-    await undoDrop(id, bob.id).expect(200);
+    await reinstate(id, bob.id).expect(200);
 
     expect((await matchOf(id, bob.id, carol.id)).outcome).toEqual({
       kind: 'Forfeit',
@@ -181,7 +181,7 @@ describe('undoing a drop', () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await dropPlayer(id, bob.id, bobCookie).expect(200);
 
-    await undoDrop(id, bob.id, bobCookie).expect(403);
+    await reinstate(id, bob.id, bobCookie).expect(403);
 
     expect((await matchOf(id, alice.id, bob.id)).outcome.kind).toBe('Forfeit');
   });
@@ -189,7 +189,7 @@ describe('undoing a drop', () => {
   it('refuses a player who hasn’t dropped', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
 
-    expect((await undoDrop(id, bob.id).expect(409)).body.error).toBe(
+    expect((await reinstate(id, bob.id).expect(409)).body.error).toBe(
       'not-dropped',
     );
   });
@@ -199,7 +199,7 @@ describe('undoing a drop', () => {
     await dropPlayer(id, bob.id, bobCookie).expect(200);
     const before = await getDraft(id).expect(200);
 
-    const answer = await undoDrop(id, bob.id).expect(200);
+    const answer = await reinstate(id, bob.id).expect(200);
 
     expect(answer.body.version).toBe(before.body.version + 1);
   });

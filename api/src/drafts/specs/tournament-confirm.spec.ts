@@ -84,15 +84,15 @@ describe('confirming a match', () => {
     expect((await matchOf(id, bob.id, carol.id)).confirmed).toBe(true);
   });
 
-  it('refuses once the tournament is complete', async () => {
+  it('lets the opponent confirm once the tournament is complete', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 0], aliceCookie);
     await completeTournament(id).expect(200);
     const match = await matchOf(id, alice.id, bob.id);
 
-    const answer = await confirmMatch(id, match.id, bobCookie).expect(409);
+    await confirmMatch(id, match.id, bobCookie).expect(200);
 
-    expect(answer.body.error).toBe('not-playing');
+    expect((await matchOf(id, alice.id, bob.id)).confirmed).toBe(true);
   });
 
   it('bumps the draft’s version', async () => {

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type {
   DraftView,
+  GameScore,
   MatchReportRequest,
   RequestProblem,
   TournamentFormat,
@@ -26,9 +27,9 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { DraftAccess } from '../drafts/draft-access.js';
-import { DraftErrorsFilter } from '../drafts/draft-errors.filter.js';
 import { DraftPublisher } from '../drafts/draft-publisher.js';
 import { bodyFields } from '../request-body.js';
+import { TournamentErrorsFilter } from './tournament-errors.filter.js';
 import { TournamentsService } from './tournaments.service.js';
 
 /**
@@ -38,7 +39,7 @@ import { TournamentsService } from './tournaments.service.js';
  */
 @Controller('drafts/:id/tournament')
 @UseGuards(SessionGuard)
-@UseFilters(DraftErrorsFilter)
+@UseFilters(TournamentErrorsFilter)
 export class TournamentsController {
   constructor(
     private readonly access: DraftAccess,
@@ -120,15 +121,15 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.drop(id, playerId));
   }
 
-  /** Takes back the drop of the player `playerId` (a Discord user id); for the organizer. */
+  /** Reinstates the dropped player `playerId` (a Discord user id); for the organizer. */
   @Delete('entries/:playerId/drop')
-  async undoDrop(
+  async reinstate(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.undoDrop(id, playerId));
+    return this.change(id, () => this.tournaments.reinstate(id, playerId));
   }
 
   /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */
@@ -173,11 +174,11 @@ export class TournamentsController {
   }
 
   /**
-   * Sets a match's game score, reporting it for its players or correcting
-   * it, even once the tournament is complete; for the organizer.
+   * Corrects a match's game score, or reports it for its players, even
+   * once the tournament is complete; for the organizer.
    */
-  @Put('matches/:matchId/result')
-  async setResult(
+  @Put('matches/:matchId/game-score')
+  async setGameScore(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('matchId') matchId: string,
@@ -186,19 +187,19 @@ export class TournamentsController {
     const games = parseGames(body);
     await this.access.asOrganizer(user, id);
     return this.change(id, () =>
-      this.tournaments.setResult(id, matchId, user.id, games),
+      this.tournaments.setGameScore(id, matchId, user.id, games),
     );
   }
 
-  /** Clears a match's result, even once the tournament is complete; for the organizer. */
-  @Delete('matches/:matchId/result')
-  async clearResult(
+  /** Clears a match's game score, even once the tournament is complete; for the organizer. */
+  @Delete('matches/:matchId/game-score')
+  async clearGameScore(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('matchId') matchId: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.clearResult(id, matchId));
+    return this.change(id, () => this.tournaments.clearGameScore(id, matchId));
   }
 
   /**
@@ -244,7 +245,7 @@ function parseFormat(body: unknown): TournamentFormat {
  * player order, or a 400 if it isn't two whole numbers of games. Whether a
  * best-of-three match can end at it is the engine's call.
  */
-function parseGames(body: unknown): [number, number] {
+function parseGames(body: unknown): GameScore {
   const { games } = bodyFields<MatchReportRequest>(body);
   if (
     !Array.isArray(games) ||

@@ -1,55 +1,19 @@
-import type { MatchView, TournamentView } from 'contract';
-import { ORGANIZE_ONLY, alice, bob, button, namedList, panel, useDraftsApp } from './harness';
+import { ORGANIZE_ONLY, alice, bob, button, items, panel, region, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
   dave,
-  openComplete,
+  forfeited,
   openMatch,
-  openTournament,
+  openPlaying,
+  playerLines,
   playing,
   reported,
   threePlayers,
+  withDrops,
 } from './tournament-tab-harness';
 
 useDraftsApp();
-
-/** `element`'s text, its whitespace collapsed. */
-const text = (element: Element | null | undefined) =>
-  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
-
-/** Each item's text in the list named `name`. */
-const items = (root: HTMLElement, name: string) =>
-  [...namedList(root, name).querySelectorAll('li')].map((li) => text(li));
-
-/** Each player in the Players list as it reads, leaving out its buttons. */
-const players = (root: HTMLElement) =>
-  [...namedList(root, 'Players').querySelectorAll('li')].map((li) => {
-    const shown = li.cloneNode(true) as HTMLElement;
-    shown.querySelectorAll('button').forEach((b) => b.remove());
-    return text(shown);
-  });
-
-/** `match` forfeited by the player `forfeitedBy`. */
-const forfeited = (match: MatchView, forfeitedBy: string): MatchView => ({
-  ...match,
-  outcome: { kind: 'Forfeit', forfeitedBy },
-});
-
-/**
- * The tournament of Alice, Bob and Carol being played, the players with
- * these ids dropped and `matches` replacing any of its matches by id.
- */
-const withDrops = (droppedIds: string[], matches: MatchView[] = []): TournamentView => {
-  const tournament = playing(matches);
-  return {
-    ...tournament,
-    entries: tournament.entries.map((entry) => ({
-      ...entry,
-      dropped: droppedIds.includes(entry.playerId),
-    })),
-  };
-};
 
 /** Carol dropped, after beating Bob: her match against Alice (m3) is a forfeit. */
 const carolDropped = withDrops(
@@ -60,21 +24,11 @@ const carolDropped = withDrops(
   ],
 );
 
-/** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
-async function openPlaying(
-  tournament: TournamentView,
-  options: Parameters<typeof openComplete>[1] = {},
-) {
-  const opened = await openComplete(tournament, { fields: threePlayers, ...options });
-  const tab = await openTournament(opened.fixture, opened.page);
-  return { ...opened, tab };
-}
-
 describe('drops on the tournament tab', () => {
   it('shows dropped players and their forfeits', async () => {
     const { tab } = await openPlaying(carolDropped, { user: dave });
 
-    expect(players(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
+    expect(playerLines(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
     expect(items(tab, 'Tournament round 3')).toEqual([
       'Carol vs Alice · Carol forfeited',
       'Bob has a bye',
@@ -87,7 +41,7 @@ describe('drops on the tournament tab', () => {
 
     button(tab, 'Drop from tournament')!.click();
     expect(confirm).toHaveBeenCalledWith(
-      'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can take it back. Your deck stays locked until the tournament is complete.',
+      'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
     );
     await answerChange(
       fixture,
@@ -104,9 +58,9 @@ describe('drops on the tournament tab', () => {
       threePlayers,
     );
 
-    expect(players(panel(page))).toEqual(['Alice · Dropped', 'Bob', 'Carol']);
+    expect(playerLines(panel(page))).toEqual(['Alice · Dropped', 'Bob', 'Carol']);
     expect(button(panel(page), 'Drop from tournament')).toBeUndefined();
-    expect(panel(page).querySelector('section[aria-label="Your match"]')).toBeNull();
+    expect(region(panel(page), 'Your match')).toBeNull();
   });
 
   it('sends nothing when the player doesn’t confirm', async () => {
@@ -119,12 +73,12 @@ describe('drops on the tournament tab', () => {
     expect(button(tab, 'Drop from tournament')).toBeDefined();
   });
 
-  it('offers a player no Drop for anyone else, nor Undo drop', async () => {
+  it('offers a player no Drop for anyone else, nor Reinstate', async () => {
     const { tab } = await openPlaying(carolDropped);
 
     expect(button(tab, 'Drop from tournament')).toBeDefined();
     expect(button(tab, 'Drop Bob')).toBeUndefined();
-    expect(button(tab, 'Undo drop Carol')).toBeUndefined();
+    expect(button(tab, 'Reinstate Carol')).toBeUndefined();
   });
 
   it('offers a viewer who didn’t join no Drop', async () => {
@@ -150,15 +104,15 @@ describe('drops on the tournament tab', () => {
       threePlayers,
     );
 
-    expect(players(panel(page))).toContain('Bob · Dropped');
-    expect(button(panel(page), 'Undo drop Bob')).toBeDefined();
+    expect(playerLines(panel(page))).toContain('Bob · Dropped');
+    expect(button(panel(page), 'Reinstate Bob')).toBeDefined();
   });
 
-  it('lets an organizer undo a drop', async () => {
+  it('lets an organizer reinstate a dropped player', async () => {
     const { fixture, page, tab } = await openPlaying(carolDropped, { powers: ORGANIZE_ONLY });
     expect(button(tab, 'Drop Carol')).toBeUndefined();
 
-    button(tab, 'Undo drop Carol')!.click();
+    button(tab, 'Reinstate Carol')!.click();
     await answerChange(
       fixture,
       `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`,
@@ -168,19 +122,19 @@ describe('drops on the tournament tab', () => {
       threePlayers,
     );
 
-    expect(players(panel(page))).toEqual(['Alice', 'Bob', 'Carol']);
+    expect(playerLines(panel(page))).toEqual(['Alice', 'Bob', 'Carol']);
     expect(items(panel(page), 'Tournament round 3')[0]).toContain('Carol vs Alice · Unreported');
   });
 
-  it('offers no Drop or Undo drop once the tournament is complete', async () => {
+  it('offers no Drop or Reinstate once the tournament is complete', async () => {
     const { tab } = await openPlaying(
       { ...carolDropped, state: 'Complete' },
       { powers: ORGANIZE_ONLY },
     );
 
-    expect(players(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
+    expect(playerLines(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
     expect(button(tab, 'Drop Bob')).toBeUndefined();
-    expect(button(tab, 'Undo drop Carol')).toBeUndefined();
+    expect(button(tab, 'Reinstate Carol')).toBeUndefined();
     expect(button(tab, 'Drop from tournament')).toBeUndefined();
   });
 });

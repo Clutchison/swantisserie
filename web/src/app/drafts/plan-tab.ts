@@ -184,6 +184,8 @@ export class PlanTab {
   protected readonly planName = this.store.planName;
   /** Whether the deck is locked, as its player has joined the tournament: then it offers no edits. */
   protected readonly deckLocked = this.store.deckLocked;
+  /** The state of the tournament, which says how a locked deck unlocks. */
+  protected readonly tournamentState = this.store.tournamentState;
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
   protected readonly loading = this.store.plan.loading;
   /** The pool card ids of the cards in the signed-in player's queue. */

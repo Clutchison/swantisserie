@@ -18,9 +18,11 @@ import {
   flushPicks,
   flushQueueAndPlan,
   http,
+  namedList,
   openDraft,
   openTab,
   tabButton,
+  text,
   type AppFixture,
   type DraftFixture,
 } from './harness';
@@ -75,7 +77,7 @@ export const standing = (
   matchPoints: 0,
   matches: { won: 0, lost: 0, drawn: 0 },
   games: { won: 0, lost: 0, drawn: 0 },
-  gameWinRate: 0,
+  gameWinPercent: 0,
   ...fields,
 });
 
@@ -104,6 +106,27 @@ export function playing(
     ...fields,
   };
 }
+
+/** `match` forfeited by the player `forfeitedBy`. */
+export const forfeited = (match: MatchView, forfeitedBy: string): MatchView => ({
+  ...match,
+  outcome: { kind: 'Forfeit', forfeitedBy },
+});
+
+/**
+ * The tournament of Alice, Bob and Carol being played, the players with
+ * these ids dropped and `matches` replacing any of its matches by id.
+ */
+export const withDrops = (droppedIds: string[], matches: MatchView[] = []): TournamentView => {
+  const tournament = playing(matches);
+  return {
+    ...tournament,
+    entries: tournament.entries.map((entry) => ({
+      ...entry,
+      dropped: droppedIds.includes(entry.playerId),
+    })),
+  };
+};
 
 /** The complete draft of Alice, Bob and Carol. */
 export const threePlayers: DraftFixture = { players: [alicePlayer, bob, carol] };
@@ -149,6 +172,30 @@ export async function openComplete(
 /** Opens the Tournament tab and returns its panel. */
 export const openTournament = (fixture: AppFixture, page: HTMLElement) =>
   openTab(fixture, page, 'Tournament');
+
+/** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
+export async function openPlaying(
+  tournament: TournamentView,
+  options: Parameters<typeof openComplete>[1] = {},
+) {
+  const opened = await openComplete(tournament, { fields: threePlayers, ...options });
+  const tab = await openTournament(opened.fixture, opened.page);
+  return { ...opened, tab };
+}
+
+/** Each row of the standings inside `root`, best first, as its cells' text. */
+export const standingsRows = (root: HTMLElement) =>
+  [...namedList(root, 'Standings').querySelectorAll<HTMLTableRowElement>('tbody tr')].map((row) =>
+    [...row.cells].map((cell) => text(cell)),
+  );
+
+/** Each player in the Players list inside `root` as it reads, leaving out its buttons. */
+export const playerLines = (root: HTMLElement) =>
+  [...namedList(root, 'Players').querySelectorAll('li')].map((li) => {
+    const shown = li.cloneNode(true) as HTMLElement;
+    shown.querySelectorAll('button').forEach((b) => b.remove());
+    return text(shown);
+  });
 
 /** Whether the tab bar has a Tournament tab. */
 export const hasTournamentTab = (page: HTMLElement) => !!tabButton(page, 'Tournament');

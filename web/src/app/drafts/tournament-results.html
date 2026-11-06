@@ -30,8 +30,8 @@
       <li>
         <span>
           {{ match.first }}
-          @if (match.score; as score) {
-            {{ score }}
+          @if (match.gameScore; as gameScore) {
+            {{ gameScore }}
           } @else {
             vs
           }
@@ -67,16 +67,16 @@
           </button>
           @if (correcting() === match.id) {
             <div
-              class="result-choice"
+              class="game-score-choice"
               role="group"
-              [attr.aria-label]="'Result of ' + organize.label"
+              [attr.aria-label]="'Game score of ' + organize.label"
             >
-              @for (score of organize.scores; track score.label) {
+              @for (score of organize.gameScores; track score.label) {
                 <button
                   class="button compact secondary"
                   type="button"
-                  (click)="setResult.emit({ matchId: match.id, games: score.games })"
-                  [appSendsChange]="'result ' + match.id + ' ' + score.games"
+                  (click)="setGameScore.emit({ matchId: match.id, games: score.games })"
+                  [appSendsChange]="'game-score ' + match.id + ' ' + score.games"
                 >
                   {{ score.label }}
                 </button>
@@ -85,10 +85,10 @@
                 <button
                   class="button compact secondary"
                   type="button"
-                  (click)="clearResult.emit(clear)"
+                  (click)="clearGameScore.emit(clear)"
                   [appSendsChange]="'clear ' + match.id"
                 >
-                  Clear result
+                  Clear game score
                 </button>
               }
             </div>

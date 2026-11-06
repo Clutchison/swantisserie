@@ -14,7 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
-import { isDeckLocked } from '../tournaments/locked-deck.js';
+import { isDeckLocked } from './locked-deck.js';
 
 /** The order a plan board lists its cards in: by mana value, then name. */
 export const PLAN_ORDER = [
