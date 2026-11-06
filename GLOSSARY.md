@@ -226,7 +226,7 @@ _Avoid_: Decklist, Moxfield import (that is what the player does with it)
 
 **Plan**:
 A player's private mainboard and sideboard for one draft. It holds every pick they made, plus any unpicked pool cards and basic lands they add.
-_Avoid_: Deck (in user-facing copy), Deck Planner, deck plan, decklist, maybeboard
+_Avoid_: Deck (before its draft is complete), Deck Planner, deck plan, decklist, maybeboard
 
 **Mainboard**:
 The part of a player's plan they intend to play. Each new pick lands in it.
@@ -237,7 +237,7 @@ The part of a player's plan holding cards they don't intend to play.
 _Avoid_: Maybeboard, bench, board (alone)
 
 **Unpicked card**:
-A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, or another player picks it when no other copy is available for the plan.
+A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, another player picks it when no other copy is available for the plan, or the draft completes.
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
 **Queue order**:
@@ -269,8 +269,16 @@ Either part of a player's plan: the mainboard or the sideboard. A card in a plan
 _Avoid_: Board (alone; that is the Board tab), zone, section
 
 **Plan tab**:
-The part of a draft's page where a player builds their plan.
-_Avoid_: Deck tab, deckbuilder, Deck Planner
+The part of a draft's page where a player builds their plan. Once the draft is complete it is the Deck tab.
+_Avoid_: Deck tab (before the draft is complete), deckbuilder, Deck Planner
+
+**Deck**:
+A player's plan once their draft is complete. It holds only their picks and basic lands: completing the draft takes every unpicked card out.
+_Avoid_: Plan (once the draft is complete), decklist (that is a deck as others see it), list
+
+**Deck tab**:
+The Plan tab of a complete draft, where a player builds their deck.
+_Avoid_: Plan tab (once the draft is complete), deckbuilder
 
 **Plan notice**:
 The note on the Plan tab naming a player's lost unpicked cards and who picked each. It builds up until the player dismisses it, and an undo takes off what that pick added.
@@ -334,6 +342,124 @@ _Avoid_: Delete, abort
 Any draft that is neither closed nor complete.
 _Avoid_: Open draft (as its name; "open" as a verb, as in "Open draft" on a link, is fine), current draft
 
+## Tournaments
+
+**Tournament**:
+The matches a complete draft's players play on its platform after the draft, in one format, to decide who wins a trophy. A draft has at most one tournament, and bots never play in one.
+_Avoid_: League, event, bracket (that is the single elimination view)
+
+**Format**:
+How a tournament pairs its players: round robin, Swiss or single elimination. The organizer chooses it at tournament setup.
+_Avoid_: Type, mode, structure
+
+**Round robin**:
+The format in which every player plays every other player once.
+_Avoid_: League, all-play-all
+
+**Swiss**:
+The format in which no one is knocked out: each tournament round pairs players with similar records who haven't played each other.
+_Avoid_: Swiss rounds (as the format's name), ladder
+
+**Single elimination**:
+The format in which a player who loses a match is out, until one player is left.
+_Avoid_: Knockout, bracket (as the format's name), cup
+
+**Tournament setup**:
+The organizer choosing, all at once, a tournament's format, its Swiss round option and whether it has public decklists. It can't be changed afterwards; the organizer cancels the tournament and sets it up again instead.
+_Avoid_: Configuration, settings, draft (as a verb)
+
+**Registration**:
+A tournament's first state, after setup, when the draft's players join and leave it.
+_Avoid_: Open, lobby (that is the draft's), sign-up
+
+**Join**:
+A draft's player entering a tournament during registration. It locks their deck.
+_Avoid_: Register, enter, sign up
+
+**Locked**:
+Describes a joined player's deck, whose mainboard, sideboard and basic land counts can't change until the tournament is complete or cancelled, or the player leaves it during registration.
+_Avoid_: Frozen, registered, submitted
+
+**Playing**:
+A started tournament whose matches are being played.
+_Avoid_: Running, in progress, live, active
+
+**Complete round**:
+The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament.
+_Avoid_: Advance, next round, close round
+
+**Complete tournament**:
+A tournament whose last round has been completed, or, in round robin, that the organizer has completed. Its trophies are awarded.
+_Avoid_: Finished, ended, over
+
+**Cancel tournament**:
+The organizer removing a tournament during registration or playing, with all its matches. Nothing from it counts, and its decks unlock.
+_Avoid_: Delete, abort, reset
+
+**Public decklists**:
+A tournament setting under which every joined player's locked deck can be seen by everyone who sees the draft, from the start of play onwards.
+_Avoid_: Open decklists, open decks, shared decks
+
+**Decklist**:
+A joined player's locked deck as others see it under public decklists.
+_Avoid_: Deck (that is the player's own), list
+
+**Decklists tab**:
+The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing.
+_Avoid_: Decks tab, lists tab
+
+**Match**:
+One best-of-three meeting between two players in a tournament, decided by its game score.
+_Avoid_: Game, pairing, duel, set
+
+**Game**:
+One game of Magic within a match.
+_Avoid_: Round, duel
+
+**Game score**:
+How many games each player won in a match, such as 2–1.
+_Avoid_: Result (alone), score (alone)
+
+**Report**:
+A player in a match entering its game score. Only the organizer can change a reported match.
+_Avoid_: Submit, record, enter (alone)
+
+**Confirm**:
+A match's other player agreeing with the game score it was reported with. A reported match counts whether or not it is confirmed.
+_Avoid_: Approve, verify, accept
+
+**Draw**:
+A match that ends without a winner, such as at 1–1. Never allowed in single elimination.
+_Avoid_: Tie (that is two players level in standings)
+
+**Tournament round**:
+One set of matches in a tournament, in which each player plays at most one.
+_Avoid_: Round (alone; that is a pick round), stage, week
+
+**Bye**:
+A tournament round in which a player has no match.
+_Avoid_: Rest, skip, free win
+
+**Granted draw**:
+A 0–0 draw the organizer gives a match left unreported when completing its round. It counts in standings but not in guild records.
+_Avoid_: Default draw, auto-draw, unplayed draw
+
+**Drop**:
+A player leaving a tournament before it ends. Their played matches stand.
+_Avoid_: Withdraw, quit, leave
+
+**Forfeit**:
+An unplayed match decided because one of its players dropped.
+_Avoid_: Default, walkover, no-show
+
+**Standings**:
+A tournament's players ranked by their results so far.
+_Avoid_: Leaderboard (that is the guild's), rankings, table
+
+**Trophy**:
+One tournament won by a player.
+_Avoid_: Win (alone; that is a match), title, championship
+
 ## Discord
 
 **Discord bot**:
@@ -369,7 +495,7 @@ The Discord category in a guild where archived draft channels go.
 _Avoid_: Archive folder, graveyard
 
 **Archived**:
-Describes a draft channel moved to its guild's archive category because its draft is complete or closed. Reopening the draft moves it back.
+Describes a draft channel moved to its guild's archive category because its draft is closed, or complete with no tournament still running. Reopening the draft moves it back.
 _Avoid_: Muted, hidden, closed (that is the draft)
 
 **Announcement**:
