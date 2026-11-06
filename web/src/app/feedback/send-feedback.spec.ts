@@ -105,7 +105,7 @@ describe('sending feedback', () => {
   });
 
   it("sends the page's path, query and hash, with no scheme or host", async () => {
-    const navigation = router.navigateByUrl('/drafts/42?tab=pool#x');
+    const navigation = router.navigateByUrl('/drafts/42?ref=discord#x');
     await answerDraft42NotFound(http);
     await navigation;
     await fixture.whenStable();
@@ -114,7 +114,7 @@ describe('sending feedback', () => {
 
     const req = await submit();
 
-    expect(req.request.body.pagePath).toBe('/drafts/42?tab=pool#x');
+    expect(req.request.body.pagePath).toBe('/drafts/42?ref=discord#x');
     succeed(req);
   });
 
