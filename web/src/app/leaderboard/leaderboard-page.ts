@@ -1,6 +1,7 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import type { LeaderboardView } from 'contract';
+import { LoadingAnimation } from '../loading/loading-animation';
 import { record } from '../record';
 
 /**
@@ -10,6 +11,7 @@ import { record } from '../record';
  */
 @Component({
   selector: 'app-leaderboard-page',
+  imports: [LoadingAnimation],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './leaderboard-page.html',
   styleUrls: ['../page.scss', './leaderboard-page.scss'],

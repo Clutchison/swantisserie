@@ -4,7 +4,7 @@
   @if (leaderboard.error()) {
     <p class="error">Couldn't load the leaderboard. Try reloading the page.</p>
   } @else if (leaderboard.isLoading() && !leaderboard.hasValue()) {
-    <p>Loading…</p>
+    <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (leaderboard.hasValue()) {
     @if (leaderboard.value().length === 0) {
       <p class="empty">Nobody has played a tournament match yet.</p>
