@@ -11,6 +11,7 @@ import type {
   PlanView,
   PoolCardView,
   PoolSnapshotView,
+  TournamentView,
   QueuedCardView,
   QueueView,
   TurnView,
@@ -55,6 +56,7 @@ export function draft(fields: DraftFixture): DraftView {
     snapshot: completeSnapshot,
     players: [],
     webhook: null,
+    tournament: null,
     version: 0,
     ...rest,
   };
@@ -488,8 +490,8 @@ export const panelName = (root: HTMLElement) => {
  * Opens draft-1's page with the first GET answered by `snapshot`, its pool
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` and
- * plan by `plan` if they are a player, signed in as `user`, whose draft
- * powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
+ * plan by `plan` if they are a player, and its tournament by `tournament`
+ * if the draft has one, signed in as `user`, whose draft powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
  * at `url`: the draft's plain URL, unless told otherwise.
  *
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
@@ -508,6 +510,7 @@ export async function openDraft(
     picks = [],
     queue = EMPTY_QUEUE,
     plan = EMPTY_PLAN,
+    tournament,
     user = alice,
     powers,
     url = '/drafts/draft-1',
@@ -516,6 +519,7 @@ export async function openDraft(
     picks?: PickView[];
     queue?: QueueView;
     plan?: PlanView;
+    tournament?: TournamentView;
     user?: typeof alice;
     powers?: DraftPowersView;
     url?: string;
@@ -529,6 +533,10 @@ export async function openDraft(
   if (opened.state !== 'Lobby') await flushPicks(picks);
   if (opened.players.some((player) => player.id === user.id)) {
     await flushQueueAndPlan(queue, plan);
+  }
+  if (opened.tournament) {
+    if (!tournament) throw new Error('A draft with a tournament needs `tournament` to read.');
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(tournament);
   }
   await fixture.whenStable();
   return { fixture, page };

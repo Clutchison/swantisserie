@@ -24,12 +24,13 @@ import { OrganizerControls } from './organizer-controls';
 import { PlanTab } from './plan-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
+import { TournamentTab } from './tournament-tab';
 import { WebhookControl } from './webhook-control';
 import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export'] as const;
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export', 'Tournament'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
@@ -49,6 +50,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
     RouterLink,
     Tab,
     TabList,
+    TournamentTab,
     WebhookControl,
   ],
   providers: [CardImageSource, CardPreviews, DraftStore, ImagePreloader],
@@ -84,6 +86,11 @@ export class DraftPage {
   protected readonly planFailed = this.store.plan.missing;
   /** "plan", or "deck" once the draft is complete. */
   protected readonly planName = this.store.planName;
+  /**
+   * Whether the Tournament tab is there: only once the draft is complete,
+   * and before setup only for organizers.
+   */
+  protected readonly showTournament = computed(() => !!this.store.showTournament());
 
   /**
    * The tab selected, kept in the URL. Only players have the Queue, Plan and
@@ -91,13 +98,18 @@ export class DraftPage {
    * being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
-   * tabs, so its page settles on Pool.
+   * tabs, so its page settles on Pool. The Tournament tab can be opened
+   * while it is there, so it goes back to Pool as it goes.
    */
   protected readonly selectedTab = tabInUrl<Panel>({
     tabs: PANELS,
     defaultTab: 'Pool',
     canOpen: (tab) => {
       if (this.failed()) return 'no';
+      if (tab === 'Tournament') {
+        const shown = this.store.showTournament();
+        return shown === undefined ? 'unknown' : shown ? 'yes' : 'no';
+      }
       if (!PLAYERS_ONLY.has(tab)) return 'yes';
       if (!this.store.draft.loaded()) return 'unknown';
       return this.joined() ? 'yes' : 'no';

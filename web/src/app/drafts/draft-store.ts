@@ -21,6 +21,7 @@ import type {
   PoolCardRequest,
   PoolCardView,
   QueueView,
+  TournamentView,
 } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
@@ -123,6 +124,11 @@ export class DraftStore {
   readonly powers = computed(() =>
     this.powersResource.hasValue() ? this.powersResource.value() : NO_POWERS,
   );
+  /** Whether the viewer's draft powers are known: loaded, or failed to load, so none. */
+  readonly powersKnown = computed(() => {
+    const status = this.powersResource.status();
+    return status === 'resolved' || status === 'error' || status === 'local';
+  });
   /** Whether the viewer's draft powers let them organize the draft. */
   readonly canOrganize = computed(() => this.powers().organize);
   /** Whether the viewer's draft powers let them add and remove bots, which they do in the lobby. */
@@ -288,6 +294,45 @@ export class DraftStore {
   });
 
   /**
+   * The draft's tournament, read once the draft says it has one, and again
+   * for each version, as every tournament change bumps it.
+   */
+  private readonly hasTournament = computed(() => !!this.draft.value()?.tournament);
+  private readonly tournamentResource = httpResource<TournamentView>(() => {
+    this.version();
+    return this.hasTournament() ? `/api/drafts/${this.id()}/tournament` : undefined;
+  });
+  /** The draft's tournament: null until it has loaded, and while there is none. */
+  readonly tournament = keptRead<TournamentView | null>(this.tournamentResource, null);
+  /**
+   * Whether the Tournament tab is shown: only for a complete draft, and
+   * before its tournament is set up only to organizers, who set it up there.
+   * Undefined while the draft or the viewer's powers that decide it are
+   * still loading.
+   */
+  readonly showTournament = computed(() => {
+    const draft = this.draft.value();
+    if (!draft) return undefined;
+    if (draft.state !== 'Complete') return false;
+    if (draft.tournament) return true;
+    return this.powersKnown() ? this.canOrganize() : undefined;
+  });
+  /** Whether the signed-in player has joined the draft's tournament. */
+  readonly enteredTournament = computed(() => {
+    const id = this.user()?.id;
+    return !!this.tournament.value()?.entries.some((entry) => entry.playerId === id);
+  });
+  /**
+   * Whether the signed-in player's deck is locked: they have joined a
+   * tournament in registration or playing. The api then refuses every
+   * change to it with `deck-locked`.
+   */
+  readonly deckLocked = computed(() => {
+    const state = this.tournament.value()?.state;
+    return this.enteredTournament() && (state === 'Registration' || state === 'Playing');
+  });
+
+  /**
    * Offering a pick: to players, while the draft is Drafting. The api refuses
    * anyone else with `not-a-player`, and any other draft state with
    * `not-drafting`.
@@ -326,7 +371,9 @@ export class DraftStore {
    * succeeds clears it.
    */
   readonly refreshFailed = computed(() =>
-    [this.draft, this.picks, this.queue, this.plan].some((read) => read.loaded() && read.failed()),
+    [this.draft, this.picks, this.queue, this.plan, this.tournament].some(
+      (read) => read.loaded() && read.failed(),
+    ),
   );
 
   constructor() {

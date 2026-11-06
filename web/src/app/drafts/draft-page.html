@@ -102,6 +102,17 @@
       >
         Export
       </button>
+      @if (showTournament()) {
+        <button
+          id="tournament-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Tournament'"
+          aria-controls="tournament-panel"
+          (click)="selectedTab.select('Tournament')"
+        >
+          Tournament
+        </button>
+      }
     </div>
 
     <section
@@ -227,5 +238,19 @@
       <h2>Export</h2>
       <app-export-tab />
     </section>
+
+    <!-- Only a complete draft has a Tournament tab, and before setup only organizers do. -->
+    @if (showTournament()) {
+      <section
+        id="tournament-panel"
+        class="tournament"
+        role="tabpanel"
+        aria-labelledby="tournament-tab"
+        [hidden]="selectedTab() !== 'Tournament'"
+      >
+        <h2>Tournament</h2>
+        <app-tournament-tab />
+      </section>
+    }
   }
 </main>

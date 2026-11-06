@@ -6,6 +6,8 @@ import type {
   PoolSnapshotState,
   PoolSourceKind,
   StealBehavior,
+  TournamentFormat,
+  TournamentState,
 } from 'contract';
 import type { StealBehavior as EngineStealBehavior } from 'engine';
 import type { STORED_POOL_SOURCE_KIND } from './drafts/pool-source.js';
@@ -35,4 +37,6 @@ export type ContractMatchesSchema = [
   >,
   Expect<Same<StealBehavior, Schema.StealBehavior>>,
   Expect<Same<EngineStealBehavior, Schema.StealBehavior>>,
+  Expect<Same<TournamentFormat, Schema.TournamentFormat>>,
+  Expect<Same<TournamentState, Schema.TournamentState>>,
 ];

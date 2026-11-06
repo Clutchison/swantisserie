@@ -10,6 +10,7 @@ import {
 import { BaseExceptionFilter } from '@nestjs/core';
 import type {
   DraftChangeRefusal,
+  NoTournamentProblem,
   NotAPlayerProblem,
   PickImportRefusal,
   QueueRefusal,
@@ -36,10 +37,14 @@ import {
 import { PlanRefusedError } from './plans.service.js';
 import { PoolFrozenError } from './pool-snapshot.service.js';
 import { QueueChangedError, QueueRefusedError } from './queues.service.js';
+import {
+  NoTournamentError,
+  TournamentRefusedError,
+} from '../tournaments/tournament-errors.js';
 
 /**
  * Answers the drafts module's domain errors over HTTP, for the drafts,
- * queues and plans routes, so each error class has one mapping here. A route
+ * queues, plans and tournament routes, so each error class has one mapping here. A route
  * may still answer an error its own way before it reaches here, as draft
  * creation does UnknownWebhookError. Anything else, HTTP exceptions
  * included, is answered as Nest would without it.
@@ -53,7 +58,7 @@ export class DraftErrorsFilter extends BaseExceptionFilter {
 
 /**
  * The HTTP answer to a drafts module domain error: 404 for a draft that is
- * gone or one the viewer can't see, for `not-in-pool` and for `no-such-bot`; 403 for a power
+ * gone or one the viewer can't see, for `not-in-pool`, `no-such-bot` and `no-tournament`; 403 for a power
  * the viewer lacks and for `not-a-player`; 422 for a pick import refusal;
  * 409 for every other refusal. Undefined for any other error.
  */
@@ -81,7 +86,8 @@ export function toHttpError(err: unknown): HttpException | undefined {
     err instanceof StartRefusedError ||
     err instanceof UndoRefusedError ||
     err instanceof PauseRefusedError ||
-    err instanceof CloseRefusedError
+    err instanceof CloseRefusedError ||
+    err instanceof TournamentRefusedError
   ) {
     return new ConflictException(err.refusal);
   }
@@ -97,6 +103,12 @@ export function toHttpError(err: unknown): HttpException | undefined {
       error: 'no-such-bot',
       message: err.message,
     } satisfies UnknownBotProblem);
+  }
+  if (err instanceof NoTournamentError) {
+    return new NotFoundException({
+      error: 'no-tournament',
+      message: err.message,
+    } satisfies NoTournamentProblem);
   }
   if (err instanceof QueueChangedError) {
     return new ConflictException({

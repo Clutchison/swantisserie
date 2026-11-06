@@ -110,13 +110,15 @@ export class NoDraftPowerError extends Error {
   }
 }
 
-/** Thrown when someone who isn't playing in a draft asks to pick, or for a queue or plan, in it. */
+/** Thrown when someone who isn't playing in a draft asks to pick, for a queue or plan, or to join its tournament. */
 export class NotAPlayerError extends Error {
-  constructor(what: 'queues' | 'plans' | 'picks') {
+  constructor(what: 'queues' | 'plans' | 'picks' | 'tournaments') {
     super(
       what === 'picks'
         ? 'Only the draft’s players can pick.'
-        : `Only the draft’s players have ${what}.`,
+        : what === 'tournaments'
+          ? 'Only the draft’s players can join its tournament.'
+          : `Only the draft’s players have ${what}.`,
     );
   }
 }

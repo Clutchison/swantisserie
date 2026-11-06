@@ -1,3 +1,5 @@
+import type { TournamentSummaryView } from './tournaments.js';
+
 /**
  * Lobby → Drafting, or → Paused by a pick import; Drafting ⇄ Paused; Drafting → Complete;
  * Drafting or Paused → Closed → Drafting. The glossary has the long form.
@@ -102,6 +104,8 @@ export interface DraftBase {
   players: PlayerView[];
   /** Where the draft's announcements are posted; null for none. */
   webhook: WebhookView | null;
+  /** The draft's tournament, null for none: only a complete draft can have one. */
+  tournament: TournamentSummaryView | null;
   /** Higher for a newer copy of the draft; snapshot progress leaves it be. */
   version: number;
 }

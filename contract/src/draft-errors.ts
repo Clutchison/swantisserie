@@ -140,7 +140,35 @@ export interface PlanRefusal {
     /** Every available copy of the card is in the plan already. */
     | 'no-copies-left'
     | 'draft-complete'
-    | 'draft-closed';
+    | 'draft-closed'
+    /** The player has joined a tournament in registration or playing, which locks their deck. */
+    | 'deck-locked';
+  message: string;
+}
+
+/** Why a tournament can't be set up, joined, left or cancelled; sent as is. */
+export interface TournamentRefusal {
+  error:
+    /** Only a complete draft can have a tournament. */
+    | 'draft-not-complete'
+    /** A draft has at most one tournament. */
+    | 'tournament-exists'
+    /** Joining, leaving and cancelling for now happen only during registration. */
+    | 'not-in-registration'
+    /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
+    | 'deck-too-small'
+    | 'bots-cannot-join'
+    | 'already-joined'
+    | 'not-joined';
+  message: string;
+}
+
+/**
+ * The 404 a tournament request gets when the draft has no tournament. Not a
+ * DraftRefusal: there is nothing for the draft to have moved on from.
+ */
+export interface NoTournamentProblem {
+  error: 'no-tournament';
   message: string;
 }
 
@@ -185,7 +213,8 @@ export type DraftRefusal =
   | CloseRefusal
   | DraftChangeRefusal
   | QueueRefusal
-  | PlanRefusal;
+  | PlanRefusal
+  | TournamentRefusal;
 
 /** Every error body a pick request can get, besides a 404 for a draft that is gone. */
 export type PickFailure = PickRefusal | NotAPlayerProblem | RequestProblem;
@@ -195,3 +224,7 @@ export type QueueFailure = QueueRefusal | NotAPlayerProblem | RequestProblem;
 
 /** Every error body a plan request can get, besides a 404 for a draft that is gone. */
 export type PlanFailure = PlanRefusal | NotAPlayerProblem | RequestProblem;
+
+/** Every error body a tournament request can get, besides a 404 for a draft that is gone or a 403 for a power the viewer lacks. */
+export type TournamentFailure =
+  TournamentRefusal | NoTournamentProblem | NotAPlayerProblem | RequestProblem;
