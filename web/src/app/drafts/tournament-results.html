@@ -1,5 +1,12 @@
 <h3>Standings</h3>
-<table class="standings" aria-label="Standings">
+@if (standingsAsOf(); as asOf) {
+  <p class="standings-as-of" id="standings-as-of">{{ asOf }}</p>
+}
+<table
+  class="standings"
+  aria-label="Standings"
+  [attr.aria-describedby]="standingsAsOf() ? 'standings-as-of' : null"
+>
   <thead>
     <tr>
       <th scope="col">Rank</th>

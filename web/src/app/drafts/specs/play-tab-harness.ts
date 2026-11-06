@@ -81,6 +81,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   previewsCorrections: false,
   completeRoundGrants: null,
   clearReopensRound: false,
+  standingsAwaitCompletedRounds: false,
 });
 
 /** An unreported match `id` between the players `a` and `b`, in that order. */
@@ -154,6 +155,7 @@ export function playing(
     previewsCorrections: false,
     completeRoundGrants: null,
     clearReopensRound: false,
+    standingsAwaitCompletedRounds: false,
     canJoin: false,
     joinRefusal: null,
     ...fields,
@@ -198,6 +200,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     previewsCorrections: false,
     completeRoundGrants: 'GrantedDraws',
     clearReopensRound: false,
+    standingsAwaitCompletedRounds: true,
     canJoin: false,
     joinRefusal: null,
     ...fields,
@@ -268,6 +271,7 @@ export function singleEliminationPlaying(
     previewsCorrections: true,
     completeRoundGrants: 'GrantedWins',
     clearReopensRound: true,
+    standingsAwaitCompletedRounds: true,
     canJoin: false,
     joinRefusal: null,
     ...fields,
@@ -406,6 +410,15 @@ const standingsTable = (root: HTMLElement) => table(root, 'Standings')!;
 
 /** The standings' column headers inside `root`, each spelled out where it is abbreviated. */
 export const standingsColumns = (root: HTMLElement) => tableColumns(standingsTable(root));
+
+/**
+ * Which tournament round the standings inside `root` are as of, as the
+ * table's description reads; null if it has none.
+ */
+export function standingsAsOf(root: HTMLElement): string | null {
+  const id = standingsTable(root).getAttribute('aria-describedby');
+  return id ? text(root.querySelector<HTMLElement>(`#${id}`)!) : null;
+}
 
 /** Each row of the standings inside `root`, best first, as its cells' text. */
 export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(root));

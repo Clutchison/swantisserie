@@ -383,6 +383,8 @@ describe('correcting a completed single elimination tournament round', () => {
     expect(view.lastCompletedRound).toBe(0);
     expect(view.rounds).toHaveLength(1);
     expect(at(view, 1, 0).outcome).toEqual({ kind: 'Unreported' });
+    // The reopened round's other result leaves the standings with it.
+    expect(view.standings.map((s) => s.matches.won)).toEqual([0, 0, 0, 0]);
 
     await setGameScore(id, first.id, wonBy(first, seeds[3])).expect(200);
     await completeRound(id).expect(200);

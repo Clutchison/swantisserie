@@ -237,6 +237,14 @@ export interface TournamentView {
    * or the tournament is complete.
    */
   clearReopensRound: boolean;
+  /**
+   * Whether the standings wait for each tournament round, as in Swiss and
+   * single elimination: while the tournament is playing they count only
+   * completed tournament rounds, so they change when a round is completed,
+   * not with each result. Otherwise, as in round robin, they count every
+   * result as it is reported.
+   */
+  standingsAwaitCompletedRounds: boolean;
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
   /**

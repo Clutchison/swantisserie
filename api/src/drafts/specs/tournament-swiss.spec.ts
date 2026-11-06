@@ -109,6 +109,7 @@ describe('starting a Swiss tournament', () => {
       previewsCorrections: false,
       completeRoundGrants: 'GrantedDraws',
       clearReopensRound: false,
+      standingsAwaitCompletedRounds: true,
     });
     expect(view.rounds).toHaveLength(1);
     expect(view.rounds[0].round).toBe(1);
@@ -137,7 +138,28 @@ describe('starting a Swiss tournament', () => {
 });
 
 describe('reporting in a Swiss tournament', () => {
-  it('counts a reported match, and a bye as a 2–0 win, in the standings', async () => {
+  it('lists every player level until tournament round 1 is completed, though a match is reported', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie],
+      swiss(),
+    );
+    const [winner, loser] = (await tournamentView(id)).rounds[0].matches[0]
+      .players;
+
+    await reportWin(id, [winner, loser], [2, 1], cookieOf[loser]);
+
+    const { standings } = await tournamentView(id);
+    expect(standings).toHaveLength(3);
+    for (const standing of standings) {
+      expect(standing).toMatchObject({
+        rank: 1,
+        matchPoints: 0,
+        matches: { won: 0, lost: 0, drawn: 0 },
+      });
+    }
+  });
+
+  it('counts a completed tournament round’s matches, and its bye as a 2–0 win, in the standings', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie],
       swiss(),
@@ -146,6 +168,7 @@ describe('reporting in a Swiss tournament', () => {
     const [winner, loser] = round.matches[0].players;
 
     await reportWin(id, [winner, loser], [2, 1], cookieOf[loser]);
+    await completeRound(id).expect(200);
 
     const { standings } = await tournamentView(id);
     // The winner and the player with the bye are level on opponents'

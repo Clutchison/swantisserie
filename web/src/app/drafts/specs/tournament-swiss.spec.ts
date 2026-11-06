@@ -29,6 +29,7 @@ import {
   reported,
   roundLabels,
   standing,
+  standingsAsOf,
   standingsColumns,
   standingsRows,
   swissPlaying,
@@ -242,6 +243,26 @@ describe('Swiss tournaments on the Play tab', () => {
     const { tab } = await openPlaying(swissPlaying());
 
     expect(button(tab, 'Complete round')).toBeUndefined();
+  });
+
+  it('says which tournament round the standings are as of', async () => {
+    const { tab } = await openPlaying(swissPlaying({ lastCompletedRound: 1 }), { user: dave });
+
+    expect(standingsAsOf(tab)).toBe('After tournament round 1');
+  });
+
+  it('says the standings wait for tournament round 1 until it is completed', async () => {
+    const { tab } = await openPlaying(swissPlaying({ lastCompletedRound: 0 }), { user: dave });
+
+    expect(standingsAsOf(tab)).toBe('No tournament rounds completed yet');
+  });
+
+  it('says nothing of which tournament round the standings are as of once the tournament is complete', async () => {
+    const { tab } = await openPlaying(swissPlaying({ state: 'Complete', lastCompletedRound: 2 }), {
+      user: dave,
+    });
+
+    expect(standingsAsOf(tab)).toBeNull();
   });
 
   it('shows the standings with the MTR’s tiebreak columns', async () => {
