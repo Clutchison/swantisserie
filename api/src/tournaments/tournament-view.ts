@@ -10,7 +10,6 @@ import {
 import {
   agreedAdvancingPlayer,
   bracketRounds,
-  bracketTrophyHolders,
   droppedPlayers,
   singleEliminationRoundCount,
   singleEliminationStandings,
@@ -179,11 +178,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     ...FORMAT_RULES[row.format],
     reopenRound: offersReopenRound(row) ? reopenRoundOf(row) : null,
     standings: table,
-    trophyHolders: !complete
-      ? []
-      : bracket
-        ? bracketTrophyHolders(bracket)
-        : trophyHolders(table),
+    trophyHolders: complete ? trophyHolders(table) : [],
   };
 }
 

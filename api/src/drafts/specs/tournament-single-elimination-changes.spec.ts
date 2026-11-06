@@ -125,6 +125,7 @@ describe('dropping in single elimination', () => {
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
     expect(view.trophyHolders).toEqual([]);
+    expect(view.standings.map(({ rank }) => rank)).toEqual([2, 2]);
     expect(view.bracket![0].places[0].advancing).toBeNull();
   });
 
