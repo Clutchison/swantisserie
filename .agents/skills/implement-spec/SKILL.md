@@ -20,20 +20,25 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 1. Read the spec and tickets to understand the task graph.
 
-2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
+2. Create a **notes directory** outside the repo, readable and writable by every subagent. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation - and save its markdown notes there. This lets **implementer subagents** focus on implementation rather than exploration.
 
 3. Create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
 4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Each implementer subagent:
    - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
-   - calls the Skill tool with `tdd` to build the ticket;
+   - reads the notes directory first, and starts from the files the notes name;
+   - calls the Skill tool with `tdd` to build the ticket, sending independent reads, searches and edits as one parallel batch of tool calls;
+   - before each commit, checks every new name, route, refusal code and UI string against the glossary's _Avoid_ lists, and records any new domain term in the glossary;
+   - writes a note to the notes directory: the files it changed, and the files each ticket it unblocks will edit;
    - merges the integration branch tip into its own branch before reporting done
 
-5. Once an **implementer subagent** completes, merge its work to the integration branch with a **merger subagent**.
+   Pass `effort: medium` to the implementer of a ticket that touches one workspace and adds no schema change; other implementers run at their usual effort.
+
+5. Once an **implementer subagent** completes, review its branch against the integration branch by calling the Skill tool with `code-review`, while other implementers keep working. Send every finding back to that same implementer (SendMessage), which fixes it on its branch. Then merge its work to the integration branch with a **merger subagent**, passing it `effort: low`.
 
 6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
 
-7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
+7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch, for what spans tickets: the spec as a whole, and duplication or naming that differs between tickets. Fix all issues raised by the code review in a single **implementer subagent**.
 
 8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
