@@ -35,6 +35,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { DraftAccess } from '../drafts/draft-access.js';
+import type { DraftEvent } from '../drafts/draft-events.js';
 import { DraftPublisher } from '../drafts/draft-publisher.js';
 import { bodyFields } from '../request-body.js';
 import { TournamentErrorsFilter } from './tournament-errors.filter.js';
@@ -262,13 +263,16 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.completeRound(id, request));
   }
 
-  /** Applies `change` and answers with the draft as it now is, published to its viewers. */
+  /**
+   * Applies `change` and answers with the draft as it now is, published to
+   * its viewers, with the announcements `change` returns, if any.
+   */
   private async change(
     id: string,
-    change: () => Promise<void>,
+    change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
-    await change();
-    const draft = await this.publisher.publish(id, []);
+    const events = (await change()) ?? [];
+    const draft = await this.publisher.publish(id, events);
     if (!draft) throw new NotFoundException();
     return draft;
   }
