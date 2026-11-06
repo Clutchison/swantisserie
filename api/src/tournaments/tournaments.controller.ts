@@ -39,7 +39,10 @@ import { DraftPublisher } from '../drafts/draft-publisher.js';
 import { bodyFields } from '../request-body.js';
 import { DecklistsService } from './decklists.service.js';
 import { TournamentErrorsFilter } from './tournament-errors.filter.js';
-import { TournamentsService } from './tournaments.service.js';
+import { TournamentProgressionService } from './tournament-progression.service.js';
+import { TournamentReadsService } from './tournament-reads.service.js';
+import { TournamentRegistrationService } from './tournament-registration.service.js';
+import { TournamentResultsService } from './tournament-results.service.js';
 
 /**
  * A draft's tournament. Who may see or change it follows the draft's access
@@ -52,7 +55,10 @@ import { TournamentsService } from './tournaments.service.js';
 export class TournamentsController {
   constructor(
     private readonly access: DraftAccess,
-    private readonly tournaments: TournamentsService,
+    private readonly reads: TournamentReadsService,
+    private readonly registration: TournamentRegistrationService,
+    private readonly results: TournamentResultsService,
+    private readonly progression: TournamentProgressionService,
     private readonly publisher: DraftPublisher,
     private readonly decklists: DecklistsService,
   ) {}
@@ -67,7 +73,7 @@ export class TournamentsController {
     @Param('id') id: string,
   ): Promise<ViewerTournamentView> {
     await this.access.canSee(user, id);
-    return this.tournaments.read(id, user.id);
+    return this.reads.read(id, user.id);
   }
 
   /** Sets up the draft's tournament; for the organizer, once the draft is complete. */
@@ -79,7 +85,7 @@ export class TournamentsController {
   ): Promise<DraftView> {
     const setup = parseSetup(body);
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.setUp(id, setup));
+    return this.change(id, () => this.registration.setUp(id, setup));
   }
 
   /** Cancels the draft's tournament during registration or play; for the organizer. */
@@ -89,7 +95,7 @@ export class TournamentsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.cancel(id));
+    return this.change(id, () => this.registration.cancel(id));
   }
 
   /** Joins the signed-in player to the draft's tournament, locking their deck. */
@@ -99,7 +105,7 @@ export class TournamentsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.canSee(user, id);
-    return this.change(id, () => this.tournaments.join(id, user.id));
+    return this.change(id, () => this.registration.join(id, user.id));
   }
 
   /**
@@ -114,7 +120,7 @@ export class TournamentsController {
   ): Promise<DraftView> {
     if (playerId === user.id) await this.access.canSee(user, id);
     else await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.removeEntry(id, playerId));
+    return this.change(id, () => this.registration.removeEntry(id, playerId));
   }
 
   /**
@@ -131,7 +137,7 @@ export class TournamentsController {
   ): Promise<DraftView> {
     if (playerId === user.id) await this.access.canSee(user, id);
     else await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.drop(id, playerId));
+    return this.change(id, () => this.progression.drop(id, playerId));
   }
 
   /** Reinstates the dropped player `playerId` (a Discord user id); for the organizer. */
@@ -142,7 +148,7 @@ export class TournamentsController {
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.reinstate(id, playerId));
+    return this.change(id, () => this.progression.reinstate(id, playerId));
   }
 
   /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */
@@ -153,7 +159,7 @@ export class TournamentsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.start(id));
+    return this.change(id, () => this.registration.start(id));
   }
 
   /** Reports a match's game score; for its players, while it is unreported. */
@@ -168,7 +174,7 @@ export class TournamentsController {
     const games = parseGames(body);
     await this.access.canSee(user, id);
     return this.change(id, () =>
-      this.tournaments.report(id, matchId, user.id, games),
+      this.results.report(id, matchId, user.id, games),
     );
   }
 
@@ -181,9 +187,7 @@ export class TournamentsController {
     @Param('matchId') matchId: string,
   ): Promise<DraftView> {
     await this.access.canSee(user, id);
-    return this.change(id, () =>
-      this.tournaments.confirm(id, matchId, user.id),
-    );
+    return this.change(id, () => this.results.confirm(id, matchId, user.id));
   }
 
   /**
@@ -201,7 +205,7 @@ export class TournamentsController {
     const games = parseGames(body);
     await this.access.asOrganizer(user, id);
     return this.change(id, () =>
-      this.tournaments.setGameScore(id, matchId, user.id, games),
+      this.results.setGameScore(id, matchId, user.id, games),
     );
   }
 
@@ -213,7 +217,7 @@ export class TournamentsController {
     @Param('matchId') matchId: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.clearGameScore(id, matchId));
+    return this.change(id, () => this.results.clearGameScore(id, matchId));
   }
 
   /**
@@ -227,7 +231,7 @@ export class TournamentsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.complete(id));
+    return this.change(id, () => this.progression.complete(id));
   }
 
   /**
@@ -246,7 +250,7 @@ export class TournamentsController {
   ): Promise<DraftView> {
     const request = parseCompleteRound(body);
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.completeRound(id, request));
+    return this.change(id, () => this.progression.completeRound(id, request));
   }
 
   /**
@@ -261,7 +265,7 @@ export class TournamentsController {
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.reopenRound(id));
+    return this.change(id, () => this.progression.reopenRound(id));
   }
 
   /**
