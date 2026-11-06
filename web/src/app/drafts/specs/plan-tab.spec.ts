@@ -22,6 +22,7 @@ import {
   flushPicks,
   flushQueue,
   flushQueueAndPlan,
+  flushPlan,
   expectLoadingAnimation,
   completeSnapshot,
   button,
@@ -42,7 +43,14 @@ import {
   openPlan,
   planBoards,
 } from './plan-tab-harness';
-import { complete, playing, registration, withDrops, withTournament } from './play-tab-harness';
+import {
+  complete,
+  flushTournament,
+  playing,
+  registration,
+  withDrops,
+  withTournament,
+} from './play-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -569,7 +577,23 @@ describe('plan tab as the deck', () => {
         plan: deck,
         tournament,
       });
-      return { page, tab: await openTab(fixture, page, 'Deck') };
+      return { fixture, page, tab: await openTab(fixture, page, 'Deck') };
+    }
+
+    /** Pushes another viewer's change to the draft, its tournament now `tournament` or gone, and answers the reads it causes. */
+    async function pushChange(
+      fixture: Awaited<ReturnType<typeof openDeck>>['fixture'],
+      tournament: ViewerTournamentView | null,
+    ) {
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ ...withTournament(tournament), version: 1 }),
+      });
+      await flushPicks([]);
+      await flushQueue(EMPTY_QUEUE);
+      await flushPlan(deck);
+      if (tournament) await flushTournament(tournament);
+      await fixture.whenStable();
     }
 
     it('says the deck is locked until its player leaves, and offers no edits, once they have joined the tournament', async () => {
@@ -604,6 +628,20 @@ describe('plan tab as the deck', () => {
 
       expect(tab.textContent).not.toContain('locked');
       expect(deckEdits(tab).length).toBeGreaterThan(0);
+    });
+
+    it.each([
+      ['cancelled', null],
+      ['complete', playing([], { state: 'Complete', trophyHolders: [alice.id] })],
+    ])('offers edits again once the tournament is %s', async (_, tournament) => {
+      const { fixture, page } = await openDeck(playing());
+
+      await pushChange(fixture, tournament);
+
+      const tab = tabPanel(page, 'Deck');
+      expect(text(tab)).not.toContain('locked');
+      expect(deckEdits(tab).length).toBeGreaterThan(0);
+      expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
     });
   });
 });

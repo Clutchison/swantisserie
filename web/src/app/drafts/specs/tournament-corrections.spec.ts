@@ -65,6 +65,27 @@ describe('organizer reports, corrections and clears', () => {
     expect(text(gridCell(tab, 'Bob', 'Carol'))).toBe('1–2?');
   });
 
+  it('lets an organizer correct a reported match from its cell, both cells then showing the corrected game score', async () => {
+    const bobBeatCarol = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
+    const { fixture, tab } = await openPlaying(playing([bobBeatCarol]), { powers: ORGANIZE_ONLY });
+
+    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+    button(group(dialog, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
+    const after = playing([reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
+    const req = await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
+      'PUT',
+      after,
+      1,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ games: [1, 2] });
+    expect(text(gridCell(tab, 'Bob', 'Carol'))).toBe('1–2?');
+    expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1?');
+  });
+
   it('opens the same match from the other cell', async () => {
     const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 

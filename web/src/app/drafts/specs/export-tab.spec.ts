@@ -22,7 +22,10 @@ import {
   pickOf,
   poolCardOf,
   namedList,
+  tabPanel,
+  text,
 } from './harness';
+import { registration } from './play-tab-harness';
 
 useDraftsApp();
 
@@ -353,6 +356,25 @@ describe('export tab', () => {
           sideboard: plan.sideboard.filter((card) => card.picked),
         };
         const opened = await openPlanExport({ state: 'Complete', turn: null }, deck);
+
+        expect(await copyFor(opened)).toBe(
+          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock',
+        );
+      });
+
+      it('copies a locked deck, as its player has joined the tournament', async () => {
+        const deck: PlanView = {
+          ...plan,
+          mainboard: plan.mainboard.filter((card) => card.picked),
+          sideboard: plan.sideboard.filter((card) => card.picked),
+        };
+        const tournament = registration(bob.id, alice.id);
+        const opened = await openExport(
+          yourPicks,
+          { state: 'Complete', turn: null, tournament: { state: tournament.state } },
+          { plan: deck, tournament },
+        );
+        expect(text(tabPanel(opened.page, 'Deck'))).toContain('Your deck is locked');
 
         expect(await copyFor(opened)).toBe(
           'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock',

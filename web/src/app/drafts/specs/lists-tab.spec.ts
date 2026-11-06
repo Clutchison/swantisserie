@@ -198,6 +198,22 @@ describe('lists tab', () => {
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
     });
 
+    it('moves a viewer on the Lists tab to the Pool tab once the tournament is cancelled', async () => {
+      const { fixture, page } = await openAsViewer(publicPlaying());
+      await openTab(fixture, page, 'Lists');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=lists'));
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ ...withTournament(null, threePlayers), version: 1 }),
+      });
+      await flushPicks([]);
+      await fixture.whenStable();
+
+      expect(panelName(page)).toBe('Pool');
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+    });
+
     it('moves a viewer on the Board tab to the Lists tab as the tournament starts', async () => {
       const { fixture, page } = await openAsViewer({
         ...registration(alice.id, bob.id, carol.id),
