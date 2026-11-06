@@ -28,8 +28,9 @@ import { WebhookControl } from './webhook-control';
 import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
-/** The draft view's panels. */
-type Panel = 'Pool' | 'Queue' | 'Plan' | 'Board' | 'Export';
+/** The draft view's panels, in tab order. */
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export'] as const;
+type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
 
@@ -90,16 +91,16 @@ export class DraftPage {
    * players-only tab in the URL stands; a draft that fails to load has no
    * tabs, so its page settles on Pool.
    */
-  protected readonly tabs = tabInUrl<Panel>({
-    tabs: ['Pool', 'Queue', 'Plan', 'Board', 'Export'],
+  protected readonly selectedTab = tabInUrl<Panel>({
+    tabs: PANELS,
     defaultTab: 'Pool',
     canOpen: (tab) => {
-      if (this.failed()) return false;
-      if (!PLAYERS_ONLY.has(tab)) return true;
-      return this.store.draft.loaded() ? this.joined() : undefined;
+      if (this.failed()) return 'no';
+      if (!PLAYERS_ONLY.has(tab)) return 'yes';
+      if (!this.store.draft.loaded()) return 'unknown';
+      return this.joined() ? 'yes' : 'no';
     },
   });
-  protected readonly tab = this.tabs.selected;
 
   /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
   protected readonly turn = computed(() => {
@@ -118,7 +119,7 @@ export class DraftPage {
   constructor() {
     // Opening or closing the Export tab forgets any copy.
     effect(() => {
-      this.tab();
+      this.selectedTab();
       untracked(() => this.exportTab()?.clearCopy());
     });
     // Everyone viewing sees each change as it happens. Every connect

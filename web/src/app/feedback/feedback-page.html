@@ -2,10 +2,10 @@
   <h1>Feedback</h1>
 
   <div class="tabs" appTabList aria-label="Feedback">
-    @for (name of views; track name) {
+    @for (name of tabs; track name) {
       <button
         type="button"
-        [appTab]="view() === name"
+        [appTab]="selectedTab() === name"
         aria-controls="feedback-panel"
         (click)="show(name)"
       >
@@ -18,7 +18,7 @@
     <p class="error" role="alert">{{ problem }}</p>
   }
 
-  <div id="feedback-panel" role="tabpanel" [attr.aria-label]="view()">
+  <div id="feedback-panel" role="tabpanel" [attr.aria-label]="selectedTab()">
     @if (feedback.isLoading() && !feedback.hasValue()) {
       <p>Loading…</p>
     } @else if (feedback.error()) {
@@ -62,7 +62,9 @@
           </li>
         } @empty {
           <li class="empty">
-            {{ view() === 'Reviewed' ? 'No reviewed feedback yet' : 'No feedback to review' }}
+            {{
+              selectedTab() === 'Reviewed' ? 'No reviewed feedback yet' : 'No feedback to review'
+            }}
           </li>
         }
       </ul>

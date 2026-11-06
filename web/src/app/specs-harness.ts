@@ -5,6 +5,7 @@ import {
   provideHttpClientTesting,
   type TestRequest,
 } from '@angular/common/http/testing';
+import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type { UserView } from 'contract';
@@ -49,6 +50,15 @@ export function useApp() {
   afterEach(() => http.verify());
   // Hooks run last-registered first, so a failed verify can't skip this.
   afterEach(() => vi.restoreAllMocks());
+}
+
+/**
+ * Has the router follow the browser's Back, as bootstrapping the app does (a
+ * test's app isn't bootstrapped), and returns a function that goes Back.
+ */
+export function followBack() {
+  TestBed.inject(Router).setUpLocationChangeListener();
+  return () => TestBed.inject(Location).back();
 }
 
 /**
