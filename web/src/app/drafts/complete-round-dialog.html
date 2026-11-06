@@ -10,7 +10,29 @@
       Tournament round {{ round() + 1 }} is paired, and its matches open.
     }
   </p>
-  @if (unreported().length > 0) {
+  @if (unreported().length > 0 && singleElimination()) {
+    <p>Pick the winner of each unreported match: they advance.</p>
+    <ul aria-label="Unreported matches">
+      @for (match of unreported(); track match.id) {
+        <li>
+          <span>{{ match.label }}</span>
+          <div class="winners" role="group" [attr.aria-label]="'Winner of ' + match.label">
+            @for (player of match.players; track player.id) {
+              <label>
+                <input
+                  type="radio"
+                  [name]="'winner-' + match.id"
+                  [checked]="isWinner(match.id, player.id)"
+                  (change)="pickWinner(match.id, player.id)"
+                />
+                {{ player.name }}
+              </label>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  } @else if (unreported().length > 0) {
     <p>
       Its unreported matches become granted draws.
       @if (!finalRound()) {
@@ -41,6 +63,8 @@
   }
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
-    <button class="button" type="button" (click)="completeRound()">Complete round</button>
+    <button class="button" type="button" [disabled]="!ready()" (click)="completeRound()">
+      Complete round
+    </button>
   </div>
 </div>

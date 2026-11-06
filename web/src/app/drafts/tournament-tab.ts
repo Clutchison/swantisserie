@@ -37,6 +37,7 @@ import { TournamentResults, type ClearGameScore, type SetGameScore } from './tou
 const FORMATS: { format: TournamentFormat; name: string }[] = [
   { format: 'RoundRobin', name: 'Round robin' },
   { format: 'Swiss', name: 'Swiss' },
+  { format: 'SingleElimination', name: 'Single elimination' },
 ];
 
 /** How tournament setup names each Swiss round option, and how the tab sums it up. */
@@ -63,10 +64,18 @@ function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): st
   const name =
     format === 'Swiss' && swissRoundOption
       ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
-      : 'Round robin';
+      : (FORMATS.find((option) => option.format === format)?.name ?? format);
   if (roundCount === 0) return name;
   return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
 }
+
+/** What Start asks the organizer to confirm, by format. */
+const START_QUESTIONS: Record<TournamentFormat, string> = {
+  RoundRobin: 'Start the tournament? Joining closes, and every match opens.',
+  Swiss: 'Start the tournament? Joining closes, and tournament round 1 is paired at random.',
+  SingleElimination:
+    'Start the tournament? Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
+};
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
 interface OwnGameScore {
@@ -89,8 +98,8 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
  * it, then play: the signed-in player's match and its report, the
  * standings and matches, the players with Drop, and Reinstate for
  * organizers, Complete tournament (round robin) or Complete round (Swiss,
- * whose dialog grants draws in unreported matches) for organizers, and at last the
- * trophy.
+ * whose dialog grants draws in unreported matches, and single elimination,
+ * whose dialog picks their winners) for organizers, and at last the trophy.
  */
 @Component({
   selector: 'app-tournament-tab',
@@ -220,10 +229,9 @@ export class TournamentTab {
 
   /** Sets up the tournament in the format, and for Swiss the round option, chosen. */
   protected setUpTournament() {
+    const format = this.format();
     const setup: TournamentSetupRequest =
-      this.format() === 'Swiss'
-        ? { format: 'Swiss', swissRoundOption: this.swissRoundOption() }
-        : { format: 'RoundRobin' };
+      format === 'Swiss' ? { format, swissRoundOption: this.swissRoundOption() } : { format };
     return this.send(() => this.api.setUp(this.draft().id, setup), {
       failure: "Couldn't set up the tournament. Try again in a moment.",
     });
@@ -253,11 +261,7 @@ export class TournamentTab {
   protected start() {
     return this.send(
       () =>
-        confirm(
-          this.tournament()?.format === 'Swiss'
-            ? 'Start the tournament? Joining closes, and tournament round 1 is paired at random.'
-            : 'Start the tournament? Joining closes, and every match opens.',
-        )
+        confirm(START_QUESTIONS[this.tournament()?.format ?? 'RoundRobin'])
           ? this.api.start(this.draft().id)
           : undefined,
       { failure: "Couldn't start the tournament. Try again in a moment." },
@@ -323,8 +327,8 @@ export class TournamentTab {
   }
 
   /**
-   * Opens the Complete round dialog for the Swiss tournament's current
-   * tournament round. Once it has sent, a refusal is said here, where focus
+   * Opens the Complete round dialog for the tournament's current tournament
+   * round, in Swiss or single elimination. Once it has sent, a refusal is said here, where focus
    * returns: to the button that opened it.
    */
   protected openCompleteRound() {
@@ -339,7 +343,7 @@ export class TournamentTab {
     });
   }
 
-  /** Completes the Swiss tournament's current tournament round as the Complete round dialog chose. */
+  /** Completes the tournament's current tournament round as the Complete round dialog chose. */
   private completeRound(request: CompleteRoundRequest) {
     return this.send(() => this.api.completeRound(this.draft().id, request), {
       failure: "Couldn't complete the tournament round. Try again in a moment.",

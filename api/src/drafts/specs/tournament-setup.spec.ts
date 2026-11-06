@@ -96,7 +96,7 @@ describe('tournament setup', () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
 
     await setUpTournament(id, aliceCookie, {
-      format: 'SingleElimination',
+      format: 'DoubleElimination',
     }).expect(400);
     await setUpTournament(id, aliceCookie, {}).expect(400);
     await tournament(id).expect(404);

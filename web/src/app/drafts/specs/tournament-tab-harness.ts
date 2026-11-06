@@ -44,7 +44,7 @@ export const registration = (...playerIds: string[]): TournamentView => ({
   state: 'Registration',
   roundCount: playerIds.length < 2 ? 0 : playerIds.length - 1 + (playerIds.length % 2),
   lastCompletedRound: 0,
-  entries: playerIds.map((playerId) => ({ playerId, dropped: false })),
+  entries: playerIds.map((playerId) => ({ playerId, dropped: false, seed: null })),
   rounds: [],
   standings: [],
   trophyHolders: [],
@@ -54,6 +54,7 @@ export const registration = (...playerIds: string[]): TournamentView => ({
 export const openMatch = (id: string, a: string, b: string): MatchView => ({
   id,
   players: [a, b],
+  bracketPlace: null,
   outcome: { kind: 'Unreported' },
   reportedBy: null,
   confirmed: false,
@@ -102,11 +103,15 @@ export function playing(
     state: 'Playing',
     roundCount: 3,
     lastCompletedRound: 0,
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({ playerId, dropped: false })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => ({
+      playerId,
+      dropped: false,
+      seed: null,
+    })),
     rounds: [
-      { round: 1, matches: [match('m1', bob.id, carol.id)], bye: alice.id },
-      { round: 2, matches: [match('m2', alice.id, bob.id)], bye: carol.id },
-      { round: 3, matches: [match('m3', carol.id, alice.id)], bye: bob.id },
+      { round: 1, matches: [match('m1', bob.id, carol.id)], byes: [alice.id] },
+      { round: 2, matches: [match('m2', alice.id, bob.id)], byes: [carol.id] },
+      { round: 3, matches: [match('m3', carol.id, alice.id)], byes: [bob.id] },
     ],
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
@@ -127,20 +132,55 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({ playerId, dropped: false })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => ({
+      playerId,
+      dropped: false,
+      seed: null,
+    })),
     rounds: [
       {
         round: 1,
         matches: [reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
-        bye: alice.id,
+        byes: [alice.id],
       },
-      { round: 2, matches: [openMatch('m2', alice.id, carol.id)], bye: bob.id },
+      { round: 2, matches: [openMatch('m2', alice.id, carol.id)], byes: [bob.id] },
     ],
     standings: [
       standing(alice.id, 1, { matchPoints: 3 }),
       standing(carol.id, 1, { matchPoints: 3 }),
       standing(bob.id, 3),
     ],
+    trophyHolders: [],
+    ...fields,
+  };
+}
+
+/**
+ * A single elimination tournament of Alice, Bob and Carol being played,
+ * seeded in that order, over 2 tournament rounds: in round 1 Alice, the top
+ * seed, has a bye at bracket place 0, and Bob plays Carol (m1) at bracket
+ * place 1. `fields` changes any of it.
+ */
+export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): TournamentView {
+  return {
+    format: 'SingleElimination',
+    swissRoundOption: null,
+    state: 'Playing',
+    roundCount: 2,
+    lastCompletedRound: 0,
+    entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
+      playerId,
+      dropped: false,
+      seed: i + 1,
+    })),
+    rounds: [
+      {
+        round: 1,
+        matches: [{ ...openMatch('m1', bob.id, carol.id), bracketPlace: 1 }],
+        byes: [alice.id],
+      },
+    ],
+    standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
     ...fields,
   };

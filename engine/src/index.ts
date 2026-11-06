@@ -7,6 +7,7 @@ export * from './pick-import.js';
 export * from './plan.js';
 export * from './queue.js';
 export * from './shuffle.js';
+export * from './single-elimination.js';
 export * from './start.js';
 export * from './swiss.js';
 export * from './tournament.js';

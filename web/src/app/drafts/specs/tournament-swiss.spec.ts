@@ -89,7 +89,7 @@ describe('Swiss tournaments on the Tournament tab', () => {
   /** Tournament round 1 of three players, Carol and Bob's match unreported and Alice with the bye. */
   const unreportedRoundOne = swissPlaying({
     lastCompletedRound: 0,
-    rounds: [{ round: 1, matches: [openMatch('m1', carol.id, bob.id)], bye: alice.id }],
+    rounds: [{ round: 1, matches: [openMatch('m1', carol.id, bob.id)], byes: [alice.id] }],
   });
 
   /** Opens the Complete round dialog for an organizer, on `tournament`. */
@@ -155,11 +155,11 @@ describe('Swiss tournaments on the Tournament tab', () => {
       swissPlaying({
         lastCompletedRound: 0,
         entries: [
-          { playerId: alice.id, dropped: false },
-          { playerId: bob.id, dropped: true },
-          { playerId: carol.id, dropped: false },
+          { playerId: alice.id, dropped: false, seed: null },
+          { playerId: bob.id, dropped: true, seed: null },
+          { playerId: carol.id, dropped: false, seed: null },
         ],
-        rounds: [{ round: 1, matches: [openMatch('m1', alice.id, carol.id)], bye: bob.id }],
+        rounds: [{ round: 1, matches: [openMatch('m1', alice.id, carol.id)], byes: [bob.id] }],
       }),
     );
     const dialog = openDialog()!;
@@ -181,7 +181,7 @@ describe('Swiss tournaments on the Tournament tab', () => {
           {
             round: 1,
             matches: [reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
-            bye: alice.id,
+            byes: [alice.id],
           },
         ],
       }),

@@ -107,7 +107,7 @@ describe('starting a Swiss tournament', () => {
     expect(view.roundCount).toBe(2);
     expect(view.rounds).toHaveLength(1);
     expect(view.rounds[0].round).toBe(1);
-    expect(view.rounds[0].bye).toBeNull();
+    expect(view.rounds[0].byes).toEqual([]);
     const seated = view.rounds[0].matches.flatMap((match) => match.players);
     expect(seated.sort()).toEqual([alice.id, bob.id, carol.id, dave.id].sort());
     expect(
@@ -125,7 +125,7 @@ describe('starting a Swiss tournament', () => {
 
     const [round] = (await tournamentView(id)).rounds;
     expect(round.matches).toHaveLength(1);
-    expect(new Set([...round.matches[0].players, round.bye])).toEqual(
+    expect(new Set([...round.matches[0].players, ...round.byes])).toEqual(
       new Set([alice.id, bob.id, carol.id]),
     );
   });
@@ -148,7 +148,7 @@ describe('reporting in a Swiss tournament', () => {
     // game-win %.
     expect(standings).toHaveLength(3);
     expect(standings[0]).toMatchObject({
-      playerId: round.bye,
+      playerId: round.byes[0],
       rank: 1,
       matchPoints: 3,
       matches: { won: 1, lost: 0, drawn: 0 },
@@ -291,9 +291,9 @@ describe('completing a tournament round', () => {
     await completeRound(id).expect(200);
 
     const { rounds } = await tournamentView(id);
-    expect(rounds[1].bye).toBe(loser);
+    expect(rounds[1].byes).toEqual([loser]);
     expect(new Set(rounds[1].matches[0].players)).toEqual(
-      new Set([winner, round.bye]),
+      new Set([winner, ...round.byes]),
     );
   });
 
@@ -346,10 +346,7 @@ describe('completing a tournament round', () => {
 
 /** Every player seated in the tournament round: in a match or with its bye. */
 function seated(round: TournamentView['rounds'][number]) {
-  return [
-    ...round.matches.flatMap((match) => match.players),
-    ...(round.bye ? [round.bye] : []),
-  ];
+  return [...round.matches.flatMap((match) => match.players), ...round.byes];
 }
 
 /** The ids of the tournament's dropped players. */
@@ -460,7 +457,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
     expect(view.state).toBe('Complete');
     expect(view.lastCompletedRound).toBe(1);
     expect(view.rounds).toHaveLength(1);
-    expect(view.trophyHolders).toEqual([round.bye]);
+    expect(view.trophyHolders).toEqual(round.byes);
   });
 
   it('rejects a match that isn’t the tournament round’s, and a player to drop who isn’t in the match', async () => {

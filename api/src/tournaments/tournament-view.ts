@@ -6,6 +6,8 @@ import type {
 } from 'contract';
 import {
   roundRobinRoundCount,
+  singleEliminationRoundCount,
+  singleEliminationStandings,
   standings,
   swissRoundCount,
   swissStandings,
@@ -25,6 +27,7 @@ export const TOURNAMENT_VIEW = {
     select: {
       id: true,
       dropped: true,
+      seed: true,
       player: { select: { userId: true } },
     },
   },
@@ -33,6 +36,7 @@ export const TOURNAMENT_VIEW = {
     select: {
       id: true,
       round: true,
+      bracketPlace: true,
       firstEntryId: true,
       secondEntryId: true,
       outcome: true,
@@ -40,6 +44,7 @@ export const TOURNAMENT_VIEW = {
       secondGames: true,
       drawnGames: true,
       forfeitedBy: true,
+      grantedTo: true,
       reportedById: true,
       confirmed: true,
     },
@@ -53,10 +58,11 @@ type MatchRow = TournamentRow['matches'][number];
 
 /**
  * The tournament as everyone who sees its draft reads it: its entries in
- * join order, its rounds in order, each round's matches in the order of
- * their first players' joining, and its standings and trophy holders. A
- * Swiss tournament's standings count its byes; round robin's ignore them,
- * as every player has equally many.
+ * join order, its rounds in order, each round's matches and byes in
+ * bracket place order in single elimination, and otherwise in the order of
+ * their first players' joining, and its standings and trophy holders. Swiss
+ * and single elimination standings count their byes; round robin's ignore
+ * them, as every player has equally many.
  */
 export function toTournamentView(row: TournamentRow): TournamentView {
   const order = new Map(row.entries.map((entry, i) => [entry.id, i]));
@@ -69,15 +75,16 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const sorted = [...row.matches].sort(
     (a, b) =>
       a.round - b.round ||
+      (a.bracketPlace ?? 0) - (b.bracketPlace ?? 0) ||
       order.get(a.firstEntryId)! - order.get(b.firstEntryId)!,
   );
   for (const match of sorted) {
     let round = rounds.at(-1);
     if (round?.round !== match.round) {
-      round = { round: match.round, matches: [], bye: null };
+      round = { round: match.round, matches: [], byes: [] };
       rounds.push(round);
     }
-    if (match.secondEntryId === null) round.bye = user(match.firstEntryId);
+    if (match.secondEntryId === null) round.byes.push(user(match.firstEntryId));
     else round.matches.push(toMatchView(match, user));
   }
 
@@ -90,7 +97,15 @@ export function toTournamentView(row: TournamentRow): TournamentView {
       ? []
       : row.format === 'Swiss'
         ? swissStandings(players, matches, byesOf(rounds))
-        : standings(players, matches);
+        : row.format === 'SingleElimination'
+          ? singleEliminationStandings(
+              [...row.entries]
+                .sort((a, b) => a.seed! - b.seed!)
+                .map((entry) => entry.player.userId),
+              matches,
+              byesOf(rounds),
+            )
+          : standings(players, matches);
   return {
     format: row.format,
     swissRoundOption: row.swissRoundOption,
@@ -100,6 +115,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     entries: row.entries.map((entry) => ({
       playerId: entry.player.userId,
       dropped: entry.dropped,
+      seed: entry.seed,
     })),
     rounds,
     standings: table,
@@ -109,7 +125,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
 
 /** The player with each bye in `rounds`, once per bye. */
 export function byesOf(rounds: readonly TournamentRoundView[]): string[] {
-  return rounds.flatMap((round) => (round.bye ? [round.bye] : []));
+  return rounds.flatMap((round) => round.byes);
 }
 
 /**
@@ -125,6 +141,8 @@ export function roundCount(
 ): number {
   if (joined < 2) return 0;
   if (format === 'Swiss') return swissRoundCount(joined, swissRoundOption!);
+  if (format === 'SingleElimination')
+    return singleEliminationRoundCount(joined);
   return roundRobinRoundCount(joined);
 }
 
@@ -139,14 +157,24 @@ function toMatchView(
   return {
     id: match.id,
     players,
+    bracketPlace: match.bracketPlace,
     outcome: toOutcome(match, players),
     reportedBy: match.reportedById,
     confirmed: match.confirmed,
   };
 }
 
-function toOutcome(
-  match: MatchRow,
+/** The outcome of `match`, whose players, in its order, are `first` and `second`. */
+export function toOutcome(
+  match: Pick<
+    MatchRow,
+    | 'outcome'
+    | 'firstGames'
+    | 'secondGames'
+    | 'drawnGames'
+    | 'forfeitedBy'
+    | 'grantedTo'
+  >,
   [first, second]: [string, string],
 ): MatchOutcomeView {
   switch (match.outcome) {
@@ -163,6 +191,11 @@ function toOutcome(
       return {
         kind: 'Forfeit',
         forfeitedBy: match.forfeitedBy === 'First' ? first : second,
+      };
+    case 'GrantedWin':
+      return {
+        kind: 'GrantedWin',
+        winner: match.grantedTo === 'First' ? first : second,
       };
   }
 }
