@@ -18,7 +18,7 @@ import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { snapshotDecklists } from './decklists.js';
+import { snapshotDecklists } from './decklists.service.js';
 import { SINGLE_ELIMINATION_CHANGES } from './bracket-changes.js';
 import {
   DEFAULT_CHANGE_STEPS,

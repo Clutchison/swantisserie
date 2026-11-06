@@ -69,6 +69,7 @@ import { BotPlayers } from './bot-players.js';
 import { isPlatform, PLATFORMS } from './platform.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { isPoolSourceKind } from './pool-source.js';
+import { TournamentBadges } from '../tournaments/tournament-badge.js';
 
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
@@ -89,6 +90,7 @@ export class DraftsController {
     private readonly lifecycle: DraftLifecycleService,
     private readonly publisher: DraftPublisher,
     private readonly bots: BotPlayers,
+    private readonly badges: TournamentBadges,
   ) {}
 
   /** Every draft, newest first, each with its tournament badge as the viewer sees it. */
@@ -96,7 +98,7 @@ export class DraftsController {
   async list(@CurrentUser() user: SessionUser): Promise<DraftListItemView[]> {
     const [drafts, badges] = await Promise.all([
       this.reads.list(),
-      this.reads.tournamentBadges(user.id),
+      this.badges.read(user.id),
     ]);
     return drafts.map((draft) => ({
       ...toDraftView(draft),

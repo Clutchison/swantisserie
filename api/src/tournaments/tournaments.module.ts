@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DraftsModule } from '../drafts/drafts.module.js';
-import { DecklistsService } from './decklists.js';
+import { DecklistsService } from './decklists.service.js';
 import { TournamentsController } from './tournaments.controller.js';
 import { TournamentsService } from './tournaments.service.js';
 

@@ -39,7 +39,7 @@ import { DraftAccess } from '../drafts/draft-access.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import { DraftPublisher } from '../drafts/draft-publisher.js';
 import { bodyFields } from '../request-body.js';
-import { DecklistsService } from './decklists.js';
+import { DecklistsService } from './decklists.service.js';
 import { TournamentErrorsFilter } from './tournament-errors.filter.js';
 import { TournamentsService } from './tournaments.service.js';
 
