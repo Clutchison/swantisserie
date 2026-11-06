@@ -13,7 +13,7 @@
       <h2>Active drafts</h2>
       <ul>
         @for (draft of active(); track draft.id) {
-          <li>
+          <li [attr.aria-label]="draft.name">
             <ng-container
               *ngTemplateOutlet="draftLink; context: { $implicit: draft, showState: true }"
             />
@@ -27,7 +27,7 @@
       <h2>Closed drafts</h2>
       <ul>
         @for (draft of closed(); track draft.id) {
-          <li>
+          <li [attr.aria-label]="draft.name">
             <ng-container *ngTemplateOutlet="draftLink; context: { $implicit: draft }" />
           </li>
         } @empty {
@@ -39,8 +39,37 @@
       <h2>Complete drafts</h2>
       <ul>
         @for (draft of complete(); track draft.id) {
-          <li>
+          <li [attr.aria-label]="draft.name">
             <ng-container *ngTemplateOutlet="draftLink; context: { $implicit: draft }" />
+            <!-- Beside the draft's link, never inside it, as Join is a link of its own. -->
+            @if (draft.tournamentBadge; as badge) {
+              <p class="tournament-badge">
+                @switch (badge.state) {
+                  @case ('Registration') {
+                    <span class="badge-text">Tournament: Registration</span>
+                    @if (badge.canJoin) {
+                      <a
+                        class="button"
+                        [routerLink]="['/drafts', draft.id]"
+                        [queryParams]="{ tab: 'tournament' }"
+                        [attr.aria-label]="'Join the tournament of ' + draft.name"
+                        >Join</a
+                      >
+                    }
+                  }
+                  @case ('Playing') {
+                    <span class="badge-text">Tournament: Playing</span>
+                  }
+                  @case ('Complete') {
+                    @if (badge.trophyHolders.length) {
+                      <span class="badge-text">Trophy: {{ trophyHolders(draft) }}</span>
+                    } @else {
+                      <span class="badge-text">Tournament complete</span>
+                    }
+                  }
+                }
+              </p>
+            }
           </li>
         } @empty {
           <li class="empty">No complete drafts.</li>

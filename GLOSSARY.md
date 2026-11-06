@@ -560,6 +560,10 @@ _Avoid_: Standings (that is one tournament's), stats page, rankings, player prof
 One tournament won by a player. A complete tournament's trophy goes to everyone who shares first in its standings; in single elimination, to the player who advances from the final, or to the one player left in the bracket if it completed before the final. When nobody is left, as when both finalists drop, the tournament completes with no trophy holder.
 _Avoid_: Win (alone; that is a match), title, championship
 
+**Tournament badge**:
+What the draft list shows of a complete draft's tournament: Registration, with Join for the draft's players who can join it; Playing; or, once complete, its trophy holders, or just that it is complete when nobody holds the trophy. A draft without a tournament has none.
+_Avoid_: Tournament status, tournament tag, label
+
 ## Discord
 
 **Discord bot**:
