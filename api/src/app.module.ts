@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
 import { FeedbackModule } from './feedback/feedback.module.js';
+import { LeaderboardModule } from './leaderboard/leaderboard.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { TournamentsModule } from './tournaments/tournaments.module.js';
 
@@ -27,6 +28,7 @@ export class AppModule {
         DraftsModule,
         TournamentsModule,
         FeedbackModule,
+        LeaderboardModule,
         WebhooksModule,
         ServeStaticModule.forRoot({
           rootPath: webRoot,

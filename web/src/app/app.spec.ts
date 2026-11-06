@@ -103,16 +103,21 @@ describe('App', () => {
       expect(link?.getAttribute('aria-label')).toBe('Swantisserie');
     });
 
-    it('shows an app admin the home link, App admin and Send feedback on the left, in order', async () => {
+    it('shows an app admin the home link, Leaderboard, App admin and Send feedback on the left, in order', async () => {
       const page = await openSettled('/', { ...alice, isAppAdmin: true });
 
-      expect(leftControls(page)).toEqual(['Swantisserie', 'App admin', 'Send feedback']);
+      expect(leftControls(page)).toEqual([
+        'Swantisserie',
+        'Leaderboard',
+        'App admin',
+        'Send feedback',
+      ]);
     });
 
     it('shows guild members who aren’t app admins no App admin, Webhooks or Feedback', async () => {
       const page = await openSettled('/', alice, 'unanswered');
 
-      expect(leftControls(page)).toEqual(['Swantisserie', 'Send feedback']);
+      expect(leftControls(page)).toEqual(['Swantisserie', 'Leaderboard', 'Send feedback']);
       expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
       expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
       expect(page.querySelector('header')!.textContent).not.toContain('App version');
@@ -244,16 +249,17 @@ describe('App', () => {
       expect(left.children[1].getAttribute('href')).toBe('/');
     });
 
-    it('shows guild members who aren’t app admins only Send feedback', async () => {
+    it('shows guild members who aren’t app admins only Leaderboard and Send feedback', async () => {
       const page = await openMenu(alice);
 
-      expect(panelText(page)).toEqual(['Send feedback']);
+      expect(panelText(page)).toEqual(['Leaderboard', 'Send feedback']);
     });
 
     it('also shows an app admin Webhooks, Feedback and the app version under an App admin heading', async () => {
       const page = await openMenu({ ...alice, isAppAdmin: true });
 
       expect(panelText(page)).toEqual([
+        'Leaderboard',
         'Send feedback',
         'App admin',
         'Webhooks',
