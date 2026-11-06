@@ -8,12 +8,11 @@ import {
   completeRound,
   dropPlayer,
   placesOf,
-  playingTournament,
+  playingSingleElimination,
+  playTournamentRound,
   reinstate,
   reportCurrentRound,
-  seedsOf,
   signIn,
-  singleElimination,
   tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -39,21 +38,6 @@ beforeEach(async () => {
   cookieOf = Object.fromEntries(users.map((user, i) => [user.id, cookies[i]]));
 });
 
-/**
- * A playing single elimination tournament of the first `count` of Alice,
- * Bob, Carol and Dave to Ivan, with its seed order, `seeds[s - 1]` the
- * player with seed s. With 4 players, round 1 is seed 1 v 4 at bracket
- * place 0 and 2 v 3 at place 1; with 5, seed 4 v 5 at place 1, the others
- * with byes; with 9, seed 8 v 9 at place 1, the others with byes.
- */
-async function playing(count: number) {
-  const id = await playingTournament(
-    cookies.slice(0, count),
-    singleElimination,
-  );
-  return { id, seeds: seedsOf(await tournamentView(id)) };
-}
-
 /** The match of the tournament round at its bracket place. */
 function at(view: TournamentView, round: number, bracketPlace: number) {
   const match = view.rounds[round - 1].matches.find(
@@ -63,18 +47,12 @@ function at(view: TournamentView, round: number, bracketPlace: number) {
   return match;
 }
 
-/** Reports every unreported match of the current round, its first player winning, and completes it. */
-async function playRound(id: string) {
-  await reportCurrentRound(id, cookieOf);
-  await completeRound(id).expect(200);
-}
-
 describe('dropping in single elimination', () => {
   it('advances the opponent of a player who drops on a forfeit', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
 
     await dropPlayer(id, seeds[3], cookieOf[seeds[3]]).expect(200);
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
 
     const view = await tournamentView(id);
     expect(placesOf(view.rounds[1])).toEqual([
@@ -83,7 +61,7 @@ describe('dropping in single elimination', () => {
   });
 
   it('makes a dropped winner’s next match their forfeit', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
     await reportCurrentRound(id, cookieOf);
 
     await dropPlayer(id, seeds[0], aliceCookie).expect(200);
@@ -97,7 +75,7 @@ describe('dropping in single elimination', () => {
   });
 
   it('gives a bye to whoever would have met the winner of a match whose players both dropped', async () => {
-    const { id, seeds } = await playing(5);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 5));
 
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
     await dropPlayer(id, seeds[4], aliceCookie).expect(200);
@@ -111,7 +89,7 @@ describe('dropping in single elimination', () => {
   });
 
   it('completes the tournament with no trophy holder when both finalists drop', async () => {
-    const { id, seeds } = await playing(2);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 2));
 
     await dropPlayer(id, seeds[0], aliceCookie).expect(200);
     await dropPlayer(id, seeds[1], aliceCookie).expect(200);
@@ -124,11 +102,11 @@ describe('dropping in single elimination', () => {
   });
 
   it('completes the tournament once one player is left in the bracket', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
 
     await dropPlayer(id, seeds[1], aliceCookie).expect(200);
     await dropPlayer(id, seeds[2], aliceCookie).expect(200);
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
 
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
@@ -139,7 +117,7 @@ describe('dropping in single elimination', () => {
 
 describe('dropping players from the Complete round dialog', () => {
   it('drops the player listed, their opponent advancing on the forfeit', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
     const before = await tournamentView(id);
     await reportCurrentRound(id, cookieOf);
     // Undo the report of seed 1 v 4, to decide it from the dialog instead.
@@ -163,7 +141,7 @@ describe('dropping players from the Complete round dialog', () => {
   });
 
   it('drops both players of a match, giving the next opponent a bye', async () => {
-    const { id, seeds } = await playing(5);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 5));
     const match = at(await tournamentView(id), 1, 1);
 
     await completeRound(id, aliceCookie, {
@@ -175,7 +153,7 @@ describe('dropping players from the Complete round dialog', () => {
   });
 
   it('rejects drops that aren’t one or both players of a match of the round, or that also grant it a win', async () => {
-    const { id, seeds } = await playing(3);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 3));
     const match = at(await tournamentView(id), 1, 1);
 
     for (const body of [
@@ -198,7 +176,7 @@ describe('dropping players from the Complete round dialog', () => {
   });
 
   it('refuses a granted win for a player who has dropped', async () => {
-    const { id, seeds } = await playing(2);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
     await dropPlayer(id, seeds[1], aliceCookie).expect(200);
 
@@ -210,7 +188,7 @@ describe('dropping players from the Complete round dialog', () => {
   });
 
   it('refuses drops in a match reported since', async () => {
-    const { id, seeds } = await playing(2);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
     await reportCurrentRound(id, cookieOf);
 
@@ -224,9 +202,9 @@ describe('dropping players from the Complete round dialog', () => {
 
 describe('reinstating in single elimination', () => {
   it('is refused once the forfeit has fed a later match', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
 
     const answer = await reinstate(id, seeds[3]).expect(409);
 
@@ -234,7 +212,7 @@ describe('reinstating in single elimination', () => {
   });
 
   it('is refused for either player once a match they both dropped from has given a bye', async () => {
-    const { id, seeds } = await playing(5);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 5));
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
     await dropPlayer(id, seeds[4], aliceCookie).expect(200);
     await completeRound(id).expect(200);
@@ -246,8 +224,8 @@ describe('reinstating in single elimination', () => {
   });
 
   it('lets a player who lost their match and then dropped be reinstated', async () => {
-    const { id, seeds } = await playing(4);
-    await playRound(id);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
+    await playTournamentRound(id, cookieOf);
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
 
     await reinstate(id, seeds[3]).expect(200);
@@ -263,7 +241,7 @@ describe('drops and corrections in the bracket read', () => {
     view.bracket![round - 1].places[bracketPlace];
 
   it('moves a forfeit’s winner on', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
 
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
 
@@ -276,7 +254,7 @@ describe('drops and corrections in the bracket read', () => {
   });
 
   it('moves nobody on from a match both players dropped from, showing the next opponent’s bye at once', async () => {
-    const { id, seeds } = await playing(5);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 5));
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
     await dropPlayer(id, seeds[4], aliceCookie).expect(200);
 
@@ -300,9 +278,9 @@ describe('drops and corrections in the bracket read', () => {
   });
 
   it('keeps a forfeit’s winner advanced, and their standing, when they drop during the next tournament round', async () => {
-    const { id, seeds } = await playing(4);
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
 
     await dropPlayer(id, seeds[0], aliceCookie).expect(200);
 

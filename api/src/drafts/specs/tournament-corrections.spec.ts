@@ -69,6 +69,10 @@ describe('organizer reports', () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     const match = await matchOf(id, bob.id, carol.id);
 
+    const draw = await setGameScore(id, match.id, { games: [1, 1] }).expect(
+      409,
+    );
+    expect(draw.body.error).toBe('draw');
     const tooMany = await setGameScore(id, match.id, { games: [0, 3] }).expect(
       409,
     );

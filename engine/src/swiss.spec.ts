@@ -31,7 +31,7 @@ describe('swissRoundCount', () => {
 });
 
 /** Standings in the order given, each player on the match points given, ranks shared by equal points. */
-function table(...entries: [string, number][]): SwissStanding[] {
+function standingsOf(...entries: [string, number][]): SwissStanding[] {
   return entries.map(([playerId, matchPoints]) => ({
     playerId,
     matchPoints,
@@ -50,7 +50,7 @@ describe('pairSwissRound', () => {
   it('pairs players within their match points when every score group is even', () => {
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
+      standings: standingsOf(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
       rngSeed: 1,
     });
     expect(pairs(round)).toEqual(['a-b', 'c-d']);
@@ -60,7 +60,7 @@ describe('pairSwissRound', () => {
   it('pairs one player down from an odd score group', () => {
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(
+      standings: standingsOf(
         ['a', 3],
         ['b', 3],
         ['c', 3],
@@ -78,7 +78,7 @@ describe('pairSwissRound', () => {
   it('never pairs a rematch, pairing down further instead', () => {
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
+      standings: standingsOf(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
       pastMatches: [
         ['a', 'b'],
         ['c', 'd'],
@@ -95,7 +95,7 @@ describe('pairSwissRound', () => {
     // match points together.
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(
+      standings: standingsOf(
         ['a', 3],
         ['b', 3],
         ['c', 3],
@@ -116,7 +116,7 @@ describe('pairSwissRound', () => {
     // a has played everyone, and a–b, a–c both bring a second rematch along.
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
+      standings: standingsOf(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
       pastMatches: [
         ['a', 'b'],
         ['c', 'd'],
@@ -133,7 +133,7 @@ describe('pairSwissRound', () => {
     // A bye to a or b leaves a rematch; a second bye to c would leave none.
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(['a', 3], ['c', 3], ['b', 0]),
+      standings: standingsOf(['a', 3], ['c', 3], ['b', 0]),
       pastMatches: [
         ['a', 'c'],
         ['b', 'c'],
@@ -148,7 +148,7 @@ describe('pairSwissRound', () => {
   it('gives the bye to the lowest-ranked player who hasn’t had one', () => {
     const round = pairSwissRound({
       ...noHistory,
-      standings: table(['a', 6], ['b', 3], ['c', 3], ['d', 3], ['e', 0]),
+      standings: standingsOf(['a', 6], ['b', 3], ['c', 3], ['d', 3], ['e', 0]),
       pastByes: ['e'],
       rngSeed: 1,
     });
@@ -160,7 +160,13 @@ describe('pairSwissRound', () => {
     for (const rngSeed of [1, 2, 3, 4, 5]) {
       const round = pairSwissRound({
         ...noHistory,
-        standings: table(['a', 6], ['b', 3], ['c', 3], ['d', 3], ['e', 0]),
+        standings: standingsOf(
+          ['a', 6],
+          ['b', 3],
+          ['c', 3],
+          ['d', 3],
+          ['e', 0],
+        ),
         dropped: ['b', 'e'],
         rngSeed,
       });

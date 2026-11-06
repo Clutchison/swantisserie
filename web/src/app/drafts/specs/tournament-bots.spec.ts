@@ -14,7 +14,7 @@ import {
   carol,
   joinedNames,
   openCompleteRound,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   playing,
   registration,
@@ -62,7 +62,9 @@ describe('bots on the Play tab', () => {
     const { dialog } = await openCompleteRound(
       swissPlaying({
         lastCompletedRound: 0,
-        rounds: [{ round: 1, matches: [openMatch('m1', carol.id, bob.id)], byes: [alice.id] }],
+        rounds: [
+          { round: 1, matches: [unreportedMatch('m1', carol.id, bob.id)], byes: [alice.id] },
+        ],
       }),
       withBot,
     );
