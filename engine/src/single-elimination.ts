@@ -345,6 +345,30 @@ function unpairedAdvancing(
 }
 
 /**
+ * The byes of each tournament round of `rounds`, with the players paired
+ * in the tournament round after it.
+ */
+export interface RoundByes {
+  byes: readonly string[];
+  nextRoundPlayers: readonly string[];
+}
+
+/**
+ * The players with the byes of `rounds` that sent them on, for
+ * singleEliminationStandings: every bye but that of a player who dropped
+ * before the tournament round after it was paired with them, from which
+ * nobody advances; `dropped` holds every player who has.
+ */
+export function byesSendingOn(
+  rounds: readonly RoundByes[],
+  dropped: readonly string[],
+): string[] {
+  return rounds.flatMap(({ byes, nextRoundPlayers }) =>
+    byes.filter((id) => !dropped.includes(id) || nextRoundPlayers.includes(id)),
+  );
+}
+
+/**
  * The standings of a single elimination tournament's `players`, in seed
  * order, after `matches`, with `byes` holding the player with each bye: by
  * the tournament round each reached, as counted by the matches they won,

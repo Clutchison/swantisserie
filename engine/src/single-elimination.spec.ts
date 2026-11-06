@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   agreedAdvancingPlayer,
   bracketRounds,
+  byesSendingOn,
   countAdvancing,
   dependentBracketPlaces,
   firstBracketRound,
@@ -644,6 +645,20 @@ describe('bracketRounds', () => {
     expect(rounds[1].places).toEqual([
       { bracketPlace: 0, sides: [bye, bye], advancing: null },
     ]);
+  });
+});
+
+describe('byesSendingOn', () => {
+  it('is every bye but that of a player who dropped before the next tournament round was paired with them', () => {
+    // s1 had a bye in round 1 and was paired in round 2; s5 had one in round 2 and dropped.
+    const sent = byesSendingOn(
+      [
+        { byes: ['s1', 's2'], nextRoundPlayers: ['s1', 's2', 's3'] },
+        { byes: ['s5'], nextRoundPlayers: [] },
+      ],
+      ['s1', 's5'],
+    );
+    expect(sent).toEqual(['s1', 's2']);
   });
 });
 

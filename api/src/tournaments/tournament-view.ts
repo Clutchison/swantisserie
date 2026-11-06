@@ -10,6 +10,7 @@ import {
 import {
   agreedAdvancingPlayer,
   bracketRounds,
+  byesSendingOn,
   droppedPlayers,
   singleEliminationRoundCount,
   singleEliminationStandings,
@@ -159,7 +160,13 @@ export function toTournamentView(row: TournamentRow): TournamentView {
                 .sort((a, b) => a.seed! - b.seed!)
                 .map((entry) => entry.player.userId),
               matches,
-              byesSendingOn(counted, dropped, nextRoundPlayers),
+              byesSendingOn(
+                counted.map((round) => ({
+                  byes: round.byes,
+                  nextRoundPlayers: nextRoundPlayers(round.round),
+                })),
+                dropped,
+              ),
               dropped,
             )
           : standings(players, matches);
@@ -301,25 +308,6 @@ function toBracket(
 /** The player with each bye in `rounds`, once per bye. */
 export function byesOf(rounds: readonly TournamentRoundView[]): string[] {
   return rounds.flatMap((round) => round.byes);
-}
-
-/**
- * The players with the byes of `rounds`, a single elimination
- * tournament's, that sent them on: every bye but that of a player who
- * dropped before the tournament round after it was paired with them, from
- * which nobody advances; `nextRoundPlayers` gives those paired in the
- * tournament round after a tournament round.
- */
-function byesSendingOn(
-  rounds: readonly TournamentRoundView[],
-  dropped: readonly string[],
-  nextRoundPlayers: (round: number) => string[],
-): string[] {
-  return rounds.flatMap(({ round, byes }) =>
-    byes.filter(
-      (id) => !dropped.includes(id) || nextRoundPlayers(round).includes(id),
-    ),
-  );
 }
 
 /**
