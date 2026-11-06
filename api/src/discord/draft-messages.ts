@@ -1,4 +1,6 @@
 import type { DraftEvent, EventPlayer } from '../drafts/draft-events.js';
+import { bold, mention } from './markdown.js';
+import { tournamentMessage } from './tournament-messages.js';
 
 /** A draft as its announcements name it and link to it. */
 export interface AnnouncedDraft {
@@ -76,15 +78,21 @@ export function draftMessages(
       case 'completed':
         messages.push(draftCompleteMessage(draft));
         break;
+      case 'tournament-set-up':
+      case 'tournament-started':
+      case 'tournament-round-completed':
+      case 'tournament-completed':
+        messages.push(tournamentMessage(draft, event));
+        break;
     }
   }
   return messages.flatMap(splitIntoPosts);
 }
 
 /**
- * `message` as few posts as Discord takes, broken only between lines. The up
- * line, if any, is the last line, so only the last post names who is up, and
- * only it pings.
+ * `message` as few posts as Discord takes, broken only between lines. Each
+ * post pings only the users it mentions, so a draft announcement's up line,
+ * which is its last line, pings only in the last post.
  */
 function splitIntoPosts(message: WebhookMessage): WebhookMessage[] {
   // UTF-16 length is never less than what Discord counts.
@@ -101,11 +109,15 @@ function splitIntoPosts(message: WebhookMessage): WebhookMessage[] {
       posts.push(line);
     }
   }
-  return posts.map((content, i) =>
-    i === posts.length - 1
-      ? { ...message, content }
-      : { content, allowed_mentions: { parse: [], users: [] } },
-  );
+  return posts.map((content) => ({
+    content,
+    allowed_mentions: {
+      parse: [],
+      users: message.allowed_mentions.users.filter((id) =>
+        content.includes(mention(id)),
+      ),
+    },
+  }));
 }
 
 /**
@@ -230,7 +242,7 @@ function announcement(
 ): WebhookMessage {
   const pinged = up && ping && !up.isBot ? up : null;
   const upLine = pinged
-    ? `<@${pinged.id}> you’re up.`
+    ? `${mention(pinged.id)} you’re up.`
     : up && `${bold(up.name)} is up.`;
   return {
     content: [
@@ -240,9 +252,4 @@ function announcement(
     ].join('\n'),
     allowed_mentions: { parse: [], users: pinged ? [pinged.id] : [] },
   };
-}
-
-/** `text` in bold, with any markdown or mention in it shown as written. */
-function bold(text: string): string {
-  return `**${text.replace(/[\\*_~|`<>[\]]/g, '\\$&')}**`;
 }
