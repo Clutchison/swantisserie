@@ -158,24 +158,26 @@ model PoolCard {
 
 /// A guild member or bot who has joined a draft.
 model Player {
-  id             String               @id @default(uuid())
-  draftId        String
-  draft          Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User                 @relation(fields: [userId], references: [id])
-  joinedAt       DateTime             @default(now())
+  id                 String               @id @default(uuid())
+  draftId            String
+  draft              Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id])
+  joinedAt           DateTime             @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
-  seat           Int?
-  picks          Pick[]
+  seat               Int?
+  picks              Pick[]
   /// Bots have none.
-  queue          QueuedCard[]
-  takenOutQueued TakenOutQueuedCard[]
+  queue              QueuedCard[]
+  takenOutQueued     TakenOutQueuedCard[]
   /// Private to the player, like their queue.
-  plan           PlannedCard[]
-  basics         PlannedBasic[]
-  lostPlanned    LostPlannedCard[]
+  plan               PlannedCard[]
+  basics             PlannedBasic[]
+  lostPlanned        LostPlannedCard[]
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
-  stealBehavior  StealBehavior        @default(ClearQueue)
+  stealBehavior      StealBehavior        @default(ClearQueue)
+  /// The key of the player's latest departure from their queue, 0 before the first. Only ever goes up, so departures order by it, never by time.
+  lastQueueDeparture Int                  @default(0)
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -213,17 +215,20 @@ enum PlanBoard {
 
 /// A card in a player's plan, on their mainboard or sideboard: one of their picks, or an unpicked pool card they added.
 model PlannedCard {
-  id         String    @id @default(uuid())
-  playerId   String
-  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  poolCardId String
-  poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid())
+  playerId       String
+  player         Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  poolCardId     String
+  poolCard       PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// The pick it is, if it is one; an unpicked card has none.
-  pickId     String?   @unique
-  pick       Pick?     @relation(fields: [pickId], references: [id], onDelete: SetNull)
-  board      PlanBoard @default(Mainboard)
+  pickId         String?   @unique
+  pick           Pick?     @relation(fields: [pickId], references: [id], onDelete: SetNull)
+  board          PlanBoard @default(Mainboard)
   /// Whether the player added it with Add to Plan: undoing a pick of it then leaves it in the plan, unpicked, rather than taking it out.
-  added      Boolean   @default(false)
+  added          Boolean   @default(false)
+  /// Its queue order: the player's `lastQueueDeparture` when this copy last left their queue, and its `position` there then. Null until it first leaves, and for a card taken out of the plan and added back.
+  queueDeparture Int?
+  queuePosition  Int?
 
   @@unique([playerId, poolCardId])
   @@index([poolCardId])
@@ -309,16 +314,16 @@ model TakenOutQueuedCard {
 
 /// A named Discord webhook an app admin registered, which organizers choose for a draft's announcements.
 model Webhook {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   /// What organizers choose it by, e.g. "#roto-main".
-  name      String   @unique
+  name      String    @unique
   /// A secret: only app admins may see it.
   url       String
   /// When Discord stopped accepting posts on it (a 404 or 401); null while it does. Replacing its URL clears it.
   goneAt    DateTime?
   drafts    Draft[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 /// A plain-text message a guild member sent to the app admins.

@@ -186,6 +186,10 @@ _Avoid_: Wiped, reset, lost (that is the card that was picked)
 Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or, after another player's pick, the lost card and any cards it cleared. An undo of that pick puts every taken-out card back.
 _Avoid_: Unqueued, removed (that is the player taking a card out by hand), taken (that is a lost card alone)
 
+**Departure**:
+Cards leaving a player's queue together: the cards one pick took out of it, a card the player took out by hand, or everything in it when a pick import empties it. Departures are ordered by when they happened; an undo putting taken-out cards back is not one.
+_Avoid_: Removal (that is the player taking a card out by hand), exit, drop
+
 **Steal behavior**:
 A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it whenever the draft is in the lobby or active.
 _Avoid_: Loss setting, fallback, keep queue
@@ -237,7 +241,7 @@ A pool card in a player's plan that no one has picked: the player added it from 
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
 **Queue order**:
-The order a player's plan remembers its cards in, from where each last sat in their queue: the cards that left it most recently first, and cards that left together in the order they sat. When the plan's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the plan loses its place.
+The order a player's plan remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the plan's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the plan loses its place.
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:

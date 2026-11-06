@@ -1,5 +1,6 @@
 import { type QueueAfterPick, type QueuedCardAt, queueAfterUndo } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
+import { leaveQueue } from './queue-order.js';
 import type { QueuedRow } from './turn-state.js';
 
 /**
@@ -10,7 +11,8 @@ import type { QueuedRow } from './turn-state.js';
  * it is swapped for another copy or lost, clearing that queue or keeping
  * the rest. Lost and cleared cards, and the card the picker had queued, are
  * kept against the pick, in queue order, so that undoing it can put them
- * back. A swapped copy stays swapped: it is as good as the one picked.
+ * back, and each records its queue order in the player's plan. A swapped
+ * copy stays swapped: it is as good as the one picked.
  * Returns each player's queued cards as they now are.
  */
 export async function recordQueueEffects(
@@ -29,14 +31,16 @@ export async function recordQueueEffects(
   ): Promise<void> {
     const playerId = playerIds[seat];
     const isOut = (queued: QueuedRow) => out.includes(queued.poolCardId);
+    const leaving = now[seat].filter(isOut);
     await tx.takenOutQueuedCard.createMany({
-      data: now[seat]
-        .filter(isOut)
-        .map((queued) => ({ ...queued, playerId, pickId: pick.id, ...kept })),
+      data: leaving.map((queued) => ({
+        ...queued,
+        playerId,
+        pickId: pick.id,
+        ...kept,
+      })),
     });
-    await tx.queuedCard.deleteMany({
-      where: { playerId, poolCardId: { in: [...out] } },
-    });
+    await leaveQueue(tx, playerId, leaving);
     now[seat] = now[seat].filter((queued) => !isOut(queued));
   }
   for (const [seat, { queue, swapped, lost, cleared }] of after.entries()) {
@@ -81,7 +85,8 @@ export async function recordQueueEffects(
 
 /**
  * Puts back what the pick took out of queues, in the order the engine's
- * `queueAfterUndo` gives. Deleting the pick then forgets them.
+ * `queueAfterUndo` gives. Deleting the pick then forgets them. Rewriting a
+ * queue this way is not a departure: no queue order is recorded.
  */
 export async function restoreQueues(
   tx: Transaction,
