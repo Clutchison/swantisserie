@@ -271,6 +271,14 @@ export class DraftStore {
   });
   /** The signed-in player's plan. */
   readonly plan = keptRead(this.planResource, EMPTY_PLAN);
+  /**
+   * What the page calls the signed-in player's plan: their "deck" once the
+   * draft is complete, which took its unpicked cards out, and their "plan"
+   * before then and while it is closed.
+   */
+  readonly planName = computed(() =>
+    this.draft.value()?.state === 'Complete' ? ('deck' as const) : ('plan' as const),
+  );
   /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
   readonly planned = computed(() => {
     const { mainboard, sideboard } = this.plan.value();

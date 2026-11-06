@@ -358,12 +358,10 @@ describe('unpicked cards in a plan', () => {
       error: 'draft-complete',
       message: 'This draft is complete.',
     });
-    // Unpicked cards stay once the draft is complete: Alice's pick took the first copy, swapped for nothing as the plan holds the second.
+    // Completing the draft took the unpicked cards out; the Plan notice of Alice's pick of the first copy stays.
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
         { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
-        { poolCardId: second, name: 'Lightning Bolt', picked: false },
-        { poolCardId: ids.Shock, name: 'Shock', picked: false },
       ],
       sideboard: [],
       basics: [],
@@ -374,14 +372,14 @@ describe('unpicked cards in a plan', () => {
   it('removes an unpicked card from the plan in any state, but never a pick', async () => {
     const { id, ids, first } = await readyDraftWithCopies(
       [carolCookie, aliceCookie],
-      1,
+      2,
     );
     await addToPlan(id, first, carolCookie).expect(200);
     await addToPlan(id, ids.Shock, carolCookie).expect(200);
     await start(id).expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
-    const lastPick = await pick(id, ids.Shock).expect(200);
-    expect(lastPick.body.state).toBe('Complete');
+    await pick(id, ids.Shock).expect(200);
+    await post(id, 'close').expect(200);
 
     const removed = await removeFromPlan(id, first, carolCookie).expect(200);
 
