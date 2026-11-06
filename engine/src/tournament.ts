@@ -71,8 +71,8 @@ export interface Standing {
   matchPoints: number;
   matches: Tally;
   games: Tally;
-  /** Games won over games played, from 0 to 1; 0 before any game is played. */
-  gameWinRate: number;
+  /** Games won as a percentage of games played, from 0 to 100; 0 before any game is played. */
+  gameWinPercent: number;
 }
 
 type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
@@ -114,7 +114,7 @@ export function standings(
   const compare = (a: Standing, b: Standing) =>
     b.matchPoints - a.matchPoints ||
     headToHead.get(b.playerId)! - headToHead.get(a.playerId)! ||
-    b.gameWinRate - a.gameWinRate;
+    b.gameWinPercent - a.gameWinPercent;
   const ranked = all.sort(compare);
   ranked.forEach((standing, i) => {
     const previous = ranked[i - 1];
@@ -123,6 +123,18 @@ export function standings(
   });
   return ranked;
 }
+
+/**
+ * Every game score a best-of-three match can end at, each player's games
+ * won in the match's player order: 2–0 or 2–1 for either side. These are
+ * exactly the game scores `reportProblem` accepts.
+ */
+export const GAME_SCORES: readonly (readonly [number, number])[] = [
+  [2, 0],
+  [2, 1],
+  [1, 2],
+  [0, 2],
+];
 
 /** Why a player can't report a game score; the message is for them. */
 export interface ReportProblem {
@@ -172,7 +184,7 @@ function standingOf(
     matchPoints: 0,
     matches: { won: 0, lost: 0, drawn: 0 },
     games: { won: 0, lost: 0, drawn: 0 },
-    gameWinRate: 0,
+    gameWinPercent: 0,
   };
   for (const match of matches) {
     const side = match.players.indexOf(playerId);
@@ -187,7 +199,7 @@ function standingOf(
   }
   const { won, lost, drawn } = standing.games;
   const played = won + lost + drawn;
-  standing.gameWinRate = played === 0 ? 0 : won / played;
+  standing.gameWinPercent = played === 0 ? 0 : (100 * won) / played;
   return standing;
 }
 

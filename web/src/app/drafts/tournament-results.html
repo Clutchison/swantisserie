@@ -75,7 +75,7 @@
                 <button
                   class="button compact secondary"
                   type="button"
-                  (click)="setResult.emit({ matchId: match.id, games: score.games })"
+                  (click)="setGameScore.emit({ matchId: match.id, games: score.games })"
                   [appSendsChange]="'result ' + match.id + ' ' + score.games"
                 >
                   {{ score.label }}
@@ -85,7 +85,7 @@
                 <button
                   class="button compact secondary"
                   type="button"
-                  (click)="clearResult.emit(clear)"
+                  (click)="clearGameScore.emit(clear)"
                   [appSendsChange]="'clear ' + match.id"
                 >
                   Clear result

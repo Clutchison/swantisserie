@@ -96,7 +96,7 @@ describe('organizer results', () => {
     const after = playing([reported(openMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/result',
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
       'PUT',
       after,
       1,
@@ -120,7 +120,7 @@ describe('organizer results', () => {
     button(group(tab, 'Result of Bob vs Carol')!, 'Carol won 2–0')!.click();
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/result',
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
       'PUT',
       complete(reported(m1, [0, 2], alice.id), carol.id),
       1,
@@ -144,7 +144,7 @@ describe('organizer results', () => {
     );
     await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/result',
+      '/api/drafts/draft-1/tournament/matches/m1/game-score',
       'DELETE',
       playing(),
       1,
@@ -165,7 +165,7 @@ describe('organizer results', () => {
     button(group(tab, 'Result of Bob vs Carol')!, 'Clear result')!.click();
     await fixture.whenStable();
 
-    http.expectNone('/api/drafts/draft-1/tournament/matches/m1/result');
+    http.expectNone('/api/drafts/draft-1/tournament/matches/m1/game-score');
   });
 
   it('offers Clear result only for a match with a result', async () => {

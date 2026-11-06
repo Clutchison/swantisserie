@@ -8,7 +8,7 @@ import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
-import { TournamentResults, type ClearResult, type SetResult } from './tournament-results';
+import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
 
 /** The formats tournament setup offers, as it names them: only round robin for now. */
 const FORMATS: { format: TournamentFormat; name: string }[] = [
@@ -225,8 +225,8 @@ export class TournamentTab {
   }
 
   /** Takes back the drop of the player `playerId`; for organizers. */
-  protected undoDrop(playerId: string) {
-    return this.send(() => this.api.undoDrop(this.draft().id, playerId), {
+  protected reinstate(playerId: string) {
+    return this.send(() => this.api.reinstate(this.draft().id, playerId), {
       failure: "Couldn't undo the drop. Try again in a moment.",
     });
   }
@@ -278,15 +278,15 @@ export class TournamentTab {
   }
 
   /** Sets a match's game score, as an organizer reports or corrects it. */
-  protected setResult({ matchId, games }: SetResult) {
-    return this.send(() => this.api.setResult(this.draft().id, matchId, games), {
+  protected setGameScore({ matchId, games }: SetGameScore) {
+    return this.send(() => this.api.setGameScore(this.draft().id, matchId, games), {
       failure: "Couldn't save the match’s result. Try again in a moment.",
       keep: [`correct ${matchId}`],
     });
   }
 
   /** Clears a match's result, once the organizer confirms. */
-  protected clearResult({ matchId, label }: ClearResult) {
+  protected clearGameScore({ matchId, label }: ClearGameScore) {
     const after =
       this.tournament()?.state === 'Complete'
         ? 'The match becomes a granted draw.'
@@ -294,7 +294,7 @@ export class TournamentTab {
     return this.send(
       () =>
         confirm(`Clear the result of ${label}? ${after}`)
-          ? this.api.clearResult(this.draft().id, matchId)
+          ? this.api.clearGameScore(this.draft().id, matchId)
           : undefined,
       {
         failure: "Couldn't clear the match’s result. Try again in a moment.",

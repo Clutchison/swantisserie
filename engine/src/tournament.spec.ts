@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GAME_SCORES,
   reportProblem,
   roundRobinSchedule,
   standings,
@@ -103,7 +104,7 @@ describe('standings', () => {
         matchPoints: 3,
         matches: { won: 1, lost: 0, drawn: 0 },
         games: { won: 2, lost: 1, drawn: 0 },
-        gameWinRate: 2 / 3,
+        gameWinPercent: 200 / 3,
       },
       {
         playerId: 'b',
@@ -111,7 +112,7 @@ describe('standings', () => {
         matchPoints: 0,
         matches: { won: 0, lost: 1, drawn: 0 },
         games: { won: 1, lost: 2, drawn: 0 },
-        gameWinRate: 1 / 3,
+        gameWinPercent: 100 / 3,
       },
     ]);
     expect(
@@ -233,7 +234,7 @@ describe('standings', () => {
         matchPoints: 1,
         matches: { won: 0, lost: 0, drawn: 1 },
         games: { won: 0, lost: 0, drawn: 0 },
-        gameWinRate: 0,
+        gameWinPercent: 0,
       })),
     );
   });
@@ -253,6 +254,18 @@ describe('standings', () => {
       matchPoints: 0,
       matches: { won: 0, lost: 1, drawn: 0 },
     });
+  });
+});
+
+describe('GAME_SCORES', () => {
+  it('lists the game scores a best-of-three match ends at, each of which can be reported', () => {
+    expect(GAME_SCORES).toEqual([
+      [2, 0],
+      [2, 1],
+      [1, 2],
+      [0, 2],
+    ]);
+    for (const games of GAME_SCORES) expect(reportProblem(games)).toBeNull();
   });
 });
 

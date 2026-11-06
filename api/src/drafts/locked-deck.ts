@@ -1,5 +1,5 @@
 import type { TournamentState } from '../generated/prisma/client.js';
-import type { Transaction } from '../drafts/draft-shapes.js';
+import type { Transaction } from './draft-shapes.js';
 
 /** The tournament states that lock the decks of the players who have joined. */
 const LOCKING_STATES: TournamentState[] = ['Registration', 'Playing'];

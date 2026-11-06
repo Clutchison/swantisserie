@@ -3,7 +3,7 @@ import {
   aliceCookie,
   bob,
   carol,
-  clearResult,
+  clearGameScore,
   completeTournament,
   confirmMatch,
   dropPlayer,
@@ -11,7 +11,7 @@ import {
   matchOf,
   playingTournament,
   reportWin,
-  setResult,
+  setGameScore,
   setWin,
   signIn,
   tournamentView,
@@ -56,13 +56,17 @@ describe('organizer reports', () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     const match = await matchOf(id, bob.id, carol.id);
 
-    const draw = await setResult(id, match.id, { games: [1, 1] }).expect(409);
+    const draw = await setGameScore(id, match.id, { games: [1, 1] }).expect(
+      409,
+    );
     expect(draw.body.error).toBe('draw');
-    const tooMany = await setResult(id, match.id, { games: [0, 3] }).expect(
+    const tooMany = await setGameScore(id, match.id, { games: [0, 3] }).expect(
       409,
     );
     expect(tooMany.body.error).toBe('not-best-of-three');
-    const invalid = await setResult(id, match.id, { games: [2] }).expect(400);
+    const invalid = await setGameScore(id, match.id, { games: [2] }).expect(
+      400,
+    );
     expect(invalid.body.error).toBe('invalid');
     expect((await matchOf(id, bob.id, carol.id)).outcome.kind).toBe(
       'Unreported',
@@ -72,16 +76,16 @@ describe('organizer reports', () => {
   it('answers 404 for a match the tournament doesn’t have', async () => {
     const id = await playingTournament([bobCookie, carolCookie]);
 
-    const set = await setResult(id, 'no-such-match', {
+    const set = await setGameScore(id, 'no-such-match', {
       games: [2, 0],
     }).expect(404);
     expect(set.body.error).toBe('no-match');
-    const clear = await clearResult(id, 'no-such-match').expect(404);
+    const clear = await clearGameScore(id, 'no-such-match').expect(404);
     expect(clear.body.error).toBe('no-match');
   });
 });
 
-describe('correcting and clearing a result', () => {
+describe('correcting and clearing a game score', () => {
   it('lets an organizer correct a reported match, which changes the standings', async () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
@@ -102,7 +106,7 @@ describe('correcting and clearing a result', () => {
     await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
     const match = await matchOf(id, bob.id, carol.id);
 
-    await clearResult(id, match.id).expect(200);
+    await clearGameScore(id, match.id).expect(200);
 
     const cleared = await matchOf(id, bob.id, carol.id);
     expect(cleared.outcome).toEqual({ kind: 'Unreported' });
@@ -119,7 +123,7 @@ describe('correcting and clearing a result', () => {
     await setWin(id, [alice.id, carol.id], [2, 1]);
     const match = await matchOf(id, alice.id, carol.id);
 
-    await clearResult(id, match.id).expect(200);
+    await clearGameScore(id, match.id).expect(200);
 
     const cleared = await matchOf(id, alice.id, carol.id);
     expect(cleared.outcome).toEqual({ kind: 'Forfeit', forfeitedBy: carol.id });
@@ -138,7 +142,7 @@ describe('correcting and clearing a result', () => {
     expect((await matchOf(id, bob.id, carol.id)).confirmed).toBe(false);
     await confirmMatch(id, match.id, carolCookie).expect(200);
 
-    await clearResult(id, match.id).expect(200);
+    await clearGameScore(id, match.id).expect(200);
 
     expect((await matchOf(id, bob.id, carol.id)).confirmed).toBe(false);
   });
@@ -160,8 +164,8 @@ describe('correcting and clearing a result', () => {
 
     // Carol is an app admin, so she may.
     for (const cookie of [bobCookie, daveCookie]) {
-      await setResult(id, match.id, { games: [0, 2] }, cookie).expect(403);
-      await clearResult(id, match.id, cookie).expect(403);
+      await setGameScore(id, match.id, { games: [0, 2] }, cookie).expect(403);
+      await clearGameScore(id, match.id, cookie).expect(403);
     }
     expect(await gamesOf(id, [bob.id, carol.id])).toEqual([2, 0]);
   });
@@ -187,7 +191,7 @@ describe('corrections after completion', () => {
     await completeTournament(id).expect(200);
     const match = await matchOf(id, bob.id, carol.id);
 
-    await clearResult(id, match.id).expect(200);
+    await clearGameScore(id, match.id).expect(200);
 
     expect((await matchOf(id, bob.id, carol.id)).outcome).toEqual({
       kind: 'GrantedDraw',
@@ -216,9 +220,9 @@ describe('live updates', () => {
       (await getDraft(id).expect(200)).body.version as number;
 
     const changes = [
-      () => setResult(id, match.id, { games: [2, 0] }).expect(200),
-      () => setResult(id, match.id, { games: [1, 2] }).expect(200),
-      () => clearResult(id, match.id).expect(200),
+      () => setGameScore(id, match.id, { games: [2, 0] }).expect(200),
+      () => setGameScore(id, match.id, { games: [1, 2] }).expect(200),
+      () => clearGameScore(id, match.id).expect(200),
     ];
     for (const change of changes) {
       const before = await versionNow();

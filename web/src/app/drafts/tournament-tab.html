@@ -131,8 +131,8 @@
       [currentId]="ownMatch()?.match?.id"
       (choose)="chosen.set($event)"
       (confirmMatch)="confirmMatch($event)"
-      (setResult)="setResult($event)"
-      (clearResult)="clearResult($event)"
+      (setGameScore)="setGameScore($event)"
+      (clearGameScore)="clearGameScore($event)"
     />
     <h3>Players</h3>
     <ul class="entries" aria-label="Players">
@@ -148,7 +148,7 @@
               class="button compact secondary"
               type="button"
               [attr.aria-label]="'Undo drop ' + player.name"
-              (click)="undoDrop(player.id)"
+              (click)="reinstate(player.id)"
               [appSendsChange]="'undo-drop ' + player.id"
             >
               Undo drop

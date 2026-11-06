@@ -77,7 +77,7 @@ export const standing = (
   matchPoints: 0,
   matches: { won: 0, lost: 0, drawn: 0 },
   games: { won: 0, lost: 0, drawn: 0 },
-  gameWinRate: 0,
+  gameWinPercent: 0,
   ...fields,
 });
 

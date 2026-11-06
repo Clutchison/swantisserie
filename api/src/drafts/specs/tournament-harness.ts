@@ -201,7 +201,7 @@ export function dropPlayer(id: string, playerId: string, cookie: string) {
  * Sets the match's game score as an organizer does, reporting or
  * correcting it, as whoever `cookie` signs in, `body` the request body as is.
  */
-export function setResult(
+export function setGameScore(
   id: string,
   matchId: string,
   body: unknown,
@@ -209,17 +209,21 @@ export function setResult(
 ) {
   return draftsRequest(
     'put',
-    `/${id}/tournament/matches/${matchId}/result`,
+    `/${id}/tournament/matches/${matchId}/game-score`,
     cookie,
     body,
   );
 }
 
-/** Clears the match's result as an organizer does, as whoever `cookie` signs in. */
-export function clearResult(id: string, matchId: string, cookie = aliceCookie) {
+/** Clears the match's game score as an organizer does, as whoever `cookie` signs in. */
+export function clearGameScore(
+  id: string,
+  matchId: string,
+  cookie = aliceCookie,
+) {
   return draftsRequest(
     'delete',
-    `/${id}/tournament/matches/${matchId}/result`,
+    `/${id}/tournament/matches/${matchId}/game-score`,
     cookie,
   );
 }
@@ -239,7 +243,7 @@ export async function setWin(
   const match = await matchOf(id, winner, loser);
   const ordered: [number, number] =
     match.players[0] === winner ? games : [games[1], games[0]];
-  return setResult(
+  return setGameScore(
     id,
     match.id,
     { games: ordered } satisfies MatchReportRequest,
@@ -247,8 +251,8 @@ export async function setWin(
   ).expect(status);
 }
 
-/** Takes back the drop of the player `playerId` (a Discord user id), as whoever `cookie` signs in. */
-export function undoDrop(id: string, playerId: string, cookie = aliceCookie) {
+/** Reinstates the dropped player `playerId` (a Discord user id), as whoever `cookie` signs in. */
+export function reinstate(id: string, playerId: string, cookie = aliceCookie) {
   return draftsRequest(
     'delete',
     `/${id}/tournament/entries/${playerId}/drop`,

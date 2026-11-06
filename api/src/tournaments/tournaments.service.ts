@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   MIN_MAINBOARD_CARDS,
+  type GameScore,
   type TournamentFormat,
   type TournamentRefusal,
   type TournamentView,
@@ -151,7 +152,7 @@ export class TournamentsService {
         throw new TournamentRefusedError({
           error: 'tournament-complete',
           message:
-            'A complete tournament can’t be cancelled. An organizer can still correct its results.',
+            'A complete tournament can’t be cancelled. An organizer can still correct its matches.',
         });
       }
       await tx.tournament.delete({ where: { id: tournament.id } });
@@ -207,11 +208,11 @@ export class TournamentsService {
    * TournamentRefusedError if the game score isn't 2–0 or 2–1 for either
    * side.
    */
-  async setResult(
+  async setGameScore(
     draftId: string,
     matchId: string,
     userId: string,
-    games: [number, number],
+    games: GameScore,
   ): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
       await findMatch(tx, tournament.id, matchId);
@@ -233,14 +234,14 @@ export class TournamentsService {
   }
 
   /**
-   * Clears the match `matchId`'s result, as an organizer does. While the
+   * Clears the match `matchId`'s game score, as an organizer does. While the
    * tournament is playing it is unreported again, unless one of its players
-   * has dropped: then it is their forfeit again, as taking back a drop
+   * has dropped: then it is their forfeit again, as reinstating a player
    * leaves a match against a player still dropped. Once the tournament is
    * complete it is a granted draw, as completing it would have made it.
    * Throws NoMatchError if the tournament has no such match.
    */
-  async clearResult(draftId: string, matchId: string): Promise<void> {
+  async clearGameScore(draftId: string, matchId: string): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
       const { dropped } = await findMatch(tx, tournament.id, matchId);
       const forfeitedBy =
@@ -286,7 +287,7 @@ export class TournamentsService {
       });
       if (entries.length < 2) {
         throw new TournamentRefusedError({
-          error: 'too-few-entries',
+          error: 'too-few-players-joined',
           message: 'A tournament needs at least 2 players to start.',
         });
       }
@@ -322,7 +323,7 @@ export class TournamentsService {
     draftId: string,
     matchId: string,
     userId: string,
-    games: [number, number],
+    games: GameScore,
   ): Promise<void> {
     await this.inPlay(draftId, async (tx, tournament) => {
       const match = await tx.match.findFirst({
@@ -415,12 +416,12 @@ export class TournamentsService {
   }
 
   /**
-   * Takes back the drop of the draft's player `userId`: their forfeits
+   * Reinstates the draft's dropped player `userId`: their forfeits
    * become unreported matches again, except against an opponent who has
    * dropped too, whose forfeit they become. Throws TournamentRefusedError if
    * they haven't joined or haven't dropped, or the tournament isn't playing.
    */
-  async undoDrop(draftId: string, userId: string): Promise<void> {
+  async reinstate(draftId: string, userId: string): Promise<void> {
     await this.inPlay(draftId, async (tx, tournament) => {
       const entry = await entryOf(tx, tournament, draftId, userId);
       if (!entry.dropped) {

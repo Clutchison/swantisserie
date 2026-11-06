@@ -12,13 +12,13 @@ import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 
 /** A game score an organizer sets for a match, in its player order. */
-export interface SetResult {
+export interface SetGameScore {
   matchId: string;
   games: [number, number];
 }
 
 /** A match an organizer clears, and how it reads: "Bob vs Carol". */
-export interface ClearResult {
+export interface ClearGameScore {
   matchId: string;
   label: string;
 }
@@ -58,9 +58,9 @@ export class TournamentResults {
   /** Asks for the match with this id to be confirmed by the signed-in player. */
   readonly confirmMatch = output<string>();
   /** Asks for a match's game score to be set, as an organizer reports or corrects it. */
-  readonly setResult = output<SetResult>();
+  readonly setGameScore = output<SetGameScore>();
   /** Asks for a match's result to be cleared, as an organizer does. */
-  readonly clearResult = output<ClearResult>();
+  readonly clearGameScore = output<ClearGameScore>();
 
   /** The match whose result an organizer is choosing, if any; closed whenever the tournament is re-read. */
   protected readonly correcting = linkedSignal<TournamentView, string | undefined>({
@@ -78,7 +78,7 @@ export class TournamentResults {
       ...standing,
       name: this.name(standing.playerId),
       record: `${standing.matches.won}–${standing.matches.lost}–${standing.matches.drawn}`,
-      gameWinPercent: `${Math.round(standing.gameWinRate * 100)}%`,
+      gameWinPercent: `${Math.round(standing.gameWinPercent)}%`,
     })),
   );
 

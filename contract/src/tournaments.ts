@@ -24,13 +24,19 @@ export interface TournamentEntryView {
 }
 
 /**
+ * A match's game score: each player's games won, in the match's player
+ * order, such as [2, 1].
+ */
+export type GameScore = [number, number];
+
+/**
  * How a match stands: unreported, or decided by a game score (each
  * player's games won, in the match's player order, plus drawn games), a
  * granted draw (0–0), or a forfeit by the player who dropped.
  */
 export type MatchOutcomeView =
   | { kind: 'Unreported' }
-  | { kind: 'GameScore'; games: [number, number]; draws: number }
+  | { kind: 'GameScore'; games: GameScore; draws: number }
   | { kind: 'GrantedDraw' }
   | { kind: 'Forfeit'; forfeitedBy: string };
 
@@ -71,8 +77,8 @@ export interface StandingView {
   matchPoints: number;
   matches: TallyView;
   games: TallyView;
-  /** Games won over games played, from 0 to 1; 0 before any game is played. */
-  gameWinRate: number;
+  /** Games won as a percentage of games played, from 0 to 100; 0 before any game is played. */
+  gameWinPercent: number;
 }
 
 /**
@@ -93,11 +99,11 @@ export interface TournamentView {
 }
 
 /**
- * A match's player reporting its game score: each player's games won, in
- * the match's player order. Only 2–0 and 2–1, for either side.
+ * A match's game score as its player reports it, or an organizer corrects
+ * it. Only 2–0 and 2–1, for either side.
  */
 export interface MatchReportRequest {
-  games: [number, number];
+  games: GameScore;
 }
 
 /** Tournament setup, as the organizer chooses it: all at once, never changed. */

@@ -166,8 +166,8 @@ export interface TournamentRefusal {
     | 'already-joined'
     | 'not-joined'
     /** Start needs at least 2 joined players. */
-    | 'too-few-entries'
-    /** Reporting, confirming, dropping and completing happen only while the tournament is playing. */
+    | 'too-few-players-joined'
+    /** Reporting, dropping, reinstating and completing happen only while the tournament is playing. */
     | 'not-playing'
     /** Only a match's own players report or confirm it. */
     | 'not-your-match'
@@ -179,9 +179,9 @@ export interface TournamentRefusal {
     | 'not-reported'
     /** The player who reported a match can't confirm it: its other player does. */
     | 'own-report'
-    /** A complete tournament can't be cancelled, only corrected. */
+    /** A complete tournament can't be cancelled; an organizer can still correct its matches. */
     | 'tournament-complete'
-    /** A dropped player can't drop again; only a drop can be taken back. */
+    /** A dropped player can't drop again, and only a dropped player can be reinstated. */
     | 'already-dropped'
     | 'not-dropped';
   message: string;

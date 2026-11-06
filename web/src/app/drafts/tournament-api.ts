@@ -47,15 +47,15 @@ export class TournamentApi {
   }
 
   /** Sets a match's game score, `games` in its player order, reporting or correcting it; for organizers. */
-  setResult(draftId: string, matchId: string, games: [number, number]): Observable<DraftView> {
-    return this.http.put<DraftView>(`${matchUrl(draftId, matchId)}/result`, {
+  setGameScore(draftId: string, matchId: string, games: [number, number]): Observable<DraftView> {
+    return this.http.put<DraftView>(`${matchUrl(draftId, matchId)}/game-score`, {
       games,
     } satisfies MatchReportRequest);
   }
 
   /** Clears a match's result; for organizers. */
-  clearResult(draftId: string, matchId: string): Observable<DraftView> {
-    return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/result`);
+  clearGameScore(draftId: string, matchId: string): Observable<DraftView> {
+    return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/game-score`);
   }
 
   /** Completes the draft's round robin tournament; for organizers. */
@@ -69,7 +69,7 @@ export class TournamentApi {
   }
 
   /** Takes back a player's drop; for organizers. */
-  undoDrop(draftId: string, playerId: string): Observable<DraftView> {
+  reinstate(draftId: string, playerId: string): Observable<DraftView> {
     return this.http.delete<DraftView>(dropUrl(draftId, playerId));
   }
 

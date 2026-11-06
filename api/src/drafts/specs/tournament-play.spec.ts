@@ -157,7 +157,7 @@ describe('standings', () => {
         matchPoints: 6,
         matches: { won: 2, lost: 0, drawn: 0 },
         games: { won: 4, lost: 1, drawn: 0 },
-        gameWinRate: 0.8,
+        gameWinPercent: 80,
       },
       {
         playerId: bob.id,
@@ -165,7 +165,7 @@ describe('standings', () => {
         matchPoints: 3,
         matches: { won: 1, lost: 1, drawn: 0 },
         games: { won: 2, lost: 2, drawn: 0 },
-        gameWinRate: 0.5,
+        gameWinPercent: 50,
       },
       {
         playerId: alice.id,
@@ -173,7 +173,7 @@ describe('standings', () => {
         matchPoints: 0,
         matches: { won: 0, lost: 2, drawn: 0 },
         games: { won: 1, lost: 4, drawn: 0 },
-        gameWinRate: 0.2,
+        gameWinPercent: 20,
       },
     ]);
   });

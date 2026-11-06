@@ -66,7 +66,7 @@ describe('starting a tournament', () => {
         matchPoints: 0,
         matches: { won: 0, lost: 0, drawn: 0 },
         games: { won: 0, lost: 0, drawn: 0 },
-        gameWinRate: 0,
+        gameWinPercent: 0,
       })),
     );
     expect(view.trophyHolders).toEqual([]);
@@ -105,13 +105,13 @@ describe('starting a tournament', () => {
   it('refuses to start with fewer than two players joined', async () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
     expect((await startTournament(id).expect(409)).body.error).toBe(
-      'too-few-entries',
+      'too-few-players-joined',
     );
 
     await joinTournament(id, bobCookie).expect(201);
 
     expect((await startTournament(id).expect(409)).body.error).toBe(
-      'too-few-entries',
+      'too-few-players-joined',
     );
     expect((await tournamentView(id)).state).toBe('Registration');
   });
