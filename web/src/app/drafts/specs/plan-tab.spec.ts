@@ -1,4 +1,4 @@
-import type { TournamentView } from 'contract';
+import type { ViewerTournamentView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -565,7 +565,7 @@ describe('plan tab as the deck', () => {
     const deck = planOf({ basics: [{ land: 'Mountain', count: 2 }] });
 
     /** Opens the Deck tab of the complete draft with `tournament` set up. */
-    async function openDeck(tournament: TournamentView) {
+    async function openDeck(tournament: ViewerTournamentView) {
       const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
         cards,
         plan: deck,

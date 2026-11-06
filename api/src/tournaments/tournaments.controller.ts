@@ -27,7 +27,7 @@ import {
   type RequestProblem,
   type SwissRoundOption,
   type TournamentSetupRequest,
-  type TournamentView,
+  type ViewerTournamentView,
 } from 'contract';
 import { SWISS_ROUND_CAP } from 'engine';
 import {
@@ -59,14 +59,17 @@ export class TournamentsController {
     private readonly decklists: DecklistsService,
   ) {}
 
-  /** The draft's tournament, for everyone who sees the draft once it exists. */
+  /**
+   * The draft's tournament, for everyone who sees the draft once it exists,
+   * with whether the viewer may join it now.
+   */
   @Get()
   async read(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
-  ): Promise<TournamentView> {
+  ): Promise<ViewerTournamentView> {
     await this.access.canSee(user, id);
-    return this.tournaments.read(id);
+    return this.tournaments.read(id, user.id);
   }
 
   /** Sets up the draft's tournament; for the organizer, once the draft is complete. */

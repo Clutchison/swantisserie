@@ -1,4 +1,4 @@
-import type { DecklistView, TournamentView } from 'contract';
+import type { DecklistView, ViewerTournamentView } from 'contract';
 import {
   accessibleName,
   alice,
@@ -29,7 +29,7 @@ const shock = poolCardOf('shock', 'Shock');
 const spike = poolCardOf('spike', 'Lava Spike');
 
 /** The tournament of Alice, Bob and Carol being played under public decklists. */
-const publicPlaying = (fields: Partial<TournamentView> = {}) =>
+const publicPlaying = (fields: Partial<ViewerTournamentView> = {}) =>
   playing([], { publicDecklists: true, showsDecklists: true, ...fields });
 
 /** Each joined player's decklist, in join order: Alice, Bob, then Carol. */
@@ -56,7 +56,7 @@ const decklists: DecklistView[] = [
 ];
 
 /** Opens the draft of Alice, Bob and Carol with `tournament`, as Dave, who isn't one of its players. */
-const openAsViewer = (tournament: TournamentView) =>
+const openAsViewer = (tournament: ViewerTournamentView) =>
   openComplete(tournament, {
     user: dave,
     cards: [bolt, shock, spike],

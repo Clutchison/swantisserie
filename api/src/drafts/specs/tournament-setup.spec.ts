@@ -56,6 +56,9 @@ describe('tournament setup', () => {
       clearReopensRound: false,
       standings: [],
       trophyHolders: [],
+      // Alice, who reads it, has yet to fill her deck.
+      canJoin: false,
+      joinRefusal: expect.objectContaining({ error: 'deck-too-small' }),
     });
     expect((await getDraft(id).expect(200)).body.tournament).toEqual({
       state: 'Registration',

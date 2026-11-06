@@ -5,7 +5,7 @@ import {
   type CorrectionPreview,
   type TournamentRefusal,
   type TournamentSetupRequest,
-  type TournamentView,
+  type ViewerTournamentView,
 } from 'contract';
 import { MIN_PLAYERS_LEFT, reportProblem, roundRobinSchedule } from 'engine';
 import type {
@@ -25,7 +25,7 @@ import {
   type ChangeSteps,
   type MatchChange,
 } from './change-steps.js';
-import { joinRefusal, WOULD_BE_ENTRANT } from './join-rules.js';
+import { joinRefusal, viewerJoin, WOULD_BE_ENTRANT } from './join-rules.js';
 import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
@@ -79,14 +79,27 @@ export class TournamentsService {
     private readonly lock: DraftLock,
   ) {}
 
-  /** The draft's tournament. Throws NoTournamentError if it has none. */
-  async read(draftId: string): Promise<TournamentView> {
+  /**
+   * The draft's tournament as the user `viewerId` reads it, with whether
+   * they may join it now. Throws NoTournamentError if it has none.
+   */
+  async read(draftId: string, viewerId: string): Promise<ViewerTournamentView> {
     const tournament = await this.prisma.tournament.findUnique({
       where: { draftId },
-      select: TOURNAMENT_VIEW,
+      select: {
+        ...TOURNAMENT_VIEW,
+        draft: {
+          select: {
+            players: { where: { userId: viewerId }, select: WOULD_BE_ENTRANT },
+          },
+        },
+      },
     });
     if (!tournament) throw new NoTournamentError();
-    return toTournamentView(tournament);
+    return {
+      ...toTournamentView(tournament),
+      ...viewerJoin(tournament.state, tournament.draft.players[0]),
+    };
   }
 
   /**

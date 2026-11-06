@@ -22,7 +22,7 @@ import type {
   PoolCardRequest,
   PoolCardView,
   QueueView,
-  TournamentView,
+  ViewerTournamentView,
 } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
@@ -295,16 +295,17 @@ export class DraftStore {
   });
 
   /**
-   * The draft's tournament, read once the draft says it has one, and again
-   * for each version, as every tournament change bumps it.
+   * The draft's tournament as the signed-in viewer reads it, read once the
+   * draft says it has one, and again for each version, as every tournament
+   * change bumps it, and after each change to their deck during registration.
    */
   private readonly hasTournament = computed(() => !!this.draft.value()?.tournament);
-  private readonly tournamentResource = httpResource<TournamentView>(() => {
+  private readonly tournamentResource = httpResource<ViewerTournamentView>(() => {
     this.version();
     return this.hasTournament() ? `/api/drafts/${this.id()}/tournament` : undefined;
   });
   /** The draft's tournament: null until it has loaded, and while there is none. */
-  readonly tournament = keptRead<TournamentView | null>(this.tournamentResource, null);
+  readonly tournament = keptRead<ViewerTournamentView | null>(this.tournamentResource, null);
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
@@ -492,9 +493,15 @@ export class DraftStore {
     this.queueResource.set(queue);
   }
 
-  /** Sends a change to the signed-in player's plan, as `changeQueue` does the queue. */
-  changePlan(request: Observable<PlanView>): Promise<PlanView> {
-    return this.changeOwn(this.planResource, request);
+  /**
+   * Sends a change to the signed-in player's plan, as `changeQueue` does the
+   * queue. During registration the tournament is read again once it is
+   * made, as the deck decides whether its player may join.
+   */
+  async changePlan(request: Observable<PlanView>): Promise<PlanView> {
+    const plan = await this.changeOwn(this.planResource, request);
+    if (this.tournamentState() === 'Registration') this.tournamentResource.reload();
+    return plan;
   }
 
   /**

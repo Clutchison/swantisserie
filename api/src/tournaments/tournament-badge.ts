@@ -1,7 +1,7 @@
 import type { TournamentBadgeView } from 'contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { joinRefusal, WOULD_BE_ENTRANT } from './join-rules.js';
+import { viewerJoin, WOULD_BE_ENTRANT } from './join-rules.js';
 import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
 /**
@@ -31,10 +31,7 @@ export async function readTournamentBadges(
       const [viewer] = row.draft.players;
       const badge: TournamentBadgeView = {
         state: row.state,
-        canJoin:
-          row.state === 'Registration' &&
-          !!viewer &&
-          joinRefusal(viewer) === null,
+        canJoin: viewerJoin(row.state, viewer).canJoin,
         trophyHolders: trophyHolders.get(row.draftId) ?? [],
       };
       return [row.draftId, badge];

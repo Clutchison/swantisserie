@@ -1,3 +1,4 @@
+import type { TournamentRefusal } from './draft-errors.js';
 import type { PlanBoards } from './plan.js';
 
 /** How a tournament pairs its players, chosen once at tournament setup. */
@@ -236,6 +237,21 @@ export interface TournamentView {
    * is left, as when both finalists dropped.
    */
   trophyHolders: string[];
+}
+
+/**
+ * The tournament as the signed-in viewer reads it: everyone's view, with
+ * whether they may join it now, as joining decides (ADR 0003).
+ */
+export interface ViewerTournamentView extends TournamentView {
+  /** Whether the viewer may join now: during registration, one of the draft's players whom joining would let in. */
+  canJoin: boolean;
+  /**
+   * Why joining would refuse the viewer, one of the draft's players,
+   * during registration, such as a deck too small; null when it wouldn't,
+   * outside registration, and for anyone who isn't one of the draft's players.
+   */
+  joinRefusal: TournamentRefusal | null;
 }
 
 /**

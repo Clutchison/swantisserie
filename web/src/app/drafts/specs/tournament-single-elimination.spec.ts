@@ -1,4 +1,4 @@
-import type { CorrectionPreview, CorrectionPreviewRequest, TournamentView } from 'contract';
+import type { CorrectionPreview, CorrectionPreviewRequest, ViewerTournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -29,7 +29,7 @@ import {
 useDraftsApp();
 
 /** Opens the Complete round dialog for an organizer, on `tournament`. */
-async function openCompleteRound(tournament: TournamentView) {
+async function openCompleteRound(tournament: ViewerTournamentView) {
   const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
   button(opened.tab, 'Complete round')!.click();
   await opened.fixture.whenStable();
@@ -201,7 +201,7 @@ describe('the single elimination correction warning', () => {
   };
 
   /** Opens the game score choice of Bob vs Carol, of completed round 1, for an organizer, on `tournament`. */
-  async function openCorrecting(tournament: TournamentView = final) {
+  async function openCorrecting(tournament: ViewerTournamentView = final) {
     const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
     button(opened.tab, 'Correct Bob vs Carol')!.click();
     await opened.fixture.whenStable();
@@ -278,7 +278,11 @@ describe('the single elimination correction warning', () => {
   });
 
   it('warns that a correction has a complete tournament played on, taking the trophy back', async () => {
-    const complete: TournamentView = { ...final, state: 'Complete', trophyHolders: [carol.id] };
+    const complete: ViewerTournamentView = {
+      ...final,
+      state: 'Complete',
+      trophyHolders: [carol.id],
+    };
     const { fixture, choice } = await openCorrecting(complete);
 
     button(choice, 'Bob won 2–0')!.click();

@@ -17,6 +17,8 @@ import {
   setUpTournament,
   signIn,
   start,
+  startTournament,
+  tournament,
   waitForBotPicks,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -133,6 +135,68 @@ describe('joining and leaving', () => {
       'bots-cannot-join',
     );
     expect(await entrants(id)).toEqual([]);
+  });
+});
+
+describe('what the tournament read tells the viewer of joining', () => {
+  /** Whether the tournament read lets the viewer with `cookie` join, and why not. */
+  async function joining(id: string, cookie: string) {
+    const { canJoin, joinRefusal } = (await tournament(id, cookie).expect(200))
+      .body as { canJoin: unknown; joinRefusal: unknown };
+    return { canJoin, joinRefusal };
+  }
+
+  it('offers Join to a player whom joining would let in, and not once they have joined', async () => {
+    const id = await inRegistration();
+
+    expect(await joining(id, bobCookie)).toEqual({
+      canJoin: true,
+      joinRefusal: null,
+    });
+    await joinTournament(id, bobCookie).expect(201);
+    expect(await joining(id, bobCookie)).toMatchObject({
+      canJoin: false,
+      joinRefusal: { error: 'already-joined' },
+    });
+  });
+
+  it('says why a player whose deck is too small can’t join, as joining would', async () => {
+    const id = await completeDraft([aliceCookie, bobCookie]);
+    await setUpTournament(id).expect(201);
+    // One pick and 38 basics: 39.
+    await setBasic(id, 'Mountain', 20, bobCookie).expect(200);
+    await setBasic(id, 'Swamp', 18, bobCookie).expect(200);
+
+    expect(await joining(id, bobCookie)).toEqual({
+      canJoin: false,
+      joinRefusal: {
+        error: 'deck-too-small',
+        message:
+          'Your mainboard holds 39 cards. A tournament deck needs at least 40.',
+      },
+    });
+    await setBasic(id, 'Swamp', 19, bobCookie).expect(200);
+    expect(await joining(id, bobCookie)).toEqual({
+      canJoin: true,
+      joinRefusal: null,
+    });
+  });
+
+  it('offers nothing to someone who isn’t one of the draft’s players, nor once the tournament has started', async () => {
+    const id = await inRegistration();
+    await joinTournament(id, aliceCookie).expect(201);
+    const carolCookie = await signIn(carol);
+
+    expect(await joining(id, carolCookie)).toEqual({
+      canJoin: false,
+      joinRefusal: null,
+    });
+    await joinTournament(id, bobCookie).expect(201);
+    await startTournament(id).expect(200);
+    expect(await joining(id, bobCookie)).toEqual({
+      canJoin: false,
+      joinRefusal: null,
+    });
   });
 });
 

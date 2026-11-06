@@ -159,14 +159,17 @@ export class TournamentTab {
   protected readonly ownId = computed(() => this.store.ownPlayer()?.id);
   /** Whether the signed-in player has joined. */
   protected readonly joined = this.store.joinedTournament;
-  /** Join is offered to the draft's human players during registration; bots never join. */
-  protected readonly offerJoin = computed(
-    () =>
-      this.state() === 'Registration' &&
-      !this.joined() &&
-      !!this.store.ownPlayer() &&
-      !this.store.ownPlayer()?.isBot,
-  );
+  /**
+   * Join is offered where the api says joining would let the viewer in
+   * (ADR 0003): to the draft's human players during registration who
+   * haven't joined, and whose deck is big enough.
+   */
+  protected readonly offerJoin = computed(() => !!this.tournament()?.canJoin);
+  /** Why the viewer can't join for now, said in place of Join: their deck is too small. */
+  protected readonly deckTooSmall = computed(() => {
+    const refusal = this.tournament()?.joinRefusal;
+    return refusal?.error === 'deck-too-small' ? refusal.message : null;
+  });
   protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
   /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(

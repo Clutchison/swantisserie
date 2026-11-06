@@ -28,6 +28,7 @@ import {
   registration,
   withTournament,
 } from './tournament-tab-harness';
+import { cards, openPlan, planOf } from './plan-tab-harness';
 
 useDraftsApp();
 
@@ -133,7 +134,11 @@ describe('tournament tab', () => {
 
   describe('registration', () => {
     it('shows everyone who sees the draft the joined players, a viewer who isn’t a player included, with nothing to join', async () => {
-      const { fixture, page } = await openComplete(registration(bob.id), { user: dave });
+      // The api lets nobody but the draft's players join.
+      const { fixture, page } = await openComplete(
+        { ...registration(bob.id), canJoin: false },
+        { user: dave },
+      );
 
       const tab = await openTournament(fixture, page);
 
@@ -220,6 +225,45 @@ describe('tournament tab', () => {
         ),
       );
       expect(button(panel(page), JOIN_PRIVATE)).toBeDefined();
+    });
+
+    it('says why a player whose deck is too small can’t join, as the api decides, in place of Join', async () => {
+      const { fixture, page } = await openComplete({
+        ...registration(bob.id),
+        canJoin: false,
+        joinRefusal: {
+          error: 'deck-too-small',
+          message: 'Your mainboard holds 23 cards. A tournament deck needs at least 40.',
+        },
+      });
+
+      const tab = await openTournament(fixture, page);
+
+      expect(button(tab, JOIN_PRIVATE)).toBeUndefined();
+      expect(tab.textContent).toContain(
+        'Your mainboard holds 23 cards. A tournament deck needs at least 40.',
+      );
+    });
+
+    it('reads again whether the player can join once they change their deck', async () => {
+      const tooSmall = {
+        ...registration(bob.id),
+        canJoin: false,
+        joinRefusal: {
+          error: 'deck-too-small' as const,
+          message: 'Your mainboard holds 39 cards. A tournament deck needs at least 40.',
+        },
+      };
+      const { fixture, page } = await openComplete(tooSmall, { cards, plan: planOf() });
+      const deck = await openPlan(fixture, page);
+
+      button(deck, 'Move Lightning Bolt to the sideboard')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(planOf());
+      await flushTournament(registration(bob.id));
+      const tab = await openTournament(fixture, page);
+
+      expect(button(tab, JOIN_PRIVATE)).toBeDefined();
+      expect(tab.textContent).not.toContain('A tournament deck needs at least 40.');
     });
 
     it('says when no one has joined', async () => {

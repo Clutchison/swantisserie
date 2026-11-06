@@ -96,6 +96,8 @@
         <button class="button" type="button" (click)="join()" appSendsChange="join">
           {{ tournament.publicDecklists ? 'Join (public decklist)' : 'Join (deck stays private)' }}
         </button>
+      } @else if (deckTooSmall(); as reason) {
+        <p class="detail">{{ reason }}</p>
       }
       @if (offerLeave()) {
         <button

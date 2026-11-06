@@ -13,7 +13,7 @@ import type {
   PlanView,
   PoolCardView,
   PoolSnapshotView,
-  TournamentView,
+  ViewerTournamentView,
   QueuedCardView,
   QueueView,
   TurnView,
@@ -562,7 +562,7 @@ export async function openDraft(
     picks?: PickView[];
     queue?: QueueView;
     plan?: PlanView;
-    tournament?: TournamentView;
+    tournament?: ViewerTournamentView;
     decklists?: DecklistView[];
     user?: typeof alice;
     powers?: DraftPowersView;
