@@ -12,7 +12,7 @@ import type { GameScore, MatchView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { matchLine, seededName, seedsOf } from './match-lines';
+import { matchLine, seededName, seedsOf, versus } from './match-lines';
 import { TournamentBracket } from './tournament-bracket';
 
 /** A game score an organizer sets for a match, in its player order. */
@@ -169,7 +169,7 @@ export class TournamentResults {
    * changes anything.
    */
   private organizerControls(match: MatchView, first: string, second: string) {
-    const label = `${first} vs ${second}`;
+    const label = versus([first, second]);
     const verb = match.outcome.kind === 'Unreported' ? 'Report' : 'Correct';
     const after = this.afterClearing(match);
     return {

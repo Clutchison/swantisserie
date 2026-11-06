@@ -430,7 +430,11 @@ _Avoid_: Running, in progress, live, active
 
 **Complete round**:
 The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament. In Swiss its unreported matches become granted draws, and the organizer chooses whether to drop either player of each, except in the final tournament round. In single elimination the organizer picks the winner of each unreported match, who gets a granted win, or drops one or both of its players, and the players who advance meet in the next round; completing the final completes the tournament. Once fewer than 2 players haven't dropped, or in single elimination fewer than 2 are left in the bracket, it completes the tournament.
-_Avoid_: Advance, next round, close round
+_Avoid_: Advance (as the organizer's action; that is a player's), next round, close round
+
+**Advance**:
+In single elimination, a player going on from a match or bye to the next tournament round: the match's winner, or the player with the bye. Nobody advances from a forfeit both its players dropped from, nor from a dropped player's bye.
+_Avoid_: Progress, move up, go through, qualify
 
 **Complete tournament**:
 A tournament whose last round has been completed, or, in round robin, that the organizer has completed. Its trophies are awarded.
@@ -469,7 +473,7 @@ A player in a match entering its game score. Only the organizer can change a rep
 _Avoid_: Submit, record, enter (alone)
 
 **Correct**:
-An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed. In single elimination, a correction that changes who advances from a match whose tournament round is completed clears every later match it fed, after the organizer accepts a warning listing them: the next is paired again with whoever advances now, and those after it are unpaired until their tournament rounds are paired again.
+An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed. In single elimination, a correction that changes who advances from a match clears every later match it fed: the next is paired again with whoever advances now, and those after it are unpaired until their tournament rounds are paired again.
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:

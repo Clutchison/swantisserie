@@ -1,7 +1,7 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
-import { advancingPlayer, MIN_UNDROPPED_PLAYERS } from 'engine';
+import { advancingPlayer, droppedPlayers, MIN_UNDROPPED_PLAYERS } from 'engine';
 import { DraftStore } from './draft-store';
 
 /** The Complete round dialog's heading's id, which names the dialog. */
@@ -73,12 +73,9 @@ export class CompleteRoundDialog {
    * those who would advance from the round.
    */
   protected readonly tooFewLeft = computed(() => {
-    const chosen = Object.values(this.dropping()).flat();
     const dropped = [
-      ...(this.tournament()?.entries ?? [])
-        .filter((entry) => entry.dropped)
-        .map((entry) => entry.playerId),
-      ...chosen,
+      ...droppedPlayers(this.tournament()?.entries ?? []),
+      ...Object.values(this.dropping()).flat(),
     ];
     if (this.singleElimination()) return this.advancing(dropped) < MIN_UNDROPPED_PLAYERS;
     const undropped = (this.tournament()?.entries ?? []).filter(

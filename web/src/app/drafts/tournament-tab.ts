@@ -34,6 +34,7 @@ import {
   type CorrectionWarning,
 } from './correction-warning-dialog';
 import { DraftStore } from './draft-store';
+import { versus } from './match-lines';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
@@ -180,13 +181,8 @@ export class TournamentTab {
   );
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
-  /**
-   * Whether a correction or clear can clear later matches, so the api
-   * previews it first: in single elimination.
-   */
-  private readonly previewsChanges = computed(
-    () => this.tournament()?.format === 'SingleElimination',
-  );
+  /** Whether a correction or clear can clear later matches, as the read says, so the api previews it first. */
+  private readonly previewsChanges = computed(() => !!this.tournament()?.correctionsPreview);
   /** The Complete round dialog, while it's open. */
   private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
@@ -433,18 +429,20 @@ export class TournamentTab {
   /**
    * Whether the organizer goes ahead with setting the match `matchId`'s
    * game score to `games`, or clearing it when null: asks the api what it
-   * would clear, and if anything, shows the correction warning; else asks
-   * `otherwise`.
+   * would do, and if it clears anything or changes the tournament's state,
+   * shows the correction warning; else asks `askUnwarned`.
    */
   private async goesAhead(
     matchId: string,
     games: GameScore | null,
-    warning: Omit<CorrectionWarning, 'clears'>,
-    otherwise: () => boolean,
+    warning: Omit<CorrectionWarning, 'preview'>,
+    askUnwarned: () => boolean,
   ): Promise<boolean> {
-    const preview = this.api.previewGameScore(this.draft().id, matchId, games);
-    const { clears } = await firstValueFrom(preview);
-    return clears.length === 0 ? otherwise() : this.warned({ ...warning, clears });
+    const preview = await firstValueFrom(
+      this.api.previewGameScore(this.draft().id, matchId, games),
+    );
+    const quiet = preview.clears.length === 0 && preview.state === this.state();
+    return quiet ? askUnwarned() : this.warned({ ...warning, preview });
   }
 
   /** Shows the correction warning, and answers whether the organizer goes ahead. */
@@ -462,7 +460,7 @@ export class TournamentTab {
     const match = this.tournament()
       ?.rounds.flatMap((round) => round.matches)
       .find((m) => m.id === matchId);
-    return (match?.players ?? []).map((id) => this.store.player(id).name).join(' vs ');
+    return versus((match?.players ?? []).map((id) => this.store.player(id).name));
   }
 
   /**

@@ -160,7 +160,7 @@ describe('the bracket of a single elimination tournament', () => {
       await vi.waitFor(() =>
         http.expectOne('/api/drafts/draft-1/tournament/matches/m1/game-score/preview'),
       )
-    ).flush({ clears: [] } satisfies GameScorePreview);
+    ).flush({ clears: [], state: 'Playing' } satisfies GameScorePreview);
     const req = await answerChange(
       fixture,
       '/api/drafts/draft-1/tournament/matches/m1/game-score',

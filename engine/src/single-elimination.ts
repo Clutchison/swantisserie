@@ -110,7 +110,10 @@ function bothDropped(match: DecidedMatch, dropped: readonly string[]) {
   );
 }
 
-/** A match's tournament round and its bracket place in it. */
+/**
+ * A match's tournament round and its bracket place in it. The contract's
+ * RoundAndBracketPlace is the same type.
+ */
 export interface RoundAndBracketPlace {
   round: number;
   bracketPlace: number;
@@ -118,9 +121,9 @@ export interface RoundAndBracketPlace {
 
 /**
  * The later matches of a bracket of `roundCount` tournament rounds that
- * depend on the match at `round` and `bracketPlace`, round by round up to the final: each
- * is fed by the one before, so a change of its winner changes who plays
- * them.
+ * depend on the match at `round` and `bracketPlace`, round by round up to
+ * the final: each is fed by the one before, so a change of who advances
+ * from it changes who plays them.
  */
 export function dependentBracketPlaces(
   { round, bracketPlace }: RoundAndBracketPlace,

@@ -78,6 +78,7 @@ describe('starting a single elimination tournament', () => {
       [alice.id, bob.id, carol.id, dave.id, erin.id].sort(),
     );
     expect(view.roundCount).toBe(3);
+    expect(view.correctionsPreview).toBe(true);
     expect(view.rounds).toHaveLength(1);
     const [round] = view.rounds;
     expect(round.byes).toEqual([seeds[0], seeds[1], seeds[2]]);
@@ -181,14 +182,16 @@ describe('the bracket in the tournament read', () => {
   });
 
   it('moves the winner of a game score an organizer entered on at once', async () => {
-    const id = await playing(5);
+    // Carol, an app admin, organizes without playing.
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, daveCookie, erinCookie],
+      singleElimination,
+    );
     const view = await tournamentView(id);
-    const [match] = view.rounds[0].matches;
-    // Alice and Carol (an app admin) both organize; one of them isn't playing this match.
-    const organizer = match.players.includes(alice.id)
-      ? carolCookie
-      : aliceCookie;
-    await setGameScore(id, match.id, { games: [2, 0] }, organizer).expect(200);
+    const match = view.rounds[0].matches[1];
+    await setGameScore(id, match.id, { games: [2, 0] }, carolCookie).expect(
+      200,
+    );
 
     const entered = await tournamentView(id);
     expect(entered.bracket![0].places[1].winner).toBe(match.players[0]);

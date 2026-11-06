@@ -22,11 +22,13 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import type {
-  MatchChange,
-  RoundSteps,
-  TournamentProgress,
-} from './round-steps.js';
+import { SINGLE_ELIMINATION_CHANGES } from './bracket-changes.js';
+import {
+  DEFAULT_CHANGE_STEPS,
+  type ChangeSteps,
+  type MatchChange,
+} from './change-steps.js';
+import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
 import {
@@ -312,11 +314,12 @@ export class TournamentsService {
       const change = games
         ? correction(games, userId)
         : clearing(tournament, match);
-      const steps = ROUND_STEPS[tournament.format];
-      const clears = steps?.previewChange
-        ? await steps.previewChange(tx, tournament, matchId, change)
-        : [];
-      return { clears };
+      return CHANGE_STEPS[tournament.format].previewChange(
+        tx,
+        tournament,
+        matchId,
+        change,
+      );
     });
   }
 
@@ -491,12 +494,8 @@ export class TournamentsService {
         request,
       });
       await refuseUnreported(tx, tournament.id, round, steps);
-      const stillIn = steps.stillIn
-        ? await steps.stillIn(tx, tournament.id, round)
-        : await tx.tournamentEntry.count({
-            where: { tournamentId: tournament.id, dropped: false },
-          });
-      const completes = finalRound || stillIn < MIN_UNDROPPED_PLAYERS;
+      const left = await steps.playersLeft(tx, tournament.id, round);
+      const completes = finalRound || left < MIN_UNDROPPED_PLAYERS;
       await tx.tournament.update({
         where: { id: tournament.id },
         data: {
@@ -548,22 +547,11 @@ export class TournamentsService {
           message: 'That player hasn’t dropped.',
         });
       }
-      const steps = ROUND_STEPS[tournament.format];
-      if (steps?.refuseReinstate) {
-        await steps.refuseReinstate(tx, tournament, entry.id);
-      } else {
-        const pairedWithout = await currentRoundWithout(
-          tx,
-          tournament.id,
-          entry.id,
-        );
-        if (pairedWithout) {
-          throw new TournamentRefusedError({
-            error: 'paired-since-drop',
-            message: `That player can’t be reinstated: tournament round ${pairedWithout} was paired after they dropped.`,
-          });
-        }
-      }
+      await CHANGE_STEPS[tournament.format].refuseReinstate(
+        tx,
+        tournament,
+        entry.id,
+      );
       await tx.tournamentEntry.update({
         where: { id: entry.id },
         data: { dropped: false },
@@ -669,22 +657,26 @@ const ROUND_STEPS: Partial<Record<TournamentFormat, RoundSteps>> = {
   SingleElimination: SINGLE_ELIMINATION_STEPS,
 };
 
-/**
- * Writes an organizer's `change` to the match `matchId`, through the
- * tournament's format's round steps if they change what depends on it.
- */
-async function changeMatch(
+/** Each format's change steps: single elimination's own, the default's otherwise. */
+const CHANGE_STEPS: Record<TournamentFormat, ChangeSteps> = {
+  RoundRobin: DEFAULT_CHANGE_STEPS,
+  Swiss: DEFAULT_CHANGE_STEPS,
+  SingleElimination: SINGLE_ELIMINATION_CHANGES,
+};
+
+/** Writes an organizer's `change` to the match `matchId`, as the tournament's format's change steps do. */
+function changeMatch(
   tx: Transaction,
   tournament: LockedTournament,
   matchId: string,
   change: MatchChange,
 ) {
-  const steps = ROUND_STEPS[tournament.format];
-  if (steps?.changeMatch) {
-    await steps.changeMatch(tx, tournament, matchId, change);
-  } else {
-    await tx.match.update({ where: { id: matchId }, data: change });
-  }
+  return CHANGE_STEPS[tournament.format].changeMatch(
+    tx,
+    tournament,
+    matchId,
+    change,
+  );
 }
 
 /**
@@ -715,9 +707,9 @@ function clearing(
   tournament: LockedTournament,
   { round, dropped }: { round: number; dropped: boolean[] },
 ): MatchChange {
-  const reopens = !!ROUND_STEPS[tournament.format]?.reopensCleared;
-  const playing = tournament.state === 'Playing' || reopens;
-  const forfeitedBy = !playing
+  const reopens = CHANGE_STEPS[tournament.format].reopensCleared;
+  const forfeitsDropped = tournament.state === 'Playing' || reopens;
+  const forfeitedBy = !forfeitsDropped
     ? null
     : dropped[0]
       ? ('First' as const)
@@ -836,32 +828,4 @@ async function entryOf(
     });
   }
   return entry;
-}
-
-/**
- * The number of the current tournament round, the latest paired, if the
- * entry `entryId` has neither a match nor a bye in it: for a dropped
- * player, a round paired after their drop, which their forfeits or drop
- * fed. Null while they are in the current round, as round robin's players
- * always are.
- */
-async function currentRoundWithout(
-  tx: Transaction,
-  tournamentId: string,
-  entryId: string,
-): Promise<number | null> {
-  const current = await tx.match.aggregate({
-    where: { tournamentId },
-    _max: { round: true },
-  });
-  const round = current._max.round;
-  if (round === null) return null;
-  const seated = await tx.match.count({
-    where: {
-      tournamentId,
-      round,
-      OR: [{ firstEntryId: entryId }, { secondEntryId: entryId }],
-    },
-  });
-  return seated === 0 ? round : null;
 }

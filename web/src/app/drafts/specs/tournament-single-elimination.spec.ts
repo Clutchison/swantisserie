@@ -156,11 +156,14 @@ describe('the single elimination correction warning', () => {
   const PREVIEW = '/api/drafts/draft-1/tournament/matches/m1/game-score/preview';
   const GAME_SCORE = '/api/drafts/draft-1/tournament/matches/m1/game-score';
   /** The final cleared, as correcting round 1 to Bob's win would. */
-  const finalCleared = { clears: [{ round: 2, bracketPlace: 0, players: [alice.id, carol.id] }] };
+  const finalCleared: GameScorePreview = {
+    clears: [{ round: 2, bracketPlace: 0, players: [alice.id, carol.id] }],
+    state: 'Playing',
+  };
 
-  /** Opens the game score choice of Bob vs Carol, of completed round 1, for an organizer. */
-  async function openCorrecting() {
-    const opened = await openPlaying(final, { powers: ORGANIZE_ONLY });
+  /** Opens the game score choice of Bob vs Carol, of completed round 1, for an organizer, on `tournament`. */
+  async function openCorrecting(tournament: TournamentView = final) {
+    const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
     button(opened.tab, 'Correct Bob vs Carol')!.click();
     await opened.fixture.whenStable();
     return { ...opened, choice: group(opened.tab, 'Game score of Bob vs Carol')! };
@@ -211,7 +214,7 @@ describe('the single elimination correction warning', () => {
     const { fixture, choice } = await openCorrecting();
 
     button(choice, 'Carol won 2–0')!.click();
-    await answerPreview(fixture, [0, 2], { clears: [] });
+    await answerPreview(fixture, [0, 2], { clears: [], state: 'Playing' });
     const req = await answerChange(fixture, GAME_SCORE, 'PUT', final, 1, threePlayers);
 
     expect(req.request.body).toEqual({ games: [0, 2] });
@@ -233,5 +236,31 @@ describe('the single elimination correction warning', () => {
     await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
 
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('warns that a correction has a complete tournament played on, taking the trophy back', async () => {
+    const complete: TournamentView = { ...final, state: 'Complete', trophyHolders: [carol.id] };
+    const { fixture, choice } = await openCorrecting(complete);
+
+    button(choice, 'Bob won 2–0')!.click();
+    await answerPreview(fixture, [2, 0], finalCleared);
+    const dialog = await vi.waitFor(() => openDialog()!);
+
+    expect(text(dialog)).toContain(
+      'The tournament plays on, and the trophy is taken back until the final is played again.',
+    );
+  });
+
+  it('warns that a change completes the tournament, even when it clears nothing', async () => {
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Bob won 2–0')!.click();
+    await answerPreview(fixture, [2, 0], { clears: [], state: 'Complete' });
+    const dialog = await vi.waitFor(() => openDialog()!);
+
+    expect(text(dialog)).toContain(
+      'Fewer than 2 players are left in the bracket, so the tournament completes and the trophy is awarded.',
+    );
+    expect(text(dialog)).not.toContain('later matches are cleared');
   });
 });

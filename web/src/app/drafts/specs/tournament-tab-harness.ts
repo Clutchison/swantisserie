@@ -60,6 +60,7 @@ export const registration = (...playerIds: string[]): TournamentView => ({
   bracket: null,
   standings: [],
   trophyHolders: [],
+  correctionsPreview: false,
 });
 
 /** An unreported match `id` between the players `a` and `b`, in that order. */
@@ -128,6 +129,7 @@ export function playing(
     bracket: null,
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
+    correctionsPreview: false,
     ...fields,
   };
 }
@@ -165,6 +167,7 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
       standing(bob.id, 3),
     ],
     trophyHolders: [],
+    correctionsPreview: false,
     ...fields,
   };
 }
@@ -226,6 +229,7 @@ export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): 
     ],
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
+    correctionsPreview: true,
     ...fields,
   };
 }

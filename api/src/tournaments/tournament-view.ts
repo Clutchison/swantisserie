@@ -9,6 +9,7 @@ import {
   advancingPlayer,
   agreedWinnerOf,
   bracketRounds,
+  droppedPlayers,
   roundRobinRoundCount,
   singleEliminationRoundCount,
   singleEliminationStandings,
@@ -17,6 +18,7 @@ import {
   swissStandings,
   trophyHolders,
   type PlayedBracketMatch,
+  type RoundAndBracketPlace,
   type TournamentMatch,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -94,6 +96,12 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   }
 
   const players = row.entries.map((entry) => entry.player.userId);
+  const entries = row.entries.map((entry) => ({
+    playerId: entry.player.userId,
+    dropped: entry.dropped,
+    seed: entry.seed,
+  }));
+  const dropped = droppedPlayers(entries);
   const matches = rounds
     .flatMap((round) => round.matches)
     .map(toTournamentMatch);
@@ -109,9 +117,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
                 .map((entry) => entry.player.userId),
               matches,
               byesOf(rounds),
-              row.entries
-                .filter((entry) => entry.dropped)
-                .map((entry) => entry.player.userId),
+              dropped,
             )
           : standings(players, matches);
   const count = roundCount(row, players.length);
@@ -121,24 +127,14 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     state: row.state,
     roundCount: count,
     lastCompletedRound: row.lastCompletedRound,
-    entries: row.entries.map((entry) => ({
-      playerId: entry.player.userId,
-      dropped: entry.dropped,
-      seed: entry.seed,
-    })),
+    entries,
     rounds,
     bracket:
       row.format === 'SingleElimination' && row.state !== 'Registration'
-        ? toBracket(
-            row,
-            count,
-            sorted,
-            user,
-            row.entries
-              .filter((entry) => entry.dropped)
-              .map((entry) => entry.player.userId),
-          )
+        ? toBracket(row, count, sorted, user, dropped)
         : null,
+    // Only single elimination's matches feed one another.
+    correctionsPreview: row.format === 'SingleElimination',
     standings: table,
     trophyHolders: row.state === 'Complete' ? trophyHolders(table) : [],
   };
@@ -160,7 +156,10 @@ function toBracket(
   dropped: readonly string[],
 ): BracketRoundView[] {
   const played = matches.map((match): PlayedBracketMatch => {
-    const place = { round: match.round, bracketPlace: match.bracketPlace! };
+    const place: RoundAndBracketPlace = {
+      round: match.round,
+      bracketPlace: match.bracketPlace!,
+    };
     if (match.secondEntryId === null) {
       const playerId = user(match.firstEntryId);
       const winner = advancingPlayer(

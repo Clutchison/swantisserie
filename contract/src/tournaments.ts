@@ -188,6 +188,12 @@ export interface TournamentView {
    * and during registration.
    */
   bracket: BracketRoundView[] | null;
+  /**
+   * Whether correcting or clearing a match can clear later matches, as in
+   * single elimination: then an organizer's correction asks the correction
+   * preview first.
+   */
+  correctionsPreview: boolean;
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
   /**
@@ -263,12 +269,23 @@ export interface GameScorePreviewRequest {
 /**
  * What a correction or clear would do beyond its own match: in single
  * elimination, the later matches it would clear because it changes who
- * advances from a match whose tournament round is completed. None in
- * other formats, or when the same player advances.
+ * advances from the match, and whether it completes the tournament or has
+ * it played on. None in other formats, or when the same player advances.
  */
 export interface GameScorePreview {
   /** In tournament round order. */
   clears: ClearedMatchView[];
+  /**
+   * The tournament's state once it is made: Complete when it leaves one
+   * player in the bracket, Playing when it reopens a complete tournament.
+   */
+  state: TournamentState;
+}
+
+/** A tournament round and a bracket place in it. The engine's RoundAndBracketPlace is the same type. */
+export interface RoundAndBracketPlace {
+  round: number;
+  bracketPlace: number;
 }
 
 /**
@@ -276,9 +293,7 @@ export interface GameScorePreview {
  * one the match feeds is paired again with its new winner, unreported, and
  * those after are unpaired until their tournament rounds are paired again.
  */
-export interface ClearedMatchView {
-  round: number;
-  bracketPlace: number;
+export interface ClearedMatchView extends RoundAndBracketPlace {
   /** The Discord user ids of the players it has now: one for a bye. */
   players: string[];
 }

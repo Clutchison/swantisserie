@@ -247,9 +247,8 @@ export class TournamentsController {
    * Completes the tournament's current tournament round, settling its
    * unreported matches as the body lists them: in Swiss, granting draws
    * and dropping players; in single elimination, granting wins or dropping
-   * players. It pairs
-   * the next one, or completes the tournament after the last
-   * or once too few undropped players remain. For the organizer.
+   * players. It pairs the next one, or completes the tournament after the
+   * last or once too few players are left. For the organizer.
    */
   @Post('complete-round')
   @HttpCode(200)

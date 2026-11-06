@@ -42,13 +42,19 @@ const DRAFTED = [
   'Skewer the Critics',
   'Fireblast',
   'Chain Lightning',
+  'Rift Bolt',
+  'Lightning Strike',
+  'Searing Spear',
+  'Fiery Temper',
+  'Play with Fire',
+  'Burst Lightning',
 ];
 
 /**
  * A complete draft, organized by Alice, whose players are the cookies'
- * users in seat order, at most 6: each picks one card, Shock, Lightning
- * Bolt, Lava Spike, Skewer the Critics, Fireblast and Chain Lightning in
- * turn, from a pool of at least the first four. Their decks hold just that
+ * users in seat order, at most 12: each picks one card, Shock, Lightning
+ * Bolt, Lava Spike, Skewer the Critics, Fireblast, Chain Lightning and so
+ * on in turn, from a pool of at least the first four. Their decks hold just that
  * pick, so give them `fullDeck` before they join a tournament.
  */
 export async function completeDraft(cookies: string[]) {

@@ -45,6 +45,9 @@ export const SWISS_STEPS: RoundSteps = {
   settleHint: (unreported) =>
     unreported === 1 ? 'grant it a draw' : 'grant them draws',
   pairNext: pairSwiss,
+  /** The undropped players, as Swiss knocks nobody out. */
+  playersLeft: (tx, tournamentId) =>
+    tx.tournamentEntry.count({ where: { tournamentId, dropped: false } }),
 };
 
 /**

@@ -1,9 +1,5 @@
-import type { ClearedMatchView, CompleteRoundRequest } from 'contract';
-import type {
-  MatchOutcomeKind,
-  MatchSide,
-  TournamentState,
-} from '../generated/prisma/client.js';
+import type { CompleteRoundRequest } from 'contract';
+import type { TournamentState } from '../generated/prisma/client.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 
 /** The tournament round Complete round is completing, and what it was asked. */
@@ -15,7 +11,7 @@ export interface RoundToSettle {
   request: Required<CompleteRoundRequest>;
 }
 
-/** What a format's round steps read of the tournament they change. */
+/** What a format's steps read of the tournament they change. */
 export interface TournamentProgress {
   id: string;
   state: TournamentState;
@@ -23,21 +19,9 @@ export interface TournamentProgress {
 }
 
 /**
- * What an organizer's correction or clear writes to a match: its new
- * outcome, every field only another outcome uses back to its default.
+ * What starting and completing tournament rounds does that depends on the
+ * format, for the formats that play one tournament round at a time.
  */
-export interface MatchChange {
-  outcome: MatchOutcomeKind;
-  firstGames: number;
-  secondGames: number;
-  drawnGames: number;
-  forfeitedBy: MatchSide | null;
-  grantedTo: null;
-  reportedById: string | null;
-  confirmed: false;
-}
-
-/** What starting and completing tournament rounds does that depends on the format. */
 export interface RoundSteps {
   /** Makes tournament round 1 at Start, from `entryIds`, the joined entries in join order. */
   start(
@@ -52,45 +36,13 @@ export interface RoundSteps {
   /** Pairs tournament round `round`, the next. */
   pairNext(tx: Transaction, tournamentId: string, round: number): Promise<void>;
   /**
-   * How many players are still in once tournament round `round` is
+   * How many players are left to play on once tournament round `round` is
    * settled, for Complete round to complete the tournament when fewer than
-   * MIN_UNDROPPED_PLAYERS are. Formats without one count the undropped.
+   * MIN_UNDROPPED_PLAYERS are.
    */
-  stillIn?(
+  playersLeft(
     tx: Transaction,
     tournamentId: string,
     round: number,
   ): Promise<number>;
-  /**
-   * Whether clearing a match of a completed tournament round reopens that
-   * round, the match unreported, rather than making it a granted draw.
-   */
-  reopensCleared?: true;
-  /**
-   * Writes an organizer's `change` to the match `matchId`, and changes
-   * what depends on it. Formats without one write just the match.
-   */
-  changeMatch?(
-    tx: Transaction,
-    tournament: TournamentProgress,
-    matchId: string,
-    change: MatchChange,
-  ): Promise<void>;
-  /** The later matches `changeMatch` would clear for the same change, writing nothing. */
-  previewChange?(
-    tx: Transaction,
-    tournament: TournamentProgress,
-    matchId: string,
-    change: MatchChange,
-  ): Promise<ClearedMatchView[]>;
-  /**
-   * Throws TournamentRefusedError if the dropped entry `entryId` can't be
-   * reinstated as their drop has fed a later pairing. Formats without one
-   * refuse once a tournament round has been paired without them.
-   */
-  refuseReinstate?(
-    tx: Transaction,
-    tournament: TournamentProgress,
-    entryId: string,
-  ): Promise<void>;
 }
