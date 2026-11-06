@@ -27,6 +27,7 @@ import {
 import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
+import { Questions, type Question } from '../question-dialog';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
@@ -84,12 +85,12 @@ function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): st
   return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
 }
 
-/** What Start asks the organizer to confirm, by format. */
-const START_QUESTIONS: Record<TournamentFormat, string> = {
-  RoundRobin: 'Start the tournament? Joining closes, and every match opens.',
-  Swiss: 'Start the tournament? Joining closes, and tournament round 1 is paired at random.',
+/** What starting the tournament does, by format, as Start's question says it. */
+const START_DETAILS: Record<TournamentFormat, string> = {
+  RoundRobin: 'Joining closes, and every match opens.',
+  Swiss: 'Joining closes, and tournament round 1 is paired at random.',
   SingleElimination:
-    'Start the tournament? Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
+    'Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
 };
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
@@ -138,6 +139,7 @@ export class PlayTab {
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
   private readonly dialogs = inject(DialogShell);
+  private readonly questions = inject(Questions);
   private readonly injector = inject(Injector);
 
   private readonly draft = this.store.shown;
@@ -288,49 +290,62 @@ export class PlayTab {
     });
   }
 
-  /** Starts the tournament, once the organizer confirms. */
+  /** Starts the tournament, once the organizer goes ahead. */
   protected start() {
     return this.send(
-      () =>
-        confirm(START_QUESTIONS[this.tournament()?.format ?? 'RoundRobin'])
+      async () =>
+        (await this.ask({
+          question: 'Start the tournament?',
+          detail: START_DETAILS[this.tournament()?.format ?? 'RoundRobin'],
+          action: 'Start',
+        }))
           ? this.api.start(this.draft().id)
           : undefined,
       { failure: "Couldn't start the tournament. Try again in a moment." },
     );
   }
 
-  /** Reports the signed-in player's match at `score`, from their side, once they confirm. */
+  /** Reports the signed-in player's match at `score`, from their side, once they go ahead. */
   protected report(match: MatchView, opponent: string, { own, theirs }: OwnGameScore) {
     const games: GameScore = match.players[0] === this.ownId() ? [own, theirs] : [theirs, own];
     return this.send(
-      () =>
-        confirm(
-          `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}? Only an organizer can change a reported match.`,
-        )
+      async () =>
+        (await this.ask({
+          question: `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}?`,
+          detail: 'Only an organizer can change a reported match.',
+          action: 'Report',
+        }))
           ? this.api.report(this.draft().id, match.id, games)
           : undefined,
       { failure: "Couldn't report the match. Try again in a moment." },
     );
   }
 
-  /** Drops the signed-in player from the tournament, once they confirm. */
+  /** Drops the signed-in player from the tournament, once they go ahead. */
   protected dropSelf() {
     return this.send(
-      () =>
-        confirm(
-          'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
-        )
+      async () =>
+        (await this.ask({
+          question: 'Drop from the tournament?',
+          detail:
+            'Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
+          action: 'Drop',
+        }))
           ? this.api.drop(this.draft().id, this.ownId()!)
           : undefined,
       { failure: "Couldn't drop from the tournament. Try again in a moment." },
     );
   }
 
-  /** Drops the player `playerId`, named `name`, once the organizer confirms. */
+  /** Drops the player `playerId`, named `name`, once the organizer goes ahead. */
   protected drop(playerId: string, name: string) {
     return this.send(
-      () =>
-        confirm(`Drop ${name} from the tournament? Their unplayed matches become forfeits.`)
+      async () =>
+        (await this.ask({
+          question: `Drop ${name} from the tournament?`,
+          detail: 'Their unplayed matches become forfeits.',
+          action: 'Drop',
+        }))
           ? this.api.drop(this.draft().id, playerId)
           : undefined,
       { failure: "Couldn't drop the player. Try again in a moment." },
@@ -344,13 +359,15 @@ export class PlayTab {
     });
   }
 
-  /** Completes the tournament, once the organizer confirms. */
+  /** Completes the tournament, once the organizer goes ahead. */
   protected complete() {
     return this.send(
-      () =>
-        confirm(
-          'Complete the tournament? Its unreported matches become granted draws, and the trophy is awarded.',
-        )
+      async () =>
+        (await this.ask({
+          question: 'Complete the tournament?',
+          detail: 'Its unreported matches become granted draws, and the trophy is awarded.',
+          action: 'Complete tournament',
+        }))
           ? this.api.complete(this.draft().id)
           : undefined,
       { failure: "Couldn't complete the tournament. Try again in a moment." },
@@ -381,16 +398,25 @@ export class PlayTab {
     });
   }
 
-  /** Cancels the tournament, in registration or being played, once the organizer confirms. */
+  /** Cancels the tournament, in registration or being played, once the organizer goes ahead. */
   protected cancel() {
-    const question =
+    const detail =
       this.state() === 'Playing'
-        ? 'Cancel the tournament? Its matches are removed, nothing from it counts, and every deck unlocks.'
-        : 'Cancel the tournament? Everyone who joined is taken out of it, and their decks unlock.';
-    return this.send(() => (confirm(question) ? this.api.cancel(this.draft().id) : undefined), {
-      failure: "Couldn't cancel the tournament. Try again in a moment.",
-      keep: ['set-up'],
-    });
+        ? 'Its matches are removed, nothing from it counts, and every deck unlocks.'
+        : 'Everyone who joined is taken out of it, and their decks unlock.';
+    const question = {
+      question: 'Cancel the tournament?',
+      detail,
+      action: 'Cancel tournament',
+      dismiss: 'Keep tournament',
+    };
+    return this.send(
+      async () => ((await this.ask(question)) ? this.api.cancel(this.draft().id) : undefined),
+      {
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+        keep: ['set-up'],
+      },
+    );
   }
 
   /** Confirms the signed-in player's match `matchId`. */
@@ -410,9 +436,12 @@ export class PlayTab {
     return this.send(
       () =>
         this.previewsCorrections()
-          ? this.goesAhead(matchId, games, { ...warning, action: 'Correct' }, () => true).then(
-              (goAhead) => (goAhead ? correct() : undefined),
-            )
+          ? this.goesAhead(
+              matchId,
+              games,
+              { ...warning, action: 'Correct' },
+              async () => true,
+            ).then((goAhead) => (goAhead ? correct() : undefined))
           : correct(),
       {
         failure: "Couldn't save the match’s game score. Try again in a moment.",
@@ -422,25 +451,24 @@ export class PlayTab {
   }
 
   /**
-   * Clears a match's game score, once the organizer confirms, or goes ahead
-   * with the later matches it clears, if any.
+   * Clears a match's game score, once the organizer goes ahead: with the
+   * later matches it clears, if any, else with clearing it.
    */
   protected clearGameScore({ matchId, label, after }: ClearGameScore) {
     const clear = () => this.api.clearGameScore(this.draft().id, matchId);
-    const question = `Clear the game score of ${label}?`;
-    const confirmed = () => confirm(`${question} ${after}`);
+    const question = {
+      question: `Clear the game score of ${label}?`,
+      detail: after,
+      action: 'Clear',
+    };
+    const asked = () => this.ask(question);
     return this.send(
-      () =>
-        this.previewsCorrections()
-          ? this.goesAhead(
-              matchId,
-              null,
-              { question, detail: after, action: 'Clear' },
-              confirmed,
-            ).then((goAhead) => (goAhead ? clear() : undefined))
-          : confirmed()
-            ? clear()
-            : undefined,
+      async () =>
+        (await (this.previewsCorrections()
+          ? this.goesAhead(matchId, null, question, asked)
+          : asked()))
+          ? clear()
+          : undefined,
       {
         failure: "Couldn't clear the match’s game score. Try again in a moment.",
         keep: [`correct ${matchId}`],
@@ -458,13 +486,18 @@ export class PlayTab {
     matchId: string,
     games: GameScore | null,
     warning: Omit<CorrectionWarning, 'preview'>,
-    askUnwarned: () => boolean,
+    askUnwarned: () => Promise<boolean>,
   ): Promise<boolean> {
     const preview = await firstValueFrom(
       this.api.previewCorrection(this.draft().id, matchId, games),
     );
     const quiet = preview.clears.length === 0 && preview.state === this.state();
     return quiet ? askUnwarned() : this.warned({ ...warning, preview });
+  }
+
+  /** Asks `question` in the question dialog, and answers whether the viewer goes ahead. */
+  private ask(question: Question) {
+    return this.questions.ask(question, this.injector);
   }
 
   /** Shows the correction warning, and answers whether the organizer goes ahead. */

@@ -1,4 +1,15 @@
-import { ORGANIZE_ONLY, alice, bob, button, items, panel, region, useDraftsApp } from './harness';
+import { answer, question } from '../../specs-harness';
+import {
+  ORGANIZE_ONLY,
+  alice,
+  bob,
+  button,
+  http,
+  items,
+  panel,
+  region,
+  useDraftsApp,
+} from './harness';
 import {
   answerChange,
   carol,
@@ -35,14 +46,15 @@ describe('drops on the Play tab', () => {
     ]);
   });
 
-  it('lets a player drop from the tournament once they confirm', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('lets a player drop from the tournament once they go ahead', async () => {
     const { fixture, page, tab } = await openPlaying(playing());
 
     button(tab, 'Drop from tournament')!.click();
-    expect(confirm).toHaveBeenCalledWith(
-      'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
+    const dialog = await question('Drop from the tournament?');
+    expect(dialog.textContent).toContain(
+      'Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
     );
+    await answer(dialog, 'Drop');
     await answerChange(
       fixture,
       `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
@@ -63,12 +75,14 @@ describe('drops on the Play tab', () => {
     expect(region(panel(page), 'Your match')).toBeNull();
   });
 
-  it('sends nothing when the player doesn’t confirm', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('sends nothing when the player thinks better of dropping', async () => {
     const { fixture, tab } = await openPlaying(playing());
 
     button(tab, 'Drop from tournament')!.click();
+    await answer(await question('Drop from the tournament?'), 'Cancel');
     await fixture.whenStable();
+
+    http.expectNone(`/api/drafts/draft-1/tournament/entries/${alice.id}/drop`);
 
     expect(button(tab, 'Drop from tournament')).toBeDefined();
   });
@@ -87,14 +101,13 @@ describe('drops on the Play tab', () => {
     expect(button(tab, 'Drop from tournament')).toBeUndefined();
   });
 
-  it('lets an organizer drop a player once they confirm', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('lets an organizer drop a player once they go ahead', async () => {
     const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Drop Bob')!.click();
-    expect(confirm).toHaveBeenCalledWith(
-      'Drop Bob from the tournament? Their unplayed matches become forfeits.',
-    );
+    const dialog = await question('Drop Bob from the tournament?');
+    expect(dialog.textContent).toContain('Their unplayed matches become forfeits.');
+    await answer(dialog, 'Drop');
     await answerChange(
       fixture,
       `/api/drafts/draft-1/tournament/entries/${bob.id}/drop`,
@@ -106,6 +119,17 @@ describe('drops on the Play tab', () => {
 
     expect(playerLines(panel(page))).toContain('Bob · Dropped');
     expect(button(panel(page), 'Reinstate Bob')).toBeDefined();
+  });
+
+  it('keeps a player the organizer thinks better of dropping', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Drop Bob')!.click();
+    await answer(await question('Drop Bob from the tournament?'), 'Cancel');
+    await fixture.whenStable();
+
+    http.expectNone(`/api/drafts/draft-1/tournament/entries/${bob.id}/drop`);
+    expect(button(tab, 'Drop Bob')).toBeDefined();
   });
 
   it('lets an organizer reinstate a dropped player', async () => {

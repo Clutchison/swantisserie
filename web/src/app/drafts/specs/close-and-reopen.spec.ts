@@ -1,3 +1,4 @@
+import { answer, question } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -31,15 +32,16 @@ describe('close and reopen', () => {
   const closed = { ...underway, state: 'Closed' as const, turn: null };
   const banner = 'This draft is closed. No picks until it reopens.';
 
-  it('closes a drafting draft once the organizer confirms, showing the progress', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('closes a drafting draft once the organizer goes ahead, showing the progress', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, underway);
 
     button(page, 'Close draft')!.click();
 
-    expect(confirm).toHaveBeenCalledWith(
-      'Close Red dragons? 37 of 90 picks made. The picks stand as made, and the draft is read-only until it is reopened.',
+    const dialog = await question('Close Red dragons?');
+    expect(dialog.textContent).toContain(
+      '37 of 90 picks made. The picks stand as made, and the draft is read-only until it is reopened.',
     );
+    await answer(dialog, 'Close draft');
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'));
     expect(req.request.method).toBe('POST');
     req.flush(draft({ ...closed, version: 1 }));
@@ -65,25 +67,27 @@ describe('close and reopen', () => {
     expect(button(page, 'Reopen draft')).toBeUndefined();
   });
 
-  it('keeps a draft the organizer did not confirm closing', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(completeSnapshot, underway);
+  it('keeps a draft the organizer thinks better of closing', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, underway);
 
     button(page, 'Close draft')!.click();
+    await answer(await question('Close Red dragons?'), 'Cancel');
+    await fixture.whenStable();
 
     http.expectNone('/api/drafts/draft-1/close');
     expect(page.textContent).not.toContain(banner);
   });
 
-  it('reopens a closed draft once the organizer confirms', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('reopens a closed draft once the organizer goes ahead', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, closed);
 
     button(page, 'Reopen draft')!.click();
 
-    expect(confirm).toHaveBeenCalledWith(
-      'Reopen Red dragons? The turn comes back, and queued picks are made straight away.',
+    const dialog = await question('Reopen Red dragons?');
+    expect(dialog.textContent).toContain(
+      'The turn comes back, and queued picks are made straight away.',
     );
+    await answer(dialog, 'Reopen draft');
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/reopen'));
     expect(req.request.method).toBe('POST');
     req.flush(draft({ ...underway, version: 1 }));
@@ -95,20 +99,21 @@ describe('close and reopen', () => {
     expect(button(page, 'Pause draft')).toBeDefined();
   });
 
-  it('keeps a draft the organizer did not confirm reopening', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(completeSnapshot, closed);
+  it('keeps a draft the organizer thinks better of reopening', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, closed);
 
     button(page, 'Reopen draft')!.click();
+    await answer(await question('Reopen Red dragons?'), 'Cancel');
+    await fixture.whenStable();
 
     http.expectNone('/api/drafts/draft-1/reopen');
   });
 
   it('says why a close was refused, and catches up with the draft', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { fixture, page } = await openDraft(completeSnapshot, underway);
 
     button(page, 'Close draft')!.click();
+    await answer(await question('Close Red dragons?'), 'Close draft');
     const message = 'Only a drafting or paused draft can be closed.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'))).flush(
       { error: 'not-closable', message } satisfies CloseRefusal,

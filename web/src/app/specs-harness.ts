@@ -148,6 +148,29 @@ export const button = (root: HTMLElement, label: string) => buttons(root, label)
 /** The dialog open over the page, if any: it shows outside the page, so this looks in the whole document. */
 export const openDialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
 
+/**
+ * The open dialog that asks `question`, once it shows: one named by the
+ * heading that asks it, as a question dialog is. Fails if none shows.
+ */
+export const question = (asked: string) =>
+  vi.waitFor(() => {
+    const dialog = openDialog();
+    const heading = document.getElementById(dialog?.getAttribute('aria-labelledby') ?? '');
+    if (!dialog || heading?.textContent?.trim() !== asked) {
+      throw new Error(`No dialog asks "${asked}"`);
+    }
+    return dialog;
+  });
+
+/** Answers the open question dialog by its button `label`, and waits for it to close. */
+export async function answer(dialog: HTMLElement, label: string) {
+  button(dialog, label)!.click();
+  TestBed.tick();
+  await vi.waitFor(() => {
+    if (openDialog()) throw new Error('The dialog is still open');
+  });
+}
+
 /** The backdrop behind the open dialog, which a click outside the dialog lands on. */
 export const dialogBackdrop = () =>
   openDialog()!.closest('.cdk-overlay-pane')!.parentElement!.previousElementSibling as HTMLElement;
