@@ -244,6 +244,17 @@ describe('cancelling a tournament being played', () => {
     expect(button(panel(page), 'Set up tournament')).toBeDefined();
   });
 
+  it('keeps it playing when the organizer thinks better of cancelling', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Cancel tournament')!.click();
+    await answer(await question('Cancel the tournament?'), 'Keep tournament');
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/tournament');
+    expect(button(tab, 'Cancel tournament')).toBeDefined();
+  });
+
   it('isn’t offered once the tournament is complete', async () => {
     const { tab } = await openPlaying(playing([], { state: 'Complete' }), {
       powers: ORGANIZE_ONLY,

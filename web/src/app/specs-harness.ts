@@ -152,12 +152,12 @@ export const openDialog = () => document.querySelector<HTMLElement>('[role="dial
  * The open dialog that asks `question`, once it shows: one named by the
  * heading that asks it, as a question dialog is. Fails if none shows.
  */
-export const question = (question: string) =>
+export const question = (asked: string) =>
   vi.waitFor(() => {
     const dialog = openDialog();
     const heading = document.getElementById(dialog?.getAttribute('aria-labelledby') ?? '');
-    if (!dialog || heading?.textContent?.trim() !== question) {
-      throw new Error(`No dialog asks "${question}"`);
+    if (!dialog || heading?.textContent?.trim() !== asked) {
+      throw new Error(`No dialog asks "${asked}"`);
     }
     return dialog;
   });

@@ -85,7 +85,7 @@ function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): st
   return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
 }
 
-/** What Start asks the organizer to confirm, by format. */
+/** What starting the tournament does, by format, as Start's question says it. */
 const START_DETAILS: Record<TournamentFormat, string> = {
   RoundRobin: 'Joining closes, and every match opens.',
   Swiss: 'Joining closes, and tournament round 1 is paired at random.',

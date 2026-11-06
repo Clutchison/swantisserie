@@ -59,7 +59,7 @@ export class Questions {
    * Asks `question`, and answers whether the viewer goes ahead. Made from
    * `injector`, the asker's own, it closes unanswered if the asker goes.
    */
-  async ask(question: Question, injector?: Injector): Promise<boolean> {
+  async ask(question: Question, injector: Injector): Promise<boolean> {
     const ref = this.dialogs.open<QuestionDialog, boolean>(QuestionDialog, {
       labelledBy: QUESTION_HEADING,
       injector,

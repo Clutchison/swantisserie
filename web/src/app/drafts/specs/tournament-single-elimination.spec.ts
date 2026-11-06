@@ -339,6 +339,9 @@ describe('the single elimination correction warning', () => {
     expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
     button(dialog, 'Clear')!.click();
     await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
+
+    // The warning asked already: no question follows it.
+    expect(openDialog()).toBeNull();
   });
 
   it('warns that a correction has a complete tournament played on, taking the trophy back', async () => {

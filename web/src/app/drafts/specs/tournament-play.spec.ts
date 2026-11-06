@@ -55,7 +55,7 @@ describe('Play tab while the tournament is played', () => {
       await vi.waitFor(() => expect(panelName(page)).toBe('Deck'));
     });
 
-    it('reports a match you won, once you confirm, then moves on to your next match', async () => {
+    it('reports a match you won, once you go ahead, then moves on to your next match', async () => {
       const { fixture, page, tab } = await openPlaying(playing());
 
       button(region(tab, 'Your match')!, 'Won 2–1')!.click();
