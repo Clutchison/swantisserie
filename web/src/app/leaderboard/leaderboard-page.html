@@ -6,7 +6,7 @@
   } @else if (leaderboard.isLoading() && !leaderboard.hasValue()) {
     <p>Loading…</p>
   } @else if (leaderboard.hasValue()) {
-    @if (players().length === 0) {
+    @if (leaderboard.value().length === 0) {
       <p class="empty">Nobody has played a tournament match yet.</p>
     } @else {
       <p class="hint">Select a player to see their head-to-head records.</p>
@@ -22,22 +22,22 @@
             </tr>
           </thead>
           <tbody>
-            @for (player of players(); track player.id) {
+            @for (player of leaderboard.value(); track player.playerId) {
               <tr>
                 <th scope="row">
                   <button
                     class="player"
                     type="button"
-                    [attr.aria-pressed]="selectedId() === player.id"
-                    (click)="toggle(player.id)"
+                    [attr.aria-pressed]="selectedId() === player.playerId"
+                    (click)="toggle(player.playerId)"
                   >
                     {{ player.name }}
                   </button>
                 </th>
                 <td>{{ player.trophies }}</td>
                 <td>{{ player.tournamentsPlayed }}</td>
-                <td>{{ player.matches }}</td>
-                <td>{{ player.games }}</td>
+                <td>{{ record(player.matches) }}</td>
+                <td>{{ record(player.games) }}</td>
               </tr>
             }
           </tbody>
@@ -56,11 +56,11 @@
               </tr>
             </thead>
             <tbody>
-              @for (opponent of selected.opponents; track opponent.id) {
+              @for (opponent of selected.opponents; track opponent.playerId) {
                 <tr>
-                  <th scope="row">{{ opponent.name }}</th>
-                  <td>{{ opponent.matches }}</td>
-                  <td>{{ opponent.games }}</td>
+                  <th scope="row">{{ nameOf().get(opponent.playerId) }}</th>
+                  <td>{{ record(opponent.matches) }}</td>
+                  <td>{{ record(opponent.games) }}</td>
                 </tr>
               }
             </tbody>

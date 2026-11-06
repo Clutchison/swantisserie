@@ -164,3 +164,21 @@ export function clickBackdrop() {
 /** Whether `element` is hidden from assistive technology, as the page behind an open dialog is. */
 export const hiddenFromAssistiveTech = (element: Element) =>
   element.closest('[aria-hidden="true"]') !== null;
+
+/** A table inside `root`, by its accessible name (its aria-label); null if there is none. */
+export const table = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('table, [role="table"]')].find(
+    (element) => element.getAttribute('aria-label') === name,
+  ) ?? null;
+
+/** The row headers and cells of a row, by role: column headers left out. */
+const CELLS = 'td, th[scope="row"], [role="cell"], [role="rowheader"]';
+
+/**
+ * The text of each cell of each row of `table` that has cells, row
+ * headers included: its header row left out.
+ */
+export const tableRows = (table: HTMLElement) =>
+  [...table.querySelectorAll('tr, [role="row"]')]
+    .map((row) => [...row.querySelectorAll(CELLS)].map((cell) => cell.textContent?.trim()))
+    .filter((cells) => cells.length > 0);

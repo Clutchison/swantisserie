@@ -1,4 +1,10 @@
-import type { Tally, TournamentMatch } from './tournament.js';
+import {
+  addGames,
+  emptyTally,
+  resultFor,
+  type Tally,
+  type TournamentMatch,
+} from './tournament.js';
 
 /** A complete tournament as the leaderboard reads it. */
 export interface LeaderboardTournament {
@@ -28,8 +34,6 @@ export interface LeaderboardPlayer {
   opponents: HeadToHeadRecord[];
 }
 
-const noTally = (): Tally => ({ won: 0, lost: 0, drawn: 0 });
-
 /**
  * The leaderboard of complete `tournaments`: each player with a played
  * match, by trophies, then matches won, players still level keeping the
@@ -49,8 +53,8 @@ export function leaderboard(
         playerId,
         trophies: 0,
         tournamentsPlayed: 0,
-        matches: noTally(),
-        games: noTally(),
+        matches: emptyTally(),
+        games: emptyTally(),
         opponents: [],
       };
       entries.set(playerId, entry);
@@ -66,6 +70,7 @@ export function leaderboard(
       entryOf(playerId).trophies++;
     for (const { players, outcome } of tournament.matches) {
       if (outcome?.kind !== 'GameScore') continue;
+      const match = { players, outcome };
       for (const side of [0, 1]) {
         const entry = entryOf(players[side]);
         const opponentId = players[1 - side];
@@ -73,19 +78,15 @@ export function leaderboard(
         if (!opponent) {
           opponent = {
             playerId: opponentId,
-            matches: noTally(),
-            games: noTally(),
+            matches: emptyTally(),
+            games: emptyTally(),
           };
           entry.opponents.push(opponent);
         }
-        const own = outcome.games[side];
-        const theirs = outcome.games[1 - side];
-        const result = own > theirs ? 'won' : own < theirs ? 'lost' : 'drawn';
+        const result = resultFor(match, side);
         for (const record of [entry, opponent]) {
           record.matches[result]++;
-          record.games.won += own;
-          record.games.lost += theirs;
-          record.games.drawn += outcome.draws;
+          addGames(record.games, outcome, side);
         }
         played.add(entry.playerId);
       }

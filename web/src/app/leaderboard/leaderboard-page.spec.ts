@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import type { LeaderboardView } from 'contract';
-import { alice, button, http, openApp, router, useApp } from '../specs-harness';
+import { alice, button, http, openApp, router, table, tableRows, useApp } from '../specs-harness';
+import { banner, heading, text } from '../drafts/specs/harness';
 import { link } from '../feedback/specs-harness';
 
 const tally = (won: number, lost: number, drawn = 0) => ({ won, lost, drawn });
@@ -57,13 +58,10 @@ describe('the leaderboard page', () => {
     return opened.page;
   }
 
-  /** The cells of each body row of the table named `name`, as text. */
+  /** The text of each row of the table named `name`, its header row left out; null if there is none. */
   function rows(page: HTMLElement, name: string) {
-    const table = page.querySelector(`table[aria-label="${name}"]`);
-    if (!table) return null;
-    return [...table.querySelectorAll('tbody tr')].map((row) =>
-      [...row.querySelectorAll('th, td')].map((cell) => cell.textContent?.trim()),
-    );
+    const found = table(page, name);
+    return found && tableRows(found);
   }
 
   it('is linked from the top bar', async () => {
@@ -71,13 +69,13 @@ describe('the leaderboard page', () => {
     for (const req of http.match('/api/drafts')) req.flush([]);
     await fixture.whenStable();
 
-    link(page.querySelector('header')!, 'Leaderboard')!.click();
+    link(banner(page)!, 'Leaderboard')!.click();
     (await vi.waitFor(() => http.expectOne('/api/leaderboard'))).flush(BOARD);
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(router.url).toBe('/leaderboard'));
     TestBed.tick();
-    expect(page.querySelector('h1')?.textContent).toBe('Leaderboard');
+    expect(heading(page, 'Leaderboard')).toBeDefined();
   });
 
   it('ranks each player with their trophies, tournaments played and match and game records', async () => {
@@ -98,6 +96,7 @@ describe('the leaderboard page', () => {
     TestBed.tick();
 
     expect(button(page, 'Bob').getAttribute('aria-pressed')).toBe('true');
+    expect(heading(page, 'Bob’s head-to-head records')).toBeDefined();
     expect(button(page, 'Alice').getAttribute('aria-pressed')).toBe('false');
     expect(rows(page, 'Head-to-head records of Bob')).toEqual([
       ['Alice', '1–3–0', '3–6–1'],
@@ -129,17 +128,13 @@ describe('the leaderboard page', () => {
   it('says so before anyone has played a match', async () => {
     const page = await openLeaderboard([]);
 
-    expect(page.querySelector('main')?.textContent).toContain(
-      'Nobody has played a tournament match yet.',
-    );
+    expect(text(page)).toContain('Nobody has played a tournament match yet.');
     expect(rows(page, 'Leaderboard')).toBeNull();
   });
 
   it('says so when the leaderboard can’t be loaded', async () => {
     const page = await openLeaderboard('fails');
 
-    expect(page.querySelector('main')?.textContent).toContain(
-      "Couldn't load the leaderboard. Try reloading the page.",
-    );
+    expect(text(page)).toContain("Couldn't load the leaderboard. Try reloading the page.");
   });
 });

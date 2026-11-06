@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
+import { record } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { matchLine, seededName, seedsOf, versus } from './match-lines';
@@ -81,7 +82,7 @@ export class TournamentResults {
     this.tournament().standings.map((standing) => ({
       ...standing,
       name: this.name(standing.playerId),
-      record: `${standing.matches.won}–${standing.matches.lost}–${standing.matches.drawn}`,
+      record: record(standing.matches),
       gameWinPercent: percent(standing.gameWinPercent),
       opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent),
       opponentsGameWinPercent: percent(standing.opponentsGameWinPercent),

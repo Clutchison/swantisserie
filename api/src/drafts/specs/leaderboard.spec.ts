@@ -1,4 +1,4 @@
-import type { LeaderboardView } from 'contract';
+import type { CompleteRoundRequest, LeaderboardView } from 'contract';
 import request from 'supertest';
 import {
   addBot,
@@ -20,6 +20,7 @@ import {
   poolCardIds,
   readyDraft,
   reportWin,
+  seedsOf,
   setUpTournament,
   setWin,
   signIn,
@@ -142,7 +143,7 @@ describe('the leaderboard', () => {
     expect(bobs.opponents).toHaveLength(2);
   });
 
-  it('leaves forfeits, granted draws and byes out of records, and players with no played match off it', async () => {
+  it('leaves forfeits and granted draws out of records, and players with no played match off it', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 1], aliceCookie);
     // Bob's match with Carol becomes a forfeit; Alice's becomes a granted draw.
@@ -173,6 +174,49 @@ describe('the leaderboard', () => {
         ],
       },
     ]);
+  });
+
+  it('leaves granted wins and byes out of records', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie],
+      singleElimination,
+    );
+    const before = await tournamentView(id);
+    const [top, second, third] = seedsOf(before);
+    const [match] = before.rounds[0].matches;
+    expect(before.rounds[0].byes).toEqual([top]);
+    await completeRound(id, aliceCookie, {
+      grantedWins: [{ matchId: match.id, winner: second }],
+    } satisfies CompleteRoundRequest).expect(200);
+    await setWin(id, [top, second], [2, 1]);
+    await completeRound(id).expect(200);
+    const view = await tournamentView(id);
+    expect(view.state).toBe('Complete');
+    // The tournament's own standings count the bye as a won match.
+    expect(
+      view.standings.find((standing) => standing.playerId === top)?.matches,
+    ).toEqual(tally(2, 0));
+
+    const board = await leaderboard();
+
+    expect(board).toEqual([
+      expect.objectContaining({
+        playerId: top,
+        trophies: 1,
+        matches: tally(1, 0),
+        games: tally(2, 1),
+      }),
+      expect.objectContaining({
+        playerId: second,
+        trophies: 0,
+        matches: tally(0, 1),
+        games: tally(1, 2),
+        opponents: [
+          { playerId: top, matches: tally(0, 1), games: tally(1, 2) },
+        ],
+      }),
+    ]);
+    expect(board.map((player) => player.playerId)).not.toContain(third);
   });
 
   it('leaves out tournaments still in registration or playing, and cancelled ones', async () => {
