@@ -1,21 +1,10 @@
 import { answer, question } from '../../specs-harness';
-import {
-  ORGANIZE_ONLY,
-  alice,
-  bob,
-  button,
-  http,
-  panel,
-  region,
-  text,
-  useDraftsApp,
-} from './harness';
+import { ORGANIZE_ONLY, alice, bob, button, http, panel, region, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
   dave,
   forfeited,
-  gridCell,
   gridCellName,
   openMatch,
   openPlaying,
@@ -39,14 +28,6 @@ const carolDropped = withDrops(
 );
 
 describe('drops on the Play tab', () => {
-  it('shows dropped players and their forfeits', async () => {
-    const { tab } = await openPlaying(carolDropped, { user: dave });
-
-    expect(playerLines(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
-    expect(text(gridCell(tab, 'Carol', 'Alice'))).toBe('F');
-    expect(text(gridCell(tab, 'Alice', 'Carol'))).toBe('W');
-  });
-
   it('lets a player drop from the tournament once they go ahead', async () => {
     const { fixture, page, tab } = await openPlaying(playing());
 

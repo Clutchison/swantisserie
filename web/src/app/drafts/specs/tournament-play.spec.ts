@@ -38,6 +38,7 @@ import {
   resultsGrid,
   roundLabels,
   standing,
+  swissPlaying,
   threePlayers,
   withDrops,
   withTournament,
@@ -54,6 +55,9 @@ describe('Play tab while the tournament is played', () => {
       );
 
       expect(yourMatches(tab)).toEqual(['vs Carol', 'vs Bob · Won 2–1']);
+      // Confirm is for the opponent of a match that is reported, not its reporter.
+      expect(button(tab, 'Confirm your match against Bob')).toBeUndefined();
+      expect(button(tab, 'Confirm your match against Carol')).toBeUndefined();
       expect(text(tab)).not.toContain('Tournament round');
       expect(text(tab)).not.toContain('bye');
 
@@ -182,6 +186,47 @@ describe('Play tab while the tournament is played', () => {
 
       expect(region(tab, 'Your matches')).toBeNull();
       expect(region(tab, 'Your match')).toBeNull();
+    });
+
+    describe('confirming a match', () => {
+      /** Bob reporting that he beat Alice 2–1 in match m2. */
+      const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+
+      it('lets the opponent confirm once the tournament is complete', async () => {
+        const completeWith = (m2: ReturnType<typeof openMatch>) =>
+          playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
+        const { fixture, tab } = await openPlaying(completeWith(bobBeatAlice));
+
+        button(tab, 'Confirm your match against Bob')!.click();
+        await answerChange(
+          fixture,
+          '/api/drafts/draft-1/tournament/matches/m2/confirm',
+          'POST',
+          completeWith({ ...bobBeatAlice, confirmed: true }),
+          1,
+          threePlayers,
+        );
+
+        expect(yourMatches(tab)).toContain('vs Bob · Lost 1–2 · Confirmed');
+        expect(text(gridCell(tab, 'Bob', 'Alice'))).toBe('2–1');
+      });
+
+      it('isn’t offered to viewers who aren’t the match’s players', async () => {
+        const { tab } = await openPlaying(playing([bobBeatAlice]), { user: dave });
+
+        expect(text(tab)).not.toContain('Confirm');
+      });
+
+      it('is offered from the list of matches in Swiss', async () => {
+        const m2 = reported(openMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+        const { tab } = await openPlaying(
+          swissPlaying({
+            rounds: [swissPlaying().rounds[0], { round: 2, matches: [m2], byes: [bob.id] }],
+          }),
+        );
+
+        expect(button(tab, 'Confirm your match against Carol')).toBeDefined();
+      });
     });
   });
 

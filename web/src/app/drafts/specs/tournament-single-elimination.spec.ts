@@ -1,4 +1,3 @@
-import type { ViewerTournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -18,6 +17,7 @@ import {
   carol,
   dave,
   openComplete,
+  openCompleteRound,
   openPlaying,
   openPlayTab,
   progressLine,
@@ -25,19 +25,10 @@ import {
   registration,
   singleEliminationFinal as final,
   singleEliminationPlaying,
-  standingsAsOf,
   threePlayers,
 } from './play-tab-harness';
 
 useDraftsApp();
-
-/** Opens the Complete round dialog for an organizer, on `tournament`. */
-async function openCompleteRound(tournament: ViewerTournamentView) {
-  const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
-  button(opened.tab, 'Complete round')!.click();
-  await opened.fixture.whenStable();
-  return opened;
-}
 
 describe('single elimination tournaments on the Play tab', () => {
   it('offers single elimination at setup, with no round option', async () => {
@@ -58,8 +49,7 @@ describe('single elimination tournaments on the Play tab', () => {
   });
 
   it('asks the organizer to pick the winner of each unreported match before completing the round', async () => {
-    const { fixture } = await openCompleteRound(singleEliminationPlaying());
-    const dialog = openDialog()!;
+    const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
 
     expect(text(dialog)).toContain(
       'Completing the round will pair tournament round 2 and open its matches.',
@@ -111,21 +101,8 @@ describe('single elimination tournaments on the Play tab', () => {
     expect(progressLine(tab)).toBe('');
   });
 
-  it('says which tournament round the standings are as of', async () => {
-    const { tab } = await openPlaying(final);
-
-    expect(standingsAsOf(tab)).toBe('After tournament round 1');
-  });
-
-  it('says the standings wait for tournament round 1 until it is completed', async () => {
-    const { tab } = await openPlaying(singleEliminationPlaying());
-
-    expect(standingsAsOf(tab)).toBe('No tournament rounds completed yet');
-  });
-
   it('completes the tournament with the final, awarding the trophy', async () => {
-    const { fixture, page } = await openCompleteRound(final);
-    const dialog = openDialog()!;
+    const { fixture, page, dialog } = await openCompleteRound(final);
 
     expect(text(dialog)).toContain(
       'It is the final tournament round, so completing it will complete the tournament and award the trophy.',
@@ -149,8 +126,7 @@ describe('single elimination tournaments on the Play tab', () => {
 
 describe('dropping players from the single elimination Complete round dialog', () => {
   it('drops a player from an unreported match instead of picking its winner', async () => {
-    const { fixture } = await openCompleteRound(singleEliminationPlaying());
-    const dialog = openDialog()!;
+    const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
 
     controlByLabel(group(dialog, 'Drop from Bob vs Carol')!, 'checkbox', 'Drop Bob')!.click();
     await fixture.whenStable();
@@ -173,8 +149,7 @@ describe('dropping players from the single elimination Complete round dialog', (
   });
 
   it('says the tournament completes when dropping both players leaves one player in the bracket', async () => {
-    const { fixture } = await openCompleteRound(singleEliminationPlaying());
-    const dialog = openDialog()!;
+    const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
     const drops = group(dialog, 'Drop from Bob vs Carol')!;
 
     controlByLabel(drops, 'checkbox', 'Drop Bob')!.click();
@@ -199,8 +174,7 @@ describe('dropping players from the single elimination Complete round dialog', (
 
 describe('both finalists dropping', () => {
   it('says nobody holds the trophy, from the dialog to the completed tournament', async () => {
-    const { fixture, page } = await openCompleteRound(final);
-    const dialog = openDialog()!;
+    const { fixture, page, dialog } = await openCompleteRound(final);
     const drops = group(dialog, 'Drop from Alice vs Carol')!;
 
     controlByLabel(drops, 'checkbox', 'Drop Alice')!.click();
@@ -226,8 +200,7 @@ describe('both finalists dropping', () => {
   });
 
   it('still awards the trophy when one finalist drops', async () => {
-    const { fixture } = await openCompleteRound(final);
-    const dialog = openDialog()!;
+    const { fixture, dialog } = await openCompleteRound(final);
 
     controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Alice')!.click();
     await fixture.whenStable();

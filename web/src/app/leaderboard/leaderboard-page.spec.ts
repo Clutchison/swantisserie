@@ -1,7 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import type { LeaderboardView } from 'contract';
 import { alice, button, http, openApp, router, table, tableRows, useApp } from '../specs-harness';
-import { banner, expectLoadingAnimation, heading, text } from '../drafts/specs/harness';
+import {
+  banner,
+  expectLoadingAnimation,
+  heading,
+  loadingAnimation,
+  text,
+} from '../drafts/specs/harness';
 import { link } from '../feedback/specs-harness';
 
 const tally = (won: number, lost: number, drawn = 0) => ({ won, lost, drawn });
@@ -65,7 +71,7 @@ describe('the leaderboard page', () => {
 
     req.flush(BOARD);
     await fixture.whenStable();
-    expect(page.querySelector('app-loading-animation')).toBeNull();
+    expect(loadingAnimation(page)).toBeNull();
   });
 
   /** The text of each row of the table named `name`, its header row left out; null if there is none. */

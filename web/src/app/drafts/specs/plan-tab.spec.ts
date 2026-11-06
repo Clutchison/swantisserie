@@ -42,7 +42,7 @@ import {
   openPlan,
   planBoards,
 } from './plan-tab-harness';
-import { playing, registration, withDrops, withTournament } from './play-tab-harness';
+import { complete, playing, registration, withDrops, withTournament } from './play-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -518,8 +518,6 @@ describe('plan tab', () => {
 });
 
 describe('plan tab as the deck', () => {
-  const complete = drafting({ state: 'Complete', turn: null });
-
   it('takes the Plan tab’s place once the draft is complete, its copy saying deck', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, complete, {
       cards,

@@ -28,9 +28,9 @@ import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
-import { alice, button, buttons } from '../../specs-harness';
+import { alice, button, buttons, byAriaLabel, text } from '../../specs-harness';
 
-export { alice, button, buttons };
+export { alice, button, buttons, text };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -190,6 +190,9 @@ export async function openUrl(url: string, user: UserView = alice) {
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 
+/** The loading animation inside `root`, while something loads; null once nothing does. */
+export const loadingAnimation = (root: Element) => root.querySelector('app-loading-animation');
+
 /** Waits out a load's delay, then checks it shows its text under a logo of the given width. */
 export async function expectLoadingAnimation(
   root: () => Element,
@@ -198,7 +201,7 @@ export async function expectLoadingAnimation(
 ) {
   await vi.waitFor(() => {
     TestBed.tick();
-    const loading = root().querySelector('app-loading-animation');
+    const loading = loadingAnimation(root());
     expect(loading?.textContent).toContain(text);
     expect(loading?.querySelector('svg')?.getAttribute('width')).toBe(String(logoWidth));
   });
@@ -396,26 +399,20 @@ export const heading = (root: HTMLElement, name: string) =>
 export const namedImages = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLImageElement>('img')].filter((image) => image.alt !== '');
 
-/** `element`'s text as a viewer reads it, its whitespace collapsed; empty if there is no element. */
-export const text = (element: Element | null | undefined) =>
-  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
-
 /** A region inside `root`, such as a section, by its accessible name; null if there is none. */
 export const region = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll<HTMLElement>('section[aria-label], [role="region"]')].find(
-    (element) => element.getAttribute('aria-label') === name,
-  ) ?? null;
+  byAriaLabel(root, 'section, [role="region"]', name);
 
 /**
  * A group of controls inside `root`, such as a fieldset, by its accessible
  * name: its aria-label, or else a fieldset's legend. Null if there is none.
  */
 export const group = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll<HTMLElement>('[role="group"], fieldset')].find(
-    (element) =>
-      (element.getAttribute('aria-label') ?? text(element.querySelector(':scope > legend'))) ===
-      name,
-  ) ?? null;
+  byAriaLabel(root, '[role="group"], fieldset', name) ??
+  [...root.querySelectorAll<HTMLElement>('fieldset:not([aria-label])')].find(
+    (fieldset) => text(fieldset.querySelector(':scope > legend')) === name,
+  ) ??
+  null;
 
 /** The first alert inside `root`: an error shown to the viewer, if any. */
 export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
@@ -461,7 +458,7 @@ export const statusTexts = (root: HTMLElement) =>
 
 /** A list inside `root`, by its accessible name, such as "Pick log" or "Your picks". */
 export const namedList = (root: HTMLElement, name: string) =>
-  root.querySelector<HTMLElement>(`[aria-label="${name}"]`)!;
+  byAriaLabel(root, 'ul, ol, [role="list"]', name)!;
 
 /** Each item's text in the list inside `root` named `name`, in order. */
 export const items = (root: HTMLElement, name: string) =>
