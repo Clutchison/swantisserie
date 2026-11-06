@@ -5,6 +5,7 @@ import type { Transaction } from '../drafts/draft-shapes.js';
 import { InvalidTournamentRequestError } from './tournament-errors.js';
 import type { RoundSteps } from './round-steps.js';
 import {
+  completingEntries,
   createRounds,
   entryToDrop,
   listedMatches,
@@ -46,9 +47,13 @@ export const SWISS_STEPS: RoundSteps = {
   decideHint: (unreported) =>
     unreported === 1 ? 'grant it a draw' : 'grant them draws',
   pairNext: pairSwiss,
-  /** The undropped players, as Swiss knocks nobody out. */
-  playersLeft: (tx, tournamentId) =>
-    tx.tournamentEntry.count({ where: { tournamentId, dropped: false } }),
+  /** Its entries: Swiss knocks nobody out, so the undropped play on. */
+  completionInput: async (tx, tournamentId, round, roundCount) => ({
+    format: 'Swiss',
+    round,
+    roundCount,
+    entries: await completingEntries(tx, tournamentId),
+  }),
 };
 
 /**

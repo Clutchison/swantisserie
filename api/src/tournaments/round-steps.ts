@@ -1,4 +1,5 @@
 import type { CompleteRoundRequest } from 'contract';
+import type { RoundCompletionInput } from 'engine';
 import type { TournamentState } from '../generated/prisma/client.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 
@@ -36,13 +37,14 @@ export interface RoundSteps {
   /** Pairs tournament round `round`, the next. */
   pairNext(tx: Transaction, tournamentId: string, round: number): Promise<void>;
   /**
-   * How many players are left to play on once tournament round `round` is
-   * decided, for Complete round to complete the tournament when fewer than
-   * MIN_PLAYERS_LEFT are.
+   * What the engine's roundCompletion reads of tournament round `round` of
+   * `roundCount` rounds, once it is decided, for Complete round to decide whether
+   * it completes the tournament.
    */
-  playersLeft(
+  completionInput(
     tx: Transaction,
     tournamentId: string,
     round: number,
-  ): Promise<number>;
+    roundCount: number,
+  ): Promise<RoundCompletionInput>;
 }

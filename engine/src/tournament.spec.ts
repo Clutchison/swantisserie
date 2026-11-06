@@ -3,12 +3,22 @@ import {
   droppedPlayers,
   GAME_SCORES,
   reportProblem,
+  roundCompletion,
   roundRobinMatches,
   standings,
   trophyHolders,
+  type MatchOutcome,
+  type RoundCompletion,
+  type RoundCompletionInput,
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
+import {
+  agreedAdvancingPlayer,
+  bracketRounds,
+  bracketTrophyHolders,
+  type PlayedBracketMatch,
+} from './single-elimination.js';
 
 describe('droppedPlayers', () => {
   it('is the players who have dropped, in entry order', () => {
@@ -294,5 +304,143 @@ describe('trophyHolders', () => {
       'a',
       'b',
     ]);
+  });
+});
+
+describe('roundCompletion', () => {
+  /** Entries for `players`, those in `dropped` dropped. */
+  const entries = (players: string[], dropped: string[] = []) =>
+    players.map((playerId) => ({
+      playerId,
+      dropped: dropped.includes(playerId),
+    }));
+
+  describe('in Swiss', () => {
+    it('pairs the next round while enough undropped players are left', () => {
+      expect(
+        roundCompletion({
+          format: 'Swiss',
+          round: 1,
+          roundCount: 3,
+          entries: entries(['a', 'b', 'c'], ['c']),
+        }),
+      ).toEqual({ completes: false });
+    });
+
+    it('completes the tournament after the final round, with a trophy holder', () => {
+      expect(
+        roundCompletion({
+          format: 'Swiss',
+          round: 3,
+          roundCount: 3,
+          entries: entries(['a', 'b', 'c']),
+        }),
+      ).toEqual({ completes: true, reason: 'FinalRound', trophyHolder: true });
+    });
+
+    it('completes the tournament when too few undropped players are left', () => {
+      expect(
+        roundCompletion({
+          format: 'Swiss',
+          round: 1,
+          roundCount: 3,
+          entries: entries(['a', 'b', 'c'], ['b', 'c']),
+        }),
+      ).toEqual({ completes: true, reason: 'TooFewLeft', trophyHolder: true });
+    });
+  });
+
+  describe('in single elimination', () => {
+    const win = (winner: string): MatchOutcome => ({
+      kind: 'GrantedWin',
+      winner,
+    });
+    const forfeit = (forfeitedBy: string): MatchOutcome => ({
+      kind: 'Forfeit',
+      forfeitedBy,
+    });
+    /** Four players' round 1 of 2, s1 v s4 then s2 v s3, decided by `outcomes`. */
+    const semifinals = (
+      outcomes: [MatchOutcome, MatchOutcome],
+      dropped: string[] = [],
+    ) => ({
+      format: 'SingleElimination' as const,
+      round: 1,
+      roundCount: 2,
+      entries: entries(['s1', 's2', 's3', 's4'], dropped),
+      results: [
+        { players: ['s1', 's4'] as const, outcome: outcomes[0] },
+        { players: ['s2', 's3'] as const, outcome: outcomes[1] },
+      ],
+    });
+    /** Two players' final, s1 v s2, decided by `outcome`. */
+    const final = (outcome: MatchOutcome, dropped: string[] = []) => ({
+      format: 'SingleElimination' as const,
+      round: 1,
+      roundCount: 1,
+      entries: entries(['s1', 's2'], dropped),
+      results: [{ players: ['s1', 's2'] as const, outcome }],
+    });
+
+    const cases: [
+      string,
+      Extract<RoundCompletionInput, { format: 'SingleElimination' }>,
+      RoundCompletion,
+    ][] = [
+      [
+        'pairs the next round while enough players advance',
+        semifinals([win('s1'), win('s3')]),
+        { completes: false },
+      ],
+      [
+        'completes the tournament after the final, with a trophy holder',
+        final(win('s2')),
+        { completes: true, reason: 'FinalRound', trophyHolder: true },
+      ],
+      [
+        'completes the tournament after the final with nobody to hold the trophy when both finalists drop',
+        final(forfeit('s1'), ['s1', 's2']),
+        { completes: true, reason: 'FinalRound', trophyHolder: false },
+      ],
+      [
+        'completes the tournament when one player is left, who holds the trophy',
+        semifinals([win('s4'), forfeit('s2')], ['s2', 's3']),
+        { completes: true, reason: 'TooFewLeft', trophyHolder: true },
+      ],
+      [
+        'completes the tournament with nobody to hold the trophy when nobody is left',
+        semifinals([forfeit('s1'), forfeit('s2')], ['s1', 's2', 's3', 's4']),
+        { completes: true, reason: 'TooFewLeft', trophyHolder: false },
+      ],
+    ];
+
+    it.each(cases)('%s', (_, input, completion) => {
+      expect(roundCompletion(input)).toEqual(completion);
+    });
+
+    it.each(cases.filter(([, , completion]) => completion.completes))(
+      'forecasts the trophy as the complete tournament awards it: %s',
+      (_, input, completion) => {
+        const dropped = droppedPlayers(input.entries);
+        const played = input.results.map(
+          (result, bracketPlace): PlayedBracketMatch => ({
+            round: input.round,
+            bracketPlace,
+            players: result.players,
+            advancing: agreedAdvancingPlayer(
+              { ...result, reportedBy: null, confirmed: false },
+              dropped,
+              true,
+            ),
+          }),
+        );
+        const holders = bracketTrophyHolders(
+          bracketRounds(input.roundCount, played, dropped),
+        );
+        expect(holders.length > 0).toBe(
+          completion.completes && completion.trophyHolder,
+        );
+      },
+    );
   });
 });
