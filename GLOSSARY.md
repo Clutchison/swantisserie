@@ -456,6 +456,14 @@ _Avoid_: Default, walkover, no-show
 A tournament's players ranked by their results so far.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
+**Tournament tab**:
+The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.
+_Avoid_: Games tab, results tab, bracket tab
+
+**Leaderboard**:
+A guild's players ranked by their trophies, with each player's match and game records, overall and against each opponent, across all its tournaments.
+_Avoid_: Standings (that is one tournament's), stats page, rankings, player profile
+
 **Trophy**:
 One tournament won by a player.
 _Avoid_: Win (alone; that is a match), title, championship
