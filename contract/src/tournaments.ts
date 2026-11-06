@@ -250,6 +250,22 @@ export interface TournamentView {
 }
 
 /**
+ * What the draft list shows of a complete draft's tournament, for the
+ * signed-in viewer: its tournament badge.
+ */
+export interface TournamentBadgeView {
+  state: TournamentState;
+  /**
+   * Whether the viewer may join it now, as joining would let them: during
+   * registration, one of the draft's human players who hasn't joined and
+   * whose mainboard holds at least MIN_MAINBOARD_CARDS.
+   */
+  canJoin: boolean;
+  /** The trophy holders' Discord user ids, each a `PlayerView.id`; empty until it is complete. */
+  trophyHolders: string[];
+}
+
+/**
  * The tournament as the signed-in viewer reads it: everyone's view, with
  * whether they may join it now, as joining decides (ADR 0003).
  */
