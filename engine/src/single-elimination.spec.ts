@@ -215,7 +215,7 @@ describe('singleEliminationStandings', () => {
   });
 
   it('keeps a forfeit win once its winner played on, though both its players dropped', () => {
-    // s4 dropped in round 1, so s1 advanced on the forfeit, lost the final to s2, then dropped.
+    // s4 dropped in tournament round 1, so s1 advanced on the forfeit, lost the final to s2, then dropped.
     const table = singleEliminationStandings(
       seeds(4),
       [

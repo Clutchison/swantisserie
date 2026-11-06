@@ -141,7 +141,8 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   }));
   const dropped = droppedPlayers(entries);
   const counted = rounds.filter((round) => countsInStandings(row, round.round));
-  const nextRoundPlayers = (round: number) => pairedIn(rounds, round + 1);
+  const paired = pairedPlayers(rounds);
+  const nextRoundPlayers = (round: number) => paired.get(round + 1) ?? [];
   const matches = counted.flatMap((round) =>
     round.matches.map((match) => ({
       ...toTournamentMatch(match),
@@ -192,17 +193,18 @@ export function toTournamentView(row: TournamentRow): TournamentView {
 }
 
 /**
- * The players paired in tournament round `round` of `rounds`, in a match or
- * a bye; none before it is paired.
+ * The players paired in each tournament round of `rounds`, in a match or a
+ * bye, by its number.
  */
-function pairedIn(
+function pairedPlayers(
   rounds: readonly TournamentRoundView[],
-  round: number,
-): string[] {
-  const paired = rounds.find((r) => r.round === round);
-  return paired
-    ? [...paired.matches.flatMap((match) => match.players), ...paired.byes]
-    : [];
+): Map<number, string[]> {
+  return new Map(
+    rounds.map((round) => [
+      round.round,
+      [...round.matches.flatMap((match) => match.players), ...round.byes],
+    ]),
+  );
 }
 
 /**
@@ -236,7 +238,8 @@ export function showsDecklists(
  * tournament rounds, drawn by the engine from its paired `matches`, each
  * sending on the player who advances from it as the engine's
  * agreedAdvancingPlayer decides, `dropped` holding the dropped players and
- * `nextRoundPlayers` those paired in the tournament round after a round,
+ * `nextRoundPlayers` those paired in the tournament round after a
+ * tournament round,
  * and each bracket place carrying the id of its match, a bye's none.
  */
 function toBracket(

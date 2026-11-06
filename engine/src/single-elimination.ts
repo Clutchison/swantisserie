@@ -76,7 +76,7 @@ export function nextBracketRound(
  * or a bye; none while it isn't paired yet. Once it is, who advanced from
  * the match is settled, and a later drop doesn't change it.
  */
-interface NextRoundPairing {
+interface PairedOnward {
   nextRoundPlayers?: readonly string[];
 }
 
@@ -85,14 +85,13 @@ interface NextRoundPairing {
  * players who advance are read from it; a null outcome is unreported, and
  * a bye has none.
  */
-export interface BracketResult extends NextRoundPairing {
+export interface BracketResult extends PairedOnward {
   players: readonly [string, string | null];
   outcome: MatchOutcome | null;
 }
 
 /** A single elimination match as its standings read it. */
-export interface SingleEliminationMatch
-  extends TournamentMatch, NextRoundPairing {}
+export interface SingleEliminationMatch extends TournamentMatch, PairedOnward {}
 
 /**
  * A bracket match as its players reported it, or a bye: who reported its
@@ -145,7 +144,7 @@ export function agreedAdvancingPlayer(
   }
   if (outcome === null) return { kind: 'NotAgreed' };
   const match: DecidedMatch = { players: [first, second], outcome };
-  if (bothDropped(match, dropped, nextRoundPlayers)) return { kind: 'Nobody' };
+  if (nobodyWins(match, dropped, nextRoundPlayers)) return { kind: 'Nobody' };
   const agreed =
     roundCompleted ||
     outcome.kind !== 'GameScore' ||
@@ -185,7 +184,7 @@ export function countAdvancing(
  * paired in the tournament round after it, as its winner is once they
  * advanced.
  */
-function bothDropped(
+function nobodyWins(
   match: DecidedMatch,
   dropped: readonly string[],
   nextRoundPlayers: readonly string[] = [],
@@ -378,7 +377,7 @@ export function singleEliminationStandings(
   const decided = matches.filter(
     (match): match is DecidedMatch =>
       match.outcome !== null &&
-      !bothDropped(
+      !nobodyWins(
         { players: match.players, outcome: match.outcome },
         dropped,
         match.nextRoundPlayers,
