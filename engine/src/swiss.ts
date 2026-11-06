@@ -142,8 +142,8 @@ export interface SwissPairerInput {
   pastByes: readonly string[];
   /** Players who have dropped, whom the pairer leaves out. */
   dropped: readonly string[];
-  /** Orders the players who share a rank, so the same input and seed pair the same way. */
-  seed: number;
+  /** Orders the players who share a rank, so the same input and RNG seed pair the same way. */
+  rngSeed: number;
 }
 
 /**
@@ -161,20 +161,20 @@ export interface SwissPairerInput {
  * 4. the smallest gaps in match points across those pair-downs.
  *
  * Ties go to the way of pairing that comes first with players taken best
- * first, those sharing a rank in an order the seed fixes, so round 1 pairs
- * at random and the same input and seed always pair the same way.
+ * first, those sharing a rank in an order the RNG seed fixes, so round 1 pairs
+ * at random and the same input and RNG seed always pair the same way.
  */
 export function pairSwissRound({
   standings,
   pastMatches,
   pastByes,
   dropped,
-  seed,
+  rngSeed,
 }: SwissPairerInput): ScheduledRound {
   const out = new Set(dropped);
   const left = standings.filter(({ playerId }) => !out.has(playerId));
-  // Shuffled, then stably sorted by rank: the seed orders players sharing a rank.
-  const order = shuffle(left, seededRandom(seed))
+  // Shuffled, then stably sorted by rank: the RNG seed orders players sharing a rank.
+  const order = shuffle(left, seededRandom(rngSeed))
     .sort((a, b) => a.rank - b.rank)
     .map(({ playerId }) => playerId);
   const points = new Map(left.map((s) => [s.playerId, s.matchPoints]));

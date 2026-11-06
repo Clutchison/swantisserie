@@ -1,3 +1,4 @@
+import type { TournamentView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -17,6 +18,7 @@ import {
   setBasic,
   setUpTournament,
   signIn,
+  singleElimination,
   start,
   tournament,
   useDraftsApp,
@@ -51,6 +53,28 @@ describe('tournament setup', () => {
     expect((await getDraft(id).expect(200)).body.tournament).toEqual({
       state: 'Registration',
     });
+  });
+
+  it('sets up a single elimination tournament, unseeded until it starts', async () => {
+    const carolCookie = await signIn(carol);
+    const id = await completeDraft([aliceCookie, bobCookie, carolCookie]);
+
+    await setUpTournament(id, aliceCookie, singleElimination).expect(201);
+    for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
+      await fullDeck(id, cookie);
+      await joinTournament(id, cookie).expect(201);
+    }
+
+    const { body } = await tournament(id).expect(200);
+    expect(body).toMatchObject({
+      format: 'SingleElimination',
+      swissRoundOption: null,
+      state: 'Registration',
+      roundCount: 2,
+    });
+    expect((body as TournamentView).entries.map((entry) => entry.seed)).toEqual(
+      [null, null, null],
+    );
   });
 
   it('shows a draft with no tournament as having none', async () => {

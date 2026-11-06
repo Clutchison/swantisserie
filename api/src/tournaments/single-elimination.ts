@@ -4,38 +4,43 @@ import {
   nextBracketRound,
   shuffle,
   winnerOf,
-  type BracketMatch,
+  type DecidedMatch,
 } from 'engine';
-import type { TournamentState } from '../generated/prisma/client.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import {
   InvalidTournamentRequestError,
   TournamentRefusedError,
 } from './tournament-errors.js';
-import { ENTRY_OF_MATCH, type RoundSteps } from './round-steps.js';
+import {
+  createMatches,
+  listedMatches,
+  refuseSettledSince,
+  type RoundSteps,
+  type TournamentProgress,
+} from './round-steps.js';
 import { toOutcome } from './tournament-view.js';
 
 /**
- * Single elimination's round steps: Complete round gives each listed
- * unreported match a granted win for the winner the organizer picked, and
- * pairs the winners into the next round by bracket place. Throws
- * TournamentRefusedError for granted draws, as single elimination never
- * has a draw.
+ * Single elimination's round steps: Start seeds the bracket; Complete round
+ * gives each listed unreported match a granted win for the winner the
+ * organizer picked, and pairs the winners into the next round by bracket
+ * place. Throws InvalidTournamentRequestError for granted draws, as single
+ * elimination never has a draw.
  */
 export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
+  start: seedBracket,
   async settle(tx, { tournamentId, round, request }) {
     if (request.grantedDraws.length > 0) {
-      throw new TournamentRefusedError({
-        error: 'draw',
-        message:
-          'Single elimination never has a draw. Pick a winner for each unreported match instead.',
-      });
+      throw new InvalidTournamentRequestError(
+        'Single elimination never has a draw. Pick a winner for each unreported match instead.',
+      );
     }
     await grantWins(tx, tournamentId, round, request.grantedWins);
   },
   settleHint: (unreported) =>
     unreported === 1 ? 'pick its winner' : 'pick their winners',
   pairNext: pairBracketRound,
+  refuseChange: refuseBracketChange,
 };
 
 /**
@@ -44,7 +49,7 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
  * stores each entry's seed, and makes round 1 of the bracket for that
  * order, its byes for the top seeds included.
  */
-export async function seedBracket(
+async function seedBracket(
   tx: Transaction,
   tournamentId: string,
   entryIds: readonly string[],
@@ -53,7 +58,7 @@ export async function seedBracket(
   for (const [i, id] of seedOrder.entries()) {
     await tx.tournamentEntry.update({ where: { id }, data: { seed: i + 1 } });
   }
-  await createBracketRound(tx, tournamentId, 1, firstBracketRound(seedOrder));
+  await createMatches(tx, tournamentId, 1, firstBracketRound(seedOrder));
 }
 
 /**
@@ -62,9 +67,9 @@ export async function seedBracket(
  * clear it when `games` is null: its winner has advanced, or holds the
  * trophy. A correction that keeps its winner, such as 2–0 to 2–1, is fine.
  */
-export async function refuseBracketChange(
+async function refuseBracketChange(
   tx: Transaction,
-  tournament: { state: TournamentState; lastCompletedRound: number },
+  tournament: TournamentProgress,
   matchId: string,
   games: GameScore | null,
 ) {
@@ -76,11 +81,13 @@ export async function refuseBracketChange(
     tournament.state === 'Complete' ||
     match.round <= tournament.lastCompletedRound;
   if (!completed) return;
-  const keepsWinner =
-    games !== null &&
-    winningEntry(match) ===
-      (games[0] > games[1] ? match.firstEntryId : match.secondEntryId);
-  if (keepsWinner) return;
+  const corrected =
+    games &&
+    winnerOf({
+      players: [match.firstEntryId, match.secondEntryId!],
+      outcome: { kind: 'GameScore', games, draws: 0 },
+    });
+  if (corrected && corrected === winningEntry(match)) return;
   throw new TournamentRefusedError({
     error: 'round-completed',
     message: `Tournament round ${match.round} is completed, so this match’s winner can’t change: ${tournament.state === 'Complete' ? 'they hold the trophy' : 'they have advanced'}.`,
@@ -115,7 +122,7 @@ function winningEntry(match: BracketMatchRow): string | null {
   const players: [string, string] = [match.firstEntryId, match.secondEntryId];
   const outcome = toOutcome(match, players);
   if (outcome.kind === 'Unreported') return null;
-  return winnerOf({ players, outcome });
+  return winnerOf({ players, outcome } satisfies DecidedMatch);
 }
 
 /**
@@ -133,27 +140,7 @@ async function pairBracketRound(
     select: BRACKET_MATCH,
   });
   const winners = previous.map((match) => winningEntry(match)!);
-  await createBracketRound(tx, tournamentId, round, nextBracketRound(winners));
-}
-
-/** Makes tournament round `round`'s matches and byes at their bracket places, whose players are entry ids. */
-async function createBracketRound(
-  tx: Transaction,
-  tournamentId: string,
-  round: number,
-  matches: readonly BracketMatch[],
-) {
-  await tx.match.createMany({
-    data: matches.map(
-      ({ bracketPlace, players: [firstEntryId, secondEntryId] }) => ({
-        tournamentId,
-        round,
-        bracketPlace,
-        firstEntryId,
-        secondEntryId,
-      }),
-    ),
-  });
+  await createMatches(tx, tournamentId, round, nextBracketRound(winners));
 }
 
 /**
@@ -170,25 +157,10 @@ async function grantWins(
   round: number,
   grantedWins: readonly GrantedWinRequest[],
 ) {
-  const matches = await tx.match.findMany({
-    where: { tournamentId, round, secondEntryId: { not: null } },
-    select: {
-      id: true,
-      outcome: true,
-      firstEntry: { select: ENTRY_OF_MATCH },
-      secondEntry: { select: ENTRY_OF_MATCH },
-    },
-  });
-  const byId = new Map(matches.map((match) => [match.id, match]));
-  const granted = grantedWins.map(({ matchId, winner }) => {
-    const match = byId.get(matchId);
-    if (!match) {
-      throw new InvalidTournamentRequestError(
-        `Tournament round ${round} has no match ${matchId}.`,
-      );
-    }
-    const side = [match.firstEntry, match.secondEntry!].findIndex(
-      (entry) => entry.player.userId === winner,
+  const listed = await listedMatches(tx, tournamentId, round, grantedWins);
+  const granted = listed.map(({ request, match }) => {
+    const side = match.entries.findIndex(
+      (entry) => entry.player.userId === request.winner,
     );
     if (side === -1) {
       throw new InvalidTournamentRequestError(
@@ -197,14 +169,8 @@ async function grantWins(
     }
     return { match, grantedTo: side === 0 ? 'First' : 'Second' } as const;
   });
-  for (const { match } of granted) {
-    if (match.outcome !== 'Unreported') {
-      throw new TournamentRefusedError({
-        error: 'match-reported',
-        message: `A match listed for a granted win has been ${match.outcome === 'Forfeit' ? 'forfeited' : 'reported'} since. Look at tournament round ${round} again before completing it.`,
-      });
-    }
-  }
+  for (const { match } of granted)
+    refuseSettledSince(match, round, 'granted win');
   for (const { match, grantedTo } of granted) {
     await tx.match.update({
       where: { id: match.id },

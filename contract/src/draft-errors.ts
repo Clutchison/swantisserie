@@ -177,7 +177,7 @@ export interface TournamentRefusal {
      * grant a draw or a win in it.
      */
     | 'match-reported'
-    /** Draws are never reported; in single elimination, never granted either. */
+    /** A reported or corrected game score has a winner: a match is never reported as a draw. */
     | 'draw'
     | 'not-best-of-three'
     /** Only a match reported with a game score can be confirmed. */

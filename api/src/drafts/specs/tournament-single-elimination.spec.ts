@@ -1,11 +1,15 @@
 import type {
   CompleteRoundRequest,
+  DraftSocketEvents,
+  DraftView,
   MatchReportRequest,
   TournamentView,
 } from 'contract';
+import { io, type Socket } from 'socket.io-client';
 import {
   alice,
   aliceCookie,
+  app,
   bob,
   carol,
   clearGameScore,
@@ -22,7 +26,6 @@ import {
   signIn,
   singleElimination,
   startTournament,
-  swiss,
   tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -75,42 +78,6 @@ function placesOf(round: TournamentView['rounds'][number]) {
   }));
 }
 
-describe('single elimination tournament setup', () => {
-  it('sets up a single elimination tournament, unseeded until it starts', async () => {
-    const id = await completeDraft([
-      aliceCookie,
-      bobCookie,
-      carolCookie,
-      daveCookie,
-      erinCookie,
-    ]);
-
-    await setUpTournament(id, aliceCookie, singleElimination).expect(201);
-    for (const cookie of [aliceCookie, bobCookie, carolCookie, daveCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
-    expect((await tournamentView(id)).roundCount).toBe(2);
-    await fullDeck(id, erinCookie);
-    await joinTournament(id, erinCookie).expect(201);
-
-    const view = await tournamentView(id);
-    expect(view).toMatchObject({
-      format: 'SingleElimination',
-      swissRoundOption: null,
-      state: 'Registration',
-      roundCount: 3,
-    });
-    expect(view.entries.map((entry) => entry.seed)).toEqual([
-      null,
-      null,
-      null,
-      null,
-      null,
-    ]);
-  });
-});
-
 describe('starting a single elimination tournament', () => {
   it('seeds the players at random and opens round 1, its byes for the top seeds already advanced', async () => {
     const id = await playing(5);
@@ -120,6 +87,7 @@ describe('starting a single elimination tournament', () => {
     expect([...seeds].sort()).toEqual(
       [alice.id, bob.id, carol.id, dave.id, erin.id].sort(),
     );
+    expect(view.roundCount).toBe(3);
     expect(view.rounds).toHaveLength(1);
     const [round] = view.rounds;
     expect(round.byes).toEqual([seeds[0], seeds[1], seeds[2]]);
@@ -221,15 +189,15 @@ describe('completing a single elimination tournament round', () => {
     expect(view.standings.find((s) => s.playerId === seeds[3])?.rank).toBe(5);
   });
 
-  it('refuses granted draws: single elimination never has a draw', async () => {
+  it('rejects granted draws: single elimination never has a draw', async () => {
     const id = await playing(2);
     const [match] = (await tournamentView(id)).rounds[0].matches;
 
     const answer = await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: match.id, drop: [] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    } satisfies CompleteRoundRequest).expect(400);
 
-    expect(answer.body.error).toBe('draw');
+    expect(answer.body.error).toBe('invalid');
     expect((await tournamentView(id)).rounds[0].matches[0].outcome).toEqual({
       kind: 'Unreported',
     });
@@ -265,17 +233,6 @@ describe('completing a single elimination tournament round', () => {
     }
   });
 
-  it('rejects granted wins in Swiss, which grants draws', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie], swiss());
-    const [match] = (await tournamentView(id)).rounds[0].matches;
-
-    const answer = await completeRound(id, aliceCookie, {
-      grantedWins: [{ matchId: match.id, winner: alice.id }],
-    } satisfies CompleteRoundRequest).expect(400);
-
-    expect(answer.body.error).toBe('invalid');
-  });
-
   it('completes the tournament with the final, whose winner alone holds the trophy, with no third-place match', async () => {
     const id = await playing(3);
     const seeds = seedsOf(await tournamentView(id));
@@ -303,16 +260,95 @@ describe('completing a single elimination tournament round', () => {
       [semifinal.players[1], 3],
     ]);
   });
+});
 
-  it('bumps the draft’s version', async () => {
+describe('single elimination’s live updates', () => {
+  const sockets: Socket<DraftSocketEvents>[] = [];
+
+  beforeEach(async () => {
+    await app.listen(0);
+  });
+
+  afterEach(() => {
+    for (const socket of sockets.splice(0)) socket.disconnect();
+  });
+
+  /** The drafts pushed to Bob, viewing draft `draftId`, from once he is connected. */
+  async function watchAsBob(draftId: string) {
+    const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
+      path: '/api/socket.io',
+      transports: ['websocket'],
+      auth: { draftId },
+      extraHeaders: { Cookie: bobCookie },
+      reconnection: false,
+    });
+    sockets.push(socket);
+    const pushed: DraftView[] = [];
+    socket.on('changed', (draft) => pushed.push(draft));
+    await new Promise<void>((resolve, reject) => {
+      socket.on('connect', resolve);
+      socket.on('connect_error', reject);
+    });
+    return pushed;
+  }
+
+  /**
+   * Expects `change` to answer the draft of `id` with its version bumped
+   * once and its tournament in `state`, and to push that draft to Bob.
+   */
+  async function expectPushed(
+    id: string,
+    change: () => Promise<{ body: DraftView }>,
+    state: TournamentView['state'],
+  ) {
+    const pushed = await watchAsBob(id);
+    const before = (await getDraft(id).expect(200)).body as DraftView;
+
+    const { body } = await change();
+
+    expect(body.version).toBe(before.version + 1);
+    expect(body.tournament).toEqual({ state });
+    await vi.waitFor(() =>
+      expect(pushed.at(-1)).toMatchObject({
+        version: body.version,
+        tournament: { state },
+      }),
+    );
+  }
+
+  it('pushes a report', async () => {
+    const id = await playing(2);
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+
+    await expectPushed(
+      id,
+      () =>
+        reportMatch(id, match.id, cookieOf[match.players[0]], {
+          games: [2, 0],
+        } satisfies MatchReportRequest).expect(200),
+      'Playing',
+    );
+  });
+
+  it('pushes a tournament round completed with a granted win', async () => {
     const id = await playing(3);
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+
+    await expectPushed(
+      id,
+      () =>
+        completeRound(id, aliceCookie, {
+          grantedWins: [{ matchId: match.id, winner: match.players[1] }],
+        } satisfies CompleteRoundRequest).expect(200),
+      'Playing',
+    );
+  });
+
+  it('pushes the final’s completion, which completes the tournament', async () => {
+    const id = await playing(2);
     await reportCurrentRound(id, cookieOf);
-    const before = await getDraft(id).expect(200);
 
-    const answer = await completeRound(id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
-    expect(answer.body.tournament).toEqual({ state: 'Playing' });
+    await expectPushed(id, () => completeRound(id).expect(200), 'Complete');
   });
 });
 

@@ -440,6 +440,18 @@ describe('completing a Swiss tournament round with unreported matches', () => {
     }
   });
 
+  it('rejects granted wins, which are single elimination’s', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie], swiss());
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+
+    const answer = await completeRound(id, aliceCookie, {
+      grantedWins: [{ matchId: match.id, winner: alice.id }],
+    } satisfies CompleteRoundRequest).expect(400);
+
+    expect(answer.body.error).toBe('invalid');
+    expect((await tournamentView(id)).lastCompletedRound).toBe(0);
+  });
+
   it('completes the tournament when fewer than 2 undropped players remain', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie],

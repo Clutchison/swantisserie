@@ -26,12 +26,8 @@ import {
   ENTRY_OF_MATCH,
   type RoundSteps,
 } from './round-steps.js';
-import {
-  refuseBracketChange,
-  seedBracket,
-  SINGLE_ELIMINATION_STEPS,
-} from './single-elimination.js';
-import { pairSwiss, SWISS_STEPS } from './swiss-rounds.js';
+import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
+import { SWISS_STEPS } from './swiss-rounds.js';
 import {
   NoMatchError,
   NoTournamentError,
@@ -254,9 +250,12 @@ export class TournamentsService {
       await findMatch(tx, tournament.id, matchId);
       const problem = reportProblem(games);
       if (problem) throw new TournamentRefusedError(problem);
-      if (tournament.format === 'SingleElimination') {
-        await refuseBracketChange(tx, tournament, matchId, games);
-      }
+      await ROUND_STEPS[tournament.format]?.refuseChange?.(
+        tx,
+        tournament,
+        matchId,
+        games,
+      );
       await tx.match.update({
         where: { id: matchId },
         data: {
@@ -285,9 +284,12 @@ export class TournamentsService {
   async clearGameScore(draftId: string, matchId: string): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
       const { round, dropped } = await findMatch(tx, tournament.id, matchId);
-      if (tournament.format === 'SingleElimination') {
-        await refuseBracketChange(tx, tournament, matchId, null);
-      }
+      await ROUND_STEPS[tournament.format]?.refuseChange?.(
+        tx,
+        tournament,
+        matchId,
+        null,
+      );
       const forfeitedBy =
         tournament.state !== 'Playing'
           ? null
@@ -344,12 +346,9 @@ export class TournamentsService {
         where: { id: tournament.id },
         data: { state: 'Playing', startedAt: new Date() },
       });
-      if (tournament.format === 'Swiss') {
-        await pairSwiss(tx, tournament.id, 1);
-        return;
-      }
-      if (tournament.format === 'SingleElimination') {
-        await seedBracket(
+      const steps = ROUND_STEPS[tournament.format];
+      if (steps) {
+        await steps.start(
           tx,
           tournament.id,
           entries.map((entry) => entry.id),

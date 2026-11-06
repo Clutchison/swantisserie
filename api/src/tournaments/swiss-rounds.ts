@@ -2,13 +2,11 @@ import { randomInt } from 'node:crypto';
 import type { GrantedDrawRequest } from 'contract';
 import { pairSwissRound } from 'engine';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import {
-  InvalidTournamentRequestError,
-  TournamentRefusedError,
-} from './tournament-errors.js';
+import { InvalidTournamentRequestError } from './tournament-errors.js';
 import {
   createRounds,
-  ENTRY_OF_MATCH,
+  listedMatches,
+  refuseSettledSince,
   type RoundSteps,
 } from './round-steps.js';
 import {
@@ -18,16 +16,18 @@ import {
 } from './tournament-view.js';
 
 /**
- * Swiss's round steps: Complete round grants draws with their drop choices,
- * which apply except in the final tournament round, and pairs the next
- * round with the Swiss pairer. Throws InvalidTournamentRequestError for
- * granted wins, which are single elimination's.
+ * Swiss's round steps: Start pairs round 1 at random; Complete round grants
+ * draws with their drop choices, which apply except in the final
+ * tournament round, and pairs the next round with the Swiss pairer. Throws
+ * InvalidTournamentRequestError for granted wins, which are single
+ * elimination's.
  */
 export const SWISS_STEPS: RoundSteps = {
+  start: (tx, tournamentId) => pairSwiss(tx, tournamentId, 1),
   async settle(tx, { tournamentId, round, finalRound, request }) {
     if (request.grantedWins.length > 0) {
       throw new InvalidTournamentRequestError(
-        'Swiss grants draws in unreported matches, not wins.',
+        'Swiss grants draws in unreported matches, never wins.',
       );
     }
     const dropping = await grantDraws(
@@ -52,14 +52,10 @@ export const SWISS_STEPS: RoundSteps = {
  * with the Swiss pairer, from its standings, matches and byes so far, and
  * makes its matches and bye. Dropped players aren't paired. The order
  * within a score group, and so the bye, follows the full MTR ranking of the
- * standings; the seed is random, so round 1 pairs at random and it breaks
+ * standings; the RNG seed is random, so round 1 pairs at random and it breaks
  * any ties left after every tiebreaker.
  */
-export async function pairSwiss(
-  tx: Transaction,
-  tournamentId: string,
-  round: number,
-) {
+async function pairSwiss(tx: Transaction, tournamentId: string, round: number) {
   const row = await tx.tournament.findUniqueOrThrow({
     where: { id: tournamentId },
     select: TOURNAMENT_VIEW,
@@ -79,7 +75,7 @@ export async function pairSwiss(
     dropped: view.entries
       .filter((entry) => entry.dropped)
       .map((entry) => entry.playerId),
-    seed: randomInt(2 ** 31),
+    rngSeed: randomInt(2 ** 31),
   });
   await createRounds(tx, tournamentId, [
     {
@@ -105,27 +101,11 @@ async function grantDraws(
   round: number,
   grantedDraws: readonly GrantedDrawRequest[],
 ): Promise<string[]> {
-  const matches = await tx.match.findMany({
-    where: { tournamentId, round, secondEntryId: { not: null } },
-    select: {
-      id: true,
-      outcome: true,
-      firstEntry: { select: ENTRY_OF_MATCH },
-      secondEntry: { select: ENTRY_OF_MATCH },
-    },
-  });
-  const byId = new Map(matches.map((match) => [match.id, match]));
+  const listed = await listedMatches(tx, tournamentId, round, grantedDraws);
   const dropping: string[] = [];
-  for (const { matchId, drop } of grantedDraws) {
-    const match = byId.get(matchId);
-    if (!match) {
-      throw new InvalidTournamentRequestError(
-        `Tournament round ${round} has no match ${matchId}.`,
-      );
-    }
-    const entries = [match.firstEntry, match.secondEntry!];
-    for (const playerId of drop) {
-      const entry = entries.find((e) => e.player.userId === playerId);
+  for (const { request, match } of listed) {
+    for (const playerId of request.drop) {
+      const entry = match.entries.find((e) => e.player.userId === playerId);
       if (!entry) {
         throw new InvalidTournamentRequestError(
           'Only a match’s own players can be dropped with its granted draw.',
@@ -133,12 +113,7 @@ async function grantDraws(
       }
       dropping.push(entry.id);
     }
-    if (match.outcome !== 'Unreported') {
-      throw new TournamentRefusedError({
-        error: 'match-reported',
-        message: `A match listed for a granted draw has been ${match.outcome === 'Forfeit' ? 'forfeited' : 'reported'} since. Look at tournament round ${round} again before completing it.`,
-      });
-    }
+    refuseSettledSince(match, round, 'granted draw');
   }
   await tx.match.updateMany({
     where: { id: { in: grantedDraws.map((draw) => draw.matchId) } },

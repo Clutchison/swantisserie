@@ -50,7 +50,7 @@ describe('pairSwissRound', () => {
     const round = pairSwissRound({
       ...noHistory,
       standings: table(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
-      seed: 1,
+      rngSeed: 1,
     });
     expect(pairs(round)).toEqual(['a-b', 'c-d']);
     expect(round.bye).toBeNull();
@@ -67,7 +67,7 @@ describe('pairSwissRound', () => {
         ['e', 0],
         ['f', 0],
       ),
-      seed: 1,
+      rngSeed: 1,
     });
     const top = new Set(['a', 'b', 'c']);
     const across = round.matches.filter(([x, y]) => top.has(x) !== top.has(y));
@@ -82,7 +82,7 @@ describe('pairSwissRound', () => {
         ['a', 'b'],
         ['c', 'd'],
       ],
-      seed: 1,
+      rngSeed: 1,
     });
     expect(pairs(round)).not.toContain('a-b');
     expect(pairs(round)).not.toContain('c-d');
@@ -103,7 +103,7 @@ describe('pairSwissRound', () => {
         ['f', 0],
       ),
       pastMatches: [['c', 'd']],
-      seed: 1,
+      rngSeed: 1,
     });
     expect([
       ['a-c', 'b-d', 'e-f'],
@@ -123,7 +123,7 @@ describe('pairSwissRound', () => {
         ['b', 'd'],
         ['a', 'd'],
       ],
-      seed: 1,
+      rngSeed: 1,
     });
     expect(pairs(round)).toEqual(['a-d', 'b-c']);
   });
@@ -138,7 +138,7 @@ describe('pairSwissRound', () => {
         ['b', 'c'],
       ],
       pastByes: ['c'],
-      seed: 1,
+      rngSeed: 1,
     });
     expect(round.bye).toBe('b');
     expect(pairs(round)).toEqual(['a-c']);
@@ -149,19 +149,19 @@ describe('pairSwissRound', () => {
       ...noHistory,
       standings: table(['a', 6], ['b', 3], ['c', 3], ['d', 3], ['e', 0]),
       pastByes: ['e'],
-      seed: 1,
+      rngSeed: 1,
     });
     expect(round.bye).toBe('d');
     expect(pairs(round)).toHaveLength(2);
   });
 
   it('never pairs a dropped player, nor gives them the bye', () => {
-    for (const seed of [1, 2, 3, 4, 5]) {
+    for (const rngSeed of [1, 2, 3, 4, 5]) {
       const round = pairSwissRound({
         ...noHistory,
         standings: table(['a', 6], ['b', 3], ['c', 3], ['d', 3], ['e', 0]),
         dropped: ['b', 'e'],
-        seed,
+        rngSeed,
       });
       const seated = [...round.matches.flat(), round.bye];
       expect(seated).not.toContain('b');
@@ -171,9 +171,9 @@ describe('pairSwissRound', () => {
     }
   });
 
-  it('is deterministic for a seed, and pairs round 1 at random', () => {
+  it('is deterministic for an RNG seed, and pairs round 1 at random', () => {
     const players = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
-    const roundOne = (seed: number) =>
+    const roundOne = (rngSeed: number) =>
       pairSwissRound({
         ...noHistory,
         standings: players.map((playerId) => ({
@@ -181,12 +181,12 @@ describe('pairSwissRound', () => {
           rank: 1,
           matchPoints: 0,
         })),
-        seed,
+        rngSeed,
       });
 
     expect(roundOne(7)).toEqual(roundOne(7));
     const seen = new Set(
-      [1, 2, 3, 4, 5].map((seed) => pairs(roundOne(seed)).join(' ')),
+      [1, 2, 3, 4, 5].map((rngSeed) => pairs(roundOne(rngSeed)).join(' ')),
     );
     expect(seen.size).toBeGreaterThan(1);
   });
@@ -194,9 +194,9 @@ describe('pairSwissRound', () => {
   describe.each([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])(
     'over every tournament round for %i players',
     (count) => {
-      it.each([1, 2, 3, 4, 5])('with seed %i', (seed) => {
+      it.each([1, 2, 3, 4, 5])('with RNG seed %i', (rngSeed) => {
         const players = Array.from({ length: count }, (_, i) => `p${i + 1}`);
-        const random = seededRandom(seed * 1000 + count);
+        const random = seededRandom(rngSeed * 1000 + count);
         const played: TournamentMatch[] = [];
         const byes: string[] = [];
 
@@ -207,7 +207,7 @@ describe('pairSwissRound', () => {
             pastMatches: played.map((match) => match.players),
             pastByes: byes,
             dropped: [],
-            seed: seed + r,
+            rngSeed: rngSeed + r,
           });
 
           const met = new Set(played.map(({ players: p }) => pairKey(p)));
