@@ -1,11 +1,10 @@
-import type { CompleteRoundRequest, GameScore } from 'contract';
-import type { ScheduledRound } from 'engine';
-import type { TournamentState } from '../generated/prisma/client.js';
+import type { ClearedMatchView, CompleteRoundRequest } from 'contract';
+import type {
+  MatchOutcomeKind,
+  MatchSide,
+  TournamentState,
+} from '../generated/prisma/client.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import {
-  InvalidTournamentRequestError,
-  TournamentRefusedError,
-} from './tournament-errors.js';
 
 /** The tournament round Complete round is completing, and what it was asked. */
 export interface RoundToSettle {
@@ -18,8 +17,24 @@ export interface RoundToSettle {
 
 /** What a format's round steps read of the tournament they change. */
 export interface TournamentProgress {
+  id: string;
   state: TournamentState;
   lastCompletedRound: number;
+}
+
+/**
+ * What an organizer's correction or clear writes to a match: its new
+ * outcome, every field only another outcome uses back to its default.
+ */
+export interface MatchChange {
+  outcome: MatchOutcomeKind;
+  firstGames: number;
+  secondGames: number;
+  drawnGames: number;
+  forfeitedBy: MatchSide | null;
+  grantedTo: null;
+  reportedById: string | null;
+  confirmed: false;
 }
 
 /** What starting and completing tournament rounds does that depends on the format. */
@@ -37,115 +52,45 @@ export interface RoundSteps {
   /** Pairs tournament round `round`, the next. */
   pairNext(tx: Transaction, tournamentId: string, round: number): Promise<void>;
   /**
-   * Throws TournamentRefusedError if an organizer can't correct the match
-   * `matchId` to `games`, or clear it when `games` is null, beyond what
-   * every format refuses. Formats without one allow both.
+   * How many players are still in once tournament round `round` is
+   * settled, for Complete round to complete the tournament when fewer than
+   * MIN_UNDROPPED_PLAYERS are. Formats without one count the undropped.
    */
-  refuseChange?(
+  stillIn?(
+    tx: Transaction,
+    tournamentId: string,
+    round: number,
+  ): Promise<number>;
+  /**
+   * Whether clearing a match of a completed tournament round reopens that
+   * round, the match unreported, rather than making it a granted draw.
+   */
+  reopensCleared?: true;
+  /**
+   * Writes an organizer's `change` to the match `matchId`, and changes
+   * what depends on it. Formats without one write just the match.
+   */
+  changeMatch?(
     tx: Transaction,
     tournament: TournamentProgress,
     matchId: string,
-    games: GameScore | null,
+    change: MatchChange,
   ): Promise<void>;
-}
-
-/** What a match's settling reads of each of its entries. */
-export const ENTRY_OF_MATCH = {
-  id: true,
-  dropped: true,
-  player: { select: { userId: true } },
-} as const;
-
-/**
- * The matches of tournament round `round` that Complete round's `listed`
- * name, each with what named it, in its order. Throws
- * InvalidTournamentRequestError if one isn't a match of the round; a bye is
- * no match.
- */
-export async function listedMatches<Listed extends { matchId: string }>(
-  tx: Transaction,
-  tournamentId: string,
-  round: number,
-  listed: readonly Listed[],
-) {
-  const matches = await tx.match.findMany({
-    where: { tournamentId, round, secondEntryId: { not: null } },
-    select: {
-      id: true,
-      outcome: true,
-      firstEntry: { select: ENTRY_OF_MATCH },
-      secondEntry: { select: ENTRY_OF_MATCH },
-    },
-  });
-  const byId = new Map(matches.map((match) => [match.id, match]));
-  return listed.map((request) => {
-    const match = byId.get(request.matchId);
-    if (!match) {
-      throw new InvalidTournamentRequestError(
-        `Tournament round ${round} has no match ${request.matchId}.`,
-      );
-    }
-    return {
-      request,
-      match: { ...match, entries: [match.firstEntry, match.secondEntry!] },
-    };
-  });
-}
-
-/**
- * Throws TournamentRefusedError if `match`, listed for a `grant` by
- * Complete round of tournament round `round`, was reported or forfeited
- * since the organizer looked.
- */
-export function refuseSettledSince(
-  match: { outcome: string },
-  round: number,
-  grant: 'granted draw' | 'granted win',
-) {
-  if (match.outcome === 'Unreported') return;
-  throw new TournamentRefusedError({
-    error: 'match-reported',
-    message: `A match listed for a ${grant} has been ${match.outcome === 'Forfeit' ? 'forfeited' : 'reported'} since. Look at tournament round ${round} again before completing it.`,
-  });
-}
-
-/** A match to make, whose players are tournament entry ids: a bye when the second is null. */
-export interface NewMatch {
-  players: readonly [string, string | null];
-  /** Single elimination only: its bracket place in its tournament round. */
-  bracketPlace?: number;
-}
-
-/** Makes the matches and byes of tournament round `round`. */
-export async function createMatches(
-  tx: Transaction,
-  tournamentId: string,
-  round: number,
-  matches: readonly NewMatch[],
-) {
-  await tx.match.createMany({
-    data: matches.map(
-      ({ players: [firstEntryId, secondEntryId], bracketPlace }) => ({
-        tournamentId,
-        round,
-        bracketPlace,
-        firstEntryId,
-        secondEntryId,
-      }),
-    ),
-  });
-}
-
-/** Makes the matches and byes of `rounds`, whose players are tournament entry ids. */
-export async function createRounds(
-  tx: Transaction,
-  tournamentId: string,
-  rounds: readonly ({ round: number } & ScheduledRound)[],
-) {
-  for (const { round, matches, bye } of rounds) {
-    await createMatches(tx, tournamentId, round, [
-      ...matches.map((players) => ({ players })),
-      ...(bye ? [{ players: [bye, null] as const }] : []),
-    ]);
-  }
+  /** The later matches `changeMatch` would clear for the same change, writing nothing. */
+  previewChange?(
+    tx: Transaction,
+    tournament: TournamentProgress,
+    matchId: string,
+    change: MatchChange,
+  ): Promise<ClearedMatchView[]>;
+  /**
+   * Throws TournamentRefusedError if the dropped entry `entryId` can't be
+   * reinstated as their drop has fed a later pairing. Formats without one
+   * refuse once a tournament round has been paired without them.
+   */
+  refuseReinstate?(
+    tx: Transaction,
+    tournament: TournamentProgress,
+    entryId: string,
+  ): Promise<void>;
 }

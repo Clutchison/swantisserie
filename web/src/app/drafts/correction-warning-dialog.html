@@ -1,0 +1,24 @@
+<div class="dialog">
+  <h3 [id]="headingId">{{ warning().question }}</h3>
+  @if (warning().detail; as detail) {
+    <p>{{ detail }}</p>
+  }
+  <p>
+    It changes who advances, so these later matches are cleared. The next is paired again with
+    whoever advances now, and those after it once their tournament rounds are.
+  </p>
+  <ul aria-label="Matches to clear">
+    @for (match of clears(); track match.key) {
+      <li>{{ match.label }}</li>
+    }
+  </ul>
+  @if (takesTrophy()) {
+    <p>The tournament plays on, and the trophy is taken back until the final is played again.</p>
+  }
+  <div class="dialog-actions">
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close(false)">
+      Cancel
+    </button>
+    <button class="button" type="button" (click)="close(true)">{{ warning().action }}</button>
+  </div>
+</div>

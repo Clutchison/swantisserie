@@ -3,12 +3,12 @@ import type { GrantedDrawRequest } from 'contract';
 import { pairSwissRound } from 'engine';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import { InvalidTournamentRequestError } from './tournament-errors.js';
+import type { RoundSteps } from './round-steps.js';
 import {
   createRounds,
   listedMatches,
   refuseSettledSince,
-  type RoundSteps,
-} from './round-steps.js';
+} from './tournament-matches.js';
 import {
   byesOf,
   TOURNAMENT_VIEW,
@@ -19,15 +19,15 @@ import {
  * Swiss's round steps: Start pairs round 1 at random; Complete round grants
  * draws with their drop choices, which apply except in the final
  * tournament round, and pairs the next round with the Swiss pairer. Throws
- * InvalidTournamentRequestError for granted wins, which are single
- * elimination's.
+ * InvalidTournamentRequestError for granted wins and match drops, which
+ * are single elimination's.
  */
 export const SWISS_STEPS: RoundSteps = {
   start: (tx, tournamentId) => pairSwiss(tx, tournamentId, 1),
   async settle(tx, { tournamentId, round, finalRound, request }) {
-    if (request.grantedWins.length > 0) {
+    if (request.grantedWins.length > 0 || request.drops.length > 0) {
       throw new InvalidTournamentRequestError(
-        'Swiss grants draws in unreported matches, never wins.',
+        'Swiss grants draws in unreported matches, never wins, and drops players with their granted draws.',
       );
     }
     const dropping = await grantDraws(

@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advancingPlayer,
+  dependentBracketPlaces,
   firstBracketRound,
   nextBracketRound,
   singleEliminationRoundCount,
   singleEliminationStandings,
   winnerOf,
 } from './single-elimination.js';
-import type { DecidedMatch, Standing, TournamentMatch } from './tournament.js';
+import type {
+  DecidedMatch,
+  MatchOutcome,
+  Standing,
+  TournamentMatch,
+} from './tournament.js';
 
 /** Seed order s1, s2, … sN: each player is named after their seed. */
 function seeds(count: number): string[] {
@@ -92,6 +99,19 @@ describe('firstBracketRound', () => {
 });
 
 describe('nextBracketRound', () => {
+  it('gives a bye to the player whose would-be opponents both dropped', () => {
+    expect(nextBracketRound(['s1', null, null, 's3'])).toEqual([
+      { bracketPlace: 0, players: ['s1', null] },
+      { bracketPlace: 1, players: ['s3', null] },
+    ]);
+  });
+
+  it('leaves a bracket place empty when nobody advances to it', () => {
+    expect(nextBracketRound([null, null, 's2', 's3'])).toEqual([
+      { bracketPlace: 1, players: ['s2', 's3'] },
+    ]);
+  });
+
   it('pairs the winners of neighbouring bracket places', () => {
     expect(nextBracketRound(['s1', 's5', 's2', 's3'])).toEqual([
       { bracketPlace: 0, players: ['s1', 's5'] },
@@ -171,6 +191,24 @@ describe('singleEliminationStandings', () => {
     });
   });
 
+  it('counts a forfeit both players dropped from for neither', () => {
+    const table = singleEliminationStandings(
+      ['a', 'b', 'c', 'd'],
+      [
+        { players: ['a', 'b'], outcome: { kind: 'Forfeit', forfeitedBy: 'a' } },
+        won('c', 'd'),
+      ],
+      [],
+      ['a', 'b'],
+    );
+    expect(ranks(table)).toEqual([
+      ['c', 1],
+      ['a', 2],
+      ['b', 2],
+      ['d', 2],
+    ]);
+  });
+
   it('leaves unreported matches out', () => {
     const table = singleEliminationStandings(
       ['a', 'b'],
@@ -200,5 +238,56 @@ describe('winnerOf', () => {
     ['nobody for a granted draw', { kind: 'GrantedDraw' }, null],
   ])('is %s', (_, outcome, winner) => {
     expect(winnerOf({ players: ['a', 'b'], outcome })).toBe(winner);
+  });
+});
+
+describe('advancingPlayer', () => {
+  const forfeit = { kind: 'Forfeit', forfeitedBy: 'a' } as const;
+  const played: MatchOutcome = { kind: 'GameScore', games: [2, 0], draws: 0 };
+
+  it('is the opponent of a player who dropped, on the forfeit', () => {
+    expect(
+      advancingPlayer({ players: ['a', 'b'], outcome: forfeit }, ['a']),
+    ).toBe('b');
+  });
+
+  it('is nobody when both players dropped before playing', () => {
+    expect(
+      advancingPlayer({ players: ['a', 'b'], outcome: forfeit }, ['b', 'a']),
+    ).toBeNull();
+  });
+
+  it('is the winner of a played match, even if both dropped since', () => {
+    expect(
+      advancingPlayer({ players: ['a', 'b'], outcome: played }, ['a', 'b']),
+    ).toBe('a');
+  });
+
+  it('is the player with a bye, unless they dropped', () => {
+    const bye = { players: ['a', null], outcome: null } as const;
+    expect(advancingPlayer(bye, [])).toBe('a');
+    expect(advancingPlayer(bye, ['a'])).toBeNull();
+  });
+
+  it('is nobody while the match is unreported', () => {
+    expect(
+      advancingPlayer({ players: ['a', 'b'], outcome: null }, []),
+    ).toBeNull();
+  });
+});
+
+describe('dependentBracketPlaces', () => {
+  it('is every later match its winner feeds, up to the final', () => {
+    expect(dependentBracketPlaces({ round: 1, bracketPlace: 5 }, 4)).toEqual([
+      { round: 2, bracketPlace: 2 },
+      { round: 3, bracketPlace: 1 },
+      { round: 4, bracketPlace: 0 },
+    ]);
+  });
+
+  it('is none for the final', () => {
+    expect(dependentBracketPlaces({ round: 3, bracketPlace: 0 }, 3)).toEqual(
+      [],
+    );
   });
 });

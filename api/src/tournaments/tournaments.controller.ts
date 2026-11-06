@@ -17,8 +17,11 @@ import {
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
+  type GameScorePreview,
+  type GameScorePreviewRequest,
   type GrantedDrawRequest,
   type GrantedWinRequest,
+  type MatchDropRequest,
   type MatchReportRequest,
   type RequestProblem,
   type SwissRoundOption,
@@ -196,6 +199,25 @@ export class TournamentsController {
     );
   }
 
+  /**
+   * What setting a match's game score to the body's, or clearing it when
+   * they are null, would clear beyond it, changing nothing; for the
+   * organizer, before correcting it.
+   */
+  @Post('matches/:matchId/game-score/preview')
+  @HttpCode(200)
+  async previewGameScore(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() body: unknown,
+  ): Promise<GameScorePreview> {
+    const { games } = bodyFields<GameScorePreviewRequest>(body);
+    const parsed = games === null ? null : parseGames(body);
+    await this.access.asOrganizer(user, id);
+    return this.tournaments.previewGameScore(id, matchId, user.id, parsed);
+  }
+
   /** Clears a match's game score, even once the tournament is complete; for the organizer. */
   @Delete('matches/:matchId/game-score')
   async clearGameScore(
@@ -224,7 +246,8 @@ export class TournamentsController {
   /**
    * Completes the tournament's current tournament round, settling its
    * unreported matches as the body lists them: in Swiss, granting draws
-   * and dropping players; in single elimination, granting wins. It pairs
+   * and dropping players; in single elimination, granting wins or dropping
+   * players. It pairs
    * the next one, or completes the tournament after the last
    * or once too few undropped players remain. For the organizer.
    */
@@ -272,27 +295,44 @@ function parseSetup(body: unknown): TournamentSetupRequest {
 }
 
 /**
- * The granted draws, with their drop choices, and the granted wins, with
- * their winners, that Complete round's body lists for the tournament
- * round's unreported matches; none of either it leaves out. A 400 if they
- * aren't match ids each with a list of user ids, or with a user id.
+ * The granted draws, with their drop choices, the granted wins, with
+ * their winners, and the drops, with their players, that Complete round's
+ * body lists for the tournament round's unreported matches; none of any it
+ * leaves out. A 400 if they aren't match ids each with a list of user ids,
+ * with a user id, or with one or two user ids.
  */
 function parseCompleteRound(body: unknown): Required<CompleteRoundRequest> {
-  const { grantedDraws = [], grantedWins = [] } =
-    bodyFields<CompleteRoundRequest>(body);
+  const {
+    grantedDraws = [],
+    grantedWins = [],
+    drops = [],
+  } = bodyFields<CompleteRoundRequest>(body);
   if (
     Array.isArray(grantedDraws) &&
     grantedDraws.every(isGrantedDrawRequest) &&
     Array.isArray(grantedWins) &&
-    grantedWins.every(isGrantedWinRequest)
+    grantedWins.every(isGrantedWinRequest) &&
+    Array.isArray(drops) &&
+    drops.every(isMatchDropRequest)
   ) {
-    return { grantedDraws, grantedWins };
+    return { grantedDraws, grantedWins, drops };
   }
   throw new BadRequestException({
     error: 'invalid',
     message:
-      'List each unreported match to grant a draw in, with the players to drop from it, or to grant a win in, with its winner.',
+      'List each unreported match to grant a draw in, with the players to drop from it, to grant a win in, with its winner, or to drop one or both players from.',
   } satisfies RequestProblem);
+}
+
+function isMatchDropRequest(value: unknown): value is MatchDropRequest {
+  const { matchId, drop } = bodyFields<MatchDropRequest>(value);
+  return (
+    typeof matchId === 'string' &&
+    Array.isArray(drop) &&
+    drop.length >= 1 &&
+    drop.length <= 2 &&
+    drop.every((playerId) => typeof playerId === 'string')
+  );
 }
 
 function isGrantedWinRequest(value: unknown): value is GrantedWinRequest {

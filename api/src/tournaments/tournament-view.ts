@@ -104,6 +104,9 @@ export function toTournamentView(row: TournamentRow): TournamentView {
                 .map((entry) => entry.player.userId),
               matches,
               byesOf(rounds),
+              row.entries
+                .filter((entry) => entry.dropped)
+                .map((entry) => entry.player.userId),
             )
           : standings(players, matches);
   return {

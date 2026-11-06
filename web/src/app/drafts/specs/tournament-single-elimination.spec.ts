@@ -1,4 +1,4 @@
-import type { TournamentView } from 'contract';
+import type { GameScorePreview, GameScorePreviewRequest, TournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -7,7 +7,9 @@ import {
   button,
   controlByLabel,
   group,
+  http,
   items,
+  type AppFixture,
   panel,
   text,
   useDraftsApp,
@@ -116,7 +118,6 @@ describe('single elimination tournaments on the Tournament tab', () => {
 
     expect(text(dialog)).toContain('Tournament round 2 is paired, and its matches open.');
     expect(text(dialog)).toContain('Pick the winner of each unreported match: they advance.');
-    expect(group(dialog, 'Drop from Bob vs Carol')).toBeNull();
     expect(button(dialog, 'Complete round')!.disabled).toBe(true);
     const winner = group(dialog, 'Winner of Bob vs Carol')!;
     controlByLabel(winner, 'radio', 'Carol')!.click();
@@ -157,14 +158,138 @@ describe('single elimination tournaments on the Tournament tab', () => {
     expect(req.request.body).toEqual({ grantedWins: [{ matchId: 'm2', winner: alice.id }] });
     expect(items(panel(page), 'Trophy holders')).toEqual(['Alice']);
   });
+});
 
-  it('offers no Clear for a match of a completed tournament round, whose winner has advanced', async () => {
-    const { fixture, tab } = await openPlaying(final, { powers: ORGANIZE_ONLY });
+describe('dropping players from the single elimination Complete round dialog', () => {
+  it('drops a player from an unreported match instead of picking its winner', async () => {
+    const { fixture } = await openCompleteRound(singleEliminationPlaying());
+    const dialog = openDialog()!;
 
-    button(tab, 'Correct Bob vs Carol')!.click();
+    controlByLabel(group(dialog, 'Drop from Bob vs Carol')!, 'checkbox', 'Drop Bob')!.click();
     await fixture.whenStable();
 
-    expect(group(tab, 'Game score of Bob vs Carol')).not.toBeNull();
-    expect(button(tab, 'Clear game score')).toBeUndefined();
+    expect(text(dialog)).toContain('drop a player who won’t play on');
+    expect(
+      controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!.disabled,
+    ).toBe(true);
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/complete-round',
+      'POST',
+      final,
+      1,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ drops: [{ matchId: 'm1', drop: [bob.id] }] });
+  });
+
+  it('says the tournament completes when dropping both players leaves one player in the bracket', async () => {
+    const { fixture } = await openCompleteRound(singleEliminationPlaying());
+    const dialog = openDialog()!;
+    const drops = group(dialog, 'Drop from Bob vs Carol')!;
+
+    controlByLabel(drops, 'checkbox', 'Drop Bob')!.click();
+    controlByLabel(drops, 'checkbox', 'Drop Carol')!.click();
+    await fixture.whenStable();
+
+    expect(text(dialog)).toContain(
+      'Fewer than 2 players are left in the bracket, so the tournament completes and the trophy is awarded.',
+    );
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/complete-round',
+      'POST',
+      { ...final, state: 'Complete', trophyHolders: [alice.id] },
+      1,
+      threePlayers,
+    );
+    expect(req.request.body).toEqual({ drops: [{ matchId: 'm1', drop: [bob.id, carol.id] }] });
+  });
+});
+
+describe('the single elimination correction warning', () => {
+  const PREVIEW = '/api/drafts/draft-1/tournament/matches/m1/game-score/preview';
+  const GAME_SCORE = '/api/drafts/draft-1/tournament/matches/m1/game-score';
+  /** The final cleared, as correcting round 1 to Bob's win would. */
+  const finalCleared = { clears: [{ round: 2, bracketPlace: 0, players: [alice.id, carol.id] }] };
+
+  /** Opens the game score choice of Bob vs Carol, of completed round 1, for an organizer. */
+  async function openCorrecting() {
+    const opened = await openPlaying(final, { powers: ORGANIZE_ONLY });
+    button(opened.tab, 'Correct Bob vs Carol')!.click();
+    await opened.fixture.whenStable();
+    return { ...opened, choice: group(opened.tab, 'Game score of Bob vs Carol')! };
+  }
+
+  /** Answers the pending preview with `preview`, expecting it to preview `games`. */
+  async function answerPreview(
+    fixture: AppFixture,
+    games: GameScorePreviewRequest['games'],
+    preview: GameScorePreview,
+  ) {
+    const req = await vi.waitFor(() => http.expectOne(PREVIEW));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ games });
+    req.flush(preview);
+    await fixture.whenStable();
+  }
+
+  it('lists the later matches a correction that changes the winner clears, then corrects it', async () => {
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Bob won 2–0')!.click();
+    await answerPreview(fixture, [2, 0], finalCleared);
+    const dialog = await vi.waitFor(() => openDialog()!);
+
+    expect(text(dialog)).toContain('Correct Bob vs Carol?');
+    expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
+    button(dialog, 'Correct')!.click();
+    const req = await answerChange(fixture, GAME_SCORE, 'PUT', final, 1, threePlayers);
+
+    expect(req.request.body).toEqual({ games: [2, 0] });
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('sends nothing when the organizer cancels the warning', async () => {
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Bob won 2–0')!.click();
+    await answerPreview(fixture, [2, 0], finalCleared);
+    button(await vi.waitFor(() => openDialog()!), 'Cancel')!.click();
+    await fixture.whenStable();
+
+    http.expectNone(GAME_SCORE);
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('corrects at once when the correction clears nothing', async () => {
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Carol won 2–0')!.click();
+    await answerPreview(fixture, [0, 2], { clears: [] });
+    const req = await answerChange(fixture, GAME_SCORE, 'PUT', final, 1, threePlayers);
+
+    expect(req.request.body).toEqual({ games: [0, 2] });
+    expect(openDialog()).toBeNull();
+  });
+
+  it('offers Clear for a match of a completed round, warning of the later matches it clears', async () => {
+    const confirm = vi.spyOn(window, 'confirm');
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Clear game score')!.click();
+    await answerPreview(fixture, null, finalCleared);
+    const dialog = await vi.waitFor(() => openDialog()!);
+
+    expect(text(dialog)).toContain('Clear the game score of Bob vs Carol?');
+    expect(text(dialog)).toContain('The match is unreported again.');
+    expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
+    button(dialog, 'Clear')!.click();
+    await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
+
+    expect(confirm).not.toHaveBeenCalled();
   });
 });

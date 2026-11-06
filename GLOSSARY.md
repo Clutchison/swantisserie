@@ -417,7 +417,7 @@ A started tournament whose matches are being played.
 _Avoid_: Running, in progress, live, active
 
 **Complete round**:
-The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament. In Swiss its unreported matches become granted draws, and the organizer chooses whether to drop either player of each, except in the final tournament round. In single elimination the organizer picks the winner of each unreported match, who gets a granted win, and the winners meet in the next round; completing the final completes the tournament. Once fewer than 2 players haven't dropped, it completes the tournament.
+The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament. In Swiss its unreported matches become granted draws, and the organizer chooses whether to drop either player of each, except in the final tournament round. In single elimination the organizer picks the winner of each unreported match, who gets a granted win, or drops one or both of its players, and the players who advance meet in the next round; completing the final completes the tournament. Once fewer than 2 players haven't dropped, or in single elimination fewer than 2 are left in the bracket, it completes the tournament.
 _Avoid_: Advance, next round, close round
 
 **Complete tournament**:
@@ -457,11 +457,11 @@ A player in a match entering its game score. Only the organizer can change a rep
 _Avoid_: Submit, record, enter (alone)
 
 **Correct**:
-An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed. In single elimination, a correction can't change the winner of a match whose tournament round is completed.
+An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed. In single elimination, a correction that changes who advances from a match whose tournament round is completed clears every later match it fed, after the organizer accepts a warning listing them: the next is paired again with whoever advances now, and those after it are unpaired until their tournament rounds are paired again.
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:
-An organizer taking a match's game score, granted draw, granted win or forfeit away. While the tournament is playing, a match with a dropped player is their forfeit again. Otherwise the match is unreported again while its tournament round is open, and becomes a granted draw once its round or the tournament is complete; single elimination, which never has a draw, can't clear a match once its round is completed.
+An organizer taking a match's game score, granted draw, granted win or forfeit away. While the tournament is playing, a match with a dropped player is their forfeit again. Otherwise the match is unreported again while its tournament round is open, and becomes a granted draw once its round or the tournament is complete. Single elimination, which never has a draw, makes it unreported or a forfeit again and reopens its tournament round, clearing every later match it fed, as a correction does.
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
@@ -477,7 +477,7 @@ One set of matches in a tournament, in which each player plays at most one.
 _Avoid_: Round (alone; that is a pick round), stage, week
 
 **Bye**:
-A tournament round in which a player has no match. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one. In single elimination the top seeds have byes in round 1, as many as the bracket has places left over, and go straight to round 2.
+A tournament round in which a player has no match. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one. In single elimination the top seeds have byes in round 1, as many as the bracket has places left over, and go straight to round 2; a player also has a bye when nobody advances from the match whose winner they would have met.
 _Avoid_: Rest, skip, free win
 
 **Granted draw**:
@@ -493,11 +493,11 @@ A player leaving a tournament before it ends. Their played matches stand.
 _Avoid_: Withdraw, quit, leave
 
 **Reinstate**:
-An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
+An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them; in single elimination, until the tournament round of a forfeit of theirs, or of a match or bye nobody advanced from because they dropped, is completed. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
 _Avoid_: Undo drop, un-drop, take back, rejoin
 
 **Forfeit**:
-An unplayed match decided because one of its players dropped.
+An unplayed match decided because one of its players dropped. In single elimination their opponent advances on it, and when both players dropped nobody does.
 _Avoid_: Default, walkover, no-show
 
 **Standings**:
