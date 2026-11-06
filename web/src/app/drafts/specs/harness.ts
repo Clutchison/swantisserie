@@ -28,7 +28,16 @@ import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
-import { alice, button, buttons, byAriaLabel, table, tableRows, text } from '../../specs-harness';
+import {
+  alice,
+  button,
+  buttons,
+  byAriaLabel,
+  collapseWhitespace,
+  table,
+  tableRows,
+  text,
+} from '../../specs-harness';
 
 export { alice, button, buttons, table, tableRows, text };
 
@@ -190,12 +199,13 @@ export async function openUrl(url: string, user: UserView = alice) {
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 
-/** The loading animation inside `root`, while something loads; null once nothing does. */
-export const loadingAnimation = (root: Element) => root.querySelector('app-loading-animation');
+/** The loading animation inside `root`, its status named "Loading", while something loads; null once nothing does. */
+export const loadingAnimation = (root: HTMLElement) =>
+  byAriaLabel(root, '[role="status"]', 'Loading');
 
 /** Waits out a load's delay, then checks it shows its text under a logo of the given width. */
 export async function expectLoadingAnimation(
-  root: () => Element,
+  root: () => HTMLElement,
   text: string,
   logoWidth: 288 | 64,
 ) {
@@ -375,7 +385,7 @@ export function accessibleName(element: Element): string {
     if (node instanceof HTMLImageElement) return node.alt;
     return [...node.childNodes].map(nameOf).join(' ');
   };
-  return nameOf(element).replace(/\s+/g, ' ').trim();
+  return collapseWhitespace(nameOf(element));
 }
 
 /** What a screen reader reads as `element`'s description: the text of the elements its aria-describedby names. */
@@ -452,9 +462,7 @@ export const statusMessage = (root: HTMLElement, text: string) =>
 
 /** The text of every status message inside `root`, with its whitespace collapsed. */
 export const statusTexts = (root: HTMLElement) =>
-  [...root.querySelectorAll('[role="status"]')].map((el) =>
-    (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
-  );
+  [...root.querySelectorAll('[role="status"]')].map((el) => text(el));
 
 /** A list inside `root`, by its accessible name, such as "Pick log"; null if there is none. */
 export const findNamedList = (root: HTMLElement, name: string) =>
@@ -511,17 +519,17 @@ type ControlOf = {
  * text, leaving out any hint, option or other element it wraps.
  */
 const ownText = (label: HTMLLabelElement) =>
-  [...label.childNodes]
-    .map((node) =>
-      node.nodeType === Node.TEXT_NODE
-        ? node.textContent
-        : node instanceof HTMLImageElement
-          ? node.alt
-          : '',
-    )
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  collapseWhitespace(
+    [...label.childNodes]
+      .map((node) =>
+        node.nodeType === Node.TEXT_NODE
+          ? node.textContent
+          : node instanceof HTMLImageElement
+            ? node.alt
+            : '',
+      )
+      .join(' '),
+  );
 
 /** Every form control inside `root` with this role and label, in page order. */
 export const controlsByLabel = <R extends ControlRole>(root: HTMLElement, role: R, label: string) =>

@@ -28,7 +28,7 @@ import {
   gridCellName,
   gridColumns,
   gridRows,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   playing,
   progressLine,
@@ -48,13 +48,13 @@ import {
 useDraftsApp();
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
-const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
 
 describe('Play tab while the tournament is played', () => {
   describe('your matches', () => {
     it('lists one line per opponent, unreported first, with a link to your Deck tab', async () => {
       const { fixture, page, tab } = await openPlaying(
-        playing([reported(openMatch('m2', alice.id, bob.id), [2, 1], alice.id)]),
+        playing([reported(unreportedMatch('m2', alice.id, bob.id), [2, 1], alice.id)]),
       );
 
       expect(yourMatches(tab)).toEqual(['vs Carol', 'vs Bob · Won 2–1']);
@@ -72,8 +72,11 @@ describe('Play tab while the tournament is played', () => {
     it('shows a match your opponent reported with Confirm, and confirmed matches as confirmed', async () => {
       const { tab } = await openPlaying(
         playing([
-          reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id),
-          { ...reported(openMatch('m3', carol.id, alice.id), [2, 0], alice.id), confirmed: true },
+          reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id),
+          {
+            ...reported(unreportedMatch('m3', carol.id, alice.id), [2, 0], alice.id),
+            confirmed: true,
+          },
         ]),
       );
 
@@ -87,7 +90,7 @@ describe('Play tab while the tournament is played', () => {
 
     it('shows a forfeit by an opponent who dropped', async () => {
       const { tab } = await openPlaying(
-        withDrops([carol.id], [forfeited(openMatch('m3', carol.id, alice.id), carol.id)]),
+        withDrops([carol.id], [forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id)]),
       );
 
       expect(yourMatches(tab)).toEqual(['vs Bob', 'Forfeit: Carol dropped']);
@@ -114,7 +117,7 @@ describe('Play tab while the tournament is played', () => {
         fixture,
         '/api/drafts/draft-1/tournament/matches/m3/report',
         'POST',
-        playing([reported(openMatch('m3', carol.id, alice.id), [1, 2], alice.id)]),
+        playing([reported(unreportedMatch('m3', carol.id, alice.id), [1, 2], alice.id)]),
         1,
         threePlayers,
       );
@@ -198,7 +201,7 @@ describe('Play tab while the tournament is played', () => {
       });
 
       it('is offered from the list of matches in Swiss', async () => {
-        const m2 = reported(openMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+        const m2 = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
         const { tab } = await openPlaying(
           swissPlaying({
             rounds: [swissPlaying().rounds[0], { round: 2, matches: [m2], byes: [bob.id] }],
@@ -213,8 +216,8 @@ describe('Play tab while the tournament is played', () => {
   describe('results grid', () => {
     const carolLeads = playing(
       [
-        reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
-        { ...openMatch('m3', carol.id, alice.id), outcome: { kind: 'GrantedDraw' } },
+        reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+        { ...unreportedMatch('m3', carol.id, alice.id), outcome: { kind: 'GrantedDraw' } },
       ],
       {
         standings: [
@@ -272,7 +275,7 @@ describe('Play tab while the tournament is played', () => {
 
     it('drops the unconfirmed mark once the match is confirmed', async () => {
       const m1 = {
-        ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+        ...reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
         confirmed: true,
       };
       const { tab } = await openPlaying(playing([m1]), { user: dave });
@@ -283,7 +286,7 @@ describe('Play tab while the tournament is played', () => {
 
     it('marks a dropped player’s forfeits F on their side and W on their opponent’s', async () => {
       const { tab } = await openPlaying(
-        withDrops([carol.id], [forfeited(openMatch('m3', carol.id, alice.id), carol.id)]),
+        withDrops([carol.id], [forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id)]),
         { user: dave },
       );
 
@@ -306,9 +309,9 @@ describe('Play tab while the tournament is played', () => {
   });
 
   describe('matches left', () => {
-    const m1 = openMatch('m1', bob.id, carol.id);
-    const m2 = openMatch('m2', alice.id, bob.id);
-    const m3 = openMatch('m3', carol.id, alice.id);
+    const m1 = unreportedMatch('m1', bob.id, carol.id);
+    const m2 = unreportedMatch('m2', alice.id, bob.id);
+    const m3 = unreportedMatch('m3', carol.id, alice.id);
 
     it('tells a player who plays on how many of their matches are left', async () => {
       const { tab } = await openPlaying(playing());
@@ -529,7 +532,7 @@ describe('Play tab while the tournament is played', () => {
 
 describe('Play tab once the tournament is complete', () => {
   it('lets the opponent confirm once the tournament is complete', async () => {
-    const completeWith = (m2: ReturnType<typeof openMatch>) =>
+    const completeWith = (m2: ReturnType<typeof unreportedMatch>) =>
       playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
     const { fixture, tab } = await openPlaying(completeWith(bobBeatAlice));
 

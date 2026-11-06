@@ -6,7 +6,7 @@ import {
   dave,
   forfeited,
   gridCellName,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   playerLines,
   playing,
@@ -22,8 +22,8 @@ useDraftsApp();
 const carolDropped = withDrops(
   [carol.id],
   [
-    reported(openMatch('m1', bob.id, carol.id), [0, 2], carol.id),
-    forfeited(openMatch('m3', carol.id, alice.id), carol.id),
+    reported(unreportedMatch('m1', bob.id, carol.id), [0, 2], carol.id),
+    forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id),
   ],
 );
 
@@ -44,8 +44,8 @@ describe('drops on the Play tab', () => {
       withDrops(
         [alice.id],
         [
-          forfeited(openMatch('m2', alice.id, bob.id), alice.id),
-          forfeited(openMatch('m3', carol.id, alice.id), alice.id),
+          forfeited(unreportedMatch('m2', alice.id, bob.id), alice.id),
+          forfeited(unreportedMatch('m3', carol.id, alice.id), alice.id),
         ],
       ),
       1,
@@ -123,7 +123,7 @@ describe('drops on the Play tab', () => {
       fixture,
       `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`,
       'DELETE',
-      playing([reported(openMatch('m1', bob.id, carol.id), [0, 2], carol.id)]),
+      playing([reported(unreportedMatch('m1', bob.id, carol.id), [0, 2], carol.id)]),
       1,
       threePlayers,
     );

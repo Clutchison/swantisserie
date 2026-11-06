@@ -4,7 +4,7 @@ import {
   answerChange,
   carol,
   dave,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   swissPlaying,
   threePlayers,
@@ -103,7 +103,7 @@ describe('reopening a tournament round', () => {
     const { tab } = await openPlaying(
       swissPlaying({
         lastCompletedRound: 0,
-        rounds: [{ round: 1, matches: [openMatch('m1', bob.id, carol.id)], byes: [] }],
+        rounds: [{ round: 1, matches: [unreportedMatch('m1', bob.id, carol.id)], byes: [] }],
         reopenRound: null,
       }),
       { powers: ORGANIZE_ONLY },

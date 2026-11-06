@@ -16,7 +16,7 @@ import {
   forfeited,
   gridCell,
   gridCellName,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   playing,
   reported,
@@ -47,7 +47,7 @@ describe('organizer reports, corrections and clears', () => {
 
     const dialog = await openCell(fixture, tab, 'Carol', 'Bob', 'Bob vs Carol');
     button(group(dialog, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
-    const after = playing([reported(openMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
+    const after = playing([reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
     const req = await answerChange(
       fixture,
       '/api/drafts/draft-1/tournament/matches/m1/game-score',
@@ -84,7 +84,7 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('lets an organizer clear a reported match once they go ahead', async () => {
-    const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
     const { fixture, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
 
     button(
@@ -107,7 +107,7 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('sends nothing when the organizer thinks better of clearing', async () => {
-    const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
     const { fixture, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
 
     button(
@@ -130,7 +130,7 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('says clearing a match against a dropped player makes it their forfeit', async () => {
-    const m3 = reported(openMatch('m3', carol.id, alice.id), [0, 2], alice.id);
+    const m3 = reported(unreportedMatch('m3', carol.id, alice.id), [0, 2], alice.id);
     const { fixture, tab } = await openPlaying(withDrops([carol.id], [m3]), {
       powers: ORGANIZE_ONLY,
     });
@@ -146,7 +146,7 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('offers no Clear game score for a dropped player’s forfeit while the tournament is playing', async () => {
-    const m3 = forfeited(openMatch('m3', carol.id, alice.id), carol.id);
+    const m3 = forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id);
     const { fixture, tab } = await openPlaying(withDrops([carol.id], [m3]), {
       powers: ORGANIZE_ONLY,
     });
@@ -159,7 +159,7 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('offers no correction of a complete tournament’s matches', async () => {
-    const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
     const { tab } = await openPlaying(
       playing([m1], { state: 'Complete', trophyHolders: [bob.id] }),
       { powers: ORGANIZE_ONLY },
@@ -176,7 +176,7 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('aren’t offered to anyone without the power to organize the draft', async () => {
-    const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
     const { tab } = await openPlaying(playing([m1]));
 
     expect(resultsGrid(tab)!.querySelector('button')).toBeNull();

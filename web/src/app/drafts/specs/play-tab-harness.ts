@@ -90,7 +90,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
 });
 
 /** An unreported match `id` between the players `a` and `b`, in that order. */
-export const openMatch = (id: string, a: string, b: string): MatchView => ({
+export const unreportedMatch = (id: string, a: string, b: string): MatchView => ({
   id,
   players: [a, b],
   bracketPlace: null,
@@ -136,7 +136,7 @@ export function playing(
   fields: Partial<ViewerTournamentView> = {},
 ): ViewerTournamentView {
   const match = (id: string, a: string, b: string) =>
-    matches.find((m) => m.id === id) ?? openMatch(id, a, b);
+    matches.find((m) => m.id === id) ?? unreportedMatch(id, a, b);
   return {
     format: 'RoundRobin',
     swissRoundOption: null,
@@ -196,10 +196,10 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     rounds: [
       {
         round: 1,
-        matches: [reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
+        matches: [reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
         byes: [alice.id],
       },
-      { round: 2, matches: [openMatch('m2', alice.id, carol.id)], byes: [bob.id] },
+      { round: 2, matches: [unreportedMatch('m2', alice.id, carol.id)], byes: [bob.id] },
     ],
     bracket: null,
     standings: [
@@ -268,7 +268,7 @@ export function singleEliminationPlaying(
     rounds: [
       {
         round: 1,
-        matches: [{ ...openMatch('m1', bob.id, carol.id), bracketPlace: 1 }],
+        matches: [{ ...unreportedMatch('m1', bob.id, carol.id), bracketPlace: 1 }],
         byes: [alice.id],
       },
     ],
@@ -296,7 +296,7 @@ export const carolBeatBob = (confirmed = false): TournamentRoundView => ({
   round: 1,
   matches: [
     {
-      ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+      ...reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
       bracketPlace: 1,
       confirmed,
     },
@@ -313,7 +313,11 @@ export const singleEliminationFinal = singleEliminationPlaying({
   lastCompletedRound: 1,
   rounds: [
     carolBeatBob(),
-    { round: 2, matches: [{ ...openMatch('m2', alice.id, carol.id), bracketPlace: 0 }], byes: [] },
+    {
+      round: 2,
+      matches: [{ ...unreportedMatch('m2', alice.id, carol.id), bracketPlace: 0 }],
+      byes: [],
+    },
   ],
   bracket: [
     firstBracketRound(carol.id),

@@ -188,9 +188,12 @@ export function clickBackdrop() {
 export const hiddenFromAssistiveTech = (element: Element) =>
   element.closest('[aria-hidden="true"]') !== null;
 
+/** `value` as a viewer reads it: each run of whitespace one space, none at either end. */
+export const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
+
 /** `element`'s text as a viewer reads it, its whitespace collapsed; empty if there is no element. */
 export const text = (element: Element | null | undefined) =>
-  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  collapseWhitespace(element?.textContent ?? '');
 
 /**
  * The element inside `root` that `selector` finds and whose accessible name,

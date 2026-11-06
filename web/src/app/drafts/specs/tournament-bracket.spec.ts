@@ -9,7 +9,7 @@ import {
   carolUser,
   dave,
   firstBracketRound,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   ownPath,
   place,
@@ -63,7 +63,7 @@ describe('the bracket of a single elimination tournament', () => {
             round: 1,
             matches: [
               {
-                ...openMatch('m1', bob.id, carol.id),
+                ...unreportedMatch('m1', bob.id, carol.id),
                 bracketPlace: 1,
                 outcome: { kind: 'GrantedWin', winner: bob.id },
               },
@@ -151,7 +151,7 @@ describe('the bracket of a single elimination tournament', () => {
           round: 1,
           matches: [
             {
-              ...openMatch('m1', bob.id, carol.id),
+              ...unreportedMatch('m1', bob.id, carol.id),
               bracketPlace: 1,
               outcome: { kind: 'Forfeit', forfeitedBy: bob.id },
             },
