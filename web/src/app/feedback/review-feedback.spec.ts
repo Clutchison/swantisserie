@@ -6,6 +6,7 @@ import {
   followBack,
   http,
   openApp,
+  openDialog,
   pressKey,
   router,
   useApp,
@@ -156,7 +157,6 @@ describe('reviewing feedback', () => {
   });
 
   it('marks an item reviewed in one click, with no confirmation, and removes it', async () => {
-    const confirm = vi.spyOn(window, 'confirm');
     const { fixture, page } = await openPage([fromAlice, fromBob]);
 
     markReviewed(items(page)[0]).click();
@@ -166,7 +166,7 @@ describe('reviewing feedback', () => {
     (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromBob]);
     await fixture.whenStable();
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(openDialog()).toBeNull();
     expect(items(page).map((item) => item.textContent)).toEqual([expect.stringContaining('Bob')]);
   });
 
@@ -215,7 +215,6 @@ describe('reviewing feedback', () => {
     });
 
     it('marks an item unreviewed in one click, with no confirmation, and removes it', async () => {
-      const confirm = vi.spyOn(window, 'confirm');
       const { fixture, page } = await openReviewed([reviewedByCarol]);
 
       markUnreviewed(items(page)[0]).click();
@@ -225,7 +224,7 @@ describe('reviewing feedback', () => {
       (await vi.waitFor(() => http.expectOne('/api/admin/feedback/reviewed'))).flush([]);
       await fixture.whenStable();
 
-      expect(confirm).not.toHaveBeenCalled();
+      expect(openDialog()).toBeNull();
       expect(page.querySelector('main')?.textContent).toContain('No reviewed feedback yet');
     });
 

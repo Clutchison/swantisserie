@@ -1,3 +1,4 @@
+import { answer, question } from '../../specs-harness';
 import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
 import {
   useDraftsApp,
@@ -36,29 +37,40 @@ describe('cancel', () => {
   }
 
   it.each([running, failed, completeSnapshot])(
-    'lets the organizer cancel with a $state pool snapshot, once they confirm',
+    'lets the organizer cancel with a $state pool snapshot, once they go ahead',
     async (snapshot) => {
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const { fixture, page } = await openDraft(snapshot);
 
       button(page, 'Cancel draft')!.click();
 
-      expect(confirm).toHaveBeenCalledWith(
-        "Cancel Red dragons? This removes the draft for everyone and can't be undone.",
+      const dialog = await question('Cancel Red dragons?');
+      expect(dialog.textContent).toContain(
+        "This removes the draft for everyone and can't be undone.",
       );
-      const req = http.expectOne('/api/drafts/draft-1');
-      expect(req.request.method).toBe('DELETE');
+      await answer(dialog, 'Cancel draft');
+      const req = await vi.waitFor(() =>
+        http.expectOne({ url: '/api/drafts/draft-1', method: 'DELETE' }),
+      );
+      // A running snapshot is polled meanwhile, while the question is asked.
+      for (const poll of http.match({ url: '/api/drafts/draft-1', method: 'GET' })) {
+        poll.flush(draft({ snapshot }));
+      }
       req.flush(null, { status: 204, statusText: 'No Content' });
       expect(await flushList(fixture, page)).toBe('Red dragons was cancelled.');
       expect(router.url).toBe('/');
     },
   );
 
-  it('keeps a draft the organizer did not confirm cancelling', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { page } = await openDraft(completeSnapshot);
+  it('keeps a draft the organizer thinks better of cancelling', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot);
+    const opener = button(page, 'Cancel draft')!;
+    opener.focus();
+    opener.click();
 
-    button(page, 'Cancel draft')!.click();
+    await answer(await question('Cancel Red dragons?'), 'Keep draft');
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(opener);
 
     http.expectNone('/api/drafts/draft-1');
     expect(router.url).toBe('/drafts/draft-1');
@@ -83,16 +95,14 @@ describe('cancel', () => {
   });
 
   it('says why when the draft has started meanwhile', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { fixture, page } = await openDraft(completeSnapshot);
 
     button(page, 'Cancel draft')!.click();
-    http
-      .expectOne('/api/drafts/draft-1')
-      .flush(
-        { error: 'draft-started', message: 'This draft has started.' } satisfies DraftChangeRefusal,
-        { status: 409, statusText: 'Conflict' },
-      );
+    await answer(await question('Cancel Red dragons?'), 'Cancel draft');
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+      { error: 'draft-started', message: 'This draft has started.' } satisfies DraftChangeRefusal,
+      { status: 409, statusText: 'Conflict' },
+    );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
       draft({
         state: 'Drafting',

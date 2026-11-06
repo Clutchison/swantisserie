@@ -1,10 +1,18 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  Injector,
+  signal,
+} from '@angular/core';
 import type { DraftView, PickView } from 'contract';
 import type { Observable } from 'rxjs';
 import { hasTurn, isRefusal } from './drafts';
 import { Changes, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
+import { Questions } from '../question-dialog';
 
 /** The organizer's buttons on a started draft: pause, resume, undo, close and reopen. */
 @Component({
@@ -18,6 +26,8 @@ import { DraftStore } from './draft-store';
 export class OrganizerControls {
   private readonly http = inject(HttpClient);
   private readonly changes = inject(Changes);
+  private readonly questions = inject(Questions);
+  private readonly injector = inject(Injector);
 
   private readonly store = inject(DraftStore);
 
@@ -83,10 +93,10 @@ export class OrganizerControls {
     );
   }
 
-  /** Closes the draft, once the organizer confirms. */
+  /** Closes the draft, once the organizer goes ahead. */
   protected close() {
     return this.send(
-      () => {
+      async () => {
         const draft = this.draft();
         // Only a drafting or paused draft is offered this, and both have a turn:
         // the guard never returns early, it only narrows the type to read `turn`.
@@ -94,24 +104,34 @@ export class OrganizerControls {
         const { id, name, players, picksPerPlayer, turn } = draft;
         const made = turn.pick - 1;
         const total = players.length * picksPerPlayer;
-        const sure = confirm(
-          `Close ${name}? ${made} of ${total} picks made. The picks stand as made, and the draft is read-only until it is reopened.`,
+        const goAhead = await this.questions.ask(
+          {
+            question: `Close ${name}?`,
+            detail: `${made} of ${total} picks made. The picks stand as made, and the draft is read-only until it is reopened.`,
+            action: 'Close draft',
+          },
+          this.injector,
         );
-        return sure ? this.http.post<DraftView>(`/api/drafts/${id}/close`, null) : undefined;
+        return goAhead ? this.http.post<DraftView>(`/api/drafts/${id}/close`, null) : undefined;
       },
       { failure: "Couldn't close the draft. Try again in a moment." },
     );
   }
 
-  /** Reopens the draft, once the organizer confirms. */
+  /** Reopens the draft, once the organizer goes ahead. */
   protected reopen() {
     return this.send(
-      () => {
+      async () => {
         const { id, name } = this.draft();
-        const sure = confirm(
-          `Reopen ${name}? The turn comes back, and queued picks are made straight away.`,
+        const goAhead = await this.questions.ask(
+          {
+            question: `Reopen ${name}?`,
+            detail: 'The turn comes back, and queued picks are made straight away.',
+            action: 'Reopen draft',
+          },
+          this.injector,
         );
-        return sure ? this.http.post<DraftView>(`/api/drafts/${id}/reopen`, null) : undefined;
+        return goAhead ? this.http.post<DraftView>(`/api/drafts/${id}/reopen`, null) : undefined;
       },
       { failure: "Couldn't reopen the draft. Try again in a moment." },
     );
@@ -124,12 +144,12 @@ export class OrganizerControls {
    * `failure` is shown if it fails. Focus is kept as `Changes.send` keeps it.
    */
   private send(
-    send: () => Observable<DraftView> | undefined,
+    send: () => Observable<DraftView> | undefined | Promise<Observable<DraftView> | undefined>,
     { failure, keep }: { failure: string; keep?: string[] },
   ) {
     return this.changes.send(
       async () => {
-        const request = send();
+        const request = await send();
         if (!request) return;
         this.sendError.set(null);
         try {

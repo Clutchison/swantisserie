@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import {
   MAX_WEBHOOK_NAME_LENGTH,
@@ -9,6 +9,7 @@ import {
   type WebhookUrlReplaceRequest,
 } from 'contract';
 import { firstValueFrom } from 'rxjs';
+import { Questions } from '../question-dialog';
 
 const API = '/api/admin/webhooks';
 
@@ -25,6 +26,8 @@ const API = '/api/admin/webhooks';
 })
 export class WebhooksPage {
   private readonly http = inject(HttpClient);
+  private readonly questions = inject(Questions);
+  private readonly injector = inject(Injector);
 
   protected readonly webhooks = httpResource<WebhookWithUrlView[]>(() => API);
   // Validated by the API, whose messages say exactly what to fix.
@@ -51,9 +54,15 @@ export class WebhooksPage {
   }
 
   protected async remove(webhook: WebhookWithUrlView) {
-    if (!confirm(`Remove ${webhook.name}? Drafts that announce there will announce nowhere.`)) {
-      return;
-    }
+    const goAhead = await this.questions.ask(
+      {
+        question: `Remove ${webhook.name}?`,
+        detail: 'Drafts that announce there will announce nowhere.',
+        action: 'Remove',
+      },
+      this.injector,
+    );
+    if (!goAhead) return;
     await this.save(this.http.delete(`${API}/${webhook.id}`));
   }
 

@@ -1,3 +1,4 @@
+import { answer, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
@@ -134,17 +135,16 @@ describe('organizer reports, corrections and clears', () => {
     expect(text(namedList(panel(page), 'Trophy holders'))).toBe('Carol');
   });
 
-  it('lets an organizer clear a reported match once they confirm', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('lets an organizer clear a reported match once they go ahead', async () => {
     const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
     const { fixture, page, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Correct Bob vs Carol')!.click();
     await fixture.whenStable();
     button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
-    expect(confirm).toHaveBeenCalledWith(
-      'Clear the game score of Bob vs Carol? The match is unreported again.',
-    );
+    const dialog = await question('Clear the game score of Bob vs Carol?');
+    expect(dialog.textContent).toContain('The match is unreported again.');
+    await answer(dialog, 'Clear');
     await answerChange(
       fixture,
       '/api/drafts/draft-1/tournament/matches/m1/game-score',
@@ -159,26 +159,25 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('says a cleared match of a completed Swiss tournament round becomes a granted draw', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const { fixture, tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Correct Carol vs Bob')!.click();
     await fixture.whenStable();
     button(group(tab, 'Game score of Carol vs Bob')!, 'Clear game score')!.click();
 
-    expect(confirm).toHaveBeenCalledWith(
-      'Clear the game score of Carol vs Bob? The match becomes a granted draw.',
-    );
+    const dialog = await question('Clear the game score of Carol vs Bob?');
+    expect(dialog.textContent).toContain('The match becomes a granted draw.');
+    await answer(dialog, 'Cancel');
   });
 
-  it('sends nothing when the organizer doesn’t confirm clearing', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('sends nothing when the organizer thinks better of clearing', async () => {
     const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
     const { fixture, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Correct Bob vs Carol')!.click();
     await fixture.whenStable();
     button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
+    await answer(await question('Clear the game score of Bob vs Carol?'), 'Cancel');
     await fixture.whenStable();
 
     http.expectNone('/api/drafts/draft-1/tournament/matches/m1/game-score');
@@ -194,7 +193,6 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('says clearing a match against a dropped player makes it their forfeit', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const m3 = reported(openMatch('m3', carol.id, alice.id), [0, 2], alice.id);
     const { fixture, tab } = await openPlaying(withDrops([carol.id], [m3]), {
       powers: ORGANIZE_ONLY,
@@ -204,9 +202,9 @@ describe('organizer reports, corrections and clears', () => {
     await fixture.whenStable();
     button(group(tab, 'Game score of Carol vs Alice')!, 'Clear game score')!.click();
 
-    expect(confirm).toHaveBeenCalledWith(
-      'Clear the game score of Carol vs Alice? It becomes a forfeit by Carol, who has dropped.',
-    );
+    const dialog = await question('Clear the game score of Carol vs Alice?');
+    expect(dialog.textContent).toContain('It becomes a forfeit by Carol, who has dropped.');
+    await answer(dialog, 'Cancel');
   });
 
   it('offers no Clear game score for a dropped player’s forfeit while the tournament is playing', async () => {
@@ -232,17 +230,29 @@ describe('organizer reports, corrections and clears', () => {
 });
 
 describe('cancelling a tournament being played', () => {
-  it('lets an organizer cancel it once they confirm, offering setup again', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('lets an organizer cancel it once they go ahead, offering setup again', async () => {
     const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
     button(tab, 'Cancel tournament')!.click();
-    expect(confirm).toHaveBeenCalledWith(
-      'Cancel the tournament? Its matches are removed, nothing from it counts, and every deck unlocks.',
+    const dialog = await question('Cancel the tournament?');
+    expect(dialog.textContent).toContain(
+      'Its matches are removed, nothing from it counts, and every deck unlocks.',
     );
+    await answer(dialog, 'Cancel tournament');
     await answerChange(fixture, '/api/drafts/draft-1/tournament', 'DELETE', null, 1, threePlayers);
 
     expect(button(panel(page), 'Set up tournament')).toBeDefined();
+  });
+
+  it('keeps it playing when the organizer thinks better of cancelling', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Cancel tournament')!.click();
+    await answer(await question('Cancel the tournament?'), 'Keep tournament');
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/tournament');
+    expect(button(tab, 'Cancel tournament')).toBeDefined();
   });
 
   it('isn’t offered once the tournament is complete', async () => {

@@ -1,5 +1,5 @@
 import type { WebhookWithUrlView, WebhookRegistryProblem } from 'contract';
-import { alice, carol, http, openApp, router, useApp } from '../specs-harness';
+import { alice, answer, carol, http, openApp, question, router, useApp } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
 
 const main: WebhookWithUrlView = {
@@ -191,14 +191,16 @@ describe('webhooks page', () => {
     );
   });
 
-  it('removes a webhook once the app admin confirms', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('removes a webhook once the app admin goes ahead', async () => {
     const { fixture, page } = await openPage([main, side]);
-    button(row(page, '#roto-main'), 'Remove').click();
+    const opener = button(row(page, '#roto-main'), 'Remove');
+    opener.focus();
+    opener.click();
 
-    expect(confirm).toHaveBeenCalledWith(
-      'Remove #roto-main? Drafts that announce there will announce nowhere.',
-    );
+    const dialog = await question('Remove #roto-main?');
+    expect(dialog.textContent).toContain('Drafts that announce there will announce nowhere.');
+    await answer(dialog, 'Remove');
+    expect(document.activeElement).toBe(opener);
     const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
     expect(req.request.method).toBe('DELETE');
     req.flush(null, { status: 204, statusText: 'No Content' });
@@ -207,10 +209,11 @@ describe('webhooks page', () => {
     expect(rows(page)).toEqual([['#roto-side', side.url]]);
   });
 
-  it('keeps a webhook the app admin did not confirm removing', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('keeps a webhook the app admin thinks better of removing', async () => {
     const { fixture, page } = await openPage([main]);
     button(row(page, '#roto-main'), 'Remove').click();
+
+    await answer(await question('Remove #roto-main?'), 'Cancel');
     await fixture.whenStable();
 
     http.expectNone(`/api/admin/webhooks/${main.id}`);
