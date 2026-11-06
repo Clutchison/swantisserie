@@ -63,7 +63,9 @@ describe('single elimination tournaments on the Play tab', () => {
     const { fixture } = await openCompleteRound(singleEliminationPlaying());
     const dialog = openDialog()!;
 
-    expect(text(dialog)).toContain('Tournament round 2 is paired, and its matches open.');
+    expect(text(dialog)).toContain(
+      'Completing the round will pair tournament round 2 and open its matches.',
+    );
     expect(text(dialog)).toContain('Pick the winner of each unreported match: they advance.');
     expect(button(dialog, 'Complete round')!.disabled).toBe(true);
     const winner = group(dialog, 'Winner of Bob vs Carol')!;
@@ -128,7 +130,7 @@ describe('single elimination tournaments on the Play tab', () => {
     const dialog = openDialog()!;
 
     expect(text(dialog)).toContain(
-      'It is the final tournament round, so the tournament completes and the trophy is awarded.',
+      'It is the final tournament round, so completing it will complete the tournament and award the trophy.',
     );
     controlByLabel(group(dialog, 'Winner of Alice vs Carol')!, 'radio', 'Alice')!.click();
     await fixture.whenStable();
@@ -182,7 +184,7 @@ describe('dropping players from the single elimination Complete round dialog', (
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
-      'Fewer than 2 players are left in the bracket, so the tournament completes and the trophy is awarded.',
+      'Fewer than 2 players will be left in the bracket, so completing the round will complete the tournament and award the trophy.',
     );
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
@@ -208,9 +210,9 @@ describe('both finalists dropping', () => {
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
-      'It is the final tournament round, so the tournament completes. Nobody advances from the final, so nobody holds the trophy.',
+      'It is the final tournament round, so completing it will complete the tournament. Nobody advances from the final, so nobody will hold the trophy.',
     );
-    expect(text(dialog)).not.toContain('the trophy is awarded');
+    expect(text(dialog)).not.toContain('award the trophy');
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
@@ -232,7 +234,7 @@ describe('both finalists dropping', () => {
     controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Alice')!.click();
     await fixture.whenStable();
 
-    expect(text(dialog)).toContain('the trophy is awarded');
+    expect(text(dialog)).toContain('award the trophy');
   });
 });
 
@@ -274,6 +276,9 @@ describe('the single elimination correction warning', () => {
     const dialog = await vi.waitFor(() => openDialog()!);
 
     expect(text(dialog)).toContain('Correct Bob vs Carol?');
+    expect(text(dialog)).toContain(
+      'It changes who advances, so it will clear these later matches.',
+    );
     expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
     button(dialog, 'Correct')!.click();
     const req = await answerChange(fixture, GAME_SCORE, 'PUT', final, 1, threePlayers);
@@ -300,7 +305,7 @@ describe('the single elimination correction warning', () => {
     button(choice, 'Clear game score')!.click();
     await answerPreview(fixture, null, { clears: [], state: 'Playing' });
     const dialog = await question('Clear the game score of Bob vs Carol?');
-    expect(dialog.textContent).toContain('The match is unreported again.');
+    expect(dialog.textContent).toContain('The match will be unreported again.');
     await answer(dialog, 'Clear');
     await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
   });
@@ -335,7 +340,7 @@ describe('the single elimination correction warning', () => {
     const dialog = await vi.waitFor(() => openDialog()!);
 
     expect(text(dialog)).toContain('Clear the game score of Bob vs Carol?');
-    expect(text(dialog)).toContain('The match is unreported again.');
+    expect(text(dialog)).toContain('The match will be unreported again.');
     expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
     button(dialog, 'Clear')!.click();
     await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
@@ -357,7 +362,7 @@ describe('the single elimination correction warning', () => {
     const dialog = await vi.waitFor(() => openDialog()!);
 
     expect(text(dialog)).toContain(
-      'The tournament plays on, and the trophy is taken back until the final is played again.',
+      'The tournament will play on, and the trophy will be taken back until the final is played again.',
     );
   });
 
@@ -369,8 +374,8 @@ describe('the single elimination correction warning', () => {
     const dialog = await vi.waitFor(() => openDialog()!);
 
     expect(text(dialog)).toContain(
-      'Fewer than 2 players are left in the bracket, so the tournament completes and the trophy is awarded.',
+      'Fewer than 2 players will be left in the bracket, so it will complete the tournament and award the trophy.',
     );
-    expect(text(dialog)).not.toContain('later matches are cleared');
+    expect(text(dialog)).not.toContain('will clear these later matches');
   });
 });
