@@ -85,12 +85,19 @@ export class DraftPage {
   /**
    * The tab selected, kept in the URL. Only players have the Queue, Plan and
    * Export tabs: one of them selected goes back to Pool as the viewer stops
-   * being a player, so the selected tab is always one they can open, and Tab to.
+   * being a player, so the selected tab is always one they can open, and Tab
+   * to. Who is a player isn't known until the draft loads, so until then a
+   * players-only tab in the URL stands; a draft that fails to load has no
+   * tabs, so its page settles on Pool.
    */
   protected readonly tabs = tabInUrl<Panel>({
     tabs: ['Pool', 'Queue', 'Plan', 'Board', 'Export'],
     defaultTab: 'Pool',
-    canOpen: (tab) => this.joined() || !PLAYERS_ONLY.has(tab),
+    canOpen: (tab) => {
+      if (this.failed()) return false;
+      if (!PLAYERS_ONLY.has(tab)) return true;
+      return this.store.draft.loaded() ? this.joined() : undefined;
+    },
   });
   protected readonly tab = this.tabs.selected;
 

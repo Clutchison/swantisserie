@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { pressKey } from '../../specs-harness';
 import {
   alicePlayer,
+  button,
   completeSnapshot,
   draft,
   flushPool,
@@ -121,5 +122,80 @@ describe('the draft page’s tab in the URL', () => {
 
     await vi.waitFor(() => expect(router.url).toBe('/'));
     (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([opened]);
+  });
+
+  it('keeps a player’s requested Queue tab while the draft loads, then opens it', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1?tab=queue');
+    const loading = http.expectOne('/api/drafts/draft-1');
+    // Long enough for a correction to the URL to have landed, were one made.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    TestBed.tick();
+    expect(router.url).toBe('/drafts/draft-1?tab=queue');
+
+    loading.flush(draft(asPlayer));
+    await flushPool();
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(panelName(page)).toBe('Queue');
+    expect(tabButton(page, 'Queue').getAttribute('aria-selected')).toBe('true');
+    expect(router.url).toBe('/drafts/draft-1?tab=queue');
+  });
+
+  describe('corrects the URL to the Pool tab', () => {
+    it.each(['queue', 'plan', 'export'])(
+      'for a spectator opening the players-only tab ?tab=%s',
+      async (tab) => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          {},
+          { url: `/drafts/draft-1?tab=${tab}` },
+        );
+
+        expect(panelName(page)).toBe('Pool');
+        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+      },
+    );
+
+    it.each(['foo', 'Queue', 'BOARD', 'pool', ''])('for ?tab=%s', async (tab) => {
+      const { page } = await openDraft(completeSnapshot, asPlayer, {
+        url: `/drafts/draft-1?tab=${tab}`,
+      });
+
+      expect(panelName(page)).toBe('Pool');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+    });
+
+    it('keeping other query parameters and the fragment', async () => {
+      await openDraft(completeSnapshot, {}, { url: '/drafts/draft-1?view=compact&tab=plan#picks' });
+
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?view=compact#picks'));
+    });
+
+    it.each(['Queue', 'Plan', 'Export'])(
+      'when a player on the %s tab leaves the draft',
+      async (tab) => {
+        const { fixture, page } = await openDraft(completeSnapshot, asPlayer, {
+          url: `/drafts/draft-1?tab=${tab.toLowerCase()}`,
+        });
+
+        button(page, 'Leave')!.click();
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players/me'))).flush(
+          draft({ players: [] }),
+        );
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+        expect(panelName(page)).toBe('Pool');
+      },
+    );
+
+    it('when the draft fails to load', async () => {
+      const { fixture } = await openUrl('/drafts/draft-1?tab=board');
+      http.expectOne('/api/drafts/draft-1').flush({}, { status: 404, statusText: 'Not Found' });
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+    });
   });
 });
