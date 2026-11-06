@@ -213,6 +213,18 @@ export async function playingTournament(
   return id;
 }
 
+/**
+ * A playing single elimination tournament of the cookies' users, as
+ * `playingTournament` starts it, with its seed order, `seeds[s - 1]` the
+ * player with seed s. With 4 players, round 1 is seed 1 v 4 at bracket
+ * place 0 and 2 v 3 at place 1; with 5, seed 4 v 5 at place 1, the others
+ * with byes; with 9, seed 8 v 9 at place 1, the others with byes.
+ */
+export async function playingSingleElimination(cookies: string[]) {
+  const id = await playingTournament(cookies, singleElimination);
+  return { id, seeds: seedsOf(await tournamentView(id)) };
+}
+
 /** The player with each seed of a single elimination tournament, `seeds[s - 1]` the player with seed s. */
 export function seedsOf(view: TournamentView): string[] {
   const seeds: string[] = [];
@@ -249,6 +261,19 @@ export async function reportCurrentRound(
       games: [2, 0],
     } satisfies MatchReportRequest).expect(200);
   }
+}
+
+/**
+ * Reports every unreported match of the current tournament round, its first
+ * player winning, and completes it. `cookies` holds each player's cookie by
+ * their Discord user id.
+ */
+export async function playTournamentRound(
+  id: string,
+  cookies: Record<string, string>,
+) {
+  await reportCurrentRound(id, cookies);
+  await completeRound(id).expect(200);
 }
 
 /** The tournament's match between the players `a` and `b`, either way round. */

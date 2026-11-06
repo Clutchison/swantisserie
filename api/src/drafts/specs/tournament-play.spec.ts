@@ -94,6 +94,10 @@ describe('reporting a match', () => {
       games: [1, 1],
     }).expect(409);
     expect(draw.body.error).toBe('draw');
+    const tooMany = await reportMatch(id, match.id, aliceCookie, {
+      games: [3, 0],
+    }).expect(409);
+    expect(tooMany.body.error).toBe('not-best-of-three');
     expect((await matchOf(id, alice.id, bob.id)).outcome.kind).toBe(
       'Unreported',
     );
