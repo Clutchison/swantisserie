@@ -47,8 +47,8 @@ h1 {
   color: var(--color-muted);
   font-size: var(--font-size-sm);
 
-  /* On bg, where accent text meets AA. */
-  &[data-highlighted='true'] {
+  /* The count alone, not the dash before it. On bg, where accent text meets AA. */
+  [data-highlighted='true'] {
     color: var(--color-accent);
     font-weight: 600;
   }

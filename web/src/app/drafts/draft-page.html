@@ -15,11 +15,12 @@
         <h2>{{ name }}</h2>
         @let left = picksLeft();
         @if (left !== null) {
-          <span
-            class="picks-left"
-            [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
-            ><span aria-hidden="true">– </span>{{ left }}
-            {{ left === 1 ? 'pick' : 'picks' }} left</span
+          <!-- Only the count highlights; the dash just separates it from the heading. -->
+          <span class="picks-left"
+            ><span aria-hidden="true">– </span
+            ><span [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
+              >{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</span
+            ></span
           >
         }
       </div>

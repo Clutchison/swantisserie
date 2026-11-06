@@ -36,9 +36,12 @@ describe('picks left beside the panel headings', () => {
   const open = (fixture: AppFixture, page: HTMLElement, name: string) =>
     name === 'Pool' ? Promise.resolve(panel(page)) : openTab(fixture, page, name);
 
-  /** Whether the picks left count in `root` is highlighted, as near the end of the viewer's picks. */
-  const highlighted = (root: HTMLElement) =>
-    picksLeftCount(root)?.getAttribute('data-highlighted') === 'true';
+  /**
+   * The text highlighted in `root`, as near the end of the viewer's picks:
+   * the count alone, never the dash before it. Null when nothing is.
+   */
+  const highlightedText = (root: HTMLElement) =>
+    root.querySelector('[data-highlighted="true"]')?.textContent.trim() ?? null;
 
   it.each(PANELS)(
     'shows the count beside the %s heading, which keeps the panel name as its name',
@@ -130,7 +133,7 @@ describe('picks left beside the panel headings', () => {
     for (const name of PANELS) {
       const shown = await open(fixture, page, name);
       expect(picksLeftTexts(shown)).toEqual([`${picksPerPlayer} picks left`]);
-      expect(highlighted(shown)).toBe(expected);
+      expect(highlightedText(shown)).toBe(expected ? `${picksPerPlayer} picks left` : null);
     }
   });
 
@@ -166,15 +169,15 @@ describe('picks left beside the panel headings', () => {
     async (name) => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 11 }));
       const shown = await open(fixture, page, name);
-      expect(highlighted(shown)).toBe(false);
+      expect(highlightedText(shown)).toBeNull();
 
       await changed(fixture, 11, 1, [pickOf({ poolCardId: 'a' })]);
       expect(picksLeftTexts(shown)).toEqual(['10 picks left']);
-      expect(highlighted(shown)).toBe(true);
+      expect(highlightedText(shown)).toBe('10 picks left');
 
       await changed(fixture, 11, 2, []);
       expect(picksLeftTexts(shown)).toEqual(['11 picks left']);
-      expect(highlighted(shown)).toBe(false);
+      expect(highlightedText(shown)).toBeNull();
     },
   );
 
