@@ -96,23 +96,15 @@ export class DraftPage {
   protected readonly showTournament = computed(() => !!this.store.showTournament());
   /** Whether the Decklists tab is there: under public decklists, once the tournament has started. */
   protected readonly showDecklists = computed(() => !!this.store.showDecklists());
-  /**
-   * Whether the Queue tab is there: until the draft is complete, as its queue
-   * can't change after. A closed draft keeps it, as it can reopen. Undefined
-   * while the draft is loading.
-   */
-  private readonly queueShown = computed(() => {
-    const draft = this.draft();
-    return draft ? draft.state !== 'Complete' : undefined;
-  });
-  protected readonly showQueue = computed(() => !!this.queueShown());
+  /** Whether the Queue tab is there: until the draft is complete. */
+  protected readonly showQueueTab = computed(() => !!this.store.showQueueTab());
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:
    * undefined while what decides it is still loading.
    */
   private readonly shownBy: Partial<Record<Panel, Signal<boolean | undefined>>> = {
-    Queue: this.queueShown,
+    Queue: this.store.showQueueTab,
     Tournament: this.store.showTournament,
     Decklists: this.store.showDecklists,
   };
