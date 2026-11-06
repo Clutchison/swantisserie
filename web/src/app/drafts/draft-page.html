@@ -55,9 +55,9 @@
       <button
         id="pool-tab"
         type="button"
-        [appTab]="tab() === 'Pool'"
+        [appTab]="selectedTab() === 'Pool'"
         aria-controls="pool-panel"
-        (click)="tabs.select('Pool')"
+        (click)="selectedTab.select('Pool')"
       >
         Pool
       </button>
@@ -65,9 +65,9 @@
       <button
         id="queue-tab"
         type="button"
-        [appTab]="tab() === 'Queue'"
+        [appTab]="selectedTab() === 'Queue'"
         aria-controls="queue-panel"
-        (click)="tabs.select('Queue')"
+        (click)="selectedTab.select('Queue')"
         [disabled]="!joined()"
       >
         Queue
@@ -75,9 +75,9 @@
       <button
         id="plan-tab"
         type="button"
-        [appTab]="tab() === 'Plan'"
+        [appTab]="selectedTab() === 'Plan'"
         aria-controls="plan-panel"
-        (click)="tabs.select('Plan')"
+        (click)="selectedTab.select('Plan')"
         [disabled]="!joined()"
       >
         Plan
@@ -85,9 +85,9 @@
       <button
         id="board-tab"
         type="button"
-        [appTab]="tab() === 'Board'"
+        [appTab]="selectedTab() === 'Board'"
         aria-controls="board-panel"
-        (click)="tabs.select('Board')"
+        (click)="selectedTab.select('Board')"
       >
         Board
       </button>
@@ -95,9 +95,9 @@
       <button
         id="export-tab"
         type="button"
-        [appTab]="tab() === 'Export'"
+        [appTab]="selectedTab() === 'Export'"
         aria-controls="export-panel"
-        (click)="tabs.select('Export')"
+        (click)="selectedTab.select('Export')"
         [disabled]="!joined()"
       >
         Export
@@ -109,7 +109,7 @@
       class="pool"
       role="tabpanel"
       aria-labelledby="pool-tab"
-      [hidden]="tab() !== 'Pool'"
+      [hidden]="selectedTab() !== 'Pool'"
     >
       <h2>Pool</h2>
       @switch (draft.snapshot.state) {
@@ -131,7 +131,7 @@
           @if (queueFailed()) {
             <p class="error">Couldn't load your queue. Try reloading the page.</p>
           }
-          <app-pool-tab [visible]="tab() === 'Pool'" />
+          <app-pool-tab [visible]="selectedTab() === 'Pool'" />
         }
         @case ('Failed') {
           <div class="error" role="alert">
@@ -173,7 +173,7 @@
       class="queue"
       role="tabpanel"
       aria-labelledby="queue-tab"
-      [hidden]="tab() !== 'Queue'"
+      [hidden]="selectedTab() !== 'Queue'"
     >
       <h2>Queue</h2>
       @if (queueFailed()) {
@@ -191,7 +191,7 @@
       class="plan"
       role="tabpanel"
       aria-labelledby="plan-tab"
-      [hidden]="tab() !== 'Plan'"
+      [hidden]="selectedTab() !== 'Plan'"
     >
       <h2>Plan</h2>
       @if (planFailed()) {
@@ -209,7 +209,7 @@
       class="board"
       role="tabpanel"
       aria-labelledby="board-tab"
-      [hidden]="tab() !== 'Board'"
+      [hidden]="selectedTab() !== 'Board'"
     >
       <h2>Board</h2>
       <app-board-tab />
@@ -221,7 +221,7 @@
       class="export"
       role="tabpanel"
       aria-labelledby="export-tab"
-      [hidden]="tab() !== 'Export'"
+      [hidden]="selectedTab() !== 'Export'"
     >
       <h2>Export</h2>
       <app-export-tab />
