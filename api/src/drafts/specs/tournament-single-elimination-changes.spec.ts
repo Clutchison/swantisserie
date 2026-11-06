@@ -424,6 +424,70 @@ describe('reinstating in single elimination', () => {
   });
 });
 
+describe('drops and corrections in the bracket read', () => {
+  const player = (playerId: string) => ({ kind: 'Player', playerId }) as const;
+  const winnerToCome = (bracketPlace: number) =>
+    ({ kind: 'WinnerToCome', bracketPlace }) as const;
+  /** The bracket place of the read's bracket, in tournament round `round`. */
+  const placeOf = (view: TournamentView, round: number, bracketPlace: number) =>
+    view.bracket![round - 1].places[bracketPlace];
+
+  it('moves a forfeit’s winner on', async () => {
+    const { id, seeds } = await playing(4);
+
+    await dropPlayer(id, seeds[3], aliceCookie).expect(200);
+
+    const view = await tournamentView(id);
+    expect(placeOf(view, 1, 0).winner).toBe(seeds[0]);
+    expect(placeOf(view, 2, 0).sides).toEqual([
+      player(seeds[0]),
+      winnerToCome(1),
+    ]);
+  });
+
+  it('moves nobody on from a match both players dropped from, then shows the next opponent’s bye', async () => {
+    const { id, seeds } = await playing(5);
+    await dropPlayer(id, seeds[3], aliceCookie).expect(200);
+    await dropPlayer(id, seeds[4], aliceCookie).expect(200);
+
+    const before = await tournamentView(id);
+    await completeRound(id).expect(200);
+    const after = await tournamentView(id);
+
+    expect(placeOf(before, 1, 1).winner).toBeNull();
+    expect(placeOf(before, 2, 0).sides).toEqual([
+      player(seeds[0]),
+      winnerToCome(1),
+    ]);
+    expect(placeOf(after, 2, 0)).toEqual({
+      bracketPlace: 0,
+      matchId: null,
+      sides: [player(seeds[0]), { kind: 'Bye' }],
+      winner: seeds[0],
+    });
+  });
+
+  it('shows the matches a correction cleared paired again or to come', async () => {
+    const { id, seeds } = await playing(5);
+    await playRound(id);
+    await playRound(id);
+    const first = at(await tournamentView(id), 1, 1);
+
+    await setGameScore(id, first.id, wonBy(first, seeds[4])).expect(200);
+
+    const view = await tournamentView(id);
+    expect(placeOf(view, 1, 1).winner).toBe(seeds[4]);
+    expect(placeOf(view, 2, 0)).toEqual({
+      bracketPlace: 0,
+      matchId: at(view, 2, 0).id,
+      sides: [player(seeds[0]), player(seeds[4])],
+      winner: null,
+    });
+    expect(placeOf(view, 3, 0).matchId).toBeNull();
+    expect(placeOf(view, 3, 0).sides[0]).toEqual(winnerToCome(0));
+  });
+});
+
 describe('single elimination’s changes', () => {
   it('bump the draft’s version once each, and a preview not at all', async () => {
     const { id, seeds } = await playing(4);

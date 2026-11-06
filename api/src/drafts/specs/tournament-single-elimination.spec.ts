@@ -15,6 +15,7 @@ import {
   clearGameScore,
   completeDraft,
   completeRound,
+  confirmMatch,
   fullDeck,
   getDraft,
   joinTournament,
@@ -22,6 +23,8 @@ import {
   playingTournament,
   reportCurrentRound,
   reportMatch,
+  reportWin,
+  roundRobin,
   seedsOf,
   setGameScore,
   setUpTournament,
@@ -108,6 +111,120 @@ describe('starting a single elimination tournament', () => {
     const answer = await startTournament(id).expect(200);
 
     expect(answer.body.version).toBe(before.body.version + 1);
+  });
+});
+
+describe('the bracket in the tournament read', () => {
+  const player = (playerId: string) => ({ kind: 'Player', playerId });
+
+  it('draws every tournament round by bracket place, with the byes and the places still to be decided', async () => {
+    const id = await playing(3);
+
+    const view = await tournamentView(id);
+    const seeds = seedsOf(view);
+    const [match] = view.rounds[0].matches;
+    expect(view.bracket).toEqual([
+      {
+        round: 1,
+        places: [
+          {
+            bracketPlace: 0,
+            matchId: null,
+            sides: [player(seeds[0]), { kind: 'Bye' }],
+            winner: seeds[0],
+          },
+          {
+            bracketPlace: 1,
+            matchId: match.id,
+            sides: [player(seeds[1]), player(seeds[2])],
+            winner: null,
+          },
+        ],
+      },
+      {
+        round: 2,
+        places: [
+          {
+            bracketPlace: 0,
+            matchId: null,
+            sides: [
+              player(seeds[0]),
+              { kind: 'WinnerToCome', bracketPlace: 1 },
+            ],
+            winner: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps a player’s unconfirmed report from moving its winner on, until the other player confirms it', async () => {
+    const id = await playing(3);
+    const seeds = seedsOf(await tournamentView(id));
+    await reportWin(id, [seeds[2], seeds[1]], [2, 1], cookieOf[seeds[2]]);
+
+    const reported = await tournamentView(id);
+    expect(reported.bracket![0].places[1].winner).toBeNull();
+    expect(reported.bracket![1].places[0].sides).toEqual([
+      player(seeds[0]),
+      { kind: 'WinnerToCome', bracketPlace: 1 },
+    ]);
+
+    const [match] = reported.rounds[0].matches;
+    await confirmMatch(id, match.id, cookieOf[seeds[1]]).expect(200);
+    const confirmed = await tournamentView(id);
+    expect(confirmed.bracket![0].places[1].winner).toBe(seeds[2]);
+    expect(confirmed.bracket![1].places[0].sides).toEqual([
+      player(seeds[0]),
+      player(seeds[2]),
+    ]);
+  });
+
+  it('moves the winner of a game score an organizer entered on at once', async () => {
+    const id = await playing(5);
+    const view = await tournamentView(id);
+    const [match] = view.rounds[0].matches;
+    // Alice and Carol (an app admin) both organize; one of them isn't playing this match.
+    const organizer = match.players.includes(alice.id)
+      ? carolCookie
+      : aliceCookie;
+    await setGameScore(id, match.id, { games: [2, 0] }, organizer).expect(200);
+
+    const entered = await tournamentView(id);
+    expect(entered.bracket![0].places[1].winner).toBe(match.players[0]);
+    expect(entered.bracket![1].places[0].sides[1]).toEqual(
+      player(match.players[0]),
+    );
+  });
+
+  it('gives the paired final its match, and its winner once completed', async () => {
+    const id = await playing(3);
+    const seeds = seedsOf(await tournamentView(id));
+    await reportWin(id, [seeds[1], seeds[2]], [2, 0], cookieOf[seeds[1]]);
+    await completeRound(id).expect(200);
+    await reportWin(id, [seeds[1], seeds[0]], [2, 0], cookieOf[seeds[1]]);
+    await completeRound(id).expect(200);
+
+    const view = await tournamentView(id);
+    expect(view.bracket![1].places).toEqual([
+      {
+        bracketPlace: 0,
+        matchId: view.rounds[1].matches[0].id,
+        sides: [player(seeds[0]), player(seeds[1])],
+        winner: seeds[1],
+      },
+    ]);
+  });
+
+  it('is left out of other formats and of registration', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie], roundRobin);
+    const registering = await completeDraft([aliceCookie, bobCookie]);
+    await setUpTournament(registering, aliceCookie, singleElimination).expect(
+      201,
+    );
+
+    expect((await tournamentView(id)).bracket).toBeNull();
+    expect((await tournamentView(registering)).bracket).toBeNull();
   });
 });
 

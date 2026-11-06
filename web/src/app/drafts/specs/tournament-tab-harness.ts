@@ -1,9 +1,13 @@
 import type {
+  BracketPlaceView,
+  BracketRoundView,
+  BracketSideView,
   DraftPowersView,
   MatchView,
   PlanView,
   PlayerView,
   StandingView,
+  TournamentRoundView,
   TournamentView,
   UserView,
 } from 'contract';
@@ -22,6 +26,7 @@ import {
   namedList,
   openDraft,
   openTab,
+  region,
   tabButton,
   text,
   type AppFixture,
@@ -37,6 +42,12 @@ export const dave: UserView = { ...alice, id: 'dave', name: 'Dave' };
 /** Carol, a third player, in drafts that list her. */
 export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
 
+/** Bob signed in, a player of the draft. */
+export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
+
+/** Carol signed in, a player of the draft. */
+export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
+
 /** A round robin tournament in registration, joined by the players with these ids in order. */
 export const registration = (...playerIds: string[]): TournamentView => ({
   format: 'RoundRobin',
@@ -46,6 +57,7 @@ export const registration = (...playerIds: string[]): TournamentView => ({
   lastCompletedRound: 0,
   entries: playerIds.map((playerId) => ({ playerId, dropped: false, seed: null })),
   rounds: [],
+  bracket: null,
   standings: [],
   trophyHolders: [],
 });
@@ -113,6 +125,7 @@ export function playing(
       { round: 2, matches: [match('m2', alice.id, bob.id)], byes: [carol.id] },
       { round: 3, matches: [match('m3', carol.id, alice.id)], byes: [bob.id] },
     ],
+    bracket: null,
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
     ...fields,
@@ -145,6 +158,7 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
       },
       { round: 2, matches: [openMatch('m2', alice.id, carol.id)], byes: [bob.id] },
     ],
+    bracket: null,
     standings: [
       standing(alice.id, 1, { matchPoints: 3 }),
       standing(carol.id, 1, { matchPoints: 3 }),
@@ -155,11 +169,37 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
   };
 }
 
+/** A side of a bracket place that is the player `playerId`. */
+export const side = (playerId: string): BracketSideView => ({ kind: 'Player', playerId });
+
+/** A side of a bracket place that is the winner to come of bracket place `bracketPlace` of the round before. */
+export const winnerToCome = (bracketPlace: number): BracketSideView => ({
+  kind: 'WinnerToCome',
+  bracketPlace,
+});
+
+/** Bracket place `bracketPlace` with its match `matchId`, if paired, its `sides` and its `winner`, if decided. */
+export const place = (
+  bracketPlace: number,
+  matchId: string | null,
+  sides: [BracketSideView, BracketSideView],
+  winner: string | null = null,
+): BracketPlaceView => ({ bracketPlace, matchId, sides, winner });
+
+/** Round 1 of the bracket of Alice, Bob and Carol: Alice's bye, and Bob v Carol (m1), won by `winner` if decided. */
+export const firstBracketRound = (winner: string | null = null): BracketRoundView => ({
+  round: 1,
+  places: [
+    place(0, null, [side(alice.id), { kind: 'Bye' }], alice.id),
+    place(1, 'm1', [side(bob.id), side(carol.id)], winner),
+  ],
+});
+
 /**
  * A single elimination tournament of Alice, Bob and Carol being played,
  * seeded in that order, over 2 tournament rounds: in round 1 Alice, the top
  * seed, has a bye at bracket place 0, and Bob plays Carol (m1) at bracket
- * place 1. `fields` changes any of it.
+ * place 1; the final waits for its winner. `fields` changes any of it.
  */
 export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): TournamentView {
   return {
@@ -180,11 +220,49 @@ export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): 
         byes: [alice.id],
       },
     ],
+    bracket: [
+      firstBracketRound(),
+      { round: 2, places: [place(0, null, [side(alice.id), winnerToCome(1)])] },
+    ],
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
     ...fields,
   };
 }
+
+/**
+ * Round 1 of the single elimination tournament of Alice, Bob and Carol,
+ * Carol having beaten Bob 2–1 (m1) as she reported it, `confirmed` by Bob
+ * or not.
+ */
+export const carolBeatBob = (confirmed = false): TournamentRoundView => ({
+  round: 1,
+  matches: [
+    {
+      ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+      bracketPlace: 1,
+      confirmed,
+    },
+  ],
+  byes: [alice.id],
+});
+
+/**
+ * The single elimination tournament of Alice, Bob and Carol with round 1
+ * completed, Carol having beaten Bob 2–1, and the final of Alice and Carol
+ * (m2) unreported.
+ */
+export const singleEliminationFinal = singleEliminationPlaying({
+  lastCompletedRound: 1,
+  rounds: [
+    carolBeatBob(),
+    { round: 2, matches: [{ ...openMatch('m2', alice.id, carol.id), bracketPlace: 0 }], byes: [] },
+  ],
+  bracket: [
+    firstBracketRound(carol.id),
+    { round: 2, places: [place(0, 'm2', [side(alice.id), side(carol.id)])] },
+  ],
+});
 
 /** `match` forfeited by the player `forfeitedBy`. */
 export const forfeited = (match: MatchView, forfeitedBy: string): MatchView => ({
@@ -279,6 +357,19 @@ export const roundLabels = (root: HTMLElement) =>
   [...root.querySelectorAll('ul, ol, [role="list"]')]
     .map((list) => accessibleName(list))
     .filter((name) => /^Tournament round \d+$/.test(name));
+
+/** The bracket inside `root`, by its region; null if there is none. */
+export const bracket = (root: HTMLElement) => region(root, 'Bracket');
+
+/** Each match of the bracket's tournament round `round` inside `root` by its accessible name, byes included, in order. */
+export const bracketMatches = (root: HTMLElement, round: number) =>
+  [...namedList(bracket(root)!, `Tournament round ${round}`).querySelectorAll('li')].map((li) =>
+    accessibleName(li),
+  );
+
+/** The bracket's matches inside `root` highlighted as the signed-in player's path, by accessible name, in order. */
+export const ownPath = (root: HTMLElement) =>
+  [...bracket(root)!.querySelectorAll('li[aria-current="true"]')].map((li) => accessibleName(li));
 
 /** Each player in the Players list inside `root` as it reads, leaving out its buttons. */
 export const playerLines = (root: HTMLElement) =>

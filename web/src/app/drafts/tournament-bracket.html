@@ -1,0 +1,44 @@
+<section class="bracket" aria-label="Bracket">
+  @if (nextMatch(); as next) {
+    <p class="next">{{ next }}</p>
+  }
+  <div class="rounds" tabindex="0" role="group" aria-label="Tournament rounds">
+    @for (round of rounds(); track round.round) {
+      <div class="round">
+        <h4>{{ round.label }}</h4>
+        <ol class="places" [attr.aria-label]="round.label">
+          @for (place of round.places; track place.bracketPlace) {
+            <li [attr.aria-label]="place.label" [attr.aria-current]="place.own ? 'true' : null">
+              <div class="match" [class.own]="place.own" aria-hidden="true">
+                @for (side of place.sides; track $index) {
+                  <div class="side" [class.won]="side.won" [class.pending]="side.pending">
+                    @if (side.seed !== undefined) {
+                      <span class="seed">{{ side.seed }}</span>
+                    }
+                    <span class="name">{{ side.name }}</span>
+                    @if (side.games !== null) {
+                      <span class="games">{{ side.games }}</span>
+                    }
+                  </div>
+                }
+                @if (place.note; as note) {
+                  <div class="note">{{ note }}</div>
+                }
+              </div>
+              @if (place.matchId; as matchId) {
+                @if (controls(); as controls) {
+                  <div class="controls">
+                    <ng-container
+                      [ngTemplateOutlet]="controls"
+                      [ngTemplateOutletContext]="{ $implicit: matchId }"
+                    />
+                  </div>
+                }
+              }
+            </li>
+          }
+        </ol>
+      </div>
+    }
+  </div>
+</section>

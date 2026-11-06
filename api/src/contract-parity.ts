@@ -1,5 +1,6 @@
 import type {
   BasicLand,
+  BracketSideView,
   MatchOutcomeView,
   DraftState,
   PlanBoard,
@@ -12,6 +13,7 @@ import type {
   TournamentState,
 } from 'contract';
 import type {
+  BracketSide as EngineBracketSide,
   MatchOutcome as EngineMatchOutcome,
   StealBehavior as EngineStealBehavior,
   SwissRoundOption as EngineSwissRoundOption,
@@ -51,4 +53,6 @@ export type ContractMatchesSchema = [
   Expect<
     Same<EngineMatchOutcome['kind'] | 'Unreported', Schema.MatchOutcomeKind>
   >,
+  // No schema enum: the bracket is drawn from the matches, never stored.
+  Expect<Same<BracketSideView, EngineBracketSide>>,
 ];
