@@ -19,11 +19,11 @@ export function won(a: string, b: string): TournamentMatch {
 }
 
 /** A granted draw between `a` and `b`. */
-export function granted(a: string, b: string): TournamentMatch {
+export function grantedDraw(a: string, b: string): TournamentMatch {
   return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
 }
 
-/** Each standing's player and rank, in the order of `table`. */
-export function placings(table: Standing[]) {
-  return table.map(({ playerId, rank }) => [playerId, rank]);
+/** Each standing's player and rank, in the order of `standings`. */
+export function placings(standings: Standing[]) {
+  return standings.map(({ playerId, rank }) => [playerId, rank]);
 }

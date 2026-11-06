@@ -12,7 +12,7 @@ import {
   type RoundCompletionInput,
   type TournamentMatch,
 } from './tournament.js';
-import { granted, placings, played } from './tournament.fixtures.js';
+import { grantedDraw, placings, played } from './tournament.fixtures.js';
 import {
   agreedAdvancingPlayer,
   bracketRounds,
@@ -178,7 +178,7 @@ describe('standings', () => {
     const matches = [
       played('a', 'b', [2, 0]),
       played('a', 'c', [2, 0]),
-      granted('b', 'c'),
+      grantedDraw('b', 'c'),
     ];
     expect(ranks(['a', 'b', 'c'], matches)).toEqual([
       ['a', 1],
@@ -188,7 +188,7 @@ describe('standings', () => {
     expect(
       ranks(
         ['a', 'b', 'c', 'd'],
-        [granted('a', 'b'), played('c', 'd', [2, 0])],
+        [grantedDraw('a', 'b'), played('c', 'd', [2, 0])],
       ),
     ).toEqual([
       ['c', 1],
@@ -199,7 +199,7 @@ describe('standings', () => {
   });
 
   it('counts a granted draw as a drawn match with no games', () => {
-    expect(standings(['a', 'b'], [granted('a', 'b')])).toEqual(
+    expect(standings(['a', 'b'], [grantedDraw('a', 'b')])).toEqual(
       ['a', 'b'].map((playerId) => ({
         playerId,
         rank: 1,
@@ -268,7 +268,7 @@ describe('trophyHolders', () => {
 
   it('is everyone who shares first', () => {
     const matches = [
-      granted('a', 'b'),
+      grantedDraw('a', 'b'),
       played('a', 'c', [2, 0]),
       played('b', 'c', [2, 0]),
     ];
@@ -394,7 +394,7 @@ describe('roundCompletion', () => {
       'forecasts the trophy as the complete tournament awards it: %s',
       (_, input, completion) => {
         const dropped = droppedPlayers(input.entries);
-        const played = input.results.map(
+        const bracketMatches = input.results.map(
           (result, bracketPlace): PlayedBracketMatch => ({
             round: input.round,
             bracketPlace,
@@ -407,7 +407,7 @@ describe('roundCompletion', () => {
           }),
         );
         const holders = bracketTrophyHolders(
-          bracketRounds(input.roundCount, played, dropped),
+          bracketRounds(input.roundCount, bracketMatches, dropped),
         );
         expect(holders.length > 0).toBe(
           completion.completes && completion.trophyHolder,
