@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { DraftView, MatchView, TournamentFormat } from 'contract';
+import type { DraftView, GameScore, MatchView, TournamentFormat } from 'contract';
+import { GAME_SCORES } from 'engine';
 import type { Observable } from 'rxjs';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
@@ -15,27 +16,26 @@ const FORMATS: { format: TournamentFormat; name: string }[] = [
   { format: 'RoundRobin', name: 'Round robin' },
 ];
 
-/** A game score a player reports, as their games won and their opponent's. */
-interface Result {
+/** A game score as a player reports it, from their side: their games won, then their opponent's. */
+interface OwnGameScore {
   label: string;
   own: number;
   theirs: number;
 }
 
-/** The game scores a player can report: 2–0 or 2–1 for either side, never a draw. */
-const RESULTS: Result[] = [
-  { label: 'Won 2–0', own: 2, theirs: 0 },
-  { label: 'Won 2–1', own: 2, theirs: 1 },
-  { label: 'Lost 1–2', own: 1, theirs: 2 },
-  { label: 'Lost 0–2', own: 0, theirs: 2 },
-];
+/** The game scores a player can report, from their side: won or lost 2–0 or 2–1, never a draw. */
+const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
+  label: `${own > theirs ? 'Won' : 'Lost'} ${own}–${theirs}`,
+  own,
+  theirs,
+}));
 
 /**
  * The Tournament tab of a complete draft: the setup form for organizers
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
  * it, then play: the signed-in player's match and its report, the
- * standings and matches, the players with Drop, and Undo drop for
+ * standings and matches, the players with Drop, and Reinstate for
  * organizers, Complete tournament for organizers, and at last the trophy.
  */
 @Component({
@@ -61,6 +61,8 @@ export class TournamentTab {
   private readonly draft = this.store.shown;
   protected readonly read = this.store.tournament;
   protected readonly tournament = this.store.tournament.value;
+  /** The tournament's state; undefined until it has loaded, and while there is none. */
+  protected readonly state = this.store.tournamentState;
   protected readonly canOrganize = this.store.canOrganize;
   protected readonly formats = FORMATS;
   protected readonly format = signal<TournamentFormat>('RoundRobin');
@@ -79,32 +81,36 @@ export class TournamentTab {
   /** Join is offered to the draft's human players during registration; bots never join. */
   protected readonly offerJoin = computed(
     () =>
-      this.tournament()?.state === 'Registration' &&
+      this.state() === 'Registration' &&
       !this.joined() &&
       !!this.store.ownPlayer() &&
       !this.store.ownPlayer()?.isBot,
   );
-  protected readonly offerLeave = computed(
-    () => this.tournament()?.state === 'Registration' && this.joined(),
-  );
+  protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
   /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(
-    () => this.canOrganize() && this.tournament()?.state === 'Registration',
+    () => this.canOrganize() && this.state() === 'Registration',
   );
   /** Start needs at least 2 joined players. */
   protected readonly canStart = computed(() => this.entries().length >= 2);
-  /** Organizers complete a round robin tournament while it is playing. */
-  protected readonly offerComplete = computed(
-    () => this.canOrganize() && this.tournament()?.state === 'Playing',
+  /**
+   * Organizers drop and reinstate players, and complete or cancel the
+   * tournament, while it is playing.
+   */
+  protected readonly organizePlay = computed(
+    () => this.canOrganize() && this.state() === 'Playing',
   );
   /** The game scores a player reports, from their side. */
-  protected readonly results = RESULTS;
+  protected readonly ownGameScores = OWN_GAME_SCORES;
 
   /** The match the signed-in player chose to report from the tournament rounds, if any. */
   protected readonly chosen = signal<string | undefined>(undefined);
-  /** Whether "Your match" shows: to a player who joined and hasn't dropped, while the tournament is playing. */
-  protected readonly showOwnMatch = computed(
-    () => this.tournament()?.state === 'Playing' && this.joined() && !this.ownDropped(),
+  /**
+   * Whether the signed-in player plays on: they joined and haven't dropped,
+   * while the tournament is playing. Then "Your match" shows, and Drop.
+   */
+  protected readonly playsOn = computed(
+    () => this.state() === 'Playing' && this.joined() && !this.ownDropped(),
   );
   /** The joined players once the tournament is playing, in join order, with whether each dropped. */
   protected readonly players = computed(() =>
@@ -117,21 +123,13 @@ export class TournamentTab {
   private readonly ownDropped = computed(
     () => !!this.tournament()?.entries.find((entry) => entry.playerId === this.ownId())?.dropped,
   );
-  /** Drop is offered to a player who joined and hasn't dropped, while the tournament is playing. */
-  protected readonly offerDrop = computed(
-    () => this.tournament()?.state === 'Playing' && this.joined() && !this.ownDropped(),
-  );
-  /** Organizers may drop players and take drops back while the tournament is playing. */
-  protected readonly offerDrops = computed(
-    () => this.canOrganize() && this.tournament()?.state === 'Playing',
-  );
   /**
    * The signed-in player's match shown at the top: the one they chose, while
    * it is unreported, else their first unreported match by tournament round.
    */
   protected readonly ownMatch = computed(() => {
     const ownId = this.ownId();
-    if (!ownId || !this.showOwnMatch()) return undefined;
+    if (!ownId || !this.playsOn()) return undefined;
     const open = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
       matches
         .filter((match) => match.players.includes(ownId) && match.outcome.kind === 'Unreported')
@@ -185,14 +183,13 @@ export class TournamentTab {
     );
   }
 
-  /** Reports the signed-in player's match at `result`, from their side, once they confirm. */
-  protected report(match: MatchView, opponent: string, result: Result) {
-    const games: [number, number] =
-      match.players[0] === this.ownId() ? [result.own, result.theirs] : [result.theirs, result.own];
+  /** Reports the signed-in player's match at `score`, from their side, once they confirm. */
+  protected report(match: MatchView, opponent: string, { own, theirs }: OwnGameScore) {
+    const games: GameScore = match.players[0] === this.ownId() ? [own, theirs] : [theirs, own];
     return this.send(
       () =>
         confirm(
-          `Report that you ${result.own > result.theirs ? 'won' : 'lost'} ${result.own}–${result.theirs} against ${opponent}? Only an organizer can change a reported match.`,
+          `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}? Only an organizer can change a reported match.`,
         )
           ? this.api.report(this.draft().id, match.id, games)
           : undefined,
@@ -205,7 +202,7 @@ export class TournamentTab {
     return this.send(
       () =>
         confirm(
-          'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can take it back. Your deck stays locked until the tournament is complete.',
+          'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
         )
           ? this.api.drop(this.draft().id, this.ownId()!)
           : undefined,
@@ -224,10 +221,10 @@ export class TournamentTab {
     );
   }
 
-  /** Takes back the drop of the player `playerId`; for organizers. */
+  /** Reinstates the dropped player `playerId`; for organizers. */
   protected reinstate(playerId: string) {
     return this.send(() => this.api.reinstate(this.draft().id, playerId), {
-      failure: "Couldn't undo the drop. Try again in a moment.",
+      failure: "Couldn't reinstate the player. Try again in a moment.",
     });
   }
 
@@ -244,30 +241,16 @@ export class TournamentTab {
     );
   }
 
-  /** Cancels the tournament, once the organizer confirms. */
+  /** Cancels the tournament, in registration or being played, once the organizer confirms. */
   protected cancel() {
-    return this.send(
-      () =>
-        confirm(
-          'Cancel the tournament? Everyone who joined is taken out of it, and their decks unlock.',
-        )
-          ? this.api.cancel(this.draft().id)
-          : undefined,
-      { failure: "Couldn't cancel the tournament. Try again in a moment.", keep: ['set-up'] },
-    );
-  }
-
-  /** Cancels the tournament being played, once the organizer confirms. */
-  protected cancelPlaying() {
-    return this.send(
-      () =>
-        confirm(
-          'Cancel the tournament? Its matches are removed, nothing from it counts, and every deck unlocks.',
-        )
-          ? this.api.cancel(this.draft().id)
-          : undefined,
-      { failure: "Couldn't cancel the tournament. Try again in a moment.", keep: ['set-up'] },
-    );
+    const question =
+      this.state() === 'Playing'
+        ? 'Cancel the tournament? Its matches are removed, nothing from it counts, and every deck unlocks.'
+        : 'Cancel the tournament? Everyone who joined is taken out of it, and their decks unlock.';
+    return this.send(() => (confirm(question) ? this.api.cancel(this.draft().id) : undefined), {
+      failure: "Couldn't cancel the tournament. Try again in a moment.",
+      keep: ['set-up'],
+    });
   }
 
   /** Confirms the signed-in player's match `matchId`. */
@@ -280,24 +263,20 @@ export class TournamentTab {
   /** Sets a match's game score, as an organizer reports or corrects it. */
   protected setGameScore({ matchId, games }: SetGameScore) {
     return this.send(() => this.api.setGameScore(this.draft().id, matchId, games), {
-      failure: "Couldn't save the match’s result. Try again in a moment.",
+      failure: "Couldn't save the match’s game score. Try again in a moment.",
       keep: [`correct ${matchId}`],
     });
   }
 
-  /** Clears a match's result, once the organizer confirms. */
-  protected clearGameScore({ matchId, label }: ClearGameScore) {
-    const after =
-      this.tournament()?.state === 'Complete'
-        ? 'The match becomes a granted draw.'
-        : 'The match is unreported again.';
+  /** Clears a match's game score, once the organizer confirms. */
+  protected clearGameScore({ matchId, label, after }: ClearGameScore) {
     return this.send(
       () =>
-        confirm(`Clear the result of ${label}? ${after}`)
+        confirm(`Clear the game score of ${label}? ${after}`)
           ? this.api.clearGameScore(this.draft().id, matchId)
           : undefined,
       {
-        failure: "Couldn't clear the match’s result. Try again in a moment.",
+        failure: "Couldn't clear the match’s game score. Try again in a moment.",
         keep: [`correct ${matchId}`],
       },
     );

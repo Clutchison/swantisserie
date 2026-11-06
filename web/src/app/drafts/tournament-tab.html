@@ -95,7 +95,7 @@
         </ul>
       </section>
     }
-    @if (showOwnMatch()) {
+    @if (playsOn()) {
       <section class="own-match" aria-label="Your match">
         <h3>Your match</h3>
         @if (ownMatch(); as own) {
@@ -105,14 +105,14 @@
             {{ own.opponent.name }}
           </p>
           <div class="controls">
-            @for (result of results; track result.label) {
+            @for (score of ownGameScores; track score.label) {
               <button
                 class="button secondary"
                 type="button"
-                (click)="report(own.match, own.opponent.name, result)"
+                (click)="report(own.match, own.opponent.name, score)"
                 appSendsChange="report"
               >
-                {{ result.label }}
+                {{ score.label }}
               </button>
             }
           </div>
@@ -143,17 +143,17 @@
           @if (player.dropped) {
             · Dropped
           }
-          @if (offerDrops() && player.dropped) {
+          @if (organizePlay() && player.dropped) {
             <button
               class="button compact secondary"
               type="button"
-              [attr.aria-label]="'Undo drop ' + player.name"
+              [attr.aria-label]="'Reinstate ' + player.name"
               (click)="reinstate(player.id)"
-              [appSendsChange]="'undo-drop ' + player.id"
+              [appSendsChange]="'reinstate ' + player.id"
             >
-              Undo drop
+              Reinstate
             </button>
-          } @else if (offerDrops() && player.id !== ownId()) {
+          } @else if (organizePlay() && player.id !== ownId()) {
             <button
               class="button compact secondary"
               type="button"
@@ -167,24 +167,19 @@
         </li>
       }
     </ul>
-    @if (offerDrop()) {
+    @if (playsOn()) {
       <div class="controls">
         <button class="button secondary" type="button" (click)="dropSelf()" appSendsChange="drop">
           Drop from tournament
         </button>
       </div>
     }
-    @if (offerComplete()) {
+    @if (organizePlay()) {
       <div class="controls">
         <button class="button" type="button" (click)="complete()" appSendsChange="complete">
           Complete tournament
         </button>
-        <button
-          class="button secondary"
-          type="button"
-          (click)="cancelPlaying()"
-          appSendsChange="cancel"
-        >
+        <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
           Cancel tournament
         </button>
       </div>

@@ -7,29 +7,26 @@ import {
   linkedSignal,
   output,
 } from '@angular/core';
-import type { MatchView, TournamentView } from 'contract';
+import type { GameScore, MatchView, TournamentView } from 'contract';
+import { GAME_SCORES } from 'engine';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 
 /** A game score an organizer sets for a match, in its player order. */
 export interface SetGameScore {
   matchId: string;
-  games: [number, number];
+  games: GameScore;
 }
 
-/** A match an organizer clears, and how it reads: "Bob vs Carol". */
+/**
+ * A match whose game score an organizer clears, how it reads ("Bob vs
+ * Carol"), and what clearing leaves it as.
+ */
 export interface ClearGameScore {
   matchId: string;
   label: string;
+  after: string;
 }
-
-/** The game scores an organizer can set, in a match's player order: 2–0 or 2–1 for either side. */
-const GAME_SCORES: [number, number][] = [
-  [2, 0],
-  [2, 1],
-  [1, 2],
-  [0, 2],
-];
 
 /**
  * A tournament's standings, best first, and its matches by tournament
@@ -59,10 +56,10 @@ export class TournamentResults {
   readonly confirmMatch = output<string>();
   /** Asks for a match's game score to be set, as an organizer reports or corrects it. */
   readonly setGameScore = output<SetGameScore>();
-  /** Asks for a match's result to be cleared, as an organizer does. */
+  /** Asks for a match's game score to be cleared, as an organizer does. */
   readonly clearGameScore = output<ClearGameScore>();
 
-  /** The match whose result an organizer is choosing, if any; closed whenever the tournament is re-read. */
+  /** The match whose game score an organizer is choosing, if any; closed whenever the tournament is re-read. */
   protected readonly correcting = linkedSignal<TournamentView, string | undefined>({
     source: this.tournament,
     computation: () => undefined,
@@ -106,7 +103,7 @@ export class TournamentResults {
       id: match.id,
       first,
       second,
-      score: outcome.kind === 'GameScore' ? `${outcome.games[0]}–${outcome.games[1]}` : null,
+      gameScore: outcome.kind === 'GameScore' ? `${outcome.games[0]}–${outcome.games[1]}` : null,
       note:
         outcome.kind === 'Unreported'
           ? 'Unreported'
@@ -124,7 +121,7 @@ export class TournamentResults {
     };
   }
 
-  /** Opens or closes the organizer's choice of result for the match `matchId`. */
+  /** Opens or closes the organizer's choice of game score for the match `matchId`. */
   protected toggleCorrecting(matchId: string) {
     this.correcting.update((open) => (open === matchId ? undefined : matchId));
   }
@@ -147,26 +144,46 @@ export class TournamentResults {
 
   /**
    * What an organizer can do with `match`, its players `first` and
-   * `second`: set any game score, and clear its result if it has one. A
-   * complete tournament's granted draw is what clearing leaves, so it has
-   * none to clear.
+   * `second`: set any game score, and clear it if that changes anything.
    */
   private organizerControls(match: MatchView, first: string, second: string) {
-    const { kind } = match.outcome;
     const label = `${first} vs ${second}`;
-    const verb = kind === 'Unreported' ? 'Report' : 'Correct';
-    const clearable =
-      kind !== 'Unreported' && !(kind === 'GrantedDraw' && this.tournament().state === 'Complete');
+    const verb = match.outcome.kind === 'Unreported' ? 'Report' : 'Correct';
+    const after = this.afterClearing(match);
     return {
       label,
       verb,
       toggle: `${verb} ${label}`,
-      scores: GAME_SCORES.map((games) => ({
-        games,
-        label: `${games[0] > games[1] ? first : second} won ${Math.max(...games)}–${Math.min(...games)}`,
+      gameScores: GAME_SCORES.map(([a, b]) => ({
+        games: [a, b] satisfies GameScore,
+        label: `${a > b ? first : second} won ${Math.max(a, b)}–${Math.min(a, b)}`,
       })),
-      clear: clearable ? { matchId: match.id, label } : null,
+      clear: after ? { matchId: match.id, label, after } : null,
     };
+  }
+
+  /**
+   * What clearing `match` leaves it as, or null if it already is that. Once
+   * the tournament is complete it becomes a granted draw. While it is
+   * playing it is unreported again, unless one of its players has dropped:
+   * then it is their forfeit.
+   */
+  private afterClearing({ players, outcome }: MatchView) {
+    if (this.tournament().state === 'Complete') {
+      return outcome.kind === 'GrantedDraw' ? null : 'The match becomes a granted draw.';
+    }
+    const dropped = new Set(
+      this.tournament()
+        .entries.filter((entry) => entry.dropped)
+        .map((entry) => entry.playerId),
+    );
+    const forfeiting = players.find((id) => dropped.has(id));
+    if (forfeiting) {
+      return outcome.kind === 'Forfeit'
+        ? null
+        : `It becomes a forfeit by ${this.name(forfeiting)}, who has dropped.`;
+    }
+    return outcome.kind === 'Unreported' ? null : 'The match is unreported again.';
   }
 
   private name(playerId: string) {
