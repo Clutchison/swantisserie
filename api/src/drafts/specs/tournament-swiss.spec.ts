@@ -577,6 +577,22 @@ describe('dropping from a Swiss tournament', () => {
 });
 
 describe('reinstating a player in a Swiss tournament', () => {
+  it('is allowed before the next tournament round is paired, which then pairs them', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+    const gone = match.players[1];
+    await dropPlayer(id, gone, cookieOf[gone]).expect(200);
+
+    await reinstate(id, gone).expect(200);
+
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    expect(seated((await tournamentView(id)).rounds[1])).toContain(gone);
+  });
+
   it('is refused once a later tournament round has been paired after their drop', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie, daveCookie],

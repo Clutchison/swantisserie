@@ -1,4 +1,4 @@
-import type { LeaderboardView } from 'contract';
+import type { CompleteRoundRequest, LeaderboardView } from 'contract';
 import request from 'supertest';
 import {
   alice,
@@ -137,19 +137,28 @@ describe('the leaderboard', () => {
     expect(bobs.opponents).toHaveLength(2);
   });
 
-  it('leaves forfeits and granted draws out of records, and players with no played match off it', async () => {
+  it('leaves forfeits, granted draws and granted wins out of records, and players with no played match off it', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 1], aliceCookie);
     // Bob's match with Carol becomes a forfeit; Alice's becomes a granted draw.
     await dropPlayer(id, bob.id, bobCookie).expect(200);
     await completeTournament(id).expect(200);
+    // Alice wins a single elimination final against Bob as a granted win.
+    const bracket = await playingTournament(
+      [aliceCookie, bobCookie],
+      singleElimination,
+    );
+    const [final] = (await tournamentView(bracket)).rounds[0].matches;
+    await completeRound(bracket, aliceCookie, {
+      grantedWins: [{ matchId: final.id, winner: alice.id }],
+    } satisfies CompleteRoundRequest).expect(200);
 
     expect(await leaderboard()).toEqual([
       {
         playerId: alice.id,
         name: 'Alice',
-        trophies: 1,
-        tournamentsPlayed: 1,
+        trophies: 2,
+        tournamentsPlayed: 2,
         matches: tally(1, 0),
         games: tally(2, 1),
         opponents: [
@@ -160,7 +169,7 @@ describe('the leaderboard', () => {
         playerId: bob.id,
         name: 'Bob',
         trophies: 0,
-        tournamentsPlayed: 1,
+        tournamentsPlayed: 2,
         matches: tally(0, 1),
         games: tally(1, 2),
         opponents: [

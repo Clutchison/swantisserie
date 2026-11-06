@@ -7,12 +7,11 @@ import {
   completeRound,
   completeTournament,
   dropPlayer,
-  fullDeck,
+  inRegistration,
   joinTournament,
   listDrafts,
   playingTournament,
   reportWin,
-  setUpTournament,
   signIn,
   singleElimination,
   useDraftsApp,
@@ -46,15 +45,6 @@ function withoutJoin(
   return { state, canJoin: false, trophyHolders };
 }
 
-/** A complete draft of Alice and Bob, both with full decks, and its tournament in registration. */
-async function inRegistration() {
-  const id = await completeDraft([aliceCookie, bobCookie]);
-  await fullDeck(id, aliceCookie);
-  await fullDeck(id, bobCookie);
-  await setUpTournament(id).expect(201);
-  return id;
-}
-
 it('is null for a draft without a tournament', async () => {
   const id = await completeDraft([aliceCookie, bobCookie]);
 
@@ -64,7 +54,7 @@ it('is null for a draft without a tournament', async () => {
 // Which viewers may join is the tournament read's to show
 // (tournament-registration.spec.ts); the badge reads it the same way, per viewer.
 it('offers Join in registration to each viewer whom joining would let in, as the tournament read does', async () => {
-  const id = await inRegistration();
+  const id = await inRegistration([aliceCookie, bobCookie]);
 
   expect(await badgeOf(id, bobCookie)).toEqual({
     state: 'Registration',

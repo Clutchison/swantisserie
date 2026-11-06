@@ -6,6 +6,7 @@ import {
   completeDraft,
   joinedPlayers,
   fullDeck,
+  inRegistration,
   joinTournament,
   removeEntry,
   setBasic,
@@ -24,18 +25,9 @@ beforeEach(async () => {
   bobCookie = await signIn(bob);
 });
 
-/** A complete draft of Alice and Bob, both with full decks, and its tournament in registration. */
-async function inRegistration() {
-  const id = await completeDraft([aliceCookie, bobCookie]);
-  await fullDeck(id, aliceCookie);
-  await fullDeck(id, bobCookie);
-  await setUpTournament(id).expect(201);
-  return id;
-}
-
 describe('joining and leaving', () => {
   it('lets the draft’s players join, listed in join order, and leave', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
 
     await joinTournament(id, bobCookie).expect(201);
     await joinTournament(id, aliceCookie).expect(201);
@@ -46,7 +38,7 @@ describe('joining and leaving', () => {
   });
 
   it('lets a player who left join again', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     await joinTournament(id, bobCookie).expect(201);
     await removeEntry(id, bob.id, bobCookie).expect(200);
 
@@ -56,7 +48,7 @@ describe('joining and leaving', () => {
   });
 
   it('refuses a player who has already joined, and one leaving who hasn’t', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     await joinTournament(id, bobCookie).expect(201);
 
     expect((await joinTournament(id, bobCookie).expect(409)).body.error).toBe(
@@ -68,7 +60,7 @@ describe('joining and leaving', () => {
   });
 
   it('refuses someone who isn’t one of the draft’s players, an organizer included', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     const carolCookie = await signIn(carol);
 
     expect((await joinTournament(id, carolCookie).expect(403)).body.error).toBe(
@@ -115,7 +107,7 @@ describe('what the tournament read tells the viewer of joining', () => {
   }
 
   it('offers Join to a player whom joining would let in, and not once they have joined', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
 
     expect(await joining(id, bobCookie)).toEqual({
       canJoin: true,
@@ -151,7 +143,7 @@ describe('what the tournament read tells the viewer of joining', () => {
   });
 
   it('offers nothing to someone who isn’t one of the draft’s players, nor once the tournament has started', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     await joinTournament(id, aliceCookie).expect(201);
     const carolCookie = await signIn(carol);
 
@@ -170,7 +162,7 @@ describe('what the tournament read tells the viewer of joining', () => {
 
 describe('removing an entry', () => {
   it('lets an organizer remove a joined player', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     await joinTournament(id, bobCookie).expect(201);
 
     await removeEntry(id, bob.id, aliceCookie).expect(200);
@@ -179,7 +171,7 @@ describe('removing an entry', () => {
   });
 
   it('lets an app admin who is not the organizer remove one', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     await joinTournament(id, bobCookie).expect(201);
 
     await removeEntry(id, bob.id, await signIn(carol)).expect(200);
@@ -188,7 +180,7 @@ describe('removing an entry', () => {
   });
 
   it('refuses a player removing anyone but themselves', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
     await joinTournament(id, aliceCookie).expect(201);
 
     await removeEntry(id, alice.id, bobCookie).expect(403);
@@ -197,7 +189,7 @@ describe('removing an entry', () => {
   });
 
   it('refuses removing someone who hasn’t joined', async () => {
-    const id = await inRegistration();
+    const id = await inRegistration([aliceCookie, bobCookie]);
 
     expect(
       (await removeEntry(id, bob.id, aliceCookie).expect(409)).body.error,

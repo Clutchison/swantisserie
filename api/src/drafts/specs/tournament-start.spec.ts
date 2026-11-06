@@ -4,10 +4,9 @@ import {
   bob,
   carol,
   completeDraft,
-  fullDeck,
+  inRegistration,
   joinTournament,
   playingTournament,
-  setUpTournament,
   signIn,
   startTournament,
   tournamentView,
@@ -23,14 +22,6 @@ beforeEach(async () => {
   bobCookie = await signIn(bob);
   carolCookie = await signIn(carol);
 });
-
-/** A complete draft of the cookies' users, all with full decks, and its tournament in registration. */
-async function inRegistration(cookies: string[]) {
-  const id = await completeDraft(cookies);
-  for (const cookie of cookies) await fullDeck(id, cookie);
-  await setUpTournament(id).expect(201);
-  return id;
-}
 
 describe('starting a tournament', () => {
   it('lets the organizer start once two players have joined, opening their match', async () => {
