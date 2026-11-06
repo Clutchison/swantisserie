@@ -12,6 +12,7 @@ import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
+import { QUEUE_ORDER, recordDeparture } from './queue-order.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -97,11 +98,12 @@ export class QueuesService {
   }
 
   /**
-   * Adds the unpicked cards in the user's plan to the end of their queue,
-   * in one go: the mainboard's, then, if `includeSideboard`, the
-   * sideboard's, each in the plan's order. Copies already queued stay where
-   * they are. Refused as `add` is, and throws NotAPlayerError if the user
-   * isn't in the draft.
+   * Adds the unpicked cards in the user's plan, the mainboard's and, if
+   * `includeSideboard`, the sideboard's, to the end of their queue in one
+   * go: first those with a queue order, in it; then the rest, the
+   * mainboard's then the sideboard's, each in the plan's order. Copies
+   * already queued stay where they are. Refused as `add` is, and throws
+   * NotAPlayerError if the user isn't in the draft.
    */
   async addUnpicked(
     draftId: string,
@@ -117,7 +119,7 @@ export class QueuesService {
           ...(includeSideboard ? {} : { board: 'Mainboard' }),
         },
         // Postgres orders enums as declared: the mainboard, then the sideboard.
-        orderBy: [{ board: 'asc' }, ...PLAN_ORDER],
+        orderBy: [...QUEUE_ORDER, { board: 'asc' }, ...PLAN_ORDER],
         select: { poolCardId: true },
       });
       await this.append(
@@ -163,8 +165,8 @@ export class QueuesService {
   }
 
   /**
-   * Takes the pool card `poolCardId` out of the user's queue; a no-op if it
-   * isn't there. Throws NotAPlayerError if the user isn't in the draft.
+   * Takes the pool card `poolCardId` out of the user's queue, recording its
+   * queue order; a no-op if it isn't there. Throws NotAPlayerError if the user isn't in the draft.
    */
   async remove(
     draftId: string,
@@ -172,9 +174,14 @@ export class QueuesService {
     poolCardId: string,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
+      const removed = await tx.queuedCard.findMany({
+        where: { playerId, poolCardId },
+        select: { poolCardId: true, position: true },
+      });
       await tx.queuedCard.deleteMany({
         where: { playerId, poolCardId },
       });
+      await recordDeparture(tx, playerId, removed);
     });
   }
 

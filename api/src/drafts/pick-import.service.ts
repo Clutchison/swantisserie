@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
 import { planPicks } from './plan-picks.js';
+import { recordDeparture } from './queue-order.js';
 import {
   draftSize,
   MADE_PICK,
@@ -67,8 +68,9 @@ export class PickImportService {
 
   /**
    * Loads the picks in `csv` and moves the draft to Paused, with its seats
-   * fixed and every queue emptied. Nothing is announced and no queued picks
-   * are made: the organizer's resume does that. `previewedSeats` is the user
+   * fixed and every queue emptied, each card in it recording its queue
+   * order. Nothing is announced and no queued picks are made: the
+   * organizer's resume does that. `previewedSeats` is the user
    * ids the preview paired with the file's columns; the file's validation
    * can't see a change to who sits where, so a difference refuses the file.
    * Throws as previewPickImport does, with nothing changed.
@@ -110,7 +112,18 @@ export class PickImportService {
         draftId,
         await tx.pick.findMany({ where: { draftId }, select: MADE_PICK }),
       );
+      const queued = await tx.queuedCard.findMany({
+        where: { player: { draftId } },
+        select: { playerId: true, poolCardId: true, position: true },
+      });
       await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
+      for (const { id: playerId } of players) {
+        await recordDeparture(
+          tx,
+          playerId,
+          queued.filter((card) => card.playerId === playerId),
+        );
+      }
       await draft.moveTo('Paused');
     });
   }
