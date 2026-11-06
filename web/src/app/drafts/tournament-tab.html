@@ -21,6 +21,23 @@
         </label>
       }
     </fieldset>
+    @if (format() === 'Swiss') {
+      <fieldset role="group" aria-label="Swiss round option">
+        <legend>Tournament rounds</legend>
+        @for (option of swissRoundOptions; track option.option) {
+          <label>
+            <input
+              type="radio"
+              name="swiss-round-option"
+              [value]="option.option"
+              [checked]="swissRoundOption() === option.option"
+              (change)="swissRoundOption.set(option.option)"
+            />
+            {{ option.name }}
+          </label>
+        }
+      </fieldset>
+    }
     <button class="button" type="submit" appSendsChange="set-up">Set up tournament</button>
   </form>
 } @else if (read.missing()) {
@@ -29,7 +46,7 @@
   @if (tournament.state === 'Registration') {
     <p class="state">Registration</p>
     <p class="detail">
-      Round robin. Joining locks your deck until the tournament is complete or cancelled, or you
+      {{ summary() }}. Joining locks your deck until the tournament is complete or cancelled, or you
       leave it.
     </p>
     <h3>Joined players</h3>
@@ -85,6 +102,7 @@
     </div>
   } @else {
     <p class="state">{{ tournament.state }}</p>
+    <p class="detail">{{ summary() }}</p>
     @if (trophyHolders().length) {
       <section class="trophy" aria-label="Trophy">
         <h3>Trophy</h3>
@@ -176,9 +194,20 @@
     }
     @if (organizePlay()) {
       <div class="controls">
-        <button class="button" type="button" (click)="complete()" appSendsChange="complete">
-          Complete tournament
-        </button>
+        @if (tournament.format === 'Swiss') {
+          <button
+            class="button"
+            type="button"
+            (click)="completeRound()"
+            appSendsChange="complete-round"
+          >
+            Complete round
+          </button>
+        } @else {
+          <button class="button" type="button" (click)="complete()" appSendsChange="complete">
+            Complete tournament
+          </button>
+        }
         <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
           Cancel tournament
         </button>

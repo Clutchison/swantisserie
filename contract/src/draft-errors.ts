@@ -148,7 +148,8 @@ export interface PlanRefusal {
 
 /**
  * Why a tournament can't be set up, joined, left, started, reported in,
- * confirmed, corrected, completed or cancelled; sent as is. A game score is refused with
+ * confirmed, corrected, have its round completed, completed or cancelled;
+ * sent as is. A game score is refused with
  * the engine's ReportProblem codes, `draw` and `not-best-of-three`, so
  * typecheck ties the two.
  */
@@ -183,7 +184,14 @@ export interface TournamentRefusal {
     | 'tournament-complete'
     /** A dropped player can't drop again, and only a dropped player can be reinstated. */
     | 'already-dropped'
-    | 'not-dropped';
+    | 'not-dropped'
+    /** Complete round waits until every match of the tournament round is reported. */
+    | 'unreported-matches'
+    /**
+     * Complete round is for Swiss, whose last completed round completes the
+     * tournament; completing the tournament outright is for round robin.
+     */
+    | 'wrong-format';
   message: string;
 }
 

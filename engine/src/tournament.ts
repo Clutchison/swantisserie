@@ -125,6 +125,39 @@ export function standings(
 }
 
 /**
+ * The standings of a Swiss tournament's `players` after `matches`, best
+ * first, with `byes` holding the player with each bye so far, once per bye.
+ * A bye counts as a 2–0 win. Players rank by match points; players level on
+ * them share a rank and keep the order of `players`, the rank after a
+ * shared one skipping, as in 1, 1, 3. Unreported matches count for nothing.
+ * The MTR's tiebreakers come with their own ticket (#427).
+ */
+export function swissStandings(
+  players: readonly string[],
+  matches: readonly TournamentMatch[],
+  byes: readonly string[],
+): Standing[] {
+  const decided = matches.filter(
+    (match): match is DecidedMatch => match.outcome !== null,
+  );
+  const ranked = players
+    .map((playerId) =>
+      standingOf(
+        playerId,
+        decided,
+        byes.filter((id) => id === playerId).length,
+      ),
+    )
+    .sort((a, b) => b.matchPoints - a.matchPoints);
+  ranked.forEach((standing, i) => {
+    const previous = ranked[i - 1];
+    standing.rank =
+      previous?.matchPoints === standing.matchPoints ? previous.rank : i + 1;
+  });
+  return ranked;
+}
+
+/**
  * Every game score a best-of-three match can end at, each player's games
  * won in the match's player order: 2–0 or 2–1 for either side. These are
  * exactly the game scores `reportProblem` accepts.
@@ -173,10 +206,11 @@ export function trophyHolders(final: readonly Standing[]): string[] {
     .map((standing) => standing.playerId);
 }
 
-/** The player's record over `matches`, unranked. */
+/** The player's record over `matches` and `byes` byes, each a 2–0 win, unranked. */
 function standingOf(
   playerId: string,
   matches: readonly DecidedMatch[],
+  byes = 0,
 ): Standing {
   const standing: Standing = {
     playerId,
@@ -197,6 +231,9 @@ function standingOf(
     standing.games.lost += match.outcome.games[1 - side];
     standing.games.drawn += match.outcome.draws;
   }
+  standing.matches.won += byes;
+  standing.matchPoints += byes * MATCH_POINTS.won;
+  standing.games.won += byes * 2;
   const { won, lost, drawn } = standing.games;
   const played = won + lost + drawn;
   standing.gameWinPercent = played === 0 ? 0 : (100 * won) / played;

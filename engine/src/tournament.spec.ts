@@ -4,6 +4,7 @@ import {
   reportProblem,
   roundRobinSchedule,
   standings,
+  swissStandings,
   trophyHolders,
   type TournamentMatch,
 } from './tournament.js';
@@ -254,6 +255,53 @@ describe('standings', () => {
       matchPoints: 0,
       matches: { won: 0, lost: 1, drawn: 0 },
     });
+  });
+});
+
+describe('swissStandings', () => {
+  it('counts a bye as a 2–0 win', () => {
+    const [, withBye] = swissStandings(
+      ['a', 'b', 'c'],
+      [played('a', 'b', [2, 1])],
+      ['c'],
+    );
+    expect(withBye).toEqual({
+      playerId: 'c',
+      rank: 1,
+      matchPoints: 3,
+      matches: { won: 1, lost: 0, drawn: 0 },
+      games: { won: 2, lost: 0, drawn: 0 },
+      gameWinPercent: 100,
+    });
+  });
+
+  it('ranks by match points only, players level on them sharing a place', () => {
+    // b beat a head-to-head, and has the better game-win %, but Swiss
+    // standings don't look past match points.
+    const matches = [
+      played('b', 'a', [2, 0]),
+      played('a', 'c', [2, 1]),
+      played('c', 'b', [2, 1]),
+      played('d', 'b', [2, 0]),
+    ];
+    const ranked = swissStandings(['a', 'b', 'c', 'd'], matches, []).map(
+      ({ playerId, rank }) => [playerId, rank],
+    );
+    expect(ranked).toEqual([
+      ['a', 1],
+      ['b', 1],
+      ['c', 1],
+      ['d', 1],
+    ]);
+    expect(
+      swissStandings(['a', 'b', 'c'], [played('b', 'c', [2, 0])], ['a']).map(
+        ({ playerId, rank }) => [playerId, rank],
+      ),
+    ).toEqual([
+      ['a', 1],
+      ['b', 1],
+      ['c', 3],
+    ]);
   });
 });
 

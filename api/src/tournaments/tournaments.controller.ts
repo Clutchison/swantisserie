@@ -17,10 +17,11 @@ import type {
   GameScore,
   MatchReportRequest,
   RequestProblem,
-  TournamentFormat,
+  SwissRoundOption,
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
+import { SWISS_ROUND_CAP } from 'engine';
 import {
   CurrentUser,
   SessionGuard,
@@ -64,9 +65,9 @@ export class TournamentsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const format = parseFormat(body);
+    const setup = parseSetup(body);
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.setUp(id, format));
+    return this.change(id, () => this.tournaments.setUp(id, setup));
   }
 
   /** Cancels the draft's tournament during registration or play; for the organizer. */
@@ -216,6 +217,21 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.complete(id));
   }
 
+  /**
+   * Completes the Swiss tournament's current tournament round, once every
+   * match of it is reported: it pairs the next one, or completes the
+   * tournament after the last. For the organizer.
+   */
+  @Post('complete-round')
+  @HttpCode(200)
+  async completeRound(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.completeRound(id));
+  }
+
   /** Applies `change` and answers with the draft as it now is, published to its viewers. */
   private async change(
     id: string,
@@ -228,16 +244,25 @@ export class TournamentsController {
   }
 }
 
-/** The format tournament setup chose, or a 400 if it isn't one on offer. */
-function parseFormat(body: unknown): TournamentFormat {
-  const { format } = bodyFields<TournamentSetupRequest>(body);
-  if (format !== 'RoundRobin') {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Choose round robin.',
-    } satisfies RequestProblem);
+/**
+ * The format, and for Swiss the round option, tournament setup chose, or a
+ * 400 if either isn't one on offer.
+ */
+function parseSetup(body: unknown): TournamentSetupRequest {
+  const { format, swissRoundOption } =
+    bodyFields<Extract<TournamentSetupRequest, { format: 'Swiss' }>>(body);
+  if (format === 'RoundRobin') return { format };
+  if (format === 'Swiss' && isSwissRoundOption(swissRoundOption)) {
+    return { format, swissRoundOption };
   }
-  return format;
+  throw new BadRequestException({
+    error: 'invalid',
+    message: `Choose round robin, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
+  } satisfies RequestProblem);
+}
+
+function isSwissRoundOption(value: unknown): value is SwissRoundOption {
+  return value === 'UntilWinner' || value === 'CappedAt3';
 }
 
 /**

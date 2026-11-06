@@ -1,22 +1,16 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type {
-  DraftView,
-  GameScore,
-  MatchReportRequest,
-  TournamentFormat,
-  TournamentSetupRequest,
-} from 'contract';
+import type { DraftView, GameScore, MatchReportRequest, TournamentSetupRequest } from 'contract';
 
 /** Changes to a draft's tournament, each answered with the draft as it now is. */
 @Injectable({ providedIn: 'root' })
 export class TournamentApi {
   private readonly http = inject(HttpClient);
 
-  /** Sets up the draft's tournament in `format`; for organizers. */
-  setUp(draftId: string, format: TournamentFormat): Observable<DraftView> {
-    return this.http.post<DraftView>(url(draftId), { format } satisfies TournamentSetupRequest);
+  /** Sets up the draft's tournament as `setup` chooses; for organizers. */
+  setUp(draftId: string, setup: TournamentSetupRequest): Observable<DraftView> {
+    return this.http.post<DraftView>(url(draftId), setup);
   }
 
   /** Cancels the draft's tournament; for organizers. */
@@ -62,6 +56,11 @@ export class TournamentApi {
   /** Completes the draft's round robin tournament; for organizers. */
   complete(draftId: string): Observable<DraftView> {
     return this.http.post<DraftView>(`${url(draftId)}/complete`, null);
+  }
+
+  /** Completes the current tournament round of the draft's Swiss tournament; for organizers. */
+  completeRound(draftId: string): Observable<DraftView> {
+    return this.http.post<DraftView>(`${url(draftId)}/complete-round`, null);
   }
 
   /** Drops a player from the tournament while it is playing: the signed-in player, or any player for organizers. */

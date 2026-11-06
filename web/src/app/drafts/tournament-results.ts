@@ -79,14 +79,20 @@ export class TournamentResults {
     })),
   );
 
-  protected readonly rounds = computed(() =>
-    this.tournament().rounds.map((round) => ({
+  /**
+   * The tournament rounds with their matches: in order for round robin,
+   * which plays them all at once, and the current round first for Swiss.
+   */
+  protected readonly rounds = computed(() => {
+    const { format, rounds } = this.tournament();
+    const shown = rounds.map((round) => ({
       round: round.round,
       label: `Tournament round ${round.round}`,
       bye: round.bye && this.name(round.bye),
       matches: round.matches.map((match) => this.line(match)),
-    })),
-  );
+    }));
+    return format === 'Swiss' ? shown.reverse() : shown;
+  });
 
   /** How a match reads in its round's list, and the opponent to report it against, if any. */
   private line(match: MatchView) {
