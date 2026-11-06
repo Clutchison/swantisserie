@@ -222,6 +222,12 @@ export async function openPlaying(
   return { ...opened, tab };
 }
 
+/** The standings' column headers inside `root`, each spelled out where it is abbreviated. */
+export const standingsColumns = (root: HTMLElement) =>
+  [...namedList(root, 'Standings').querySelectorAll('thead th')].map(
+    (header) => header.querySelector('abbr')?.title ?? text(header),
+  );
+
 /** Each row of the standings inside `root`, best first, as its cells' text. */
 export const standingsRows = (root: HTMLElement) =>
   [...namedList(root, 'Standings').querySelectorAll<HTMLTableRowElement>('tbody tr')].map((row) =>

@@ -70,12 +70,17 @@ export class TournamentResults {
     () => this.store.canOrganize() && this.tournament().state !== 'Registration',
   );
 
+  /** Swiss standings show the MTR's tiebreak columns: opponents' match-win % and opponents' game-win %. */
+  protected readonly swiss = computed(() => this.tournament().format === 'Swiss');
+
   protected readonly standings = computed(() =>
     this.tournament().standings.map((standing) => ({
       ...standing,
       name: this.name(standing.playerId),
       record: `${standing.matches.won}–${standing.matches.lost}–${standing.matches.drawn}`,
-      gameWinPercent: `${Math.round(standing.gameWinPercent)}%`,
+      gameWinPercent: percent(standing.gameWinPercent),
+      opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent ?? 0),
+      opponentsGameWinPercent: percent(standing.opponentsGameWinPercent ?? 0),
     })),
   );
 
@@ -195,4 +200,9 @@ export class TournamentResults {
   private name(playerId: string) {
     return this.store.player(playerId).name;
   }
+}
+
+/** A percentage from 0 to 100 as the standings show it: rounded, with a % suffix. */
+function percent(value: number): string {
+  return `${Math.round(value)}%`;
 }

@@ -634,9 +634,10 @@ export class TournamentsService {
 /**
  * Pairs tournament round `round` of the Swiss tournament `tournamentId`
  * with the Swiss pairer, from its standings, matches and byes so far, and
- * makes its matches and bye. Dropped players aren't paired. The seed is
- * random, so round 1 pairs at random, and later rounds order players
- * sharing a rank at random.
+ * makes its matches and bye. Dropped players aren't paired. The order
+ * within a score group, and so the bye, follows the full MTR ranking of the
+ * standings; the seed is random, so round 1 pairs at random and it breaks
+ * any ties left after every tiebreaker.
  */
 async function pairSwiss(tx: Transaction, tournamentId: string, round: number) {
   const row = await tx.tournament.findUniqueOrThrow({

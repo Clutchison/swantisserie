@@ -143,30 +143,84 @@ describe('reporting in a Swiss tournament', () => {
     await reportWin(id, [winner, loser], [2, 1], cookieOf[loser]);
 
     const { standings } = await tournamentView(id);
-    // The winner and the player with the bye share first, in join order.
+    // The winner and the player with the bye are level on opponents'
+    // match-win % (the 33% floor), and the bye's 2–0 is the better
+    // game-win %.
     expect(standings).toHaveLength(3);
-    expect(standings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          playerId: winner,
-          rank: 1,
-          matchPoints: 3,
-          games: { won: 2, lost: 1, drawn: 0 },
-        }),
-        expect.objectContaining({
-          playerId: round.bye,
-          rank: 1,
-          matchPoints: 3,
-          matches: { won: 1, lost: 0, drawn: 0 },
-          games: { won: 2, lost: 0, drawn: 0 },
-        }),
-      ]),
-    );
+    expect(standings[0]).toMatchObject({
+      playerId: round.bye,
+      rank: 1,
+      matchPoints: 3,
+      matches: { won: 1, lost: 0, drawn: 0 },
+      games: { won: 2, lost: 0, drawn: 0 },
+      opponentsMatchWinPercent: 33,
+    });
+    expect(standings[1]).toMatchObject({
+      playerId: winner,
+      rank: 2,
+      matchPoints: 3,
+      games: { won: 2, lost: 1, drawn: 0 },
+      opponentsMatchWinPercent: 33,
+    });
     expect(standings[2]).toMatchObject({
       playerId: loser,
       rank: 3,
       matchPoints: 0,
     });
+  });
+});
+
+describe('Swiss standings', () => {
+  it('order players level on match points by the MTR’s tiebreakers, and the trophy goes only to whoever is first after them', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    const [roundOne] = (await tournamentView(id)).rounds;
+    await reportLatestRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    await reportLatestRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    const { rounds } = await tournamentView(id);
+    // Each match's first player won it 2–0. Tournament round 1's winners met
+    // in tournament round 2; clearing that match after the tournament
+    // completed leaves it a granted draw, so they're level on 4 match
+    // points and 100% game-win %.
+    const roundOneWinners = roundOne.matches.map((m) => m.players[0]);
+    const top = rounds[1].matches.find((m) =>
+      roundOneWinners.includes(m.players[0]),
+    )!;
+    const bottom = rounds[1].matches.find((m) => m !== top)!;
+    await clearGameScore(id, top.id).expect(200);
+
+    // The leader is the tournament round 1 winner whose opponent then went
+    // on to win tournament round 2: their opponents' match-win % is higher.
+    const bottomWinner = bottom.players[0];
+    const beatBottomWinner = roundOne.matches.find((m) =>
+      m.players.includes(bottomWinner),
+    )!.players[0];
+    const other = top.players.find((p) => p !== beatBottomWinner)!;
+    const view = await tournamentView(id);
+    expect(
+      view.standings.map(({ playerId, rank }) => [playerId, rank]),
+    ).toEqual([
+      [beatBottomWinner, 1],
+      [other, 2],
+      [bottomWinner, 3],
+      [bottom.players[1], 4],
+    ]);
+    expect(view.standings[0]).toMatchObject({
+      matchPoints: 4,
+      gameWinPercent: 100,
+      opponentsGameWinPercent: expect.any(Number),
+    });
+    expect(view.standings[0].opponentsMatchWinPercent).toBeCloseTo(
+      (200 / 3 + 50) / 2,
+    );
+    expect(view.standings[1].opponentsMatchWinPercent).toBeCloseTo(
+      (200 / 3 + 33) / 2,
+    );
+    expect(view.trophyHolders).toEqual([beatBottomWinner]);
   });
 });
 

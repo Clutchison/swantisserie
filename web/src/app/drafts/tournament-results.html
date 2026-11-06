@@ -6,7 +6,13 @@
       <th scope="col">Player</th>
       <th scope="col">Match points</th>
       <th scope="col"><abbr title="Matches won, lost and drawn">W–L–D</abbr></th>
+      @if (swiss()) {
+        <th scope="col"><abbr title="Opponents’ match-win %">OMW %</abbr></th>
+      }
       <th scope="col">Game-win %</th>
+      @if (swiss()) {
+        <th scope="col"><abbr title="Opponents’ game-win %">OGW %</abbr></th>
+      }
     </tr>
   </thead>
   <tbody>
@@ -16,7 +22,13 @@
         <td>{{ standing.name }}</td>
         <td>{{ standing.matchPoints }}</td>
         <td>{{ standing.record }}</td>
+        @if (swiss()) {
+          <td>{{ standing.opponentsMatchWinPercent }}</td>
+        }
         <td>{{ standing.gameWinPercent }}</td>
+        @if (swiss()) {
+          <td>{{ standing.opponentsGameWinPercent }}</td>
+        }
       </tr>
     }
   </tbody>
