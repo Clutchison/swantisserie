@@ -364,6 +364,18 @@ _Avoid_: Swiss rounds (as the format's name), ladder
 How many tournament rounds a Swiss tournament plays, chosen at tournament setup: until there's a winner (enough rounds for one player to be left unbeaten, the ceiling of log₂ of the joined players) or capped at 3.
 _Avoid_: Round limit, length, rounds setting
 
+**MTR**:
+The Magic Tournament Rules: Wizards of the Coast's rules for running Magic tournaments, whose pairing and tiebreakers Swiss follows.
+_Avoid_: Tournament rules (alone), comprehensive rules (those are the game's rules)
+
+**Score group**:
+In Swiss, the players on the same match points when a tournament round is paired.
+_Avoid_: Bracket (that is the single elimination view), point group, tier
+
+**Pair-down**:
+In Swiss, a match between players from different score groups, which a score group with an odd number of players needs.
+_Avoid_: Float, cross-pairing
+
 **Single elimination**:
 The format in which a player who loses a match is out, until one player is left.
 _Avoid_: Knockout, bracket (as the format's name), cup
@@ -480,6 +492,10 @@ _Avoid_: Leaderboard (that is the guild's), rankings, table
 What a player earns from their matches, which standings rank by first: 3 for a won match, 1 for a draw, 0 for a lost one.
 _Avoid_: Points (alone), score
 
+**Record**:
+A player's matches won, lost and drawn, such as 2–1–0; a game record counts their games the same way.
+_Avoid_: Score (that is a match's game score), win–loss
+
 **Head-to-head**:
 In round robin, the tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
 _Avoid_: Direct encounter, mutual result
@@ -490,7 +506,7 @@ _Avoid_: Win rate, game percentage
 
 **Match-win %**:
 In Swiss, a player's match points over 3 per tournament round they played, never below 33%. A player who dropped is measured over the tournament rounds they played.
-_Avoid_: Win rate, record
+_Avoid_: Win rate, record (that is the matches won, lost and drawn)
 
 **Opponents' match-win %**:
 In Swiss, the tiebreaker after match points: the average match-win % of the players someone has met. Byes are left out, as a bye has no opponent. Abbreviated OMW %.

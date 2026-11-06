@@ -1,5 +1,12 @@
 import { seededRandom, shuffle } from './shuffle.js';
-import type { ScheduledRound, Standing } from './tournament.js';
+import {
+  ranked,
+  standingOf,
+  type DecidedMatch,
+  type ScheduledRound,
+  type Standing,
+  type TournamentMatch,
+} from './tournament.js';
 
 /**
  * How many tournament rounds a Swiss tournament plays, chosen at tournament
@@ -28,6 +35,98 @@ export function swissRoundCount(
   return option === 'CappedAt3'
     ? Math.min(untilWinner, SWISS_ROUND_CAP)
     : untilWinner;
+}
+
+/** The MTR's floor for every Swiss percentage: 33, meaning 33% (the MTR's 0.33). */
+export const SWISS_PERCENT_FLOOR = 33;
+
+/**
+ * The standings of a Swiss tournament's `players` after `matches`, best
+ * first, with `byes` holding the player with each bye so far, once per bye.
+ * A bye counts as a 2–0 win. Players rank by the MTR's order (Appendix C):
+ * match points, then opponents' match-win %, game-win %, then opponents'
+ * game-win %.
+ *
+ * - Match-win % is match points over 3 per tournament round played, so a
+ *   player who stopped playing is measured over the tournament rounds they played.
+ * - Game-win % is game points (3 a game won, 1 a game drawn) over 3 per
+ *   game played.
+ * - Each is floored at 33%, and the opponents' percentages average each
+ *   opponent's, leaving the player's byes out.
+ *
+ * The floor has no exception: before a player has played a game, or met an
+ * opponent, the percentages that need one are 33%. Players still tied
+ * after every tiebreaker share a rank and keep the order of `players`, the
+ * rank after a shared one skipping, as in 1, 1, 3. Unreported matches
+ * count for nothing.
+ */
+export function swissStandings(
+  players: readonly string[],
+  matches: readonly TournamentMatch[],
+  byes: readonly string[],
+): Standing[] {
+  const decided = matches.filter(
+    (match): match is DecidedMatch => match.outcome !== null,
+  );
+  const all = new Map(
+    players.map((playerId) => {
+      const standing = standingOf(
+        playerId,
+        decided,
+        byes.filter((id) => id === playerId).length,
+      );
+      const { won, lost, drawn } = standing.games;
+      const played = won + lost + drawn;
+      standing.gameWinPercent = floored(
+        played === 0 ? 0 : (3 * won + drawn) / (3 * played),
+      );
+      return [playerId, standing];
+    }),
+  );
+  const matchWin = ({ matchPoints, matches }: Standing) =>
+    floored(matchPoints / (3 * (matches.won + matches.lost + matches.drawn)));
+  // With no opponent yet, the average is the floor.
+  const average = (values: number[]) =>
+    values.length === 0
+      ? SWISS_PERCENT_FLOOR
+      : values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  for (const standing of all.values()) {
+    const opponents = decided.flatMap(({ players: [a, b] }) =>
+      a === standing.playerId
+        ? [all.get(b)!]
+        : b === standing.playerId
+          ? [all.get(a)!]
+          : [],
+    );
+    standing.opponentsMatchWinPercent = average(opponents.map(matchWin));
+    standing.opponentsGameWinPercent = average(
+      opponents.map((opponent) => opponent.gameWinPercent),
+    );
+  }
+
+  const compare = (a: Standing, b: Standing) =>
+    b.matchPoints - a.matchPoints ||
+    highestPercentFirst(
+      a.opponentsMatchWinPercent!,
+      b.opponentsMatchWinPercent!,
+    ) ||
+    highestPercentFirst(a.gameWinPercent, b.gameWinPercent) ||
+    highestPercentFirst(a.opponentsGameWinPercent!, b.opponentsGameWinPercent!);
+  return ranked([...all.values()], compare);
+}
+
+/** `fraction` as a percentage, floored at the MTR's 33%. */
+function floored(fraction: number): number {
+  return Math.max(SWISS_PERCENT_FLOOR, 100 * fraction);
+}
+
+/**
+ * Compares percentages `a` and `b` to sort the higher first, treating two
+ * that differ only by floating-point noise as equal.
+ */
+function highestPercentFirst(a: number, b: number): number {
+  return Math.abs(b - a) < 1e-9 ? 0 : b - a;
 }
 
 /** What the Swiss pairer reads of a player's standing. */

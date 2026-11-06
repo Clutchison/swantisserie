@@ -37,6 +37,14 @@ export function roundRobinSchedule(
   return rounds;
 }
 
+/**
+ * How many tournament rounds the round robin schedule of `joined` players
+ * has: one fewer than an even count, as many as an odd count.
+ */
+export function roundRobinRoundCount(joined: number): number {
+  return joined % 2 === 1 ? joined : Math.max(0, joined - 1);
+}
+
 /** Match points for a won, drawn and lost match. */
 export const MATCH_POINTS = { won: 3, drawn: 1, lost: 0 } as const;
 
@@ -72,18 +80,20 @@ export interface Standing {
   matches: Tally;
   games: Tally;
   /**
-   * From 0 to 100; 0 before any game is played. In round robin, games won
-   * as a percentage of games played. In Swiss, the MTR's: game points as a
-   * percentage of 3 per game played, floored at 33.
+   * From 0 to 100. In round robin, games won as a percentage of games
+   * played; 0 before any game is played. In Swiss, the MTR's: game points
+   * as a percentage of 3 per game played, floored at 33, so 33 before any
+   * game is played.
    */
   gameWinPercent: number;
-  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 0 before they meet one. */
+  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 33 before they meet one. */
   opponentsMatchWinPercent?: number;
-  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 0 before they meet one. */
+  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 33 before they meet one. */
   opponentsGameWinPercent?: number;
 }
 
-type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
+/** A match with an outcome: reported, a granted draw or a forfeit. */
+export type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
 
 /**
  * The standings of `players` after `matches`, best first. Players rank by
@@ -126,90 +136,12 @@ export function standings(
   return ranked(all, compare);
 }
 
-/** The MTR's floor for every Swiss percentage: 33, meaning 33% (the MTR's 0.33). */
-export const SWISS_PERCENT_FLOOR = 33;
-
-/**
- * The standings of a Swiss tournament's `players` after `matches`, best
- * first, with `byes` holding the player with each bye so far, once per bye.
- * A bye counts as a 2–0 win. Players rank by the MTR's order (Appendix C):
- * match points, then opponents' match-win %, game-win %, then opponents'
- * game-win %.
- *
- * - Match-win % is match points over 3 per tournament round played, so a
- *   player who stopped playing is measured over the tournament rounds they played.
- * - Game-win % is game points (3 a game won, 1 a game drawn) over 3 per
- *   game played.
- * - Each is floored at 33%, and the opponents' percentages average each
- *   opponent's, leaving the player's byes out.
- *
- * The floor has no exception: before a player has played a game, or met an
- * opponent, the percentages that need one are 33%. Players still tied after every tiebreaker share a
- * rank and keep the order of `players`, the rank after a shared one
- * skipping, as in 1, 1, 3. Unreported matches count for nothing.
- */
-export function swissStandings(
-  players: readonly string[],
-  matches: readonly TournamentMatch[],
-  byes: readonly string[],
-): Standing[] {
-  const decided = matches.filter(
-    (match): match is DecidedMatch => match.outcome !== null,
-  );
-  const all = new Map(
-    players.map((playerId) => {
-      const standing = standingOf(
-        playerId,
-        decided,
-        byes.filter((id) => id === playerId).length,
-      );
-      const { won, lost, drawn } = standing.games;
-      const played = won + lost + drawn;
-      standing.gameWinPercent = floored(
-        played === 0 ? 0 : (3 * won + drawn) / (3 * played),
-      );
-      return [playerId, standing];
-    }),
-  );
-  const matchWin = ({ matchPoints, matches }: Standing) =>
-    floored(matchPoints / (3 * (matches.won + matches.lost + matches.drawn)));
-  // With no opponent yet, the average is the floor.
-  const average = (values: number[]) =>
-    values.length === 0
-      ? SWISS_PERCENT_FLOOR
-      : values.reduce((sum, value) => sum + value, 0) / values.length;
-
-  for (const standing of all.values()) {
-    const opponents = decided.flatMap(({ players: [a, b] }) =>
-      a === standing.playerId
-        ? [all.get(b)!]
-        : b === standing.playerId
-          ? [all.get(a)!]
-          : [],
-    );
-    standing.opponentsMatchWinPercent = average(opponents.map(matchWin));
-    standing.opponentsGameWinPercent = average(
-      opponents.map((opponent) => opponent.gameWinPercent),
-    );
-  }
-
-  const compare = (a: Standing, b: Standing) =>
-    b.matchPoints - a.matchPoints ||
-    highestPercentFirst(
-      a.opponentsMatchWinPercent!,
-      b.opponentsMatchWinPercent!,
-    ) ||
-    highestPercentFirst(a.gameWinPercent, b.gameWinPercent) ||
-    highestPercentFirst(a.opponentsGameWinPercent!, b.opponentsGameWinPercent!);
-  return ranked([...all.values()], compare);
-}
-
 /**
  * `table` sorted by `compare`, best first, with ranks from 1: players
  * `compare` finds equal share a rank and keep their order, and the rank
  * after a shared one skips, as in 1, 1, 3.
  */
-function ranked(
+export function ranked(
   table: Standing[],
   compare: (a: Standing, b: Standing) => number,
 ): Standing[] {
@@ -220,19 +152,6 @@ function ranked(
       previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
   });
   return sorted;
-}
-
-/** `fraction` as a percentage, floored at the MTR's 33%. */
-function floored(fraction: number): number {
-  return Math.max(SWISS_PERCENT_FLOOR, 100 * fraction);
-}
-
-/**
- * Compares percentages `a` and `b` to sort the higher first, treating two
- * that differ only by floating-point noise as equal.
- */
-function highestPercentFirst(a: number, b: number): number {
-  return Math.abs(b - a) < 1e-9 ? 0 : b - a;
 }
 
 /**
@@ -284,8 +203,11 @@ export function trophyHolders(final: readonly Standing[]): string[] {
     .map((standing) => standing.playerId);
 }
 
-/** The player's record over `matches` and `byes` byes, each a 2–0 win, unranked. */
-function standingOf(
+/**
+ * The player's record over `matches` and `byes` byes, each a 2–0 win,
+ * unranked, with round robin's game-win %.
+ */
+export function standingOf(
   playerId: string,
   matches: readonly DecidedMatch[],
   byes = 0,

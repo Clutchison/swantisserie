@@ -155,10 +155,11 @@ export async function tournamentView(id: string): Promise<TournamentView> {
 }
 
 /**
- * Reports every unreported match of the tournament's latest tournament
- * round as won 2–0 by its first player, as that player.
+ * Reports every unreported match of the tournament's current tournament
+ * round, the latest paired, as won 2–0 by its first player, as that
+ * player.
  */
-export async function reportLatestRound(
+export async function reportCurrentRound(
   id: string,
   cookies: Record<string, string>,
 ) {

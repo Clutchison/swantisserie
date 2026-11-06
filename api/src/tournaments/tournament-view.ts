@@ -5,6 +5,7 @@ import type {
   TournamentView,
 } from 'contract';
 import {
+  roundRobinRoundCount,
   standings,
   swissRoundCount,
   swissStandings,
@@ -84,12 +85,11 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const matches = rounds
     .flatMap((round) => round.matches)
     .map(toTournamentMatch);
-  const byes = rounds.flatMap((round) => (round.bye ? [round.bye] : []));
   const table =
     row.state === 'Registration'
       ? []
       : row.format === 'Swiss'
-        ? swissStandings(players, matches, byes)
+        ? swissStandings(players, matches, byesOf(rounds))
         : standings(players, matches);
   return {
     format: row.format,
@@ -107,10 +107,14 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   };
 }
 
+/** The player with each bye in `rounds`, once per bye. */
+export function byesOf(rounds: readonly TournamentRoundView[]): string[] {
+  return rounds.flatMap((round) => (round.bye ? [round.bye] : []));
+}
+
 /**
  * How many tournament rounds a tournament of `format` has, or will have,
- * with `joined` players; none for fewer than 2. Round robin plays one round
- * fewer than an even count, and as many as an odd count, each with a bye.
+ * with `joined` players, as the engine counts them; none for fewer than 2.
  */
 export function roundCount(
   {
@@ -121,7 +125,7 @@ export function roundCount(
 ): number {
   if (joined < 2) return 0;
   if (format === 'Swiss') return swissRoundCount(joined, swissRoundOption!);
-  return joined % 2 === 1 ? joined : joined - 1;
+  return roundRobinRoundCount(joined);
 }
 
 function toMatchView(

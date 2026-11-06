@@ -129,7 +129,7 @@ describe('Swiss tournaments on the Tournament tab', () => {
     const dialog = openDialog()!;
 
     expect(text(dialog)).toContain(
-      'It is the last, so the tournament completes and the trophy is awarded.',
+      'It is the final tournament round, so the tournament completes and the trophy is awarded.',
     );
     expect(text(dialog)).toContain('Alice vs Carol');
     expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull();

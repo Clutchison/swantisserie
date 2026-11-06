@@ -19,7 +19,7 @@ import {
   matchOf,
   playingTournament,
   reinstate,
-  reportLatestRound,
+  reportCurrentRound,
   reportWin,
   setGameScore,
   setUpTournament,
@@ -177,9 +177,9 @@ describe('Swiss standings', () => {
       swiss(),
     );
     const [roundOne] = (await tournamentView(id)).rounds;
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     const { rounds } = await tournamentView(id);
     // Each match's first player won it 2–0. Tournament round 1's winners met
@@ -243,7 +243,7 @@ describe('completing a tournament round', () => {
 
   it('is for the organizer only', async () => {
     const id = await playingTournament([aliceCookie, bobCookie], swiss());
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
 
     await completeRound(id, bobCookie).expect(403);
 
@@ -255,7 +255,7 @@ describe('completing a tournament round', () => {
       [aliceCookie, bobCookie, carolCookie, daveCookie],
       swiss(),
     );
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
 
     await completeRound(id).expect(200);
 
@@ -286,7 +286,7 @@ describe('completing a tournament round', () => {
     );
     const [round] = (await tournamentView(id)).rounds;
     const [winner, loser] = round.matches[0].players;
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
 
     await completeRound(id).expect(200);
 
@@ -302,9 +302,9 @@ describe('completing a tournament round', () => {
       [aliceCookie, bobCookie, carolCookie, daveCookie],
       swiss(),
     );
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
 
     await completeRound(id).expect(200);
 
@@ -322,7 +322,7 @@ describe('completing a tournament round', () => {
 
   it('bumps the draft’s version', async () => {
     const id = await playingTournament([aliceCookie, bobCookie], swiss());
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     const before = await getDraft(id).expect(200);
 
     const answer = await completeRound(id).expect(200);
@@ -564,7 +564,7 @@ describe('correcting a Swiss tournament', () => {
       [aliceCookie, bobCookie, carolCookie, daveCookie],
       swiss(),
     );
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     const before = await tournamentView(id);
     const [winner, loser] = before.rounds[0].matches[0].players;
@@ -587,7 +587,7 @@ describe('correcting a Swiss tournament', () => {
       [aliceCookie, bobCookie, carolCookie, daveCookie],
       swiss(),
     );
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const before = await getDraft(id).expect(200);
@@ -609,7 +609,7 @@ describe('correcting a Swiss tournament', () => {
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const gone = match.players[1];
     await dropPlayer(id, gone, cookieOf[gone]).expect(200);
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     await setGameScore(id, match.id, {
       games: [0, 2],
@@ -655,7 +655,7 @@ describe('reinstating a player in a Swiss tournament', () => {
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const gone = match.players[1];
     await dropPlayer(id, gone, cookieOf[gone]).expect(200);
-    await reportLatestRound(id, cookieOf);
+    await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
 
     const answer = await reinstate(id, gone).expect(409);

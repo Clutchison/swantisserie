@@ -79,8 +79,8 @@ export class TournamentResults {
       name: this.name(standing.playerId),
       record: `${standing.matches.won}–${standing.matches.lost}–${standing.matches.drawn}`,
       gameWinPercent: percent(standing.gameWinPercent),
-      opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent ?? 0),
-      opponentsGameWinPercent: percent(standing.opponentsGameWinPercent ?? 0),
+      opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent),
+      opponentsGameWinPercent: percent(standing.opponentsGameWinPercent),
     })),
   );
 
@@ -202,7 +202,11 @@ export class TournamentResults {
   }
 }
 
-/** A percentage from 0 to 100 as the standings show it: rounded, with a % suffix. */
-function percent(value: number): string {
-  return `${Math.round(value)}%`;
+/**
+ * A percentage from 0 to 100 as the standings show it: rounded, with a %
+ * suffix. Empty if absent, as the opponents' percentages are in round
+ * robin, whose standings don't show them.
+ */
+function percent(value: number | undefined): string {
+  return value === undefined ? '' : `${Math.round(value)}%`;
 }

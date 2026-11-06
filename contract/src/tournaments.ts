@@ -5,11 +5,18 @@
 export type TournamentFormat = 'RoundRobin' | 'Swiss';
 
 /**
- * How many tournament rounds a Swiss tournament plays, chosen at tournament
- * setup: until there's a winner (the ceiling of log2 of its joined players),
- * or capped at 3. The engine's SwissRoundOption is the same type.
+ * The Swiss round options tournament setup offers, in the order it offers
+ * them: until there's a winner (the ceiling of log2 of its joined players),
+ * or capped at 3.
  */
-export type SwissRoundOption = 'UntilWinner' | 'CappedAt3';
+export const SWISS_ROUND_OPTIONS = ['UntilWinner', 'CappedAt3'] as const;
+
+/**
+ * How many tournament rounds a Swiss tournament plays, chosen at tournament
+ * setup: one of SWISS_ROUND_OPTIONS. The engine's SwissRoundOption is the
+ * same type.
+ */
+export type SwissRoundOption = (typeof SWISS_ROUND_OPTIONS)[number];
 
 /** Registration → Playing → Complete. The glossary has the long form. */
 export type TournamentState = 'Registration' | 'Playing' | 'Complete';
@@ -85,14 +92,15 @@ export interface StandingView {
   matches: TallyView;
   games: TallyView;
   /**
-   * From 0 to 100; 0 before any game is played. In round robin, games won
-   * as a percentage of games played. In Swiss, the MTR's: game points as a
-   * percentage of 3 per game played, floored at 33.
+   * From 0 to 100. In round robin, games won as a percentage of games
+   * played; 0 before any game is played. In Swiss, the MTR's: game points
+   * as a percentage of 3 per game played, floored at 33, so 33 before any
+   * game is played.
    */
   gameWinPercent: number;
-  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 0 before they meet one. */
+  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 33 before they meet one. */
   opponentsMatchWinPercent?: number;
-  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 0 before they meet one. */
+  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 33 before they meet one. */
   opponentsGameWinPercent?: number;
 }
 

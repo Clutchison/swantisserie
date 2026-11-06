@@ -33,7 +33,9 @@ export class CompleteRoundDialog {
   /** The tournament round it completes: the one after the last completed. */
   protected readonly round = computed(() => (this.tournament()?.lastCompletedRound ?? 0) + 1);
   /** Whether it is the final tournament round, which completes the tournament: then nobody is dropped. */
-  protected readonly last = computed(() => this.round() >= (this.tournament()?.roundCount ?? 0));
+  protected readonly finalRound = computed(
+    () => this.round() >= (this.tournament()?.roundCount ?? 0),
+  );
   /** The round's unreported matches, each with its players as the draft names them. */
   protected readonly unreported = computed(() =>
     (this.tournament()?.rounds.find((r) => r.round === this.round())?.matches ?? [])

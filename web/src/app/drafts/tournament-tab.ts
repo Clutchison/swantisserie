@@ -10,15 +10,16 @@ import {
   untracked,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type {
-  CompleteRoundRequest,
-  DraftView,
-  GameScore,
-  MatchView,
-  SwissRoundOption,
-  TournamentFormat,
-  TournamentSetupRequest,
-  TournamentView,
+import {
+  SWISS_ROUND_OPTIONS,
+  type CompleteRoundRequest,
+  type DraftView,
+  type GameScore,
+  type MatchView,
+  type SwissRoundOption,
+  type TournamentFormat,
+  type TournamentSetupRequest,
+  type TournamentView,
 } from 'contract';
 import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
 import type { Observable } from 'rxjs';
@@ -38,15 +39,20 @@ const FORMATS: { format: TournamentFormat; name: string }[] = [
   { format: 'Swiss', name: 'Swiss' },
 ];
 
-/** The Swiss round options tournament setup offers, as it names them and as the tab sums them up. */
-const SWISS_ROUND_OPTIONS: { option: SwissRoundOption; name: string; summary: string }[] = [
-  { option: 'UntilWinner', name: 'Until there’s a winner', summary: 'until there’s a winner' },
-  {
-    option: 'CappedAt3',
+/** How tournament setup names each Swiss round option, and how the tab sums it up. */
+const SWISS_ROUND_OPTION_NAMES: Record<SwissRoundOption, { name: string; summary: string }> = {
+  UntilWinner: { name: 'Until there’s a winner', summary: 'until there’s a winner' },
+  CappedAt3: {
     name: `Capped at ${SWISS_ROUND_CAP} tournament rounds`,
     summary: `capped at ${SWISS_ROUND_CAP}`,
   },
-];
+};
+
+/** The Swiss round options tournament setup offers, in order, as it names them. */
+const SWISS_ROUND_CHOICES = SWISS_ROUND_OPTIONS.map((option) => ({
+  option,
+  ...SWISS_ROUND_OPTION_NAMES[option],
+}));
 
 /**
  * The tournament's format, and for Swiss its round option, with how many
@@ -54,8 +60,10 @@ const SWISS_ROUND_OPTIONS: { option: SwissRoundOption; name: string; summary: st
  * at 3: 3 tournament rounds".
  */
 function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): string {
-  const option = SWISS_ROUND_OPTIONS.find((o) => o.option === swissRoundOption);
-  const name = format === 'Swiss' ? `Swiss, ${option?.summary}` : 'Round robin';
+  const name =
+    format === 'Swiss' && swissRoundOption
+      ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
+      : 'Round robin';
   if (roundCount === 0) return name;
   return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
 }
@@ -114,7 +122,7 @@ export class TournamentTab {
   protected readonly canOrganize = this.store.canOrganize;
   protected readonly formats = FORMATS;
   protected readonly format = signal<TournamentFormat>('RoundRobin');
-  protected readonly swissRoundOptions = SWISS_ROUND_OPTIONS;
+  protected readonly swissRoundOptions = SWISS_ROUND_CHOICES;
   protected readonly swissRoundOption = signal<SwissRoundOption>('UntilWinner');
   /** The format and round count, summed up. */
   protected readonly summary = computed(() => {

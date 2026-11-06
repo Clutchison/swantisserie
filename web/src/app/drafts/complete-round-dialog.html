@@ -1,8 +1,8 @@
 <div class="dialog">
   <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
   <p>
-    @if (last()) {
-      It is the last, so the tournament completes and the trophy is awarded.
+    @if (finalRound()) {
+      It is the final tournament round, so the tournament completes and the trophy is awarded.
     } @else if (tooFewLeft()) {
       Fewer than {{ minUndropped }} undropped players remain, so the tournament completes and the
       trophy is awarded.
@@ -13,7 +13,7 @@
   @if (unreported().length > 0) {
     <p>
       Its unreported matches become granted draws.
-      @if (!last()) {
+      @if (!finalRound()) {
         Drop any player who won’t play on.
       }
     </p>
@@ -21,7 +21,7 @@
       @for (match of unreported(); track match.id) {
         <li>
           <span>{{ match.label }}</span>
-          @if (!last()) {
+          @if (!finalRound()) {
             <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
               @for (player of match.players; track player.id) {
                 <label>

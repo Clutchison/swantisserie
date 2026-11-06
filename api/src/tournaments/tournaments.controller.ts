@@ -12,16 +12,17 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import type {
-  CompleteRoundRequest,
-  DraftView,
-  GameScore,
-  GrantedDrawRequest,
-  MatchReportRequest,
-  RequestProblem,
-  SwissRoundOption,
-  TournamentSetupRequest,
-  TournamentView,
+import {
+  SWISS_ROUND_OPTIONS,
+  type CompleteRoundRequest,
+  type DraftView,
+  type GameScore,
+  type GrantedDrawRequest,
+  type MatchReportRequest,
+  type RequestProblem,
+  type SwissRoundOption,
+  type TournamentSetupRequest,
+  type TournamentView,
 } from 'contract';
 import { SWISS_ROUND_CAP } from 'engine';
 import {
@@ -295,7 +296,7 @@ function isGrantedDrawRequest(value: unknown): value is GrantedDrawRequest {
 }
 
 function isSwissRoundOption(value: unknown): value is SwissRoundOption {
-  return value === 'UntilWinner' || value === 'CappedAt3';
+  return (SWISS_ROUND_OPTIONS as readonly unknown[]).includes(value);
 }
 
 /**
