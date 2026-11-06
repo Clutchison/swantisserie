@@ -1,4 +1,4 @@
-import { openDialog } from '../../specs-harness';
+import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alertIn,
@@ -367,6 +367,37 @@ describe('Swiss tournaments on the Play tab', () => {
     const yourMatch = (tab: HTMLElement) => region(tab, 'Your match')!;
     /** Carol reporting that she beat Alice 2–1 in round 2's match. */
     const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+
+    it('offers the four game scores straight away, with a link to your Deck tab, and reports the one you choose', async () => {
+      const { fixture, tab } = await openPlaying(swissPlaying());
+
+      expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
+      expect(link(yourMatch(tab), 'Your deck')).toBeDefined();
+      expect(button(yourMatch(tab), 'Report your match against Carol')).toBeUndefined();
+      expect(
+        ['Won 2–0', 'Won 2–1', 'Lost 1–2', 'Lost 0–2'].map(
+          (score) => !!button(yourMatch(tab), score),
+        ),
+      ).toEqual([true, true, true, true]);
+
+      button(yourMatch(tab), 'Lost 1–2')!.click();
+      await answer(await question('Report that you lost 1–2 against Carol?'), 'Report');
+      const req = await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament/matches/m2/report',
+        'POST',
+        swissPlaying({
+          rounds: swissRoundsWith(
+            reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], alice.id),
+          ),
+        }),
+        1,
+        threePlayers,
+      );
+
+      expect(req.request.body).toEqual({ games: [1, 2] });
+      expect(text(yourMatch(tab))).toContain('All your matches are reported.');
+    });
 
     it('offers Confirm, with who reported what and a link to your Deck tab, once your opponent reported it', async () => {
       const { fixture, tab } = await openPlaying(

@@ -465,7 +465,7 @@ The organizer taking back the completion of the last completed Swiss or single e
 _Avoid_: Undo (that is a pick's), uncomplete, roll back, Reopen (alone; that is a draft's)
 
 **Advance**:
-In single elimination, a player going on from a match or bye to the next tournament round: the match's winner, or the player with the bye. Nobody advances from a forfeit both its players dropped from before the next tournament round was paired, nor from a dropped player's bye. A player who has advanced keeps it if they drop later.
+In single elimination, a player going on from a match or bye to the next tournament round: the match's winner, or the player with the bye. Nobody advances from a forfeit both its players dropped from before the next tournament round was paired, nor from a bye whose player dropped before then. A player who has advanced keeps it if they drop later.
 _Avoid_: Progress, move up, go through, qualify
 
 **Complete tournament**:
@@ -525,7 +525,7 @@ One set of matches in a Swiss or single elimination tournament, in which each pl
 _Avoid_: Round (alone; that is a pick round), stage, week
 
 **Bye**:
-A tournament round in which a player has no match, so only Swiss and single elimination have them. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one. In single elimination the top seeds have byes in round 1, as many as the bracket has places left over, and go straight to round 2; a player also has a bye when nobody advances from the match whose winner they would have met.
+A tournament round in which a player has no match, so only Swiss and single elimination have them. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one, even when that leaves the others to play a rematch; nobody has a second bye while a player left in hasn't had one. In single elimination the top seeds have byes in round 1, as many as the bracket has places left over, and go straight to round 2; a player also has a bye when nobody advances from the match whose winner they would have met.
 _Avoid_: Rest, skip, free win
 
 **Granted draw**:

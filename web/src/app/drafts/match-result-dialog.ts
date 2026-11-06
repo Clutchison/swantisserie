@@ -21,7 +21,7 @@ export type MatchResultChoice = { kind: 'GameScore'; games: GameScore } | { kind
   selector: 'app-match-result-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './match-result-dialog.html',
-  styleUrl: './match-result-dialog.scss',
+  styleUrls: ['../dialog.scss', './match-result-dialog.scss'],
 })
 export class MatchResultDialog {
   private readonly dialogRef = inject<DialogRef<MatchResultChoice>>(DialogRef);

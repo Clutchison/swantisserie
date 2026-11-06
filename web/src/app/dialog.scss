@@ -1,0 +1,22 @@
+/*
+ * The box a dialog draws, and its row of actions, shared by the dialogs
+ * that use them. A dialog narrower or wider than the usual sets
+ * --dialog-width on its host.
+ */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(var(--dialog-width, 26rem), 100%);
+  padding: var(--space-lg);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
