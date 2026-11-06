@@ -1,0 +1,59 @@
+<h3>Standings</h3>
+<table class="standings" aria-label="Standings">
+  <thead>
+    <tr>
+      <th scope="col">Rank</th>
+      <th scope="col">Player</th>
+      <th scope="col">Match points</th>
+      <th scope="col"><abbr title="Matches won, lost and drawn">W–L–D</abbr></th>
+      <th scope="col">Game-win %</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (standing of standings(); track standing.playerId) {
+      <tr>
+        <td>{{ standing.rank }}</td>
+        <td>{{ standing.name }}</td>
+        <td>{{ standing.matchPoints }}</td>
+        <td>{{ standing.record }}</td>
+        <td>{{ standing.gameWinPercent }}</td>
+      </tr>
+    }
+  </tbody>
+</table>
+
+<h3>Matches</h3>
+@for (round of rounds(); track round.round) {
+  <h4>{{ round.label }}</h4>
+  <ul class="matches" [attr.aria-label]="round.label">
+    @for (match of round.matches; track match.id) {
+      <li>
+        <span>
+          {{ match.first }}
+          @if (match.score; as score) {
+            {{ score }}
+          } @else {
+            vs
+          }
+          {{ match.second }}
+          @if (match.note; as note) {
+            · {{ note }}
+          }
+        </span>
+        @if (match.opponent; as opponent) {
+          <button
+            class="button compact secondary"
+            type="button"
+            [attr.aria-label]="'Report your match against ' + opponent"
+            (click)="choose.emit(match.id)"
+          >
+            Report
+          </button>
+        }
+      </li>
+    }
+    @if (round.bye; as bye) {
+      <li class="bye">{{ bye }} has a bye</li>
+    }
+  </ul>
+}

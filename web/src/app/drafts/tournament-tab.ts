@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import type { DraftView, TournamentFormat } from 'contract';
+import { RouterLink } from '@angular/router';
+import type { DraftView, MatchView, TournamentFormat } from 'contract';
 import type { Observable } from 'rxjs';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
@@ -7,20 +8,46 @@ import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
+import { TournamentResults } from './tournament-results';
 
 /** The formats tournament setup offers, as it names them: only round robin for now. */
 const FORMATS: { format: TournamentFormat; name: string }[] = [
   { format: 'RoundRobin', name: 'Round robin' },
 ];
 
+/** A game score a player reports, as their games won and their opponent's. */
+interface Result {
+  label: string;
+  own: number;
+  theirs: number;
+}
+
+/** The game scores a player can report: 2–0 or 2–1 for either side, never a draw. */
+const RESULTS: Result[] = [
+  { label: 'Won 2–0', own: 2, theirs: 0 },
+  { label: 'Won 2–1', own: 2, theirs: 1 },
+  { label: 'Lost 1–2', own: 1, theirs: 2 },
+  { label: 'Lost 0–2', own: 0, theirs: 2 },
+];
+
 /**
  * The Tournament tab of a complete draft: the setup form for organizers
  * before its tournament is set up, then registration, where the draft's
- * players join and leave and organizers remove them or cancel it.
+ * players join and leave and organizers remove them, start it or cancel
+ * it, then play: the signed-in player's match and its report, the
+ * standings and matches, Complete tournament for organizers, and at last
+ * the trophy.
  */
 @Component({
   selector: 'app-tournament-tab',
-  imports: [ChangeStatus, LoadingAnimation, PlayerAvatar, SendsChange],
+  imports: [
+    ChangeStatus,
+    LoadingAnimation,
+    PlayerAvatar,
+    RouterLink,
+    SendsChange,
+    TournamentResults,
+  ],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tournament-tab.html',
@@ -60,9 +87,45 @@ export class TournamentTab {
   protected readonly offerLeave = computed(
     () => this.tournament()?.state === 'Registration' && this.entered(),
   );
-  /** Organizers may remove joined players and cancel the tournament during registration. */
+  /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(
     () => this.canOrganize() && this.tournament()?.state === 'Registration',
+  );
+  /** Start needs at least 2 joined players. */
+  protected readonly canStart = computed(() => this.entries().length >= 2);
+  /** Organizers complete a round robin tournament while it is playing. */
+  protected readonly offerComplete = computed(
+    () => this.canOrganize() && this.tournament()?.state === 'Playing',
+  );
+  /** The game scores a player reports, from their side. */
+  protected readonly results = RESULTS;
+
+  /** The match the signed-in player chose to report from the tournament rounds, if any. */
+  protected readonly chosen = signal<string | undefined>(undefined);
+  /** Whether "Your match" shows: to a player who joined, while the tournament is playing. */
+  protected readonly showOwnMatch = computed(
+    () => this.tournament()?.state === 'Playing' && this.entered(),
+  );
+  /**
+   * The signed-in player's match shown at the top: the one they chose, while
+   * it is unreported, else their first unreported match by tournament round.
+   */
+  protected readonly ownMatch = computed(() => {
+    const ownId = this.ownId();
+    if (!ownId || !this.showOwnMatch()) return undefined;
+    const open = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
+      matches
+        .filter((match) => match.players.includes(ownId) && match.outcome.kind === 'Unreported')
+        .map((match) => ({ round, match })),
+    );
+    const shown = open.find(({ match }) => match.id === this.chosen()) ?? open[0];
+    if (!shown) return undefined;
+    const opponentId = shown.match.players.find((id) => id !== ownId)!;
+    return { ...shown, opponent: this.store.player(opponentId) };
+  });
+  /** The players who hold the trophy, as the draft names them. */
+  protected readonly trophyHolders = computed(() =>
+    (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),
   );
 
   /** Sets up the tournament in the format chosen. */
@@ -90,6 +153,45 @@ export class TournamentTab {
     return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
       failure: "Couldn't remove the player. Try again in a moment.",
     });
+  }
+
+  /** Starts the tournament, once the organizer confirms. */
+  protected start() {
+    return this.send(
+      () =>
+        confirm('Start the tournament? Joining closes, and every match opens.')
+          ? this.api.start(this.draft().id)
+          : undefined,
+      { failure: "Couldn't start the tournament. Try again in a moment." },
+    );
+  }
+
+  /** Reports the signed-in player's match at `result`, from their side, once they confirm. */
+  protected report(match: MatchView, opponent: string, result: Result) {
+    const games: [number, number] =
+      match.players[0] === this.ownId() ? [result.own, result.theirs] : [result.theirs, result.own];
+    return this.send(
+      () =>
+        confirm(
+          `Report that you ${result.own > result.theirs ? 'won' : 'lost'} ${result.own}–${result.theirs} against ${opponent}? Only an organizer can change a reported match.`,
+        )
+          ? this.api.report(this.draft().id, match.id, games)
+          : undefined,
+      { failure: "Couldn't report the match. Try again in a moment." },
+    );
+  }
+
+  /** Completes the tournament, once the organizer confirms. */
+  protected complete() {
+    return this.send(
+      () =>
+        confirm(
+          'Complete the tournament? Its unreported matches become granted draws, and the trophy is awarded.',
+        )
+          ? this.api.complete(this.draft().id)
+          : undefined,
+      { failure: "Couldn't complete the tournament. Try again in a moment." },
+    );
   }
 
   /** Cancels the tournament, once the organizer confirms. */

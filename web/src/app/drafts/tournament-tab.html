@@ -32,49 +32,113 @@
       Round robin. Joining locks your deck until the tournament is complete or cancelled, or you
       leave it.
     </p>
-  }
-  <h3>Joined players</h3>
-  <ul class="entries" aria-label="Joined players">
-    @for (player of entries(); track player.id) {
-      <li>
-        <app-player-avatar [src]="player.avatarUrl" />
-        {{ player.name }}
-        @if (offerOrganize() && player.id !== ownId()) {
-          <button
-            class="button compact secondary"
-            type="button"
-            [attr.aria-label]="'Remove ' + player.name"
-            (click)="remove(player.id)"
-            [appSendsChange]="'remove ' + player.id"
-          >
-            Remove
-          </button>
+    <h3>Joined players</h3>
+    <ul class="entries" aria-label="Joined players">
+      @for (player of entries(); track player.id) {
+        <li>
+          <app-player-avatar [src]="player.avatarUrl" />
+          {{ player.name }}
+          @if (offerOrganize() && player.id !== ownId()) {
+            <button
+              class="button compact secondary"
+              type="button"
+              [attr.aria-label]="'Remove ' + player.name"
+              (click)="remove(player.id)"
+              [appSendsChange]="'remove ' + player.id"
+            >
+              Remove
+            </button>
+          }
+        </li>
+      } @empty {
+        <li class="empty">Nobody has joined yet.</li>
+      }
+    </ul>
+    <div class="controls">
+      @if (offerJoin()) {
+        <button class="button" type="button" (click)="join()" appSendsChange="join">Join</button>
+      }
+      @if (offerLeave()) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="leave(ownId()!)"
+          appSendsChange="leave"
+        >
+          Leave
+        </button>
+      }
+      @if (offerOrganize()) {
+        <button
+          class="button"
+          type="button"
+          (click)="start()"
+          [disabled]="!canStart()"
+          appSendsChange="start"
+        >
+          Start tournament
+        </button>
+        <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
+          Cancel tournament
+        </button>
+      }
+    </div>
+  } @else {
+    <p class="state">{{ tournament.state }}</p>
+    @if (trophyHolders().length) {
+      <section class="trophy" aria-label="Trophy">
+        <h3>Trophy</h3>
+        <ul class="entries" aria-label="Trophy holders">
+          @for (player of trophyHolders(); track player.id) {
+            <li><app-player-avatar [src]="player.avatarUrl" /> {{ player.name }}</li>
+          }
+        </ul>
+      </section>
+    }
+    @if (showOwnMatch()) {
+      <section class="own-match" aria-label="Your match">
+        <h3>Your match</h3>
+        @if (ownMatch(); as own) {
+          <p>
+            Tournament round {{ own.round }}: against
+            <app-player-avatar [src]="own.opponent.avatarUrl" />
+            {{ own.opponent.name }}
+          </p>
+          <div class="controls">
+            @for (result of results; track result.label) {
+              <button
+                class="button secondary"
+                type="button"
+                (click)="report(own.match, own.opponent.name, result)"
+                appSendsChange="report"
+              >
+                {{ result.label }}
+              </button>
+            }
+          </div>
+          <p class="detail">
+            <a [routerLink]="[]" [queryParams]="{ tab: 'plan' }">Your deck</a>, to export it before
+            you play.
+          </p>
+        } @else {
+          <p class="detail">All your matches are reported.</p>
         }
-      </li>
-    } @empty {
-      <li class="empty">Nobody has joined yet.</li>
+      </section>
     }
-  </ul>
-  <div class="controls">
-    @if (offerJoin()) {
-      <button class="button" type="button" (click)="join()" appSendsChange="join">Join</button>
+    <app-tournament-results
+      [tournament]="tournament"
+      [ownId]="entered() ? ownId() : undefined"
+      [currentId]="ownMatch()?.match?.id"
+      (choose)="chosen.set($event)"
+    />
+    @if (offerComplete()) {
+      <div class="controls">
+        <button class="button" type="button" (click)="complete()" appSendsChange="complete">
+          Complete tournament
+        </button>
+      </div>
     }
-    @if (offerLeave()) {
-      <button
-        class="button secondary"
-        type="button"
-        (click)="leave(ownId()!)"
-        appSendsChange="leave"
-      >
-        Leave
-      </button>
-    }
-    @if (offerOrganize()) {
-      <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
-        Cancel tournament
-      </button>
-    }
-  </div>
+  }
 } @else {
   <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>
 }
