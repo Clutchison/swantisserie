@@ -610,4 +610,35 @@ describe('draftMessages for an announcement too long for one post', () => {
       },
     ]);
   });
+
+  it('pings in each post only the users that post mentions', () => {
+    // 60 matches of two players each, far more than one post holds.
+    const players = Array.from({ length: 120 }, (_, n) => ({
+      id: String(80351110224678912n + BigInt(n)),
+      name: `P${n}`,
+      isBot: false,
+    }));
+    const matches = Array.from(
+      { length: 60 },
+      (_, i) =>
+        [players[2 * i], players[2 * i + 1]] as [typeof alice, typeof alice],
+    );
+
+    const messages = draftMessages(draft, [
+      { type: 'tournament-round-completed', round: 2, matches, byes: [] },
+    ]);
+
+    expect(messages.length).toBeGreaterThan(1);
+    for (const { content, allowed_mentions } of messages) {
+      expect(allowed_mentions.users).toEqual(
+        players
+          .map(({ id }) => id)
+          .filter((id) => content.includes(`<@${id}>`)),
+      );
+      expect(allowed_mentions.users.length).toBeGreaterThan(0);
+    }
+    expect(messages.flatMap((m) => m.allowed_mentions.users)).toEqual(
+      players.map(({ id }) => id),
+    );
+  });
 });
