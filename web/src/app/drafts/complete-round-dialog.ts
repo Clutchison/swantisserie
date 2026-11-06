@@ -24,7 +24,7 @@ export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
   selector: 'app-complete-round-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './complete-round-dialog.html',
-  styleUrl: './complete-round-dialog.scss',
+  styleUrls: ['../dialog.scss', './complete-round-dialog.scss'],
 })
 export class CompleteRoundDialog {
   private readonly store = inject(DraftStore);

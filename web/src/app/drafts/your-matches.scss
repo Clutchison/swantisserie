@@ -29,3 +29,9 @@
   gap: var(--space-xs);
   flex-basis: 100%;
 }
+
+/* The deck link, or that all the matches are reported: muted, as the Play tab's details are. */
+.detail {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}

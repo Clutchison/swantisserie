@@ -458,7 +458,8 @@ export function standingsAsOf(root: HTMLElement): string | null {
 export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(root));
 
 /** The results grid inside `root`, round robin's; null if there is none. */
-export const resultsGrid = (root: HTMLElement) => table(root, 'Results grid');
+export const resultsGrid = (root: HTMLElement) =>
+  region(root, 'Results grid')?.querySelector('table') ?? null;
 
 /** The results grid's column headers inside `root`, each spelled out where it is abbreviated. */
 export const gridColumns = (root: HTMLElement) => tableColumns(resultsGrid(root)!);

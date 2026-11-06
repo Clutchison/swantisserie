@@ -1,7 +1,8 @@
 <h3>Results grid</h3>
 <!-- The grid scrolls sideways here, not the page; focusable so a keyboard can scroll it. -->
 <div class="scroller" role="region" aria-label="Results grid" tabindex="0">
-  <table class="grid" aria-label="Results grid" aria-describedby="results-grid-key">
+  <!-- The region names the grid, so a screen reader says its name once. -->
+  <table class="grid" aria-describedby="results-grid-key">
     <thead>
       <tr>
         <th scope="col" class="rank"><abbr title="Rank">#</abbr></th>

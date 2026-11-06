@@ -14,7 +14,7 @@ import {
 import type { MatchView, TournamentView } from 'contract';
 import { droppedPlayers } from 'engine';
 import { DialogShell } from '../dialog-shell';
-import { record } from '../record';
+import { percent, record } from '../record';
 import { DraftStore } from './draft-store';
 import {
   gameScoreFor,
@@ -128,7 +128,7 @@ export class ResultsGrid {
         name: this.dropped().has(standing.playerId) ? `${name} (dropped)` : name,
         matchPoints: standing.matchPoints,
         record: record(standing.matches),
-        gameWinPercent: `${Math.round(standing.gameWinPercent)}%`,
+        gameWinPercent: percent(standing.gameWinPercent),
         cells: this.columns().map((column) =>
           this.cell(
             standing.playerId,

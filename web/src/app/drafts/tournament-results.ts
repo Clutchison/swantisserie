@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
 import { droppedPlayers } from 'engine';
-import { record } from '../record';
+import { percent, record } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import {
@@ -211,13 +211,4 @@ export class TournamentResults {
   private seeded(playerId: string) {
     return seededName(this.name(playerId), this.seeds().get(playerId));
   }
-}
-
-/**
- * A percentage from 0 to 100 as the standings show it: rounded, with a %
- * suffix. Empty if absent, as the opponents' percentages are in round
- * robin, whose standings don't show them.
- */
-function percent(value: number | undefined): string {
-  return value === undefined ? '' : `${Math.round(value)}%`;
 }
