@@ -33,6 +33,7 @@ import {
   controlByLabel,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
+import { openComplete, playing, threePlayers } from './play-tab-harness';
 
 useDraftsApp();
 
@@ -387,6 +388,12 @@ describe('draft page', () => {
     expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('540 cards in the pool');
   });
 
+  it('puts the Export tab last in a complete draft, after the Play tab', async () => {
+    const { page } = await openComplete(playing(), { fields: threePlayers });
+
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);
+  });
+
   it('puts the tab bar between the draft header and the panel, showing one panel at a time', async () => {
     const { page } = await openDraft(completeSnapshot);
 
@@ -441,6 +448,26 @@ describe('draft page', () => {
       expect(tabStops(page)).toEqual([to]);
       expect(panelName(page)).toBe(to);
     });
+
+    it.each([
+      ['Play', 'ArrowRight', 'Export'],
+      ['Export', 'ArrowLeft', 'Play'],
+      ['Export', 'ArrowRight', 'Pool'],
+      ['Pool', 'ArrowLeft', 'Export'],
+      ['Pool', 'End', 'Export'],
+    ])(
+      'reaches the Export tab last in a complete draft: from %s, %s goes to %s',
+      async (from, key, to) => {
+        const { fixture, page } = await openComplete(playing(), { fields: threePlayers });
+        tabButton(page, from).click();
+        await fixture.whenStable();
+
+        expect(press(page, from, key)).toBe(to);
+        await fixture.whenStable();
+
+        expect(panelName(page)).toBe(to);
+      },
+    );
 
     it.each(['Queue', 'Plan', 'Export'])(
       'goes back to the Pool tab, a Tab stop, when the %s tab closes as the player leaves',
