@@ -154,6 +154,22 @@ describe('pairSwissRound', () => {
     expect(pairs(round)).toHaveLength(2);
   });
 
+  it('never pairs a dropped player, nor gives them the bye', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const round = pairSwissRound({
+        ...noHistory,
+        standings: table(['a', 6], ['b', 3], ['c', 3], ['d', 3], ['e', 0]),
+        dropped: ['b', 'e'],
+        seed,
+      });
+      const seated = [...round.matches.flat(), round.bye];
+      expect(seated).not.toContain('b');
+      expect(seated).not.toContain('e');
+      expect(round.bye).not.toBeNull();
+      expect(pairs(round)).toHaveLength(1);
+    }
+  });
+
   it('is deterministic for a seed, and pairs round 1 at random', () => {
     const players = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
     const roundOne = (seed: number) =>

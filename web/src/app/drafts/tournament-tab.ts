@@ -1,6 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { DialogRef } from '@angular/cdk/dialog';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  Injector,
+  signal,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
+  CompleteRoundRequest,
   DraftView,
   GameScore,
   MatchView,
@@ -11,8 +22,10 @@ import type {
 } from 'contract';
 import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
 import type { Observable } from 'rxjs';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
+import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
@@ -67,8 +80,9 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
  * players join and leave and organizers remove them, start it or cancel
  * it, then play: the signed-in player's match and its report, the
  * standings and matches, the players with Drop, and Reinstate for
- * organizers, Complete tournament (round robin) or Complete round (Swiss)
- * for organizers, and at last the trophy.
+ * organizers, Complete tournament (round robin) or Complete round (Swiss,
+ * whose dialog grants draws in unreported matches) for organizers, and at last the
+ * trophy.
  */
 @Component({
   selector: 'app-tournament-tab',
@@ -89,6 +103,8 @@ export class TournamentTab {
   private readonly api = inject(TournamentApi);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
 
   private readonly draft = this.store.shown;
   protected readonly read = this.store.tournament;
@@ -141,6 +157,8 @@ export class TournamentTab {
   );
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
+  /** The Complete round dialog, while it's open. */
+  private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
   /** The match the signed-in player chose to report from the tournament rounds, if any. */
   protected readonly chosen = signal<string | undefined>(undefined);
@@ -183,6 +201,14 @@ export class TournamentTab {
   protected readonly trophyHolders = computed(() =>
     (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),
   );
+
+  constructor() {
+    // Complete round stops being offered once the tournament isn't playing,
+    // as when another organizer completes it: close its dialog then.
+    effect(() => {
+      if (!this.organizePlay()) untracked(() => this.completing?.close());
+    });
+  }
 
   /** Sets up the tournament in the format, and for Swiss the round option, chosen. */
   protected setUpTournament() {
@@ -289,22 +315,27 @@ export class TournamentTab {
   }
 
   /**
-   * Completes the Swiss tournament's current tournament round, once the
-   * organizer confirms: the next round is paired, or after the last the
-   * tournament completes.
+   * Opens the Complete round dialog for the Swiss tournament's current
+   * tournament round. Once it has sent, a refusal is said here, where focus
+   * returns: to the button that opened it.
    */
-  protected completeRound() {
-    const tournament = this.tournament();
-    if (!tournament) return;
-    const round = tournament.lastCompletedRound + 1;
-    const question =
-      round >= tournament.roundCount
-        ? `Complete tournament round ${round}? It is the last, so the tournament completes and the trophy is awarded.`
-        : `Complete tournament round ${round}? Tournament round ${round + 1} is paired, and its matches open.`;
-    return this.send(
-      () => (confirm(question) ? this.api.completeRound(this.draft().id) : undefined),
-      { failure: "Couldn't complete the tournament round. Try again in a moment." },
+  protected openCompleteRound() {
+    const completing = this.dialogs.open<CompleteRoundDialog, CompleteRoundRequest>(
+      CompleteRoundDialog,
+      { labelledBy: COMPLETE_ROUND_HEADING, injector: this.injector },
     );
+    this.completing = completing;
+    completing.closed.subscribe((request) => {
+      this.completing = null;
+      if (request) void this.completeRound(request);
+    });
+  }
+
+  /** Completes the Swiss tournament's current tournament round as the Complete round dialog chose. */
+  private completeRound(request: CompleteRoundRequest) {
+    return this.send(() => this.api.completeRound(this.draft().id, request), {
+      failure: "Couldn't complete the tournament round. Try again in a moment.",
+    });
   }
 
   /** Cancels the tournament, in registration or being played, once the organizer confirms. */

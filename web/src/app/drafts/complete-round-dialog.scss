@@ -1,0 +1,52 @@
+/* The dialog's box: its heading, what completing the round does, the unreported matches with their drop choices, then its actions. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(26rem, 100%);
+  padding: var(--space-lg);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h3,
+p {
+  margin: 0;
+}
+
+ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* An unreported match, then a choice of its players to drop. */
+li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.drops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

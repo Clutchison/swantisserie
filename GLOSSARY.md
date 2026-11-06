@@ -393,7 +393,7 @@ A started tournament whose matches are being played.
 _Avoid_: Running, in progress, live, active
 
 **Complete round**:
-The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament.
+The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament. In Swiss its unreported matches become granted draws, and the organizer chooses whether to drop either player of each, except in the final tournament round. Once fewer than 2 players haven't dropped, it completes the tournament.
 _Avoid_: Advance, next round, close round
 
 **Complete tournament**:
@@ -437,7 +437,7 @@ An organizer setting a match's game score, whether it was reported or not, while
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:
-An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing the match is unreported again, or the forfeit of a player in it who has dropped; once it is complete the match becomes a granted draw.
+An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing, a match with a dropped player is their forfeit again. Otherwise the match is unreported again while its tournament round is open, and becomes a granted draw once its round or the tournament is complete.
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
@@ -465,7 +465,7 @@ A player leaving a tournament before it ends. Their played matches stand.
 _Avoid_: Withdraw, quit, leave
 
 **Reinstate**:
-An organizer taking back a player's drop while the tournament is playing. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
+An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
 _Avoid_: Undo drop, un-drop, take back, rejoin
 
 **Forfeit**:
