@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
@@ -67,7 +68,7 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.setUp(id, format));
   }
 
-  /** Cancels the draft's tournament during registration; for the organizer. */
+  /** Cancels the draft's tournament during registration or play; for the organizer. */
   @Delete()
   async cancel(
     @CurrentUser() user: SessionUser,
@@ -127,6 +128,49 @@ export class TournamentsController {
     return this.change(id, () =>
       this.tournaments.report(id, matchId, user.id, games),
     );
+  }
+
+  /** Confirms a reported match's game score; for the player of it who didn't report it. */
+  @Post('matches/:matchId/confirm')
+  @HttpCode(200)
+  async confirm(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+  ): Promise<DraftView> {
+    await this.access.canSee(user, id);
+    return this.change(id, () =>
+      this.tournaments.confirm(id, matchId, user.id),
+    );
+  }
+
+  /**
+   * Sets a match's game score, reporting it for its players or correcting
+   * it, even once the tournament is complete; for the organizer.
+   */
+  @Put('matches/:matchId/result')
+  async setResult(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() body: unknown,
+  ): Promise<DraftView> {
+    const games = parseGames(body);
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () =>
+      this.tournaments.setResult(id, matchId, user.id, games),
+    );
+  }
+
+  /** Clears a match's result, even once the tournament is complete; for the organizer. */
+  @Delete('matches/:matchId/result')
+  async clearResult(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+  ): Promise<DraftView> {
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.clearResult(id, matchId));
   }
 
   /**

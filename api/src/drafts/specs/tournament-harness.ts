@@ -174,3 +174,62 @@ export async function reportWin(
     games: ordered,
   } satisfies MatchReportRequest).expect(status);
 }
+
+/** Confirms the match's game score, as whoever `cookie` signs in. */
+export function confirmMatch(id: string, matchId: string, cookie: string) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/matches/${matchId}/confirm`,
+    cookie,
+  );
+}
+
+/**
+ * Sets the match's game score as an organizer does, reporting or
+ * correcting it, as whoever `cookie` signs in, `body` the request body as is.
+ */
+export function setResult(
+  id: string,
+  matchId: string,
+  body: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest(
+    'put',
+    `/${id}/tournament/matches/${matchId}/result`,
+    cookie,
+    body,
+  );
+}
+
+/** Clears the match's result as an organizer does, as whoever `cookie` signs in. */
+export function clearResult(id: string, matchId: string, cookie = aliceCookie) {
+  return draftsRequest(
+    'delete',
+    `/${id}/tournament/matches/${matchId}/result`,
+    cookie,
+  );
+}
+
+/**
+ * Sets the match between `winner` and `loser` to `winner` winning
+ * `games[0]` to `games[1]`, as an organizer does, as whoever `cookie` signs
+ * in, expecting the answer's status to be `status`.
+ */
+export async function setWin(
+  id: string,
+  [winner, loser]: [string, string],
+  games: [number, number],
+  cookie = aliceCookie,
+  status = 200,
+) {
+  const match = await matchOf(id, winner, loser);
+  const ordered: [number, number] =
+    match.players[0] === winner ? games : [games[1], games[0]];
+  return setResult(
+    id,
+    match.id,
+    { games: ordered } satisfies MatchReportRequest,
+    cookie,
+  ).expect(status);
+}

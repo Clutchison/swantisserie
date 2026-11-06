@@ -148,7 +148,7 @@ export interface PlanRefusal {
 
 /**
  * Why a tournament can't be set up, joined, left, started, reported in,
- * completed or cancelled; sent as is. A report's game score is refused with
+ * confirmed, corrected, completed or cancelled; sent as is. A game score is refused with
  * the engine's ReportProblem codes, `draw` and `not-best-of-three`, so
  * typecheck ties the two.
  */
@@ -158,7 +158,7 @@ export interface TournamentRefusal {
     | 'draft-not-complete'
     /** A draft has at most one tournament. */
     | 'tournament-exists'
-    /** Joining, leaving, starting and cancelling for now happen only during registration. */
+    /** Joining, leaving and starting happen only during registration. */
     | 'not-in-registration'
     /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small'
@@ -167,14 +167,20 @@ export interface TournamentRefusal {
     | 'not-joined'
     /** Start needs at least 2 joined players. */
     | 'too-few-entries'
-    /** Reporting and completing happen only while the tournament is playing. */
+    /** Reporting, confirming and completing happen only while the tournament is playing. */
     | 'not-playing'
-    /** Only a match's own players report it. */
+    /** Only a match's own players report or confirm it. */
     | 'not-your-match'
     /** A reported match is locked to its players. */
     | 'match-reported'
     | 'draw'
-    | 'not-best-of-three';
+    | 'not-best-of-three'
+    /** Only a match reported with a game score can be confirmed. */
+    | 'not-reported'
+    /** The player who reported a match can't confirm it: its other player does. */
+    | 'own-report'
+    /** A complete tournament can't be cancelled, only corrected. */
+    | 'tournament-complete';
   message: string;
 }
 

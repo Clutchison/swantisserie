@@ -141,12 +141,118 @@ export class TournamentsService {
   }
 
   /**
-   * Cancels the draft's tournament, deleting it and its entries, which
-   * unlocks every deck. Throws TournamentRefusedError past registration.
+   * Cancels the draft's tournament during registration or play, deleting it
+   * with its entries and matches, so nothing from it counts and every deck
+   * unlocks. Throws TournamentRefusedError once it is complete.
    */
   async cancel(draftId: string): Promise<void> {
-    await this.inRegistration(draftId, async (tx, tournament) => {
+    await this.withTournament(draftId, async (tx, tournament) => {
+      if (tournament.state === 'Complete') {
+        throw new TournamentRefusedError({
+          error: 'tournament-complete',
+          message:
+            'A complete tournament can’t be cancelled. An organizer can still correct its results.',
+        });
+      }
       await tx.tournament.delete({ where: { id: tournament.id } });
+    });
+  }
+
+  /**
+   * Confirms the match `matchId`'s game score as the draft's user `userId`:
+   * a player of it who didn't report it. Throws NoMatchError if the
+   * tournament has no such match, and TournamentRefusedError if the user
+   * isn't one of its players, reported it, it has no reported game score,
+   * or the tournament isn't playing.
+   */
+  async confirm(
+    draftId: string,
+    matchId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.inPlay(draftId, async (tx, tournament) => {
+      const match = await findMatch(tx, tournament.id, matchId);
+      if (!match.players.includes(userId)) {
+        throw new TournamentRefusedError({
+          error: 'not-your-match',
+          message: 'Only a match’s own players can confirm it.',
+        });
+      }
+      if (match.outcome !== 'GameScore') {
+        throw new TournamentRefusedError({
+          error: 'not-reported',
+          message: 'Only a reported game score can be confirmed.',
+        });
+      }
+      if (match.reportedById === userId) {
+        throw new TournamentRefusedError({
+          error: 'own-report',
+          message: 'You reported this match. Your opponent confirms it.',
+        });
+      }
+      await tx.match.update({
+        where: { id: matchId },
+        data: { confirmed: true },
+      });
+    });
+  }
+
+  /**
+   * Sets the match `matchId`'s game score, `games` in its player order, as
+   * an organizer, the draft's user `userId`, does: reporting it for its
+   * players or correcting it, while the tournament is playing or once it is
+   * complete. The opponent hasn't agreed to it, so it is unconfirmed. Throws
+   * NoMatchError if the tournament has no such match, and
+   * TournamentRefusedError if the game score isn't 2–0 or 2–1 for either
+   * side.
+   */
+  async setResult(
+    draftId: string,
+    matchId: string,
+    userId: string,
+    games: [number, number],
+  ): Promise<void> {
+    await this.withTournament(draftId, async (tx, tournament) => {
+      await findMatch(tx, tournament.id, matchId);
+      const problem = reportProblem(games);
+      if (problem) throw new TournamentRefusedError(problem);
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          outcome: 'GameScore',
+          firstGames: games[0],
+          secondGames: games[1],
+          drawnGames: 0,
+          forfeitedBy: null,
+          reportedById: userId,
+          confirmed: false,
+        },
+      });
+    });
+  }
+
+  /**
+   * Clears the match `matchId`'s result, as an organizer does: it is
+   * unreported again while the tournament is playing, and a granted draw
+   * once it is complete, as completing it would have made it. Throws
+   * NoMatchError if the tournament has no such match.
+   */
+  async clearResult(draftId: string, matchId: string): Promise<void> {
+    await this.withTournament(draftId, async (tx, tournament) => {
+      await findMatch(tx, tournament.id, matchId);
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          outcome:
+            tournament.state === 'Complete' ? 'GrantedDraw' : 'Unreported',
+          firstGames: 0,
+          secondGames: 0,
+          drawnGames: 0,
+          forfeitedBy: null,
+          reportedById: null,
+          confirmed: false,
+        },
+      });
     });
   }
 
@@ -324,6 +430,51 @@ export class TournamentsService {
       await change(draft.tx, tournament);
     });
   }
+
+  /**
+   * Runs `change` with the draft's row locked, whatever state its
+   * tournament is in. Throws NoTournamentError if it has none.
+   */
+  private async withTournament(
+    draftId: string,
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
+  ): Promise<void> {
+    await this.lock.run(draftId, async (draft) => {
+      if (!draft) throw new DraftGoneError();
+      const tournament = await draft.tx.tournament.findUnique({
+        where: { draftId },
+        select: { id: true, state: true },
+      });
+      if (!tournament) throw new NoTournamentError();
+      await change(draft.tx, tournament);
+    });
+  }
+}
+
+/**
+ * The tournament's match `matchId`, with its players' Discord user ids.
+ * Throws NoMatchError if it has no such match; a bye is no match.
+ */
+async function findMatch(
+  tx: Transaction,
+  tournamentId: string,
+  matchId: string,
+) {
+  const match = await tx.match.findFirst({
+    where: { id: matchId, tournamentId, secondEntryId: { not: null } },
+    select: {
+      outcome: true,
+      reportedById: true,
+      firstEntry: { select: { player: { select: { userId: true } } } },
+      secondEntry: { select: { player: { select: { userId: true } } } },
+    },
+  });
+  if (!match) throw new NoMatchError();
+  return {
+    outcome: match.outcome,
+    reportedById: match.reportedById,
+    players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
+  };
 }
 
 /** How many cards the player's mainboard holds: its cards plus its basic lands. */
