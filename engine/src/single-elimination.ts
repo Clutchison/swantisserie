@@ -72,14 +72,26 @@ export function nextBracketRound(
 }
 
 /**
+ * The players paired in the tournament round after a match's, in a match
+ * or a bye; none while it isn't paired yet. Once it is, who advanced from
+ * the match is settled, and a later drop doesn't change it.
+ */
+interface PairedOnward {
+  nextRoundPlayers?: readonly string[];
+}
+
+/**
  * A match of a bracket, or a bye when its second player is null, as the
  * players who advance are read from it; a null outcome is unreported, and
  * a bye has none.
  */
-export interface BracketResult {
+export interface BracketResult extends PairedOnward {
   players: readonly [string, string | null];
   outcome: MatchOutcome | null;
 }
+
+/** A single elimination match as its standings read it. */
+export interface SingleEliminationMatch extends TournamentMatch, PairedOnward {}
 
 /**
  * A bracket match as its players reported it, or a bye: who reported its
@@ -109,11 +121,18 @@ export type Advancing =
  * player confirmed, or one someone not playing in it, an organizer,
  * entered; a player's unconfirmed report isn't agreed yet, nor is an
  * unreported match. Nobody advances from a forfeit whose players both
- * dropped, so whoever would have met its winner has a bye. A played
- * match's winner advances even if both its players dropped since.
+ * dropped before the next tournament round was paired with either of them,
+ * so whoever would have met its winner has a bye. A played match's winner
+ * advances even if both its players dropped since.
  */
 export function agreedAdvancingPlayer(
-  { players, outcome, reportedBy, confirmed }: ReportedBracketResult,
+  {
+    players,
+    outcome,
+    reportedBy,
+    confirmed,
+    nextRoundPlayers,
+  }: ReportedBracketResult,
   dropped: readonly string[],
   roundCompleted: boolean,
 ): Advancing {
@@ -125,7 +144,7 @@ export function agreedAdvancingPlayer(
   }
   if (outcome === null) return { kind: 'NotAgreed' };
   const match: DecidedMatch = { players: [first, second], outcome };
-  if (bothDropped(match, dropped)) return { kind: 'Nobody' };
+  if (nobodyWins(match, dropped, nextRoundPlayers)) return { kind: 'Nobody' };
   const agreed =
     roundCompleted ||
     outcome.kind !== 'GameScore' ||
@@ -159,11 +178,22 @@ export function countAdvancing(
   ).length;
 }
 
-/** Whether `match` is a forfeit that both its players dropped from, which nobody wins. */
-function bothDropped(match: DecidedMatch, dropped: readonly string[]) {
+/**
+ * Whether `match` is a forfeit that both its players dropped from, which
+ * nobody wins: unless either of them is in `nextRoundPlayers`, the players
+ * paired in the tournament round after it, as its winner is once they
+ * advanced.
+ */
+function nobodyWins(
+  match: DecidedMatch,
+  dropped: readonly string[],
+  nextRoundPlayers: readonly string[] = [],
+) {
   return (
     match.outcome.kind === 'Forfeit' &&
-    match.players.every((id) => dropped.includes(id))
+    match.players.every(
+      (id) => dropped.includes(id) && !nextRoundPlayers.includes(id),
+    )
   );
 }
 
@@ -335,18 +365,23 @@ export function bracketTrophyHolders(
  * in the same tournament round, or still in it, share a rank and keep seed
  * order, the rank after a shared one skipping, as in 1, 1, 3. Unreported
  * matches count for nothing, and so does a forfeit whose players both
- * dropped, `dropped` holding every player who has.
+ * dropped before the next tournament round was paired with either of them,
+ * `dropped` holding every player who has.
  */
 export function singleEliminationStandings(
   players: readonly string[],
-  matches: readonly TournamentMatch[],
+  matches: readonly SingleEliminationMatch[],
   byes: readonly string[],
   dropped: readonly string[] = [],
 ): Standing[] {
   const decided = matches.filter(
     (match): match is DecidedMatch =>
       match.outcome !== null &&
-      !bothDropped({ players: match.players, outcome: match.outcome }, dropped),
+      !nobodyWins(
+        { players: match.players, outcome: match.outcome },
+        dropped,
+        match.nextRoundPlayers,
+      ),
   );
   const table = players.map((playerId) =>
     standingOf(playerId, decided, byes.filter((id) => id === playerId).length),
