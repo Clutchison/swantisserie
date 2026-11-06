@@ -372,21 +372,7 @@ export function reinstate(id: string, playerId: string, cookie = aliceCookie) {
   );
 }
 
-/**
- * Previews setting the match's game score to `body`'s games, or clearing it
- * when they are null, as an organizer would, as whoever `cookie` signs in:
- * the later matches it would clear.
- */
-export function previewCorrection(
-  id: string,
-  matchId: string,
-  body: unknown,
-  cookie = aliceCookie,
-) {
-  return draftsRequest(
-    'post',
-    `/${id}/tournament/matches/${matchId}/game-score/preview`,
-    cookie,
-    body,
-  );
+/** Reopens the last completed tournament round of the draft's tournament, as whoever `cookie` signs in. */
+export function reopenRound(id: string, cookie = aliceCookie) {
+  return draftsRequest('post', `/${id}/tournament/reopen-round`, cookie);
 }

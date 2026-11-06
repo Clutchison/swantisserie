@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import {
   type CompleteRoundRequest,
   type GameScore,
-  type CorrectionPreview,
   type TournamentRefusal,
   type TournamentSetupRequest,
   type ViewerTournamentView,
@@ -33,7 +32,9 @@ import {
   createRounds,
   ENTRY_OF_MATCH,
   forfeitUnplayed,
+  takeBackDrops,
 } from './tournament-matches.js';
+import { reopenRound } from './reopen-round.js';
 import {
   tournamentSetUp,
   roundCompletedOrTournamentCompleted,
@@ -46,7 +47,6 @@ import {
   TournamentRefusedError,
 } from './tournament-errors.js';
 import {
-  FORMAT_RULES,
   roundCount,
   TOURNAMENT_VIEW,
   toTournamentView,
@@ -56,6 +56,7 @@ import {
 interface LockedTournament extends TournamentProgress {
   format: TournamentFormat;
   swissRoundOption: SwissRoundOption | null;
+  reopenedRound: number | null;
 }
 
 const LOCKED_TOURNAMENT = {
@@ -64,6 +65,7 @@ const LOCKED_TOURNAMENT = {
   swissRoundOption: true,
   state: true,
   lastCompletedRound: true,
+  reopenedRound: true,
 } as const;
 
 /**
@@ -193,7 +195,7 @@ export class TournamentsService {
         throw new TournamentRefusedError({
           error: 'tournament-complete',
           message:
-            'A complete tournament can’t be cancelled. An organizer can still correct its matches.',
+            'A complete tournament can’t be cancelled. Its results are final.',
         });
       }
       await tx.tournament.delete({ where: { id: tournament.id } });
@@ -243,13 +245,12 @@ export class TournamentsService {
   /**
    * Sets the match `matchId`'s game score, `games` in its player order, as
    * an organizer, the draft's user `userId`, does: reporting it for its
-   * players or correcting it, while the tournament is playing or once it is
-   * complete. The opponent hasn't agreed to it, so it is unconfirmed. Throws
-   * NoMatchError if the tournament has no such match, and
-   * TournamentRefusedError if the game score isn't 2–0 or 2–1 for either
-   * side. In single elimination, changing who advances from a match of a
-   * completed tournament round clears the later matches it fed, as its
-   * preview lists them.
+   * players or correcting it, while its tournament round is open, or in
+   * round robin while the tournament is playing. The opponent hasn't
+   * agreed to it, so it is unconfirmed. Throws NoMatchError if the
+   * tournament has no such match, and TournamentRefusedError if its
+   * results are final, as refuseFinal decides, or the game score isn't 2–0
+   * or 2–1 for either side.
    */
   async setGameScore(
     draftId: string,
@@ -258,65 +259,34 @@ export class TournamentsService {
     games: GameScore,
   ): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
-      await findMatch(tx, tournament.id, matchId);
+      const match = await findMatch(tx, tournament.id, matchId);
+      refuseFinal(tournament, match.round);
       const problem = reportProblem(games);
       if (problem) throw new TournamentRefusedError(problem);
-      await changeMatch(tx, tournament, matchId, correction(games, userId));
+      await tx.match.update({
+        where: { id: matchId },
+        data: correction(games, userId),
+      });
     });
   }
 
   /**
-   * Clears the match `matchId`'s game score, as an organizer does. While the
-   * tournament is playing, a match one of whose players has dropped is their
-   * forfeit again, as reinstating a player leaves a match against a player
-   * still dropped. Otherwise it is unreported again while its tournament
-   * round is open, and a granted draw once its round or the tournament is
-   * complete, as completing it would have made it, so a completed round
-   * stays completed. Single elimination, which never has a draw, makes it
-   * unreported, or the forfeit of a dropped player, whatever the state,
-   * clearing the later matches it fed and reopening its tournament round.
-   * Throws NoMatchError if the tournament has no such match.
+   * Clears the match `matchId`'s game score, granted draw, granted win or
+   * forfeit, as an organizer does, when they could correct it: a match one
+   * of whose players has dropped is their forfeit again, as reinstating a
+   * player leaves a match against a player still dropped; otherwise it is
+   * unreported again. Throws NoMatchError if the tournament has no such
+   * match, and TournamentRefusedError if its results are final, as
+   * refuseFinal decides.
    */
   async clearGameScore(draftId: string, matchId: string): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
       const match = await findMatch(tx, tournament.id, matchId);
-      await changeMatch(tx, tournament, matchId, clearing(tournament, match));
-    });
-  }
-
-  /**
-   * What correcting the match `matchId` to `games`, as the draft's user
-   * `userId`, or clearing it when `games` is null, would clear beyond it,
-   * changing nothing: in single elimination, the later matches fed by a
-   * match of a completed tournament round whose winner it changes. Throws
-   * NoTournamentError if the draft has no tournament, NoMatchError if it
-   * has no such match, and TournamentRefusedError for a game score a
-   * correction refuses.
-   */
-  async previewCorrection(
-    draftId: string,
-    matchId: string,
-    userId: string,
-    games: GameScore | null,
-  ): Promise<CorrectionPreview> {
-    return this.prisma.$transaction(async (tx) => {
-      const tournament = await tx.tournament.findUnique({
-        where: { draftId },
-        select: LOCKED_TOURNAMENT,
+      refuseFinal(tournament, match.round);
+      await tx.match.update({
+        where: { id: matchId },
+        data: clearing(match.dropped),
       });
-      if (!tournament) throw new NoTournamentError();
-      const match = await findMatch(tx, tournament.id, matchId);
-      const problem = games && reportProblem(games);
-      if (problem) throw new TournamentRefusedError(problem);
-      const change = games
-        ? correction(games, userId)
-        : clearing(tournament, match);
-      return CHANGE_STEPS[tournament.format].previewCorrection(
-        tx,
-        tournament,
-        matchId,
-        change,
-      );
     });
   }
 
@@ -504,6 +474,7 @@ export class TournamentsService {
         where: { id: tournament.id },
         data: {
           lastCompletedRound: round,
+          reopenedRound: null,
           ...(completes && { state: 'Complete' }),
         },
       });
@@ -532,7 +503,10 @@ export class TournamentsService {
       }
       await tx.tournamentEntry.update({
         where: { id: entry.id },
-        data: { dropped: true },
+        data: {
+          dropped: true,
+          droppedAfterRound: tournament.lastCompletedRound,
+        },
       });
       await forfeitUnplayed(tx, entry.id);
     });
@@ -561,30 +535,23 @@ export class TournamentsService {
         tournament,
         entry.id,
       );
-      await tx.tournamentEntry.update({
-        where: { id: entry.id },
-        data: { dropped: false },
+      await takeBackDrops(tx, tournament.id, [entry.id]);
+    });
+  }
+
+  /**
+   * Reopens the last completed tournament round of the draft's Swiss or
+   * single elimination tournament, as reopenRound in reopen-round.ts does,
+   * so its results can be corrected or cleared again. Throws
+   * TournamentRefusedError as that refuses it. Posts no announcement.
+   */
+  async reopenRound(draftId: string): Promise<void> {
+    await this.withTournament(draftId, async (tx, tournament) => {
+      const row = await tx.tournament.findUniqueOrThrow({
+        where: { id: tournament.id },
+        select: TOURNAMENT_VIEW,
       });
-      await tx.match.updateMany({
-        where: {
-          outcome: 'Forfeit',
-          OR: [
-            { firstEntryId: entry.id, forfeitedBy: 'First' },
-            { secondEntryId: entry.id, forfeitedBy: 'Second' },
-          ],
-        },
-        data: {
-          outcome: 'Unreported',
-          forfeitedBy: null,
-          reportedById: null,
-          confirmed: false,
-        },
-      });
-      const stillDropped = await tx.tournamentEntry.findMany({
-        where: { tournamentId: tournament.id, dropped: true },
-        select: { id: true },
-      });
-      for (const other of stillDropped) await forfeitUnplayed(tx, other.id);
+      await reopenRound(tx, tournament.id, row);
     });
   }
 
@@ -700,19 +667,31 @@ async function joinBots(
   });
 }
 
-/** Writes an organizer's `change` to the match `matchId`, as the tournament's format's change steps do. */
-function changeMatch(
-  tx: Transaction,
-  tournament: LockedTournament,
-  matchId: string,
-  change: MatchChange,
-) {
-  return CHANGE_STEPS[tournament.format].changeMatch(
-    tx,
-    tournament,
-    matchId,
-    change,
-  );
+/**
+ * Throws TournamentRefusedError if a match of tournament round `round` has
+ * final results, which an organizer can't correct or clear: every match
+ * once the tournament is complete, and the matches of a completed
+ * tournament round, until it is reopened, which its refusal suggests for
+ * the last completed round while no round is reopened. Neither a tournament in
+ * registration, which has no matches, nor a playing round robin one,
+ * which completes no round, has any.
+ */
+function refuseFinal(tournament: LockedTournament, round: number) {
+  if (tournament.state === 'Complete') {
+    throw new TournamentRefusedError({
+      error: 'tournament-complete',
+      message: 'This tournament is complete, so its results are final.',
+    });
+  }
+  if (round > tournament.lastCompletedRound) return;
+  throw new TournamentRefusedError({
+    error: 'round-completed',
+    message:
+      round === tournament.lastCompletedRound &&
+      tournament.reopenedRound === null
+        ? `Tournament round ${round} is completed, so its results are final. Reopen it to change them.`
+        : `Tournament round ${round} is completed, so its results are final.`,
+  });
 }
 
 /**
@@ -733,33 +712,18 @@ function correction(games: GameScore, userId: string): MatchChange {
 }
 
 /**
- * The change clearing `match` writes: the forfeit of a player of it who
- * dropped, while the tournament is playing, or always in a format whose
- * clears reopen their tournament round; otherwise unreported while its
- * round is open, and a granted draw once its round or the tournament is
- * complete, unless clears reopen it.
+ * The change clearing a match writes, `dropped` saying whether each of its
+ * players, in its order, has dropped: the forfeit of one who has,
+ * otherwise unreported.
  */
-function clearing(
-  tournament: LockedTournament,
-  { round, dropped }: { round: number; dropped: boolean[] },
-): MatchChange {
-  const reopens = FORMAT_RULES[tournament.format].clearReopensRound;
-  const forfeitsDropped = tournament.state === 'Playing' || reopens;
-  const forfeitedBy = !forfeitsDropped
-    ? null
-    : dropped[0]
-      ? ('First' as const)
-      : dropped[1]
-        ? ('Second' as const)
-        : null;
-  const roundCompleted =
-    tournament.state === 'Complete' || round <= tournament.lastCompletedRound;
+function clearing(dropped: readonly boolean[]): MatchChange {
+  const forfeitedBy = dropped[0]
+    ? ('First' as const)
+    : dropped[1]
+      ? ('Second' as const)
+      : null;
   return {
-    outcome: forfeitedBy
-      ? 'Forfeit'
-      : roundCompleted && !reopens
-        ? 'GrantedDraw'
-        : 'Unreported',
+    outcome: forfeitedBy ? 'Forfeit' : 'Unreported',
     firstGames: 0,
     secondGames: 0,
     drawnGames: 0,

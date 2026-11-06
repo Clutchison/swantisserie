@@ -51,10 +51,9 @@ describe('tournament setup', () => {
       entries: [],
       rounds: [],
       bracket: null,
-      previewsCorrections: false,
       completeRoundGrants: null,
-      clearReopensRound: false,
       standingsAwaitCompletedRounds: false,
+      reopenRound: null,
       standings: [],
       trophyHolders: [],
       // Alice, who reads it, has yet to fill her deck.

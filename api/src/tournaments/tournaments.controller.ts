@@ -17,8 +17,6 @@ import {
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
-  type CorrectionPreview,
-  type CorrectionPreviewRequest,
   type DecklistView,
   type GrantedDrawRequest,
   type GrantedWinRequest,
@@ -189,8 +187,9 @@ export class TournamentsController {
   }
 
   /**
-   * Corrects a match's game score, or reports it for its players, even
-   * once the tournament is complete; for the organizer.
+   * Corrects a match's game score, or reports it for its players, while
+   * its tournament round is open, or in round robin while the tournament
+   * is playing; for the organizer.
    */
   @Put('matches/:matchId/game-score')
   async setGameScore(
@@ -206,26 +205,7 @@ export class TournamentsController {
     );
   }
 
-  /**
-   * What setting a match's game score to the body's, or clearing it when
-   * they are null, would clear beyond it, changing nothing; for the
-   * organizer, before correcting it.
-   */
-  @Post('matches/:matchId/game-score/preview')
-  @HttpCode(200)
-  async previewCorrection(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Param('matchId') matchId: string,
-    @Body() body: unknown,
-  ): Promise<CorrectionPreview> {
-    const { games } = bodyFields<CorrectionPreviewRequest>(body);
-    const parsed = games === null ? null : parseGames(body);
-    await this.access.asOrganizer(user, id);
-    return this.tournaments.previewCorrection(id, matchId, user.id, parsed);
-  }
-
-  /** Clears a match's game score, even once the tournament is complete; for the organizer. */
+  /** Clears a match's game score, when the organizer could correct it; for the organizer. */
   @Delete('matches/:matchId/game-score')
   async clearGameScore(
     @CurrentUser() user: SessionUser,
@@ -267,6 +247,21 @@ export class TournamentsController {
     const request = parseCompleteRound(body);
     await this.access.asOrganizer(user, id);
     return this.change(id, () => this.tournaments.completeRound(id, request));
+  }
+
+  /**
+   * Reopens the tournament's last completed tournament round, in Swiss or
+   * single elimination, so its results can be corrected or cleared again;
+   * for the organizer. It posts no announcement.
+   */
+  @Post('reopen-round')
+  @HttpCode(200)
+  async reopenRound(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.reopenRound(id));
   }
 
   /**

@@ -23,6 +23,7 @@ import {
   type TournamentMatch,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
+import { offersReopenRound, reopenRoundOf } from './reopen-round.js';
 
 /** What the tournament read selects of a tournament. */
 export const TOURNAMENT_VIEW = {
@@ -31,11 +32,13 @@ export const TOURNAMENT_VIEW = {
   publicDecklists: true,
   state: true,
   lastCompletedRound: true,
+  reopenedRound: true,
   entries: {
     orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
     select: {
       id: true,
       dropped: true,
+      droppedAfterRound: true,
       seed: true,
       player: { select: { userId: true } },
     },
@@ -62,42 +65,30 @@ export const TOURNAMENT_VIEW = {
 
 /**
  * What a format does that the web reads rather than decides by the
- * format: whether corrections are previewed, what Complete round grants,
- * whether a clear reopens its tournament round, as the service's clears do
- * too, and whether the standings wait for completed tournament rounds.
+ * format: what Complete round grants, and whether the standings wait for
+ * completed tournament rounds.
  */
 export const FORMAT_RULES: Record<
   TournamentFormat,
-  Pick<
-    TournamentView,
-    | 'previewsCorrections'
-    | 'completeRoundGrants'
-    | 'clearReopensRound'
-    | 'standingsAwaitCompletedRounds'
-  >
+  Pick<TournamentView, 'completeRoundGrants' | 'standingsAwaitCompletedRounds'>
 > = {
   RoundRobin: {
-    previewsCorrections: false,
     completeRoundGrants: null,
-    clearReopensRound: false,
     standingsAwaitCompletedRounds: false,
   },
   Swiss: {
-    previewsCorrections: false,
     completeRoundGrants: 'GrantedDraws',
-    clearReopensRound: false,
     standingsAwaitCompletedRounds: true,
   },
-  // Only single elimination's matches feed one another, and it never has a draw.
+  // Single elimination never has a draw.
   SingleElimination: {
-    previewsCorrections: true,
     completeRoundGrants: 'GrantedWins',
-    clearReopensRound: true,
     standingsAwaitCompletedRounds: true,
   },
 };
 
-type TournamentRow = Prisma.TournamentGetPayload<{
+/** A tournament as its read selects it. */
+export type TournamentRow = Prisma.TournamentGetPayload<{
   select: typeof TOURNAMENT_VIEW;
 }>;
 type MatchRow = TournamentRow['matches'][number];
@@ -179,6 +170,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     rounds,
     bracket,
     ...FORMAT_RULES[row.format],
+    reopenRound: offersReopenRound(row) ? reopenRoundOf(row) : null,
     standings: table,
     trophyHolders: !complete
       ? []

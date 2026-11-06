@@ -8,7 +8,6 @@ import {
   aliceCookie,
   bob,
   carol,
-  clearGameScore,
   completeDraft,
   completeRound,
   completeTournament,
@@ -20,10 +19,9 @@ import {
   playingTournament,
   reinstate,
   reportCurrentRound,
+  reportMatch,
   reportWin,
-  setGameScore,
   setUpTournament,
-  setWin,
   signIn,
   swiss,
   tournamentView,
@@ -106,10 +104,9 @@ describe('starting a Swiss tournament', () => {
     const view = await tournamentView(id);
     expect(view.roundCount).toBe(2);
     expect(view).toMatchObject({
-      previewsCorrections: false,
       completeRoundGrants: 'GrantedDraws',
-      clearReopensRound: false,
       standingsAwaitCompletedRounds: true,
+      reopenRound: null,
     });
     expect(view.rounds).toHaveLength(1);
     expect(view.rounds[0].round).toBe(1);
@@ -207,19 +204,21 @@ describe('Swiss standings', () => {
     const [roundOne] = (await tournamentView(id)).rounds;
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
-    await reportCurrentRound(id, cookieOf);
-    await completeRound(id).expect(200);
     const { rounds } = await tournamentView(id);
     // Each match's first player won it 2–0. Tournament round 1's winners met
-    // in tournament round 2; clearing that match after the tournament
-    // completed leaves it a granted draw, so they're level on 4 match
-    // points and 100% game-win %.
+    // in tournament round 2; completing it grants that match a draw, so
+    // they're level on 4 match points and 100% game-win %.
     const roundOneWinners = roundOne.matches.map((m) => m.players[0]);
     const top = rounds[1].matches.find((m) =>
       roundOneWinners.includes(m.players[0]),
     )!;
     const bottom = rounds[1].matches.find((m) => m !== top)!;
-    await clearGameScore(id, top.id).expect(200);
+    await reportMatch(id, bottom.id, cookieOf[bottom.players[0]], {
+      games: [2, 0],
+    } satisfies MatchReportRequest).expect(200);
+    await completeRound(id, aliceCookie, {
+      grantedDraws: [{ matchId: top.id, drop: [] }],
+    } satisfies CompleteRoundRequest).expect(200);
 
     // The leader is the tournament round 1 winner whose opponent then went
     // on to win tournament round 2: their opponents' match-win % is higher.
@@ -592,76 +591,6 @@ describe('dropping from a Swiss tournament', () => {
     expect(view.rounds[0].matches[0].outcome.kind).toBe('GameScore');
     expect(seated(view.rounds[1])).toHaveLength(3);
     expect(seated(view.rounds[1])).not.toContain(gone);
-  });
-});
-
-describe('correcting a Swiss tournament', () => {
-  it('keeps the next tournament round’s pairings and changes only the standings', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie, daveCookie],
-      swiss(),
-    );
-    await reportCurrentRound(id, cookieOf);
-    await completeRound(id).expect(200);
-    const before = await tournamentView(id);
-    const [winner, loser] = before.rounds[0].matches[0].players;
-
-    await setWin(id, [loser, winner], [2, 1]);
-
-    const after = await tournamentView(id);
-    expect(after.rounds[1]).toEqual(before.rounds[1]);
-    expect(after.lastCompletedRound).toBe(1);
-    expect(after.standings.find((s) => s.playerId === loser)).toMatchObject({
-      matchPoints: 3,
-    });
-    expect(after.standings.find((s) => s.playerId === winner)).toMatchObject({
-      matchPoints: 0,
-    });
-  });
-
-  it('makes a cleared match of a completed tournament round a granted draw, the tournament round staying completed', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie, daveCookie],
-      swiss(),
-    );
-    await reportCurrentRound(id, cookieOf);
-    await completeRound(id).expect(200);
-    const [match] = (await tournamentView(id)).rounds[0].matches;
-    const before = await getDraft(id).expect(200);
-
-    const answer = await clearGameScore(id, match.id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
-    const view = await tournamentView(id);
-    expect(view.rounds[0].matches[0].outcome).toEqual({ kind: 'GrantedDraw' });
-    expect(view.lastCompletedRound).toBe(1);
-    expect(view.rounds).toHaveLength(2);
-  });
-
-  it('keeps a dropped player’s cleared match of a completed tournament round their forfeit', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie, daveCookie],
-      swiss(),
-    );
-    const [match] = (await tournamentView(id)).rounds[0].matches;
-    const gone = match.players[1];
-    await dropPlayer(id, gone, cookieOf[gone]).expect(200);
-    await reportCurrentRound(id, cookieOf);
-    await completeRound(id).expect(200);
-    await setGameScore(id, match.id, {
-      games: [0, 2],
-    } satisfies MatchReportRequest).expect(200);
-
-    await clearGameScore(id, match.id).expect(200);
-
-    const view = await tournamentView(id);
-    expect(view.rounds[0].matches[0].outcome).toEqual({
-      kind: 'Forfeit',
-      forfeitedBy: gone,
-    });
-    expect(view.standings.find((s) => s.playerId === gone)).toMatchObject({
-      matchPoints: 0,
-    });
   });
 });
 

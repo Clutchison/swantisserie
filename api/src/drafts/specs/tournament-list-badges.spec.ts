@@ -4,19 +4,14 @@ import {
   bob,
   carol,
   completeDraft,
-  completeRound,
   completeTournament,
   fullDeck,
   joinTournament,
   listDrafts,
   playingTournament,
   reportWin,
-  seedsOf,
   setUpTournament,
-  setWin,
   signIn,
-  singleElimination,
-  tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -129,33 +124,5 @@ describe('once complete', () => {
     expect(await badgeOf(id)).toEqual(
       withoutJoin('Complete', [bob.id, carol.id]),
     );
-  });
-
-  it('moves the trophy after a correction', async () => {
-    const id = await playingTournament([bobCookie, carolCookie]);
-    await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
-    await completeTournament(id).expect(200);
-
-    await setWin(id, [carol.id, bob.id], [2, 0]);
-
-    expect(await badgeOf(id)).toEqual(withoutJoin('Complete', [carol.id]));
-  });
-
-  it('shows a single elimination tournament as playing again once a correction reopens it', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie],
-      singleElimination,
-    );
-    const [top, second, third] = seedsOf(await tournamentView(id));
-    await setWin(id, [second, third], [2, 0]);
-    await completeRound(id).expect(200);
-    await setWin(id, [top, second], [2, 0]);
-    await completeRound(id).expect(200);
-    expect(await badgeOf(id)).toEqual(withoutJoin('Complete', [top]));
-
-    // Third now beat second in round 1, which clears the final and reopens it.
-    await setWin(id, [third, second], [2, 0]);
-
-    expect(await badgeOf(id)).toEqual(withoutJoin('Playing'));
   });
 });

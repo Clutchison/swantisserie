@@ -7,7 +7,6 @@ import type {
   Platform,
   PoolSnapshotState,
   PoolSourceKind,
-  RoundAndBracketPlace,
   StealBehavior,
   SwissRoundOption,
   TournamentFormat,
@@ -16,7 +15,6 @@ import type {
 import type {
   BracketSide as EngineBracketSide,
   MatchOutcome as EngineMatchOutcome,
-  RoundAndBracketPlace as EngineRoundAndBracketPlace,
   StealBehavior as EngineStealBehavior,
   SwissRoundOption as EngineSwissRoundOption,
 } from 'engine';
@@ -57,5 +55,4 @@ export type ContractMatchesSchema = [
   >,
   // No schema enum: the bracket is drawn from the matches, never stored.
   Expect<Same<BracketSideView, EngineBracketSide>>,
-  Expect<Same<RoundAndBracketPlace, EngineRoundAndBracketPlace>>,
 ];
