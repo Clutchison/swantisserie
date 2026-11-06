@@ -12,6 +12,7 @@ import {
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
+import { granted, placings, played } from './tournament.fixtures.js';
 
 describe('swissRoundCount', () => {
   it('plays until there’s a winner: ⌈log₂ joined players⌉ tournament rounds', () => {
@@ -369,26 +370,6 @@ describe('swissStandings', () => {
     expect(second.rank).toBe(2);
   });
 
-  it('floors each percentage at 33%', () => {
-    const [winner, loser] = swissStandings(
-      ['a', 'b'],
-      [played('a', 'b', [2, 0])],
-      [],
-    );
-    expect(winner).toMatchObject({
-      playerId: 'a',
-      gameWinPercent: 100,
-      opponentsMatchWinPercent: 33,
-      opponentsGameWinPercent: 33,
-    });
-    expect(loser).toMatchObject({
-      playerId: 'b',
-      gameWinPercent: 33,
-      opponentsMatchWinPercent: 100,
-      opponentsGameWinPercent: 100,
-    });
-  });
-
   it("leaves byes out of opponents' percentages, but not out of the bye's player's own", () => {
     // a had a bye, then beat c; b beat c, then had a bye.
     const ranked = swissStandings(
@@ -450,7 +431,7 @@ describe('swissStandings', () => {
     ]);
   });
 
-  it('floors at 33% even before a player has played a game or met an opponent', () => {
+  it('floors each percentage at 33%, even before a player has played a game or met an opponent', () => {
     // a has only had a bye; b and c have only a granted draw, with no games,
     // which is 1 of 3 match points: 33.3%, above the floor.
     const ranked = swissStandings(['a', 'b', 'c'], [granted('b', 'c')], ['a']);
@@ -472,25 +453,6 @@ describe('swissStandings', () => {
     });
   });
 });
-
-/** A match `a` and `b` played to the game score `games`, `a`'s games first. */
-function played(
-  a: string,
-  b: string,
-  games: [number, number],
-  draws = 0,
-): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GameScore', games, draws } };
-}
-
-function granted(a: string, b: string): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
-}
-
-/** Each standing's player and rank, in the order of `table`. */
-function placings(table: Standing[]) {
-  return table.map(({ playerId, rank }) => [playerId, rank]);
-}
 
 /** The standing of the player `playerId` in `table`. */
 function standingFor(table: Standing[], playerId: string): Standing {

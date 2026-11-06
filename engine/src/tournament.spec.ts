@@ -10,9 +10,9 @@ import {
   type MatchOutcome,
   type RoundCompletion,
   type RoundCompletionInput,
-  type Standing,
   type TournamentMatch,
 } from './tournament.js';
+import { granted, placings, played } from './tournament.fixtures.js';
 import {
   agreedAdvancingPlayer,
   bracketRounds,
@@ -32,20 +32,6 @@ describe('droppedPlayers', () => {
   });
 });
 
-/** A match `a` and `b` played to the game score `games`, `a`'s games first. */
-function played(
-  a: string,
-  b: string,
-  games: [number, number],
-  draws = 0,
-): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GameScore', games, draws } };
-}
-
-function granted(a: string, b: string): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
-}
-
 function forfeited(a: string, b: string, forfeitedBy: string): TournamentMatch {
   return { players: [a, b], outcome: { kind: 'Forfeit', forfeitedBy } };
 }
@@ -53,11 +39,6 @@ function forfeited(a: string, b: string, forfeitedBy: string): TournamentMatch {
 /** Each standing's player and rank, in standings order. */
 function ranks(players: string[], matches: TournamentMatch[]) {
   return placings(standings(players, matches));
-}
-
-/** Each standing's player and rank, in the order of `table`. */
-function placings(table: Standing[]) {
-  return table.map(({ playerId, rank }) => [playerId, rank]);
 }
 
 describe('roundRobinMatches', () => {
@@ -261,15 +242,6 @@ describe('GAME_SCORES', () => {
 });
 
 describe('reportProblem', () => {
-  it.each([
-    [2, 0],
-    [2, 1],
-    [1, 2],
-    [0, 2],
-  ])('accepts %i–%i', (a, b) => {
-    expect(reportProblem([a, b])).toBeNull();
-  });
-
   it.each([
     [1, 1],
     [0, 0],

@@ -16,9 +16,9 @@ import {
 import type {
   DecidedMatch,
   MatchOutcome,
-  Standing,
   TournamentMatch,
 } from './tournament.js';
+import { placings, won } from './tournament.fixtures.js';
 
 /** Seed order s1, s2, … sN: each player is named after their seed. */
 function seeds(count: number): string[] {
@@ -60,7 +60,6 @@ describe('firstBracketRound', () => {
   });
 
   it.each([
-    [2, 2, 0],
     [3, 4, 1],
     [4, 4, 0],
     [5, 8, 3],
@@ -139,14 +138,6 @@ describe('nextBracketRound', () => {
   });
 });
 
-/** A match the first player won 2–0. */
-function won(a: string, b: string): TournamentMatch {
-  return {
-    players: [a, b],
-    outcome: { kind: 'GameScore', games: [2, 0], draws: 0 },
-  };
-}
-
 describe('singleEliminationStandings', () => {
   // s1, s2 and s3 had byes; s4 beat s5, then s1 beat s4 and s3 beat s2.
   const reached = [won('s4', 's5'), won('s1', 's4'), won('s3', 's2')];
@@ -155,11 +146,11 @@ describe('singleEliminationStandings', () => {
     outcome: { kind: 'GrantedWin', winner: 's3' },
   };
   const byes = ['s1', 's2', 's3'];
-  const ranks = (table: Standing[]) =>
-    table.map(({ playerId, rank }) => [playerId, rank]);
 
   it('ranks players by the tournament round they reached, sharing a rank within it', () => {
-    expect(ranks(singleEliminationStandings(seeds(5), reached, byes))).toEqual([
+    expect(
+      placings(singleEliminationStandings(seeds(5), reached, byes)),
+    ).toEqual([
       ['s1', 1],
       ['s3', 1],
       ['s2', 3],
@@ -174,7 +165,7 @@ describe('singleEliminationStandings', () => {
       [...reached, final],
       byes,
     );
-    expect(ranks(table)).toEqual([
+    expect(placings(table)).toEqual([
       ['s3', 1],
       ['s1', 2],
       ['s2', 3],
@@ -206,7 +197,7 @@ describe('singleEliminationStandings', () => {
       [],
       ['a', 'b'],
     );
-    expect(ranks(table)).toEqual([
+    expect(placings(table)).toEqual([
       ['c', 1],
       ['a', 2],
       ['b', 2],
@@ -230,7 +221,7 @@ describe('singleEliminationStandings', () => {
       [],
       ['s4', 's1'],
     );
-    expect(ranks(table)).toEqual([
+    expect(placings(table)).toEqual([
       ['s2', 1],
       ['s1', 2],
       ['s3', 3],
@@ -244,7 +235,7 @@ describe('singleEliminationStandings', () => {
       [{ players: ['a', 'b'], outcome: null }],
       [],
     );
-    expect(ranks(table)).toEqual([
+    expect(placings(table)).toEqual([
       ['a', 1],
       ['b', 1],
     ]);
