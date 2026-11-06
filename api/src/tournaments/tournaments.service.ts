@@ -2,17 +2,21 @@ import { Injectable } from '@nestjs/common';
 import {
   MIN_MAINBOARD_CARDS,
   type TournamentFormat,
+  type TournamentRefusal,
   type TournamentView,
 } from 'contract';
+import { reportProblem, roundRobinSchedule } from 'engine';
 import type { TournamentState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import {
+  NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
 } from './tournament-errors.js';
+import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
 /** What a change reads of the tournament it changes. */
 interface LockedTournament {
@@ -38,23 +42,10 @@ export class TournamentsService {
   async read(draftId: string): Promise<TournamentView> {
     const tournament = await this.prisma.tournament.findUnique({
       where: { draftId },
-      select: {
-        format: true,
-        state: true,
-        entries: {
-          orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
-          select: { player: { select: { userId: true } } },
-        },
-      },
+      select: TOURNAMENT_VIEW,
     });
     if (!tournament) throw new NoTournamentError();
-    return {
-      format: tournament.format,
-      state: tournament.state,
-      entries: tournament.entries.map(({ player }) => ({
-        playerId: player.userId,
-      })),
-    };
+    return toTournamentView(tournament);
   }
 
   /**
@@ -160,13 +151,165 @@ export class TournamentsService {
   }
 
   /**
+   * Starts the draft's tournament, closing joining: it makes every match of
+   * the round robin schedule of its entries, in join order, byes included,
+   * all open at once. Throws TournamentRefusedError if fewer than 2 players
+   * have joined, or it is past registration.
+   */
+  async start(draftId: string): Promise<void> {
+    await this.inRegistration(draftId, async (tx, tournament) => {
+      const entries = await tx.tournamentEntry.findMany({
+        where: { tournamentId: tournament.id },
+        orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+        select: { id: true },
+      });
+      if (entries.length < 2) {
+        throw new TournamentRefusedError({
+          error: 'too-few-entries',
+          message: 'A tournament needs at least 2 players to start.',
+        });
+      }
+      const schedule = roundRobinSchedule(entries.map((entry) => entry.id));
+      await tx.match.createMany({
+        data: schedule.flatMap(({ matches, bye }, i) => [
+          ...matches.map(([firstEntryId, secondEntryId]) => ({
+            tournamentId: tournament.id,
+            round: i + 1,
+            firstEntryId,
+            secondEntryId,
+          })),
+          ...(bye
+            ? [{ tournamentId: tournament.id, round: i + 1, firstEntryId: bye }]
+            : []),
+        ]),
+      });
+      await tx.tournament.update({
+        where: { id: tournament.id },
+        data: { state: 'Playing', startedAt: new Date() },
+      });
+    });
+  }
+
+  /**
+   * Reports the match `matchId`'s game score, `games` in its player order,
+   * as the draft's user `userId`, one of its players. Throws NoMatchError
+   * if the tournament has no such match, and TournamentRefusedError if the
+   * user isn't one of its players, it is reported already, the game score
+   * isn't 2–0 or 2–1 for either side, or the tournament isn't playing.
+   */
+  async report(
+    draftId: string,
+    matchId: string,
+    userId: string,
+    games: [number, number],
+  ): Promise<void> {
+    await this.inPlay(draftId, async (tx, tournament) => {
+      const match = await tx.match.findFirst({
+        where: {
+          id: matchId,
+          tournamentId: tournament.id,
+          secondEntryId: { not: null },
+        },
+        select: {
+          outcome: true,
+          firstEntry: { select: { player: { select: { userId: true } } } },
+          secondEntry: { select: { player: { select: { userId: true } } } },
+        },
+      });
+      if (!match) throw new NoMatchError();
+      const players = [match.firstEntry, match.secondEntry].map(
+        (entry) => entry?.player.userId,
+      );
+      if (!players.includes(userId)) {
+        throw new TournamentRefusedError({
+          error: 'not-your-match',
+          message: 'Only a match’s own players can report it.',
+        });
+      }
+      if (match.outcome !== 'Unreported') {
+        throw new TournamentRefusedError({
+          error: 'match-reported',
+          message:
+            'This match has been reported. Only an organizer can change it.',
+        });
+      }
+      const problem = reportProblem(games);
+      if (problem) throw new TournamentRefusedError(problem);
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          outcome: 'GameScore',
+          firstGames: games[0],
+          secondGames: games[1],
+          drawnGames: 0,
+          reportedById: userId,
+        },
+      });
+    });
+  }
+
+  /**
+   * Completes the draft's round robin tournament: every unreported match
+   * becomes a granted draw, and every deck unlocks. Throws
+   * TournamentRefusedError if it isn't playing.
+   */
+  async complete(draftId: string): Promise<void> {
+    await this.inPlay(draftId, async (tx, tournament) => {
+      await tx.match.updateMany({
+        where: {
+          tournamentId: tournament.id,
+          outcome: 'Unreported',
+          secondEntryId: { not: null },
+        },
+        data: { outcome: 'GrantedDraw' },
+      });
+      await tx.tournament.update({
+        where: { id: tournament.id },
+        data: { state: 'Complete' },
+      });
+    });
+  }
+
+  /**
    * Runs `change` with the draft's row locked, if its tournament is in
    * registration. Throws NoTournamentError if it has none, and
    * TournamentRefusedError if it is past registration.
    */
-  private async inRegistration(
+  private inRegistration(
     draftId: string,
     change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
+  ): Promise<void> {
+    return this.whileIn(draftId, 'Registration', change, {
+      error: 'not-in-registration',
+      message: 'This tournament has started.',
+    });
+  }
+
+  /**
+   * Runs `change` with the draft's row locked, if its tournament is
+   * playing. Throws NoTournamentError if it has none, and
+   * TournamentRefusedError if it isn't playing.
+   */
+  private inPlay(
+    draftId: string,
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
+  ): Promise<void> {
+    return this.whileIn(draftId, 'Playing', change, {
+      error: 'not-playing',
+      message: 'This tournament isn’t being played.',
+    });
+  }
+
+  /**
+   * Runs `change` with the draft's row locked, if its tournament is in
+   * `state`. Throws NoTournamentError if it has none, and
+   * TournamentRefusedError with `refusal` if it is in another state.
+   */
+  private async whileIn(
+    draftId: string,
+    state: TournamentState,
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
+    refusal: TournamentRefusal,
   ): Promise<void> {
     await this.lock.run(draftId, async (draft) => {
       if (!draft) throw new DraftGoneError();
@@ -175,11 +318,8 @@ export class TournamentsService {
         select: { id: true, state: true },
       });
       if (!tournament) throw new NoTournamentError();
-      if (tournament.state !== 'Registration') {
-        throw new TournamentRefusedError({
-          error: 'not-in-registration',
-          message: 'This tournament has started.',
-        });
+      if (tournament.state !== state) {
+        throw new TournamentRefusedError(refusal);
       }
       await change(draft.tx, tournament);
     });

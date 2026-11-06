@@ -146,20 +146,41 @@ export interface PlanRefusal {
   message: string;
 }
 
-/** Why a tournament can't be set up, joined, left or cancelled; sent as is. */
+/**
+ * Why a tournament can't be set up, joined, left, started, reported in,
+ * completed or cancelled; sent as is. A report's game score is refused with
+ * the engine's ReportProblem codes, `draw` and `not-best-of-three`, so
+ * typecheck ties the two.
+ */
 export interface TournamentRefusal {
   error:
     /** Only a complete draft can have a tournament. */
     | 'draft-not-complete'
     /** A draft has at most one tournament. */
     | 'tournament-exists'
-    /** Joining, leaving and cancelling for now happen only during registration. */
+    /** Joining, leaving, starting and cancelling for now happen only during registration. */
     | 'not-in-registration'
     /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small'
     | 'bots-cannot-join'
     | 'already-joined'
-    | 'not-joined';
+    | 'not-joined'
+    /** Start needs at least 2 joined players. */
+    | 'too-few-entries'
+    /** Reporting and completing happen only while the tournament is playing. */
+    | 'not-playing'
+    /** Only a match's own players report it. */
+    | 'not-your-match'
+    /** A reported match is locked to its players. */
+    | 'match-reported'
+    | 'draw'
+    | 'not-best-of-three';
+  message: string;
+}
+
+/** The 404 a match request gets when the tournament has no such match. */
+export interface NoMatchProblem {
+  error: 'no-match';
   message: string;
 }
 
@@ -227,4 +248,8 @@ export type PlanFailure = PlanRefusal | NotAPlayerProblem | RequestProblem;
 
 /** Every error body a tournament request can get, besides a 404 for a draft that is gone or a 403 for a power the viewer lacks. */
 export type TournamentFailure =
-  TournamentRefusal | NoTournamentProblem | NotAPlayerProblem | RequestProblem;
+  | TournamentRefusal
+  | NoTournamentProblem
+  | NoMatchProblem
+  | NotAPlayerProblem
+  | RequestProblem;

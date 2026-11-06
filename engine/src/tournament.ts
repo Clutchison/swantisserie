@@ -1,0 +1,205 @@
+/**
+ * One tournament round of a schedule: the pairs of players who meet in it,
+ * and the player with a bye, if any.
+ */
+export interface ScheduledRound {
+  matches: [string, string][];
+  bye: string | null;
+}
+
+/**
+ * The round robin schedule for `players`, in order, by the circle method:
+ * every pair meets exactly once, and each player plays at most once a
+ * tournament round. An even count plays one round fewer than its size; an
+ * odd count plays as many rounds as its size, each with one bye.
+ */
+export function roundRobinSchedule(
+  players: readonly string[],
+): ScheduledRound[] {
+  const circle: (string | null)[] = [...players];
+  if (circle.length % 2 === 1) circle.push(null);
+  const size = circle.length;
+  const rounds: ScheduledRound[] = [];
+  for (let round = 0; round < size - 1; round++) {
+    const matches: [string, string][] = [];
+    let bye: string | null = null;
+    for (let i = 0; i < size / 2; i++) {
+      const a = circle[i];
+      const b = circle[size - 1 - i];
+      if (a === null) bye = b;
+      else if (b === null) bye = a;
+      else matches.push([a, b]);
+    }
+    rounds.push({ matches, bye });
+    // The first player stays put; everyone else moves one place round the circle.
+    circle.splice(1, 0, circle.pop()!);
+  }
+  return rounds;
+}
+
+/** Match points for a won, drawn and lost match. */
+export const MATCH_POINTS = { won: 3, drawn: 1, lost: 0 } as const;
+
+/**
+ * How a match was decided: a game score (each player's games won, in the
+ * match's player order, plus drawn games), a granted draw (0–0), or a
+ * forfeit by the player who dropped.
+ */
+export type MatchOutcome =
+  | { kind: 'GameScore'; games: [number, number]; draws: number }
+  | { kind: 'GrantedDraw' }
+  | { kind: 'Forfeit'; forfeitedBy: string };
+
+/** A tournament match as standings read it; a null outcome is not yet reported. */
+export interface TournamentMatch {
+  players: [string, string];
+  outcome: MatchOutcome | null;
+}
+
+/** Matches or games won, lost and drawn. */
+export interface Tally {
+  won: number;
+  lost: number;
+  drawn: number;
+}
+
+/** One player's place in a tournament's standings. */
+export interface Standing {
+  playerId: string;
+  /** From 1. Players still tied after every tiebreaker share a rank. */
+  rank: number;
+  matchPoints: number;
+  matches: Tally;
+  games: Tally;
+  /** Games won over games played, from 0 to 1; 0 before any game is played. */
+  gameWinRate: number;
+}
+
+type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
+
+/**
+ * The standings of `players` after `matches`, best first. Players rank by
+ * match points, then head-to-head (the match points each earned in matches
+ * among the players level with them on match points only, for any number
+ * level), then game-win %. Players still tied share a rank and keep the
+ * order of `players`; the rank after a shared one skips, as in 1, 1, 3.
+ * Unreported matches count for nothing, and so do byes, which every round
+ * robin player has equally many of.
+ */
+export function standings(
+  players: readonly string[],
+  matches: readonly TournamentMatch[],
+): Standing[] {
+  const decided = matches.filter(
+    (match): match is DecidedMatch => match.outcome !== null,
+  );
+  const all = players.map((playerId) => standingOf(playerId, decided));
+
+  const headToHead = new Map<string, number>();
+  for (const standing of all) {
+    const level = new Set(
+      all
+        .filter((other) => other.matchPoints === standing.matchPoints)
+        .map((s) => s.playerId),
+    );
+    const among = decided.filter((match) =>
+      match.players.every((id) => level.has(id)),
+    );
+    headToHead.set(
+      standing.playerId,
+      standingOf(standing.playerId, among).matchPoints,
+    );
+  }
+
+  const compare = (a: Standing, b: Standing) =>
+    b.matchPoints - a.matchPoints ||
+    headToHead.get(b.playerId)! - headToHead.get(a.playerId)! ||
+    b.gameWinRate - a.gameWinRate;
+  const ranked = all.sort(compare);
+  ranked.forEach((standing, i) => {
+    const previous = ranked[i - 1];
+    standing.rank =
+      previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
+  });
+  return ranked;
+}
+
+/** Why a player can't report a game score; the message is for them. */
+export interface ReportProblem {
+  error: 'draw' | 'not-best-of-three';
+  message: string;
+}
+
+/**
+ * Why a player can't report `games` (each player's games won, in the
+ * match's player order), or null if they can: a best-of-three match ends
+ * once a player wins 2 games, so a report is 2–0 or 2–1 for either side.
+ */
+export function reportProblem([a, b]: readonly [
+  number,
+  number,
+]): ReportProblem | null {
+  if (a === b) {
+    return {
+      error: 'draw',
+      message: 'Report a game score with a winner: 2–0 or 2–1.',
+    };
+  }
+  if (Math.max(a, b) !== 2 || Math.min(a, b) > 1) {
+    return {
+      error: 'not-best-of-three',
+      message: 'A best-of-three match ends 2–0 or 2–1.',
+    };
+  }
+  return null;
+}
+
+/** The players who hold the trophy: everyone who shares first in a complete tournament's final standings. */
+export function trophyHolders(final: readonly Standing[]): string[] {
+  return final
+    .filter((standing) => standing.rank === 1)
+    .map((standing) => standing.playerId);
+}
+
+/** The player's record over `matches`, unranked. */
+function standingOf(
+  playerId: string,
+  matches: readonly DecidedMatch[],
+): Standing {
+  const standing: Standing = {
+    playerId,
+    rank: 1,
+    matchPoints: 0,
+    matches: { won: 0, lost: 0, drawn: 0 },
+    games: { won: 0, lost: 0, drawn: 0 },
+    gameWinRate: 0,
+  };
+  for (const match of matches) {
+    const side = match.players.indexOf(playerId);
+    if (side === -1) continue;
+    const result = resultFor(match, side);
+    standing.matches[result]++;
+    standing.matchPoints += MATCH_POINTS[result];
+    if (match.outcome.kind !== 'GameScore') continue;
+    standing.games.won += match.outcome.games[side];
+    standing.games.lost += match.outcome.games[1 - side];
+    standing.games.drawn += match.outcome.draws;
+  }
+  const { won, lost, drawn } = standing.games;
+  const played = won + lost + drawn;
+  standing.gameWinRate = played === 0 ? 0 : won / played;
+  return standing;
+}
+
+/** Whether the player on `side` of a decided match won, lost or drew it. */
+function resultFor(
+  { players, outcome }: DecidedMatch,
+  side: number,
+): keyof Tally {
+  if (outcome.kind === 'GrantedDraw') return 'drawn';
+  if (outcome.kind === 'Forfeit')
+    return outcome.forfeitedBy === players[side] ? 'lost' : 'won';
+  const own = outcome.games[side];
+  const theirs = outcome.games[1 - side];
+  return own > theirs ? 'won' : own < theirs ? 'lost' : 'drawn';
+}

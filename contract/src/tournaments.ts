@@ -22,6 +22,58 @@ export interface TournamentEntryView {
 }
 
 /**
+ * How a match stands: unreported, or decided by a game score (each
+ * player's games won, in the match's player order, plus drawn games), a
+ * granted draw (0–0), or a forfeit by the player who dropped.
+ */
+export type MatchOutcomeView =
+  | { kind: 'Unreported' }
+  | { kind: 'GameScore'; games: [number, number]; draws: number }
+  | { kind: 'GrantedDraw' }
+  | { kind: 'Forfeit'; forfeitedBy: string };
+
+/** One match of a tournament. */
+export interface MatchView {
+  id: string;
+  /** The two players' Discord user ids, in the order the game score follows. */
+  players: [string, string];
+  outcome: MatchOutcomeView;
+  /** The Discord user id of whoever reported it; null until it is reported. */
+  reportedBy: string | null;
+  /** Whether the other player confirmed the game score it was reported with. */
+  confirmed: boolean;
+}
+
+/** One tournament round: its matches, and the player with a bye, if any. */
+export interface TournamentRoundView {
+  /** From 1: the suggested order to play the rounds in. */
+  round: number;
+  matches: MatchView[];
+  /** The Discord user id of the player sitting this round out; null if nobody is. */
+  bye: string | null;
+}
+
+/** Matches or games won, lost and drawn. */
+export interface TallyView {
+  won: number;
+  lost: number;
+  drawn: number;
+}
+
+/** One player's place in a tournament's standings. */
+export interface StandingView {
+  /** The player's Discord user id: a `PlayerView.id`. */
+  playerId: string;
+  /** From 1. Players still tied after every tiebreaker share a rank. */
+  rank: number;
+  matchPoints: number;
+  matches: TallyView;
+  games: TallyView;
+  /** Games won over games played, from 0 to 1; 0 before any game is played. */
+  gameWinRate: number;
+}
+
+/**
  * A draft's tournament, from `GET /api/drafts/:id/tournament`, which
  * everyone who sees the draft may read once it exists.
  */
@@ -30,6 +82,20 @@ export interface TournamentView {
   state: TournamentState;
   /** In join order. */
   entries: TournamentEntryView[];
+  /** Every tournament round, in order, once it is playing; none during registration. */
+  rounds: TournamentRoundView[];
+  /** Best first, once it is playing; none during registration. */
+  standings: StandingView[];
+  /** The Discord user ids of the players who hold the trophy: everyone who shares first once it is complete, else none. */
+  trophyHolders: string[];
+}
+
+/**
+ * A match's player reporting its game score: each player's games won, in
+ * the match's player order. Only 2–0 and 2–1, for either side.
+ */
+export interface MatchReportRequest {
+  games: [number, number];
 }
 
 /** Tournament setup, as the organizer chooses it: all at once, never changed. */

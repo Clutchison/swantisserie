@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type {
   DraftView,
+  MatchReportRequest,
   RequestProblem,
   TournamentFormat,
   TournamentSetupRequest,
@@ -100,6 +102,47 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.removeEntry(id, playerId));
   }
 
+  /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */
+  @Post('start')
+  @HttpCode(200)
+  async start(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.start(id));
+  }
+
+  /** Reports a match's game score; for its players, while it is unreported. */
+  @Post('matches/:matchId/report')
+  @HttpCode(200)
+  async report(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() body: unknown,
+  ): Promise<DraftView> {
+    const games = parseGames(body);
+    await this.access.canSee(user, id);
+    return this.change(id, () =>
+      this.tournaments.report(id, matchId, user.id, games),
+    );
+  }
+
+  /**
+   * Completes the round robin tournament, its unreported matches becoming
+   * granted draws; for the organizer.
+   */
+  @Post('complete')
+  @HttpCode(200)
+  async complete(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.complete(id));
+  }
+
   /** Applies `change` and answers with the draft as it now is, published to its viewers. */
   private async change(
     id: string,
@@ -122,4 +165,24 @@ function parseFormat(body: unknown): TournamentFormat {
     } satisfies RequestProblem);
   }
   return format;
+}
+
+/**
+ * The game score a report names, each player's games won in the match's
+ * player order, or a 400 if it isn't two whole numbers of games. Whether a
+ * best-of-three match can end at it is the engine's call.
+ */
+function parseGames(body: unknown): [number, number] {
+  const { games } = bodyFields<MatchReportRequest>(body);
+  if (
+    !Array.isArray(games) ||
+    games.length !== 2 ||
+    !games.every((count) => Number.isInteger(count) && count >= 0)
+  ) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Report each player’s games won, such as [2, 1].',
+    } satisfies RequestProblem);
+  }
+  return [games[0], games[1]];
 }
