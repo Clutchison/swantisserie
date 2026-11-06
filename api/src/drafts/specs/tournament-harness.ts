@@ -1,4 +1,9 @@
-import type { TournamentSetupRequest } from 'contract';
+import type {
+  MatchReportRequest,
+  MatchView,
+  TournamentSetupRequest,
+  TournamentView,
+} from 'contract';
 import {
   aliceCookie,
   draftsRequest,
@@ -88,4 +93,84 @@ export async function entrants(id: string): Promise<string[]> {
   return (body as { entries: { playerId: string }[] }).entries.map(
     (entry) => entry.playerId,
   );
+}
+
+/** Starts the draft's tournament. */
+export function startTournament(id: string, cookie = aliceCookie) {
+  return draftsRequest('post', `/${id}/tournament/start`, cookie);
+}
+
+/** Completes the draft's tournament. */
+export function completeTournament(id: string, cookie = aliceCookie) {
+  return draftsRequest('post', `/${id}/tournament/complete`, cookie);
+}
+
+/**
+ * A complete draft whose players are the cookies' users in seat order, all
+ * with full decks, and its round robin tournament, which they joined in
+ * that order and Alice started.
+ */
+export async function playingTournament(cookies: string[]) {
+  const id = await completeDraft(cookies);
+  await setUpTournament(id).expect(201);
+  for (const cookie of cookies) {
+    await fullDeck(id, cookie);
+    await joinTournament(id, cookie).expect(201);
+  }
+  await startTournament(id).expect(200);
+  return id;
+}
+
+/** The draft's tournament as everyone who sees it reads it. */
+export async function tournamentView(id: string): Promise<TournamentView> {
+  return (await tournament(id).expect(200)).body as TournamentView;
+}
+
+/** The tournament's match between the players `a` and `b`, either way round. */
+export async function matchOf(
+  id: string,
+  a: string,
+  b: string,
+): Promise<MatchView> {
+  const { rounds } = await tournamentView(id);
+  const match = rounds
+    .flatMap((round) => round.matches)
+    .find(({ players }) => players.includes(a) && players.includes(b));
+  if (!match) throw new Error(`No match between ${a} and ${b}`);
+  return match;
+}
+
+/** Reports the match's game score, as whoever `cookie` signs in, `body` the request body as is. */
+export function reportMatch(
+  id: string,
+  matchId: string,
+  cookie: string,
+  body: unknown,
+) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/matches/${matchId}/report`,
+    cookie,
+    body,
+  );
+}
+
+/**
+ * Reports the match between `winner` and `loser` as `winner` winning
+ * `games[0]` to `games[1]`, as whoever `cookie` signs in, expecting the
+ * answer's status to be `status`.
+ */
+export async function reportWin(
+  id: string,
+  [winner, loser]: [string, string],
+  games: [number, number],
+  cookie: string,
+  status = 200,
+) {
+  const match = await matchOf(id, winner, loser);
+  const ordered: [number, number] =
+    match.players[0] === winner ? games : [games[1], games[0]];
+  return reportMatch(id, match.id, cookie, {
+    games: ordered,
+  } satisfies MatchReportRequest).expect(status);
 }

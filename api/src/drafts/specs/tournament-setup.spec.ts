@@ -37,6 +37,9 @@ describe('tournament setup', () => {
       format: 'RoundRobin',
       state: 'Registration',
       entries: [],
+      rounds: [],
+      standings: [],
+      trophyHolders: [],
     });
     expect((await getDraft(id).expect(200)).body.tournament).toEqual({
       state: 'Registration',

@@ -7,6 +7,13 @@ export class TournamentRefusedError extends Error {
   }
 }
 
+/** Thrown for a match request naming a match the tournament doesn't have. */
+export class NoMatchError extends Error {
+  constructor() {
+    super('This tournament has no such match.');
+  }
+}
+
 /** Thrown for a tournament request on a draft that has no tournament. */
 export class NoTournamentError extends Error {
   constructor() {

@@ -456,6 +456,18 @@ _Avoid_: Default, walkover, no-show
 A tournament's players ranked by their results so far.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
+**Match points**:
+What a player earns from their matches, which standings rank by first: 3 for a won match, 1 for a draw, 0 for a lost one.
+_Avoid_: Points (alone), score
+
+**Head-to-head**:
+The tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
+_Avoid_: Direct encounter, mutual result
+
+**Game-win %**:
+The tiebreaker after head-to-head: the share of the games a player played in their matches that they won. Players still tied after it share their place in the standings.
+_Avoid_: Win rate, game percentage
+
 **Tournament tab**:
 The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.
 _Avoid_: Games tab, results tab, bracket tab

@@ -10,6 +10,7 @@ import {
 import { BaseExceptionFilter } from '@nestjs/core';
 import type {
   DraftChangeRefusal,
+  NoMatchProblem,
   NoTournamentProblem,
   NotAPlayerProblem,
   PickImportRefusal,
@@ -38,6 +39,7 @@ import { PlanRefusedError } from './plans.service.js';
 import { PoolFrozenError } from './pool-snapshot.service.js';
 import { QueueChangedError, QueueRefusedError } from './queues.service.js';
 import {
+  NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
 } from '../tournaments/tournament-errors.js';
@@ -109,6 +111,12 @@ export function toHttpError(err: unknown): HttpException | undefined {
       error: 'no-tournament',
       message: err.message,
     } satisfies NoTournamentProblem);
+  }
+  if (err instanceof NoMatchError) {
+    return new NotFoundException({
+      error: 'no-match',
+      message: err.message,
+    } satisfies NoMatchProblem);
   }
   if (err instanceof QueueChangedError) {
     return new ConflictException({

@@ -8,4 +8,5 @@ export * from './plan.js';
 export * from './queue.js';
 export * from './shuffle.js';
 export * from './start.js';
+export * from './tournament.js';
 export * from './turn.js';
