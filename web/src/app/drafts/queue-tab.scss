@@ -157,16 +157,3 @@ app-card-name {
     cursor: help;
   }
 }
-
-/* A compact quiet button (see styles.scss), rounded into a pill. */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 2.5rem;
-  border-radius: 999px;
-
-  .swap {
-    color: var(--color-muted);
-  }
-}

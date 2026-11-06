@@ -20,6 +20,7 @@ import {
   queued,
   queueOf,
   openQueue,
+  accessibleDescription,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 
@@ -34,14 +35,6 @@ describe('steal behavior', () => {
   /** The steal behavior pill. */
   function pill(queue: HTMLElement) {
     return queue.querySelector<HTMLButtonElement>('.steal-behavior button')!;
-  }
-
-  /** The text of the elements an element's `aria-describedby` names. */
-  function description(el: HTMLElement) {
-    return (el.getAttribute('aria-describedby') ?? '')
-      .split(' ')
-      .map((id) => el.ownerDocument.getElementById(id)?.textContent?.replace(/\s+/g, ' ').trim())
-      .join(' ');
   }
 
   it('shows the player’s steal behavior above the notice and the queue', async () => {
@@ -74,7 +67,7 @@ describe('steal behavior', () => {
 
     const label = [...queue.querySelectorAll<HTMLElement>('.steal-behavior [title]')];
     expect(label.map((l) => l.title)).toEqual([EXPLANATION]);
-    expect(description(pill(queue))).toBe(EXPLANATION);
+    expect(accessibleDescription(pill(queue))).toBe(EXPLANATION);
     const shown = [...queue.querySelectorAll<HTMLElement>('*')].filter(
       (el) =>
         !el.closest('.visually-hidden') &&
