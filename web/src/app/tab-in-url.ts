@@ -28,7 +28,8 @@ export type CanOpen = 'yes' | 'no' | 'unknown';
  * page's injection context.
  *
  * The URL names the tab requested. The page shows it if the viewer may open
- * it, else the default tab, and corrects the URL to match: an unknown or
+ * it, else its fallback if the viewer may open that, else the default tab,
+ * and corrects the URL to match: an unknown or
  * wrong-case value, or the default tab named, is corrected to leave the
  * parameter out. While `canOpen` answers `'unknown'`, the requested tab
  * stands and the URL is left alone. Correcting and selecting both replace the
@@ -38,6 +39,7 @@ export function tabInUrl<T extends string>({
   tabs,
   defaultTab,
   canOpen = () => 'yes',
+  fallbacks = {},
 }: {
   /** The page's tabs, by name. */
   tabs: readonly T[];
@@ -48,6 +50,11 @@ export function tabInUrl<T extends string>({
    * tab shown follows the signals it reads.
    */
   canOpen?: (tab: T) => CanOpen;
+  /**
+   * The tab to show in place of each tab named here when the viewer can't
+   * open it, if they can open the fallback; others fall back to the default tab.
+   */
+  fallbacks?: Partial<Record<T, T>>;
 }): TabInUrl<T> {
   const route = inject(ActivatedRoute);
   const router = inject(Router);
@@ -71,7 +78,10 @@ export function tabInUrl<T extends string>({
   });
   const selected = computed(() => {
     const tab = named();
-    return tab !== undefined && allowed() !== 'no' ? tab : defaultTab;
+    if (tab === undefined) return defaultTab;
+    if (allowed() !== 'no') return tab;
+    const fallback = fallbacks[tab];
+    return fallback !== undefined && canOpen(fallback) === 'yes' ? fallback : defaultTab;
   });
 
   const param = (tab: T) => (tab === defaultTab ? null : tab.toLowerCase());
