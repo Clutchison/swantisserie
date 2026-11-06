@@ -38,7 +38,7 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
 import { ResultsGrid } from './results-grid';
-import type { ClearGameScore } from './match-lines';
+import { confirmableBy, reportedTo, type ClearGameScore } from './match-lines';
 import { TournamentResults, type SetGameScore } from './tournament-results';
 import { OWN_GAME_SCORES, YourMatches, type OwnGameScore } from './your-matches';
 
@@ -96,7 +96,7 @@ const START_DETAILS: Record<TournamentFormat, string> = {
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
  * it, then play. In Swiss and single elimination, play shows the
- * signed-in player's match and its report, then the standings and matches;
+ * signed-in player's match to report or confirm, then the standings and matches;
  * in round robin, which has no tournament rounds, it shows Your matches and
  * the results grid. Then come the players with Drop, and for organizers
  * Reinstate, Complete tournament (round robin) or Complete round (Swiss,
@@ -224,31 +224,34 @@ export class PlayTab {
   );
   /**
    * The signed-in player's match shown at the top: the one they chose, while
-   * it is unreported, else their first unreported match by tournament round.
+   * it is unreported, else their first match by tournament round that needs
+   * something from them, Report if it is unreported or Confirm if someone
+   * else reported it. `confirm` says, for Confirm, who reported what.
    */
   protected readonly ownMatch = computed(() => {
     const ownId = this.ownId();
     if (!ownId || !this.playsOn()) return undefined;
-    const open = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
-      matches
-        .filter((match) => match.players.includes(ownId) && match.outcome.kind === 'Unreported')
-        .map((match) => ({ round, match })),
+    const unreported = (match: MatchView) => match.outcome.kind === 'Unreported';
+    const own = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
+      matches.filter((match) => match.players.includes(ownId)).map((match) => ({ round, match })),
     );
-    const shown = open.find(({ match }) => match.id === this.chosen()) ?? open[0];
+    const shown =
+      own.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
+      own.find(({ match }) => unreported(match) || confirmableBy(match, ownId));
     if (!shown) return undefined;
-    const opponentId = shown.match.players.find((id) => id !== ownId)!;
-    return { ...shown, opponent: this.store.player(opponentId) };
+    const opponent = this.store.player(shown.match.players.find((id) => id !== ownId)!);
+    const confirm = unreported(shown.match) ? null : reportedTo(shown.match, ownId, opponent);
+    return { ...shown, opponent, confirm };
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */
   protected readonly roundRobin = computed(() => this.tournament()?.format === 'RoundRobin');
   /**
-   * Whether round robin's Your matches shows: for a player who joined and
-   * hasn't dropped, once the tournament has started, so they can still
-   * confirm once it is complete.
+   * Whether round robin's Your matches shows: for a player who joined,
+   * once the tournament has started, so they can still confirm once it is
+   * complete or they have dropped.
    */
   protected readonly showsYourMatches = computed(
-    () =>
-      this.roundRobin() && this.state() !== 'Registration' && this.joined() && !this.ownDropped(),
+    () => this.roundRobin() && this.state() !== 'Registration' && this.joined(),
   );
   /** The players who hold the trophy, as the draft names them. */
   protected readonly trophyHolders = computed(() =>

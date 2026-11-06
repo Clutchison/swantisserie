@@ -1,15 +1,5 @@
 import { answer, question } from '../../specs-harness';
-import {
-  ORGANIZE_ONLY,
-  alice,
-  bob,
-  button,
-  http,
-  panel,
-  region,
-  text,
-  useDraftsApp,
-} from './harness';
+import { ORGANIZE_ONLY, alice, bob, button, http, panel, text, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
@@ -73,7 +63,11 @@ describe('drops on the Play tab', () => {
 
     expect(playerLines(panel(page))).toEqual(['Alice · Dropped', 'Bob', 'Carol']);
     expect(button(panel(page), 'Drop from tournament')).toBeUndefined();
-    expect(region(panel(page), 'Your matches')).toBeNull();
+    expect(yourMatches(panel(page))).toEqual([
+      'Forfeit: you dropped against Bob',
+      'Forfeit: you dropped against Carol',
+    ]);
+    expect(button(panel(page), 'Report your match against Bob')).toBeUndefined();
   });
 
   it('sends nothing when the player thinks better of dropping', async () => {

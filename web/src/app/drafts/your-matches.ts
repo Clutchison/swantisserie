@@ -12,7 +12,7 @@ import type { MatchView, PlayerView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { gameScoreFor } from './match-lines';
+import { confirmableBy, gameScoreFor, reportedTo } from './match-lines';
 import { PlayerAvatar } from './player-avatar';
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
@@ -42,7 +42,7 @@ interface OwnMatchLine {
   opponent: PlayerView;
   /** How it stands, such as "vs Carol", "Carol reported you lost 1–2" or "Forfeit: Carol dropped". */
   says: string;
-  /** Whether the player may report it: unreported while the tournament is playing. */
+  /** Whether the player may report it: unreported while the tournament is playing and they haven't dropped. */
   reportable: boolean;
   /** Whether the player may confirm it: someone else reported its game score, unconfirmed. */
   confirmable: boolean;
@@ -50,10 +50,10 @@ interface OwnMatchLine {
 
 /**
  * Round robin's Your matches, at the top of the Play tab for a player who
- * joined and hasn't dropped: one line per opponent, unreported first, then
- * the rest, each in join order. An unreported match offers Report, which
- * opens its four game scores; a game score someone else reported offers
- * Confirm. Round robin has no tournament rounds, so any match can be
+ * joined: one line per opponent, unreported first, then the rest, each in
+ * join order. An unreported match offers Report, which opens its four game
+ * scores, while the player plays on; a game score someone else reported
+ * offers Confirm, dropped or not. Round robin has no tournament rounds, so any match can be
  * reported in any order.
  */
 @Component({
@@ -67,7 +67,7 @@ export class YourMatches {
   private readonly store = inject(DraftStore);
 
   readonly tournament = input.required<TournamentView>();
-  /** The signed-in player's id: joined, and not dropped. */
+  /** The signed-in player's id: joined, dropped or not. */
   readonly ownId = input.required<string>();
   /** Asks for the signed-in player's match to be reported. */
   readonly report = output<OwnReport>();
@@ -76,10 +76,19 @@ export class YourMatches {
 
   protected readonly ownGameScores = OWN_GAME_SCORES;
 
-  /** The match whose game scores are open to report, if any; closed whenever the tournament is re-read. */
+  /**
+   * The match whose game scores are open to report, if any. A re-read keeps
+   * it open while the player may still report it, so until it is reported,
+   * the tournament stops playing or they drop.
+   */
   protected readonly reporting = linkedSignal<TournamentView, string | undefined>({
     source: this.tournament,
-    computation: () => undefined,
+    computation: (_, previous) => {
+      const open = previous?.value;
+      return this.lines().some((line) => line.match.id === open && line.reportable)
+        ? open
+        : undefined;
+    },
   });
 
   /** The signed-in player's matches, one line per opponent: unreported first, then the rest, each in their opponents' join order. */
@@ -87,10 +96,12 @@ export class YourMatches {
     const own = this.ownId();
     const { entries, rounds, state } = this.tournament();
     const joinOrder = new Map(entries.map((entry, i) => [entry.playerId, i]));
+    const playsOn =
+      state === 'Playing' && !entries.find((entry) => entry.playerId === own)?.dropped;
     const lines = rounds
       .flatMap((round) => round.matches)
       .filter((match) => match.players.includes(own))
-      .map((match) => this.line(match, own, state === 'Playing'));
+      .map((match) => this.line(match, own, playsOn));
     const unreported = (line: OwnMatchLine) => (line.match.outcome.kind === 'Unreported' ? 0 : 1);
     return lines.sort(
       (a, b) =>
@@ -99,17 +110,16 @@ export class YourMatches {
     );
   });
 
-  /** The line of `match`, the player `own`'s, while the tournament is `playing` or not. */
-  private line(match: MatchView, own: string, playing: boolean): OwnMatchLine {
+  /** The line of `match`, the player `own`'s, while they play on or not. */
+  private line(match: MatchView, own: string, playsOn: boolean): OwnMatchLine {
     const opponent = this.store.player(match.players.find((id) => id !== own)!);
     const { outcome } = match;
-    const confirmable =
-      outcome.kind === 'GameScore' && !match.confirmed && match.reportedBy !== own;
+    const confirmable = confirmableBy(match, own);
     return {
       match,
       opponent,
       says: this.says(match, own, opponent, confirmable),
-      reportable: playing && outcome.kind === 'Unreported',
+      reportable: playsOn && outcome.kind === 'Unreported',
       confirmable,
     };
   }
@@ -130,11 +140,8 @@ export class YourMatches {
           ? `Forfeit: you dropped against ${opponent.name}`
           : `Forfeit: ${opponent.name} dropped`;
       case 'GameScore': {
+        if (confirmable) return reportedTo(match, own, opponent);
         const { result, score } = gameScoreFor(outcome.games, match.players, own);
-        if (confirmable) {
-          const reporter = match.reportedBy === opponent.id ? opponent.name : 'An organizer';
-          return `${reporter} reported you ${result} ${score}`;
-        }
         const line = `${versus} · ${result.charAt(0).toUpperCase()}${result.slice(1)} ${score}`;
         return match.confirmed ? `${line} · Confirmed` : line;
       }

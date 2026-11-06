@@ -156,23 +156,42 @@
       <section class="own-match" aria-label="Your match">
         <h3>Your match</h3>
         @if (ownMatch(); as own) {
-          <p>
-            Tournament round {{ own.round }}: against
-            <app-player-avatar [src]="own.opponent.avatarUrl" />
-            {{ own.opponent.name }}
-          </p>
-          <div class="controls">
-            @for (score of ownGameScores; track score.label) {
+          @if (own.confirm; as says) {
+            <p>
+              Tournament round {{ own.round }}:
+              <app-player-avatar [src]="own.opponent.avatarUrl" />
+              {{ says }}
+            </p>
+            <div class="controls">
               <button
-                class="button secondary"
+                class="button"
                 type="button"
-                (click)="report(own.match, own.opponent.name, score)"
-                appSendsChange="report"
+                [attr.aria-label]="'Confirm your match against ' + own.opponent.name"
+                (click)="confirmMatch(own.match.id)"
+                [appSendsChange]="'confirm ' + own.match.id"
               >
-                {{ score.label }}
+                Confirm
               </button>
-            }
-          </div>
+            </div>
+          } @else {
+            <p>
+              Tournament round {{ own.round }}: against
+              <app-player-avatar [src]="own.opponent.avatarUrl" />
+              {{ own.opponent.name }}
+            </p>
+            <div class="controls">
+              @for (score of ownGameScores; track score.label) {
+                <button
+                  class="button secondary"
+                  type="button"
+                  (click)="report(own.match, own.opponent.name, score)"
+                  appSendsChange="report"
+                >
+                  {{ score.label }}
+                </button>
+              }
+            </div>
+          }
           <p class="detail">
             <a [routerLink]="[]" [queryParams]="{ tab: 'plan' }">Your deck</a>, to export it before
             you play.

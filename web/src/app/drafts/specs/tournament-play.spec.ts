@@ -131,6 +131,33 @@ describe('Play tab while the tournament is played', () => {
       http.expectNone('/api/drafts/draft-1/tournament/matches/m2/report');
     });
 
+    it('keeps a match’s game scores open when another match is reported, and closes them once it is', async () => {
+      const { fixture, tab } = await openPlaying(playing());
+      const scoresAgainstCarol = () => group(tab, 'Game score against Carol');
+      button(tab, 'Report your match against Carol')!.click();
+      await fixture.whenStable();
+      expect(scoresAgainstCarol()).not.toBeNull();
+
+      await pushTournament(
+        fixture,
+        playing([reported(openMatch('m1', bob.id, carol.id), [2, 0])]),
+        1,
+        { asPlayer: true },
+      );
+      expect(scoresAgainstCarol()).not.toBeNull();
+
+      await pushTournament(
+        fixture,
+        playing([
+          reported(openMatch('m1', bob.id, carol.id), [2, 0]),
+          reported(openMatch('m3', carol.id, alice.id), [2, 0], carol.id),
+        ]),
+        2,
+        { asPlayer: true },
+      );
+      expect(scoresAgainstCarol()).toBeNull();
+    });
+
     it('confirms an opponent’s report from its line', async () => {
       const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
       const { fixture, tab } = await openPlaying(playing([bobBeatAlice]));
@@ -174,14 +201,34 @@ describe('Play tab while the tournament is played', () => {
       );
     });
 
-    it.each([
-      ['a viewer who didn’t join', playing(), dave],
-      ['a player who dropped', withDrops([alice.id]), alice],
-    ])('is absent for %s', async (_, tournament, user) => {
-      const { tab } = await openPlaying(tournament, { user });
+    it('is absent for a viewer who didn’t join', async () => {
+      const { tab } = await openPlaying(playing(), { user: dave });
 
       expect(region(tab, 'Your matches')).toBeNull();
       expect(region(tab, 'Your match')).toBeNull();
+    });
+
+    it('offers a player who dropped Confirm on a match their opponent reported, and no Report or Drop', async () => {
+      const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+      const { tab } = await openPlaying(
+        withDrops(
+          [alice.id],
+          [bobBeatAlice, forfeited(openMatch('m3', carol.id, alice.id), alice.id)],
+        ),
+      );
+
+      expect(yourMatches(tab)).toEqual([
+        'Bob reported you lost 1–2',
+        'Forfeit: you dropped against Carol',
+      ]);
+      expect(button(tab, 'Report your match against Carol')).toBeUndefined();
+      expect(button(tab, 'Drop from tournament')).toBeUndefined();
+
+      button(tab, 'Confirm your match against Bob')!.click();
+      const req = await vi.waitFor(() =>
+        http.expectOne('/api/drafts/draft-1/tournament/matches/m2/confirm'),
+      );
+      expect(req.request.method).toBe('POST');
     });
   });
 

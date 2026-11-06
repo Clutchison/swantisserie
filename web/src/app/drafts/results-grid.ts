@@ -1,12 +1,15 @@
+import type { DialogRef } from '@angular/cdk/dialog';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   Injector,
   input,
   inputBinding,
   output,
+  untracked,
 } from '@angular/core';
 import type { MatchView, TournamentView } from 'contract';
 import { droppedPlayers } from 'engine';
@@ -15,7 +18,9 @@ import { record } from '../record';
 import { DraftStore } from './draft-store';
 import {
   gameScoreFor,
+  matchIn,
   organizerChoices,
+  sameOutcome,
   type ClearGameScore,
   type OrganizerChoices,
 } from './match-lines';
@@ -48,7 +53,8 @@ interface GridCell {
  * cells show it, each from its own row's side; never by colour alone, as
  * each cell's accessible name spells the result out. While the tournament
  * is playing, an organizer opens either cell of a match to report, correct
- * or clear it in the match result dialog. It scrolls sideways in its own
+ * or clear it in the match result dialog, which closes itself once the
+ * tournament stops playing or that match's outcome changes. It scrolls sideways in its own
  * region, the rank and name columns fixed.
  */
 @Component({
@@ -72,6 +78,30 @@ export class ResultsGrid {
   private readonly organize = computed(
     () => this.store.canOrganize() && this.tournament().state === 'Playing',
   );
+
+  /** The match result dialog while it's open, with the id of the match it was opened for and that match as it was then. */
+  private opened: {
+    ref: DialogRef<MatchResultChoice, MatchResultDialog>;
+    matchId: string;
+    match: MatchView | undefined;
+  } | null = null;
+
+  constructor() {
+    // The dialog's choices were the match's as it opened: close it once
+    // they no longer hold, as when another organizer completes the
+    // tournament or reports, corrects or clears that match.
+    effect(() => {
+      const tournament = this.tournament();
+      const organize = this.organize();
+      untracked(() => {
+        const opened = this.opened;
+        if (!opened) return;
+        if (!organize || !sameOutcome(opened.match, matchIn(tournament, opened.matchId))) {
+          opened.ref.close();
+        }
+      });
+    });
+  }
 
   private readonly dropped = computed(() => new Set(droppedPlayers(this.tournament().entries)));
 
@@ -135,7 +165,9 @@ export class ResultsGrid {
       injector: this.injector,
       bindings: [inputBinding('choices', () => choices)],
     });
+    this.opened = { ref, matchId, match: matchIn(this.tournament(), matchId) };
     ref.closed.subscribe((choice) => {
+      this.opened = null;
       if (choice?.kind === 'GameScore') this.setGameScore.emit({ matchId, games: choice.games });
       else if (choice?.kind === 'Clear' && choices.clear) this.clearGameScore.emit(choices.clear);
     });

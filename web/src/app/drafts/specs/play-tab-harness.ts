@@ -517,18 +517,21 @@ export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boo
 /**
  * Pushes the complete draft of Alice, Bob and Carol at `version` with
  * `tournament`, as another viewer's change does, and answers the reads it
- * makes for Dave, who isn't one of its players.
+ * makes for Dave, who isn't one of its players, or, `asPlayer`, for one
+ * who is, their queue and plan included.
  */
 export async function pushTournament(
   fixture: AppFixture,
   tournament: ViewerTournamentView,
   version: number,
+  { asPlayer = false }: { asPlayer?: boolean } = {},
 ) {
   updates.events.next({
     type: 'changed',
     draft: draft({ ...withTournament(tournament, threePlayers), version }),
   });
   await flushPicks([]);
+  if (asPlayer) await flushQueueAndPlan();
   await flushTournament(tournament);
   await fixture.whenStable();
 }
