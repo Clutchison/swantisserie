@@ -39,7 +39,61 @@
           @if (match.note; as note) {
             · {{ note }}
           }
+          @if (match.confirmed) {
+            · <span class="confirmed">Confirmed</span>
+          }
         </span>
+        @if (match.confirmAgainst; as opponent) {
+          <button
+            class="button compact"
+            type="button"
+            [attr.aria-label]="'Confirm your match against ' + opponent"
+            (click)="confirmMatch.emit(match.id)"
+            [appSendsChange]="'confirm ' + match.id"
+          >
+            Confirm
+          </button>
+        }
+        @if (match.organize; as organize) {
+          <button
+            class="button compact secondary"
+            type="button"
+            [attr.aria-label]="organize.toggle"
+            [attr.aria-expanded]="correcting() === match.id"
+            (click)="toggleCorrecting(match.id)"
+            [appFocusKey]="'correct ' + match.id"
+          >
+            {{ organize.verb }}
+          </button>
+          @if (correcting() === match.id) {
+            <div
+              class="result-choice"
+              role="group"
+              [attr.aria-label]="'Result of ' + organize.label"
+            >
+              @for (score of organize.scores; track score.label) {
+                <button
+                  class="button compact secondary"
+                  type="button"
+                  (click)="setResult.emit({ matchId: match.id, games: score.games })"
+                  [appSendsChange]="'result ' + match.id + ' ' + score.games"
+                >
+                  {{ score.label }}
+                </button>
+              }
+              @if (organize.clear; as clear) {
+                <button
+                  class="button compact secondary"
+                  type="button"
+                  (click)="clearResult.emit(clear)"
+                  [appSendsChange]="'clear ' + match.id"
+                >
+                  Clear result
+                </button>
+              }
+            </div>
+          }
+        }
         @if (match.opponent; as opponent) {
           <button
             class="button compact secondary"
