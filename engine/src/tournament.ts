@@ -236,8 +236,8 @@ export function standingOf(
     playerId,
     rank: 1,
     matchPoints: 0,
-    matches: { won: 0, lost: 0, drawn: 0 },
-    games: { won: 0, lost: 0, drawn: 0 },
+    matches: emptyTally(),
+    games: emptyTally(),
     gameWinPercent: 0,
   };
   for (const match of matches) {
@@ -247,9 +247,7 @@ export function standingOf(
     standing.matches[result]++;
     standing.matchPoints += MATCH_POINTS[result];
     if (match.outcome.kind !== 'GameScore') continue;
-    standing.games.won += match.outcome.games[side];
-    standing.games.lost += match.outcome.games[1 - side];
-    standing.games.drawn += match.outcome.draws;
+    addGames(standing.games, match.outcome, side);
   }
   standing.matches.won += byes;
   standing.matchPoints += byes * MATCH_POINTS.won;
@@ -260,8 +258,24 @@ export function standingOf(
   return standing;
 }
 
+/** A tally of nothing won, lost or drawn. */
+export function emptyTally(): Tally {
+  return { won: 0, lost: 0, drawn: 0 };
+}
+
+/** Adds the games of the game score `outcome` to `games`, the tally of the player on `side`. */
+export function addGames(
+  games: Tally,
+  outcome: Extract<MatchOutcome, { kind: 'GameScore' }>,
+  side: number,
+): void {
+  games.won += outcome.games[side];
+  games.lost += outcome.games[1 - side];
+  games.drawn += outcome.draws;
+}
+
 /** Whether the player on `side` of a decided match won, lost or drew it. */
-function resultFor(
+export function resultFor(
   { players, outcome }: DecidedMatch,
   side: number,
 ): keyof Tally {
