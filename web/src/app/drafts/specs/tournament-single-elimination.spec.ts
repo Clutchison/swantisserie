@@ -1,5 +1,5 @@
 import type { CorrectionPreview, CorrectionPreviewRequest, ViewerTournamentView } from 'contract';
-import { openDialog } from '../../specs-harness';
+import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
@@ -294,6 +294,28 @@ describe('the single elimination correction warning', () => {
     await vi.waitFor(() => expect(openDialog()).toBeNull());
   });
 
+  it('asks before clearing a match when the clear changes nothing else', async () => {
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Clear game score')!.click();
+    await answerPreview(fixture, null, { clears: [], state: 'Playing' });
+    const dialog = await question('Clear the game score of Bob vs Carol?');
+    expect(dialog.textContent).toContain('The match is unreported again.');
+    await answer(dialog, 'Clear');
+    await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
+  });
+
+  it('clears nothing when the organizer thinks better of a clear that changes nothing else', async () => {
+    const { fixture, choice } = await openCorrecting();
+
+    button(choice, 'Clear game score')!.click();
+    await answerPreview(fixture, null, { clears: [], state: 'Playing' });
+    await answer(await question('Clear the game score of Bob vs Carol?'), 'Cancel');
+    await fixture.whenStable();
+
+    http.expectNone(GAME_SCORE);
+  });
+
   it('corrects at once when the correction clears nothing', async () => {
     const { fixture, choice } = await openCorrecting();
 
@@ -306,7 +328,6 @@ describe('the single elimination correction warning', () => {
   });
 
   it('offers Clear for a match of a completed round, warning of the later matches it clears', async () => {
-    const confirm = vi.spyOn(window, 'confirm');
     const { fixture, choice } = await openCorrecting();
 
     button(choice, 'Clear game score')!.click();
@@ -318,8 +339,6 @@ describe('the single elimination correction warning', () => {
     expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
     button(dialog, 'Clear')!.click();
     await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
-
-    expect(confirm).not.toHaveBeenCalled();
   });
 
   it('warns that a correction has a complete tournament played on, taking the trophy back', async () => {

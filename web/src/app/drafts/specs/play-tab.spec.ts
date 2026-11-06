@@ -1,3 +1,4 @@
+import { answer, question } from '../../specs-harness';
 import {
   ALL_POWERS,
   ORGANIZE_ONLY,
@@ -367,17 +368,18 @@ describe('Play tab', () => {
       expect(joinedNames(panel(page))).toEqual(['Alice']);
     });
 
-    it('lets an organizer cancel the tournament once they confirm, offering setup again', async () => {
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('lets an organizer cancel the tournament once they go ahead, offering setup again', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
       const tab = await openPlayTab(fixture, page);
 
       button(tab, 'Cancel tournament')!.click();
-      expect(confirm).toHaveBeenCalledWith(
-        'Cancel the tournament? Everyone who joined is taken out of it, and their decks unlock.',
+      const dialog = await question('Cancel the tournament?');
+      expect(dialog.textContent).toContain(
+        'Everyone who joined is taken out of it, and their decks unlock.',
       );
+      await answer(dialog, 'Cancel tournament');
       await answerChange(fixture, '/api/drafts/draft-1/tournament', 'DELETE', null);
 
       expect(panel(page).id).toBe('play-panel');
@@ -385,14 +387,14 @@ describe('Play tab', () => {
       expect(stateSteps(panel(page))).toEqual([]);
     });
 
-    it('keeps the tournament when the organizer doesn’t confirm cancelling', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
+    it('keeps the tournament when the organizer thinks better of cancelling', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
       const tab = await openPlayTab(fixture, page);
 
       button(tab, 'Cancel tournament')!.click();
+      await answer(await question('Cancel the tournament?'), 'Keep tournament');
       await fixture.whenStable();
 
       http.expectNone('/api/drafts/draft-1/tournament');

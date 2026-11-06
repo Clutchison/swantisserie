@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  Injector,
   output,
   signal,
   untracked,
@@ -24,6 +25,7 @@ import { changeFailure, DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
+import { Questions } from '../question-dialog';
 
 /**
  * The seat order, which stays on show once the draft starts, and all the
@@ -50,6 +52,8 @@ export class LobbyControls {
   private readonly http = inject(HttpClient);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
+  private readonly questions = inject(Questions);
+  private readonly injector = inject(Injector);
 
   private readonly draft = this.store.shown;
   /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
@@ -240,14 +244,21 @@ export class LobbyControls {
     this.pickImportProblems.set([]);
   }
 
-  /** Cancels the draft, once the organizer confirms: it can't be undone. */
+  /** Cancels the draft, once the organizer goes ahead: it can't be undone. */
   protected cancel() {
     return this.changes.send(
       async () => {
         const { id, name } = this.draft();
-        if (!confirm(`Cancel ${name}? This removes the draft for everyone and can't be undone.`)) {
-          return;
-        }
+        const goAhead = await this.questions.ask(
+          {
+            question: `Cancel ${name}?`,
+            detail: "This removes the draft for everyone and can't be undone.",
+            action: 'Cancel draft',
+            dismiss: 'Keep draft',
+          },
+          this.injector,
+        );
+        if (!goAhead) return;
         this.lobbyError.set(null);
         try {
           await firstValueFrom(this.http.delete<void>(`/api/drafts/${id}`));

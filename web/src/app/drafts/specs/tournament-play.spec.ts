@@ -1,3 +1,4 @@
+import { answer, openDialog, pressEscape, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alertIn,
@@ -55,13 +56,12 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it('reports a match you won, once you confirm, then moves on to your next match', async () => {
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const { fixture, page, tab } = await openPlaying(playing());
 
       button(region(tab, 'Your match')!, 'Won 2–1')!.click();
-      expect(confirm).toHaveBeenCalledWith(
-        'Report that you won 2–1 against Bob? Only an organizer can change a reported match.',
-      );
+      const dialog = await question('Report that you won 2–1 against Bob?');
+      expect(dialog.textContent).toContain('Only an organizer can change a reported match.');
+      await answer(dialog, 'Report');
       const after = playing([reported(openMatch('m2', alice.id, bob.id), [2, 1], alice.id)]);
       const req = await answerChange(
         fixture,
@@ -77,12 +77,12 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it('sends a loss in the match’s player order when you are its second player', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const m2 = reported(openMatch('m2', alice.id, bob.id), [2, 0]);
       const { fixture, tab } = await openPlaying(playing([m2]));
       expect(text(region(tab, 'Your match'))).toContain('against Carol');
 
       button(region(tab, 'Your match')!, 'Lost 1–2')!.click();
+      await answer(await question('Report that you lost 1–2 against Carol?'), 'Report');
       const req = await answerChange(
         fixture,
         '/api/drafts/draft-1/tournament/matches/m3/report',
@@ -95,12 +95,16 @@ describe('Play tab while the tournament is played', () => {
       expect(req.request.body).toEqual({ games: [2, 1] });
     });
 
-    it('sends nothing when you don’t confirm the report', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
+    it('sends nothing when you think better of the report', async () => {
       const { fixture, tab } = await openPlaying(playing());
+      const opener = button(region(tab, 'Your match')!, 'Won 2–0')!;
+      opener.focus();
+      opener.click();
 
-      button(region(tab, 'Your match')!, 'Won 2–0')!.click();
+      await answer(await question('Report that you won 2–0 against Bob?'), 'Cancel');
       await fixture.whenStable();
+
+      expect(document.activeElement).toBe(opener);
 
       http.expectNone('/api/drafts/draft-1/tournament/matches/m2/report');
     });
@@ -116,10 +120,10 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it('says why a report was refused', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const { fixture, page, tab } = await openPlaying(playing());
 
       button(region(tab, 'Your match')!, 'Won 2–0')!.click();
+      await answer(await question('Report that you won 2–0 against Bob?'), 'Report');
       (
         await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/matches/m2/report'))
       ).flush(
@@ -295,16 +299,15 @@ describe('Play tab while the tournament is played', () => {
   });
 
   describe('organizer controls', () => {
-    it('lets an organizer start the tournament once they confirm', async () => {
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('lets an organizer start the tournament once they go ahead', async () => {
       const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
         powers: ORGANIZE_ONLY,
       });
 
       button(tab, 'Start tournament')!.click();
-      expect(confirm).toHaveBeenCalledWith(
-        'Start the tournament? Joining closes, and every match opens.',
-      );
+      const dialog = await question('Start the tournament?');
+      expect(dialog.textContent).toContain('Joining closes, and every match opens.');
+      await answer(dialog, 'Start');
       await answerChange(
         fixture,
         '/api/drafts/draft-1/tournament/start',
@@ -319,6 +322,23 @@ describe('Play tab while the tournament is played', () => {
       expect(button(panel(page), 'Start tournament')).toBeUndefined();
     });
 
+    it('starts nothing when the organizer presses Escape at the question', async () => {
+      const { fixture, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+        powers: ORGANIZE_ONLY,
+      });
+      const opener = button(tab, 'Start tournament')!;
+      opener.focus();
+      opener.click();
+
+      await question('Start the tournament?');
+      pressEscape();
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      await fixture.whenStable();
+
+      http.expectNone('/api/drafts/draft-1/tournament/start');
+      expect(document.activeElement).toBe(opener);
+    });
+
     it('offers Start only once two players have joined', async () => {
       const { tab } = await openPlaying(registration(alice.id), { powers: ORGANIZE_ONLY });
 
@@ -331,14 +351,15 @@ describe('Play tab while the tournament is played', () => {
       expect(button(tab, 'Start tournament')).toBeUndefined();
     });
 
-    it('lets an organizer complete the tournament once they confirm, showing the trophy holder', async () => {
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('lets an organizer complete the tournament once they go ahead, showing the trophy holder', async () => {
       const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
       button(tab, 'Complete tournament')!.click();
-      expect(confirm).toHaveBeenCalledWith(
-        'Complete the tournament? Its unreported matches become granted draws, and the trophy is awarded.',
+      const dialog = await question('Complete the tournament?');
+      expect(dialog.textContent).toContain(
+        'Its unreported matches become granted draws, and the trophy is awarded.',
       );
+      await answer(dialog, 'Complete tournament');
       await answerChange(
         fixture,
         '/api/drafts/draft-1/tournament/complete',
@@ -352,6 +373,17 @@ describe('Play tab while the tournament is played', () => {
       expect(items(panel(page), 'Trophy holders')).toEqual(['Carol']);
       expect(button(panel(page), 'Complete tournament')).toBeUndefined();
       expect(region(panel(page), 'Your match')).toBeNull();
+    });
+
+    it('keeps the tournament playing when the organizer thinks better of completing it', async () => {
+      const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+      button(tab, 'Complete tournament')!.click();
+      await answer(await question('Complete the tournament?'), 'Cancel');
+      await fixture.whenStable();
+
+      http.expectNone('/api/drafts/draft-1/tournament/complete');
+      expect(button(tab, 'Complete tournament')).toBeDefined();
     });
 
     it('shows every player who shares first as a trophy holder', async () => {
