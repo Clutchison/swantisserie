@@ -548,9 +548,9 @@ _Avoid_: Strength of schedule, SOS, opponent win rate
 In Swiss, the tiebreaker after game-win %: the average game-win % of the players someone has met, each never below 33%. Byes are left out. Abbreviated OGW %.
 _Avoid_: Opponent game rate, game strength of schedule
 
-**Tournament tab**:
+**Play tab**:
 The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.
-_Avoid_: Games tab, results tab, bracket tab
+_Avoid_: Tournament tab, games tab, results tab, bracket tab
 
 **Leaderboard**:
 A guild's players ranked by their trophies, then matches won, with each player's tournaments played, their match and game records, and their head-to-head record against each opponent, across all its complete tournaments. Records count played matches only: forfeits, granted draws, granted wins and byes are left out, and every format counts the same. A player appears once they have a played match, under their current name; bots never do. A cancelled tournament counts nowhere, and neither does a tournament any bot played in.
