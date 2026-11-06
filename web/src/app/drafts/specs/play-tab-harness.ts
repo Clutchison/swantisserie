@@ -26,6 +26,7 @@ import {
   draft,
   drafting,
   flushPicks,
+  findNamedList,
   flushQueueAndPlan,
   http,
   namedList,
@@ -39,7 +40,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { byAriaLabel, openDialog, table, tableColumns, tableRows } from '../../specs-harness';
+import { openDialog, table, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -512,7 +513,7 @@ export const joinedNames = (root: HTMLElement) => itemTexts(namedList(root, 'Joi
 export const playerLines = (root: HTMLElement) => itemTexts(namedList(root, 'Players'));
 
 /** The tournament's state list inside `root`, by its name; null if there is none. */
-const stateList = (root: HTMLElement) => byAriaLabel(root, 'ol', 'Tournament state');
+const stateList = (root: HTMLElement) => findNamedList(root, 'Tournament state');
 
 /**
  * Each step of the tournament's state list inside `root` as it reads, its

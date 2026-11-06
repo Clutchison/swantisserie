@@ -28,9 +28,9 @@ import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
-import { alice, button, buttons, byAriaLabel, text } from '../../specs-harness';
+import { alice, button, buttons, byAriaLabel, table, tableRows, text } from '../../specs-harness';
 
-export { alice, button, buttons, text };
+export { alice, button, buttons, table, tableRows, text };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -456,9 +456,12 @@ export const statusTexts = (root: HTMLElement) =>
     (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
   );
 
-/** A list inside `root`, by its accessible name, such as "Pick log" or "Your picks". */
-export const namedList = (root: HTMLElement, name: string) =>
-  byAriaLabel(root, 'ul, ol, [role="list"]', name)!;
+/** A list inside `root`, by its accessible name, such as "Pick log"; null if there is none. */
+export const findNamedList = (root: HTMLElement, name: string) =>
+  byAriaLabel(root, 'ul, ol, [role="list"]', name);
+
+/** A list inside `root` that is there, by its accessible name, such as "Pick log" or "Your picks". */
+export const namedList = (root: HTMLElement, name: string) => findNamedList(root, name)!;
 
 /** Each item's text in the list inside `root` named `name`, in order. */
 export const items = (root: HTMLElement, name: string) =>
@@ -474,8 +477,7 @@ export const cardName = (root: HTMLElement, name: string) =>
   cardNames(root).find((span) => span.textContent?.trim() === name)!;
 
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
-export const queueList = (root: HTMLElement) =>
-  root.querySelector<HTMLElement>('[aria-label="Your queue"]')!;
+export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
 
 /** The picks left count inside `root`, such as beside a panel's heading, found by its text. */
 export const picksLeftCount = (root: HTMLElement) =>

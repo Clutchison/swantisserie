@@ -8,11 +8,11 @@ import {
   controlByLabel,
   controlsByLabel,
   group,
-  namedList,
   useDraftsApp,
 } from './harness';
 import {
   carol,
+  joinedNames,
   openCompleteRound,
   openMatch,
   openPlaying,
@@ -39,7 +39,7 @@ describe('bots on the Play tab', () => {
   it('lists a bot as joined in registration, with no Remove', async () => {
     const { tab } = await openWithBot(registration(carol.id, bob.id));
 
-    expect(namedList(tab, 'Joined players').textContent).toContain('Bot 1');
+    expect(joinedNames(tab)).toContain('Bot 1');
     expect(button(tab, 'Remove Bob')).toBeDefined();
     expect(button(tab, 'Remove Bot 1')).toBeUndefined();
   });

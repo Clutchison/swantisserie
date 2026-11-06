@@ -1,5 +1,5 @@
 import { answer, question } from '../../specs-harness';
-import { ORGANIZE_ONLY, bob, button, http, namedList, panel, useDraftsApp } from './harness';
+import { ORGANIZE_ONLY, bob, button, findNamedList, http, panel, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
@@ -39,7 +39,7 @@ describe('reopening a tournament round', () => {
 
     expect(req.request.body).toBeNull();
     expect(button(panel(page), 'Correct Carol vs Bob')).toBeDefined();
-    expect(namedList(panel(page), 'Tournament round 2')).toBeNull();
+    expect(findNamedList(panel(page), 'Tournament round 2')).toBeNull();
   });
 
   it('lists the players whose drops it takes back', async () => {

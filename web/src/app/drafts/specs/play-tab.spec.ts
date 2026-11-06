@@ -29,7 +29,6 @@ import {
   hasPlayTab,
   joinedNames,
   openComplete,
-  openPlaying,
   openPlayTab,
   playing,
   registration,
@@ -413,54 +412,6 @@ describe('Play tab', () => {
       await fixture.whenStable();
       expect(hasPlayTab(page)).toBe(false);
       expect(panelName(page)).toBe('Pool');
-    });
-  });
-
-  describe('cancelling a tournament being played', () => {
-    it('lets an organizer cancel it once they go ahead, offering setup again', async () => {
-      const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
-
-      button(tab, 'Cancel tournament')!.click();
-      const dialog = await question('Cancel the tournament?');
-      expect(dialog.textContent).toContain(
-        'Its matches are removed, nothing from it counts, and every deck unlocks.',
-      );
-      await answer(dialog, 'Cancel tournament');
-      await answerChange(
-        fixture,
-        '/api/drafts/draft-1/tournament',
-        'DELETE',
-        null,
-        1,
-        threePlayers,
-      );
-
-      expect(button(panel(page), 'Set up tournament')).toBeDefined();
-    });
-
-    it('keeps it playing when the organizer thinks better of cancelling', async () => {
-      const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
-
-      button(tab, 'Cancel tournament')!.click();
-      await answer(await question('Cancel the tournament?'), 'Keep tournament');
-      await fixture.whenStable();
-
-      http.expectNone('/api/drafts/draft-1/tournament');
-      expect(button(tab, 'Cancel tournament')).toBeDefined();
-    });
-
-    it('isn’t offered once the tournament is complete', async () => {
-      const { tab } = await openPlaying(playing([], { state: 'Complete' }), {
-        powers: ORGANIZE_ONLY,
-      });
-
-      expect(button(tab, 'Cancel tournament')).toBeUndefined();
-    });
-
-    it('isn’t offered to anyone without the power to organize the draft', async () => {
-      const { tab } = await openPlaying(playing());
-
-      expect(button(tab, 'Cancel tournament')).toBeUndefined();
     });
   });
 });

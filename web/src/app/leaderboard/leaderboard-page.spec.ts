@@ -1,11 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import type { LeaderboardView } from 'contract';
-import { alice, button, http, openApp, router, table, tableRows, useApp } from '../specs-harness';
+import { alice, button, http, openApp, router, useApp } from '../specs-harness';
 import {
   banner,
   expectLoadingAnimation,
   heading,
   loadingAnimation,
+  table,
+  tableRows,
   text,
 } from '../drafts/specs/harness';
 import { link } from '../feedback/specs-harness';
