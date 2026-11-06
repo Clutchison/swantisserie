@@ -1,5 +1,18 @@
+import type { TournamentRefusal } from './draft-errors.js';
+import type { PlanBoards } from './plan.js';
+
 /** How a tournament pairs its players, chosen once at tournament setup. */
 export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
+
+/**
+ * Each tournament format's name as it reads mid-sentence, such as "a
+ * round robin tournament", in the order tournament setup offers them.
+ */
+export const TOURNAMENT_FORMAT_NAMES: Record<TournamentFormat, string> = {
+  RoundRobin: 'round robin',
+  Swiss: 'Swiss',
+  SingleElimination: 'single elimination',
+};
 
 /**
  * The Swiss round options tournament setup offers, in the order it offers
@@ -172,6 +185,13 @@ export interface TournamentView {
   format: TournamentFormat;
   /** A Swiss tournament's round option; null in other formats. */
   swissRoundOption: SwissRoundOption | null;
+  /** Whether it has public decklists, chosen at tournament setup. */
+  publicDecklists: boolean;
+  /**
+   * Whether everyone who sees the draft may read its decklists now: under
+   * public decklists, once it is playing, and still once it is complete.
+   */
+  showsDecklists: boolean;
   state: TournamentState;
   /** How many tournament rounds it will have, for the players joined so far during registration. */
   roundCount: number;
@@ -227,6 +247,37 @@ export interface TournamentView {
    * is left, as when both finalists dropped.
    */
   trophyHolders: string[];
+}
+
+/**
+ * What the draft list shows of a complete draft's tournament, for the
+ * signed-in viewer: its tournament badge.
+ */
+export interface TournamentBadgeView {
+  state: TournamentState;
+  /**
+   * Whether the viewer may join it now, as joining would let them: during
+   * registration, one of the draft's human players who hasn't joined and
+   * whose mainboard holds at least MIN_MAINBOARD_CARDS.
+   */
+  canJoin: boolean;
+  /** The trophy holders' Discord user ids, each a `PlayerView.id`; empty until it is complete. */
+  trophyHolders: string[];
+}
+
+/**
+ * The tournament as the signed-in viewer reads it: everyone's view, with
+ * whether they may join it now, as joining decides (ADR 0003).
+ */
+export interface ViewerTournamentView extends TournamentView {
+  /** Whether the viewer may join now: during registration, one of the draft's players whom joining would let in. */
+  canJoin: boolean;
+  /**
+   * Why joining would refuse the viewer, one of the draft's players,
+   * during registration, such as a deck too small; null when it wouldn't,
+   * outside registration, and for anyone who isn't one of the draft's players.
+   */
+  joinRefusal: TournamentRefusal | null;
 }
 
 /**
@@ -324,11 +375,26 @@ export interface ClearedMatchView extends RoundAndBracketPlace {
   players: string[];
 }
 
-/** Tournament setup, as the organizer chooses it: all at once, never changed. */
-export type TournamentSetupRequest =
+/**
+ * Tournament setup, as the organizer chooses it: all at once, never
+ * changed. Without `publicDecklists` it has none.
+ */
+export type TournamentSetupRequest = (
   | { format: 'RoundRobin' }
   | { format: 'Swiss'; swissRoundOption: SwissRoundOption }
-  | { format: 'SingleElimination' };
+  | { format: 'SingleElimination' }
+) & { publicDecklists?: boolean };
+
+/**
+ * A joined player's locked deck as others see it under public decklists,
+ * as it was when the tournament started. From
+ * `GET /api/drafts/:id/tournament/decklists`, which serves one per joined
+ * player, in join order, once `TournamentView.showsDecklists`.
+ */
+export interface DecklistView extends PlanBoards {
+  /** The player's Discord user id: a `PlayerView.id`. */
+  playerId: string;
+}
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
 export const MIN_MAINBOARD_CARDS = 40;

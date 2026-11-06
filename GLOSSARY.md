@@ -449,11 +449,11 @@ A tournament setting under which every joined player's locked deck can be seen b
 _Avoid_: Open decklists, open decks, shared decks
 
 **Decklist**:
-A joined player's locked deck as others see it under public decklists.
+A joined player's deck as others see it under public decklists: as it was locked when the tournament started.
 _Avoid_: Deck (that is the player's own), list
 
 **Decklists tab**:
-The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing.
+The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete.
 _Avoid_: Decks tab, lists tab
 
 **Match**:
@@ -530,7 +530,7 @@ _Avoid_: Score (that is a match's game score), win–loss
 
 **Head-to-head**:
 In round robin, the tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
-_Avoid_: Direct encounter, mutual result
+_Avoid_: Direct encounter, mutual result, head-to-head for a leaderboard record (that is a head-to-head record)
 
 **Game-win %**:
 In round robin, the share of the games a player played in their matches that they won: the tiebreaker after head-to-head. In Swiss, the MTR's: game points (3 a game won, 1 a game drawn) over 3 per game played, never below 33%: the tiebreaker after opponents' match-win %.
@@ -553,12 +553,28 @@ The part of a complete draft's page where organizers set up its tournament, play
 _Avoid_: Games tab, results tab, bracket tab
 
 **Leaderboard**:
-A guild's players ranked by their trophies, with each player's match and game records, overall and against each opponent, across all its tournaments.
+A guild's players ranked by their trophies, then matches won, with each player's tournaments played, their match and game records, and their head-to-head record against each opponent, across all its complete tournaments. Records count played matches only: forfeits, granted draws, granted wins and byes are left out, and every format counts the same. A player appears once they have a played match, under their current name; bots never do. A cancelled tournament counts nowhere.
 _Avoid_: Standings (that is one tournament's), stats page, rankings, player profile
+
+**Played match**:
+A tournament match decided by a game score its players played. Forfeits, granted draws, granted wins and byes are not played matches.
+_Avoid_: Real match, counted match
+
+**Tournaments played**:
+On the leaderboard, how many complete tournaments a player joined.
+_Avoid_: Events, entries
+
+**Head-to-head record**:
+On the leaderboard, a player's match and game records against one opponent, from their played matches across complete tournaments.
+_Avoid_: Head-to-head (alone; that is round robin's tiebreaker), matchup, rivalry
 
 **Trophy**:
 One tournament won by a player. A complete tournament's trophy goes to everyone who shares first in its standings; in single elimination, to the player who advances from the final, or to the one player left in the bracket if it completed before the final. When nobody is left, as when both finalists drop, the tournament completes with no trophy holder.
 _Avoid_: Win (alone; that is a match), title, championship
+
+**Tournament badge**:
+What the draft list shows of a complete draft's tournament: Registration, with Join for the draft's players who can join it; Playing; or, once complete, its trophy holders, or just that it is complete when nobody holds the trophy. A draft without a tournament has none.
+_Avoid_: Tournament status, tournament tag, label
 
 ## Discord
 
@@ -599,7 +615,7 @@ Describes a draft channel moved to its guild's archive category because its draf
 _Avoid_: Muted, hidden, closed (that is the draft)
 
 **Announcement**:
-A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. An announcement too long for one Discord post goes out as several posts in a row, each breaking between lines, and only the last names who is up. An announcement links to the draft exactly when it names someone as up. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them: that announcement names them as up without pinging them.
+A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete; or that its tournament is in registration, has started, has completed a tournament round, or is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. An announcement too long for one Discord post goes out as several posts in a row, and only the last names who is up. A draft announcement links to the draft exactly when it names someone as up. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them. A tournament announcement pings the draft's players when it is in registration, and each player with a match in a new tournament round.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)
 
 ## Feedback

@@ -2,13 +2,15 @@ import type {
   BracketPlaceView,
   BracketRoundView,
   BracketSideView,
+  DecklistView,
   DraftPowersView,
   MatchView,
   PlanView,
   PlayerView,
+  PoolCardView,
   StandingView,
   TournamentRoundView,
-  TournamentView,
+  ViewerTournamentView,
   UserView,
 } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
@@ -32,6 +34,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
+import { table, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -48,10 +51,25 @@ export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
 /** Carol signed in, a player of the draft. */
 export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
 
-/** A round robin tournament in registration, joined by the players with these ids in order. */
-export const registration = (...playerIds: string[]): TournamentView => ({
+/**
+ * A round robin tournament in registration, joined by the players with
+ * these ids in order, as Alice, the default viewer, reads it: she may join
+ * until she has.
+ */
+export const registration = (...playerIds: string[]): ViewerTournamentView => ({
+  ...(playerIds.includes(alice.id)
+    ? {
+        canJoin: false,
+        joinRefusal: {
+          error: 'already-joined',
+          message: 'You have already joined this tournament.',
+        },
+      }
+    : { canJoin: true, joinRefusal: null }),
   format: 'RoundRobin',
   swissRoundOption: null,
+  publicDecklists: false,
+  showsDecklists: false,
   state: 'Registration',
   roundCount: playerIds.length < 2 ? 0 : playerIds.length - 1 + (playerIds.length % 2),
   lastCompletedRound: 0,
@@ -108,13 +126,15 @@ export const standing = (
  */
 export function playing(
   matches: MatchView[] = [],
-  fields: Partial<TournamentView> = {},
-): TournamentView {
+  fields: Partial<ViewerTournamentView> = {},
+): ViewerTournamentView {
   const match = (id: string, a: string, b: string) =>
     matches.find((m) => m.id === id) ?? openMatch(id, a, b);
   return {
     format: 'RoundRobin',
     swissRoundOption: null,
+    publicDecklists: false,
+    showsDecklists: false,
     state: 'Playing',
     roundCount: 3,
     lastCompletedRound: 0,
@@ -134,6 +154,8 @@ export function playing(
     previewsCorrections: false,
     completeRoundGrants: null,
     clearReopensRound: false,
+    canJoin: false,
+    joinRefusal: null,
     ...fields,
   };
 }
@@ -144,10 +166,12 @@ export function playing(
  * beaten Bob 2–0 (m1) while Alice had a bye; in round 2 Alice plays Carol
  * (m2) while Bob has a bye. `fields` changes any of it.
  */
-export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentView {
+export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): ViewerTournamentView {
   return {
     format: 'Swiss',
     swissRoundOption: 'UntilWinner',
+    publicDecklists: false,
+    showsDecklists: false,
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
@@ -174,6 +198,8 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
     previewsCorrections: false,
     completeRoundGrants: 'GrantedDraws',
     clearReopensRound: false,
+    canJoin: false,
+    joinRefusal: null,
     ...fields,
   };
 }
@@ -210,10 +236,14 @@ export const firstBracketRound = (winner: string | null = null): BracketRoundVie
  * seed, has a bye at bracket place 0, and Bob plays Carol (m1) at bracket
  * place 1; the final waits for its winner. `fields` changes any of it.
  */
-export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): TournamentView {
+export function singleEliminationPlaying(
+  fields: Partial<ViewerTournamentView> = {},
+): ViewerTournamentView {
   return {
     format: 'SingleElimination',
     swissRoundOption: null,
+    publicDecklists: false,
+    showsDecklists: false,
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 0,
@@ -238,6 +268,8 @@ export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): 
     previewsCorrections: true,
     completeRoundGrants: 'GrantedWins',
     clearReopensRound: true,
+    canJoin: false,
+    joinRefusal: null,
     ...fields,
   };
 }
@@ -286,7 +318,10 @@ export const forfeited = (match: MatchView, forfeitedBy: string): MatchView => (
  * The tournament of Alice, Bob and Carol being played, the players with
  * these ids dropped and `matches` replacing any of its matches by id.
  */
-export const withDrops = (droppedIds: string[], matches: MatchView[] = []): TournamentView => {
+export const withDrops = (
+  droppedIds: string[],
+  matches: MatchView[] = [],
+): ViewerTournamentView => {
   const tournament = playing(matches);
   return {
     ...tournament,
@@ -302,7 +337,7 @@ export const threePlayers: DraftFixture = { players: [alicePlayer, bob, carol] }
 
 /** The complete draft as it is with `tournament` set up, or with none. */
 export const withTournament = (
-  tournament: TournamentView | null,
+  tournament: ViewerTournamentView | null,
   fields: DraftFixture = {},
 ): DraftFixture => ({
   ...complete,
@@ -311,30 +346,44 @@ export const withTournament = (
 });
 
 /** Answers the page's GET of draft-1's tournament with `tournament`. */
-export async function flushTournament(tournament: TournamentView) {
+export async function flushTournament(tournament: ViewerTournamentView) {
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(tournament);
 }
 
 /**
  * Opens the complete draft's page with `tournament` set up, or none, signed
  * in as `user` (Alice, a player, unless told otherwise) with `powers`, and
- * answers its reads, `plan` the signed-in player's, the draft's `fields`
- * changed.
+ * answers its reads, `cards` its pool's, `plan` the signed-in player's,
+ * `decklists` the tournament's, the draft's `fields` changed, at `url`.
  */
 export async function openComplete(
-  tournament: TournamentView | null,
+  tournament: ViewerTournamentView | null,
   {
     powers,
     user = alice,
+    cards,
     plan = EMPTY_PLAN,
+    decklists,
     fields = {},
-  }: { powers?: DraftPowersView; user?: UserView; plan?: PlanView; fields?: DraftFixture } = {},
+    url,
+  }: {
+    powers?: DraftPowersView;
+    user?: UserView;
+    cards?: PoolCardView[];
+    plan?: PlanView;
+    decklists?: DecklistView[];
+    fields?: DraftFixture;
+    url?: string;
+  } = {},
 ) {
   return openDraft(completeSnapshot, withTournament(tournament, fields), {
     powers,
     user,
+    cards,
     plan,
     tournament: tournament ?? undefined,
+    decklists,
+    url,
   });
 }
 
@@ -344,7 +393,7 @@ export const openTournament = (fixture: AppFixture, page: HTMLElement) =>
 
 /** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
 export async function openPlaying(
-  tournament: TournamentView,
+  tournament: ViewerTournamentView,
   options: Parameters<typeof openComplete>[1] = {},
 ) {
   const opened = await openComplete(tournament, { fields: threePlayers, ...options });
@@ -352,17 +401,14 @@ export async function openPlaying(
   return { ...opened, tab };
 }
 
+/** The standings table inside `root`. */
+const standingsTable = (root: HTMLElement) => table(root, 'Standings')!;
+
 /** The standings' column headers inside `root`, each spelled out where it is abbreviated. */
-export const standingsColumns = (root: HTMLElement) =>
-  [...namedList(root, 'Standings').querySelectorAll('thead th')].map(
-    (header) => header.querySelector('abbr')?.title ?? text(header),
-  );
+export const standingsColumns = (root: HTMLElement) => tableColumns(standingsTable(root));
 
 /** Each row of the standings inside `root`, best first, as its cells' text. */
-export const standingsRows = (root: HTMLElement) =>
-  [...namedList(root, 'Standings').querySelectorAll<HTMLTableRowElement>('tbody tr')].map((row) =>
-    [...row.cells].map((cell) => text(cell)),
-  );
+export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(root));
 
 /** The names of the lists of matches by tournament round inside `root`, in page order. */
 export const roundLabels = (root: HTMLElement) =>
@@ -403,7 +449,7 @@ export async function answerChange(
   fixture: AppFixture,
   url: string,
   method: string,
-  tournament: TournamentView | null,
+  tournament: ViewerTournamentView | null,
   version = 1,
   fields: DraftFixture = {},
 ) {

@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
-  MIN_MAINBOARD_CARDS,
   type CompleteRoundRequest,
   type GameScore,
   type CorrectionPreview,
   type TournamentRefusal,
   type TournamentSetupRequest,
-  type TournamentView,
+  type ViewerTournamentView,
 } from 'contract';
 import { MIN_PLAYERS_LEFT, reportProblem, roundRobinSchedule } from 'engine';
 import type {
@@ -17,13 +16,16 @@ import type {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
+import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
+import { snapshotDecklists } from './decklists.service.js';
 import { SINGLE_ELIMINATION_CHANGES } from './bracket-changes.js';
 import {
   DEFAULT_CHANGE_STEPS,
   type ChangeSteps,
   type MatchChange,
 } from './change-steps.js';
+import { joinRefusal, viewerJoin, WOULD_BE_ENTRANT } from './join-rules.js';
 import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
@@ -32,6 +34,11 @@ import {
   ENTRY_OF_MATCH,
   forfeitUnplayed,
 } from './tournament-matches.js';
+import {
+  tournamentSetUp,
+  roundCompletedOrTournamentCompleted,
+  tournamentStarted,
+} from './tournament-events.js';
 import {
   NoMatchError,
   NoTournamentError,
@@ -72,23 +79,39 @@ export class TournamentsService {
     private readonly lock: DraftLock,
   ) {}
 
-  /** The draft's tournament. Throws NoTournamentError if it has none. */
-  async read(draftId: string): Promise<TournamentView> {
+  /**
+   * The draft's tournament as the user `viewerId` reads it, with whether
+   * they may join it now. Throws NoTournamentError if it has none.
+   */
+  async read(draftId: string, viewerId: string): Promise<ViewerTournamentView> {
     const tournament = await this.prisma.tournament.findUnique({
       where: { draftId },
-      select: TOURNAMENT_VIEW,
+      select: {
+        ...TOURNAMENT_VIEW,
+        draft: {
+          select: {
+            players: { where: { userId: viewerId }, select: WOULD_BE_ENTRANT },
+          },
+        },
+      },
     });
     if (!tournament) throw new NoTournamentError();
-    return toTournamentView(tournament);
+    return {
+      ...toTournamentView(tournament),
+      ...viewerJoin(tournament.state, tournament.draft.players[0]),
+    };
   }
 
   /**
-   * Sets up the draft's tournament as `setup` chooses, in registration.
-   * Throws TournamentRefusedError unless the draft is complete and has none
-   * yet.
+   * Sets up the draft's tournament as `setup` chooses, in registration,
+   * returning its announcement. Throws TournamentRefusedError unless the
+   * draft is complete and has none yet.
    */
-  async setUp(draftId: string, setup: TournamentSetupRequest): Promise<void> {
-    await this.lock.whileIn(
+  async setUp(
+    draftId: string,
+    setup: TournamentSetupRequest,
+  ): Promise<DraftEvent[]> {
+    return this.lock.whileIn(
       draftId,
       ['Complete'],
       () =>
@@ -113,8 +136,10 @@ export class TournamentsService {
             format: setup.format,
             swissRoundOption:
               setup.format === 'Swiss' ? setup.swissRoundOption : null,
+            publicDecklists: setup.publicDecklists,
           },
         });
+        return [await tournamentSetUp(tx, draftId, setup.format)];
       },
     );
   }
@@ -130,32 +155,11 @@ export class TournamentsService {
     await this.inRegistration(draftId, async (tx, tournament) => {
       const player = await tx.player.findUnique({
         where: { draftId_userId: { draftId, userId } },
-        select: {
-          id: true,
-          user: { select: { isBot: true } },
-          tournamentEntry: { select: { id: true } },
-        },
+        select: { id: true, ...WOULD_BE_ENTRANT },
       });
       if (!player) throw new NotAPlayerError('tournaments');
-      if (player.user.isBot) {
-        throw new TournamentRefusedError({
-          error: 'bots-cannot-join',
-          message: 'Bots never play in tournaments.',
-        });
-      }
-      if (player.tournamentEntry) {
-        throw new TournamentRefusedError({
-          error: 'already-joined',
-          message: 'You have already joined this tournament.',
-        });
-      }
-      const cards = await mainboardSize(tx, player.id);
-      if (cards < MIN_MAINBOARD_CARDS) {
-        throw new TournamentRefusedError({
-          error: 'deck-too-small',
-          message: `Your mainboard holds ${cards} ${cards === 1 ? 'card' : 'cards'}. A tournament deck needs at least ${MIN_MAINBOARD_CARDS}.`,
-        });
-      }
+      const refusal = joinRefusal(player);
+      if (refusal) throw new TournamentRefusedError(refusal);
       await tx.tournamentEntry.create({
         data: { tournamentId: tournament.id, playerId: player.id },
       });
@@ -327,10 +331,10 @@ export class TournamentsService {
    * elimination seeds its entries at random into the bracket and makes its
    * round 1, byes for the top seeds included. Throws
    * TournamentRefusedError if fewer than 2 players have joined, or it is
-   * past registration.
+   * past registration. Returns its announcement.
    */
-  async start(draftId: string): Promise<void> {
-    await this.inRegistration(draftId, async (tx, tournament) => {
+  async start(draftId: string): Promise<DraftEvent[]> {
+    return this.inRegistration(draftId, async (tx, tournament) => {
       const entries = await tx.tournamentEntry.findMany({
         where: { tournamentId: tournament.id },
         orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
@@ -346,6 +350,7 @@ export class TournamentsService {
         where: { id: tournament.id },
         data: { state: 'Playing', startedAt: new Date() },
       });
+      await snapshotDecklists(tx, tournament.id);
       const steps = ROUND_STEPS[tournament.format];
       if (steps) {
         await steps.start(
@@ -353,14 +358,15 @@ export class TournamentsService {
           tournament.id,
           entries.map((entry) => entry.id),
         );
-        return;
+      } else {
+        const schedule = roundRobinSchedule(entries.map((entry) => entry.id));
+        await createRounds(
+          tx,
+          tournament.id,
+          schedule.map((scheduled, i) => ({ round: i + 1, ...scheduled })),
+        );
       }
-      const schedule = roundRobinSchedule(entries.map((entry) => entry.id));
-      await createRounds(
-        tx,
-        tournament.id,
-        schedule.map((scheduled, i) => ({ round: i + 1, ...scheduled })),
-      );
+      return [await tournamentStarted(tx, draftId, tournament.id)];
     });
   }
 
@@ -426,10 +432,11 @@ export class TournamentsService {
    * Completes the draft's round robin tournament: every unreported match
    * becomes a granted draw, and every deck unlocks. Throws
    * TournamentRefusedError if it isn't playing, or plays one tournament
-   * round at a time, completing with its final one.
+   * round at a time, completing with its final one. Returns its
+   * announcement.
    */
-  async complete(draftId: string): Promise<void> {
-    await this.inPlay(draftId, async (tx, tournament) => {
+  async complete(draftId: string): Promise<DraftEvent[]> {
+    return this.inPlay(draftId, async (tx, tournament) => {
       if (tournament.format !== 'RoundRobin') {
         throw new TournamentRefusedError({
           error: 'wrong-format',
@@ -449,6 +456,9 @@ export class TournamentsService {
         where: { id: tournament.id },
         data: { state: 'Complete' },
       });
+      return [
+        await roundCompletedOrTournamentCompleted(tx, draftId, tournament.id),
+      ];
     });
   }
 
@@ -464,13 +474,14 @@ export class TournamentsService {
    * completed. Throws as the format's round steps do, and
    * TournamentRefusedError if the tournament isn't playing, the round has
    * an unreported match, or it is round robin, which plays every round at
-   * once.
+   * once. Returns its announcement: the next tournament round's pairings,
+   * or the tournament ending.
    */
   async completeRound(
     draftId: string,
     request: Required<CompleteRoundRequest>,
-  ): Promise<void> {
-    await this.inPlay(draftId, async (tx, tournament) => {
+  ): Promise<DraftEvent[]> {
+    return this.inPlay(draftId, async (tx, tournament) => {
       const steps = ROUND_STEPS[tournament.format];
       if (!steps) {
         throw new TournamentRefusedError({
@@ -501,6 +512,9 @@ export class TournamentsService {
         },
       });
       if (!completes) await steps.pairNext(tx, tournament.id, round + 1);
+      return [
+        await roundCompletedOrTournamentCompleted(tx, draftId, tournament.id),
+      ];
     });
   }
 
@@ -581,10 +595,10 @@ export class TournamentsService {
    * registration. Throws NoTournamentError if it has none, and
    * TournamentRefusedError if it is past registration.
    */
-  private inRegistration(
+  private inRegistration<T>(
     draftId: string,
-    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
-  ): Promise<void> {
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<T>,
+  ): Promise<T> {
     return this.whileIn(draftId, 'Registration', change, {
       error: 'not-in-registration',
       message: 'This tournament has started.',
@@ -596,10 +610,10 @@ export class TournamentsService {
    * playing. Throws NoTournamentError if it has none, and
    * TournamentRefusedError if it isn't playing.
    */
-  private inPlay(
+  private inPlay<T>(
     draftId: string,
-    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
-  ): Promise<void> {
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<T>,
+  ): Promise<T> {
     return this.whileIn(draftId, 'Playing', change, {
       error: 'not-playing',
       message: 'This tournament isn’t being played.',
@@ -611,17 +625,17 @@ export class TournamentsService {
    * `state`. Throws NoTournamentError if it has none, and
    * TournamentRefusedError with `refusal` if it is in another state.
    */
-  private whileIn(
+  private whileIn<T>(
     draftId: string,
     state: TournamentState,
-    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<T>,
     refusal: TournamentRefusal,
-  ): Promise<void> {
+  ): Promise<T> {
     return this.withTournament(draftId, async (tx, tournament) => {
       if (tournament.state !== state) {
         throw new TournamentRefusedError(refusal);
       }
-      await change(tx, tournament);
+      return change(tx, tournament);
     });
   }
 
@@ -629,18 +643,18 @@ export class TournamentsService {
    * Runs `change` with the draft's row locked, whatever state its
    * tournament is in. Throws NoTournamentError if it has none.
    */
-  private async withTournament(
+  private withTournament<T>(
     draftId: string,
-    change: (tx: Transaction, tournament: LockedTournament) => Promise<void>,
-  ): Promise<void> {
-    await this.lock.run(draftId, async (draft) => {
+    change: (tx: Transaction, tournament: LockedTournament) => Promise<T>,
+  ): Promise<T> {
+    return this.lock.run(draftId, async (draft) => {
       if (!draft) throw new DraftGoneError();
       const tournament = await draft.tx.tournament.findUnique({
         where: { draftId },
         select: LOCKED_TOURNAMENT,
       });
       if (!tournament) throw new NoTournamentError();
-      await change(draft.tx, tournament);
+      return change(draft.tx, tournament);
     });
   }
 }
@@ -787,21 +801,6 @@ async function findMatch(
     players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
     dropped: [match.firstEntry.dropped, !!match.secondEntry?.dropped],
   };
-}
-
-/** How many cards the player's mainboard holds: its cards plus its basic lands. */
-async function mainboardSize(
-  tx: Transaction,
-  playerId: string,
-): Promise<number> {
-  const cards = await tx.plannedCard.count({
-    where: { playerId, board: 'Mainboard' },
-  });
-  const basics = await tx.plannedBasic.aggregate({
-    where: { playerId },
-    _sum: { count: true },
-  });
-  return cards + (basics._sum.count ?? 0);
 }
 
 /**

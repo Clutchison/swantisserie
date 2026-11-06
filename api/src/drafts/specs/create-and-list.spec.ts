@@ -45,7 +45,9 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
   };
   expect(created.body).toEqual(draft);
   const list = await listDrafts().expect(200);
-  expect(list.body).toEqual([{ ...draft, id: created.body.id }]);
+  expect(list.body).toEqual([
+    { ...draft, id: created.body.id, tournamentBadge: null },
+  ]);
 });
 
 it('creates a draft on the platform the organizer chose', async () => {

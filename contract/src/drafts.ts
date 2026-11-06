@@ -1,4 +1,7 @@
-import type { TournamentSummaryView } from './tournaments.js';
+import type {
+  TournamentBadgeView,
+  TournamentSummaryView,
+} from './tournaments.js';
 
 /**
  * Lobby → Drafting, or → Paused by a pick import; Drafting ⇄ Paused; Drafting → Complete;
@@ -116,6 +119,15 @@ export type DraftView = DraftBase &
     | { state: TurnState; turn: TurnView }
     | { state: Exclude<DraftState, TurnState>; turn: null }
   );
+
+/**
+ * A draft as the draft list sends it to one viewer, never broadcast: its
+ * tournament badge depends on who is asking (ADR 0003).
+ */
+export type DraftListItemView = DraftView & {
+  /** The draft's tournament badge; null for a draft without a tournament. */
+  tournamentBadge: TournamentBadgeView | null;
+};
 
 /**
  * What the api pushes over Socket.IO to everyone viewing a draft, by event

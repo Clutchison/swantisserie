@@ -1,4 +1,4 @@
-import type { TournamentView } from 'contract';
+import type { ViewerTournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -65,7 +65,11 @@ describe('Swiss tournaments on the Tournament tab', () => {
       swissRegistration,
     );
 
-    expect(req.request.body).toEqual({ format: 'Swiss', swissRoundOption: 'CappedAt3' });
+    expect(req.request.body).toEqual({
+      format: 'Swiss',
+      swissRoundOption: 'CappedAt3',
+      publicDecklists: false,
+    });
   });
 
   it('shows how many tournament rounds it will have', async () => {
@@ -93,7 +97,7 @@ describe('Swiss tournaments on the Tournament tab', () => {
   });
 
   /** Opens the Complete round dialog for an organizer, on `tournament`. */
-  async function openCompleteRound(tournament: TournamentView) {
+  async function openCompleteRound(tournament: ViewerTournamentView) {
     const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
     button(opened.tab, 'Complete round')!.click();
     await opened.fixture.whenStable();

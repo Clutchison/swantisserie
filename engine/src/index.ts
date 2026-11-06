@@ -2,6 +2,7 @@ export * from './card-faces.js';
 export * from './cascade.js';
 export * from './copies.js';
 export * from './draft-size.js';
+export * from './leaderboard.js';
 export * from './pick.js';
 export * from './pick-import.js';
 export * from './plan.js';

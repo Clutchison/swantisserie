@@ -38,6 +38,21 @@
         }
       </fieldset>
     }
+    <fieldset>
+      <legend>Decklists</legend>
+      <label>
+        <input
+          type="checkbox"
+          name="public-decklists"
+          [checked]="publicDecklists()"
+          (change)="publicDecklists.set($any($event.target).checked)"
+        />
+        Public decklists
+      </label>
+      <p class="detail">
+        Once the tournament starts, everyone who sees this draft sees each joined player’s deck.
+      </p>
+    </fieldset>
     <button class="button" type="submit" appSendsChange="set-up">Set up tournament</button>
   </form>
 } @else if (read.missing()) {
@@ -48,6 +63,11 @@
     <p class="detail">
       {{ summary() }}. Joining locks your deck until the tournament is complete or cancelled, or you
       leave it.
+      @if (tournament.publicDecklists) {
+        Public decklists: everyone who sees this draft sees your deck once the tournament starts.
+      } @else {
+        Only you see your deck.
+      }
     </p>
     <h3>Joined players</h3>
     <ul class="entries" aria-label="Joined players">
@@ -73,7 +93,11 @@
     </ul>
     <div class="controls">
       @if (offerJoin()) {
-        <button class="button" type="button" (click)="join()" appSendsChange="join">Join</button>
+        <button class="button" type="button" (click)="join()" appSendsChange="join">
+          {{ tournament.publicDecklists ? 'Join (public decklist)' : 'Join (deck stays private)' }}
+        </button>
+      } @else if (deckTooSmall(); as reason) {
+        <p class="detail">{{ reason }}</p>
       }
       @if (offerLeave()) {
         <button

@@ -2,6 +2,7 @@
   <header role="banner">
     <div class="left-group">
       <app-top-bar-menu #narrowMenu class="narrow-only" accessibleName="Menu">
+        <a class="menu-item" routerLink="/leaderboard">Leaderboard</a>
         <button class="menu-item" type="button" (click)="openFeedback()">Send feedback</button>
         @if (user.isAppAdmin) {
           <div role="group" aria-labelledby="narrow-app-admin-heading">
@@ -15,6 +16,7 @@
         <span class="title">Swantisserie</span>
       </a>
       <div class="wide-only">
+        <a class="button quiet compact" routerLink="/leaderboard">Leaderboard</a>
         @if (user.isAppAdmin) {
           <app-top-bar-menu [label]="appAdminLabel()">
             <ng-container [ngTemplateOutlet]="appAdminItems" />

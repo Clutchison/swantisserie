@@ -1,0 +1,72 @@
+<main>
+  <h1>Leaderboard</h1>
+
+  @if (leaderboard.error()) {
+    <p class="error">Couldn't load the leaderboard. Try reloading the page.</p>
+  } @else if (leaderboard.isLoading() && !leaderboard.hasValue()) {
+    <app-loading-animation size="page">Loading…</app-loading-animation>
+  } @else if (leaderboard.hasValue()) {
+    @if (leaderboard.value().length === 0) {
+      <p class="empty">Nobody has played a tournament match yet.</p>
+    } @else {
+      <p class="hint">Select a player to see their head-to-head records.</p>
+      <div class="scroll">
+        <table aria-label="Leaderboard">
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">Trophies</th>
+              <th scope="col"><abbr title="Tournaments played">Tournaments</abbr></th>
+              <th scope="col"><abbr title="Matches won, lost and drawn">Matches</abbr></th>
+              <th scope="col"><abbr title="Games won, lost and drawn">Games</abbr></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (player of leaderboard.value(); track player.playerId) {
+              <tr>
+                <th scope="row">
+                  <button
+                    class="player"
+                    type="button"
+                    [attr.aria-pressed]="selectedId() === player.playerId"
+                    (click)="toggle(player.playerId)"
+                  >
+                    {{ player.name }}
+                  </button>
+                </th>
+                <td>{{ player.trophies }}</td>
+                <td>{{ player.tournamentsPlayed }}</td>
+                <td>{{ record(player.matches) }}</td>
+                <td>{{ record(player.games) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (selected(); as selected) {
+        <h2>{{ selected.name }}’s head-to-head records</h2>
+        <div class="scroll">
+          <table [attr.aria-label]="'Head-to-head records of ' + selected.name">
+            <thead>
+              <tr>
+                <th scope="col">Opponent</th>
+                <th scope="col"><abbr title="Matches won, lost and drawn">Matches</abbr></th>
+                <th scope="col"><abbr title="Games won, lost and drawn">Games</abbr></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (opponent of selected.opponents; track opponent.playerId) {
+                <tr>
+                  <th scope="row">{{ nameOf().get(opponent.playerId) }}</th>
+                  <td>{{ record(opponent.matches) }}</td>
+                  <td>{{ record(opponent.games) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  }
+</main>

@@ -13,6 +13,7 @@ import {
 import { RouterLink } from '@angular/router';
 import {
   SWISS_ROUND_OPTIONS,
+  TOURNAMENT_FORMAT_NAMES,
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
@@ -40,12 +41,17 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
 
-/** The formats tournament setup offers, as it names them. */
-const FORMATS: { format: TournamentFormat; name: string }[] = [
-  { format: 'RoundRobin', name: 'Round robin' },
-  { format: 'Swiss', name: 'Swiss' },
-  { format: 'SingleElimination', name: 'Single elimination' },
-];
+/** The format's name as the tab starts a line with it, such as "Round robin". */
+function formatName(format: TournamentFormat): string {
+  const name = TOURNAMENT_FORMAT_NAMES[format];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** The formats tournament setup offers, in order, as it names them. */
+const FORMATS = (Object.keys(TOURNAMENT_FORMAT_NAMES) as TournamentFormat[]).map((format) => ({
+  format,
+  name: formatName(format),
+}));
 
 /** How tournament setup names each Swiss round option, and how the tab sums it up. */
 const SWISS_ROUND_OPTION_NAMES: Record<SwissRoundOption, { name: string; summary: string }> = {
@@ -71,7 +77,7 @@ function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): st
   const name =
     format === 'Swiss' && swissRoundOption
       ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
-      : (FORMATS.find((option) => option.format === format)?.name ?? format);
+      : formatName(format);
   if (roundCount === 0) return name;
   return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
 }
@@ -140,6 +146,8 @@ export class TournamentTab {
   protected readonly format = signal<TournamentFormat>('RoundRobin');
   protected readonly swissRoundOptions = SWISS_ROUND_CHOICES;
   protected readonly swissRoundOption = signal<SwissRoundOption>('UntilWinner');
+  /** Whether setup gives the tournament public decklists: off unless the organizer chooses them. */
+  protected readonly publicDecklists = signal(false);
   /** The format and round count, summed up. */
   protected readonly summary = computed(() => {
     const tournament = this.tournament();
@@ -157,14 +165,17 @@ export class TournamentTab {
   protected readonly ownId = computed(() => this.store.ownPlayer()?.id);
   /** Whether the signed-in player has joined. */
   protected readonly joined = this.store.joinedTournament;
-  /** Join is offered to the draft's human players during registration; bots never join. */
-  protected readonly offerJoin = computed(
-    () =>
-      this.state() === 'Registration' &&
-      !this.joined() &&
-      !!this.store.ownPlayer() &&
-      !this.store.ownPlayer()?.isBot,
-  );
+  /**
+   * Join is offered where the api says joining would let the viewer in
+   * (ADR 0003): to the draft's human players during registration who
+   * haven't joined, and whose deck is big enough.
+   */
+  protected readonly offerJoin = computed(() => !!this.tournament()?.canJoin);
+  /** Why the viewer can't join for now, said in place of Join: their deck is too small. */
+  protected readonly deckTooSmall = computed(() => {
+    const refusal = this.tournament()?.joinRefusal;
+    return refusal?.error === 'deck-too-small' ? refusal.message : null;
+  });
   protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
   /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(
@@ -236,11 +247,14 @@ export class TournamentTab {
     });
   }
 
-  /** Sets up the tournament in the format, and for Swiss the round option, chosen. */
+  /** Sets up the tournament in the format, for Swiss the round option, and with or without public decklists, as chosen. */
   protected setUpTournament() {
     const format = this.format();
+    const publicDecklists = this.publicDecklists();
     const setup: TournamentSetupRequest =
-      format === 'Swiss' ? { format, swissRoundOption: this.swissRoundOption() } : { format };
+      format === 'Swiss'
+        ? { format, swissRoundOption: this.swissRoundOption(), publicDecklists }
+        : { format, publicDecklists };
     return this.send(() => this.api.setUp(this.draft().id, setup), {
       failure: "Couldn't set up the tournament. Try again in a moment.",
     });

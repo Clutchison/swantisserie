@@ -19,6 +19,7 @@ import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { QueuesController } from './queues.controller.js';
 import { QueuesService } from './queues.service.js';
 import { TurnsService } from './turns.service.js';
+import { TournamentBadges } from '../tournaments/tournament-badge.js';
 
 @Module({
   imports: [AuthModule, CubeCobraModule, DiscordModule, ScryfallModule],
@@ -42,6 +43,8 @@ import { TurnsService } from './turns.service.js';
       useValue: new BotPickRetries([1000, 2000, 4000]),
     },
     BotPlayers,
+    // The draft list reads tournament badges.
+    TournamentBadges,
   ],
   // For the tournaments module, which sits beside drafts.
   exports: [DraftAccess, DraftLock, DraftPublisher],
