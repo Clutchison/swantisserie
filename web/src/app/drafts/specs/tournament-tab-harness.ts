@@ -38,7 +38,7 @@ export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
 export const registration = (...playerIds: string[]): TournamentView => ({
   format: 'RoundRobin',
   state: 'Registration',
-  entries: playerIds.map((playerId) => ({ playerId })),
+  entries: playerIds.map((playerId) => ({ playerId, dropped: false })),
   rounds: [],
   standings: [],
   trophyHolders: [],
@@ -93,7 +93,7 @@ export function playing(
   return {
     format: 'RoundRobin',
     state: 'Playing',
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({ playerId })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => ({ playerId, dropped: false })),
     rounds: [
       { round: 1, matches: [match('m1', bob.id, carol.id)], bye: alice.id },
       { round: 2, matches: [match('m2', alice.id, bob.id)], bye: carol.id },

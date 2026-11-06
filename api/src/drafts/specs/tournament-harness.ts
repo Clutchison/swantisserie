@@ -174,3 +174,25 @@ export async function reportWin(
     games: ordered,
   } satisfies MatchReportRequest).expect(status);
 }
+
+/**
+ * Drops the player `playerId` (a Discord user id) from the draft's
+ * tournament, as whoever `cookie` signs in: the player themselves or an
+ * organizer.
+ */
+export function dropPlayer(id: string, playerId: string, cookie: string) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/entries/${playerId}/drop`,
+    cookie,
+  );
+}
+
+/** Takes back the drop of the player `playerId` (a Discord user id), as whoever `cookie` signs in. */
+export function undoDrop(id: string, playerId: string, cookie = aliceCookie) {
+  return draftsRequest(
+    'delete',
+    `/${id}/tournament/entries/${playerId}/drop`,
+    cookie,
+  );
+}

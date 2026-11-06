@@ -131,6 +131,46 @@
       [currentId]="ownMatch()?.match?.id"
       (choose)="chosen.set($event)"
     />
+    <h3>Players</h3>
+    <ul class="entries" aria-label="Players">
+      @for (player of players(); track player.id) {
+        <li>
+          <app-player-avatar [src]="player.avatarUrl" />
+          {{ player.name }}
+          @if (player.dropped) {
+            · Dropped
+          }
+          @if (offerDrops() && player.dropped) {
+            <button
+              class="button compact secondary"
+              type="button"
+              [attr.aria-label]="'Undo drop ' + player.name"
+              (click)="undoDrop(player.id)"
+              [appSendsChange]="'undo-drop ' + player.id"
+            >
+              Undo drop
+            </button>
+          } @else if (offerDrops() && player.id !== ownId()) {
+            <button
+              class="button compact secondary"
+              type="button"
+              [attr.aria-label]="'Drop ' + player.name"
+              (click)="drop(player.id, player.name)"
+              [appSendsChange]="'drop ' + player.id"
+            >
+              Drop
+            </button>
+          }
+        </li>
+      }
+    </ul>
+    @if (offerDrop()) {
+      <div class="controls">
+        <button class="button secondary" type="button" (click)="dropSelf()" appSendsChange="drop">
+          Drop from tournament
+        </button>
+      </div>
+    }
     @if (offerComplete()) {
       <div class="controls">
         <button class="button" type="button" (click)="complete()" appSendsChange="complete">
