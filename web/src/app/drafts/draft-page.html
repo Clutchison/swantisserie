@@ -15,7 +15,6 @@
         <h2>{{ name }}</h2>
         @let left = picksLeft();
         @if (left !== null) {
-          <!-- Only the count highlights; the dash just separates it from the heading. -->
           <span class="picks-left"
             ><span aria-hidden="true">– </span
             ><span [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"

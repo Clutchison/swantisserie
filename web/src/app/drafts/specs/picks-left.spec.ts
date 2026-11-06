@@ -23,6 +23,7 @@ import {
   pickOf,
   picksLeftCount,
   picksLeftTexts,
+  highlightedPicksLeft,
   type AppFixture,
 } from './harness';
 
@@ -35,13 +36,6 @@ describe('picks left beside the panel headings', () => {
   /** Opens the tab named `name` and returns its panel; Pool is open already. */
   const open = (fixture: AppFixture, page: HTMLElement, name: string) =>
     name === 'Pool' ? Promise.resolve(panel(page)) : openTab(fixture, page, name);
-
-  /**
-   * The text highlighted in `root`, as near the end of the viewer's picks:
-   * the count alone, never the dash before it. Null when nothing is.
-   */
-  const highlightedText = (root: HTMLElement) =>
-    root.querySelector('[data-highlighted="true"]')?.textContent.trim() ?? null;
 
   it.each(PANELS)(
     'shows the count beside the %s heading, which keeps the panel name as its name',
@@ -125,15 +119,15 @@ describe('picks left beside the panel headings', () => {
   });
 
   it.each([
-    [10, true],
-    [11, false],
-  ])('at %i picks left, highlights the count: %s', async (picksPerPlayer, expected) => {
+    [10, '10 picks left'],
+    [11, null],
+  ])('at %i picks left, the highlighted text is %s', async (picksPerPlayer, expected) => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer }));
 
     for (const name of PANELS) {
       const shown = await open(fixture, page, name);
       expect(picksLeftTexts(shown)).toEqual([`${picksPerPlayer} picks left`]);
-      expect(highlightedText(shown)).toBe(expected ? `${picksPerPlayer} picks left` : null);
+      expect(highlightedPicksLeft(shown)).toBe(expected);
     }
   });
 
@@ -169,15 +163,15 @@ describe('picks left beside the panel headings', () => {
     async (name) => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 11 }));
       const shown = await open(fixture, page, name);
-      expect(highlightedText(shown)).toBeNull();
+      expect(highlightedPicksLeft(shown)).toBeNull();
 
       await changed(fixture, 11, 1, [pickOf({ poolCardId: 'a' })]);
       expect(picksLeftTexts(shown)).toEqual(['10 picks left']);
-      expect(highlightedText(shown)).toBe('10 picks left');
+      expect(highlightedPicksLeft(shown)).toBe('10 picks left');
 
       await changed(fixture, 11, 2, []);
       expect(picksLeftTexts(shown)).toEqual(['11 picks left']);
-      expect(highlightedText(shown)).toBeNull();
+      expect(highlightedPicksLeft(shown)).toBeNull();
     },
   );
 
