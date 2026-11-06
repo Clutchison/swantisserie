@@ -51,12 +51,13 @@ describe('starting a tournament', () => {
           {
             id: expect.any(String),
             players: [alice.id, bob.id],
+            bracketPlace: null,
             outcome: { kind: 'Unreported' },
             reportedBy: null,
             confirmed: false,
           },
         ],
-        bye: null,
+        byes: [],
       },
     ]);
     expect(view.standings).toEqual(
@@ -78,7 +79,7 @@ describe('starting a tournament', () => {
     const { rounds } = await tournamentView(id);
 
     expect(rounds.map((round) => round.round)).toEqual([1, 2, 3]);
-    expect(new Set(rounds.map((round) => round.bye))).toEqual(
+    expect(new Set(rounds.flatMap((round) => round.byes))).toEqual(
       new Set([alice.id, bob.id, carol.id]),
     );
     const pairs = rounds.flatMap((round) =>
@@ -97,7 +98,8 @@ describe('starting a tournament', () => {
       rounds.every(
         (round) =>
           round.matches.length === 1 &&
-          !round.matches[0].players.includes(round.bye!),
+          round.byes.length === 1 &&
+          !round.matches[0].players.includes(round.byes[0]),
       ),
     ).toBe(true);
   });

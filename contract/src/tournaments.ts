@@ -1,8 +1,5 @@
-/**
- * How a tournament pairs its players, chosen once at tournament setup.
- * Single elimination comes with its spec.
- */
-export type TournamentFormat = 'RoundRobin' | 'Swiss';
+/** How a tournament pairs its players, chosen once at tournament setup. */
+export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
 
 /**
  * The Swiss round options tournament setup offers, in the order it offers
@@ -35,6 +32,11 @@ export interface TournamentEntryView {
   playerId: string;
   /** Whether they have dropped: their unplayed matches are forfeits. */
   dropped: boolean;
+  /**
+   * Single elimination only: their place in the seed order, from 1, which
+   * Start shuffles; null in other formats and during registration.
+   */
+  seed: number | null;
 }
 
 /**
@@ -46,19 +48,28 @@ export type GameScore = [number, number];
 /**
  * How a match stands: unreported, or decided by a game score (each
  * player's games won, in the match's player order, plus drawn games), a
- * granted draw (0–0), or a forfeit by the player who dropped.
+ * granted draw (0–0), a forfeit by the player who dropped, or, in single
+ * elimination, a granted win for the player the organizer picked, with no
+ * games.
  */
 export type MatchOutcomeView =
   | { kind: 'Unreported' }
   | { kind: 'GameScore'; games: GameScore; draws: number }
   | { kind: 'GrantedDraw' }
-  | { kind: 'Forfeit'; forfeitedBy: string };
+  | { kind: 'Forfeit'; forfeitedBy: string }
+  | { kind: 'GrantedWin'; winner: string };
 
 /** One match of a tournament. */
 export interface MatchView {
   id: string;
   /** The two players' Discord user ids, in the order the game score follows. */
   players: [string, string];
+  /**
+   * Single elimination only: its bracket place within its tournament round,
+   * from 0. Bracket place p is fed by the winners of places 2p and 2p + 1 of the round
+   * before. Null in other formats.
+   */
+  bracketPlace: number | null;
   outcome: MatchOutcomeView;
   /** The Discord user id of whoever reported it; null until it is reported. */
   reportedBy: string | null;
@@ -66,13 +77,62 @@ export interface MatchView {
   confirmed: boolean;
 }
 
-/** One tournament round: its matches, and the player with a bye, if any. */
+/** One tournament round: its matches, and the players with a bye. */
 export interface TournamentRoundView {
   /** From 1: the suggested order to play the rounds in. */
   round: number;
+  /** In bracket place order in single elimination; otherwise in the order of their first players’ joining. */
   matches: MatchView[];
-  /** The Discord user id of the player sitting this round out; null if nobody is. */
-  bye: string | null;
+  /**
+   * The Discord user ids of the players sitting this round out: at most one
+   * in round robin and Swiss; in single elimination, the top seeds' in
+   * round 1, and later each player whose would-be opponent nobody sent on,
+   * in bracket place order.
+   */
+  byes: string[];
+}
+
+/**
+ * Who a side of a bracket place is: a player, a bye, or, until the result
+ * of the bracket place of the tournament round before that feeds it is
+ * agreed, the winner to come of that place. The engine's BracketSide is the
+ * same type.
+ */
+export type BracketSideView =
+  | { kind: 'Player'; playerId: string }
+  | { kind: 'Bye' }
+  | { kind: 'WinnerToCome'; bracketPlace: number };
+
+/** One bracket place of a single elimination tournament round. */
+export interface BracketPlaceView {
+  /** From 0. Bracket place p is fed by places 2p and 2p + 1 of the round before. */
+  bracketPlace: number;
+  /** The id of the match played at it, a `MatchView.id`; null for a bye, and until its round is paired. */
+  matchId: string | null;
+  /**
+   * Its two sides, in the match's player order once paired. Until then, a
+   * side is the player who advances from the place feeding it as soon as
+   * that result is agreed, even before its round is completed: a granted
+   * win, a forfeit, or a game score the other player confirmed or an
+   * organizer entered. When nobody advances from that place, the side is a
+   * bye at once, the other side first.
+   */
+  sides: [BracketSideView, BracketSideView];
+  /**
+   * The Discord user id of the player who advances from it: its match's
+   * winner once its result is agreed, as `sides` describes, or once its
+   * round is completed; or the player with its bye, unless they dropped.
+   * Null until then, and when nobody advances: from a forfeit both its
+   * players dropped from, a dropped player's bye, or a place both of whose
+   * sides are byes.
+   */
+  advancing: string | null;
+}
+
+/** One tournament round of the bracket: every one of its bracket places, in order. */
+export interface BracketRoundView {
+  round: number;
+  places: BracketPlaceView[];
 }
 
 /** Matches or games won, lost and drawn. */
@@ -110,7 +170,7 @@ export interface StandingView {
  */
 export interface TournamentView {
   format: TournamentFormat;
-  /** A Swiss tournament's round option; null for round robin. */
+  /** A Swiss tournament's round option; null in other formats. */
   swissRoundOption: SwissRoundOption | null;
   state: TournamentState;
   /** How many tournament rounds it will have, for the players joined so far during registration. */
@@ -128,9 +188,44 @@ export interface TournamentView {
    * one at a time.
    */
   rounds: TournamentRoundView[];
+  /**
+   * Single elimination only, once it is playing: the bracket, every
+   * tournament round of it, paired or not, in order. Null in other formats
+   * and during registration.
+   */
+  bracket: BracketRoundView[] | null;
+  /**
+   * Whether correcting or clearing a match can clear later matches, as in
+   * single elimination: then an organizer's correction or clear asks for
+   * the correction preview first.
+   */
+  previewsCorrections: boolean;
+  /**
+   * What Complete round gives the current tournament round's unreported
+   * matches: granted draws in Swiss, with a choice of players to drop from
+   * each; granted wins in single elimination, for the winner the organizer
+   * picks, or else the drop of one or both players. Null in round robin,
+   * which completes the tournament instead.
+   */
+  completeRoundGrants: 'GrantedDraws' | 'GrantedWins' | null;
+  /**
+   * Whether clearing a match reopens its tournament round, as in single
+   * elimination, which never has a draw: it is unreported again, or a
+   * dropped player's forfeit, whatever the state. Otherwise it is a
+   * dropped player's forfeit while the tournament is playing, else
+   * unreported while its round is open and a granted draw once its round
+   * or the tournament is complete.
+   */
+  clearReopensRound: boolean;
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
-  /** The Discord user ids of the players who hold the trophy: everyone who shares first once it is complete, else none. */
+  /**
+   * The Discord user ids of the players who hold the trophy once it is
+   * complete, else none: everyone who shares first; in single elimination
+   * the player who advances from the final, or the one player left in the
+   * bracket when it completed before the final, and nobody when no player
+   * is left, as when both finalists dropped.
+   */
   trophyHolders: string[];
 }
 
@@ -143,12 +238,38 @@ export interface MatchReportRequest {
 }
 
 /**
- * Complete round, as the organizer grants draws in the tournament round's
- * unreported matches: each must be listed, and becomes a granted draw. A
- * body can be left out when the tournament round has none.
+ * Complete round, as the organizer settles the tournament round's
+ * unreported matches: each must be listed. In Swiss each becomes a granted
+ * draw; in single elimination, which never has a draw, a granted win for the
+ * winner the organizer picks, or a forfeit by the players they drop from
+ * it. A list can be left out when empty, and the body when the tournament
+ * round has no unreported match.
  */
 export interface CompleteRoundRequest {
-  grantedDraws: GrantedDrawRequest[];
+  /** Swiss only. */
+  grantedDraws?: GrantedDrawRequest[];
+  /** Single elimination only. */
+  grantedWins?: GrantedWinRequest[];
+  /** Single elimination only: a match listed here isn't also listed in `grantedWins`. */
+  drops?: MatchDropRequest[];
+}
+
+/**
+ * One unreported single elimination match that Complete round drops
+ * players from, making it their forfeit. With both dropped, nobody
+ * advances from it, and whoever would have met its winner has a bye.
+ */
+export interface MatchDropRequest {
+  matchId: string;
+  /** The Discord user ids of its players to drop: one or both. */
+  drop: string[];
+}
+
+/** One unreported single elimination match that Complete round gives a granted win in. */
+export interface GrantedWinRequest {
+  matchId: string;
+  /** The Discord user id of the match's player who wins it and advances. */
+  winner: string;
 }
 
 /** One unreported match that Complete round grants a draw in. */
@@ -161,10 +282,53 @@ export interface GrantedDrawRequest {
   drop: string[];
 }
 
+/**
+ * A correction or clear an organizer is about to make, for its correction
+ * preview from `POST /api/drafts/:id/tournament/matches/:matchId/game-score/preview`:
+ * the match's new game score, or null to clear it.
+ */
+export interface CorrectionPreviewRequest {
+  games: GameScore | null;
+}
+
+/**
+ * The correction preview: what a correction or clear would do beyond its
+ * own match. In single elimination, the later matches it would clear
+ * because it changes who advances from the match, and whether it completes
+ * the tournament or has it played on. None in other formats, or when the
+ * same player advances.
+ */
+export interface CorrectionPreview {
+  /** In tournament round order. */
+  clears: ClearedMatchView[];
+  /**
+   * The tournament's state once it is made: Complete when it leaves one
+   * player in the bracket, Playing when it reopens a complete tournament.
+   */
+  state: TournamentState;
+}
+
+/** A tournament round and a bracket place in it. The engine's RoundAndBracketPlace is the same type. */
+export interface RoundAndBracketPlace {
+  round: number;
+  bracketPlace: number;
+}
+
+/**
+ * A later single elimination match, or bye, a correction would clear: the
+ * one the match feeds is paired again with its new winner, unreported, and
+ * those after are unpaired until their tournament rounds are paired again.
+ */
+export interface ClearedMatchView extends RoundAndBracketPlace {
+  /** The Discord user ids of the players it has now: one for a bye. */
+  players: string[];
+}
+
 /** Tournament setup, as the organizer chooses it: all at once, never changed. */
 export type TournamentSetupRequest =
   | { format: 'RoundRobin' }
-  | { format: 'Swiss'; swissRoundOption: SwissRoundOption };
+  | { format: 'Swiss'; swissRoundOption: SwissRoundOption }
+  | { format: 'SingleElimination' };
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
 export const MIN_MAINBOARD_CARDS = 40;

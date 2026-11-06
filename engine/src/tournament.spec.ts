@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  droppedPlayers,
   GAME_SCORES,
   reportProblem,
   roundRobinRoundCount,
@@ -9,6 +10,18 @@ import {
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
+
+describe('droppedPlayers', () => {
+  it('is the players who have dropped, in entry order', () => {
+    expect(
+      droppedPlayers([
+        { playerId: 'a', dropped: true },
+        { playerId: 'b', dropped: false },
+        { playerId: 'c', dropped: true },
+      ]),
+    ).toEqual(['a', 'c']);
+  });
+});
 
 /** Player ids p1, p2, … in order. */
 function players(count: number) {

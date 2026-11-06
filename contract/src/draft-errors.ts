@@ -174,9 +174,10 @@ export interface TournamentRefusal {
     | 'not-your-match'
     /**
      * A reported match is locked to its players, and Complete round can't
-     * grant a draw in it.
+     * grant a draw or a win in it.
      */
     | 'match-reported'
+    /** A reported or corrected game score has a winner: a match is never reported as a draw. */
     | 'draw'
     | 'not-best-of-three'
     /** Only a match reported with a game score can be confirmed. */
@@ -190,17 +191,22 @@ export interface TournamentRefusal {
     | 'not-dropped'
     /**
      * Complete round waits until every match of the tournament round is
-     * reported, or listed by the request for a granted draw.
+     * reported, forfeited, or listed by the request for a granted draw, a
+     * granted win or drops.
      */
     | 'unreported-matches'
     /**
      * A dropped player can't be reinstated once a tournament round has been
-     * paired without them: their drop fed that pairing.
+     * paired without them: their drop fed that pairing. In single
+     * elimination, that is once the tournament round of a forfeit of
+     * theirs, or of a match or bye nobody advanced from as they had
+     * dropped, is completed.
      */
     | 'paired-since-drop'
     /**
-     * Complete round is for Swiss, whose last completed round completes the
-     * tournament; completing the tournament outright is for round robin.
+     * Complete round is for Swiss and single elimination, whose last
+     * completed round completes the tournament; completing the tournament
+     * outright is for round robin.
      */
     | 'wrong-format';
   message: string;

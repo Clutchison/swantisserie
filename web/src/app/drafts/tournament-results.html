@@ -34,92 +34,111 @@
   </tbody>
 </table>
 
-<h3>Matches</h3>
-@for (round of rounds(); track round.round) {
-  <h4>{{ round.label }}</h4>
-  <ul class="matches" [attr.aria-label]="round.label">
-    @for (match of round.matches; track match.id) {
-      <li>
-        <span>
-          {{ match.first }}
-          @if (match.gameScore; as gameScore) {
-            {{ gameScore }}
-          } @else {
-            vs
-          }
-          {{ match.second }}
-          @if (match.note; as note) {
-            · {{ note }}
-          }
-          @if (match.confirmed) {
-            · <span class="confirmed">Confirmed</span>
-          }
-        </span>
-        @if (match.confirmAgainst; as opponent) {
-          <button
-            class="button compact"
-            type="button"
-            [attr.aria-label]="'Confirm your match against ' + opponent"
-            (click)="confirmMatch.emit(match.id)"
-            [appSendsChange]="'confirm ' + match.id"
-          >
-            Confirm
-          </button>
-        }
-        @if (match.organize; as organize) {
-          <button
-            class="button compact secondary"
-            type="button"
-            [attr.aria-label]="organize.toggle"
-            [attr.aria-expanded]="correcting() === match.id"
-            (click)="toggleCorrecting(match.id)"
-            [appFocusKey]="'correct ' + match.id"
-          >
-            {{ organize.verb }}
-          </button>
-          @if (correcting() === match.id) {
-            <div
-              class="game-score-choice"
-              role="group"
-              [attr.aria-label]="'Game score of ' + organize.label"
-            >
-              @for (score of organize.gameScores; track score.label) {
-                <button
-                  class="button compact secondary"
-                  type="button"
-                  (click)="setGameScore.emit({ matchId: match.id, games: score.games })"
-                  [appSendsChange]="'game-score ' + match.id + ' ' + score.games"
-                >
-                  {{ score.label }}
-                </button>
-              }
-              @if (organize.clear; as clear) {
-                <button
-                  class="button compact secondary"
-                  type="button"
-                  (click)="clearGameScore.emit(clear)"
-                  [appSendsChange]="'clear ' + match.id"
-                >
-                  Clear game score
-                </button>
-              }
-            </div>
-          }
-        }
-        @if (match.opponent; as opponent) {
-          <button
-            class="button compact secondary"
-            type="button"
-            [attr.aria-label]="'Report your match against ' + opponent"
-            (click)="choose.emit(match.id)"
-          >
-            Report
-          </button>
-        }
-      </li>
-    }
-    @if (round.bye; as bye) {
-      <li class="bye">{{ bye }} has a bye</li>
-    }
-  </ul>
+@if (showsBracket()) {
+  <h3>Bracket</h3>
+  <app-tournament-bracket
+    [tournament]="tournament()"
+    [ownId]="ownId()"
+    [lines]="lineById()"
+    [controls]="matchControls"
+  />
+} @else {
+  <h3>Matches</h3>
+  @for (round of rounds(); track round.round) {
+    <h4>{{ round.label }}</h4>
+    <ul class="matches" [attr.aria-label]="round.label">
+      @for (match of round.matches; track match.id) {
+        <li>
+          <span>
+            {{ match.first }}
+            @if (match.gameScore; as gameScore) {
+              {{ gameScore }}
+            } @else {
+              vs
+            }
+            {{ match.second }}
+            @if (match.note; as note) {
+              · {{ note }}
+            }
+            @if (match.confirmed) {
+              · <span class="confirmed">Confirmed</span>
+            }
+          </span>
+          <ng-container
+            [ngTemplateOutlet]="matchControls"
+            [ngTemplateOutletContext]="{ $implicit: match.id }"
+          />
+        </li>
+      }
+      @for (bye of round.byes; track bye) {
+        <li class="bye">{{ bye }} has a bye</li>
+      }
+    </ul>
+  }
 }
+
+<ng-template #matchControls let-matchId>
+  @if (lineById().get(matchId); as match) {
+    @if (match.confirmAgainst; as opponent) {
+      <button
+        class="button compact"
+        type="button"
+        [attr.aria-label]="'Confirm your match against ' + opponent"
+        (click)="confirmMatch.emit(match.id)"
+        [appSendsChange]="'confirm ' + match.id"
+      >
+        Confirm
+      </button>
+    }
+    @if (match.organize; as organize) {
+      <button
+        class="button compact secondary"
+        type="button"
+        [attr.aria-label]="organize.toggle"
+        [attr.aria-expanded]="correcting() === match.id"
+        (click)="toggleCorrecting(match.id)"
+        [appFocusKey]="'correct ' + match.id"
+      >
+        {{ organize.verb }}
+      </button>
+      @if (correcting() === match.id) {
+        <div
+          class="game-score-choice"
+          role="group"
+          [attr.aria-label]="'Game score of ' + organize.label"
+        >
+          @for (score of organize.gameScores; track score.label) {
+            <button
+              class="button compact secondary"
+              type="button"
+              (click)="setGameScore.emit({ matchId: match.id, games: score.games })"
+              [appSendsChange]="'game-score ' + match.id + ' ' + score.games"
+            >
+              {{ score.label }}
+            </button>
+          }
+          @if (organize.clear; as clear) {
+            <button
+              class="button compact secondary"
+              type="button"
+              (click)="clearGameScore.emit(clear)"
+              [appSendsChange]="'clear ' + match.id"
+            >
+              Clear game score
+            </button>
+          }
+        </div>
+      }
+    }
+    @if (match.opponent; as opponent) {
+      <button
+        class="button compact secondary"
+        type="button"
+        [attr.aria-label]="'Report your match against ' + opponent"
+        (click)="choose.emit(match.id)"
+      >
+        Report
+      </button>
+    }
+  }
+</ng-template>

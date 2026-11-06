@@ -112,6 +112,8 @@
           }
         </ul>
       </section>
+    } @else if (tournament.state === 'Complete') {
+      <p class="detail">Nobody holds the trophy: no player was left in the bracket to win it.</p>
     }
     @if (playsOn()) {
       <section class="own-match" aria-label="Your match">
@@ -194,7 +196,7 @@
     }
     @if (organizePlay()) {
       <div class="controls">
-        @if (tournament.format === 'Swiss') {
+        @if (tournament.completeRoundGrants !== null) {
           <button
             class="button"
             type="button"

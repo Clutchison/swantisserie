@@ -20,6 +20,7 @@ import {
   openPlaying,
   playing,
   reported,
+  swissPlaying,
   threePlayers,
   withDrops,
 } from './tournament-tab-harness';
@@ -155,6 +156,19 @@ describe('organizer reports, corrections and clears', () => {
 
     expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob vs Carol · Unreported');
     expect(button(panel(page), 'Report Bob vs Carol')).toBeDefined();
+  });
+
+  it('says a cleared match of a completed Swiss tournament round becomes a granted draw', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { fixture, tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Correct Carol vs Bob')!.click();
+    await fixture.whenStable();
+    button(group(tab, 'Game score of Carol vs Bob')!, 'Clear game score')!.click();
+
+    expect(confirm).toHaveBeenCalledWith(
+      'Clear the game score of Carol vs Bob? The match becomes a granted draw.',
+    );
   });
 
   it('sends nothing when the organizer doesn’t confirm clearing', async () => {

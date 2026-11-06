@@ -1,0 +1,117 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.next {
+  margin: 0 0 var(--space-sm);
+  font-weight: 600;
+}
+
+// The rounds scroll sideways inside their own region, so the page never does.
+.rounds {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--space-sm);
+  max-width: 100%;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+.round {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 14rem;
+  min-width: 0;
+}
+
+h4 {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+// Each later round's places sit between the two places that feed them.
+.places {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: var(--space-sm);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.match {
+  border: 1px solid var(--color-divider);
+  border-radius: 0.375rem;
+  background: var(--color-surface);
+  overflow: hidden;
+
+  &.own {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  min-height: 2rem;
+
+  & + .side {
+    border-top: 1px solid var(--color-divider);
+  }
+
+  &.won {
+    font-weight: 700;
+  }
+
+  &.pending {
+    color: var(--color-muted);
+    font-style: italic;
+    font-size: var(--font-size-sm);
+  }
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seed {
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.games {
+  min-width: 1.25rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  padding: var(--space-xs) var(--space-sm);
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}

@@ -23,7 +23,7 @@ ul {
   list-style: none;
 }
 
-/* An unreported match, then a choice of its players to drop. */
+/* An unreported match, then a choice of its players to drop, or of its winner. */
 li {
   display: flex;
   flex-direction: column;
@@ -32,7 +32,8 @@ li {
   border-bottom: 1px solid var(--color-divider);
 }
 
-.drops {
+.drops,
+.winners {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);

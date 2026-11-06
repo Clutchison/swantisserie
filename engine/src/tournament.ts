@@ -45,18 +45,29 @@ export function roundRobinRoundCount(joined: number): number {
   return joined % 2 === 1 ? joined : Math.max(0, joined - 1);
 }
 
+/**
+ * The fewest players left to play on that Complete round pairs another
+ * tournament round for: in Swiss, the players who haven't dropped; in
+ * single elimination, those who advance from the round. With fewer, it
+ * completes the tournament.
+ */
+export const MIN_PLAYERS_LEFT = 2;
+
 /** Match points for a won, drawn and lost match. */
 export const MATCH_POINTS = { won: 3, drawn: 1, lost: 0 } as const;
 
 /**
  * How a match was decided: a game score (each player's games won, in the
- * match's player order, plus drawn games), a granted draw (0–0), or a
- * forfeit by the player who dropped.
+ * match's player order, plus drawn games), a granted draw (0–0), a
+ * forfeit by the player who dropped, or a granted win: in single
+ * elimination, the winner the organizer picked for an unreported match,
+ * with no games.
  */
 export type MatchOutcome =
   | { kind: 'GameScore'; games: [number, number]; draws: number }
   | { kind: 'GrantedDraw' }
-  | { kind: 'Forfeit'; forfeitedBy: string };
+  | { kind: 'Forfeit'; forfeitedBy: string }
+  | { kind: 'GrantedWin'; winner: string };
 
 /** A tournament match as standings read it; a null outcome is not yet reported. */
 export interface TournamentMatch {
@@ -196,6 +207,15 @@ export function reportProblem([a, b]: readonly [
   return null;
 }
 
+/** The ids of the players among `entries`, a tournament's, who have dropped, in their order. */
+export function droppedPlayers(
+  entries: readonly { playerId: string; dropped: boolean }[],
+): string[] {
+  return entries
+    .filter((entry) => entry.dropped)
+    .map((entry) => entry.playerId);
+}
+
 /** The players who hold the trophy: everyone who shares first in a complete tournament's final standings. */
 export function trophyHolders(final: readonly Standing[]): string[] {
   return final
@@ -248,6 +268,8 @@ function resultFor(
   if (outcome.kind === 'GrantedDraw') return 'drawn';
   if (outcome.kind === 'Forfeit')
     return outcome.forfeitedBy === players[side] ? 'lost' : 'won';
+  if (outcome.kind === 'GrantedWin')
+    return outcome.winner === players[side] ? 'won' : 'lost';
   const own = outcome.games[side];
   const theirs = outcome.games[1 - side];
   return own > theirs ? 'won' : own < theirs ? 'lost' : 'drawn';
