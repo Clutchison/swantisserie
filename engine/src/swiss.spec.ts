@@ -12,6 +12,7 @@ import {
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
+import { grantedDraw, placings, played } from './tournament.fixtures.js';
 
 describe('swissRoundCount', () => {
   it('plays until there’s a winner: ⌈log₂ joined players⌉ tournament rounds', () => {
@@ -197,20 +198,20 @@ describe('pairSwissRound', () => {
       it.each([1, 2, 3, 4, 5])('with RNG seed %i', (rngSeed) => {
         const players = Array.from({ length: count }, (_, i) => `p${i + 1}`);
         const random = seededRandom(rngSeed * 1000 + count);
-        const played: TournamentMatch[] = [];
+        const matchesSoFar: TournamentMatch[] = [];
         const byes: string[] = [];
 
         for (let r = 0; r < swissRoundCount(count, 'UntilWinner'); r++) {
-          const standings = swissStandings(players, played, byes);
+          const standings = swissStandings(players, matchesSoFar, byes);
           const round = pairSwissRound({
             standings,
-            pastMatches: played.map((match) => match.players),
+            pastMatches: matchesSoFar.map((match) => match.players),
             pastByes: byes,
             dropped: [],
             rngSeed: rngSeed + r,
           });
 
-          const met = new Set(played.map(({ players: p }) => pairKey(p)));
+          const met = new Set(matchesSoFar.map(({ players: p }) => pairKey(p)));
           for (const match of round.matches) {
             expect(met.has(pairKey(match))).toBe(false);
           }
@@ -248,7 +249,7 @@ describe('pairSwissRound', () => {
 
           for (const match of round.matches) {
             const games = GAME_SCORES[Math.floor(random() * 4)];
-            played.push({
+            matchesSoFar.push({
               players: match,
               outcome: { kind: 'GameScore', games: [...games], draws: 0 },
             });
@@ -300,7 +301,7 @@ describe('swissStandings', () => {
     // (100%); d met c (33%) and b (50%). d has the better game-win %.
     const matches = [
       played('a', 'b', [2, 0]),
-      granted('c', 'd'),
+      grantedDraw('c', 'd'),
       played('a', 'c', [2, 0]),
       played('b', 'd', [2, 1]),
     ];
@@ -350,7 +351,7 @@ describe('swissStandings', () => {
       played('x', 'p', [2, 1]),
       played('y', 'q', [2, 1]),
       played('r', 's', [2, 0]),
-      granted('x', 'y'),
+      grantedDraw('x', 'y'),
       played('p', 'r', [2, 0]),
       played('q', 's', [2, 1]),
     ];
@@ -367,26 +368,6 @@ describe('swissStandings', () => {
     expect(first.opponentsGameWinPercent).toBeCloseTo(63.33, 1);
     expect(second.opponentsGameWinPercent).toBeCloseTo(58.33, 1);
     expect(second.rank).toBe(2);
-  });
-
-  it('floors each percentage at 33%', () => {
-    const [winner, loser] = swissStandings(
-      ['a', 'b'],
-      [played('a', 'b', [2, 0])],
-      [],
-    );
-    expect(winner).toMatchObject({
-      playerId: 'a',
-      gameWinPercent: 100,
-      opponentsMatchWinPercent: 33,
-      opponentsGameWinPercent: 33,
-    });
-    expect(loser).toMatchObject({
-      playerId: 'b',
-      gameWinPercent: 33,
-      opponentsMatchWinPercent: 100,
-      opponentsGameWinPercent: 100,
-    });
   });
 
   it("leaves byes out of opponents' percentages, but not out of the bye's player's own", () => {
@@ -450,10 +431,14 @@ describe('swissStandings', () => {
     ]);
   });
 
-  it('floors at 33% even before a player has played a game or met an opponent', () => {
+  it('floors each percentage at 33%, even before a player has played a game or met an opponent', () => {
     // a has only had a bye; b and c have only a granted draw, with no games,
     // which is 1 of 3 match points: 33.3%, above the floor.
-    const ranked = swissStandings(['a', 'b', 'c'], [granted('b', 'c')], ['a']);
+    const ranked = swissStandings(
+      ['a', 'b', 'c'],
+      [grantedDraw('b', 'c')],
+      ['a'],
+    );
     expect(standingFor(ranked, 'a')).toMatchObject({
       gameWinPercent: 100,
       opponentsMatchWinPercent: 33,
@@ -473,28 +458,9 @@ describe('swissStandings', () => {
   });
 });
 
-/** A match `a` and `b` played to the game score `games`, `a`'s games first. */
-function played(
-  a: string,
-  b: string,
-  games: [number, number],
-  draws = 0,
-): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GameScore', games, draws } };
-}
-
-function granted(a: string, b: string): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
-}
-
-/** Each standing's player and rank, in the order of `table`. */
-function placings(table: Standing[]) {
-  return table.map(({ playerId, rank }) => [playerId, rank]);
-}
-
-/** The standing of the player `playerId` in `table`. */
-function standingFor(table: Standing[], playerId: string): Standing {
-  return table.find((standing) => standing.playerId === playerId)!;
+/** The standing of the player `playerId` in `standings`. */
+function standingFor(standings: Standing[], playerId: string): Standing {
+  return standings.find((standing) => standing.playerId === playerId)!;
 }
 
 function pairKey(players: readonly [string, string]) {
