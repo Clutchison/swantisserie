@@ -10,7 +10,7 @@ import {
 import {
   agreedAdvancingPlayer,
   bracketRounds,
-  bracketTrophyHolders,
+  byesSendingOn,
   droppedPlayers,
   singleEliminationRoundCount,
   singleEliminationStandings,
@@ -160,7 +160,13 @@ export function toTournamentView(row: TournamentRow): TournamentView {
                 .sort((a, b) => a.seed! - b.seed!)
                 .map((entry) => entry.player.userId),
               matches,
-              byesOf(counted),
+              byesSendingOn(
+                counted.map((round) => ({
+                  byes: round.byes,
+                  nextRoundPlayers: nextRoundPlayers(round.round),
+                })),
+                dropped,
+              ),
               dropped,
             )
           : standings(players, matches);
@@ -184,11 +190,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     ...FORMAT_RULES[row.format],
     reopenRound: offersReopenRound(row) ? reopenRoundOf(row) : null,
     standings: table,
-    trophyHolders: !complete
-      ? []
-      : bracket
-        ? bracketTrophyHolders(bracket)
-        : trophyHolders(table),
+    trophyHolders: complete ? trophyHolders(table) : [],
   };
 }
 

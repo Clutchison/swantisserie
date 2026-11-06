@@ -345,16 +345,27 @@ function unpairedAdvancing(
 }
 
 /**
- * The trophy holders of a complete single elimination tournament, from its
- * bracket `rounds`: the player who advances from the final, or, when the
- * tournament completed before it, the one player left; nobody when no
- * player is left, as when both finalists dropped.
+ * The byes of each tournament round of `rounds`, with the players paired
+ * in the tournament round after it.
  */
-export function bracketTrophyHolders(
-  rounds: readonly BracketRound[],
+export interface RoundByes {
+  byes: readonly string[];
+  nextRoundPlayers: readonly string[];
+}
+
+/**
+ * The players with the byes of `rounds` that sent them on, for
+ * singleEliminationStandings: every bye but that of a player who dropped
+ * before the tournament round after it was paired with them, from which
+ * nobody advances; `dropped` holds every player who has.
+ */
+export function byesSendingOn(
+  rounds: readonly RoundByes[],
+  dropped: readonly string[],
 ): string[] {
-  const advancing = rounds.at(-1)?.places[0]?.advancing ?? null;
-  return advancing === null ? [] : [advancing];
+  return rounds.flatMap(({ byes, nextRoundPlayers }) =>
+    byes.filter((id) => !dropped.includes(id) || nextRoundPlayers.includes(id)),
+  );
 }
 
 /**
@@ -366,7 +377,11 @@ export function bracketTrophyHolders(
  * order, the rank after a shared one skipping, as in 1, 1, 3. Unreported
  * matches count for nothing, and so does a forfeit whose players both
  * dropped before the next tournament round was paired with either of them,
- * `dropped` holding every player who has.
+ * `dropped` holding every player who has. Such a forfeit still puts both
+ * its players out, so when every player in the furthest tournament round
+ * reached is out in it, as when both finalists drop, nobody ranks first
+ * and they share second. The trophy holders are therefore always
+ * trophyHolders of the final standings.
  */
 export function singleEliminationStandings(
   players: readonly string[],
@@ -386,7 +401,20 @@ export function singleEliminationStandings(
   const table = players.map((playerId) =>
     standingOf(playerId, decided, byes.filter((id) => id === playerId).length),
   );
-  return ranked(table, (a, b) => b.matches.won - a.matches.won);
+  const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
+  const out = new Set(
+    matches.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
+      if (outcome === null) return [];
+      const match: DecidedMatch = { players: pair, outcome };
+      if (nobodyWins(match, dropped, nextRoundPlayers)) return pair;
+      return pair.filter((id) => id !== winnerOf(match));
+    }),
+  );
+  const first = standings.filter((standing) => standing.rank === 1);
+  if (first.every((standing) => out.has(standing.playerId))) {
+    first.forEach((standing) => (standing.rank = 2));
+  }
+  return standings;
 }
 
 /**
