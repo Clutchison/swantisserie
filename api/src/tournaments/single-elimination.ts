@@ -1,12 +1,12 @@
 import type { GrantedWinRequest, MatchDropRequest } from 'contract';
 import {
   agreedAdvancingPlayer,
-  countAdvancing,
   firstBracketRound,
   nextBracketRound,
   shuffle,
   singleEliminationRoundCount,
   type BracketResult,
+  type RoundCompletionInput,
 } from 'engine';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import {
@@ -15,6 +15,7 @@ import {
 } from './tournament-errors.js';
 import type { RoundSteps } from './round-steps.js';
 import {
+  completingEntries,
   createMatches,
   entryToDrop,
   forfeitUnplayed,
@@ -81,7 +82,7 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
       ? 'pick its winner or drop its players'
       : 'pick their winners or drop their players',
   pairNext: pairBracketRound,
-  playersLeft,
+  completionInput,
 };
 
 /**
@@ -196,32 +197,27 @@ async function pairBracketRound(
 }
 
 /**
- * How many players are left in the bracket of the single elimination
- * tournament `tournamentId` after tournament round `round`: those its
- * matches and byes send on.
+ * What the engine's roundCompletion reads of tournament round `round` of
+ * the single elimination tournament `tournamentId`, of `roundCount`: its
+ * entries, and the round's matches and byes.
  */
-export async function playersLeft(
+async function completionInput(
   tx: Transaction,
   tournamentId: string,
   round: number,
-) {
+  roundCount: number,
+): Promise<RoundCompletionInput> {
   const matches = await tx.match.findMany({
     where: { tournamentId, round },
     select: BRACKET_MATCH,
   });
-  return roundPlayersLeft(matches, await droppedEntries(tx, tournamentId));
-}
-
-/**
- * How many players `matches`, a tournament round's matches and byes, send
- * on, as the engine's countAdvancing counts them, `dropped` holding the
- * dropped entries.
- */
-function roundPlayersLeft(
-  matches: readonly BracketMatchRow[],
-  dropped: readonly string[],
-) {
-  return countAdvancing(matches.map(bracketResult), dropped);
+  return {
+    format: 'SingleElimination',
+    round,
+    roundCount,
+    entries: await completingEntries(tx, tournamentId),
+    results: matches.map(bracketResult),
+  };
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   type TournamentSetupRequest,
   type ViewerTournamentView,
 } from 'contract';
-import { MIN_PLAYERS_LEFT, reportProblem, roundRobinMatches } from 'engine';
+import { reportProblem, roundCompletion, roundRobinMatches } from 'engine';
 import type {
   SwissRoundOption,
   TournamentFormat,
@@ -437,10 +437,10 @@ export class TournamentsService {
    * format that plays one tournament round at a time. Its format's round
    * steps first decide the round as `request` asks; the round must
    * then have no unreported match. It then completes the tournament, which
-   * unlocks every deck, after the final tournament round or once fewer than
-   * MIN_PLAYERS_LEFT players are still in (undropped, or in single
-   * elimination, advancing from the round), and otherwise has the
-   * format pair the next tournament round. A completed round stays
+   * unlocks every deck, when the engine's roundCompletion says completing
+   * the round does: after the final tournament round, or with too few
+   * players left. Otherwise it has the format pair the next tournament
+   * round. A completed round stays
    * completed. Throws as the format's round steps do, and
    * TournamentRefusedError if the tournament isn't playing, the round has
    * an unreported match, or it is round robin, which has no tournament
@@ -464,7 +464,8 @@ export class TournamentsService {
       const joined = await tx.tournamentEntry.count({
         where: { tournamentId: tournament.id },
       });
-      const finalRound = round >= roundCount(tournament, joined);
+      const rounds = roundCount(tournament, joined);
+      const finalRound = round >= rounds;
       await steps.decide(tx, {
         tournamentId: tournament.id,
         round,
@@ -472,8 +473,9 @@ export class TournamentsService {
         request,
       });
       await refuseUnreported(tx, tournament.id, round, steps);
-      const left = await steps.playersLeft(tx, tournament.id, round);
-      const completes = finalRound || left < MIN_PLAYERS_LEFT;
+      const { completes } = roundCompletion(
+        await steps.completionInput(tx, tournament.id, round, rounds),
+      );
       await tx.tournament.update({
         where: { id: tournament.id },
         data: {
