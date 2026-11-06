@@ -11,7 +11,7 @@ import {
   items,
   openTab,
   ownTabStop,
-  panel,
+  panelName,
   poolCardOf,
   router,
   tabButton,
@@ -71,6 +71,9 @@ const openAsViewer = (tournament: ViewerTournamentView) =>
     decklists,
     fields: threePlayers,
   });
+
+/** The tabs of the complete draft once the Decklists tab has taken the Board tab's place. */
+const DECKLISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Decklists', 'Export', 'Play'];
 
 describe('decklists tab', () => {
   it('is absent without public decklists, while the tournament is played', async () => {
@@ -140,17 +143,17 @@ describe('decklists tab', () => {
       url: '/drafts/draft-1?tab=decklists',
     });
 
-    expect(panel(page).id).toBe('decklists-panel');
+    expect(panelName(page)).toBe('Decklists');
   });
 
   describe('in the Board tab’s place', () => {
     it.each([
-      ['a player', alice, undefined, ['Pool', 'Deck', 'Decklists', 'Export', 'Play']],
-      ['an organizer', dave, ORGANIZE_ONLY, ['Pool', 'Deck', 'Decklists', 'Export', 'Play']],
-      ['a spectator', dave, undefined, ['Pool', 'Deck', 'Decklists', 'Export', 'Play']],
+      ['a player', alice, undefined],
+      ['an organizer', dave, ORGANIZE_ONLY],
+      ['a spectator', dave, undefined],
     ] as const)(
       'shows %s no Board tab, and the Decklists tab where it was, while the tournament is played',
-      async (_, user, powers, labels) => {
+      async (_, user, powers) => {
         const { page } = await openComplete(publicPlaying(), {
           user,
           powers,
@@ -158,7 +161,7 @@ describe('decklists tab', () => {
           fields: threePlayers,
         });
 
-        expect(tabLabels(page)).toEqual(labels);
+        expect(tabLabels(page)).toEqual(DECKLISTS_IN_BOARDS_PLACE);
       },
     );
 
@@ -167,7 +170,7 @@ describe('decklists tab', () => {
         publicPlaying({ state: 'Complete', trophyHolders: [alice.id] }),
       );
 
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Decklists', 'Export', 'Play']);
+      expect(tabLabels(page)).toEqual(DECKLISTS_IN_BOARDS_PLACE);
     });
 
     it.each([
@@ -215,7 +218,7 @@ describe('decklists tab', () => {
       );
       await fixture.whenStable();
 
-      expect(panel(page).id).toBe('decklists-panel');
+      expect(panelName(page)).toBe('Decklists');
       await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=decklists'));
     });
 
@@ -227,7 +230,7 @@ describe('decklists tab', () => {
         url: '/drafts/draft-1?tab=board',
       });
 
-      expect(panel(page).id).toBe('decklists-panel');
+      expect(panelName(page)).toBe('Decklists');
       await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=decklists'));
     });
   });

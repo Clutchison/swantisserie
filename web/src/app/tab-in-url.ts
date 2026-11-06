@@ -29,9 +29,8 @@ export type CanOpen = 'yes' | 'no' | 'unknown';
  *
  * The URL names the tab requested. The page shows it if the viewer may open
  * it, else its fallback if the viewer may open that, else the default tab,
- * and corrects the URL to match: an unknown or
- * wrong-case value, or the default tab named, is corrected to leave the
- * parameter out. While `canOpen` answers `'unknown'`, the requested tab
+ * and corrects the URL to match: an unknown or wrong-case value, or the
+ * default tab named, is corrected to leave the parameter out. While `canOpen` answers `'unknown'`, the requested tab
  * stands and the URL is left alone. Correcting and selecting both replace the
  * current history entry, keeping any other query parameters and the fragment.
  */
@@ -52,7 +51,8 @@ export function tabInUrl<T extends string>({
   canOpen?: (tab: T) => CanOpen;
   /**
    * The tab to show in place of each tab named here when the viewer can't
-   * open it, if they can open the fallback; others fall back to the default tab.
+   * open it, if they can open the fallback (`'yes'`). Otherwise, and for
+   * tabs not named here, the default tab shows.
    */
   fallbacks?: Partial<Record<T, T>>;
 }): TabInUrl<T> {
