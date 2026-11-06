@@ -9,6 +9,7 @@ import type {
 } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
+  accessibleName,
   alice,
   alicePlayer,
   bob,
@@ -229,9 +230,9 @@ export const standingsRows = (root: HTMLElement) =>
 
 /** The names of the lists of matches by tournament round inside `root`, in page order. */
 export const roundLabels = (root: HTMLElement) =>
-  [...root.querySelectorAll('ul[aria-label^="Tournament round"]')].map((list) =>
-    list.getAttribute('aria-label'),
-  );
+  [...root.querySelectorAll('ul, ol, [role="list"]')]
+    .map((list) => accessibleName(list))
+    .filter((name) => /^Tournament round \d+$/.test(name));
 
 /** Each player in the Players list inside `root` as it reads, leaving out its buttons. */
 export const playerLines = (root: HTMLElement) =>

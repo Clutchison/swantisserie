@@ -473,7 +473,7 @@ An unplayed match decided because one of its players dropped.
 _Avoid_: Default, walkover, no-show
 
 **Standings**:
-A tournament's players ranked by their results so far.
+A tournament's players ranked by their results so far: by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by match points alone for now, with the MTR's tiebreakers to come. Players still tied share their place.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
 **Match points**:
@@ -481,11 +481,11 @@ What a player earns from their matches, which standings rank by first: 3 for a w
 _Avoid_: Points (alone), score
 
 **Head-to-head**:
-The tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
+In round robin, the tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
 _Avoid_: Direct encounter, mutual result
 
 **Game-win %**:
-The tiebreaker after head-to-head: the share of the games a player played in their matches that they won. Players still tied after it share their place in the standings.
+The share of the games a player played in their matches that they won. In round robin it is the tiebreaker after head-to-head.
 _Avoid_: Win rate, game percentage
 
 **Tournament tab**:

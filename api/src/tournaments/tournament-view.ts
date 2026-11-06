@@ -5,7 +5,6 @@ import type {
   TournamentView,
 } from 'contract';
 import {
-  roundRobinSchedule,
   standings,
   swissRoundCount,
   swissStandings,
@@ -108,15 +107,21 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   };
 }
 
-/** How many tournament rounds the tournament has, or will have with `joined` players; none for fewer than 2. */
-function roundCount(
-  { format, swissRoundOption }: TournamentRow,
+/**
+ * How many tournament rounds a tournament of `format` has, or will have,
+ * with `joined` players; none for fewer than 2. Round robin plays one round
+ * fewer than an even count, and as many as an odd count, each with a bye.
+ */
+export function roundCount(
+  {
+    format,
+    swissRoundOption,
+  }: Pick<TournamentRow, 'format' | 'swissRoundOption'>,
   joined: number,
 ): number {
   if (joined < 2) return 0;
-  return format === 'Swiss'
-    ? swissRoundCount(joined, swissRoundOption!)
-    : roundRobinSchedule(Array.from({ length: joined }, String)).length;
+  if (format === 'Swiss') return swissRoundCount(joined, swissRoundOption!);
+  return joined % 2 === 1 ? joined : joined - 1;
 }
 
 function toMatchView(

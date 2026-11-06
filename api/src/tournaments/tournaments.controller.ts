@@ -21,6 +21,7 @@ import type {
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
+import { SWISS_ROUND_CAP } from 'engine';
 import {
   CurrentUser,
   SessionGuard,
@@ -256,8 +257,7 @@ function parseSetup(body: unknown): TournamentSetupRequest {
   }
   throw new BadRequestException({
     error: 'invalid',
-    message:
-      'Choose round robin, or Swiss played until there’s a winner or capped at 3 tournament rounds.',
+    message: `Choose round robin, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
   } satisfies RequestProblem);
 }
 

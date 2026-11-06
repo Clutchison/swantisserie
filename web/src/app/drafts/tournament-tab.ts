@@ -9,7 +9,7 @@ import type {
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
-import { GAME_SCORES } from 'engine';
+import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
 import type { Observable } from 'rxjs';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
@@ -28,7 +28,11 @@ const FORMATS: { format: TournamentFormat; name: string }[] = [
 /** The Swiss round options tournament setup offers, as it names them and as the tab sums them up. */
 const SWISS_ROUND_OPTIONS: { option: SwissRoundOption; name: string; summary: string }[] = [
   { option: 'UntilWinner', name: 'Until there’s a winner', summary: 'until there’s a winner' },
-  { option: 'CappedAt3', name: 'Capped at 3 tournament rounds', summary: 'capped at 3' },
+  {
+    option: 'CappedAt3',
+    name: `Capped at ${SWISS_ROUND_CAP} tournament rounds`,
+    summary: `capped at ${SWISS_ROUND_CAP}`,
+  },
 ];
 
 /**

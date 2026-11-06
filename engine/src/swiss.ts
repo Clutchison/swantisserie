@@ -43,14 +43,21 @@ export interface SwissPairerInput {
 
 /**
  * The next tournament round of a Swiss tournament: its matches and its bye.
- * Players are taken best first, those sharing a rank in an order the seed
- * fixes, and each is paired with the next player they haven't played, so
- * players meet others on their match points and an odd score group pairs
- * its last player down. A backtracking search finds matches with no
- * rematches whenever any exist; only if none do does it allow them. With an
- * odd count, the bye goes to the lowest-ranked player who hasn't had one
- * and leaves matches with no rematches; if every player has had one, to
- * the lowest-ranked player.
+ * A search over every way of pairing the players left in finds the best,
+ * judged in turn by:
+ *
+ * 1. the fewest rematches: none whenever that is possible;
+ * 2. with an odd count, the bye to the lowest-ranked player who hasn't had
+ *    one. Nobody gets a second bye while a player left in hasn't had one,
+ *    even if it costs a rematch;
+ * 3. the fewest pair-downs, matches between players on different match
+ *    points, so an even score group stays together and an odd one pairs
+ *    one player down;
+ * 4. the smallest gaps in match points across those pair-downs.
+ *
+ * Ties go to the way of pairing that comes first with players taken best
+ * first, those sharing a rank in an order the seed fixes, so round 1 pairs
+ * at random and the same input and seed always pair the same way.
  */
 export function pairSwissRound({
   standings,
@@ -60,66 +67,82 @@ export function pairSwissRound({
   seed,
 }: SwissPairerInput): ScheduledRound {
   const out = new Set(dropped);
+  const left = standings.filter(({ playerId }) => !out.has(playerId));
   // Shuffled, then stably sorted by rank: the seed orders players sharing a rank.
-  const order = shuffle(
-    standings.filter(({ playerId }) => !out.has(playerId)),
-    seededRandom(seed),
-  )
+  const order = shuffle(left, seededRandom(seed))
     .sort((a, b) => a.rank - b.rank)
     .map(({ playerId }) => playerId);
+  const points = new Map(left.map((s) => [s.playerId, s.matchPoints]));
   const met = new Set(pastMatches.map(pairKey));
-  const fresh = (a: string, b: string) => !met.has(pairKey([a, b]));
-  const anyone = () => true;
+  const costOf = (a: string, b: string): Cost => {
+    const gap = Math.abs(points.get(a)! - points.get(b)!);
+    return [met.has(pairKey([a, b])) ? 1 : 0, gap > 0 ? 1 : 0, gap];
+  };
 
   if (order.length % 2 === 0) {
-    return {
-      matches: (pairAll(order, fresh) ?? pairAll(order, anyone))!,
-      bye: null,
-    };
+    return { matches: bestPairing(order, costOf).matches, bye: null };
   }
   const hadBye = new Set(pastByes);
   const lowestFirst = [...order].reverse();
-  const candidates = [
-    ...lowestFirst.filter((id) => !hadBye.has(id)),
-    ...lowestFirst.filter((id) => hadBye.has(id)),
-  ];
+  const withoutBye = lowestFirst.filter((id) => !hadBye.has(id));
+  const candidates = withoutBye.length > 0 ? withoutBye : lowestFirst;
+  let best: (Pairing & { bye: string }) | undefined;
   for (const bye of candidates) {
-    const matches = pairAll(
+    const pairing = bestPairing(
       order.filter((id) => id !== bye),
-      fresh,
+      costOf,
     );
-    if (matches) return { matches, bye };
+    // Only fewer rematches beat a lower-ranked bye.
+    if (!best || pairing.cost[0] < best.cost[0]) best = { ...pairing, bye };
   }
-  const bye = candidates[0];
-  return {
-    matches: pairAll(
-      order.filter((id) => id !== bye),
-      anyone,
-    )!,
-    bye,
-  };
+  return { matches: best!.matches, bye: best!.bye };
+}
+
+/** What a way of pairing costs: its rematches, its pair-downs and its gaps in match points, compared in that order. */
+type Cost = [number, number, number];
+
+interface Pairing {
+  matches: [string, string][];
+  cost: Cost;
 }
 
 /**
- * Pairs every player of `order`, each in turn with the earliest player
- * after them that `canMeet` allows, backtracking when the rest can't be
- * paired; null if there is no way to pair them all.
+ * The way of pairing every player of `order` that costs least by `costOf`,
+ * the first in `order`'s order among equals. A branch and bound search:
+ * a partial way of pairing that already costs as much as the best so far
+ * is dropped.
  */
-function pairAll(
+function bestPairing(
   order: readonly string[],
-  canMeet: (a: string, b: string) => boolean,
-): [string, string][] | null {
-  if (order.length === 0) return [];
-  const [first, ...rest] = order;
-  for (const [i, opponent] of rest.entries()) {
-    if (!canMeet(first, opponent)) continue;
-    const others = pairAll(
-      rest.filter((_, j) => j !== i),
-      canMeet,
-    );
-    if (others) return [[first, opponent], ...others];
-  }
-  return null;
+  costOf: (a: string, b: string) => Cost,
+): Pairing {
+  let best: Pairing | undefined;
+  const search = (
+    rest: readonly string[],
+    matches: [string, string][],
+    cost: Cost,
+  ) => {
+    if (best && compare(cost, best.cost) >= 0) return;
+    if (rest.length === 0) {
+      best = { matches, cost };
+      return;
+    }
+    const [first, ...others] = rest;
+    for (const [i, opponent] of others.entries()) {
+      const added = costOf(first, opponent);
+      search(
+        others.filter((_, j) => j !== i),
+        [...matches, [first, opponent]],
+        [cost[0] + added[0], cost[1] + added[1], cost[2] + added[2]],
+      );
+    }
+  };
+  search(order, [], [0, 0, 0]);
+  return best!;
+}
+
+function compare(a: Cost, b: Cost): number {
+  return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 }
 
 /** The same key for a pair of players whichever way round they are given. */

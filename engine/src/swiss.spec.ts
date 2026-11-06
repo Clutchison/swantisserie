@@ -88,6 +88,61 @@ describe('pairSwissRound', () => {
     expect(round.matches).toHaveLength(2);
   });
 
+  it('keeps a score group together when a rematch would split it, rather than pair two players down', () => {
+    // c has played d, but a–c and b–d, or a–d and b–c, keep everyone on 3
+    // match points together.
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: table(
+        ['a', 3],
+        ['b', 3],
+        ['c', 3],
+        ['d', 3],
+        ['e', 0],
+        ['f', 0],
+      ),
+      pastMatches: [['c', 'd']],
+      seed: 1,
+    });
+    expect([
+      ['a-c', 'b-d', 'e-f'],
+      ['a-d', 'b-c', 'e-f'],
+    ]).toContainEqual(pairs(round));
+  });
+
+  it('pairs as few rematches as it can when every way of pairing has one', () => {
+    // a has played everyone, and a–b, a–c both bring a second rematch along.
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: table(['a', 3], ['b', 3], ['c', 0], ['d', 0]),
+      pastMatches: [
+        ['a', 'b'],
+        ['c', 'd'],
+        ['a', 'c'],
+        ['b', 'd'],
+        ['a', 'd'],
+      ],
+      seed: 1,
+    });
+    expect(pairs(round)).toEqual(['a-d', 'b-c']);
+  });
+
+  it('pairs a rematch rather than give a second bye while a player hasn’t had one', () => {
+    // A bye to a or b leaves a rematch; a second bye to c would leave none.
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: table(['a', 3], ['c', 3], ['b', 0]),
+      pastMatches: [
+        ['a', 'c'],
+        ['b', 'c'],
+      ],
+      pastByes: ['c'],
+      seed: 1,
+    });
+    expect(round.bye).toBe('b');
+    expect(pairs(round)).toEqual(['a-c']);
+  });
+
   it('gives the bye to the lowest-ranked player who hasn’t had one', () => {
     const round = pairSwissRound({
       ...noHistory,
@@ -148,6 +203,20 @@ describe('pairSwissRound', () => {
           ];
           expect([...seated].sort()).toEqual([...players].sort());
 
+          // No few matches could be paired again among their own players, with
+          // no rematch, so that fewer of them cross score groups.
+          const points = new Map(
+            standings.map((s) => [s.playerId, s.matchPoints]),
+          );
+          const pairDowns = (matches: (readonly [string, string])[]) =>
+            matches.filter(([a, b]) => points.get(a) !== points.get(b)).length;
+          for (const few of subsets(round.matches, 3)) {
+            for (const other of matchings(few.flat())) {
+              if (other.some((match) => met.has(pairKey(match)))) continue;
+              expect(pairDowns(other)).toBeGreaterThanOrEqual(pairDowns(few));
+            }
+          }
+
           if (count % 2 === 1) {
             const lowestWithout = standings
               .filter(({ playerId }) => !byes.includes(playerId))
@@ -175,4 +244,29 @@ describe('pairSwissRound', () => {
 
 function pairKey(players: readonly [string, string]) {
   return [...players].sort().join('-');
+}
+
+/** Every subset of `items` of 2 to `most` items. */
+function subsets<T>(items: readonly T[], most: number): T[][] {
+  const all = items.reduce<T[][]>(
+    (found, item) => [
+      ...found,
+      ...found
+        .filter((subset) => subset.length < most)
+        .map((subset) => [...subset, item]),
+    ],
+    [[]],
+  );
+  return all.filter((subset) => subset.length >= 2);
+}
+
+/** Every way of pairing all of an even number of `players`. */
+function matchings(players: readonly string[]): [string, string][][] {
+  if (players.length === 0) return [[]];
+  const [first, ...rest] = players;
+  return rest.flatMap((opponent, i) =>
+    matchings(rest.filter((_, j) => j !== i)).map(
+      (others): [string, string][] => [[first, opponent], ...others],
+    ),
+  );
 }

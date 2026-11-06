@@ -14,6 +14,7 @@ import {
   type ScheduledRound,
 } from 'engine';
 import type {
+  SwissRoundOption,
   TournamentFormat,
   TournamentState,
 } from '../generated/prisma/client.js';
@@ -26,12 +27,17 @@ import {
   NoTournamentError,
   TournamentRefusedError,
 } from './tournament-errors.js';
-import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
+import {
+  roundCount,
+  TOURNAMENT_VIEW,
+  toTournamentView,
+} from './tournament-view.js';
 
 /** What a change reads of the tournament it changes. */
 interface LockedTournament {
   id: string;
   format: TournamentFormat;
+  swissRoundOption: SwissRoundOption | null;
   state: TournamentState;
   lastCompletedRound: number;
 }
@@ -448,8 +454,10 @@ export class TournamentsService {
           message: `Tournament round ${round} has ${unreported} unreported ${unreported === 1 ? 'match' : 'matches'}. Report ${unreported === 1 ? 'it' : 'them'} before completing the tournament round.`,
         });
       }
-      const { roundCount } = await viewOf(tx, tournament.id);
-      const last = round >= roundCount;
+      const joined = await tx.tournamentEntry.count({
+        where: { tournamentId: tournament.id },
+      });
+      const last = round >= roundCount(tournament, joined);
       await tx.tournament.update({
         where: { id: tournament.id },
         data: { lastCompletedRound: round, ...(last && { state: 'Complete' }) },
@@ -587,6 +595,7 @@ export class TournamentsService {
         select: {
           id: true,
           format: true,
+          swissRoundOption: true,
           state: true,
           lastCompletedRound: true,
         },
@@ -597,33 +606,22 @@ export class TournamentsService {
   }
 }
 
-/** The tournament `tournamentId` as everyone who sees it reads it, within `tx`. */
-async function viewOf(
-  tx: Transaction,
-  tournamentId: string,
-): Promise<TournamentView> {
-  return toTournamentView(
-    await tx.tournament.findUniqueOrThrow({
-      where: { id: tournamentId },
-      select: TOURNAMENT_VIEW,
-    }),
-  );
-}
-
 /**
  * Pairs tournament round `round` of the Swiss tournament `tournamentId`
  * with the Swiss pairer, from its standings, matches and byes so far, and
- * makes its matches and bye. The seed is random, so round 1 pairs at
- * random, and later rounds order players sharing a rank at random.
+ * makes its matches and bye. Dropped players aren't paired. The seed is
+ * random, so round 1 pairs at random, and later rounds order players
+ * sharing a rank at random.
  */
 async function pairSwiss(tx: Transaction, tournamentId: string, round: number) {
-  const view = await viewOf(tx, tournamentId);
-  const entries = await tx.tournamentEntry.findMany({
-    where: { tournamentId },
-    select: { id: true, player: { select: { userId: true } } },
+  const row = await tx.tournament.findUniqueOrThrow({
+    where: { id: tournamentId },
+    select: TOURNAMENT_VIEW,
   });
+  // The view's standings name players by user id; matches are made between entries.
+  const view = toTournamentView(row);
   const entryOfUser = new Map(
-    entries.map((entry) => [entry.player.userId, entry.id]),
+    row.entries.map((entry) => [entry.player.userId, entry.id]),
   );
   const entry = (userId: string) => entryOfUser.get(userId)!;
   const { matches, bye } = pairSwissRound({
@@ -632,7 +630,9 @@ async function pairSwiss(tx: Transaction, tournamentId: string, round: number) {
       past.matches.map((match) => match.players),
     ),
     pastByes: view.rounds.flatMap((past) => (past.bye ? [past.bye] : [])),
-    dropped: [],
+    dropped: view.entries
+      .filter((entry) => entry.dropped)
+      .map((entry) => entry.playerId),
     seed: randomInt(2 ** 31),
   });
   await createRounds(tx, tournamentId, [
