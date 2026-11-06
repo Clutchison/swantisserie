@@ -5,12 +5,16 @@ import {
   cancelTournament,
   carol,
   completeDraft,
+  completeTournament,
   entrants,
   fullDeck,
   getDraft,
   joinTournament,
+  playingTournament,
   readyDraft,
   removeEntry,
+  reportWin,
+  setBasic,
   setUpTournament,
   signIn,
   start,
@@ -137,6 +141,36 @@ describe('cancel tournament', () => {
     await tournament(id).expect(404);
     await setUpTournament(id).expect(201);
     expect(await entrants(id)).toEqual([]);
+  });
+
+  it('removes the tournament and its matches while playing, so nothing counts and every deck unlocks', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    await reportWin(id, [alice.id, bob.id], [2, 0], bobCookie);
+    expect(
+      (await setBasic(id, 'Island', 1, bobCookie).expect(409)).body.error,
+    ).toBe('deck-locked');
+    const before = await getDraft(id).expect(200);
+
+    const answer = await cancelTournament(id).expect(200);
+
+    expect(answer.body.tournament).toBeNull();
+    expect(answer.body.version).toBe(before.body.version + 1);
+    await tournament(id).expect(404);
+    for (const cookie of [aliceCookie, bobCookie]) {
+      await setBasic(id, 'Island', 1, cookie).expect(200);
+    }
+    await setUpTournament(id).expect(201);
+    expect(await entrants(id)).toEqual([]);
+  });
+
+  it('refuses a complete tournament, which can only be corrected', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    await completeTournament(id).expect(200);
+
+    expect((await cancelTournament(id).expect(409)).body.error).toBe(
+      'tournament-complete',
+    );
+    expect((await tournament(id).expect(200)).body.state).toBe('Complete');
   });
 
   it('refuses anyone without the power to organize the draft', async () => {

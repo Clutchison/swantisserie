@@ -8,7 +8,7 @@ import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
-import { TournamentResults } from './tournament-results';
+import { TournamentResults, type ClearResult, type SetResult } from './tournament-results';
 
 /** The formats tournament setup offers, as it names them: only round robin for now. */
 const FORMATS: { format: TournamentFormat; name: string }[] = [
@@ -254,6 +254,52 @@ export class TournamentTab {
           ? this.api.cancel(this.draft().id)
           : undefined,
       { failure: "Couldn't cancel the tournament. Try again in a moment.", keep: ['set-up'] },
+    );
+  }
+
+  /** Cancels the tournament being played, once the organizer confirms. */
+  protected cancelPlaying() {
+    return this.send(
+      () =>
+        confirm(
+          'Cancel the tournament? Its matches are removed, nothing from it counts, and every deck unlocks.',
+        )
+          ? this.api.cancel(this.draft().id)
+          : undefined,
+      { failure: "Couldn't cancel the tournament. Try again in a moment.", keep: ['set-up'] },
+    );
+  }
+
+  /** Confirms the signed-in player's match `matchId`. */
+  protected confirmMatch(matchId: string) {
+    return this.send(() => this.api.confirm(this.draft().id, matchId), {
+      failure: "Couldn't confirm the match. Try again in a moment.",
+    });
+  }
+
+  /** Sets a match's game score, as an organizer reports or corrects it. */
+  protected setResult({ matchId, games }: SetResult) {
+    return this.send(() => this.api.setResult(this.draft().id, matchId, games), {
+      failure: "Couldn't save the match’s result. Try again in a moment.",
+      keep: [`correct ${matchId}`],
+    });
+  }
+
+  /** Clears a match's result, once the organizer confirms. */
+  protected clearResult({ matchId, label }: ClearResult) {
+    const after =
+      this.tournament()?.state === 'Complete'
+        ? 'The match becomes a granted draw.'
+        : 'The match is unreported again.';
+    return this.send(
+      () =>
+        confirm(`Clear the result of ${label}? ${after}`)
+          ? this.api.clearResult(this.draft().id, matchId)
+          : undefined,
+      {
+        failure: "Couldn't clear the match’s result. Try again in a moment.",
+        keep: [`correct ${matchId}`],
+      },
     );
   }
 

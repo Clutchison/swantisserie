@@ -130,6 +130,9 @@
       [ownId]="entered() ? ownId() : undefined"
       [currentId]="ownMatch()?.match?.id"
       (choose)="chosen.set($event)"
+      (confirmMatch)="confirmMatch($event)"
+      (setResult)="setResult($event)"
+      (clearResult)="clearResult($event)"
     />
     <h3>Players</h3>
     <ul class="entries" aria-label="Players">
@@ -175,6 +178,14 @@
       <div class="controls">
         <button class="button" type="button" (click)="complete()" appSendsChange="complete">
           Complete tournament
+        </button>
+        <button
+          class="button secondary"
+          type="button"
+          (click)="cancelPlaying()"
+          appSendsChange="cancel"
+        >
+          Cancel tournament
         </button>
       </div>
     }

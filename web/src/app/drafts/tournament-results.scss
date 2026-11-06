@@ -30,11 +30,23 @@ h4 {
   li {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-sm);
     min-height: 2.5rem;
   }
 
   .bye {
     color: var(--color-muted);
+  }
+
+  .confirmed {
+    font-weight: 600;
+  }
+
+  .result-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    flex-basis: 100%;
   }
 }

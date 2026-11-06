@@ -41,6 +41,23 @@ export class TournamentApi {
     );
   }
 
+  /** Confirms a reported match's game score; for the player of it who didn't report it. */
+  confirm(draftId: string, matchId: string): Observable<DraftView> {
+    return this.http.post<DraftView>(`${matchUrl(draftId, matchId)}/confirm`, null);
+  }
+
+  /** Sets a match's game score, `games` in its player order, reporting or correcting it; for organizers. */
+  setResult(draftId: string, matchId: string, games: [number, number]): Observable<DraftView> {
+    return this.http.put<DraftView>(`${matchUrl(draftId, matchId)}/result`, {
+      games,
+    } satisfies MatchReportRequest);
+  }
+
+  /** Clears a match's result; for organizers. */
+  clearResult(draftId: string, matchId: string): Observable<DraftView> {
+    return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/result`);
+  }
+
   /** Completes the draft's round robin tournament; for organizers. */
   complete(draftId: string): Observable<DraftView> {
     return this.http.post<DraftView>(`${url(draftId)}/complete`, null);
@@ -64,6 +81,10 @@ export class TournamentApi {
 
 function url(draftId: string) {
   return `/api/drafts/${draftId}/tournament`;
+}
+
+function matchUrl(draftId: string, matchId: string) {
+  return `${url(draftId)}/matches/${encodeURIComponent(matchId)}`;
 }
 
 function dropUrl(draftId: string, playerId: string) {
