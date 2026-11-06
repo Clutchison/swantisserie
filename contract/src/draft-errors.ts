@@ -185,8 +185,16 @@ export interface TournamentRefusal {
     /** A dropped player can't drop again, and only a dropped player can be reinstated. */
     | 'already-dropped'
     | 'not-dropped'
-    /** Complete round waits until every match of the tournament round is reported. */
+    /**
+     * Complete round waits until every match of the tournament round is
+     * reported, or settled by the request as a granted draw.
+     */
     | 'unreported-matches'
+    /**
+     * A dropped player can't be reinstated once a tournament round has been
+     * paired without them: their drop fed that pairing.
+     */
+    | 'paired-since-drop'
     /**
      * Complete round is for Swiss, whose last completed round completes the
      * tournament; completing the tournament outright is for round robin.

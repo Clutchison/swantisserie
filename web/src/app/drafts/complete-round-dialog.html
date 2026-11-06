@@ -1,0 +1,45 @@
+<div class="dialog">
+  <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
+  <p>
+    @if (last()) {
+      It is the last, so the tournament completes and the trophy is awarded.
+    } @else {
+      Tournament round {{ round() + 1 }} is paired, and its matches open.
+    }
+  </p>
+  @if (unreported().length > 0) {
+    <p>
+      Its unreported matches become granted draws.
+      @if (!last()) {
+        Drop any player who won’t play on.
+      }
+    </p>
+    <ul aria-label="Unreported matches">
+      @for (match of unreported(); track match.id) {
+        <li>
+          <span>{{ match.label }}</span>
+          @if (!last()) {
+            <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+              @for (player of match.players; track player.id) {
+                <label>
+                  <input
+                    type="checkbox"
+                    [checked]="isDropping(match.id, player.id)"
+                    (change)="setDropping(match.id, player.id, $any($event.target).checked)"
+                  />
+                  Drop {{ player.name }}
+                </label>
+              }
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  }
+  <div class="dialog-actions">
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
+    <button class="button" type="button" (click)="completeRound()" [disabled]="sending()">
+      Complete round
+    </button>
+  </div>
+</div>

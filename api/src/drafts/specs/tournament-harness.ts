@@ -113,9 +113,21 @@ export function completeTournament(id: string, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/tournament/complete`, cookie);
 }
 
-/** Completes the current tournament round of the draft's tournament. */
-export function completeRound(id: string, cookie = aliceCookie) {
-  return draftsRequest('post', `/${id}/tournament/complete-round`, cookie);
+/**
+ * Completes the current tournament round of the draft's tournament, `body`
+ * the request body as is (none unless given).
+ */
+export function completeRound(
+  id: string,
+  cookie = aliceCookie,
+  body?: unknown,
+) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/complete-round`,
+    cookie,
+    body,
+  );
 }
 
 /**

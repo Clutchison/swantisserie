@@ -13,8 +13,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type {
+  CompleteRoundRequest,
   DraftView,
   GameScore,
+  GrantedDrawRequest,
   MatchReportRequest,
   RequestProblem,
   SwissRoundOption,
@@ -218,18 +220,23 @@ export class TournamentsController {
   }
 
   /**
-   * Completes the Swiss tournament's current tournament round, once every
-   * match of it is reported: it pairs the next one, or completes the
-   * tournament after the last. For the organizer.
+   * Completes the Swiss tournament's current tournament round, settling its
+   * unreported matches as the body's granted draws and drops: it pairs the
+   * next one, or completes the tournament after the last or once fewer than
+   * 2 players are left in. For the organizer.
    */
   @Post('complete-round')
   @HttpCode(200)
   async completeRound(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
+    @Body() body: unknown,
   ): Promise<DraftView> {
+    const { grantedDraws } = parseCompleteRound(body);
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.tournaments.completeRound(id));
+    return this.change(id, () =>
+      this.tournaments.completeRound(id, grantedDraws),
+    );
   }
 
   /** Applies `change` and answers with the draft as it now is, published to its viewers. */
@@ -259,6 +266,32 @@ function parseSetup(body: unknown): TournamentSetupRequest {
     error: 'invalid',
     message: `Choose round robin, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
   } satisfies RequestProblem);
+}
+
+/**
+ * The granted draws, with their drop choices, that Complete round's body
+ * settles the round's unreported matches with; none if it has no body. A
+ * 400 if they aren't match ids each with a list of user ids.
+ */
+function parseCompleteRound(body: unknown): CompleteRoundRequest {
+  const { grantedDraws = [] } = bodyFields<CompleteRoundRequest>(body);
+  if (Array.isArray(grantedDraws) && grantedDraws.every(isGrantedDraw)) {
+    return { grantedDraws };
+  }
+  throw new BadRequestException({
+    error: 'invalid',
+    message:
+      'List each unreported match to settle as a granted draw, with the players to drop from it.',
+  } satisfies RequestProblem);
+}
+
+function isGrantedDraw(value: unknown): value is GrantedDrawRequest {
+  const { matchId, drop } = bodyFields<GrantedDrawRequest>(value);
+  return (
+    typeof matchId === 'string' &&
+    Array.isArray(drop) &&
+    drop.every((playerId) => typeof playerId === 'string')
+  );
 }
 
 function isSwissRoundOption(value: unknown): value is SwissRoundOption {

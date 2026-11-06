@@ -126,6 +126,25 @@ export interface MatchReportRequest {
   games: GameScore;
 }
 
+/**
+ * Complete round, as the organizer settles the tournament round: each of
+ * its unreported matches must be listed, and becomes a granted draw. A body
+ * can be left out when the round has none.
+ */
+export interface CompleteRoundRequest {
+  grantedDraws: GrantedDrawRequest[];
+}
+
+/** One unreported match that Complete round settles as a granted draw. */
+export interface GrantedDrawRequest {
+  matchId: string;
+  /**
+   * The Discord user ids of its players to drop: either, both or neither.
+   * Ignored in the final tournament round, which completes the tournament.
+   */
+  drop: string[];
+}
+
 /** Tournament setup, as the organizer chooses it: all at once, never changed. */
 export type TournamentSetupRequest =
   | { format: 'RoundRobin' }
