@@ -163,7 +163,7 @@ A draft's picks in the order they were made, each with its pick number, player a
 _Avoid_: History, pick history, feed
 
 **Board tab**:
-The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Decklists tab takes its place once a tournament with public decklists is playing, and for good unless that tournament is cancelled.
+The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Lists tab takes its place once a tournament with public decklists is playing, and for good unless that tournament is cancelled.
 _Avoid_: Picks page, draft board
 
 **Queue**:
@@ -342,7 +342,6 @@ _Avoid_: Delete, abort
 Any draft that is neither closed nor complete. The draft list's Active drafts also lists complete drafts whose tournament is in registration or playing, though those are not active drafts.
 _Avoid_: Open draft (as its name; "open" as a verb, as in "Open draft" on a link, is fine), current draft
 
-
 ## Tournaments
 
 **Tournament**:
@@ -473,9 +472,9 @@ _Avoid_: Open decklists, open decks, shared decks
 A joined player's deck as others see it under public decklists: as it was locked when the tournament started.
 _Avoid_: Deck (that is the player's own), list
 
-**Decklists tab**:
+**Lists tab**:
 The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete. It takes the Board tab's place.
-_Avoid_: Decks tab, lists tab
+_Avoid_: Decklists tab, decks tab
 
 **Match**:
 One best-of-three meeting between two players in a tournament, decided by its game score.

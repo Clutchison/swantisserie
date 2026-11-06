@@ -331,7 +331,7 @@ export class DraftStore {
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
   /**
-   * Whether the Decklists tab is shown: as the tournament's `showsDecklists`
+   * Whether the Lists tab is shown: as the tournament's `showsDecklists`
    * says, which the api decides (ADR 0003). Undefined while the draft or its
    * tournament is still loading; false with no tournament, or none loaded.
    */
@@ -342,7 +342,7 @@ export class DraftStore {
     return this.tournament.value()?.showsDecklists ?? false;
   });
   /**
-   * Whether the Board tab is shown: until the Decklists tab takes its place.
+   * Whether the Board tab is shown: until the Lists tab takes its place.
    * Undefined while that is still loading.
    */
   readonly showBoardTab = computed(() => {

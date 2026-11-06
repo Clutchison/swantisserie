@@ -241,20 +241,6 @@
     }
     @if (organizePlay()) {
       <div class="controls">
-        @if (tournament.completeRoundGrants !== null) {
-          <button
-            class="button"
-            type="button"
-            (click)="openCompleteRound()"
-            appSendsChange="complete-round"
-          >
-            Complete round
-          </button>
-        } @else {
-          <button class="button" type="button" (click)="complete()" appSendsChange="complete">
-            Complete tournament
-          </button>
-        }
         @if (offeredReopenRound(); as offered) {
           <button
             class="button secondary"
@@ -270,6 +256,21 @@
         <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
           Cancel tournament
         </button>
+        <!-- Completing moves the tournament on, so it comes after the controls that don't. -->
+        @if (tournament.completeRoundGrants !== null) {
+          <button
+            class="button"
+            type="button"
+            (click)="openCompleteRound()"
+            appSendsChange="complete-round"
+          >
+            Complete round
+          </button>
+        } @else {
+          <button class="button" type="button" (click)="complete()" appSendsChange="complete">
+            Complete tournament
+          </button>
+        }
       </div>
       @if (offeredReopenRound()?.refusal; as refusal) {
         <p id="reopen-round-refusal" class="detail">{{ refusal.message }}</p>

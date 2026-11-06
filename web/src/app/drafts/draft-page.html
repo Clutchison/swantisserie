@@ -100,7 +100,7 @@
       >
         {{ planName() === 'deck' ? 'Deck' : 'Plan' }}
       </button>
-      <!-- The Decklists tab takes the Board tab's place once a tournament with public decklists has started. -->
+      <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started. -->
       @if (showBoardTab()) {
         <button
           id="board-tab"
@@ -112,15 +112,15 @@
           Board
         </button>
       }
-      @if (showDecklists()) {
+      @if (showListsTab()) {
         <button
-          id="decklists-tab"
+          id="lists-tab"
           type="button"
-          [appTab]="selectedTab() === 'Decklists'"
-          aria-controls="decklists-panel"
-          (click)="selectedTab.select('Decklists')"
+          [appTab]="selectedTab() === 'Lists'"
+          aria-controls="lists-panel"
+          (click)="selectedTab.select('Lists')"
         >
-          Decklists
+          Lists
         </button>
       }
       <!-- Only players have picks to export. -->
@@ -268,17 +268,17 @@
       </section>
     }
 
-    <!-- Only a tournament under public decklists has a Decklists tab, once it has started. -->
-    @if (showDecklists()) {
+    <!-- Only a tournament under public decklists has a Lists tab, once it has started. -->
+    @if (showListsTab()) {
       <section
-        id="decklists-panel"
+        id="lists-panel"
         class="decklists"
         role="tabpanel"
-        aria-labelledby="decklists-tab"
-        [hidden]="selectedTab() !== 'Decklists'"
+        aria-labelledby="lists-tab"
+        [hidden]="selectedTab() !== 'Lists'"
       >
-        <h2>Decklists</h2>
-        <app-decklists-tab />
+        <h2>Lists</h2>
+        <app-lists-tab />
       </section>
     }
 

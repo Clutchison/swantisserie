@@ -17,7 +17,7 @@ import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
-import { DecklistsTab } from './decklists-tab';
+import { ListsTab } from './lists-tab';
 import { DraftStore } from './draft-store';
 import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
@@ -33,7 +33,7 @@ import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Decklists', 'Export', 'Play'] as const;
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Lists', 'Export', 'Play'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
@@ -42,7 +42,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
   selector: 'app-draft-page',
   imports: [
     BoardTab,
-    DecklistsTab,
+    ListsTab,
     ExportTab,
     LoadingAnimation,
     LobbyControls,
@@ -97,12 +97,12 @@ export class DraftPage {
    */
   protected readonly showPlayTab = computed(() => !!this.store.showPlayTab());
   /**
-   * Whether the Decklists tab is there, in the Board tab's place: under
+   * Whether the Lists tab is there, in the Board tab's place: under
    * public decklists, once the tournament has started.
    */
-  protected readonly showDecklists = computed(() => !!this.store.showDecklists());
+  protected readonly showListsTab = computed(() => !!this.store.showDecklists());
   /**
-   * Whether the Board tab is there: until the Decklists tab takes its place,
+   * Whether the Board tab is there: until the Lists tab takes its place,
    * and while that is still loading.
    */
   protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
@@ -122,7 +122,7 @@ export class DraftPage {
     Queue: this.store.showQueueTab,
     Board: this.store.showBoardTab,
     Play: this.store.showPlayTab,
-    Decklists: this.store.showDecklists,
+    Lists: this.store.showDecklists,
   };
 
   /**
@@ -131,14 +131,14 @@ export class DraftPage {
    * being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
-   * tabs, so its page settles on Pool. The Queue, Board, Play and Decklists
+   * tabs, so its page settles on Pool. The Queue, Board, Play and Lists
    * tabs can be opened while they are there, so each goes back to Pool as it
-   * goes, except Board, which goes to the Decklists tab that takes its place.
+   * goes, except Board, which goes to the Lists tab that takes its place.
    */
   protected readonly selectedTab = tabInUrl<Panel>({
     tabs: PANELS,
     defaultTab: 'Pool',
-    fallbacks: { Board: 'Decklists' },
+    fallbacks: { Board: 'Lists' },
     canOpen: (tab) => {
       if (this.failed()) return 'no';
       const shownBy = this.shownBy[tab];
