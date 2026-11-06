@@ -39,6 +39,14 @@ async function badgeOf(
   return draft!.tournamentBadge;
 }
 
+/** A badge in `state` that doesn't offer the viewer Join, naming `trophyHolders`. */
+function withoutJoin(
+  state: TournamentBadgeView['state'],
+  trophyHolders: string[] = [],
+): TournamentBadgeView {
+  return { state, canJoin: false, trophyHolders };
+}
+
 /** A complete draft of Alice and Bob, both with full decks, and its tournament in registration. */
 async function inRegistration() {
   const id = await completeDraft([aliceCookie, bobCookie]);
@@ -69,11 +77,7 @@ describe('in registration', () => {
     const id = await inRegistration();
     await joinTournament(id, bobCookie).expect(201);
 
-    expect(await badgeOf(id, bobCookie)).toEqual({
-      state: 'Registration',
-      canJoin: false,
-      trophyHolders: [],
-    });
+    expect(await badgeOf(id, bobCookie)).toEqual(withoutJoin('Registration'));
     // Alice, who hasn't, still may.
     expect((await badgeOf(id, aliceCookie))?.canJoin).toBe(true);
   });
@@ -84,11 +88,7 @@ describe('in registration', () => {
 
     // Carol is an app admin, Dave just a guild member.
     for (const cookie of [carolCookie, daveCookie]) {
-      expect(await badgeOf(id, cookie)).toEqual({
-        state: 'Registration',
-        canJoin: false,
-        trophyHolders: [],
-      });
+      expect(await badgeOf(id, cookie)).toEqual(withoutJoin('Registration'));
     }
   });
 
@@ -105,11 +105,7 @@ it('shows a playing tournament, which nobody may join', async () => {
   const id = await playingTournament([bobCookie, carolCookie]);
 
   for (const cookie of [aliceCookie, bobCookie]) {
-    expect(await badgeOf(id, cookie)).toEqual({
-      state: 'Playing',
-      canJoin: false,
-      trophyHolders: [],
-    });
+    expect(await badgeOf(id, cookie)).toEqual(withoutJoin('Playing'));
   }
 });
 
@@ -119,18 +115,16 @@ describe('once complete', () => {
     await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
     await completeTournament(id).expect(200);
 
-    expect(await badgeOf(id)).toEqual({
-      state: 'Complete',
-      canJoin: false,
-      trophyHolders: [bob.id],
-    });
+    expect(await badgeOf(id)).toEqual(withoutJoin('Complete', [bob.id]));
   });
 
   it('names every trophy holder who shares first', async () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     await completeTournament(id).expect(200);
 
-    expect((await badgeOf(id))?.trophyHolders).toEqual([bob.id, carol.id]);
+    expect(await badgeOf(id)).toEqual(
+      withoutJoin('Complete', [bob.id, carol.id]),
+    );
   });
 
   it('moves the trophy after a correction', async () => {
@@ -140,10 +134,6 @@ describe('once complete', () => {
 
     await setWin(id, [carol.id, bob.id], [2, 0]);
 
-    expect(await badgeOf(id)).toEqual({
-      state: 'Complete',
-      canJoin: false,
-      trophyHolders: [carol.id],
-    });
+    expect(await badgeOf(id)).toEqual(withoutJoin('Complete', [carol.id]));
   });
 });

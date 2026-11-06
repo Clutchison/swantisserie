@@ -216,10 +216,10 @@ export async function openList(drafts: (DraftView & Partial<DraftListItemView>)[
   return page;
 }
 
-/** The draft list's item for the draft named `name`. */
+/** The draft list's item for the draft named `name`, by its accessible name. */
 export function listItem(page: HTMLElement, name: string): HTMLElement {
-  const found = [...page.querySelectorAll('li')].find((li) =>
-    li.querySelector('.name')?.textContent?.includes(name),
+  const found = [...page.querySelectorAll('li')].find(
+    (li) => li.getAttribute('aria-label') === name,
   );
   if (!found) throw new Error(`No draft named ${name} in the list`);
   return found;

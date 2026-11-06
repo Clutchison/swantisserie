@@ -36,10 +36,13 @@ export class DraftListPage {
     (this.drafts.value() ?? []).filter((draft) => draft.state === 'Complete'),
   );
 
-  /** The names of the draft's tournament's trophy holders, as one phrase. */
+  /**
+   * The names of the draft's tournament's trophy holders, as one phrase.
+   * Trophy holders are entrants, so each is one of the draft's players.
+   */
   protected trophyHolders(draft: DraftListItemView): string {
-    const names = (draft.tournamentBadge?.trophyHolders ?? []).map(
-      (id) => draft.players.find((player) => player.id === id)?.name ?? id,
+    const names = (draft.tournamentBadge?.trophyHolders ?? []).flatMap((id) =>
+      draft.players.filter((player) => player.id === id).map((player) => player.name),
     );
     return NAMES.format(names);
   }

@@ -561,7 +561,7 @@ One tournament won by a player. A complete tournament's trophy goes to everyone 
 _Avoid_: Win (alone; that is a match), title, championship
 
 **Tournament badge**:
-What the draft list shows of a complete draft's tournament: Registration, with Join for the draft's players who can join it; Playing; or, once complete, its trophy holders. A draft without a tournament has none.
+What the draft list shows of a complete draft's tournament: Registration, with Join for the draft's players who can join it; Playing; or, once complete, its trophy holders, or just that it is complete when nobody holds the trophy. A draft without a tournament has none.
 _Avoid_: Tournament status, tournament tag, label
 
 ## Discord
