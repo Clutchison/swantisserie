@@ -5,8 +5,8 @@
   }
   @if (clears().length > 0) {
     <p>
-      It changes who advances, so these later matches are cleared. The next is paired again with
-      whoever advances now, and those after it once their tournament rounds are.
+      It changes who advances, so it will clear these later matches. The next match will be paired
+      again with whoever then advances, and those after it once their tournament rounds are.
     </p>
     <ul aria-label="Matches to clear">
       @for (match of clears(); track match.key) {
@@ -17,12 +17,15 @@
   @switch (stateChange()) {
     @case ('completes') {
       <p>
-        Fewer than 2 players are left in the bracket, so the tournament completes and the trophy is
-        awarded.
+        Fewer than 2 players will be left in the bracket, so it will complete the tournament and
+        award the trophy.
       </p>
     }
     @case ('plays-on') {
-      <p>The tournament plays on, and the trophy is taken back until the final is played again.</p>
+      <p>
+        The tournament will play on, and the trophy will be taken back until the final is played
+        again.
+      </p>
     }
   }
   <div class="dialog-actions">
