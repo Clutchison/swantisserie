@@ -33,7 +33,7 @@ import {
 
 useDraftsApp();
 
-describe('Play tab in play', () => {
+describe('Play tab while the tournament is played', () => {
   describe('your match', () => {
     it('shows your first unreported match at the top, with your opponent and a link to your Deck tab', async () => {
       const { fixture, page, tab } = await openPlaying(playing());

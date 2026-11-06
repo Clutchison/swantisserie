@@ -24,9 +24,9 @@ import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';
 import { OrganizerControls } from './organizer-controls';
 import { PlanTab } from './plan-tab';
+import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
-import { PlayTab } from './play-tab';
 import { WebhookControl } from './webhook-control';
 import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
@@ -48,12 +48,12 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
     LucideChevronLeft,
     OrganizerControls,
     PlanTab,
+    PlayTab,
     PoolTab,
     QueueTab,
     RouterLink,
     Tab,
     TabList,
-    PlayTab,
     WebhookControl,
   ],
   providers: [CardImageSource, CardPreviews, DraftStore, ImagePreloader],
