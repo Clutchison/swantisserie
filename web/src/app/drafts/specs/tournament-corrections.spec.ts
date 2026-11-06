@@ -13,6 +13,7 @@ import {
 import {
   answerChange,
   carol,
+  completed,
   dave,
   forfeited,
   gridCell,
@@ -23,6 +24,7 @@ import {
   pushTournament,
   reported,
   resultsGrid,
+  singleEliminationFinal,
   swissPlaying,
   swissRoundsWith,
   threePlayers,
@@ -128,7 +130,7 @@ describe('organizer reports, corrections and clears', () => {
     const { fixture, tab } = await openPlaying(playing(), { user: dave, powers: ORGANIZE_ONLY });
     await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
 
-    await pushTournament(fixture, playing([], { state: 'Complete' }), 1);
+    await pushTournament(fixture, completed(playing()), 1);
 
     await vi.waitFor(() => expect(openDialog()).toBeNull());
   });
@@ -219,10 +221,9 @@ describe('organizer reports, corrections and clears', () => {
 
   it('offers no correction of a complete tournament’s matches', async () => {
     const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
-    const { tab } = await openPlaying(
-      playing([m1], { state: 'Complete', trophyHolders: [bob.id] }),
-      { powers: ORGANIZE_ONLY },
-    );
+    const { tab } = await openPlaying(completed(playing([m1], { trophyHolders: [bob.id] })), {
+      powers: ORGANIZE_ONLY,
+    });
 
     expect(resultsGrid(tab)!.querySelector('button')).toBeNull();
   });
@@ -232,6 +233,53 @@ describe('organizer reports, corrections and clears', () => {
 
     expect(button(tab, 'Correct Carol vs Bob')).toBeUndefined();
     expect(button(tab, 'Report Alice vs Carol')).toBeDefined();
+  });
+
+  describe('follow which tournament rounds the read says are correctable, not the last completed round', () => {
+    it('in the Swiss list of matches', async () => {
+      const [first, second] = swissPlaying().rounds;
+      const { tab } = await openPlaying(
+        swissPlaying({
+          lastCompletedRound: 1,
+          rounds: [
+            { ...first, correctable: true },
+            { ...second, correctable: false },
+          ],
+        }),
+        { powers: ORGANIZE_ONLY },
+      );
+
+      expect(button(tab, 'Correct Carol vs Bob')).toBeDefined();
+      expect(button(tab, 'Report Alice vs Carol')).toBeUndefined();
+    });
+
+    it('in the single elimination bracket', async () => {
+      const [first, second] = singleEliminationFinal.rounds;
+      const { tab } = await openPlaying(
+        {
+          ...singleEliminationFinal,
+          rounds: [
+            { ...first, correctable: true },
+            { ...second, correctable: false },
+          ],
+        },
+        { powers: ORGANIZE_ONLY },
+      );
+
+      expect(button(tab, 'Correct Bob vs Carol')).toBeDefined();
+      expect(button(tab, 'Report Alice vs Carol')).toBeUndefined();
+    });
+
+    it('in the round robin results grid', async () => {
+      const [round] = playing().rounds;
+      const { tab } = await openPlaying(
+        playing([], { rounds: [{ ...round, correctable: false }] }),
+        { powers: ORGANIZE_ONLY },
+      );
+
+      expect(gridCellName(tab, 'Bob', 'Carol')).toBe('Bob against Carol: unreported');
+      expect(button(tab, 'Bob against Carol: unreported')).toBeUndefined();
+    });
   });
 
   describe('an open correction in the list of matches', () => {
@@ -276,7 +324,7 @@ describe('organizer reports, corrections and clears', () => {
         fixture,
         swissPlaying({
           lastCompletedRound: 2,
-          rounds: swissRoundsWith(aliceVsCarol),
+          rounds: swissRoundsWith(aliceVsCarol).map((round) => ({ ...round, correctable: false })),
         }),
         1,
       );

@@ -1,3 +1,4 @@
+import type { TournamentSetupRequest } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -10,7 +11,9 @@ import {
   dropPlayer,
   matchOf,
   playingTournament,
+  playTournamentRound,
   reportCurrentRound,
+  reopenRound,
   reportWin,
   setGameScore,
   setWin,
@@ -258,5 +261,80 @@ describe('completed results', () => {
     expect((await matchOf(id, ...match.players)).outcome).toEqual({
       kind: 'Unreported',
     });
+  });
+});
+
+describe('which tournament rounds the read says are correctable', () => {
+  /** Whether each tournament round reads correctable, in order. */
+  async function correctable(id: string) {
+    return (await tournamentView(id)).rounds.map((round) => round.correctable);
+  }
+
+  /**
+   * Corrects and then clears the first match of each tournament round,
+   * expecting both allowed where the round reads correctable and both
+   * refused where it doesn't.
+   */
+  async function expectRefusalsFollowTheRead(id: string) {
+    for (const round of (await tournamentView(id)).rounds) {
+      const status = round.correctable ? 200 : 409;
+      const [match] = round.matches;
+      await setGameScore(id, match.id, { games: [2, 1] }).expect(status);
+      await clearGameScore(id, match.id).expect(status);
+    }
+  }
+
+  it('reads a completed Swiss tournament round not correctable until it is reopened, and the next one correctable', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    expect(await correctable(id)).toEqual([true]);
+
+    await playTournamentRound(id, cookieOf);
+
+    expect(await correctable(id)).toEqual([false, true]);
+    await expectRefusalsFollowTheRead(id);
+
+    await reopenRound(id).expect(200);
+
+    expect(await correctable(id)).toEqual([true]);
+    await expectRefusalsFollowTheRead(id);
+  });
+
+  it('reads round robin’s round correctable while the tournament is playing', async () => {
+    const id = await playingTournament([bobCookie, carolCookie]);
+
+    expect(await correctable(id)).toEqual([true]);
+    await expectRefusalsFollowTheRead(id);
+  });
+
+  it.each<[string, TournamentSetupRequest]>([
+    ['Swiss', swiss()],
+    ['single elimination', singleElimination],
+  ])(
+    'reads every round of a complete %s tournament not correctable',
+    async (_, setup) => {
+      const id = await playingTournament(
+        [aliceCookie, bobCookie, carolCookie, daveCookie],
+        setup,
+      );
+      while ((await tournamentView(id)).state === 'Playing') {
+        await playTournamentRound(id, cookieOf);
+      }
+
+      const flags = await correctable(id);
+      expect(flags.length).toBeGreaterThan(1);
+      expect(flags).toEqual(flags.map(() => false));
+      await expectRefusalsFollowTheRead(id);
+    },
+  );
+
+  it('reads a complete round robin tournament’s round not correctable', async () => {
+    const id = await playingTournament([bobCookie, carolCookie]);
+    await completeTournament(id).expect(200);
+
+    expect(await correctable(id)).toEqual([false]);
+    await expectRefusalsFollowTheRead(id);
   });
 });

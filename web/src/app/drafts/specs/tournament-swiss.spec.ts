@@ -42,6 +42,7 @@ import {
   swissRoundsWith,
   threePlayers,
   withTournament,
+  completed,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -112,7 +113,7 @@ describe('Swiss tournaments on the Play tab', () => {
 
   it.each([
     ['during registration', swissRegistration],
-    ['once it is complete', swissPlaying({ state: 'Complete' })],
+    ['once it is complete', completed(swissPlaying())],
   ])('says no tournament round %s', async (_, tournament) => {
     const { tab } = await openPlaying(tournament, { user: dave });
 
@@ -135,7 +136,14 @@ describe('Swiss tournaments on the Play tab', () => {
   /** Tournament round 1 of three players, Carol and Bob's match unreported and Alice with the bye. */
   const unreportedRoundOne = swissPlaying({
     lastCompletedRound: 0,
-    rounds: [{ round: 1, matches: [unreportedMatch('m1', carol.id, bob.id)], byes: [alice.id] }],
+    rounds: [
+      {
+        round: 1,
+        correctable: true,
+        matches: [unreportedMatch('m1', carol.id, bob.id)],
+        byes: [alice.id],
+      },
+    ],
   });
 
   it('asks which players of each unreported match to drop as it becomes a granted draw', async () => {
@@ -177,7 +185,7 @@ describe('Swiss tournaments on the Play tab', () => {
       fixture,
       '/api/drafts/draft-1/tournament/complete-round',
       'POST',
-      swissPlaying({ state: 'Complete', lastCompletedRound: 2, trophyHolders: [alice.id] }),
+      completed(swissPlaying({ lastCompletedRound: 2, trophyHolders: [alice.id] })),
       1,
       threePlayers,
     );
@@ -198,7 +206,12 @@ describe('Swiss tournaments on the Play tab', () => {
           { playerId: carol.id, dropped: false, seed: null },
         ],
         rounds: [
-          { round: 1, matches: [unreportedMatch('m1', alice.id, carol.id)], byes: [bob.id] },
+          {
+            round: 1,
+            correctable: true,
+            matches: [unreportedMatch('m1', alice.id, carol.id)],
+            byes: [bob.id],
+          },
         ],
       }),
     );
@@ -222,6 +235,7 @@ describe('Swiss tournaments on the Play tab', () => {
         rounds: [
           {
             round: 1,
+            correctable: true,
             matches: [reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
             byes: [alice.id],
           },
@@ -307,7 +321,7 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('says nothing of which tournament round the standings are as of once the tournament is complete', async () => {
-    const { tab } = await openPlaying(swissPlaying({ state: 'Complete', lastCompletedRound: 2 }), {
+    const { tab } = await openPlaying(completed(swissPlaying({ lastCompletedRound: 2 })), {
       user: dave,
     });
 
@@ -437,8 +451,13 @@ describe('Swiss tournaments on the Play tab', () => {
       const { fixture, tab } = await openPlaying(
         swissPlaying({
           rounds: [
-            { round: 1, matches: [bobBeatAlice], byes: [carol.id] },
-            { round: 2, matches: [unreportedMatch('m2', alice.id, carol.id)], byes: [bob.id] },
+            { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+            {
+              round: 2,
+              correctable: true,
+              matches: [unreportedMatch('m2', alice.id, carol.id)],
+              byes: [bob.id],
+            },
           ],
         }),
       );

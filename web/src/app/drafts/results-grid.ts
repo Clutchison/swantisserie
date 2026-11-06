@@ -51,11 +51,11 @@ interface GridCell {
  * each opponent in the same order showing the row player's result against
  * them, and their match points, record and game-win %. Both of a match's
  * cells show it, each from its own row's side; never by colour alone, as
- * each cell's accessible name spells the result out. While the tournament
- * is playing, an organizer opens either cell of a match to report, correct
- * or clear it in the match result dialog, which closes itself once the
- * tournament stops playing or that match's outcome changes. It scrolls sideways in its own
- * region, the rank and name columns fixed.
+ * each cell's accessible name spells the result out. While the read says
+ * its round is correctable, an organizer opens either cell of a match to
+ * report, correct or clear it in the match result dialog, which closes
+ * itself once it no longer is or that match's outcome changes. It scrolls
+ * sideways in its own region, the rank and name columns fixed.
  */
 @Component({
   selector: 'app-results-grid',
@@ -74,9 +74,18 @@ export class ResultsGrid {
   /** Asks for a match's game score to be cleared, as an organizer does. */
   readonly clearGameScore = output<ClearGameScore>();
 
-  /** Organizers report, correct and clear matches while the tournament is playing; a complete one's results are final. */
-  private readonly organize = computed(
-    () => this.store.canOrganize() && this.tournament().state === 'Playing',
+  /**
+   * The ids of the matches an organizer can report, correct and clear:
+   * those the read says are correctable, in round robin while the
+   * tournament is playing.
+   */
+  private readonly correctable = computed(
+    () =>
+      new Set(
+        this.tournament()
+          .rounds.filter((round) => round.correctable)
+          .flatMap((round) => round.matches.map((match) => match.id)),
+      ),
   );
 
   /** The match result dialog while it's open, with the match it was opened for and its choices as they were then. */
@@ -93,13 +102,15 @@ export class ResultsGrid {
     // players drops, which changes what clearing it leaves.
     effect(() => {
       const tournament = this.tournament();
-      const organize = this.organize();
+      const correctable = this.correctable();
+      const organize = this.store.canOrganize();
       untracked(() => {
         const opened = this.opened;
         if (!opened) return;
         const match = matchIn(tournament, opened.match.id);
         if (
           !organize ||
+          !correctable.has(opened.match.id) ||
           !match ||
           !sameOutcome(opened.match, match) ||
           this.choicesFor(match).clear?.after !== opened.choices.clear?.after
@@ -153,7 +164,10 @@ export class ResultsGrid {
       opponentId: columnId,
       marker,
       name: `${this.name(rowId)} against ${this.name(columnId)}: ${result}`,
-      organize: this.organize() ? this.choicesFor(match) : null,
+      organize:
+        this.store.canOrganize() && this.correctable().has(match.id)
+          ? this.choicesFor(match)
+          : null,
       matchId: match.id,
     };
   }

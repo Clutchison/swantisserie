@@ -14,6 +14,7 @@ import {
   threePlayers,
   withDrops,
   yourMatches,
+  completed,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -138,10 +139,7 @@ describe('drops on the Play tab', () => {
   });
 
   it('offers no Drop or Reinstate once the tournament is complete', async () => {
-    const { tab } = await openPlaying(
-      { ...carolDropped, state: 'Complete' },
-      { powers: ORGANIZE_ONLY },
-    );
+    const { tab } = await openPlaying(completed(carolDropped), { powers: ORGANIZE_ONLY });
 
     expect(playerLines(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
     expect(button(tab, 'Drop Bob')).toBeUndefined();

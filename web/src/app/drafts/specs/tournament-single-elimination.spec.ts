@@ -26,6 +26,7 @@ import {
   singleEliminationFinal as final,
   singleEliminationPlaying,
   threePlayers,
+  completed,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -96,7 +97,7 @@ describe('single elimination tournaments on the Play tab', () => {
   });
 
   it('names no tournament round once it is complete', async () => {
-    const { tab } = await openPlaying({ ...final, state: 'Complete' });
+    const { tab } = await openPlaying(completed(final));
 
     expect(progressLine(tab)).toBe('');
   });
@@ -114,7 +115,7 @@ describe('single elimination tournaments on the Play tab', () => {
       fixture,
       '/api/drafts/draft-1/tournament/complete-round',
       'POST',
-      { ...final, state: 'Complete', lastCompletedRound: 2, trophyHolders: [alice.id] },
+      completed({ ...final, lastCompletedRound: 2, trophyHolders: [alice.id] }),
       1,
       threePlayers,
     );
@@ -164,7 +165,7 @@ describe('dropping players from the single elimination Complete round dialog', (
       fixture,
       '/api/drafts/draft-1/tournament/complete-round',
       'POST',
-      { ...final, state: 'Complete', trophyHolders: [alice.id] },
+      completed({ ...final, trophyHolders: [alice.id] }),
       1,
       threePlayers,
     );
@@ -190,7 +191,7 @@ describe('both finalists dropping', () => {
       fixture,
       '/api/drafts/draft-1/tournament/complete-round',
       'POST',
-      { ...final, state: 'Complete', lastCompletedRound: 2, trophyHolders: [] },
+      completed({ ...final, lastCompletedRound: 2, trophyHolders: [] }),
       1,
       threePlayers,
     );

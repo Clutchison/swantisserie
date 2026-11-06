@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { GameScore } from 'contract';
 import { reportProblem } from 'engine';
 import type { MatchChange } from './change-steps.js';
+import { correctionRefusal } from './correction-refusal.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 import {
   findMatch,
@@ -145,29 +146,12 @@ export class TournamentResultsService {
 
 /**
  * Throws TournamentRefusedError if a match of tournament round `round` has
- * final results, which an organizer can't correct or clear: every match
- * once the tournament is complete, and the matches of a completed
- * tournament round, until it is reopened, which its refusal suggests for
- * the last completed round while no round is reopened. Neither a tournament in
- * registration, which has no matches, nor a playing round robin one,
- * which has no tournament rounds, has any.
+ * final results, which an organizer can't correct or clear, as
+ * correctionRefusal decides.
  */
 function refuseFinal(tournament: LockedTournament, round: number) {
-  if (tournament.state === 'Complete') {
-    throw new TournamentRefusedError({
-      error: 'tournament-complete',
-      message: 'This tournament is complete, so its results are final.',
-    });
-  }
-  if (round > tournament.lastCompletedRound) return;
-  throw new TournamentRefusedError({
-    error: 'round-completed',
-    message:
-      round === tournament.lastCompletedRound &&
-      tournament.reopenedRound === null
-        ? `Tournament round ${round} is completed, so its results are final. Reopen it to change them.`
-        : `Tournament round ${round} is completed, so its results are final.`,
-  });
+  const refusal = correctionRefusal(tournament, round);
+  if (refusal) throw new TournamentRefusedError(refusal);
 }
 
 /**
