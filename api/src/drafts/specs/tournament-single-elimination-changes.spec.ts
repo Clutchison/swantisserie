@@ -125,7 +125,44 @@ describe('dropping in single elimination', () => {
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
     expect(view.trophyHolders).toEqual([]);
+    expect(view.standings.map(({ rank }) => rank)).toEqual([2, 2]);
     expect(view.bracket![0].places[0].advancing).toBeNull();
+  });
+
+  it('gives the trophy to the one player left, not to a player who dropped holding a bye', async () => {
+    const { id, seeds } = await playing(3);
+
+    await dropPlayer(id, seeds[0], aliceCookie).expect(200);
+    await playRound(id);
+
+    const view = await tournamentView(id);
+    expect(view.state).toBe('Complete');
+    expect(view.trophyHolders).toEqual([seeds[1]]);
+    expect(
+      view.standings.map(({ playerId, rank }) => [playerId, rank]),
+    ).toEqual([
+      [seeds[1], 1],
+      [seeds[0], 2],
+      [seeds[2], 2],
+    ]);
+  });
+
+  it('keeps the bye of a player who dropped after the next round was paired with them', async () => {
+    const { id, seeds } = await playing(3);
+    await playRound(id);
+
+    await dropPlayer(id, seeds[0], aliceCookie).expect(200);
+    await completeRound(id).expect(200);
+
+    const view = await tournamentView(id);
+    expect(view.trophyHolders).toEqual([seeds[1]]);
+    expect(
+      view.standings.map(({ playerId, rank }) => [playerId, rank]),
+    ).toEqual([
+      [seeds[1], 1],
+      [seeds[0], 2],
+      [seeds[2], 3],
+    ]);
   });
 
   it('completes the tournament once one player is left in the bracket', async () => {
