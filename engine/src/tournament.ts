@@ -71,8 +71,16 @@ export interface Standing {
   matchPoints: number;
   matches: Tally;
   games: Tally;
-  /** Games won as a percentage of games played, from 0 to 100; 0 before any game is played. */
+  /**
+   * From 0 to 100; 0 before any game is played. In round robin, games won
+   * as a percentage of games played. In Swiss, the MTR's: game points as a
+   * percentage of 3 per game played, floored at 33.
+   */
   gameWinPercent: number;
+  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 0 before they meet one. */
+  opponentsMatchWinPercent?: number;
+  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 0 before they meet one. */
+  opponentsGameWinPercent?: number;
 }
 
 type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
@@ -124,13 +132,27 @@ export function standings(
   return ranked;
 }
 
+/** The MTR's floor for every Swiss percentage, as a percentage: 0.33. */
+export const SWISS_PERCENT_FLOOR = 33;
+
 /**
  * The standings of a Swiss tournament's `players` after `matches`, best
  * first, with `byes` holding the player with each bye so far, once per bye.
- * A bye counts as a 2–0 win. Players rank by match points; players level on
- * them share a rank and keep the order of `players`, the rank after a
- * shared one skipping, as in 1, 1, 3. Unreported matches count for nothing.
- * The MTR's tiebreakers come with their own ticket (#427).
+ * A bye counts as a 2–0 win. Players rank by the MTR's order (Appendix C):
+ * match points, then opponents' match-win %, game-win %, then opponents'
+ * game-win %.
+ *
+ * - Match-win % is match points over 3 per tournament round played, so a
+ *   player who stopped playing is measured over the tournament rounds they played.
+ * - Game-win % is game points (3 a game won, 1 a game drawn) over 3 per
+ *   game played.
+ * - Each is floored at 33%, and the opponents' percentages average each
+ *   opponent's, leaving the player's byes out.
+ *
+ * Before a player has played a game, or met an opponent, the percentages
+ * that need one are 0. Players still tied after every tiebreaker share a
+ * rank and keep the order of `players`, the rank after a shared one
+ * skipping, as in 1, 1, 3. Unreported matches count for nothing.
  */
 export function swissStandings(
   players: readonly string[],
@@ -140,21 +162,65 @@ export function swissStandings(
   const decided = matches.filter(
     (match): match is DecidedMatch => match.outcome !== null,
   );
-  const ranked = players
-    .map((playerId) =>
-      standingOf(
+  const all = new Map(
+    players.map((playerId) => {
+      const standing = standingOf(
         playerId,
         decided,
         byes.filter((id) => id === playerId).length,
+      );
+      const { won, lost, drawn } = standing.games;
+      const played = won + lost + drawn;
+      standing.gameWinPercent =
+        played === 0 ? 0 : floored((3 * won + drawn) / (3 * played));
+      return [playerId, standing];
+    }),
+  );
+  const matchWin = ({ matchPoints, matches }: Standing) =>
+    floored(matchPoints / (3 * (matches.won + matches.lost + matches.drawn)));
+  const average = (values: number[]) =>
+    values.length === 0
+      ? 0
+      : values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  for (const standing of all.values()) {
+    const opponents = decided.flatMap(({ players: [a, b] }) =>
+      a === standing.playerId
+        ? [all.get(b)!]
+        : b === standing.playerId
+          ? [all.get(a)!]
+          : [],
+    );
+    standing.opponentsMatchWinPercent = average(opponents.map(matchWin));
+    standing.opponentsGameWinPercent = average(
+      opponents.map((opponent) =>
+        Math.max(SWISS_PERCENT_FLOOR, opponent.gameWinPercent),
       ),
-    )
-    .sort((a, b) => b.matchPoints - a.matchPoints);
+    );
+  }
+
+  const compare = (a: Standing, b: Standing) =>
+    b.matchPoints - a.matchPoints ||
+    unlessLevel(b.opponentsMatchWinPercent! - a.opponentsMatchWinPercent!) ||
+    unlessLevel(b.gameWinPercent - a.gameWinPercent) ||
+    unlessLevel(b.opponentsGameWinPercent! - a.opponentsGameWinPercent!);
+  const ranked = [...all.values()].sort(compare);
   ranked.forEach((standing, i) => {
     const previous = ranked[i - 1];
     standing.rank =
-      previous?.matchPoints === standing.matchPoints ? previous.rank : i + 1;
+      previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
   });
   return ranked;
+}
+
+/** `fraction` as a percentage, floored at the MTR's 33%. */
+function floored(fraction: number): number {
+  return Math.max(SWISS_PERCENT_FLOOR, 100 * fraction);
+}
+
+/** `difference`, or 0 when it is only floating-point noise between equal percentages. */
+function unlessLevel(difference: number): number {
+  return Math.abs(difference) < 1e-9 ? 0 : difference;
 }
 
 /**

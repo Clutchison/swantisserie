@@ -473,7 +473,7 @@ An unplayed match decided because one of its players dropped.
 _Avoid_: Default, walkover, no-show
 
 **Standings**:
-A tournament's players ranked by their results so far: by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by match points alone for now, with the MTR's tiebreakers to come. Players still tied share their place.
+A tournament's players ranked by their results so far: by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Players still tied after every tiebreaker share their place.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
 **Match points**:
@@ -485,8 +485,20 @@ In round robin, the tiebreaker after match points: the match points each of the 
 _Avoid_: Direct encounter, mutual result
 
 **Game-win %**:
-The share of the games a player played in their matches that they won. In round robin it is the tiebreaker after head-to-head.
+In round robin, the share of the games a player played in their matches that they won: the tiebreaker after head-to-head. In Swiss, the MTR's: game points (3 a game won, 1 a game drawn) over 3 per game played, never below 33%: the tiebreaker after opponents' match-win %.
 _Avoid_: Win rate, game percentage
+
+**Match-win %**:
+In Swiss, a player's match points over 3 per tournament round they played, never below 33%. A player who dropped is measured over the rounds they played. It ranks nobody itself; opponents' match-win % averages it.
+_Avoid_: Win rate, record
+
+**Opponents' match-win %**:
+In Swiss, the tiebreaker after match points: the average match-win % of the players someone has met. Byes are left out, as a bye has no opponent. Abbreviated OMW %.
+_Avoid_: Strength of schedule, SOS, opponent win rate
+
+**Opponents' game-win %**:
+In Swiss, the tiebreaker after game-win %: the average game-win % of the players someone has met, each never below 33%. Byes are left out. Abbreviated OGW %.
+_Avoid_: Opponent game rate, game strength of schedule
 
 **Tournament tab**:
 The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.

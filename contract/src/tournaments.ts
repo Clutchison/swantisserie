@@ -84,8 +84,16 @@ export interface StandingView {
   matchPoints: number;
   matches: TallyView;
   games: TallyView;
-  /** Games won as a percentage of games played, from 0 to 100; 0 before any game is played. */
+  /**
+   * From 0 to 100; 0 before any game is played. In round robin, games won
+   * as a percentage of games played. In Swiss, the MTR's: game points as a
+   * percentage of 3 per game played, floored at 33.
+   */
   gameWinPercent: number;
+  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 0 before they meet one. */
+  opponentsMatchWinPercent?: number;
+  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 0 before they meet one. */
+  opponentsGameWinPercent?: number;
 }
 
 /**
