@@ -166,7 +166,8 @@ export class QueuesService {
 
   /**
    * Takes the pool card `poolCardId` out of the user's queue, recording its
-   * queue order; a no-op if it isn't there. Throws NotAPlayerError if the user isn't in the draft.
+   * queue order; a no-op if it isn't there. Throws NotAPlayerError if the
+   * user isn't in the draft.
    */
   async remove(
     draftId: string,
