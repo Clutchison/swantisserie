@@ -603,7 +603,7 @@ Describes a draft channel moved to its guild's archive category because its draf
 _Avoid_: Muted, hidden, closed (that is the draft)
 
 **Announcement**:
-A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. An announcement too long for one Discord post goes out as several posts in a row, each breaking between lines, and only the last names who is up. An announcement links to the draft exactly when it names someone as up. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them: that announcement names them as up without pinging them.
+A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete; or that its tournament is in registration, has started, has completed a tournament round, or is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. An announcement too long for one Discord post goes out as several posts in a row, and only the last names who is up. A draft announcement links to the draft exactly when it names someone as up. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them. A tournament announcement pings the draft's players when it is in registration, and each player with a match in a new tournament round.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)
 
 ## Feedback

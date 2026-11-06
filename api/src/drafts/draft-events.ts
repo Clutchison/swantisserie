@@ -1,4 +1,4 @@
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Prisma, TournamentFormat } from '../generated/prisma/client.js';
 
 /** A player as a draft event names them. */
 export interface EventPlayer {
@@ -51,7 +51,34 @@ export type DraftEvent =
       /** Whose turn it is. */
       player: EventPlayer;
     }
-  | { type: 'completed' };
+  | { type: 'completed' }
+  | {
+      type: 'tournament-set-up';
+      format: TournamentFormat;
+      /** The draft's human players, in seat order: each may join. */
+      players: EventPlayer[];
+    }
+  | {
+      type: 'tournament-started';
+      format: TournamentFormat;
+      /** Its joined players, in join order. */
+      players: EventPlayer[];
+    }
+  | {
+      type: 'tournament-round-completed';
+      /** The tournament round just paired, after the one completed. */
+      round: number;
+      /** Its matches' players, in each match's player order. */
+      matches: [EventPlayer, EventPlayer][];
+      /** The players with a bye in it. */
+      byes: EventPlayer[];
+    }
+  | {
+      type: 'tournament-completed';
+      format: TournamentFormat;
+      /** Everyone who holds the trophy; none when no player was left. */
+      trophyHolders: EventPlayer[];
+    };
 
 /** What a draft event needs of a player. */
 export const EVENT_PLAYER = {
