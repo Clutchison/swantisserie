@@ -1,30 +1,37 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { Transaction } from './draft-shapes.js';
+import type { QueuedRow } from './turn-state.js';
 
 /**
- * Records that `departed`, cards that sat in the player's queue at those
- * positions, have left it together: each copy in the player's plan
- * remembers it as its queue order. Departures are keyed by the player's own
+ * Takes `leaving`, cards in the player's queue as they sit there, out of it
+ * together, as one departure: each copy in the player's plan remembers
+ * where it sat as its queue order. Departures are keyed by the player's own
  * counter, which only goes up, so the latest outranks every earlier one.
- * Call it in the same transaction as the cards' removal, whatever removes
- * them; an undo putting cards back is not a departure.
+ * Every removal of queued cards goes through here, whatever removes them,
+ * except an undo's rewrite of a queue, which is not a departure.
  */
-export async function recordDeparture(
+export async function leaveQueue(
   tx: Transaction,
   playerId: string,
-  departed: readonly { poolCardId: string; position: number }[],
+  leaving: readonly QueuedRow[],
 ): Promise<void> {
-  if (departed.length === 0) return;
-  const { queueDepartures } = await tx.player.update({
-    where: { id: playerId },
-    data: { queueDepartures: { increment: 1 } },
-    select: { queueDepartures: true },
+  if (leaving.length === 0) return;
+  await tx.queuedCard.deleteMany({
+    where: {
+      playerId,
+      poolCardId: { in: leaving.map((card) => card.poolCardId) },
+    },
   });
-  for (const { poolCardId, position } of departed) {
+  const { lastQueueDeparture } = await tx.player.update({
+    where: { id: playerId },
+    data: { lastQueueDeparture: { increment: 1 } },
+    select: { lastQueueDeparture: true },
+  });
+  for (const { poolCardId, position } of leaving) {
     // The exact copy only: a plan card never takes another copy's order.
     await tx.plannedCard.updateMany({
       where: { playerId, poolCardId },
-      data: { queueDeparture: queueDepartures, queuePosition: position },
+      data: { queueDeparture: lastQueueDeparture, queuePosition: position },
     });
   }
 }

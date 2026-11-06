@@ -158,26 +158,26 @@ model PoolCard {
 
 /// A guild member or bot who has joined a draft.
 model Player {
-  id              String               @id @default(uuid())
-  draftId         String
-  draft           Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  userId          String
-  user            User                 @relation(fields: [userId], references: [id])
-  joinedAt        DateTime             @default(now())
+  id                 String               @id @default(uuid())
+  draftId            String
+  draft              Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id])
+  joinedAt           DateTime             @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
-  seat            Int?
-  picks           Pick[]
+  seat               Int?
+  picks              Pick[]
   /// Bots have none.
-  queue           QueuedCard[]
-  takenOutQueued  TakenOutQueuedCard[]
+  queue              QueuedCard[]
+  takenOutQueued     TakenOutQueuedCard[]
   /// Private to the player, like their queue.
-  plan            PlannedCard[]
-  basics          PlannedBasic[]
-  lostPlanned     LostPlannedCard[]
+  plan               PlannedCard[]
+  basics             PlannedBasic[]
+  lostPlanned        LostPlannedCard[]
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
-  stealBehavior   StealBehavior        @default(ClearQueue)
-  /// How many times cards have left the player's queue together: each departure's key is the count after it. Only ever goes up, so departures order by it, never by time.
-  queueDepartures Int                  @default(0)
+  stealBehavior      StealBehavior        @default(ClearQueue)
+  /// The key of the player's latest departure from their queue, 0 before the first. Only ever goes up, so departures order by it, never by time.
+  lastQueueDeparture Int                  @default(0)
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -226,7 +226,7 @@ model PlannedCard {
   board          PlanBoard @default(Mainboard)
   /// Whether the player added it with Add to Plan: undoing a pick of it then leaves it in the plan, unpicked, rather than taking it out.
   added          Boolean   @default(false)
-  /// Its queue order: the player's `queueDepartures` when this copy last left their queue, and its `position` there then. Null until it first leaves, and for a card taken out of the plan and added back.
+  /// Its queue order: the player's `lastQueueDeparture` when this copy last left their queue, and its `position` there then. Null until it first leaves, and for a card taken out of the plan and added back.
   queueDeparture Int?
   queuePosition  Int?
 

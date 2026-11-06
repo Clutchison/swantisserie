@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
 import { planPicks } from './plan-picks.js';
-import { recordDeparture } from './queue-order.js';
+import { leaveQueue } from './queue-order.js';
 import {
   draftSize,
   MADE_PICK,
@@ -116,9 +116,8 @@ export class PickImportService {
         where: { player: { draftId } },
         select: { playerId: true, poolCardId: true, position: true },
       });
-      await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
       for (const { id: playerId } of players) {
-        await recordDeparture(
+        await leaveQueue(
           tx,
           playerId,
           queued.filter((card) => card.playerId === playerId),

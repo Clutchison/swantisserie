@@ -1,6 +1,6 @@
 import { type QueueAfterPick, type QueuedCardAt, queueAfterUndo } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
-import { recordDeparture } from './queue-order.js';
+import { leaveQueue } from './queue-order.js';
 import type { QueuedRow } from './turn-state.js';
 
 /**
@@ -31,19 +31,16 @@ export async function recordQueueEffects(
   ): Promise<void> {
     const playerId = playerIds[seat];
     const isOut = (queued: QueuedRow) => out.includes(queued.poolCardId);
-    const departed = now[seat].filter(isOut);
+    const leaving = now[seat].filter(isOut);
     await tx.takenOutQueuedCard.createMany({
-      data: departed.map((queued) => ({
+      data: leaving.map((queued) => ({
         ...queued,
         playerId,
         pickId: pick.id,
         ...kept,
       })),
     });
-    await tx.queuedCard.deleteMany({
-      where: { playerId, poolCardId: { in: [...out] } },
-    });
-    await recordDeparture(tx, playerId, departed);
+    await leaveQueue(tx, playerId, leaving);
     now[seat] = now[seat].filter((queued) => !isOut(queued));
   }
   for (const [seat, { queue, swapped, lost, cleared }] of after.entries()) {

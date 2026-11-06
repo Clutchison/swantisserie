@@ -12,7 +12,7 @@ import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
-import { QUEUE_ORDER, recordDeparture } from './queue-order.js';
+import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -179,10 +179,7 @@ export class QueuesService {
         where: { playerId, poolCardId },
         select: { poolCardId: true, position: true },
       });
-      await tx.queuedCard.deleteMany({
-        where: { playerId, poolCardId },
-      });
-      await recordDeparture(tx, playerId, removed);
+      await leaveQueue(tx, playerId, removed);
     });
   }
 
