@@ -22,7 +22,6 @@ import {
   flushPicks,
   flushQueue,
   flushQueueAndPlan,
-  flushPlan,
   expectLoadingAnimation,
   completeSnapshot,
   button,
@@ -45,8 +44,8 @@ import {
 } from './plan-tab-harness';
 import {
   complete,
-  flushTournament,
   playing,
+  pushTournament,
   registration,
   withDrops,
   withTournament,
@@ -580,22 +579,6 @@ describe('plan tab as the deck', () => {
       return { fixture, page, tab: await openTab(fixture, page, 'Deck') };
     }
 
-    /** Pushes another viewer's change to the draft, its tournament now `tournament` or gone, and answers the reads it causes. */
-    async function pushChange(
-      fixture: Awaited<ReturnType<typeof openDeck>>['fixture'],
-      tournament: ViewerTournamentView | null,
-    ) {
-      updates.events.next({
-        type: 'changed',
-        draft: draft({ ...withTournament(tournament), version: 1 }),
-      });
-      await flushPicks([]);
-      await flushQueue(EMPTY_QUEUE);
-      await flushPlan(deck);
-      if (tournament) await flushTournament(tournament);
-      await fixture.whenStable();
-    }
-
     it('says the deck is locked until its player leaves, and offers no edits, once they have joined the tournament', async () => {
       const { page, tab } = await openDeck(registration(bob.id, alice.id));
 
@@ -636,7 +619,7 @@ describe('plan tab as the deck', () => {
     ])('offers edits again once the tournament is %s', async (_, tournament) => {
       const { fixture, page } = await openDeck(playing());
 
-      await pushChange(fixture, tournament);
+      await pushTournament(fixture, tournament, 1, { asPlayer: true, plan: deck, fields: {} });
 
       const tab = tabPanel(page, 'Deck');
       expect(text(tab)).not.toContain('locked');

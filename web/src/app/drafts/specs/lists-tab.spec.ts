@@ -25,6 +25,7 @@ import {
   openComplete,
   playing,
   flushTournament,
+  pushTournament,
   registration,
   threePlayers,
   withTournament,
@@ -203,12 +204,7 @@ describe('lists tab', () => {
       await openTab(fixture, page, 'Lists');
       await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=lists'));
 
-      updates.events.next({
-        type: 'changed',
-        draft: draft({ ...withTournament(null, threePlayers), version: 1 }),
-      });
-      await flushPicks([]);
-      await fixture.whenStable();
+      await pushTournament(fixture, null, 1);
 
       expect(panelName(page)).toBe('Pool');
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);

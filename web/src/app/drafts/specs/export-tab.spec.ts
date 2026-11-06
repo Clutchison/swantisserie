@@ -25,7 +25,7 @@ import {
   tabPanel,
   text,
 } from './harness';
-import { registration } from './play-tab-harness';
+import { registration, withTournament } from './play-tab-harness';
 
 useDraftsApp();
 
@@ -371,7 +371,7 @@ describe('export tab', () => {
         const tournament = registration(bob.id, alice.id);
         const opened = await openExport(
           yourPicks,
-          { state: 'Complete', turn: null, tournament: { state: tournament.state } },
+          withTournament(tournament, { players: [bob, alicePlayer] }),
           { plan: deck, tournament },
         );
         expect(text(tabPanel(opened.page, 'Deck'))).toContain('Your deck is locked');

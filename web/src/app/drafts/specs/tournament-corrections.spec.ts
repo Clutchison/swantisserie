@@ -45,46 +45,36 @@ describe('organizer reports, corrections and clears', () => {
     return question(match);
   }
 
-  it('lets an organizer report a match from either of its cells, the other cell showing it from its side', async () => {
-    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+  it.each([
+    ['report an unreported match', [], 'Carol', 'Bob'],
+    [
+      'correct a reported match',
+      [reported(unreportedMatch('m1', bob.id, carol.id), [2, 0])],
+      'Bob',
+      'Carol',
+    ],
+  ] as const)(
+    'lets an organizer %s from its cell, each cell then showing the new game score from its side',
+    async (_, matches, row, column) => {
+      const { fixture, tab } = await openPlaying(playing([...matches]), { powers: ORGANIZE_ONLY });
 
-    const dialog = await openCell(fixture, tab, 'Carol', 'Bob', 'Bob vs Carol');
-    button(group(dialog, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
-    const after = playing([reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
-    const req = await answerChange(
-      fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/game-score',
-      'PUT',
-      after,
-      1,
-      threePlayers,
-    );
+      const dialog = await openCell(fixture, tab, row, column, 'Bob vs Carol');
+      button(group(dialog, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
+      const after = playing([reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
+      const req = await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament/matches/m1/game-score',
+        'PUT',
+        after,
+        1,
+        threePlayers,
+      );
 
-    expect(req.request.body).toEqual({ games: [1, 2] });
-    expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1?');
-    expect(text(gridCell(tab, 'Bob', 'Carol'))).toBe('1–2?');
-  });
-
-  it('lets an organizer correct a reported match from its cell, both cells then showing the corrected game score', async () => {
-    const bobBeatCarol = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
-    const { fixture, tab } = await openPlaying(playing([bobBeatCarol]), { powers: ORGANIZE_ONLY });
-
-    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
-    button(group(dialog, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
-    const after = playing([reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
-    const req = await answerChange(
-      fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/game-score',
-      'PUT',
-      after,
-      1,
-      threePlayers,
-    );
-
-    expect(req.request.body).toEqual({ games: [1, 2] });
-    expect(text(gridCell(tab, 'Bob', 'Carol'))).toBe('1–2?');
-    expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1?');
-  });
+      expect(req.request.body).toEqual({ games: [1, 2] });
+      expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1?');
+      expect(text(gridCell(tab, 'Bob', 'Carol'))).toBe('1–2?');
+    },
+  );
 
   it('opens the same match from the other cell', async () => {
     const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
