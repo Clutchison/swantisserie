@@ -342,6 +342,10 @@ _Avoid_: Delete, abort
 Any draft that is neither closed nor complete.
 _Avoid_: Open draft (as its name; "open" as a verb, as in "Open draft" on a link, is fine), current draft
 
+**Playing draft**:
+A complete draft whose tournament is in registration or playing. The draft list shows playing drafts apart from the other complete drafts, which are those with no tournament or a complete one. Unlike the tournament state Playing, it takes in registration: it names the drafts whose games their players are playing or about to play.
+_Avoid_: Tournament draft, draft in a tournament, active draft (that is one not yet complete)
+
 ## Tournaments
 
 **Tournament**:
