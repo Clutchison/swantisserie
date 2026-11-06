@@ -2,6 +2,11 @@
   display: block;
 }
 
+.standings-as-of {
+  margin: 0 0 var(--space-xs);
+  color: var(--color-muted);
+}
+
 .standings {
   border-collapse: collapse;
   margin-bottom: var(--space-md);

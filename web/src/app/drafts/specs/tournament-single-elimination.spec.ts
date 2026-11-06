@@ -23,6 +23,7 @@ import {
   registration,
   singleEliminationFinal as final,
   singleEliminationPlaying,
+  standingsAsOf,
   threePlayers,
 } from './play-tab-harness';
 
@@ -76,6 +77,18 @@ describe('single elimination tournaments on the Play tab', () => {
 
     expect(req.request.body).toEqual({ grantedWins: [{ matchId: 'm1', winner: carol.id }] });
     await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('says which tournament round the standings are as of', async () => {
+    const { tab } = await openPlaying(final);
+
+    expect(standingsAsOf(tab)).toBe('After tournament round 1');
+  });
+
+  it('says the standings wait for tournament round 1 until it is completed', async () => {
+    const { tab } = await openPlaying(singleEliminationPlaying());
+
+    expect(standingsAsOf(tab)).toBe('No tournament rounds completed yet');
   });
 
   it('completes the tournament with the final, awarding the trophy', async () => {

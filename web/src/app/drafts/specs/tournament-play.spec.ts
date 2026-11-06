@@ -25,6 +25,7 @@ import {
   registration,
   reported,
   standing,
+  standingsAsOf,
   standingsColumns,
   standingsRows,
   threePlayers,
@@ -176,6 +177,12 @@ describe('Play tab while the tournament is played', () => {
       ['2', 'Alice', '0', '0–0–0', '0%'],
       ['2', 'Bob', '0', '0–1–0', '33%'],
     ]);
+  });
+
+  it('says nothing of which tournament round round robin’s standings are as of, as they count every result', async () => {
+    const { tab } = await openPlaying(playing([], { lastCompletedRound: 0 }), { user: dave });
+
+    expect(standingsAsOf(tab)).toBeNull();
   });
 
   it('keeps round robin’s standings to game-win % alone', async () => {

@@ -82,6 +82,7 @@ describe('starting a single elimination tournament', () => {
       previewsCorrections: true,
       completeRoundGrants: 'GrantedWins',
       clearReopensRound: true,
+      standingsAwaitCompletedRounds: true,
     });
     expect(view.rounds).toHaveLength(1);
     const [round] = view.rounds;
@@ -248,6 +249,33 @@ describe('reporting in single elimination', () => {
     expect([reported.body.error, corrected.body.error]).toEqual([
       'draw',
       'draw',
+    ]);
+  });
+
+  it('leaves the standings level, byes too, until tournament round 1 is completed, though the bracket moves an agreed winner on', async () => {
+    const id = await playing(3);
+    const seeds = seedsOf(await tournamentView(id));
+    await reportWin(id, [seeds[2], seeds[1]], [2, 1], cookieOf[seeds[1]]);
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+    await confirmMatch(id, match.id, cookieOf[seeds[2]]).expect(200);
+
+    const agreed = await tournamentView(id);
+    expect(agreed.bracket![0].places[1].advancing).toBe(seeds[2]);
+    for (const standing of agreed.standings) {
+      expect(standing).toMatchObject({
+        rank: 1,
+        matches: { won: 0, lost: 0, drawn: 0 },
+      });
+    }
+
+    await completeRound(id).expect(200);
+    const completed = await tournamentView(id);
+    expect(
+      completed.standings.map(({ playerId, rank }) => [playerId, rank]),
+    ).toEqual([
+      [seeds[0], 1],
+      [seeds[2], 1],
+      [seeds[1], 3],
     ]);
   });
 });

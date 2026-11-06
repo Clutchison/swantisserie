@@ -63,31 +63,37 @@ export const TOURNAMENT_VIEW = {
 /**
  * What a format does that the web reads rather than decides by the
  * format: whether corrections are previewed, what Complete round grants,
- * and whether a clear reopens its tournament round, as the service's
- * clears do too.
+ * whether a clear reopens its tournament round, as the service's clears do
+ * too, and whether the standings wait for completed tournament rounds.
  */
 export const FORMAT_RULES: Record<
   TournamentFormat,
   Pick<
     TournamentView,
-    'previewsCorrections' | 'completeRoundGrants' | 'clearReopensRound'
+    | 'previewsCorrections'
+    | 'completeRoundGrants'
+    | 'clearReopensRound'
+    | 'standingsAwaitCompletedRounds'
   >
 > = {
   RoundRobin: {
     previewsCorrections: false,
     completeRoundGrants: null,
     clearReopensRound: false,
+    standingsAwaitCompletedRounds: false,
   },
   Swiss: {
     previewsCorrections: false,
     completeRoundGrants: 'GrantedDraws',
     clearReopensRound: false,
+    standingsAwaitCompletedRounds: true,
   },
   // Only single elimination's matches feed one another, and it never has a draw.
   SingleElimination: {
     previewsCorrections: true,
     completeRoundGrants: 'GrantedWins',
     clearReopensRound: true,
+    standingsAwaitCompletedRounds: true,
   },
 };
 
@@ -101,8 +107,9 @@ type MatchRow = TournamentRow['matches'][number];
  * join order, its rounds in order, each round's matches and byes in
  * bracket place order in single elimination, and otherwise in the order of
  * their first players' joining, and its standings and trophy holders. Swiss
- * and single elimination standings count their byes; round robin's ignore
- * them, as every player has equally many.
+ * and single elimination standings count only completed tournament rounds,
+ * byes included; round robin's count every result and ignore byes, as
+ * every player has equally many.
  */
 export function toTournamentView(row: TournamentRow): TournamentView {
   const order = new Map(row.entries.map((entry, i) => [entry.id, i]));
@@ -135,21 +142,22 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     seed: entry.seed,
   }));
   const dropped = droppedPlayers(entries);
-  const matches = rounds
+  const counted = rounds.filter((round) => countsInStandings(row, round.round));
+  const matches = counted
     .flatMap((round) => round.matches)
     .map(toTournamentMatch);
   const table =
     row.state === 'Registration'
       ? []
       : row.format === 'Swiss'
-        ? swissStandings(players, matches, byesOf(rounds))
+        ? swissStandings(players, matches, byesOf(counted))
         : row.format === 'SingleElimination'
           ? singleEliminationStandings(
               [...row.entries]
                 .sort((a, b) => a.seed! - b.seed!)
                 .map((entry) => entry.player.userId),
               matches,
-              byesOf(rounds),
+              byesOf(counted),
               dropped,
             )
           : standings(players, matches);
@@ -178,6 +186,22 @@ export function toTournamentView(row: TournamentRow): TournamentView {
         ? bracketTrophyHolders(bracket)
         : trophyHolders(table),
   };
+}
+
+/**
+ * Whether tournament round `round` counts in the standings: always where
+ * the format's standings don't wait for completed tournament rounds, as in
+ * round robin; otherwise once it's completed, or once the tournament is.
+ */
+function countsInStandings(
+  row: Pick<TournamentRow, 'format' | 'state' | 'lastCompletedRound'>,
+  round: number,
+): boolean {
+  return (
+    !FORMAT_RULES[row.format].standingsAwaitCompletedRounds ||
+    row.state === 'Complete' ||
+    round <= row.lastCompletedRound
+  );
 }
 
 /**

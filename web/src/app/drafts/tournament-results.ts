@@ -89,6 +89,20 @@ export class TournamentResults {
     })),
   );
 
+  /**
+   * Which tournament round the standings are as of, while the tournament
+   * is playing and its standings wait for completed tournament rounds, as
+   * in Swiss and single elimination; null where they count every result,
+   * as in round robin, and once the tournament is complete.
+   */
+  protected readonly standingsAsOf = computed(() => {
+    const { standingsAwaitCompletedRounds, state, lastCompletedRound } = this.tournament();
+    if (!standingsAwaitCompletedRounds || state !== 'Playing') return null;
+    return lastCompletedRound === 0
+      ? 'No tournament rounds completed yet'
+      : `After tournament round ${lastCompletedRound}`;
+  });
+
   private readonly seeds = computed(() => seedsOf(this.tournament().entries));
 
   /** Whether the tournament has a bracket, single elimination's, which shows its matches in place of the list by tournament round. */
