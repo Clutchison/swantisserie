@@ -73,7 +73,7 @@ const openAsViewer = (tournament: ViewerTournamentView) =>
   });
 
 /** The tabs of the complete draft once the Lists tab has taken the Board tab's place. */
-const LISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Lists', 'Export', 'Play'];
+const LISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Lists', 'Play', 'Export'];
 
 describe('lists tab', () => {
   it('is absent without public decklists, while the tournament is played', async () => {
@@ -182,7 +182,7 @@ describe('lists tab', () => {
     ])('leaves the Board tab in its place %s', async (_, tournament) => {
       const { page } = await openAsViewer(tournament);
 
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export', 'Play']);
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);
     });
 
     it('brings the Board tab back once the tournament is cancelled', async () => {

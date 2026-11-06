@@ -33,7 +33,7 @@ import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Lists', 'Export', 'Play'] as const;
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Lists', 'Play', 'Export'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
