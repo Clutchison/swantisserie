@@ -446,7 +446,7 @@ The organizer ending a Swiss or single elimination tournament round once they ha
 _Avoid_: Advance (as the organizer's action; that is a player's), next round, close round
 
 **Reopen round**:
-The organizer taking back the completion of the last completed Swiss or single elimination tournament round, so its results can be corrected or cleared again. Only the last completed round can be reopened, and its results leave the standings until it is completed again.
+The organizer taking back the completion of the last completed Swiss or single elimination tournament round while the tournament is playing, so its results can be corrected or cleared again. It undoes what completing the round did and what has happened since: its granted draws and granted wins are unreported again, the drops made in completing it or since are taken back, and the next tournament round's pairings are removed, to be paired again when the round is completed again. It is refused once a match of the next round has a game score. A reopened round must be completed again before the round before it can be reopened. A complete tournament's rounds can't be reopened. The reopened round's results leave the standings until it is completed again, and no announcement is posted.
 _Avoid_: Undo (that is a pick's), uncomplete, roll back, Reopen (alone; that is a draft's)
 
 **Advance**:
@@ -490,11 +490,11 @@ A player in a match entering its game score. Only the organizer can change a rep
 _Avoid_: Submit, record, enter (alone)
 
 **Correct**:
-An organizer setting a match's game score, whether it was reported or not, while its tournament round is open, or in round robin while the tournament is playing. A completed tournament round's results, and a complete tournament's, are final, except through reopening the last completed round. A corrected match is unconfirmed. In single elimination, a correction that changes who advances from a match clears every later match it fed: the next is paired again with whoever advances now, and those after it are unpaired until their tournament rounds are paired again.
+An organizer setting a match's game score, whether it was reported or not, while its tournament round is open, or in round robin while the tournament is playing. A complete tournament's results are final, and so are a completed tournament round's until it is reopened. A corrected match is unconfirmed.
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:
-An organizer taking a match's game score, granted draw, granted win or forfeit away, when they could correct it. A match with a dropped player is their forfeit again; otherwise it is unreported again. In single elimination it clears every later match it fed, as a correction does.
+An organizer taking a match's game score, granted draw, granted win or forfeit away, when they could correct it. A match with a dropped player is their forfeit again; otherwise it is unreported again.
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
