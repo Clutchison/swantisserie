@@ -18,7 +18,8 @@
     "start": "npm run start:prod -w api",
     "lint": "npm run lint --workspaces",
     "format": "npm run format --workspaces",
-    "format:check": "npm run format:check --workspaces"
+    "format:check": "npm run format:check --workspaces",
+    "skills:update": "scripts/update-skills.sh"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",
