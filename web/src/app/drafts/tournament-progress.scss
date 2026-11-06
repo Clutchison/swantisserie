@@ -1,0 +1,46 @@
+:host {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+/* The states in a row, each after a chevron; they wrap onto a phone's next line if they must. */
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  /* Empty alt text: screen readers already hear an ordered list. */
+  li + li::before {
+    content: '›' / '';
+    color: var(--color-muted);
+  }
+
+  .upcoming {
+    color: var(--color-muted);
+  }
+
+  /* An edge and weight, not colour alone, mark the current state, beside its aria-current. */
+  .current .name {
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--color-accent);
+    border-radius: 0.25rem;
+    background: var(--color-raised);
+    font-weight: 600;
+  }
+}
+
+.progress {
+  margin: var(--space-sm) 0 0;
+  font-weight: 600;
+}

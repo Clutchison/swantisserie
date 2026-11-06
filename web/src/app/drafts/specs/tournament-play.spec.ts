@@ -16,12 +16,17 @@ import {
   useDraftsApp,
 } from './harness';
 import {
+  announcements,
   answerChange,
   carol,
+  currentSteps,
   dave,
+  forfeited,
   openMatch,
   openPlaying,
   playing,
+  progressLine,
+  pushTournament,
   registration,
   reported,
   standing,
@@ -29,6 +34,7 @@ import {
   standingsColumns,
   standingsRows,
   threePlayers,
+  withDrops,
   withTournament,
 } from './play-tab-harness';
 
@@ -217,6 +223,74 @@ describe('Play tab while the tournament is played', () => {
     ]);
   });
 
+  describe('matches left', () => {
+    const m1 = openMatch('m1', bob.id, carol.id);
+    const m2 = openMatch('m2', alice.id, bob.id);
+    const m3 = openMatch('m3', carol.id, alice.id);
+
+    it('tells a player who plays on how many of their matches are left', async () => {
+      const { tab } = await openPlaying(playing());
+
+      expect(progressLine(tab)).toBe('You have 2 matches left');
+    });
+
+    it('counts a reported match as done, confirmed or not, saying 1 match in the singular', async () => {
+      const { tab } = await openPlaying(playing([reported(m2, [2, 1])]));
+
+      expect(progressLine(tab)).toBe('You have 1 match left');
+    });
+
+    it('counts the tournament’s matches left once the player has none, a forfeit counting as done', async () => {
+      const { tab } = await openPlaying(playing([reported(m2, [2, 1]), forfeited(m3, carol.id)]));
+
+      expect(progressLine(tab)).toBe('1 match left in the tournament');
+    });
+
+    it('counts the tournament’s matches left for a viewer who didn’t join', async () => {
+      const { tab } = await openPlaying(playing(), { user: dave, powers: ORGANIZE_ONLY });
+
+      expect(progressLine(tab)).toBe('3 matches left in the tournament');
+    });
+
+    it('counts the tournament’s matches left for a player who dropped', async () => {
+      const { tab } = await openPlaying(withDrops([alice.id], [m3]));
+
+      expect(progressLine(tab)).toBe('3 matches left in the tournament');
+    });
+
+    it('says when every match is reported', async () => {
+      const { tab } = await openPlaying(
+        playing([reported(m1, [2, 0]), reported(m2, [2, 1]), forfeited(m3, carol.id)]),
+        { powers: ORGANIZE_ONLY },
+      );
+
+      expect(progressLine(tab)).toBe('All matches reported');
+    });
+
+    it('announces the tournament starting and completing, but not its matches left changing', async () => {
+      const { fixture, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+        user: dave,
+      });
+      expect(announcements(tab)).toEqual([]);
+
+      await pushTournament(fixture, playing(), 1);
+      expect(announcements(tab)).toEqual(['Tournament: Playing']);
+
+      await pushTournament(fixture, playing([reported(m1, [2, 0])]), 2);
+      expect(progressLine(tab)).toBe('2 matches left in the tournament');
+      expect(announcements(tab)).toEqual(['Tournament: Playing']);
+
+      await pushTournament(fixture, playing([], { state: 'Complete' }), 3);
+      expect(announcements(tab)).toEqual(['Tournament: Complete']);
+    });
+
+    it('says nothing of matches left once the tournament is complete', async () => {
+      const { tab } = await openPlaying(playing([], { state: 'Complete' }));
+
+      expect(progressLine(tab)).toBe('');
+    });
+  });
+
   describe('organizer controls', () => {
     it('lets an organizer start the tournament once they confirm', async () => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -237,7 +311,7 @@ describe('Play tab while the tournament is played', () => {
         threePlayers,
       );
 
-      expect(text(panel(page))).toContain('Playing');
+      expect(currentSteps(panel(page))).toEqual(['Playing']);
       expect(text(region(panel(page), 'Your match'))).toContain('against Bob');
       expect(button(panel(page), 'Start tournament')).toBeUndefined();
     });
@@ -271,7 +345,7 @@ describe('Play tab while the tournament is played', () => {
         threePlayers,
       );
 
-      expect(text(panel(page))).toContain('Complete');
+      expect(currentSteps(panel(page))).toEqual(['Complete']);
       expect(items(panel(page), 'Trophy holders')).toEqual(['Carol']);
       expect(button(panel(page), 'Complete tournament')).toBeUndefined();
       expect(region(panel(page), 'Your match')).toBeNull();

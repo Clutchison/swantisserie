@@ -1,0 +1,19 @@
+<!-- Hidden text says each step's state, so it isn't carried by colour or fill alone. -->
+<ol
+  class="steps"
+  aria-label="Tournament state"
+  [attr.aria-describedby]="progress() ? 'tournament-progress' : null"
+>
+  @for (step of steps(); track step.state) {
+    <li [class]="step.step" [attr.aria-current]="step.step === 'current' ? 'step' : null">
+      <span class="name"
+        >{{ step.state }}<span class="visually-hidden">{{ step.hidden }}</span></span
+      >
+    </li>
+  }
+</ol>
+@if (progress(); as progress) {
+  <p id="tournament-progress" class="progress">{{ progress }}</p>
+}
+<!-- Always there, so screen readers announce each change as it appears. -->
+<p class="visually-hidden" role="status">{{ announcement() }}</p>

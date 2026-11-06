@@ -65,8 +65,8 @@
 } @else if (read.missing()) {
   <p class="error">Couldn't load the tournament. Try reloading the page.</p>
 } @else if (tournament(); as tournament) {
+  <app-tournament-progress [tournament]="tournament" [ownId]="playsOn() ? ownId() : undefined" />
   @if (tournament.state === 'Registration') {
-    <p class="state">Registration</p>
     <p class="detail">
       {{ summary() }}. Joining locks your deck until the tournament is complete or cancelled, or you
       leave it.
@@ -132,7 +132,6 @@
       }
     </div>
   } @else {
-    <p class="state">{{ tournament.state }}</p>
     <p class="detail">{{ summary() }}</p>
     @if (trophyHolders().length) {
       <section class="trophy" aria-label="Trophy">

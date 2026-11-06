@@ -15,6 +15,7 @@ import type {
 } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
+  accessibleDescription,
   accessibleName,
   alice,
   alicePlayer,
@@ -30,7 +31,9 @@ import {
   openTab,
   region,
   tabButton,
+  statusTexts,
   text,
+  updates,
   type AppFixture,
   type DraftFixture,
 } from './harness';
@@ -449,6 +452,50 @@ export const playerLines = (root: HTMLElement) =>
     shown.querySelectorAll('button').forEach((b) => b.remove());
     return text(shown);
   });
+
+/** The tournament's state list inside `root`, by its name; null if there is none. */
+const stateList = (root: HTMLElement) =>
+  root.querySelector<HTMLElement>('[aria-label="Tournament state"]');
+
+/**
+ * Each step of the tournament's state list inside `root` as it reads, its
+ * hidden completed or not completed text included, such as "Registration,
+ * completed"; none when there is no list.
+ */
+export const stateSteps = (root: HTMLElement) =>
+  [...(stateList(root)?.querySelectorAll('li') ?? [])].map((li) => text(li));
+
+/** The steps of the state list inside `root` marked as the current step, as they read. */
+export const currentSteps = (root: HTMLElement) =>
+  [...(stateList(root)?.querySelectorAll('li[aria-current="step"]') ?? [])].map((li) => text(li));
+
+/** Where the tournament stands, as the state list inside `root` is described; '' if there is none. */
+export const progressLine = (root: HTMLElement) => {
+  const list = stateList(root);
+  return list ? accessibleDescription(list) : '';
+};
+
+/** What the status messages inside `root` say, leaving out those saying nothing yet. */
+export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boolean);
+
+/**
+ * Pushes the complete draft of Alice, Bob and Carol at `version` with
+ * `tournament`, as another viewer's change does, and answers the reads it
+ * makes for Dave, who isn't one of its players.
+ */
+export async function pushTournament(
+  fixture: AppFixture,
+  tournament: ViewerTournamentView,
+  version: number,
+) {
+  updates.events.next({
+    type: 'changed',
+    draft: draft({ ...withTournament(tournament, threePlayers), version }),
+  });
+  await flushPicks([]);
+  await flushTournament(tournament);
+  await fixture.whenStable();
+}
 
 /** Whether the tab bar has a Play tab. */
 export const hasPlayTab = (page: HTMLElement) => !!tabButton(page, 'Play');
