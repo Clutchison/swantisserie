@@ -236,6 +236,10 @@ _Avoid_: Maybeboard, bench, board (alone)
 A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, or another player picks it when no other copy is available for the plan.
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
+**Queue order**:
+The order a player's plan remembers its cards in, from where each last sat in their queue: the cards that left it most recently first, and cards that left together in the order they sat. When the plan's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the plan loses its place.
+_Avoid_: Saved order, queue memory, previous order, remembered queue order
+
 **Basic land**:
 A Plains, Island, Swamp, Mountain, Forest or Wastes in a player's plan, added by count. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked, and it is always on the mainboard. A snow-covered basic is not one: it can be a pool card.
 _Avoid_: Land (alone; a pool card can be a land), free land
