@@ -1,19 +1,34 @@
 import type { DecklistView, ViewerTournamentView } from 'contract';
 import {
+  ORGANIZE_ONLY,
   accessibleName,
   alice,
   bob,
+  draft,
+  flushPicks,
   heading,
+  http,
   items,
   openTab,
   ownTabStop,
-  panel,
+  panelName,
   poolCardOf,
+  router,
   tabButton,
   tabLabels,
+  updates,
   useDraftsApp,
 } from './harness';
-import { carol, dave, openComplete, playing, registration, threePlayers } from './play-tab-harness';
+import {
+  carol,
+  dave,
+  openComplete,
+  playing,
+  flushTournament,
+  registration,
+  threePlayers,
+  withTournament,
+} from './play-tab-harness';
 
 useDraftsApp();
 
@@ -56,6 +71,9 @@ const openAsViewer = (tournament: ViewerTournamentView) =>
     decklists,
     fields: threePlayers,
   });
+
+/** The tabs of the complete draft once the Decklists tab has taken the Board tab's place. */
+const DECKLISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Decklists', 'Export', 'Play'];
 
 describe('decklists tab', () => {
   it('is absent without public decklists, while the tournament is played', async () => {
@@ -125,6 +143,95 @@ describe('decklists tab', () => {
       url: '/drafts/draft-1?tab=decklists',
     });
 
-    expect(panel(page).id).toBe('decklists-panel');
+    expect(panelName(page)).toBe('Decklists');
+  });
+
+  describe('in the Board tab’s place', () => {
+    it.each([
+      ['a player', alice, undefined],
+      ['an organizer', dave, ORGANIZE_ONLY],
+      ['a spectator', dave, undefined],
+    ] as const)(
+      'shows %s no Board tab, and the Decklists tab where it was, while the tournament is played',
+      async (_, user, powers) => {
+        const { page } = await openComplete(publicPlaying(), {
+          user,
+          powers,
+          decklists,
+          fields: threePlayers,
+        });
+
+        expect(tabLabels(page)).toEqual(DECKLISTS_IN_BOARDS_PLACE);
+      },
+    );
+
+    it('keeps the Board tab away once the tournament is complete', async () => {
+      const { page } = await openAsViewer(
+        publicPlaying({ state: 'Complete', trophyHolders: [alice.id] }),
+      );
+
+      expect(tabLabels(page)).toEqual(DECKLISTS_IN_BOARDS_PLACE);
+    });
+
+    it.each([
+      ['without public decklists', playing()],
+      [
+        'under public decklists during registration',
+        { ...registration(alice.id, bob.id), publicDecklists: true },
+      ],
+    ])('leaves the Board tab in its place %s', async (_, tournament) => {
+      const { page } = await openAsViewer(tournament);
+
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export', 'Play']);
+    });
+
+    it('brings the Board tab back once the tournament is cancelled', async () => {
+      const { fixture, page } = await openAsViewer(publicPlaying());
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ ...withTournament(null, threePlayers), version: 1 }),
+      });
+      await flushPicks([]);
+      await fixture.whenStable();
+
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+    });
+
+    it('moves a viewer on the Board tab to the Decklists tab as the tournament starts', async () => {
+      const { fixture, page } = await openAsViewer({
+        ...registration(alice.id, bob.id, carol.id),
+        publicDecklists: true,
+      });
+      await openTab(fixture, page, 'Board');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=board'));
+
+      // As another viewer's change does; pushTournament would wait on the decklists' read.
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ ...withTournament(publicPlaying(), threePlayers), version: 1 }),
+      });
+      await flushPicks([]);
+      await flushTournament(publicPlaying());
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/decklists'))).flush(
+        decklists,
+      );
+      await fixture.whenStable();
+
+      expect(panelName(page)).toBe('Decklists');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=decklists'));
+    });
+
+    it('opens the Decklists tab when the Board tab is asked for by URL', async () => {
+      const { page } = await openComplete(publicPlaying(), {
+        user: dave,
+        decklists,
+        fields: threePlayers,
+        url: '/drafts/draft-1?tab=board',
+      });
+
+      expect(panelName(page)).toBe('Decklists');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=decklists'));
+    });
   });
 });

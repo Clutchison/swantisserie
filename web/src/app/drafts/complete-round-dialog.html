@@ -2,20 +2,22 @@
   <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
   <p>
     @if (finalRound() && noTrophyHolder()) {
-      It is the final tournament round, so the tournament completes. Nobody advances from the final,
-      so nobody holds the trophy.
+      It is the final tournament round, so completing it will complete the tournament. Nobody will
+      advance from the final, so nobody will hold the trophy.
     } @else if (finalRound()) {
-      It is the final tournament round, so the tournament completes and the trophy is awarded.
+      It is the final tournament round, so completing it will complete the tournament and award the
+      trophy.
     } @else if (noTrophyHolder()) {
-      Nobody is left in the bracket, so the tournament completes and nobody holds the trophy.
+      Nobody will be left in the bracket, so completing the round will complete the tournament, and
+      nobody will hold the trophy.
     } @else if (tooFewLeft() && grantsWins()) {
-      Fewer than {{ minPlayersLeft }} players are left in the bracket, so the tournament completes
-      and the trophy is awarded.
+      Fewer than {{ minPlayersLeft }} players will be left in the bracket, so completing the round
+      will complete the tournament and award the trophy.
     } @else if (tooFewLeft()) {
-      Fewer than {{ minPlayersLeft }} undropped players remain, so the tournament completes and the
-      trophy is awarded.
+      Fewer than {{ minPlayersLeft }} undropped players will remain, so completing the round will
+      complete the tournament and award the trophy.
     } @else {
-      Tournament round {{ round() + 1 }} is paired, and its matches open.
+      Completing the round will pair tournament round {{ round() + 1 }} and open its matches.
     }
   </p>
   @if (unreported().length > 0 && grantsWins()) {
@@ -61,7 +63,7 @@
     </ul>
   } @else if (unreported().length > 0) {
     <p>
-      Its unreported matches become granted draws.
+      Its unreported matches will become granted draws.
       @if (!finalRound()) {
         Drop any player who won’t play on.
       }

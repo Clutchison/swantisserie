@@ -342,6 +342,14 @@ export class DraftStore {
     return this.tournament.value()?.showsDecklists ?? false;
   });
   /**
+   * Whether the Board tab is shown: until the Decklists tab takes its place.
+   * Undefined while that is still loading.
+   */
+  readonly showBoardTab = computed(() => {
+    const decklists = this.showDecklists();
+    return decklists === undefined ? undefined : !decklists;
+  });
+  /**
    * The tournament's decklists, read once it shows them. They are the decks
    * as they were when it started, so no change re-reads them.
    */

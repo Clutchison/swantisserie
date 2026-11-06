@@ -11,7 +11,7 @@ export const CORRECTION_WARNING_HEADING = 'correction-warning-heading';
 export interface CorrectionWarning {
   /** What it asks, such as "Correct Bob vs Carol?". */
   question: string;
-  /** What it leaves the match as, if worth saying, such as "The match is unreported again." */
+  /** What it leaves the match as, if worth saying, such as "The match will be unreported again." */
   detail: string | null;
   /** The button that goes ahead, such as "Correct". */
   action: string;

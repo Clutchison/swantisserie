@@ -224,13 +224,13 @@ export class TournamentResults {
     if (forfeiting) {
       return outcome.kind === 'Forfeit'
         ? null
-        : `It becomes a forfeit by ${this.name(forfeiting)}, who has dropped.`;
+        : `It will become a forfeit by ${this.name(forfeiting)}, who has dropped.`;
     }
     const roundCompleted = state === 'Complete' || round <= lastCompletedRound;
     if (roundCompleted && !clearReopensRound) {
-      return outcome.kind === 'GrantedDraw' ? null : 'The match becomes a granted draw.';
+      return outcome.kind === 'GrantedDraw' ? null : 'The match will become a granted draw.';
     }
-    return outcome.kind === 'Unreported' ? null : 'The match is unreported again.';
+    return outcome.kind === 'Unreported' ? null : 'The match will be unreported again.';
   }
 
   private name(playerId: string) {

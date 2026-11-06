@@ -33,7 +33,7 @@ import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export', 'Play', 'Decklists'] as const;
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Decklists', 'Export', 'Play'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
@@ -96,8 +96,16 @@ export class DraftPage {
    * and before setup only for organizers.
    */
   protected readonly showPlayTab = computed(() => !!this.store.showPlayTab());
-  /** Whether the Decklists tab is there: under public decklists, once the tournament has started. */
+  /**
+   * Whether the Decklists tab is there, in the Board tab's place: under
+   * public decklists, once the tournament has started.
+   */
   protected readonly showDecklists = computed(() => !!this.store.showDecklists());
+  /**
+   * Whether the Board tab is there: until the Decklists tab takes its place,
+   * and while that is still loading.
+   */
+  protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
   /** Whether the Queue tab is there: until the draft is complete. */
   protected readonly showQueueTab = computed(() => !!this.store.showQueueTab());
 
@@ -112,6 +120,7 @@ export class DraftPage {
    */
   private readonly shownBy: Partial<Record<Panel, Signal<boolean | undefined>>> = {
     Queue: this.store.showQueueTab,
+    Board: this.store.showBoardTab,
     Play: this.store.showPlayTab,
     Decklists: this.store.showDecklists,
   };
@@ -122,13 +131,14 @@ export class DraftPage {
    * being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
-   * tabs, so its page settles on Pool. The Queue, Tournament and Decklists
+   * tabs, so its page settles on Pool. The Queue, Board, Play and Decklists
    * tabs can be opened while they are there, so each goes back to Pool as it
-   * goes.
+   * goes, except Board, which goes to the Decklists tab that takes its place.
    */
   protected readonly selectedTab = tabInUrl<Panel>({
     tabs: PANELS,
     defaultTab: 'Pool',
+    fallbacks: { Board: 'Decklists' },
     canOpen: (tab) => {
       if (this.failed()) return 'no';
       const shownBy = this.shownBy[tab];
