@@ -38,3 +38,5 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
 9. Clean up all **implementer subagent** worktrees.
+
+10. Call the PushNotification tool (load it with ToolSearch `select:PushNotification` if it's deferred) with a one-line summary the user can act on: the spec, the PR link or integration branch, and anything left for them, such as failed tickets or unresolved review findings. Send it even if the run stopped early.
