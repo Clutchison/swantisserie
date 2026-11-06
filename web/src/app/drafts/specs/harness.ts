@@ -493,6 +493,13 @@ export const picksLeftCount = (root: HTMLElement) =>
     /^(– )?\d+ picks? left$/.test(element.textContent.trim()),
   );
 
+/**
+ * The picks left text highlighted inside `root`, as near the end of the
+ * viewer's picks, such as "10 picks left". Null when nothing is.
+ */
+export const highlightedPicksLeft = (root: HTMLElement) =>
+  root.querySelector('[data-highlighted="true"]')?.textContent.trim() ?? null;
+
 /** Every picks left count that `root`'s text reads, such as "12 picks left". */
 export const picksLeftTexts = (root: HTMLElement) =>
   root.textContent.match(/\d+ picks? left/g) ?? [];
