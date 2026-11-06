@@ -57,7 +57,7 @@
         type="button"
         [appTab]="tab() === 'Pool'"
         aria-controls="pool-panel"
-        (click)="tab.set('Pool')"
+        (click)="tabs.select('Pool')"
       >
         Pool
       </button>
@@ -67,7 +67,7 @@
         type="button"
         [appTab]="tab() === 'Queue'"
         aria-controls="queue-panel"
-        (click)="tab.set('Queue')"
+        (click)="tabs.select('Queue')"
         [disabled]="!joined()"
       >
         Queue
@@ -77,7 +77,7 @@
         type="button"
         [appTab]="tab() === 'Plan'"
         aria-controls="plan-panel"
-        (click)="tab.set('Plan')"
+        (click)="tabs.select('Plan')"
         [disabled]="!joined()"
       >
         Plan
@@ -87,7 +87,7 @@
         type="button"
         [appTab]="tab() === 'Board'"
         aria-controls="board-panel"
-        (click)="tab.set('Board')"
+        (click)="tabs.select('Board')"
       >
         Board
       </button>
@@ -97,7 +97,7 @@
         type="button"
         [appTab]="tab() === 'Export'"
         aria-controls="export-panel"
-        (click)="tab.set('Export')"
+        (click)="tabs.select('Export')"
         [disabled]="!joined()"
       >
         Export

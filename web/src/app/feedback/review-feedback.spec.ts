@@ -7,7 +7,7 @@ import { answerDraft42NotFound, link } from './specs-harness';
 const fromAlice: FeedbackView = {
   id: 'feedback-1',
   message: 'Line one\nLine two',
-  pagePath: '/drafts/42?tab=pool#x',
+  pagePath: '/drafts/42?view=compact#x',
   sentAt: '2026-10-31T12:00:00.000Z',
   sender: { name: 'Alice', avatarUrl: alice.avatarUrl },
 };
@@ -98,7 +98,7 @@ describe('reviewing feedback', () => {
     expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
     expect(item.textContent).toContain('Alice');
     expect(item.querySelector('time')?.textContent).toContain('Oct 31, 2026');
-    expect(link(item, '/drafts/42?tab=pool#x')).toBeDefined();
+    expect(link(item, '/drafts/42?view=compact#x')).toBeDefined();
   });
 
   it.each([
@@ -109,11 +109,11 @@ describe('reviewing feedback', () => {
     async (_view, openView) => {
       const { fixture, page } = await openView();
 
-      link(items(page)[0], '/drafts/42?tab=pool#x')!.click();
+      link(items(page)[0], '/drafts/42?view=compact#x')!.click();
       await answerDraft42NotFound(http);
       await fixture.whenStable();
 
-      expect(router.url).toBe('/drafts/42?tab=pool#x');
+      expect(router.url).toBe('/drafts/42?view=compact#x');
     },
   );
 
@@ -184,7 +184,7 @@ describe('reviewing feedback', () => {
       expect(item.querySelector('img')?.getAttribute('src')).toBe(alice.avatarUrl);
       expect(item.textContent).toContain('Alice');
       expect(item.querySelector('.message')?.textContent).toBe(fromAlice.message);
-      expect(link(item, '/drafts/42?tab=pool#x')).toBeDefined();
+      expect(link(item, '/drafts/42?view=compact#x')).toBeDefined();
       expect(item.querySelector('time')?.getAttribute('datetime')).toBe(fromAlice.sentAt);
       const review = item.querySelector('.review')!;
       expect(review.textContent).toContain('Reviewed by Carol');
