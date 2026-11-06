@@ -48,7 +48,7 @@ export async function tournamentStarted(
  * the tournament complete, with its trophy holders, or else the tournament
  * round paired next, with its matches and byes.
  */
-export async function tournamentRoundCompleted(
+export async function roundCompletedOrTournamentCompleted(
   tx: Transaction,
   draftId: string,
   tournamentId: string,
@@ -92,6 +92,10 @@ async function readTournament(
   );
   return {
     view: toTournamentView(row),
-    player: (userId: string) => byId.get(userId)!,
+    player: (userId: string) => {
+      const player = byId.get(userId);
+      if (!player) throw new Error(`No player ${userId} in draft ${draftId}`);
+      return player;
+    },
   };
 }

@@ -35,7 +35,7 @@ import {
 } from './tournament-matches.js';
 import {
   tournamentSetUp,
-  tournamentRoundCompleted,
+  roundCompletedOrTournamentCompleted,
   tournamentStarted,
 } from './tournament-events.js';
 import {
@@ -461,7 +461,9 @@ export class TournamentsService {
         where: { id: tournament.id },
         data: { state: 'Complete' },
       });
-      return [await tournamentRoundCompleted(tx, draftId, tournament.id)];
+      return [
+        await roundCompletedOrTournamentCompleted(tx, draftId, tournament.id),
+      ];
     });
   }
 
@@ -515,7 +517,9 @@ export class TournamentsService {
         },
       });
       if (!completes) await steps.pairNext(tx, tournament.id, round + 1);
-      return [await tournamentRoundCompleted(tx, draftId, tournament.id)];
+      return [
+        await roundCompletedOrTournamentCompleted(tx, draftId, tournament.id),
+      ];
     });
   }
 

@@ -39,7 +39,7 @@ export function tournamentMessage(
   }
 }
 
-/** `players` are the draft's human players, each pinged to join. */
+/** `players` are the draft's players: each but a bot is pinged to join. */
 export function tournamentSetUpMessage(
   draft: AnnouncedDraft,
   format: TournamentFormat,
@@ -49,14 +49,14 @@ export function tournamentSetUpMessage(
   const pings = pinged.map((player) => mention(player.id)).join(' ');
   return tournamentAnnouncement(
     draft,
-    [`${capitalized(tournamentOf(draft, format))} is in registration.`],
+    [`${tournamentOf(draft, format)} is in registration.`],
     `${pings ? `${pings} join` : 'Join'} from the Tournament tab.`,
     pinged,
   );
 }
 
 /** `players` are its joined players, in join order. */
-export function tournamentStartedMessage(
+function tournamentStartedMessage(
   draft: AnnouncedDraft,
   format: TournamentFormat,
   players: AnnouncedPlayer[],
@@ -64,7 +64,7 @@ export function tournamentStartedMessage(
   return tournamentAnnouncement(
     draft,
     [
-      `${capitalized(tournamentOf(draft, format))} has started with ${listed(players.map((player) => bold(player.name)))}.`,
+      `${tournamentOf(draft, format)} has started with ${listed(players.map((player) => bold(player.name)))}.`,
     ],
     null,
     [],
@@ -75,7 +75,7 @@ export function tournamentStartedMessage(
  * The tournament round `round` just paired, after the one before it was
  * completed: each match pings its players, and each bye names its player.
  */
-export function tournamentRoundCompletedMessage(
+function tournamentRoundCompletedMessage(
   draft: AnnouncedDraft,
   {
     round,
@@ -101,7 +101,7 @@ export function tournamentRoundCompletedMessage(
 }
 
 /** `trophyHolders` are everyone who holds the trophy, sharing it if several. */
-export function tournamentCompletedMessage(
+function tournamentCompletedMessage(
   draft: AnnouncedDraft,
   format: TournamentFormat,
   trophyHolders: AnnouncedPlayer[],
@@ -115,7 +115,7 @@ export function tournamentCompletedMessage(
         : `${listed(names)} share the trophy.`;
   return tournamentAnnouncement(
     draft,
-    [`${capitalized(tournamentOf(draft, format))} is complete. ${trophy}`],
+    [`${tournamentOf(draft, format)} is complete. ${trophy}`],
     null,
     [],
   );
@@ -132,10 +132,6 @@ function tournamentOf(draft: AnnouncedDraft, format: TournamentFormat) {
   return `${bold(draft.name)}’s ${FORMAT_NAMES[format]} tournament`;
 }
 
-function capitalized(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 /** Such as "A, B and C". */
 function listed(items: string[]): string {
   return items.length <= 1
@@ -145,7 +141,7 @@ function listed(items: string[]): string {
 
 /**
  * `lines`, then a last line of `call` if any and the masked link to the
- * draft's Tournament tab, pinging `pinged`, unless they are bots.
+ * draft's Tournament tab, pinging `pinged`, who are never bots.
  */
 function tournamentAnnouncement(
   draft: AnnouncedDraft,
@@ -159,11 +155,7 @@ function tournamentAnnouncement(
     content: [...lines, call ? `${call} ${link}` : link].join('\n'),
     allowed_mentions: {
       parse: [],
-      users: [
-        ...new Set(
-          pinged.filter((player) => !player.isBot).map((player) => player.id),
-        ),
-      ],
+      users: [...new Set(pinged.map((player) => player.id))],
     },
   };
 }

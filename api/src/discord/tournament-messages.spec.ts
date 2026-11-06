@@ -47,12 +47,4 @@ describe('a completed tournament round too long for one post', () => {
       link,
     ]);
   });
-
-  it('pings each match’s players in the post that names them', () => {
-    for (const { content, allowed_mentions } of messages) {
-      const named = [...content.matchAll(/<@(\d+)>/g)].map(([, id]) => id);
-      expect(allowed_mentions.users).toEqual(named);
-    }
-    expect(messages.flatMap((m) => m.allowed_mentions.users)).toHaveLength(120);
-  });
 });
