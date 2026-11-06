@@ -18,7 +18,7 @@ import type {
   MatchOutcome,
   TournamentMatch,
 } from './tournament.js';
-import { placings, won } from './tournament.fixtures.js';
+import { forfeited, placings, won } from './tournament.fixtures.js';
 
 /** Seed order s1, s2, … sN: each player is named after their seed. */
 function seeds(count: number): string[] {
@@ -190,10 +190,7 @@ describe('singleEliminationStandings', () => {
   it('counts a forfeit both players dropped from for neither', () => {
     const standings = singleEliminationStandings(
       ['a', 'b', 'c', 'd'],
-      [
-        { players: ['a', 'b'], outcome: { kind: 'Forfeit', forfeitedBy: 'a' } },
-        won('c', 'd'),
-      ],
+      [forfeited('a', 'b', 'a'), won('c', 'd')],
       [],
       ['a', 'b'],
     );
@@ -210,11 +207,7 @@ describe('singleEliminationStandings', () => {
     const standings = singleEliminationStandings(
       seeds(4),
       [
-        {
-          players: ['s1', 's4'],
-          outcome: { kind: 'Forfeit', forfeitedBy: 's4' },
-          nextRoundPlayers: ['s1', 's2'],
-        },
+        { ...forfeited('s1', 's4', 's4'), nextRoundPlayers: ['s1', 's2'] },
         won('s2', 's3'),
         won('s2', 's1'),
       ],

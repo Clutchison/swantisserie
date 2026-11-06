@@ -12,7 +12,12 @@ import {
   type RoundCompletionInput,
   type TournamentMatch,
 } from './tournament.js';
-import { grantedDraw, placings, played } from './tournament.fixtures.js';
+import {
+  forfeited,
+  grantedDraw,
+  placings,
+  played,
+} from './tournament.fixtures.js';
 import {
   agreedAdvancingPlayer,
   bracketRounds,
@@ -31,10 +36,6 @@ describe('droppedPlayers', () => {
     ).toEqual(['a', 'c']);
   });
 });
-
-function forfeited(a: string, b: string, forfeitedBy: string): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'Forfeit', forfeitedBy } };
-}
 
 /** Each standing's player and rank, in standings order. */
 function ranks(players: string[], matches: TournamentMatch[]) {

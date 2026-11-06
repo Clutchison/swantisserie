@@ -18,6 +18,15 @@ export function won(a: string, b: string): TournamentMatch {
   return played(a, b, [2, 0]);
 }
 
+/** A match `forfeitedBy` forfeited to the other of `a` and `b`. */
+export function forfeited(
+  a: string,
+  b: string,
+  forfeitedBy: string,
+): TournamentMatch {
+  return { players: [a, b], outcome: { kind: 'Forfeit', forfeitedBy } };
+}
+
 /** A granted draw between `a` and `b`. */
 export function grantedDraw(a: string, b: string): TournamentMatch {
   return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
