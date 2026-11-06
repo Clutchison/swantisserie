@@ -18,7 +18,8 @@ export type TournamentEvent = Extract<
  * The announcement of a tournament event, as one message, which may yet be
  * split across posts. Each ends with a link to the draft's Tournament tab.
  * Only players named to play are pinged: the draft's players when
- * registration opens, and each tournament round's match players.
+ * registration opens, and each tournament round's match players. Bots are
+ * named, never pinged.
  */
 export function tournamentMessage(
   draft: AnnouncedDraft,
@@ -40,7 +41,10 @@ export function tournamentMessage(
   }
 }
 
-/** `players` are the draft's players: each but a bot is pinged to join. */
+/**
+ * `players` are the draft's players: each but a bot is pinged to join, and
+ * the bots, which joined at setup, are named.
+ */
 export function tournamentSetUpMessage(
   draft: AnnouncedDraft,
   format: TournamentFormat,
@@ -48,9 +52,16 @@ export function tournamentSetUpMessage(
 ): WebhookMessage {
   const pinged = players.filter((player) => !player.isBot);
   const pings = pinged.map((player) => mention(player.id)).join(' ');
+  const bots = players
+    .filter((player) => player.isBot)
+    .map((bot) => bold(bot.name));
+  const joined =
+    bots.length === 0
+      ? ''
+      : ` ${listed(bots)} ${bots.length === 1 ? 'has' : 'have'} joined.`;
   return tournamentAnnouncement(
     draft,
-    [`${tournamentOf(draft, format)} is in registration.`],
+    [`${tournamentOf(draft, format)} is in registration.${joined}`],
     `${pings ? `${pings} join` : 'Join'} from the Tournament tab.`,
     pinged,
   );
@@ -74,7 +85,8 @@ function tournamentStartedMessage(
 
 /**
  * The tournament round `round` just paired, after the one before it was
- * completed: each match pings its players, and each bye names its player.
+ * completed: each match pings its players, naming its bots, and each bye
+ * names its player.
  */
 function tournamentRoundCompletedMessage(
   draft: AnnouncedDraft,
@@ -92,13 +104,18 @@ function tournamentRoundCompletedMessage(
     [
       `Tournament round ${round - 1} of ${bold(draft.name)}’s tournament is complete. Tournament round ${round}:`,
       ...matches.map(
-        ([first, second]) => `${mention(first.id)} vs ${mention(second.id)}`,
+        ([first, second]) => `${pingOrName(first)} vs ${pingOrName(second)}`,
       ),
       ...byes.map((player) => `${bold(player.name)} has a bye.`),
     ],
     null,
-    matches.flat(),
+    matches.flat().filter((player) => !player.isBot),
   );
+}
+
+/** A mention of `player`, or a bot's name, as a bot is never pinged. */
+function pingOrName(player: AnnouncedPlayer) {
+  return player.isBot ? bold(player.name) : mention(player.id);
 }
 
 /** `trophyHolders` are everyone who holds the trophy, sharing it if several. */

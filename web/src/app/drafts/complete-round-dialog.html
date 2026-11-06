@@ -42,18 +42,20 @@
               </label>
             }
           </div>
-          <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-            @for (player of match.players; track player.id) {
-              <label>
-                <input
-                  type="checkbox"
-                  [checked]="isDropping(match.id, player.id)"
-                  (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                />
-                Drop {{ player.name }}
-              </label>
-            }
-          </div>
+          @if (match.droppable.length > 0) {
+            <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+              @for (player of match.droppable; track player.id) {
+                <label>
+                  <input
+                    type="checkbox"
+                    [checked]="isDropping(match.id, player.id)"
+                    (change)="setDropping(match.id, player.id, $any($event.target).checked)"
+                  />
+                  Drop {{ player.name }}
+                </label>
+              }
+            </div>
+          }
         </li>
       }
     </ul>
@@ -68,9 +70,9 @@
       @for (match of unreported(); track match.id) {
         <li>
           <span>{{ match.label }}</span>
-          @if (!finalRound()) {
+          @if (!finalRound() && match.droppable.length > 0) {
             <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-              @for (player of match.players; track player.id) {
+              @for (player of match.droppable; track player.id) {
                 <label>
                   <input
                     type="checkbox"

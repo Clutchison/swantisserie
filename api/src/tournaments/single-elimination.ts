@@ -16,6 +16,7 @@ import {
 import type { RoundSteps } from './round-steps.js';
 import {
   createMatches,
+  entryToDrop,
   forfeitUnplayed,
   listedMatches,
   refuseSettledSince,
@@ -272,7 +273,8 @@ async function grantedWins(
  * The unreported matches of tournament round `round` that `requests` drop
  * players from, each with the entry ids of those players. Throws
  * InvalidTournamentRequestError if one lists a match that isn't one of
- * the round's, or a player who isn't one of its own.
+ * the round's, or a player who isn't one of its own, and
+ * TournamentRefusedError if one lists a bot, which never drops.
  */
 async function matchDrops(
   tx: Transaction,
@@ -283,14 +285,13 @@ async function matchDrops(
   const listed = await listedMatches(tx, tournamentId, round, requests);
   return listed.map(({ request, match }) => ({
     match,
-    entryIds: request.drop.map((playerId) => {
-      const entry = match.entries.find((e) => e.player.userId === playerId);
-      if (!entry) {
-        throw new InvalidTournamentRequestError(
+    entryIds: request.drop.map(
+      (playerId) =>
+        entryToDrop(
+          match,
+          playerId,
           'Only a match’s own players can be dropped from it.',
-        );
-      }
-      return entry.id;
-    }),
+        ).id,
+    ),
   }));
 }

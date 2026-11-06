@@ -20,17 +20,18 @@ export type WouldBeEntrant = Prisma.PlayerGetPayload<{
 
 /**
  * Why the draft's player `player` can't join its tournament during
- * registration, or null if they can: they are a bot, have joined already,
- * or their mainboard, cards plus basic lands, holds fewer than
- * MIN_MAINBOARD_CARDS. Joining asks this, and so do the tournament read and
- * the draft list's tournament badge, through `viewerJoin`, so they offer
- * Join only where joining would succeed.
+ * registration, or null if they can: they are a bot, which joins at
+ * tournament setup, have joined already, or their mainboard, cards plus
+ * basic lands, holds fewer than MIN_MAINBOARD_CARDS. Joining asks this,
+ * and so do the tournament read and the draft list's tournament badge,
+ * through `viewerJoin`, so they offer Join only where joining would
+ * succeed.
  */
 export function joinRefusal(player: WouldBeEntrant): TournamentRefusal | null {
   if (player.user.isBot) {
     return {
       error: 'bots-cannot-join',
-      message: 'Bots never play in tournaments.',
+      message: 'Bots join a tournament at its setup.',
     };
   }
   if (player.tournamentEntry) {

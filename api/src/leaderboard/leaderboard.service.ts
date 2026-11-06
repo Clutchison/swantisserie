@@ -14,13 +14,15 @@ export class LeaderboardService {
    * The leaderboard of every complete tournament, ranked by trophies, then
    * matches won, computed on each read from their standings, so a
    * correction after completion moves its trophy. Cancelled tournaments
-   * are gone, so count nowhere. Bots never join a tournament, and are left
-   * out all the same.
+   * are gone, so count nowhere, and neither does a tournament any bot
+   * played in, as bots exist for testing; so no bot ever appears.
    */
   async read(): Promise<LeaderboardView> {
     const complete = await readCompleteTournaments(this.prisma);
     const entries = leaderboard(
-      complete.map(({ view }) => toLeaderboardTournament(view)),
+      complete
+        .filter(({ botsPlayed }) => !botsPlayed)
+        .map(({ view }) => toLeaderboardTournament(view)),
     );
     const users = await this.prisma.user.findMany({
       where: { id: { in: entries.map((entry) => entry.playerId) } },

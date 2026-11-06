@@ -8,6 +8,16 @@ export class TournamentRefusedError extends Error {
 }
 
 /**
+ * The refusal of taking a bot out of its tournament, by leaving, removal or
+ * a drop, or of reinstating one: a bot stays in from setup to the end.
+ */
+export const BOT_ENTRY: TournamentRefusal = {
+  error: 'bot-entry',
+  message:
+    'A bot stays in its tournament: it can’t leave, be removed, drop or be reinstated.',
+};
+
+/**
  * Thrown for a tournament request whose body names something it can't: a
  * 400, as a body that isn't the request's shape is.
  */

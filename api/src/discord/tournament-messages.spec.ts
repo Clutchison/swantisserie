@@ -13,10 +13,10 @@ function player(n: number) {
 }
 
 describe('tournamentSetUpMessage', () => {
-  it('never pings a bot', () => {
+  it('names a bot as joined, never pinging it', () => {
     expect(tournamentSetUpMessage(draft, 'Swiss', [alice, bot])).toEqual({
       content:
-        '**Red**’s Swiss tournament is in registration.\n' +
+        '**Red**’s Swiss tournament is in registration. **Bot 1** has joined.\n' +
         `<@${alice.id}> join from the Tournament tab. ${link}`,
       allowed_mentions: { parse: [], users: [alice.id] },
     });

@@ -6,6 +6,7 @@ import { InvalidTournamentRequestError } from './tournament-errors.js';
 import type { RoundSteps } from './round-steps.js';
 import {
   createRounds,
+  entryToDrop,
   listedMatches,
   refuseSettledSince,
 } from './tournament-matches.js';
@@ -96,7 +97,8 @@ async function pairSwiss(tx: Transaction, tournamentId: string, round: number) {
  * stays unreported, for Complete round to refuse. Throws
  * InvalidTournamentRequestError if it lists a match that isn't one of the
  * round's, or a player to drop who isn't in theirs, and
- * TournamentRefusedError if it lists a match reported since.
+ * TournamentRefusedError if it lists a bot to drop, or a match reported
+ * since.
  */
 async function grantDraws(
   tx: Transaction,
@@ -108,12 +110,11 @@ async function grantDraws(
   const dropping: string[] = [];
   for (const { request, match } of listed) {
     for (const playerId of request.drop) {
-      const entry = match.entries.find((e) => e.player.userId === playerId);
-      if (!entry) {
-        throw new InvalidTournamentRequestError(
-          'Only a match’s own players can be dropped with its granted draw.',
-        );
-      }
+      const entry = entryToDrop(
+        match,
+        playerId,
+        'Only a match’s own players can be dropped with its granted draw.',
+      );
       dropping.push(entry.id);
     }
     refuseSettledSince(match, round, 'granted draw');
