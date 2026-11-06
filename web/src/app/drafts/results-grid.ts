@@ -76,8 +76,8 @@ export class ResultsGrid {
 
   /**
    * The ids of the matches an organizer can report, correct and clear:
-   * those of each tournament round the read says is correctable, round
-   * robin's one round while the tournament is playing.
+   * those the read says are correctable, in round robin while the
+   * tournament is playing.
    */
   private readonly correctable = computed(
     () =>

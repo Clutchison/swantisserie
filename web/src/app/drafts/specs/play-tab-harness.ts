@@ -318,7 +318,10 @@ export function singleEliminationPlaying(
  * Carol having beaten Bob 2–1 (m1) as she reported it, `confirmed` by Bob
  * or not, open unless `completed`.
  */
-export const carolBeatBob = (confirmed = false, completed = false): TournamentRoundView => ({
+export const carolBeatBob = ({
+  confirmed = false,
+  completed = false,
+}: { confirmed?: boolean; completed?: boolean } = {}): TournamentRoundView => ({
   round: 1,
   correctable: !completed,
   matches: [
@@ -339,7 +342,7 @@ export const carolBeatBob = (confirmed = false, completed = false): TournamentRo
 export const singleEliminationFinal = singleEliminationPlaying({
   lastCompletedRound: 1,
   rounds: [
-    carolBeatBob(false, true),
+    carolBeatBob({ completed: true }),
     {
       round: 2,
       correctable: true,

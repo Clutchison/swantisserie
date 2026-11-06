@@ -101,9 +101,10 @@ export interface TournamentRoundView {
   /**
    * Whether an organizer can still correct or clear its matches, as the
    * tournament stands, whoever is viewing: while it is open and the
-   * tournament is playing, round robin's one round while the tournament is
-   * playing. False once it is completed, until it is reopened, and in a
-   * complete tournament. Who may organize comes from the draft powers.
+   * tournament is playing, or in round robin, which has no tournament
+   * rounds, while the tournament is playing. False once it is completed,
+   * until it is reopened, and in a complete tournament. Who may organize
+   * comes from the draft powers.
    */
   correctable: boolean;
   /** In bracket place order in single elimination; otherwise in the order of their first players’ joining, then their second players’. */

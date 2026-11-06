@@ -25,7 +25,7 @@ useDraftsApp();
 
 /** Carol having beaten Bob 2–1 in round 1, confirmed, which isn't completed yet, so the final isn't paired. */
 const carolWon = singleEliminationPlaying({
-  rounds: [carolBeatBob(true)],
+  rounds: [carolBeatBob({ confirmed: true })],
   bracket: [
     firstBracketRound(carol.id),
     { round: 2, places: [place(0, null, [side(alice.id), side(carol.id)])] },

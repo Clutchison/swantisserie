@@ -10,13 +10,13 @@ export interface CorrectionRow {
 
 /**
  * Why an organizer can't correct or clear a match of tournament round
- * `round` of the tournament `row`, whose results are final: every match
- * once the tournament is complete, and the matches of a completed
- * tournament round, until it is reopened, which the refusal suggests for
- * the last completed round while no round is reopened. Null while they
- * can: the round is open, or, in round robin, which has no tournament
- * rounds, the tournament is playing. Both the refusals and the read's
- * `correctable` come from here, so they can't disagree.
+ * `round` of the tournament `row`, or null when they can. A complete
+ * tournament's results are final, and so are a completed tournament
+ * round's until it is reopened; for the last completed round, while no
+ * round is reopened, the refusal suggests Reopen round. Round robin, which
+ * has no tournament rounds, is correctable while the tournament is
+ * playing. Both the refusals and the read's `correctable` come from here,
+ * so they can't disagree.
  */
 export function correctionRefusal(
   row: CorrectionRow,

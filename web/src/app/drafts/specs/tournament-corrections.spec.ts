@@ -266,7 +266,8 @@ describe('organizer reports, corrections and clears', () => {
         { powers: ORGANIZE_ONLY },
       );
 
-      expect(resultsGrid(tab)!.querySelector('button')).toBeNull();
+      expect(gridCellName(tab, 'Bob', 'Carol')).toBe('Bob against Carol: unreported');
+      expect(button(tab, 'Bob against Carol: unreported')).toBeUndefined();
     });
   });
 
