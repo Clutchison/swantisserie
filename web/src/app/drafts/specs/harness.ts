@@ -365,14 +365,21 @@ export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[r
 
 /**
  * Expects `user` to have been signed out of this tab because the API ended
- * their session: sent to sign-in, gone from the header, and the API not told.
+ * their session: sent to sign-in, to return to `returnTo` (the page they were
+ * on) once signed in, gone from the header, and the API not told.
  * Takes the router and HTTP mock as specs outside the drafts app have their own.
  */
 export async function expectSignedOut(
   fixture: ComponentFixture<unknown>,
-  { router, http, user }: { router: Router; http: HttpTestingController; user: UserView },
+  {
+    router,
+    http,
+    user,
+    returnTo,
+  }: { router: Router; http: HttpTestingController; user: UserView; returnTo?: string },
 ) {
-  await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+  const signIn = returnTo ? `/sign-in?${new URLSearchParams({ returnTo })}` : '/sign-in';
+  await vi.waitFor(() => expect(router.url).toBe(signIn));
   await fixture.whenStable();
 
   const page = fixture.nativeElement as HTMLElement;
