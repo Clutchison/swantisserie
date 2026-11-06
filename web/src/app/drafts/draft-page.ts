@@ -24,15 +24,15 @@ import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';
 import { OrganizerControls } from './organizer-controls';
 import { PlanTab } from './plan-tab';
+import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
-import { TournamentTab } from './tournament-tab';
 import { WebhookControl } from './webhook-control';
 import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export', 'Tournament', 'Decklists'] as const;
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export', 'Play', 'Decklists'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
@@ -48,12 +48,12 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
     LucideChevronLeft,
     OrganizerControls,
     PlanTab,
+    PlayTab,
     PoolTab,
     QueueTab,
     RouterLink,
     Tab,
     TabList,
-    TournamentTab,
     WebhookControl,
   ],
   providers: [CardImageSource, CardPreviews, DraftStore, ImagePreloader],
@@ -90,10 +90,10 @@ export class DraftPage {
   /** "plan", or "deck" once the draft is complete. */
   protected readonly planName = this.store.planName;
   /**
-   * Whether the Tournament tab is there: only once the draft is complete,
+   * Whether the Play tab is there: only once the draft is complete,
    * and before setup only for organizers.
    */
-  protected readonly showTournament = computed(() => !!this.store.showTournament());
+  protected readonly showPlayTab = computed(() => !!this.store.showPlayTab());
   /** Whether the Decklists tab is there: under public decklists, once the tournament has started. */
   protected readonly showDecklists = computed(() => !!this.store.showDecklists());
   /** Whether the Queue tab is there: until the draft is complete. */
@@ -105,7 +105,7 @@ export class DraftPage {
    */
   private readonly shownBy: Partial<Record<Panel, Signal<boolean | undefined>>> = {
     Queue: this.store.showQueueTab,
-    Tournament: this.store.showTournament,
+    Play: this.store.showPlayTab,
     Decklists: this.store.showDecklists,
   };
 

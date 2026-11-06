@@ -16,7 +16,7 @@ export type TournamentEvent = Extract<
 
 /**
  * The announcement of a tournament event, as one message, which may yet be
- * split across posts. Each ends with a link to the draft's Tournament tab.
+ * split across posts. Each ends with a link to the draft's Play tab.
  * Only players named to play are pinged: the draft's players when
  * registration opens, and each tournament round's match players. Bots are
  * named, never pinged.
@@ -62,7 +62,7 @@ export function tournamentSetUpMessage(
   return tournamentAnnouncement(
     draft,
     [`${tournamentOf(draft, format)} is in registration.${joined}`],
-    `${pings ? `${pings} join` : 'Join'} from the Tournament tab.`,
+    `${pings ? `${pings} join` : 'Join'} from the Play tab.`,
     pinged,
   );
 }
@@ -153,7 +153,7 @@ function listed(items: string[]): string {
 
 /**
  * `lines`, then a last line of `call` if any and the masked link to the
- * draft's Tournament tab, pinging `pinged`, who are never bots.
+ * draft's Play tab, pinging `pinged`, who are never bots.
  */
 function tournamentAnnouncement(
   draft: AnnouncedDraft,
@@ -162,7 +162,7 @@ function tournamentAnnouncement(
   pinged: AnnouncedPlayer[],
 ): WebhookMessage {
   // Masked, with the URL in angle brackets so Discord shows no preview.
-  const link = `[Open tournament](<${draft.url}?tab=tournament>)`;
+  const link = `[Open tournament](<${draft.url}?tab=play>)`;
   return {
     content: [...lines, call ? `${call} ${link}` : link].join('\n'),
     allowed_mentions: {

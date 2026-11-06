@@ -42,7 +42,7 @@ import {
   openPlan,
   planBoards,
 } from './plan-tab-harness';
-import { playing, registration, withDrops, withTournament } from './tournament-tab-harness';
+import { playing, registration, withDrops, withTournament } from './play-tab-harness';
 
 useDraftsApp();
 useTallScreen();

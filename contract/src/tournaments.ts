@@ -33,7 +33,7 @@ export type TournamentState = 'Registration' | 'Playing' | 'Complete';
 
 /**
  * What every viewer of a draft is told of its tournament, on `DraftView`:
- * enough to show the Tournament tab and know to read the tournament.
+ * enough to show the Play tab and know to read the tournament.
  */
 export interface TournamentSummaryView {
   state: TournamentState;

@@ -170,7 +170,7 @@ export class TournamentBracket {
   }
 }
 
-/** The parts that are there, joined as the Tournament tab joins them, with " · ". */
+/** The parts that are there, joined as the Play tab joins them, with " · ". */
 function joined(parts: readonly (string | null)[]) {
   return parts.filter((part) => part !== null).join(' · ');
 }

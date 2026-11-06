@@ -20,7 +20,7 @@ import {
   singleEliminationPlaying,
   threePlayers,
   winnerToCome,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 

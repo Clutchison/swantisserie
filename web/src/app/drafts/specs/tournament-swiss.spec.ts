@@ -24,7 +24,7 @@ import {
   openComplete,
   openMatch,
   openPlaying,
-  openTournament,
+  openPlayTab,
   registration,
   reported,
   roundLabels,
@@ -34,7 +34,7 @@ import {
   swissPlaying,
   threePlayers,
   withTournament,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 
@@ -46,10 +46,10 @@ const swissRegistration = {
   roundCount: 2,
 } as const;
 
-describe('Swiss tournaments on the Tournament tab', () => {
+describe('Swiss tournaments on the Play tab', () => {
   it('offers Swiss at setup with its round option, until there’s a winner unless capped at 3', async () => {
     const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
-    const tab = await openTournament(fixture, page);
+    const tab = await openPlayTab(fixture, page);
 
     expect(group(tab, 'Swiss round option')).toBeNull();
     controlByLabel(tab, 'radio', 'Swiss')!.click();

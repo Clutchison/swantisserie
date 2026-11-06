@@ -21,14 +21,14 @@ import {
   singleEliminationPlaying,
   swissPlaying,
   withDrops,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 
 /** A bot in Carol's seat, so the tournament fixtures' Carol is a bot. */
 const bot = { ...carol, name: 'Bot 1', isBot: true };
 
-/** Opens the Tournament tab of the draft of Alice, Bob and the bot, with `tournament`, for an organizer. */
+/** Opens the Play tab of the draft of Alice, Bob and the bot, with `tournament`, for an organizer. */
 const openWithBot = (tournament: ViewerTournamentView) =>
   openPlaying(tournament, { powers: ORGANIZE_ONLY, fields: { players: [alicePlayer, bob, bot] } });
 
@@ -40,7 +40,7 @@ async function openCompleteRound(tournament: ViewerTournamentView) {
   return openDialog()!;
 }
 
-describe('bots on the tournament tab', () => {
+describe('bots on the Play tab', () => {
   it('lists a bot as joined in registration, with no Remove', async () => {
     const { tab } = await openWithBot(registration(carol.id, bob.id));
 

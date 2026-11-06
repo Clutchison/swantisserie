@@ -8,7 +8,7 @@ import { DraftStore } from './draft-store';
 export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
 
 /**
- * The Tournament tab's Complete round dialog, opened on the dialog shell
+ * The Play tab's Complete round dialog, opened on the dialog shell
  * for organizers of a Swiss or single elimination tournament: what
  * completing its current tournament round does, and its unreported
  * matches, as the read's `completeRoundGrants` says. In Swiss they become

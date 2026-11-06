@@ -103,7 +103,7 @@ async function announcedTournament(
 }
 
 const tournamentLink = (id: string) =>
-  `[Open tournament](<https://roto.example/drafts/${id}?tab=tournament>)`;
+  `[Open tournament](<https://roto.example/drafts/${id}?tab=play>)`;
 
 describe('tournament announcements', () => {
   it('announces registration at tournament setup, pinging each of the draft’s players', async () => {
@@ -115,7 +115,7 @@ describe('tournament announcements', () => {
       {
         content:
           '**Red**’s Swiss tournament is in registration.\n' +
-          `<@${alice.id}> <@${bob.id}> <@${carol.id}> join from the Tournament tab. ${tournamentLink(id)}`,
+          `<@${alice.id}> <@${bob.id}> <@${carol.id}> join from the Play tab. ${tournamentLink(id)}`,
         allowed_mentions: { parse: [], users: [alice.id, bob.id, carol.id] },
       },
     ]);
@@ -300,7 +300,7 @@ describe('tournament announcements with bots', () => {
       {
         content:
           '**Red**’s Swiss tournament is in registration. **Bot 1** and **Bot 2** have joined.\n' +
-          `<@${alice.id}> join from the Tournament tab. ${tournamentLink(id)}`,
+          `<@${alice.id}> join from the Play tab. ${tournamentLink(id)}`,
         allowed_mentions: { parse: [], users: [alice.id] },
       },
     ]);
