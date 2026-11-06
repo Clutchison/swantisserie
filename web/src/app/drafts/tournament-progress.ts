@@ -11,11 +11,18 @@ const HIDDEN_STEP_TEXT = { completed: ', completed', current: '', upcoming: ', n
 const NAMED_ROUNDS = ['Final', 'Semifinal', 'Quarterfinal'];
 
 /**
- * The tournament round being played, the one after the last completed, as
- * "Tournament round 2 of 3"; in single elimination, the last three by name,
- * such as "Semifinal".
+ * The tournament round being played in Swiss and single elimination, the
+ * one after the last completed, as "Tournament round 2 of 3"; in single
+ * elimination, the last three by name, such as "Semifinal". Null unless the
+ * tournament is playing, and in round robin, which has no current round.
  */
-function openRound({ format, lastCompletedRound, roundCount }: TournamentView): string {
+function openRound({
+  state,
+  format,
+  lastCompletedRound,
+  roundCount,
+}: TournamentView): string | null {
+  if (state !== 'Playing' || format === 'RoundRobin') return null;
   const round = Math.min(lastCompletedRound + 1, roundCount);
   const named = format === 'SingleElimination' ? NAMED_ROUNDS[roundCount - round] : undefined;
   return named ?? `Tournament round ${round} of ${roundCount}`;
@@ -46,13 +53,11 @@ function matchesLeft({ rounds }: TournamentView, ownId: string | undefined): str
  */
 function progressOf(tournament: TournamentView, ownId: string | undefined): string | null {
   if (tournament.state !== 'Playing') return null;
-  return tournament.format === 'RoundRobin'
-    ? matchesLeft(tournament, ownId)
-    : openRound(tournament);
+  return openRound(tournament) ?? matchesLeft(tournament, ownId);
 }
 
-/** The tournament's state, and in Swiss and single elimination the tournament round being played. */
-interface Milestone {
+/** What is announced when it changes: the tournament's state, and in Swiss and single elimination the tournament round being played. */
+interface Announced {
   state: TournamentState;
   round: string | null;
 }
@@ -90,18 +95,14 @@ export class TournamentProgress {
   /** Where the tournament stands while it is playing; null otherwise. */
   protected readonly progress = computed(() => progressOf(this.tournament(), this.ownId()));
 
-  /** What is announced when it changes: the state, and the tournament round being played. */
-  private readonly milestone = computed<Milestone>(
-    () => {
-      const tournament = this.tournament();
-      const rounds = tournament.state === 'Playing' && tournament.format !== 'RoundRobin';
-      return { state: tournament.state, round: rounds ? openRound(tournament) : null };
-    },
+  /** What is announced when it changes. */
+  private readonly announced = computed<Announced>(
+    () => ({ state: this.tournament().state, round: openRound(this.tournament()) }),
     { equal: (a, b) => a.state === b.state && a.round === b.round },
   );
-  /** The last change of milestone, announced; nothing as the tab opens. */
-  protected readonly announcement = linkedSignal<Milestone, string>({
-    source: this.milestone,
+  /** The last change to what is announced; nothing as the tab opens. */
+  protected readonly announcement = linkedSignal<Announced, string>({
+    source: this.announced,
     computation: (now, previous) => {
       if (!previous) return '';
       if (now.state !== previous.source.state) return `Tournament: ${now.state}`;

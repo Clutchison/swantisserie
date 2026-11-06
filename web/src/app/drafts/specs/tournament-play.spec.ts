@@ -284,8 +284,11 @@ describe('Play tab while the tournament is played', () => {
       expect(announcements(tab)).toEqual(['Tournament: Complete']);
     });
 
-    it('says nothing of matches left once the tournament is complete', async () => {
-      const { tab } = await openPlaying(playing([], { state: 'Complete' }));
+    it.each([
+      ['during registration', registration(alice.id, bob.id, carol.id)],
+      ['once the tournament is complete', playing([], { state: 'Complete' })],
+    ])('says nothing of matches left %s', async (_, tournament) => {
+      const { tab } = await openPlaying(tournament);
 
       expect(progressLine(tab)).toBe('');
     });
