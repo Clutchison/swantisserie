@@ -129,6 +129,24 @@ describe('dropping in single elimination', () => {
     expect(view.bracket![0].places[0].advancing).toBeNull();
   });
 
+  it('gives the trophy to the one player left, not to a player who dropped holding a bye', async () => {
+    const { id, seeds } = await playing(3);
+
+    await dropPlayer(id, seeds[0], aliceCookie).expect(200);
+    await playRound(id);
+
+    const view = await tournamentView(id);
+    expect(view.state).toBe('Complete');
+    expect(view.trophyHolders).toEqual([seeds[1]]);
+    expect(
+      view.standings.map(({ playerId, rank }) => [playerId, rank]),
+    ).toEqual([
+      [seeds[1], 1],
+      [seeds[0], 2],
+      [seeds[2], 2],
+    ]);
+  });
+
   it('completes the tournament once one player is left in the bracket', async () => {
     const { id, seeds } = await playing(4);
 

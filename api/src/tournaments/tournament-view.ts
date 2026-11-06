@@ -154,7 +154,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
                 .sort((a, b) => a.seed! - b.seed!)
                 .map((entry) => entry.player.userId),
               matches,
-              byesOf(counted),
+              byesSendingOn(counted, row.entries, user),
               dropped,
             )
           : standings(players, matches);
@@ -277,6 +277,31 @@ function toBracket(
 /** The player with each bye in `rounds`, once per bye. */
 export function byesOf(rounds: readonly TournamentRoundView[]): string[] {
   return rounds.flatMap((round) => round.byes);
+}
+
+/**
+ * The players with the byes of `rounds`, a single elimination
+ * tournament's, that sent them on: every bye but one whose player dropped
+ * before its tournament round was completed, from which nobody advances.
+ * A drop made before its round was recorded counts as one, as the bracket
+ * reads it.
+ */
+function byesSendingOn(
+  rounds: readonly TournamentRoundView[],
+  entries: TournamentRow['entries'],
+  user: (entryId: string) => string,
+): string[] {
+  const droppedAfter = new Map(
+    entries
+      .filter((entry) => entry.dropped)
+      .map((entry) => [user(entry.id), entry.droppedAfterRound ?? 0]),
+  );
+  return rounds.flatMap(({ round, byes }) =>
+    byes.filter((id) => {
+      const after = droppedAfter.get(id);
+      return after === undefined || after >= round;
+    }),
+  );
 }
 
 /**

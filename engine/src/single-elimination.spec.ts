@@ -147,6 +147,11 @@ function won(a: string, b: string): TournamentMatch {
   };
 }
 
+/** A forfeit by the first player. */
+function forfeit(a: string, b: string): TournamentMatch {
+  return { players: [a, b], outcome: { kind: 'Forfeit', forfeitedBy: a } };
+}
+
 describe('singleEliminationStandings', () => {
   // s1, s2 and s3 had byes; s4 beat s5, then s1 beat s4 and s3 beat s2.
   const reached = [won('s4', 's5'), won('s1', 's4'), won('s3', 's2')];
@@ -218,14 +223,7 @@ describe('singleEliminationStandings', () => {
     // s1 beat s4 and s2 beat s3, then both dropped: the final is a forfeit.
     const table = singleEliminationStandings(
       seeds(4),
-      [
-        won('s1', 's4'),
-        won('s2', 's3'),
-        {
-          players: ['s1', 's2'],
-          outcome: { kind: 'Forfeit', forfeitedBy: 's1' },
-        },
-      ],
+      [won('s1', 's4'), won('s2', 's3'), forfeit('s1', 's2')],
       [],
       ['s1', 's2'],
     );
@@ -595,11 +593,7 @@ describe('bracketRounds', () => {
   });
 });
 
-describe('trophyHolders of singleEliminationStandings', () => {
-  const forfeit = (a: string, b: string): TournamentMatch => ({
-    players: [a, b],
-    outcome: { kind: 'Forfeit', forfeitedBy: a },
-  });
+describe('the single elimination trophy', () => {
   const semifinals = [won('s1', 's4'), won('s2', 's3')];
 
   it('is the winner of the final', () => {
