@@ -19,6 +19,8 @@ export interface TournamentSummaryView {
 export interface TournamentEntryView {
   /** The player's Discord user id: a `PlayerView.id`. */
   playerId: string;
+  /** Whether they have dropped: their unplayed matches are forfeits. */
+  dropped: boolean;
 }
 
 /**

@@ -103,6 +103,34 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.removeEntry(id, playerId));
   }
 
+  /**
+   * Drops the player `playerId` (a Discord user id) from the tournament
+   * while it is playing: the signed-in player dropping, or an organizer
+   * dropping them.
+   */
+  @Post('entries/:playerId/drop')
+  @HttpCode(200)
+  async drop(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('playerId') playerId: string,
+  ): Promise<DraftView> {
+    if (playerId === user.id) await this.access.canSee(user, id);
+    else await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.drop(id, playerId));
+  }
+
+  /** Takes back the drop of the player `playerId` (a Discord user id); for the organizer. */
+  @Delete('entries/:playerId/drop')
+  async undoDrop(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('playerId') playerId: string,
+  ): Promise<DraftView> {
+    await this.access.asOrganizer(user, id);
+    return this.change(id, () => this.tournaments.undoDrop(id, playerId));
+  }
+
   /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */
   @Post('start')
   @HttpCode(200)

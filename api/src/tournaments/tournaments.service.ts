@@ -377,6 +377,71 @@ export class TournamentsService {
   }
 
   /**
+   * Drops the draft's player `userId` from its tournament: every unplayed
+   * match of theirs becomes a forfeit by them, and their played matches
+   * stand. Their deck stays locked. Throws TournamentRefusedError if they
+   * haven't joined or have dropped already, or the tournament isn't playing.
+   */
+  async drop(draftId: string, userId: string): Promise<void> {
+    await this.inPlay(draftId, async (tx, tournament) => {
+      const entry = await entryOf(tx, tournament, draftId, userId);
+      if (entry.dropped) {
+        throw new TournamentRefusedError({
+          error: 'already-dropped',
+          message: 'That player has already dropped.',
+        });
+      }
+      await tx.tournamentEntry.update({
+        where: { id: entry.id },
+        data: { dropped: true },
+      });
+      await forfeitUnplayed(tx, entry.id);
+    });
+  }
+
+  /**
+   * Takes back the drop of the draft's player `userId`: their forfeits
+   * become unreported matches again, except against an opponent who has
+   * dropped too, whose forfeit they become. Throws TournamentRefusedError if
+   * they haven't joined or haven't dropped, or the tournament isn't playing.
+   */
+  async undoDrop(draftId: string, userId: string): Promise<void> {
+    await this.inPlay(draftId, async (tx, tournament) => {
+      const entry = await entryOf(tx, tournament, draftId, userId);
+      if (!entry.dropped) {
+        throw new TournamentRefusedError({
+          error: 'not-dropped',
+          message: 'That player hasn’t dropped.',
+        });
+      }
+      await tx.tournamentEntry.update({
+        where: { id: entry.id },
+        data: { dropped: false },
+      });
+      await tx.match.updateMany({
+        where: {
+          outcome: 'Forfeit',
+          OR: [
+            { firstEntryId: entry.id, forfeitedBy: 'First' },
+            { secondEntryId: entry.id, forfeitedBy: 'Second' },
+          ],
+        },
+        data: {
+          outcome: 'Unreported',
+          forfeitedBy: null,
+          reportedById: null,
+          confirmed: false,
+        },
+      });
+      const stillDropped = await tx.tournamentEntry.findMany({
+        where: { tournamentId: tournament.id, dropped: true },
+        select: { id: true },
+      });
+      for (const other of stillDropped) await forfeitUnplayed(tx, other.id);
+    });
+  }
+
+  /**
    * Runs `change` with the draft's row locked, if its tournament is in
    * registration. Throws NoTournamentError if it has none, and
    * TournamentRefusedError if it is past registration.
@@ -490,4 +555,43 @@ async function mainboardSize(
     _sum: { count: true },
   });
   return cards + (basics._sum.count ?? 0);
+}
+
+/**
+ * The tournament entry of the draft's player `userId`. Throws
+ * TournamentRefusedError if they haven't joined it.
+ */
+async function entryOf(
+  tx: Transaction,
+  tournament: LockedTournament,
+  draftId: string,
+  userId: string,
+): Promise<{ id: string; dropped: boolean }> {
+  const entry = await tx.tournamentEntry.findFirst({
+    where: { tournamentId: tournament.id, player: { draftId, userId } },
+    select: { id: true, dropped: true },
+  });
+  if (!entry) {
+    throw new TournamentRefusedError({
+      error: 'not-joined',
+      message: 'That player hasn’t joined this tournament.',
+    });
+  }
+  return entry;
+}
+
+/** Turns every unplayed match of the entry `entryId`, byes aside, into a forfeit by it. */
+async function forfeitUnplayed(tx: Transaction, entryId: string) {
+  await tx.match.updateMany({
+    where: {
+      firstEntryId: entryId,
+      secondEntryId: { not: null },
+      outcome: 'Unreported',
+    },
+    data: { outcome: 'Forfeit', forfeitedBy: 'First' },
+  });
+  await tx.match.updateMany({
+    where: { secondEntryId: entryId, outcome: 'Unreported' },
+    data: { outcome: 'Forfeit', forfeitedBy: 'Second' },
+  });
 }

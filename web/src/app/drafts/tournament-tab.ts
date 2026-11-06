@@ -35,8 +35,8 @@ const RESULTS: Result[] = [
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
  * it, then play: the signed-in player's match and its report, the
- * standings and matches, Complete tournament for organizers, and at last
- * the trophy.
+ * standings and matches, the players with Drop, and Undo drop for
+ * organizers, Complete tournament for organizers, and at last the trophy.
  */
 @Component({
   selector: 'app-tournament-tab',
@@ -102,9 +102,28 @@ export class TournamentTab {
 
   /** The match the signed-in player chose to report from the tournament rounds, if any. */
   protected readonly chosen = signal<string | undefined>(undefined);
-  /** Whether "Your match" shows: to a player who joined, while the tournament is playing. */
+  /** Whether "Your match" shows: to a player who joined and hasn't dropped, while the tournament is playing. */
   protected readonly showOwnMatch = computed(
-    () => this.tournament()?.state === 'Playing' && this.entered(),
+    () => this.tournament()?.state === 'Playing' && this.entered() && !this.ownDropped(),
+  );
+  /** The joined players once the tournament is playing, in join order, with whether each dropped. */
+  protected readonly players = computed(() =>
+    (this.tournament()?.entries ?? []).map((entry) => ({
+      ...this.store.player(entry.playerId),
+      dropped: entry.dropped,
+    })),
+  );
+  /** Whether the signed-in player joined and has dropped. */
+  private readonly ownDropped = computed(
+    () => !!this.tournament()?.entries.find((entry) => entry.playerId === this.ownId())?.dropped,
+  );
+  /** Drop is offered to a player who joined and hasn't dropped, while the tournament is playing. */
+  protected readonly offerDrop = computed(
+    () => this.tournament()?.state === 'Playing' && this.entered() && !this.ownDropped(),
+  );
+  /** Organizers may drop players and take drops back while the tournament is playing. */
+  protected readonly offerDrops = computed(
+    () => this.canOrganize() && this.tournament()?.state === 'Playing',
   );
   /**
    * The signed-in player's match shown at the top: the one they chose, while
@@ -179,6 +198,37 @@ export class TournamentTab {
           : undefined,
       { failure: "Couldn't report the match. Try again in a moment." },
     );
+  }
+
+  /** Drops the signed-in player from the tournament, once they confirm. */
+  protected dropSelf() {
+    return this.send(
+      () =>
+        confirm(
+          'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can take it back. Your deck stays locked until the tournament is complete.',
+        )
+          ? this.api.drop(this.draft().id, this.ownId()!)
+          : undefined,
+      { failure: "Couldn't drop from the tournament. Try again in a moment." },
+    );
+  }
+
+  /** Drops the player `playerId`, named `name`, once the organizer confirms. */
+  protected drop(playerId: string, name: string) {
+    return this.send(
+      () =>
+        confirm(`Drop ${name} from the tournament? Their unplayed matches become forfeits.`)
+          ? this.api.drop(this.draft().id, playerId)
+          : undefined,
+      { failure: "Couldn't drop the player. Try again in a moment." },
+    );
+  }
+
+  /** Takes back the drop of the player `playerId`; for organizers. */
+  protected undoDrop(playerId: string) {
+    return this.send(() => this.api.undoDrop(this.draft().id, playerId), {
+      failure: "Couldn't undo the drop. Try again in a moment.",
+    });
   }
 
   /** Completes the tournament, once the organizer confirms. */

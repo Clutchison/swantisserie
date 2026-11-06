@@ -63,6 +63,16 @@ export class TournamentApi {
     return this.http.post<DraftView>(`${url(draftId)}/complete`, null);
   }
 
+  /** Drops a player from the tournament while it is playing: the signed-in player, or any player for organizers. */
+  drop(draftId: string, playerId: string): Observable<DraftView> {
+    return this.http.post<DraftView>(dropUrl(draftId, playerId), null);
+  }
+
+  /** Takes back a player's drop; for organizers. */
+  undoDrop(draftId: string, playerId: string): Observable<DraftView> {
+    return this.http.delete<DraftView>(dropUrl(draftId, playerId));
+  }
+
   /** Takes a player out of the tournament: the signed-in player leaving, or an organizer removing them. */
   removeEntry(draftId: string, playerId: string): Observable<DraftView> {
     return this.http.delete<DraftView>(`${url(draftId)}/entries/${encodeURIComponent(playerId)}`);
@@ -75,4 +85,8 @@ function url(draftId: string) {
 
 function matchUrl(draftId: string, matchId: string) {
   return `${url(draftId)}/matches/${encodeURIComponent(matchId)}`;
+}
+
+function dropUrl(draftId: string, playerId: string) {
+  return `${url(draftId)}/entries/${encodeURIComponent(playerId)}/drop`;
 }

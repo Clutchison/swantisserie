@@ -185,6 +185,19 @@ export function confirmMatch(id: string, matchId: string, cookie: string) {
 }
 
 /**
+ * Drops the player `playerId` (a Discord user id) from the draft's
+ * tournament, as whoever `cookie` signs in: the player themselves or an
+ * organizer.
+ */
+export function dropPlayer(id: string, playerId: string, cookie: string) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/entries/${playerId}/drop`,
+    cookie,
+  );
+}
+
+/**
  * Sets the match's game score as an organizer does, reporting or
  * correcting it, as whoever `cookie` signs in, `body` the request body as is.
  */
@@ -232,4 +245,13 @@ export async function setWin(
     { games: ordered } satisfies MatchReportRequest,
     cookie,
   ).expect(status);
+}
+
+/** Takes back the drop of the player `playerId` (a Discord user id), as whoever `cookie` signs in. */
+export function undoDrop(id: string, playerId: string, cookie = aliceCookie) {
+  return draftsRequest(
+    'delete',
+    `/${id}/tournament/entries/${playerId}/drop`,
+    cookie,
+  );
 }
