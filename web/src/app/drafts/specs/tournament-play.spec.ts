@@ -333,12 +333,13 @@ describe('Play tab while the tournament is played', () => {
       expect(gridRows(tab).map((row) => row[1])).toEqual(['Alice', 'Bob', 'Carol (dropped)']);
     });
 
-    it('scrolls sideways in its own region, which a keyboard can reach', async () => {
+    it('scrolls sideways in its own region, which a keyboard can reach and which alone names it', async () => {
       const { tab } = await openPlaying(playing(), { user: dave });
 
       const scroller = region(tab, 'Results grid')!;
       expect(scroller.contains(resultsGrid(tab))).toBe(true);
       expect(scroller.tabIndex).toBe(0);
+      expect(table(tab, 'Results grid')).toBeNull();
     });
   });
 

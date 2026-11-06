@@ -36,7 +36,7 @@ export interface Question {
   selector: 'app-question-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './question-dialog.html',
-  styleUrl: './question-dialog.scss',
+  styleUrls: ['./dialog.scss', './question-dialog.scss'],
 })
 export class QuestionDialog {
   private readonly dialogRef = inject<DialogRef<boolean>>(DialogRef);

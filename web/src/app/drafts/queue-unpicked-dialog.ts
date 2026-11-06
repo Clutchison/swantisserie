@@ -33,7 +33,7 @@ export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
   selector: 'app-queue-unpicked-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './queue-unpicked-dialog.html',
-  styleUrl: './queue-unpicked-dialog.scss',
+  styleUrls: ['../dialog.scss', './queue-unpicked-dialog.scss'],
 })
 export class QueueUnpickedDialog {
   private readonly queueApi = inject(QueueApi);

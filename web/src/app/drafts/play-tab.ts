@@ -9,7 +9,6 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { LucideArrowLeftRight } from '@lucide/angular';
 import {
   SWISS_ROUND_OPTIONS,
@@ -30,6 +29,7 @@ import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { Questions, type Question } from '../question-dialog';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { capitalised } from '../record';
 import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DraftStore } from './draft-store';
@@ -38,14 +38,13 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
 import { ResultsGrid } from './results-grid';
-import { confirmableBy, reportedLine, type ClearGameScore } from './match-lines';
+import { confirmableBy, type ClearGameScore } from './match-lines';
 import { TournamentResults, type SetGameScore } from './tournament-results';
-import { OWN_GAME_SCORES, YourMatches, type OwnGameScore } from './your-matches';
+import { YourMatches, type OwnGameScore, type OwnMatch } from './your-matches';
 
 /** The format's name as the tab starts a line with it, such as "Round robin". */
 function formatName(format: TournamentFormat): string {
-  const name = TOURNAMENT_FORMAT_NAMES[format];
-  return name.charAt(0).toUpperCase() + name.slice(1);
+  return capitalised(TOURNAMENT_FORMAT_NAMES[format]);
 }
 
 /** The formats tournament setup offers, in order, as it names them. */
@@ -111,7 +110,6 @@ const START_DETAILS: Record<TournamentFormat, string> = {
     LoadingAnimation,
     LucideArrowLeftRight,
     PlayerAvatar,
-    RouterLink,
     SendsChange,
     ResultsGrid,
     TournamentProgress,
@@ -189,8 +187,6 @@ export class PlayTab {
   protected readonly organizePlay = computed(
     () => this.canOrganize() && this.state() === 'Playing',
   );
-  /** The game scores a player reports, from their side. */
-  protected readonly ownGameScores = OWN_GAME_SCORES;
   /**
    * Reopen round of the last completed tournament round, offered to
    * organizers while the tournament is playing where the read offers it,
@@ -222,39 +218,46 @@ export class PlayTab {
   private readonly ownDropped = computed(
     () => !!this.tournament()?.entries.find((entry) => entry.playerId === this.ownId())?.dropped,
   );
+  /** The signed-in player's matches, each with its tournament round, in tournament round order. */
+  private readonly mine = computed((): OwnMatch[] => {
+    const ownId = this.ownId();
+    return (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
+      matches.filter((match) => match.players.includes(ownId!)).map((match) => ({ round, match })),
+    );
+  });
   /**
-   * The signed-in player's match shown at the top: the one they chose, while
-   * it is unreported, else their first match by tournament round that needs
-   * something from them, Report if it is unreported or Confirm if someone
-   * else reported it. `reportedSays` says, for Confirm, who reported what; null for Report.
+   * The signed-in player's match "Your match" shows, in Swiss and single
+   * elimination: the one they chose, while it is unreported, else their
+   * first match by tournament round that needs something from them, Report
+   * if it is unreported or Confirm if someone else reported it.
    */
-  protected readonly ownMatch = computed(() => {
+  protected readonly ownMatch = computed((): OwnMatch | undefined => {
     const ownId = this.ownId();
     if (!ownId || !this.playsOn()) return undefined;
     const unreported = (match: MatchView) => match.outcome.kind === 'Unreported';
-    const mine = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
-      matches.filter((match) => match.players.includes(ownId)).map((match) => ({ round, match })),
-    );
-    const shown =
+    const mine = this.mine();
+    return (
       mine.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
-      mine.find(({ match }) => unreported(match) || confirmableBy(match, ownId));
-    if (!shown) return undefined;
-    const opponent = this.store.player(shown.match.players.find((id) => id !== ownId)!);
-    const reportedSays = unreported(shown.match)
-      ? null
-      : reportedLine(shown.match, ownId, opponent);
-    return { ...shown, opponent, reportedSays };
+      mine.find(({ match }) => unreported(match) || confirmableBy(match, ownId))
+    );
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */
   protected readonly roundRobin = computed(() => this.tournament()?.format === 'RoundRobin');
   /**
-   * Whether round robin's Your matches shows: for a player who joined,
-   * once the tournament has started, so they can still confirm once it is
-   * complete or they have dropped.
+   * Whether the signed-in player's own matches show: round robin's Your
+   * matches for a player who joined, once the tournament has started, so
+   * they can still confirm once it is complete or they have dropped;
+   * "Your match" for one who plays on.
    */
-  protected readonly showsYourMatches = computed(
-    () => this.roundRobin() && this.state() !== 'Registration' && this.joined(),
+  protected readonly showsOwnMatches = computed(() =>
+    this.roundRobin() ? this.state() !== 'Registration' && this.joined() : this.playsOn(),
   );
+  /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
+  protected readonly ownMatches = computed((): OwnMatch[] => {
+    if (this.roundRobin()) return this.mine();
+    const own = this.ownMatch();
+    return own ? [own] : [];
+  });
   /** The players who hold the trophy, as the draft names them. */
   protected readonly trophyHolders = computed(() =>
     (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),

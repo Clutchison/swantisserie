@@ -145,61 +145,14 @@
     } @else if (tournament.state === 'Complete') {
       <p class="detail">Nobody holds the trophy: no player was left in the bracket to win it.</p>
     }
-    @if (showsYourMatches()) {
+    @if (showsOwnMatches()) {
       <app-your-matches
         [tournament]="tournament"
         [ownId]="ownId()!"
+        [matches]="ownMatches()"
         (report)="report($event.match, $event.opponent, $event.score)"
         (confirmMatch)="confirmMatch($event)"
       />
-    } @else if (playsOn() && !roundRobin()) {
-      <section class="own-match" aria-label="Your match">
-        <h3>Your match</h3>
-        @if (ownMatch(); as own) {
-          @if (own.reportedSays; as says) {
-            <p>
-              Tournament round {{ own.round }}:
-              <app-player-avatar [src]="own.opponent.avatarUrl" />
-              {{ says }}
-            </p>
-            <div class="controls">
-              <button
-                class="button"
-                type="button"
-                [attr.aria-label]="'Confirm your match against ' + own.opponent.name"
-                (click)="confirmMatch(own.match.id)"
-                [appSendsChange]="'confirm ' + own.match.id"
-              >
-                Confirm
-              </button>
-            </div>
-          } @else {
-            <p>
-              Tournament round {{ own.round }}: against
-              <app-player-avatar [src]="own.opponent.avatarUrl" />
-              {{ own.opponent.name }}
-            </p>
-            <div class="controls">
-              @for (score of ownGameScores; track score.label) {
-                <button
-                  class="button secondary"
-                  type="button"
-                  (click)="report(own.match, own.opponent.name, score)"
-                  appSendsChange="report"
-                >
-                  {{ score.label }}
-                </button>
-              }
-            </div>
-          }
-          <p class="detail">
-            <a [routerLink]="[]" [queryParams]="{ tab: 'plan' }">Your deck</a>, to export it before
-            you play.
-          </p>
-        } @else {
-          <p class="detail">All your matches are reported.</p>
-        }
-      </section>
     }
     @if (roundRobin()) {
       <app-results-grid

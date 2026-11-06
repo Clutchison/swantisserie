@@ -37,7 +37,7 @@ export const BASIC_LANDS_HEADING = 'basics-heading';
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './basic-lands-dialog.html',
-  styleUrl: './basic-lands-dialog.scss',
+  styleUrls: ['../dialog.scss', './basic-lands-dialog.scss'],
 })
 export class BasicLandsDialog {
   private readonly planApi = inject(PlanApi);

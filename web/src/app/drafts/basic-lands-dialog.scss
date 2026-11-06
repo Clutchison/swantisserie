@@ -1,13 +1,6 @@
-/* The dialog's box: its heading, a row per basic land, then its actions. */
-.dialog {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  width: min(20rem, 100%);
-  padding: var(--space-lg);
-  border-radius: 0.5rem;
-  background: var(--color-bg);
-  color: var(--color-text);
+/* The dialog's box, from dialog.scss: its heading, a row per basic land, then its actions. */
+:host {
+  --dialog-width: 20rem;
 }
 
 h3 {
@@ -51,11 +44,4 @@ input {
 .error {
   margin: 0;
   color: var(--color-error);
-}
-
-.dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-sm);
 }
