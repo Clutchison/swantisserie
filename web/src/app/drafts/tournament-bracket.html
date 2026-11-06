@@ -12,7 +12,7 @@
               <div class="match" [class.own]="place.own" aria-hidden="true">
                 @for (side of place.sides; track $index) {
                   <div class="side" [class.won]="side.won" [class.pending]="side.pending">
-                    @if (side.seed !== null) {
+                    @if (side.seed !== undefined) {
                       <span class="seed">{{ side.seed }}</span>
                     }
                     <span class="name">{{ side.name }}</span>

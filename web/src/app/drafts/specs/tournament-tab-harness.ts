@@ -7,6 +7,7 @@ import type {
   PlanView,
   PlayerView,
   StandingView,
+  TournamentRoundView,
   TournamentView,
   UserView,
 } from 'contract';
@@ -40,6 +41,12 @@ export const dave: UserView = { ...alice, id: 'dave', name: 'Dave' };
 
 /** Carol, a third player, in drafts that list her. */
 export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
+
+/** Bob signed in, a player of the draft. */
+export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
+
+/** Carol signed in, a player of the draft. */
+export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
 
 /** A round robin tournament in registration, joined by the players with these ids in order. */
 export const registration = (...playerIds: string[]): TournamentView => ({
@@ -166,8 +173,8 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
 export const side = (playerId: string): BracketSideView => ({ kind: 'Player', playerId });
 
 /** A side of a bracket place that is the winner to come of bracket place `bracketPlace` of the round before. */
-export const winnerOfPlace = (bracketPlace: number): BracketSideView => ({
-  kind: 'WinnerOf',
+export const winnerToCome = (bracketPlace: number): BracketSideView => ({
+  kind: 'WinnerToCome',
   bracketPlace,
 });
 
@@ -215,13 +222,47 @@ export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): 
     ],
     bracket: [
       firstBracketRound(),
-      { round: 2, places: [place(0, null, [side(alice.id), winnerOfPlace(1)])] },
+      { round: 2, places: [place(0, null, [side(alice.id), winnerToCome(1)])] },
     ],
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
     ...fields,
   };
 }
+
+/**
+ * Round 1 of the single elimination tournament of Alice, Bob and Carol,
+ * Carol having beaten Bob 2–1 (m1) as she reported it, `confirmed` by Bob
+ * or not.
+ */
+export const carolBeatBob = (confirmed = false): TournamentRoundView => ({
+  round: 1,
+  matches: [
+    {
+      ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+      bracketPlace: 1,
+      confirmed,
+    },
+  ],
+  byes: [alice.id],
+});
+
+/**
+ * The single elimination tournament of Alice, Bob and Carol with round 1
+ * completed, Carol having beaten Bob 2–1, and the final of Alice and Carol
+ * (m2) unreported.
+ */
+export const singleEliminationFinal = singleEliminationPlaying({
+  lastCompletedRound: 1,
+  rounds: [
+    carolBeatBob(),
+    { round: 2, matches: [{ ...openMatch('m2', alice.id, carol.id), bracketPlace: 0 }], byes: [] },
+  ],
+  bracket: [
+    firstBracketRound(carol.id),
+    { round: 2, places: [place(0, 'm2', [side(alice.id), side(carol.id)])] },
+  ],
+});
 
 /** `match` forfeited by the player `forfeitedBy`. */
 export const forfeited = (match: MatchView, forfeitedBy: string): MatchView => ({

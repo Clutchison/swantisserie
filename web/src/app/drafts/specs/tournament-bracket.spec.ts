@@ -1,55 +1,43 @@
-import type { TournamentView, UserView } from 'contract';
 import { ORGANIZE_ONLY, alice, bob, button, group, text, useDraftsApp } from './harness';
 import {
   answerChange,
+  bobUser,
   bracket,
   bracketMatches,
   carol,
+  carolBeatBob,
+  carolUser,
   dave,
   firstBracketRound,
   openMatch,
   openPlaying,
   ownPath,
   place,
-  reported,
   roundLabels,
   side,
+  singleEliminationFinal as final,
   singleEliminationPlaying,
   threePlayers,
+  winnerToCome,
 } from './tournament-tab-harness';
 
 useDraftsApp();
 
-/** Bob and Carol signed in, each a player of the draft. */
-const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
-const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
-
-/** Round 1 of Alice, Bob and Carol, m1 won by Carol 2–1 and its round still open. */
-const reportedRound1 = (): TournamentView['rounds'][number] => ({
-  round: 1,
-  matches: [{ ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id), bracketPlace: 1 }],
-  byes: [alice.id],
-});
-
-/** Round 1 completed, Carol having beaten Bob 2–1, and the final of Alice and Carol (m2) unreported. */
-const final = singleEliminationPlaying({
-  lastCompletedRound: 1,
-  rounds: [
-    reportedRound1(),
-    { round: 2, matches: [{ ...openMatch('m2', alice.id, carol.id), bracketPlace: 0 }], byes: [] },
-  ],
-  bracket: [
-    firstBracketRound(carol.id),
-    { round: 2, places: [place(0, 'm2', [side(alice.id), side(carol.id)])] },
-  ],
-});
-
-/** Carol having beaten Bob 2–1 in round 1, which isn't completed yet, so the final isn't paired. */
+/** Carol having beaten Bob 2–1 in round 1, confirmed, which isn't completed yet, so the final isn't paired. */
 const carolWon = singleEliminationPlaying({
-  rounds: [reportedRound1()],
+  rounds: [carolBeatBob(true)],
   bracket: [
     firstBracketRound(carol.id),
     { round: 2, places: [place(0, null, [side(alice.id), side(carol.id)])] },
+  ],
+});
+
+/** Carol's report of beating Bob 2–1, unconfirmed in an open round, so not yet agreed. */
+const carolReported = singleEliminationPlaying({
+  rounds: [carolBeatBob()],
+  bracket: [
+    firstBracketRound(),
+    { round: 2, places: [place(0, null, [side(alice.id), winnerToCome(1)])] },
   ],
 });
 
@@ -108,6 +96,16 @@ describe('the bracket of a single elimination tournament', () => {
     const { tab } = await openPlaying(carolWon, { user: dave });
 
     expect(bracketMatches(tab, 2)).toEqual(['Alice (seed 1) vs Carol (seed 3)']);
+  });
+
+  it('names no winner of a report the other player hasn’t confirmed, nor a next match for its reporter', async () => {
+    const { tab } = await openPlaying(carolReported, { user: carolUser });
+
+    expect(bracketMatches(tab, 1)).toContain('Bob (seed 2) 1–2 Carol (seed 3)');
+    expect(bracketMatches(tab, 2)).toEqual([
+      'Alice (seed 1) vs the winner of Bob (seed 2) vs Carol (seed 3)',
+    ]);
+    expect(text(bracket(tab))).not.toContain('Your next match');
   });
 
   it('tells a player whose opponent is still to be decided which match decides it, and highlights their path', async () => {

@@ -92,14 +92,15 @@ export interface TournamentRoundView {
 }
 
 /**
- * Who a side of a bracket place is: a player, a bye, or, until it is
- * decided, the winner to come of the bracket place of the tournament round
- * before that feeds it. The engine's BracketSide is the same type.
+ * Who a side of a bracket place is: a player, a bye, or, until the result
+ * of the bracket place of the tournament round before that feeds it is
+ * agreed, the winner to come of that place. The engine's BracketSide is the
+ * same type.
  */
 export type BracketSideView =
   | { kind: 'Player'; playerId: string }
   | { kind: 'Bye' }
-  | { kind: 'WinnerOf'; bracketPlace: number };
+  | { kind: 'WinnerToCome'; bracketPlace: number };
 
 /** One bracket place of a single elimination tournament round. */
 export interface BracketPlaceView {
@@ -109,11 +110,16 @@ export interface BracketPlaceView {
   matchId: string | null;
   /**
    * Its two sides, in the match's player order once paired. Until then, a
-   * side is the winner of the place feeding it as soon as that is decided,
-   * even before its round is completed.
+   * side is the winner of the place feeding it as soon as that result is
+   * agreed, even before its round is completed: a granted win, a forfeit, or
+   * a game score the other player confirmed or an organizer entered.
    */
   sides: [BracketSideView, BracketSideView];
-  /** The Discord user id of the player who won its match or had its bye; null until decided. */
+  /**
+   * The Discord user id of the player who won its match or had its bye;
+   * null until its result is agreed, as `sides` describes, or its round is
+   * completed.
+   */
   winner: string | null;
 }
 

@@ -7,20 +7,14 @@ import {
   input,
   type TemplateRef,
 } from '@angular/core';
-import type {
-  BracketPlaceView,
-  BracketRoundView,
-  BracketSideView,
-  MatchOutcomeView,
-  MatchView,
-  TournamentView,
-} from 'contract';
+import type { BracketPlaceView, BracketSideView, TournamentView } from 'contract';
 import { DraftStore } from './draft-store';
+import { seededName, seedsOf, type MatchLine } from './match-lines';
 
 /** How one side of a bracket place shows: a player, a bye, or the winner to come of a place before. */
 interface SideLine {
   name: string;
-  seed: number | null;
+  seed: number | undefined;
   /** Games won, once the match has a game score. */
   games: number | null;
   won: boolean;
@@ -50,23 +44,14 @@ export class TournamentBracket {
   readonly tournament = input.required<TournamentView>();
   /** The signed-in player's id, if they joined. */
   readonly ownId = input<string>();
+  /** How each of the tournament's matches reads, by its id. */
+  readonly lines = input.required<ReadonlyMap<string, MatchLine>>();
   /** What to show under each paired match, such as its Report and Confirm controls. */
   readonly controls = input<TemplateRef<{ $implicit: string }>>();
 
   private readonly bracket = computed(() => this.tournament().bracket ?? []);
 
-  private readonly matches = computed(
-    () =>
-      new Map(
-        this.tournament()
-          .rounds.flatMap((round) => round.matches)
-          .map((match) => [match.id, match]),
-      ),
-  );
-
-  private readonly seeds = computed(
-    () => new Map(this.tournament().entries.map(({ playerId, seed }) => [playerId, seed])),
-  );
+  private readonly seeds = computed(() => seedsOf(this.tournament().entries));
 
   protected readonly rounds = computed(() =>
     this.bracket().map((round) => ({
@@ -78,8 +63,9 @@ export class TournamentBracket {
 
   /**
    * Who the signed-in player faces next, or which match decides it: at
-   * their last bracket place, while it is undecided. None once they are
-   * out or hold the trophy, or if they aren't playing.
+   * their last bracket place, while its match is unreported or not yet
+   * paired. None while their reported result waits to be agreed, once they
+   * are out or hold the trophy, or if they aren't playing.
    */
   protected readonly nextMatch = computed(() => {
     const own = this.ownId();
@@ -89,6 +75,7 @@ export class TournamentBracket {
       .filter(({ place }) => this.includes(place, own))
       .at(-1);
     if (!reached || reached.place.winner !== null) return null;
+    if (reached.place.matchId && this.lines().get(reached.place.matchId)?.decided) return null;
     const opponent = reached.place.sides.find(
       (side) => side.kind !== 'Player' || side.playerId !== own,
     )!;
@@ -97,62 +84,35 @@ export class TournamentBracket {
 
   /** How bracket place `place` of tournament round `round` shows, and reads to a screen reader. */
   private placeLine(round: number, place: BracketPlaceView) {
-    const match = place.matchId ? this.matches().get(place.matchId) : undefined;
-    const games = match?.outcome.kind === 'GameScore' ? match.outcome.games : null;
+    const line = place.matchId ? this.lines().get(place.matchId) : undefined;
     const own = this.ownId();
     return {
       bracketPlace: place.bracketPlace,
-      matchId: match?.id ?? null,
-      label: this.label(round, place, match),
+      matchId: line?.id ?? null,
+      label: this.label(round, place, line),
       own: !!own && this.includes(place, own),
       sides: place.sides.map((side, i): SideLine => ({
         name: side.kind === 'Player' ? this.name(side.playerId) : this.pendingName(round, side),
-        seed: side.kind === 'Player' ? (this.seeds().get(side.playerId) ?? null) : null,
-        games: games ? games[i] : null,
+        seed: side.kind === 'Player' ? this.seeds().get(side.playerId) : undefined,
+        games: line?.games ? line.games[i] : null,
         won: side.kind === 'Player' && side.playerId === place.winner,
         pending: side.kind !== 'Player',
       })),
-      note: match
-        ? [this.note(match.outcome), match.confirmed ? 'Confirmed' : null]
-            .filter((part) => part !== null)
-            .join(' · ') || null
-        : null,
+      note: line ? joined([line.note, line.confirmed ? 'Confirmed' : null]) || null : null,
     };
   }
 
   /** The place as a screen reader names it, as in "Bob (seed 2) 1–2 Carol (seed 3) · Carol won". */
-  private label(round: number, place: BracketPlaceView, match: MatchView | undefined) {
+  private label(round: number, place: BracketPlaceView, line: MatchLine | undefined) {
     const [first, second] = place.sides;
     if (second.kind === 'Bye') return `${this.describe(round, first)} has a bye`;
-    if (!match) return `${this.describe(round, first)} vs ${this.describe(round, second)}`;
-    const [a, b] = match.players.map((id) => this.seeded(id));
-    const { outcome } = match;
-    const score = outcome.kind === 'GameScore' ? `${outcome.games[0]}–${outcome.games[1]}` : 'vs';
-    const winner =
-      outcome.kind === 'GameScore' && place.winner ? `${this.name(place.winner)} won` : null;
-    return [
-      `${a} ${score} ${b}`,
-      winner ?? this.note(outcome),
-      match.confirmed ? 'Confirmed' : null,
-    ]
-      .filter((part) => part !== null)
-      .join(' · ');
-  }
-
-  /** What a match's outcome adds to its game score, if anything. */
-  private note(outcome: MatchOutcomeView) {
-    switch (outcome.kind) {
-      case 'Unreported':
-        return 'Unreported';
-      case 'GrantedDraw':
-        return 'Granted draw';
-      case 'Forfeit':
-        return `${this.name(outcome.forfeitedBy)} forfeited`;
-      case 'GrantedWin':
-        return `Granted win for ${this.name(outcome.winner)}`;
-      case 'GameScore':
-        return null;
-    }
+    if (!line) return `${this.describe(round, first)} vs ${this.describe(round, second)}`;
+    const won = line.gameScore && place.winner ? `${this.name(place.winner)} won` : null;
+    return joined([
+      `${line.first} ${line.gameScore ?? 'vs'} ${line.second}`,
+      won ?? line.note,
+      line.confirmed ? 'Confirmed' : null,
+    ]);
   }
 
   /**
@@ -163,9 +123,8 @@ export class TournamentBracket {
   private describe(round: number, side: BracketSideView): string {
     if (side.kind === 'Player') return this.seeded(side.playerId);
     if (side.kind === 'Bye') return 'a bye';
-    const feeder = this.feeder(round, side.bracketPlace);
-    const players = feeder?.sides.flatMap((s) => (s.kind === 'Player' ? [s.playerId] : []));
-    return players?.length === 2
+    const players = this.feederPlayers(round, side.bracketPlace);
+    return players
       ? `the winner of ${this.seeded(players[0])} vs ${this.seeded(players[1])}`
       : `the winner of match ${side.bracketPlace + 1} of tournament round ${round - 1}`;
   }
@@ -174,17 +133,20 @@ export class TournamentBracket {
   private pendingName(round: number, side: BracketSideView) {
     if (side.kind === 'Bye') return 'Bye';
     if (side.kind === 'Player') return this.name(side.playerId);
-    const feeder = this.feeder(round, side.bracketPlace);
-    const players = feeder?.sides.flatMap((s) =>
-      s.kind === 'Player' ? [this.name(s.playerId)] : [],
-    );
-    return players?.length === 2 ? `Winner of ${players[0]} vs ${players[1]}` : 'Winner to come';
+    const players = this.feederPlayers(round, side.bracketPlace);
+    return players
+      ? `Winner of ${this.name(players[0])} vs ${this.name(players[1])}`
+      : 'Winner to come';
   }
 
-  /** Bracket place `bracketPlace` of the tournament round before `round`. */
-  private feeder(round: number, bracketPlace: number): BracketPlaceView | undefined {
-    const before: BracketRoundView | undefined = this.bracket()[round - 2];
-    return before?.places[bracketPlace];
+  /**
+   * The two players of bracket place `bracketPlace` of the tournament round
+   * before `round`, once both are known; null before, or for a bye.
+   */
+  private feederPlayers(round: number, bracketPlace: number): [string, string] | null {
+    const sides = this.bracket()[round - 2]?.places[bracketPlace]?.sides;
+    const players = sides?.flatMap((side) => (side.kind === 'Player' ? [side.playerId] : []));
+    return players?.length === 2 ? [players[0], players[1]] : null;
   }
 
   private includes(place: BracketPlaceView, playerId: string) {
@@ -195,9 +157,12 @@ export class TournamentBracket {
     return this.store.player(playerId).name;
   }
 
-  /** The player's name with their seed, as in "Alice (seed 1)". */
   private seeded(playerId: string) {
-    const seed = this.seeds().get(playerId);
-    return seed == null ? this.name(playerId) : `${this.name(playerId)} (seed ${seed})`;
+    return seededName(this.name(playerId), this.seeds().get(playerId));
   }
+}
+
+/** The parts that are there, joined as the Tournament tab joins them, with " · ". */
+function joined(parts: readonly (string | null)[]) {
+  return parts.filter((part) => part !== null).join(' · ');
 }

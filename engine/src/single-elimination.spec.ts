@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agreedWinnerOf,
   bracketRounds,
   firstBracketRound,
   nextBracketRound,
@@ -204,10 +205,74 @@ describe('winnerOf', () => {
   });
 });
 
+describe('agreedWinnerOf', () => {
+  const won: DecidedMatch['outcome'] = {
+    kind: 'GameScore',
+    games: [2, 1],
+    draws: 0,
+  };
+  const match = (fields: {
+    reportedBy: string | null;
+    confirmed: boolean;
+  }) => ({
+    players: ['a', 'b'] as [string, string],
+    outcome: won,
+    ...fields,
+  });
+
+  it.each<
+    [string, { reportedBy: string | null; confirmed: boolean }, string | null]
+  >([
+    [
+      'nobody while its player’s report is unconfirmed',
+      { reportedBy: 'b', confirmed: false },
+      null,
+    ],
+    [
+      'the winner once the other player confirms it',
+      { reportedBy: 'b', confirmed: true },
+      'a',
+    ],
+    [
+      'the winner of a game score the organizer entered',
+      { reportedBy: 'org', confirmed: false },
+      'a',
+    ],
+  ])('is %s', (_, fields, winner) => {
+    expect(agreedWinnerOf(match(fields), false)).toBe(winner);
+  });
+
+  it('is the winner of a granted win or a forfeit', () => {
+    const decided = {
+      reportedBy: null,
+      confirmed: false,
+      players: ['a', 'b'] as [string, string],
+    };
+    expect(
+      agreedWinnerOf(
+        { ...decided, outcome: { kind: 'GrantedWin', winner: 'b' } },
+        false,
+      ),
+    ).toBe('b');
+    expect(
+      agreedWinnerOf(
+        { ...decided, outcome: { kind: 'Forfeit', forfeitedBy: 'b' } },
+        false,
+      ),
+    ).toBe('a');
+  });
+
+  it('is the winner once the match’s tournament round is completed, confirmed or not', () => {
+    expect(
+      agreedWinnerOf(match({ reportedBy: 'b', confirmed: false }), true),
+    ).toBe('a');
+  });
+});
+
 describe('bracketRounds', () => {
   const player = (playerId: string) => ({ kind: 'Player', playerId }) as const;
-  const winnerOfPlace = (bracketPlace: number) =>
-    ({ kind: 'WinnerOf', bracketPlace }) as const;
+  const winnerToCome = (bracketPlace: number) =>
+    ({ kind: 'WinnerToCome', bracketPlace }) as const;
   const bye = { kind: 'Bye' } as const;
 
   it('draws every tournament round, the unpaired ones fed by the bracket places before them', () => {
@@ -234,7 +299,7 @@ describe('bracketRounds', () => {
         places: [
           {
             bracketPlace: 0,
-            sides: [player('s1'), winnerOfPlace(1)],
+            sides: [player('s1'), winnerToCome(1)],
             winner: null,
           },
         ],
@@ -261,7 +326,7 @@ describe('bracketRounds', () => {
           },
           {
             bracketPlace: 1,
-            sides: [winnerOfPlace(2), player('s3')],
+            sides: [winnerToCome(2), player('s3')],
             winner: null,
           },
         ],
@@ -271,7 +336,7 @@ describe('bracketRounds', () => {
         places: [
           {
             bracketPlace: 0,
-            sides: [winnerOfPlace(0), winnerOfPlace(1)],
+            sides: [winnerToCome(0), winnerToCome(1)],
             winner: null,
           },
         ],

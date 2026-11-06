@@ -385,12 +385,24 @@ In single elimination, a player's place in the seed order, from 1 for the top se
 _Avoid_: Ranking, position, draw number
 
 **Bracket**:
-The single elimination view of a tournament: its matches by tournament round, each at its bracket place, the winners of each pair of neighbouring matches meeting in the next round. It is sized to the next power of two, so the top seeds start with byes, and seeds 1 and 2 can meet only in the final. It shows every tournament round from the start: a place not yet paired holds the winner of each match feeding it as soon as that match is decided, and until then names the match that decides it.
+The single elimination view of a tournament: its matches by tournament round, each at its bracket place, the winners of each pair of neighbouring matches meeting in the next round. It is sized to the next power of two, so the top seeds start with byes, and seeds 1 and 2 can meet only in the final. It shows every tournament round from the start: a place not yet paired holds the winner of each match feeding it as soon as that match's result is agreed, and until then that match's winner to come.
 _Avoid_: Tree, draw, chart, bracket as the format's name
 
 **Bracket place**:
 Where a match sits in its tournament round of the bracket, which decides whose winner its players will meet next.
 _Avoid_: Slot, position, seat (that is a draft’s)
+
+**Side**:
+One of the two players a bracket place has or will have: a player, a bye, or a winner to come.
+_Avoid_: Slot, seat (that is a draft’s), entrant, opponent
+
+**Winner to come**:
+The side of a bracket place not yet known: whoever wins the match at the bracket place of the tournament round before that feeds it, once that result is agreed.
+_Avoid_: TBD, placeholder, winner of (alone)
+
+**Agreed**:
+Describes a single elimination match's result that moves its winner on to their next bracket place before its tournament round is completed: a granted win, a forfeit, or a game score the other player confirmed or an organizer entered. A player's unconfirmed report isn't agreed, and every result of a completed round is.
+_Avoid_: Settled, final (that is the last tournament round), official
 
 **Tournament setup**:
 The organizer choosing, all at once, a tournament's format, its Swiss round option and whether it has public decklists. It can't be changed afterwards; the organizer cancels the tournament and sets it up again instead.

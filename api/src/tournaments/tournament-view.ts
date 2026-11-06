@@ -6,6 +6,7 @@ import type {
   TournamentView,
 } from 'contract';
 import {
+  agreedWinnerOf,
   bracketRounds,
   roundRobinRoundCount,
   singleEliminationRoundCount,
@@ -14,7 +15,6 @@ import {
   swissRoundCount,
   swissStandings,
   trophyHolders,
-  winnerOf,
   type PlayedBracketMatch,
   type TournamentMatch,
 } from 'engine';
@@ -125,7 +125,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     rounds,
     bracket:
       row.format === 'SingleElimination' && row.state !== 'Registration'
-        ? toBracket(count, sorted, user)
+        ? toBracket(row, count, sorted, user)
         : null,
     standings: table,
     trophyHolders: row.state === 'Complete' ? trophyHolders(table) : [],
@@ -133,38 +133,53 @@ export function toTournamentView(row: TournamentRow): TournamentView {
 }
 
 /**
- * The bracket of a single elimination tournament of `roundCount`
+ * The bracket of the single elimination tournament `row`, of `roundCount`
  * tournament rounds, drawn by the engine from its paired `matches`, each
- * bracket place carrying the id of its match, and a bye's none.
+ * match's winner moving on once its result is agreed, and each bracket
+ * place carrying the id of its match, a bye's none.
  */
 function toBracket(
+  row: Pick<TournamentRow, 'state' | 'lastCompletedRound'>,
   roundCount: number,
   matches: readonly MatchRow[],
   user: (entryId: string) => string,
 ): BracketRoundView[] {
-  const placeKey = (round: number, bracketPlace: number) =>
-    `${round}:${bracketPlace}`;
-  const matchIds = new Map<string, string>();
   const played = matches.map((match): PlayedBracketMatch => {
     const place = { round: match.round, bracketPlace: match.bracketPlace! };
     if (match.secondEntryId === null) {
       const playerId = user(match.firstEntryId);
       return { ...place, players: [playerId, null], winner: playerId };
     }
-    matchIds.set(placeKey(place.round, place.bracketPlace), match.id);
-    const { players, outcome } = toMatchView(match, user);
+    const { players, outcome, reportedBy, confirmed } = toMatchView(
+      match,
+      user,
+    );
+    const roundCompleted =
+      row.state === 'Complete' || match.round <= row.lastCompletedRound;
     return {
       ...place,
       players,
       winner:
-        outcome.kind === 'Unreported' ? null : winnerOf({ players, outcome }),
+        outcome.kind === 'Unreported'
+          ? null
+          : agreedWinnerOf(
+              { players, outcome, reportedBy, confirmed },
+              roundCompleted,
+            ),
     };
   });
+  const matchAt = (round: number, bracketPlace: number) =>
+    matches.find(
+      (match) =>
+        match.round === round &&
+        match.bracketPlace === bracketPlace &&
+        match.secondEntryId !== null,
+    );
   return bracketRounds(roundCount, played).map(({ round, places }) => ({
     round,
     places: places.map(({ bracketPlace, sides, winner }) => ({
       bracketPlace,
-      matchId: matchIds.get(placeKey(round, bracketPlace)) ?? null,
+      matchId: matchAt(round, bracketPlace)?.id ?? null,
       sides,
       winner,
     })),

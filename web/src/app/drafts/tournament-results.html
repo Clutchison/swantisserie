@@ -34,11 +34,12 @@
   </tbody>
 </table>
 
-@if (bracket()) {
+@if (showsBracket()) {
   <h3>Bracket</h3>
   <app-tournament-bracket
     [tournament]="tournament()"
     [ownId]="ownId()"
+    [lines]="lineById()"
     [controls]="matchControls"
   />
 } @else {
@@ -77,7 +78,7 @@
 }
 
 <ng-template #matchControls let-matchId>
-  @if (lines().get(matchId); as match) {
+  @if (lineById().get(matchId); as match) {
     @if (match.confirmAgainst; as opponent) {
       <button
         class="button compact"

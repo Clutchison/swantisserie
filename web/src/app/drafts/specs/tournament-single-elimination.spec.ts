@@ -16,38 +16,15 @@ import {
   answerChange,
   carol,
   openComplete,
-  openMatch,
   openPlaying,
-  firstBracketRound,
   openTournament,
-  place,
   registration,
-  reported,
-  side,
+  singleEliminationFinal as final,
   singleEliminationPlaying,
   threePlayers,
 } from './tournament-tab-harness';
 
 useDraftsApp();
-
-/** Round 1 completed, Carol having beaten Bob 2–1, and the final of Alice and Carol unreported (m2). */
-const final = singleEliminationPlaying({
-  lastCompletedRound: 1,
-  rounds: [
-    {
-      round: 1,
-      matches: [
-        { ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id), bracketPlace: 1 },
-      ],
-      byes: [alice.id],
-    },
-    { round: 2, matches: [{ ...openMatch('m2', alice.id, carol.id), bracketPlace: 0 }], byes: [] },
-  ],
-  bracket: [
-    firstBracketRound(carol.id),
-    { round: 2, places: [place(0, 'm2', [side(alice.id), side(carol.id)])] },
-  ],
-});
 
 /** Opens the Complete round dialog for an organizer, on `tournament`. */
 async function openCompleteRound(tournament: TournamentView) {
