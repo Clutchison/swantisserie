@@ -195,7 +195,7 @@ A player's setting, for one draft, for what a lost card does to the rest of thei
 _Avoid_: Loss setting, fallback, keep queue
 
 **Queue tab**:
-The part of a draft's page where a player sees and rearranges their queue.
+The part of a draft’s page where a player sees and rearranges their queue, until the draft is complete.
 _Avoid_: Queue page
 
 **Queue cutoff**:
