@@ -376,6 +376,10 @@ _Avoid_: Open, lobby (that is the draft's), sign-up
 A draft's player entering a tournament during registration. It locks their deck.
 _Avoid_: Register, enter, sign up
 
+**Tournament entry**:
+A joined player's place in a tournament. They keep it if they drop; it ends if they leave during registration or an organizer removes them.
+_Avoid_: Registration (that is the state), sign-up, entrant
+
 **Locked**:
 Describes a joined player's deck, whose mainboard, sideboard and basic land counts can't change until the tournament is complete or cancelled, or the player leaves it during registration.
 _Avoid_: Frozen, registered, submitted
@@ -424,6 +428,14 @@ _Avoid_: Result (alone), score (alone)
 A player in a match entering its game score. Only the organizer can change a reported match.
 _Avoid_: Submit, record, enter (alone)
 
+**Correct**:
+An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed.
+_Avoid_: Edit, override, fix, set result
+
+**Clear**:
+An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing the match is unreported again, or the forfeit of a player in it who has dropped; once it is complete the match becomes a granted draw.
+_Avoid_: Reset, delete, clear result, undo (that is a pick's)
+
 **Confirm**:
 A match's other player agreeing with the game score it was reported with. A reported match counts whether or not it is confirmed.
 _Avoid_: Approve, verify, accept
@@ -448,6 +460,10 @@ _Avoid_: Default draw, auto-draw, unplayed draw
 A player leaving a tournament before it ends. Their played matches stand.
 _Avoid_: Withdraw, quit, leave
 
+**Reinstate**:
+An organizer taking back a player's drop while the tournament is playing. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
+_Avoid_: Undo drop, un-drop, take back, rejoin
+
 **Forfeit**:
 An unplayed match decided because one of its players dropped.
 _Avoid_: Default, walkover, no-show
@@ -455,6 +471,18 @@ _Avoid_: Default, walkover, no-show
 **Standings**:
 A tournament's players ranked by their results so far.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
+
+**Match points**:
+What a player earns from their matches, which standings rank by first: 3 for a won match, 1 for a draw, 0 for a lost one.
+_Avoid_: Points (alone), score
+
+**Head-to-head**:
+The tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
+_Avoid_: Direct encounter, mutual result
+
+**Game-win %**:
+The tiebreaker after head-to-head: the share of the games a player played in their matches that they won. Players still tied after it share their place in the standings.
+_Avoid_: Win rate, game percentage
 
 **Tournament tab**:
 The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.

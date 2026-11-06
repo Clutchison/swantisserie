@@ -140,7 +140,65 @@ export interface PlanRefusal {
     /** Every available copy of the card is in the plan already. */
     | 'no-copies-left'
     | 'draft-complete'
-    | 'draft-closed';
+    | 'draft-closed'
+    /** The player has joined a tournament in registration or playing, which locks their deck. */
+    | 'deck-locked';
+  message: string;
+}
+
+/**
+ * Why a tournament can't be set up, joined, left, started, reported in,
+ * confirmed, corrected, completed or cancelled; sent as is. A game score is refused with
+ * the engine's ReportProblem codes, `draw` and `not-best-of-three`, so
+ * typecheck ties the two.
+ */
+export interface TournamentRefusal {
+  error:
+    /** Only a complete draft can have a tournament. */
+    | 'draft-not-complete'
+    /** A draft has at most one tournament. */
+    | 'tournament-exists'
+    /** Joining, leaving and starting happen only during registration. */
+    | 'not-in-registration'
+    /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
+    | 'deck-too-small'
+    | 'bots-cannot-join'
+    | 'already-joined'
+    | 'not-joined'
+    /** Start needs at least 2 joined players. */
+    | 'too-few-players-joined'
+    /** Reporting, dropping, reinstating and completing happen only while the tournament is playing. */
+    | 'not-playing'
+    /** Only a match's own players report or confirm it. */
+    | 'not-your-match'
+    /** A reported match is locked to its players. */
+    | 'match-reported'
+    | 'draw'
+    | 'not-best-of-three'
+    /** Only a match reported with a game score can be confirmed. */
+    | 'not-reported'
+    /** The player who reported a match can't confirm it: its other player does. */
+    | 'own-report'
+    /** A complete tournament can't be cancelled; an organizer can still correct its matches. */
+    | 'tournament-complete'
+    /** A dropped player can't drop again, and only a dropped player can be reinstated. */
+    | 'already-dropped'
+    | 'not-dropped';
+  message: string;
+}
+
+/** The 404 a match request gets when the tournament has no such match. */
+export interface NoMatchProblem {
+  error: 'no-match';
+  message: string;
+}
+
+/**
+ * The 404 a tournament request gets when the draft has no tournament. Not a
+ * DraftRefusal: there is nothing for the draft to have moved on from.
+ */
+export interface NoTournamentProblem {
+  error: 'no-tournament';
   message: string;
 }
 
@@ -185,7 +243,8 @@ export type DraftRefusal =
   | CloseRefusal
   | DraftChangeRefusal
   | QueueRefusal
-  | PlanRefusal;
+  | PlanRefusal
+  | TournamentRefusal;
 
 /** Every error body a pick request can get, besides a 404 for a draft that is gone. */
 export type PickFailure = PickRefusal | NotAPlayerProblem | RequestProblem;
@@ -195,3 +254,11 @@ export type QueueFailure = QueueRefusal | NotAPlayerProblem | RequestProblem;
 
 /** Every error body a plan request can get, besides a 404 for a draft that is gone. */
 export type PlanFailure = PlanRefusal | NotAPlayerProblem | RequestProblem;
+
+/** Every error body a tournament request can get, besides a 404 for a draft that is gone or a 403 for a power the viewer lacks. */
+export type TournamentFailure =
+  | TournamentRefusal
+  | NoTournamentProblem
+  | NoMatchProblem
+  | NotAPlayerProblem
+  | RequestProblem;

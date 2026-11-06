@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
+import { isDeckLocked } from './locked-deck.js';
 
 /** The order a plan board lists its cards in: by mana value, then name. */
 export const PLAN_ORDER = [
@@ -32,7 +33,8 @@ export class PlanRefusedError extends Error {
  * every pick they've made and the unpicked cards and basic lands they've
  * added. A plan never changes the draft, so it can be changed in any draft
  * state, except that unpicked cards are only added while the draft is
- * active.
+ * active, and a deck can't be changed at all while it is locked. Every write
+ * to a plan's cards and basics throws PlanRefusedError (`deck-locked`) then.
  */
 @Injectable()
 export class PlansService {
@@ -198,21 +200,28 @@ export class PlansService {
 
   /**
    * Stops the Plan notice listing the user's lost cards. An undo still
-   * restores them. Throws NotAPlayerError if the user isn't in the draft.
+   * restores them. Not a change to the deck, so allowed while it is locked.
+   * Throws NotAPlayerError if the user isn't in the draft.
    */
   async dismissNotice(draftId: string, userId: string): Promise<PlanView> {
-    return this.change(draftId, userId, async (tx, playerId) => {
-      await tx.lostPlannedCard.updateMany({
-        where: { playerId },
-        data: { noticeHidden: true },
-      });
-    });
+    return this.change(
+      draftId,
+      userId,
+      async (tx, playerId) => {
+        await tx.lostPlannedCard.updateMany({
+          where: { playerId },
+          data: { noticeHidden: true },
+        });
+      },
+      { deckWrite: false },
+    );
   }
 
   /**
    * Runs `apply` on the user's plan, with their row locked, and returns
    * the plan as it then is. Throws NotAPlayerError if the user isn't in
-   * the draft.
+   * the draft, and, for a `deckWrite` (the default), PlanRefusedError if
+   * their deck is locked.
    */
   private async change(
     draftId: string,
@@ -222,11 +231,19 @@ export class PlansService {
       playerId: string,
       state: DraftState,
     ) => Promise<void>,
+    { deckWrite = true }: { deckWrite?: boolean } = {},
   ): Promise<PlanView> {
     return this.prisma.$transaction(async (tx) => {
       const locked = await lockPlayer(tx, draftId, userId);
       if (!locked) throw new NotAPlayerError('plans');
       const { playerId, state } = locked;
+      if (deckWrite && (await isDeckLocked(tx, playerId))) {
+        throw new PlanRefusedError({
+          error: 'deck-locked',
+          message:
+            'Your deck is locked while you are in this draft’s tournament.',
+        });
+      }
       await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });

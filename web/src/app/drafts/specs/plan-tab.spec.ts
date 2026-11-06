@@ -1,8 +1,17 @@
+import type { TournamentView } from 'contract';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
+  accessibleName,
+  alice,
   alicePlayer,
   bob,
+  buttons,
+  heading,
+  openTab,
+  tabLabels,
+  tabPanel,
+  text,
   http,
   tabButton,
   panel,
@@ -33,6 +42,7 @@ import {
   openPlan,
   planBoards,
 } from './plan-tab-harness';
+import { playing, registration, withDrops, withTournament } from './tournament-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -503,6 +513,99 @@ describe('plan tab', () => {
       await vi.waitFor(() =>
         expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard')),
       );
+    });
+  });
+});
+
+describe('plan tab as the deck', () => {
+  const complete = drafting({ state: 'Complete', turn: null });
+
+  it('takes the Plan tab’s place once the draft is complete, its copy saying deck', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, complete, {
+      cards,
+      plan: planOf({ basics: [{ land: 'Mountain', count: 2 }] }),
+    });
+
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    const deck = await openTab(fixture, page, 'Deck');
+    expect(heading(deck, 'Deck')).toBeDefined();
+    expect(deck.textContent).toContain('Only you can see your deck.');
+    expect(deck.textContent).not.toMatch(/\bplan\b/i);
+    expect(planBoards(deck)[0].heading).toBe('Mainboard 6 (6 picked)');
+  });
+
+  it('tells a viewer who isn’t a player that only players have a deck', async () => {
+    const { page } = await openDraft(completeSnapshot, { ...complete, players: [bob] });
+
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
+  });
+
+  it.each([
+    ['still drafting', drafting({ turn: { pick: 3, round: 2, playerId: bob.id } })],
+    ['closed', drafting({ state: 'Closed', turn: null })],
+  ])('stays the Plan tab while the draft is %s', async (_, fields) => {
+    const { fixture, page } = await openDraft(completeSnapshot, fields, {
+      cards,
+      plan: planOf(),
+    });
+
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
+    const plan = await openTab(fixture, page, 'Plan');
+    expect(heading(plan, 'Plan')).toBeDefined();
+    expect(panel(page).textContent).toContain('Only you can see your plan.');
+  });
+
+  describe('while the deck is locked', () => {
+    /** The buttons in the Deck tab that would change the deck. */
+    const deckEdits = (deck: HTMLElement) =>
+      [...deck.querySelectorAll('button')].filter((b) =>
+        /^(Move|Remove|Basic lands)/.test(accessibleName(b)),
+      );
+    const deck = planOf({ basics: [{ land: 'Mountain', count: 2 }] });
+
+    /** Opens the Deck tab of the complete draft with `tournament` set up. */
+    async function openDeck(tournament: TournamentView) {
+      const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
+        cards,
+        plan: deck,
+        tournament,
+      });
+      return { page, tab: await openTab(fixture, page, 'Deck') };
+    }
+
+    it('says the deck is locked until its player leaves, and offers no edits, once they have joined the tournament', async () => {
+      const { page, tab } = await openDeck(registration(bob.id, alice.id));
+
+      expect(text(tab)).toContain(
+        'Your deck is locked while you’re in this draft’s tournament. Leave the tournament to change it.',
+      );
+      expect(deckEdits(tab)).toEqual([]);
+      expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
+      expect(buttons(page, 'Export')[0].disabled).toBe(false);
+    });
+
+    it.each([
+      ['playing', playing()],
+      ['dropped', withDrops([alice.id])],
+    ])(
+      'says the deck stays locked until the tournament is complete or cancelled while its player is %s',
+      async (_, tournament) => {
+        const { tab } = await openDeck(tournament);
+
+        expect(text(tab)).toContain(
+          'Your deck is locked until the tournament is complete or cancelled.',
+        );
+        expect(text(tab)).not.toContain('Leave the tournament');
+        expect(deckEdits(tab)).toEqual([]);
+      },
+    );
+
+    it('offers edits while the player hasn’t joined', async () => {
+      const { tab } = await openDeck(registration(bob.id));
+
+      expect(tab.textContent).not.toContain('locked');
+      expect(deckEdits(tab).length).toBeGreaterThan(0);
     });
   });
 });

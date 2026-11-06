@@ -24,8 +24,17 @@
   </div>
 }
 <p class="detail">
-  Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
-  and no other copy is available. Only you can see your plan.
+  @if (deckLocked() && tournamentState() === 'Registration') {
+    Your deck is locked while you’re in this draft’s tournament. Leave the tournament to change it.
+    Your exports still work.
+  } @else if (deckLocked()) {
+    Your deck is locked until the tournament is complete or cancelled. Your exports still work.
+  } @else if (planName() === 'deck') {
+    Your deck holds your picks and basic lands. Only you can see your deck.
+  } @else {
+    Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
+    and no other copy is available. Only you can see your plan.
+  }
 </p>
 @if (offerQueueUnpicked()) {
   <div class="plan-actions">
@@ -75,9 +84,11 @@
       </div>
     }
   }
-  <button class="button compact secondary" type="button" (click)="openBasics()">
-    Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
-  </button>
+  @if (!deckLocked()) {
+    <button class="button compact secondary" type="button" (click)="openBasics()">
+      Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
+    </button>
+  }
 </div>
 <!-- On desktop, a card dragged from one plan board's drop list onto the other's moves there. In stacks mode the plan boards sit side by side, every stack as wide as the others. -->
 <div
@@ -95,7 +106,7 @@
           class="stacks"
           cdkDropList
           [cdkDropListData]="planBoard.name"
-          [cdkDropListDisabled]="changing()"
+          [cdkDropListDisabled]="changing() || deckLocked()"
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
@@ -146,7 +157,7 @@
                     </div>
                     <div class="actions">
                       <!-- A basic land stays on the mainboard. -->
-                      @if (!card.basic) {
+                      @if (!card.basic && !deckLocked()) {
                         @let moveName = 'Move ' + card.name + ' to the ' + planBoard.otherName;
                         <button
                           class="icon"
@@ -161,7 +172,7 @@
                           />
                         </button>
                       }
-                      @if (!card.picked && offerRemoveFromPlan()) {
+                      @if (!card.picked && offerRemoveFromPlan() && !deckLocked()) {
                         @let removeName = 'Remove ' + card.name + ' from your plan';
                         <button
                           class="icon"
@@ -188,7 +199,7 @@
           [class.capped]="!showingStacks()"
           cdkDropList
           [cdkDropListData]="planBoard.name"
-          [cdkDropListDisabled]="changing() || !onDesktop()"
+          [cdkDropListDisabled]="changing() || !onDesktop() || deckLocked()"
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
@@ -208,7 +219,7 @@
                   <span class="mark">Unpicked</span>
                 }
                 <!-- A basic land stays on the mainboard. -->
-                @if (!line.basic) {
+                @if (!line.basic && !deckLocked()) {
                   @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
                   <button
                     class="button compact quiet line-action move"
@@ -221,7 +232,7 @@
                     <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }" />
                   </button>
                 }
-                @if (!line.picked && offerRemoveFromPlan()) {
+                @if (!line.picked && offerRemoveFromPlan() && !deckLocked()) {
                   @let removeName = 'Remove ' + line.name + ' from your plan';
                   <button
                     class="button compact quiet line-action"
@@ -239,7 +250,9 @@
           } @empty {
             <li class="empty">
               @if (loading()) {
-                <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
+                <app-loading-animation size="tab"
+                  >Loading your {{ planName() }}…</app-loading-animation
+                >
               } @else {
                 {{ planBoard.empty }}
               }

@@ -39,7 +39,9 @@ import { QueueChangedError, QueueRefusedError } from './queues.service.js';
 
 /**
  * Answers the drafts module's domain errors over HTTP, for the drafts,
- * queues and plans routes, so each error class has one mapping here. A route
+ * queues and plans routes, so each error class has one mapping here. The
+ * tournament routes answer theirs with TournamentErrorsFilter, which falls
+ * back on this mapping. A route
  * may still answer an error its own way before it reaches here, as draft
  * creation does UnknownWebhookError. Anything else, HTTP exceptions
  * included, is answered as Nest would without it.
@@ -53,7 +55,7 @@ export class DraftErrorsFilter extends BaseExceptionFilter {
 
 /**
  * The HTTP answer to a drafts module domain error: 404 for a draft that is
- * gone or one the viewer can't see, for `not-in-pool` and for `no-such-bot`; 403 for a power
+ * gone or one the viewer can't see, for `not-in-pool` and `no-such-bot`; 403 for a power
  * the viewer lacks and for `not-a-player`; 422 for a pick import refusal;
  * 409 for every other refusal. Undefined for any other error.
  */

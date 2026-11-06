@@ -1,13 +1,19 @@
 import type {
   BasicLand,
+  MatchOutcomeView,
   DraftState,
   PlanBoard,
   Platform,
   PoolSnapshotState,
   PoolSourceKind,
   StealBehavior,
+  TournamentFormat,
+  TournamentState,
 } from 'contract';
-import type { StealBehavior as EngineStealBehavior } from 'engine';
+import type {
+  MatchOutcome as EngineMatchOutcome,
+  StealBehavior as EngineStealBehavior,
+} from 'engine';
 import type { STORED_POOL_SOURCE_KIND } from './drafts/pool-source.js';
 import type * as Schema from './generated/prisma/enums.js';
 
@@ -35,4 +41,10 @@ export type ContractMatchesSchema = [
   >,
   Expect<Same<StealBehavior, Schema.StealBehavior>>,
   Expect<Same<EngineStealBehavior, Schema.StealBehavior>>,
+  Expect<Same<TournamentFormat, Schema.TournamentFormat>>,
+  Expect<Same<TournamentState, Schema.TournamentState>>,
+  Expect<Same<MatchOutcomeView['kind'], Schema.MatchOutcomeKind>>,
+  Expect<
+    Same<EngineMatchOutcome['kind'] | 'Unreported', Schema.MatchOutcomeKind>
+  >,
 ];

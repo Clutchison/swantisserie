@@ -11,6 +11,7 @@ import type {
   PlanView,
   PoolCardView,
   PoolSnapshotView,
+  TournamentView,
   QueuedCardView,
   QueueView,
   TurnView,
@@ -55,6 +56,7 @@ export function draft(fields: DraftFixture): DraftView {
     snapshot: completeSnapshot,
     players: [],
     webhook: null,
+    tournament: null,
     version: 0,
     ...rest,
   };
@@ -359,6 +361,22 @@ export const heading = (root: HTMLElement, name: string) =>
 export const namedImages = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLImageElement>('img')].filter((image) => image.alt !== '');
 
+/** `element`'s text as a viewer reads it, its whitespace collapsed; empty if there is no element. */
+export const text = (element: Element | null | undefined) =>
+  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+/** A region inside `root`, such as a section, by its accessible name; null if there is none. */
+export const region = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('section[aria-label], [role="region"]')].find(
+    (element) => element.getAttribute('aria-label') === name,
+  ) ?? null;
+
+/** A group of controls inside `root`, by its accessible name; null if there is none. */
+export const group = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('[role="group"]')].find(
+    (element) => element.getAttribute('aria-label') === name,
+  ) ?? null;
+
 /** The first alert inside `root`: an error shown to the viewer, if any. */
 export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
 
@@ -404,6 +422,10 @@ export const statusTexts = (root: HTMLElement) =>
 /** A list inside `root`, by its accessible name, such as "Pick log" or "Your picks". */
 export const namedList = (root: HTMLElement, name: string) =>
   root.querySelector<HTMLElement>(`[aria-label="${name}"]`)!;
+
+/** Each item's text in the list inside `root` named `name`, in order. */
+export const items = (root: HTMLElement, name: string) =>
+  [...namedList(root, name).querySelectorAll('li')].map((li) => text(li));
 
 /** The card names inside `root`, each the name a card preview opens from, in page order. */
 export const cardNames = (root: HTMLElement) => [
@@ -475,6 +497,11 @@ export const tabs = (root: HTMLElement) => [
 /** A button in the tab bar, by its label. */
 export const tabButton = (root: HTMLElement, tab: string) =>
   tabs(root).find((b) => b.textContent?.trim() === tab)!;
+/** The tab bar's labels, in order. */
+export const tabLabels = (root: HTMLElement) => tabs(root).map((tab) => tab.textContent?.trim());
+/** The panel of the tab labelled `tab`, whether it is showing or not. */
+export const tabPanel = (root: HTMLElement, tab: string) =>
+  root.querySelector<HTMLElement>(`#${tabButton(root, tab).getAttribute('aria-controls')}`)!;
 /** The tab panel showing. */
 export const panel = (root: HTMLElement) =>
   root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
@@ -488,8 +515,8 @@ export const panelName = (root: HTMLElement) => {
  * Opens draft-1's page with the first GET answered by `snapshot`, its pool
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` and
- * plan by `plan` if they are a player, signed in as `user`, whose draft
- * powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
+ * plan by `plan` if they are a player, and its tournament by `tournament`
+ * if the draft has one, signed in as `user`, whose draft powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
  * at `url`: the draft's plain URL, unless told otherwise.
  *
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
@@ -508,6 +535,7 @@ export async function openDraft(
     picks = [],
     queue = EMPTY_QUEUE,
     plan = EMPTY_PLAN,
+    tournament,
     user = alice,
     powers,
     url = '/drafts/draft-1',
@@ -516,6 +544,7 @@ export async function openDraft(
     picks?: PickView[];
     queue?: QueueView;
     plan?: PlanView;
+    tournament?: TournamentView;
     user?: typeof alice;
     powers?: DraftPowersView;
     url?: string;
@@ -529,6 +558,10 @@ export async function openDraft(
   if (opened.state !== 'Lobby') await flushPicks(picks);
   if (opened.players.some((player) => player.id === user.id)) {
     await flushQueueAndPlan(queue, plan);
+  }
+  if (opened.tournament) {
+    if (!tournament) throw new Error('A draft with a tournament needs `tournament` to read.');
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(tournament);
   }
   await fixture.whenStable();
   return { fixture, page };

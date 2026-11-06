@@ -1,0 +1,311 @@
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import type { DraftView, GameScore, MatchView, TournamentFormat } from 'contract';
+import { GAME_SCORES } from 'engine';
+import type { Observable } from 'rxjs';
+import { LoadingAnimation } from '../loading/loading-animation';
+import { ChangeStatus, Changes, SendsChange } from './changes';
+import { DraftStore } from './draft-store';
+import { changeFailure } from './drafts';
+import { PlayerAvatar } from './player-avatar';
+import { TournamentApi } from './tournament-api';
+import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
+
+/** The formats tournament setup offers, as it names them: only round robin for now. */
+const FORMATS: { format: TournamentFormat; name: string }[] = [
+  { format: 'RoundRobin', name: 'Round robin' },
+];
+
+/** A game score as a player reports it, from their side: their games won, then their opponent's. */
+interface OwnGameScore {
+  label: string;
+  own: number;
+  theirs: number;
+}
+
+/** The game scores a player can report, from their side: won or lost 2–0 or 2–1, never a draw. */
+const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
+  label: `${own > theirs ? 'Won' : 'Lost'} ${own}–${theirs}`,
+  own,
+  theirs,
+}));
+
+/**
+ * The Tournament tab of a complete draft: the setup form for organizers
+ * before its tournament is set up, then registration, where the draft's
+ * players join and leave and organizers remove them, start it or cancel
+ * it, then play: the signed-in player's match and its report, the
+ * standings and matches, the players with Drop, and Reinstate for
+ * organizers, Complete tournament for organizers, and at last the trophy.
+ */
+@Component({
+  selector: 'app-tournament-tab',
+  imports: [
+    ChangeStatus,
+    LoadingAnimation,
+    PlayerAvatar,
+    RouterLink,
+    SendsChange,
+    TournamentResults,
+  ],
+  providers: [Changes],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './tournament-tab.html',
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './tournament-tab.scss'],
+})
+export class TournamentTab {
+  private readonly api = inject(TournamentApi);
+  private readonly changes = inject(Changes);
+  private readonly store = inject(DraftStore);
+
+  private readonly draft = this.store.shown;
+  protected readonly read = this.store.tournament;
+  protected readonly tournament = this.store.tournament.value;
+  /** The tournament's state; undefined until it has loaded, and while there is none. */
+  protected readonly state = this.store.tournamentState;
+  protected readonly canOrganize = this.store.canOrganize;
+  protected readonly formats = FORMATS;
+  protected readonly format = signal<TournamentFormat>('RoundRobin');
+  protected readonly error = signal<string | null>(null);
+
+  /** Whether the draft has a tournament; before then organizers see the setup form. */
+  protected readonly setUp = computed(() => !!this.draft().tournament);
+  /** The joined players, in join order, as the draft names them. */
+  protected readonly entries = computed(() =>
+    (this.tournament()?.entries ?? []).map((entry) => this.store.player(entry.playerId)),
+  );
+  /** The signed-in player's id, if they are one of the draft's players. */
+  protected readonly ownId = computed(() => this.store.ownPlayer()?.id);
+  /** Whether the signed-in player has joined. */
+  protected readonly joined = this.store.joinedTournament;
+  /** Join is offered to the draft's human players during registration; bots never join. */
+  protected readonly offerJoin = computed(
+    () =>
+      this.state() === 'Registration' &&
+      !this.joined() &&
+      !!this.store.ownPlayer() &&
+      !this.store.ownPlayer()?.isBot,
+  );
+  protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
+  /** Organizers may remove joined players, start and cancel the tournament during registration. */
+  protected readonly offerOrganize = computed(
+    () => this.canOrganize() && this.state() === 'Registration',
+  );
+  /** Start needs at least 2 joined players. */
+  protected readonly canStart = computed(() => this.entries().length >= 2);
+  /**
+   * Organizers drop and reinstate players, and complete or cancel the
+   * tournament, while it is playing.
+   */
+  protected readonly organizePlay = computed(
+    () => this.canOrganize() && this.state() === 'Playing',
+  );
+  /** The game scores a player reports, from their side. */
+  protected readonly ownGameScores = OWN_GAME_SCORES;
+
+  /** The match the signed-in player chose to report from the tournament rounds, if any. */
+  protected readonly chosen = signal<string | undefined>(undefined);
+  /**
+   * Whether the signed-in player plays on: they joined and haven't dropped,
+   * while the tournament is playing. Then "Your match" shows, and Drop.
+   */
+  protected readonly playsOn = computed(
+    () => this.state() === 'Playing' && this.joined() && !this.ownDropped(),
+  );
+  /** The joined players once the tournament is playing, in join order, with whether each dropped. */
+  protected readonly players = computed(() =>
+    (this.tournament()?.entries ?? []).map((entry) => ({
+      ...this.store.player(entry.playerId),
+      dropped: entry.dropped,
+    })),
+  );
+  /** Whether the signed-in player joined and has dropped. */
+  private readonly ownDropped = computed(
+    () => !!this.tournament()?.entries.find((entry) => entry.playerId === this.ownId())?.dropped,
+  );
+  /**
+   * The signed-in player's match shown at the top: the one they chose, while
+   * it is unreported, else their first unreported match by tournament round.
+   */
+  protected readonly ownMatch = computed(() => {
+    const ownId = this.ownId();
+    if (!ownId || !this.playsOn()) return undefined;
+    const open = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
+      matches
+        .filter((match) => match.players.includes(ownId) && match.outcome.kind === 'Unreported')
+        .map((match) => ({ round, match })),
+    );
+    const shown = open.find(({ match }) => match.id === this.chosen()) ?? open[0];
+    if (!shown) return undefined;
+    const opponentId = shown.match.players.find((id) => id !== ownId)!;
+    return { ...shown, opponent: this.store.player(opponentId) };
+  });
+  /** The players who hold the trophy, as the draft names them. */
+  protected readonly trophyHolders = computed(() =>
+    (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),
+  );
+
+  /** Sets up the tournament in the format chosen. */
+  protected setUpTournament() {
+    return this.send(() => this.api.setUp(this.draft().id, this.format()), {
+      failure: "Couldn't set up the tournament. Try again in a moment.",
+    });
+  }
+
+  protected join() {
+    return this.send(() => this.api.join(this.draft().id), {
+      failure: "Couldn't join the tournament. Try again in a moment.",
+      keep: ['leave'],
+    });
+  }
+
+  protected leave(playerId: string) {
+    return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
+      failure: "Couldn't leave the tournament. Try again in a moment.",
+      keep: ['join'],
+    });
+  }
+
+  protected remove(playerId: string) {
+    return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
+      failure: "Couldn't remove the player. Try again in a moment.",
+    });
+  }
+
+  /** Starts the tournament, once the organizer confirms. */
+  protected start() {
+    return this.send(
+      () =>
+        confirm('Start the tournament? Joining closes, and every match opens.')
+          ? this.api.start(this.draft().id)
+          : undefined,
+      { failure: "Couldn't start the tournament. Try again in a moment." },
+    );
+  }
+
+  /** Reports the signed-in player's match at `score`, from their side, once they confirm. */
+  protected report(match: MatchView, opponent: string, { own, theirs }: OwnGameScore) {
+    const games: GameScore = match.players[0] === this.ownId() ? [own, theirs] : [theirs, own];
+    return this.send(
+      () =>
+        confirm(
+          `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}? Only an organizer can change a reported match.`,
+        )
+          ? this.api.report(this.draft().id, match.id, games)
+          : undefined,
+      { failure: "Couldn't report the match. Try again in a moment." },
+    );
+  }
+
+  /** Drops the signed-in player from the tournament, once they confirm. */
+  protected dropSelf() {
+    return this.send(
+      () =>
+        confirm(
+          'Drop from the tournament? Your unplayed matches become forfeits, and only an organizer can reinstate you. Your deck stays locked until the tournament is complete or cancelled.',
+        )
+          ? this.api.drop(this.draft().id, this.ownId()!)
+          : undefined,
+      { failure: "Couldn't drop from the tournament. Try again in a moment." },
+    );
+  }
+
+  /** Drops the player `playerId`, named `name`, once the organizer confirms. */
+  protected drop(playerId: string, name: string) {
+    return this.send(
+      () =>
+        confirm(`Drop ${name} from the tournament? Their unplayed matches become forfeits.`)
+          ? this.api.drop(this.draft().id, playerId)
+          : undefined,
+      { failure: "Couldn't drop the player. Try again in a moment." },
+    );
+  }
+
+  /** Reinstates the dropped player `playerId`; for organizers. */
+  protected reinstate(playerId: string) {
+    return this.send(() => this.api.reinstate(this.draft().id, playerId), {
+      failure: "Couldn't reinstate the player. Try again in a moment.",
+    });
+  }
+
+  /** Completes the tournament, once the organizer confirms. */
+  protected complete() {
+    return this.send(
+      () =>
+        confirm(
+          'Complete the tournament? Its unreported matches become granted draws, and the trophy is awarded.',
+        )
+          ? this.api.complete(this.draft().id)
+          : undefined,
+      { failure: "Couldn't complete the tournament. Try again in a moment." },
+    );
+  }
+
+  /** Cancels the tournament, in registration or being played, once the organizer confirms. */
+  protected cancel() {
+    const question =
+      this.state() === 'Playing'
+        ? 'Cancel the tournament? Its matches are removed, nothing from it counts, and every deck unlocks.'
+        : 'Cancel the tournament? Everyone who joined is taken out of it, and their decks unlock.';
+    return this.send(() => (confirm(question) ? this.api.cancel(this.draft().id) : undefined), {
+      failure: "Couldn't cancel the tournament. Try again in a moment.",
+      keep: ['set-up'],
+    });
+  }
+
+  /** Confirms the signed-in player's match `matchId`. */
+  protected confirmMatch(matchId: string) {
+    return this.send(() => this.api.confirm(this.draft().id, matchId), {
+      failure: "Couldn't confirm the match. Try again in a moment.",
+    });
+  }
+
+  /** Sets a match's game score, as an organizer reports or corrects it. */
+  protected setGameScore({ matchId, games }: SetGameScore) {
+    return this.send(() => this.api.setGameScore(this.draft().id, matchId, games), {
+      failure: "Couldn't save the match’s game score. Try again in a moment.",
+      keep: [`correct ${matchId}`],
+    });
+  }
+
+  /** Clears a match's game score, once the organizer confirms. */
+  protected clearGameScore({ matchId, label, after }: ClearGameScore) {
+    return this.send(
+      () =>
+        confirm(`Clear the game score of ${label}? ${after}`)
+          ? this.api.clearGameScore(this.draft().id, matchId)
+          : undefined,
+      {
+        failure: "Couldn't clear the match’s game score. Try again in a moment.",
+        keep: [`correct ${matchId}`],
+      },
+    );
+  }
+
+  /**
+   * Sends a change to the tournament, the request `send` makes, and shows
+   * the draft it answers with, unless another change is in flight; `send`
+   * makes none if the organizer thinks better of it. A refusal's reason, or
+   * else `failure`, is shown if it fails.
+   */
+  private send(
+    send: () => Observable<DraftView> | undefined,
+    { failure, keep }: { failure: string; keep?: string[] },
+  ) {
+    return this.changes.send(
+      async () => {
+        const request = send();
+        if (!request) return;
+        this.error.set(null);
+        try {
+          await this.store.changeDraft(request);
+          return true;
+        } catch (err) {
+          this.error.set(changeFailure(err, failure));
+          return false;
+        }
+      },
+      { keep },
+    );
+  }
+}

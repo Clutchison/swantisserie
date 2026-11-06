@@ -80,7 +80,7 @@
         (click)="selectedTab.select('Plan')"
         [disabled]="!joined()"
       >
-        Plan
+        {{ planName() === 'deck' ? 'Deck' : 'Plan' }}
       </button>
       <button
         id="board-tab"
@@ -102,6 +102,17 @@
       >
         Export
       </button>
+      @if (showTournament()) {
+        <button
+          id="tournament-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Tournament'"
+          aria-controls="tournament-panel"
+          (click)="selectedTab.select('Tournament')"
+        >
+          Tournament
+        </button>
+      }
     </div>
 
     <section
@@ -186,6 +197,7 @@
       }
     </section>
 
+    <!-- The Plan tab, called the Deck tab once the draft is complete. -->
     <section
       id="plan-panel"
       class="plan"
@@ -193,14 +205,14 @@
       aria-labelledby="plan-tab"
       [hidden]="selectedTab() !== 'Plan'"
     >
-      <h2>Plan</h2>
+      <h2>{{ planName() === 'deck' ? 'Deck' : 'Plan' }}</h2>
       @if (planFailed()) {
-        <p class="error">Couldn't load your plan. Try reloading the page.</p>
+        <p class="error">Couldn't load your {{ planName() }}. Try reloading the page.</p>
       }
       @if (joined() && !planFailed()) {
         <app-plan-tab />
       } @else if (!joined()) {
-        <p class="empty">Only players have a plan.</p>
+        <p class="empty">Only players have a {{ planName() }}.</p>
       }
     </section>
 
@@ -226,5 +238,19 @@
       <h2>Export</h2>
       <app-export-tab />
     </section>
+
+    <!-- Only a complete draft has a Tournament tab, and before setup only organizers do. -->
+    @if (showTournament()) {
+      <section
+        id="tournament-panel"
+        class="tournament"
+        role="tabpanel"
+        aria-labelledby="tournament-tab"
+        [hidden]="selectedTab() !== 'Tournament'"
+      >
+        <h2>Tournament</h2>
+        <app-tournament-tab />
+      </section>
+    }
   }
 </main>

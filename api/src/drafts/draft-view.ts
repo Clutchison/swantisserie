@@ -45,6 +45,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
       name: draft.webhook.name,
       gone: draft.webhook.goneAt !== null,
     },
+    tournament: draft.tournament && { state: draft.tournament.state },
     version: draft.version,
   };
 }
