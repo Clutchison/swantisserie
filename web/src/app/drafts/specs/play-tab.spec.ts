@@ -21,12 +21,16 @@ import {
 import {
   answerChange,
   complete,
+  currentSteps,
   dave,
   flushTournament,
   hasPlayTab,
   openComplete,
   openPlayTab,
+  playing,
   registration,
+  stateSteps,
+  threePlayers,
   withTournament,
 } from './play-tab-harness';
 import { cards, openPlan, planOf } from './plan-tab-harness';
@@ -157,6 +161,51 @@ describe('Play tab', () => {
         expect(alertIn(panel(page))?.textContent).toContain('This draft already has a tournament.'),
       );
     });
+  });
+
+  describe('tournament state', () => {
+    it('shows no state list before setup, only the setup form', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+
+      const tab = await openPlayTab(fixture, page);
+
+      expect(button(tab, 'Set up tournament')).toBeDefined();
+      expect(stateSteps(tab)).toEqual([]);
+    });
+
+    it.each([
+      [
+        'registration',
+        registration(bob.id),
+        ['Registration', 'Playing, not completed', 'Complete, not completed'],
+        'Registration',
+      ],
+      [
+        'playing',
+        playing(),
+        ['Registration, completed', 'Playing', 'Complete, not completed'],
+        'Playing',
+      ],
+      [
+        'complete',
+        playing([], { state: 'Complete' }),
+        ['Registration, completed', 'Playing, completed', 'Complete'],
+        'Complete',
+      ],
+    ])(
+      'shows everyone the tournament’s states in order during %s, marking the current one',
+      async (_, tournament, steps, current) => {
+        const { fixture, page } = await openComplete(tournament, {
+          user: dave,
+          fields: threePlayers,
+        });
+
+        const tab = await openPlayTab(fixture, page);
+
+        expect(stateSteps(tab)).toEqual(steps);
+        expect(currentSteps(tab)).toEqual([current]);
+      },
+    );
   });
 
   describe('registration', () => {
@@ -333,6 +382,7 @@ describe('Play tab', () => {
 
       expect(panel(page).id).toBe('play-panel');
       expect(button(panel(page), 'Set up tournament')).toBeDefined();
+      expect(stateSteps(panel(page))).toEqual([]);
     });
 
     it('keeps the tournament when the organizer doesn’t confirm cancelling', async () => {

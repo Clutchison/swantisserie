@@ -15,11 +15,15 @@ import {
   useDraftsApp,
 } from './harness';
 import {
+  announcements,
   answerChange,
   carol,
+  dave,
   openComplete,
   openPlaying,
   openPlayTab,
+  progressLine,
+  pushTournament,
   registration,
   singleEliminationFinal as final,
   singleEliminationPlaying,
@@ -77,6 +81,34 @@ describe('single elimination tournaments on the Play tab', () => {
 
     expect(req.request.body).toEqual({ grantedWins: [{ matchId: 'm1', winner: carol.id }] });
     await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it.each([
+    ['a 2-player bracket’s only round', 1, 0, 'Final'],
+    ['a 4-player bracket’s first round', 2, 0, 'Semifinal'],
+    ['a 4-player bracket’s last round', 2, 1, 'Final'],
+    ['a 16-player bracket’s first round', 4, 0, 'Tournament round 1 of 4'],
+    ['a 16-player bracket’s second round', 4, 1, 'Quarterfinal'],
+    ['a 16-player bracket’s third round', 4, 2, 'Semifinal'],
+  ])('names %s while it is playing', async (_, roundCount, lastCompletedRound, line) => {
+    const { tab } = await openPlaying(singleEliminationPlaying({ roundCount, lastCompletedRound }));
+
+    expect(progressLine(tab)).toBe(line);
+  });
+
+  it('announces the final once it is reached', async () => {
+    const { fixture, tab } = await openPlaying(singleEliminationPlaying(), { user: dave });
+    expect(announcements(tab)).toEqual([]);
+
+    await pushTournament(fixture, final, 1);
+
+    expect(announcements(tab)).toEqual(['Final']);
+  });
+
+  it('names no tournament round once it is complete', async () => {
+    const { tab } = await openPlaying({ ...final, state: 'Complete' });
+
+    expect(progressLine(tab)).toBe('');
   });
 
   it('says which tournament round the standings are as of', async () => {

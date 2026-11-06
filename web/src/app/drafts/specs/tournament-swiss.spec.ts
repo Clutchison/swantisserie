@@ -18,6 +18,7 @@ import {
   useDraftsApp,
 } from './harness';
 import {
+  announcements,
   answerChange,
   carol,
   dave,
@@ -25,6 +26,8 @@ import {
   openMatch,
   openPlaying,
   openPlayTab,
+  progressLine,
+  pushTournament,
   registration,
   reported,
   roundLabels,
@@ -77,6 +80,40 @@ describe('Swiss tournaments on the Play tab', () => {
     const { tab } = await openPlaying(swissRegistration, { user: dave });
 
     expect(text(tab)).toContain('Swiss, capped at 3: 2 tournament rounds');
+  });
+
+  it.each([
+    [
+      'tournament round 1, before any is completed',
+      { lastCompletedRound: 0, roundCount: 3 },
+      'Tournament round 1 of 3',
+    ],
+    ['the round after the last completed one', {}, 'Tournament round 2 of 2'],
+  ])('says while it is playing that it is on %s', async (_, fields, line) => {
+    const { tab } = await openPlaying(swissPlaying(fields), { user: dave });
+
+    expect(progressLine(tab)).toBe(line);
+  });
+
+  it('announces each new tournament round', async () => {
+    const { fixture, tab } = await openPlaying(swissPlaying({ lastCompletedRound: 0 }), {
+      user: dave,
+    });
+    expect(announcements(tab)).toEqual([]);
+
+    await pushTournament(fixture, swissPlaying(), 1);
+
+    expect(announcements(tab)).toEqual(['Tournament round 2 of 2']);
+  });
+
+  it.each([
+    ['during registration', swissRegistration],
+    ['once it is complete', swissPlaying({ state: 'Complete' })],
+  ])('says no tournament round %s', async (_, tournament) => {
+    const { tab } = await openPlaying(tournament, { user: dave });
+
+    expect(progressLine(tab)).toBe('');
+    expect(text(tab)).not.toContain('Tournament round 2 of 2');
   });
 
   it('lists the matches by tournament round, the current round first', async () => {

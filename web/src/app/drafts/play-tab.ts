@@ -40,6 +40,7 @@ import { versus } from './match-lines';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
+import { TournamentProgress } from './tournament-progress';
 import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
 
 /** The format's name as the tab starts a line with it, such as "Round robin". */
@@ -124,6 +125,7 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
     PlayerAvatar,
     RouterLink,
     SendsChange,
+    TournamentProgress,
     TournamentResults,
   ],
   providers: [Changes],
