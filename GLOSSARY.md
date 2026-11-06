@@ -360,6 +360,22 @@ _Avoid_: League, all-play-all
 The format in which no one is knocked out: each tournament round pairs players with similar records who haven't played each other.
 _Avoid_: Swiss rounds (as the format's name), ladder
 
+**Swiss round option**:
+How many tournament rounds a Swiss tournament plays, chosen at tournament setup: until there's a winner (enough rounds for one player to be left unbeaten, the ceiling of log₂ of the joined players) or capped at 3.
+_Avoid_: Round limit, length, rounds setting
+
+**MTR**:
+The Magic Tournament Rules: Wizards of the Coast's rules for running Magic tournaments, whose pairing and tiebreakers Swiss follows.
+_Avoid_: Tournament rules (alone), comprehensive rules (those are the game's rules)
+
+**Score group**:
+In Swiss, the players on the same match points when a tournament round is paired.
+_Avoid_: Bracket (that is the single elimination view), point group, tier
+
+**Pair-down**:
+In Swiss, a match between players from different score groups, which a score group with an odd number of players needs.
+_Avoid_: Float, cross-pairing
+
 **Single elimination**:
 The format in which a player who loses a match is out, until one player is left.
 _Avoid_: Knockout, bracket (as the format's name), cup
@@ -389,7 +405,7 @@ A started tournament whose matches are being played.
 _Avoid_: Running, in progress, live, active
 
 **Complete round**:
-The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament.
+The organizer ending a Swiss or single elimination tournament round once they have checked its results, which pairs the next one or completes the tournament. In Swiss its unreported matches become granted draws, and the organizer chooses whether to drop either player of each, except in the final tournament round. Once fewer than 2 players haven't dropped, it completes the tournament.
 _Avoid_: Advance, next round, close round
 
 **Complete tournament**:
@@ -433,7 +449,7 @@ An organizer setting a match's game score, whether it was reported or not, while
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:
-An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing the match is unreported again, or the forfeit of a player in it who has dropped; once it is complete the match becomes a granted draw.
+An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing, a match with a dropped player is their forfeit again. Otherwise the match is unreported again while its tournament round is open, and becomes a granted draw once its round or the tournament is complete.
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
@@ -449,7 +465,7 @@ One set of matches in a tournament, in which each player plays at most one.
 _Avoid_: Round (alone; that is a pick round), stage, week
 
 **Bye**:
-A tournament round in which a player has no match.
+A tournament round in which a player has no match. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one.
 _Avoid_: Rest, skip, free win
 
 **Granted draw**:
@@ -461,7 +477,7 @@ A player leaving a tournament before it ends. Their played matches stand.
 _Avoid_: Withdraw, quit, leave
 
 **Reinstate**:
-An organizer taking back a player's drop while the tournament is playing. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
+An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
 _Avoid_: Undo drop, un-drop, take back, rejoin
 
 **Forfeit**:
@@ -469,20 +485,36 @@ An unplayed match decided because one of its players dropped.
 _Avoid_: Default, walkover, no-show
 
 **Standings**:
-A tournament's players ranked by their results so far.
+A tournament's players ranked by their results so far: by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Players still tied after every tiebreaker share their place.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
 **Match points**:
 What a player earns from their matches, which standings rank by first: 3 for a won match, 1 for a draw, 0 for a lost one.
 _Avoid_: Points (alone), score
 
+**Record**:
+A player's matches won, lost and drawn, such as 2–1–0; a game record counts their games the same way.
+_Avoid_: Score (that is a match's game score), win–loss
+
 **Head-to-head**:
-The tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
+In round robin, the tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
 _Avoid_: Direct encounter, mutual result
 
 **Game-win %**:
-The tiebreaker after head-to-head: the share of the games a player played in their matches that they won. Players still tied after it share their place in the standings.
+In round robin, the share of the games a player played in their matches that they won: the tiebreaker after head-to-head. In Swiss, the MTR's: game points (3 a game won, 1 a game drawn) over 3 per game played, never below 33%: the tiebreaker after opponents' match-win %.
 _Avoid_: Win rate, game percentage
+
+**Match-win %**:
+In Swiss, a player's match points over 3 per tournament round they played, never below 33%. A player who dropped is measured over the tournament rounds they played.
+_Avoid_: Win rate, record (that is the matches won, lost and drawn)
+
+**Opponents' match-win %**:
+In Swiss, the tiebreaker after match points: the average match-win % of the players someone has met. Byes are left out, as a bye has no opponent. Abbreviated OMW %.
+_Avoid_: Strength of schedule, SOS, opponent win rate
+
+**Opponents' game-win %**:
+In Swiss, the tiebreaker after game-win %: the average game-win % of the players someone has met, each never below 33%. Byes are left out. Abbreviated OGW %.
+_Avoid_: Opponent game rate, game strength of schedule
 
 **Tournament tab**:
 The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.

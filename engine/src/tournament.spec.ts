@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   GAME_SCORES,
   reportProblem,
+  roundRobinRoundCount,
   roundRobinSchedule,
   standings,
   trophyHolders,
+  type Standing,
   type TournamentMatch,
 } from './tournament.js';
 
@@ -33,10 +35,12 @@ function forfeited(a: string, b: string, forfeitedBy: string): TournamentMatch {
 
 /** Each standing's player and rank, in standings order. */
 function ranks(players: string[], matches: TournamentMatch[]) {
-  return standings(players, matches).map(({ playerId, rank }) => [
-    playerId,
-    rank,
-  ]);
+  return placings(standings(players, matches));
+}
+
+/** Each standing's player and rank, in the order of `table`. */
+function placings(table: Standing[]) {
+  return table.map(({ playerId, rank }) => [playerId, rank]);
 }
 
 describe('roundRobinSchedule', () => {
@@ -92,6 +96,18 @@ describe('roundRobinSchedule', () => {
     expect(
       roundRobinSchedule(players(count)).every((round) => round.bye === null),
     ).toBe(true);
+  });
+});
+
+describe('roundRobinRoundCount', () => {
+  it('counts the tournament rounds of the round robin schedule: one fewer than an even count, as many as an odd one', () => {
+    const counts = [2, 3, 4, 5, 6, 7, 8].map(roundRobinRoundCount);
+    expect(counts).toEqual([1, 3, 3, 5, 5, 7, 7]);
+    for (const joined of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
+      expect(roundRobinRoundCount(joined)).toBe(
+        roundRobinSchedule(players(joined)).length,
+      );
+    }
   });
 });
 

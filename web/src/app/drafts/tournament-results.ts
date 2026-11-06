@@ -70,23 +70,34 @@ export class TournamentResults {
     () => this.store.canOrganize() && this.tournament().state !== 'Registration',
   );
 
+  /** Swiss standings show the MTR's tiebreak columns: opponents' match-win % and opponents' game-win %. */
+  protected readonly swiss = computed(() => this.tournament().format === 'Swiss');
+
   protected readonly standings = computed(() =>
     this.tournament().standings.map((standing) => ({
       ...standing,
       name: this.name(standing.playerId),
       record: `${standing.matches.won}–${standing.matches.lost}–${standing.matches.drawn}`,
-      gameWinPercent: `${Math.round(standing.gameWinPercent)}%`,
+      gameWinPercent: percent(standing.gameWinPercent),
+      opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent),
+      opponentsGameWinPercent: percent(standing.opponentsGameWinPercent),
     })),
   );
 
-  protected readonly rounds = computed(() =>
-    this.tournament().rounds.map((round) => ({
+  /**
+   * The tournament rounds with their matches: in order for round robin,
+   * which plays them all at once, and the current round first for Swiss.
+   */
+  protected readonly rounds = computed(() => {
+    const { format, rounds } = this.tournament();
+    const shown = rounds.map((round) => ({
       round: round.round,
       label: `Tournament round ${round.round}`,
       bye: round.bye && this.name(round.bye),
       matches: round.matches.map((match) => this.line(match)),
-    })),
-  );
+    }));
+    return format === 'Swiss' ? shown.reverse() : shown;
+  });
 
   /** How a match reads in its round's list, and the opponent to report it against, if any. */
   private line(match: MatchView) {
@@ -189,4 +200,13 @@ export class TournamentResults {
   private name(playerId: string) {
     return this.store.player(playerId).name;
   }
+}
+
+/**
+ * A percentage from 0 to 100 as the standings show it: rounded, with a %
+ * suffix. Empty if absent, as the opponents' percentages are in round
+ * robin, whose standings don't show them.
+ */
+function percent(value: number | undefined): string {
+  return value === undefined ? '' : `${Math.round(value)}%`;
 }

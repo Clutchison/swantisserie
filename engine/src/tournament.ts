@@ -37,6 +37,14 @@ export function roundRobinSchedule(
   return rounds;
 }
 
+/**
+ * How many tournament rounds the round robin schedule of `joined` players
+ * has: one fewer than an even count, as many as an odd count.
+ */
+export function roundRobinRoundCount(joined: number): number {
+  return joined % 2 === 1 ? joined : Math.max(0, joined - 1);
+}
+
 /** Match points for a won, drawn and lost match. */
 export const MATCH_POINTS = { won: 3, drawn: 1, lost: 0 } as const;
 
@@ -71,11 +79,21 @@ export interface Standing {
   matchPoints: number;
   matches: Tally;
   games: Tally;
-  /** Games won as a percentage of games played, from 0 to 100; 0 before any game is played. */
+  /**
+   * From 0 to 100. In round robin, games won as a percentage of games
+   * played; 0 before any game is played. In Swiss, the MTR's: game points
+   * as a percentage of 3 per game played, floored at 33, so 33 before any
+   * game is played.
+   */
   gameWinPercent: number;
+  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 33 before they meet one. */
+  opponentsMatchWinPercent?: number;
+  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 33 before they meet one. */
+  opponentsGameWinPercent?: number;
 }
 
-type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
+/** A match with an outcome: reported, a granted draw or a forfeit. */
+export type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
 
 /**
  * The standings of `players` after `matches`, best first. Players rank by
@@ -115,13 +133,25 @@ export function standings(
     b.matchPoints - a.matchPoints ||
     headToHead.get(b.playerId)! - headToHead.get(a.playerId)! ||
     b.gameWinPercent - a.gameWinPercent;
-  const ranked = all.sort(compare);
-  ranked.forEach((standing, i) => {
-    const previous = ranked[i - 1];
+  return ranked(all, compare);
+}
+
+/**
+ * `table` sorted by `compare`, best first, with ranks from 1: players
+ * `compare` finds equal share a rank and keep their order, and the rank
+ * after a shared one skips, as in 1, 1, 3.
+ */
+export function ranked(
+  table: Standing[],
+  compare: (a: Standing, b: Standing) => number,
+): Standing[] {
+  const sorted = table.sort(compare);
+  sorted.forEach((standing, i) => {
+    const previous = sorted[i - 1];
     standing.rank =
       previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
   });
-  return ranked;
+  return sorted;
 }
 
 /**
@@ -173,10 +203,14 @@ export function trophyHolders(final: readonly Standing[]): string[] {
     .map((standing) => standing.playerId);
 }
 
-/** The player's record over `matches`, unranked. */
-function standingOf(
+/**
+ * The player's record over `matches` and `byes` byes, each a 2–0 win,
+ * unranked, with round robin's game-win %.
+ */
+export function standingOf(
   playerId: string,
   matches: readonly DecidedMatch[],
+  byes = 0,
 ): Standing {
   const standing: Standing = {
     playerId,
@@ -197,6 +231,9 @@ function standingOf(
     standing.games.lost += match.outcome.games[1 - side];
     standing.games.drawn += match.outcome.draws;
   }
+  standing.matches.won += byes;
+  standing.matchPoints += byes * MATCH_POINTS.won;
+  standing.games.won += byes * 2;
   const { won, lost, drawn } = standing.games;
   const played = won + lost + drawn;
   standing.gameWinPercent = played === 0 ? 0 : (100 * won) / played;

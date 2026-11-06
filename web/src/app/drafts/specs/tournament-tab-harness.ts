@@ -9,6 +9,7 @@ import type {
 } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
+  accessibleName,
   alice,
   alicePlayer,
   bob,
@@ -39,7 +40,10 @@ export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
 /** A round robin tournament in registration, joined by the players with these ids in order. */
 export const registration = (...playerIds: string[]): TournamentView => ({
   format: 'RoundRobin',
+  swissRoundOption: null,
   state: 'Registration',
+  roundCount: playerIds.length < 2 ? 0 : playerIds.length - 1 + (playerIds.length % 2),
+  lastCompletedRound: 0,
   entries: playerIds.map((playerId) => ({ playerId, dropped: false })),
   rounds: [],
   standings: [],
@@ -94,7 +98,10 @@ export function playing(
     matches.find((m) => m.id === id) ?? openMatch(id, a, b);
   return {
     format: 'RoundRobin',
+    swissRoundOption: null,
     state: 'Playing',
+    roundCount: 3,
+    lastCompletedRound: 0,
     entries: [alice.id, bob.id, carol.id].map((playerId) => ({ playerId, dropped: false })),
     rounds: [
       { round: 1, matches: [match('m1', bob.id, carol.id)], bye: alice.id },
@@ -102,6 +109,38 @@ export function playing(
       { round: 3, matches: [match('m3', carol.id, alice.id)], bye: bob.id },
     ],
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
+    trophyHolders: [],
+    ...fields,
+  };
+}
+
+/**
+ * A Swiss tournament of Alice, Bob and Carol being played until there's a
+ * winner, over 2 tournament rounds: round 1 is completed, Carol having
+ * beaten Bob 2–0 (m1) while Alice had a bye; in round 2 Alice plays Carol
+ * (m2) while Bob has a bye. `fields` changes any of it.
+ */
+export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentView {
+  return {
+    format: 'Swiss',
+    swissRoundOption: 'UntilWinner',
+    state: 'Playing',
+    roundCount: 2,
+    lastCompletedRound: 1,
+    entries: [alice.id, bob.id, carol.id].map((playerId) => ({ playerId, dropped: false })),
+    rounds: [
+      {
+        round: 1,
+        matches: [reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
+        bye: alice.id,
+      },
+      { round: 2, matches: [openMatch('m2', alice.id, carol.id)], bye: bob.id },
+    ],
+    standings: [
+      standing(alice.id, 1, { matchPoints: 3 }),
+      standing(carol.id, 1, { matchPoints: 3 }),
+      standing(bob.id, 3),
+    ],
     trophyHolders: [],
     ...fields,
   };
@@ -183,11 +222,23 @@ export async function openPlaying(
   return { ...opened, tab };
 }
 
+/** The standings' column headers inside `root`, each spelled out where it is abbreviated. */
+export const standingsColumns = (root: HTMLElement) =>
+  [...namedList(root, 'Standings').querySelectorAll('thead th')].map(
+    (header) => header.querySelector('abbr')?.title ?? text(header),
+  );
+
 /** Each row of the standings inside `root`, best first, as its cells' text. */
 export const standingsRows = (root: HTMLElement) =>
   [...namedList(root, 'Standings').querySelectorAll<HTMLTableRowElement>('tbody tr')].map((row) =>
     [...row.cells].map((cell) => text(cell)),
   );
+
+/** The names of the lists of matches by tournament round inside `root`, in page order. */
+export const roundLabels = (root: HTMLElement) =>
+  [...root.querySelectorAll('ul, ol, [role="list"]')]
+    .map((list) => accessibleName(list))
+    .filter((name) => /^Tournament round \d+$/.test(name));
 
 /** Each player in the Players list inside `root` as it reads, leaving out its buttons. */
 export const playerLines = (root: HTMLElement) =>

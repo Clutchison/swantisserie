@@ -1,6 +1,7 @@
 import type {
   MatchReportRequest,
   MatchView,
+  SwissRoundOption,
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
@@ -16,10 +17,17 @@ import {
 
 export * from './harness.js';
 
-/** Round robin, the one format tournament setup offers for now. */
+/** Round robin tournament setup. */
 export const roundRobin = {
   format: 'RoundRobin',
 } satisfies TournamentSetupRequest;
+
+/** Swiss tournament setup, until there's a winner unless `swissRoundOption` says otherwise. */
+export function swiss(
+  swissRoundOption: SwissRoundOption = 'UntilWinner',
+): TournamentSetupRequest {
+  return { format: 'Swiss', swissRoundOption };
+}
 
 /**
  * A complete draft, organized by Alice, whose players are the cookies'
@@ -106,13 +114,33 @@ export function completeTournament(id: string, cookie = aliceCookie) {
 }
 
 /**
- * A complete draft whose players are the cookies' users in seat order, all
- * with full decks, and its round robin tournament, which they joined in
- * that order and Alice started.
+ * Completes the current tournament round of the draft's tournament, `body`
+ * the request body as is (none unless given).
  */
-export async function playingTournament(cookies: string[]) {
+export function completeRound(
+  id: string,
+  cookie = aliceCookie,
+  body?: unknown,
+) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/complete-round`,
+    cookie,
+    body,
+  );
+}
+
+/**
+ * A complete draft whose players are the cookies' users in seat order, all
+ * with full decks, and its tournament, round robin unless `setup` says
+ * otherwise, which they joined in that order and Alice started.
+ */
+export async function playingTournament(
+  cookies: string[],
+  setup: TournamentSetupRequest = roundRobin,
+) {
   const id = await completeDraft(cookies);
-  await setUpTournament(id).expect(201);
+  await setUpTournament(id, aliceCookie, setup).expect(201);
   for (const cookie of cookies) {
     await fullDeck(id, cookie);
     await joinTournament(id, cookie).expect(201);
@@ -124,6 +152,24 @@ export async function playingTournament(cookies: string[]) {
 /** The draft's tournament as everyone who sees it reads it. */
 export async function tournamentView(id: string): Promise<TournamentView> {
   return (await tournament(id).expect(200)).body as TournamentView;
+}
+
+/**
+ * Reports every unreported match of the tournament's current tournament
+ * round, the latest paired, as won 2–0 by its first player, as that
+ * player.
+ */
+export async function reportCurrentRound(
+  id: string,
+  cookies: Record<string, string>,
+) {
+  const { rounds } = await tournamentView(id);
+  for (const match of rounds.at(-1)!.matches) {
+    if (match.outcome.kind !== 'Unreported') continue;
+    await reportMatch(id, match.id, cookies[match.players[0]], {
+      games: [2, 0],
+    } satisfies MatchReportRequest).expect(200);
+  }
 }
 
 /** The tournament's match between the players `a` and `b`, either way round. */

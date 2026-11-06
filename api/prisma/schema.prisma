@@ -350,9 +350,16 @@ model Feedback {
   @@index([reviewedById])
 }
 
-/// How a tournament pairs its players. Swiss and single elimination arrive with their specs.
+/// How a tournament pairs its players. Single elimination arrives with its spec.
 enum TournamentFormat {
   RoundRobin
+  Swiss
+}
+
+/// How many tournament rounds a Swiss tournament plays: until there's a winner, or capped at 3.
+enum SwissRoundOption {
+  UntilWinner
+  CappedAt3
 }
 
 /// Registration → Playing → Complete.
@@ -364,19 +371,23 @@ enum TournamentState {
 
 /// The matches a complete draft's players play after the draft. At most one per draft; cancelling it deletes it.
 model Tournament {
-  id        String            @id @default(uuid())
+  id                 String            @id @default(uuid())
   /// Unique: a draft has at most one tournament.
-  draftId   String            @unique
-  draft     Draft             @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draftId            String            @unique
+  draft              Draft             @relation(fields: [draftId], references: [id], onDelete: Cascade)
   /// Chosen at tournament setup; it never changes.
-  format    TournamentFormat
-  state     TournamentState   @default(Registration)
-  entries   TournamentEntry[]
-  /// Made at Start: every match of every tournament round, byes included.
-  matches   Match[]
-  createdAt DateTime          @default(now())
+  format             TournamentFormat
+  /// A Swiss tournament's round option, chosen at tournament setup; null for round robin.
+  swissRoundOption   SwissRoundOption?
+  state              TournamentState   @default(Registration)
+  /// The last tournament round an organizer completed, from 1; 0 before any, and always in round robin.
+  lastCompletedRound Int               @default(0)
+  entries            TournamentEntry[]
+  /// Byes included. Round robin makes every match at Start; Swiss makes round 1's at Start and each later round's when the one before is completed.
+  matches            Match[]
+  createdAt          DateTime          @default(now())
   /// When the organizer started it; null during registration.
-  startedAt DateTime?
+  startedAt          DateTime?
 }
 
 /// A draft's player who has joined its tournament. While the tournament is in Registration or Playing, it locks the player's deck.
@@ -412,7 +423,7 @@ enum MatchSide {
   Second
 }
 
-/// One match of a tournament, made at Start, or a bye: an entry sitting a tournament round out.
+/// One match of a tournament, made when its tournament round is paired, or a bye: an entry sitting a tournament round out.
 model Match {
   id            String           @id @default(uuid())
   tournamentId  String

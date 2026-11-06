@@ -1,8 +1,22 @@
 /**
- * How a tournament pairs its players, chosen once at tournament setup. Only
- * round robin for now: Swiss and single elimination come with their specs.
+ * How a tournament pairs its players, chosen once at tournament setup.
+ * Single elimination comes with its spec.
  */
-export type TournamentFormat = 'RoundRobin';
+export type TournamentFormat = 'RoundRobin' | 'Swiss';
+
+/**
+ * The Swiss round options tournament setup offers, in the order it offers
+ * them: until there's a winner (the ceiling of log2 of its joined players),
+ * or capped at 3.
+ */
+export const SWISS_ROUND_OPTIONS = ['UntilWinner', 'CappedAt3'] as const;
+
+/**
+ * How many tournament rounds a Swiss tournament plays, chosen at tournament
+ * setup: one of SWISS_ROUND_OPTIONS. The engine's SwissRoundOption is the
+ * same type.
+ */
+export type SwissRoundOption = (typeof SWISS_ROUND_OPTIONS)[number];
 
 /** Registration → Playing → Complete. The glossary has the long form. */
 export type TournamentState = 'Registration' | 'Playing' | 'Complete';
@@ -77,8 +91,17 @@ export interface StandingView {
   matchPoints: number;
   matches: TallyView;
   games: TallyView;
-  /** Games won as a percentage of games played, from 0 to 100; 0 before any game is played. */
+  /**
+   * From 0 to 100. In round robin, games won as a percentage of games
+   * played; 0 before any game is played. In Swiss, the MTR's: game points
+   * as a percentage of 3 per game played, floored at 33, so 33 before any
+   * game is played.
+   */
   gameWinPercent: number;
+  /** Swiss only: the average of the player's opponents' match-win %, each floored at 33; 33 before they meet one. */
+  opponentsMatchWinPercent?: number;
+  /** Swiss only: the average of the player's opponents' game-win %, each floored at 33; 33 before they meet one. */
+  opponentsGameWinPercent?: number;
 }
 
 /**
@@ -87,10 +110,23 @@ export interface StandingView {
  */
 export interface TournamentView {
   format: TournamentFormat;
+  /** A Swiss tournament's round option; null for round robin. */
+  swissRoundOption: SwissRoundOption | null;
   state: TournamentState;
+  /** How many tournament rounds it will have, for the players joined so far during registration. */
+  roundCount: number;
+  /**
+   * The last tournament round an organizer completed, from 1; 0 before any.
+   * Always 0 in round robin, which plays its rounds all at once.
+   */
+  lastCompletedRound: number;
   /** In join order. */
   entries: TournamentEntryView[];
-  /** Every tournament round, in order, once it is playing; none during registration. */
+  /**
+   * Every tournament round paired so far, in order, once it is playing; none
+   * during registration. Round robin pairs all of them at the start, Swiss
+   * one at a time.
+   */
   rounds: TournamentRoundView[];
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
@@ -106,10 +142,29 @@ export interface MatchReportRequest {
   games: GameScore;
 }
 
-/** Tournament setup, as the organizer chooses it: all at once, never changed. */
-export interface TournamentSetupRequest {
-  format: TournamentFormat;
+/**
+ * Complete round, as the organizer grants draws in the tournament round's
+ * unreported matches: each must be listed, and becomes a granted draw. A
+ * body can be left out when the tournament round has none.
+ */
+export interface CompleteRoundRequest {
+  grantedDraws: GrantedDrawRequest[];
 }
+
+/** One unreported match that Complete round grants a draw in. */
+export interface GrantedDrawRequest {
+  matchId: string;
+  /**
+   * The Discord user ids of its players to drop: either, both or neither.
+   * Ignored in the final tournament round, which completes the tournament.
+   */
+  drop: string[];
+}
+
+/** Tournament setup, as the organizer chooses it: all at once, never changed. */
+export type TournamentSetupRequest =
+  | { format: 'RoundRobin' }
+  | { format: 'Swiss'; swissRoundOption: SwissRoundOption };
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
 export const MIN_MAINBOARD_CARDS = 40;

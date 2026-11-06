@@ -1,20 +1,72 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { DialogRef } from '@angular/cdk/dialog';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  Injector,
+  signal,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { DraftView, GameScore, MatchView, TournamentFormat } from 'contract';
-import { GAME_SCORES } from 'engine';
+import {
+  SWISS_ROUND_OPTIONS,
+  type CompleteRoundRequest,
+  type DraftView,
+  type GameScore,
+  type MatchView,
+  type SwissRoundOption,
+  type TournamentFormat,
+  type TournamentSetupRequest,
+  type TournamentView,
+} from 'contract';
+import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
 import type { Observable } from 'rxjs';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
+import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
 
-/** The formats tournament setup offers, as it names them: only round robin for now. */
+/** The formats tournament setup offers, as it names them. */
 const FORMATS: { format: TournamentFormat; name: string }[] = [
   { format: 'RoundRobin', name: 'Round robin' },
+  { format: 'Swiss', name: 'Swiss' },
 ];
+
+/** How tournament setup names each Swiss round option, and how the tab sums it up. */
+const SWISS_ROUND_OPTION_NAMES: Record<SwissRoundOption, { name: string; summary: string }> = {
+  UntilWinner: { name: 'Until there’s a winner', summary: 'until there’s a winner' },
+  CappedAt3: {
+    name: `Capped at ${SWISS_ROUND_CAP} tournament rounds`,
+    summary: `capped at ${SWISS_ROUND_CAP}`,
+  },
+};
+
+/** The Swiss round options tournament setup offers, in order, as it names them. */
+const SWISS_ROUND_CHOICES = SWISS_ROUND_OPTIONS.map((option) => ({
+  option,
+  ...SWISS_ROUND_OPTION_NAMES[option],
+}));
+
+/**
+ * The tournament's format, and for Swiss its round option, with how many
+ * tournament rounds it has, or will have, if any, such as "Swiss, capped
+ * at 3: 3 tournament rounds".
+ */
+function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): string {
+  const name =
+    format === 'Swiss' && swissRoundOption
+      ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
+      : 'Round robin';
+  if (roundCount === 0) return name;
+  return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
+}
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
 interface OwnGameScore {
@@ -36,7 +88,9 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
  * players join and leave and organizers remove them, start it or cancel
  * it, then play: the signed-in player's match and its report, the
  * standings and matches, the players with Drop, and Reinstate for
- * organizers, Complete tournament for organizers, and at last the trophy.
+ * organizers, Complete tournament (round robin) or Complete round (Swiss,
+ * whose dialog grants draws in unreported matches) for organizers, and at last the
+ * trophy.
  */
 @Component({
   selector: 'app-tournament-tab',
@@ -57,6 +111,8 @@ export class TournamentTab {
   private readonly api = inject(TournamentApi);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
 
   private readonly draft = this.store.shown;
   protected readonly read = this.store.tournament;
@@ -66,6 +122,13 @@ export class TournamentTab {
   protected readonly canOrganize = this.store.canOrganize;
   protected readonly formats = FORMATS;
   protected readonly format = signal<TournamentFormat>('RoundRobin');
+  protected readonly swissRoundOptions = SWISS_ROUND_CHOICES;
+  protected readonly swissRoundOption = signal<SwissRoundOption>('UntilWinner');
+  /** The format and round count, summed up. */
+  protected readonly summary = computed(() => {
+    const tournament = this.tournament();
+    return tournament ? summaryOf(tournament) : '';
+  });
   protected readonly error = signal<string | null>(null);
 
   /** Whether the draft has a tournament; before then organizers see the setup form. */
@@ -102,6 +165,8 @@ export class TournamentTab {
   );
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
+  /** The Complete round dialog, while it's open. */
+  private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
   /** The match the signed-in player chose to report from the tournament rounds, if any. */
   protected readonly chosen = signal<string | undefined>(undefined);
@@ -145,9 +210,21 @@ export class TournamentTab {
     (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),
   );
 
-  /** Sets up the tournament in the format chosen. */
+  constructor() {
+    // Complete round stops being offered once the tournament isn't playing,
+    // as when another organizer completes it: close its dialog then.
+    effect(() => {
+      if (!this.organizePlay()) untracked(() => this.completing?.close());
+    });
+  }
+
+  /** Sets up the tournament in the format, and for Swiss the round option, chosen. */
   protected setUpTournament() {
-    return this.send(() => this.api.setUp(this.draft().id, this.format()), {
+    const setup: TournamentSetupRequest =
+      this.format() === 'Swiss'
+        ? { format: 'Swiss', swissRoundOption: this.swissRoundOption() }
+        : { format: 'RoundRobin' };
+    return this.send(() => this.api.setUp(this.draft().id, setup), {
       failure: "Couldn't set up the tournament. Try again in a moment.",
     });
   }
@@ -176,7 +253,11 @@ export class TournamentTab {
   protected start() {
     return this.send(
       () =>
-        confirm('Start the tournament? Joining closes, and every match opens.')
+        confirm(
+          this.tournament()?.format === 'Swiss'
+            ? 'Start the tournament? Joining closes, and tournament round 1 is paired at random.'
+            : 'Start the tournament? Joining closes, and every match opens.',
+        )
           ? this.api.start(this.draft().id)
           : undefined,
       { failure: "Couldn't start the tournament. Try again in a moment." },
@@ -239,6 +320,30 @@ export class TournamentTab {
           : undefined,
       { failure: "Couldn't complete the tournament. Try again in a moment." },
     );
+  }
+
+  /**
+   * Opens the Complete round dialog for the Swiss tournament's current
+   * tournament round. Once it has sent, a refusal is said here, where focus
+   * returns: to the button that opened it.
+   */
+  protected openCompleteRound() {
+    const completing = this.dialogs.open<CompleteRoundDialog, CompleteRoundRequest>(
+      CompleteRoundDialog,
+      { labelledBy: COMPLETE_ROUND_HEADING, injector: this.injector },
+    );
+    this.completing = completing;
+    completing.closed.subscribe((request) => {
+      this.completing = null;
+      if (request) void this.completeRound(request);
+    });
+  }
+
+  /** Completes the Swiss tournament's current tournament round as the Complete round dialog chose. */
+  private completeRound(request: CompleteRoundRequest) {
+    return this.send(() => this.api.completeRound(this.draft().id, request), {
+      failure: "Couldn't complete the tournament round. Try again in a moment.",
+    });
   }
 
   /** Cancels the tournament, in registration or being played, once the organizer confirms. */
