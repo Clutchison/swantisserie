@@ -43,7 +43,9 @@ import {
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { LoadingAnimation } from '../loading/loading-animation';
 
-const CHANGE_FAILED = "Couldn't change your plan. Try again in a moment.";
+/** What a failed change says, naming the plan as `planName`. */
+const changeFailed = (planName: string) =>
+  `Couldn't change your ${planName}. Try again in a moment.`;
 
 /** How a plan board shows: as stacks of card images, or as a list of names. */
 export type PlanMode = 'stacks' | 'list';
@@ -178,6 +180,8 @@ export class PlanTab {
   protected readonly plan = this.store.plan.value;
   /** The pool's cards by id, for the Card previews of the names here. */
   private readonly poolCardsById = this.store.poolCardsById;
+  /** "plan", or "deck" once the draft is complete. */
+  protected readonly planName = this.store.planName;
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
   protected readonly loading = this.store.plan.loading;
   /** The pool card ids of the cards in the signed-in player's queue. */
@@ -386,7 +390,7 @@ export class PlanTab {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, CHANGE_FAILED));
+        this.error.set(changeFailure(err, changeFailed(this.store.planName())));
         return false;
       }
     }, kept);

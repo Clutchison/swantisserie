@@ -24,8 +24,12 @@
   </div>
 }
 <p class="detail">
-  Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
-  and no other copy is available. Only you can see your plan.
+  @if (planName() === 'deck') {
+    Your deck holds your picks and basic lands. Only you can see your deck.
+  } @else {
+    Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
+    and no other copy is available. Only you can see your plan.
+  }
 </p>
 @if (offerQueueUnpicked()) {
   <div class="plan-actions">
@@ -239,7 +243,9 @@
           } @empty {
             <li class="empty">
               @if (loading()) {
-                <app-loading-animation size="tab">Loading your plan…</app-loading-animation>
+                <app-loading-animation size="tab"
+                  >Loading your {{ planName() }}…</app-loading-animation
+                >
               } @else {
                 {{ planBoard.empty }}
               }

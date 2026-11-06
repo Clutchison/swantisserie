@@ -82,6 +82,8 @@ export class DraftPage {
   /** Whether the queue or plan couldn't be loaded. A failed re-read keeps the last one loaded. */
   protected readonly queueFailed = this.store.queue.missing;
   protected readonly planFailed = this.store.plan.missing;
+  /** "plan", or "deck" once the draft is complete. */
+  protected readonly planName = this.store.planName;
 
   /**
    * The tab selected, kept in the URL. Only players have the Queue, Plan and

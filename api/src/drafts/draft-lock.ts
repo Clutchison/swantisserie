@@ -37,8 +37,18 @@ class LockedDraft {
     return this.#state;
   }
 
+  /**
+   * Moves the draft to `state`. A move to Complete also makes every plan a
+   * deck, taking its unpicked cards out, so every way a draft completes
+   * does so.
+   */
   async moveTo(state: DraftState): Promise<void> {
     await this.tx.draft.update({ where: { id: this.id }, data: { state } });
+    if (state === 'Complete') {
+      await this.tx.plannedCard.deleteMany({
+        where: { pickId: null, player: { draftId: this.id } },
+      });
+    }
     this.#state = state;
   }
 }

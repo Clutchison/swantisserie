@@ -1,5 +1,5 @@
 import type { PlanView } from 'contract';
-import { bob, openTab, type AppFixture, type NamedPoolCard } from './harness';
+import { bob, openTab, tabButton, type AppFixture, type NamedPoolCard } from './harness';
 import { card, shivan, brightclimb } from './pool-tab-harness';
 
 /** Bob's turn, on the draft's third pick. */
@@ -27,8 +27,9 @@ export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   ...fields,
 });
 
-/** Opens the Plan tab and returns its panel. */
-export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Plan');
+/** Opens the Plan tab, called Deck once the draft is complete, and returns its panel. */
+export const openPlan = (fixture: AppFixture, page: HTMLElement) =>
+  openTab(fixture, page, tabButton(page, 'Deck') ? 'Deck' : 'Plan');
 
 /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
 export function planBoards(plan: HTMLElement) {

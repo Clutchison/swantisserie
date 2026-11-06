@@ -346,6 +346,19 @@ describe('export tab', () => {
         );
       });
 
+      it('copies a complete draft’s deck, which holds no unpicked cards', async () => {
+        const deck: PlanView = {
+          ...plan,
+          mainboard: plan.mainboard.filter((card) => card.picked),
+          sideboard: plan.sideboard.filter((card) => card.picked),
+        };
+        const opened = await openPlanExport({ state: 'Complete', turn: null }, deck);
+
+        expect(await copyFor(opened)).toBe(
+          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock',
+        );
+      });
+
       it('copies a plan with an empty sideboard as it copies every pick', async () => {
         const opened = await openPlanExport({}, { ...EMPTY_PLAN, mainboard: plan.mainboard });
 
