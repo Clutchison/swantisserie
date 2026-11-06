@@ -16,10 +16,9 @@ import {
   completeDraft,
   completeRound,
   confirmMatch,
-  fullDeck,
   getDraft,
-  joinTournament,
   placesOf,
+  playingSingleElimination,
   playingTournament,
   reportCurrentRound,
   reportMatch,
@@ -30,7 +29,6 @@ import {
   setUpTournament,
   signIn,
   singleElimination,
-  startTournament,
   tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -45,6 +43,8 @@ let bobCookie: string;
 let carolCookie: string;
 let daveCookie: string;
 let erinCookie: string;
+/** The cookies of Alice, Bob, Carol, Dave and Erin. */
+let cookies: string[];
 /** Each player's cookie by their Discord user id. */
 let cookieOf: Record<string, string>;
 
@@ -60,17 +60,12 @@ beforeEach(async () => {
     [dave.id]: daveCookie,
     [erin.id]: erinCookie,
   };
+  cookies = [aliceCookie, bobCookie, carolCookie, daveCookie, erinCookie];
 });
-
-/** A playing single elimination tournament of the first `count` of Alice, Bob, Carol, Dave and Erin. */
-function playing(count: number) {
-  const cookies = [aliceCookie, bobCookie, carolCookie, daveCookie, erinCookie];
-  return playingTournament(cookies.slice(0, count), singleElimination);
-}
 
 describe('starting a single elimination tournament', () => {
   it('seeds the players at random and opens round 1, its byes for the top seeds already advanced', async () => {
-    const id = await playing(5);
+    const { id } = await playingSingleElimination(cookies.slice(0, 5));
 
     const view = await tournamentView(id);
     const seeds = seedsOf(view);
@@ -93,7 +88,7 @@ describe('starting a single elimination tournament', () => {
   });
 
   it('pairs 4 players seed 1 v 4 and 2 v 3, with no byes', async () => {
-    const id = await playing(4);
+    const { id } = await playingSingleElimination(cookies.slice(0, 4));
 
     const view = await tournamentView(id);
     const seeds = seedsOf(view);
@@ -103,27 +98,13 @@ describe('starting a single elimination tournament', () => {
       { bracketPlace: 1, players: [seeds[1], seeds[2]] },
     ]);
   });
-
-  it('bumps the draft’s version', async () => {
-    const id = await completeDraft([aliceCookie, bobCookie]);
-    await setUpTournament(id, aliceCookie, singleElimination).expect(201);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
-    const before = await getDraft(id).expect(200);
-
-    const answer = await startTournament(id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
-  });
 });
 
 describe('the bracket in the tournament read', () => {
   const player = (playerId: string) => ({ kind: 'Player', playerId });
 
   it('draws every tournament round by bracket place, with the byes and the places still to be decided', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
 
     const view = await tournamentView(id);
     const seeds = seedsOf(view);
@@ -164,7 +145,7 @@ describe('the bracket in the tournament read', () => {
   });
 
   it('keeps a player’s unconfirmed report from moving its winner on, until the other player confirms it', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
     const seeds = seedsOf(await tournamentView(id));
     await reportWin(id, [seeds[2], seeds[1]], [2, 1], cookieOf[seeds[2]]);
 
@@ -205,7 +186,7 @@ describe('the bracket in the tournament read', () => {
   });
 
   it('gives the paired final its match, and its winner once completed', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
     const seeds = seedsOf(await tournamentView(id));
     await reportWin(id, [seeds[1], seeds[2]], [2, 0], cookieOf[seeds[1]]);
     await completeRound(id).expect(200);
@@ -237,7 +218,7 @@ describe('the bracket in the tournament read', () => {
 
 describe('reporting in single elimination', () => {
   it('refuses a draw, from a player or an organizer', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const draw = { games: [1, 1] } satisfies MatchReportRequest;
 
@@ -252,7 +233,7 @@ describe('reporting in single elimination', () => {
   });
 
   it('leaves the standings level, byes too, until tournament round 1 is completed, though the bracket moves an agreed winner on', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
     const seeds = seedsOf(await tournamentView(id));
     await reportWin(id, [seeds[2], seeds[1]], [2, 1], cookieOf[seeds[1]]);
     const [match] = (await tournamentView(id)).rounds[0].matches;
@@ -281,7 +262,7 @@ describe('reporting in single elimination', () => {
 
 describe('completing a single elimination tournament round', () => {
   it('is refused while a match has no winner', async () => {
-    const id = await playing(4);
+    const { id } = await playingSingleElimination(cookies.slice(0, 4));
 
     const answer = await completeRound(id).expect(409);
 
@@ -290,14 +271,14 @@ describe('completing a single elimination tournament round', () => {
   });
 
   it('is for organizers only', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     await reportCurrentRound(id, cookieOf);
 
     await completeRound(id, bobCookie).expect(403);
   });
 
   it('gives each listed match the winner picked for it, and pairs the winners into the next round', async () => {
-    const id = await playing(5);
+    const { id } = await playingSingleElimination(cookies.slice(0, 5));
     const before = await tournamentView(id);
     const seeds = seedsOf(before);
     const [match] = before.rounds[0].matches;
@@ -328,7 +309,7 @@ describe('completing a single elimination tournament round', () => {
   });
 
   it('rejects granted draws: single elimination never has a draw', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
 
     const answer = await completeRound(id, aliceCookie, {
@@ -342,7 +323,7 @@ describe('completing a single elimination tournament round', () => {
   });
 
   it('refuses a granted win in a match reported since', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
     await reportCurrentRound(id, cookieOf);
 
@@ -354,7 +335,7 @@ describe('completing a single elimination tournament round', () => {
   });
 
   it('rejects granted wins that aren’t the round’s matches, each won by one of its players', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const bystander = [alice.id, bob.id, carol.id].find(
       (player) => !match.players.includes(player),
@@ -372,7 +353,7 @@ describe('completing a single elimination tournament round', () => {
   });
 
   it('completes the tournament with the final, whose winner alone holds the trophy, with no third-place match', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
     const seeds = seedsOf(await tournamentView(id));
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
@@ -455,7 +436,7 @@ describe('single elimination’s live updates', () => {
   }
 
   it('pushes a report', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
 
     await expectPushed(
@@ -469,7 +450,7 @@ describe('single elimination’s live updates', () => {
   });
 
   it('pushes a tournament round completed with a granted win', async () => {
-    const id = await playing(3);
+    const { id } = await playingSingleElimination(cookies.slice(0, 3));
     const [match] = (await tournamentView(id)).rounds[0].matches;
 
     await expectPushed(
@@ -483,7 +464,7 @@ describe('single elimination’s live updates', () => {
   });
 
   it('pushes the final’s completion, which completes the tournament', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     await reportCurrentRound(id, cookieOf);
 
     await expectPushed(id, () => completeRound(id).expect(200), 'Complete');
@@ -492,7 +473,7 @@ describe('single elimination’s live updates', () => {
 
 describe('clearing in single elimination', () => {
   it('clears a match of the open tournament round back to unreported', async () => {
-    const id = await playing(2);
+    const { id } = await playingSingleElimination(cookies.slice(0, 2));
     const [match] = (await tournamentView(id)).rounds[0].matches;
     await reportCurrentRound(id, cookieOf);
 

@@ -184,20 +184,45 @@ export function completeRound(
 /**
  * A complete draft whose players are the cookies' users in seat order, all
  * with full decks, and its tournament, round robin unless `setup` says
+ * otherwise, in registration with no one joined.
+ */
+export async function inRegistration(
+  cookies: string[],
+  setup: TournamentSetupRequest = roundRobin,
+) {
+  const id = await completeDraft(cookies);
+  for (const cookie of cookies) await fullDeck(id, cookie);
+  await setUpTournament(id, aliceCookie, setup).expect(201);
+  return id;
+}
+
+/**
+ * A complete draft whose players are the cookies' users in seat order, all
+ * with full decks, and its tournament, round robin unless `setup` says
  * otherwise, which they joined in that order and Alice started.
  */
 export async function playingTournament(
   cookies: string[],
   setup: TournamentSetupRequest = roundRobin,
 ) {
-  const id = await completeDraft(cookies);
-  await setUpTournament(id, aliceCookie, setup).expect(201);
+  const id = await inRegistration(cookies, setup);
   for (const cookie of cookies) {
-    await fullDeck(id, cookie);
     await joinTournament(id, cookie).expect(201);
   }
   await startTournament(id).expect(200);
   return id;
+}
+
+/**
+ * A playing single elimination tournament of the cookies' users, as
+ * `playingTournament` starts it, with its seed order, `seeds[s - 1]` the
+ * player with seed s. With 4 players, round 1 is seed 1 v 4 at bracket
+ * place 0 and 2 v 3 at place 1; with 5, seed 4 v 5 at place 1, the others
+ * with byes; with 9, seed 8 v 9 at place 1, the others with byes.
+ */
+export async function playingSingleElimination(cookies: string[]) {
+  const id = await playingTournament(cookies, singleElimination);
+  return { id, seeds: seedsOf(await tournamentView(id)) };
 }
 
 /** The player with each seed of a single elimination tournament, `seeds[s - 1]` the player with seed s. */
@@ -236,6 +261,19 @@ export async function reportCurrentRound(
       games: [2, 0],
     } satisfies MatchReportRequest).expect(200);
   }
+}
+
+/**
+ * Reports every unreported match of the current tournament round, its first
+ * player winning, and completes it. `cookies` holds each player's cookie by
+ * their Discord user id.
+ */
+export async function playTournamentRound(
+  id: string,
+  cookies: Record<string, string>,
+) {
+  await reportCurrentRound(id, cookies);
+  await completeRound(id).expect(200);
 }
 
 /** The tournament's match between the players `a` and `b`, either way round. */

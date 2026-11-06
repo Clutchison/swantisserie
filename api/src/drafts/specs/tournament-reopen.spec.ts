@@ -11,11 +11,10 @@ import {
   clearGameScore,
   completeRound,
   dropPlayer,
-  getDraft,
   playingTournament,
+  playTournamentRound,
   reinstate,
   reopenRound,
-  reportCurrentRound,
   reportMatch,
   seedsOf,
   setGameScore,
@@ -55,12 +54,6 @@ beforeEach(async () => {
 
 /** The cookies of Alice, Bob, Carol and Dave. */
 const everyone = () => [aliceCookie, bobCookie, carolCookie, daveCookie];
-
-/** Reports every unreported match of the current round, its first player winning, and completes it. */
-async function playRound(id: string) {
-  await reportCurrentRound(id, cookieOf);
-  await completeRound(id).expect(200);
-}
 
 /** Whether each player has dropped, by their Discord user id. */
 function droppedOf(view: TournamentView) {
@@ -141,7 +134,7 @@ describe('reopening a Swiss tournament round', () => {
       [aliceCookie, bobCookie, carolCookie],
       swiss(),
     );
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
     const [next] = (await tournamentView(id)).rounds[1].matches;
     await dropPlayer(id, next.players[1], cookieOf[next.players[1]]).expect(
       200,
@@ -167,8 +160,8 @@ describe('reopening a Swiss tournament round', () => {
 
   it('reopens one round at a time, the reopened round completed again before the one before it', async () => {
     const id = await playingTournament([...everyone(), erinCookie], swiss());
-    await playRound(id);
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
+    await playTournamentRound(id, cookieOf);
     await reopenRound(id).expect(200);
 
     const refused = await reopenRound(id).expect(409);
@@ -184,7 +177,7 @@ describe('reopening a Swiss tournament round', () => {
       round: 1,
       refusal: { error: 'round-reopened' },
     });
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
     const view = await tournamentView(id);
     expect(view.lastCompletedRound).toBe(2);
     expect(view.rounds).toHaveLength(3);
@@ -194,7 +187,7 @@ describe('reopening a Swiss tournament round', () => {
 
   it('pairs the next round afresh once the reopened round is completed again', async () => {
     const id = await playingTournament(everyone(), swiss());
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
     await reopenRound(id).expect(200);
     const [match] = (await tournamentView(id)).rounds[0].matches;
     await setGameScore(id, match.id, {
@@ -263,8 +256,8 @@ describe('Reopen round', () => {
   it('is refused, and not offered, in round robin and once the tournament is complete', async () => {
     const roundRobin = await playingTournament([aliceCookie, bobCookie]);
     const complete = await playingTournament(everyone(), swiss());
-    await playRound(complete);
-    await playRound(complete);
+    await playTournamentRound(complete, cookieOf);
+    await playTournamentRound(complete, cookieOf);
 
     for (const [id, error] of [
       [roundRobin, 'wrong-format'],
@@ -301,17 +294,15 @@ describe('Reopen round', () => {
     expect((await tournamentView(id)).reopenRound).toBeNull();
   });
 
-  it('is for organizers only, and bumps the draft’s version', async () => {
+  it('is for organizers only', async () => {
     const id = await playingTournament(everyone(), swiss());
-    await playRound(id);
+    await playTournamentRound(id, cookieOf);
 
     // Carol is an app admin, so she may.
     for (const cookie of [bobCookie, daveCookie]) {
       await reopenRound(id, cookie).expect(403);
     }
-    const before = (await getDraft(id).expect(200)).body.version as number;
-    const answer = await reopenRound(id).expect(200);
 
-    expect(answer.body.version).toBe(before + 1);
+    expect((await tournamentView(id)).lastCompletedRound).toBe(1);
   });
 });

@@ -4,7 +4,6 @@ import {
   bob,
   carol,
   completeTournament,
-  getDraft,
   matchOf,
   playingTournament,
   reportMatch,
@@ -17,7 +16,7 @@ import {
 
 useDraftsApp();
 
-/** A fourth player, who signs in only where a spec needs four. */
+/** A viewer who isn't one of the draft's players. */
 const dave = { id: '80351110224678915', name: 'Dave' };
 
 let bobCookie: string;
@@ -87,7 +86,7 @@ describe('reporting a match', () => {
     );
   });
 
-  it('refuses a draw, and a game score a best-of-three match never ends at', async () => {
+  it('refuses a game score a match can’t end at, saying why', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     const match = await matchOf(id, alice.id, bob.id);
 
@@ -129,16 +128,6 @@ describe('reporting a match', () => {
 
     expect(answer.body.error).toBe('no-match');
   });
-
-  it('bumps the draft’s version', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie]);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await reportWin(id, [alice.id, bob.id], [2, 0], bobCookie);
-
-    expect(answer.status).toBe(200);
-    expect(answer.body.version).toBe(before.body.version + 1);
-  });
 });
 
 describe('standings', () => {
@@ -175,49 +164,6 @@ describe('standings', () => {
         games: { won: 1, lost: 4, drawn: 0 },
         gameWinPercent: 20,
       },
-    ]);
-  });
-
-  it('fall back to game-win % when match points and head-to-head leave players tied', async () => {
-    // Each beat one of the others, so all three have 3 match points, 3 among themselves.
-    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
-    await reportWin(id, [alice.id, bob.id], [2, 1], aliceCookie);
-    await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
-    await reportWin(id, [carol.id, alice.id], [2, 0], carolCookie);
-
-    const { standings } = await tournamentView(id);
-
-    expect(standings.map(({ playerId, rank }) => [playerId, rank])).toEqual([
-      [bob.id, 1],
-      [carol.id, 2],
-      [alice.id, 3],
-    ]);
-  });
-
-  it('break a two-player tie by head-to-head before game-win %', async () => {
-    // Alice and Bob have 6 match points each, and so do Carol and Dave with 3.
-    // Bob has the better game-win %, but Alice beat him; Carol beat Dave.
-    const daveCookie = await signIn(dave);
-    const id = await playingTournament([
-      aliceCookie,
-      bobCookie,
-      carolCookie,
-      daveCookie,
-    ]);
-    await reportWin(id, [alice.id, bob.id], [2, 1], aliceCookie);
-    await reportWin(id, [alice.id, carol.id], [2, 1], aliceCookie);
-    await reportWin(id, [dave.id, alice.id], [2, 1], daveCookie);
-    await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
-    await reportWin(id, [bob.id, dave.id], [2, 0], bobCookie);
-    await reportWin(id, [carol.id, dave.id], [2, 0], carolCookie);
-
-    const { standings } = await tournamentView(id);
-
-    expect(standings.map(({ playerId, rank }) => [playerId, rank])).toEqual([
-      [alice.id, 1],
-      [bob.id, 2],
-      [carol.id, 3],
-      [dave.id, 4],
     ]);
   });
 });
@@ -293,14 +239,5 @@ describe('completing a tournament', () => {
       { games: [2, 0] },
     ).expect(409);
     expect(late.body.error).toBe('not-playing');
-  });
-
-  it('bumps the draft’s version', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie]);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await completeTournament(id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
   });
 });

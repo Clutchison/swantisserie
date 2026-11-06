@@ -188,17 +188,28 @@ export function clickBackdrop() {
 export const hiddenFromAssistiveTech = (element: Element) =>
   element.closest('[aria-hidden="true"]') !== null;
 
-/** A table inside `root`, by its accessible name (its aria-label); null if there is none. */
-export const table = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll<HTMLElement>('table, [role="table"]')].find(
+/** `value` as a viewer reads it: each run of whitespace one space, none at either end. */
+export const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+/** `element`'s text as a viewer reads it, its whitespace collapsed; empty if there is no element. */
+export const text = (element: Element | null | undefined) =>
+  collapseWhitespace(element?.textContent ?? '');
+
+/**
+ * The element inside `root` that `selector` finds and whose accessible name,
+ * its aria-label, is `name`; null if there is none.
+ */
+export const byAriaLabel = (root: HTMLElement, selector: string, name: string) =>
+  [...root.querySelectorAll<HTMLElement>(selector)].find(
     (element) => element.getAttribute('aria-label') === name,
   ) ?? null;
 
+/** A table inside `root`, by its accessible name (its aria-label); null if there is none. */
+export const table = (root: HTMLElement, name: string) =>
+  byAriaLabel(root, 'table, [role="table"]', name);
+
 /** The row headers and cells of a row, by role: column headers left out. */
 const CELLS = 'td, th[scope="row"], [role="cell"], [role="rowheader"]';
-
-/** `element`'s text as a viewer reads it, its whitespace collapsed. */
-const cellText = (element: Element) => (element.textContent ?? '').replace(/\s+/g, ' ').trim();
 
 /**
  * The text of each cell of each row of `table` that has cells, row
@@ -206,11 +217,11 @@ const cellText = (element: Element) => (element.textContent ?? '').replace(/\s+/
  */
 export const tableRows = (table: HTMLElement) =>
   [...table.querySelectorAll('tr, [role="row"]')]
-    .map((row) => [...row.querySelectorAll(CELLS)].map(cellText))
+    .map((row) => [...row.querySelectorAll(CELLS)].map(text))
     .filter((cells) => cells.length > 0);
 
 /** The column headers of `table`, in order, each spelled out where it is abbreviated. */
 export const tableColumns = (table: HTMLElement) =>
   [...table.querySelectorAll('th[scope="col"], [role="columnheader"]')].map(
-    (header) => header.querySelector('abbr')?.title ?? cellText(header),
+    (header) => header.querySelector('abbr')?.title ?? text(header),
   );

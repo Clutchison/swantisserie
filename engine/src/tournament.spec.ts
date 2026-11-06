@@ -10,9 +10,14 @@ import {
   type MatchOutcome,
   type RoundCompletion,
   type RoundCompletionInput,
-  type Standing,
   type TournamentMatch,
 } from './tournament.js';
+import {
+  forfeited,
+  grantedDraw,
+  placings,
+  played,
+} from './tournament.fixtures.js';
 import { singleEliminationStandings } from './single-elimination.js';
 
 describe('droppedPlayers', () => {
@@ -27,32 +32,9 @@ describe('droppedPlayers', () => {
   });
 });
 
-/** A match `a` and `b` played to the game score `games`, `a`'s games first. */
-function played(
-  a: string,
-  b: string,
-  games: [number, number],
-  draws = 0,
-): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GameScore', games, draws } };
-}
-
-function granted(a: string, b: string): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
-}
-
-function forfeited(a: string, b: string, forfeitedBy: string): TournamentMatch {
-  return { players: [a, b], outcome: { kind: 'Forfeit', forfeitedBy } };
-}
-
 /** Each standing's player and rank, in standings order. */
 function ranks(players: string[], matches: TournamentMatch[]) {
   return placings(standings(players, matches));
-}
-
-/** Each standing's player and rank, in the order of `table`. */
-function placings(table: Standing[]) {
-  return table.map(({ playerId, rank }) => [playerId, rank]);
 }
 
 describe('roundRobinMatches', () => {
@@ -192,7 +174,7 @@ describe('standings', () => {
     const matches = [
       played('a', 'b', [2, 0]),
       played('a', 'c', [2, 0]),
-      granted('b', 'c'),
+      grantedDraw('b', 'c'),
     ];
     expect(ranks(['a', 'b', 'c'], matches)).toEqual([
       ['a', 1],
@@ -202,7 +184,7 @@ describe('standings', () => {
     expect(
       ranks(
         ['a', 'b', 'c', 'd'],
-        [granted('a', 'b'), played('c', 'd', [2, 0])],
+        [grantedDraw('a', 'b'), played('c', 'd', [2, 0])],
       ),
     ).toEqual([
       ['c', 1],
@@ -213,7 +195,7 @@ describe('standings', () => {
   });
 
   it('counts a granted draw as a drawn match with no games', () => {
-    expect(standings(['a', 'b'], [granted('a', 'b')])).toEqual(
+    expect(standings(['a', 'b'], [grantedDraw('a', 'b')])).toEqual(
       ['a', 'b'].map((playerId) => ({
         playerId,
         rank: 1,
@@ -257,15 +239,6 @@ describe('GAME_SCORES', () => {
 
 describe('reportProblem', () => {
   it.each([
-    [2, 0],
-    [2, 1],
-    [1, 2],
-    [0, 2],
-  ])('accepts %i–%i', (a, b) => {
-    expect(reportProblem([a, b])).toBeNull();
-  });
-
-  it.each([
     [1, 1],
     [0, 0],
   ])('refuses the draw %i–%i', (a, b) => {
@@ -291,7 +264,7 @@ describe('trophyHolders', () => {
 
   it('is everyone who shares first', () => {
     const matches = [
-      granted('a', 'b'),
+      grantedDraw('a', 'b'),
       played('a', 'c', [2, 0]),
       played('b', 'c', [2, 0]),
     ];

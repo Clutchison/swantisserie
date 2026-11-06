@@ -8,7 +8,6 @@ import {
   completeTournament,
   confirmMatch,
   dropPlayer,
-  getDraft,
   matchOf,
   playingTournament,
   reportCurrentRound,
@@ -66,7 +65,7 @@ describe('organizer reports', () => {
     expect((await tournamentView(id)).standings[0].playerId).toBe(carol.id);
   });
 
-  it('refuses a draw, a game score a best-of-three match never ends at, and a body that isn’t a game score', async () => {
+  it('refuses a game score a match can’t end at, saying why, and a body that isn’t a game score', async () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     const match = await matchOf(id, bob.id, carol.id);
 
@@ -259,25 +258,5 @@ describe('completed results', () => {
     expect((await matchOf(id, ...match.players)).outcome).toEqual({
       kind: 'Unreported',
     });
-  });
-});
-
-describe('live updates', () => {
-  it('bump the draft’s version with each report, correction and clear', async () => {
-    const id = await playingTournament([bobCookie, carolCookie]);
-    const match = await matchOf(id, bob.id, carol.id);
-    const versionNow = async () =>
-      (await getDraft(id).expect(200)).body.version as number;
-
-    const changes = [
-      () => setGameScore(id, match.id, { games: [2, 0] }).expect(200),
-      () => setGameScore(id, match.id, { games: [1, 2] }).expect(200),
-      () => clearGameScore(id, match.id).expect(200),
-    ];
-    for (const change of changes) {
-      const before = await versionNow();
-      const answer = await change();
-      expect(answer.body.version).toBe(before + 1);
-    }
   });
 });

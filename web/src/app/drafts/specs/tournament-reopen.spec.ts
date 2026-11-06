@@ -1,10 +1,10 @@
 import { answer, question } from '../../specs-harness';
-import { ORGANIZE_ONLY, bob, button, http, namedList, panel, useDraftsApp } from './harness';
+import { ORGANIZE_ONLY, bob, button, findNamedList, http, panel, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
   dave,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   swissPlaying,
   threePlayers,
@@ -39,7 +39,7 @@ describe('reopening a tournament round', () => {
 
     expect(req.request.body).toBeNull();
     expect(button(panel(page), 'Correct Carol vs Bob')).toBeDefined();
-    expect(namedList(panel(page), 'Tournament round 2')).toBeNull();
+    expect(findNamedList(panel(page), 'Tournament round 2')).toBeNull();
   });
 
   it('lists the players whose drops it takes back', async () => {
@@ -103,7 +103,7 @@ describe('reopening a tournament round', () => {
     const { tab } = await openPlaying(
       swissPlaying({
         lastCompletedRound: 0,
-        rounds: [{ round: 1, matches: [openMatch('m1', bob.id, carol.id)], byes: [] }],
+        rounds: [{ round: 1, matches: [unreportedMatch('m1', bob.id, carol.id)], byes: [] }],
         reopenRound: null,
       }),
       { powers: ORGANIZE_ONLY },

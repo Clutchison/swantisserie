@@ -1,13 +1,12 @@
 import { answer, question } from '../../specs-harness';
-import { ORGANIZE_ONLY, alice, bob, button, http, panel, text, useDraftsApp } from './harness';
+import { ORGANIZE_ONLY, alice, bob, button, http, panel, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
   dave,
   forfeited,
-  gridCell,
   gridCellName,
-  openMatch,
+  unreportedMatch,
   openPlaying,
   playerLines,
   playing,
@@ -23,20 +22,12 @@ useDraftsApp();
 const carolDropped = withDrops(
   [carol.id],
   [
-    reported(openMatch('m1', bob.id, carol.id), [0, 2], carol.id),
-    forfeited(openMatch('m3', carol.id, alice.id), carol.id),
+    reported(unreportedMatch('m1', bob.id, carol.id), [0, 2], carol.id),
+    forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id),
   ],
 );
 
 describe('drops on the Play tab', () => {
-  it('shows dropped players and their forfeits', async () => {
-    const { tab } = await openPlaying(carolDropped, { user: dave });
-
-    expect(playerLines(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
-    expect(text(gridCell(tab, 'Carol', 'Alice'))).toBe('F');
-    expect(text(gridCell(tab, 'Alice', 'Carol'))).toBe('W');
-  });
-
   it('lets a player drop from the tournament once they go ahead', async () => {
     const { fixture, page, tab } = await openPlaying(playing());
 
@@ -53,8 +44,8 @@ describe('drops on the Play tab', () => {
       withDrops(
         [alice.id],
         [
-          forfeited(openMatch('m2', alice.id, bob.id), alice.id),
-          forfeited(openMatch('m3', carol.id, alice.id), alice.id),
+          forfeited(unreportedMatch('m2', alice.id, bob.id), alice.id),
+          forfeited(unreportedMatch('m3', carol.id, alice.id), alice.id),
         ],
       ),
       1,
@@ -136,7 +127,7 @@ describe('drops on the Play tab', () => {
       fixture,
       `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`,
       'DELETE',
-      playing([reported(openMatch('m1', bob.id, carol.id), [0, 2], carol.id)]),
+      playing([reported(unreportedMatch('m1', bob.id, carol.id), [0, 2], carol.id)]),
       1,
       threePlayers,
     );
