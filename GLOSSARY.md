@@ -392,6 +392,18 @@ _Avoid_: Tree, draw, chart, bracket as the format's name
 Where a match sits in its tournament round of the bracket, which decides whose winner its players will meet next.
 _Avoid_: Slot, position, seat (that is a draft’s)
 
+**Final**:
+In single elimination, the last tournament round, whose one match decides the trophy.
+_Avoid_: Finals, championship, grand final
+
+**Semifinal**:
+In single elimination, the tournament round before the final, when the bracket has one.
+_Avoid_: Semis, semi-finals, final four
+
+**Quarterfinal**:
+In single elimination, the tournament round before the semifinal, when the bracket has one.
+_Avoid_: Quarters, quarter-finals, top 8
+
 **Side**:
 One of the two players a bracket place has or will have: a player, a bye, or a winner to come.
 _Avoid_: Slot, seat (that is a draft’s), entrant, opponent
