@@ -52,7 +52,7 @@ export class DecklistsService {
    * The draft's decklists, one per joined player, in join order. Throws
    * NoTournamentError if it has no tournament, and TournamentRefusedError
    * without public decklists (`decklists-private`) or during registration
-   * (`tournament-not-started`). Throws MalformedDecklistError, a 500, for
+   * (`in-registration`). Throws MalformedDecklistError, a 500, for
    * an entry whose snapshot is missing or malformed, rather than serve a
    * decklist without its boards.
    */
@@ -77,7 +77,7 @@ export class DecklistsService {
     }
     if (!showsDecklists(tournament)) {
       throw new TournamentRefusedError({
-        error: 'tournament-not-started',
+        error: 'in-registration',
         message: 'Decklists are shown once the tournament starts.',
       });
     }

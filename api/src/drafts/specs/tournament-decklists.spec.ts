@@ -186,7 +186,7 @@ describe('decklists under public decklists', () => {
 
     for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
       expect((await decklists(id, cookie).expect(409)).body.error).toBe(
-        'tournament-not-started',
+        'in-registration',
       );
     }
   });
