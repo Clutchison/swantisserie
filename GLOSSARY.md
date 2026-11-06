@@ -127,7 +127,7 @@ A guild member or bot who has joined a particular draft.
 _Avoid_: Drafter, participant, user
 
 **Bot**:
-A player the app controls, which picks a random available card on its turn. Only app admins and guild admins add bots, for testing.
+A player the app controls, which picks a random available card on its turn. Only app admins and guild admins add bots, for testing. A draft's bots join its tournament at tournament setup, whatever their decks hold, can't be removed or dropped from it, and do nothing in it: their matches are reported by their opponents or corrected by an organizer.
 _Avoid_: AI, dummy, CPU
 
 **Seat**:
@@ -345,7 +345,7 @@ _Avoid_: Open draft (as its name; "open" as a verb, as in "Open draft" on a link
 ## Tournaments
 
 **Tournament**:
-The matches a complete draft's players play on its platform after the draft, in one format, to decide who wins a trophy. A draft has at most one tournament, and bots never play in one.
+The matches a complete draft's players play on its platform after the draft, in one format, to decide who wins a trophy. A draft has at most one tournament.
 _Avoid_: League, event, bracket (that is the single elimination view)
 
 **Format**:
@@ -413,7 +413,7 @@ A tournament's first state, after setup, when the draft's players join and leave
 _Avoid_: Open, lobby (that is the draft's), sign-up
 
 **Join**:
-A draft's player entering a tournament during registration. It locks their deck.
+A draft's player entering a tournament during registration. It locks their deck. Bots join at tournament setup, without asking.
 _Avoid_: Register, enter, sign up
 
 **Tournament entry**:
@@ -553,7 +553,7 @@ The part of a complete draft's page where organizers set up its tournament, play
 _Avoid_: Games tab, results tab, bracket tab
 
 **Leaderboard**:
-A guild's players ranked by their trophies, then matches won, with each player's tournaments played, their match and game records, and their head-to-head record against each opponent, across all its complete tournaments. Records count played matches only: forfeits, granted draws, granted wins and byes are left out, and every format counts the same. A player appears once they have a played match, under their current name; bots never do. A cancelled tournament counts nowhere.
+A guild's players ranked by their trophies, then matches won, with each player's tournaments played, their match and game records, and their head-to-head record against each opponent, across all its complete tournaments. Records count played matches only: forfeits, granted draws, granted wins and byes are left out, and every format counts the same. A player appears once they have a played match, under their current name; bots never do. A cancelled tournament counts nowhere, and neither does a tournament any bot played in.
 _Avoid_: Standings (that is one tournament's), stats page, rankings, player profile
 
 **Played match**:
