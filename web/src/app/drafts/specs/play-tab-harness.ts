@@ -459,7 +459,7 @@ export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(roo
 
 /** The results grid inside `root`, round robin's; null if there is none. */
 export const resultsGrid = (root: HTMLElement) =>
-  region(root, 'Results grid')?.querySelector('table') ?? null;
+  region(root, 'Results grid')?.querySelector<HTMLElement>('table, [role="table"]') ?? null;
 
 /** The results grid's column headers inside `root`, each spelled out where it is abbreviated. */
 export const gridColumns = (root: HTMLElement) => tableColumns(resultsGrid(root)!);
