@@ -14,7 +14,9 @@ import {
   dropPlayer,
   fullDeck,
   joinTournament,
+  playingSingleElimination,
   playingTournament,
+  reopenRound,
   reportWin,
   seedsOf,
   setUpTournament,
@@ -294,6 +296,90 @@ describe('the leaderboard', () => {
         opponents: [[bob.id, tally(0, 1)]],
       },
     ]);
+  });
+
+  it('counts only the result a reopened round was completed again with', async () => {
+    const daveCookie = await signIn({ id: '80351110224678915', name: 'Dave' });
+    const { id, seeds } = await playingSingleElimination([
+      aliceCookie,
+      bobCookie,
+      carolCookie,
+      daveCookie,
+    ]);
+    const [first, second, third, fourth] = seeds;
+    await setWin(id, [first, fourth], [2, 0]);
+    await setWin(id, [second, third], [2, 0]);
+    await completeRound(id).expect(200);
+    await reopenRound(id).expect(200);
+    // The fourth seed now beats the first instead, and goes on to win.
+    await setWin(id, [fourth, first], [2, 1]);
+    await completeRound(id).expect(200);
+    await setWin(id, [fourth, second], [2, 0]);
+    await completeRound(id).expect(200);
+    const view = await tournamentView(id);
+    expect(view.state).toBe('Complete');
+    expect(view.trophyHolders).toEqual([fourth]);
+
+    const board = await leaderboard();
+
+    const byPlayer = Object.fromEntries(
+      board.map(
+        ({
+          playerId,
+          trophies,
+          tournamentsPlayed,
+          matches,
+          games,
+          opponents,
+        }) => [
+          playerId,
+          { trophies, tournamentsPlayed, matches, games, opponents },
+        ],
+      ),
+    );
+    expect(byPlayer).toEqual({
+      [fourth]: {
+        trophies: 1,
+        tournamentsPlayed: 1,
+        matches: tally(2, 0),
+        games: tally(4, 1),
+        opponents: expect.arrayContaining([
+          { playerId: first, matches: tally(1, 0), games: tally(2, 1) },
+          { playerId: second, matches: tally(1, 0), games: tally(2, 0) },
+        ]),
+      },
+      [first]: {
+        trophies: 0,
+        tournamentsPlayed: 1,
+        matches: tally(0, 1),
+        games: tally(1, 2),
+        opponents: [
+          { playerId: fourth, matches: tally(0, 1), games: tally(1, 2) },
+        ],
+      },
+      [second]: {
+        trophies: 0,
+        tournamentsPlayed: 1,
+        matches: tally(1, 1),
+        games: tally(2, 2),
+        opponents: expect.arrayContaining([
+          { playerId: third, matches: tally(1, 0), games: tally(2, 0) },
+          { playerId: fourth, matches: tally(0, 1), games: tally(0, 2) },
+        ]),
+      },
+      [third]: {
+        trophies: 0,
+        tournamentsPlayed: 1,
+        matches: tally(0, 1),
+        games: tally(0, 2),
+        opponents: [
+          { playerId: second, matches: tally(0, 1), games: tally(0, 2) },
+        ],
+      },
+    });
+    for (const player of [fourth, second]) {
+      expect(byPlayer[player].opponents).toHaveLength(2);
+    }
   });
 
   it('is only for signed-in users', async () => {

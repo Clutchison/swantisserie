@@ -6,9 +6,11 @@ import type {
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   addBot,
   aliceCookie,
+  app,
   carol,
   draftsRequest,
   getDraft,
@@ -288,6 +290,19 @@ export async function matchOf(
     .find(({ players }) => players.includes(a) && players.includes(b));
   if (!match) throw new Error(`No match between ${a} and ${b}`);
   return match;
+}
+
+/**
+ * The id of a bye in the draft's tournament. The tournament view names a
+ * bye only by its player, so a client never sees this id; specs read it
+ * from the database to check the match routes refuse it.
+ */
+export async function byeId(id: string): Promise<string> {
+  const bye = await app.get(PrismaService).match.findFirstOrThrow({
+    where: { tournament: { draftId: id }, secondEntryId: null },
+    select: { id: true },
+  });
+  return bye.id;
 }
 
 /** Reports the match's game score, as whoever `cookie` signs in, `body` the request body as is. */

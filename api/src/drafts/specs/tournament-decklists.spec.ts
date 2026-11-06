@@ -5,6 +5,7 @@ import {
   bob,
   carol,
   completeDraft,
+  completeDraftWithBots,
   completeTournament,
   dropPlayer,
   draftsRequest,
@@ -94,6 +95,40 @@ describe('decklists under public decklists', () => {
     for (const cookie of [aliceCookie, bobCookie, carolCookie, daveCookie]) {
       expect((await decklists(id, cookie).expect(200)).body).toEqual(expected);
     }
+  });
+
+  it('serves a bot’s locked deck, from its joining at setup, like any joined player’s', async () => {
+    // A bot picks the first available card by name: Lava Spike, once Alice
+    // has picked Shock and Bob Lightning Bolt.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const { id, botIds } = await completeDraftWithBots(
+      [aliceCookie, bobCookie],
+      1,
+    );
+    const ids = await poolCardIds(id);
+    await setUpTournament(id, aliceCookie, withPublicDecklists()).expect(201);
+    for (const cookie of [aliceCookie, bobCookie]) {
+      await fullDeck(id, cookie);
+      await joinTournament(id, cookie).expect(201);
+    }
+
+    await startTournament(id).expect(200);
+
+    const served = (await decklists(id, daveCookie).expect(200))
+      .body as DecklistView[];
+    expect(served.map((decklist) => decklist.playerId)).toEqual([
+      botIds[0],
+      alice.id,
+      bob.id,
+    ]);
+    expect(served[0]).toEqual({
+      playerId: botIds[0],
+      mainboard: [
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+      ],
+      sideboard: [],
+      basics: [],
+    });
   });
 
   it('still serves a dropped player’s decklist', async () => {

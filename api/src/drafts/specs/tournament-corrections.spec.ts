@@ -2,6 +2,7 @@ import {
   alice,
   aliceCookie,
   bob,
+  byeId,
   carol,
   clearGameScore,
   completeRound,
@@ -95,6 +96,21 @@ describe('organizer reports', () => {
     expect(set.body.error).toBe('no-match');
     const clear = await clearGameScore(id, 'no-such-match').expect(404);
     expect(clear.body.error).toBe('no-match');
+  });
+
+  it('answers 404 no-match for a bye, to a correction and to Clear game score', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie],
+      swiss(),
+    );
+    const bye = await byeId(id);
+    const before = (await tournamentView(id)).rounds[0];
+
+    const set = await setGameScore(id, bye, { games: [2, 0] }).expect(404);
+    expect(set.body.error).toBe('no-match');
+    const clear = await clearGameScore(id, bye).expect(404);
+    expect(clear.body.error).toBe('no-match');
+    expect((await tournamentView(id)).rounds[0]).toEqual(before);
   });
 });
 
