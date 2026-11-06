@@ -359,7 +359,7 @@ describe('roundCompletion', () => {
       kind: 'Forfeit',
       forfeitedBy,
     });
-    /** Four players' round 1 of 2, s1 v s4 then s2 v s3, settled by `outcomes`. */
+    /** Four players' round 1 of 2, s1 v s4 then s2 v s3, decided by `outcomes`. */
     const semifinals = (
       outcomes: [MatchOutcome, MatchOutcome],
       dropped: string[] = [],
@@ -373,7 +373,7 @@ describe('roundCompletion', () => {
         { players: ['s2', 's3'] as const, outcome: outcomes[1] },
       ],
     });
-    /** Two players' final, s1 v s2, settled by `outcome`. */
+    /** Two players' final, s1 v s2, decided by `outcome`. */
     const final = (outcome: MatchOutcome, dropped: string[] = []) => ({
       format: 'SingleElimination' as const,
       round: 1,

@@ -464,8 +464,8 @@ export class TournamentsService {
       const joined = await tx.tournamentEntry.count({
         where: { tournamentId: tournament.id },
       });
-      const rounds = roundCount(tournament, joined);
-      const finalRound = round >= rounds;
+      const roundTotal = roundCount(tournament, joined);
+      const finalRound = round >= roundTotal;
       await steps.decide(tx, {
         tournamentId: tournament.id,
         round,
@@ -474,7 +474,7 @@ export class TournamentsService {
       });
       await refuseUnreported(tx, tournament.id, round, steps);
       const { completes } = roundCompletion(
-        await steps.completionInput(tx, tournament.id, round, rounds),
+        await steps.completionInput(tx, tournament.id, round, roundTotal),
       );
       await tx.tournament.update({
         where: { id: tournament.id },

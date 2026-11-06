@@ -198,7 +198,7 @@ async function pairBracketRound(
 
 /**
  * What the engine's roundCompletion reads of tournament round `round` of
- * the single elimination tournament `tournamentId`, of `roundCount`: its
+ * the single elimination tournament `tournamentId`, of `roundCount` rounds: its
  * entries, and the round's matches and byes.
  */
 async function completionInput(

@@ -80,7 +80,7 @@ export class CompleteRoundDialog {
    * What completing the round will do, as the engine's roundCompletion
    * forecasts it from the tournament with the organizer's picks: the
    * players chosen to drop counted as dropped, and in single elimination
-   * each unreported match settled as the organizer settles it.
+   * each unreported match decided as the organizer decides it.
    */
   protected readonly completion = computed(() => {
     const tournament = this.tournament();
@@ -100,7 +100,7 @@ export class CompleteRoundDialog {
 
   /**
    * In single elimination, the round's matches and byes as the organizer
-   * settles them: each unreported match a granted win for whoever they pick
+   * decides them: each unreported match a granted win for whoever they pick
    * (one is, before the round can be completed) or the forfeit of the
    * players chosen to drop.
    */

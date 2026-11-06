@@ -176,7 +176,10 @@ export async function takeBackDrops(
   for (const other of stillDropped) await forfeitUnplayed(tx, other.id);
 }
 
-/** The tournament's entries as the engine's roundCompletion reads them: by entry id, whether each has dropped. */
+/**
+ * The tournament's entries as the engine's roundCompletion reads them:
+ * whether each has dropped, its entry id standing as its player.
+ */
 export async function completingEntries(tx: Transaction, tournamentId: string) {
   const entries = await tx.tournamentEntry.findMany({
     where: { tournamentId },

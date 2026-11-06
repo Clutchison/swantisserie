@@ -38,7 +38,7 @@ export interface RoundSteps {
   pairNext(tx: Transaction, tournamentId: string, round: number): Promise<void>;
   /**
    * What the engine's roundCompletion reads of tournament round `round` of
-   * `roundCount`, once it is decided, for Complete round to decide whether
+   * `roundCount` rounds, once it is decided, for Complete round to decide whether
    * it completes the tournament.
    */
   completionInput(

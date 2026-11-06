@@ -47,6 +47,7 @@ export const SWISS_STEPS: RoundSteps = {
   decideHint: (unreported) =>
     unreported === 1 ? 'grant it a draw' : 'grant them draws',
   pairNext: pairSwiss,
+  /** Its entries: Swiss knocks nobody out, so the undropped play on. */
   completionInput: async (tx, tournamentId, round, roundCount) => ({
     format: 'Swiss',
     round,
