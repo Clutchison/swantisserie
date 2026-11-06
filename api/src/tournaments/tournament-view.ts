@@ -4,13 +4,22 @@ import type {
   TournamentRoundView,
   TournamentView,
 } from 'contract';
-import { standings, trophyHolders, type TournamentMatch } from 'engine';
+import {
+  roundRobinSchedule,
+  standings,
+  swissRoundCount,
+  swissStandings,
+  trophyHolders,
+  type TournamentMatch,
+} from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** What the tournament read selects of a tournament. */
 export const TOURNAMENT_VIEW = {
   format: true,
+  swissRoundOption: true,
   state: true,
+  lastCompletedRound: true,
   entries: {
     orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
     select: {
@@ -45,7 +54,9 @@ type MatchRow = TournamentRow['matches'][number];
 /**
  * The tournament as everyone who sees its draft reads it: its entries in
  * join order, its rounds in order, each round's matches in the order of
- * their first players' joining, and its standings and trophy holders.
+ * their first players' joining, and its standings and trophy holders. A
+ * Swiss tournament's standings count its byes; round robin's ignore them,
+ * as every player has equally many.
  */
 export function toTournamentView(row: TournamentRow): TournamentView {
   const order = new Map(row.entries.map((entry, i) => [entry.id, i]));
@@ -71,14 +82,22 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   }
 
   const players = row.entries.map((entry) => entry.player.userId);
-  const matches = rounds.flatMap((round) => round.matches);
+  const matches = rounds
+    .flatMap((round) => round.matches)
+    .map(toTournamentMatch);
+  const byes = rounds.flatMap((round) => (round.bye ? [round.bye] : []));
   const table =
     row.state === 'Registration'
       ? []
-      : standings(players, matches.map(toTournamentMatch));
+      : row.format === 'Swiss'
+        ? swissStandings(players, matches, byes)
+        : standings(players, matches);
   return {
     format: row.format,
+    swissRoundOption: row.swissRoundOption,
     state: row.state,
+    roundCount: roundCount(row, players.length),
+    lastCompletedRound: row.lastCompletedRound,
     entries: row.entries.map((entry) => ({
       playerId: entry.player.userId,
       dropped: entry.dropped,
@@ -87,6 +106,17 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     standings: table,
     trophyHolders: row.state === 'Complete' ? trophyHolders(table) : [],
   };
+}
+
+/** How many tournament rounds the tournament has, or will have with `joined` players; none for fewer than 2. */
+function roundCount(
+  { format, swissRoundOption }: TournamentRow,
+  joined: number,
+): number {
+  if (joined < 2) return 0;
+  return format === 'Swiss'
+    ? swissRoundCount(joined, swissRoundOption!)
+    : roundRobinSchedule(Array.from({ length: joined }, String)).length;
 }
 
 function toMatchView(

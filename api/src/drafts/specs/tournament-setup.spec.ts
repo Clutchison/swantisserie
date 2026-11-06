@@ -39,7 +39,10 @@ describe('tournament setup', () => {
     expect(answer.body.tournament).toEqual({ state: 'Registration' });
     expect((await tournament(id).expect(200)).body).toEqual({
       format: 'RoundRobin',
+      swissRoundOption: null,
       state: 'Registration',
+      roundCount: 0,
+      lastCompletedRound: 0,
       entries: [],
       rounds: [],
       standings: [],
@@ -92,7 +95,9 @@ describe('tournament setup', () => {
   it('refuses a format it does not offer', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
 
-    await setUpTournament(id, aliceCookie, { format: 'Swiss' }).expect(400);
+    await setUpTournament(id, aliceCookie, {
+      format: 'SingleElimination',
+    }).expect(400);
     await setUpTournament(id, aliceCookie, {}).expect(400);
     await tournament(id).expect(404);
   });

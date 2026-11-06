@@ -360,6 +360,10 @@ _Avoid_: League, all-play-all
 The format in which no one is knocked out: each tournament round pairs players with similar records who haven't played each other.
 _Avoid_: Swiss rounds (as the format's name), ladder
 
+**Swiss round option**:
+How many tournament rounds a Swiss tournament plays, chosen at tournament setup: until there's a winner (enough rounds for one player to be left unbeaten, the ceiling of log₂ of the joined players) or capped at 3.
+_Avoid_: Round limit, length, rounds setting
+
 **Single elimination**:
 The format in which a player who loses a match is out, until one player is left.
 _Avoid_: Knockout, bracket (as the format's name), cup
@@ -449,7 +453,7 @@ One set of matches in a tournament, in which each player plays at most one.
 _Avoid_: Round (alone; that is a pick round), stage, week
 
 **Bye**:
-A tournament round in which a player has no match.
+A tournament round in which a player has no match. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one.
 _Avoid_: Rest, skip, free win
 
 **Granted draw**:

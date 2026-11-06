@@ -1,8 +1,15 @@
 /**
- * How a tournament pairs its players, chosen once at tournament setup. Only
- * round robin for now: Swiss and single elimination come with their specs.
+ * How a tournament pairs its players, chosen once at tournament setup.
+ * Single elimination comes with its spec.
  */
-export type TournamentFormat = 'RoundRobin';
+export type TournamentFormat = 'RoundRobin' | 'Swiss';
+
+/**
+ * How many tournament rounds a Swiss tournament plays, chosen at tournament
+ * setup: until there's a winner (the ceiling of log2 of its joined players),
+ * or capped at 3. The engine's SwissRoundOption is the same type.
+ */
+export type SwissRoundOption = 'UntilWinner' | 'CappedAt3';
 
 /** Registration → Playing → Complete. The glossary has the long form. */
 export type TournamentState = 'Registration' | 'Playing' | 'Complete';
@@ -87,10 +94,23 @@ export interface StandingView {
  */
 export interface TournamentView {
   format: TournamentFormat;
+  /** A Swiss tournament's round option; null for round robin. */
+  swissRoundOption: SwissRoundOption | null;
   state: TournamentState;
+  /** How many tournament rounds it will have, for the players joined so far during registration. */
+  roundCount: number;
+  /**
+   * The last tournament round an organizer completed, from 1; 0 before any.
+   * Always 0 in round robin, which plays its rounds all at once.
+   */
+  lastCompletedRound: number;
   /** In join order. */
   entries: TournamentEntryView[];
-  /** Every tournament round, in order, once it is playing; none during registration. */
+  /**
+   * Every tournament round paired so far, in order, once it is playing; none
+   * during registration. Round robin pairs all of them at the start, Swiss
+   * one at a time.
+   */
   rounds: TournamentRoundView[];
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
@@ -107,9 +127,9 @@ export interface MatchReportRequest {
 }
 
 /** Tournament setup, as the organizer chooses it: all at once, never changed. */
-export interface TournamentSetupRequest {
-  format: TournamentFormat;
-}
+export type TournamentSetupRequest =
+  | { format: 'RoundRobin' }
+  | { format: 'Swiss'; swissRoundOption: SwissRoundOption };
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
 export const MIN_MAINBOARD_CARDS = 40;
