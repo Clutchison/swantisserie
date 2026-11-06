@@ -18,12 +18,7 @@ import {
   placings,
   played,
 } from './tournament.fixtures.js';
-import {
-  agreedAdvancingPlayer,
-  bracketRounds,
-  bracketTrophyHolders,
-  type PlayedBracketMatch,
-} from './single-elimination.js';
+import { singleEliminationStandings } from './single-elimination.js';
 
 describe('droppedPlayers', () => {
   it('is the players who have dropped, in entry order', () => {
@@ -394,21 +389,20 @@ describe('roundCompletion', () => {
     it.each(cases.filter(([, , completion]) => completion.completes))(
       'forecasts the trophy as the complete tournament awards it: %s',
       (_, input, completion) => {
-        const dropped = droppedPlayers(input.entries);
-        const bracketMatches = input.results.map(
-          (result, bracketPlace): PlayedBracketMatch => ({
-            round: input.round,
-            bracketPlace,
-            players: result.players,
-            advancing: agreedAdvancingPlayer(
-              { ...result, reportedBy: null, confirmed: false },
-              dropped,
-              true,
-            ),
-          }),
+        const matches = input.results.flatMap(
+          ({ players: [a, b], outcome }): TournamentMatch[] =>
+            b === null ? [] : [{ players: [a, b], outcome }],
         );
-        const holders = bracketTrophyHolders(
-          bracketRounds(input.roundCount, bracketMatches, dropped),
+        const byes = input.results.flatMap(({ players: [a, b] }) =>
+          b === null ? [a] : [],
+        );
+        const holders = trophyHolders(
+          singleEliminationStandings(
+            input.entries.map((entry) => entry.playerId),
+            matches,
+            byes,
+            droppedPlayers(input.entries),
+          ),
         );
         expect(holders.length > 0).toBe(
           completion.completes && completion.trophyHolder,
