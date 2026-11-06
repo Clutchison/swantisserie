@@ -182,7 +182,7 @@ export class TournamentTab {
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
   /** Whether a correction or clear can clear later matches, as the read says, so the api previews it first. */
-  private readonly previewsChanges = computed(() => !!this.tournament()?.correctionsPreview);
+  private readonly previewsCorrections = computed(() => !!this.tournament()?.previewsCorrections);
   /** The Complete round dialog, while it's open. */
   private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
@@ -387,7 +387,7 @@ export class TournamentTab {
     const warning = { question: `Correct ${this.matchLabel(matchId)}?`, detail: null };
     return this.send(
       () =>
-        this.previewsChanges()
+        this.previewsCorrections()
           ? this.goesAhead(matchId, games, { ...warning, action: 'Correct' }, () => true).then(
               (goAhead) => (goAhead ? correct() : undefined),
             )
@@ -409,7 +409,7 @@ export class TournamentTab {
     const confirmed = () => confirm(`${question} ${after}`);
     return this.send(
       () =>
-        this.previewsChanges()
+        this.previewsCorrections()
           ? this.goesAhead(
               matchId,
               null,
@@ -439,7 +439,7 @@ export class TournamentTab {
     askUnwarned: () => boolean,
   ): Promise<boolean> {
     const preview = await firstValueFrom(
-      this.api.previewGameScore(this.draft().id, matchId, games),
+      this.api.previewCorrection(this.draft().id, matchId, games),
     );
     const quiet = preview.clears.length === 0 && preview.state === this.state();
     return quiet ? askUnwarned() : this.warned({ ...warning, preview });

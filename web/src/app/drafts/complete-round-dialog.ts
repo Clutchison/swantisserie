@@ -1,7 +1,7 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
-import { advancingPlayer, droppedPlayers, MIN_UNDROPPED_PLAYERS } from 'engine';
+import { countAdvancing, droppedPlayers, MIN_PLAYERS_LEFT, type BracketResult } from 'engine';
 import { DraftStore } from './draft-store';
 
 /** The Complete round dialog's heading's id, which names the dialog. */
@@ -11,11 +11,12 @@ export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
  * The Tournament tab's Complete round dialog, opened on the dialog shell
  * for organizers of a Swiss or single elimination tournament: what
  * completing its current tournament round does, and its unreported
- * matches. In Swiss they become granted draws, each with a choice of its
- * players to drop, except in the final tournament round. In single
- * elimination, which never has a draw, the organizer picks each one's
- * winner, who gets a granted win, or drops one or both of its players,
- * which makes it their forfeit, before the round can be completed. It
+ * matches, as the read's `completeRoundGrants` says. In Swiss they become
+ * granted draws, each with a choice of its players to drop, except in the
+ * final tournament round. In single elimination, which never has a draw,
+ * the organizer picks each one's winner, who gets a granted win, or drops
+ * one or both of its players, which makes it their forfeit, before the
+ * round can be completed. It
  * opens on Cancel, with nobody dropped or picked, and closes with the
  * request to send once the organizer completes the round; the tab sends
  * it.
@@ -31,12 +32,12 @@ export class CompleteRoundDialog {
   private readonly dialogRef = inject<DialogRef<CompleteRoundRequest>>(DialogRef);
 
   protected readonly headingId = COMPLETE_ROUND_HEADING;
-  protected readonly minUndropped = MIN_UNDROPPED_PLAYERS;
+  protected readonly minPlayersLeft = MIN_PLAYERS_LEFT;
   private readonly tournament = this.store.tournament.value;
 
-  /** Whether the tournament is single elimination, whose unreported matches each need a winner picked. */
-  protected readonly singleElimination = computed(
-    () => this.tournament()?.format === 'SingleElimination',
+  /** Whether Complete round gives granted wins, as single elimination does: each unreported match needs a winner picked. */
+  protected readonly grantsWins = computed(
+    () => this.tournament()?.completeRoundGrants === 'GrantedWins',
   );
   /** The tournament round it completes: the one after the last completed. */
   protected readonly round = computed(() => (this.tournament()?.lastCompletedRound ?? 0) + 1);
@@ -63,7 +64,7 @@ export class CompleteRoundDialog {
    */
   protected readonly ready = computed(
     () =>
-      !this.singleElimination() ||
+      !this.grantsWins() ||
       this.unreported().every((match) => !!this.winners()[match.id] || this.drops(match.id)),
   );
   /**
@@ -72,40 +73,53 @@ export class CompleteRoundDialog {
    * tournament. In Swiss, the undropped players; in single elimination,
    * those who would advance from the round.
    */
-  protected readonly tooFewLeft = computed(() => {
-    const dropped = [
-      ...droppedPlayers(this.tournament()?.entries ?? []),
-      ...Object.values(this.dropping()).flat(),
-    ];
-    if (this.singleElimination()) return this.advancing(dropped) < MIN_UNDROPPED_PLAYERS;
-    const undropped = (this.tournament()?.entries ?? []).filter(
-      (entry) => !dropped.includes(entry.playerId),
-    );
-    return undropped.length < MIN_UNDROPPED_PLAYERS;
-  });
+  protected readonly tooFewLeft = computed(() =>
+    this.grantsWins()
+      ? this.advancing() < MIN_PLAYERS_LEFT
+      : (this.tournament()?.entries ?? []).filter(
+          (entry) => !this.dropped().includes(entry.playerId),
+        ).length < MIN_PLAYERS_LEFT,
+  );
+  /**
+   * Whether nobody would hold the trophy once the round completes the
+   * tournament: in single elimination, when nobody would advance from it,
+   * as when both finalists drop.
+   */
+  protected readonly noTrophyHolder = computed(
+    () => this.grantsWins() && (this.finalRound() || this.tooFewLeft()) && this.advancing() === 0,
+  );
+
+  /** Every player dropped, or chosen to drop. */
+  private readonly dropped = computed(() => [
+    ...droppedPlayers(this.tournament()?.entries ?? []),
+    ...Object.values(this.dropping()).flat(),
+  ]);
 
   /**
-   * How many players would advance from the round, `dropped` holding every
-   * player dropped or chosen to drop: from each match, its winner, whoever
-   * the organizer picks for an unreported one, or nobody when both its
-   * players drop; and each undropped player with a bye.
+   * In single elimination, how many players would advance from the round,
+   * as the engine counts them: each unreported match as the organizer
+   * settles it, a granted win for whoever they pick (one is, before the
+   * round can be completed) or the forfeit of the players chosen to drop.
    */
-  private advancing(dropped: string[]) {
+  private readonly advancing = computed(() => {
     const round = this.tournament()?.rounds.find((r) => r.round === this.round());
-    const fromMatches = (round?.matches ?? []).map(({ id, players, outcome }) => {
+    const matches = (round?.matches ?? []).map(({ id, players, outcome }): BracketResult => {
+      if (outcome.kind !== 'Unreported') return { players, outcome };
       const dropping = this.dropping()[id] ?? [];
-      if (outcome.kind !== 'Unreported') return advancingPlayer({ players, outcome }, dropped);
-      if (dropping.length === 0) return players[0];
-      return advancingPlayer(
-        { players, outcome: { kind: 'Forfeit', forfeitedBy: dropping[0] } },
-        dropped,
-      );
+      return {
+        players,
+        outcome:
+          dropping.length === 0
+            ? { kind: 'GrantedWin', winner: this.winners()[id] ?? players[0] }
+            : { kind: 'Forfeit', forfeitedBy: dropping[0] },
+      };
     });
-    const fromByes = (round?.byes ?? []).map((id) =>
-      advancingPlayer({ players: [id, null], outcome: null }, dropped),
-    );
-    return [...fromMatches, ...fromByes].filter((id) => id !== null).length;
-  }
+    const byes = (round?.byes ?? []).map((id): BracketResult => ({
+      players: [id, null],
+      outcome: null,
+    }));
+    return countAdvancing([...matches, ...byes], this.dropped());
+  });
 
   protected isDropping(matchId: string, playerId: string) {
     return this.dropping()[matchId]?.includes(playerId) ?? false;
@@ -148,7 +162,7 @@ export class CompleteRoundDialog {
    * chosen to drop from it.
    */
   protected completeRound() {
-    if (this.singleElimination()) {
+    if (this.grantsWins()) {
       const dropping = this.unreported().filter((match) => this.drops(match.id));
       const won = this.unreported().filter((match) => !this.drops(match.id));
       this.dialogRef.close({

@@ -5,8 +5,8 @@ import type {
   CompleteRoundRequest,
   DraftView,
   GameScore,
-  GameScorePreview,
-  GameScorePreviewRequest,
+  CorrectionPreview,
+  CorrectionPreviewRequest,
   MatchReportRequest,
   TournamentSetupRequest,
 } from 'contract';
@@ -61,14 +61,14 @@ export class TournamentApi {
    * are null, would clear beyond it: the later single elimination matches
    * it feeds, if it changes who advances. Changes nothing; for organizers.
    */
-  previewGameScore(
+  previewCorrection(
     draftId: string,
     matchId: string,
     games: GameScore | null,
-  ): Observable<GameScorePreview> {
-    return this.http.post<GameScorePreview>(`${matchUrl(draftId, matchId)}/game-score/preview`, {
+  ): Observable<CorrectionPreview> {
+    return this.http.post<CorrectionPreview>(`${matchUrl(draftId, matchId)}/game-score/preview`, {
       games,
-    } satisfies GameScorePreviewRequest);
+    } satisfies CorrectionPreviewRequest);
   }
 
   /** Clears a match's game score; for organizers. */

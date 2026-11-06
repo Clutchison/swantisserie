@@ -105,6 +105,11 @@ describe('starting a Swiss tournament', () => {
 
     const view = await tournamentView(id);
     expect(view.roundCount).toBe(2);
+    expect(view).toMatchObject({
+      previewsCorrections: false,
+      completeRoundGrants: 'GrantedDraws',
+      clearReopensRound: false,
+    });
     expect(view.rounds).toHaveLength(1);
     expect(view.rounds[0].round).toBe(1);
     expect(view.rounds[0].byes).toEqual([]);

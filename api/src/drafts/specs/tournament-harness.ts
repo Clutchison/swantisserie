@@ -343,7 +343,7 @@ export function reinstate(id: string, playerId: string, cookie = aliceCookie) {
  * when they are null, as an organizer would, as whoever `cookie` signs in:
  * the later matches it would clear.
  */
-export function previewGameScore(
+export function previewCorrection(
   id: string,
   matchId: string,
   body: unknown,

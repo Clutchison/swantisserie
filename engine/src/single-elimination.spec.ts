@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advancingPlayer,
-  agreedWinnerOf,
+  agreedAdvancingPlayer,
   bracketRounds,
+  bracketTrophyHolders,
+  countAdvancing,
   dependentBracketPlaces,
   firstBracketRound,
   nextBracketRound,
   singleEliminationRoundCount,
   singleEliminationStandings,
   winnerOf,
+  type Advancing,
+  type PlayedBracketMatch,
 } from './single-elimination.js';
 import type {
   DecidedMatch,
@@ -243,38 +246,135 @@ describe('winnerOf', () => {
   });
 });
 
-describe('advancingPlayer', () => {
+describe('agreedAdvancingPlayer', () => {
+  const won: MatchOutcome = { kind: 'GameScore', games: [2, 1], draws: 0 };
   const forfeit = { kind: 'Forfeit', forfeitedBy: 'a' } as const;
-  const played: MatchOutcome = { kind: 'GameScore', games: [2, 0], draws: 0 };
+  const unreported = { reportedBy: null, confirmed: false };
+  const player = (playerId: string) => ({ kind: 'Player', playerId }) as const;
+  const nobody = { kind: 'Nobody' } as const;
+  const notAgreed = { kind: 'NotAgreed' } as const;
 
   it('is the opponent of a player who dropped, on the forfeit', () => {
     expect(
-      advancingPlayer({ players: ['a', 'b'], outcome: forfeit }, ['a']),
-    ).toBe('b');
+      agreedAdvancingPlayer(
+        { players: ['a', 'b'], outcome: forfeit, ...unreported },
+        ['a'],
+        false,
+      ),
+    ).toEqual(player('b'));
   });
 
   it('is nobody when both players dropped before playing', () => {
     expect(
-      advancingPlayer({ players: ['a', 'b'], outcome: forfeit }, ['b', 'a']),
-    ).toBeNull();
+      agreedAdvancingPlayer(
+        { players: ['a', 'b'], outcome: forfeit, ...unreported },
+        ['b', 'a'],
+        false,
+      ),
+    ).toEqual(nobody);
   });
 
   it('is the winner of a played match, even if both dropped since', () => {
     expect(
-      advancingPlayer({ players: ['a', 'b'], outcome: played }, ['a', 'b']),
-    ).toBe('a');
+      agreedAdvancingPlayer(
+        {
+          players: ['a', 'b'],
+          outcome: won,
+          reportedBy: 'org',
+          confirmed: false,
+        },
+        ['a', 'b'],
+        false,
+      ),
+    ).toEqual(player('a'));
   });
 
   it('is the player with a bye, unless they dropped', () => {
-    const bye = { players: ['a', null], outcome: null } as const;
-    expect(advancingPlayer(bye, [])).toBe('a');
-    expect(advancingPlayer(bye, ['a'])).toBeNull();
+    const bye = { players: ['a', null], outcome: null, ...unreported } as const;
+    expect(agreedAdvancingPlayer(bye, [], false)).toEqual(player('a'));
+    expect(agreedAdvancingPlayer(bye, ['a'], false)).toEqual(nobody);
   });
 
-  it('is nobody while the match is unreported', () => {
+  it('is not agreed while the match is unreported, even once its round is completed', () => {
     expect(
-      advancingPlayer({ players: ['a', 'b'], outcome: null }, []),
-    ).toBeNull();
+      agreedAdvancingPlayer(
+        { players: ['a', 'b'], outcome: null, ...unreported },
+        [],
+        true,
+      ),
+    ).toEqual(notAgreed);
+  });
+
+  it.each<[string, { reportedBy: string | null; confirmed: boolean }, object]>([
+    [
+      'not agreed while its player’s report is unconfirmed',
+      { reportedBy: 'b', confirmed: false },
+      notAgreed,
+    ],
+    [
+      'the winner once the other player confirms it',
+      { reportedBy: 'b', confirmed: true },
+      player('a'),
+    ],
+    [
+      'the winner of a game score the organizer entered',
+      { reportedBy: 'org', confirmed: false },
+      player('a'),
+    ],
+  ])('is %s', (_, fields, advancing) => {
+    expect(
+      agreedAdvancingPlayer(
+        { players: ['a', 'b'], outcome: won, ...fields },
+        [],
+        false,
+      ),
+    ).toEqual(advancing);
+  });
+
+  it('is the winner of a granted win', () => {
+    expect(
+      agreedAdvancingPlayer(
+        {
+          players: ['a', 'b'],
+          outcome: { kind: 'GrantedWin', winner: 'b' },
+          ...unreported,
+        },
+        [],
+        false,
+      ),
+    ).toEqual(player('b'));
+  });
+
+  it('is the winner once the match’s tournament round is completed, confirmed or not', () => {
+    expect(
+      agreedAdvancingPlayer(
+        {
+          players: ['a', 'b'],
+          outcome: won,
+          reportedBy: 'b',
+          confirmed: false,
+        },
+        [],
+        true,
+      ),
+    ).toEqual(player('a'));
+  });
+});
+
+describe('countAdvancing', () => {
+  it('counts the players a tournament round’s matches and byes send on', () => {
+    const forfeit = { kind: 'Forfeit', forfeitedBy: 'c' } as const;
+    expect(
+      countAdvancing(
+        [
+          { players: ['a', 'b'], outcome: { kind: 'GrantedWin', winner: 'a' } },
+          { players: ['c', 'd'], outcome: forfeit },
+          { players: ['e', null], outcome: null },
+          { players: ['f', null], outcome: null },
+        ],
+        ['c', 'd', 'f'],
+      ),
+    ).toBe(2);
   });
 });
 
@@ -294,92 +394,40 @@ describe('dependentBracketPlaces', () => {
   });
 });
 
-describe('agreedWinnerOf', () => {
-  const won: DecidedMatch['outcome'] = {
-    kind: 'GameScore',
-    games: [2, 1],
-    draws: 0,
-  };
-  const match = (fields: {
-    reportedBy: string | null;
-    confirmed: boolean;
-  }) => ({
-    players: ['a', 'b'] as [string, string],
-    outcome: won,
-    ...fields,
-  });
-
-  it.each<
-    [string, { reportedBy: string | null; confirmed: boolean }, string | null]
-  >([
-    [
-      'nobody while its player’s report is unconfirmed',
-      { reportedBy: 'b', confirmed: false },
-      null,
-    ],
-    [
-      'the winner once the other player confirms it',
-      { reportedBy: 'b', confirmed: true },
-      'a',
-    ],
-    [
-      'the winner of a game score the organizer entered',
-      { reportedBy: 'org', confirmed: false },
-      'a',
-    ],
-  ])('is %s', (_, fields, winner) => {
-    expect(agreedWinnerOf(match(fields), false)).toBe(winner);
-  });
-
-  it('is the winner of a granted win or a forfeit', () => {
-    const decided = {
-      reportedBy: null,
-      confirmed: false,
-      players: ['a', 'b'] as [string, string],
-    };
-    expect(
-      agreedWinnerOf(
-        { ...decided, outcome: { kind: 'GrantedWin', winner: 'b' } },
-        false,
-      ),
-    ).toBe('b');
-    expect(
-      agreedWinnerOf(
-        { ...decided, outcome: { kind: 'Forfeit', forfeitedBy: 'b' } },
-        false,
-      ),
-    ).toBe('a');
-  });
-
-  it('is the winner once the match’s tournament round is completed, confirmed or not', () => {
-    expect(
-      agreedWinnerOf(match({ reportedBy: 'b', confirmed: false }), true),
-    ).toBe('a');
-  });
-});
-
 describe('bracketRounds', () => {
   const player = (playerId: string) => ({ kind: 'Player', playerId }) as const;
   const winnerToCome = (bracketPlace: number) =>
     ({ kind: 'WinnerToCome', bracketPlace }) as const;
   const bye = { kind: 'Bye' } as const;
+  const notAgreed = { kind: 'NotAgreed' } as const;
+  const nobody = { kind: 'Nobody' } as const;
+  const match = (
+    round: number,
+    bracketPlace: number,
+    players: [string, string | null],
+    advancing: Advancing,
+  ): PlayedBracketMatch => ({ round, bracketPlace, players, advancing });
 
   it('draws every tournament round, the unpaired ones fed by the bracket places before them', () => {
     // 3 players: s1 has a bye, s2 plays s3, unreported.
     expect(
-      bracketRounds(2, [
-        { round: 1, bracketPlace: 0, players: ['s1', null], winner: 's1' },
-        { round: 1, bracketPlace: 1, players: ['s2', 's3'], winner: null },
-      ]),
+      bracketRounds(
+        2,
+        [
+          match(1, 0, ['s1', null], player('s1')),
+          match(1, 1, ['s2', 's3'], notAgreed),
+        ],
+        [],
+      ),
     ).toEqual([
       {
         round: 1,
         places: [
-          { bracketPlace: 0, sides: [player('s1'), bye], winner: 's1' },
+          { bracketPlace: 0, sides: [player('s1'), bye], advancing: 's1' },
           {
             bracketPlace: 1,
             sides: [player('s2'), player('s3')],
-            winner: null,
+            advancing: null,
           },
         ],
       },
@@ -389,7 +437,7 @@ describe('bracketRounds', () => {
           {
             bracketPlace: 0,
             sides: [player('s1'), winnerToCome(1)],
-            winner: null,
+            advancing: null,
           },
         ],
       },
@@ -398,12 +446,16 @@ describe('bracketRounds', () => {
 
   it('puts a match’s winner in the next bracket place before that round is paired, and leaves later ones to the winners of the places feeding them', () => {
     // 8 players: s1, s5 and s3 have won; s2 v s7 is unreported.
-    const rounds = bracketRounds(3, [
-      { round: 1, bracketPlace: 0, players: ['s1', 's8'], winner: 's1' },
-      { round: 1, bracketPlace: 1, players: ['s4', 's5'], winner: 's5' },
-      { round: 1, bracketPlace: 2, players: ['s2', 's7'], winner: null },
-      { round: 1, bracketPlace: 3, players: ['s3', 's6'], winner: 's3' },
-    ]);
+    const rounds = bracketRounds(
+      3,
+      [
+        match(1, 0, ['s1', 's8'], player('s1')),
+        match(1, 1, ['s4', 's5'], player('s5')),
+        match(1, 2, ['s2', 's7'], notAgreed),
+        match(1, 3, ['s3', 's6'], player('s3')),
+      ],
+      [],
+    );
     expect(rounds.slice(1)).toEqual([
       {
         round: 2,
@@ -411,12 +463,12 @@ describe('bracketRounds', () => {
           {
             bracketPlace: 0,
             sides: [player('s1'), player('s5')],
-            winner: null,
+            advancing: null,
           },
           {
             bracketPlace: 1,
             sides: [winnerToCome(2), player('s3')],
-            winner: null,
+            advancing: null,
           },
         ],
       },
@@ -426,7 +478,7 @@ describe('bracketRounds', () => {
           {
             bracketPlace: 0,
             sides: [winnerToCome(0), winnerToCome(1)],
-            winner: null,
+            advancing: null,
           },
         ],
       },
@@ -434,16 +486,129 @@ describe('bracketRounds', () => {
   });
 
   it('draws a paired tournament round as it was paired', () => {
-    const rounds = bracketRounds(2, [
-      { round: 1, bracketPlace: 0, players: ['s1', 's4'], winner: 's1' },
-      { round: 1, bracketPlace: 1, players: ['s2', 's3'], winner: 's3' },
-      { round: 2, bracketPlace: 0, players: ['s1', 's3'], winner: 's3' },
-    ]);
+    const rounds = bracketRounds(
+      2,
+      [
+        match(1, 0, ['s1', 's4'], player('s1')),
+        match(1, 1, ['s2', 's3'], player('s3')),
+        match(2, 0, ['s1', 's3'], player('s3')),
+      ],
+      [],
+    );
     expect(rounds[1]).toEqual({
       round: 2,
       places: [
-        { bracketPlace: 0, sides: [player('s1'), player('s3')], winner: 's3' },
+        {
+          bracketPlace: 0,
+          sides: [player('s1'), player('s3')],
+          advancing: 's3',
+        },
       ],
     });
+  });
+
+  it('gives the player waiting on a match nobody advances from a bye at once, which sends them on', () => {
+    // 8 players: s1 won; s4 v s5 both dropped; s2 v s7 and s3 v s6 unreported.
+    const rounds = bracketRounds(
+      3,
+      [
+        match(1, 0, ['s1', 's8'], player('s1')),
+        match(1, 1, ['s4', 's5'], nobody),
+        match(1, 2, ['s2', 's7'], notAgreed),
+        match(1, 3, ['s3', 's6'], notAgreed),
+      ],
+      ['s4', 's5'],
+    );
+    expect(rounds.slice(1)).toEqual([
+      {
+        round: 2,
+        places: [
+          { bracketPlace: 0, sides: [player('s1'), bye], advancing: 's1' },
+          {
+            bracketPlace: 1,
+            sides: [winnerToCome(2), winnerToCome(3)],
+            advancing: null,
+          },
+        ],
+      },
+      {
+        round: 3,
+        places: [
+          {
+            bracketPlace: 0,
+            sides: [player('s1'), winnerToCome(1)],
+            advancing: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('puts the waiting player first, and sends nobody on from the bye of a player who dropped', () => {
+    // 4 players: s1 v s4 both dropped; s2 won, and has dropped since.
+    const rounds = bracketRounds(
+      2,
+      [
+        match(1, 0, ['s1', 's4'], nobody),
+        match(1, 1, ['s2', 's3'], player('s2')),
+      ],
+      ['s1', 's4', 's2'],
+    );
+    expect(rounds[1].places).toEqual([
+      { bracketPlace: 0, sides: [player('s2'), bye], advancing: null },
+    ]);
+  });
+
+  it('gives a bracket place nobody reaches two byes, from which nobody advances', () => {
+    const rounds = bracketRounds(
+      2,
+      [match(1, 0, ['s1', 's4'], nobody), match(1, 1, ['s2', 's3'], nobody)],
+      ['s1', 's2', 's3', 's4'],
+    );
+    expect(rounds[1].places).toEqual([
+      { bracketPlace: 0, sides: [bye, bye], advancing: null },
+    ]);
+  });
+});
+
+describe('bracketTrophyHolders', () => {
+  const player = (playerId: string) => ({ kind: 'Player', playerId }) as const;
+  const nobody = { kind: 'Nobody' } as const;
+  const match = (
+    round: number,
+    bracketPlace: number,
+    players: [string, string],
+    advancing: Advancing,
+  ): PlayedBracketMatch => ({ round, bracketPlace, players, advancing });
+
+  it('is the player who advances from the final', () => {
+    const rounds = bracketRounds(
+      1,
+      [match(1, 0, ['s1', 's2'], player('s2'))],
+      [],
+    );
+    expect(bracketTrophyHolders(rounds)).toEqual(['s2']);
+  });
+
+  it('is nobody when both finalists dropped', () => {
+    const rounds = bracketRounds(
+      1,
+      [match(1, 0, ['s1', 's2'], nobody)],
+      ['s1', 's2'],
+    );
+    expect(bracketTrophyHolders(rounds)).toEqual([]);
+  });
+
+  it('is the one player left when the tournament completes before its final', () => {
+    // 4 players, completed after round 1: s1 won, s2 v s3 both dropped.
+    const rounds = bracketRounds(
+      2,
+      [
+        match(1, 0, ['s1', 's4'], player('s1')),
+        match(1, 1, ['s2', 's3'], nobody),
+      ],
+      ['s2', 's3'],
+    );
+    expect(bracketTrophyHolders(rounds)).toEqual(['s1']);
   });
 });

@@ -114,13 +114,13 @@ export class TournamentResults {
       round: round.round,
       label: `Tournament round ${round.round}`,
       byes: round.byes.map((id) => this.seeded(id)),
-      matches: round.matches.map((match) => this.line(match)),
+      matches: round.matches.map((match) => this.line(match, round.round)),
     }));
     return format === 'Swiss' ? shown.reverse() : shown;
   });
 
-  /** How a match reads in its list, and the opponent to report it against, if any. */
-  private line(match: MatchView) {
+  /** How a match of tournament round `round` reads in its list, and the opponent to report it against, if any. */
+  private line(match: MatchView, round: number) {
     const own = this.ownId();
     const reportable =
       this.tournament().state === 'Playing' &&
@@ -137,7 +137,12 @@ export class TournamentResults {
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
       organize: this.organize()
-        ? this.organizerControls(match, this.name(match.players[0]), this.name(match.players[1]))
+        ? this.organizerControls(
+            match,
+            round,
+            this.name(match.players[0]),
+            this.name(match.players[1]),
+          )
         : null,
     };
   }
@@ -164,14 +169,14 @@ export class TournamentResults {
   }
 
   /**
-   * What an organizer can do with `match`, its players `first` and
-   * `second`: set any game score, and clear it if that
-   * changes anything.
+   * What an organizer can do with `match`, of tournament round `round`,
+   * its players `first` and `second`: set any game score, and clear it if
+   * that changes anything.
    */
-  private organizerControls(match: MatchView, first: string, second: string) {
+  private organizerControls(match: MatchView, round: number, first: string, second: string) {
     const label = versus([first, second]);
     const verb = match.outcome.kind === 'Unreported' ? 'Report' : 'Correct';
-    const after = this.afterClearing(match);
+    const after = this.afterClearing(match, round);
     return {
       label,
       verb,
@@ -185,28 +190,30 @@ export class TournamentResults {
   }
 
   /**
-   * What clearing `match` leaves it as, or null if it already is that. Once
-   * the tournament is complete it becomes a granted draw, except in single
-   * elimination, which never has a draw and reopens the match's tournament
-   * round instead. While it is playing, or in single elimination, it is
-   * unreported again, unless one of its players has dropped: then it is
-   * their forfeit. The correction warning says what else it clears.
+   * What clearing `match`, of tournament round `round`, leaves it as, or
+   * null if it already is that, as the api's clear does. A match with a
+   * dropped player is their forfeit again while the tournament is playing,
+   * or whatever the state when the read says a clear reopens its round, as
+   * in single elimination. Otherwise it is unreported again, unless its
+   * round or the tournament is complete and a clear doesn't reopen its
+   * round: then it becomes a granted draw. The correction warning says what
+   * else it clears.
    */
-  private afterClearing({ players, outcome }: MatchView) {
-    const { format, state } = this.tournament();
-    if (state === 'Complete' && format !== 'SingleElimination') {
-      return outcome.kind === 'GrantedDraw' ? null : 'The match becomes a granted draw.';
-    }
+  private afterClearing({ players, outcome }: MatchView, round: number) {
+    const { state, lastCompletedRound, clearReopensRound, entries } = this.tournament();
     const dropped = new Set(
-      this.tournament()
-        .entries.filter((entry) => entry.dropped)
-        .map((entry) => entry.playerId),
+      entries.filter((entry) => entry.dropped).map((entry) => entry.playerId),
     );
-    const forfeiting = players.find((id) => dropped.has(id));
+    const forfeiting =
+      state === 'Playing' || clearReopensRound ? players.find((id) => dropped.has(id)) : undefined;
     if (forfeiting) {
       return outcome.kind === 'Forfeit'
         ? null
         : `It becomes a forfeit by ${this.name(forfeiting)}, who has dropped.`;
+    }
+    const roundCompleted = state === 'Complete' || round <= lastCompletedRound;
+    if (roundCompleted && !clearReopensRound) {
+      return outcome.kind === 'GrantedDraw' ? null : 'The match becomes a granted draw.';
     }
     return outcome.kind === 'Unreported' ? null : 'The match is unreported again.';
   }

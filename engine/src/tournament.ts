@@ -45,6 +45,14 @@ export function roundRobinRoundCount(joined: number): number {
   return joined % 2 === 1 ? joined : Math.max(0, joined - 1);
 }
 
+/**
+ * The fewest players left to play on that Complete round pairs another
+ * tournament round for: in Swiss, the players who haven't dropped; in
+ * single elimination, those who advance from the round. With fewer, it
+ * completes the tournament.
+ */
+export const MIN_PLAYERS_LEFT = 2;
+
 /** Match points for a won, drawn and lost match. */
 export const MATCH_POINTS = { won: 3, drawn: 1, lost: 0 } as const;
 

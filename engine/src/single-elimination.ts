@@ -18,9 +18,10 @@ export function singleEliminationRoundCount(joined: number): number {
 
 /**
  * One match of a single elimination bracket at its bracket place: its place
- * in its tournament round, from 0. Bracket place p of a round is fed by the winners
- * of places 2p and 2p + 1 of the round before. A null second player makes it
- * a bye, which only round 1 has.
+ * in its tournament round, from 0. Bracket place p of a round is fed by the
+ * players who advance from places 2p and 2p + 1 of the round before. A null
+ * second player makes it a bye: the top seeds' in round 1, and in a later
+ * round the player whose would-be opponent nobody sent on.
  */
 export interface BracketMatch {
   bracketPlace: number;
@@ -50,19 +51,19 @@ export function firstBracketRound(
 }
 
 /**
- * The next tournament round of a bracket from `winners`, the player each
+ * The next tournament round of a bracket from `advancing`, the player each
  * bracket place of the round before sends on, in bracket place order, or
- * null where nobody advances: the winners of neighbouring bracket places
- * meet. A player whose would-be opponent is null has a bye, and a bracket
- * place nobody reaches is left out.
+ * null where nobody advances: the players advancing from neighbouring
+ * bracket places meet. A player whose would-be opponent is null has a bye,
+ * and a bracket place nobody reaches is left out.
  */
 export function nextBracketRound(
-  winners: readonly (string | null)[],
+  advancing: readonly (string | null)[],
 ): BracketMatch[] {
-  return Array.from({ length: winners.length / 2 }, (_, bracketPlace) => {
+  return Array.from({ length: advancing.length / 2 }, (_, bracketPlace) => {
     const [first = null, second = null] = [
-      winners[2 * bracketPlace],
-      winners[2 * bracketPlace + 1],
+      advancing[2 * bracketPlace],
+      advancing[2 * bracketPlace + 1],
     ].filter((id) => id !== null);
     return first === null
       ? null
@@ -71,8 +72,9 @@ export function nextBracketRound(
 }
 
 /**
- * A match of a bracket, or a bye when its second player is null, as
- * progression reads it; a null outcome is unreported, and a bye has none.
+ * A match of a bracket, or a bye when its second player is null, as the
+ * players who advance are read from it; a null outcome is unreported, and
+ * a bye has none.
  */
 export interface BracketResult {
   players: readonly [string, string | null];
@@ -80,26 +82,81 @@ export interface BracketResult {
 }
 
 /**
- * The player a bracket match, or a bye, sends on to the next tournament
- * round, `dropped` holding every player who has dropped: the match's
- * winner, or the player with the bye. Nobody advances from a forfeit whose
- * players both dropped, nor from the bye of a player who dropped, so
- * whoever would have met its winner has a bye. Null too while the match is
- * unreported.
+ * A bracket match as its players reported it, or a bye: who reported its
+ * game score, and whether the other player confirmed it.
  */
-export function advancingPlayer(
-  { players, outcome }: BracketResult,
+export interface ReportedBracketResult extends BracketResult {
+  reportedBy: string | null;
+  confirmed: boolean;
+}
+
+/**
+ * Who a bracket place sends on to the next tournament round: a player, or
+ * nobody, once its result is agreed; until then, not agreed.
+ */
+export type Advancing =
+  | { kind: 'Player'; playerId: string }
+  | { kind: 'Nobody' }
+  | { kind: 'NotAgreed' };
+
+/**
+ * Who a bracket match, or a bye, sends on to the next tournament round,
+ * `dropped` holding every player who has dropped, and `roundCompleted`
+ * whether its tournament round is (or the tournament is) completed. The
+ * player with a bye advances at once, unless they dropped. A match's winner
+ * advances once its result is agreed: once its round is completed, and
+ * before that when it is a granted win, a forfeit, a game score the other
+ * player confirmed, or one someone not playing in it, an organizer,
+ * entered; a player's unconfirmed report isn't agreed yet, nor is an
+ * unreported match. Nobody advances from a forfeit whose players both
+ * dropped, so whoever would have met its winner has a bye. A played
+ * match's winner advances even if both its players dropped since.
+ */
+export function agreedAdvancingPlayer(
+  { players, outcome, reportedBy, confirmed }: ReportedBracketResult,
   dropped: readonly string[],
-): string | null {
+  roundCompleted: boolean,
+): Advancing {
   const [first, second] = players;
-  if (second === null) return dropped.includes(first) ? null : first;
-  if (
-    outcome === null ||
-    bothDropped({ players: [first, second], outcome }, dropped)
-  ) {
-    return null;
+  if (second === null) {
+    return dropped.includes(first)
+      ? { kind: 'Nobody' }
+      : { kind: 'Player', playerId: first };
   }
-  return winnerOf({ players: [first, second], outcome });
+  if (outcome === null) return { kind: 'NotAgreed' };
+  const match: DecidedMatch = { players: [first, second], outcome };
+  if (bothDropped(match, dropped)) return { kind: 'Nobody' };
+  const agreed =
+    roundCompleted ||
+    outcome.kind !== 'GameScore' ||
+    confirmed ||
+    reportedBy === null ||
+    !players.includes(reportedBy);
+  if (!agreed) return { kind: 'NotAgreed' };
+  const winner = winnerOf(match);
+  return winner === null
+    ? { kind: 'Nobody' }
+    : { kind: 'Player', playerId: winner };
+}
+
+/**
+ * How many players `results`, a completed tournament round's matches and
+ * byes, send on to the next, `dropped` holding every player who has
+ * dropped, as agreedAdvancingPlayer decides it: Complete round completes
+ * the tournament when fewer than MIN_PLAYERS_LEFT are.
+ */
+export function countAdvancing(
+  results: readonly BracketResult[],
+  dropped: readonly string[],
+): number {
+  return results.filter(
+    (result) =>
+      agreedAdvancingPlayer(
+        { ...result, reportedBy: null, confirmed: false },
+        dropped,
+        true,
+      ).kind === 'Player',
+  ).length;
 }
 
 /** Whether `match` is a forfeit that both its players dropped from, which nobody wins. */
@@ -145,12 +202,19 @@ export type BracketSide =
   | { kind: 'Bye' }
   | { kind: 'WinnerToCome'; bracketPlace: number };
 
-/** One bracket place of a tournament round: its two sides, and its winner once its result is agreed. */
+/**
+ * One bracket place of a tournament round: its two sides, and the player
+ * who advances from it once that is agreed.
+ */
 export interface BracketPlace {
   bracketPlace: number;
   sides: [BracketSide, BracketSide];
-  /** The player who won its match, or had its bye; null until its result is agreed. */
-  winner: string | null;
+  /**
+   * The player it sends on, as agreedAdvancingPlayer decides: the winner
+   * of its match once its result is agreed, or the player with its bye
+   * unless they dropped. Null until then, and when nobody advances from it.
+   */
+  advancing: string | null;
 }
 
 /** One tournament round of a bracket, its bracket places in order. */
@@ -159,89 +223,108 @@ export interface BracketRound {
   places: BracketPlace[];
 }
 
-/** A match of a bracket paired so far, at its tournament round and bracket place, with its winner once its result is agreed. */
+/** A match or bye of a bracket paired so far, at its tournament round and bracket place, with who it sends on. */
 export interface PlayedBracketMatch extends BracketMatch {
   round: number;
-  /** Null until its result is agreed (see agreedWinnerOf); a bye's player wins it. */
-  winner: string | null;
+  /** As agreedAdvancingPlayer decides it. */
+  advancing: Advancing;
 }
 
 /**
  * Every tournament round of a bracket of `roundCount` rounds, from the
- * matches paired so far, `played`. A bracket place not yet paired has a
- * side for each place of the round before feeding it: that place's winner
- * once its result is agreed, else the winner to come of that place.
+ * matches and byes paired so far, `played`, `dropped` holding every player
+ * who has dropped. A bracket place not yet paired has a side for each
+ * place of the round before feeding it: the player who advances from that
+ * place once that is agreed, else its winner to come; or a bye when nobody
+ * advances from it, the other side first. A place not yet paired sends on
+ * the player with such a bye at once, unless they dropped, and nobody when
+ * both its sides are byes.
  */
 export function bracketRounds(
   roundCount: number,
   played: readonly PlayedBracketMatch[],
+  dropped: readonly string[],
 ): BracketRound[] {
   const rounds: BracketRound[] = [];
+  let previous: Advancing[] = [];
   for (let round = 1; round <= roundCount; round++) {
-    const previous = rounds.at(-1)?.places ?? [];
     const fedBy = (bracketPlace: number): BracketSide => {
-      const winner = previous[bracketPlace]?.winner;
-      return winner
-        ? { kind: 'Player', playerId: winner }
-        : { kind: 'WinnerToCome', bracketPlace };
+      const advancing = previous[bracketPlace];
+      if (advancing?.kind === 'Player') return advancing;
+      if (advancing?.kind === 'Nobody') return { kind: 'Bye' };
+      return { kind: 'WinnerToCome', bracketPlace };
     };
     const places = Array.from(
       { length: 2 ** (roundCount - round) },
-      (_, bracketPlace): BracketPlace => {
+      (_, bracketPlace): [BracketPlace['sides'], Advancing] => {
         const match = played.find(
           (m) => m.round === round && m.bracketPlace === bracketPlace,
         );
-        if (!match) {
-          return {
-            bracketPlace,
-            sides: [fedBy(2 * bracketPlace), fedBy(2 * bracketPlace + 1)],
-            winner: null,
-          };
-        }
-        const [first, second] = match.players;
-        return {
-          bracketPlace,
-          sides: [
+        if (match) {
+          const [first, second] = match.players;
+          const sides: BracketPlace['sides'] = [
             { kind: 'Player', playerId: first },
             second === null
               ? { kind: 'Bye' }
               : { kind: 'Player', playerId: second },
-          ],
-          winner: match.winner,
-        };
+          ];
+          return [sides, match.advancing];
+        }
+        const fed = [fedBy(2 * bracketPlace), fedBy(2 * bracketPlace + 1)];
+        const [first, second] =
+          fed[0].kind === 'Bye' ? [fed[1], fed[0]] : [fed[0], fed[1]];
+        return [[first, second], unpairedAdvancing(first, second, dropped)];
       },
     );
-    rounds.push({ round, places });
+    rounds.push({
+      round,
+      places: places.map(([sides, advancing], bracketPlace) => ({
+        bracketPlace,
+        sides,
+        advancing: advancing.kind === 'Player' ? advancing.playerId : null,
+      })),
+    });
+    previous = places.map(([, advancing]) => advancing);
   }
   return rounds;
 }
 
-/** A decided single elimination match as reported: who reported its game score, and whether it is confirmed. */
-export interface ReportedMatch extends DecidedMatch {
-  reportedBy: string | null;
-  confirmed: boolean;
+/**
+ * Who a bracket place not yet paired, its sides `first` and `second`, sends
+ * on: the player with its bye, as for a paired bye; nobody from two byes;
+ * otherwise not agreed until it is paired and played.
+ */
+function unpairedAdvancing(
+  first: BracketSide,
+  second: BracketSide,
+  dropped: readonly string[],
+): Advancing {
+  if (second.kind !== 'Bye') return { kind: 'NotAgreed' };
+  if (first.kind === 'Bye') return { kind: 'Nobody' };
+  if (first.kind === 'WinnerToCome') return { kind: 'NotAgreed' };
+  return agreedAdvancingPlayer(
+    {
+      players: [first.playerId, null],
+      outcome: null,
+      reportedBy: null,
+      confirmed: false,
+    },
+    dropped,
+    false,
+  );
 }
 
 /**
- * The winner of `match` once its result is agreed, so that the bracket
- * moves them on to their next bracket place; null until then. A result is
- * agreed once its tournament round is completed (`roundCompleted`), and
- * before that when it is a granted win, a forfeit, a game score the other
- * player confirmed, or one someone not playing in it, an organizer,
- * entered. A player's unconfirmed report isn't agreed yet.
+ * The trophy holders of a complete single elimination tournament, from its
+ * bracket `rounds`: the player who advances from the final, or, when the
+ * tournament completed before it, the one player left; nobody when no
+ * player is left, as when both finalists dropped.
  */
-export function agreedWinnerOf(
-  match: ReportedMatch,
-  roundCompleted: boolean,
-): string | null {
-  const { outcome, players, reportedBy, confirmed } = match;
-  const agreed =
-    roundCompleted ||
-    outcome.kind !== 'GameScore' ||
-    confirmed ||
-    reportedBy === null ||
-    !players.includes(reportedBy);
-  return agreed ? winnerOf(match) : null;
+export function bracketTrophyHolders(
+  rounds: readonly BracketRound[],
+): string[] {
+  const advancing = rounds.at(-1)?.places[0]?.advancing ?? null;
+  return advancing === null ? [] : [advancing];
 }
 
 /**

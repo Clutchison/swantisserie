@@ -38,7 +38,7 @@ export interface RoundSteps {
   /**
    * How many players are left to play on once tournament round `round` is
    * settled, for Complete round to complete the tournament when fewer than
-   * MIN_UNDROPPED_PLAYERS are.
+   * MIN_PLAYERS_LEFT are.
    */
   playersLeft(
     tx: Transaction,

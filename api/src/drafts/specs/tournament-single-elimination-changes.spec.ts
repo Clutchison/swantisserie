@@ -1,7 +1,7 @@
 import type {
   CompleteRoundRequest,
-  GameScorePreview,
-  GameScorePreviewRequest,
+  CorrectionPreview,
+  CorrectionPreviewRequest,
   MatchReportRequest,
   MatchView,
   TournamentView,
@@ -17,7 +17,7 @@ import {
   getDraft,
   placesOf,
   playingTournament,
-  previewGameScore,
+  previewCorrection,
   reinstate,
   reportCurrentRound,
   seedsOf,
@@ -127,6 +127,19 @@ describe('dropping in single elimination', () => {
     expect(placesOf(second)).toEqual([
       { bracketPlace: 1, players: [seeds[1], seeds[2]] },
     ]);
+  });
+
+  it('completes the tournament with no trophy holder when both finalists drop', async () => {
+    const { id, seeds } = await playing(2);
+
+    await dropPlayer(id, seeds[0], aliceCookie).expect(200);
+    await dropPlayer(id, seeds[1], aliceCookie).expect(200);
+    await completeRound(id).expect(200);
+
+    const view = await tournamentView(id);
+    expect(view.state).toBe('Complete');
+    expect(view.trophyHolders).toEqual([]);
+    expect(view.bracket![0].places[0].advancing).toBeNull();
   });
 
   it('completes the tournament once one player is left in the bracket', async () => {
@@ -245,9 +258,9 @@ describe('correcting a completed single elimination tournament round', () => {
     const { id, seeds, view } = await inTheFinal();
     const first = at(view, 1, 1);
 
-    const answer = await previewGameScore(id, first.id, {
+    const answer = await previewCorrection(id, first.id, {
       games: [0, 2],
-    } satisfies GameScorePreviewRequest).expect(200);
+    } satisfies CorrectionPreviewRequest).expect(200);
 
     expect(answer.body).toEqual({
       clears: [
@@ -255,7 +268,7 @@ describe('correcting a completed single elimination tournament round', () => {
         { round: 3, bracketPlace: 0, players: [seeds[0], seeds[1]] },
       ],
       state: 'Playing',
-    } satisfies GameScorePreview);
+    } satisfies CorrectionPreview);
     // A preview changes nothing.
     expect(await tournamentView(id)).toEqual(view);
   });
@@ -287,9 +300,9 @@ describe('correcting a completed single elimination tournament round', () => {
     const { id, view } = await inTheFinal();
     const first = at(view, 1, 1);
 
-    const preview = await previewGameScore(id, first.id, {
+    const preview = await previewCorrection(id, first.id, {
       games: [2, 1],
-    } satisfies GameScorePreviewRequest).expect(200);
+    } satisfies CorrectionPreviewRequest).expect(200);
     await setGameScore(id, first.id, {
       games: [2, 1],
     } satisfies MatchReportRequest).expect(200);
@@ -308,9 +321,9 @@ describe('correcting a completed single elimination tournament round', () => {
     const { id, seeds, view } = await inTheFinal();
     const final = at(view, 3, 0);
 
-    const answer = await previewGameScore(id, final.id, {
+    const answer = await previewCorrection(id, final.id, {
       games: wonBy(final, seeds[1]).games,
-    } satisfies GameScorePreviewRequest).expect(200);
+    } satisfies CorrectionPreviewRequest).expect(200);
 
     expect(answer.body).toEqual({ clears: [], state: 'Playing' });
   });
@@ -321,7 +334,7 @@ describe('correcting a completed single elimination tournament round', () => {
     await playRound(id);
     const first = at(await tournamentView(id), 1, 0);
 
-    const preview = await previewGameScore(id, first.id, {
+    const preview = await previewCorrection(id, first.id, {
       games: wonBy(first, seeds[3]).games,
     }).expect(200);
     await setGameScore(id, first.id, wonBy(first, seeds[3])).expect(200);
@@ -341,7 +354,7 @@ describe('correcting a completed single elimination tournament round', () => {
     await playRound(id);
     const [final] = (await tournamentView(id)).rounds[0].matches;
 
-    const preview = await previewGameScore(id, final.id, {
+    const preview = await previewCorrection(id, final.id, {
       games: wonBy(final, seeds[1]).games,
     }).expect(200);
     await setGameScore(id, final.id, wonBy(final, seeds[1])).expect(200);
@@ -357,9 +370,9 @@ describe('correcting a completed single elimination tournament round', () => {
     await playRound(id);
     const first = at(await tournamentView(id), 1, 0);
 
-    const preview = await previewGameScore(id, first.id, {
+    const preview = await previewCorrection(id, first.id, {
       games: null,
-    } satisfies GameScorePreviewRequest).expect(200);
+    } satisfies CorrectionPreviewRequest).expect(200);
     await clearGameScore(id, first.id).expect(200);
 
     expect(preview.body).toEqual({
@@ -388,7 +401,7 @@ describe('correcting a completed single elimination tournament round', () => {
     await dropPlayer(id, seeds[1], aliceCookie).expect(200);
     const second = at(await tournamentView(id), 1, 1);
 
-    const preview = await previewGameScore(id, second.id, {
+    const preview = await previewCorrection(id, second.id, {
       games: null,
     }).expect(200);
     await clearGameScore(id, second.id).expect(200);
@@ -406,12 +419,12 @@ describe('correcting a completed single elimination tournament round', () => {
     const { id, view } = await inTheFinal();
     const first = at(view, 1, 1);
 
-    await previewGameScore(id, first.id, { games: [0, 2] }, bobCookie).expect(
+    await previewCorrection(id, first.id, { games: [0, 2] }, bobCookie).expect(
       403,
     );
-    await previewGameScore(id, 'm', { games: [0, 2] }).expect(404);
+    await previewCorrection(id, 'm', { games: [0, 2] }).expect(404);
     for (const body of [{}, { games: [2] }, { games: 'none' }]) {
-      const answer = await previewGameScore(id, first.id, body).expect(400);
+      const answer = await previewCorrection(id, first.id, body).expect(400);
       expect(answer.body.error).toBe('invalid');
     }
   });
@@ -443,7 +456,7 @@ describe('correcting after a correction reopened earlier tournament rounds', () 
     const fed = at(view, 2, 3);
     expect(fed.players).toEqual([seeds[2], seeds[5]]);
 
-    const preview = await previewGameScore(id, fed.id, {
+    const preview = await previewCorrection(id, fed.id, {
       games: wonBy(fed, seeds[5]).games,
     }).expect(200);
     await setGameScore(id, fed.id, wonBy(fed, seeds[5])).expect(200);
@@ -526,14 +539,14 @@ describe('drops and corrections in the bracket read', () => {
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
 
     const view = await tournamentView(id);
-    expect(placeOf(view, 1, 0).winner).toBe(seeds[0]);
+    expect(placeOf(view, 1, 0).advancing).toBe(seeds[0]);
     expect(placeOf(view, 2, 0).sides).toEqual([
       player(seeds[0]),
       winnerToCome(1),
     ]);
   });
 
-  it('moves nobody on from a match both players dropped from, then shows the next opponent’s bye', async () => {
+  it('moves nobody on from a match both players dropped from, showing the next opponent’s bye at once', async () => {
     const { id, seeds } = await playing(5);
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
     await dropPlayer(id, seeds[4], aliceCookie).expect(200);
@@ -542,17 +555,19 @@ describe('drops and corrections in the bracket read', () => {
     await completeRound(id).expect(200);
     const after = await tournamentView(id);
 
-    expect(placeOf(before, 1, 1).winner).toBeNull();
-    expect(placeOf(before, 2, 0).sides).toEqual([
-      player(seeds[0]),
-      winnerToCome(1),
-    ]);
-    expect(placeOf(after, 2, 0)).toEqual({
+    expect(placeOf(before, 1, 1).advancing).toBeNull();
+    const bye = {
       bracketPlace: 0,
       matchId: null,
       sides: [player(seeds[0]), { kind: 'Bye' }],
-      winner: seeds[0],
-    });
+      advancing: seeds[0],
+    };
+    expect(placeOf(before, 2, 0)).toEqual(bye);
+    expect(placeOf(before, 3, 0).sides).toEqual([
+      player(seeds[0]),
+      winnerToCome(1),
+    ]);
+    expect(placeOf(after, 2, 0)).toEqual(bye);
   });
 
   it('shows the matches a correction cleared paired again or to come', async () => {
@@ -564,12 +579,12 @@ describe('drops and corrections in the bracket read', () => {
     await setGameScore(id, first.id, wonBy(first, seeds[4])).expect(200);
 
     const view = await tournamentView(id);
-    expect(placeOf(view, 1, 1).winner).toBe(seeds[4]);
+    expect(placeOf(view, 1, 1).advancing).toBe(seeds[4]);
     expect(placeOf(view, 2, 0)).toEqual({
       bracketPlace: 0,
       matchId: at(view, 2, 0).id,
       sides: [player(seeds[0]), player(seeds[4])],
-      winner: null,
+      advancing: null,
     });
     expect(placeOf(view, 3, 0).matchId).toBeNull();
     expect(placeOf(view, 3, 0).sides[0]).toEqual(winnerToCome(0));
@@ -590,7 +605,7 @@ describe('single elimination’s changes', () => {
       drops: [{ matchId: first.id, drop: [seeds[3]] }],
       grantedWins: [{ matchId: second.id, winner: seeds[1] }],
     } satisfies CompleteRoundRequest).expect(200);
-    await previewGameScore(id, second.id, { games: [0, 2] }).expect(200);
+    await previewCorrection(id, second.id, { games: [0, 2] }).expect(200);
     const corrected = await setGameScore(
       id,
       second.id,

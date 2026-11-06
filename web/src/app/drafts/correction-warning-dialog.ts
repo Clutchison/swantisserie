@@ -1,6 +1,6 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import type { GameScorePreview } from 'contract';
+import type { CorrectionPreview } from 'contract';
 import { DraftStore } from './draft-store';
 import { versus } from './match-lines';
 
@@ -15,7 +15,7 @@ export interface CorrectionWarning {
   detail: string | null;
   /** The button that goes ahead, such as "Correct". */
   action: string;
-  preview: GameScorePreview;
+  preview: CorrectionPreview;
 }
 
 /**

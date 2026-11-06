@@ -17,8 +17,8 @@ import {
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
-  type GameScorePreview,
-  type GameScorePreviewRequest,
+  type CorrectionPreview,
+  type CorrectionPreviewRequest,
   type GrantedDrawRequest,
   type GrantedWinRequest,
   type MatchDropRequest,
@@ -206,16 +206,16 @@ export class TournamentsController {
    */
   @Post('matches/:matchId/game-score/preview')
   @HttpCode(200)
-  async previewGameScore(
+  async previewCorrection(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('matchId') matchId: string,
     @Body() body: unknown,
-  ): Promise<GameScorePreview> {
-    const { games } = bodyFields<GameScorePreviewRequest>(body);
+  ): Promise<CorrectionPreview> {
+    const { games } = bodyFields<CorrectionPreviewRequest>(body);
     const parsed = games === null ? null : parseGames(body);
     await this.access.asOrganizer(user, id);
-    return this.tournaments.previewGameScore(id, matchId, user.id, parsed);
+    return this.tournaments.previewCorrection(id, matchId, user.id, parsed);
   }
 
   /** Clears a match's game score, even once the tournament is complete; for the organizer. */

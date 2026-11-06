@@ -1,4 +1,4 @@
-import type { GameScorePreview, GameScorePreviewRequest, TournamentView } from 'contract';
+import type { CorrectionPreview, CorrectionPreviewRequest, TournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -152,11 +152,50 @@ describe('dropping players from the single elimination Complete round dialog', (
   });
 });
 
+describe('both finalists dropping', () => {
+  it('says nobody holds the trophy, from the dialog to the completed tournament', async () => {
+    const { fixture, page } = await openCompleteRound(final);
+    const dialog = openDialog()!;
+    const drops = group(dialog, 'Drop from Alice vs Carol')!;
+
+    controlByLabel(drops, 'checkbox', 'Drop Alice')!.click();
+    controlByLabel(drops, 'checkbox', 'Drop Carol')!.click();
+    await fixture.whenStable();
+
+    expect(text(dialog)).toContain(
+      'It is the final tournament round, so the tournament completes. Nobody advances from the final, so nobody holds the trophy.',
+    );
+    expect(text(dialog)).not.toContain('the trophy is awarded');
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/complete-round',
+      'POST',
+      { ...final, state: 'Complete', lastCompletedRound: 2, trophyHolders: [] },
+      1,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ drops: [{ matchId: 'm2', drop: [alice.id, carol.id] }] });
+    expect(text(panel(page))).toContain('Nobody holds the trophy');
+  });
+
+  it('still awards the trophy when one finalist drops', async () => {
+    const { fixture } = await openCompleteRound(final);
+    const dialog = openDialog()!;
+
+    controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Alice')!.click();
+    await fixture.whenStable();
+
+    expect(text(dialog)).toContain('the trophy is awarded');
+  });
+});
+
 describe('the single elimination correction warning', () => {
   const PREVIEW = '/api/drafts/draft-1/tournament/matches/m1/game-score/preview';
   const GAME_SCORE = '/api/drafts/draft-1/tournament/matches/m1/game-score';
   /** The final cleared, as correcting round 1 to Bob's win would. */
-  const finalCleared: GameScorePreview = {
+  const finalCleared: CorrectionPreview = {
     clears: [{ round: 2, bracketPlace: 0, players: [alice.id, carol.id] }],
     state: 'Playing',
   };
@@ -172,8 +211,8 @@ describe('the single elimination correction warning', () => {
   /** Answers the pending preview with `preview`, expecting it to preview `games`. */
   async function answerPreview(
     fixture: AppFixture,
-    games: GameScorePreviewRequest['games'],
-    preview: GameScorePreview,
+    games: CorrectionPreviewRequest['games'],
+    preview: CorrectionPreview,
   ) {
     const req = await vi.waitFor(() => http.expectOne(PREVIEW));
     expect(req.request.method).toBe('POST');

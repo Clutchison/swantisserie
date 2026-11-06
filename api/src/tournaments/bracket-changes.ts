@@ -1,5 +1,5 @@
 import type { ClearedMatchView } from 'contract';
-import { dependentBracketPlaces, MIN_UNDROPPED_PLAYERS } from 'engine';
+import { dependentBracketPlaces, MIN_PLAYERS_LEFT } from 'engine';
 import type { TournamentState } from '../generated/prisma/client.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import type { ChangeSteps, MatchChange } from './change-steps.js';
@@ -8,9 +8,9 @@ import {
   advancingEntry,
   BRACKET_MATCH,
   bracketRoundCount,
-  countAdvancing,
   droppedEntries,
   pairBracketRound,
+  roundPlayersLeft,
 } from './single-elimination.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 
@@ -23,7 +23,6 @@ import { TournamentRefusedError } from './tournament-errors.js';
  * of theirs has fed a later match.
  */
 export const SINGLE_ELIMINATION_CHANGES: ChangeSteps = {
-  reopensCleared: true,
   async changeMatch(tx, tournament, matchId, change) {
     const plan = await planChange(tx, tournament, matchId, change);
     await tx.match.update({ where: { id: matchId }, data: change });
@@ -41,7 +40,7 @@ export const SINGLE_ELIMINATION_CHANGES: ChangeSteps = {
       await pairBracketRound(tx, tournament.id, plan.pairs);
     }
   },
-  async previewChange(tx, tournament, matchId, change) {
+  async previewCorrection(tx, tournament, matchId, change) {
     const plan = await planChange(tx, tournament, matchId, change);
     if (plan.kind === 'Unaffected') {
       return { clears: [], state: tournament.state };
@@ -86,7 +85,7 @@ type BracketPlan =
  * round is completed, left unreported the round reopens, and so the
  * tournament plays on; a change to the final just moves the trophy;
  * otherwise the tournament plays on from the round after the match's, its
- * place there paired again, unless fewer than MIN_UNDROPPED_PLAYERS are
+ * place there paired again, unless fewer than MIN_PLAYERS_LEFT are
  * left in the bracket, which completes it.
  */
 async function planChange(
@@ -128,11 +127,11 @@ async function planChange(
     where: { tournamentId: tournament.id, round: match.round },
     select: BRACKET_MATCH,
   });
-  const left = countAdvancing(
+  const left = roundPlayersLeft(
     round.map((row) => (row.id === matchId ? changed : row)),
     dropped,
   );
-  const completes = left < MIN_UNDROPPED_PLAYERS;
+  const completes = left < MIN_PLAYERS_LEFT;
   return {
     kind: 'Affected',
     clears,
@@ -202,15 +201,16 @@ async function refuseBracketReinstate(
   if (!last) return;
   const bye = last.secondEntryId === null;
   if (!bye && last.outcome !== 'Forfeit') return;
+  const [next] = dependentBracketPlaces(
+    { round: last.round, bracketPlace: last.bracketPlace! },
+    await bracketRoundCount(tx, tournament.id),
+  );
   const fedNext =
     last.round <= tournament.lastCompletedRound ||
-    (await tx.match.count({
-      where: {
-        tournamentId: tournament.id,
-        round: last.round + 1,
-        bracketPlace: last.bracketPlace! >> 1,
-      },
-    })) > 0;
+    (next !== undefined &&
+      (await tx.match.count({
+        where: { tournamentId: tournament.id, ...next },
+      })) > 0);
   if (!fedNext) return;
   throw new TournamentRefusedError({
     error: 'paired-since-drop',

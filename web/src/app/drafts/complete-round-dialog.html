@@ -1,19 +1,24 @@
 <div class="dialog">
   <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
   <p>
-    @if (finalRound()) {
+    @if (finalRound() && noTrophyHolder()) {
+      It is the final tournament round, so the tournament completes. Nobody advances from the final,
+      so nobody holds the trophy.
+    } @else if (finalRound()) {
       It is the final tournament round, so the tournament completes and the trophy is awarded.
-    } @else if (tooFewLeft() && singleElimination()) {
-      Fewer than {{ minUndropped }} players are left in the bracket, so the tournament completes and
-      the trophy is awarded.
+    } @else if (noTrophyHolder()) {
+      Nobody is left in the bracket, so the tournament completes and nobody holds the trophy.
+    } @else if (tooFewLeft() && grantsWins()) {
+      Fewer than {{ minPlayersLeft }} players are left in the bracket, so the tournament completes
+      and the trophy is awarded.
     } @else if (tooFewLeft()) {
-      Fewer than {{ minUndropped }} undropped players remain, so the tournament completes and the
+      Fewer than {{ minPlayersLeft }} undropped players remain, so the tournament completes and the
       trophy is awarded.
     } @else {
       Tournament round {{ round() + 1 }} is paired, and its matches open.
     }
   </p>
-  @if (unreported().length > 0 && singleElimination()) {
+  @if (unreported().length > 0 && grantsWins()) {
     <p>
       Pick the winner of each unreported match: they advance. Or drop a player who won’t play on,
       and their opponent advances on the forfeit; drop both, and whoever would have met its winner

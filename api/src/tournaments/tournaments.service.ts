@@ -3,16 +3,12 @@ import {
   MIN_MAINBOARD_CARDS,
   type CompleteRoundRequest,
   type GameScore,
-  type GameScorePreview,
+  type CorrectionPreview,
   type TournamentRefusal,
   type TournamentSetupRequest,
   type TournamentView,
 } from 'contract';
-import {
-  MIN_UNDROPPED_PLAYERS,
-  reportProblem,
-  roundRobinSchedule,
-} from 'engine';
+import { MIN_PLAYERS_LEFT, reportProblem, roundRobinSchedule } from 'engine';
 import type {
   SwissRoundOption,
   TournamentFormat,
@@ -42,6 +38,7 @@ import {
   TournamentRefusedError,
 } from './tournament-errors.js';
 import {
+  FORMAT_RULES,
   roundCount,
   TOURNAMENT_VIEW,
   toTournamentView,
@@ -296,12 +293,12 @@ export class TournamentsService {
    * has no such match, and TournamentRefusedError for a game score a
    * correction refuses.
    */
-  async previewGameScore(
+  async previewCorrection(
     draftId: string,
     matchId: string,
     userId: string,
     games: GameScore | null,
-  ): Promise<GameScorePreview> {
+  ): Promise<CorrectionPreview> {
     return this.prisma.$transaction(async (tx) => {
       const tournament = await tx.tournament.findUnique({
         where: { draftId },
@@ -314,7 +311,7 @@ export class TournamentsService {
       const change = games
         ? correction(games, userId)
         : clearing(tournament, match);
-      return CHANGE_STEPS[tournament.format].previewChange(
+      return CHANGE_STEPS[tournament.format].previewCorrection(
         tx,
         tournament,
         matchId,
@@ -461,7 +458,7 @@ export class TournamentsService {
    * steps first settle the round as `request` asks; the round must
    * then have no unreported match. It then completes the tournament, which
    * unlocks every deck, after the final tournament round or once fewer than
-   * MIN_UNDROPPED_PLAYERS players are still in (undropped, or in single
+   * MIN_PLAYERS_LEFT players are still in (undropped, or in single
    * elimination, advancing from the round), and otherwise has the
    * format pair the next tournament round. A completed round stays
    * completed. Throws as the format's round steps do, and
@@ -495,7 +492,7 @@ export class TournamentsService {
       });
       await refuseUnreported(tx, tournament.id, round, steps);
       const left = await steps.playersLeft(tx, tournament.id, round);
-      const completes = finalRound || left < MIN_UNDROPPED_PLAYERS;
+      const completes = finalRound || left < MIN_PLAYERS_LEFT;
       await tx.tournament.update({
         where: { id: tournament.id },
         data: {
@@ -707,7 +704,7 @@ function clearing(
   tournament: LockedTournament,
   { round, dropped }: { round: number; dropped: boolean[] },
 ): MatchChange {
-  const reopens = CHANGE_STEPS[tournament.format].reopensCleared;
+  const reopens = FORMAT_RULES[tournament.format].clearReopensRound;
   const forfeitsDropped = tournament.state === 'Playing' || reopens;
   const forfeitedBy = !forfeitsDropped
     ? null

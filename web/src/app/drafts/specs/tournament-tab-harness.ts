@@ -60,7 +60,9 @@ export const registration = (...playerIds: string[]): TournamentView => ({
   bracket: null,
   standings: [],
   trophyHolders: [],
-  correctionsPreview: false,
+  previewsCorrections: false,
+  completeRoundGrants: null,
+  clearReopensRound: false,
 });
 
 /** An unreported match `id` between the players `a` and `b`, in that order. */
@@ -129,7 +131,9 @@ export function playing(
     bracket: null,
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
-    correctionsPreview: false,
+    previewsCorrections: false,
+    completeRoundGrants: null,
+    clearReopensRound: false,
     ...fields,
   };
 }
@@ -167,7 +171,9 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
       standing(bob.id, 3),
     ],
     trophyHolders: [],
-    correctionsPreview: false,
+    previewsCorrections: false,
+    completeRoundGrants: 'GrantedDraws',
+    clearReopensRound: false,
     ...fields,
   };
 }
@@ -181,13 +187,13 @@ export const winnerToCome = (bracketPlace: number): BracketSideView => ({
   bracketPlace,
 });
 
-/** Bracket place `bracketPlace` with its match `matchId`, if paired, its `sides` and its `winner`, if decided. */
+/** Bracket place `bracketPlace` with its match `matchId`, if paired, its `sides` and the player `advancing` from it, if agreed. */
 export const place = (
   bracketPlace: number,
   matchId: string | null,
   sides: [BracketSideView, BracketSideView],
-  winner: string | null = null,
-): BracketPlaceView => ({ bracketPlace, matchId, sides, winner });
+  advancing: string | null = null,
+): BracketPlaceView => ({ bracketPlace, matchId, sides, advancing });
 
 /** Round 1 of the bracket of Alice, Bob and Carol: Alice's bye, and Bob v Carol (m1), won by `winner` if decided. */
 export const firstBracketRound = (winner: string | null = null): BracketRoundView => ({
@@ -229,7 +235,9 @@ export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): 
     ],
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
     trophyHolders: [],
-    correctionsPreview: true,
+    previewsCorrections: true,
+    completeRoundGrants: 'GrantedWins',
+    clearReopensRound: true,
     ...fields,
   };
 }

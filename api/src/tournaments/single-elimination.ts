@@ -1,10 +1,12 @@
 import type { GrantedWinRequest, MatchDropRequest } from 'contract';
 import {
-  advancingPlayer,
+  agreedAdvancingPlayer,
+  countAdvancing,
   firstBracketRound,
   nextBracketRound,
   shuffle,
   singleEliminationRoundCount,
+  type BracketResult,
 } from 'engine';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import {
@@ -121,26 +123,33 @@ export type BracketMatchRow = {
 
 /**
  * The entry id of the player `match`, or a bye, sends on to the next
- * tournament round, as the engine decides it, `dropped` holding the
- * tournament's dropped entries; null while it is unreported, or when
- * nobody advances from it.
+ * tournament round, as the engine's agreedAdvancingPlayer decides it,
+ * `dropped` holding the tournament's dropped entries; null while it is
+ * unreported, or when nobody advances from it. Its result is read as
+ * agreed, as pairing and counting read only rounds being completed and
+ * changes an organizer makes.
  */
 export function advancingEntry(
   match: BracketMatchRow,
   dropped: readonly string[],
 ): string | null {
-  const { firstEntryId: first, secondEntryId: second } = match;
-  if (second === null) {
-    return advancingPlayer({ players: [first, null], outcome: null }, dropped);
-  }
-  const outcome = toOutcome(match, [first, second]);
-  return advancingPlayer(
-    {
-      players: [first, second],
-      outcome: outcome.kind === 'Unreported' ? null : outcome,
-    },
+  const advancing = agreedAdvancingPlayer(
+    { ...bracketResult(match), reportedBy: null, confirmed: false },
     dropped,
+    true,
   );
+  return advancing.kind === 'Player' ? advancing.playerId : null;
+}
+
+/** `match`, or a bye, as the engine reads a bracket result, by its entry ids. */
+function bracketResult(match: BracketMatchRow): BracketResult {
+  const { firstEntryId: first, secondEntryId: second } = match;
+  if (second === null) return { players: [first, null], outcome: null };
+  const outcome = toOutcome(match, [first, second]);
+  return {
+    players: [first, second],
+    outcome: outcome.kind === 'Unreported' ? null : outcome,
+  };
 }
 
 /** The ids of the tournament's dropped entries. */
@@ -177,12 +186,12 @@ export async function pairBracketRound(
     where: { tournamentId, round: round - 1 },
     select: BRACKET_MATCH,
   });
-  const winners: (string | null)[] = Array.from(
+  const advancing: (string | null)[] = Array.from(
     { length: 2 ** (roundCount - round + 1) },
     () => null,
   );
   for (const match of previous) {
-    winners[match.bracketPlace!] = advancingEntry(match, dropped);
+    advancing[match.bracketPlace!] = advancingEntry(match, dropped);
   }
   const paired = await tx.match.findMany({
     where: { tournamentId, round },
@@ -193,7 +202,9 @@ export async function pairBracketRound(
     tx,
     tournamentId,
     round,
-    nextBracketRound(winners).filter((match) => !taken.has(match.bracketPlace)),
+    nextBracketRound(advancing).filter(
+      (match) => !taken.has(match.bracketPlace),
+    ),
   );
   for (const entryId of dropped) await forfeitUnplayed(tx, entryId);
 }
@@ -212,16 +223,19 @@ export async function playersLeft(
     where: { tournamentId, round },
     select: BRACKET_MATCH,
   });
-  return countAdvancing(matches, await droppedEntries(tx, tournamentId));
+  return roundPlayersLeft(matches, await droppedEntries(tx, tournamentId));
 }
 
-/** How many players `matches`, a tournament round's, send on, `dropped` holding the dropped entries. */
-export function countAdvancing(
+/**
+ * How many players `matches`, a tournament round's matches and byes, send
+ * on, as the engine's countAdvancing counts them, `dropped` holding the
+ * dropped entries.
+ */
+export function roundPlayersLeft(
   matches: readonly BracketMatchRow[],
   dropped: readonly string[],
 ) {
-  return matches.filter((match) => advancingEntry(match, dropped) !== null)
-    .length;
+  return countAdvancing(matches.map(bracketResult), dropped);
 }
 
 /**

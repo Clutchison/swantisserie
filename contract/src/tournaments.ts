@@ -86,7 +86,8 @@ export interface TournamentRoundView {
   /**
    * The Discord user ids of the players sitting this round out: at most one
    * in round robin and Swiss; in single elimination, the top seeds' in
-   * round 1, in bracket place order.
+   * round 1, and later each player whose would-be opponent nobody sent on,
+   * in bracket place order.
    */
   byes: string[];
 }
@@ -110,17 +111,22 @@ export interface BracketPlaceView {
   matchId: string | null;
   /**
    * Its two sides, in the match's player order once paired. Until then, a
-   * side is the winner of the place feeding it as soon as that result is
-   * agreed, even before its round is completed: a granted win, a forfeit, or
-   * a game score the other player confirmed or an organizer entered.
+   * side is the player who advances from the place feeding it as soon as
+   * that result is agreed, even before its round is completed: a granted
+   * win, a forfeit, or a game score the other player confirmed or an
+   * organizer entered. When nobody advances from that place, the side is a
+   * bye at once, the other side first.
    */
   sides: [BracketSideView, BracketSideView];
   /**
-   * The Discord user id of the player who won its match or had its bye;
-   * null until its result is agreed, as `sides` describes, or its round is
-   * completed.
+   * The Discord user id of the player who advances from it: its match's
+   * winner once its result is agreed, as `sides` describes, or once its
+   * round is completed; or the player with its bye, unless they dropped.
+   * Null until then, and when nobody advances: from a forfeit both its
+   * players dropped from, a dropped player's bye, or a place both of whose
+   * sides are byes.
    */
-  winner: string | null;
+  advancing: string | null;
 }
 
 /** One tournament round of the bracket: every one of its bracket places, in order. */
@@ -190,16 +196,35 @@ export interface TournamentView {
   bracket: BracketRoundView[] | null;
   /**
    * Whether correcting or clearing a match can clear later matches, as in
-   * single elimination: then an organizer's correction asks the correction
-   * preview first.
+   * single elimination: then an organizer's correction or clear asks for
+   * the correction preview first.
    */
-  correctionsPreview: boolean;
+  previewsCorrections: boolean;
+  /**
+   * What Complete round gives the current tournament round's unreported
+   * matches: granted draws in Swiss, with a choice of players to drop from
+   * each; granted wins in single elimination, for the winner the organizer
+   * picks, or else the drop of one or both players. Null in round robin,
+   * which completes the tournament instead.
+   */
+  completeRoundGrants: 'GrantedDraws' | 'GrantedWins' | null;
+  /**
+   * Whether clearing a match reopens its tournament round, as in single
+   * elimination, which never has a draw: it is unreported again, or a
+   * dropped player's forfeit, whatever the state. Otherwise it is a
+   * dropped player's forfeit while the tournament is playing, else
+   * unreported while its round is open and a granted draw once its round
+   * or the tournament is complete.
+   */
+  clearReopensRound: boolean;
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
   /**
-   * The Discord user ids of the players who hold the trophy: everyone who
-   * shares first once it is complete, which in single elimination is the
-   * winner of the final alone; else none.
+   * The Discord user ids of the players who hold the trophy once it is
+   * complete, else none: everyone who shares first; in single elimination
+   * the player who advances from the final, or the one player left in the
+   * bracket when it completed before the final, and nobody when no player
+   * is left, as when both finalists dropped.
    */
   trophyHolders: string[];
 }
@@ -258,21 +283,22 @@ export interface GrantedDrawRequest {
 }
 
 /**
- * A correction an organizer is about to make, from
- * `POST /api/drafts/:id/tournament/matches/:matchId/game-score/preview`:
+ * A correction or clear an organizer is about to make, for its correction
+ * preview from `POST /api/drafts/:id/tournament/matches/:matchId/game-score/preview`:
  * the match's new game score, or null to clear it.
  */
-export interface GameScorePreviewRequest {
+export interface CorrectionPreviewRequest {
   games: GameScore | null;
 }
 
 /**
- * What a correction or clear would do beyond its own match: in single
- * elimination, the later matches it would clear because it changes who
- * advances from the match, and whether it completes the tournament or has
- * it played on. None in other formats, or when the same player advances.
+ * The correction preview: what a correction or clear would do beyond its
+ * own match. In single elimination, the later matches it would clear
+ * because it changes who advances from the match, and whether it completes
+ * the tournament or has it played on. None in other formats, or when the
+ * same player advances.
  */
-export interface GameScorePreview {
+export interface CorrectionPreview {
   /** In tournament round order. */
   clears: ClearedMatchView[];
   /**

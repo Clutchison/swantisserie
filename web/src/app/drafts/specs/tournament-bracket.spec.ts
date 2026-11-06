@@ -1,4 +1,4 @@
-import type { GameScorePreview } from 'contract';
+import type { CorrectionPreview } from 'contract';
 import { ORGANIZE_ONLY, alice, bob, button, group, http, text, useDraftsApp } from './harness';
 import {
   answerChange,
@@ -140,6 +140,39 @@ describe('the bracket of a single elimination tournament', () => {
     expect(ownPath(tab)).toEqual(['Bob (seed 2) 1–2 Carol (seed 3) · Carol won']);
   });
 
+  it('gives a bye at once to the player waiting on a match both players dropped from, naming no next match for them', async () => {
+    const bothDropped = singleEliminationPlaying({
+      entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
+        playerId,
+        dropped: playerId !== alice.id,
+        seed: i + 1,
+      })),
+      rounds: [
+        {
+          round: 1,
+          matches: [
+            {
+              ...openMatch('m1', bob.id, carol.id),
+              bracketPlace: 1,
+              outcome: { kind: 'Forfeit', forfeitedBy: bob.id },
+            },
+          ],
+          byes: [alice.id],
+        },
+      ],
+      bracket: [
+        firstBracketRound(),
+        { round: 2, places: [place(0, null, [side(alice.id), { kind: 'Bye' }], alice.id)] },
+      ],
+    });
+
+    const { tab } = await openPlaying(bothDropped);
+
+    expect(bracketMatches(tab, 2)).toEqual(['Alice (seed 1) has a bye']);
+    expect(text(bracket(tab))).not.toContain('Your next match');
+    expect(text(bracket(tab))).not.toContain('the winner of');
+  });
+
   it('names no next match for a viewer who isn’t playing', async () => {
     const { tab } = await openPlaying(final, { user: dave });
 
@@ -160,7 +193,7 @@ describe('the bracket of a single elimination tournament', () => {
       await vi.waitFor(() =>
         http.expectOne('/api/drafts/draft-1/tournament/matches/m1/game-score/preview'),
       )
-    ).flush({ clears: [], state: 'Playing' } satisfies GameScorePreview);
+    ).flush({ clears: [], state: 'Playing' } satisfies CorrectionPreview);
     const req = await answerChange(
       fixture,
       '/api/drafts/draft-1/tournament/matches/m1/game-score',

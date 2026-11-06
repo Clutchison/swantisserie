@@ -2,13 +2,14 @@ import type {
   BracketRoundView,
   MatchOutcomeView,
   MatchView,
+  TournamentFormat,
   TournamentRoundView,
   TournamentView,
 } from 'contract';
 import {
-  advancingPlayer,
-  agreedWinnerOf,
+  agreedAdvancingPlayer,
   bracketRounds,
+  bracketTrophyHolders,
   droppedPlayers,
   roundRobinRoundCount,
   singleEliminationRoundCount,
@@ -57,6 +58,37 @@ export const TOURNAMENT_VIEW = {
     },
   },
 } satisfies Prisma.TournamentSelect;
+
+/**
+ * What a format does that the web reads rather than decides by the
+ * format: whether corrections are previewed, what Complete round grants,
+ * and whether a clear reopens its tournament round, as the service's
+ * clears do too.
+ */
+export const FORMAT_RULES: Record<
+  TournamentFormat,
+  Pick<
+    TournamentView,
+    'previewsCorrections' | 'completeRoundGrants' | 'clearReopensRound'
+  >
+> = {
+  RoundRobin: {
+    previewsCorrections: false,
+    completeRoundGrants: null,
+    clearReopensRound: false,
+  },
+  Swiss: {
+    previewsCorrections: false,
+    completeRoundGrants: 'GrantedDraws',
+    clearReopensRound: false,
+  },
+  // Only single elimination's matches feed one another, and it never has a draw.
+  SingleElimination: {
+    previewsCorrections: true,
+    completeRoundGrants: 'GrantedWins',
+    clearReopensRound: true,
+  },
+};
 
 type TournamentRow = Prisma.TournamentGetPayload<{
   select: typeof TOURNAMENT_VIEW;
@@ -121,6 +153,11 @@ export function toTournamentView(row: TournamentRow): TournamentView {
             )
           : standings(players, matches);
   const count = roundCount(row, players.length);
+  const bracket =
+    row.format === 'SingleElimination' && row.state !== 'Registration'
+      ? toBracket(row, count, sorted, user, dropped)
+      : null;
+  const complete = row.state === 'Complete';
   return {
     format: row.format,
     swissRoundOption: row.swissRoundOption,
@@ -129,24 +166,23 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     lastCompletedRound: row.lastCompletedRound,
     entries,
     rounds,
-    bracket:
-      row.format === 'SingleElimination' && row.state !== 'Registration'
-        ? toBracket(row, count, sorted, user, dropped)
-        : null,
-    // Only single elimination's matches feed one another.
-    correctionsPreview: row.format === 'SingleElimination',
+    bracket,
+    ...FORMAT_RULES[row.format],
     standings: table,
-    trophyHolders: row.state === 'Complete' ? trophyHolders(table) : [],
+    trophyHolders: !complete
+      ? []
+      : bracket
+        ? bracketTrophyHolders(bracket)
+        : trophyHolders(table),
   };
 }
 
 /**
  * The bracket of the single elimination tournament `row`, of `roundCount`
  * tournament rounds, drawn by the engine from its paired `matches`, each
- * match's winner moving on once its result is agreed, and each bracket
- * place carrying the id of its match, a bye's none. Nobody moves on from a
- * forfeit both its players dropped from, nor from the bye of a player in
- * `dropped`, as nobody advances from them.
+ * sending on the player who advances from it as the engine's
+ * agreedAdvancingPlayer decides, `dropped` holding the dropped players,
+ * and each bracket place carrying the id of its match, a bye's none.
  */
 function toBracket(
   row: Pick<TournamentRow, 'state' | 'lastCompletedRound'>,
@@ -160,32 +196,32 @@ function toBracket(
       round: match.round,
       bracketPlace: match.bracketPlace!,
     };
+    const roundCompleted =
+      row.state === 'Complete' || match.round <= row.lastCompletedRound;
     if (match.secondEntryId === null) {
-      const playerId = user(match.firstEntryId);
-      const winner = advancingPlayer(
-        { players: [playerId, null], outcome: null },
+      const players = [user(match.firstEntryId), null] as const;
+      const advancing = agreedAdvancingPlayer(
+        { players, outcome: null, reportedBy: null, confirmed: false },
         dropped,
+        roundCompleted,
       );
-      return { ...place, players: [playerId, null], winner };
+      return { ...place, players, advancing };
     }
     const { players, outcome, reportedBy, confirmed } = toMatchView(
       match,
       user,
     );
-    const roundCompleted =
-      row.state === 'Complete' || match.round <= row.lastCompletedRound;
-    return {
-      ...place,
-      players,
-      winner:
-        outcome.kind === 'Unreported' ||
-        advancingPlayer({ players, outcome }, dropped) === null
-          ? null
-          : agreedWinnerOf(
-              { players, outcome, reportedBy, confirmed },
-              roundCompleted,
-            ),
-    };
+    const advancing = agreedAdvancingPlayer(
+      {
+        players,
+        outcome: outcome.kind === 'Unreported' ? null : outcome,
+        reportedBy,
+        confirmed,
+      },
+      dropped,
+      roundCompleted,
+    );
+    return { ...place, players, advancing };
   });
   const matchAt = (round: number, bracketPlace: number) =>
     matches.find(
@@ -194,15 +230,17 @@ function toBracket(
         match.bracketPlace === bracketPlace &&
         match.secondEntryId !== null,
     );
-  return bracketRounds(roundCount, played).map(({ round, places }) => ({
-    round,
-    places: places.map(({ bracketPlace, sides, winner }) => ({
-      bracketPlace,
-      matchId: matchAt(round, bracketPlace)?.id ?? null,
-      sides,
-      winner,
-    })),
-  }));
+  return bracketRounds(roundCount, played, dropped).map(
+    ({ round, places }) => ({
+      round,
+      places: places.map(({ bracketPlace, sides, advancing }) => ({
+        bracketPlace,
+        matchId: matchAt(round, bracketPlace)?.id ?? null,
+        sides,
+        advancing,
+      })),
+    }),
+  );
 }
 
 /** The player with each bye in `rounds`, once per bye. */

@@ -385,7 +385,7 @@ In single elimination, a player's place in the seed order, from 1 for the top se
 _Avoid_: Ranking, position, draw number
 
 **Bracket**:
-The single elimination view of a tournament: its matches by tournament round, each at its bracket place, the winners of each pair of neighbouring matches meeting in the next round. It is sized to the next power of two, so the top seeds start with byes, and seeds 1 and 2 can meet only in the final. It shows every tournament round from the start: a place not yet paired holds the winner of each match feeding it as soon as that match's result is agreed, and until then that match's winner to come.
+The single elimination view of a tournament: its matches by tournament round, each at its bracket place, the winners of each pair of neighbouring matches meeting in the next round. It is sized to the next power of two, so the top seeds start with byes, and seeds 1 and 2 can meet only in the final. It shows every tournament round from the start: a place not yet paired holds the player who advances from each match feeding it as soon as that match's result is agreed, and until then that match's winner to come. When nobody advances from a feeding match, the place shows the other side's bye at once.
 _Avoid_: Tree, draw, chart, bracket as the format's name
 
 **Bracket place**:
@@ -437,7 +437,7 @@ In single elimination, a player going on from a match or bye to the next tournam
 _Avoid_: Progress, move up, go through, qualify
 
 **Complete tournament**:
-A tournament whose last round has been completed, or, in round robin, that the organizer has completed. Its trophies are awarded.
+A tournament whose last round has been completed, or, in round robin, that the organizer has completed. Its trophies are awarded, if anyone is left to hold one.
 _Avoid_: Finished, ended, over
 
 **Cancel tournament**:
@@ -509,7 +509,7 @@ A player leaving a tournament before it ends. Their played matches stand.
 _Avoid_: Withdraw, quit, leave
 
 **Reinstate**:
-An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them; in single elimination, until the tournament round of a forfeit of theirs, or of a match or bye nobody advanced from because they dropped, is completed. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
+An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them. In single elimination, a player whose last match was a forfeit, theirs or both players', or whose last tournament round was a bye, can't be reinstated once that tournament round is completed or the next match it feeds is paired; a player out on a match they played can be. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
 _Avoid_: Undo drop, un-drop, take back, rejoin
 
 **Forfeit**:
@@ -557,7 +557,7 @@ A guild's players ranked by their trophies, with each player's match and game re
 _Avoid_: Standings (that is one tournament's), stats page, rankings, player profile
 
 **Trophy**:
-One tournament won by a player.
+One tournament won by a player. A complete tournament's trophy goes to everyone who shares first in its standings; in single elimination, to the player who advances from the final, or to the one player left in the bracket if it completed before the final. When nobody is left, as when both finalists drop, the tournament completes with no trophy holder.
 _Avoid_: Win (alone; that is a match), title, championship
 
 ## Discord

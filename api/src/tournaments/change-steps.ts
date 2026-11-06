@@ -1,4 +1,4 @@
-import type { GameScorePreview } from 'contract';
+import type { CorrectionPreview } from 'contract';
 import type {
   MatchOutcomeKind,
   MatchSide,
@@ -28,13 +28,6 @@ export interface MatchChange {
  * Swiss's.
  */
 export interface ChangeSteps {
-  /**
-   * Whether clearing a match of a completed tournament round reopens that
-   * round, the match unreported, rather than making it a granted draw; and
-   * whether a dropped player's match is their forfeit again whatever the
-   * tournament's state, rather than only while it is playing.
-   */
-  reopensCleared: boolean;
   /** Writes an organizer's `change` to the match `matchId`, and changes what depends on it. */
   changeMatch(
     tx: Transaction,
@@ -43,12 +36,12 @@ export interface ChangeSteps {
     change: MatchChange,
   ): Promise<void>;
   /** What `changeMatch` would do beyond the match for the same change, writing nothing. */
-  previewChange(
+  previewCorrection(
     tx: Transaction,
     tournament: TournamentProgress,
     matchId: string,
     change: MatchChange,
-  ): Promise<GameScorePreview>;
+  ): Promise<CorrectionPreview>;
   /**
    * Throws TournamentRefusedError if the dropped entry `entryId` can't be
    * reinstated, as their drop has fed a later pairing.
@@ -66,11 +59,10 @@ export interface ChangeSteps {
  * can't be reinstated once a tournament round has been paired without them.
  */
 export const DEFAULT_CHANGE_STEPS: ChangeSteps = {
-  reopensCleared: false,
   async changeMatch(tx, _tournament, matchId, change) {
     await tx.match.update({ where: { id: matchId }, data: change });
   },
-  previewChange: (_tx, tournament) =>
+  previewCorrection: (_tx, tournament) =>
     Promise.resolve({ clears: [], state: tournament.state }),
   async refuseReinstate(tx, tournament, entryId) {
     const pairedWithout = await currentRoundWithout(tx, tournament.id, entryId);

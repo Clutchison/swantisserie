@@ -18,12 +18,6 @@ export type SwissRoundOption = 'UntilWinner' | 'CappedAt3';
 export const SWISS_ROUND_CAP = 3;
 
 /**
- * The fewest undropped players a Swiss tournament pairs another tournament
- * round for. With fewer, Complete round completes the tournament.
- */
-export const MIN_UNDROPPED_PLAYERS = 2;
-
-/**
  * How many tournament rounds a Swiss tournament of `joined` players plays:
  * ⌈log₂ joined⌉ until there's a winner, at most SWISS_ROUND_CAP when capped.
  */

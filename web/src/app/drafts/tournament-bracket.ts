@@ -65,7 +65,8 @@ export class TournamentBracket {
    * Who the signed-in player faces next, or which match decides it: at
    * their last bracket place, while its match is unreported or not yet
    * paired. None while their reported result waits to be agreed, once they
-   * are out or hold the trophy, or if they aren't playing.
+   * are out or hold the trophy, or if they aren't playing. A bye sends them
+   * on at once, so their next match is the one after it.
    */
   protected readonly nextMatch = computed(() => {
     const own = this.ownId();
@@ -74,11 +75,13 @@ export class TournamentBracket {
       .flatMap((round) => round.places.map((place) => ({ round: round.round, place })))
       .filter(({ place }) => this.includes(place, own))
       .at(-1);
-    if (!reached || reached.place.winner !== null) return null;
+    if (!reached || reached.place.advancing !== null) return null;
     if (reached.place.matchId && this.lines().get(reached.place.matchId)?.decided) return null;
     const opponent = reached.place.sides.find(
       (side) => side.kind !== 'Player' || side.playerId !== own,
     )!;
+    // A bye that sends nobody on is a dropped player's: they have no next match.
+    if (opponent.kind === 'Bye') return null;
     return `Your next match, in tournament round ${reached.round}, is against ${this.describe(reached.round, opponent)}.`;
   });
 
@@ -95,19 +98,24 @@ export class TournamentBracket {
         name: side.kind === 'Player' ? this.name(side.playerId) : this.pendingName(round, side),
         seed: side.kind === 'Player' ? this.seeds().get(side.playerId) : undefined,
         games: line?.games ? line.games[i] : null,
-        won: side.kind === 'Player' && side.playerId === place.winner,
+        won: side.kind === 'Player' && side.playerId === place.advancing,
         pending: side.kind !== 'Player',
       })),
       note: line ? joined([line.note, line.confirmed ? 'Confirmed' : null]) || null : null,
     };
   }
 
-  /** The place as a screen reader names it, as in "Bob (seed 2) 1–2 Carol (seed 3) · Carol won". */
+  /**
+   * The place as a screen reader names it, as in "Bob (seed 2) 1–2 Carol
+   * (seed 3) · Carol won", or "Nobody advances to it" when both its sides
+   * are byes.
+   */
   private label(round: number, place: BracketPlaceView, line: MatchLine | undefined) {
     const [first, second] = place.sides;
+    if (first.kind === 'Bye') return 'Nobody advances to it';
     if (second.kind === 'Bye') return `${this.describe(round, first)} has a bye`;
     if (!line) return `${this.describe(round, first)} vs ${this.describe(round, second)}`;
-    const won = line.gameScore && place.winner ? `${this.name(place.winner)} won` : null;
+    const won = line.gameScore && place.advancing ? `${this.name(place.advancing)} won` : null;
     return joined([
       `${line.first} ${line.gameScore ?? 'vs'} ${line.second}`,
       won ?? line.note,

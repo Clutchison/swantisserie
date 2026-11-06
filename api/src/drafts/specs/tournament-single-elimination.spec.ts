@@ -78,7 +78,11 @@ describe('starting a single elimination tournament', () => {
       [alice.id, bob.id, carol.id, dave.id, erin.id].sort(),
     );
     expect(view.roundCount).toBe(3);
-    expect(view.correctionsPreview).toBe(true);
+    expect(view).toMatchObject({
+      previewsCorrections: true,
+      completeRoundGrants: 'GrantedWins',
+      clearReopensRound: true,
+    });
     expect(view.rounds).toHaveLength(1);
     const [round] = view.rounds;
     expect(round.byes).toEqual([seeds[0], seeds[1], seeds[2]]);
@@ -132,13 +136,13 @@ describe('the bracket in the tournament read', () => {
             bracketPlace: 0,
             matchId: null,
             sides: [player(seeds[0]), { kind: 'Bye' }],
-            winner: seeds[0],
+            advancing: seeds[0],
           },
           {
             bracketPlace: 1,
             matchId: match.id,
             sides: [player(seeds[1]), player(seeds[2])],
-            winner: null,
+            advancing: null,
           },
         ],
       },
@@ -152,7 +156,7 @@ describe('the bracket in the tournament read', () => {
               player(seeds[0]),
               { kind: 'WinnerToCome', bracketPlace: 1 },
             ],
-            winner: null,
+            advancing: null,
           },
         ],
       },
@@ -165,7 +169,7 @@ describe('the bracket in the tournament read', () => {
     await reportWin(id, [seeds[2], seeds[1]], [2, 1], cookieOf[seeds[2]]);
 
     const reported = await tournamentView(id);
-    expect(reported.bracket![0].places[1].winner).toBeNull();
+    expect(reported.bracket![0].places[1].advancing).toBeNull();
     expect(reported.bracket![1].places[0].sides).toEqual([
       player(seeds[0]),
       { kind: 'WinnerToCome', bracketPlace: 1 },
@@ -174,7 +178,7 @@ describe('the bracket in the tournament read', () => {
     const [match] = reported.rounds[0].matches;
     await confirmMatch(id, match.id, cookieOf[seeds[1]]).expect(200);
     const confirmed = await tournamentView(id);
-    expect(confirmed.bracket![0].places[1].winner).toBe(seeds[2]);
+    expect(confirmed.bracket![0].places[1].advancing).toBe(seeds[2]);
     expect(confirmed.bracket![1].places[0].sides).toEqual([
       player(seeds[0]),
       player(seeds[2]),
@@ -194,7 +198,7 @@ describe('the bracket in the tournament read', () => {
     );
 
     const entered = await tournamentView(id);
-    expect(entered.bracket![0].places[1].winner).toBe(match.players[0]);
+    expect(entered.bracket![0].places[1].advancing).toBe(match.players[0]);
     expect(entered.bracket![1].places[0].sides[1]).toEqual(
       player(match.players[0]),
     );
@@ -214,7 +218,7 @@ describe('the bracket in the tournament read', () => {
         bracketPlace: 0,
         matchId: view.rounds[1].matches[0].id,
         sides: [player(seeds[0]), player(seeds[1])],
-        winner: seeds[1],
+        advancing: seeds[1],
       },
     ]);
   });
