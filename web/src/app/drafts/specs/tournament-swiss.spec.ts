@@ -13,7 +13,10 @@ import {
   group,
   http,
   items,
+  link,
+  namedList,
   panel,
+  region,
   text,
   useDraftsApp,
 } from './harness';
@@ -36,6 +39,7 @@ import {
   standingsColumns,
   standingsRows,
   swissPlaying,
+  swissRoundsWith,
   threePlayers,
   withTournament,
 } from './play-tab-harness';
@@ -353,5 +357,69 @@ describe('Swiss tournaments on the Play tab', () => {
       ['1', 'Alice', '3', '1–0–0', '33%', '100%', '33%'],
       ['3', 'Bob', '0', '0–1–0', '100%', '33%', '67%'],
     ]);
+  });
+
+  describe('your match', () => {
+    const yourMatch = (tab: HTMLElement) => region(tab, 'Your match')!;
+    /** Carol reporting that she beat Alice 2–1 in round 2's match. */
+    const carolBeatAlice = reported(openMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+
+    it('offers Confirm, with who reported what and a link to your Deck tab, once your opponent reported it', async () => {
+      const { fixture, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+
+      expect(text(yourMatch(tab))).toContain('Tournament round 2: Carol reported you lost 1–2');
+      expect(text(yourMatch(tab))).not.toContain('All your matches are reported.');
+      expect(link(yourMatch(tab), 'Your deck')).toBeDefined();
+      expect(
+        button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol'),
+      ).toBeUndefined();
+
+      button(yourMatch(tab), 'Confirm your match against Carol')!.click();
+      const req = await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament/matches/m2/confirm',
+        'POST',
+        swissPlaying({ rounds: swissRoundsWith({ ...carolBeatAlice, confirmed: true }) }),
+        1,
+        threePlayers,
+      );
+
+      expect(req.request.body).toBeNull();
+      expect(text(yourMatch(tab))).toContain('All your matches are reported.');
+    });
+
+    it('says all your matches are reported only once nothing is left to report or confirm', async () => {
+      const aliceBeatCarol = reported(openMatch('m2', alice.id, carol.id), [2, 1], alice.id);
+      const { tab } = await openPlaying(swissPlaying({ rounds: swissRoundsWith(aliceBeatCarol) }));
+
+      expect(text(yourMatch(tab))).toContain('All your matches are reported.');
+      expect(button(yourMatch(tab), 'Confirm your match against Carol')).toBeUndefined();
+    });
+
+    it('shows the earlier tournament round’s match to confirm before a later one to report, unless you choose that one', async () => {
+      const bobBeatAlice = reported(openMatch('m1', alice.id, bob.id), [1, 2], bob.id);
+      const { fixture, tab } = await openPlaying(
+        swissPlaying({
+          rounds: [
+            { round: 1, matches: [bobBeatAlice], byes: [carol.id] },
+            { round: 2, matches: [openMatch('m2', alice.id, carol.id)], byes: [bob.id] },
+          ],
+        }),
+      );
+
+      expect(text(yourMatch(tab))).toContain('Tournament round 1: Bob reported you lost 1–2');
+      expect(button(yourMatch(tab), 'Confirm your match against Bob')).toBeDefined();
+
+      button(namedList(tab, 'Tournament round 2'), 'Report your match against Carol')!.click();
+      await fixture.whenStable();
+
+      expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
+      expect(button(yourMatch(tab), 'Won 2–0')).toBeDefined();
+      expect(
+        button(namedList(tab, 'Tournament round 1'), 'Confirm your match against Bob'),
+      ).toBeDefined();
+    });
   });
 });

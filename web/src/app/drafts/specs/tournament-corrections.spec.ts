@@ -1,4 +1,4 @@
-import { answer, question } from '../../specs-harness';
+import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
@@ -21,9 +21,11 @@ import {
   openMatch,
   openPlaying,
   playing,
+  pushTournament,
   reported,
   resultsGrid,
   swissPlaying,
+  swissRoundsWith,
   threePlayers,
   withDrops,
   yourMatches,
@@ -126,6 +128,50 @@ describe('organizer reports, corrections and clears', () => {
     expect(req.request.body).toEqual({ games: [2, 0] });
   });
 
+  it('keeps the dialog open when another match changes, and closes it once its match does', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { user: dave, powers: ORGANIZE_ONLY });
+    await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+
+    await pushTournament(fixture, playing([bobBeatAlice]), 1);
+    expect(group(openDialog()!, 'Game score of Bob vs Carol')).not.toBeNull();
+
+    await pushTournament(
+      fixture,
+      playing([bobBeatAlice, reported(openMatch('m1', bob.id, carol.id), [2, 0])]),
+      2,
+    );
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('closes the dialog once one of its match’s players drops, changing what clearing it leaves', async () => {
+    const bobBeatCarol = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const { fixture, tab } = await openPlaying(playing([bobBeatCarol]), {
+      user: dave,
+      powers: ORGANIZE_ONLY,
+    });
+    await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+
+    await pushTournament(
+      fixture,
+      withDrops(
+        [carol.id],
+        [bobBeatCarol, forfeited(openMatch('m3', carol.id, alice.id), carol.id)],
+      ),
+      1,
+    );
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('closes the dialog once the tournament is complete', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { user: dave, powers: ORGANIZE_ONLY });
+    await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+
+    await pushTournament(fixture, playing([], { state: 'Complete' }), 1);
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
   it('sends nothing when the organizer cancels the dialog', async () => {
     const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
@@ -225,6 +271,57 @@ describe('organizer reports, corrections and clears', () => {
 
     expect(button(tab, 'Correct Carol vs Bob')).toBeUndefined();
     expect(button(tab, 'Report Alice vs Carol')).toBeDefined();
+  });
+
+  describe('an open correction in the list of matches', () => {
+    /** Opens the Swiss tournament for Dave, an organizer, with Alice and Carol's game scores open. */
+    async function openCorrection() {
+      const opened = await openPlaying(swissPlaying(), { user: dave, powers: ORGANIZE_ONLY });
+      button(opened.tab, 'Report Alice vs Carol')!.click();
+      await opened.fixture.whenStable();
+      expect(scores(opened.tab)).not.toBeNull();
+      return opened;
+    }
+    const scores = (tab: HTMLElement) => group(tab, 'Game score of Alice vs Carol');
+    const aliceVsCarol = openMatch('m2', alice.id, carol.id);
+
+    it('stays open when another match changes, and closes once that match is reported', async () => {
+      const { fixture, tab } = await openCorrection();
+
+      await pushTournament(
+        fixture,
+        swissPlaying({
+          rounds: swissRoundsWith(aliceVsCarol, {
+            ...reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id),
+            confirmed: true,
+          }),
+        }),
+        1,
+      );
+      expect(scores(tab)).not.toBeNull();
+
+      await pushTournament(
+        fixture,
+        swissPlaying({ rounds: swissRoundsWith(reported(aliceVsCarol, [2, 1])) }),
+        2,
+      );
+      expect(scores(tab)).toBeNull();
+    });
+
+    it('closes once its tournament round is completed', async () => {
+      const { fixture, tab } = await openCorrection();
+
+      await pushTournament(
+        fixture,
+        swissPlaying({
+          lastCompletedRound: 2,
+          rounds: swissRoundsWith(aliceVsCarol),
+        }),
+        1,
+      );
+
+      expect(scores(tab)).toBeNull();
+    });
   });
 
   it('aren’t offered to anyone without the power to organize the draft', async () => {

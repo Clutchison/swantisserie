@@ -1,4 +1,11 @@
-import type { GameScore, MatchOutcomeView, MatchView, TournamentEntryView } from 'contract';
+import type {
+  GameScore,
+  MatchOutcomeView,
+  MatchView,
+  PlayerView,
+  TournamentEntryView,
+  TournamentView,
+} from 'contract';
 import { GAME_SCORES } from 'engine';
 
 /**
@@ -140,6 +147,44 @@ function afterClearing(
       : `It will become a forfeit by ${name(forfeiting)}, who has dropped.`;
   }
   return outcome.kind === 'Unreported' ? null : 'The match will be unreported again.';
+}
+
+/**
+ * Whether the player `own` can confirm `match`: theirs, its game score
+ * reported by someone else, unconfirmed.
+ */
+export function confirmableBy(match: MatchView, own: string): boolean {
+  return (
+    match.outcome.kind === 'GameScore' &&
+    !match.confirmed &&
+    match.players.includes(own) &&
+    match.reportedBy !== own
+  );
+}
+
+/**
+ * How the player `own` reads their `match` against `opponent` that someone
+ * else reported, for them to confirm, such as "Carol reported you lost 1–2".
+ */
+export function reportedLine(match: MatchView, own: string, opponent: PlayerView): string {
+  if (match.outcome.kind !== 'GameScore') throw new Error(`Match ${match.id} has no game score`);
+  const { result, score } = gameScoreFor(match.outcome.games, match.players, own);
+  const reporter = match.reportedBy === opponent.id ? opponent.name : 'An organizer';
+  return `${reporter} reported you ${result} ${score}`;
+}
+
+/** The match `matchId` of `tournament`, in whichever tournament round it is; undefined if it has none. */
+export function matchIn(tournament: TournamentView, matchId: string): MatchView | undefined {
+  for (const round of tournament.rounds) {
+    const match = round.matches.find((m) => m.id === matchId);
+    if (match) return match;
+  }
+  return undefined;
+}
+
+/** Whether `before` and `after`, a match as two reads of its tournament have it, have the same outcome. */
+export function sameOutcome(before: MatchView | undefined, after: MatchView | undefined): boolean {
+  return !!before && !!after && JSON.stringify(before.outcome) === JSON.stringify(after.outcome);
 }
 
 /**

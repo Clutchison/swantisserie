@@ -12,7 +12,7 @@ import type { MatchView, PlayerView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { gameScoreFor } from './match-lines';
+import { confirmableBy, gameScoreFor, reportedLine } from './match-lines';
 import { PlayerAvatar } from './player-avatar';
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
@@ -42,7 +42,7 @@ interface OwnMatchLine {
   opponent: PlayerView;
   /** How it stands, such as "vs Carol", "Carol reported you lost 1–2" or "Forfeit: Carol dropped". */
   says: string;
-  /** Whether the player may report it: unreported while the tournament is playing. */
+  /** Whether the player may report it: unreported while the tournament is playing, which a dropped player's never are, as they became forfeits. */
   reportable: boolean;
   /** Whether the player may confirm it: someone else reported its game score, unconfirmed. */
   confirmable: boolean;
@@ -50,10 +50,10 @@ interface OwnMatchLine {
 
 /**
  * Round robin's Your matches, at the top of the Play tab for a player who
- * joined and hasn't dropped: one line per opponent, unreported first, then
- * the rest, each in join order. An unreported match offers Report, which
- * opens its four game scores; a game score someone else reported offers
- * Confirm. Round robin has no tournament rounds, so any match can be
+ * joined: one line per opponent, unreported first, then the rest, each in
+ * join order. An unreported match offers Report, which opens its four game
+ * scores; a game score someone else reported offers Confirm, dropped or
+ * not. Round robin has no tournament rounds, so any match can be
  * reported in any order.
  */
 @Component({
@@ -67,7 +67,7 @@ export class YourMatches {
   private readonly store = inject(DraftStore);
 
   readonly tournament = input.required<TournamentView>();
-  /** The signed-in player's id: joined, and not dropped. */
+  /** The signed-in player's id: joined, dropped or not. */
   readonly ownId = input.required<string>();
   /** Asks for the signed-in player's match to be reported. */
   readonly report = output<OwnReport>();
@@ -76,10 +76,19 @@ export class YourMatches {
 
   protected readonly ownGameScores = OWN_GAME_SCORES;
 
-  /** The match whose game scores are open to report, if any; closed whenever the tournament is re-read. */
+  /**
+   * The match whose game scores are open to report, if any. A re-read keeps
+   * it open while the player may still report it, so until it is reported,
+   * the tournament stops playing or they drop.
+   */
   protected readonly reporting = linkedSignal<TournamentView, string | undefined>({
     source: this.tournament,
-    computation: () => undefined,
+    computation: (_, previous) => {
+      const open = previous?.value;
+      return this.lines().some((line) => line.match.id === open && line.reportable)
+        ? open
+        : undefined;
+    },
   });
 
   /** The signed-in player's matches, one line per opponent: unreported first, then the rest, each in their opponents' join order. */
@@ -103,8 +112,7 @@ export class YourMatches {
   private line(match: MatchView, own: string, playing: boolean): OwnMatchLine {
     const opponent = this.store.player(match.players.find((id) => id !== own)!);
     const { outcome } = match;
-    const confirmable =
-      outcome.kind === 'GameScore' && !match.confirmed && match.reportedBy !== own;
+    const confirmable = confirmableBy(match, own);
     return {
       match,
       opponent,
@@ -130,11 +138,8 @@ export class YourMatches {
           ? `Forfeit: you dropped against ${opponent.name}`
           : `Forfeit: ${opponent.name} dropped`;
       case 'GameScore': {
+        if (confirmable) return reportedLine(match, own, opponent);
         const { result, score } = gameScoreFor(outcome.games, match.players, own);
-        if (confirmable) {
-          const reporter = match.reportedBy === opponent.id ? opponent.name : 'An organizer';
-          return `${reporter} reported you ${result} ${score}`;
-        }
         const line = `${versus} · ${result.charAt(0).toUpperCase()}${result.slice(1)} ${score}`;
         return match.confirmed ? `${line} · Confirmed` : line;
       }
