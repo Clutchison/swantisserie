@@ -226,6 +226,18 @@ export function listItem(page: HTMLElement, name: string): HTMLElement {
   return found;
 }
 
+/** The names of the drafts listed in the draft list's section headed `heading`. */
+export function listedDrafts(page: HTMLElement, heading: string): string[] {
+  return [...section(page, heading).querySelectorAll('li[aria-label]')].map(
+    (li) => li.getAttribute('aria-label') ?? '',
+  );
+}
+
+/** The link to draft `id`'s page inside `root`, such as a draft's card in the draft list. */
+export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | null {
+  return root.querySelector<HTMLAnchorElement>(`a[href="/drafts/${id}"]`);
+}
+
 export function section(page: HTMLElement, heading: string): HTMLElement {
   const found = [...page.querySelectorAll('section')].find((s) =>
     s.querySelector('h2')?.textContent?.includes(heading),
