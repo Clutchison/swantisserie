@@ -1,4 +1,3 @@
-import type { ViewerTournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -23,6 +22,7 @@ import {
   carol,
   dave,
   openComplete,
+  openCompleteRound,
   openMatch,
   openPlaying,
   openPlayTab,
@@ -134,17 +134,8 @@ describe('Swiss tournaments on the Play tab', () => {
     rounds: [{ round: 1, matches: [openMatch('m1', carol.id, bob.id)], byes: [alice.id] }],
   });
 
-  /** Opens the Complete round dialog for an organizer, on `tournament`. */
-  async function openCompleteRound(tournament: ViewerTournamentView) {
-    const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
-    button(opened.tab, 'Complete round')!.click();
-    await opened.fixture.whenStable();
-    return opened;
-  }
-
   it('asks which players of each unreported match to drop as it becomes a granted draw', async () => {
-    const { fixture } = await openCompleteRound(unreportedRoundOne);
-    const dialog = openDialog()!;
+    const { fixture, dialog } = await openCompleteRound(unreportedRoundOne);
 
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(text(dialog)).toContain(
@@ -169,8 +160,7 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('asks no drop question in the final tournament round, which completes the tournament', async () => {
-    const { fixture, page } = await openCompleteRound(swissPlaying());
-    const dialog = openDialog()!;
+    const { fixture, page, dialog } = await openCompleteRound(swissPlaying());
 
     expect(text(dialog)).toContain(
       'It is the final tournament round, so completing it will complete the tournament and award the trophy.',
@@ -195,7 +185,7 @@ describe('Swiss tournaments on the Play tab', () => {
 
   it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
     // Bob dropped after his bye; Alice and Carol's match is unreported.
-    await openCompleteRound(
+    const { dialog } = await openCompleteRound(
       swissPlaying({
         lastCompletedRound: 0,
         entries: [
@@ -206,7 +196,6 @@ describe('Swiss tournaments on the Play tab', () => {
         rounds: [{ round: 1, matches: [openMatch('m1', alice.id, carol.id)], byes: [bob.id] }],
       }),
     );
-    const dialog = openDialog()!;
     const completes =
       'Fewer than 2 undropped players will remain, so completing the round will complete the tournament';
     expect(text(dialog)).toContain(
@@ -221,7 +210,7 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('completes a fully reported tournament round with no granted draws, in place of completing the tournament', async () => {
-    const { fixture, tab } = await openCompleteRound(
+    const { fixture, tab, dialog } = await openCompleteRound(
       swissPlaying({
         lastCompletedRound: 0,
         rounds: [
@@ -234,7 +223,6 @@ describe('Swiss tournaments on the Play tab', () => {
       }),
     );
     expect(button(tab, 'Complete tournament')).toBeUndefined();
-    const dialog = openDialog()!;
 
     expect(text(dialog)).not.toContain('granted draws');
     button(dialog, 'Complete round')!.click();
@@ -251,9 +239,9 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('sends nothing when the organizer cancels', async () => {
-    const { fixture } = await openCompleteRound(unreportedRoundOne);
+    const { fixture, dialog } = await openCompleteRound(unreportedRoundOne);
 
-    button(openDialog()!, 'Cancel')!.click();
+    button(dialog, 'Cancel')!.click();
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
@@ -261,9 +249,9 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('shows why completing the tournament round was refused', async () => {
-    const { fixture, page } = await openCompleteRound(unreportedRoundOne);
+    const { fixture, page, dialog } = await openCompleteRound(unreportedRoundOne);
 
-    button(openDialog()!, 'Complete round')!.click();
+    button(dialog, 'Complete round')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/complete-round'))).flush(
       { error: 'not-playing', message: 'This tournament isn’t being played.' },
       { status: 409, statusText: 'Conflict' },

@@ -38,6 +38,7 @@ import {
   resultsGrid,
   roundLabels,
   standing,
+  swissPlaying,
   threePlayers,
   withDrops,
   withTournament,
@@ -45,6 +46,9 @@ import {
 } from './play-tab-harness';
 
 useDraftsApp();
+
+/** Bob reporting that he beat Alice 2–1 in match m2. */
+const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
 
 describe('Play tab while the tournament is played', () => {
   describe('your matches', () => {
@@ -54,6 +58,9 @@ describe('Play tab while the tournament is played', () => {
       );
 
       expect(yourMatches(tab)).toEqual(['vs Carol', 'vs Bob · Won 2–1']);
+      // Confirm is for the opponent of a match that is reported, not its reporter.
+      expect(button(tab, 'Confirm your match against Bob')).toBeUndefined();
+      expect(button(tab, 'Confirm your match against Carol')).toBeUndefined();
       expect(text(tab)).not.toContain('Tournament round');
       expect(text(tab)).not.toContain('bye');
 
@@ -132,7 +139,6 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it('confirms an opponent’s report from its line', async () => {
-      const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
       const { fixture, tab } = await openPlaying(playing([bobBeatAlice]));
 
       button(tab, 'Confirm your match against Bob')!.click();
@@ -182,6 +188,25 @@ describe('Play tab while the tournament is played', () => {
 
       expect(region(tab, 'Your matches')).toBeNull();
       expect(region(tab, 'Your match')).toBeNull();
+    });
+
+    describe('confirming a match', () => {
+      it('isn’t offered to viewers who aren’t the match’s players', async () => {
+        const { tab } = await openPlaying(playing([bobBeatAlice]), { user: dave });
+
+        expect(text(tab)).not.toContain('Confirm');
+      });
+
+      it('is offered from the list of matches in Swiss', async () => {
+        const m2 = reported(openMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+        const { tab } = await openPlaying(
+          swissPlaying({
+            rounds: [swissPlaying().rounds[0], { round: 2, matches: [m2], byes: [bob.id] }],
+          }),
+        );
+
+        expect(button(tab, 'Confirm your match against Carol')).toBeDefined();
+      });
     });
   });
 
@@ -453,5 +478,72 @@ describe('Play tab while the tournament is played', () => {
 
       expect(button(tab, 'Complete tournament')).toBeUndefined();
     });
+
+    it('lets an organizer cancel the tournament while it is played once they go ahead, offering setup again', async () => {
+      const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+      button(tab, 'Cancel tournament')!.click();
+      const dialog = await question('Cancel the tournament?');
+      expect(dialog.textContent).toContain(
+        'Its matches are removed, nothing from it counts, and every deck unlocks.',
+      );
+      await answer(dialog, 'Cancel tournament');
+      await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament',
+        'DELETE',
+        null,
+        1,
+        threePlayers,
+      );
+
+      expect(button(panel(page), 'Set up tournament')).toBeDefined();
+    });
+
+    it('keeps the tournament playing when the organizer thinks better of cancelling it', async () => {
+      const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+      button(tab, 'Cancel tournament')!.click();
+      await answer(await question('Cancel the tournament?'), 'Keep tournament');
+      await fixture.whenStable();
+
+      http.expectNone('/api/drafts/draft-1/tournament');
+      expect(button(tab, 'Cancel tournament')).toBeDefined();
+    });
+
+    it('offers no Cancel tournament once the tournament is complete', async () => {
+      const { tab } = await openPlaying(playing([], { state: 'Complete' }), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      expect(button(tab, 'Cancel tournament')).toBeUndefined();
+    });
+
+    it('offers Cancel tournament only to organizers', async () => {
+      const { tab } = await openPlaying(playing());
+
+      expect(button(tab, 'Cancel tournament')).toBeUndefined();
+    });
+  });
+});
+
+describe('Play tab once the tournament is complete', () => {
+  it('lets the opponent confirm once the tournament is complete', async () => {
+    const completeWith = (m2: ReturnType<typeof openMatch>) =>
+      playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
+    const { fixture, tab } = await openPlaying(completeWith(bobBeatAlice));
+
+    button(tab, 'Confirm your match against Bob')!.click();
+    await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/matches/m2/confirm',
+      'POST',
+      completeWith({ ...bobBeatAlice, confirmed: true }),
+      1,
+      threePlayers,
+    );
+
+    expect(yourMatches(tab)).toContain('vs Bob · Lost 1–2 · Confirmed');
+    expect(text(gridCell(tab, 'Bob', 'Alice'))).toBe('2–1');
   });
 });

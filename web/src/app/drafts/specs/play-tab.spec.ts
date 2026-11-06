@@ -14,7 +14,6 @@ import {
   flushPicks,
   heading,
   http,
-  namedList,
   openDraft,
   panel,
   panelName,
@@ -28,6 +27,7 @@ import {
   dave,
   flushTournament,
   hasPlayTab,
+  joinedNames,
   openComplete,
   openPlayTab,
   playing,
@@ -43,16 +43,6 @@ useDraftsApp();
 /** The Join button's label without public decklists, and with them. */
 const JOIN_PRIVATE = 'Join (deck stays private)';
 const JOIN_PUBLIC = 'Join (public decklist)';
-
-/** The names listed as joined, in order: each entry's own text, its buttons left out. */
-const joinedNames = (tab: HTMLElement) =>
-  [...namedList(tab, 'Joined players').querySelectorAll('li')].map((li) =>
-    [...li.childNodes]
-      .filter((node) => node.nodeType === Node.TEXT_NODE)
-      .map((node) => node.textContent)
-      .join('')
-      .trim(),
-  );
 
 describe('Play tab', () => {
   describe('before setup', () => {
