@@ -113,6 +113,17 @@
           Tournament
         </button>
       }
+      @if (showDecklists()) {
+        <button
+          id="decklists-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Decklists'"
+          aria-controls="decklists-panel"
+          (click)="selectedTab.select('Decklists')"
+        >
+          Decklists
+        </button>
+      }
     </div>
 
     <section
@@ -250,6 +261,20 @@
       >
         <h2>Tournament</h2>
         <app-tournament-tab />
+      </section>
+    }
+
+    <!-- Only a tournament under public decklists has a Decklists tab, once it has started. -->
+    @if (showDecklists()) {
+      <section
+        id="decklists-panel"
+        class="decklists"
+        role="tabpanel"
+        aria-labelledby="decklists-tab"
+        [hidden]="selectedTab() !== 'Decklists'"
+      >
+        <h2>Decklists</h2>
+        <app-decklists-tab />
       </section>
     }
   }

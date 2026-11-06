@@ -18,6 +18,7 @@ import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
+import { snapshotDecklists } from './decklists.js';
 import { SINGLE_ELIMINATION_CHANGES } from './bracket-changes.js';
 import {
   DEFAULT_CHANGE_STEPS,
@@ -122,6 +123,7 @@ export class TournamentsService {
             format: setup.format,
             swissRoundOption:
               setup.format === 'Swiss' ? setup.swissRoundOption : null,
+            publicDecklists: setup.publicDecklists,
           },
         });
         return [await tournamentSetUp(tx, draftId, setup.format)];
@@ -335,6 +337,7 @@ export class TournamentsService {
         where: { id: tournament.id },
         data: { state: 'Playing', startedAt: new Date() },
       });
+      await snapshotDecklists(tx, tournament.id);
       const steps = ROUND_STEPS[tournament.format];
       if (steps) {
         await steps.start(

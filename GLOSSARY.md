@@ -449,11 +449,11 @@ A tournament setting under which every joined player's locked deck can be seen b
 _Avoid_: Open decklists, open decks, shared decks
 
 **Decklist**:
-A joined player's locked deck as others see it under public decklists.
+A joined player's deck as others see it under public decklists: as it was locked when the tournament started.
 _Avoid_: Deck (that is the player's own), list
 
 **Decklists tab**:
-The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing.
+The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete.
 _Avoid_: Decks tab, lists tab
 
 **Match**:

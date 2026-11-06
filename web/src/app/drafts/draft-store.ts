@@ -13,6 +13,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import type {
+  DecklistView,
   DraftPowersView,
   DraftView,
   PickView,
@@ -319,6 +320,26 @@ export class DraftStore {
     if (draft.tournament) return true;
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
+  /**
+   * Whether the Decklists tab is shown: as the tournament's `showsDecklists`
+   * says, which the api decides (ADR 0003). Undefined while the draft or its
+   * tournament is still loading; false with no tournament, or none loaded.
+   */
+  readonly showDecklists = computed(() => {
+    if (!this.draft.value()) return undefined;
+    if (!this.hasTournament()) return false;
+    if (!this.tournament.loaded()) return this.tournament.failed() ? false : undefined;
+    return this.tournament.value()?.showsDecklists ?? false;
+  });
+  /**
+   * The tournament's decklists, read once it shows them. They are the decks
+   * as they were when it started, so no change re-reads them.
+   */
+  private readonly decklistsResource = httpResource<DecklistView[]>(() =>
+    this.showDecklists() ? `/api/drafts/${this.id()}/tournament/decklists` : undefined,
+  );
+  /** The tournament's decklists, in join order: none until they have loaded. */
+  readonly decklists = keptRead<DecklistView[]>(this.decklistsResource, []);
   /** Whether the signed-in player has joined the draft's tournament. */
   readonly joinedTournament = computed(() => {
     const id = this.user()?.id;

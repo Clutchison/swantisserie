@@ -161,6 +161,10 @@ export interface TournamentRefusal {
     | 'tournament-exists'
     /** Joining, leaving and starting happen only during registration. */
     | 'not-in-registration'
+    /** Decklists are shown only under public decklists, chosen at tournament setup. */
+    | 'decklists-private'
+    /** Under public decklists, decklists are shown once the tournament starts, not during registration. */
+    | 'tournament-not-started'
     /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small'
     | 'bots-cannot-join'

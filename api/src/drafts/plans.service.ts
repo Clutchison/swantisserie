@@ -3,6 +3,7 @@ import {
   BASIC_LANDS,
   type BasicLand,
   type PlanBoard,
+  type PlanBoards,
   type PlannedBasicView,
   type PlannedCardView,
   type PlanRefusal,
@@ -250,36 +251,6 @@ export class PlansService {
   }
 
   private async read(tx: Transaction, playerId: string): Promise<PlanView> {
-    const planned = await tx.plannedCard.findMany({
-      where: { playerId },
-      orderBy: PLAN_ORDER,
-      select: {
-        poolCardId: true,
-        board: true,
-        pickId: true,
-        poolCard: { select: { name: true } },
-      },
-    });
-    const onBoard = (board: PlanBoard): PlannedCardView[] =>
-      planned
-        .filter((card) => card.board === board)
-        .map((card) => ({
-          poolCardId: card.poolCardId,
-          name: card.poolCard.name,
-          picked: card.pickId !== null,
-        }));
-    const plannedBasics = await tx.plannedBasic.findMany({
-      where: { playerId },
-      select: { land: true, count: true },
-    });
-    const counts = new Map(
-      plannedBasics.map(({ land, count }) => [land, count]),
-    );
-    // A plan lists its basics in the order of `BASIC_LANDS`.
-    const basics = BASIC_LANDS.flatMap((land): PlannedBasicView[] => {
-      const count = counts.get(land);
-      return count === undefined ? [] : [{ land, count }];
-    });
     const lost = await tx.lostPlannedCard.findMany({
       where: { playerId, noticeHidden: false },
       orderBy: { pick: { number: 'asc' } },
@@ -292,9 +263,7 @@ export class PlansService {
       },
     });
     return {
-      mainboard: onBoard('Mainboard'),
-      sideboard: onBoard('Sideboard'),
-      basics,
+      ...(await readPlanBoards(tx, playerId)),
       lost: lost.map((card) => ({
         poolCardId: card.poolCardId,
         name: card.poolCard.name,
@@ -302,6 +271,46 @@ export class PlansService {
       })),
     };
   }
+}
+
+/** The player `playerId`'s mainboard, sideboard and basic lands, as their plan lists them: the deck others see in their decklist. */
+export async function readPlanBoards(
+  tx: Transaction,
+  playerId: string,
+): Promise<PlanBoards> {
+  const planned = await tx.plannedCard.findMany({
+    where: { playerId },
+    orderBy: PLAN_ORDER,
+    select: {
+      poolCardId: true,
+      board: true,
+      pickId: true,
+      poolCard: { select: { name: true } },
+    },
+  });
+  const onBoard = (board: PlanBoard): PlannedCardView[] =>
+    planned
+      .filter((card) => card.board === board)
+      .map((card) => ({
+        poolCardId: card.poolCardId,
+        name: card.poolCard.name,
+        picked: card.pickId !== null,
+      }));
+  const plannedBasics = await tx.plannedBasic.findMany({
+    where: { playerId },
+    select: { land: true, count: true },
+  });
+  const counts = new Map(plannedBasics.map(({ land, count }) => [land, count]));
+  // A plan lists its basics in the order of `BASIC_LANDS`.
+  const basics = BASIC_LANDS.flatMap((land): PlannedBasicView[] => {
+    const count = counts.get(land);
+    return count === undefined ? [] : [{ land, count }];
+  });
+  return {
+    mainboard: onBoard('Mainboard'),
+    sideboard: onBoard('Sideboard'),
+    basics,
+  };
 }
 
 function notInPlan() {

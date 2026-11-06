@@ -13,6 +13,7 @@ import {
   joinTournament,
   playingTournament,
   readyDraft,
+  roundRobin,
   removeEntry,
   reportWin,
   setBasic,
@@ -42,6 +43,8 @@ describe('tournament setup', () => {
     expect((await tournament(id).expect(200)).body).toEqual({
       format: 'RoundRobin',
       swissRoundOption: null,
+      publicDecklists: false,
+      showsDecklists: false,
       state: 'Registration',
       roundCount: 0,
       lastCompletedRound: 0,
@@ -79,6 +82,45 @@ describe('tournament setup', () => {
     expect((body as TournamentView).entries.map((entry) => entry.seed)).toEqual(
       [null, null, null],
     );
+  });
+
+  it('sets up a tournament with public decklists, which it reports, though no decklists are shown during registration', async () => {
+    const id = await completeDraft([aliceCookie, bobCookie]);
+
+    await setUpTournament(id, aliceCookie, {
+      ...roundRobin,
+      publicDecklists: true,
+    }).expect(201);
+
+    expect((await tournament(id).expect(200)).body).toMatchObject({
+      format: 'RoundRobin',
+      publicDecklists: true,
+      showsDecklists: false,
+    });
+  });
+
+  it('sets up a tournament without public decklists when asked to', async () => {
+    const id = await completeDraft([aliceCookie, bobCookie]);
+
+    await setUpTournament(id, aliceCookie, {
+      ...singleElimination,
+      publicDecklists: false,
+    }).expect(201);
+
+    expect((await tournament(id).expect(200)).body).toMatchObject({
+      publicDecklists: false,
+      showsDecklists: false,
+    });
+  });
+
+  it('refuses a public decklists choice that is not yes or no', async () => {
+    const id = await completeDraft([aliceCookie, bobCookie]);
+
+    await setUpTournament(id, aliceCookie, {
+      ...roundRobin,
+      publicDecklists: 'yes',
+    }).expect(400);
+    await tournament(id).expect(404);
   });
 
   it('shows a draft with no tournament as having none', async () => {
