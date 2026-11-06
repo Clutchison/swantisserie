@@ -79,24 +79,31 @@ export class ResultsGrid {
     () => this.store.canOrganize() && this.tournament().state === 'Playing',
   );
 
-  /** The match result dialog while it's open, with the id of the match it was opened for and that match as it was then. */
+  /** The match result dialog while it's open, with the match it was opened for and its choices as they were then. */
   private opened: {
     ref: DialogRef<MatchResultChoice, MatchResultDialog>;
-    matchId: string;
-    match: MatchView | undefined;
+    match: MatchView;
+    choices: OrganizerChoices;
   } | null = null;
 
   constructor() {
     // The dialog's choices were the match's as it opened: close it once
     // they no longer hold, as when another organizer completes the
-    // tournament or reports, corrects or clears that match.
+    // tournament or reports, corrects or clears that match, or one of its
+    // players drops, which changes what clearing it leaves.
     effect(() => {
       const tournament = this.tournament();
       const organize = this.organize();
       untracked(() => {
         const opened = this.opened;
         if (!opened) return;
-        if (!organize || !sameOutcome(opened.match, matchIn(tournament, opened.matchId))) {
+        const match = matchIn(tournament, opened.match.id);
+        if (
+          !organize ||
+          !match ||
+          !sameOutcome(opened.match, match) ||
+          this.choicesFor(match).clear?.after !== opened.choices.clear?.after
+        ) {
           opened.ref.close();
         }
       });
@@ -146,16 +153,19 @@ export class ResultsGrid {
       opponentId: columnId,
       marker,
       name: `${this.name(rowId)} against ${this.name(columnId)}: ${result}`,
-      organize: this.organize()
-        ? organizerChoices(
-            match,
-            [this.name(match.players[0]), this.name(match.players[1])],
-            (id) => this.name(id),
-            this.dropped(),
-          )
-        : null,
+      organize: this.organize() ? this.choicesFor(match) : null,
       matchId: match.id,
     };
+  }
+
+  /** What an organizer can do with `match`, as the tournament now stands. */
+  private choicesFor(match: MatchView) {
+    return organizerChoices(
+      match,
+      [this.name(match.players[0]), this.name(match.players[1])],
+      (id) => this.name(id),
+      this.dropped(),
+    );
   }
 
   /** Opens the match result dialog for the match `matchId`, and asks for what the organizer chooses. */
@@ -165,7 +175,8 @@ export class ResultsGrid {
       injector: this.injector,
       bindings: [inputBinding('choices', () => choices)],
     });
-    this.opened = { ref, matchId, match: matchIn(this.tournament(), matchId) };
+    const match = matchIn(this.tournament(), matchId);
+    this.opened = match ? { ref, match, choices } : null;
     ref.closed.subscribe((choice) => {
       this.opened = null;
       if (choice?.kind === 'GameScore') this.setGameScore.emit({ matchId, games: choice.games });

@@ -166,7 +166,7 @@ export function confirmableBy(match: MatchView, own: string): boolean {
  * How the player `own` reads their `match` against `opponent` that someone
  * else reported, for them to confirm, such as "Carol reported you lost 1–2".
  */
-export function reportedTo(match: MatchView, own: string, opponent: PlayerView): string {
+export function reportedLine(match: MatchView, own: string, opponent: PlayerView): string {
   if (match.outcome.kind !== 'GameScore') throw new Error(`Match ${match.id} has no game score`);
   const { result, score } = gameScoreFor(match.outcome.games, match.players, own);
   const reporter = match.reportedBy === opponent.id ? opponent.name : 'An organizer';

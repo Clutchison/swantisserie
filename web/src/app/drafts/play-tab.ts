@@ -38,7 +38,7 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
 import { ResultsGrid } from './results-grid';
-import { confirmableBy, reportedTo, type ClearGameScore } from './match-lines';
+import { confirmableBy, reportedLine, type ClearGameScore } from './match-lines';
 import { TournamentResults, type SetGameScore } from './tournament-results';
 import { OWN_GAME_SCORES, YourMatches, type OwnGameScore } from './your-matches';
 
@@ -226,22 +226,24 @@ export class PlayTab {
    * The signed-in player's match shown at the top: the one they chose, while
    * it is unreported, else their first match by tournament round that needs
    * something from them, Report if it is unreported or Confirm if someone
-   * else reported it. `confirm` says, for Confirm, who reported what.
+   * else reported it. `reportedSays` says, for Confirm, who reported what; null for Report.
    */
   protected readonly ownMatch = computed(() => {
     const ownId = this.ownId();
     if (!ownId || !this.playsOn()) return undefined;
     const unreported = (match: MatchView) => match.outcome.kind === 'Unreported';
-    const own = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
+    const mine = (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
       matches.filter((match) => match.players.includes(ownId)).map((match) => ({ round, match })),
     );
     const shown =
-      own.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
-      own.find(({ match }) => unreported(match) || confirmableBy(match, ownId));
+      mine.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
+      mine.find(({ match }) => unreported(match) || confirmableBy(match, ownId));
     if (!shown) return undefined;
     const opponent = this.store.player(shown.match.players.find((id) => id !== ownId)!);
-    const confirm = unreported(shown.match) ? null : reportedTo(shown.match, ownId, opponent);
-    return { ...shown, opponent, confirm };
+    const reportedSays = unreported(shown.match)
+      ? null
+      : reportedLine(shown.match, ownId, opponent);
+    return { ...shown, opponent, reportedSays };
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */
   protected readonly roundRobin = computed(() => this.tournament()?.format === 'RoundRobin');

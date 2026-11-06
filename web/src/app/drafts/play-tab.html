@@ -156,7 +156,7 @@
       <section class="own-match" aria-label="Your match">
         <h3>Your match</h3>
         @if (ownMatch(); as own) {
-          @if (own.confirm; as says) {
+          @if (own.reportedSays; as says) {
             <p>
               Tournament round {{ own.round }}:
               <app-player-avatar [src]="own.opponent.avatarUrl" />

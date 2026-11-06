@@ -1,4 +1,3 @@
-import type { MatchView } from 'contract';
 import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -26,6 +25,7 @@ import {
   reported,
   resultsGrid,
   swissPlaying,
+  swissRoundsWith,
   threePlayers,
   withDrops,
   yourMatches,
@@ -140,6 +140,26 @@ describe('organizer reports, corrections and clears', () => {
       playing([bobBeatAlice, reported(openMatch('m1', bob.id, carol.id), [2, 0])]),
       2,
     );
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('closes the dialog once one of its match’s players drops, changing what clearing it leaves', async () => {
+    const bobBeatCarol = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const { fixture, tab } = await openPlaying(playing([bobBeatCarol]), {
+      user: dave,
+      powers: ORGANIZE_ONLY,
+    });
+    await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+
+    await pushTournament(
+      fixture,
+      withDrops(
+        [carol.id],
+        [bobBeatCarol, forfeited(openMatch('m3', carol.id, alice.id), carol.id)],
+      ),
+      1,
+    );
+
     await vi.waitFor(() => expect(openDialog()).toBeNull());
   });
 
@@ -263,11 +283,7 @@ describe('organizer reports, corrections and clears', () => {
       return opened;
     }
     const scores = (tab: HTMLElement) => group(tab, 'Game score of Alice vs Carol');
-    const carolBeatBob = reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id);
-    const roundsWith = (m2: MatchView) => [
-      { round: 1, matches: [carolBeatBob], byes: [alice.id] },
-      { round: 2, matches: [m2], byes: [bob.id] },
-    ];
+    const aliceVsCarol = openMatch('m2', alice.id, carol.id);
 
     it('stays open when another match changes, and closes once that match is reported', async () => {
       const { fixture, tab } = await openCorrection();
@@ -275,10 +291,10 @@ describe('organizer reports, corrections and clears', () => {
       await pushTournament(
         fixture,
         swissPlaying({
-          rounds: [
-            { round: 1, matches: [{ ...carolBeatBob, confirmed: true }], byes: [alice.id] },
-            { round: 2, matches: [openMatch('m2', alice.id, carol.id)], byes: [bob.id] },
-          ],
+          rounds: swissRoundsWith(aliceVsCarol, {
+            ...reported(openMatch('m1', carol.id, bob.id), [2, 0], carol.id),
+            confirmed: true,
+          }),
         }),
         1,
       );
@@ -286,7 +302,7 @@ describe('organizer reports, corrections and clears', () => {
 
       await pushTournament(
         fixture,
-        swissPlaying({ rounds: roundsWith(reported(openMatch('m2', alice.id, carol.id), [2, 1])) }),
+        swissPlaying({ rounds: swissRoundsWith(reported(aliceVsCarol, [2, 1])) }),
         2,
       );
       expect(scores(tab)).toBeNull();
@@ -299,7 +315,7 @@ describe('organizer reports, corrections and clears', () => {
         fixture,
         swissPlaying({
           lastCompletedRound: 2,
-          rounds: roundsWith(openMatch('m2', alice.id, carol.id)),
+          rounds: swissRoundsWith(aliceVsCarol),
         }),
         1,
       );

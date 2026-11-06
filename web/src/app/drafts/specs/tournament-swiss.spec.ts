@@ -1,4 +1,4 @@
-import type { MatchView, ViewerTournamentView } from 'contract';
+import type { ViewerTournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -39,6 +39,7 @@ import {
   standingsColumns,
   standingsRows,
   swissPlaying,
+  swissRoundsWith,
   threePlayers,
   withTournament,
 } from './play-tab-harness';
@@ -365,7 +366,7 @@ describe('Swiss tournaments on the Play tab', () => {
 
     it('offers Confirm, with who reported what and a link to your Deck tab, once your opponent reported it', async () => {
       const { fixture, tab } = await openPlaying(
-        swissPlaying({ rounds: roundsOf(carolBeatAlice) }),
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
       );
 
       expect(text(yourMatch(tab))).toContain('Tournament round 2: Carol reported you lost 1–2');
@@ -380,7 +381,7 @@ describe('Swiss tournaments on the Play tab', () => {
         fixture,
         '/api/drafts/draft-1/tournament/matches/m2/confirm',
         'POST',
-        swissPlaying({ rounds: roundsOf({ ...carolBeatAlice, confirmed: true }) }),
+        swissPlaying({ rounds: swissRoundsWith({ ...carolBeatAlice, confirmed: true }) }),
         1,
         threePlayers,
       );
@@ -391,7 +392,7 @@ describe('Swiss tournaments on the Play tab', () => {
 
     it('says all your matches are reported only once nothing is left to report or confirm', async () => {
       const aliceBeatCarol = reported(openMatch('m2', alice.id, carol.id), [2, 1], alice.id);
-      const { tab } = await openPlaying(swissPlaying({ rounds: roundsOf(aliceBeatCarol) }));
+      const { tab } = await openPlaying(swissPlaying({ rounds: swissRoundsWith(aliceBeatCarol) }));
 
       expect(text(yourMatch(tab))).toContain('All your matches are reported.');
       expect(button(yourMatch(tab), 'Confirm your match against Carol')).toBeUndefined();
@@ -422,9 +423,3 @@ describe('Swiss tournaments on the Play tab', () => {
     });
   });
 });
-
-/** Swiss's tournament rounds as `swissPlaying` has them, round 2's match m2 replaced by `m2`. */
-function roundsOf(m2: MatchView) {
-  const [first, second] = swissPlaying().rounds;
-  return [first, { ...second, matches: [m2] }];
-}

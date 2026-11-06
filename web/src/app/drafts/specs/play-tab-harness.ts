@@ -214,6 +214,12 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
   };
 }
 
+/** The tournament rounds of `swissPlaying`, round 2's match m2 replaced by `m2`, and round 1's by `m1` if given. */
+export function swissRoundsWith(m2: MatchView, m1?: MatchView): TournamentRoundView[] {
+  const [first, second] = swissPlaying().rounds;
+  return [m1 ? { ...first, matches: [m1] } : first, { ...second, matches: [m2] }];
+}
+
 /** A side of a bracket place that is the player `playerId`. */
 export const side = (playerId: string): BracketSideView => ({ kind: 'Player', playerId });
 
