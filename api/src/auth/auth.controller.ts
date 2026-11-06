@@ -31,6 +31,10 @@ const SCOPES = 'identify guilds.members.read';
 /** Discord names itself in ?iss= on the callback (RFC 9207). */
 const DISCORD_ISSUER = 'https://discord.com';
 
+/** A single leading `/`, then no backslash, space or control character. */
+// oxlint-disable-next-line no-control-regex -- control characters are what it rejects
+const IN_APP_PATH = /^\/(?![/\\])[^\\\x00-\x20\x7f]*$/;
+
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -152,7 +156,3 @@ function signInErrorPath(error: SignInError, returnTo: string): string {
 function inAppPath(path: unknown): string {
   return typeof path === 'string' && IN_APP_PATH.test(path) ? path : '/';
 }
-
-/** A single leading `/`, then no backslash, space or control character. */
-// oxlint-disable-next-line no-control-regex -- control characters are what it rejects
-const IN_APP_PATH = /^\/(?![/\\])[^\\\x00-\x20\x7f]*$/;

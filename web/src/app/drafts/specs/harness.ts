@@ -20,6 +20,7 @@ import type {
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
+import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
@@ -132,6 +133,7 @@ export function useDraftsApp() {
         provideRouter(routes, withComponentInputBinding()),
         provideHttpClient(
           withInterceptors([
+            signOutWhenSessionEnds,
             (req, next) =>
               req.url === '/api/webhooks' && registeredWebhooks
                 ? of(new HttpResponse({ body: registeredWebhooks }))

@@ -72,8 +72,10 @@ describe('Discord sign-in', () => {
   /** Runs the redirect → callback round trip in a cookie-keeping agent. */
   async function signInThroughDiscord(
     profile: DiscordProfile,
-    isGuildMember = true,
-    returnTo?: string,
+    {
+      isGuildMember = true,
+      returnTo,
+    }: { isGuildMember?: boolean; returnTo?: string } = {},
   ) {
     discord.exchangeCode.mockResolvedValue('access-token');
     discord.getCurrentUser.mockResolvedValue(profile);
@@ -119,11 +121,9 @@ describe('Discord sign-in', () => {
   });
 
   it('returns the user to the page they came from', async () => {
-    const { callback } = await signInThroughDiscord(
-      aliceProfile,
-      true,
-      '/drafts/42?tab=pool',
-    );
+    const { callback } = await signInThroughDiscord(aliceProfile, {
+      returnTo: '/drafts/42?tab=pool',
+    });
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/drafts/42?tab=pool');
@@ -136,21 +136,16 @@ describe('Discord sign-in', () => {
     '/\t/evil.example',
     'drafts/42',
   ])('returns the user to / rather than to %j', async (returnTo) => {
-    const { callback } = await signInThroughDiscord(
-      aliceProfile,
-      true,
-      returnTo,
-    );
+    const { callback } = await signInThroughDiscord(aliceProfile, { returnTo });
 
     expect(callback.headers.location).toBe('/');
   });
 
   it('keeps the page to return to when sign-in fails, so a retry still returns there', async () => {
-    const { callback } = await signInThroughDiscord(
-      aliceProfile,
-      false,
-      '/drafts/42',
-    );
+    const { callback } = await signInThroughDiscord(aliceProfile, {
+      isGuildMember: false,
+      returnTo: '/drafts/42',
+    });
 
     expect(callback.headers.location).toBe(
       '/sign-in?error=not-allowed&returnTo=%2Fdrafts%2F42',
@@ -188,7 +183,9 @@ describe('Discord sign-in', () => {
   });
 
   it('turns away someone who is not in our guild', async () => {
-    const { agent, callback } = await signInThroughDiscord(aliceProfile, false);
+    const { agent, callback } = await signInThroughDiscord(aliceProfile, {
+      isGuildMember: false,
+    });
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
@@ -203,7 +200,9 @@ describe('Discord sign-in', () => {
     const first = await signInThroughDiscord(aliceProfile);
     await first.agent.get('/api/auth/me').expect(200);
 
-    const { agent, callback } = await signInThroughDiscord(aliceProfile, false);
+    const { agent, callback } = await signInThroughDiscord(aliceProfile, {
+      isGuildMember: false,
+    });
 
     expect(callback.headers.location).toBe('/sign-in?error=not-allowed');
     await agent.get('/api/auth/me').expect(401);

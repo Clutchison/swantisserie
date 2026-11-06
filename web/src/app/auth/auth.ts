@@ -29,7 +29,7 @@ export class Auth {
   /** Set once this tab starts signing out; signing back in reloads the app. */
   private signingOut?: Promise<void>;
   /** Set when the viewer chose to log out, so signing back in starts afresh. */
-  private loggingOut = false;
+  private loggedOutOnPurpose = false;
 
   async currentUser(): Promise<UserView | null> {
     const known = this.user();
@@ -44,7 +44,7 @@ export class Auth {
   }
 
   async logout(): Promise<void> {
-    this.loggingOut = true;
+    this.loggedOutOnPurpose = true;
     try {
       await firstValueFrom(this.http.post('/api/auth/logout', null));
     } catch {
@@ -67,7 +67,7 @@ export class Auth {
   }
 
   private async leave(): Promise<void> {
-    const returnTo = this.loggingOut ? '/' : this.router.url;
+    const returnTo = this.loggedOutOnPurpose ? '/' : this.router.url;
     this.user.set(null);
     await this.router.navigateByUrl(signInPage(this.router, returnTo));
   }

@@ -454,10 +454,6 @@ describe('App', () => {
     );
   });
 
-  /** The link that starts signing in with Discord. */
-  const signInLink = (page: HTMLElement) =>
-    [...page.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Sign in with Discord');
-
   describe('status page', () => {
     type Answer = (req: ReturnType<HttpTestingController['expectOne']>) => void;
     const serverError: Answer = (req) =>
@@ -575,4 +571,11 @@ function logOutButton(page: HTMLElement) {
 
 function clickLogOut(page: HTMLElement) {
   logOutButton(page)!.click();
+}
+
+/** The link that starts signing in with Discord. */
+function signInLink(page: HTMLElement) {
+  return [...page.querySelectorAll('a')].find(
+    (link) => link.textContent?.trim() === 'Sign in with Discord',
+  );
 }
