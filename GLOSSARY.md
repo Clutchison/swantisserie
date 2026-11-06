@@ -549,7 +549,7 @@ An unplayed match decided because one of its players dropped. In single eliminat
 _Avoid_: Default, walkover, no-show
 
 **Standings**:
-A tournament's players ranked by their results: in round robin every result so far; in Swiss and single elimination only the completed tournament rounds', so they change when a round is completed, not with each result, and every player is level until round 1 is. Players rank by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Single elimination ranks players by the tournament round they reached instead, the winner of the final alone first. Players still tied after every tiebreaker share their place.
+A tournament's players ranked by their results: in round robin every result so far; in Swiss and single elimination only the completed tournament rounds', so they change when a round is completed, not with each result, and every player is level until round 1 is. Players rank by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Single elimination ranks players by the tournament round they reached instead, the winner of the final alone first; when both finalists drop, they share second and nobody is first. Players still tied after every tiebreaker share their place.
 _Avoid_: Leaderboard (that is the guild's), rankings, table
 
 **Match points**:
