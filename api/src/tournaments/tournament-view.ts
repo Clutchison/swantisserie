@@ -28,6 +28,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 export const TOURNAMENT_VIEW = {
   format: true,
   swissRoundOption: true,
+  publicDecklists: true,
   state: true,
   lastCompletedRound: true,
   entries: {
@@ -161,6 +162,8 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   return {
     format: row.format,
     swissRoundOption: row.swissRoundOption,
+    publicDecklists: row.publicDecklists,
+    showsDecklists: showsDecklists(row),
     state: row.state,
     roundCount: count,
     lastCompletedRound: row.lastCompletedRound,
@@ -175,6 +178,16 @@ export function toTournamentView(row: TournamentRow): TournamentView {
         ? bracketTrophyHolders(bracket)
         : trophyHolders(table),
   };
+}
+
+/**
+ * Whether the tournament's decklists may be read: under public decklists,
+ * once it has started, whether playing or complete.
+ */
+export function showsDecklists(
+  row: Pick<TournamentRow, 'publicDecklists' | 'state'>,
+): boolean {
+  return row.publicDecklists && row.state !== 'Registration';
 }
 
 /**

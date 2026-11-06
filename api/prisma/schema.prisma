@@ -380,7 +380,9 @@ model Tournament {
   format             TournamentFormat
   /// A Swiss tournament's round option, chosen at tournament setup; null in other formats.
   swissRoundOption   SwissRoundOption?
-  state              TournamentState   @default(Registration)
+  /// Whether it has public decklists, chosen at tournament setup; it never changes.
+  publicDecklists    Boolean           @default(false)
+  state             TournamentState   @default(Registration)
   /// The last tournament round an organizer completed, from 1; 0 before any, and always in round robin.
   lastCompletedRound Int               @default(0)
   entries            TournamentEntry[]
@@ -404,6 +406,8 @@ model TournamentEntry {
   dropped       Boolean    @default(false)
   /// Single elimination only: the entry's place in the seed order, from 1, shuffled at Start; null otherwise.
   seed          Int?
+  /// Under public decklists, the player's deck as it was locked when the tournament started (`PlanBoards` in `api/src/drafts/plans.service.ts`), so a later change to it never shows; null before Start and without public decklists.
+  decklist      Json?
   /// Matches this entry plays first, whose game scores list its games first, and its byes.
   firstMatches  Match[]    @relation("FirstEntry")
   /// Matches this entry plays second.

@@ -15,6 +15,7 @@ import { Auth } from '../auth/auth';
 import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
+import { DecklistsTab } from './decklists-tab';
 import { DraftStore } from './draft-store';
 import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
@@ -30,7 +31,7 @@ import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export', 'Tournament'] as const;
+const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Export', 'Tournament', 'Decklists'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
 const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
@@ -39,6 +40,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
   selector: 'app-draft-page',
   imports: [
     BoardTab,
+    DecklistsTab,
     ExportTab,
     LoadingAnimation,
     LobbyControls,
@@ -91,6 +93,8 @@ export class DraftPage {
    * and before setup only for organizers.
    */
   protected readonly showTournament = computed(() => !!this.store.showTournament());
+  /** Whether the Decklists tab is there: under public decklists, once the tournament has started. */
+  protected readonly showDecklists = computed(() => !!this.store.showDecklists());
 
   /**
    * The tab selected, kept in the URL. Only players have the Queue, Plan and
@@ -98,16 +102,17 @@ export class DraftPage {
    * being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
-   * tabs, so its page settles on Pool. The Tournament tab can be opened
-   * while it is there, so it goes back to Pool as it goes.
+   * tabs, so its page settles on Pool. The Tournament and Decklists tabs can
+   * be opened while they are there, so each goes back to Pool as it goes.
    */
   protected readonly selectedTab = tabInUrl<Panel>({
     tabs: PANELS,
     defaultTab: 'Pool',
     canOpen: (tab) => {
       if (this.failed()) return 'no';
-      if (tab === 'Tournament') {
-        const shown = this.store.showTournament();
+      if (tab === 'Tournament' || tab === 'Decklists') {
+        const shown =
+          tab === 'Tournament' ? this.store.showTournament() : this.store.showDecklists();
         return shown === undefined ? 'unknown' : shown ? 'yes' : 'no';
       }
       if (!PLAYERS_ONLY.has(tab)) return 'yes';

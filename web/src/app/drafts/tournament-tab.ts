@@ -140,6 +140,8 @@ export class TournamentTab {
   protected readonly format = signal<TournamentFormat>('RoundRobin');
   protected readonly swissRoundOptions = SWISS_ROUND_CHOICES;
   protected readonly swissRoundOption = signal<SwissRoundOption>('UntilWinner');
+  /** Whether setup gives the tournament public decklists: off unless the organizer chooses them. */
+  protected readonly publicDecklists = signal(false);
   /** The format and round count, summed up. */
   protected readonly summary = computed(() => {
     const tournament = this.tournament();
@@ -236,11 +238,14 @@ export class TournamentTab {
     });
   }
 
-  /** Sets up the tournament in the format, and for Swiss the round option, chosen. */
+  /** Sets up the tournament in the format, for Swiss the round option, and with or without public decklists, as chosen. */
   protected setUpTournament() {
     const format = this.format();
+    const publicDecklists = this.publicDecklists();
     const setup: TournamentSetupRequest =
-      format === 'Swiss' ? { format, swissRoundOption: this.swissRoundOption() } : { format };
+      format === 'Swiss'
+        ? { format, swissRoundOption: this.swissRoundOption(), publicDecklists }
+        : { format, publicDecklists };
     return this.send(() => this.api.setUp(this.draft().id, setup), {
       failure: "Couldn't set up the tournament. Try again in a moment.",
     });

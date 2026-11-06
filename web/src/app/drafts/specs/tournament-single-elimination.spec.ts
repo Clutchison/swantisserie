@@ -51,7 +51,7 @@ describe('single elimination tournaments on the Tournament tab', () => {
       roundCount: 2,
     });
 
-    expect(req.request.body).toEqual({ format: 'SingleElimination' });
+    expect(req.request.body).toEqual({ format: 'SingleElimination', publicDecklists: false });
   });
 
   it('asks the organizer to pick the winner of each unreported match before completing the round', async () => {

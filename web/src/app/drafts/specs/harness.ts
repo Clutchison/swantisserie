@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type {
+  DecklistView,
   DraftBase,
   DraftPowersView,
   DraftState,
@@ -516,7 +517,8 @@ export const panelName = (root: HTMLElement) => {
  * cards by `cards` once the snapshot is complete, and its picks by
  * `picks` once the draft has started, and their queue by `queue` and
  * plan by `plan` if they are a player, and its tournament by `tournament`
- * if the draft has one, signed in as `user`, whose draft powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
+ * if the draft has one, and its decklists by `decklists` if the tournament
+ * shows them, signed in as `user`, whose draft powers are `powers` (as `powersAnswer` sets them: none, unless told otherwise),
  * at `url`: the draft's plain URL, unless told otherwise.
  *
  * Once open, a change's answer (`req.flush(...)`) shows a moment after
@@ -536,6 +538,7 @@ export async function openDraft(
     queue = EMPTY_QUEUE,
     plan = EMPTY_PLAN,
     tournament,
+    decklists,
     user = alice,
     powers,
     url = '/drafts/draft-1',
@@ -545,6 +548,7 @@ export async function openDraft(
     queue?: QueueView;
     plan?: PlanView;
     tournament?: TournamentView;
+    decklists?: DecklistView[];
     user?: typeof alice;
     powers?: DraftPowersView;
     url?: string;
@@ -562,9 +566,21 @@ export async function openDraft(
   if (opened.tournament) {
     if (!tournament) throw new Error('A draft with a tournament needs `tournament` to read.');
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(tournament);
+    if (tournament.showsDecklists) {
+      if (!decklists)
+        throw new Error('A tournament with decklists shown needs `decklists` to read.');
+      await flushDecklists(decklists);
+    }
   }
   await fixture.whenStable();
   return { fixture, page };
+}
+
+/** Answers the page's GET of draft-1's decklists with `decklists`. */
+export async function flushDecklists(decklists: DecklistView[]) {
+  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/decklists'))).flush(
+    decklists,
+  );
 }
 
 /**

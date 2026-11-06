@@ -19,6 +19,7 @@ import {
   type GameScore,
   type CorrectionPreview,
   type CorrectionPreviewRequest,
+  type DecklistView,
   type GrantedDrawRequest,
   type GrantedWinRequest,
   type MatchDropRequest,
@@ -37,6 +38,7 @@ import {
 import { DraftAccess } from '../drafts/draft-access.js';
 import { DraftPublisher } from '../drafts/draft-publisher.js';
 import { bodyFields } from '../request-body.js';
+import { DecklistsService } from './decklists.js';
 import { TournamentErrorsFilter } from './tournament-errors.filter.js';
 import { TournamentsService } from './tournaments.service.js';
 
@@ -53,6 +55,7 @@ export class TournamentsController {
     private readonly access: DraftAccess,
     private readonly tournaments: TournamentsService,
     private readonly publisher: DraftPublisher,
+    private readonly decklists: DecklistsService,
   ) {}
 
   /** The draft's tournament, for everyone who sees the draft once it exists. */
@@ -262,6 +265,20 @@ export class TournamentsController {
     return this.change(id, () => this.tournaments.completeRound(id, request));
   }
 
+  /**
+   * The draft's decklists, for everyone who sees the draft, once its
+   * tournament has started under public decklists; never otherwise, to
+   * anyone, organizers and app admins included (ADR 0005). Read-only.
+   */
+  @Get('decklists')
+  async readDecklists(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DecklistView[]> {
+    await this.access.canSee(user, id);
+    return this.decklists.read(id);
+  }
+
   /** Applies `change` and answers with the draft as it now is, published to its viewers. */
   private async change(
     id: string,
@@ -275,17 +292,26 @@ export class TournamentsController {
 }
 
 /**
- * The format, and for Swiss the round option, tournament setup chose, or a
- * 400 if either isn't one on offer.
+ * The format, for Swiss the round option, and whether it has public
+ * decklists, as tournament setup chose them, or a 400 if one isn't on offer.
  */
 function parseSetup(body: unknown): TournamentSetupRequest {
-  const { format, swissRoundOption } =
-    bodyFields<Extract<TournamentSetupRequest, { format: 'Swiss' }>>(body);
+  const {
+    format,
+    swissRoundOption,
+    publicDecklists = false,
+  } = bodyFields<Extract<TournamentSetupRequest, { format: 'Swiss' }>>(body);
+  if (typeof publicDecklists !== 'boolean') {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose whether the tournament has public decklists.',
+    } satisfies RequestProblem);
+  }
   if (format === 'RoundRobin' || format === 'SingleElimination') {
-    return { format };
+    return { format, publicDecklists };
   }
   if (format === 'Swiss' && isSwissRoundOption(swissRoundOption)) {
-    return { format, swissRoundOption };
+    return { format, swissRoundOption, publicDecklists };
   }
   throw new BadRequestException({
     error: 'invalid',

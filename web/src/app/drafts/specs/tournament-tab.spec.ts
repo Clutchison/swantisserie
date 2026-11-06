@@ -31,6 +31,10 @@ import {
 
 useDraftsApp();
 
+/** The Join button's label without public decklists, and with them. */
+const JOIN_PRIVATE = 'Join (deck stays private)';
+const JOIN_PUBLIC = 'Join (public decklist)';
+
 /** The names listed as joined, in order: each entry's own text, its buttons left out. */
 const joinedNames = (tab: HTMLElement) =>
   [...namedList(tab, 'Joined players').querySelectorAll('li')].map((li) =>
@@ -77,9 +81,25 @@ describe('tournament tab', () => {
         registration(),
       );
 
-      expect(req.request.body).toEqual({ format: 'RoundRobin' });
+      expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: false });
       expect(button(panel(page), 'Set up tournament')).toBeUndefined();
       expect(panel(page).textContent).toContain('Nobody has joined yet.');
+    });
+
+    it('offers public decklists, off unless the organizer chooses them, and sets the tournament up with them', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+      const tab = await openTournament(fixture, page);
+      const choice = controlByLabel(tab, 'checkbox', 'Public decklists')!;
+
+      expect(choice.checked).toBe(false);
+      choice.click();
+      button(tab, 'Set up tournament')!.click();
+      const req = await answerChange(fixture, '/api/drafts/draft-1/tournament', 'POST', {
+        ...registration(),
+        publicDecklists: true,
+      });
+
+      expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: true });
     });
 
     it('opens for an organizer asked for by URL', async () => {
@@ -119,7 +139,7 @@ describe('tournament tab', () => {
 
       expect(tab.textContent).toContain('Registration');
       expect(joinedNames(tab)).toEqual(['Bob']);
-      expect(button(tab, 'Join')).toBeUndefined();
+      expect(button(tab, JOIN_PRIVATE)).toBeUndefined();
       expect(button(tab, 'Leave')).toBeUndefined();
       expect(button(tab, 'Remove Bob')).toBeUndefined();
       expect(button(tab, 'Cancel tournament')).toBeUndefined();
@@ -129,7 +149,7 @@ describe('tournament tab', () => {
       const { fixture, page } = await openComplete(registration(bob.id));
       const tab = await openTournament(fixture, page);
 
-      button(tab, 'Join')!.click();
+      button(tab, JOIN_PRIVATE)!.click();
       await answerChange(
         fixture,
         '/api/drafts/draft-1/tournament/entries',
@@ -137,7 +157,7 @@ describe('tournament tab', () => {
         registration(bob.id, alice.id),
       );
       expect(joinedNames(panel(page))).toEqual(['Bob', 'Alice']);
-      expect(button(panel(page), 'Join')).toBeUndefined();
+      expect(button(panel(page), JOIN_PRIVATE)).toBeUndefined();
 
       button(panel(page), 'Leave')!.click();
       await answerChange(
@@ -148,14 +168,39 @@ describe('tournament tab', () => {
         2,
       );
       expect(joinedNames(panel(page))).toEqual(['Bob']);
-      expect(button(panel(page), 'Join')).toBeDefined();
+      expect(button(panel(page), JOIN_PRIVATE)).toBeDefined();
+    });
+
+    it('says on the Join button, and beside it, that the deck stays private without public decklists', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id));
+
+      const tab = await openTournament(fixture, page);
+
+      expect(button(tab, JOIN_PRIVATE)).toBeDefined();
+      expect(button(tab, JOIN_PUBLIC)).toBeUndefined();
+      expect(tab.textContent).toContain('Only you see your deck.');
+    });
+
+    it('says on the Join button, and beside it, that the deck will be public under public decklists', async () => {
+      const { fixture, page } = await openComplete({
+        ...registration(bob.id),
+        publicDecklists: true,
+      });
+
+      const tab = await openTournament(fixture, page);
+
+      expect(button(tab, JOIN_PUBLIC)).toBeDefined();
+      expect(button(tab, JOIN_PRIVATE)).toBeUndefined();
+      expect(tab.textContent).toContain(
+        'Public decklists: everyone who sees this draft sees your deck once the tournament starts.',
+      );
     });
 
     it('says why joining was refused', async () => {
       const { fixture, page } = await openComplete(registration());
       const tab = await openTournament(fixture, page);
 
-      button(tab, 'Join')!.click();
+      button(tab, JOIN_PRIVATE)!.click();
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/entries'))).flush(
         {
           error: 'deck-too-small',
@@ -174,7 +219,7 @@ describe('tournament tab', () => {
           'Your mainboard holds 23 cards. A tournament deck needs at least 40.',
         ),
       );
-      expect(button(panel(page), 'Join')).toBeDefined();
+      expect(button(panel(page), JOIN_PRIVATE)).toBeDefined();
     });
 
     it('says when no one has joined', async () => {

@@ -2,10 +2,12 @@ import type {
   BracketPlaceView,
   BracketRoundView,
   BracketSideView,
+  DecklistView,
   DraftPowersView,
   MatchView,
   PlanView,
   PlayerView,
+  PoolCardView,
   StandingView,
   TournamentRoundView,
   TournamentView,
@@ -52,6 +54,8 @@ export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
 export const registration = (...playerIds: string[]): TournamentView => ({
   format: 'RoundRobin',
   swissRoundOption: null,
+  publicDecklists: false,
+  showsDecklists: false,
   state: 'Registration',
   roundCount: playerIds.length < 2 ? 0 : playerIds.length - 1 + (playerIds.length % 2),
   lastCompletedRound: 0,
@@ -115,6 +119,8 @@ export function playing(
   return {
     format: 'RoundRobin',
     swissRoundOption: null,
+    publicDecklists: false,
+    showsDecklists: false,
     state: 'Playing',
     roundCount: 3,
     lastCompletedRound: 0,
@@ -148,6 +154,8 @@ export function swissPlaying(fields: Partial<TournamentView> = {}): TournamentVi
   return {
     format: 'Swiss',
     swissRoundOption: 'UntilWinner',
+    publicDecklists: false,
+    showsDecklists: false,
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
@@ -214,6 +222,8 @@ export function singleEliminationPlaying(fields: Partial<TournamentView> = {}): 
   return {
     format: 'SingleElimination',
     swissRoundOption: null,
+    publicDecklists: false,
+    showsDecklists: false,
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 0,
@@ -318,23 +328,37 @@ export async function flushTournament(tournament: TournamentView) {
 /**
  * Opens the complete draft's page with `tournament` set up, or none, signed
  * in as `user` (Alice, a player, unless told otherwise) with `powers`, and
- * answers its reads, `plan` the signed-in player's, the draft's `fields`
- * changed.
+ * answers its reads, `cards` its pool's, `plan` the signed-in player's,
+ * `decklists` the tournament's, the draft's `fields` changed, at `url`.
  */
 export async function openComplete(
   tournament: TournamentView | null,
   {
     powers,
     user = alice,
+    cards,
     plan = EMPTY_PLAN,
+    decklists,
     fields = {},
-  }: { powers?: DraftPowersView; user?: UserView; plan?: PlanView; fields?: DraftFixture } = {},
+    url,
+  }: {
+    powers?: DraftPowersView;
+    user?: UserView;
+    cards?: PoolCardView[];
+    plan?: PlanView;
+    decklists?: DecklistView[];
+    fields?: DraftFixture;
+    url?: string;
+  } = {},
 ) {
   return openDraft(completeSnapshot, withTournament(tournament, fields), {
     powers,
     user,
+    cards,
     plan,
     tournament: tournament ?? undefined,
+    decklists,
+    url,
   });
 }
 

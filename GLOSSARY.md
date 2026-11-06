@@ -413,7 +413,7 @@ A tournament's first state, after setup, when the draft's players join and leave
 _Avoid_: Open, lobby (that is the draft's), sign-up
 
 **Join**:
-A draft's player entering a tournament during registration. It locks their deck.
+A draft's player entering a tournament during registration. It locks their deck. The Join button says whether the tournament has public decklists, so the player knows before their deck locks.
 _Avoid_: Register, enter, sign up
 
 **Tournament entry**:
@@ -449,11 +449,11 @@ A tournament setting under which every joined player's locked deck can be seen b
 _Avoid_: Open decklists, open decks, shared decks
 
 **Decklist**:
-A joined player's locked deck as others see it under public decklists.
+A joined player's locked deck as others see it under public decklists: the deck as it was when the tournament started, which later changes never alter, even once the tournament is complete and the deck unlocks.
 _Avoid_: Deck (that is the player's own), list
 
 **Decklists tab**:
-The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing.
+The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete.
 _Avoid_: Decks tab, lists tab
 
 **Match**:

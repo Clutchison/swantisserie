@@ -65,7 +65,11 @@ describe('Swiss tournaments on the Tournament tab', () => {
       swissRegistration,
     );
 
-    expect(req.request.body).toEqual({ format: 'Swiss', swissRoundOption: 'CappedAt3' });
+    expect(req.request.body).toEqual({
+      format: 'Swiss',
+      swissRoundOption: 'CappedAt3',
+      publicDecklists: false,
+    });
   });
 
   it('shows how many tournament rounds it will have', async () => {

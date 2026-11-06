@@ -1,3 +1,5 @@
+import type { PlannedBasicView, PlannedCardView } from './plan.js';
+
 /** How a tournament pairs its players, chosen once at tournament setup. */
 export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
 
@@ -172,6 +174,13 @@ export interface TournamentView {
   format: TournamentFormat;
   /** A Swiss tournament's round option; null in other formats. */
   swissRoundOption: SwissRoundOption | null;
+  /** Whether it has public decklists, chosen at tournament setup. */
+  publicDecklists: boolean;
+  /**
+   * Whether everyone who sees the draft may read its decklists now: under
+   * public decklists, once it is playing, and still once it is complete.
+   */
+  showsDecklists: boolean;
   state: TournamentState;
   /** How many tournament rounds it will have, for the players joined so far during registration. */
   roundCount: number;
@@ -324,11 +333,32 @@ export interface ClearedMatchView extends RoundAndBracketPlace {
   players: string[];
 }
 
-/** Tournament setup, as the organizer chooses it: all at once, never changed. */
-export type TournamentSetupRequest =
+/**
+ * Tournament setup, as the organizer chooses it: all at once, never
+ * changed. Without `publicDecklists` it has none.
+ */
+export type TournamentSetupRequest = (
   | { format: 'RoundRobin' }
   | { format: 'Swiss'; swissRoundOption: SwissRoundOption }
-  | { format: 'SingleElimination' };
+  | { format: 'SingleElimination' }
+) & { publicDecklists?: boolean };
+
+/**
+ * A joined player's locked deck as others see it under public decklists,
+ * as it was when the tournament started. From
+ * `GET /api/drafts/:id/tournament/decklists`, which serves one per joined
+ * player, in join order, once `TournamentView.showsDecklists`.
+ */
+export interface DecklistView {
+  /** The player's Discord user id: a `PlayerView.id`. */
+  playerId: string;
+  /** Sorted by mana value, then name. */
+  mainboard: PlannedCardView[];
+  /** Sorted by mana value, then name. */
+  sideboard: PlannedCardView[];
+  /** The mainboard's basic lands, in the order of `BASIC_LANDS`. */
+  basics: PlannedBasicView[];
+}
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
 export const MIN_MAINBOARD_CARDS = 40;
