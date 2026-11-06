@@ -191,21 +191,18 @@ export interface TournamentRefusal {
     | 'not-dropped'
     /**
      * Complete round waits until every match of the tournament round is
-     * reported, forfeited, or listed by the request for a granted draw or
-     * win.
+     * reported, forfeited, or listed by the request for a granted draw, a
+     * granted win or drops.
      */
     | 'unreported-matches'
     /**
      * A dropped player can't be reinstated once a tournament round has been
-     * paired without them: their drop fed that pairing.
+     * paired without them: their drop fed that pairing. In single
+     * elimination, that is once the tournament round of a forfeit of
+     * theirs, or of a match or bye nobody advanced from as they had
+     * dropped, is completed.
      */
     | 'paired-since-drop'
-    /**
-     * In single elimination, a match whose tournament round is completed
-     * can't be cleared, nor corrected to another winner: its winner has
-     * advanced, or holds the trophy.
-     */
-    | 'round-completed'
     /**
      * Complete round is for Swiss and single elimination, whose last
      * completed round completes the tournament; completing the tournament

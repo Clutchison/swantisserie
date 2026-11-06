@@ -1,0 +1,123 @@
+import type { ScheduledRound } from 'engine';
+import type { Transaction } from '../drafts/draft-shapes.js';
+import {
+  InvalidTournamentRequestError,
+  TournamentRefusedError,
+} from './tournament-errors.js';
+
+/** What a match's settling reads of each of its entries. */
+export const ENTRY_OF_MATCH = {
+  id: true,
+  dropped: true,
+  player: { select: { userId: true } },
+} as const;
+
+/**
+ * The matches of tournament round `round` that Complete round's `listed`
+ * name, each with what named it, in its order. Throws
+ * InvalidTournamentRequestError if one isn't a match of the round; a bye is
+ * no match.
+ */
+export async function listedMatches<Listed extends { matchId: string }>(
+  tx: Transaction,
+  tournamentId: string,
+  round: number,
+  listed: readonly Listed[],
+) {
+  const matches = await tx.match.findMany({
+    where: { tournamentId, round, secondEntryId: { not: null } },
+    select: {
+      id: true,
+      outcome: true,
+      firstEntry: { select: ENTRY_OF_MATCH },
+      secondEntry: { select: ENTRY_OF_MATCH },
+    },
+  });
+  const byId = new Map(matches.map((match) => [match.id, match]));
+  return listed.map((request) => {
+    const match = byId.get(request.matchId);
+    if (!match) {
+      throw new InvalidTournamentRequestError(
+        `Tournament round ${round} has no match ${request.matchId}.`,
+      );
+    }
+    return {
+      request,
+      match: { ...match, entries: [match.firstEntry, match.secondEntry!] },
+    };
+  });
+}
+
+/**
+ * Throws TournamentRefusedError if `match`, listed for a `grant` by
+ * Complete round of tournament round `round`, was reported or forfeited
+ * since the organizer looked.
+ */
+export function refuseSettledSince(
+  match: { outcome: string },
+  round: number,
+  grant: 'granted draw' | 'granted win' | 'drop',
+) {
+  if (match.outcome === 'Unreported') return;
+  throw new TournamentRefusedError({
+    error: 'match-reported',
+    message: `A match listed for a ${grant} has been ${match.outcome === 'Forfeit' ? 'forfeited' : 'reported'} since. Look at tournament round ${round} again before completing it.`,
+  });
+}
+
+/** A match to make, whose players are tournament entry ids: a bye when the second is null. */
+export interface NewMatch {
+  players: readonly [string, string | null];
+  /** Single elimination only: its bracket place in its tournament round. */
+  bracketPlace?: number;
+}
+
+/** Makes the matches and byes of tournament round `round`. */
+export async function createMatches(
+  tx: Transaction,
+  tournamentId: string,
+  round: number,
+  matches: readonly NewMatch[],
+) {
+  await tx.match.createMany({
+    data: matches.map(
+      ({ players: [firstEntryId, secondEntryId], bracketPlace }) => ({
+        tournamentId,
+        round,
+        bracketPlace,
+        firstEntryId,
+        secondEntryId,
+      }),
+    ),
+  });
+}
+
+/** Makes the matches and byes of `rounds`, whose players are tournament entry ids. */
+export async function createRounds(
+  tx: Transaction,
+  tournamentId: string,
+  rounds: readonly ({ round: number } & ScheduledRound)[],
+) {
+  for (const { round, matches, bye } of rounds) {
+    await createMatches(tx, tournamentId, round, [
+      ...matches.map((players) => ({ players })),
+      ...(bye ? [{ players: [bye, null] as const }] : []),
+    ]);
+  }
+}
+
+/** Turns every unplayed match of the entry `entryId`, byes aside, into a forfeit by it. */
+export async function forfeitUnplayed(tx: Transaction, entryId: string) {
+  await tx.match.updateMany({
+    where: {
+      firstEntryId: entryId,
+      secondEntryId: { not: null },
+      outcome: 'Unreported',
+    },
+    data: { outcome: 'Forfeit', forfeitedBy: 'First' },
+  });
+  await tx.match.updateMany({
+    where: { secondEntryId: entryId, outcome: 'Unreported' },
+    data: { outcome: 'Forfeit', forfeitedBy: 'Second' },
+  });
+}

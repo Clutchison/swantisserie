@@ -19,11 +19,13 @@ import {
   fullDeck,
   getDraft,
   joinTournament,
+  placesOf,
   playingTournament,
   reportCurrentRound,
   reportMatch,
   reportWin,
   roundRobin,
+  seedsOf,
   setGameScore,
   setUpTournament,
   signIn,
@@ -66,21 +68,6 @@ function playing(count: number) {
   return playingTournament(cookies.slice(0, count), singleElimination);
 }
 
-/** The player with each seed, `seeds[s - 1]` the player with seed s. */
-function seedsOf(view: TournamentView): string[] {
-  const seeds: string[] = [];
-  for (const entry of view.entries) seeds[entry.seed! - 1] = entry.playerId;
-  return seeds;
-}
-
-/** Each match of the tournament round as its bracket place and players. */
-function placesOf(round: TournamentView['rounds'][number]) {
-  return round.matches.map(({ bracketPlace, players }) => ({
-    bracketPlace,
-    players,
-  }));
-}
-
 describe('starting a single elimination tournament', () => {
   it('seeds the players at random and opens round 1, its byes for the top seeds already advanced', async () => {
     const id = await playing(5);
@@ -91,6 +78,7 @@ describe('starting a single elimination tournament', () => {
       [alice.id, bob.id, carol.id, dave.id, erin.id].sort(),
     );
     expect(view.roundCount).toBe(3);
+    expect(view.correctionsPreview).toBe(true);
     expect(view.rounds).toHaveLength(1);
     const [round] = view.rounds;
     expect(round.byes).toEqual([seeds[0], seeds[1], seeds[2]]);
@@ -194,14 +182,16 @@ describe('the bracket in the tournament read', () => {
   });
 
   it('moves the winner of a game score an organizer entered on at once', async () => {
-    const id = await playing(5);
+    // Carol, an app admin, organizes without playing.
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, daveCookie, erinCookie],
+      singleElimination,
+    );
     const view = await tournamentView(id);
-    const [match] = view.rounds[0].matches;
-    // Alice and Carol (an app admin) both organize; one of them isn't playing this match.
-    const organizer = match.players.includes(alice.id)
-      ? carolCookie
-      : aliceCookie;
-    await setGameScore(id, match.id, { games: [2, 0] }, organizer).expect(200);
+    const match = view.rounds[0].matches[1];
+    await setGameScore(id, match.id, { games: [2, 0] }, carolCookie).expect(
+      200,
+    );
 
     const entered = await tournamentView(id);
     expect(entered.bracket![0].places[1].winner).toBe(match.players[0]);
@@ -469,34 +459,7 @@ describe('single elimination’s live updates', () => {
   });
 });
 
-describe('correcting a completed single elimination tournament round', () => {
-  it('refuses clearing a match, or correcting it to the other winner, but takes a correction that keeps its winner', async () => {
-    const id = await playing(2);
-    const [match] = (await tournamentView(id)).rounds[0].matches;
-    await reportCurrentRound(id, cookieOf);
-    await completeRound(id).expect(200);
-
-    const cleared = await clearGameScore(id, match.id).expect(409);
-    const reversed = await setGameScore(id, match.id, {
-      games: [1, 2],
-    } satisfies MatchReportRequest).expect(409);
-    await setGameScore(id, match.id, {
-      games: [2, 1],
-    } satisfies MatchReportRequest).expect(200);
-
-    expect([cleared.body.error, reversed.body.error]).toEqual([
-      'round-completed',
-      'round-completed',
-    ]);
-    const view = await tournamentView(id);
-    expect(view.rounds[0].matches[0].outcome).toEqual({
-      kind: 'GameScore',
-      games: [2, 1],
-      draws: 0,
-    });
-    expect(view.trophyHolders).toEqual([match.players[0]]);
-  });
-
+describe('clearing in single elimination', () => {
   it('clears a match of the open tournament round back to unreported', async () => {
     const id = await playing(2);
     const [match] = (await tournamentView(id)).rounds[0].matches;

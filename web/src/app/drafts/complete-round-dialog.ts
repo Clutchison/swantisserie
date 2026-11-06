@@ -1,7 +1,7 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
-import { MIN_UNDROPPED_PLAYERS } from 'engine';
+import { advancingPlayer, droppedPlayers, MIN_UNDROPPED_PLAYERS } from 'engine';
 import { DraftStore } from './draft-store';
 
 /** The Complete round dialog's heading's id, which names the dialog. */
@@ -14,7 +14,8 @@ export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
  * matches. In Swiss they become granted draws, each with a choice of its
  * players to drop, except in the final tournament round. In single
  * elimination, which never has a draw, the organizer picks each one's
- * winner, who gets a granted win, before the round can be completed. It
+ * winner, who gets a granted win, or drops one or both of its players,
+ * which makes it their forfeit, before the round can be completed. It
  * opens on Cancel, with nobody dropped or picked, and closes with the
  * request to send once the organizer completes the round; the tab sends
  * it.
@@ -56,29 +57,70 @@ export class CompleteRoundDialog {
   private readonly dropping = signal<Record<string, string[]>>({});
   /** In single elimination, the winner picked for each unreported match, by its id. */
   private readonly winners = signal<Record<string, string>>({});
-  /** Whether the round can be completed: in single elimination, once every unreported match has a winner picked. */
+  /**
+   * Whether the round can be completed: in single elimination, once every
+   * unreported match has a winner picked or a player chosen to drop.
+   */
   protected readonly ready = computed(
     () =>
-      !this.singleElimination() || this.unreported().every((match) => !!this.winners()[match.id]),
+      !this.singleElimination() ||
+      this.unreported().every((match) => !!this.winners()[match.id] || this.drops(match.id)),
   );
   /**
-   * Whether too few undropped players would remain to pair another
-   * tournament round, counting those chosen to drop: then completing the
-   * round completes the tournament.
+   * Whether too few players would be left to pair another tournament round,
+   * counting those chosen to drop: then completing the round completes the
+   * tournament. In Swiss, the undropped players; in single elimination,
+   * those who would advance from the round.
    */
   protected readonly tooFewLeft = computed(() => {
-    const chosen = new Set(Object.values(this.dropping()).flat());
+    const dropped = [
+      ...droppedPlayers(this.tournament()?.entries ?? []),
+      ...Object.values(this.dropping()).flat(),
+    ];
+    if (this.singleElimination()) return this.advancing(dropped) < MIN_UNDROPPED_PLAYERS;
     const undropped = (this.tournament()?.entries ?? []).filter(
-      (entry) => !entry.dropped && !chosen.has(entry.playerId),
+      (entry) => !dropped.includes(entry.playerId),
     );
     return undropped.length < MIN_UNDROPPED_PLAYERS;
   });
+
+  /**
+   * How many players would advance from the round, `dropped` holding every
+   * player dropped or chosen to drop: from each match, its winner, whoever
+   * the organizer picks for an unreported one, or nobody when both its
+   * players drop; and each undropped player with a bye.
+   */
+  private advancing(dropped: string[]) {
+    const round = this.tournament()?.rounds.find((r) => r.round === this.round());
+    const fromMatches = (round?.matches ?? []).map(({ id, players, outcome }) => {
+      const dropping = this.dropping()[id] ?? [];
+      if (outcome.kind !== 'Unreported') return advancingPlayer({ players, outcome }, dropped);
+      if (dropping.length === 0) return players[0];
+      return advancingPlayer(
+        { players, outcome: { kind: 'Forfeit', forfeitedBy: dropping[0] } },
+        dropped,
+      );
+    });
+    const fromByes = (round?.byes ?? []).map((id) =>
+      advancingPlayer({ players: [id, null], outcome: null }, dropped),
+    );
+    return [...fromMatches, ...fromByes].filter((id) => id !== null).length;
+  }
 
   protected isDropping(matchId: string, playerId: string) {
     return this.dropping()[matchId]?.includes(playerId) ?? false;
   }
 
-  /** Chooses whether to drop the player `playerId` as their match `matchId` becomes a granted draw. */
+  /** Whether any player of the match `matchId` is chosen to drop. */
+  protected drops(matchId: string) {
+    return (this.dropping()[matchId] ?? []).length > 0;
+  }
+
+  /**
+   * Chooses whether to drop the player `playerId` from their match
+   * `matchId`: as it becomes a granted draw in Swiss, or instead of
+   * picking its winner in single elimination.
+   */
   protected setDropping(matchId: string, playerId: string, drop: boolean) {
     this.dropping.update((chosen) => {
       const others = (chosen[matchId] ?? []).filter((id) => id !== playerId);
@@ -100,17 +142,28 @@ export class CompleteRoundDialog {
   }
 
   /**
-   * Closes with the request: in single elimination a granted win in each
-   * unreported match for the winner picked, and otherwise a granted draw in
-   * each, with the players chosen to drop from it.
+   * Closes with the request: in single elimination the drops chosen from
+   * each unreported match, and a granted win for the winner picked in each
+   * of the others; otherwise a granted draw in each, with the players
+   * chosen to drop from it.
    */
   protected completeRound() {
     if (this.singleElimination()) {
+      const dropping = this.unreported().filter((match) => this.drops(match.id));
+      const won = this.unreported().filter((match) => !this.drops(match.id));
       this.dialogRef.close({
-        grantedWins: this.unreported().map((match) => ({
-          matchId: match.id,
-          winner: this.winners()[match.id],
-        })),
+        ...(won.length > 0 && {
+          grantedWins: won.map((match) => ({
+            matchId: match.id,
+            winner: this.winners()[match.id],
+          })),
+        }),
+        ...(dropping.length > 0 && {
+          drops: dropping.map((match) => ({
+            matchId: match.id,
+            drop: this.dropping()[match.id],
+          })),
+        }),
       });
       return;
     }

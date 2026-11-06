@@ -199,6 +199,15 @@ export function reportProblem([a, b]: readonly [
   return null;
 }
 
+/** The ids of the players among `entries`, a tournament's, who have dropped, in their order. */
+export function droppedPlayers(
+  entries: readonly { playerId: string; dropped: boolean }[],
+): string[] {
+  return entries
+    .filter((entry) => entry.dropped)
+    .map((entry) => entry.playerId);
+}
+
 /** The players who hold the trophy: everyone who shares first in a complete tournament's final standings. */
 export function trophyHolders(final: readonly Standing[]): string[] {
   return final

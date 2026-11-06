@@ -1,4 +1,5 @@
-import { ORGANIZE_ONLY, alice, bob, button, group, text, useDraftsApp } from './harness';
+import type { GameScorePreview } from 'contract';
+import { ORGANIZE_ONLY, alice, bob, button, group, http, text, useDraftsApp } from './harness';
 import {
   answerChange,
   bobUser,
@@ -154,6 +155,12 @@ describe('the bracket of a single elimination tournament', () => {
     button(bracket(tab)!, 'Report Bob vs Carol')!.click();
     await fixture.whenStable();
     button(group(tab, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
+    // The correction clears nothing later, so it is sent without a warning.
+    (
+      await vi.waitFor(() =>
+        http.expectOne('/api/drafts/draft-1/tournament/matches/m1/game-score/preview'),
+      )
+    ).flush({ clears: [], state: 'Playing' } satisfies GameScorePreview);
     const req = await answerChange(
       fixture,
       '/api/drafts/draft-1/tournament/matches/m1/game-score',

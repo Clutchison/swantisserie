@@ -42,13 +42,19 @@ const DRAFTED = [
   'Skewer the Critics',
   'Fireblast',
   'Chain Lightning',
+  'Rift Bolt',
+  'Lightning Strike',
+  'Searing Spear',
+  'Fiery Temper',
+  'Play with Fire',
+  'Burst Lightning',
 ];
 
 /**
  * A complete draft, organized by Alice, whose players are the cookies'
- * users in seat order, at most 6: each picks one card, Shock, Lightning
- * Bolt, Lava Spike, Skewer the Critics, Fireblast and Chain Lightning in
- * turn, from a pool of at least the first four. Their decks hold just that
+ * users in seat order, at most 12: each picks one card, Shock, Lightning
+ * Bolt, Lava Spike, Skewer the Critics, Fireblast, Chain Lightning and so
+ * on in turn, from a pool of at least the first four. Their decks hold just that
  * pick, so give them `fullDeck` before they join a tournament.
  */
 export async function completeDraft(cookies: string[]) {
@@ -158,6 +164,21 @@ export async function playingTournament(
   }
   await startTournament(id).expect(200);
   return id;
+}
+
+/** The player with each seed of a single elimination tournament, `seeds[s - 1]` the player with seed s. */
+export function seedsOf(view: TournamentView): string[] {
+  const seeds: string[] = [];
+  for (const entry of view.entries) seeds[entry.seed! - 1] = entry.playerId;
+  return seeds;
+}
+
+/** Each match of the tournament round as its bracket place and players. */
+export function placesOf(round: TournamentView['rounds'][number]) {
+  return round.matches.map(({ bracketPlace, players }) => ({
+    bracketPlace,
+    players,
+  }));
 }
 
 /** The draft's tournament as everyone who sees it reads it. */
@@ -314,5 +335,24 @@ export function reinstate(id: string, playerId: string, cookie = aliceCookie) {
     'delete',
     `/${id}/tournament/entries/${playerId}/drop`,
     cookie,
+  );
+}
+
+/**
+ * Previews setting the match's game score to `body`'s games, or clearing it
+ * when they are null, as an organizer would, as whoever `cookie` signs in:
+ * the later matches it would clear.
+ */
+export function previewGameScore(
+  id: string,
+  matchId: string,
+  body: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest(
+    'post',
+    `/${id}/tournament/matches/${matchId}/game-score/preview`,
+    cookie,
+    body,
   );
 }

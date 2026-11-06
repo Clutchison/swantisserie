@@ -12,7 +12,7 @@ import type { GameScore, MatchView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { matchLine, seededName, seedsOf } from './match-lines';
+import { matchLine, seededName, seedsOf, versus } from './match-lines';
 import { TournamentBracket } from './tournament-bracket';
 
 /** A game score an organizer sets for a match, in its player order. */
@@ -114,13 +114,13 @@ export class TournamentResults {
       round: round.round,
       label: `Tournament round ${round.round}`,
       byes: round.byes.map((id) => this.seeded(id)),
-      matches: round.matches.map((match) => this.line(round.round, match)),
+      matches: round.matches.map((match) => this.line(match)),
     }));
     return format === 'Swiss' ? shown.reverse() : shown;
   });
 
-  /** How a match of tournament round `round` reads in its list, and the opponent to report it against, if any. */
-  private line(round: number, match: MatchView) {
+  /** How a match reads in its list, and the opponent to report it against, if any. */
+  private line(match: MatchView) {
     const own = this.ownId();
     const reportable =
       this.tournament().state === 'Playing' &&
@@ -137,12 +137,7 @@ export class TournamentResults {
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
       organize: this.organize()
-        ? this.organizerControls(
-            round,
-            match,
-            this.name(match.players[0]),
-            this.name(match.players[1]),
-          )
+        ? this.organizerControls(match, this.name(match.players[0]), this.name(match.players[1]))
         : null,
     };
   }
@@ -169,14 +164,14 @@ export class TournamentResults {
   }
 
   /**
-   * What an organizer can do with `match` of tournament round `round`, its
-   * players `first` and `second`: set any game score, and clear it if that
+   * What an organizer can do with `match`, its players `first` and
+   * `second`: set any game score, and clear it if that
    * changes anything.
    */
-  private organizerControls(round: number, match: MatchView, first: string, second: string) {
-    const label = `${first} vs ${second}`;
+  private organizerControls(match: MatchView, first: string, second: string) {
+    const label = versus([first, second]);
     const verb = match.outcome.kind === 'Unreported' ? 'Report' : 'Correct';
-    const after = this.afterClearing(round, match);
+    const after = this.afterClearing(match);
     return {
       label,
       verb,
@@ -190,19 +185,16 @@ export class TournamentResults {
   }
 
   /**
-   * What clearing `match` of tournament round `round` leaves it as, or null
-   * if it already is that or can't be cleared. Single elimination never
-   * clears a match of a completed round: its winner has advanced. Otherwise,
-   * once the tournament is complete it becomes a granted draw. While it is
-   * playing it is unreported again, unless one of its players has dropped:
-   * then it is their forfeit.
+   * What clearing `match` leaves it as, or null if it already is that. Once
+   * the tournament is complete it becomes a granted draw, except in single
+   * elimination, which never has a draw and reopens the match's tournament
+   * round instead. While it is playing, or in single elimination, it is
+   * unreported again, unless one of its players has dropped: then it is
+   * their forfeit. The correction warning says what else it clears.
    */
-  private afterClearing(round: number, { players, outcome }: MatchView) {
-    const { format, state, lastCompletedRound } = this.tournament();
-    if (format === 'SingleElimination' && (state === 'Complete' || round <= lastCompletedRound)) {
-      return null;
-    }
-    if (state === 'Complete') {
+  private afterClearing({ players, outcome }: MatchView) {
+    const { format, state } = this.tournament();
+    if (state === 'Complete' && format !== 'SingleElimination') {
       return outcome.kind === 'GrantedDraw' ? null : 'The match becomes a granted draw.';
     }
     const dropped = new Set(

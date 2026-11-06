@@ -48,6 +48,7 @@ describe('tournament setup', () => {
       entries: [],
       rounds: [],
       bracket: null,
+      correctionsPreview: false,
       standings: [],
       trophyHolders: [],
     });

@@ -3,6 +3,9 @@
   <p>
     @if (finalRound()) {
       It is the final tournament round, so the tournament completes and the trophy is awarded.
+    } @else if (tooFewLeft() && singleElimination()) {
+      Fewer than {{ minUndropped }} players are left in the bracket, so the tournament completes and
+      the trophy is awarded.
     } @else if (tooFewLeft()) {
       Fewer than {{ minUndropped }} undropped players remain, so the tournament completes and the
       trophy is awarded.
@@ -11,7 +14,11 @@
     }
   </p>
   @if (unreported().length > 0 && singleElimination()) {
-    <p>Pick the winner of each unreported match: they advance.</p>
+    <p>
+      Pick the winner of each unreported match: they advance. Or drop a player who won’t play on,
+      and their opponent advances on the forfeit; drop both, and whoever would have met its winner
+      has a bye.
+    </p>
     <ul aria-label="Unreported matches">
       @for (match of unreported(); track match.id) {
         <li>
@@ -23,9 +30,22 @@
                   type="radio"
                   [name]="'winner-' + match.id"
                   [checked]="isWinner(match.id, player.id)"
+                  [disabled]="drops(match.id)"
                   (change)="pickWinner(match.id, player.id)"
                 />
                 {{ player.name }}
+              </label>
+            }
+          </div>
+          <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+            @for (player of match.players; track player.id) {
+              <label>
+                <input
+                  type="checkbox"
+                  [checked]="isDropping(match.id, player.id)"
+                  (change)="setDropping(match.id, player.id, $any($event.target).checked)"
+                />
+                Drop {{ player.name }}
               </label>
             }
           </div>

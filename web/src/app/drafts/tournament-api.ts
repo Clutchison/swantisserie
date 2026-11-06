@@ -5,6 +5,8 @@ import type {
   CompleteRoundRequest,
   DraftView,
   GameScore,
+  GameScorePreview,
+  GameScorePreviewRequest,
   MatchReportRequest,
   TournamentSetupRequest,
 } from 'contract';
@@ -54,6 +56,21 @@ export class TournamentApi {
     } satisfies MatchReportRequest);
   }
 
+  /**
+   * What setting a match's game score to `games`, or clearing it when they
+   * are null, would clear beyond it: the later single elimination matches
+   * it feeds, if it changes who advances. Changes nothing; for organizers.
+   */
+  previewGameScore(
+    draftId: string,
+    matchId: string,
+    games: GameScore | null,
+  ): Observable<GameScorePreview> {
+    return this.http.post<GameScorePreview>(`${matchUrl(draftId, matchId)}/game-score/preview`, {
+      games,
+    } satisfies GameScorePreviewRequest);
+  }
+
   /** Clears a match's game score; for organizers. */
   clearGameScore(draftId: string, matchId: string): Observable<DraftView> {
     return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/game-score`);
@@ -65,7 +82,7 @@ export class TournamentApi {
   }
 
   /**
-   * Completes the current tournament round of the draft's Swiss tournament,
+   * Completes the current tournament round of the draft's Swiss or single elimination tournament,
    * settling its unreported matches as `request` says; for organizers.
    */
   completeRound(draftId: string, request: CompleteRoundRequest): Observable<DraftView> {

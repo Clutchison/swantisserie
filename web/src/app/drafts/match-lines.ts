@@ -27,6 +27,14 @@ export function seedsOf(entries: readonly TournamentEntryView[]): ReadonlyMap<st
   );
 }
 
+/**
+ * How a match or bye reads by its players' names: "Bob vs Carol", or, with
+ * one player, "Alice has a bye".
+ */
+export function versus(names: readonly string[]): string {
+  return names.length === 1 ? `${names[0]} has a bye` : names.join(' vs ');
+}
+
 /** A player's name with their seed, if they have one, as in "Alice (seed 1)". */
 export function seededName(name: string, seed: number | undefined): string {
   return seed === undefined ? name : `${name} (seed ${seed})`;

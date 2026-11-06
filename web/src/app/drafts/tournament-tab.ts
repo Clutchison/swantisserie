@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  inputBinding,
   Injector,
   signal,
   untracked,
@@ -22,12 +23,18 @@ import {
   type TournamentView,
 } from 'contract';
 import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
-import type { Observable } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
+import {
+  CORRECTION_WARNING_HEADING,
+  CorrectionWarningDialog,
+  type CorrectionWarning,
+} from './correction-warning-dialog';
 import { DraftStore } from './draft-store';
+import { versus } from './match-lines';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
@@ -174,6 +181,8 @@ export class TournamentTab {
   );
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
+  /** Whether a correction or clear can clear later matches, as the read says, so the api previews it first. */
+  private readonly previewsChanges = computed(() => !!this.tournament()?.correctionsPreview);
   /** The Complete round dialog, while it's open. */
   private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
@@ -369,21 +378,47 @@ export class TournamentTab {
     });
   }
 
-  /** Sets a match's game score, as an organizer reports or corrects it. */
+  /**
+   * Sets a match's game score, as an organizer reports or corrects it, once
+   * they go ahead with the later matches it clears, if any.
+   */
   protected setGameScore({ matchId, games }: SetGameScore) {
-    return this.send(() => this.api.setGameScore(this.draft().id, matchId, games), {
-      failure: "Couldn't save the match’s game score. Try again in a moment.",
-      keep: [`correct ${matchId}`],
-    });
-  }
-
-  /** Clears a match's game score, once the organizer confirms. */
-  protected clearGameScore({ matchId, label, after }: ClearGameScore) {
+    const correct = () => this.api.setGameScore(this.draft().id, matchId, games);
+    const warning = { question: `Correct ${this.matchLabel(matchId)}?`, detail: null };
     return this.send(
       () =>
-        confirm(`Clear the game score of ${label}? ${after}`)
-          ? this.api.clearGameScore(this.draft().id, matchId)
-          : undefined,
+        this.previewsChanges()
+          ? this.goesAhead(matchId, games, { ...warning, action: 'Correct' }, () => true).then(
+              (goAhead) => (goAhead ? correct() : undefined),
+            )
+          : correct(),
+      {
+        failure: "Couldn't save the match’s game score. Try again in a moment.",
+        keep: [`correct ${matchId}`],
+      },
+    );
+  }
+
+  /**
+   * Clears a match's game score, once the organizer confirms, or goes ahead
+   * with the later matches it clears, if any.
+   */
+  protected clearGameScore({ matchId, label, after }: ClearGameScore) {
+    const clear = () => this.api.clearGameScore(this.draft().id, matchId);
+    const question = `Clear the game score of ${label}?`;
+    const confirmed = () => confirm(`${question} ${after}`);
+    return this.send(
+      () =>
+        this.previewsChanges()
+          ? this.goesAhead(
+              matchId,
+              null,
+              { question, detail: after, action: 'Clear' },
+              confirmed,
+            ).then((goAhead) => (goAhead ? clear() : undefined))
+          : confirmed()
+            ? clear()
+            : undefined,
       {
         failure: "Couldn't clear the match’s game score. Try again in a moment.",
         keep: [`correct ${matchId}`],
@@ -392,21 +427,59 @@ export class TournamentTab {
   }
 
   /**
+   * Whether the organizer goes ahead with setting the match `matchId`'s
+   * game score to `games`, or clearing it when null: asks the api what it
+   * would do, and if it clears anything or changes the tournament's state,
+   * shows the correction warning; else asks `askUnwarned`.
+   */
+  private async goesAhead(
+    matchId: string,
+    games: GameScore | null,
+    warning: Omit<CorrectionWarning, 'preview'>,
+    askUnwarned: () => boolean,
+  ): Promise<boolean> {
+    const preview = await firstValueFrom(
+      this.api.previewGameScore(this.draft().id, matchId, games),
+    );
+    const quiet = preview.clears.length === 0 && preview.state === this.state();
+    return quiet ? askUnwarned() : this.warned({ ...warning, preview });
+  }
+
+  /** Shows the correction warning, and answers whether the organizer goes ahead. */
+  private async warned(warning: CorrectionWarning): Promise<boolean> {
+    const ref = this.dialogs.open<CorrectionWarningDialog, boolean>(CorrectionWarningDialog, {
+      labelledBy: CORRECTION_WARNING_HEADING,
+      injector: this.injector,
+      bindings: [inputBinding('warning', () => warning)],
+    });
+    return (await firstValueFrom(ref.closed)) === true;
+  }
+
+  /** How the match `matchId` reads, such as "Bob vs Carol". */
+  private matchLabel(matchId: string) {
+    const match = this.tournament()
+      ?.rounds.flatMap((round) => round.matches)
+      .find((m) => m.id === matchId);
+    return versus((match?.players ?? []).map((id) => this.store.player(id).name));
+  }
+
+  /**
    * Sends a change to the tournament, the request `send` makes, and shows
    * the draft it answers with, unless another change is in flight; `send`
-   * makes none if the organizer thinks better of it. A refusal's reason, or
-   * else `failure`, is shown if it fails.
+   * makes none if the organizer thinks better of it, and may first ask the
+   * api what it would do. A refusal's reason, or else `failure`, is shown
+   * if it fails.
    */
   private send(
-    send: () => Observable<DraftView> | undefined,
+    send: () => Observable<DraftView> | undefined | Promise<Observable<DraftView> | undefined>,
     { failure, keep }: { failure: string; keep?: string[] },
   ) {
     return this.changes.send(
       async () => {
-        const request = send();
-        if (!request) return;
-        this.error.set(null);
         try {
+          const request = await send();
+          if (!request) return;
+          this.error.set(null);
           await this.store.changeDraft(request);
           return true;
         } catch (err) {
