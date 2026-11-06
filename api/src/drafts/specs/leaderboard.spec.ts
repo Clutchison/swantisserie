@@ -81,7 +81,7 @@ describe('the leaderboard', () => {
 
     const board = await leaderboard();
 
-    expect(board.map(({ opponents: _, ...entry }) => entry)).toEqual([
+    expect(board).toMatchObject([
       {
         playerId: alice.id,
         name: 'Alice',

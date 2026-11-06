@@ -26,6 +26,11 @@ export const routes: Routes = [
         loadComponent: () => import('./drafts/draft-page').then((m) => m.DraftPage),
       },
       {
+        path: 'leaderboard',
+        loadComponent: () =>
+          import('./leaderboard/leaderboard-page').then((m) => m.LeaderboardPage),
+      },
+      {
         path: 'admin/webhooks',
         loadComponent: () => import('./admin/webhooks-page').then((m) => m.WebhooksPage),
         canActivate: [appAdmin],
