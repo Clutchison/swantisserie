@@ -38,15 +38,16 @@ h4 {
   .bye {
     color: var(--color-muted);
   }
+}
 
-  .confirmed {
-    font-weight: 600;
-  }
+// Shared by the list of matches and the bracket, which renders them under each of its matches.
+.confirmed {
+  font-weight: 600;
+}
 
-  .game-score-choice {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
-    flex-basis: 100%;
-  }
+.game-score-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex-basis: 100%;
 }

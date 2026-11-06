@@ -21,6 +21,8 @@ import {
   playingTournament,
   reportCurrentRound,
   reportMatch,
+  reportWin,
+  roundRobin,
   setGameScore,
   setUpTournament,
   signIn,
@@ -121,6 +123,91 @@ describe('starting a single elimination tournament', () => {
     const answer = await startTournament(id).expect(200);
 
     expect(answer.body.version).toBe(before.body.version + 1);
+  });
+});
+
+describe('the bracket in the tournament read', () => {
+  const player = (playerId: string) => ({ kind: 'Player', playerId });
+
+  it('draws every tournament round by bracket place, with the byes and the places still to be decided', async () => {
+    const id = await playing(3);
+
+    const view = await tournamentView(id);
+    const seeds = seedsOf(view);
+    const [match] = view.rounds[0].matches;
+    expect(view.bracket).toEqual([
+      {
+        round: 1,
+        places: [
+          {
+            bracketPlace: 0,
+            matchId: null,
+            sides: [player(seeds[0]), { kind: 'Bye' }],
+            winner: seeds[0],
+          },
+          {
+            bracketPlace: 1,
+            matchId: match.id,
+            sides: [player(seeds[1]), player(seeds[2])],
+            winner: null,
+          },
+        ],
+      },
+      {
+        round: 2,
+        places: [
+          {
+            bracketPlace: 0,
+            matchId: null,
+            sides: [player(seeds[0]), { kind: 'WinnerOf', bracketPlace: 1 }],
+            winner: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('puts a reported match’s winner in their next bracket place', async () => {
+    const id = await playing(3);
+    const seeds = seedsOf(await tournamentView(id));
+    await reportWin(id, [seeds[2], seeds[1]], [2, 1], cookieOf[seeds[2]]);
+
+    const view = await tournamentView(id);
+    expect(view.bracket![0].places[1].winner).toBe(seeds[2]);
+    expect(view.bracket![1].places[0].sides).toEqual([
+      player(seeds[0]),
+      player(seeds[2]),
+    ]);
+  });
+
+  it('gives the paired final its match, and its winner once completed', async () => {
+    const id = await playing(3);
+    const seeds = seedsOf(await tournamentView(id));
+    await reportWin(id, [seeds[1], seeds[2]], [2, 0], cookieOf[seeds[1]]);
+    await completeRound(id).expect(200);
+    await reportWin(id, [seeds[1], seeds[0]], [2, 0], cookieOf[seeds[1]]);
+    await completeRound(id).expect(200);
+
+    const view = await tournamentView(id);
+    expect(view.bracket![1].places).toEqual([
+      {
+        bracketPlace: 0,
+        matchId: view.rounds[1].matches[0].id,
+        sides: [player(seeds[0]), player(seeds[1])],
+        winner: seeds[1],
+      },
+    ]);
+  });
+
+  it('is left out of other formats and of registration', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie], roundRobin);
+    const registering = await completeDraft([aliceCookie, bobCookie]);
+    await setUpTournament(registering, aliceCookie, singleElimination).expect(
+      201,
+    );
+
+    expect((await tournamentView(id)).bracket).toBeNull();
+    expect((await tournamentView(registering)).bracket).toBeNull();
   });
 });
 

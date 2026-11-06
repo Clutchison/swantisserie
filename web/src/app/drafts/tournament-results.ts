@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,6 +12,7 @@ import type { GameScore, MatchView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
+import { TournamentBracket } from './tournament-bracket';
 
 /** A game score an organizer sets for a match, in its player order. */
 export interface SetGameScore {
@@ -30,15 +32,15 @@ export interface ClearGameScore {
 
 /**
  * A tournament's standings, best first, and its matches by tournament
- * round with their outcomes, confirmations and byes, each player with their
- * seed in single elimination. The signed-in
+ * round with their outcomes, confirmations and byes, or, in single
+ * elimination, its bracket. The signed-in
  * player's other open matches offer Report, which makes that match the one
  * shown as theirs, and their matches someone else reported offer Confirm.
  * Organizers report, correct and clear any match.
  */
 @Component({
   selector: 'app-tournament-results',
-  imports: [FocusKey, SendsChange],
+  imports: [FocusKey, NgTemplateOutlet, SendsChange, TournamentBracket],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tournament-results.html',
   styleUrls: ['./drafts.scss', './tournament-results.scss'],
@@ -92,6 +94,19 @@ export class TournamentResults {
         this.tournament().entries.flatMap(({ playerId, seed }) =>
           seed === null ? [] : [[playerId, seed] as const],
         ),
+      ),
+  );
+
+  /** Single elimination's bracket, which shows its matches in place of the list by tournament round. */
+  protected readonly bracket = computed(() => this.tournament().bracket !== null);
+
+  /** How each match reads, and the controls it offers, by its id. */
+  protected readonly lines = computed(
+    () =>
+      new Map(
+        this.rounds()
+          .flatMap((round) => round.matches)
+          .map((line) => [line.id, line]),
       ),
   );
 

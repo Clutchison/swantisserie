@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bracketRounds,
   firstBracketRound,
   nextBracketRound,
   singleEliminationRoundCount,
@@ -200,5 +201,95 @@ describe('winnerOf', () => {
     ['nobody for a granted draw', { kind: 'GrantedDraw' }, null],
   ])('is %s', (_, outcome, winner) => {
     expect(winnerOf({ players: ['a', 'b'], outcome })).toBe(winner);
+  });
+});
+
+describe('bracketRounds', () => {
+  const player = (playerId: string) => ({ kind: 'Player', playerId }) as const;
+  const winnerOfPlace = (bracketPlace: number) =>
+    ({ kind: 'WinnerOf', bracketPlace }) as const;
+  const bye = { kind: 'Bye' } as const;
+
+  it('draws every tournament round, the unpaired ones fed by the bracket places before them', () => {
+    // 3 players: s1 has a bye, s2 plays s3, unreported.
+    expect(
+      bracketRounds(2, [
+        { round: 1, bracketPlace: 0, players: ['s1', null], winner: 's1' },
+        { round: 1, bracketPlace: 1, players: ['s2', 's3'], winner: null },
+      ]),
+    ).toEqual([
+      {
+        round: 1,
+        places: [
+          { bracketPlace: 0, sides: [player('s1'), bye], winner: 's1' },
+          {
+            bracketPlace: 1,
+            sides: [player('s2'), player('s3')],
+            winner: null,
+          },
+        ],
+      },
+      {
+        round: 2,
+        places: [
+          {
+            bracketPlace: 0,
+            sides: [player('s1'), winnerOfPlace(1)],
+            winner: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('puts a match’s winner in the next bracket place before that round is paired, and leaves later ones to the winners of the places feeding them', () => {
+    // 8 players: s1, s5 and s3 have won; s2 v s7 is unreported.
+    const rounds = bracketRounds(3, [
+      { round: 1, bracketPlace: 0, players: ['s1', 's8'], winner: 's1' },
+      { round: 1, bracketPlace: 1, players: ['s4', 's5'], winner: 's5' },
+      { round: 1, bracketPlace: 2, players: ['s2', 's7'], winner: null },
+      { round: 1, bracketPlace: 3, players: ['s3', 's6'], winner: 's3' },
+    ]);
+    expect(rounds.slice(1)).toEqual([
+      {
+        round: 2,
+        places: [
+          {
+            bracketPlace: 0,
+            sides: [player('s1'), player('s5')],
+            winner: null,
+          },
+          {
+            bracketPlace: 1,
+            sides: [winnerOfPlace(2), player('s3')],
+            winner: null,
+          },
+        ],
+      },
+      {
+        round: 3,
+        places: [
+          {
+            bracketPlace: 0,
+            sides: [winnerOfPlace(0), winnerOfPlace(1)],
+            winner: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('draws a paired tournament round as it was paired', () => {
+    const rounds = bracketRounds(2, [
+      { round: 1, bracketPlace: 0, players: ['s1', 's4'], winner: 's1' },
+      { round: 1, bracketPlace: 1, players: ['s2', 's3'], winner: 's3' },
+      { round: 2, bracketPlace: 0, players: ['s1', 's3'], winner: 's3' },
+    ]);
+    expect(rounds[1]).toEqual({
+      round: 2,
+      places: [
+        { bracketPlace: 0, sides: [player('s1'), player('s3')], winner: 's3' },
+      ],
+    });
   });
 });

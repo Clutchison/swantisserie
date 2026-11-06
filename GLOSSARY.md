@@ -385,7 +385,7 @@ In single elimination, a player's place in the seed order, from 1 for the top se
 _Avoid_: Ranking, position, draw number
 
 **Bracket**:
-The single elimination view of a tournament: its matches by tournament round, each at its bracket place, the winners of each pair of neighbouring matches meeting in the next round. It is sized to the next power of two, so the top seeds start with byes, and seeds 1 and 2 can meet only in the final.
+The single elimination view of a tournament: its matches by tournament round, each at its bracket place, the winners of each pair of neighbouring matches meeting in the next round. It is sized to the next power of two, so the top seeds start with byes, and seeds 1 and 2 can meet only in the final. It shows every tournament round from the start: a place not yet paired holds the winner of each match feeding it as soon as that match is decided, and until then names the match that decides it.
 _Avoid_: Tree, draw, chart, bracket as the format's name
 
 **Bracket place**:
