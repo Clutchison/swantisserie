@@ -1,0 +1,28 @@
+/* The dialog's box: the match as its heading, its game scores, then its actions. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(26rem, 100%);
+  padding: var(--space-lg);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h3 {
+  margin: 0;
+}
+
+.game-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}

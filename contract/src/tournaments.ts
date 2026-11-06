@@ -90,15 +90,19 @@ export interface MatchView {
   confirmed: boolean;
 }
 
-/** One tournament round: its matches, and the players with a bye. */
+/**
+ * One tournament round: its matches, and the players with a bye. Round
+ * robin has no tournament rounds, so it reads as one, round 1, holding
+ * every match, with no byes.
+ */
 export interface TournamentRoundView {
-  /** From 1: the suggested order to play the rounds in. */
+  /** From 1. */
   round: number;
-  /** In bracket place order in single elimination; otherwise in the order of their first players’ joining. */
+  /** In bracket place order in single elimination; otherwise in the order of their first players’ joining, then their second players’. */
   matches: MatchView[];
   /**
    * The Discord user ids of the players sitting this round out: at most one
-   * in round robin and Swiss; in single elimination, the top seeds' in
+   * in Swiss, none in round robin; in single elimination, the top seeds' in
    * round 1, and later each player whose would-be opponent nobody sent on,
    * in bracket place order.
    */
@@ -193,19 +197,22 @@ export interface TournamentView {
    */
   showsDecklists: boolean;
   state: TournamentState;
-  /** How many tournament rounds it will have, for the players joined so far during registration. */
+  /**
+   * How many tournament rounds it will have, for the players joined so far
+   * during registration. Always 0 in round robin, which has none.
+   */
   roundCount: number;
   /**
    * The last tournament round an organizer completed, from 1; 0 before any.
-   * Always 0 in round robin, which plays its rounds all at once.
+   * Always 0 in round robin, which has no tournament rounds.
    */
   lastCompletedRound: number;
   /** In join order. */
   entries: TournamentEntryView[];
   /**
    * Every tournament round paired so far, in order, once it is playing; none
-   * during registration. Round robin pairs all of them at the start, Swiss
-   * one at a time.
+   * during registration. Swiss pairs them one at a time; round robin makes
+   * every match at the start, as one round.
    */
   rounds: TournamentRoundView[];
   /**

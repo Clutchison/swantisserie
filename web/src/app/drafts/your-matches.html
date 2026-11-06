@@ -1,0 +1,57 @@
+<section class="your-matches" aria-label="Your matches">
+  <h3>Your matches</h3>
+  <ul class="lines">
+    @for (line of lines(); track line.match.id) {
+      <li>
+        <span class="says">
+          <app-player-avatar [src]="line.opponent.avatarUrl" />
+          {{ line.says }}
+        </span>
+        @if (line.confirmable) {
+          <button
+            class="button compact"
+            type="button"
+            [attr.aria-label]="'Confirm your match against ' + line.opponent.name"
+            (click)="confirmMatch.emit(line.match.id)"
+            [appSendsChange]="'confirm ' + line.match.id"
+          >
+            Confirm
+          </button>
+        }
+        @if (line.reportable) {
+          <button
+            class="button compact secondary"
+            type="button"
+            [attr.aria-label]="'Report your match against ' + line.opponent.name"
+            [attr.aria-expanded]="reporting() === line.match.id"
+            (click)="toggleReporting(line.match.id)"
+          >
+            Report
+          </button>
+          @if (reporting() === line.match.id) {
+            <div
+              class="game-scores"
+              role="group"
+              [attr.aria-label]="'Game score against ' + line.opponent.name"
+            >
+              @for (score of ownGameScores; track score.label) {
+                <button
+                  class="button compact secondary"
+                  type="button"
+                  (click)="report.emit({ match: line.match, opponent: line.opponent.name, score })"
+                  [appSendsChange]="'report ' + line.match.id"
+                >
+                  {{ score.label }}
+                </button>
+              }
+            </div>
+          }
+        }
+      </li>
+    }
+  </ul>
+  <p class="detail">
+    <a [routerLink]="[]" [queryParams]="{ tab: 'plan' }">Your deck</a>, to export it before you
+    play.
+  </p>
+</section>

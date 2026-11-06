@@ -145,7 +145,14 @@
     } @else if (tournament.state === 'Complete') {
       <p class="detail">Nobody holds the trophy: no player was left in the bracket to win it.</p>
     }
-    @if (playsOn()) {
+    @if (showsYourMatches()) {
+      <app-your-matches
+        [tournament]="tournament"
+        [ownId]="ownId()!"
+        (report)="report($event.match, $event.opponent, $event.score)"
+        (confirmMatch)="confirmMatch($event)"
+      />
+    } @else if (playsOn() && !roundRobin()) {
       <section class="own-match" aria-label="Your match">
         <h3>Your match</h3>
         @if (ownMatch(); as own) {
@@ -175,15 +182,23 @@
         }
       </section>
     }
-    <app-tournament-results
-      [tournament]="tournament"
-      [ownId]="joined() ? ownId() : undefined"
-      [currentId]="ownMatch()?.match?.id"
-      (choose)="chosen.set($event)"
-      (confirmMatch)="confirmMatch($event)"
-      (setGameScore)="setGameScore($event)"
-      (clearGameScore)="clearGameScore($event)"
-    />
+    @if (roundRobin()) {
+      <app-results-grid
+        [tournament]="tournament"
+        (setGameScore)="setGameScore($event)"
+        (clearGameScore)="clearGameScore($event)"
+      />
+    } @else {
+      <app-tournament-results
+        [tournament]="tournament"
+        [ownId]="joined() ? ownId() : undefined"
+        [currentId]="ownMatch()?.match?.id"
+        (choose)="chosen.set($event)"
+        (confirmMatch)="confirmMatch($event)"
+        (setGameScore)="setGameScore($event)"
+        (clearGameScore)="clearGameScore($event)"
+      />
+    }
     <h3>Players</h3>
     <ul class="entries" aria-label="Players">
       @for (player of players(); track player.id) {

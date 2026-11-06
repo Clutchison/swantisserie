@@ -11,7 +11,6 @@ import {
   bracketRounds,
   bracketTrophyHolders,
   droppedPlayers,
-  roundRobinRoundCount,
   singleEliminationRoundCount,
   singleEliminationStandings,
   standings,
@@ -99,8 +98,8 @@ type MatchRow = TournamentRow['matches'][number];
  * bracket place order in single elimination, and otherwise in the order of
  * their first players' joining, and its standings and trophy holders. Swiss
  * and single elimination standings count only completed tournament rounds,
- * byes included; round robin's count every result and ignore byes, as
- * every player has equally many.
+ * byes included; round robin's count every result. Round robin, which has
+ * no tournament rounds, reads as one round of every match, with no byes.
  */
 export function toTournamentView(row: TournamentRow): TournamentView {
   const order = new Map(row.entries.map((entry, i) => [entry.id, i]));
@@ -112,18 +111,25 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const rounds: TournamentRoundView[] = [];
   const sorted = [...row.matches].sort(
     (a, b) =>
-      a.round - b.round ||
+      (row.format === 'RoundRobin' ? 0 : a.round - b.round) ||
       (a.bracketPlace ?? 0) - (b.bracketPlace ?? 0) ||
-      order.get(a.firstEntryId)! - order.get(b.firstEntryId)!,
+      order.get(a.firstEntryId)! - order.get(b.firstEntryId)! ||
+      (order.get(a.secondEntryId ?? '') ?? -1) -
+        (order.get(b.secondEntryId ?? '') ?? -1),
   );
+  // Round robin has no tournament rounds: every match reads as round 1's,
+  // and the byes of tournaments started before that are left out.
+  const roundRobin = row.format === 'RoundRobin';
   for (const match of sorted) {
+    const number = roundRobin ? 1 : match.round;
     let round = rounds.at(-1);
-    if (round?.round !== match.round) {
-      round = { round: match.round, matches: [], byes: [] };
+    if (round?.round !== number) {
+      round = { round: number, matches: [], byes: [] };
       rounds.push(round);
     }
-    if (match.secondEntryId === null) round.byes.push(user(match.firstEntryId));
-    else round.matches.push(toMatchView(match, user));
+    if (match.secondEntryId !== null)
+      round.matches.push(toMatchView(match, user));
+    else if (!roundRobin) round.byes.push(user(match.firstEntryId));
   }
 
   const players = row.entries.map((entry) => entry.player.userId);
@@ -279,7 +285,8 @@ export function byesOf(rounds: readonly TournamentRoundView[]): string[] {
 
 /**
  * How many tournament rounds a tournament of `format` has, or will have,
- * with `joined` players, as the engine counts them; none for fewer than 2.
+ * with `joined` players, as the engine counts them; none for fewer than 2,
+ * and none in round robin.
  */
 export function roundCount(
   {
@@ -288,11 +295,9 @@ export function roundCount(
   }: Pick<TournamentRow, 'format' | 'swissRoundOption'>,
   joined: number,
 ): number {
-  if (joined < 2) return 0;
+  if (joined < 2 || format === 'RoundRobin') return 0;
   if (format === 'Swiss') return swissRoundCount(joined, swissRoundOption!);
-  if (format === 'SingleElimination')
-    return singleEliminationRoundCount(joined);
-  return roundRobinRoundCount(joined);
+  return singleEliminationRoundCount(joined);
 }
 
 function toMatchView(

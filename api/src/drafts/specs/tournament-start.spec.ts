@@ -73,35 +73,19 @@ describe('starting a tournament', () => {
     expect(view.trophyHolders).toEqual([]);
   });
 
-  it('opens every match at once, grouped by tournament round, with one bye a round for an odd count', async () => {
+  it("opens every pairing's match at once, with no byes, for an odd count", async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
 
-    const { rounds } = await tournamentView(id);
+    const { rounds, roundCount } = await tournamentView(id);
 
-    expect(rounds.map((round) => round.round)).toEqual([1, 2, 3]);
-    expect(new Set(rounds.flatMap((round) => round.byes))).toEqual(
-      new Set([alice.id, bob.id, carol.id]),
-    );
-    const pairs = rounds.flatMap((round) =>
-      round.matches.map((match) => [...match.players].sort().join()),
-    );
-    expect(pairs.sort()).toEqual(
-      [
-        [alice.id, bob.id],
-        [alice.id, carol.id],
-        [bob.id, carol.id],
-      ]
-        .map((pair) => pair.sort().join())
-        .sort(),
-    );
-    expect(
-      rounds.every(
-        (round) =>
-          round.matches.length === 1 &&
-          round.byes.length === 1 &&
-          !round.matches[0].players.includes(round.byes[0]),
-      ),
-    ).toBe(true);
+    expect(rounds).toHaveLength(1);
+    expect(rounds[0].byes).toEqual([]);
+    expect(rounds[0].matches.map((match) => match.players)).toEqual([
+      [alice.id, bob.id],
+      [alice.id, carol.id],
+      [bob.id, carol.id],
+    ]);
+    expect(roundCount).toBe(0);
   });
 
   it('refuses to start with fewer than two players joined', async () => {

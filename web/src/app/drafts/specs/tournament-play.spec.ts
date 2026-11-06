@@ -1,4 +1,4 @@
-import { answer, openDialog, pressEscape, question } from '../../specs-harness';
+import { answer, openDialog, pressEscape, question, table } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alertIn,
@@ -7,6 +7,7 @@ import {
   button,
   draft,
   flushPicks,
+  group,
   http,
   items,
   link,
@@ -23,6 +24,10 @@ import {
   currentSteps,
   dave,
   forfeited,
+  gridCell,
+  gridCellName,
+  gridColumns,
+  gridRows,
   openMatch,
   openPlaying,
   playing,
@@ -30,74 +35,92 @@ import {
   pushTournament,
   registration,
   reported,
+  resultsGrid,
+  roundLabels,
   standing,
-  standingsAsOf,
-  standingsColumns,
-  standingsRows,
   threePlayers,
   withDrops,
   withTournament,
+  yourMatches,
 } from './play-tab-harness';
 
 useDraftsApp();
 
 describe('Play tab while the tournament is played', () => {
-  describe('your match', () => {
-    it('shows your first unreported match at the top, with your opponent and a link to your Deck tab', async () => {
-      const { fixture, page, tab } = await openPlaying(playing());
+  describe('your matches', () => {
+    it('lists one line per opponent, unreported first, with a link to your Deck tab', async () => {
+      const { fixture, page, tab } = await openPlaying(
+        playing([reported(openMatch('m2', alice.id, bob.id), [2, 1], alice.id)]),
+      );
 
-      const yours = region(tab, 'Your match')!;
-      expect(text(yours)).toContain('Tournament round 2');
-      expect(text(yours)).toContain('against Bob');
+      expect(yourMatches(tab)).toEqual(['vs Carol', 'vs Bob · Won 2–1']);
+      expect(text(tab)).not.toContain('Tournament round');
+      expect(text(tab)).not.toContain('bye');
 
-      link(yours, 'Your deck')!.click();
+      link(region(tab, 'Your matches')!, 'Your deck')!.click();
       await fixture.whenStable();
       await vi.waitFor(() => expect(panelName(page)).toBe('Deck'));
     });
 
-    it('reports a match you won, once you go ahead, then moves on to your next match', async () => {
-      const { fixture, page, tab } = await openPlaying(playing());
-
-      button(region(tab, 'Your match')!, 'Won 2–1')!.click();
-      const dialog = await question('Report that you won 2–1 against Bob?');
-      expect(dialog.textContent).toContain('Only an organizer can change a reported match.');
-      await answer(dialog, 'Report');
-      const after = playing([reported(openMatch('m2', alice.id, bob.id), [2, 1], alice.id)]);
-      const req = await answerChange(
-        fixture,
-        '/api/drafts/draft-1/tournament/matches/m2/report',
-        'POST',
-        after,
-        1,
-        threePlayers,
+    it('shows a match your opponent reported with Confirm, and confirmed matches as confirmed', async () => {
+      const { tab } = await openPlaying(
+        playing([
+          reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id),
+          { ...reported(openMatch('m3', carol.id, alice.id), [2, 0], alice.id), confirmed: true },
+        ]),
       );
 
-      expect(req.request.body).toEqual({ games: [2, 1] });
-      expect(text(region(panel(page), 'Your match'))).toContain('against Carol');
+      expect(yourMatches(tab)).toEqual([
+        'Bob reported you lost 1–2',
+        'vs Carol · Lost 0–2 · Confirmed',
+      ]);
+      expect(button(tab, 'Confirm your match against Bob')).toBeDefined();
+      expect(button(tab, 'Confirm your match against Carol')).toBeUndefined();
     });
 
-    it('sends a loss in the match’s player order when you are its second player', async () => {
-      const m2 = reported(openMatch('m2', alice.id, bob.id), [2, 0]);
-      const { fixture, tab } = await openPlaying(playing([m2]));
-      expect(text(region(tab, 'Your match'))).toContain('against Carol');
+    it('shows a forfeit by an opponent who dropped', async () => {
+      const { tab } = await openPlaying(
+        withDrops([carol.id], [forfeited(openMatch('m3', carol.id, alice.id), carol.id)]),
+      );
 
-      button(region(tab, 'Your match')!, 'Lost 1–2')!.click();
-      await answer(await question('Report that you lost 1–2 against Carol?'), 'Report');
+      expect(yourMatches(tab)).toEqual(['vs Bob', 'Forfeit: Carol dropped']);
+      expect(button(tab, 'Report your match against Carol')).toBeUndefined();
+    });
+
+    it('reports any unreported match in any order, sending the game score in the match’s player order', async () => {
+      const { fixture, tab } = await openPlaying(playing());
+
+      button(tab, 'Report your match against Carol')!.click();
+      await fixture.whenStable();
+      const scores = group(tab, 'Game score against Carol')!;
+      expect([...scores.querySelectorAll('button')].map((b) => text(b))).toEqual([
+        'Won 2–0',
+        'Won 2–1',
+        'Lost 1–2',
+        'Lost 0–2',
+      ]);
+      button(scores, 'Won 2–1')!.click();
+      const dialog = await question('Report that you won 2–1 against Carol?');
+      expect(dialog.textContent).toContain('Only an organizer can change a reported match.');
+      await answer(dialog, 'Report');
       const req = await answerChange(
         fixture,
         '/api/drafts/draft-1/tournament/matches/m3/report',
         'POST',
-        playing([m2, reported(openMatch('m3', carol.id, alice.id), [2, 1], alice.id)]),
+        playing([reported(openMatch('m3', carol.id, alice.id), [1, 2], alice.id)]),
         1,
         threePlayers,
       );
 
-      expect(req.request.body).toEqual({ games: [2, 1] });
+      expect(req.request.body).toEqual({ games: [1, 2] });
+      expect(yourMatches(tab)).toEqual(['vs Bob', 'vs Carol · Won 2–1']);
     });
 
     it('sends nothing when you think better of the report', async () => {
       const { fixture, tab } = await openPlaying(playing());
-      const opener = button(region(tab, 'Your match')!, 'Won 2–0')!;
+      button(tab, 'Report your match against Bob')!.click();
+      await fixture.whenStable();
+      const opener = button(group(tab, 'Game score against Bob')!, 'Won 2–0')!;
       opener.focus();
       opener.click();
 
@@ -105,24 +128,33 @@ describe('Play tab while the tournament is played', () => {
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(opener);
-
       http.expectNone('/api/drafts/draft-1/tournament/matches/m2/report');
     });
 
-    it('lets you report any of your open matches, chosen from the tournament rounds', async () => {
-      const { fixture, tab } = await openPlaying(playing());
+    it('confirms an opponent’s report from its line', async () => {
+      const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+      const { fixture, tab } = await openPlaying(playing([bobBeatAlice]));
 
-      button(tab, 'Report your match against Carol')!.click();
-      await fixture.whenStable();
+      button(tab, 'Confirm your match against Bob')!.click();
+      const req = await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament/matches/m2/confirm',
+        'POST',
+        playing([{ ...bobBeatAlice, confirmed: true }]),
+        1,
+        threePlayers,
+      );
 
-      expect(text(region(tab, 'Your match'))).toContain('Tournament round 3');
-      expect(text(region(tab, 'Your match'))).toContain('against Carol');
+      expect(req.request.body).toBeNull();
+      expect(yourMatches(tab)).toEqual(['vs Carol', 'vs Bob · Lost 1–2 · Confirmed']);
     });
 
     it('says why a report was refused', async () => {
       const { fixture, page, tab } = await openPlaying(playing());
 
-      button(region(tab, 'Your match')!, 'Won 2–0')!.click();
+      button(tab, 'Report your match against Bob')!.click();
+      await fixture.whenStable();
+      button(group(tab, 'Game score against Bob')!, 'Won 2–0')!.click();
       await answer(await question('Report that you won 2–0 against Bob?'), 'Report');
       (
         await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/matches/m2/report'))
@@ -142,89 +174,110 @@ describe('Play tab while the tournament is played', () => {
       );
     });
 
-    it('says when all your matches are reported', async () => {
-      const { tab } = await openPlaying(
-        playing([
-          reported(openMatch('m2', alice.id, bob.id), [2, 0]),
-          reported(openMatch('m3', carol.id, alice.id), [2, 1], carol.id),
-        ]),
-      );
+    it.each([
+      ['a viewer who didn’t join', playing(), dave],
+      ['a player who dropped', withDrops([alice.id]), alice],
+    ])('is absent for %s', async (_, tournament, user) => {
+      const { tab } = await openPlaying(tournament, { user });
 
-      expect(text(region(tab, 'Your match'))).toContain('All your matches are reported.');
-      expect(button(tab, 'Won 2–0')).toBeUndefined();
-    });
-
-    it('is absent for a viewer who didn’t join', async () => {
-      const { tab } = await openPlaying(playing(), { user: dave });
-
+      expect(region(tab, 'Your matches')).toBeNull();
       expect(region(tab, 'Your match')).toBeNull();
-      expect(button(tab, 'Won 2–0')).toBeUndefined();
     });
   });
 
-  it('shows the standings, best first, with shared ranks', async () => {
-    const { tab } = await openPlaying(
-      playing([], {
+  describe('results grid', () => {
+    const carolLeads = playing(
+      [
+        reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+        { ...openMatch('m3', carol.id, alice.id), outcome: { kind: 'GrantedDraw' } },
+      ],
+      {
         standings: [
           standing(carol.id, 1, {
-            matchPoints: 3,
-            matches: { won: 1, lost: 0, drawn: 0 },
+            matchPoints: 4,
+            matches: { won: 1, lost: 0, drawn: 1 },
             games: { won: 2, lost: 1, drawn: 0 },
             gameWinPercent: 200 / 3,
           }),
-          standing(alice.id, 2),
-          standing(bob.id, 2, {
+          standing(alice.id, 2, { matchPoints: 1, matches: { won: 0, lost: 0, drawn: 1 } }),
+          standing(bob.id, 3, {
             matches: { won: 0, lost: 1, drawn: 0 },
             games: { won: 1, lost: 2, drawn: 0 },
             gameWinPercent: 100 / 3,
           }),
         ],
-      }),
+      },
     );
 
-    expect(standingsRows(tab)).toEqual([
-      ['1', 'Carol', '3', '1–0–0', '67%'],
-      ['2', 'Alice', '0', '0–0–0', '0%'],
-      ['2', 'Bob', '0', '0–1–0', '33%'],
-    ]);
-  });
+    it('shows every player’s result against each opponent in standings order, in place of the standings and rounds', async () => {
+      const { tab } = await openPlaying(carolLeads, { user: dave });
 
-  it('says nothing of which tournament round round robin’s standings are as of, as they count every result', async () => {
-    const { tab } = await openPlaying(playing([], { lastCompletedRound: 0 }), { user: dave });
+      expect(gridColumns(tab)).toEqual([
+        'Rank',
+        'Player',
+        'Carol',
+        'Alice',
+        'Bob',
+        'Match points',
+        'Matches won, lost and drawn',
+        'Game-win %',
+      ]);
+      expect(gridRows(tab)).toEqual([
+        ['1', 'Carol', '—', 'D', '2–1?', '4', '1–0–1', '67%'],
+        ['2', 'Alice', 'D', '—', '', '1', '0–0–1', '0%'],
+        ['3', 'Bob', '1–2?', '', '—', '0', '0–1–0', '33%'],
+      ]);
+      expect(table(tab, 'Standings')).toBeNull();
+      expect(roundLabels(tab)).toEqual([]);
+      expect(text(tab)).not.toContain('Tournament round');
+    });
 
-    expect(standingsAsOf(tab)).toBeNull();
-  });
+    it('names each cell’s result in words, from its row’s side', async () => {
+      const { tab } = await openPlaying(carolLeads, { user: dave });
 
-  it('keeps round robin’s standings to game-win % alone', async () => {
-    const { tab } = await openPlaying(playing(), { user: dave });
+      expect(gridCellName(tab, 'Carol', 'Bob')).toBe(
+        'Carol against Bob: Carol won 2–1, unconfirmed',
+      );
+      expect(gridCellName(tab, 'Bob', 'Carol')).toBe(
+        'Bob against Carol: Bob lost 1–2, unconfirmed',
+      );
+      expect(gridCellName(tab, 'Alice', 'Bob')).toBe('Alice against Bob: unreported');
+      expect(gridCellName(tab, 'Carol', 'Alice')).toBe('Carol against Alice: granted draw');
+    });
 
-    expect(standingsColumns(tab)).toEqual([
-      'Rank',
-      'Player',
-      'Match points',
-      'Matches won, lost and drawn',
-      'Game-win %',
-    ]);
-  });
+    it('drops the unconfirmed mark once the match is confirmed', async () => {
+      const m1 = {
+        ...reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+        confirmed: true,
+      };
+      const { tab } = await openPlaying(playing([m1]), { user: dave });
 
-  it('lists the matches by tournament round, with their outcomes and byes', async () => {
-    const { tab } = await openPlaying(
-      playing([
-        reported(openMatch('m1', bob.id, carol.id), [1, 2], carol.id),
-        { ...openMatch('m3', carol.id, alice.id), outcome: { kind: 'GrantedDraw' } },
-      ]),
-      { user: dave },
-    );
+      expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1');
+      expect(gridCellName(tab, 'Carol', 'Bob')).toBe('Carol against Bob: Carol won 2–1');
+    });
 
-    expect(items(tab, 'Tournament round 1')).toEqual(['Bob 1–2 Carol', 'Alice has a bye']);
-    expect(items(tab, 'Tournament round 2')).toEqual([
-      'Alice vs Bob · Unreported',
-      'Carol has a bye',
-    ]);
-    expect(items(tab, 'Tournament round 3')).toEqual([
-      'Carol vs Alice · Granted draw',
-      'Bob has a bye',
-    ]);
+    it('marks a dropped player’s forfeits F on their side and W on their opponent’s', async () => {
+      const { tab } = await openPlaying(
+        withDrops([carol.id], [forfeited(openMatch('m3', carol.id, alice.id), carol.id)]),
+        { user: dave },
+      );
+
+      expect(text(gridCell(tab, 'Carol', 'Alice'))).toBe('F');
+      expect(text(gridCell(tab, 'Alice', 'Carol'))).toBe('W');
+      expect(gridCellName(tab, 'Carol', 'Alice')).toBe('Carol against Alice: Carol forfeited');
+      expect(gridCellName(tab, 'Alice', 'Carol')).toBe(
+        'Alice against Carol: Alice won, Carol forfeited',
+      );
+      expect(gridRows(tab).map((row) => row[1])).toEqual(['Alice', 'Bob', 'Carol (dropped)']);
+    });
+
+    it('scrolls sideways in its own region, which a keyboard can reach', async () => {
+      const { tab } = await openPlaying(playing(), { user: dave });
+
+      const scroller = region(tab, 'Results grid')!;
+      expect(scroller.contains(resultsGrid(tab))).toBe(true);
+      expect(scroller.tabIndex).toBe(0);
+    });
   });
 
   describe('matches left', () => {
@@ -318,7 +371,7 @@ describe('Play tab while the tournament is played', () => {
       );
 
       expect(currentSteps(panel(page))).toEqual(['Playing']);
-      expect(text(region(panel(page), 'Your match'))).toContain('against Bob');
+      expect(yourMatches(panel(page))).toEqual(['vs Bob', 'vs Carol']);
       expect(button(panel(page), 'Start tournament')).toBeUndefined();
     });
 
@@ -372,7 +425,7 @@ describe('Play tab while the tournament is played', () => {
       expect(currentSteps(panel(page))).toEqual(['Complete']);
       expect(items(panel(page), 'Trophy holders')).toEqual(['Carol']);
       expect(button(panel(page), 'Complete tournament')).toBeUndefined();
-      expect(region(panel(page), 'Your match')).toBeNull();
+      expect(button(panel(page), 'Report your match against Bob')).toBeUndefined();
     });
 
     it('keeps the tournament playing when the organizer thinks better of completing it', async () => {

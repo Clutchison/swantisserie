@@ -1,0 +1,24 @@
+<div class="dialog">
+  <h3 [id]="headingId">{{ choices().label }}</h3>
+  <div class="game-scores" role="group" [attr.aria-label]="'Game score of ' + choices().label">
+    @for (score of choices().gameScores; track score.label) {
+      <button
+        class="button compact secondary"
+        type="button"
+        (click)="choose({ kind: 'GameScore', games: score.games })"
+      >
+        {{ score.label }}
+      </button>
+    }
+  </div>
+  <div class="dialog-actions">
+    <button class="button secondary" type="button" cdkFocusInitial (click)="choose()">
+      Cancel
+    </button>
+    @if (choices().clear) {
+      <button class="button secondary" type="button" (click)="choose({ kind: 'Clear' })">
+        Clear game score
+      </button>
+    }
+  </div>
+</div>
