@@ -376,6 +376,10 @@ _Avoid_: Open, lobby (that is the draft's), sign-up
 A draft's player entering a tournament during registration. It locks their deck.
 _Avoid_: Register, enter, sign up
 
+**Tournament entry**:
+A joined player's place in a tournament. They keep it if they drop; it ends if they leave during registration or an organizer removes them.
+_Avoid_: Registration (that is the state), sign-up, entrant
+
 **Locked**:
 Describes a joined player's deck, whose mainboard, sideboard and basic land counts can't change until the tournament is complete or cancelled, or the player leaves it during registration.
 _Avoid_: Frozen, registered, submitted
@@ -424,6 +428,14 @@ _Avoid_: Result (alone), score (alone)
 A player in a match entering its game score. Only the organizer can change a reported match.
 _Avoid_: Submit, record, enter (alone)
 
+**Correct**:
+An organizer setting a match's game score, whether it was reported or not, while the tournament is playing or once it is complete. A corrected match is unconfirmed.
+_Avoid_: Edit, override, fix, set result
+
+**Clear**:
+An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing the match is unreported again, or the forfeit of a player in it who has dropped; once it is complete the match becomes a granted draw.
+_Avoid_: Reset, delete, clear result, undo (that is a pick's)
+
 **Confirm**:
 A match's other player agreeing with the game score it was reported with. A reported match counts whether or not it is confirmed.
 _Avoid_: Approve, verify, accept
@@ -447,6 +459,10 @@ _Avoid_: Default draw, auto-draw, unplayed draw
 **Drop**:
 A player leaving a tournament before it ends. Their played matches stand.
 _Avoid_: Withdraw, quit, leave
+
+**Reinstate**:
+An organizer taking back a player's drop while the tournament is playing. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.
+_Avoid_: Undo drop, un-drop, take back, rejoin
 
 **Forfeit**:
 An unplayed match decided because one of its players dropped.
