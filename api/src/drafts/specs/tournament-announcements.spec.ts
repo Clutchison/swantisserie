@@ -122,8 +122,13 @@ describe('tournament announcements', () => {
     ]);
   });
 
-  it('announces the start, naming the format and the joined players in join order', async () => {
-    const id = await announcedDraft([aliceCookie, bobCookie, carolCookie]);
+  it('announces the start, naming the format and the joined players in join order, bots included and pinging nobody', async () => {
+    const { id } = await completeDraftWithBots(
+      [aliceCookie, bobCookie, carolCookie],
+      1,
+    );
+    await changeWebhook(id, webhookId).expect(200);
+    // Bot 1 joins at setup.
     await setUpTournament(id, aliceCookie, roundRobin).expect(201);
     for (const cookie of [carolCookie, aliceCookie]) {
       await fullDeck(id, cookie);
@@ -137,7 +142,7 @@ describe('tournament announcements', () => {
     expect(await posts(id, 1)).toEqual([
       {
         content:
-          '**Red**’s round robin tournament has started with **Carol** and **Alice**.\n' +
+          '**Red**’s round robin tournament has started with **Bot 1**, **Carol** and **Alice**.\n' +
           tournamentLink(id),
         allowed_mentions: { parse: [], users: [] },
       },
@@ -324,20 +329,12 @@ describe('tournament announcements with bots', () => {
     ]);
   });
 
-  it('names bots at the start, and in a tournament round’s matches without pinging them', async () => {
+  it('names bots in a tournament round’s matches without pinging them', async () => {
     const { id, botIds, names } = await announcedWithBots(3, swiss());
     await fullDeck(id, aliceCookie);
     await joinTournament(id, aliceCookie).expect(201);
-
     await startTournament(id).expect(200);
-    expect(await posts(id, 1)).toEqual([
-      {
-        content:
-          '**Red**’s Swiss tournament has started with **Bot 1**, **Bot 2**, **Bot 3** and **Alice**.\n' +
-          tournamentLink(id),
-        allowed_mentions: { parse: [], users: [] },
-      },
-    ]);
+    await announcementsSettled(id);
     webhookClient.post.mockClear();
 
     const [round1] = (await tournamentView(id)).rounds;

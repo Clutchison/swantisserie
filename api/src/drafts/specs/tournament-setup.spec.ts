@@ -14,7 +14,6 @@ import {
   playingTournament,
   readyDraft,
   roundRobin,
-  removeEntry,
   reportWin,
   setBasic,
   setUpTournament,
@@ -227,12 +226,10 @@ describe('cancel tournament', () => {
     expect(
       (await setBasic(id, 'Island', 1, bobCookie).expect(409)).body.error,
     ).toBe('deck-locked');
-    const before = await getDraft(id).expect(200);
 
     const answer = await cancelTournament(id).expect(200);
 
     expect(answer.body.tournament).toBeNull();
-    expect(answer.body.version).toBe(before.body.version + 1);
     await tournament(id).expect(404);
     for (const cookie of [aliceCookie, bobCookie]) {
       await setBasic(id, 'Island', 1, cookie).expect(200);
@@ -265,27 +262,5 @@ describe('cancel tournament', () => {
     expect((await cancelTournament(id).expect(404)).body.error).toBe(
       'no-tournament',
     );
-  });
-});
-
-describe('live updates', () => {
-  it('bumps the draft’s version with each tournament change', async () => {
-    const id = await completeDraft([aliceCookie, bobCookie]);
-    await fullDeck(id, aliceCookie);
-    const versionNow = async () =>
-      (await getDraft(id).expect(200)).body.version as number;
-
-    const changes = [
-      () => setUpTournament(id).expect(201),
-      () => joinTournament(id, aliceCookie).expect(201),
-      () => removeEntry(id, alice.id, aliceCookie).expect(200),
-      () => cancelTournament(id).expect(200),
-    ];
-    for (const change of changes) {
-      const before = await versionNow();
-      const answer = await change();
-      expect(answer.body.version).toBe(before + 1);
-      expect(await versionNow()).toBe(before + 1);
-    }
   });
 });

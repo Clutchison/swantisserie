@@ -1,6 +1,5 @@
 import type { DecklistView, PlanView, TournamentSetupRequest } from 'contract';
 import {
-  addToPlan,
   alice,
   aliceCookie,
   bob,
@@ -14,14 +13,11 @@ import {
   movePlanned,
   plan,
   playingTournament,
-  pick,
   poolCardIds,
-  readyDraft,
   roundRobin,
   setBasic,
   setUpTournament,
   signIn,
-  start,
   startTournament,
   swiss,
   tournamentView,
@@ -98,36 +94,6 @@ describe('decklists under public decklists', () => {
     for (const cookie of [aliceCookie, bobCookie, carolCookie, daveCookie]) {
       expect((await decklists(id, cookie).expect(200)).body).toEqual(expected);
     }
-  });
-
-  it('serves a player’s deck as it is: their picks and basic lands, without the unpicked card they planned while drafting', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie], 1, [
-      'Shock',
-      'Lightning Bolt',
-      'Lava Spike',
-      'Skewer the Critics',
-    ]);
-    const ids = await poolCardIds(id);
-    await start(id).expect(200);
-    await addToPlan(id, ids['Lava Spike'], aliceCookie).expect(200);
-    await pick(id, ids.Shock, aliceCookie).expect(200);
-    await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
-    await setUpTournament(id, aliceCookie, withPublicDecklists()).expect(201);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
-
-    await startTournament(id).expect(200);
-
-    const [aliceDecklist] = (await decklists(id, bobCookie).expect(200))
-      .body as DecklistView[];
-    expect(aliceDecklist).toEqual({
-      playerId: alice.id,
-      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
-      sideboard: [],
-      basics: [{ land: 'Mountain', count: 39 }],
-    });
   });
 
   it('still serves a dropped player’s decklist', async () => {

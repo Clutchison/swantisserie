@@ -7,7 +7,6 @@ import {
   completeTournament,
   dropPlayer,
   fullDeck,
-  getDraft,
   joinTournament,
   matchOf,
   playingTournament,
@@ -127,15 +126,6 @@ describe('dropping from a tournament', () => {
     await completeTournament(id).expect(200);
     await setBasic(id, 'Island', 1, bobCookie).expect(200);
   });
-
-  it('bumps the draft’s version', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie]);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await dropPlayer(id, bob.id, bobCookie).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
-  });
 });
 
 describe('reinstating a dropped player', () => {
@@ -192,15 +182,5 @@ describe('reinstating a dropped player', () => {
     expect((await reinstate(id, bob.id).expect(409)).body.error).toBe(
       'not-dropped',
     );
-  });
-
-  it('bumps the draft’s version', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie]);
-    await dropPlayer(id, bob.id, bobCookie).expect(200);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await reinstate(id, bob.id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
   });
 });

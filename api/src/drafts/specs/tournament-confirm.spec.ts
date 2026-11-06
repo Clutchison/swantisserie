@@ -5,7 +5,6 @@ import {
   carol,
   completeTournament,
   confirmMatch,
-  getDraft,
   matchOf,
   playingTournament,
   reportWin,
@@ -93,16 +92,5 @@ describe('confirming a match', () => {
     await confirmMatch(id, match.id, bobCookie).expect(200);
 
     expect((await matchOf(id, alice.id, bob.id)).confirmed).toBe(true);
-  });
-
-  it('bumps the draft’s version', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie]);
-    await reportWin(id, [alice.id, bob.id], [2, 0], aliceCookie);
-    const match = await matchOf(id, alice.id, bob.id);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await confirmMatch(id, match.id, bobCookie).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
   });
 });

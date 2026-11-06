@@ -137,19 +137,28 @@ describe('the leaderboard', () => {
     expect(bobs.opponents).toHaveLength(2);
   });
 
-  it('leaves forfeits and granted draws out of records, and players with no played match off it', async () => {
+  it('leaves forfeits, granted draws and granted wins out of records, and players with no played match off it', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 1], aliceCookie);
     // Bob's match with Carol becomes a forfeit; Alice's becomes a granted draw.
     await dropPlayer(id, bob.id, bobCookie).expect(200);
     await completeTournament(id).expect(200);
+    // Alice wins a single elimination final against Bob as a granted win.
+    const bracket = await playingTournament(
+      [aliceCookie, bobCookie],
+      singleElimination,
+    );
+    const [final] = (await tournamentView(bracket)).rounds[0].matches;
+    await completeRound(bracket, aliceCookie, {
+      grantedWins: [{ matchId: final.id, winner: alice.id }],
+    } satisfies CompleteRoundRequest).expect(200);
 
     expect(await leaderboard()).toEqual([
       {
         playerId: alice.id,
         name: 'Alice',
-        trophies: 1,
-        tournamentsPlayed: 1,
+        trophies: 2,
+        tournamentsPlayed: 2,
         matches: tally(1, 0),
         games: tally(2, 1),
         opponents: [
@@ -160,7 +169,7 @@ describe('the leaderboard', () => {
         playerId: bob.id,
         name: 'Bob',
         trophies: 0,
-        tournamentsPlayed: 1,
+        tournamentsPlayed: 2,
         matches: tally(0, 1),
         games: tally(1, 2),
         opponents: [
@@ -170,18 +179,16 @@ describe('the leaderboard', () => {
     ]);
   });
 
-  it('leaves granted wins and byes out of records', async () => {
+  it('leaves byes out of records', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie],
       singleElimination,
     );
     const before = await tournamentView(id);
     const [top, second, third] = seedsOf(before);
-    const [match] = before.rounds[0].matches;
     expect(before.rounds[0].byes).toEqual([top]);
-    await completeRound(id, aliceCookie, {
-      grantedWins: [{ matchId: match.id, winner: second }],
-    } satisfies CompleteRoundRequest).expect(200);
+    await setWin(id, [second, third], [2, 0]);
+    await completeRound(id).expect(200);
     await setWin(id, [top, second], [2, 1]);
     await completeRound(id).expect(200);
     const view = await tournamentView(id);
@@ -199,18 +206,13 @@ describe('the leaderboard', () => {
         trophies: 1,
         matches: tally(1, 0),
         games: tally(2, 1),
-      }),
-      expect.objectContaining({
-        playerId: second,
-        trophies: 0,
-        matches: tally(0, 1),
-        games: tally(1, 2),
         opponents: [
-          { playerId: top, matches: tally(0, 1), games: tally(1, 2) },
+          { playerId: second, matches: tally(1, 0), games: tally(2, 1) },
         ],
       }),
+      expect.objectContaining({ playerId: second, matches: tally(1, 1) }),
+      expect.objectContaining({ playerId: third, matches: tally(0, 1) }),
     ]);
-    expect(board.map((player) => player.playerId)).not.toContain(third);
   });
 
   it('leaves out tournaments still in registration or playing, and cancelled ones', async () => {

@@ -184,16 +184,29 @@ export function completeRound(
 /**
  * A complete draft whose players are the cookies' users in seat order, all
  * with full decks, and its tournament, round robin unless `setup` says
+ * otherwise, in registration with no one joined.
+ */
+export async function inRegistration(
+  cookies: string[],
+  setup: TournamentSetupRequest = roundRobin,
+) {
+  const id = await completeDraft(cookies);
+  for (const cookie of cookies) await fullDeck(id, cookie);
+  await setUpTournament(id, aliceCookie, setup).expect(201);
+  return id;
+}
+
+/**
+ * A complete draft whose players are the cookies' users in seat order, all
+ * with full decks, and its tournament, round robin unless `setup` says
  * otherwise, which they joined in that order and Alice started.
  */
 export async function playingTournament(
   cookies: string[],
   setup: TournamentSetupRequest = roundRobin,
 ) {
-  const id = await completeDraft(cookies);
-  await setUpTournament(id, aliceCookie, setup).expect(201);
+  const id = await inRegistration(cookies, setup);
   for (const cookie of cookies) {
-    await fullDeck(id, cookie);
     await joinTournament(id, cookie).expect(201);
   }
   await startTournament(id).expect(200);
