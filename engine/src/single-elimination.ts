@@ -61,6 +61,115 @@ export function nextBracketRound(winners: readonly string[]): BracketMatch[] {
 }
 
 /**
+ * Who a side of a bracket place is: a player, a bye, or, until the result
+ * of the bracket place of the tournament round before that feeds it is
+ * agreed, the winner to come of that place.
+ */
+export type BracketSide =
+  | { kind: 'Player'; playerId: string }
+  | { kind: 'Bye' }
+  | { kind: 'WinnerToCome'; bracketPlace: number };
+
+/** One bracket place of a tournament round: its two sides, and its winner once its result is agreed. */
+export interface BracketPlace {
+  bracketPlace: number;
+  sides: [BracketSide, BracketSide];
+  /** The player who won its match, or had its bye; null until its result is agreed. */
+  winner: string | null;
+}
+
+/** One tournament round of a bracket, its bracket places in order. */
+export interface BracketRound {
+  round: number;
+  places: BracketPlace[];
+}
+
+/** A match of a bracket paired so far, at its tournament round and bracket place, with its winner once its result is agreed. */
+export interface PlayedBracketMatch extends BracketMatch {
+  round: number;
+  /** Null until its result is agreed (see agreedWinnerOf); a bye's player wins it. */
+  winner: string | null;
+}
+
+/**
+ * Every tournament round of a bracket of `roundCount` rounds, from the
+ * matches paired so far, `played`. A bracket place not yet paired has a
+ * side for each place of the round before feeding it: that place's winner
+ * once its result is agreed, else the winner to come of that place.
+ */
+export function bracketRounds(
+  roundCount: number,
+  played: readonly PlayedBracketMatch[],
+): BracketRound[] {
+  const rounds: BracketRound[] = [];
+  for (let round = 1; round <= roundCount; round++) {
+    const previous = rounds.at(-1)?.places ?? [];
+    const fedBy = (bracketPlace: number): BracketSide => {
+      const winner = previous[bracketPlace]?.winner;
+      return winner
+        ? { kind: 'Player', playerId: winner }
+        : { kind: 'WinnerToCome', bracketPlace };
+    };
+    const places = Array.from(
+      { length: 2 ** (roundCount - round) },
+      (_, bracketPlace): BracketPlace => {
+        const match = played.find(
+          (m) => m.round === round && m.bracketPlace === bracketPlace,
+        );
+        if (!match) {
+          return {
+            bracketPlace,
+            sides: [fedBy(2 * bracketPlace), fedBy(2 * bracketPlace + 1)],
+            winner: null,
+          };
+        }
+        const [first, second] = match.players;
+        return {
+          bracketPlace,
+          sides: [
+            { kind: 'Player', playerId: first },
+            second === null
+              ? { kind: 'Bye' }
+              : { kind: 'Player', playerId: second },
+          ],
+          winner: match.winner,
+        };
+      },
+    );
+    rounds.push({ round, places });
+  }
+  return rounds;
+}
+
+/** A decided single elimination match as reported: who reported its game score, and whether it is confirmed. */
+export interface ReportedMatch extends DecidedMatch {
+  reportedBy: string | null;
+  confirmed: boolean;
+}
+
+/**
+ * The winner of `match` once its result is agreed, so that the bracket
+ * moves them on to their next bracket place; null until then. A result is
+ * agreed once its tournament round is completed (`roundCompleted`), and
+ * before that when it is a granted win, a forfeit, a game score the other
+ * player confirmed, or one someone not playing in it, an organizer,
+ * entered. A player's unconfirmed report isn't agreed yet.
+ */
+export function agreedWinnerOf(
+  match: ReportedMatch,
+  roundCompleted: boolean,
+): string | null {
+  const { outcome, players, reportedBy, confirmed } = match;
+  const agreed =
+    roundCompleted ||
+    outcome.kind !== 'GameScore' ||
+    confirmed ||
+    reportedBy === null ||
+    !players.includes(reportedBy);
+  return agreed ? winnerOf(match) : null;
+}
+
+/**
  * The standings of a single elimination tournament's `players`, in seed
  * order, after `matches`, with `byes` holding the player with each bye: by
  * the tournament round each reached, as counted by the matches they won,

@@ -91,6 +91,44 @@ export interface TournamentRoundView {
   byes: string[];
 }
 
+/**
+ * Who a side of a bracket place is: a player, a bye, or, until the result
+ * of the bracket place of the tournament round before that feeds it is
+ * agreed, the winner to come of that place. The engine's BracketSide is the
+ * same type.
+ */
+export type BracketSideView =
+  | { kind: 'Player'; playerId: string }
+  | { kind: 'Bye' }
+  | { kind: 'WinnerToCome'; bracketPlace: number };
+
+/** One bracket place of a single elimination tournament round. */
+export interface BracketPlaceView {
+  /** From 0. Bracket place p is fed by places 2p and 2p + 1 of the round before. */
+  bracketPlace: number;
+  /** The id of the match played at it, a `MatchView.id`; null for a bye, and until its round is paired. */
+  matchId: string | null;
+  /**
+   * Its two sides, in the match's player order once paired. Until then, a
+   * side is the winner of the place feeding it as soon as that result is
+   * agreed, even before its round is completed: a granted win, a forfeit, or
+   * a game score the other player confirmed or an organizer entered.
+   */
+  sides: [BracketSideView, BracketSideView];
+  /**
+   * The Discord user id of the player who won its match or had its bye;
+   * null until its result is agreed, as `sides` describes, or its round is
+   * completed.
+   */
+  winner: string | null;
+}
+
+/** One tournament round of the bracket: every one of its bracket places, in order. */
+export interface BracketRoundView {
+  round: number;
+  places: BracketPlaceView[];
+}
+
 /** Matches or games won, lost and drawn. */
 export interface TallyView {
   won: number;
@@ -144,6 +182,12 @@ export interface TournamentView {
    * one at a time.
    */
   rounds: TournamentRoundView[];
+  /**
+   * Single elimination only, once it is playing: the bracket, every
+   * tournament round of it, paired or not, in order. Null in other formats
+   * and during registration.
+   */
+  bracket: BracketRoundView[] | null;
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
   /**

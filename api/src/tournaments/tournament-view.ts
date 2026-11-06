@@ -1,10 +1,13 @@
 import type {
+  BracketRoundView,
   MatchOutcomeView,
   MatchView,
   TournamentRoundView,
   TournamentView,
 } from 'contract';
 import {
+  agreedWinnerOf,
+  bracketRounds,
   roundRobinRoundCount,
   singleEliminationRoundCount,
   singleEliminationStandings,
@@ -12,6 +15,7 @@ import {
   swissRoundCount,
   swissStandings,
   trophyHolders,
+  type PlayedBracketMatch,
   type TournamentMatch,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -106,11 +110,12 @@ export function toTournamentView(row: TournamentRow): TournamentView {
               byesOf(rounds),
             )
           : standings(players, matches);
+  const count = roundCount(row, players.length);
   return {
     format: row.format,
     swissRoundOption: row.swissRoundOption,
     state: row.state,
-    roundCount: roundCount(row, players.length),
+    roundCount: count,
     lastCompletedRound: row.lastCompletedRound,
     entries: row.entries.map((entry) => ({
       playerId: entry.player.userId,
@@ -118,9 +123,67 @@ export function toTournamentView(row: TournamentRow): TournamentView {
       seed: entry.seed,
     })),
     rounds,
+    bracket:
+      row.format === 'SingleElimination' && row.state !== 'Registration'
+        ? toBracket(row, count, sorted, user)
+        : null,
     standings: table,
     trophyHolders: row.state === 'Complete' ? trophyHolders(table) : [],
   };
+}
+
+/**
+ * The bracket of the single elimination tournament `row`, of `roundCount`
+ * tournament rounds, drawn by the engine from its paired `matches`, each
+ * match's winner moving on once its result is agreed, and each bracket
+ * place carrying the id of its match, a bye's none.
+ */
+function toBracket(
+  row: Pick<TournamentRow, 'state' | 'lastCompletedRound'>,
+  roundCount: number,
+  matches: readonly MatchRow[],
+  user: (entryId: string) => string,
+): BracketRoundView[] {
+  const played = matches.map((match): PlayedBracketMatch => {
+    const place = { round: match.round, bracketPlace: match.bracketPlace! };
+    if (match.secondEntryId === null) {
+      const playerId = user(match.firstEntryId);
+      return { ...place, players: [playerId, null], winner: playerId };
+    }
+    const { players, outcome, reportedBy, confirmed } = toMatchView(
+      match,
+      user,
+    );
+    const roundCompleted =
+      row.state === 'Complete' || match.round <= row.lastCompletedRound;
+    return {
+      ...place,
+      players,
+      winner:
+        outcome.kind === 'Unreported'
+          ? null
+          : agreedWinnerOf(
+              { players, outcome, reportedBy, confirmed },
+              roundCompleted,
+            ),
+    };
+  });
+  const matchAt = (round: number, bracketPlace: number) =>
+    matches.find(
+      (match) =>
+        match.round === round &&
+        match.bracketPlace === bracketPlace &&
+        match.secondEntryId !== null,
+    );
+  return bracketRounds(roundCount, played).map(({ round, places }) => ({
+    round,
+    places: places.map(({ bracketPlace, sides, winner }) => ({
+      bracketPlace,
+      matchId: matchAt(round, bracketPlace)?.id ?? null,
+      sides,
+      winner,
+    })),
+  }));
 }
 
 /** The player with each bye in `rounds`, once per bye. */

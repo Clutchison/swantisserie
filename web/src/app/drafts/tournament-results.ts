@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,6 +12,8 @@ import type { GameScore, MatchView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
+import { matchLine, seededName, seedsOf } from './match-lines';
+import { TournamentBracket } from './tournament-bracket';
 
 /** A game score an organizer sets for a match, in its player order. */
 export interface SetGameScore {
@@ -30,15 +33,15 @@ export interface ClearGameScore {
 
 /**
  * A tournament's standings, best first, and its matches by tournament
- * round with their outcomes, confirmations and byes, each player with their
- * seed in single elimination. The signed-in
+ * round with their outcomes, confirmations and byes, or, in single
+ * elimination, its bracket. The signed-in
  * player's other open matches offer Report, which makes that match the one
  * shown as theirs, and their matches someone else reported offer Confirm.
  * Organizers report, correct and clear any match.
  */
 @Component({
   selector: 'app-tournament-results',
-  imports: [FocusKey, SendsChange],
+  imports: [FocusKey, NgTemplateOutlet, SendsChange, TournamentBracket],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tournament-results.html',
   styleUrls: ['./drafts.scss', './tournament-results.scss'],
@@ -85,13 +88,18 @@ export class TournamentResults {
     })),
   );
 
-  /** Each player's seed by their id: single elimination's, and none in other formats. */
-  private readonly seeds = computed(
+  private readonly seeds = computed(() => seedsOf(this.tournament().entries));
+
+  /** Whether the tournament has a bracket, single elimination's, which shows its matches in place of the list by tournament round. */
+  protected readonly showsBracket = computed(() => this.tournament().bracket !== null);
+
+  /** How each match reads, and the controls it offers, by its id. */
+  protected readonly lineById = computed(
     () =>
       new Map(
-        this.tournament().entries.flatMap(({ playerId, seed }) =>
-          seed === null ? [] : [[playerId, seed] as const],
-        ),
+        this.rounds()
+          .flatMap((round) => round.matches)
+          .map((line) => [line.id, line]),
       ),
   );
 
@@ -113,32 +121,18 @@ export class TournamentResults {
 
   /** How a match of tournament round `round` reads in its list, and the opponent to report it against, if any. */
   private line(round: number, match: MatchView) {
-    const [first, second] = match.players.map((id) => this.seeded(id));
-    const { outcome } = match;
     const own = this.ownId();
     const reportable =
       this.tournament().state === 'Playing' &&
-      outcome.kind === 'Unreported' &&
+      match.outcome.kind === 'Unreported' &&
       !!own &&
       match.players.includes(own) &&
       match.id !== this.currentId();
     return {
-      id: match.id,
-      first,
-      second,
-      gameScore: outcome.kind === 'GameScore' ? `${outcome.games[0]}–${outcome.games[1]}` : null,
-      note:
-        outcome.kind === 'Unreported'
-          ? 'Unreported'
-          : outcome.kind === 'GrantedDraw'
-            ? 'Granted draw'
-            : outcome.kind === 'Forfeit'
-              ? `${this.name(outcome.forfeitedBy)} forfeited`
-              : outcome.kind === 'GrantedWin'
-                ? `Granted win for ${this.name(outcome.winner)}`
-                : null,
+      ...matchLine(match, [this.seeded(match.players[0]), this.seeded(match.players[1])], (id) =>
+        this.name(id),
+      ),
       opponent: reportable ? this.name(match.players.find((id) => id !== own)!) : null,
-      confirmed: match.confirmed,
       confirmAgainst: this.confirmable(match)
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
@@ -231,8 +225,7 @@ export class TournamentResults {
 
   /** The player's name, with their seed in single elimination, as in "Alice (seed 1)". */
   private seeded(playerId: string) {
-    const seed = this.seeds().get(playerId);
-    return seed === undefined ? this.name(playerId) : `${this.name(playerId)} (seed ${seed})`;
+    return seededName(this.name(playerId), this.seeds().get(playerId));
   }
 }
 
