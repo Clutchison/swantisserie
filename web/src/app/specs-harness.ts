@@ -145,12 +145,6 @@ export const buttons = (root: HTMLElement, label: string) =>
 /** A button inside `root`, by its text or its aria-label. */
 export const button = (root: HTMLElement, label: string) => buttons(root, label)[0];
 
-/** A link inside `root` by its accessible name: its aria-label, or else its text. */
-export const link = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll('a')].find(
-    (a) => (a.getAttribute('aria-label') ?? a.textContent?.trim()) === name,
-  );
-
 /** The dialog open over the page, if any: it shows outside the page, so this looks in the whole document. */
 export const openDialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
 

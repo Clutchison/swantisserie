@@ -1,5 +1,4 @@
 import type { DraftListItemView, TournamentBadgeView } from 'contract';
-import { link } from '../../specs-harness';
 import {
   alicePlayer,
   bob,
@@ -8,6 +7,7 @@ import {
   listItem,
   expectLoadingAnimation,
   http,
+  link,
   openList,
   openUrl,
   section,
