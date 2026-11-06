@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { CompleteRoundRequest } from 'contract';
 import { roundCompletion } from 'engine';
-import type { TournamentFormat } from '../generated/prisma/client.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { SINGLE_ELIMINATION_CHANGES } from './bracket-changes.js';
-import { DEFAULT_CHANGE_STEPS, type ChangeSteps } from './change-steps.js';
+import { CHANGE_STEPS, ROUND_STEPS } from './format-steps.js';
 import { reopenRound } from './reopen-round.js';
-import { ROUND_STEPS, type RoundSteps } from './round-steps.js';
+import type { RoundSteps } from './round-steps.js';
 import { forfeitUnplayed, takeBackDrops } from './tournament-matches.js';
 import { roundCompletedOrTournamentCompleted } from './tournament-events.js';
 import { TournamentRefusedError } from './tournament-errors.js';
@@ -15,9 +13,8 @@ import { entryOf, TournamentLock } from './tournament-lock.js';
 import { roundCount, TOURNAMENT_VIEW } from './tournament-view.js';
 
 /**
- * A playing tournament's progress: completing it or its tournament rounds,
+ * A playing tournament moving on: completing it or its tournament rounds,
  * reopening a completed round, and players dropping and being reinstated.
- * Every change runs under the draft's lock.
  */
 @Injectable()
 export class TournamentProgressionService {
@@ -186,13 +183,6 @@ export class TournamentProgressionService {
     });
   }
 }
-
-/** Each format's change steps: single elimination's own, the default's otherwise. */
-const CHANGE_STEPS: Record<TournamentFormat, ChangeSteps> = {
-  RoundRobin: DEFAULT_CHANGE_STEPS,
-  Swiss: DEFAULT_CHANGE_STEPS,
-  SingleElimination: SINGLE_ELIMINATION_CHANGES,
-};
 
 /**
  * Throws TournamentRefusedError if tournament round `round` of the

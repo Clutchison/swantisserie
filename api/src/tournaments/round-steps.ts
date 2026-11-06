@@ -1,12 +1,7 @@
 import type { CompleteRoundRequest } from 'contract';
 import type { RoundCompletionInput } from 'engine';
-import type {
-  TournamentFormat,
-  TournamentState,
-} from '../generated/prisma/client.js';
+import type { TournamentState } from '../generated/prisma/client.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
-import { SWISS_STEPS } from './swiss-rounds.js';
 
 /** The tournament round Complete round is completing, and what it was asked. */
 export interface RoundToDecide {
@@ -53,12 +48,3 @@ export interface RoundSteps {
     roundCount: number,
   ): Promise<RoundCompletionInput>;
 }
-
-/**
- * The round steps of each format that plays one tournament round at a
- * time; round robin, which has no tournament rounds, has none.
- */
-export const ROUND_STEPS: Partial<Record<TournamentFormat, RoundSteps>> = {
-  Swiss: SWISS_STEPS,
-  SingleElimination: SINGLE_ELIMINATION_STEPS,
-};

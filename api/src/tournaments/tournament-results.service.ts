@@ -11,8 +11,7 @@ import {
 
 /**
  * A playing or complete tournament's match results: players reporting and
- * confirming game scores, and organizers correcting or clearing them. Every
- * change runs under the draft's lock.
+ * confirming game scores, and organizers correcting or clearing them.
  */
 @Injectable()
 export class TournamentResultsService {

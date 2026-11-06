@@ -7,7 +7,7 @@ import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import { snapshotDecklists } from './decklists.service.js';
 import { joinRefusal, JOINING_PLAYER } from './join-rules.js';
-import { ROUND_STEPS } from './round-steps.js';
+import { ROUND_STEPS } from './format-steps.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
 import { TournamentRefusedError } from './tournament-errors.js';
@@ -15,8 +15,8 @@ import { entryOf, TournamentLock } from './tournament-lock.js';
 
 /**
  * A complete draft's tournament from setup through registration: setting
- * it up, players joining and leaving, and starting or cancelling it. Every
- * change runs under the draft's lock. Joining under that lock also waits
+ * it up, players joining and leaving, and starting it; and cancelling it,
+ * during registration or play. Joining under the draft's lock also waits
  * for any plan write in flight, which share-locks the draft, so a deck
  * can't change as it is checked and locked.
  */
@@ -24,7 +24,7 @@ import { entryOf, TournamentLock } from './tournament-lock.js';
 export class TournamentRegistrationService {
   constructor(
     private readonly draftLock: DraftLock,
-    private readonly lock: TournamentLock,
+    private readonly tournamentLock: TournamentLock,
   ) {}
 
   /**
@@ -79,18 +79,21 @@ export class TournamentRegistrationService {
    * past registration.
    */
   async join(draftId: string, userId: string): Promise<void> {
-    await this.lock.inRegistration(draftId, async (tx, tournament) => {
-      const player = await tx.player.findUnique({
-        where: { draftId_userId: { draftId, userId } },
-        select: { id: true, ...JOINING_PLAYER },
-      });
-      if (!player) throw new NotAPlayerError('tournaments');
-      const refusal = joinRefusal(player);
-      if (refusal) throw new TournamentRefusedError(refusal);
-      await tx.tournamentEntry.create({
-        data: { tournamentId: tournament.id, playerId: player.id },
-      });
-    });
+    await this.tournamentLock.inRegistration(
+      draftId,
+      async (tx, tournament) => {
+        const player = await tx.player.findUnique({
+          where: { draftId_userId: { draftId, userId } },
+          select: { id: true, ...JOINING_PLAYER },
+        });
+        if (!player) throw new NotAPlayerError('tournaments');
+        const refusal = joinRefusal(player);
+        if (refusal) throw new TournamentRefusedError(refusal);
+        await tx.tournamentEntry.create({
+          data: { tournamentId: tournament.id, playerId: player.id },
+        });
+      },
+    );
   }
 
   /**
@@ -100,10 +103,13 @@ export class TournamentRegistrationService {
    * tournament is past registration.
    */
   async removeEntry(draftId: string, userId: string): Promise<void> {
-    await this.lock.inRegistration(draftId, async (tx, tournament) => {
-      const entry = await entryOf(tx, tournament, draftId, userId);
-      await tx.tournamentEntry.delete({ where: { id: entry.id } });
-    });
+    await this.tournamentLock.inRegistration(
+      draftId,
+      async (tx, tournament) => {
+        const entry = await entryOf(tx, tournament, draftId, userId);
+        await tx.tournamentEntry.delete({ where: { id: entry.id } });
+      },
+    );
   }
 
   /**
@@ -112,16 +118,19 @@ export class TournamentRegistrationService {
    * unlocks. Throws TournamentRefusedError once it is complete.
    */
   async cancel(draftId: string): Promise<void> {
-    await this.lock.withTournament(draftId, async (tx, tournament) => {
-      if (tournament.state === 'Complete') {
-        throw new TournamentRefusedError({
-          error: 'tournament-complete',
-          message:
-            'A complete tournament can’t be cancelled. Its results are final.',
-        });
-      }
-      await tx.tournament.delete({ where: { id: tournament.id } });
-    });
+    await this.tournamentLock.withTournament(
+      draftId,
+      async (tx, tournament) => {
+        if (tournament.state === 'Complete') {
+          throw new TournamentRefusedError({
+            error: 'tournament-complete',
+            message:
+              'A complete tournament can’t be cancelled. Its results are final.',
+          });
+        }
+        await tx.tournament.delete({ where: { id: tournament.id } });
+      },
+    );
   }
 
   /**
@@ -134,42 +143,45 @@ export class TournamentRegistrationService {
    * past registration. Returns its announcement.
    */
   async start(draftId: string): Promise<DraftEvent[]> {
-    return this.lock.inRegistration(draftId, async (tx, tournament) => {
-      const entries = await tx.tournamentEntry.findMany({
-        where: { tournamentId: tournament.id },
-        orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
-        select: { id: true },
-      });
-      if (entries.length < MIN_TOURNAMENT_PLAYERS) {
-        throw new TournamentRefusedError({
-          error: 'too-few-players-joined',
-          message: `A tournament needs at least ${MIN_TOURNAMENT_PLAYERS} players to start.`,
+    return this.tournamentLock.inRegistration(
+      draftId,
+      async (tx, tournament) => {
+        const entries = await tx.tournamentEntry.findMany({
+          where: { tournamentId: tournament.id },
+          orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+          select: { id: true },
         });
-      }
-      await tx.tournament.update({
-        where: { id: tournament.id },
-        data: { state: 'Playing', startedAt: new Date() },
-      });
-      await snapshotDecklists(tx, tournament.id);
-      const steps = ROUND_STEPS[tournament.format];
-      if (steps) {
-        await steps.start(
-          tx,
-          tournament.id,
-          entries.map((entry) => entry.id),
-        );
-      } else {
-        // Round robin has no tournament rounds: its matches are kept as round 1's.
-        const matches = roundRobinMatches(entries.map((entry) => entry.id));
-        await createMatches(
-          tx,
-          tournament.id,
-          1,
-          matches.map((players) => ({ players })),
-        );
-      }
-      return [await tournamentStarted(tx, draftId, tournament.id)];
-    });
+        if (entries.length < MIN_TOURNAMENT_PLAYERS) {
+          throw new TournamentRefusedError({
+            error: 'too-few-players-joined',
+            message: `A tournament needs at least ${MIN_TOURNAMENT_PLAYERS} players to start.`,
+          });
+        }
+        await tx.tournament.update({
+          where: { id: tournament.id },
+          data: { state: 'Playing', startedAt: new Date() },
+        });
+        await snapshotDecklists(tx, tournament.id);
+        const steps = ROUND_STEPS[tournament.format];
+        if (steps) {
+          await steps.start(
+            tx,
+            tournament.id,
+            entries.map((entry) => entry.id),
+          );
+        } else {
+          // Round robin has no tournament rounds: its matches are kept as round 1's.
+          const matches = roundRobinMatches(entries.map((entry) => entry.id));
+          await createMatches(
+            tx,
+            tournament.id,
+            1,
+            matches.map((players) => ({ players })),
+          );
+        }
+        return [await tournamentStarted(tx, draftId, tournament.id)];
+      },
+    );
   }
 }
 

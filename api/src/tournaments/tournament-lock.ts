@@ -77,7 +77,7 @@ export class TournamentLock {
    * `state`. Throws NoTournamentError if it has none, and
    * TournamentRefusedError with `refusal` if it is in another state.
    */
-  whileTournamentIn<T>(
+  private whileTournamentIn<T>(
     draftId: string,
     state: TournamentState,
     change: TournamentChange<T>,
