@@ -1,0 +1,51 @@
+<h3>Results grid</h3>
+<!-- The grid scrolls sideways here, not the page; focusable so a keyboard can scroll it. -->
+<div class="scroller" role="region" aria-label="Results grid" tabindex="0">
+  <table class="grid" aria-label="Results grid" aria-describedby="results-grid-key">
+    <thead>
+      <tr>
+        <th scope="col" class="rank"><abbr title="Rank">#</abbr></th>
+        <th scope="col" class="player">Player</th>
+        @for (column of columns(); track column.id) {
+          <th scope="col" class="opponent">{{ column.name }}</th>
+        }
+        <th scope="col">Match points</th>
+        <th scope="col"><abbr title="Matches won, lost and drawn">W–L–D</abbr></th>
+        <th scope="col">Game-win %</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track row.playerId) {
+        <tr>
+          <td class="rank">{{ row.rank }}</td>
+          <th scope="row" class="player">{{ row.name }}</th>
+          @for (cell of row.cells; track cell.opponentId) {
+            <!-- An organizer's cell is named by its button; anyone else's by the cell itself. -->
+            <td class="result" [attr.aria-label]="cell.organize ? null : cell.name">
+              @if (cell.organize; as organize) {
+                <button
+                  class="cell-button"
+                  type="button"
+                  aria-haspopup="dialog"
+                  [attr.aria-label]="cell.name"
+                  (click)="openMatch(cell.matchId!, organize)"
+                >
+                  {{ cell.marker }}
+                </button>
+              } @else {
+                {{ cell.marker }}
+              }
+            </td>
+          }
+          <td>{{ row.matchPoints }}</td>
+          <td>{{ row.record }}</td>
+          <td>{{ row.gameWinPercent }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<p id="results-grid-key" class="detail">
+  Each cell is the row player’s result: their game score, ? until confirmed, F a forfeit, W a win by
+  forfeit, D a granted draw.
+</p>

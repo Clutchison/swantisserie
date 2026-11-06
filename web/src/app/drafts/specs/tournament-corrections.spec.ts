@@ -6,23 +6,27 @@ import {
   button,
   group,
   http,
-  items,
   panel,
   text,
   useDraftsApp,
+  type AppFixture,
 } from './harness';
 import {
   answerChange,
   carol,
   dave,
   forfeited,
+  gridCell,
+  gridCellName,
   openMatch,
   openPlaying,
   playing,
   reported,
+  resultsGrid,
   swissPlaying,
   threePlayers,
   withDrops,
+  yourMatches,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -31,28 +35,10 @@ useDraftsApp();
 const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
 
 describe('confirming a match', () => {
-  it('lets the opponent of the player who reported it confirm its game score, which then shows as confirmed', async () => {
-    const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]));
-
-    button(tab, 'Confirm your match against Bob')!.click();
-    const req = await answerChange(
-      fixture,
-      '/api/drafts/draft-1/tournament/matches/m2/confirm',
-      'POST',
-      playing([{ ...bobBeatAlice, confirmed: true }]),
-      1,
-      threePlayers,
-    );
-
-    expect(req.request.body).toBeNull();
-    expect(items(panel(page), 'Tournament round 2')[0]).toBe('Alice 1–2 Bob · Confirmed');
-    expect(button(panel(page), 'Confirm your match against Bob')).toBeUndefined();
-  });
-
   it('lets the opponent confirm once the tournament is complete', async () => {
     const complete = (m2: ReturnType<typeof openMatch>) =>
       playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
-    const { fixture, page, tab } = await openPlaying(complete(bobBeatAlice));
+    const { fixture, tab } = await openPlaying(complete(bobBeatAlice));
 
     button(tab, 'Confirm your match against Bob')!.click();
     await answerChange(
@@ -64,14 +50,8 @@ describe('confirming a match', () => {
       threePlayers,
     );
 
-    expect(items(panel(page), 'Tournament round 2')[0]).toBe('Alice 1–2 Bob · Confirmed');
-  });
-
-  it('shows a confirmed match as confirmed to everyone', async () => {
-    const m1 = { ...reported(openMatch('m1', bob.id, carol.id), [2, 1]), confirmed: true };
-    const { tab } = await openPlaying(playing([m1]), { user: dave });
-
-    expect(items(tab, 'Tournament round 1')[0]).toBe('Bob 2–1 Carol · Confirmed');
+    expect(yourMatches(tab)).toContain('vs Bob · Lost 1–2 · Confirmed');
+    expect(text(gridCell(tab, 'Bob', 'Alice'))).toBe('2–1');
   });
 
   it('isn’t offered to the player who reported it, or for a match that isn’t reported', async () => {
@@ -87,15 +67,38 @@ describe('confirming a match', () => {
 
     expect(text(tab)).not.toContain('Confirm');
   });
+
+  it('is offered from the list of matches in Swiss', async () => {
+    const m2 = reported(openMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+    const { tab } = await openPlaying(
+      swissPlaying({
+        rounds: [swissPlaying().rounds[0], { round: 2, matches: [m2], byes: [bob.id] }],
+      }),
+    );
+
+    expect(button(tab, 'Confirm your match against Carol')).toBeDefined();
+  });
 });
 
 describe('organizer reports, corrections and clears', () => {
-  it('lets an organizer report a match for its players', async () => {
-    const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
-
-    button(tab, 'Report Bob vs Carol')!.click();
+  /** Opens the match of the results grid's cell of `row` against `column`, and answers with its dialog. */
+  async function openCell(
+    fixture: AppFixture,
+    tab: HTMLElement,
+    row: string,
+    column: string,
+    match: string,
+  ) {
+    gridCell(tab, row, column)!.querySelector('button')!.click();
     await fixture.whenStable();
-    button(group(tab, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
+    return question(match);
+  }
+
+  it('lets an organizer report a match from either of its cells, the other cell showing it from its side', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    const dialog = await openCell(fixture, tab, 'Carol', 'Bob', 'Bob vs Carol');
+    button(group(dialog, 'Game score of Bob vs Carol')!, 'Carol won 2–1')!.click();
     const after = playing([reported(openMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
     const req = await answerChange(
       fixture,
@@ -107,34 +110,39 @@ describe('organizer reports, corrections and clears', () => {
     );
 
     expect(req.request.body).toEqual({ games: [1, 2] });
-    expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob 1–2 Carol');
+    expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1?');
+    expect(text(gridCell(tab, 'Bob', 'Carol'))).toBe('1–2?');
   });
 
-  it('offers no correction of a complete tournament’s matches', async () => {
-    const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
-    const { tab } = await openPlaying(
-      playing([m1], { state: 'Complete', trophyHolders: [bob.id] }),
-      { powers: ORGANIZE_ONLY },
+  it('opens the same match from the other cell', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+    button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
+    const req = await vi.waitFor(() =>
+      http.expectOne('/api/drafts/draft-1/tournament/matches/m1/game-score'),
     );
 
-    expect(button(tab, 'Correct Bob vs Carol')).toBeUndefined();
-    expect(button(tab, 'Report Alice vs Bob')).toBeUndefined();
+    expect(req.request.body).toEqual({ games: [2, 0] });
   });
 
-  it('offers no correction of a completed tournament round’s matches, only of the open round’s', async () => {
-    const { tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+  it('sends nothing when the organizer cancels the dialog', async () => {
+    const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
-    expect(button(tab, 'Correct Carol vs Bob')).toBeUndefined();
-    expect(button(tab, 'Report Alice vs Carol')).toBeDefined();
+    await answer(await openCell(fixture, tab, 'Alice', 'Bob', 'Alice vs Bob'), 'Cancel');
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/tournament/matches/m2/game-score');
   });
 
   it('lets an organizer clear a reported match once they go ahead', async () => {
     const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
-    const { fixture, page, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
+    const { fixture, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
 
-    button(tab, 'Correct Bob vs Carol')!.click();
-    await fixture.whenStable();
-    button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
+    button(
+      await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol'),
+      'Clear game score',
+    )!.click();
     const dialog = await question('Clear the game score of Bob vs Carol?');
     expect(dialog.textContent).toContain('The match will be unreported again.');
     await answer(dialog, 'Clear');
@@ -147,17 +155,17 @@ describe('organizer reports, corrections and clears', () => {
       threePlayers,
     );
 
-    expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob vs Carol · Unreported');
-    expect(button(panel(page), 'Report Bob vs Carol')).toBeDefined();
+    expect(gridCellName(tab, 'Bob', 'Carol')).toBe('Bob against Carol: unreported');
   });
 
   it('sends nothing when the organizer thinks better of clearing', async () => {
     const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
     const { fixture, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
 
-    button(tab, 'Correct Bob vs Carol')!.click();
-    await fixture.whenStable();
-    button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
+    button(
+      await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol'),
+      'Clear game score',
+    )!.click();
     await answer(await question('Clear the game score of Bob vs Carol?'), 'Cancel');
     await fixture.whenStable();
 
@@ -167,10 +175,10 @@ describe('organizer reports, corrections and clears', () => {
   it('offers Clear game score only for a match with a game score', async () => {
     const { fixture, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
 
-    button(tab, 'Report Bob vs Carol')!.click();
-    await fixture.whenStable();
+    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
 
-    expect(button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')).toBeUndefined();
+    expect(button(dialog, 'Clear game score')).toBeUndefined();
+    await answer(dialog, 'Cancel');
   });
 
   it('says clearing a match against a dropped player makes it their forfeit', async () => {
@@ -179,9 +187,10 @@ describe('organizer reports, corrections and clears', () => {
       powers: ORGANIZE_ONLY,
     });
 
-    button(tab, 'Correct Carol vs Alice')!.click();
-    await fixture.whenStable();
-    button(group(tab, 'Game score of Carol vs Alice')!, 'Clear game score')!.click();
+    button(
+      await openCell(fixture, tab, 'Alice', 'Carol', 'Carol vs Alice'),
+      'Clear game score',
+    )!.click();
 
     const dialog = await question('Clear the game score of Carol vs Alice?');
     expect(dialog.textContent).toContain('It will become a forfeit by Carol, who has dropped.');
@@ -194,19 +203,35 @@ describe('organizer reports, corrections and clears', () => {
       powers: ORGANIZE_ONLY,
     });
 
-    button(tab, 'Correct Carol vs Alice')!.click();
-    await fixture.whenStable();
+    const dialog = await openCell(fixture, tab, 'Carol', 'Alice', 'Carol vs Alice');
 
-    expect(button(group(tab, 'Game score of Carol vs Alice')!, 'Carol won 2–0')).toBeDefined();
-    expect(button(group(tab, 'Game score of Carol vs Alice')!, 'Clear game score')).toBeUndefined();
+    expect(button(group(dialog, 'Game score of Carol vs Alice')!, 'Carol won 2–0')).toBeDefined();
+    expect(button(dialog, 'Clear game score')).toBeUndefined();
+    await answer(dialog, 'Cancel');
+  });
+
+  it('offers no correction of a complete tournament’s matches', async () => {
+    const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
+    const { tab } = await openPlaying(
+      playing([m1], { state: 'Complete', trophyHolders: [bob.id] }),
+      { powers: ORGANIZE_ONLY },
+    );
+
+    expect(resultsGrid(tab)!.querySelector('button')).toBeNull();
+  });
+
+  it('offers no correction of a completed tournament round’s matches, only of the open round’s', async () => {
+    const { tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+
+    expect(button(tab, 'Correct Carol vs Bob')).toBeUndefined();
+    expect(button(tab, 'Report Alice vs Carol')).toBeDefined();
   });
 
   it('aren’t offered to anyone without the power to organize the draft', async () => {
     const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
     const { tab } = await openPlaying(playing([m1]));
 
-    expect(button(tab, 'Correct Bob vs Carol')).toBeUndefined();
-    expect(button(tab, 'Report Alice vs Bob')).toBeUndefined();
+    expect(resultsGrid(tab)!.querySelector('button')).toBeNull();
   });
 });
 

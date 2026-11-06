@@ -5,9 +5,9 @@ import {
   bob,
   button,
   http,
-  items,
   panel,
   region,
+  text,
   useDraftsApp,
 } from './harness';
 import {
@@ -15,6 +15,8 @@ import {
   carol,
   dave,
   forfeited,
+  gridCell,
+  gridCellName,
   openMatch,
   openPlaying,
   playerLines,
@@ -22,6 +24,7 @@ import {
   reported,
   threePlayers,
   withDrops,
+  yourMatches,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -40,10 +43,8 @@ describe('drops on the Play tab', () => {
     const { tab } = await openPlaying(carolDropped, { user: dave });
 
     expect(playerLines(tab)).toEqual(['Alice', 'Bob', 'Carol · Dropped']);
-    expect(items(tab, 'Tournament round 3')).toEqual([
-      'Carol vs Alice · Carol forfeited',
-      'Bob has a bye',
-    ]);
+    expect(text(gridCell(tab, 'Carol', 'Alice'))).toBe('F');
+    expect(text(gridCell(tab, 'Alice', 'Carol'))).toBe('W');
   });
 
   it('lets a player drop from the tournament once they go ahead', async () => {
@@ -72,7 +73,7 @@ describe('drops on the Play tab', () => {
 
     expect(playerLines(panel(page))).toEqual(['Alice · Dropped', 'Bob', 'Carol']);
     expect(button(panel(page), 'Drop from tournament')).toBeUndefined();
-    expect(region(panel(page), 'Your match')).toBeNull();
+    expect(region(panel(page), 'Your matches')).toBeNull();
   });
 
   it('sends nothing when the player thinks better of dropping', async () => {
@@ -147,7 +148,8 @@ describe('drops on the Play tab', () => {
     );
 
     expect(playerLines(panel(page))).toEqual(['Alice', 'Bob', 'Carol']);
-    expect(items(panel(page), 'Tournament round 3')[0]).toContain('Carol vs Alice · Unreported');
+    expect(gridCellName(panel(page), 'Alice', 'Carol')).toBe('Alice against Carol: unreported');
+    expect(yourMatches(panel(page))).toContain('vs Carol');
   });
 
   it('offers no Drop or Reinstate once the tournament is complete', async () => {

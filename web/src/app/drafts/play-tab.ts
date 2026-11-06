@@ -24,7 +24,7 @@ import {
   type TournamentSetupRequest,
   type TournamentView,
 } from 'contract';
-import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
+import { SWISS_ROUND_CAP } from 'engine';
 import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { Questions, type Question } from '../question-dialog';
@@ -36,7 +36,10 @@ import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
-import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
+import { ResultsGrid } from './results-grid';
+import type { ClearGameScore } from './match-lines';
+import { TournamentResults, type SetGameScore } from './tournament-results';
+import { OWN_GAME_SCORES, YourMatches, type OwnGameScore } from './your-matches';
 
 /** The format's name as the tab starts a line with it, such as "Round robin". */
 function formatName(format: TournamentFormat): string {
@@ -87,30 +90,18 @@ const START_DETAILS: Record<TournamentFormat, string> = {
     'Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
 };
 
-/** A game score as a player reports it, from their side: their games won, then their opponent's. */
-interface OwnGameScore {
-  label: string;
-  own: number;
-  theirs: number;
-}
-
-/** The game scores a player can report, from their side: won or lost 2–0 or 2–1, never a draw. */
-const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
-  label: `${own > theirs ? 'Won' : 'Lost'} ${own}–${theirs}`,
-  own,
-  theirs,
-}));
-
 /**
  * The Play tab of a complete draft: the setup form for organizers
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
- * it, then play: the signed-in player's match and its report, the
- * standings and matches, the players with Drop, and Reinstate for
- * organizers, Complete tournament (round robin) or Complete round (Swiss,
+ * it, then play. In Swiss and single elimination, play shows the
+ * signed-in player's match and its report, then the standings and matches;
+ * in round robin, which has no tournament rounds, it shows Your matches and
+ * the results grid. Then come the players with Drop, and for organizers
+ * Reinstate, Complete tournament (round robin) or Complete round (Swiss,
  * whose dialog grants draws in unreported matches, and single elimination,
  * whose dialog picks their winners) and Reopen round of the last completed
- * one for organizers, and at last the trophy.
+ * one, and at last the trophy.
  */
 @Component({
   selector: 'app-play-tab',
@@ -121,8 +112,10 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
     PlayerAvatar,
     RouterLink,
     SendsChange,
+    ResultsGrid,
     TournamentProgress,
     TournamentResults,
+    YourMatches,
   ],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -245,6 +238,17 @@ export class PlayTab {
     const opponentId = shown.match.players.find((id) => id !== ownId)!;
     return { ...shown, opponent: this.store.player(opponentId) };
   });
+  /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */
+  protected readonly roundRobin = computed(() => this.tournament()?.format === 'RoundRobin');
+  /**
+   * Whether round robin's Your matches shows: for a player who joined and
+   * hasn't dropped, once the tournament has started, so they can still
+   * confirm once it is complete.
+   */
+  protected readonly showsYourMatches = computed(
+    () =>
+      this.roundRobin() && this.state() !== 'Registration' && this.joined() && !this.ownDropped(),
+  );
   /** The players who hold the trophy, as the draft names them. */
   protected readonly trophyHolders = computed(() =>
     (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),

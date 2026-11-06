@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+/* The grid scrolls sideways inside this box, so the page itself never does (WCAG 1.4.10 exempts data tables). */
+.scroller {
+  max-width: 100%;
+  overflow-x: auto;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-muted);
+    outline-offset: 2px;
+  }
+}
+
+.grid {
+  --rank-width: 2.5rem;
+
+  border-collapse: separate;
+  border-spacing: 0;
+
+  th,
+  td {
+    padding: var(--space-xs) var(--space-sm);
+    text-align: left;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  /* Rank and name stay put as the rest scrolls under them. */
+  .rank,
+  .player {
+    position: sticky;
+    z-index: 1;
+    background: var(--color-bg);
+  }
+
+  /* Fixed, so the name column is pinned just past it. */
+  .rank {
+    left: 0;
+    box-sizing: border-box;
+    width: var(--rank-width);
+    min-width: var(--rank-width);
+    max-width: var(--rank-width);
+  }
+
+  .player {
+    left: var(--rank-width);
+    border-right: 1px solid var(--color-divider);
+  }
+
+  .result {
+    text-align: center;
+    min-width: 2.75rem;
+  }
+}
+
+/* An organizer's cell opens its match: the whole cell is the target. */
+.cell-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 var(--space-xs);
+  border: 1px dashed var(--color-divider);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface);
+  }
+}
+
+.detail {
+  margin-top: var(--space-xs);
+}

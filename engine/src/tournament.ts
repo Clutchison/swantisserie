@@ -1,6 +1,6 @@
 /**
- * One tournament round of a schedule: the pairs of players who meet in it,
- * and the player with a bye, if any.
+ * One Swiss tournament round as the pairer makes it: the pairs of players
+ * who meet in it, and the player with a bye, if any.
  */
 export interface ScheduledRound {
   matches: [string, string][];
@@ -8,41 +8,16 @@ export interface ScheduledRound {
 }
 
 /**
- * The round robin schedule for `players`, in order, by the circle method:
- * every pair meets exactly once, and each player plays at most once a
- * tournament round. An even count plays one round fewer than its size; an
- * odd count plays as many rounds as its size, each with one bye.
+ * Every round robin match of `players`, in order: each pair meets exactly
+ * once, the earlier player first, ordered by the first player and then the
+ * second.
  */
-export function roundRobinSchedule(
+export function roundRobinPairings(
   players: readonly string[],
-): ScheduledRound[] {
-  const circle: (string | null)[] = [...players];
-  if (circle.length % 2 === 1) circle.push(null);
-  const size = circle.length;
-  const rounds: ScheduledRound[] = [];
-  for (let round = 0; round < size - 1; round++) {
-    const matches: [string, string][] = [];
-    let bye: string | null = null;
-    for (let i = 0; i < size / 2; i++) {
-      const a = circle[i];
-      const b = circle[size - 1 - i];
-      if (a === null) bye = b;
-      else if (b === null) bye = a;
-      else matches.push([a, b]);
-    }
-    rounds.push({ matches, bye });
-    // The first player stays put; everyone else moves one place round the circle.
-    circle.splice(1, 0, circle.pop()!);
-  }
-  return rounds;
-}
-
-/**
- * How many tournament rounds the round robin schedule of `joined` players
- * has: one fewer than an even count, as many as an odd count.
- */
-export function roundRobinRoundCount(joined: number): number {
-  return joined % 2 === 1 ? joined : Math.max(0, joined - 1);
+): [string, string][] {
+  return players.flatMap((first, i) =>
+    players.slice(i + 1).map((second): [string, string] => [first, second]),
+  );
 }
 
 /**
@@ -112,8 +87,7 @@ export type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
  * among the players level with them on match points only, for any number
  * level), then game-win %. Players still tied share a rank and keep the
  * order of `players`; the rank after a shared one skips, as in 1, 1, 3.
- * Unreported matches count for nothing, and so do byes, which every round
- * robin player has equally many of.
+ * Unreported matches count for nothing. Round robin has no byes.
  */
 export function standings(
   players: readonly string[],

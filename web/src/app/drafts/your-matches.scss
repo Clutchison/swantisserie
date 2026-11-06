@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+.lines {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    min-height: 2.5rem;
+  }
+}
+
+.says {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The four game scores open under their line. */
+.game-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex-basis: 100%;
+}

@@ -6,7 +6,7 @@ import {
   type TournamentSetupRequest,
   type ViewerTournamentView,
 } from 'contract';
-import { MIN_PLAYERS_LEFT, reportProblem, roundRobinSchedule } from 'engine';
+import { MIN_PLAYERS_LEFT, reportProblem, roundRobinPairings } from 'engine';
 import type {
   SwissRoundOption,
   TournamentFormat,
@@ -29,7 +29,7 @@ import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
 import {
-  createRounds,
+  createMatches,
   ENTRY_OF_MATCH,
   forfeitUnplayed,
   takeBackDrops,
@@ -291,9 +291,9 @@ export class TournamentsService {
   }
 
   /**
-   * Starts the draft's tournament, closing joining. Round robin makes every
-   * match of the round robin schedule of its entries, in join order, byes
-   * included, all open at once; Swiss pairs round 1 at random; single
+   * Starts the draft's tournament, closing joining. Round robin makes the
+   * match of every pair of its entries, by join order, all open at once and
+   * with no byes; Swiss pairs round 1 at random; single
    * elimination seeds its entries at random into the bracket and makes its
    * round 1, byes for the top seeds included. Throws
    * TournamentRefusedError if fewer than 2 players have joined, or it is
@@ -325,11 +325,13 @@ export class TournamentsService {
           entries.map((entry) => entry.id),
         );
       } else {
-        const schedule = roundRobinSchedule(entries.map((entry) => entry.id));
-        await createRounds(
+        // Round robin has no tournament rounds: its matches are kept as round 1's.
+        const pairings = roundRobinPairings(entries.map((entry) => entry.id));
+        await createMatches(
           tx,
           tournament.id,
-          schedule.map((scheduled, i) => ({ round: i + 1, ...scheduled })),
+          1,
+          pairings.map((players) => ({ players })),
         );
       }
       return [await tournamentStarted(tx, draftId, tournament.id)];
@@ -439,8 +441,8 @@ export class TournamentsService {
    * format pair the next tournament round. A completed round stays
    * completed. Throws as the format's round steps do, and
    * TournamentRefusedError if the tournament isn't playing, the round has
-   * an unreported match, or it is round robin, which plays every round at
-   * once. Returns its announcement: the next tournament round's pairings,
+   * an unreported match, or it is round robin, which has no tournament
+   * rounds. Returns its announcement: the next tournament round's pairings,
    * or the tournament ending.
    */
   async completeRound(
@@ -453,7 +455,7 @@ export class TournamentsService {
         throw new TournamentRefusedError({
           error: 'wrong-format',
           message:
-            'A round robin tournament plays all its tournament rounds at once. Complete the tournament instead.',
+            'A round robin tournament has no tournament rounds to complete. Complete the tournament instead.',
         });
       }
       const round = tournament.lastCompletedRound + 1;
@@ -626,7 +628,7 @@ export class TournamentsService {
 
 /**
  * The round steps of each format that plays one tournament round at a
- * time; round robin, which plays every round at once, has none.
+ * time; round robin, which has no tournament rounds, has none.
  */
 const ROUND_STEPS: Partial<Record<TournamentFormat, RoundSteps>> = {
   Swiss: SWISS_STEPS,
@@ -674,7 +676,7 @@ async function joinBots(
  * tournament round, until it is reopened, which its refusal suggests for
  * the last completed round while no round is reopened. Neither a tournament in
  * registration, which has no matches, nor a playing round robin one,
- * which completes no round, has any.
+ * which has no tournament rounds, has any.
  */
 function refuseFinal(tournament: LockedTournament, round: number) {
   if (tournament.state === 'Complete') {

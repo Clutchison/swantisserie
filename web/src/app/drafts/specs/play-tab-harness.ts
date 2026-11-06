@@ -74,7 +74,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   publicDecklists: false,
   showsDecklists: false,
   state: 'Registration',
-  roundCount: playerIds.length < 2 ? 0 : playerIds.length - 1 + (playerIds.length % 2),
+  roundCount: 0,
   lastCompletedRound: 0,
   entries: playerIds.map((playerId) => ({ playerId, dropped: false, seed: null })),
   rounds: [],
@@ -123,9 +123,10 @@ export const standing = (
 });
 
 /**
- * A round robin tournament of Alice, Bob and Carol being played: Alice has
- * a bye in tournament round 1, then plays Bob (match m2), then Carol (m3);
- * Bob plays Carol in round 1 (m1). `matches` replaces any of them by id.
+ * A round robin tournament of Alice, Bob and Carol being played, with no
+ * tournament rounds: Bob plays Carol (match m1), Alice plays Bob (m2) and
+ * Carol plays Alice (m3), all read as round 1's. `matches` replaces any of
+ * them by id.
  */
 export function playing(
   matches: MatchView[] = [],
@@ -139,7 +140,7 @@ export function playing(
     publicDecklists: false,
     showsDecklists: false,
     state: 'Playing',
-    roundCount: 3,
+    roundCount: 0,
     lastCompletedRound: 0,
     entries: [alice.id, bob.id, carol.id].map((playerId) => ({
       playerId,
@@ -147,9 +148,15 @@ export function playing(
       seed: null,
     })),
     rounds: [
-      { round: 1, matches: [match('m1', bob.id, carol.id)], byes: [alice.id] },
-      { round: 2, matches: [match('m2', alice.id, bob.id)], byes: [carol.id] },
-      { round: 3, matches: [match('m3', carol.id, alice.id)], byes: [bob.id] },
+      {
+        round: 1,
+        matches: [
+          match('m2', alice.id, bob.id),
+          match('m1', bob.id, carol.id),
+          match('m3', carol.id, alice.id),
+        ],
+        byes: [],
+      },
     ],
     bracket: null,
     standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
@@ -421,6 +428,37 @@ export function standingsAsOf(root: HTMLElement): string | null {
 
 /** Each row of the standings inside `root`, best first, as its cells' text. */
 export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(root));
+
+/** The results grid inside `root`, round robin's; null if there is none. */
+export const resultsGrid = (root: HTMLElement) => table(root, 'Results grid');
+
+/** The results grid's column headers inside `root`, each spelled out where it is abbreviated. */
+export const gridColumns = (root: HTMLElement) => tableColumns(resultsGrid(root)!);
+
+/** Each row of the results grid inside `root`, in standings order, as its cells' visible text. */
+export const gridRows = (root: HTMLElement) => tableRows(resultsGrid(root)!);
+
+/**
+ * The results grid's cell inside `root` holding `row`'s result against
+ * `column`, both players' names, found by its accessible name, which
+ * starts "Row against Column:".
+ */
+export const gridCell = (root: HTMLElement, row: string, column: string) =>
+  [...resultsGrid(root)!.querySelectorAll<HTMLElement>('td')].find((cell) =>
+    accessibleName(cell).startsWith(`${row} against ${column}:`),
+  );
+
+/** The accessible name of the results grid's cell inside `root` of `row`'s result against `column`. */
+export const gridCellName = (root: HTMLElement, row: string, column: string) =>
+  accessibleName(gridCell(root, row, column)!);
+
+/** Each line of the signed-in player's Your matches inside `root`, leaving out its buttons. */
+export const yourMatches = (root: HTMLElement) =>
+  [...region(root, 'Your matches')!.querySelectorAll('ul > li')].map((li) => {
+    const shown = li.cloneNode(true) as HTMLElement;
+    shown.querySelectorAll('button, [role="group"]').forEach((b) => b.remove());
+    return text(shown);
+  });
 
 /** The names of the lists of matches by tournament round inside `root`, in page order. */
 export const roundLabels = (root: HTMLElement) =>

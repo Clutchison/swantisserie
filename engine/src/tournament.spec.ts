@@ -3,8 +3,6 @@ import {
   droppedPlayers,
   GAME_SCORES,
   reportProblem,
-  roundRobinRoundCount,
-  roundRobinSchedule,
   standings,
   trophyHolders,
   type Standing,
@@ -22,11 +20,6 @@ describe('droppedPlayers', () => {
     ).toEqual(['a', 'c']);
   });
 });
-
-/** Player ids p1, p2, … in order. */
-function players(count: number) {
-  return Array.from({ length: count }, (_, i) => `p${i + 1}`);
-}
 
 /** A match `a` and `b` played to the game score `games`, `a`'s games first. */
 function played(
@@ -55,74 +48,6 @@ function ranks(players: string[], matches: TournamentMatch[]) {
 function placings(table: Standing[]) {
   return table.map(({ playerId, rank }) => [playerId, rank]);
 }
-
-describe('roundRobinSchedule', () => {
-  it('pairs two players once, in one tournament round', () => {
-    expect(roundRobinSchedule(['a', 'b'])).toEqual([
-      { matches: [['a', 'b']], bye: null },
-    ]);
-  });
-
-  it('gives each of three players one bye across three tournament rounds', () => {
-    const rounds = roundRobinSchedule(['a', 'b', 'c']);
-    expect(rounds).toHaveLength(3);
-    expect(new Set(rounds.map((round) => round.bye))).toEqual(
-      new Set(['a', 'b', 'c']),
-    );
-    expect(rounds.every((round) => round.matches.length === 1)).toBe(true);
-  });
-
-  it.each(Array.from({ length: 11 }, (_, i) => i + 2))(
-    'has each pair of %i players meet exactly once, each playing at most once a tournament round',
-    (count) => {
-      const ids = players(count);
-      const rounds = roundRobinSchedule(ids);
-      const pairs = rounds.flatMap((round) =>
-        round.matches.map((match) => [...match].sort().join()),
-      );
-      const expected = ids.flatMap((a, i) =>
-        ids.slice(i + 1).map((b) => [a, b].sort().join()),
-      );
-
-      expect(pairs.sort()).toEqual(expected.sort());
-      expect(rounds).toHaveLength(count % 2 === 0 ? count - 1 : count);
-      for (const round of rounds) {
-        const seated = [
-          ...round.matches.flat(),
-          ...(round.bye ? [round.bye] : []),
-        ];
-        expect(seated.sort()).toEqual([...ids].sort());
-      }
-    },
-  );
-
-  it.each([3, 5, 7, 9, 11])(
-    'gives each of %i players exactly one bye',
-    (count) => {
-      const byes = roundRobinSchedule(players(count)).map((round) => round.bye);
-      expect(new Set(byes)).toEqual(new Set(players(count)));
-      expect(byes).toHaveLength(count);
-    },
-  );
-
-  it.each([2, 4, 6, 8, 10, 12])('gives %i players no byes', (count) => {
-    expect(
-      roundRobinSchedule(players(count)).every((round) => round.bye === null),
-    ).toBe(true);
-  });
-});
-
-describe('roundRobinRoundCount', () => {
-  it('counts the tournament rounds of the round robin schedule: one fewer than an even count, as many as an odd one', () => {
-    const counts = [2, 3, 4, 5, 6, 7, 8].map(roundRobinRoundCount);
-    expect(counts).toEqual([1, 3, 3, 5, 5, 7, 7]);
-    for (const joined of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
-      expect(roundRobinRoundCount(joined)).toBe(
-        roundRobinSchedule(players(joined)).length,
-      );
-    }
-  });
-});
 
 describe('standings', () => {
   it('scores 3 match points a win, 1 a draw and 0 a loss, and counts matches and games', () => {

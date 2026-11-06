@@ -9,11 +9,17 @@ import {
   output,
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
-import { GAME_SCORES } from 'engine';
+import { droppedPlayers } from 'engine';
 import { record } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { matchLine, seededName, seedsOf, versus } from './match-lines';
+import {
+  matchLine,
+  organizerChoices,
+  seededName,
+  seedsOf,
+  type ClearGameScore,
+} from './match-lines';
 import { TournamentBracket } from './tournament-bracket';
 
 /** A game score an organizer sets for a match, in its player order. */
@@ -23,24 +29,14 @@ export interface SetGameScore {
 }
 
 /**
- * A match whose game score an organizer clears, how it reads ("Bob vs
- * Carol"), and what clearing leaves it as.
- */
-export interface ClearGameScore {
-  matchId: string;
-  label: string;
-  after: string;
-}
-
-/**
- * A tournament's standings, best first, and its matches by tournament
- * round with their outcomes, confirmations and byes, or, in single
- * elimination, its bracket. The signed-in
+ * A Swiss or single elimination tournament's standings, best first, and its
+ * matches by tournament round with their outcomes, confirmations and byes,
+ * or, in single elimination, its bracket; round robin, which has no
+ * tournament rounds, shows the results grid instead. The signed-in
  * player's other open matches offer Report, which makes that match the one
  * shown as theirs, and their matches someone else reported offer Confirm.
  * Organizers report, correct and clear any match whose results aren't
- * final: of the open tournament round, or in round robin while the
- * tournament is playing.
+ * final: those of the open tournament round.
  */
 @Component({
   selector: 'app-tournament-results',
@@ -95,7 +91,7 @@ export class TournamentResults {
    * Which tournament round the standings are as of, while the tournament
    * is playing and its standings wait for completed tournament rounds, as
    * in Swiss and single elimination; null where they count every result,
-   * as in round robin, and once the tournament is complete.
+   * and once the tournament is complete.
    */
   protected readonly standingsAsOf = computed(() => {
     const { standingsAwaitCompletedRounds, state, lastCompletedRound } = this.tournament();
@@ -106,6 +102,7 @@ export class TournamentResults {
   });
 
   private readonly seeds = computed(() => seedsOf(this.tournament().entries));
+  private readonly dropped = computed(() => new Set(droppedPlayers(this.tournament().entries)));
 
   /** Whether the tournament has a bracket, single elimination's, which shows its matches in place of the list by tournament round. */
   protected readonly showsBracket = computed(() => this.tournament().bracket !== null);
@@ -121,9 +118,9 @@ export class TournamentResults {
   );
 
   /**
-   * The tournament rounds with their matches: in order for round robin,
-   * which plays them all at once, and single elimination, which reads like
-   * its bracket, and the current round first for Swiss.
+   * The tournament rounds with their matches: in order for single
+   * elimination, which reads like its bracket, and the current round first
+   * for Swiss.
    */
   protected readonly rounds = computed(() => {
     const { format, rounds } = this.tournament();
@@ -140,8 +137,7 @@ export class TournamentResults {
    * How a match of tournament round `round` reads in its list, and what
    * an organizer can do with it, unless its round's results are final, as
    * the api decides: once the round is completed, until it is reopened.
-   * Round robin completes no round. Also the opponent to report it against,
-   * if any.
+   * Also the opponent to report it against, if any.
    */
   private line(match: MatchView, round: number) {
     const own = this.ownId();
@@ -161,7 +157,7 @@ export class TournamentResults {
         : null,
       organize:
         this.organize() && round > this.tournament().lastCompletedRound
-          ? this.organizerControls(match, this.name(match.players[0]), this.name(match.players[1]))
+          ? this.organizerControls(match)
           : null,
     };
   }
@@ -187,44 +183,15 @@ export class TournamentResults {
     );
   }
 
-  /**
-   * What an organizer can do with `match`, its players `first` and
-   * `second`: set any game score, and clear it if that changes anything.
-   */
-  private organizerControls(match: MatchView, first: string, second: string) {
-    const label = versus([first, second]);
-    const verb = match.outcome.kind === 'Unreported' ? 'Report' : 'Correct';
-    const after = this.afterClearing(match);
-    return {
-      label,
-      verb,
-      toggle: `${verb} ${label}`,
-      gameScores: GAME_SCORES.map(([a, b]) => ({
-        games: [a, b] satisfies GameScore,
-        label: `${a > b ? first : second} won ${Math.max(a, b)}–${Math.min(a, b)}`,
-      })),
-      clear: after ? { matchId: match.id, label, after } : null,
-    };
-  }
-
-  /**
-   * What clearing `match` leaves it as, or null if it already is that, as
-   * the api's clear does: a match with a dropped player is their forfeit
-   * again, and otherwise it is unreported again.
-   */
-  private afterClearing({ players, outcome }: MatchView) {
-    const dropped = new Set(
-      this.tournament()
-        .entries.filter((entry) => entry.dropped)
-        .map((entry) => entry.playerId),
+  /** What an organizer can do with `match`, with the label its toggle reads as. */
+  private organizerControls(match: MatchView) {
+    const choices = organizerChoices(
+      match,
+      [this.name(match.players[0]), this.name(match.players[1])],
+      (id) => this.name(id),
+      this.dropped(),
     );
-    const forfeiting = players.find((id) => dropped.has(id));
-    if (forfeiting) {
-      return outcome.kind === 'Forfeit'
-        ? null
-        : `It will become a forfeit by ${this.name(forfeiting)}, who has dropped.`;
-    }
-    return outcome.kind === 'Unreported' ? null : 'The match will be unreported again.';
+    return { ...choices, toggle: `${choices.verb} ${choices.label}` };
   }
 
   private name(playerId: string) {

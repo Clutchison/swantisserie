@@ -53,8 +53,7 @@ function refusalOf(row: ReopenRow): TournamentRefusal | null {
   if (row.format === 'RoundRobin') {
     return {
       error: 'wrong-format',
-      message:
-        'A round robin tournament completes no tournament round, so it has none to reopen.',
+      message: 'A round robin tournament has no tournament rounds to reopen.',
     };
   }
   if (row.state === 'Complete') {
