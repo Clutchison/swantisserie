@@ -1,40 +1,28 @@
-import type { TournamentView } from 'contract';
-import { ORGANIZE_ONLY, alice, bob, button, http, namedList, panel, useDraftsApp } from './harness';
+import {
+  ORGANIZE_ONLY,
+  alice,
+  bob,
+  button,
+  group,
+  http,
+  items,
+  namedList,
+  panel,
+  text,
+  useDraftsApp,
+} from './harness';
 import {
   answerChange,
   carol,
   dave,
-  openComplete,
   openMatch,
-  openTournament,
+  openPlaying,
   playing,
   reported,
   threePlayers,
 } from './tournament-tab-harness';
 
 useDraftsApp();
-
-/** `element`'s text, its whitespace collapsed. */
-const text = (element: Element | null | undefined) =>
-  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
-
-/** The text of the first item in the list named `name`: its round's match. */
-const firstItem = (root: HTMLElement, name: string) =>
-  text(namedList(root, name).querySelector('li'));
-
-/** The group of controls inside `root` named `name`. */
-const group = (root: HTMLElement, name: string) =>
-  root.querySelector<HTMLElement>(`[role="group"][aria-label="${name}"]`);
-
-/** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
-async function openPlaying(
-  tournament: TournamentView,
-  options: Parameters<typeof openComplete>[1] = {},
-) {
-  const opened = await openComplete(tournament, { fields: threePlayers, ...options });
-  const tab = await openTournament(opened.fixture, opened.page);
-  return { ...opened, tab };
-}
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(openMatch('m2', alice.id, bob.id), [1, 2], bob.id);
@@ -54,7 +42,7 @@ describe('confirming a match', () => {
     );
 
     expect(req.request.body).toBeNull();
-    expect(firstItem(panel(page), 'Tournament round 2')).toBe('Alice 1–2 Bob · Confirmed');
+    expect(items(panel(page), 'Tournament round 2')[0]).toBe('Alice 1–2 Bob · Confirmed');
     expect(button(panel(page), 'Confirm your match against Bob')).toBeUndefined();
   });
 
@@ -73,14 +61,14 @@ describe('confirming a match', () => {
       threePlayers,
     );
 
-    expect(firstItem(panel(page), 'Tournament round 2')).toBe('Alice 1–2 Bob · Confirmed');
+    expect(items(panel(page), 'Tournament round 2')[0]).toBe('Alice 1–2 Bob · Confirmed');
   });
 
   it('shows a confirmed match as confirmed to everyone', async () => {
     const m1 = { ...reported(openMatch('m1', bob.id, carol.id), [2, 1]), confirmed: true };
     const { tab } = await openPlaying(playing([m1]), { user: dave });
 
-    expect(firstItem(tab, 'Tournament round 1')).toBe('Bob 2–1 Carol · Confirmed');
+    expect(items(tab, 'Tournament round 1')[0]).toBe('Bob 2–1 Carol · Confirmed');
   });
 
   it('isn’t offered to the player who reported it, or for a match that isn’t reported', async () => {
@@ -116,7 +104,7 @@ describe('organizer results', () => {
     );
 
     expect(req.request.body).toEqual({ games: [1, 2] });
-    expect(firstItem(panel(page), 'Tournament round 1')).toContain('Bob 1–2 Carol');
+    expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob 1–2 Carol');
   });
 
   it('lets an organizer correct a match once the tournament is complete', async () => {
@@ -163,7 +151,7 @@ describe('organizer results', () => {
       threePlayers,
     );
 
-    expect(firstItem(panel(page), 'Tournament round 1')).toContain('Bob vs Carol · Unreported');
+    expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob vs Carol · Unreported');
     expect(button(panel(page), 'Report Bob vs Carol')).toBeDefined();
   });
 

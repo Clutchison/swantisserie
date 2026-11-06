@@ -127,7 +127,7 @@
     }
     <app-tournament-results
       [tournament]="tournament"
-      [ownId]="entered() ? ownId() : undefined"
+      [ownId]="joined() ? ownId() : undefined"
       [currentId]="ownMatch()?.match?.id"
       (choose)="chosen.set($event)"
       (confirmMatch)="confirmMatch($event)"

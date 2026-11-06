@@ -304,6 +304,8 @@ export class DraftStore {
   });
   /** The draft's tournament: null until it has loaded, and while there is none. */
   readonly tournament = keptRead<TournamentView | null>(this.tournamentResource, null);
+  /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
+  readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
    * Whether the Tournament tab is shown: only for a complete draft, and
    * before its tournament is set up only to organizers, who set it up there.
@@ -318,7 +320,7 @@ export class DraftStore {
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
   /** Whether the signed-in player has joined the draft's tournament. */
-  readonly enteredTournament = computed(() => {
+  readonly joinedTournament = computed(() => {
     const id = this.user()?.id;
     return !!this.tournament.value()?.entries.some((entry) => entry.playerId === id);
   });
@@ -328,8 +330,8 @@ export class DraftStore {
    * change to it with `deck-locked`.
    */
   readonly deckLocked = computed(() => {
-    const state = this.tournament.value()?.state;
-    return this.enteredTournament() && (state === 'Registration' || state === 'Playing');
+    const state = this.tournamentState();
+    return this.joinedTournament() && (state === 'Registration' || state === 'Playing');
   });
 
   /**

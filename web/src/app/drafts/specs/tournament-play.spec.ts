@@ -1,4 +1,3 @@
-import type { TournamentView } from 'contract';
 import {
   ORGANIZE_ONLY,
   alertIn,
@@ -8,55 +7,30 @@ import {
   draft,
   flushPicks,
   http,
+  items,
   link,
-  namedList,
   panel,
+  panelName,
+  region,
+  text,
   useDraftsApp,
 } from './harness';
 import {
   answerChange,
   carol,
   dave,
-  openComplete,
   openMatch,
-  openTournament,
+  openPlaying,
   playing,
   registration,
   reported,
   standing,
+  standingsRows,
   threePlayers,
   withTournament,
 } from './tournament-tab-harness';
 
 useDraftsApp();
-
-/** `element`'s text, its whitespace collapsed. */
-const text = (element: Element | null | undefined) =>
-  (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
-
-/** The region inside `root` named `name`. */
-const region = (root: HTMLElement, name: string) =>
-  root.querySelector<HTMLElement>(`section[aria-label="${name}"]`);
-
-/** Each item's text in the list named `name`. */
-const items = (root: HTMLElement, name: string) =>
-  [...namedList(root, name).querySelectorAll('li')].map((li) => text(li));
-
-/** Each standings row's cells' text, best first. */
-const standingsRows = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLTableRowElement>('table[aria-label="Standings"] tbody tr')].map(
-    (row) => [...row.cells].map((cell) => text(cell)),
-  );
-
-/** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
-async function openPlaying(
-  tournament: TournamentView,
-  options: Parameters<typeof openComplete>[1] = {},
-) {
-  const opened = await openComplete(tournament, { fields: threePlayers, ...options });
-  const tab = await openTournament(opened.fixture, opened.page);
-  return { ...opened, tab };
-}
 
 describe('tournament tab in play', () => {
   describe('your match', () => {
@@ -69,7 +43,7 @@ describe('tournament tab in play', () => {
 
       link(yours, 'Your deck')!.click();
       await fixture.whenStable();
-      await vi.waitFor(() => expect(panel(page).id).toBe('plan-panel'));
+      await vi.waitFor(() => expect(panelName(page)).toBe('Deck'));
     });
 
     it('reports a match you won, once you confirm, then moves on to your next match', async () => {

@@ -75,17 +75,17 @@ export class TournamentTab {
   /** The signed-in player's id, if they are one of the draft's players. */
   protected readonly ownId = computed(() => this.store.ownPlayer()?.id);
   /** Whether the signed-in player has joined. */
-  protected readonly entered = this.store.enteredTournament;
+  protected readonly joined = this.store.joinedTournament;
   /** Join is offered to the draft's human players during registration; bots never join. */
   protected readonly offerJoin = computed(
     () =>
       this.tournament()?.state === 'Registration' &&
-      !this.entered() &&
+      !this.joined() &&
       !!this.store.ownPlayer() &&
       !this.store.ownPlayer()?.isBot,
   );
   protected readonly offerLeave = computed(
-    () => this.tournament()?.state === 'Registration' && this.entered(),
+    () => this.tournament()?.state === 'Registration' && this.joined(),
   );
   /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(
@@ -104,7 +104,7 @@ export class TournamentTab {
   protected readonly chosen = signal<string | undefined>(undefined);
   /** Whether "Your match" shows: to a player who joined and hasn't dropped, while the tournament is playing. */
   protected readonly showOwnMatch = computed(
-    () => this.tournament()?.state === 'Playing' && this.entered() && !this.ownDropped(),
+    () => this.tournament()?.state === 'Playing' && this.joined() && !this.ownDropped(),
   );
   /** The joined players once the tournament is playing, in join order, with whether each dropped. */
   protected readonly players = computed(() =>
@@ -119,7 +119,7 @@ export class TournamentTab {
   );
   /** Drop is offered to a player who joined and hasn't dropped, while the tournament is playing. */
   protected readonly offerDrop = computed(
-    () => this.tournament()?.state === 'Playing' && this.entered() && !this.ownDropped(),
+    () => this.tournament()?.state === 'Playing' && this.joined() && !this.ownDropped(),
   );
   /** Organizers may drop players and take drops back while the tournament is playing. */
   protected readonly offerDrops = computed(
