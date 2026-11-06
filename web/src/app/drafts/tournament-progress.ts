@@ -1,14 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input, linkedSignal } from '@angular/core';
 import type { TournamentState, TournamentView } from 'contract';
+import { roundName } from './round-names';
 
 /** A tournament's states, in the order it goes through them. */
 const STATES: TournamentState[] = ['Registration', 'Playing', 'Complete'];
 
 /** What a step's hidden text adds to its state's name, by where it stands. */
 const HIDDEN_STEP_TEXT = { completed: ', completed', current: '', upcoming: ', not completed' };
-
-/** Single elimination's last tournament rounds by name, from the final back, as far as the bracket has them. */
-const NAMED_ROUNDS = ['Final', 'Semifinal', 'Quarterfinal'];
 
 /**
  * The tournament round being played in Swiss and single elimination, the
@@ -24,8 +22,8 @@ function openRound({
 }: TournamentView): string | null {
   if (state !== 'Playing' || format === 'RoundRobin') return null;
   const round = Math.min(lastCompletedRound + 1, roundCount);
-  const named = format === 'SingleElimination' ? NAMED_ROUNDS[roundCount - round] : undefined;
-  return named ?? `Tournament round ${round} of ${roundCount}`;
+  const name = roundName(format, round, roundCount);
+  return name.startsWith('Tournament round') ? `${name} of ${roundCount}` : name;
 }
 
 /** `count` matches, "1 match" in the singular. */

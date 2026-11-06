@@ -7,15 +7,15 @@ import {
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** What joining reads of one of the draft's players. */
-export const WOULD_BE_ENTRANT = {
+export const JOIN_CANDIDATE = {
   user: { select: { isBot: true } },
   tournamentEntry: { select: { id: true } },
   _count: { select: { plan: { where: { board: 'Mainboard' } } } },
   basics: { select: { count: true } },
 } satisfies Prisma.PlayerSelect;
 
-export type WouldBeEntrant = Prisma.PlayerGetPayload<{
-  select: typeof WOULD_BE_ENTRANT;
+export type JoinCandidate = Prisma.PlayerGetPayload<{
+  select: typeof JOIN_CANDIDATE;
 }>;
 
 /**
@@ -27,7 +27,7 @@ export type WouldBeEntrant = Prisma.PlayerGetPayload<{
  * through `viewerJoin`, so they offer Join only where joining would
  * succeed.
  */
-export function joinRefusal(player: WouldBeEntrant): TournamentRefusal | null {
+export function joinRefusal(player: JoinCandidate): TournamentRefusal | null {
   if (player.user.isBot) {
     return {
       error: 'bots-cannot-join',
@@ -60,7 +60,7 @@ export function joinRefusal(player: WouldBeEntrant): TournamentRefusal | null {
  */
 export function viewerJoin(
   state: TournamentState,
-  viewer: WouldBeEntrant | undefined,
+  viewer: JoinCandidate | undefined,
 ): Pick<ViewerTournamentView, 'canJoin' | 'joinRefusal'> {
   const refusal =
     state === 'Registration' && viewer ? joinRefusal(viewer) : null;

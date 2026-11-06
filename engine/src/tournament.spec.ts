@@ -3,6 +3,7 @@ import {
   droppedPlayers,
   GAME_SCORES,
   reportProblem,
+  roundRobinMatches,
   standings,
   trophyHolders,
   type Standing,
@@ -48,6 +49,32 @@ function ranks(players: string[], matches: TournamentMatch[]) {
 function placings(table: Standing[]) {
   return table.map(({ playerId, rank }) => [playerId, rank]);
 }
+
+describe('roundRobinMatches', () => {
+  it('has each pair of players meet exactly once, the earlier player first', () => {
+    expect(roundRobinMatches(['a', 'b', 'c', 'd'])).toEqual([
+      ['a', 'b'],
+      ['a', 'c'],
+      ['a', 'd'],
+      ['b', 'c'],
+      ['b', 'd'],
+      ['c', 'd'],
+    ]);
+  });
+
+  it.each([2, 3, 5, 8, 12])(
+    'makes n(n−1)/2 matches for %i players, none repeated',
+    (n) => {
+      const players = Array.from({ length: n }, (_, i) => `p${i}`);
+      const matches = roundRobinMatches(players);
+      expect(matches).toHaveLength((n * (n - 1)) / 2);
+      expect(
+        new Set(matches.map(([a, b]) => [a, b].sort().join('-'))).size,
+      ).toBe(matches.length);
+      for (const [a, b] of matches) expect(a).not.toBe(b);
+    },
+  );
+});
 
 describe('standings', () => {
   it('scores 3 match points a win, 1 a draw and 0 a loss, and counts matches and games', () => {

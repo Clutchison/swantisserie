@@ -12,10 +12,10 @@ export class LeaderboardService {
 
   /**
    * The leaderboard of every complete tournament, ranked by trophies, then
-   * matches won, computed on each read from their standings, so a
-   * correction after completion moves its trophy. Cancelled tournaments
-   * are gone, so count nowhere, and neither does a tournament any bot
-   * played in, as bots exist for testing; so no bot ever appears.
+   * matches won, computed on each read from their standings. Cancelled
+   * tournaments are gone, so count nowhere, and neither does a tournament
+   * any bot played in, as bots exist for testing; so no bot ever appears,
+   * as every bot of a draft joins its tournament.
    */
   async read(): Promise<LeaderboardView> {
     const complete = await readCompleteTournaments(this.prisma);
@@ -26,22 +26,15 @@ export class LeaderboardService {
     );
     const users = await this.prisma.user.findMany({
       where: { id: { in: entries.map((entry) => entry.playerId) } },
-      select: { id: true, name: true, isBot: true },
+      select: { id: true, name: true },
     });
-    const userOf = new Map(users.map((user) => [user.id, user]));
-    const user = (playerId: string) => {
-      const found = userOf.get(playerId);
-      if (!found)
+    const nameOf = new Map(users.map((user) => [user.id, user.name]));
+    const name = (playerId: string) => {
+      const found = nameOf.get(playerId);
+      if (found === undefined)
         throw new Error(`No user ${playerId} for a leaderboard player`);
       return found;
     };
-    const human = (playerId: string) => !user(playerId).isBot;
-    return entries
-      .filter((entry) => human(entry.playerId))
-      .map((entry) => ({
-        ...entry,
-        name: user(entry.playerId).name,
-        opponents: entry.opponents.filter((o) => human(o.playerId)),
-      }));
+    return entries.map((entry) => ({ ...entry, name: name(entry.playerId) }));
   }
 }

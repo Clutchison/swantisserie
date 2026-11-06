@@ -147,7 +147,7 @@ export function removeEntry(id: string, playerId: string, cookie: string) {
 }
 
 /** The ids of the players who have joined the draft's tournament, in join order. */
-export async function entrants(id: string): Promise<string[]> {
+export async function joinedPlayers(id: string): Promise<string[]> {
   const { body } = await tournament(id).expect(200);
   return (body as { entries: { playerId: string }[] }).entries.map(
     (entry) => entry.playerId,

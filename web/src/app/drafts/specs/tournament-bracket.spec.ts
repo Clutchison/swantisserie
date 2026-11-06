@@ -47,7 +47,7 @@ describe('the bracket of a single elimination tournament', () => {
 
     expect(text(tab)).toContain('Single elimination: 2 tournament rounds');
     expect(bracket(tab)).not.toBeNull();
-    expect(roundLabels(tab)).toEqual(['Tournament round 1', 'Tournament round 2']);
+    expect(roundLabels(tab)).toEqual(['Semifinal', 'Final']);
     expect(bracketMatches(tab, 1)).toEqual([
       'Alice (seed 1) has a bye',
       'Bob (seed 2) 1–2 Carol (seed 3) · Carol won',
@@ -112,7 +112,7 @@ describe('the bracket of a single elimination tournament', () => {
     const { tab } = await openPlaying(singleEliminationPlaying());
 
     expect(text(bracket(tab))).toContain(
-      'Your next match, in tournament round 2, is against the winner of Bob (seed 2) vs Carol (seed 3).',
+      'Your next match, in the final, is against the winner of Bob (seed 2) vs Carol (seed 3).',
     );
     expect(ownPath(tab)).toEqual([
       'Alice (seed 1) has a bye',
@@ -124,7 +124,7 @@ describe('the bracket of a single elimination tournament', () => {
     const { tab } = await openPlaying(final, { user: carolUser });
 
     expect(text(bracket(tab))).toContain(
-      'Your next match, in tournament round 2, is against Alice (seed 1).',
+      'Your next match, in the final, is against Alice (seed 1).',
     );
     expect(ownPath(tab)).toEqual([
       'Bob (seed 2) 1–2 Carol (seed 3) · Carol won',

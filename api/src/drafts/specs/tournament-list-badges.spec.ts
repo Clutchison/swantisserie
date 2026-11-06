@@ -4,7 +4,9 @@ import {
   bob,
   carol,
   completeDraft,
+  completeRound,
   completeTournament,
+  dropPlayer,
   fullDeck,
   joinTournament,
   listDrafts,
@@ -12,6 +14,7 @@ import {
   reportWin,
   setUpTournament,
   signIn,
+  singleElimination,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -115,6 +118,18 @@ describe('once complete', () => {
     await completeTournament(id).expect(200);
 
     expect(await badgeOf(id)).toEqual(withoutJoin('Complete', [bob.id]));
+  });
+
+  it('says only that it is complete when nobody holds the trophy, as when both finalists dropped', async () => {
+    const id = await playingTournament(
+      [bobCookie, carolCookie],
+      singleElimination,
+    );
+    await dropPlayer(id, bob.id, aliceCookie).expect(200);
+    await dropPlayer(id, carol.id, aliceCookie).expect(200);
+    await completeRound(id).expect(200);
+
+    expect(await badgeOf(id)).toEqual(withoutJoin('Complete'));
   });
 
   it('names every trophy holder who shares first', async () => {

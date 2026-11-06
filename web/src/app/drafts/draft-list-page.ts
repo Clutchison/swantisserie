@@ -57,7 +57,7 @@ export class DraftListPage {
 
   /**
    * The names of the draft's tournament's trophy holders, as one phrase.
-   * Trophy holders are entrants, so each is one of the draft's players.
+   * Trophy holders have tournament entries, so each is one of the draft’s players.
    */
   protected trophyHolders(draft: DraftListItemView): string {
     const names = (draft.tournamentBadge?.trophyHolders ?? []).flatMap((id) =>

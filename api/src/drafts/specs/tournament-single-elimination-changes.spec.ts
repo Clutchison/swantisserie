@@ -147,7 +147,7 @@ describe('dropping players from the Complete round dialog', () => {
     const { id, seeds } = await playing(4);
     const before = await tournamentView(id);
     await reportCurrentRound(id, cookieOf);
-    // Undo the report of seed 1 v 4, to settle it from the dialog instead.
+    // Undo the report of seed 1 v 4, to decide it from the dialog instead.
     await clearGameScore(id, at(before, 1, 0).id).expect(200);
 
     await completeRound(id, aliceCookie, {

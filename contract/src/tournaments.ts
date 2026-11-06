@@ -314,7 +314,7 @@ export interface MatchReportRequest {
 }
 
 /**
- * Complete round, as the organizer settles the tournament round's
+ * Complete round, as the organizer decides the tournament round’s
  * unreported matches: each must be listed. In Swiss each becomes a granted
  * draw; in single elimination, which never has a draw, a granted win for the
  * winner the organizer picks, or a forfeit by the players they drop from
@@ -381,3 +381,6 @@ export interface DecklistView extends PlanBoards {
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
 export const MIN_MAINBOARD_CARDS = 40;
+
+/** The fewest joined players, bots included, a tournament needs to start. */
+export const MIN_TOURNAMENT_PLAYERS = 2;

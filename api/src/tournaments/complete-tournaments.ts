@@ -13,8 +13,8 @@ export interface CompleteTournament {
 /**
  * Every complete tournament, in the order they started, as the tournament
  * read sees it. Its trophy holders are computed on each read from its
- * standings, so a correction after completion moves them, and one that
- * reopens it to playing leaves it out until it completes again.
+ * standings, the one place the trophy is decided, so the Play tab, the
+ * leaderboard, the draft list and the ended announcement can't disagree.
  */
 export async function readCompleteTournaments(
   prisma: PrismaService,

@@ -231,7 +231,7 @@ export class TournamentsController {
   }
 
   /**
-   * Completes the tournament's current tournament round, settling its
+   * Completes the tournament’s current tournament round, deciding its
    * unreported matches as the body lists them: in Swiss, granting draws
    * and dropping players; in single elimination, granting wins or dropping
    * players. It pairs the next one, or completes the tournament after the

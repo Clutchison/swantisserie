@@ -4,7 +4,7 @@ import {
   bob,
   carol,
   completeDraft,
-  entrants,
+  joinedPlayers,
   fullDeck,
   joinTournament,
   removeEntry,
@@ -39,10 +39,10 @@ describe('joining and leaving', () => {
 
     await joinTournament(id, bobCookie).expect(201);
     await joinTournament(id, aliceCookie).expect(201);
-    expect(await entrants(id)).toEqual([bob.id, alice.id]);
+    expect(await joinedPlayers(id)).toEqual([bob.id, alice.id]);
 
     await removeEntry(id, bob.id, bobCookie).expect(200);
-    expect(await entrants(id)).toEqual([alice.id]);
+    expect(await joinedPlayers(id)).toEqual([alice.id]);
   });
 
   it('lets a player who left join again', async () => {
@@ -52,7 +52,7 @@ describe('joining and leaving', () => {
 
     await joinTournament(id, bobCookie).expect(201);
 
-    expect(await entrants(id)).toEqual([bob.id]);
+    expect(await joinedPlayers(id)).toEqual([bob.id]);
   });
 
   it('refuses a player who has already joined, and one leaving who hasn’t', async () => {
@@ -74,7 +74,7 @@ describe('joining and leaving', () => {
     expect((await joinTournament(id, carolCookie).expect(403)).body.error).toBe(
       'not-a-player',
     );
-    expect(await entrants(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([]);
   });
 
   it('answers no-tournament before setup', async () => {
@@ -100,7 +100,7 @@ describe('joining and leaving', () => {
       message:
         'Your mainboard holds 39 cards. A tournament deck needs at least 40.',
     });
-    expect(await entrants(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([]);
     await setBasic(id, 'Swamp', 19, bobCookie).expect(200);
     await joinTournament(id, bobCookie).expect(201);
   });
@@ -175,7 +175,7 @@ describe('removing an entry', () => {
 
     await removeEntry(id, bob.id, aliceCookie).expect(200);
 
-    expect(await entrants(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([]);
   });
 
   it('lets an app admin who is not the organizer remove one', async () => {
@@ -184,7 +184,7 @@ describe('removing an entry', () => {
 
     await removeEntry(id, bob.id, await signIn(carol)).expect(200);
 
-    expect(await entrants(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([]);
   });
 
   it('refuses a player removing anyone but themselves', async () => {
@@ -193,7 +193,7 @@ describe('removing an entry', () => {
 
     await removeEntry(id, alice.id, bobCookie).expect(403);
 
-    expect(await entrants(id)).toEqual([alice.id]);
+    expect(await joinedPlayers(id)).toEqual([alice.id]);
   });
 
   it('refuses removing someone who hasn’t joined', async () => {
