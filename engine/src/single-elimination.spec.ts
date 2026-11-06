@@ -236,6 +236,30 @@ describe('singleEliminationStandings', () => {
     expect(trophyHolders(table)).toEqual([]);
   });
 
+  it('keeps a forfeit win once its winner played on, though both its players dropped', () => {
+    // s4 dropped in tournament round 1, so s1 advanced on the forfeit, lost the final to s2, then dropped.
+    const table = singleEliminationStandings(
+      seeds(4),
+      [
+        {
+          players: ['s1', 's4'],
+          outcome: { kind: 'Forfeit', forfeitedBy: 's4' },
+          nextRoundPlayers: ['s1', 's2'],
+        },
+        won('s2', 's3'),
+        won('s2', 's1'),
+      ],
+      [],
+      ['s4', 's1'],
+    );
+    expect(ranks(table)).toEqual([
+      ['s2', 1],
+      ['s1', 2],
+      ['s3', 3],
+      ['s4', 3],
+    ]);
+  });
+
   it('leaves unreported matches out', () => {
     const table = singleEliminationStandings(
       ['a', 'b'],
@@ -294,6 +318,36 @@ describe('agreedAdvancingPlayer', () => {
         false,
       ),
     ).toEqual(nobody);
+  });
+
+  it('is nobody when both players dropped before the next tournament round was paired with either', () => {
+    expect(
+      agreedAdvancingPlayer(
+        {
+          players: ['a', 'b'],
+          outcome: forfeit,
+          ...unreported,
+          nextRoundPlayers: ['c', 'd'],
+        },
+        ['b', 'a'],
+        false,
+      ),
+    ).toEqual(nobody);
+  });
+
+  it('is the winner of a forfeit who played on in the next tournament round, though they dropped since', () => {
+    expect(
+      agreedAdvancingPlayer(
+        {
+          players: ['a', 'b'],
+          outcome: forfeit,
+          ...unreported,
+          nextRoundPlayers: ['b', 'c'],
+        },
+        ['a', 'b'],
+        true,
+      ),
+    ).toEqual(player('b'));
   });
 
   it('is the winner of a played match, even if both dropped since', () => {
