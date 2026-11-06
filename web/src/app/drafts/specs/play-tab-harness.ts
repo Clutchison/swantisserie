@@ -387,17 +387,17 @@ export async function openComplete(
   });
 }
 
-/** Opens the Tournament tab and returns its panel. */
-export const openTournament = (fixture: AppFixture, page: HTMLElement) =>
-  openTab(fixture, page, 'Tournament');
+/** Opens the Play tab and returns its panel. */
+export const openPlayTab = (fixture: AppFixture, page: HTMLElement) =>
+  openTab(fixture, page, 'Play');
 
-/** Opens the Tournament tab of the draft of Alice, Bob and Carol, with `tournament`. */
+/** Opens the Play tab of the draft of Alice, Bob and Carol, with `tournament`. */
 export async function openPlaying(
   tournament: ViewerTournamentView,
   options: Parameters<typeof openComplete>[1] = {},
 ) {
   const opened = await openComplete(tournament, { fields: threePlayers, ...options });
-  const tab = await openTournament(opened.fixture, opened.page);
+  const tab = await openPlayTab(opened.fixture, opened.page);
   return { ...opened, tab };
 }
 
@@ -437,8 +437,8 @@ export const playerLines = (root: HTMLElement) =>
     return text(shown);
   });
 
-/** Whether the tab bar has a Tournament tab. */
-export const hasTournamentTab = (page: HTMLElement) => !!tabButton(page, 'Tournament');
+/** Whether the tab bar has a Play tab. */
+export const hasPlayTab = (page: HTMLElement) => !!tabButton(page, 'Play');
 
 /**
  * Answers a tournament change with the complete draft at `version`, its

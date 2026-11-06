@@ -29,11 +29,11 @@ import {
   standingsRows,
   threePlayers,
   withTournament,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 
-describe('tournament tab in play', () => {
+describe('Play tab in play', () => {
   describe('your match', () => {
     it('shows your first unreported match at the top, with your opponent and a link to your Deck tab', async () => {
       const { fixture, page, tab } = await openPlaying(playing());

@@ -11,7 +11,7 @@ import {
   reported,
   threePlayers,
   withDrops,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 
@@ -24,7 +24,7 @@ const carolDropped = withDrops(
   ],
 );
 
-describe('drops on the tournament tab', () => {
+describe('drops on the Play tab', () => {
   it('shows dropped players and their forfeits', async () => {
     const { tab } = await openPlaying(carolDropped, { user: dave });
 

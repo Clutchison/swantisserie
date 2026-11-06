@@ -105,7 +105,7 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
 }));
 
 /**
- * The Tournament tab of a complete draft: the setup form for organizers
+ * The Play tab of a complete draft: the setup form for organizers
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
  * it, then play: the signed-in player's match and its report, the
@@ -115,7 +115,7 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
  * whose dialog picks their winners) for organizers, and at last the trophy.
  */
 @Component({
-  selector: 'app-tournament-tab',
+  selector: 'app-play-tab',
   imports: [
     ChangeStatus,
     LoadingAnimation,
@@ -126,10 +126,10 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
   ],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './tournament-tab.html',
-  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './tournament-tab.scss'],
+  templateUrl: './play-tab.html',
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './play-tab.scss'],
 })
-export class TournamentTab {
+export class PlayTab {
   private readonly api = inject(TournamentApi);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);

@@ -19,7 +19,7 @@ export interface CorrectionWarning {
 }
 
 /**
- * The Tournament tab's correction warning, opened on the dialog shell for
+ * The Play tab's correction warning, opened on the dialog shell for
  * an organizer correcting or clearing a single elimination match in a way
  * that changes who advances from it: the later matches that clears, from
  * the correction preview, and whether it completes the tournament or has

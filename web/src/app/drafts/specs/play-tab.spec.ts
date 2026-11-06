@@ -22,12 +22,12 @@ import {
   complete,
   dave,
   flushTournament,
-  hasTournamentTab,
+  hasPlayTab,
   openComplete,
-  openTournament,
+  openPlayTab,
   registration,
   withTournament,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 import { cards, openPlan, planOf } from './plan-tab-harness';
 
 useDraftsApp();
@@ -46,7 +46,7 @@ const joinedNames = (tab: HTMLElement) =>
       .trim(),
   );
 
-describe('tournament tab', () => {
+describe('Play tab', () => {
   describe('before setup', () => {
     it.each([
       ['in the lobby', { state: 'Lobby' as const, turn: null, players: [] }],
@@ -55,24 +55,24 @@ describe('tournament tab', () => {
     ])('is absent %s, organizer or not', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields, { powers: ALL_POWERS });
 
-      expect(hasTournamentTab(page)).toBe(false);
+      expect(hasPlayTab(page)).toBe(false);
     });
 
     it('is absent for a viewer who can’t organize the draft, even asked for by URL', async () => {
       const { page } = await openDraft(completeSnapshot, complete, {
-        url: '/drafts/draft-1?tab=tournament',
+        url: '/drafts/draft-1?tab=play',
       });
 
-      expect(hasTournamentTab(page)).toBe(false);
+      expect(hasPlayTab(page)).toBe(false);
       expect(panel(page).id).toBe('pool-panel');
     });
 
     it('shows an organizer the setup form, offering round robin, which sets the tournament up', async () => {
       const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
 
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
-      expect(tab.querySelector('h2')?.textContent).toBe('Tournament');
+      expect(tab.querySelector('h2')?.textContent).toBe('Play');
       expect(controlByLabel(tab, 'radio', 'Round robin')?.checked).toBe(true);
       button(tab, 'Set up tournament')!.click();
       const req = await answerChange(
@@ -89,7 +89,7 @@ describe('tournament tab', () => {
 
     it('offers public decklists, off unless the organizer chooses them, and sets the tournament up with them', async () => {
       const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
       const choice = controlByLabel(tab, 'checkbox', 'Public decklists')!;
 
       expect(choice.checked).toBe(false);
@@ -106,15 +106,15 @@ describe('tournament tab', () => {
     it('opens for an organizer asked for by URL', async () => {
       const { page } = await openDraft(completeSnapshot, complete, {
         powers: ORGANIZE_ONLY,
-        url: '/drafts/draft-1?tab=tournament',
+        url: '/drafts/draft-1?tab=play',
       });
 
-      expect(panel(page).id).toBe('tournament-panel');
+      expect(panel(page).id).toBe('play-panel');
     });
 
     it('shows why setup was refused', async () => {
       const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       button(tab, 'Set up tournament')!.click();
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(
@@ -140,7 +140,7 @@ describe('tournament tab', () => {
         { user: dave },
       );
 
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       expect(tab.textContent).toContain('Registration');
       expect(joinedNames(tab)).toEqual(['Bob']);
@@ -152,7 +152,7 @@ describe('tournament tab', () => {
 
     it('lets a player join, then leave', async () => {
       const { fixture, page } = await openComplete(registration(bob.id));
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
       await answerChange(
@@ -179,7 +179,7 @@ describe('tournament tab', () => {
     it('says on the Join button, and beside it, that the deck stays private without public decklists', async () => {
       const { fixture, page } = await openComplete(registration(bob.id));
 
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       expect(button(tab, JOIN_PRIVATE)).toBeDefined();
       expect(button(tab, JOIN_PUBLIC)).toBeUndefined();
@@ -192,7 +192,7 @@ describe('tournament tab', () => {
         publicDecklists: true,
       });
 
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       expect(button(tab, JOIN_PUBLIC)).toBeDefined();
       expect(button(tab, JOIN_PRIVATE)).toBeUndefined();
@@ -203,7 +203,7 @@ describe('tournament tab', () => {
 
     it('says why joining was refused', async () => {
       const { fixture, page } = await openComplete(registration());
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/entries'))).flush(
@@ -237,7 +237,7 @@ describe('tournament tab', () => {
         },
       });
 
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       expect(button(tab, JOIN_PRIVATE)).toBeUndefined();
       expect(tab.textContent).toContain(
@@ -260,7 +260,7 @@ describe('tournament tab', () => {
       button(deck, 'Move Lightning Bolt to the sideboard')!.click();
       http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(planOf());
       await flushTournament(registration(bob.id));
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       expect(button(tab, JOIN_PRIVATE)).toBeDefined();
       expect(tab.textContent).not.toContain('A tournament deck needs at least 40.');
@@ -269,7 +269,7 @@ describe('tournament tab', () => {
     it('says when no one has joined', async () => {
       const { fixture, page } = await openComplete(registration(), { user: dave });
 
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       expect(tab.textContent).toContain('Nobody has joined yet.');
     });
@@ -278,7 +278,7 @@ describe('tournament tab', () => {
       const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
         powers: ORGANIZE_ONLY,
       });
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       button(tab, 'Remove Bob')!.click();
       await answerChange(
@@ -296,7 +296,7 @@ describe('tournament tab', () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       button(tab, 'Cancel tournament')!.click();
       expect(confirm).toHaveBeenCalledWith(
@@ -304,7 +304,7 @@ describe('tournament tab', () => {
       );
       await answerChange(fixture, '/api/drafts/draft-1/tournament', 'DELETE', null);
 
-      expect(panel(page).id).toBe('tournament-panel');
+      expect(panel(page).id).toBe('play-panel');
       expect(button(panel(page), 'Set up tournament')).toBeDefined();
     });
 
@@ -313,7 +313,7 @@ describe('tournament tab', () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
-      const tab = await openTournament(fixture, page);
+      const tab = await openPlayTab(fixture, page);
 
       button(tab, 'Cancel tournament')!.click();
       await fixture.whenStable();
@@ -324,7 +324,7 @@ describe('tournament tab', () => {
 
     it('appears for everyone once a pushed draft has a tournament, and goes when it is cancelled', async () => {
       const { fixture, page } = await openComplete(null, { user: dave });
-      expect(hasTournamentTab(page)).toBe(false);
+      expect(hasPlayTab(page)).toBe(false);
 
       updates.events.next({
         type: 'changed',
@@ -333,13 +333,13 @@ describe('tournament tab', () => {
       await flushPicks([]);
       await flushTournament(registration());
       await fixture.whenStable();
-      expect(hasTournamentTab(page)).toBe(true);
+      expect(hasPlayTab(page)).toBe(true);
 
-      await openTournament(fixture, page);
+      await openPlayTab(fixture, page);
       updates.events.next({ type: 'changed', draft: draft({ ...complete, version: 2 }) });
       await flushPicks([]);
       await fixture.whenStable();
-      expect(hasTournamentTab(page)).toBe(false);
+      expect(hasPlayTab(page)).toBe(false);
       expect(panel(page).id).toBe('pool-panel');
     });
   });

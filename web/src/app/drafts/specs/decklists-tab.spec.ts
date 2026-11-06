@@ -13,14 +13,7 @@ import {
   tabLabels,
   useDraftsApp,
 } from './harness';
-import {
-  carol,
-  dave,
-  openComplete,
-  playing,
-  registration,
-  threePlayers,
-} from './tournament-tab-harness';
+import { carol, dave, openComplete, playing, registration, threePlayers } from './play-tab-harness';
 
 useDraftsApp();
 
@@ -68,7 +61,7 @@ describe('decklists tab', () => {
   it('is absent without public decklists, while the tournament is played', async () => {
     const { page } = await openAsViewer(playing());
 
-    expect(tabLabels(page)).toContain('Tournament');
+    expect(tabLabels(page)).toContain('Play');
     expect(tabLabels(page)).not.toContain('Decklists');
   });
 

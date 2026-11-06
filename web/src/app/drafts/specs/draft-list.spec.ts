@@ -142,7 +142,7 @@ describe('draft list', () => {
       expect(item.textContent).not.toContain('Trophy');
     });
 
-    it('shows registration, with a Join link to the Tournament tab for a player who can join', async () => {
+    it('shows registration, with a Join link to the Play tab for a player who can join', async () => {
       const page = await openList([
         withBadge({ state: 'Registration', canJoin: true, trophyHolders: [] }),
       ]);
@@ -150,7 +150,7 @@ describe('draft list', () => {
       const item = listItem(page, 'Last month');
       expect(item.textContent).toContain('Registration');
       expect(link(item, join)?.textContent?.trim()).toBe('Join');
-      expect(link(item, join)?.getAttribute('href')).toBe('/drafts/a?tab=tournament');
+      expect(link(item, join)?.getAttribute('href')).toBe('/drafts/a?tab=play');
     });
 
     it('shows registration without Join to anyone who can’t join', async () => {

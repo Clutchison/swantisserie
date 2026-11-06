@@ -19,12 +19,12 @@ import {
   carol,
   openComplete,
   openPlaying,
-  openTournament,
+  openPlayTab,
   registration,
   singleEliminationFinal as final,
   singleEliminationPlaying,
   threePlayers,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 
@@ -36,10 +36,10 @@ async function openCompleteRound(tournament: ViewerTournamentView) {
   return opened;
 }
 
-describe('single elimination tournaments on the Tournament tab', () => {
+describe('single elimination tournaments on the Play tab', () => {
   it('offers single elimination at setup, with no round option', async () => {
     const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
-    const tab = await openTournament(fixture, page);
+    const tab = await openPlayTab(fixture, page);
 
     controlByLabel(tab, 'radio', 'Single elimination')!.click();
     await fixture.whenStable();

@@ -2,8 +2,7 @@ import { draftMessages } from './draft-messages.js';
 import { tournamentSetUpMessage } from './tournament-messages.js';
 
 const draft = { name: 'Red', url: 'https://roto.example/drafts/d1' };
-const link =
-  '[Open tournament](<https://roto.example/drafts/d1?tab=tournament>)';
+const link = '[Open tournament](<https://roto.example/drafts/d1?tab=play>)';
 const alice = { id: '80351110224678912', name: 'Alice', isBot: false };
 const bot = { id: 'bot:5f0c', name: 'Bot 1', isBot: true };
 
@@ -17,7 +16,7 @@ describe('tournamentSetUpMessage', () => {
     expect(tournamentSetUpMessage(draft, 'Swiss', [alice, bot])).toEqual({
       content:
         '**Red**’s Swiss tournament is in registration. **Bot 1** has joined.\n' +
-        `<@${alice.id}> join from the Tournament tab. ${link}`,
+        `<@${alice.id}> join from the Play tab. ${link}`,
       allowed_mentions: { parse: [], users: [alice.id] },
     });
   });

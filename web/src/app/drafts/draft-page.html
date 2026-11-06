@@ -104,15 +104,15 @@
       >
         Export
       </button>
-      @if (showTournament()) {
+      @if (showPlayTab()) {
         <button
-          id="tournament-tab"
+          id="play-tab"
           type="button"
-          [appTab]="selectedTab() === 'Tournament'"
-          aria-controls="tournament-panel"
-          (click)="selectedTab.select('Tournament')"
+          [appTab]="selectedTab() === 'Play'"
+          aria-controls="play-panel"
+          (click)="selectedTab.select('Play')"
         >
-          Tournament
+          Play
         </button>
       }
       @if (showDecklists()) {
@@ -254,17 +254,17 @@
       <app-export-tab />
     </section>
 
-    <!-- Only a complete draft has a Tournament tab, and before setup only organizers do. -->
-    @if (showTournament()) {
+    <!-- Only a complete draft has a Play tab, and before setup only organizers do. -->
+    @if (showPlayTab()) {
       <section
-        id="tournament-panel"
-        class="tournament"
+        id="play-panel"
+        class="play"
         role="tabpanel"
-        aria-labelledby="tournament-tab"
-        [hidden]="selectedTab() !== 'Tournament'"
+        aria-labelledby="play-tab"
+        [hidden]="selectedTab() !== 'Play'"
       >
-        <h2>Tournament</h2>
-        <app-tournament-tab />
+        <h2>Play</h2>
+        <app-play-tab />
       </section>
     }
 

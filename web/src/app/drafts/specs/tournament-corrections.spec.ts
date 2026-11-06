@@ -23,7 +23,7 @@ import {
   swissPlaying,
   threePlayers,
   withDrops,
-} from './tournament-tab-harness';
+} from './play-tab-harness';
 
 useDraftsApp();
 

@@ -1,7 +1,7 @@
 import type { GameScore, MatchOutcomeView, TournamentEntryView } from 'contract';
 
 /**
- * How a match reads wherever the Tournament tab shows it, in the list of
+ * How a match reads wherever the Play tab shows it, in the list of
  * matches by tournament round or in the bracket.
  */
 export interface MatchLine {
