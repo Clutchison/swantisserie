@@ -530,7 +530,7 @@ _Avoid_: Score (that is a match's game score), win–loss
 
 **Head-to-head**:
 In round robin, the tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
-_Avoid_: Direct encounter, mutual result
+_Avoid_: Direct encounter, mutual result, head-to-head for a leaderboard record (that is a head-to-head record)
 
 **Game-win %**:
 In round robin, the share of the games a player played in their matches that they won: the tiebreaker after head-to-head. In Swiss, the MTR's: game points (3 a game won, 1 a game drawn) over 3 per game played, never below 33%: the tiebreaker after opponents' match-win %.
@@ -553,8 +553,20 @@ The part of a complete draft's page where organizers set up its tournament, play
 _Avoid_: Games tab, results tab, bracket tab
 
 **Leaderboard**:
-A guild's players ranked by their trophies, with each player's match and game records, overall and against each opponent, across all its tournaments.
+A guild's players ranked by their trophies, then matches won, with each player's tournaments played, their match and game records, and their head-to-head record against each opponent, across all its complete tournaments. Records count played matches only: forfeits, granted draws, granted wins and byes are left out, and every format counts the same. A player appears once they have a played match, under their current name; bots never do. A cancelled tournament counts nowhere.
 _Avoid_: Standings (that is one tournament's), stats page, rankings, player profile
+
+**Played match**:
+A tournament match decided by a game score its players played. Forfeits, granted draws, granted wins and byes are not played matches.
+_Avoid_: Real match, counted match
+
+**Tournaments played**:
+On the leaderboard, how many complete tournaments a player joined.
+_Avoid_: Events, entries
+
+**Head-to-head record**:
+On the leaderboard, a player's match and game records against one opponent, from their played matches across complete tournaments.
+_Avoid_: Head-to-head (alone; that is round robin's tiebreaker), matchup, rivalry
 
 **Trophy**:
 One tournament won by a player. A complete tournament's trophy goes to everyone who shares first in its standings; in single elimination, to the player who advances from the final, or to the one player left in the bracket if it completed before the final. When nobody is left, as when both finalists drop, the tournament completes with no trophy holder.
