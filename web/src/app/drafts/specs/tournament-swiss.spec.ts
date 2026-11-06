@@ -42,6 +42,7 @@ import {
   swissRoundsWith,
   threePlayers,
   withTournament,
+  completed,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -112,7 +113,7 @@ describe('Swiss tournaments on the Play tab', () => {
 
   it.each([
     ['during registration', swissRegistration],
-    ['once it is complete', swissPlaying({ state: 'Complete' })],
+    ['once it is complete', completed(swissPlaying())],
   ])('says no tournament round %s', async (_, tournament) => {
     const { tab } = await openPlaying(tournament, { user: dave });
 
@@ -184,7 +185,7 @@ describe('Swiss tournaments on the Play tab', () => {
       fixture,
       '/api/drafts/draft-1/tournament/complete-round',
       'POST',
-      swissPlaying({ state: 'Complete', lastCompletedRound: 2, trophyHolders: [alice.id] }),
+      completed(swissPlaying({ lastCompletedRound: 2, trophyHolders: [alice.id] })),
       1,
       threePlayers,
     );
@@ -307,7 +308,7 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('says nothing of which tournament round the standings are as of once the tournament is complete', async () => {
-    const { tab } = await openPlaying(swissPlaying({ state: 'Complete', lastCompletedRound: 2 }), {
+    const { tab } = await openPlaying(completed(swissPlaying({ lastCompletedRound: 2 })), {
       user: dave,
     });
 

@@ -35,6 +35,7 @@ import {
   stateSteps,
   threePlayers,
   withTournament,
+  completed,
 } from './play-tab-harness';
 import { cards, openPlan, planOf } from './plan-tab-harness';
 
@@ -181,7 +182,7 @@ describe('Play tab', () => {
       ],
       [
         'complete',
-        playing([], { state: 'Complete' }),
+        completed(playing()),
         ['Registration, completed', 'Playing, completed', 'Complete'],
         'Complete',
       ],
