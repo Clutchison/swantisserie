@@ -147,7 +147,7 @@ describe('reporting a match', () => {
     expect(answer.body.error).toBe('no-match');
   });
 
-  it('refuses a match of a completed Swiss tournament round as reported, leaving the round’s results as they were', async () => {
+  it('refuses a match of a completed Swiss tournament round as reported, leaving the tournament round’s game scores as they were', async () => {
     const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
     const id = await playingTournament(cookies, swiss());
     const cookieOf = await cookiesByPlayer(id, cookies);
