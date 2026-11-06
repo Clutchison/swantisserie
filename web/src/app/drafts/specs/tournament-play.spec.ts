@@ -38,7 +38,6 @@ import {
   resultsGrid,
   roundLabels,
   standing,
-  swissPlaying,
   threePlayers,
   withDrops,
   withTournament,
@@ -141,6 +140,33 @@ describe('Play tab while the tournament is played', () => {
       http.expectNone('/api/drafts/draft-1/tournament/matches/m2/report');
     });
 
+    it('keeps a match’s game scores open when another match is reported, and closes them once it is', async () => {
+      const { fixture, tab } = await openPlaying(playing());
+      const scoresAgainstCarol = () => group(tab, 'Game score against Carol');
+      button(tab, 'Report your match against Carol')!.click();
+      await fixture.whenStable();
+      expect(scoresAgainstCarol()).not.toBeNull();
+
+      await pushTournament(
+        fixture,
+        playing([reported(unreportedMatch('m1', bob.id, carol.id), [2, 0])]),
+        1,
+        { asPlayer: true },
+      );
+      expect(scoresAgainstCarol()).not.toBeNull();
+
+      await pushTournament(
+        fixture,
+        playing([
+          reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]),
+          reported(unreportedMatch('m3', carol.id, alice.id), [2, 0], carol.id),
+        ]),
+        2,
+        { asPlayer: true },
+      );
+      expect(scoresAgainstCarol()).toBeNull();
+    });
+
     it('confirms an opponent’s report from its line', async () => {
       const { fixture, tab } = await openPlaying(playing([bobBeatAlice]));
 
@@ -183,11 +209,8 @@ describe('Play tab while the tournament is played', () => {
       );
     });
 
-    it.each([
-      ['a viewer who didn’t join', playing(), dave],
-      ['a player who dropped', withDrops([alice.id]), alice],
-    ])('is absent for %s', async (_, tournament, user) => {
-      const { tab } = await openPlaying(tournament, { user });
+    it('is absent for a viewer who didn’t join', async () => {
+      const { tab } = await openPlaying(playing(), { user: dave });
 
       expect(region(tab, 'Your matches')).toBeNull();
       expect(region(tab, 'Your match')).toBeNull();
@@ -200,15 +223,26 @@ describe('Play tab while the tournament is played', () => {
         expect(text(tab)).not.toContain('Confirm');
       });
 
-      it('is offered from the list of matches in Swiss', async () => {
-        const m2 = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+      it('is offered to a player who dropped on a match their opponent reported, with no Report or Drop', async () => {
         const { tab } = await openPlaying(
-          swissPlaying({
-            rounds: [swissPlaying().rounds[0], { round: 2, matches: [m2], byes: [bob.id] }],
-          }),
+          withDrops(
+            [alice.id],
+            [bobBeatAlice, forfeited(unreportedMatch('m3', carol.id, alice.id), alice.id)],
+          ),
         );
 
-        expect(button(tab, 'Confirm your match against Carol')).toBeDefined();
+        expect(yourMatches(tab)).toEqual([
+          'Bob reported you lost 1–2',
+          'Forfeit: you dropped against Carol',
+        ]);
+        expect(button(tab, 'Report your match against Carol')).toBeUndefined();
+        expect(button(tab, 'Drop from tournament')).toBeUndefined();
+
+        button(tab, 'Confirm your match against Bob')!.click();
+        const req = await vi.waitFor(() =>
+          http.expectOne('/api/drafts/draft-1/tournament/matches/m2/confirm'),
+        );
+        expect(req.request.method).toBe('POST');
       });
     });
   });

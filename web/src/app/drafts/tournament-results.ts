@@ -14,8 +14,11 @@ import { record } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import {
+  confirmableBy,
+  matchIn,
   matchLine,
   organizerChoices,
+  sameOutcome,
   seededName,
   seedsOf,
   type ClearGameScore,
@@ -34,7 +37,7 @@ export interface SetGameScore {
  * or, in single elimination, its bracket; round robin, which has no
  * tournament rounds, shows the results grid instead. The signed-in
  * player's other open matches offer Report, which makes that match the one
- * shown as theirs, and their matches someone else reported offer Confirm.
+ * shown as theirs, and their other matches someone else reported offer Confirm.
  * Organizers report, correct and clear any match whose results aren't
  * final: those of the open tournament round.
  */
@@ -51,7 +54,7 @@ export class TournamentResults {
   readonly tournament = input.required<TournamentView>();
   /** The signed-in player's id, if they joined. */
   readonly ownId = input<string>();
-  /** The match shown as the signed-in player's, which needs no Report here. */
+  /** The match shown as the signed-in player's, which needs no Report or Confirm here. */
   readonly currentId = input<string>();
   /** Asks for the match with this id to be shown as the signed-in player's. */
   readonly choose = output<string>();
@@ -62,10 +65,21 @@ export class TournamentResults {
   /** Asks for a match's game score to be cleared, as an organizer does. */
   readonly clearGameScore = output<ClearGameScore>();
 
-  /** The match whose game score an organizer is choosing, if any; closed whenever the tournament is re-read. */
+  /**
+   * The match whose game score an organizer is choosing, if any. A re-read
+   * keeps it open while the organizer may still correct it and its outcome
+   * is unchanged, so until it is reported, corrected or cleared, its
+   * tournament round is completed or the tournament stops playing.
+   */
   protected readonly correcting = linkedSignal<TournamentView, string | undefined>({
     source: this.tournament,
-    computation: () => undefined,
+    computation: (tournament, previous) => {
+      const open = previous?.value;
+      if (!open || !this.lineById().get(open)?.organize) return undefined;
+      return sameOutcome(matchIn(previous.source, open), matchIn(tournament, open))
+        ? open
+        : undefined;
+    },
   });
 
   /** Organizers report, correct and clear matches while the tournament is playing; a complete one's results are final. */
@@ -168,19 +182,14 @@ export class TournamentResults {
   }
 
   /**
-   * Whether the signed-in player can confirm `match`: theirs, its game score
-   * reported by someone else, while the tournament is playing or once it is
-   * complete.
+   * Whether the signed-in player can confirm `match` here: theirs, its game
+   * score reported by someone else, while the tournament is playing or once
+   * it is complete, unless it is the match shown as theirs, which offers
+   * Confirm there.
    */
   private confirmable(match: MatchView) {
     const own = this.ownId();
-    return (
-      match.outcome.kind === 'GameScore' &&
-      !match.confirmed &&
-      !!own &&
-      match.players.includes(own) &&
-      match.reportedBy !== own
-    );
+    return !!own && confirmableBy(match, own) && match.id !== this.currentId();
   }
 
   /** What an organizer can do with `match`, with the label its toggle reads as. */

@@ -217,6 +217,12 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
   };
 }
 
+/** The tournament rounds of `swissPlaying`, round 2's match m2 replaced by `m2`, and round 1's by `m1` if given. */
+export function swissRoundsWith(m2: MatchView, m1?: MatchView): TournamentRoundView[] {
+  const [first, second] = swissPlaying().rounds;
+  return [m1 ? { ...first, matches: [m1] } : first, { ...second, matches: [m2] }];
+}
+
 /** A side of a bracket place that is the player `playerId`. */
 export const side = (playerId: string): BracketSideView => ({ kind: 'Player', playerId });
 
@@ -543,18 +549,21 @@ export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boo
 /**
  * Pushes the complete draft of Alice, Bob and Carol at `version` with
  * `tournament`, as another viewer's change does, and answers the reads it
- * makes for Dave, who isn't one of its players.
+ * makes for Dave, who isn't one of its players, or, `asPlayer`, for one
+ * who is, their queue and plan included.
  */
 export async function pushTournament(
   fixture: AppFixture,
   tournament: ViewerTournamentView,
   version: number,
+  { asPlayer = false }: { asPlayer?: boolean } = {},
 ) {
   updates.events.next({
     type: 'changed',
     draft: draft({ ...withTournament(tournament, threePlayers), version }),
   });
   await flushPicks([]);
+  if (asPlayer) await flushQueueAndPlan();
   await flushTournament(tournament);
   await fixture.whenStable();
 }

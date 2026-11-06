@@ -1,12 +1,15 @@
+import type { DialogRef } from '@angular/cdk/dialog';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   Injector,
   input,
   inputBinding,
   output,
+  untracked,
 } from '@angular/core';
 import type { MatchView, TournamentView } from 'contract';
 import { droppedPlayers } from 'engine';
@@ -15,7 +18,9 @@ import { record } from '../record';
 import { DraftStore } from './draft-store';
 import {
   gameScoreFor,
+  matchIn,
   organizerChoices,
+  sameOutcome,
   type ClearGameScore,
   type OrganizerChoices,
 } from './match-lines';
@@ -48,7 +53,8 @@ interface GridCell {
  * cells show it, each from its own row's side; never by colour alone, as
  * each cell's accessible name spells the result out. While the tournament
  * is playing, an organizer opens either cell of a match to report, correct
- * or clear it in the match result dialog. It scrolls sideways in its own
+ * or clear it in the match result dialog, which closes itself once the
+ * tournament stops playing or that match's outcome changes. It scrolls sideways in its own
  * region, the rank and name columns fixed.
  */
 @Component({
@@ -72,6 +78,37 @@ export class ResultsGrid {
   private readonly organize = computed(
     () => this.store.canOrganize() && this.tournament().state === 'Playing',
   );
+
+  /** The match result dialog while it's open, with the match it was opened for and its choices as they were then. */
+  private opened: {
+    ref: DialogRef<MatchResultChoice, MatchResultDialog>;
+    match: MatchView;
+    choices: OrganizerChoices;
+  } | null = null;
+
+  constructor() {
+    // The dialog's choices were the match's as it opened: close it once
+    // they no longer hold, as when another organizer completes the
+    // tournament or reports, corrects or clears that match, or one of its
+    // players drops, which changes what clearing it leaves.
+    effect(() => {
+      const tournament = this.tournament();
+      const organize = this.organize();
+      untracked(() => {
+        const opened = this.opened;
+        if (!opened) return;
+        const match = matchIn(tournament, opened.match.id);
+        if (
+          !organize ||
+          !match ||
+          !sameOutcome(opened.match, match) ||
+          this.choicesFor(match).clear?.after !== opened.choices.clear?.after
+        ) {
+          opened.ref.close();
+        }
+      });
+    });
+  }
 
   private readonly dropped = computed(() => new Set(droppedPlayers(this.tournament().entries)));
 
@@ -116,16 +153,19 @@ export class ResultsGrid {
       opponentId: columnId,
       marker,
       name: `${this.name(rowId)} against ${this.name(columnId)}: ${result}`,
-      organize: this.organize()
-        ? organizerChoices(
-            match,
-            [this.name(match.players[0]), this.name(match.players[1])],
-            (id) => this.name(id),
-            this.dropped(),
-          )
-        : null,
+      organize: this.organize() ? this.choicesFor(match) : null,
       matchId: match.id,
     };
+  }
+
+  /** What an organizer can do with `match`, as the tournament now stands. */
+  private choicesFor(match: MatchView) {
+    return organizerChoices(
+      match,
+      [this.name(match.players[0]), this.name(match.players[1])],
+      (id) => this.name(id),
+      this.dropped(),
+    );
   }
 
   /** Opens the match result dialog for the match `matchId`, and asks for what the organizer chooses. */
@@ -135,7 +175,10 @@ export class ResultsGrid {
       injector: this.injector,
       bindings: [inputBinding('choices', () => choices)],
     });
+    const match = matchIn(this.tournament(), matchId);
+    this.opened = match ? { ref, match, choices } : null;
     ref.closed.subscribe((choice) => {
+      this.opened = null;
       if (choice?.kind === 'GameScore') this.setGameScore.emit({ matchId, games: choice.games });
       else if (choice?.kind === 'Clear' && choices.clear) this.clearGameScore.emit(choices.clear);
     });
