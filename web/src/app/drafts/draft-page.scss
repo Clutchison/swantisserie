@@ -25,6 +25,35 @@ h1 {
   margin-top: var(--space-xl);
 }
 
+/*
+ * The Pool, Queue and Plan headings, with the viewer's picks left beside
+ * them: on a phone the count wraps onto its own line under the heading.
+ */
+.panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-sm);
+  /* An h2's own margins, which it gives up to this. */
+  margin-block: calc(0.83 * var(--font-size-lg));
+
+  h2 {
+    margin: 0;
+  }
+}
+
+/* Secondary to the heading, until the viewer is near the end of their picks. */
+.picks-left {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+
+  /* On bg, where accent text meets AA. */
+  &[data-highlighted='true'] {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+}
+
 .turn,
 .paused,
 .closed {

@@ -21,12 +21,6 @@
   }
 }
 
-/* Near the end of the viewer's picks. On bg, where accent text meets AA. */
-.picks-left[data-highlighted='true'] {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
 /* The handle, position, cost, name and buttons. */
 .queue {
   --card-row-columns: auto auto [cost] max-content [name] minmax(0, 1fr) auto;
