@@ -14,14 +14,14 @@
       <ul>
         @for (draft of active(); track draft.id) {
           <li [attr.aria-label]="draft.name">
-            <!-- A complete draft here has a tournament under way: its badge says where the draft stands, not "Complete". -->
             <ng-container
-              *ngTemplateOutlet="
-                draftLink;
-                context: { $implicit: draft, showState: draft.state !== 'Complete' }
-              "
+              *ngTemplateOutlet="draftLink; context: { $implicit: draft, showState: true }"
             />
-            <ng-container *ngTemplateOutlet="tournamentBadge; context: { $implicit: draft }" />
+            @if (draft.tournamentBadge?.canJoin) {
+              <p class="tournament-badge">
+                <ng-container *ngTemplateOutlet="joinLink; context: { $implicit: draft }" />
+              </p>
+            }
           </li>
         } @empty {
           <li class="empty">No active drafts.</li>
@@ -61,7 +61,7 @@
   <a class="draft-link" [routerLink]="['/drafts', draft.id]">
     <span class="name">{{ draft.name }}</span>
     @if (showState) {
-      <span class="state">{{ draft.state }}</span>
+      <span class="state">{{ listedState(draft) }}</span>
     }
     <span class="detail"
       ><span class="platform">{{ draft.platform }}</span> · Organized by
@@ -70,7 +70,7 @@
   </a>
 </ng-template>
 
-<!-- A complete draft's tournament, if it has one. -->
+<!-- A complete draft's tournament, if it has one, under its card. -->
 <ng-template #tournamentBadge let-draft>
   <!-- Beside the draft's link, never inside it, as Join is a link of its own. -->
   @if (draft.tournamentBadge; as badge) {
@@ -79,13 +79,7 @@
         @case ('Registration') {
           <span class="badge-text">Tournament: Registration</span>
           @if (badge.canJoin) {
-            <a
-              class="button"
-              [routerLink]="['/drafts', draft.id]"
-              [queryParams]="{ tab: 'play' }"
-              [attr.aria-label]="'Join the tournament of ' + draft.name"
-              >Join</a
-            >
+            <ng-container *ngTemplateOutlet="joinLink; context: { $implicit: draft }" />
           }
         }
         @case ('Playing') {
@@ -101,4 +95,15 @@
       }
     </p>
   }
+</ng-template>
+
+<!-- Beside the draft's link, never inside it, as Join is a link of its own. -->
+<ng-template #joinLink let-draft>
+  <a
+    class="button"
+    [routerLink]="['/drafts', draft.id]"
+    [queryParams]="{ tab: 'play' }"
+    [attr.aria-label]="'Join the tournament of ' + draft.name"
+    >Join</a
+  >
 </ng-template>

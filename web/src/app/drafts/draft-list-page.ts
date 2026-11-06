@@ -48,6 +48,14 @@ export class DraftListPage {
   );
 
   /**
+   * What a card in Active drafts says of where the draft stands: its draft state, or, for a
+   * complete draft listed there, its tournament's.
+   */
+  protected listedState(draft: DraftListItemView): string {
+    return tournamentUnderWay(draft) ? `Tournament: ${draft.tournamentBadge?.state}` : draft.state;
+  }
+
+  /**
    * The names of the draft's tournament's trophy holders, as one phrase.
    * Trophy holders are entrants, so each is one of the draft's players.
    */

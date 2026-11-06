@@ -4,10 +4,12 @@ import {
   bob,
   useDraftsApp,
   draft,
+  draftLink,
   listItem,
   expectLoadingAnimation,
   http,
   link,
+  listedDrafts,
   openList,
   openUrl,
   section,
@@ -128,10 +130,20 @@ describe('draft list', () => {
 
   describe('tournament badges', () => {
     /** A complete draft of Alice and Bob, Last month, with the tournament badge `badge`. */
-    const withBadge = (badge: TournamentBadgeView | null): DraftListItemView => ({
-      ...draft({ id: 'a', name: 'Last month', state: 'Complete', players: [alicePlayer, bob] }),
+    const withBadge = (
+      badge: TournamentBadgeView | null,
+      { id = 'a', name = 'Last month' } = {},
+    ): DraftListItemView => ({
+      ...draft({ id, name, state: 'Complete', players: [alicePlayer, bob] }),
       tournamentBadge: badge,
     });
+    const registration: TournamentBadgeView = {
+      state: 'Registration',
+      canJoin: false,
+      trophyHolders: [],
+    };
+    const playing: TournamentBadgeView = { state: 'Playing', canJoin: false, trophyHolders: [] };
+    const finished: TournamentBadgeView = { state: 'Complete', canJoin: false, trophyHolders: [] };
     const join = 'Join the tournament of Last month';
 
     it('shows none for a draft without a tournament', async () => {
@@ -172,62 +184,49 @@ describe('draft list', () => {
     });
 
     it('lists a draft whose tournament is in registration under Active drafts, with Join', async () => {
-      const page = await openList([
-        withBadge({ state: 'Registration', canJoin: true, trophyHolders: [] }),
-      ]);
+      const page = await openList([withBadge({ ...registration, canJoin: true })]);
 
       const active = section(page, 'Active drafts');
-      expect(active.textContent).toContain('Last month');
-      expect(active.textContent).toContain('Tournament: Registration');
+      const card = draftLink(active, 'a');
+      expect(card?.textContent).toContain('Last month');
+      expect(card?.textContent).toContain('Tournament: Registration');
+      expect(card?.textContent).not.toContain('Complete');
       expect(link(active, join)?.getAttribute('href')).toBe('/drafts/a?tab=play');
-      expect(active.textContent).not.toContain('Complete');
-      expect(section(page, 'Complete drafts').textContent).not.toContain('Last month');
+      expect(listedDrafts(page, 'Complete drafts')).toEqual([]);
     });
 
     it('lists a draft whose tournament is playing under Active drafts, with its badge', async () => {
-      const page = await openList([
-        withBadge({ state: 'Playing', canJoin: false, trophyHolders: [] }),
-      ]);
+      const page = await openList([withBadge(playing)]);
 
-      const active = section(page, 'Active drafts').textContent;
-      expect(active).toContain('Last month');
-      expect(active).toContain('Tournament: Playing');
-      expect(active).not.toContain('Complete');
+      const card = draftLink(section(page, 'Active drafts'), 'a');
+      expect(card?.textContent).toContain('Tournament: Playing');
+      expect(card?.textContent).not.toContain('Complete');
+      expect(listedDrafts(page, 'Complete drafts')).toEqual([]);
     });
 
     it('lists each draft in one section only', async () => {
       const page = await openList([
         draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+        draft({ id: 'd', name: 'Picking', state: 'Drafting' }),
         draft({ id: 'p', name: 'Taking a break', state: 'Paused' }),
         draft({ id: 's', name: 'Shut early', state: 'Closed' }),
-        { ...draft({ id: 'n', name: 'No tournament', state: 'Complete' }), tournamentBadge: null },
-        {
-          ...draft({ id: 'r', name: 'Registering', state: 'Complete' }),
-          tournamentBadge: { state: 'Registration', canJoin: false, trophyHolders: [] },
-        },
-        {
-          ...draft({ id: 'g', name: 'Under way', state: 'Complete' }),
-          tournamentBadge: { state: 'Playing', canJoin: false, trophyHolders: [] },
-        },
-        {
-          ...draft({ id: 'd', name: 'All done', state: 'Complete' }),
-          tournamentBadge: { state: 'Complete', canJoin: false, trophyHolders: [] },
-        },
+        withBadge(null, { id: 'n', name: 'No tournament' }),
+        withBadge(registration, { id: 'r', name: 'Registering' }),
+        withBadge(playing, { id: 'g', name: 'Under way' }),
+        withBadge(finished, { id: 'f', name: 'All done' }),
+        withBadge({ ...finished, trophyHolders: [bob.id] }, { id: 't', name: 'Bob won' }),
       ]);
 
-      const names = (heading: string) =>
-        [...section(page, heading).querySelectorAll('li')].map((li) =>
-          li.getAttribute('aria-label'),
-        );
-      expect(names('Active drafts')).toEqual([
-        'In the lobby',
-        'Taking a break',
-        'Registering',
-        'Under way',
-      ]);
-      expect(names('Complete drafts')).toEqual(['No tournament', 'All done']);
-      expect(names('Closed drafts')).toEqual(['Shut early']);
-      expect(section(page, 'Complete drafts').textContent).toContain('Tournament complete');
+      expect(listedDrafts(page, 'Active drafts').sort()).toEqual(
+        ['In the lobby', 'Picking', 'Registering', 'Taking a break', 'Under way'].sort(),
+      );
+      expect(listedDrafts(page, 'Complete drafts').sort()).toEqual(
+        ['All done', 'Bob won', 'No tournament'].sort(),
+      );
+      expect(listedDrafts(page, 'Closed drafts')).toEqual(['Shut early']);
+      const complete = section(page, 'Complete drafts').textContent;
+      expect(complete).toContain('Tournament complete');
+      expect(complete).toContain('Trophy: Bob');
     });
 
     it('names the trophy holder once complete', async () => {
