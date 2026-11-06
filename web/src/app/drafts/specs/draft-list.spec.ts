@@ -1,6 +1,10 @@
 import {
+  alicePlayer,
+  bob,
   useDraftsApp,
   draft,
+  type DraftFixture,
+  listItem,
   expectLoadingAnimation,
   http,
   openList,
@@ -119,6 +123,102 @@ describe('draft list', () => {
     const [mtgo, arena] = section(page, heading).querySelectorAll('a');
     expect(mtgo.querySelector('.platform')?.textContent?.trim()).toBe('MTGO');
     expect(arena.querySelector('.platform')?.textContent?.trim()).toBe('Arena');
+  });
+
+  describe('tournament badges', () => {
+    const complete: DraftFixture = {
+      id: 'a',
+      name: 'Last month',
+      state: 'Complete',
+      players: [alicePlayer, bob],
+    };
+
+    it('shows none for a draft without a tournament', async () => {
+      const page = await openList([draft(complete)]);
+
+      const item = listItem(page, 'Last month');
+      expect(item.textContent).not.toContain('Tournament');
+      expect(item.textContent).not.toContain('Trophy');
+    });
+
+    it('shows registration, with a Join link to the Tournament tab for a player who can join', async () => {
+      const page = await openList([
+        {
+          ...draft(complete),
+          tournamentBadge: { state: 'Registration', canJoin: true, trophyHolders: [] },
+        },
+      ]);
+
+      const item = listItem(page, 'Last month');
+      expect(item.textContent).toContain('Registration');
+      const join = [...item.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Join');
+      expect(join?.getAttribute('href')).toBe('/drafts/a?tab=tournament');
+      expect(join?.getAttribute('aria-label')).toBe('Join the tournament of Last month');
+    });
+
+    it('shows registration without Join to anyone who can’t join', async () => {
+      const page = await openList([
+        {
+          ...draft(complete),
+          tournamentBadge: { state: 'Registration', canJoin: false, trophyHolders: [] },
+        },
+      ]);
+
+      const item = listItem(page, 'Last month');
+      expect(item.textContent).toContain('Registration');
+      expect(item.textContent).not.toContain('Join');
+      expect(item.querySelectorAll('a').length).toBe(1);
+    });
+
+    it('shows a playing tournament', async () => {
+      const page = await openList([
+        {
+          ...draft(complete),
+          tournamentBadge: { state: 'Playing', canJoin: false, trophyHolders: [] },
+        },
+      ]);
+
+      expect(listItem(page, 'Last month').textContent).toContain('Playing');
+    });
+
+    it('names the trophy holder once complete', async () => {
+      const page = await openList([
+        {
+          ...draft(complete),
+          tournamentBadge: { state: 'Complete', canJoin: false, trophyHolders: [bob.id] },
+        },
+      ]);
+
+      expect(listItem(page, 'Last month').textContent).toContain('Trophy: Bob');
+    });
+
+    it('names every trophy holder who shares first', async () => {
+      const page = await openList([
+        {
+          ...draft(complete),
+          tournamentBadge: {
+            state: 'Complete',
+            canJoin: false,
+            trophyHolders: [alicePlayer.id, bob.id],
+          },
+        },
+      ]);
+
+      expect(listItem(page, 'Last month').textContent).toContain('Trophy: Alice and Bob');
+    });
+
+    it('says a complete tournament with no trophy holder is complete', async () => {
+      const page = await openList([
+        {
+          ...draft(complete),
+          tournamentBadge: { state: 'Complete', canJoin: false, trophyHolders: [] },
+        },
+      ]);
+
+      const item = listItem(page, 'Last month');
+      expect(item.textContent).toContain('Tournament complete');
+      expect(item.textContent).not.toContain('Trophy');
+    });
   });
 
   it('keeps the empty messages out of any link', async () => {

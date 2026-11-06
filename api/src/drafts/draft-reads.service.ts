@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import type { TournamentBadgeView } from 'contract';
 import type { PoolCard, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  toTournamentBadge,
+  tournamentBadgeRead,
+} from '../tournaments/tournament-badge.js';
 import { SEAT_ORDER } from './draft-shapes.js';
 
 export const WITH_ORGANIZER = {
@@ -36,6 +41,19 @@ export class DraftReadsService {
       orderBy: { createdAt: 'desc' },
       ...WITH_ORGANIZER,
     });
+  }
+
+  /**
+   * The tournament badge of every draft with a tournament, as the user
+   * `viewerId` sees it, by draft id.
+   */
+  async tournamentBadges(
+    viewerId: string,
+  ): Promise<Map<string, TournamentBadgeView>> {
+    const rows = await this.prisma.tournament.findMany({
+      select: tournamentBadgeRead(viewerId),
+    });
+    return new Map(rows.map((row) => [row.draftId, toTournamentBadge(row)]));
   }
 
   /** The draft's pool so far, by name. */

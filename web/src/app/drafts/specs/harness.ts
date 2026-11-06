@@ -4,6 +4,7 @@ import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type {
   DraftBase,
+  DraftListItemView,
   DraftPowersView,
   DraftState,
   DraftView,
@@ -202,12 +203,26 @@ export async function expectLoadingAnimation(
   });
 }
 
-/** Opens the draft list with GET /api/drafts answered by `drafts`. */
-export async function openList(drafts: DraftView[]) {
+/**
+ * Opens the draft list with GET /api/drafts answered by `drafts`, each
+ * without a tournament badge unless it gives one.
+ */
+export async function openList(drafts: (DraftView & Partial<DraftListItemView>)[]) {
   const { fixture, page } = await openUrl('/');
-  http.expectOne('/api/drafts').flush(drafts);
+  http
+    .expectOne('/api/drafts')
+    .flush(drafts.map((each): DraftListItemView => ({ tournamentBadge: null, ...each })));
   await fixture.whenStable();
   return page;
+}
+
+/** The draft list's item for the draft named `name`. */
+export function listItem(page: HTMLElement, name: string): HTMLElement {
+  const found = [...page.querySelectorAll('li')].find((li) =>
+    li.querySelector('.name')?.textContent?.includes(name),
+  );
+  if (!found) throw new Error(`No draft named ${name} in the list`);
+  return found;
 }
 
 export function section(page: HTMLElement, heading: string): HTMLElement {
