@@ -42,6 +42,7 @@ import {
   withDrops,
   withTournament,
   yourMatches,
+  completed,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -400,13 +401,13 @@ describe('Play tab while the tournament is played', () => {
       expect(progressLine(tab)).toBe('2 matches left in the tournament');
       expect(announcements(tab)).toEqual(['Tournament: Playing']);
 
-      await pushTournament(fixture, playing([], { state: 'Complete' }), 3);
+      await pushTournament(fixture, completed(playing()), 3);
       expect(announcements(tab)).toEqual(['Tournament: Complete']);
     });
 
     it.each([
       ['during registration', registration(alice.id, bob.id, carol.id)],
-      ['once the tournament is complete', playing([], { state: 'Complete' })],
+      ['once the tournament is complete', completed(playing())],
     ])('says nothing of matches left %s', async (_, tournament) => {
       const { tab } = await openPlaying(tournament);
 
@@ -480,7 +481,7 @@ describe('Play tab while the tournament is played', () => {
         fixture,
         '/api/drafts/draft-1/tournament/complete',
         'POST',
-        playing([], { state: 'Complete', trophyHolders: [carol.id] }),
+        completed(playing([], { trophyHolders: [carol.id] })),
         1,
         threePlayers,
       );
@@ -504,7 +505,7 @@ describe('Play tab while the tournament is played', () => {
 
     it('shows every player who shares first as a trophy holder', async () => {
       const { tab } = await openPlaying(
-        playing([], { state: 'Complete', trophyHolders: [alice.id, bob.id] }),
+        completed(playing([], { trophyHolders: [alice.id, bob.id] })),
         { user: dave },
       );
 
@@ -550,7 +551,7 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it('offers no Cancel tournament once the tournament is complete', async () => {
-      const { tab } = await openPlaying(playing([], { state: 'Complete' }), {
+      const { tab } = await openPlaying(completed(playing()), {
         powers: ORGANIZE_ONLY,
       });
 
@@ -568,7 +569,7 @@ describe('Play tab while the tournament is played', () => {
 describe('Play tab once the tournament is complete', () => {
   it('lets the opponent confirm once the tournament is complete', async () => {
     const completeWith = (m2: ReturnType<typeof unreportedMatch>) =>
-      playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
+      completed(playing([m2], { trophyHolders: [bob.id] }));
     const { fixture, tab } = await openPlaying(completeWith(bobBeatAlice));
 
     button(tab, 'Confirm your match against Bob')!.click();

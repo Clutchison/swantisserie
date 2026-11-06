@@ -37,6 +37,7 @@ describe('starting a tournament', () => {
     expect(view.rounds).toEqual([
       {
         round: 1,
+        correctable: true,
         matches: [
           {
             id: expect.any(String),

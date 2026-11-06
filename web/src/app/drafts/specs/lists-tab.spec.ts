@@ -28,6 +28,7 @@ import {
   registration,
   threePlayers,
   withTournament,
+  completed,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -127,7 +128,7 @@ describe('lists tab', () => {
 
   it('stays once the tournament is complete', async () => {
     const { fixture, page } = await openAsViewer(
-      publicPlaying({ state: 'Complete', trophyHolders: [alice.id] }),
+      completed(publicPlaying({ trophyHolders: [alice.id] })),
     );
 
     const tab = await openTab(fixture, page, 'Lists');
@@ -166,9 +167,7 @@ describe('lists tab', () => {
     );
 
     it('keeps the Board tab away once the tournament is complete', async () => {
-      const { page } = await openAsViewer(
-        publicPlaying({ state: 'Complete', trophyHolders: [alice.id] }),
-      );
+      const { page } = await openAsViewer(completed(publicPlaying({ trophyHolders: [alice.id] })));
 
       expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
     });

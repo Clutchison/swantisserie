@@ -15,7 +15,7 @@ useDraftsApp();
 /** The Swiss tournament with round 1 reopened: Carol v Bob (m1) can be corrected again. */
 const reopened = swissPlaying({
   lastCompletedRound: 0,
-  rounds: [swissPlaying().rounds[0]],
+  rounds: [{ ...swissPlaying().rounds[0], correctable: true }],
   reopenRound: null,
 });
 
@@ -103,7 +103,14 @@ describe('reopening a tournament round', () => {
     const { tab } = await openPlaying(
       swissPlaying({
         lastCompletedRound: 0,
-        rounds: [{ round: 1, matches: [unreportedMatch('m1', bob.id, carol.id)], byes: [] }],
+        rounds: [
+          {
+            round: 1,
+            correctable: true,
+            matches: [unreportedMatch('m1', bob.id, carol.id)],
+            byes: [],
+          },
+        ],
         reopenRound: null,
       }),
       { powers: ORGANIZE_ONLY },
