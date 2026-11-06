@@ -6,6 +6,7 @@ import {
   clearResult,
   completeTournament,
   confirmMatch,
+  dropPlayer,
   getDraft,
   matchOf,
   playingTournament,
@@ -110,6 +111,20 @@ describe('correcting and clearing a result', () => {
       (await tournamentView(id)).standings.map(({ rank }) => rank),
     ).toEqual([1, 1]);
     await reportWin(id, [carol.id, bob.id], [2, 1], carolCookie);
+  });
+
+  it('restores the forfeit by a dropped player when clearing their match, so it can’t be played', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    await dropPlayer(id, carol.id, carolCookie).expect(200);
+    await setWin(id, [alice.id, carol.id], [2, 1]);
+    const match = await matchOf(id, alice.id, carol.id);
+
+    await clearResult(id, match.id).expect(200);
+
+    const cleared = await matchOf(id, alice.id, carol.id);
+    expect(cleared.outcome).toEqual({ kind: 'Forfeit', forfeitedBy: carol.id });
+    expect(cleared.reportedBy).toBeNull();
+    await reportWin(id, [alice.id, carol.id], [2, 0], aliceCookie, 409);
   });
 
   it('removes the confirmation of a confirmed match it corrects or clears', async () => {

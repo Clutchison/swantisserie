@@ -58,6 +58,24 @@ describe('confirming a match', () => {
     expect(button(panel(page), 'Confirm your match against Bob')).toBeUndefined();
   });
 
+  it('lets the opponent confirm once the tournament is complete', async () => {
+    const complete = (m2: ReturnType<typeof openMatch>) =>
+      playing([m2], { state: 'Complete', trophyHolders: [bob.id] });
+    const { fixture, page, tab } = await openPlaying(complete(bobBeatAlice));
+
+    button(tab, 'Confirm your match against Bob')!.click();
+    await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/matches/m2/confirm',
+      'POST',
+      complete({ ...bobBeatAlice, confirmed: true }),
+      1,
+      threePlayers,
+    );
+
+    expect(firstItem(panel(page), 'Tournament round 2')).toBe('Alice 1–2 Bob · Confirmed');
+  });
+
   it('shows a confirmed match as confirmed to everyone', async () => {
     const m1 = { ...reported(openMatch('m1', bob.id, carol.id), [2, 1]), confirmed: true };
     const { tab } = await openPlaying(playing([m1]), { user: dave });

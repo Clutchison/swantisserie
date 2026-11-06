@@ -129,11 +129,14 @@ export class TournamentResults {
     this.correcting.update((open) => (open === matchId ? undefined : matchId));
   }
 
-  /** Whether the signed-in player can confirm `match`: theirs, its game score reported by someone else. */
+  /**
+   * Whether the signed-in player can confirm `match`: theirs, its game score
+   * reported by someone else, while the tournament is playing or once it is
+   * complete.
+   */
   private confirmable(match: MatchView) {
     const own = this.ownId();
     return (
-      this.tournament().state === 'Playing' &&
       match.outcome.kind === 'GameScore' &&
       !match.confirmed &&
       !!own &&
