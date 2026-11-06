@@ -219,6 +219,42 @@ describe('the leaderboard', () => {
     expect(board.map((player) => player.playerId)).not.toContain(third);
   });
 
+  it('leaves out a single elimination tournament a correction reopened, until it completes again', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie],
+      singleElimination,
+    );
+    const [top, second, third] = seedsOf(await tournamentView(id));
+    await setWin(id, [second, third], [2, 0]);
+    await completeRound(id).expect(200);
+    await setWin(id, [top, second], [2, 0]);
+    await completeRound(id).expect(200);
+    expect((await leaderboard()).map((player) => player.playerId)).toEqual([
+      top,
+      second,
+      third,
+    ]);
+
+    // Third now beat second in round 1, which clears the final and reopens it.
+    await setWin(id, [third, second], [2, 0]);
+    expect((await tournamentView(id)).state).toBe('Playing');
+
+    expect(await leaderboard()).toEqual([]);
+    await setWin(id, [top, third], [2, 1]);
+    await completeRound(id).expect(200);
+    expect(
+      (await leaderboard()).map(({ playerId, trophies, matches }) => ({
+        playerId,
+        trophies,
+        matches,
+      })),
+    ).toEqual([
+      { playerId: top, trophies: 1, matches: tally(1, 0) },
+      { playerId: third, trophies: 0, matches: tally(1, 1) },
+      { playerId: second, trophies: 0, matches: tally(0, 1) },
+    ]);
+  });
+
   it('leaves out tournaments still in registration or playing, and cancelled ones', async () => {
     const complete = await playingTournament([aliceCookie, bobCookie]);
     await reportWin(complete, [bob.id, alice.id], [2, 0], bobCookie);
