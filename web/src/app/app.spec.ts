@@ -68,8 +68,7 @@ describe('App', () => {
     );
 
     expect(router.url).toBe('/sign-in');
-    const signIn = page.querySelector<HTMLAnchorElement>('a[href="/api/auth/discord"]');
-    expect(signIn?.textContent).toContain('Sign in with Discord');
+    expect(signInLink(page)?.getAttribute('href')).toBe('/api/auth/discord');
   });
 
   it('tells users turned away at sign-in why', async () => {
@@ -432,12 +431,27 @@ describe('App', () => {
     });
   });
 
-  it('sends signed-out users on any page to the sign-in page', async () => {
-    await openSettled('/drafts/42', (req) =>
+  it('sends signed-out users on any page to the sign-in page, to return there once signed in', async () => {
+    const page = await openSettled('/drafts/42', (req) =>
       req.flush(null, { status: 401, statusText: 'Unauthorized' }),
     );
 
-    expect(router.url).toBe('/sign-in');
+    expect(router.url).toBe('/sign-in?returnTo=%2Fdrafts%2F42');
+    expect(signInLink(page)?.getAttribute('href')).toBe(
+      '/api/auth/discord?returnTo=%2Fdrafts%2F42',
+    );
+  });
+
+  it('keeps the page to return to when a sign-in fails, so a retry still returns there', async () => {
+    const fixture = TestBed.createComponent(App);
+    await router.navigateByUrl('/sign-in?error=failed&returnTo=%2Fdrafts%2F42');
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain("Sign-in didn't work.");
+    expect(signInLink(page)?.getAttribute('href')).toBe(
+      '/api/auth/discord?returnTo=%2Fdrafts%2F42',
+    );
   });
 
   describe('status page', () => {
@@ -497,6 +511,21 @@ describe('App', () => {
       expect(page.textContent).toContain('API ok');
       expect(logOutButton(page)).toBeDefined();
     });
+
+    it('logs out to a plain sign-in page, not one that returns here', async () => {
+      const page = await openStatus(
+        (req) => req.flush(alice),
+        (req) => req.flush({ api: 'ok', db: 'ok' }),
+      );
+
+      clickLogOut(page);
+      (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).flush(null, {
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+
+      await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    });
   });
 });
 
@@ -542,4 +571,11 @@ function logOutButton(page: HTMLElement) {
 
 function clickLogOut(page: HTMLElement) {
   logOutButton(page)!.click();
+}
+
+/** The link that starts signing in with Discord. */
+function signInLink(page: HTMLElement) {
+  return [...page.querySelectorAll('a')].find(
+    (link) => link.textContent?.trim() === 'Sign in with Discord',
+  );
 }

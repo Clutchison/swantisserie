@@ -1,10 +1,19 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import type { UserView } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
 export const SIGN_IN_PATH = 'sign-in';
+
+/**
+ * The sign-in page, set to return the viewer to `returnTo` once they sign in.
+ * The draft list, where signing in lands anyway, isn't named.
+ */
+function signInPage(router: Router, returnTo: string): UrlTree {
+  const queryParams = returnTo === '/' ? {} : { returnTo };
+  return router.createUrlTree([SIGN_IN_PATH], { queryParams });
+}
 
 /** Where the API says who is signed in. */
 export const CURRENT_USER_URL = '/api/auth/me';
@@ -19,6 +28,8 @@ export class Auth {
   readonly user = signal<UserView | null | undefined>(undefined);
   /** Set once this tab starts signing out; signing back in reloads the app. */
   private signingOut?: Promise<void>;
+  /** Set when the viewer chose to log out, so signing back in starts afresh. */
+  private loggedOutOnPurpose = false;
 
   async currentUser(): Promise<UserView | null> {
     const known = this.user();
@@ -33,6 +44,7 @@ export class Auth {
   }
 
   async logout(): Promise<void> {
+    this.loggedOutOnPurpose = true;
     try {
       await firstValueFrom(this.http.post('/api/auth/logout', null));
     } catch {
@@ -44,7 +56,8 @@ export class Auth {
 
   /**
    * Signs the viewer out of this tab once the API has ended their session,
-   * sending them to the sign-in page. The session is already gone, so the
+   * sending them to the sign-in page, which returns them to the page they
+   * were on unless they logged out. The session is already gone, so the
    * API isn't told. Only the first call does anything, so a logout refused
    * as unauthorized, or several refusals at once, leave just once.
    */
@@ -54,17 +67,18 @@ export class Auth {
   }
 
   private async leave(): Promise<void> {
+    const returnTo = this.loggedOutOnPurpose ? '/' : this.router.url;
     this.user.set(null);
-    await this.router.navigate([SIGN_IN_PATH]);
+    await this.router.navigateByUrl(signInPage(this.router, returnTo));
   }
 }
 
-/** Sends signed-out users to the sign-in page. */
-export const signedIn: CanActivateFn = async () => {
+/** Sends signed-out users to the sign-in page, to return here once signed in. */
+export const signedIn: CanActivateFn = async (_route, state) => {
   // Both injected up front: the injection context ends at the first await.
   const auth = inject(Auth);
   const router = inject(Router);
-  return (await auth.currentUser()) ? true : router.createUrlTree([SIGN_IN_PATH]);
+  return (await auth.currentUser()) ? true : signInPage(router, state.url);
 };
 
 /**

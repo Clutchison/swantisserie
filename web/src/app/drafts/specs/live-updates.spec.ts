@@ -410,7 +410,12 @@ describe('live updates', () => {
       TestBed.tick();
 
       expect(notice(page)).toBeUndefined();
-      await expectSignedOut(fixture, { router, http, user: alice });
+      await expectSignedOut(fixture, {
+        router,
+        http,
+        user: alice,
+        returnTo: '/drafts/draft-1',
+      });
     });
   });
 
@@ -419,6 +424,11 @@ describe('live updates', () => {
 
     updates.events.next({ type: 'unauthorized' });
 
-    await expectSignedOut(fixture, { router, http, user: alice });
+    await expectSignedOut(fixture, {
+      router,
+      http,
+      user: alice,
+      returnTo: '/drafts/draft-1',
+    });
   });
 });

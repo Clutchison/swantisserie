@@ -7,6 +7,7 @@ import {
   completeSnapshot,
   draft,
   expectLoadingAnimation,
+  expectSignedOut,
   heading,
   flushPool,
   http,
@@ -276,6 +277,14 @@ describe('draft page', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('.error')?.textContent).toContain("Couldn't load this draft");
+  });
+
+  it('signs the viewer out, to return to this draft, when its request finds the session ended', async () => {
+    const { fixture } = await openUrl('/drafts/draft-1');
+
+    http.expectOne('/api/drafts/draft-1').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    await expectSignedOut(fixture, { router, http, user: alice, returnTo: '/drafts/draft-1' });
   });
 
   describe('when a re-read fails after the draft has loaded', () => {

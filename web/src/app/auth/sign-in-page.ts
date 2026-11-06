@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { SignInError } from 'contract';
 
 @Component({
@@ -17,7 +17,7 @@ import type { SignInError } from 'contract';
         <p class="error">Sign-in didn't work. Please try again.</p>
       }
       <!-- A full page load, not a router link: the API redirects to Discord. -->
-      <a class="sign-in" href="/api/auth/discord">Sign in with Discord</a>
+      <a class="sign-in" [href]="signInUrl()">Sign in with Discord</a>
     </main>
   `,
   styleUrl: './sign-in-page.scss',
@@ -25,4 +25,13 @@ import type { SignInError } from 'contract';
 export class SignInPage {
   /** Set by the API's callback when sign-in fails. */
   readonly error = input<SignInError>();
+  /** The page to return to once signed in; the API checks it is in the app. */
+  readonly returnTo = input<string>();
+
+  protected readonly signInUrl = computed(() => {
+    const returnTo = this.returnTo();
+    return returnTo
+      ? `/api/auth/discord?${new URLSearchParams({ returnTo })}`
+      : '/api/auth/discord';
+  });
 }
