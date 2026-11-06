@@ -141,9 +141,13 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   }));
   const dropped = droppedPlayers(entries);
   const counted = rounds.filter((round) => countsInStandings(row, round.round));
-  const matches = counted
-    .flatMap((round) => round.matches)
-    .map(toTournamentMatch);
+  const nextRoundPlayers = (round: number) => pairedIn(rounds, round + 1);
+  const matches = counted.flatMap((round) =>
+    round.matches.map((match) => ({
+      ...toTournamentMatch(match),
+      nextRoundPlayers: nextRoundPlayers(round.round),
+    })),
+  );
   const table =
     row.state === 'Registration'
       ? []
@@ -162,7 +166,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const count = roundCount(row, players.length);
   const bracket =
     row.format === 'SingleElimination' && row.state !== 'Registration'
-      ? toBracket(row, count, sorted, user, dropped)
+      ? toBracket(row, count, sorted, user, dropped, nextRoundPlayers)
       : null;
   const complete = row.state === 'Complete';
   return {
@@ -185,6 +189,20 @@ export function toTournamentView(row: TournamentRow): TournamentView {
         ? bracketTrophyHolders(bracket)
         : trophyHolders(table),
   };
+}
+
+/**
+ * The players paired in tournament round `round` of `rounds`, in a match or
+ * a bye; none before it is paired.
+ */
+function pairedIn(
+  rounds: readonly TournamentRoundView[],
+  round: number,
+): string[] {
+  const paired = rounds.find((r) => r.round === round);
+  return paired
+    ? [...paired.matches.flatMap((match) => match.players), ...paired.byes]
+    : [];
 }
 
 /**
@@ -217,7 +235,8 @@ export function showsDecklists(
  * The bracket of the single elimination tournament `row`, of `roundCount`
  * tournament rounds, drawn by the engine from its paired `matches`, each
  * sending on the player who advances from it as the engine's
- * agreedAdvancingPlayer decides, `dropped` holding the dropped players,
+ * agreedAdvancingPlayer decides, `dropped` holding the dropped players and
+ * `nextRoundPlayers` those paired in the tournament round after a round,
  * and each bracket place carrying the id of its match, a bye's none.
  */
 function toBracket(
@@ -226,6 +245,7 @@ function toBracket(
   matches: readonly MatchRow[],
   user: (entryId: string) => string,
   dropped: readonly string[],
+  nextRoundPlayers: (round: number) => string[],
 ): BracketRoundView[] {
   const played = matches.map((match): PlayedBracketMatch => {
     const place: RoundAndBracketPlace = {
@@ -253,6 +273,7 @@ function toBracket(
         outcome: outcome.kind === 'Unreported' ? null : outcome,
         reportedBy,
         confirmed,
+        nextRoundPlayers: nextRoundPlayers(match.round),
       },
       dropped,
       roundCompleted,
