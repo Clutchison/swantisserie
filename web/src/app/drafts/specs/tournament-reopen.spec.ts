@@ -25,7 +25,7 @@ describe('reopening a tournament round', () => {
 
     button(tab, 'Reopen round 1')!.click();
     const dialog = await question('Reopen tournament round 1?');
-    expect(dialog.textContent).toContain('Tournament round 2’s pairings are removed');
+    expect(dialog.textContent).toContain('will remove tournament round 2’s pairings');
     await answer(dialog, 'Reopen round 1');
     const req = await answerChange(
       fixture,
@@ -56,7 +56,7 @@ describe('reopening a tournament round', () => {
     button(tab, 'Reopen round 1')!.click();
     const dialog = await question('Reopen tournament round 1?');
 
-    expect(dialog.textContent).toContain('Bob is back in the tournament');
+    expect(dialog.textContent).toContain('Bob will be back in the tournament');
     await answer(dialog, 'Cancel');
   });
 

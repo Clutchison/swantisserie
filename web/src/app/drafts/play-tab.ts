@@ -507,9 +507,9 @@ const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
 
 /**
  * What reopening a tournament round does, as its question says it:
- * its results can be changed again and leave the standings, the next
- * round's pairings are removed, and the drops it takes back, named by
- * `name`, are undone.
+ * its results will be open to correction again and will leave the
+ * standings, the next round's pairings will be removed, and the drops it
+ * takes back, named by `name`, will be undone.
  */
 function reopenRoundDetail(
   { round, takesBackDrops }: ReopenRoundView,
@@ -519,6 +519,6 @@ function reopenRoundDetail(
   const back =
     names.length === 0
       ? ''
-      : ` ${NAMES.format(names)} ${names.length === 1 ? 'is' : 'are'} back in the tournament, ${names.length === 1 ? 'their drop' : 'their drops'} taken back.`;
-  return `Its results can be corrected or cleared again, and leave the standings until it is completed again. Tournament round ${round + 1}’s pairings are removed, to be paired again then.${back}`;
+      : ` ${NAMES.format(names)} will be back in the tournament, with ${names.length === 1 ? 'their drop' : 'their drops'} taken back.`;
+  return `Its results will be open to correction again, and will leave the standings until it is completed again. Reopening it will remove tournament round ${round + 1}’s pairings, to be paired again then.${back}`;
 }

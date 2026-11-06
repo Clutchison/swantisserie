@@ -147,8 +147,10 @@ describe('Swiss tournaments on the Play tab', () => {
     const dialog = openDialog()!;
 
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(text(dialog)).toContain('Tournament round 2 is paired, and its matches open.');
-    expect(text(dialog)).toContain('Its unreported matches become granted draws.');
+    expect(text(dialog)).toContain(
+      'Completing the round will pair tournament round 2 and open its matches.',
+    );
+    expect(text(dialog)).toContain('Its unreported matches will become granted draws.');
     const choices = group(dialog, 'Drop from Carol vs Bob')!;
     expect(controlByLabel(choices, 'checkbox', 'Drop Carol')!.checked).toBe(false);
     controlByLabel(choices, 'checkbox', 'Drop Bob')!.click();
@@ -171,7 +173,7 @@ describe('Swiss tournaments on the Play tab', () => {
     const dialog = openDialog()!;
 
     expect(text(dialog)).toContain(
-      'It is the final tournament round, so the tournament completes and the trophy is awarded.',
+      'It is the final tournament round, so completing it will complete the tournament and award the trophy.',
     );
     expect(text(dialog)).toContain('Alice vs Carol');
     expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull();
@@ -205,14 +207,17 @@ describe('Swiss tournaments on the Play tab', () => {
       }),
     );
     const dialog = openDialog()!;
-    const completes = 'Fewer than 2 undropped players remain, so the tournament completes';
-    expect(text(dialog)).toContain('Tournament round 2 is paired, and its matches open.');
+    const completes =
+      'Fewer than 2 undropped players will remain, so completing the round will complete the tournament';
+    expect(text(dialog)).toContain(
+      'Completing the round will pair tournament round 2 and open its matches.',
+    );
     expect(text(dialog)).not.toContain(completes);
 
     controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Carol')!.click();
     await vi.waitFor(() => expect(text(dialog)).toContain(completes));
 
-    expect(text(dialog)).not.toContain('Tournament round 2 is paired');
+    expect(text(dialog)).not.toContain('will pair tournament round 2');
   });
 
   it('completes a fully reported tournament round with no granted draws, in place of completing the tournament', async () => {

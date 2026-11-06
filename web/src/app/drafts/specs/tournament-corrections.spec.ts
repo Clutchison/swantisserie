@@ -136,7 +136,7 @@ describe('organizer reports, corrections and clears', () => {
     await fixture.whenStable();
     button(group(tab, 'Game score of Bob vs Carol')!, 'Clear game score')!.click();
     const dialog = await question('Clear the game score of Bob vs Carol?');
-    expect(dialog.textContent).toContain('The match is unreported again.');
+    expect(dialog.textContent).toContain('The match will be unreported again.');
     await answer(dialog, 'Clear');
     await answerChange(
       fixture,
@@ -184,7 +184,7 @@ describe('organizer reports, corrections and clears', () => {
     button(group(tab, 'Game score of Carol vs Alice')!, 'Clear game score')!.click();
 
     const dialog = await question('Clear the game score of Carol vs Alice?');
-    expect(dialog.textContent).toContain('It becomes a forfeit by Carol, who has dropped.');
+    expect(dialog.textContent).toContain('It will become a forfeit by Carol, who has dropped.');
     await answer(dialog, 'Cancel');
   });
 

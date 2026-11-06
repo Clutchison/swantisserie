@@ -480,11 +480,15 @@ export const cardName = (root: HTMLElement, name: string) =>
 export const queueList = (root: HTMLElement) =>
   root.querySelector<HTMLElement>('[aria-label="Your queue"]')!;
 
-/** The Queue tab's picks left count, found by its text. */
+/** The picks left count inside `root`, such as beside a panel's heading, found by its text. */
 export const picksLeftCount = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('*')].find((element) =>
-    /^\d+ picks? left$/.test(element.textContent.trim()),
+    /^(– )?\d+ picks? left$/.test(element.textContent.trim()),
   );
+
+/** Every picks left count that `root`'s text reads, such as "12 picks left". */
+export const picksLeftTexts = (root: HTMLElement) =>
+  root.textContent.match(/\d+ picks? left/g) ?? [];
 
 /** The form controls with each role, by the selector that finds them. */
 const CONTROLS = {

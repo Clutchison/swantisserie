@@ -9,6 +9,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { LucideChevronLeft } from '@lucide/angular';
@@ -46,6 +47,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
     LoadingAnimation,
     LobbyControls,
     LucideChevronLeft,
+    NgTemplateOutlet,
     OrganizerControls,
     PlanTab,
     PlayTab,
@@ -106,6 +108,11 @@ export class DraftPage {
   protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
   /** Whether the Queue tab is there: until the draft is complete. */
   protected readonly showQueueTab = computed(() => !!this.store.showQueueTab());
+
+  /** The viewer's picks left, shown beside the Pool, Queue and Plan headings while not null. */
+  protected readonly picksLeft = this.store.picksLeft;
+  /** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
+  protected readonly highlightPicksLeftAt = 10;
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:
