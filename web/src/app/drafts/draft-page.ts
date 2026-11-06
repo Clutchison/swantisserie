@@ -96,12 +96,23 @@ export class DraftPage {
   protected readonly showTournament = computed(() => !!this.store.showTournament());
   /** Whether the Decklists tab is there: under public decklists, once the tournament has started. */
   protected readonly showDecklists = computed(() => !!this.store.showDecklists());
+  /**
+   * Whether the Queue tab is there: until the draft is complete, as its queue
+   * can't change after. A closed draft keeps it, as it can reopen. Undefined
+   * while the draft is loading.
+   */
+  private readonly queueShown = computed(() => {
+    const draft = this.draft();
+    return draft ? draft.state !== 'Complete' : undefined;
+  });
+  protected readonly showQueue = computed(() => !!this.queueShown());
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:
    * undefined while what decides it is still loading.
    */
   private readonly shownBy: Partial<Record<Panel, Signal<boolean | undefined>>> = {
+    Queue: this.queueShown,
     Tournament: this.store.showTournament,
     Decklists: this.store.showDecklists,
   };
@@ -112,8 +123,9 @@ export class DraftPage {
    * being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
-   * tabs, so its page settles on Pool. The Tournament and Decklists tabs can
-   * be opened while they are there, so each goes back to Pool as it goes.
+   * tabs, so its page settles on Pool. The Queue, Tournament and Decklists
+   * tabs can be opened while they are there, so each goes back to Pool as it
+   * goes.
    */
   protected readonly selectedTab = tabInUrl<Panel>({
     tabs: PANELS,
@@ -124,7 +136,7 @@ export class DraftPage {
       if (shownBy) {
         const shown = shownBy();
         if (shown === undefined) return 'unknown';
-        return shown ? 'yes' : 'no';
+        if (!shown) return 'no';
       }
       if (!PLAYERS_ONLY.has(tab)) return 'yes';
       if (!this.store.draft.loaded()) return 'unknown';

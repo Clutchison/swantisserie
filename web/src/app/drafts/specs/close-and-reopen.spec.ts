@@ -175,26 +175,6 @@ describe('close and reopen', () => {
     expect(queue.textContent).not.toContain('Drag to reorder');
   });
 
-  it('makes the queue read-only once complete, without promising a reopen', async () => {
-    const { page } = await openDraft(
-      completeSnapshot,
-      { ...underway, state: 'Complete', turn: null },
-      {
-        queue: queueOf({
-          cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
-          lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
-        }),
-      },
-    );
-
-    const queue = page.querySelector('#queue-panel')!;
-    expect(queue.textContent).toContain('Shivan Dragon');
-    expect(queue.textContent).toContain('Lightning Bolt');
-    expect(queue.querySelector('button:not(.pill)')).toBeNull();
-    expect(queue.textContent).not.toContain('Drag to reorder');
-    expect(queue.textContent).not.toContain('reopens');
-  });
-
   it.each([
     { state: 'Lobby', turn: null },
     { state: 'Drafting', turn: underway.turn },

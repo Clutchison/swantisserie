@@ -82,10 +82,8 @@ export class QueueTab {
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
 
-  /** The viewer's picks left, shown until the draft is complete, as is the queue cutoff. */
-  protected readonly picksLeft = computed(() =>
-    this.draftState() === 'Complete' ? null : this.store.picksLeft(),
-  );
+  /** The viewer's picks left, shown with the queue cutoff. A complete draft has no Queue tab. */
+  protected readonly picksLeft = this.store.picksLeft;
 
   /** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
   protected readonly highlightPicksLeftAt = 10;

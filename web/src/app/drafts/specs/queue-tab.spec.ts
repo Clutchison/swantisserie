@@ -245,23 +245,21 @@ describe('queue tab', () => {
     expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
   });
 
-  it.each([
-    ['Complete', 'draft-complete'],
-    ['Closed', 'draft-closed'],
-  ] as const)(
-    'is read-only once the draft is %s, as the api refuses every queue change with `%s`',
-    async (state, _refusal) => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ state, turn: null }), {
+  it('is read-only once the draft is closed, as the api refuses every queue change with `draft-closed`', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Closed', turn: null }),
+      {
         cards: [brightclimb, shivan],
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
-      });
-      const queue = await openQueue(fixture, page);
+      },
+    );
+    const queue = await openQueue(fixture, page);
 
-      expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
-      expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
-      expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
-    },
-  );
+    expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
+    expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
+    expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
+  });
 
   it.each([
     ['in the lobby', drafting({ state: 'Lobby', turn: null })],
@@ -557,18 +555,6 @@ describe('queue tab', () => {
         expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
       },
     );
-
-    it('shows neither the picks left nor the cutoff once the draft is complete', async () => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        drafting({ state: 'Complete', picksPerPlayer: 1, turn: null }),
-        boltThenShivan,
-      );
-
-      const queue = await openQueue(fixture, page);
-      expect(queue.textContent).not.toMatch(/picks? left/);
-      expect(rows(queue)).toEqual(['Lightning Bolt', 'Shivan Dragon']);
-    });
 
     it('shows the viewer’s picks left, less the picks they have made, even with the queue empty', async () => {
       const { fixture, page } = await openDraft(
