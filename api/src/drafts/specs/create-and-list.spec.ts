@@ -40,6 +40,7 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
     players: [],
     turn: null,
     webhook: null,
+    tournament: null,
     version: 0,
   };
   expect(created.body).toEqual(draft);

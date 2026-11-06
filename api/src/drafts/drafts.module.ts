@@ -43,5 +43,7 @@ import { TurnsService } from './turns.service.js';
     },
     BotPlayers,
   ],
+  // For the tournaments module, which sits beside drafts.
+  exports: [DraftAccess, DraftLock, DraftPublisher],
 })
 export class DraftsModule {}

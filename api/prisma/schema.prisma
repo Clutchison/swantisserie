@@ -81,6 +81,8 @@ model Draft {
   pool           PoolCard[]
   players        Player[]
   picks          Pick[]
+  /// At most one, and only once the draft is complete.
+  tournament     Tournament?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -174,6 +176,8 @@ model Player {
   plan               PlannedCard[]
   basics             PlannedBasic[]
   lostPlanned        LostPlannedCard[]
+  /// The player's entry in the draft's tournament, if they have joined it.
+  tournamentEntry    TournamentEntry?
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
   stealBehavior      StealBehavior        @default(ClearQueue)
   /// The key of the player's latest departure from their queue, 0 before the first. Only ever goes up, so departures order by it, never by time.
@@ -342,4 +346,46 @@ model Feedback {
 
   @@index([senderId])
   @@index([reviewedById])
+}
+
+/// How a tournament pairs its players. Swiss and single elimination arrive with their specs.
+enum TournamentFormat {
+  RoundRobin
+}
+
+/// Registration → Playing → Complete.
+enum TournamentState {
+  Registration
+  Playing
+  Complete
+}
+
+/// The matches a complete draft's players play after the draft. At most one per draft; cancelling it deletes it.
+model Tournament {
+  id        String            @id @default(uuid())
+  /// Unique: a draft has at most one tournament.
+  draftId   String            @unique
+  draft     Draft             @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  /// Chosen at tournament setup; it never changes.
+  format    TournamentFormat
+  state     TournamentState   @default(Registration)
+  entries   TournamentEntry[]
+  createdAt DateTime          @default(now())
+  /// When the organizer started it; null during registration.
+  startedAt DateTime?
+}
+
+/// A draft's player who has joined its tournament. While the tournament is in Registration or Playing, it locks the player's deck.
+model TournamentEntry {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  /// Unique: a player joins their draft's one tournament at most once.
+  playerId     String     @unique
+  player       Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  joinedAt     DateTime   @default(now())
+  /// Whether the player has dropped from the tournament; their played matches stand.
+  dropped      Boolean    @default(false)
+
+  @@index([tournamentId])
 }

@@ -8,6 +8,7 @@ import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
 import { FeedbackModule } from './feedback/feedback.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { TournamentsModule } from './tournaments/tournaments.module.js';
 
 export interface AppOptions {
   /** Directory holding the built Angular app. */
@@ -24,6 +25,7 @@ export class AppModule {
         AuthModule,
         AppVersionModule,
         DraftsModule,
+        TournamentsModule,
         FeedbackModule,
         WebhooksModule,
         ServeStaticModule.forRoot({

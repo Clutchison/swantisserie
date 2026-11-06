@@ -14,6 +14,7 @@ export const WITH_ORGANIZER = {
         user: { select: { id: true, name: true, avatar: true, isBot: true } },
       },
     },
+    tournament: { select: { state: true } },
     _count: { select: { pool: true, picks: true } },
   },
 } satisfies Prisma.DraftDefaultArgs;
