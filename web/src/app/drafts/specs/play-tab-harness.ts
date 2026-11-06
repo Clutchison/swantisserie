@@ -15,15 +15,18 @@ import type {
 } from 'contract';
 import { EMPTY_PLAN } from '../drafts';
 import {
+  ORGANIZE_ONLY,
   accessibleDescription,
   accessibleName,
   alice,
   alicePlayer,
   bob,
+  button,
   completeSnapshot,
   draft,
   drafting,
   flushPicks,
+  findNamedList,
   flushQueueAndPlan,
   http,
   namedList,
@@ -37,7 +40,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { table, tableColumns, tableRows } from '../../specs-harness';
+import { openDialog, table, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -411,6 +414,21 @@ export async function openPlaying(
   return { ...opened, tab };
 }
 
+/**
+ * Opens the Play tab of the draft of Alice, Bob and Carol, with `tournament`,
+ * for an organizer unless `options` say otherwise, and presses Complete round:
+ * returns what `openPlaying` does, with the Complete round dialog.
+ */
+export async function openCompleteRound(
+  tournament: ViewerTournamentView,
+  options: Parameters<typeof openComplete>[1] = {},
+) {
+  const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY, ...options });
+  button(opened.tab, 'Complete round')!.click();
+  await opened.fixture.whenStable();
+  return { ...opened, dialog: openDialog()! };
+}
+
 /** The standings table inside `root`. */
 const standingsTable = (root: HTMLElement) => table(root, 'Standings')!;
 
@@ -452,13 +470,20 @@ export const gridCell = (root: HTMLElement, row: string, column: string) =>
 export const gridCellName = (root: HTMLElement, row: string, column: string) =>
   accessibleName(gridCell(root, row, column)!);
 
-/** Each line of the signed-in player's Your matches inside `root`, leaving out its buttons. */
-export const yourMatches = (root: HTMLElement) =>
-  [...region(root, 'Your matches')!.querySelectorAll('ul > li')].map((li) => {
+/**
+ * Each item's text in `list`, in order, as a viewer reads it: its buttons
+ * and groups of buttons left out, however its text is wrapped.
+ */
+export const itemTexts = (list: Element) =>
+  [...list.querySelectorAll(':scope > li')].map((li) => {
     const shown = li.cloneNode(true) as HTMLElement;
-    shown.querySelectorAll('button, [role="group"]').forEach((b) => b.remove());
+    shown.querySelectorAll('button, [role="group"]').forEach((control) => control.remove());
     return text(shown);
   });
+
+/** Each line of the signed-in player's Your matches inside `root`, leaving out its buttons. */
+export const yourMatches = (root: HTMLElement) =>
+  itemTexts(region(root, 'Your matches')!.querySelector('ul')!);
 
 /** The lists of matches or bracket places inside `root`, one per tournament round named by its label, in round order. */
 const roundLists = (root: HTMLElement) =>
@@ -481,17 +506,14 @@ export const bracketMatches = (root: HTMLElement, round: number) =>
 export const ownPath = (root: HTMLElement) =>
   [...bracket(root)!.querySelectorAll('li[aria-current="true"]')].map((li) => accessibleName(li));
 
+/** The names listed as joined inside `root`, in order, leaving out their buttons. */
+export const joinedNames = (root: HTMLElement) => itemTexts(namedList(root, 'Joined players'));
+
 /** Each player in the Players list inside `root` as it reads, leaving out its buttons. */
-export const playerLines = (root: HTMLElement) =>
-  [...namedList(root, 'Players').querySelectorAll('li')].map((li) => {
-    const shown = li.cloneNode(true) as HTMLElement;
-    shown.querySelectorAll('button').forEach((b) => b.remove());
-    return text(shown);
-  });
+export const playerLines = (root: HTMLElement) => itemTexts(namedList(root, 'Players'));
 
 /** The tournament's state list inside `root`, by its name; null if there is none. */
-const stateList = (root: HTMLElement) =>
-  root.querySelector<HTMLElement>('[aria-label="Tournament state"]');
+const stateList = (root: HTMLElement) => findNamedList(root, 'Tournament state');
 
 /**
  * Each step of the tournament's state list inside `root` as it reads, its

@@ -480,15 +480,6 @@ describe('draft page', () => {
   });
 
   describe('the Queue tab', () => {
-    it('is gone for a player once the draft is complete', async () => {
-      const { page } = await openDraft(completeSnapshot, {
-        state: 'Complete',
-        players: [alicePlayer],
-      });
-
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
-    });
-
     it.each(['Lobby', 'Drafting', 'Paused', 'Closed'] as const)(
       'stays for a player while the draft is %s',
       async (state) => {

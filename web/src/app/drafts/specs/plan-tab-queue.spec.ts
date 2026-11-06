@@ -17,6 +17,7 @@ import {
   button,
   type AppFixture,
   drafting,
+  text,
 } from './harness';
 import {
   clickBackdrop,
@@ -49,7 +50,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
     [...openDialog()!.querySelectorAll('label')]
       .find((label) => label.textContent?.trim() === 'Include sideboard')!
       .querySelector('input')!;
-  const text = (element: HTMLElement | null) => element?.textContent?.replace(/\s+/g, ' ').trim();
 
   /** Opens the Queue unpicked dialog on the Plan tab. */
   async function openQueueUnpicked(fixture: AppFixture, page: HTMLElement) {
