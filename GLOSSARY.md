@@ -354,8 +354,12 @@ How a tournament pairs its players: round robin, Swiss or single elimination. Th
 _Avoid_: Type, mode, structure
 
 **Round robin**:
-The format in which every player plays every other player once.
+The format in which every player plays every other player once. It has no tournament rounds: every match is made when the tournament starts, and players play them in any order.
 _Avoid_: League, all-play-all
+
+**Results grid**:
+The round robin view of a tournament: one row per player in standings order, with a cell for each opponent showing the row player's result against them, and the player's match points, record and game-win % beside. Both of a match's cells show the same match, each from its own row's side.
+_Avoid_: Crosstable, matrix, table, Standings (alone; the grid includes them)
 
 **Swiss**:
 The format in which no one is knocked out: each tournament round pairs players with similar records who haven't played each other.
@@ -506,11 +510,11 @@ A match that ends without a winner, such as at 1–1. Never allowed in single el
 _Avoid_: Tie (that is two players level in standings)
 
 **Tournament round**:
-One set of matches in a tournament, in which each player plays at most one.
+One set of matches in a Swiss or single elimination tournament, in which each player plays at most one. Round robin has none.
 _Avoid_: Round (alone; that is a pick round), stage, week
 
 **Bye**:
-A tournament round in which a player has no match. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one. In single elimination the top seeds have byes in round 1, as many as the bracket has places left over, and go straight to round 2; a player also has a bye when nobody advances from the match whose winner they would have met.
+A tournament round in which a player has no match, so only Swiss and single elimination have them. In Swiss it counts as a 2–0 win, and goes to the lowest-ranked player who hasn't had one. In single elimination the top seeds have byes in round 1, as many as the bracket has places left over, and go straight to round 2; a player also has a bye when nobody advances from the match whose winner they would have met.
 _Avoid_: Rest, skip, free win
 
 **Granted draw**:
