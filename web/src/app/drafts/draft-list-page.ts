@@ -9,6 +9,12 @@ import { isActive } from './drafts';
 /** Names a list of players as a sentence does: "Alice", "Alice and Bob", "Alice, Bob, and Carol". */
 const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
 
+/** Whether the draft's tournament is in registration or playing. Only a complete draft has a tournament. */
+function tournamentUnderWay(draft: DraftListItemView): boolean {
+  const state = draft.tournamentBadge?.state;
+  return state === 'Registration' || state === 'Playing';
+}
+
 @Component({
   selector: 'app-draft-list-page',
   imports: [LoadingAnimation, NgTemplateOutlet, RouterLink],
@@ -26,14 +32,19 @@ export class DraftListPage {
 
   protected readonly loading = this.drafts.isLoading;
   protected readonly failed = computed(() => !!this.drafts.error());
+  /** The active drafts, and the complete drafts whose tournament is under way, which aren't active drafts. */
   protected readonly active = computed(() =>
-    (this.drafts.value() ?? []).filter((draft) => isActive(draft.state)),
+    (this.drafts.value() ?? []).filter(
+      (draft) => isActive(draft.state) || tournamentUnderWay(draft),
+    ),
+  );
+  protected readonly complete = computed(() =>
+    (this.drafts.value() ?? []).filter(
+      (draft) => draft.state === 'Complete' && !tournamentUnderWay(draft),
+    ),
   );
   protected readonly closed = computed(() =>
     (this.drafts.value() ?? []).filter((draft) => draft.state === 'Closed'),
-  );
-  protected readonly complete = computed(() =>
-    (this.drafts.value() ?? []).filter((draft) => draft.state === 'Complete'),
   );
 
   /**
