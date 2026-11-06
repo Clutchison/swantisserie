@@ -437,7 +437,7 @@ An organizer setting a match's game score, whether it was reported or not, while
 _Avoid_: Edit, override, fix, set result
 
 **Clear**:
-An organizer taking a match's game score, granted draw or forfeit away. While its tournament round is open the match is unreported again, or the forfeit of a player in it who has dropped; once its round or the tournament is complete the match becomes a granted draw.
+An organizer taking a match's game score, granted draw or forfeit away. While the tournament is playing, a match with a dropped player is their forfeit again. Otherwise the match is unreported again while its tournament round is open, and becomes a granted draw once its round or the tournament is complete.
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:

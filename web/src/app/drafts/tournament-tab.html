@@ -195,7 +195,14 @@
     @if (organizePlay()) {
       <div class="controls">
         @if (tournament.format === 'Swiss') {
-          <button class="button" type="button" (click)="openCompleteRound()">Complete round</button>
+          <button
+            class="button"
+            type="button"
+            (click)="openCompleteRound()"
+            appSendsChange="complete-round"
+          >
+            Complete round
+          </button>
         } @else {
           <button class="button" type="button" (click)="complete()" appSendsChange="complete">
             Complete tournament

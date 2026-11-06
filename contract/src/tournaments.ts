@@ -127,15 +127,15 @@ export interface MatchReportRequest {
 }
 
 /**
- * Complete round, as the organizer settles the tournament round: each of
- * its unreported matches must be listed, and becomes a granted draw. A body
- * can be left out when the round has none.
+ * Complete round, as the organizer grants draws in the tournament round's
+ * unreported matches: each must be listed, and becomes a granted draw. A
+ * body can be left out when the tournament round has none.
  */
 export interface CompleteRoundRequest {
   grantedDraws: GrantedDrawRequest[];
 }
 
-/** One unreported match that Complete round settles as a granted draw. */
+/** One unreported match that Complete round grants a draw in. */
 export interface GrantedDrawRequest {
   matchId: string;
   /**

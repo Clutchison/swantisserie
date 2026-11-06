@@ -220,10 +220,10 @@ export class TournamentsController {
   }
 
   /**
-   * Completes the Swiss tournament's current tournament round, settling its
-   * unreported matches as the body's granted draws and drops: it pairs the
-   * next one, or completes the tournament after the last or once fewer than
-   * 2 players are left in. For the organizer.
+   * Completes the Swiss tournament's current tournament round, granting
+   * draws in its unreported matches and dropping players as the body lists
+   * them: it pairs the next one, or completes the tournament after the last
+   * or once too few undropped players remain. For the organizer.
    */
   @Post('complete-round')
   @HttpCode(200)
@@ -270,22 +270,22 @@ function parseSetup(body: unknown): TournamentSetupRequest {
 
 /**
  * The granted draws, with their drop choices, that Complete round's body
- * settles the round's unreported matches with; none if it has no body. A
- * 400 if they aren't match ids each with a list of user ids.
+ * lists for the tournament round's unreported matches; none if it has no
+ * body. A 400 if they aren't match ids each with a list of user ids.
  */
 function parseCompleteRound(body: unknown): CompleteRoundRequest {
   const { grantedDraws = [] } = bodyFields<CompleteRoundRequest>(body);
-  if (Array.isArray(grantedDraws) && grantedDraws.every(isGrantedDraw)) {
+  if (Array.isArray(grantedDraws) && grantedDraws.every(isGrantedDrawRequest)) {
     return { grantedDraws };
   }
   throw new BadRequestException({
     error: 'invalid',
     message:
-      'List each unreported match to settle as a granted draw, with the players to drop from it.',
+      'List each unreported match to grant a draw in, with the players to drop from it.',
   } satisfies RequestProblem);
 }
 
-function isGrantedDraw(value: unknown): value is GrantedDrawRequest {
+function isGrantedDrawRequest(value: unknown): value is GrantedDrawRequest {
   const { matchId, drop } = bodyFields<GrantedDrawRequest>(value);
   return (
     typeof matchId === 'string' &&

@@ -1,14 +1,20 @@
 import {
   type ArgumentsHost,
+  BadRequestException,
   Catch,
   ConflictException,
   type HttpException,
   NotFoundException,
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
-import type { NoMatchProblem, NoTournamentProblem } from 'contract';
+import type {
+  NoMatchProblem,
+  NoTournamentProblem,
+  RequestProblem,
+} from 'contract';
 import { toHttpError } from '../drafts/draft-errors.filter.js';
 import {
+  InvalidTournamentRequestError,
   NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
@@ -28,9 +34,16 @@ export class TournamentErrorsFilter extends BaseExceptionFilter {
 
 /**
  * The HTTP answer to a tournament error: 404 for `no-tournament` and
- * `no-match`, 409 for a refusal. Undefined for any other error.
+ * `no-match`, 409 for a refusal, 400 for an invalid request. Undefined for
+ * any other error.
  */
 function toTournamentHttpError(err: unknown): HttpException | undefined {
+  if (err instanceof InvalidTournamentRequestError) {
+    return new BadRequestException({
+      error: 'invalid',
+      message: err.message,
+    } satisfies RequestProblem);
+  }
   if (err instanceof TournamentRefusedError) {
     return new ConflictException(err.refusal);
   }

@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
+  CompleteRoundRequest,
   DraftView,
   GameScore,
   MatchView,
@@ -24,11 +25,7 @@ import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
-import {
-  COMPLETE_ROUND_HEADING,
-  CompleteRoundDialog,
-  type CompleteRoundResult,
-} from './complete-round-dialog';
+import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
@@ -84,7 +81,7 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
  * it, then play: the signed-in player's match and its report, the
  * standings and matches, the players with Drop, and Reinstate for
  * organizers, Complete tournament (round robin) or Complete round (Swiss,
- * whose dialog settles unreported matches) for organizers, and at last the
+ * whose dialog grants draws in unreported matches) for organizers, and at last the
  * trophy.
  */
 @Component({
@@ -161,7 +158,7 @@ export class TournamentTab {
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
   /** The Complete round dialog, while it's open. */
-  private completing: DialogRef<CompleteRoundResult, CompleteRoundDialog> | null = null;
+  private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
   /** The match the signed-in player chose to report from the tournament rounds, if any. */
   protected readonly chosen = signal<string | undefined>(undefined);
@@ -323,14 +320,21 @@ export class TournamentTab {
    * returns: to the button that opened it.
    */
   protected openCompleteRound() {
-    const completing = this.dialogs.open<CompleteRoundDialog, CompleteRoundResult>(
+    const completing = this.dialogs.open<CompleteRoundDialog, CompleteRoundRequest>(
       CompleteRoundDialog,
       { labelledBy: COMPLETE_ROUND_HEADING, injector: this.injector },
     );
     this.completing = completing;
-    completing.closed.subscribe((result) => {
+    completing.closed.subscribe((request) => {
       this.completing = null;
-      if (result) this.error.set(result.error);
+      if (request) void this.completeRound(request);
+    });
+  }
+
+  /** Completes the Swiss tournament's current tournament round as the Complete round dialog chose. */
+  private completeRound(request: CompleteRoundRequest) {
+    return this.send(() => this.api.completeRound(this.draft().id, request), {
+      failure: "Couldn't complete the tournament round. Try again in a moment.",
     });
   }
 

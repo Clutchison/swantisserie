@@ -172,7 +172,10 @@ export interface TournamentRefusal {
     | 'not-playing'
     /** Only a match's own players report or confirm it. */
     | 'not-your-match'
-    /** A reported match is locked to its players. */
+    /**
+     * A reported match is locked to its players, and Complete round can't
+     * grant a draw in it.
+     */
     | 'match-reported'
     | 'draw'
     | 'not-best-of-three'
@@ -187,7 +190,7 @@ export interface TournamentRefusal {
     | 'not-dropped'
     /**
      * Complete round waits until every match of the tournament round is
-     * reported, or settled by the request as a granted draw.
+     * reported, or listed by the request for a granted draw.
      */
     | 'unreported-matches'
     /**

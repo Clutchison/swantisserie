@@ -7,6 +7,12 @@ export class TournamentRefusedError extends Error {
   }
 }
 
+/**
+ * Thrown for a tournament request whose body names something it can't: a
+ * 400, as a body that isn't the request's shape is.
+ */
+export class InvalidTournamentRequestError extends Error {}
+
 /** Thrown for a match request naming a match the tournament doesn't have. */
 export class NoMatchError extends Error {
   constructor() {

@@ -9,6 +9,7 @@ import {
   type TournamentView,
 } from 'contract';
 import {
+  MIN_UNDROPPED_PLAYERS,
   pairSwissRound,
   reportProblem,
   roundRobinSchedule,
@@ -24,6 +25,7 @@ import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import {
+  InvalidTournamentRequestError,
   NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
@@ -260,34 +262,36 @@ export class TournamentsService {
   }
 
   /**
-   * Clears the match `matchId`'s game score, as an organizer does. While its
-   * tournament round is open it is unreported again, unless one of its
-   * players has dropped: then it is their forfeit again, as reinstating a
-   * player leaves a match against a player still dropped. Once its round or
-   * the tournament is complete it is a granted draw, as completing it would
-   * have made it, and the round stays completed. Throws NoMatchError if the
-   * tournament has no such match.
+   * Clears the match `matchId`'s game score, as an organizer does. While the
+   * tournament is playing, a match one of whose players has dropped is their
+   * forfeit again, as reinstating a player leaves a match against a player
+   * still dropped. Otherwise it is unreported again while its tournament
+   * round is open, and a granted draw once its round or the tournament is
+   * complete, as completing it would have made it, so a completed round
+   * stays completed. Throws NoMatchError if the tournament has no such
+   * match.
    */
   async clearGameScore(draftId: string, matchId: string): Promise<void> {
     await this.withTournament(draftId, async (tx, tournament) => {
       const { round, dropped } = await findMatch(tx, tournament.id, matchId);
-      const settled =
+      const forfeitedBy =
+        tournament.state !== 'Playing'
+          ? null
+          : dropped[0]
+            ? ('First' as const)
+            : dropped[1]
+              ? ('Second' as const)
+              : null;
+      const roundCompleted =
         tournament.state === 'Complete' ||
         round <= tournament.lastCompletedRound;
-      const forfeitedBy = settled
-        ? null
-        : dropped[0]
-          ? ('First' as const)
-          : dropped[1]
-            ? ('Second' as const)
-            : null;
       await tx.match.update({
         where: { id: matchId },
         data: {
-          outcome: settled
-            ? 'GrantedDraw'
-            : forfeitedBy
-              ? 'Forfeit'
+          outcome: forfeitedBy
+            ? 'Forfeit'
+            : roundCompleted
+              ? 'GrantedDraw'
               : 'Unreported',
           firstGames: 0,
           secondGames: 0,
@@ -427,14 +431,15 @@ export class TournamentsService {
 
   /**
    * Completes the current tournament round of the draft's Swiss tournament.
-   * Its unreported matches, each of which `grantedDraws` must list, become
-   * granted draws, and the players listed with them drop, except in the
-   * final tournament round. It then pairs the next tournament round with the
-   * Swiss pairer, or, after the last or once fewer than 2 players are left
-   * in, completes the tournament, which unlocks every deck. A completed
-   * round stays completed. Throws TournamentRefusedError if a match of the
-   * round is unreported and unlisted, the tournament isn't playing, or it is
-   * round robin, which plays every round at once.
+   * A draw is granted in each of its unreported matches, which
+   * `grantedDraws` must all list, and the players listed with them drop,
+   * except in the final tournament round. It then pairs the next tournament
+   * round with the Swiss pairer, or, after the last or once fewer than
+   * MIN_UNDROPPED_PLAYERS undropped players remain, completes the
+   * tournament, which unlocks every deck. A completed round stays
+   * completed. Throws as `grantDraws` does, and TournamentRefusedError if
+   * the tournament isn't playing, or is round robin, which plays every
+   * round at once.
    */
   async completeRound(
     draftId: string,
@@ -449,59 +454,21 @@ export class TournamentsService {
         });
       }
       const round = tournament.lastCompletedRound + 1;
-      const unreported = await tx.match.findMany({
-        where: {
-          tournamentId: tournament.id,
-          round,
-          outcome: 'Unreported',
-          secondEntryId: { not: null },
-        },
-        select: {
-          id: true,
-          firstEntry: {
-            select: { id: true, player: { select: { userId: true } } },
-          },
-          secondEntry: {
-            select: { id: true, player: { select: { userId: true } } },
-          },
-        },
-      });
-      const drops = new Map(
-        grantedDraws.map((draw) => [draw.matchId, draw.drop]),
-      );
-      const unsettled = unreported.filter((match) => !drops.has(match.id));
-      if (unsettled.length > 0) {
-        const count = unsettled.length;
-        throw new TournamentRefusedError({
-          error: 'unreported-matches',
-          message: `Tournament round ${round} has ${count} unreported ${count === 1 ? 'match' : 'matches'}. Report ${count === 1 ? 'it' : 'them'}, or settle ${count === 1 ? 'it' : 'them'} as granted draws, before completing the tournament round.`,
-        });
-      }
-      await tx.match.updateMany({
-        where: { id: { in: unreported.map((match) => match.id) } },
-        data: { outcome: 'GrantedDraw' },
-      });
+      const dropping = await grantDraws(tx, tournament.id, round, grantedDraws);
       const joined = await tx.tournamentEntry.count({
         where: { tournamentId: tournament.id },
       });
       const last = round >= roundCount(tournament, joined);
       if (!last) {
-        const dropping = unreported.flatMap((match) =>
-          [match.firstEntry, match.secondEntry!]
-            .filter((entry) =>
-              drops.get(match.id)!.includes(entry.player.userId),
-            )
-            .map((entry) => entry.id),
-        );
         await tx.tournamentEntry.updateMany({
           where: { id: { in: dropping } },
           data: { dropped: true },
         });
       }
-      const leftIn = await tx.tournamentEntry.count({
+      const undropped = await tx.tournamentEntry.count({
         where: { tournamentId: tournament.id, dropped: false },
       });
-      const completes = last || leftIn < 2;
+      const completes = last || undropped < MIN_UNDROPPED_PLAYERS;
       await tx.tournament.update({
         where: { id: tournament.id },
         data: {
@@ -551,7 +518,7 @@ export class TournamentsService {
           message: 'That player hasn’t dropped.',
         });
       }
-      const pairedWithout = await roundPairedWithout(
+      const pairedWithout = await latestRoundWithout(
         tx,
         tournament.id,
         entry.id,
@@ -702,6 +669,72 @@ async function pairSwiss(tx: Transaction, tournamentId: string, round: number) {
   ]);
 }
 
+/**
+ * Grants a draw in each unreported match of tournament round `round`, as
+ * `grantedDraws` lists them, and answers the tournament entry ids of the
+ * players listed to drop from them. Throws InvalidTournamentRequestError
+ * if it lists a match that isn't one of the round's, or a player to drop
+ * who isn't in theirs, and TournamentRefusedError if it lists a match
+ * reported since, or leaves out an unreported one.
+ */
+async function grantDraws(
+  tx: Transaction,
+  tournamentId: string,
+  round: number,
+  grantedDraws: readonly GrantedDrawRequest[],
+): Promise<string[]> {
+  const matches = await tx.match.findMany({
+    where: { tournamentId, round, secondEntryId: { not: null } },
+    select: {
+      id: true,
+      outcome: true,
+      firstEntry: { select: ENTRY_OF_MATCH },
+      secondEntry: { select: ENTRY_OF_MATCH },
+    },
+  });
+  const byId = new Map(matches.map((match) => [match.id, match]));
+  const dropping: string[] = [];
+  for (const { matchId, drop } of grantedDraws) {
+    const match = byId.get(matchId);
+    if (!match) {
+      throw new InvalidTournamentRequestError(
+        `Tournament round ${round} has no match ${matchId}.`,
+      );
+    }
+    const entries = [match.firstEntry, match.secondEntry!];
+    for (const playerId of drop) {
+      const entry = entries.find((e) => e.player.userId === playerId);
+      if (!entry) {
+        throw new InvalidTournamentRequestError(
+          'Only a match’s own players can be dropped with its granted draw.',
+        );
+      }
+      dropping.push(entry.id);
+    }
+    if (match.outcome !== 'Unreported') {
+      throw new TournamentRefusedError({
+        error: 'match-reported',
+        message: `A match listed for a granted draw has been ${match.outcome === 'Forfeit' ? 'forfeited' : 'reported'} since. Look at tournament round ${round} again before completing it.`,
+      });
+    }
+  }
+  const listed = new Set(grantedDraws.map((draw) => draw.matchId));
+  const unlisted = matches.filter(
+    (match) => match.outcome === 'Unreported' && !listed.has(match.id),
+  ).length;
+  if (unlisted > 0) {
+    throw new TournamentRefusedError({
+      error: 'unreported-matches',
+      message: `Tournament round ${round} has ${unlisted} unreported ${unlisted === 1 ? 'match' : 'matches'}. Report ${unlisted === 1 ? 'it' : 'them'}, or grant ${unlisted === 1 ? 'it a draw' : 'them draws'}, before completing the tournament round.`,
+    });
+  }
+  await tx.match.updateMany({
+    where: { id: { in: [...listed] } },
+    data: { outcome: 'GrantedDraw' },
+  });
+  return dropping;
+}
+
 /** Makes the matches and byes of `rounds`, whose players are tournament entry ids. */
 async function createRounds(
   tx: Transaction,
@@ -721,8 +754,9 @@ async function createRounds(
   });
 }
 
-/** What findMatch reads of each of a match's entries. */
+/** What findMatch and grantDraws read of each of a match's entries. */
 const ENTRY_OF_MATCH = {
+  id: true,
   dropped: true,
   player: { select: { userId: true } },
 } as const;
@@ -797,12 +831,12 @@ async function entryOf(
 }
 
 /**
- * The latest tournament round, if the entry `entryId` has neither a match
- * nor a bye in it: a dropped player's round paired after their drop, which
- * their forfeits or drop fed. Null while they are in the latest round, as
- * round robin's players always are.
+ * The number of the latest tournament round paired, if the entry `entryId`
+ * has neither a match nor a bye in it: for a dropped player, a round paired
+ * after their drop, which their forfeits or drop fed. Null while they are
+ * in the latest round, as round robin's players always are.
  */
-async function roundPairedWithout(
+async function latestRoundWithout(
   tx: Transaction,
   tournamentId: string,
   entryId: string,

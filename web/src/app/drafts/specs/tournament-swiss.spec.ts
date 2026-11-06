@@ -83,7 +83,7 @@ describe('Swiss tournaments on the Tournament tab', () => {
     expect(items(tab, 'Tournament round 1')).toEqual(['Carol 2–0 Bob', 'Alice has a bye']);
   });
 
-  /** Round 1 of three players, Carol and Bob's match unreported and Alice with the bye. */
+  /** Tournament round 1 of three players, Carol and Bob's match unreported and Alice with the bye. */
   const unreportedRoundOne = swissPlaying({
     lastCompletedRound: 0,
     rounds: [{ round: 1, matches: [openMatch('m1', carol.id, bob.id)], bye: alice.id }],
@@ -146,7 +146,31 @@ describe('Swiss tournaments on the Tournament tab', () => {
     expect(button(panel(page), 'Complete round')).toBeUndefined();
   });
 
-  it('completes a fully reported round with no granted draws, in place of completing the tournament', async () => {
+  it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
+    // Bob dropped after his bye; Alice and Carol's match is unreported.
+    await openCompleteRound(
+      swissPlaying({
+        lastCompletedRound: 0,
+        entries: [
+          { playerId: alice.id, dropped: false },
+          { playerId: bob.id, dropped: true },
+          { playerId: carol.id, dropped: false },
+        ],
+        rounds: [{ round: 1, matches: [openMatch('m1', alice.id, carol.id)], bye: bob.id }],
+      }),
+    );
+    const dialog = openDialog()!;
+    const completes = 'Fewer than 2 undropped players remain, so the tournament completes';
+    expect(text(dialog)).toContain('Tournament round 2 is paired, and its matches open.');
+    expect(text(dialog)).not.toContain(completes);
+
+    controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Carol')!.click();
+    await vi.waitFor(() => expect(text(dialog)).toContain(completes));
+
+    expect(text(dialog)).not.toContain('Tournament round 2 is paired');
+  });
+
+  it('completes a fully reported tournament round with no granted draws, in place of completing the tournament', async () => {
     const { fixture, tab } = await openCompleteRound(
       swissPlaying({
         lastCompletedRound: 0,
@@ -186,7 +210,7 @@ describe('Swiss tournaments on the Tournament tab', () => {
     http.expectNone('/api/drafts/draft-1/tournament/complete-round');
   });
 
-  it('shows why completing the round was refused', async () => {
+  it('shows why completing the tournament round was refused', async () => {
     const { fixture, page } = await openCompleteRound(unreportedRoundOne);
 
     button(openDialog()!, 'Complete round')!.click();
