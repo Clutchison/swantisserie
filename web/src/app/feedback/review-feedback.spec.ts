@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { alice, carol, http, openApp, pressKey, router, useApp } from '../specs-harness';
@@ -291,6 +292,106 @@ describe('reviewing feedback', () => {
         http.expectNone('/api/admin/feedback/reviewed');
       },
     );
+  });
+
+  describe('the tab in the URL', () => {
+    it('reopens the Reviewed tab on reloading it, showing reviewed feedback', async () => {
+      const { fixture, page } = await openApp('/admin/feedback?tab=reviewed', carol);
+      answerAdminHeader();
+      http.expectOne('/api/admin/feedback/reviewed').flush([reviewedByCarol]);
+      await fixture.whenStable();
+
+      expect(tab(page, 'Reviewed').getAttribute('aria-selected')).toBe('true');
+      expect(items(page).map((item) => item.textContent)).toEqual([
+        expect.stringContaining('Reviewed by Carol'),
+      ]);
+      expect(router.url).toBe('/admin/feedback?tab=reviewed');
+    });
+
+    it('opens the Unreviewed tab from the plain URL, leaving the tab out', async () => {
+      const { page } = await openPage([fromAlice]);
+
+      expect(tab(page, 'Unreviewed').getAttribute('aria-selected')).toBe('true');
+      expect(router.url).toBe('/admin/feedback');
+    });
+
+    it('writes the Reviewed tab to the URL on selecting it, and removes it on selecting Unreviewed', async () => {
+      const { fixture, page } = await openReviewed([]);
+      expect(router.url).toBe('/admin/feedback?tab=reviewed');
+
+      tab(page, 'Unreviewed').click();
+      TestBed.tick();
+      http.expectOne('/api/admin/feedback').flush([]);
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/admin/feedback');
+    });
+
+    it('writes the tab selected by arrow key to the URL', async () => {
+      const { fixture, page } = await openPage([]);
+
+      tab(page, 'Unreviewed').focus();
+      pressKey(tab(page, 'Unreviewed'), 'ArrowRight');
+      http.expectOne('/api/admin/feedback/reviewed').flush([]);
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/admin/feedback?tab=reviewed');
+    });
+
+    it('adds no history entry as the tab changes, so Back leaves the page', async () => {
+      // Bootstrapping the app has the router follow Back; a test's app isn't bootstrapped.
+      router.setUpLocationChangeListener();
+      const { fixture, page } = await openApp('/status', carol);
+      answerAdminHeader();
+      http.expectOne('/api/health').flush({});
+      await fixture.whenStable();
+      await router.navigateByUrl('/admin/feedback');
+      (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([]);
+      await fixture.whenStable();
+
+      tab(page, 'Reviewed').click();
+      TestBed.tick();
+      http.expectOne('/api/admin/feedback/reviewed').flush([]);
+      await fixture.whenStable();
+      tab(page, 'Unreviewed').click();
+      TestBed.tick();
+      http.expectOne('/api/admin/feedback').flush([]);
+      await fixture.whenStable();
+      TestBed.inject(Location).back();
+
+      await vi.waitFor(() => expect(router.url).toBe('/status'));
+      (await vi.waitFor(() => http.expectOne('/api/health'))).flush({});
+    });
+
+    it.each([['?tab=archived'], ['?tab=Reviewed'], ['?tab=unreviewed']])(
+      'shows the Unreviewed tab for %s and corrects the URL',
+      async (query) => {
+        const { fixture, page } = await openApp(`/admin/feedback${query}`, carol);
+        answerAdminHeader();
+        http.expectOne('/api/admin/feedback').flush([fromBob]);
+        await fixture.whenStable();
+
+        expect(tab(page, 'Unreviewed').getAttribute('aria-selected')).toBe('true');
+        expect(items(page).map((item) => item.textContent)).toEqual([
+          expect.stringContaining('Bob'),
+        ]);
+        await vi.waitFor(() => expect(router.url).toBe('/admin/feedback'));
+      },
+    );
+
+    it('keeps other query parameters and the fragment as the tab changes', async () => {
+      const { fixture, page } = await openApp('/admin/feedback?sort=old#top', carol);
+      answerAdminHeader();
+      http.expectOne('/api/admin/feedback').flush([]);
+      await fixture.whenStable();
+
+      tab(page, 'Reviewed').click();
+      TestBed.tick();
+      http.expectOne('/api/admin/feedback/reviewed').flush([]);
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/admin/feedback?sort=old&tab=reviewed#top');
+    });
   });
 
   describe('the unreviewed count in the top bar', () => {

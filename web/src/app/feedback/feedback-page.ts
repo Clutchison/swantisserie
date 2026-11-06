@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { tabInUrl } from '../tab-in-url';
 import { Tab, TabList } from '../tab-list';
 
 type View = 'Unreviewed' | 'Reviewed';
@@ -23,7 +24,9 @@ export class FeedbackPage {
   private readonly router = inject(Router);
 
   protected readonly views: readonly View[] = ['Unreviewed', 'Reviewed'];
-  protected readonly view = signal<View>('Unreviewed');
+  /** Kept in the URL so a reload reopens it; both are open to every app admin. */
+  private readonly tabs = tabInUrl<View>({ tabs: this.views, defaultTab: 'Unreviewed' });
+  protected readonly view = this.tabs.selected;
   /** Fetched afresh on each change of view, as another app admin may have reviewed something. */
   protected readonly feedback = httpResource<(FeedbackView | ReviewedFeedbackView)[]>(() =>
     this.view() === 'Reviewed' ? `${API}/reviewed` : API,
@@ -33,7 +36,7 @@ export class FeedbackPage {
 
   protected show(view: View) {
     this.problem.set(null);
-    this.view.set(view);
+    this.tabs.select(view);
   }
 
   /** The page it was sent from, as a link inside the app with its query and fragment. */
