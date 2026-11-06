@@ -1,19 +1,20 @@
 <div class="dialog">
   <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
+  @let completion = this.completion();
   <p>
-    @if (finalRound() && noTrophyHolder()) {
+    @if (completion.completes && completion.reason === 'FinalRound' && !completion.trophyHolder) {
       It is the final tournament round, so completing it will complete the tournament. Nobody will
       advance from the final, so nobody will hold the trophy.
-    } @else if (finalRound()) {
+    } @else if (completion.completes && completion.reason === 'FinalRound') {
       It is the final tournament round, so completing it will complete the tournament and award the
       trophy.
-    } @else if (noTrophyHolder()) {
+    } @else if (completion.completes && !completion.trophyHolder) {
       Nobody will be left in the bracket, so completing the round will complete the tournament, and
       nobody will hold the trophy.
-    } @else if (tooFewLeft() && grantsWins()) {
+    } @else if (completion.completes && grantsWins()) {
       Fewer than {{ minPlayersLeft }} players will be left in the bracket, so completing the round
       will complete the tournament and award the trophy.
-    } @else if (tooFewLeft()) {
+    } @else if (completion.completes) {
       Fewer than {{ minPlayersLeft }} undropped players will remain, so completing the round will
       complete the tournament and award the trophy.
     } @else {

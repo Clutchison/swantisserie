@@ -1,3 +1,5 @@
+import { countAdvancing, type BracketResult } from './single-elimination.js';
+
 /**
  * One Swiss tournament round as the pairer makes it: the pairs of players
  * who meet in it, and the player with a bye, if any.
@@ -27,6 +29,69 @@ export function roundRobinMatches(
  * completes the tournament.
  */
 export const MIN_PLAYERS_LEFT = 2;
+
+/** A tournament's entry as Complete round reads it: whether its player has dropped. */
+interface CompletingEntry {
+  playerId: string;
+  dropped: boolean;
+}
+
+/**
+ * The tournament round Complete round completes, `round`, of a tournament
+ * of `roundCount` rounds, and its entries, with the drops this completion
+ * makes. In single elimination, also the round's matches and byes, as they
+ * stand once it is completed.
+ */
+export type RoundCompletionInput =
+  | {
+      format: 'Swiss';
+      round: number;
+      roundCount: number;
+      entries: readonly CompletingEntry[];
+    }
+  | {
+      format: 'SingleElimination';
+      round: number;
+      roundCount: number;
+      entries: readonly CompletingEntry[];
+      results: readonly BracketResult[];
+    };
+
+/**
+ * What completing a tournament round does: pairs the next round, or
+ * completes the tournament, after the final round or with too few players
+ * left, and whether anybody will hold the trophy then.
+ */
+export type RoundCompletion =
+  | { completes: false }
+  | {
+      completes: true;
+      reason: 'FinalRound' | 'TooFewLeft';
+      trophyHolder: boolean;
+    };
+
+/**
+ * What completing the round `input` describes does. It completes the
+ * tournament after the final round, and before it once fewer than
+ * MIN_PLAYERS_LEFT players are left to play on: in Swiss, the players who
+ * haven't dropped; in single elimination, those who advance from the round,
+ * as countAdvancing counts them. The final round takes precedence. In
+ * Swiss, somebody always holds the trophy; in single elimination, nobody
+ * does when nobody advances from the round.
+ */
+export function roundCompletion(input: RoundCompletionInput): RoundCompletion {
+  const left =
+    input.format === 'Swiss'
+      ? input.entries.filter((entry) => !entry.dropped).length
+      : countAdvancing(input.results, droppedPlayers(input.entries));
+  const finalRound = input.round >= input.roundCount;
+  if (!finalRound && left >= MIN_PLAYERS_LEFT) return { completes: false };
+  return {
+    completes: true,
+    reason: finalRound ? 'FinalRound' : 'TooFewLeft',
+    trophyHolder: input.format === 'Swiss' || left > 0,
+  };
+}
 
 /** Match points for a won, drawn and lost match. */
 export const MATCH_POINTS = { won: 3, drawn: 1, lost: 0 } as const;
