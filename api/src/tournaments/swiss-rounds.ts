@@ -8,7 +8,7 @@ import {
   createRounds,
   entryToDrop,
   listedMatches,
-  refuseSettledSince,
+  refuseReportedSince,
 } from './tournament-matches.js';
 import {
   byesOf,
@@ -25,7 +25,7 @@ import {
  */
 export const SWISS_STEPS: RoundSteps = {
   start: (tx, tournamentId) => pairSwiss(tx, tournamentId, 1),
-  async settle(tx, { tournamentId, round, finalRound, request }) {
+  async decide(tx, { tournamentId, round, finalRound, request }) {
     if (request.grantedWins.length > 0 || request.drops.length > 0) {
       throw new InvalidTournamentRequestError(
         'Swiss grants draws in unreported matches, never wins, and drops players with their granted draws.',
@@ -43,7 +43,7 @@ export const SWISS_STEPS: RoundSteps = {
       data: { dropped: true, droppedAfterRound: round },
     });
   },
-  settleHint: (unreported) =>
+  decideHint: (unreported) =>
     unreported === 1 ? 'grant it a draw' : 'grant them draws',
   pairNext: pairSwiss,
   /** The undropped players, as Swiss knocks nobody out. */
@@ -117,7 +117,7 @@ async function grantDraws(
       );
       dropping.push(entry.id);
     }
-    refuseSettledSince(match, round, 'granted draw');
+    refuseReportedSince(match, round, 'granted draw');
   }
   await tx.match.updateMany({
     where: { id: { in: grantedDraws.map((draw) => draw.matchId) } },

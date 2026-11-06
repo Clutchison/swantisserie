@@ -10,6 +10,7 @@ import {
 import type { BracketPlaceView, BracketSideView, TournamentView } from 'contract';
 import { DraftStore } from './draft-store';
 import { seededName, seedsOf, type MatchLine } from './match-lines';
+import { inRound, roundName } from './round-names';
 
 /** How one side of a bracket place shows: a player, a bye, or the winner to come of a place before. */
 interface SideLine {
@@ -56,7 +57,7 @@ export class TournamentBracket {
   protected readonly rounds = computed(() =>
     this.bracket().map((round) => ({
       round: round.round,
-      label: `Tournament round ${round.round}`,
+      label: this.roundName(round.round),
       places: round.places.map((place) => this.placeLine(round.round, place)),
     })),
   );
@@ -82,8 +83,19 @@ export class TournamentBracket {
     )!;
     // A bye that sends nobody on is a dropped player's: they have no next match.
     if (opponent.kind === 'Bye') return null;
-    return `Your next match, in tournament round ${reached.round}, is against ${this.describe(reached.round, opponent)}.`;
+    return `Your next match, ${this.inRound(reached.round)}, is against ${this.describe(reached.round, opponent)}.`;
   });
+
+  /** Tournament round `round` by name: the final, semifinal or quarterfinal, or "Tournament round 1". */
+  private roundName(round: number) {
+    const { format, roundCount } = this.tournament();
+    return roundName(format, round, roundCount);
+  }
+
+  private inRound(round: number) {
+    const { format, roundCount } = this.tournament();
+    return inRound(format, round, roundCount);
+  }
 
   /** How bracket place `place` of tournament round `round` shows, and reads to a screen reader. */
   private placeLine(round: number, place: BracketPlaceView) {
@@ -134,7 +146,7 @@ export class TournamentBracket {
     const players = this.feederPlayers(round, side.bracketPlace);
     return players
       ? `the winner of ${this.seeded(players[0])} vs ${this.seeded(players[1])}`
-      : `the winner of match ${side.bracketPlace + 1} of tournament round ${round - 1}`;
+      : `the winner of match ${side.bracketPlace + 1} ${this.inRound(round - 1)}`;
   }
 
   /** How a side that isn't a player yet shows in the bracket. */

@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import {
   type CompleteRoundRequest,
   type GameScore,
+  MIN_TOURNAMENT_PLAYERS,
   type TournamentRefusal,
   type TournamentSetupRequest,
   type ViewerTournamentView,
 } from 'contract';
-import { MIN_PLAYERS_LEFT, reportProblem, roundRobinPairings } from 'engine';
+import { MIN_PLAYERS_LEFT, reportProblem, roundRobinMatches } from 'engine';
 import type {
   SwissRoundOption,
   TournamentFormat,
@@ -24,7 +25,7 @@ import {
   type ChangeSteps,
   type MatchChange,
 } from './change-steps.js';
-import { joinRefusal, viewerJoin, WOULD_BE_ENTRANT } from './join-rules.js';
+import { joinRefusal, viewerJoin, JOINING_PLAYER } from './join-rules.js';
 import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
@@ -69,7 +70,8 @@ const LOCKED_TOURNAMENT = {
 } as const;
 
 /**
- * A complete draft's tournament: its setup, registration and cancelling.
+ * A complete draft's tournament, from setup through registration, play and
+ * completing or cancelling it: every change an organizer or player makes.
  * Every change runs under the draft's lock, which bumps the draft's version,
  * so the controller's publish tells open pages to re-read it. Joining under
  * that lock also waits for any plan write in flight, which share-locks the
@@ -93,7 +95,7 @@ export class TournamentsService {
         ...TOURNAMENT_VIEW,
         draft: {
           select: {
-            players: { where: { userId: viewerId }, select: WOULD_BE_ENTRANT },
+            players: { where: { userId: viewerId }, select: JOINING_PLAYER },
           },
         },
       },
@@ -160,7 +162,7 @@ export class TournamentsService {
     await this.inRegistration(draftId, async (tx, tournament) => {
       const player = await tx.player.findUnique({
         where: { draftId_userId: { draftId, userId } },
-        select: { id: true, ...WOULD_BE_ENTRANT },
+        select: { id: true, ...JOINING_PLAYER },
       });
       if (!player) throw new NotAPlayerError('tournaments');
       const refusal = joinRefusal(player);
@@ -296,7 +298,7 @@ export class TournamentsService {
    * with no byes; Swiss pairs round 1 at random; single
    * elimination seeds its entries at random into the bracket and makes its
    * round 1, byes for the top seeds included. Throws
-   * TournamentRefusedError if fewer than 2 players have joined, or it is
+   * TournamentRefusedError if fewer than MIN_TOURNAMENT_PLAYERS have joined, or it is
    * past registration. Returns its announcement.
    */
   async start(draftId: string): Promise<DraftEvent[]> {
@@ -306,10 +308,10 @@ export class TournamentsService {
         orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
         select: { id: true },
       });
-      if (entries.length < 2) {
+      if (entries.length < MIN_TOURNAMENT_PLAYERS) {
         throw new TournamentRefusedError({
           error: 'too-few-players-joined',
-          message: 'A tournament needs at least 2 players to start.',
+          message: `A tournament needs at least ${MIN_TOURNAMENT_PLAYERS} players to start.`,
         });
       }
       await tx.tournament.update({
@@ -326,12 +328,12 @@ export class TournamentsService {
         );
       } else {
         // Round robin has no tournament rounds: its matches are kept as round 1's.
-        const pairings = roundRobinPairings(entries.map((entry) => entry.id));
+        const matches = roundRobinMatches(entries.map((entry) => entry.id));
         await createMatches(
           tx,
           tournament.id,
           1,
-          pairings.map((players) => ({ players })),
+          matches.map((players) => ({ players })),
         );
       }
       return [await tournamentStarted(tx, draftId, tournament.id)];
@@ -433,7 +435,7 @@ export class TournamentsService {
   /**
    * Completes the current tournament round of the draft's tournament, in a
    * format that plays one tournament round at a time. Its format's round
-   * steps first settle the round as `request` asks; the round must
+   * steps first decide the round as `request` asks; the round must
    * then have no unreported match. It then completes the tournament, which
    * unlocks every deck, after the final tournament round or once fewer than
    * MIN_PLAYERS_LEFT players are still in (undropped, or in single
@@ -463,7 +465,7 @@ export class TournamentsService {
         where: { tournamentId: tournament.id },
       });
       const finalRound = round >= roundCount(tournament, joined);
-      await steps.settle(tx, {
+      await steps.decide(tx, {
         tournamentId: tournament.id,
         round,
         finalRound,
@@ -739,7 +741,7 @@ function clearing(dropped: readonly boolean[]): MatchChange {
 /**
  * Throws TournamentRefusedError if tournament round `round` of the
  * tournament `tournamentId` has an unreported match, telling the organizer
- * to settle it as its format's `steps` do.
+ * to decide it as its format’s `steps` do.
  */
 async function refuseUnreported(
   tx: Transaction,
@@ -758,7 +760,7 @@ async function refuseUnreported(
   if (unreported > 0) {
     throw new TournamentRefusedError({
       error: 'unreported-matches',
-      message: `Tournament round ${round} has ${unreported} unreported ${unreported === 1 ? 'match' : 'matches'}. Report ${unreported === 1 ? 'it' : 'them'}, or ${steps.settleHint(unreported)}, before completing the tournament round.`,
+      message: `Tournament round ${round} has ${unreported} unreported ${unreported === 1 ? 'match' : 'matches'}. Report ${unreported === 1 ? 'it' : 'them'}, or ${steps.decideHint(unreported)}, before completing the tournament round.`,
     });
   }
 }

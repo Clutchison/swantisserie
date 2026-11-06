@@ -3,7 +3,7 @@ import type { TournamentBadgeView } from 'contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { readCompleteTournaments } from './complete-tournaments.js';
-import { viewerJoin, WOULD_BE_ENTRANT } from './join-rules.js';
+import { viewerJoin, JOINING_PLAYER } from './join-rules.js';
 
 /**
  * The tournament badges the draft list shows. The drafts module, whose
@@ -49,7 +49,7 @@ function badgeRead(viewerId: string) {
     state: true,
     draft: {
       select: {
-        players: { where: { userId: viewerId }, select: WOULD_BE_ENTRANT },
+        players: { where: { userId: viewerId }, select: JOINING_PLAYER },
       },
     },
   } satisfies Prisma.TournamentSelect;

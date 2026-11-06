@@ -1,10 +1,11 @@
-import type {
-  BracketRoundView,
-  MatchOutcomeView,
-  MatchView,
-  TournamentFormat,
-  TournamentRoundView,
-  TournamentView,
+import {
+  type BracketRoundView,
+  type MatchOutcomeView,
+  type MatchView,
+  MIN_TOURNAMENT_PLAYERS,
+  type TournamentFormat,
+  type TournamentRoundView,
+  type TournamentView,
 } from 'contract';
 import {
   agreedAdvancingPlayer,
@@ -295,7 +296,7 @@ export function roundCount(
   }: Pick<TournamentRow, 'format' | 'swissRoundOption'>,
   joined: number,
 ): number {
-  if (joined < 2 || format === 'RoundRobin') return 0;
+  if (joined < MIN_TOURNAMENT_PLAYERS || format === 'RoundRobin') return 0;
   if (format === 'Swiss') return swissRoundCount(joined, swissRoundOption!);
   return singleEliminationRoundCount(joined);
 }
@@ -354,7 +355,11 @@ export function toOutcome(
   }
 }
 
-function toTournamentMatch({ players, outcome }: MatchView): TournamentMatch {
+/** `match` as the engine reads it: an unreported match has no outcome. */
+export function toTournamentMatch({
+  players,
+  outcome,
+}: MatchView): TournamentMatch {
   return {
     players,
     outcome: outcome.kind === 'Unreported' ? null : outcome,

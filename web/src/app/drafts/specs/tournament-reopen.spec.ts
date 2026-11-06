@@ -2,6 +2,7 @@ import { answer, question } from '../../specs-harness';
 import { ORGANIZE_ONLY, bob, button, http, namedList, panel, useDraftsApp } from './harness';
 import {
   answerChange,
+  carol,
   dave,
   openMatch,
   openPlaying,
@@ -102,7 +103,7 @@ describe('reopening a tournament round', () => {
     const { tab } = await openPlaying(
       swissPlaying({
         lastCompletedRound: 0,
-        rounds: [{ round: 1, matches: [openMatch('m1', bob.id, dave.id)], byes: [] }],
+        rounds: [{ round: 1, matches: [openMatch('m1', bob.id, carol.id)], byes: [] }],
         reopenRound: null,
       }),
       { powers: ORGANIZE_ONLY },

@@ -12,10 +12,12 @@ import {
   draft,
   drafting,
   flushPicks,
+  heading,
   http,
   namedList,
   openDraft,
   panel,
+  panelName,
   updates,
   useDraftsApp,
 } from './harness';
@@ -70,7 +72,7 @@ describe('Play tab', () => {
       });
 
       expect(hasPlayTab(page)).toBe(false);
-      expect(panel(page).id).toBe('pool-panel');
+      expect(panelName(page)).toBe('Pool');
     });
 
     it('shows an organizer the setup form, offering round robin, which sets the tournament up', async () => {
@@ -78,7 +80,7 @@ describe('Play tab', () => {
 
       const tab = await openPlayTab(fixture, page);
 
-      expect(tab.querySelector('h2')?.textContent).toBe('Play');
+      expect(heading(tab, 'Play')).toBeDefined();
       expect(controlByLabel(tab, 'radio', 'Round robin')?.checked).toBe(true);
       button(tab, 'Set up tournament')!.click();
       const req = await answerChange(
@@ -141,7 +143,7 @@ describe('Play tab', () => {
         url: '/drafts/draft-1?tab=play',
       });
 
-      expect(panel(page).id).toBe('play-panel');
+      expect(panelName(page)).toBe('Play');
     });
 
     it('shows why setup was refused', async () => {
@@ -382,7 +384,7 @@ describe('Play tab', () => {
       await answer(dialog, 'Cancel tournament');
       await answerChange(fixture, '/api/drafts/draft-1/tournament', 'DELETE', null);
 
-      expect(panel(page).id).toBe('play-panel');
+      expect(panelName(page)).toBe('Play');
       expect(button(panel(page), 'Set up tournament')).toBeDefined();
       expect(stateSteps(panel(page))).toEqual([]);
     });
@@ -419,7 +421,7 @@ describe('Play tab', () => {
       await flushPicks([]);
       await fixture.whenStable();
       expect(hasPlayTab(page)).toBe(false);
-      expect(panel(page).id).toBe('pool-panel');
+      expect(panelName(page)).toBe('Pool');
     });
   });
 });

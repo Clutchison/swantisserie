@@ -12,7 +12,7 @@ import {
   completeRound,
   completeTournament,
   dropPlayer,
-  entrants,
+  joinedPlayers,
   fullDeck,
   joinTournament,
   matchOf,
@@ -51,7 +51,7 @@ describe('bots joining at tournament setup', () => {
 
     await setUpTournament(id).expect(201);
 
-    expect(await entrants(id)).toEqual(botIds);
+    expect(await joinedPlayers(id)).toEqual(botIds);
   });
 
   it('joins them again when the tournament is cancelled and set up again', async () => {
@@ -61,7 +61,7 @@ describe('bots joining at tournament setup', () => {
 
     await setUpTournament(id).expect(201);
 
-    expect(await entrants(id)).toEqual(botIds);
+    expect(await joinedPlayers(id)).toEqual(botIds);
   });
 });
 
@@ -100,7 +100,7 @@ describe('what a bot can’t do', () => {
     const refused = await removeEntry(id, botIds[0], aliceCookie).expect(409);
 
     expect(refused.body).toEqual(BOT_ENTRY);
-    expect(await entrants(id)).toEqual(botIds);
+    expect(await joinedPlayers(id)).toEqual(botIds);
   });
 
   it('refuses dropping and reinstating a bot, with a reason', async () => {

@@ -440,7 +440,7 @@ model Match {
   id            String           @id @default(uuid())
   tournamentId  String
   tournament    Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  /// The tournament round, from 1: the suggested order to play matches in.
+  /// The tournament round, from 1. Round robin has no tournament rounds, so every match of one is in round 1.
   round         Int
   /// Single elimination only: its bracket place within its tournament round, from 0; bracket place p is fed by places 2p and 2p + 1 of the round before. Null otherwise.
   bracketPlace  Int?

@@ -1,5 +1,6 @@
 import type { TournamentView } from 'contract';
 import type { LeaderboardTournament } from 'engine';
+import { toTournamentMatch } from '../tournaments/tournament-view.js';
 
 /**
  * The complete tournament `view` as the leaderboard reads it: its players,
@@ -12,10 +13,7 @@ export function toLeaderboardTournament(
     players: view.entries.map((entry) => entry.playerId),
     matches: view.rounds
       .flatMap((round) => round.matches)
-      .map(({ players, outcome }) => ({
-        players,
-        outcome: outcome.kind === 'Unreported' ? null : outcome,
-      })),
+      .map(toTournamentMatch),
     trophyHolders: view.trophyHolders,
   };
 }

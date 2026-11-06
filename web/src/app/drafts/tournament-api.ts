@@ -66,7 +66,7 @@ export class TournamentApi {
 
   /**
    * Completes the current tournament round of the draft's Swiss or single elimination tournament,
-   * settling its unreported matches as `request` says; for organizers.
+   * deciding its unreported matches as `request` says; for organizers.
    */
   completeRound(draftId: string, request: CompleteRoundRequest): Observable<DraftView> {
     return this.http.post<DraftView>(`${url(draftId)}/complete-round`, request);

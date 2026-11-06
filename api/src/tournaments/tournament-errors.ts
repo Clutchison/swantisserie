@@ -1,6 +1,6 @@
 import type { TournamentRefusal } from 'contract';
 
-/** Thrown when a tournament can't be set up, joined, left or cancelled. */
+/** Thrown when a tournament change is refused, with the refusal the web shows. */
 export class TournamentRefusedError extends Error {
   constructor(readonly refusal: TournamentRefusal) {
     super(refusal.message);

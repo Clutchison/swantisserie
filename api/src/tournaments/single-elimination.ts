@@ -19,7 +19,7 @@ import {
   entryToDrop,
   forfeitUnplayed,
   listedMatches,
-  refuseSettledSince,
+  refuseReportedSince,
 } from './tournament-matches.js';
 import { toOutcome } from './tournament-view.js';
 
@@ -34,7 +34,7 @@ import { toOutcome } from './tournament-view.js';
  */
 export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
   start: seedBracket,
-  async settle(tx, { tournamentId, round, request }) {
+  async decide(tx, { tournamentId, round, request }) {
     if (request.grantedDraws.length > 0) {
       throw new InvalidTournamentRequestError(
         'Single elimination never has a draw. Pick a winner for each unreported match, or drop its players, instead.',
@@ -43,7 +43,7 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
     const won = new Set(request.grantedWins.map((win) => win.matchId));
     if (request.drops.some((drop) => won.has(drop.matchId))) {
       throw new InvalidTournamentRequestError(
-        'A match is settled by a granted win or by dropping its players, not both.',
+        'An unreported match gets a granted win or its players dropped, not both.',
       );
     }
     const wins = await grantedWins(
@@ -60,8 +60,8 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
       });
     }
     for (const { match } of wins)
-      refuseSettledSince(match, round, 'granted win');
-    for (const { match } of drops) refuseSettledSince(match, round, 'drop');
+      refuseReportedSince(match, round, 'granted win');
+    for (const { match } of drops) refuseReportedSince(match, round, 'drop');
     for (const { match, grantedTo } of wins) {
       await tx.match.update({
         where: { id: match.id },
@@ -76,7 +76,7 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
       await forfeitUnplayed(tx, entryId);
     }
   },
-  settleHint: (unreported) =>
+  decideHint: (unreported) =>
     unreported === 1
       ? 'pick its winner or drop its players'
       : 'pick their winners or drop their players',

@@ -7,7 +7,7 @@ import {
   carol,
   completeDraft,
   completeTournament,
-  entrants,
+  joinedPlayers,
   fullDeck,
   getDraft,
   joinTournament,
@@ -218,7 +218,7 @@ describe('cancel tournament', () => {
     expect(answer.body.tournament).toBeNull();
     await tournament(id).expect(404);
     await setUpTournament(id).expect(201);
-    expect(await entrants(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([]);
   });
 
   it('removes the tournament and its matches while playing, so nothing counts and every deck unlocks', async () => {
@@ -238,10 +238,10 @@ describe('cancel tournament', () => {
       await setBasic(id, 'Island', 1, cookie).expect(200);
     }
     await setUpTournament(id).expect(201);
-    expect(await entrants(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([]);
   });
 
-  it('refuses a complete tournament, which can only be corrected', async () => {
+  it('refuses a complete tournament, whose results are final', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await completeTournament(id).expect(200);
 

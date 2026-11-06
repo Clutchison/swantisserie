@@ -12,7 +12,7 @@ export interface ScheduledRound {
  * once, the earlier player first, ordered by the first player and then the
  * second.
  */
-export function roundRobinPairings(
+export function roundRobinMatches(
   players: readonly string[],
 ): [string, string][] {
   return players.flatMap((first, i) =>

@@ -432,6 +432,18 @@ _Avoid_: Open, lobby (that is the draft's), sign-up
 A draft's player entering a tournament during registration. It locks their deck. Bots join at tournament setup, without asking.
 _Avoid_: Register, enter, sign up
 
+**Leave**:
+A joined player giving up their tournament entry during registration, which unlocks their deck. Once the tournament has started, a player drops instead.
+_Avoid_: Withdraw, unregister, quit
+
+**Remove**:
+An organizer ending a joined player's tournament entry during registration, which unlocks their deck. Once the tournament has started, an organizer drops them instead.
+_Avoid_: Kick, eject, unregister
+
+**Start**:
+The organizer beginning play once at least two players have joined, which ends registration and makes or pairs the first matches.
+_Avoid_: Begin, launch, open (that is the draft's)
+
 **Tournament entry**:
 A joined player's place in a tournament. They keep it if they drop; it ends if they leave during registration or an organizer removes them.
 _Avoid_: Registration (that is the state), sign-up, entrant
@@ -526,7 +538,7 @@ _Avoid_: Awarded win, default win, walkover, free win
 
 **Drop**:
 A player leaving a tournament before it ends. Their played matches stand.
-_Avoid_: Withdraw, quit, leave
+_Avoid_: Withdraw, quit, leave (that is during registration)
 
 **Reinstate**:
 An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them. In single elimination, a player whose last match was a forfeit, theirs or both players', or whose last tournament round was a bye, can't be reinstated once that tournament round is completed or the next match it feeds is paired; a player out on a match they played can be. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.

@@ -6,7 +6,7 @@ import {
   TournamentRefusedError,
 } from './tournament-errors.js';
 
-/** What a match's settling reads of each of its entries. */
+/** What deciding a match reads of each of its entries. */
 export const ENTRY_OF_MATCH = {
   id: true,
   dropped: true,
@@ -69,7 +69,7 @@ export async function listedMatches<Listed extends { matchId: string }>(
  * Complete round of tournament round `round`, was reported or forfeited
  * since the organizer looked.
  */
-export function refuseSettledSince(
+export function refuseReportedSince(
   match: { outcome: string },
   round: number,
   grant: 'granted draw' | 'granted win' | 'drop',

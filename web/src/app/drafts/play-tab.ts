@@ -19,6 +19,7 @@ import {
   type GameScore,
   type ReopenRoundView,
   type MatchView,
+  MIN_TOURNAMENT_PLAYERS,
   type SwissRoundOption,
   type TournamentFormat,
   type TournamentSetupRequest,
@@ -179,8 +180,8 @@ export class PlayTab {
   protected readonly offerOrganize = computed(
     () => this.canOrganize() && this.state() === 'Registration',
   );
-  /** Start needs at least 2 joined players. */
-  protected readonly canStart = computed(() => this.entries().length >= 2);
+  /** Start needs MIN_TOURNAMENT_PLAYERS joined, as the api refuses it with fewer. */
+  protected readonly canStart = computed(() => this.entries().length >= MIN_TOURNAMENT_PLAYERS);
   /**
    * Organizers drop and reinstate players, and complete or cancel the
    * tournament, while it is playing.
