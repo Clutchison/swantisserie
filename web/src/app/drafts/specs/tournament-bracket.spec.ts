@@ -61,6 +61,7 @@ describe('the bracket of a single elimination tournament', () => {
         rounds: [
           {
             round: 1,
+            correctable: true,
             matches: [
               {
                 ...unreportedMatch('m1', bob.id, carol.id),
@@ -149,6 +150,7 @@ describe('the bracket of a single elimination tournament', () => {
       rounds: [
         {
           round: 1,
+          correctable: true,
           matches: [
             {
               ...unreportedMatch('m1', bob.id, carol.id),

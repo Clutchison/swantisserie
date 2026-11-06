@@ -135,7 +135,14 @@ describe('Swiss tournaments on the Play tab', () => {
   /** Tournament round 1 of three players, Carol and Bob's match unreported and Alice with the bye. */
   const unreportedRoundOne = swissPlaying({
     lastCompletedRound: 0,
-    rounds: [{ round: 1, matches: [unreportedMatch('m1', carol.id, bob.id)], byes: [alice.id] }],
+    rounds: [
+      {
+        round: 1,
+        correctable: true,
+        matches: [unreportedMatch('m1', carol.id, bob.id)],
+        byes: [alice.id],
+      },
+    ],
   });
 
   it('asks which players of each unreported match to drop as it becomes a granted draw', async () => {
@@ -198,7 +205,12 @@ describe('Swiss tournaments on the Play tab', () => {
           { playerId: carol.id, dropped: false, seed: null },
         ],
         rounds: [
-          { round: 1, matches: [unreportedMatch('m1', alice.id, carol.id)], byes: [bob.id] },
+          {
+            round: 1,
+            correctable: true,
+            matches: [unreportedMatch('m1', alice.id, carol.id)],
+            byes: [bob.id],
+          },
         ],
       }),
     );
@@ -222,6 +234,7 @@ describe('Swiss tournaments on the Play tab', () => {
         rounds: [
           {
             round: 1,
+            correctable: true,
             matches: [reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
             byes: [alice.id],
           },
@@ -393,8 +406,13 @@ describe('Swiss tournaments on the Play tab', () => {
       const { fixture, tab } = await openPlaying(
         swissPlaying({
           rounds: [
-            { round: 1, matches: [bobBeatAlice], byes: [carol.id] },
-            { round: 2, matches: [unreportedMatch('m2', alice.id, carol.id)], byes: [bob.id] },
+            { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+            {
+              round: 2,
+              correctable: true,
+              matches: [unreportedMatch('m2', alice.id, carol.id)],
+              byes: [bob.id],
+            },
           ],
         }),
       );

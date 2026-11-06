@@ -38,8 +38,8 @@ export interface SetGameScore {
  * tournament rounds, shows the results grid instead. The signed-in
  * player's other open matches offer Report, which makes that match the one
  * shown as theirs, and their other matches someone else reported offer Confirm.
- * Organizers report, correct and clear any match whose results aren't
- * final: those of the open tournament round.
+ * Organizers report, correct and clear the matches of each tournament
+ * round the read says is correctable.
  */
 @Component({
   selector: 'app-tournament-results',
@@ -81,11 +81,6 @@ export class TournamentResults {
         : undefined;
     },
   });
-
-  /** Organizers report, correct and clear matches while the tournament is playing; a complete one's results are final. */
-  private readonly organize = computed(
-    () => this.store.canOrganize() && this.tournament().state === 'Playing',
-  );
 
   /** Swiss standings show the MTR's tiebreak columns: opponents' match-win % and opponents' game-win %. */
   protected readonly swiss = computed(() => this.tournament().format === 'Swiss');
@@ -142,18 +137,17 @@ export class TournamentResults {
       round: round.round,
       label: `Tournament round ${round.round}`,
       byes: round.byes.map((id) => this.seeded(id)),
-      matches: round.matches.map((match) => this.line(match, round.round)),
+      matches: round.matches.map((match) => this.line(match, round.correctable)),
     }));
     return format === 'Swiss' ? shown.reverse() : shown;
   });
 
   /**
-   * How a match of tournament round `round` reads in its list, and what
-   * an organizer can do with it, unless its round's results are final, as
-   * the api decides: once the round is completed, until it is reopened.
-   * Also the opponent to report it against, if any.
+   * How a match reads in its list, and what an organizer can do with it
+   * while its tournament round is `correctable`, as the api says. Also the
+   * opponent to report it against, if any.
    */
-  private line(match: MatchView, round: number) {
+  private line(match: MatchView, correctable: boolean) {
     const own = this.ownId();
     const reportable =
       this.tournament().state === 'Playing' &&
@@ -169,10 +163,7 @@ export class TournamentResults {
       confirmAgainst: this.confirmable(match)
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
-      organize:
-        this.organize() && round > this.tournament().lastCompletedRound
-          ? this.organizerControls(match)
-          : null,
+      organize: this.store.canOrganize() && correctable ? this.organizerControls(match) : null,
     };
   }
 

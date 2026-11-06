@@ -153,6 +153,7 @@ export function playing(
     rounds: [
       {
         round: 1,
+        correctable: true,
         matches: [
           match('m2', alice.id, bob.id),
           match('m1', bob.id, carol.id),
@@ -196,10 +197,16 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     rounds: [
       {
         round: 1,
+        correctable: false,
         matches: [reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
         byes: [alice.id],
       },
-      { round: 2, matches: [unreportedMatch('m2', alice.id, carol.id)], byes: [bob.id] },
+      {
+        round: 2,
+        correctable: true,
+        matches: [unreportedMatch('m2', alice.id, carol.id)],
+        byes: [bob.id],
+      },
     ],
     bracket: null,
     standings: [
@@ -214,6 +221,18 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     canJoin: false,
     joinRefusal: null,
     ...fields,
+  };
+}
+
+/**
+ * The tournament `view` once it is complete: none of its rounds
+ * correctable any more, as the api reads it.
+ */
+export function completed(view: ViewerTournamentView): ViewerTournamentView {
+  return {
+    ...view,
+    state: 'Complete',
+    rounds: view.rounds.map((round) => ({ ...round, correctable: false })),
   };
 }
 
@@ -274,6 +293,7 @@ export function singleEliminationPlaying(
     rounds: [
       {
         round: 1,
+        correctable: true,
         matches: [{ ...unreportedMatch('m1', bob.id, carol.id), bracketPlace: 1 }],
         byes: [alice.id],
       },
@@ -296,10 +316,11 @@ export function singleEliminationPlaying(
 /**
  * Round 1 of the single elimination tournament of Alice, Bob and Carol,
  * Carol having beaten Bob 2–1 (m1) as she reported it, `confirmed` by Bob
- * or not.
+ * or not, open unless `completed`.
  */
-export const carolBeatBob = (confirmed = false): TournamentRoundView => ({
+export const carolBeatBob = (confirmed = false, completed = false): TournamentRoundView => ({
   round: 1,
+  correctable: !completed,
   matches: [
     {
       ...reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
@@ -318,9 +339,10 @@ export const carolBeatBob = (confirmed = false): TournamentRoundView => ({
 export const singleEliminationFinal = singleEliminationPlaying({
   lastCompletedRound: 1,
   rounds: [
-    carolBeatBob(),
+    carolBeatBob(false, true),
     {
       round: 2,
+      correctable: true,
       matches: [{ ...unreportedMatch('m2', alice.id, carol.id), bracketPlace: 0 }],
       byes: [],
     },

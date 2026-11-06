@@ -23,6 +23,7 @@ import {
   type TournamentMatch,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
+import { correctionRefusal } from './correction-refusal.js';
 import { offersReopenRound, reopenRoundOf } from './reopen-round.js';
 
 /** What the tournament read selects of a tournament. */
@@ -125,7 +126,12 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     const number = roundRobin ? 1 : match.round;
     let round = rounds.at(-1);
     if (round?.round !== number) {
-      round = { round: number, matches: [], byes: [] };
+      round = {
+        round: number,
+        correctable: correctionRefusal(row, number) === null,
+        matches: [],
+        byes: [],
+      };
       rounds.push(round);
     }
     if (match.secondEntryId !== null)

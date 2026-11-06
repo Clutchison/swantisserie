@@ -63,7 +63,12 @@ describe('bots on the Play tab', () => {
       swissPlaying({
         lastCompletedRound: 0,
         rounds: [
-          { round: 1, matches: [unreportedMatch('m1', carol.id, bob.id)], byes: [alice.id] },
+          {
+            round: 1,
+            correctable: true,
+            matches: [unreportedMatch('m1', carol.id, bob.id)],
+            byes: [alice.id],
+          },
         ],
       }),
       withBot,
