@@ -25,7 +25,7 @@ import {
   type ChangeSteps,
   type MatchChange,
 } from './change-steps.js';
-import { joinRefusal, viewerJoin, JOIN_CANDIDATE } from './join-rules.js';
+import { joinRefusal, viewerJoin, JOINING_PLAYER } from './join-rules.js';
 import type { RoundSteps, TournamentProgress } from './round-steps.js';
 import { SINGLE_ELIMINATION_STEPS } from './single-elimination.js';
 import { SWISS_STEPS } from './swiss-rounds.js';
@@ -95,7 +95,7 @@ export class TournamentsService {
         ...TOURNAMENT_VIEW,
         draft: {
           select: {
-            players: { where: { userId: viewerId }, select: JOIN_CANDIDATE },
+            players: { where: { userId: viewerId }, select: JOINING_PLAYER },
           },
         },
       },
@@ -162,7 +162,7 @@ export class TournamentsService {
     await this.inRegistration(draftId, async (tx, tournament) => {
       const player = await tx.player.findUnique({
         where: { draftId_userId: { draftId, userId } },
-        select: { id: true, ...JOIN_CANDIDATE },
+        select: { id: true, ...JOINING_PLAYER },
       });
       if (!player) throw new NotAPlayerError('tournaments');
       const refusal = joinRefusal(player);

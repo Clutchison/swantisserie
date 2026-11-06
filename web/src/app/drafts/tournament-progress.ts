@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, linkedSignal } from '@angular/core';
 import type { TournamentState, TournamentView } from 'contract';
-import { roundName } from './round-names';
+import { namedRound } from './round-names';
 
 /** A tournament's states, in the order it goes through them. */
 const STATES: TournamentState[] = ['Registration', 'Playing', 'Complete'];
@@ -22,8 +22,7 @@ function openRound({
 }: TournamentView): string | null {
   if (state !== 'Playing' || format === 'RoundRobin') return null;
   const round = Math.min(lastCompletedRound + 1, roundCount);
-  const name = roundName(format, round, roundCount);
-  return name.startsWith('Tournament round') ? `${name} of ${roundCount}` : name;
+  return namedRound(format, round, roundCount) ?? `Tournament round ${round} of ${roundCount}`;
 }
 
 /** `count` matches, "1 match" in the singular. */

@@ -460,6 +460,12 @@ export const yourMatches = (root: HTMLElement) =>
     return text(shown);
   });
 
+/** The lists of matches or bracket places inside `root`, one per tournament round named by its label, in round order. */
+const roundLists = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('ol, ul, [role="list"]')].filter((list) =>
+    /^(Tournament round \d+|Final|Semifinal|Quarterfinal)$/.test(accessibleName(list)),
+  );
+
 /** The names of the lists of matches by tournament round inside `root`, in page order. */
 export const roundLabels = (root: HTMLElement) =>
   roundLists(root).map((list) => accessibleName(list));
@@ -470,12 +476,6 @@ export const bracket = (root: HTMLElement) => region(root, 'Bracket');
 /** Each match of the bracket's tournament round `round` inside `root` by its accessible name, byes included, in order. */
 export const bracketMatches = (root: HTMLElement, round: number) =>
   [...roundLists(bracket(root)!)[round - 1].querySelectorAll('li')].map((li) => accessibleName(li));
-
-/** The bracket's lists of bracket places, one per tournament round, in round order. */
-const roundLists = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLElement>('ol, ul, [role="list"]')].filter((list) =>
-    /^(Tournament round \d+|Final|Semifinal|Quarterfinal)$/.test(accessibleName(list)),
-  );
 
 /** The bracket's matches inside `root` highlighted as the signed-in player's path, by accessible name, in order. */
 export const ownPath = (root: HTMLElement) =>

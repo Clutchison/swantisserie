@@ -441,7 +441,7 @@ An organizer ending a joined player's tournament entry during registration, whic
 _Avoid_: Kick, eject, unregister
 
 **Start**:
-The organizer beginning play once at least two players have joined: it closes joining, makes round robin's matches, pairs Swiss's first tournament round or seeds the bracket, and locks the decklists under public decklists.
+The organizer beginning play once at least two players have joined, which ends registration and makes or pairs the first matches.
 _Avoid_: Begin, launch, open (that is the draft's)
 
 **Tournament entry**:
@@ -538,7 +538,7 @@ _Avoid_: Awarded win, default win, walkover, free win
 
 **Drop**:
 A player leaving a tournament before it ends. Their played matches stand.
-_Avoid_: Withdraw, quit, leave
+_Avoid_: Withdraw, quit, leave (that is during registration)
 
 **Reinstate**:
 An organizer taking back a player's drop while the tournament is playing, until a tournament round is paired without them. In single elimination, a player whose last match was a forfeit, theirs or both players', or whose last tournament round was a bye, can't be reinstated once that tournament round is completed or the next match it feeds is paired; a player out on a match they played can be. Their forfeits become unreported matches again, except against a player still dropped, whose forfeits they become.

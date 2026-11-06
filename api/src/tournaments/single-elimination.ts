@@ -43,7 +43,7 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
     const won = new Set(request.grantedWins.map((win) => win.matchId));
     if (request.drops.some((drop) => won.has(drop.matchId))) {
       throw new InvalidTournamentRequestError(
-        'A match is decided by a granted win or by dropping its players, not both.',
+        'An unreported match gets a granted win or its players dropped, not both.',
       );
     }
     const wins = await grantedWins(
