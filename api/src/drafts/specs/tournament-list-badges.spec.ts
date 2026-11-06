@@ -20,9 +20,6 @@ import {
 
 useDraftsApp();
 
-/** A user who signs in only where a spec needs one who isn't one of the draft's players. */
-const dave = { id: '80351110224678915', name: 'Dave' };
-
 let bobCookie: string;
 let carolCookie: string;
 
@@ -64,43 +61,20 @@ it('is null for a draft without a tournament', async () => {
   expect(await badgeOf(id)).toBeNull();
 });
 
-describe('in registration', () => {
-  it('lets a player who hasn’t joined, with a full deck, join', async () => {
-    const id = await inRegistration();
+// Which viewers may join is the tournament read's to show
+// (tournament-registration.spec.ts); the badge reads it the same way, per viewer.
+it('offers Join in registration to each viewer whom joining would let in, as the tournament read does', async () => {
+  const id = await inRegistration();
 
-    expect(await badgeOf(id, bobCookie)).toEqual({
-      state: 'Registration',
-      canJoin: true,
-      trophyHolders: [],
-    });
+  expect(await badgeOf(id, bobCookie)).toEqual({
+    state: 'Registration',
+    canJoin: true,
+    trophyHolders: [],
   });
-
-  it('doesn’t offer Join to a player who has joined', async () => {
-    const id = await inRegistration();
-    await joinTournament(id, bobCookie).expect(201);
-
-    expect(await badgeOf(id, bobCookie)).toEqual(withoutJoin('Registration'));
-    // Alice, who hasn't, still may.
-    expect((await badgeOf(id, aliceCookie))?.canJoin).toBe(true);
-  });
-
-  it('doesn’t offer Join to anyone who isn’t one of the draft’s players', async () => {
-    const id = await inRegistration();
-    const daveCookie = await signIn(dave);
-
-    // Carol is an app admin, Dave just a guild member.
-    for (const cookie of [carolCookie, daveCookie]) {
-      expect(await badgeOf(id, cookie)).toEqual(withoutJoin('Registration'));
-    }
-  });
-
-  it('doesn’t offer Join to a player whose mainboard is too small to join', async () => {
-    const id = await completeDraft([aliceCookie, bobCookie]);
-    await setUpTournament(id).expect(201);
-
-    expect((await badgeOf(id, bobCookie))?.canJoin).toBe(false);
-    await joinTournament(id, bobCookie).expect(409);
-  });
+  await joinTournament(id, bobCookie).expect(201);
+  expect(await badgeOf(id, bobCookie)).toEqual(withoutJoin('Registration'));
+  // Alice, who hasn't, still may.
+  expect((await badgeOf(id, aliceCookie))?.canJoin).toBe(true);
 });
 
 it('shows a playing tournament, which nobody may join', async () => {

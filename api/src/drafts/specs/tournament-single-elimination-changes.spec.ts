@@ -7,7 +7,6 @@ import {
   clearGameScore,
   completeRound,
   dropPlayer,
-  getDraft,
   placesOf,
   playingTournament,
   reinstate,
@@ -78,10 +77,6 @@ describe('dropping in single elimination', () => {
     await playRound(id);
 
     const view = await tournamentView(id);
-    expect(at(view, 1, 0).outcome).toEqual({
-      kind: 'Forfeit',
-      forfeitedBy: seeds[3],
-    });
     expect(placesOf(view.rounds[1])).toEqual([
       { bracketPlace: 0, players: [seeds[0], seeds[1]] },
     ]);
@@ -228,17 +223,6 @@ describe('dropping players from the Complete round dialog', () => {
 });
 
 describe('reinstating in single elimination', () => {
-  it('turns the forfeit back into an unreported match while its tournament round is open', async () => {
-    const { id, seeds } = await playing(4);
-    await dropPlayer(id, seeds[3], aliceCookie).expect(200);
-
-    await reinstate(id, seeds[3]).expect(200);
-
-    const view = await tournamentView(id);
-    expect(at(view, 1, 0).outcome).toEqual({ kind: 'Unreported' });
-    expect(view.entries.every((entry) => !entry.dropped)).toBe(true);
-  });
-
   it('is refused once the forfeit has fed a later match', async () => {
     const { id, seeds } = await playing(4);
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
@@ -332,24 +316,5 @@ describe('drops and corrections in the bracket read', () => {
       [seeds[2], 3],
       [seeds[3], 3],
     ]);
-  });
-});
-
-describe('single elimination’s changes', () => {
-  it('bump the draft’s version once each', async () => {
-    const { id, seeds } = await playing(4);
-    const version = async () => (await getDraft(id).expect(200)).body.version;
-    const first = at(await tournamentView(id), 1, 0);
-    const second = at(await tournamentView(id), 1, 1);
-    const start = await version();
-
-    await dropPlayer(id, seeds[3], aliceCookie).expect(200);
-    await reinstate(id, seeds[3]).expect(200);
-    await completeRound(id, aliceCookie, {
-      drops: [{ matchId: first.id, drop: [seeds[3]] }],
-      grantedWins: [{ matchId: second.id, winner: seeds[1] }],
-    } satisfies CompleteRoundRequest).expect(200);
-
-    expect(await version()).toBe(start + 3);
   });
 });

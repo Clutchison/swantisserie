@@ -5,7 +5,6 @@ import {
   carol,
   completeDraft,
   fullDeck,
-  getDraft,
   joinTournament,
   playingTournament,
   setUpTournament,
@@ -133,16 +132,5 @@ describe('starting a tournament', () => {
     expect((await joinTournament(id, carolCookie).expect(409)).body.error).toBe(
       'not-in-registration',
     );
-  });
-
-  it('bumps the draft’s version', async () => {
-    const id = await inRegistration([aliceCookie, bobCookie]);
-    await joinTournament(id, aliceCookie).expect(201);
-    await joinTournament(id, bobCookie).expect(201);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await startTournament(id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
   });
 });

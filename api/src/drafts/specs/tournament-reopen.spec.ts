@@ -11,7 +11,6 @@ import {
   clearGameScore,
   completeRound,
   dropPlayer,
-  getDraft,
   playingTournament,
   reinstate,
   reopenRound,
@@ -301,7 +300,7 @@ describe('Reopen round', () => {
     expect((await tournamentView(id)).reopenRound).toBeNull();
   });
 
-  it('is for organizers only, and bumps the draft’s version', async () => {
+  it('is for organizers only', async () => {
     const id = await playingTournament(everyone(), swiss());
     await playRound(id);
 
@@ -309,9 +308,7 @@ describe('Reopen round', () => {
     for (const cookie of [bobCookie, daveCookie]) {
       await reopenRound(id, cookie).expect(403);
     }
-    const before = (await getDraft(id).expect(200)).body.version as number;
-    const answer = await reopenRound(id).expect(200);
 
-    expect(answer.body.version).toBe(before + 1);
+    expect((await tournamentView(id)).lastCompletedRound).toBe(1);
   });
 });

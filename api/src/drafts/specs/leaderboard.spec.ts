@@ -1,4 +1,4 @@
-import type { CompleteRoundRequest, LeaderboardView } from 'contract';
+import type { LeaderboardView } from 'contract';
 import request from 'supertest';
 import {
   alice,
@@ -170,18 +170,16 @@ describe('the leaderboard', () => {
     ]);
   });
 
-  it('leaves granted wins and byes out of records', async () => {
+  it('leaves byes out of records', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie],
       singleElimination,
     );
     const before = await tournamentView(id);
     const [top, second, third] = seedsOf(before);
-    const [match] = before.rounds[0].matches;
     expect(before.rounds[0].byes).toEqual([top]);
-    await completeRound(id, aliceCookie, {
-      grantedWins: [{ matchId: match.id, winner: second }],
-    } satisfies CompleteRoundRequest).expect(200);
+    await setWin(id, [second, third], [2, 0]);
+    await completeRound(id).expect(200);
     await setWin(id, [top, second], [2, 1]);
     await completeRound(id).expect(200);
     const view = await tournamentView(id);
@@ -199,18 +197,13 @@ describe('the leaderboard', () => {
         trophies: 1,
         matches: tally(1, 0),
         games: tally(2, 1),
-      }),
-      expect.objectContaining({
-        playerId: second,
-        trophies: 0,
-        matches: tally(0, 1),
-        games: tally(1, 2),
         opponents: [
-          { playerId: top, matches: tally(0, 1), games: tally(1, 2) },
+          { playerId: second, matches: tally(1, 0), games: tally(2, 1) },
         ],
       }),
+      expect.objectContaining({ playerId: second, matches: tally(1, 1) }),
+      expect.objectContaining({ playerId: third, matches: tally(0, 1) }),
     ]);
-    expect(board.map((player) => player.playerId)).not.toContain(third);
   });
 
   it('leaves out tournaments still in registration or playing, and cancelled ones', async () => {

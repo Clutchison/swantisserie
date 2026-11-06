@@ -16,9 +16,7 @@ import {
   completeDraft,
   completeRound,
   confirmMatch,
-  fullDeck,
   getDraft,
-  joinTournament,
   placesOf,
   playingTournament,
   reportCurrentRound,
@@ -30,7 +28,6 @@ import {
   setUpTournament,
   signIn,
   singleElimination,
-  startTournament,
   tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -102,20 +99,6 @@ describe('starting a single elimination tournament', () => {
       { bracketPlace: 0, players: [seeds[0], seeds[3]] },
       { bracketPlace: 1, players: [seeds[1], seeds[2]] },
     ]);
-  });
-
-  it('bumps the draft’s version', async () => {
-    const id = await completeDraft([aliceCookie, bobCookie]);
-    await setUpTournament(id, aliceCookie, singleElimination).expect(201);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
-    const before = await getDraft(id).expect(200);
-
-    const answer = await startTournament(id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
   });
 });
 

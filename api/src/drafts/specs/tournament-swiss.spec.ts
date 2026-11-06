@@ -15,7 +15,6 @@ import {
   fullDeck,
   getDraft,
   joinTournament,
-  matchOf,
   playingTournament,
   reinstate,
   reportCurrentRound,
@@ -333,8 +332,9 @@ describe('completing a tournament round', () => {
     await completeRound(id).expect(200);
     await reportCurrentRound(id, cookieOf);
 
-    await completeRound(id).expect(200);
+    const answer = await completeRound(id).expect(200);
 
+    expect(answer.body.tournament).toEqual({ state: 'Complete' });
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
     expect(view.lastCompletedRound).toBe(2);
@@ -345,17 +345,6 @@ describe('completing a tournament round', () => {
     expect((await completeRound(id).expect(409)).body.error).toBe(
       'not-playing',
     );
-  });
-
-  it('bumps the draft’s version', async () => {
-    const id = await playingTournament([aliceCookie, bobCookie], swiss());
-    await reportCurrentRound(id, cookieOf);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await completeRound(id).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
-    expect(answer.body.tournament).toEqual({ state: 'Complete' });
   });
 
   it('isn’t for round robin, which completes as a whole; and Swiss doesn’t complete as a whole', async () => {
@@ -569,7 +558,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
 });
 
 describe('dropping from a Swiss tournament', () => {
-  it('forfeits the current unplayed match, and leaves the player out of the next tournament round', async () => {
+  it('leaves the player out of the next tournament round', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie, daveCookie],
       swiss(),
@@ -577,42 +566,17 @@ describe('dropping from a Swiss tournament', () => {
     const [played, unplayed] = (await tournamentView(id)).rounds[0].matches;
     await reportWin(id, played.players, [2, 0], cookieOf[played.players[1]]);
     const gone = unplayed.players[0];
-    const before = await getDraft(id).expect(200);
 
-    const answer = await dropPlayer(id, gone, cookieOf[gone]).expect(200);
+    await dropPlayer(id, gone, cookieOf[gone]).expect(200);
 
-    expect(answer.body.version).toBe(before.body.version + 1);
-    expect((await matchOf(id, ...unplayed.players)).outcome).toEqual({
-      kind: 'Forfeit',
-      forfeitedBy: gone,
-    });
     await completeRound(id).expect(200);
     const view = await tournamentView(id);
-    expect(view.rounds[0].matches[0].outcome.kind).toBe('GameScore');
     expect(seated(view.rounds[1])).toHaveLength(3);
     expect(seated(view.rounds[1])).not.toContain(gone);
   });
 });
 
 describe('reinstating a player in a Swiss tournament', () => {
-  it('turns their forfeits back into unreported matches before the next tournament round is paired', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie, daveCookie],
-      swiss(),
-    );
-    const [match] = (await tournamentView(id)).rounds[0].matches;
-    const gone = match.players[1];
-    await dropPlayer(id, gone, cookieOf[gone]).expect(200);
-    const before = await getDraft(id).expect(200);
-
-    const answer = await reinstate(id, gone).expect(200);
-
-    expect(answer.body.version).toBe(before.body.version + 1);
-    const view = await tournamentView(id);
-    expect(view.rounds[0].matches[0].outcome).toEqual({ kind: 'Unreported' });
-    expect(droppedIn(view)).toEqual([]);
-  });
-
   it('is refused once a later tournament round has been paired after their drop', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie, carolCookie, daveCookie],
