@@ -84,15 +84,29 @@
       >
         {{ planName() === 'deck' ? 'Deck' : 'Plan' }}
       </button>
-      <button
-        id="board-tab"
-        type="button"
-        [appTab]="selectedTab() === 'Board'"
-        aria-controls="board-panel"
-        (click)="selectedTab.select('Board')"
-      >
-        Board
-      </button>
+      <!-- The Decklists tab takes the Board tab's place once a tournament with public decklists has started. -->
+      @if (showBoardTab()) {
+        <button
+          id="board-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Board'"
+          aria-controls="board-panel"
+          (click)="selectedTab.select('Board')"
+        >
+          Board
+        </button>
+      }
+      @if (showDecklists()) {
+        <button
+          id="decklists-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Decklists'"
+          aria-controls="decklists-panel"
+          (click)="selectedTab.select('Decklists')"
+        >
+          Decklists
+        </button>
+      }
       <!-- Only players have picks to export. -->
       <button
         id="export-tab"
@@ -113,17 +127,6 @@
           (click)="selectedTab.select('Play')"
         >
           Play
-        </button>
-      }
-      @if (showDecklists()) {
-        <button
-          id="decklists-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Decklists'"
-          aria-controls="decklists-panel"
-          (click)="selectedTab.select('Decklists')"
-        >
-          Decklists
         </button>
       }
     </div>
@@ -231,16 +234,32 @@
       }
     </section>
 
-    <section
-      id="board-panel"
-      class="board"
-      role="tabpanel"
-      aria-labelledby="board-tab"
-      [hidden]="selectedTab() !== 'Board'"
-    >
-      <h2>Board</h2>
-      <app-board-tab />
-    </section>
+    @if (showBoardTab()) {
+      <section
+        id="board-panel"
+        class="board"
+        role="tabpanel"
+        aria-labelledby="board-tab"
+        [hidden]="selectedTab() !== 'Board'"
+      >
+        <h2>Board</h2>
+        <app-board-tab />
+      </section>
+    }
+
+    <!-- Only a tournament under public decklists has a Decklists tab, once it has started. -->
+    @if (showDecklists()) {
+      <section
+        id="decklists-panel"
+        class="decklists"
+        role="tabpanel"
+        aria-labelledby="decklists-tab"
+        [hidden]="selectedTab() !== 'Decklists'"
+      >
+        <h2>Decklists</h2>
+        <app-decklists-tab />
+      </section>
+    }
 
     <!-- Only players have picks to export. -->
     <section
@@ -265,20 +284,6 @@
       >
         <h2>Play</h2>
         <app-play-tab />
-      </section>
-    }
-
-    <!-- Only a tournament under public decklists has a Decklists tab, once it has started. -->
-    @if (showDecklists()) {
-      <section
-        id="decklists-panel"
-        class="decklists"
-        role="tabpanel"
-        aria-labelledby="decklists-tab"
-        [hidden]="selectedTab() !== 'Decklists'"
-      >
-        <h2>Decklists</h2>
-        <app-decklists-tab />
       </section>
     }
   }
