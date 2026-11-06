@@ -1,0 +1,47 @@
+/* Sits inside the draft page, which has the padding. */
+:host {
+  display: block;
+  padding: 0;
+}
+
+fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.entries {
+  list-style: none;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    min-height: 2.5rem;
+  }
+
+  button {
+    margin-left: auto;
+  }
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
