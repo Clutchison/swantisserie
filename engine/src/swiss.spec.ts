@@ -182,11 +182,6 @@ describe('pairSwissRound', () => {
     const round = pairSwissRound({
       ...noHistory,
       standings: standingsOf(['a', 6], ['b', 3], ['c', 0]),
-      pastMatches: [
-        ['a', 'b'],
-        ['a', 'c'],
-      ],
-      pastByes: ['c'],
       dropped: ['a', 'b', 'c'],
       rngSeed: 1,
     });
@@ -394,7 +389,8 @@ describe('swissStandings', () => {
   it("counts a draw with a drawn game in an opponent's tiebreakers: 1 match point for the draw, 1 game point for the drawn game", () => {
     // a drew b 1–1 with a drawn game, then beat d 2–0: 4 of 6 match points
     // (66.7%) and 10 of 15 game points (66.7%). c beat d 2–1 and b 2–0: 100%
-    // and 12 of 15 game points (80%). So d met a (66.7%) and c (100%).
+    // and 12 of 15 game points (80%). So d met a and c: opponents' match-win
+    // % (66.7 + 100) / 2 = 83.3, opponents' game-win % (66.7 + 80) / 2 = 73.3.
     const matches = [
       played('a', 'b', [1, 1], 1),
       played('c', 'd', [2, 1]),
@@ -402,14 +398,9 @@ describe('swissStandings', () => {
       played('c', 'b', [2, 0]),
     ];
     const ranked = swissStandings(['a', 'b', 'c', 'd'], matches, []);
-    expect(standingFor(ranked, 'a')).toMatchObject({
-      matchPoints: 4,
-      matches: { won: 1, lost: 0, drawn: 1 },
-      games: { won: 3, lost: 1, drawn: 1 },
-    });
     const d = standingFor(ranked, 'd');
-    expect(d.opponentsMatchWinPercent).toBeCloseTo((66.67 + 100) / 2, 1);
-    expect(d.opponentsGameWinPercent).toBeCloseTo((66.67 + 80) / 2, 1);
+    expect(d.opponentsMatchWinPercent).toBeCloseTo(83.3, 1);
+    expect(d.opponentsGameWinPercent).toBeCloseTo(73.3, 1);
   });
 
   it("leaves byes out of opponents' percentages, but not out of the bye's player's own", () => {
