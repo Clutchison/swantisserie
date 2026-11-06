@@ -1,18 +1,24 @@
 import type {
   MatchReportRequest,
   MatchView,
+  PlayerView,
   SwissRoundOption,
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
 import {
+  addBot,
   aliceCookie,
+  carol,
   draftsRequest,
+  getDraft,
   pick,
   poolCardIds,
   readyDraft,
   setBasic,
+  signIn,
   start,
+  waitForBotPicks,
 } from './harness.js';
 
 export * from './harness.js';
@@ -66,6 +72,34 @@ export async function completeDraft(cookies: string[]) {
     await pick(id, ids[names[seat]], cookie).expect(200);
   }
   return id;
+}
+
+/**
+ * A complete draft, organized by Alice, of the cookies' users in seat order
+ * and then `bots` bots, added by Carol, an app admin; at most 12 in all.
+ * Each picks one card: the users Shock, Lightning Bolt and so on in turn,
+ * each bot a random one. Answers with the draft's id and its bots' ids in
+ * seat order. Every deck holds just its pick, so give the users `fullDeck`
+ * before they join a tournament; the bots join at its setup as they are.
+ */
+export async function completeDraftWithBots(cookies: string[], bots: number) {
+  const names = DRAFTED.slice(0, Math.max(4, cookies.length + bots));
+  const id = await readyDraft(cookies, 1, names);
+  const carolCookie = await signIn(carol);
+  for (let i = 0; i < bots; i++) await addBot(id, carolCookie).expect(201);
+  const ids = await poolCardIds(id);
+  const started = await start(id).expect(200);
+  for (const [seat, cookie] of cookies.entries()) {
+    await pick(id, ids[names[seat]], cookie).expect(200);
+  }
+  await waitForBotPicks(bots, async () =>
+    expect((await getDraft(id).expect(200)).body.state).toBe('Complete'),
+  );
+  const players = (started.body as { players: PlayerView[] }).players;
+  return {
+    id,
+    botIds: players.filter((player) => player.isBot).map((p) => p.id),
+  };
 }
 
 /**

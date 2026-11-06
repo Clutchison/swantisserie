@@ -1,5 +1,4 @@
 import {
-  addBot,
   alice,
   aliceCookie,
   bob,
@@ -7,19 +6,13 @@ import {
   completeDraft,
   entrants,
   fullDeck,
-  getDraft,
   joinTournament,
-  pick,
-  poolCardIds,
-  readyDraft,
   removeEntry,
   setBasic,
   setUpTournament,
   signIn,
-  start,
   startTournament,
   tournament,
-  waitForBotPicks,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -110,31 +103,6 @@ describe('joining and leaving', () => {
     expect(await entrants(id)).toEqual([]);
     await setBasic(id, 'Swamp', 19, bobCookie).expect(200);
     await joinTournament(id, bobCookie).expect(201);
-  });
-
-  it('never lets a bot join', async () => {
-    const carolCookie = await signIn(carol);
-    const id = await readyDraft([aliceCookie], 1, [
-      'Shock',
-      'Lightning Bolt',
-      'Lava Spike',
-    ]);
-    const botId = (await addBot(id, carolCookie).expect(201)).body.players[1]
-      .id as string;
-    const ids = await poolCardIds(id);
-    await start(id).expect(200);
-    await pick(id, ids.Shock).expect(200);
-    await waitForBotPicks(1, async () =>
-      expect((await getDraft(id)).body.state).toBe('Complete'),
-    );
-    await setUpTournament(id).expect(201);
-    const botCookie = await signIn({ id: botId, name: 'Bot' });
-    await setBasic(id, 'Mountain', 39, botCookie).expect(200);
-
-    expect((await joinTournament(id, botCookie).expect(409)).body.error).toBe(
-      'bots-cannot-join',
-    );
-    expect(await entrants(id)).toEqual([]);
   });
 });
 

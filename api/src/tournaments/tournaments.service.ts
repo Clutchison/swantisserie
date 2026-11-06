@@ -40,6 +40,7 @@ import {
   tournamentStarted,
 } from './tournament-events.js';
 import {
+  BOT_ENTRY,
   NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
@@ -130,7 +131,7 @@ export class TournamentsService {
             message: 'This draft already has a tournament.',
           });
         }
-        await tx.tournament.create({
+        const tournament = await tx.tournament.create({
           data: {
             draftId,
             format: setup.format,
@@ -138,7 +139,9 @@ export class TournamentsService {
               setup.format === 'Swiss' ? setup.swissRoundOption : null,
             publicDecklists: setup.publicDecklists,
           },
+          select: { id: true },
         });
+        await joinBots(tx, draftId, tournament.id);
         return [await tournamentSetUp(tx, draftId, setup.format)];
       },
     );
@@ -169,20 +172,13 @@ export class TournamentsService {
   /**
    * Takes the draft's player `userId` out of its tournament, unlocking
    * their deck: they leave, or an organizer removes them. Throws
-   * TournamentRefusedError if they haven't joined, or the tournament is past
-   * registration.
+   * TournamentRefusedError if they haven't joined or are a bot, or the
+   * tournament is past registration.
    */
   async removeEntry(draftId: string, userId: string): Promise<void> {
     await this.inRegistration(draftId, async (tx, tournament) => {
-      const { count } = await tx.tournamentEntry.deleteMany({
-        where: { tournamentId: tournament.id, player: { draftId, userId } },
-      });
-      if (count === 0) {
-        throw new TournamentRefusedError({
-          error: 'not-joined',
-          message: 'That player hasn’t joined this tournament.',
-        });
-      }
+      const entry = await entryOf(tx, tournament, draftId, userId);
+      await tx.tournamentEntry.delete({ where: { id: entry.id } });
     });
   }
 
@@ -522,7 +518,8 @@ export class TournamentsService {
    * Drops the draft's player `userId` from its tournament: every unplayed
    * match of theirs becomes a forfeit by them, and their played matches
    * stand. Their deck stays locked. Throws TournamentRefusedError if they
-   * haven't joined or have dropped already, or the tournament isn't playing.
+   * haven't joined, are a bot or have dropped already, or the tournament
+   * isn't playing.
    */
   async drop(draftId: string, userId: string): Promise<void> {
     await this.inPlay(draftId, async (tx, tournament) => {
@@ -545,9 +542,10 @@ export class TournamentsService {
    * Reinstates the draft's dropped player `userId`: their forfeits
    * become unreported matches again, except against an opponent who has
    * dropped too, whose forfeit they become. Throws TournamentRefusedError if
-   * they haven't joined or haven't dropped, the tournament isn't playing,
-   * or their drop has fed a later pairing, as their format's round steps
-   * decide, by default once a tournament round was paired without them.
+   * they haven't joined, are a bot or haven't dropped, the tournament isn't
+   * playing, or their drop has fed a later pairing, as their format's round
+   * steps decide, by default once a tournament round was paired without
+   * them.
    */
   async reinstate(draftId: string, userId: string): Promise<void> {
     await this.inPlay(draftId, async (tx, tournament) => {
@@ -674,6 +672,33 @@ const CHANGE_STEPS: Record<TournamentFormat, ChangeSteps> = {
   Swiss: DEFAULT_CHANGE_STEPS,
   SingleElimination: SINGLE_ELIMINATION_CHANGES,
 };
+
+/**
+ * Joins every bot of the draft to its new tournament `tournamentId`, in
+ * seat order, whatever its deck holds: bots exist for testing, and an
+ * admin testing alone needs players to pair against. Their decks lock as
+ * they are.
+ */
+async function joinBots(
+  tx: Transaction,
+  draftId: string,
+  tournamentId: string,
+) {
+  const bots = await tx.player.findMany({
+    where: { draftId, user: { isBot: true } },
+    orderBy: [{ seat: 'asc' }, { joinedAt: 'asc' }],
+    select: { id: true },
+  });
+  // A millisecond apart, so join order is seat order.
+  const now = Date.now();
+  await tx.tournamentEntry.createMany({
+    data: bots.map((bot, i) => ({
+      tournamentId,
+      playerId: bot.id,
+      joinedAt: new Date(now + i),
+    })),
+  });
+}
 
 /** Writes an organizer's `change` to the match `matchId`, as the tournament's format's change steps do. */
 function changeMatch(
@@ -804,8 +829,9 @@ async function findMatch(
 }
 
 /**
- * The tournament entry of the draft's player `userId`. Throws
- * TournamentRefusedError if they haven't joined it.
+ * The tournament entry of the draft's player `userId`, to take them out of
+ * the tournament or put them back in. Throws TournamentRefusedError if they
+ * haven't joined it, or are a bot, which stays in.
  */
 async function entryOf(
   tx: Transaction,
@@ -815,7 +841,11 @@ async function entryOf(
 ): Promise<{ id: string; dropped: boolean }> {
   const entry = await tx.tournamentEntry.findFirst({
     where: { tournamentId: tournament.id, player: { draftId, userId } },
-    select: { id: true, dropped: true },
+    select: {
+      id: true,
+      dropped: true,
+      player: { select: { user: { select: { isBot: true } } } },
+    },
   });
   if (!entry) {
     throw new TournamentRefusedError({
@@ -823,5 +853,6 @@ async function entryOf(
       message: 'That player hasn’t joined this tournament.',
     });
   }
+  if (entry.player.user.isBot) throw new TournamentRefusedError(BOT_ENTRY);
   return entry;
 }

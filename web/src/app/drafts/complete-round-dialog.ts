@@ -12,14 +12,13 @@ export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
  * for organizers of a Swiss or single elimination tournament: what
  * completing its current tournament round does, and its unreported
  * matches, as the read's `completeRoundGrants` says. In Swiss they become
- * granted draws, each with a choice of its players to drop, except in the
- * final tournament round. In single elimination, which never has a draw,
- * the organizer picks each one's winner, who gets a granted win, or drops
- * one or both of its players, which makes it their forfeit, before the
- * round can be completed. It
- * opens on Cancel, with nobody dropped or picked, and closes with the
- * request to send once the organizer completes the round; the tab sends
- * it.
+ * granted draws, each with a choice of its players to drop, bots aside,
+ * except in the final tournament round. In single elimination, which never
+ * has a draw, the organizer picks each one's winner, who gets a granted
+ * win, or drops one or both of its human players, which makes it their
+ * forfeit, before the round can be completed. It opens on Cancel, with
+ * nobody dropped or picked, and closes with the request to send once the
+ * organizer completes the round; the tab sends it.
  */
 @Component({
   selector: 'app-complete-round-dialog',
@@ -45,13 +44,22 @@ export class CompleteRoundDialog {
   protected readonly finalRound = computed(
     () => this.round() >= (this.tournament()?.roundCount ?? 0),
   );
-  /** The round's unreported matches, each with its players as the draft names them. */
+  /**
+   * The round's unreported matches, each with its players as the draft
+   * names them, and those of them who may be dropped: never a bot, which
+   * stays in its tournament.
+   */
   protected readonly unreported = computed(() =>
     (this.tournament()?.rounds.find((r) => r.round === this.round())?.matches ?? [])
       .filter((match) => match.outcome.kind === 'Unreported')
       .map((match) => {
         const players = match.players.map((id) => this.store.player(id));
-        return { id: match.id, players, label: `${players[0].name} vs ${players[1].name}` };
+        return {
+          id: match.id,
+          players,
+          droppable: players.filter((player) => !player.isBot),
+          label: `${players[0].name} vs ${players[1].name}`,
+        };
       }),
   );
   /** The players chosen to drop, by the id of the match they drop from. */

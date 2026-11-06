@@ -9,8 +9,9 @@ import type { TournamentFormat } from '../generated/prisma/client.js';
 import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
 /**
- * Registration opening for the draft's human players, in seat order.
- * Each of these reads inside a change's transaction, once it is written.
+ * Registration opening for the draft's players, in seat order: its humans
+ * to join, its bots joined already. Each of these reads inside a change's
+ * transaction, once it is written.
  */
 export async function tournamentSetUp(
   tx: Transaction,
@@ -18,7 +19,7 @@ export async function tournamentSetUp(
   format: TournamentFormat,
 ): Promise<DraftEvent> {
   const players = await tx.player.findMany({
-    where: { draftId, user: { isBot: false } },
+    where: { draftId },
     orderBy: [{ seat: 'asc' }, { joinedAt: 'asc' }],
     select: EVENT_PLAYER,
   });

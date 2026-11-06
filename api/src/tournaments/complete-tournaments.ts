@@ -6,6 +6,8 @@ import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 export interface CompleteTournament {
   draftId: string;
   view: TournamentView;
+  /** Whether any bot played in it, as every bot of its draft does. */
+  botsPlayed: boolean;
 }
 
 /**
@@ -20,10 +22,17 @@ export async function readCompleteTournaments(
   const rows = await prisma.tournament.findMany({
     where: { state: 'Complete' },
     orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
-    select: { draftId: true, ...TOURNAMENT_VIEW },
+    select: {
+      draftId: true,
+      ...TOURNAMENT_VIEW,
+      _count: {
+        select: { entries: { where: { player: { user: { isBot: true } } } } },
+      },
+    },
   });
   return rows.map((row) => ({
     draftId: row.draftId,
     view: toTournamentView(row),
+    botsPlayed: row._count.entries > 0,
   }));
 }

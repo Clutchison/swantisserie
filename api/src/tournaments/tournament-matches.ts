@@ -1,6 +1,7 @@
 import type { ScheduledRound } from 'engine';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import {
+  BOT_ENTRY,
   InvalidTournamentRequestError,
   TournamentRefusedError,
 } from './tournament-errors.js';
@@ -9,8 +10,23 @@ import {
 export const ENTRY_OF_MATCH = {
   id: true,
   dropped: true,
-  player: { select: { userId: true } },
+  player: { select: { userId: true, user: { select: { isBot: true } } } },
 } as const;
+
+/**
+ * The entry of `match`'s player `playerId`, for Complete round to drop.
+ * Throws InvalidTournamentRequestError, saying `notInMatch`, if they aren't
+ * one of its players, and TournamentRefusedError if they are a bot, which
+ * never drops.
+ */
+export function entryToDrop<
+  Entry extends { player: { userId: string; user: { isBot: boolean } } },
+>(match: { entries: Entry[] }, playerId: string, notInMatch: string): Entry {
+  const entry = match.entries.find((e) => e.player.userId === playerId);
+  if (!entry) throw new InvalidTournamentRequestError(notInMatch);
+  if (entry.player.user.isBot) throw new TournamentRefusedError(BOT_ENTRY);
+  return entry;
+}
 
 /**
  * The matches of tournament round `round` that Complete round's `listed`

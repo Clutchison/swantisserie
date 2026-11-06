@@ -1,7 +1,6 @@
 import type { CompleteRoundRequest, LeaderboardView } from 'contract';
 import request from 'supertest';
 import {
-  addBot,
   alice,
   aliceCookie,
   app,
@@ -9,28 +8,23 @@ import {
   carol,
   cancelTournament,
   completeDraft,
+  completeDraftWithBots,
   completeRound,
   completeTournament,
   dropPlayer,
   fullDeck,
-  getDraft,
   joinTournament,
-  pick,
   playingTournament,
-  poolCardIds,
-  readyDraft,
   reportWin,
   seedsOf,
   setUpTournament,
   setWin,
   signIn,
   singleElimination,
-  start,
   startTournament,
   swiss,
   tournamentView,
   useDraftsApp,
-  waitForBotPicks,
 } from './tournament-harness.js';
 
 useDraftsApp();
@@ -285,28 +279,55 @@ describe('the leaderboard', () => {
     ]);
   });
 
-  it('never lists bots', async () => {
-    const id = await readyDraft([aliceCookie, bobCookie]);
-    await addBot(id, carolCookie).expect(201);
-    await start(id).expect(200);
-    const ids = await poolCardIds(id);
-    await pick(id, ids.Shock, aliceCookie).expect(200);
-    await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
-    await waitForBotPicks(1, async () => {
-      expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
-    });
-    await setUpTournament(id).expect(201);
+  it('leaves out every match and trophy of a complete tournament a bot played in, and still counts one without', async () => {
+    const { id: withBot, botIds } = await completeDraftWithBots(
+      [aliceCookie, bobCookie],
+      1,
+    );
+    await setUpTournament(withBot).expect(201);
     for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
+      await fullDeck(withBot, cookie);
+      await joinTournament(withBot, cookie).expect(201);
     }
-    await startTournament(id).expect(200);
-    await reportWin(id, [alice.id, bob.id], [2, 0], aliceCookie);
-    await completeTournament(id).expect(200);
+    await startTournament(withBot).expect(200);
+    await reportWin(withBot, [alice.id, bob.id], [2, 0], aliceCookie);
+    await reportWin(withBot, [alice.id, botIds[0]], [2, 0], aliceCookie);
+    await reportWin(withBot, [bob.id, botIds[0]], [2, 0], bobCookie);
+    await completeTournament(withBot).expect(200);
+    expect((await tournamentView(withBot)).trophyHolders).toEqual([alice.id]);
+
+    const without = await playingTournament([aliceCookie, bobCookie]);
+    await reportWin(without, [bob.id, alice.id], [2, 1], bobCookie);
+    await completeTournament(without).expect(200);
 
     const board = await leaderboard();
 
-    expect(board.map((entry) => entry.name)).toEqual(['Alice', 'Bob']);
+    expect(
+      board.map(
+        ({ name, trophies, tournamentsPlayed, matches, opponents }) => ({
+          name,
+          trophies,
+          tournamentsPlayed,
+          matches,
+          opponents: opponents.map((o) => [o.playerId, o.matches]),
+        }),
+      ),
+    ).toEqual([
+      {
+        name: 'Bob',
+        trophies: 1,
+        tournamentsPlayed: 1,
+        matches: tally(1, 0),
+        opponents: [[alice.id, tally(1, 0)]],
+      },
+      {
+        name: 'Alice',
+        trophies: 0,
+        tournamentsPlayed: 1,
+        matches: tally(0, 1),
+        opponents: [[bob.id, tally(0, 1)]],
+      },
+    ]);
   });
 
   it('moves a trophy when a match is corrected after completion', async () => {

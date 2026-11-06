@@ -167,7 +167,10 @@ export interface TournamentRefusal {
     | 'in-registration'
     /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small'
+    /** Bots join a tournament at its setup, never by asking. */
     | 'bots-cannot-join'
+    /** A bot stays in its tournament: it can't leave, be removed, drop or be reinstated. */
+    | 'bot-entry'
     | 'already-joined'
     | 'not-joined'
     /** Start needs at least 2 joined players. */

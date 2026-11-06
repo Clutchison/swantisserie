@@ -11,6 +11,7 @@ import {
   changeWebhook,
   clearGameScore,
   completeDraft,
+  completeDraftWithBots,
   completeRound,
   completeTournament,
   confirmMatch,
@@ -265,5 +266,103 @@ describe('tournament announcements', () => {
     await startTournament(id).expect(200);
 
     await posts(id, 1);
+  });
+});
+
+describe('tournament announcements with bots', () => {
+  /**
+   * A complete draft of Alice and `bots` bots, Bot 1 and on, announcing on
+   * the registered webhook from now on, with its tournament set up as
+   * `setup` and nothing posted yet. Answers with each player's name by id,
+   * as `nameOf` does.
+   */
+  async function announcedWithBots(
+    bots: number,
+    setup: TournamentSetupRequest,
+  ) {
+    const { id, botIds } = await completeDraftWithBots([aliceCookie], bots);
+    await changeWebhook(id, webhookId).expect(200);
+    await setUpTournament(id, aliceCookie, setup).expect(201);
+    await announcementsSettled(id);
+    webhookClient.post.mockClear();
+    const names: Record<string, string> = { [alice.id]: 'Alice' };
+    for (const [i, botId] of botIds.entries()) names[botId] = `Bot ${i + 1}`;
+    return { id, botIds, names };
+  }
+
+  it('names the bots that joined at setup, pinging only the draft’s humans', async () => {
+    const { id } = await completeDraftWithBots([aliceCookie], 2);
+    await changeWebhook(id, webhookId).expect(200);
+
+    await setUpTournament(id, aliceCookie, swiss()).expect(201);
+
+    expect(await posts(id, 1)).toEqual([
+      {
+        content:
+          '**Red**’s Swiss tournament is in registration. **Bot 1** and **Bot 2** have joined.\n' +
+          `<@${alice.id}> join from the Tournament tab. ${tournamentLink(id)}`,
+        allowed_mentions: { parse: [], users: [alice.id] },
+      },
+    ]);
+  });
+
+  it('names bots at the start, and in a tournament round’s matches without pinging them', async () => {
+    const { id, botIds, names } = await announcedWithBots(3, swiss());
+    await fullDeck(id, aliceCookie);
+    await joinTournament(id, aliceCookie).expect(201);
+
+    await startTournament(id).expect(200);
+    expect(await posts(id, 1)).toEqual([
+      {
+        content:
+          '**Red**’s Swiss tournament has started with **Bot 1**, **Bot 2**, **Bot 3** and **Alice**.\n' +
+          tournamentLink(id),
+        allowed_mentions: { parse: [], users: [] },
+      },
+    ]);
+    webhookClient.post.mockClear();
+
+    const [round1] = (await tournamentView(id)).rounds;
+    await completeRound(id, aliceCookie, {
+      grantedDraws: round1.matches.map((m) => ({ matchId: m.id, drop: [] })),
+    }).expect(200);
+
+    const named = (playerId: string) =>
+      botIds.includes(playerId) ? `**${names[playerId]}**` : `<@${playerId}>`;
+    const round2 = (await tournamentView(id)).rounds[1];
+    expect(await posts(id, 1)).toEqual([
+      {
+        content:
+          'Tournament round 1 of **Red**’s tournament is complete. Tournament round 2:\n' +
+          round2.matches
+            .map(({ players: [a, b] }) => `${named(a)} vs ${named(b)}\n`)
+            .join('') +
+          tournamentLink(id),
+        allowed_mentions: { parse: [], users: [alice.id] },
+      },
+    ]);
+  });
+
+  it('names a bot that holds the trophy', async () => {
+    const { id, botIds } = await announcedWithBots(1, singleElimination);
+    await fullDeck(id, aliceCookie);
+    await joinTournament(id, aliceCookie).expect(201);
+    await startTournament(id).expect(200);
+    const [final] = (await tournamentView(id)).rounds[0].matches;
+    await announcementsSettled(id);
+    webhookClient.post.mockClear();
+
+    await completeRound(id, aliceCookie, {
+      grantedWins: [{ matchId: final.id, winner: botIds[0] }],
+    }).expect(200);
+
+    expect(await posts(id, 1)).toEqual([
+      {
+        content:
+          '**Red**’s single elimination tournament is complete. The trophy goes to **Bot 1**.\n' +
+          tournamentLink(id),
+        allowed_mentions: { parse: [], users: [] },
+      },
+    ]);
   });
 });
