@@ -6,6 +6,7 @@ import {
   standings,
   swissStandings,
   trophyHolders,
+  type Standing,
   type TournamentMatch,
 } from './tournament.js';
 
@@ -34,10 +35,17 @@ function forfeited(a: string, b: string, forfeitedBy: string): TournamentMatch {
 
 /** Each standing's player and rank, in standings order. */
 function ranks(players: string[], matches: TournamentMatch[]) {
-  return standings(players, matches).map(({ playerId, rank }) => [
-    playerId,
-    rank,
-  ]);
+  return placings(standings(players, matches));
+}
+
+/** Each standing's player and rank, in the order of `table`. */
+function placings(table: Standing[]) {
+  return table.map(({ playerId, rank }) => [playerId, rank]);
+}
+
+/** The standing of the player `playerId` in `table`. */
+function standingFor(table: Standing[], playerId: string): Standing {
+  return table.find((standing) => standing.playerId === playerId)!;
 }
 
 describe('roundRobinSchedule', () => {
@@ -260,18 +268,27 @@ describe('standings', () => {
 
 describe('swissStandings', () => {
   it('counts a bye as a 2–0 win', () => {
-    const [, withBye] = swissStandings(
+    // a and c are level on opponents' match-win % (33%, floored), and c's
+    // bye gives the better game-win %.
+    const ranked = swissStandings(
       ['a', 'b', 'c'],
       [played('a', 'b', [2, 1])],
       ['c'],
     );
-    expect(withBye).toMatchObject({
+    expect(ranked[0]).toMatchObject({
       playerId: 'c',
+      rank: 1,
       matchPoints: 3,
       matches: { won: 1, lost: 0, drawn: 0 },
       games: { won: 2, lost: 0, drawn: 0 },
       gameWinPercent: 100,
+      opponentsMatchWinPercent: 33,
     });
+    expect(placings(ranked)).toEqual([
+      ['c', 1],
+      ['a', 2],
+      ['b', 3],
+    ]);
   });
 
   it('ranks by match points first, before any tiebreaker', () => {
@@ -295,12 +312,12 @@ describe('swissStandings', () => {
       played('b', 'd', [2, 1]),
     ];
     const ranked = swissStandings(['a', 'b', 'd', 'c'], matches, []);
-    const c = ranked.find(({ playerId }) => playerId === 'c')!;
-    const d = ranked.find(({ playerId }) => playerId === 'd')!;
+    const c = standingFor(ranked, 'c');
+    const d = standingFor(ranked, 'd');
     expect(c.opponentsMatchWinPercent).toBeCloseTo(66.5);
     expect(d.opponentsMatchWinPercent).toBeCloseTo(41.5);
     expect(d.gameWinPercent).toBeGreaterThan(c.gameWinPercent);
-    expect(ranked.map(({ playerId, rank }) => [playerId, rank])).toEqual([
+    expect(placings(ranked)).toEqual([
       ['a', 1],
       ['b', 2],
       ['c', 3],
@@ -386,8 +403,8 @@ describe('swissStandings', () => {
       [played('b', 'c', [2, 0]), played('a', 'c', [2, 0])],
       ['a', 'b'],
     );
-    const a = ranked.find(({ playerId }) => playerId === 'a')!;
-    const c = ranked.find(({ playerId }) => playerId === 'c')!;
+    const a = standingFor(ranked, 'a');
+    const c = standingFor(ranked, 'c');
     expect(a).toMatchObject({
       gameWinPercent: 100,
       opponentsMatchWinPercent: 33,
@@ -411,7 +428,7 @@ describe('swissStandings', () => {
       ],
       ['b'],
     );
-    const a = ranked.find(({ playerId }) => playerId === 'a')!;
+    const a = standingFor(ranked, 'a');
     // d's 100% over one tournament round, not 50% over two; c's 0% floored to 33%.
     expect(a.opponentsMatchWinPercent).toBeCloseTo(66.5);
   });
@@ -423,11 +440,7 @@ describe('swissStandings', () => {
       played('a', 'c', [2, 0]),
       played('b', 'd', [2, 0]),
     ];
-    expect(
-      swissStandings(['a', 'b', 'c', 'd'], level, []).map(
-        ({ playerId, rank }) => [playerId, rank],
-      ),
-    ).toEqual([
+    expect(placings(swissStandings(['a', 'b', 'c', 'd'], level, []))).toEqual([
       ['a', 1],
       ['b', 2],
       ['c', 2],
@@ -435,9 +448,7 @@ describe('swissStandings', () => {
     ]);
     const levelOnPoints = [...level.slice(0, 3), played('b', 'd', [2, 1])];
     expect(
-      swissStandings(['a', 'b', 'c', 'd'], levelOnPoints, []).map(
-        ({ playerId, rank }) => [playerId, rank],
-      ),
+      placings(swissStandings(['a', 'b', 'c', 'd'], levelOnPoints, [])),
     ).toEqual([
       ['a', 1],
       ['c', 2],
@@ -446,12 +457,25 @@ describe('swissStandings', () => {
     ]);
   });
 
-  it('shows no percentages before anything is played', () => {
+  it('floors at 33% even before a player has played a game or met an opponent', () => {
+    // a has only had a bye; b and c have only a granted draw, with no games,
+    // which is 1 of 3 match points: 33.3%, above the floor.
+    const ranked = swissStandings(['a', 'b', 'c'], [granted('b', 'c')], ['a']);
+    expect(standingFor(ranked, 'a')).toMatchObject({
+      gameWinPercent: 100,
+      opponentsMatchWinPercent: 33,
+      opponentsGameWinPercent: 33,
+    });
+    expect(standingFor(ranked, 'b')).toMatchObject({
+      gameWinPercent: 33,
+      opponentsMatchWinPercent: expect.closeTo(100 / 3),
+      opponentsGameWinPercent: 33,
+    });
     expect(swissStandings(['a', 'b'], [], [])[0]).toMatchObject({
       rank: 1,
-      gameWinPercent: 0,
-      opponentsMatchWinPercent: 0,
-      opponentsGameWinPercent: 0,
+      gameWinPercent: 33,
+      opponentsMatchWinPercent: 33,
+      opponentsGameWinPercent: 33,
     });
   });
 });

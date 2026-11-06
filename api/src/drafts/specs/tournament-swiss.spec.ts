@@ -134,21 +134,24 @@ describe('reporting in a Swiss tournament', () => {
     await reportWin(id, [winner, loser], [2, 1], cookieOf[loser]);
 
     const { standings } = await tournamentView(id);
-    // The winner met an opponent and the player with the bye hasn't, so
-    // the winner leads on opponents' match-win %.
+    // The winner and the player with the bye are level on opponents'
+    // match-win % (the 33% floor), and the bye's 2–0 is the better
+    // game-win %.
     expect(standings).toHaveLength(3);
     expect(standings[0]).toMatchObject({
-      playerId: winner,
-      rank: 1,
-      matchPoints: 3,
-      games: { won: 2, lost: 1, drawn: 0 },
-    });
-    expect(standings[1]).toMatchObject({
       playerId: round.bye,
-      rank: 2,
+      rank: 1,
       matchPoints: 3,
       matches: { won: 1, lost: 0, drawn: 0 },
       games: { won: 2, lost: 0, drawn: 0 },
+      opponentsMatchWinPercent: 33,
+    });
+    expect(standings[1]).toMatchObject({
+      playerId: winner,
+      rank: 2,
+      matchPoints: 3,
+      games: { won: 2, lost: 1, drawn: 0 },
+      opponentsMatchWinPercent: 33,
     });
     expect(standings[2]).toMatchObject({
       playerId: loser,

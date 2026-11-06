@@ -123,16 +123,10 @@ export function standings(
     b.matchPoints - a.matchPoints ||
     headToHead.get(b.playerId)! - headToHead.get(a.playerId)! ||
     b.gameWinPercent - a.gameWinPercent;
-  const ranked = all.sort(compare);
-  ranked.forEach((standing, i) => {
-    const previous = ranked[i - 1];
-    standing.rank =
-      previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
-  });
-  return ranked;
+  return ranked(all, compare);
 }
 
-/** The MTR's floor for every Swiss percentage, as a percentage: 0.33. */
+/** The MTR's floor for every Swiss percentage: 33, meaning 33% (the MTR's 0.33). */
 export const SWISS_PERCENT_FLOOR = 33;
 
 /**
@@ -149,8 +143,8 @@ export const SWISS_PERCENT_FLOOR = 33;
  * - Each is floored at 33%, and the opponents' percentages average each
  *   opponent's, leaving the player's byes out.
  *
- * Before a player has played a game, or met an opponent, the percentages
- * that need one are 0. Players still tied after every tiebreaker share a
+ * The floor has no exception: before a player has played a game, or met an
+ * opponent, the percentages that need one are 33%. Players still tied after every tiebreaker share a
  * rank and keep the order of `players`, the rank after a shared one
  * skipping, as in 1, 1, 3. Unreported matches count for nothing.
  */
@@ -171,16 +165,18 @@ export function swissStandings(
       );
       const { won, lost, drawn } = standing.games;
       const played = won + lost + drawn;
-      standing.gameWinPercent =
-        played === 0 ? 0 : floored((3 * won + drawn) / (3 * played));
+      standing.gameWinPercent = floored(
+        played === 0 ? 0 : (3 * won + drawn) / (3 * played),
+      );
       return [playerId, standing];
     }),
   );
   const matchWin = ({ matchPoints, matches }: Standing) =>
     floored(matchPoints / (3 * (matches.won + matches.lost + matches.drawn)));
+  // With no opponent yet, the average is the floor.
   const average = (values: number[]) =>
     values.length === 0
-      ? 0
+      ? SWISS_PERCENT_FLOOR
       : values.reduce((sum, value) => sum + value, 0) / values.length;
 
   for (const standing of all.values()) {
@@ -193,24 +189,37 @@ export function swissStandings(
     );
     standing.opponentsMatchWinPercent = average(opponents.map(matchWin));
     standing.opponentsGameWinPercent = average(
-      opponents.map((opponent) =>
-        Math.max(SWISS_PERCENT_FLOOR, opponent.gameWinPercent),
-      ),
+      opponents.map((opponent) => opponent.gameWinPercent),
     );
   }
 
   const compare = (a: Standing, b: Standing) =>
     b.matchPoints - a.matchPoints ||
-    unlessLevel(b.opponentsMatchWinPercent! - a.opponentsMatchWinPercent!) ||
-    unlessLevel(b.gameWinPercent - a.gameWinPercent) ||
-    unlessLevel(b.opponentsGameWinPercent! - a.opponentsGameWinPercent!);
-  const ranked = [...all.values()].sort(compare);
-  ranked.forEach((standing, i) => {
-    const previous = ranked[i - 1];
+    highestPercentFirst(
+      a.opponentsMatchWinPercent!,
+      b.opponentsMatchWinPercent!,
+    ) ||
+    highestPercentFirst(a.gameWinPercent, b.gameWinPercent) ||
+    highestPercentFirst(a.opponentsGameWinPercent!, b.opponentsGameWinPercent!);
+  return ranked([...all.values()], compare);
+}
+
+/**
+ * `table` sorted by `compare`, best first, with ranks from 1: players
+ * `compare` finds equal share a rank and keep their order, and the rank
+ * after a shared one skips, as in 1, 1, 3.
+ */
+function ranked(
+  table: Standing[],
+  compare: (a: Standing, b: Standing) => number,
+): Standing[] {
+  const sorted = table.sort(compare);
+  sorted.forEach((standing, i) => {
+    const previous = sorted[i - 1];
     standing.rank =
       previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
   });
-  return ranked;
+  return sorted;
 }
 
 /** `fraction` as a percentage, floored at the MTR's 33%. */
@@ -218,9 +227,12 @@ function floored(fraction: number): number {
   return Math.max(SWISS_PERCENT_FLOOR, 100 * fraction);
 }
 
-/** `difference`, or 0 when it is only floating-point noise between equal percentages. */
-function unlessLevel(difference: number): number {
-  return Math.abs(difference) < 1e-9 ? 0 : difference;
+/**
+ * Compares percentages `a` and `b` to sort the higher first, treating two
+ * that differ only by floating-point noise as equal.
+ */
+function highestPercentFirst(a: number, b: number): number {
+  return Math.abs(b - a) < 1e-9 ? 0 : b - a;
 }
 
 /**

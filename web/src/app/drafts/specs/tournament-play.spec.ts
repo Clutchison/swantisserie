@@ -25,6 +25,7 @@ import {
   registration,
   reported,
   standing,
+  standingsColumns,
   standingsRows,
   threePlayers,
   withTournament,
@@ -174,6 +175,18 @@ describe('tournament tab in play', () => {
       ['1', 'Carol', '3', '1–0–0', '67%'],
       ['2', 'Alice', '0', '0–0–0', '0%'],
       ['2', 'Bob', '0', '0–1–0', '33%'],
+    ]);
+  });
+
+  it('keeps round robin’s standings to game-win % alone', async () => {
+    const { tab } = await openPlaying(playing(), { user: dave });
+
+    expect(standingsColumns(tab)).toEqual([
+      'Rank',
+      'Player',
+      'Match points',
+      'Matches won, lost and drawn',
+      'Game-win %',
     ]);
   });
 

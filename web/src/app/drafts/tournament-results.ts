@@ -202,7 +202,7 @@ export class TournamentResults {
   }
 }
 
-/** A percentage from 0 to 100 as the standings show it: rounded, with its sign. */
+/** A percentage from 0 to 100 as the standings show it: rounded, with a % suffix. */
 function percent(value: number): string {
   return `${Math.round(value)}%`;
 }

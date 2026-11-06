@@ -489,7 +489,7 @@ In round robin, the share of the games a player played in their matches that the
 _Avoid_: Win rate, game percentage
 
 **Match-win %**:
-In Swiss, a player's match points over 3 per tournament round they played, never below 33%. A player who dropped is measured over the rounds they played. It ranks nobody itself; opponents' match-win % averages it.
+In Swiss, a player's match points over 3 per tournament round they played, never below 33%. A player who dropped is measured over the tournament rounds they played.
 _Avoid_: Win rate, record
 
 **Opponents' match-win %**:
