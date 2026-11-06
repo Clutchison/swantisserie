@@ -321,15 +321,13 @@ export class DraftStore {
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
   /**
-   * Whether the Decklists tab is shown: when the api says the tournament's
-   * decklists may be read, under public decklists once it has started.
-   * Undefined while the tournament that decides it is still loading.
+   * Whether the Decklists tab is shown: as the tournament's `showsDecklists`
+   * says, which the api decides (ADR 0003). Undefined while the draft or its
+   * tournament is still loading; false with no tournament, or none loaded.
    */
   readonly showDecklists = computed(() => {
-    const draft = this.draft.value();
-    if (!draft) return undefined;
-    const state = draft.tournament?.state;
-    if (!state || state === 'Registration') return false;
+    if (!this.draft.value()) return undefined;
+    if (!this.hasTournament()) return false;
     if (!this.tournament.loaded()) return this.tournament.failed() ? false : undefined;
     return this.tournament.value()?.showsDecklists ?? false;
   });

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { DecklistView } from 'contract';
-import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { readPlanBoards, type PlanBoards } from '../drafts/plans.service.js';
+import { readPlanBoards } from '../drafts/plans.service.js';
+import { decodeDecklist, encodeDecklist } from './decklist-json.js';
 import {
   NoTournamentError,
   TournamentRefusedError,
@@ -11,13 +11,13 @@ import {
 import { showsDecklists } from './tournament-view.js';
 
 /**
- * Under public decklists, keeps each entry's deck as it is when the
+ * Under public decklists, snapshots each entry's deck as it is when the
  * tournament `tournamentId` starts, so its decklist shows the deck as it
  * was locked, even once the tournament completes and the deck unlocks.
- * Without public decklists it keeps nothing: those decks are never shown
- * (ADR 0005). Runs under the draft's lock, in Start's transaction.
+ * Without public decklists it snapshots nothing: those decks are never
+ * shown (ADR 0005). Runs under the draft's lock, in Start's transaction.
  */
-export async function keepDecklists(
+export async function snapshotDecklists(
   tx: Transaction,
   tournamentId: string,
 ): Promise<void> {
@@ -30,10 +30,10 @@ export async function keepDecklists(
   });
   if (!tournament.publicDecklists) return;
   for (const entry of tournament.entries) {
-    const decklist = await readPlanBoards(tx, entry.playerId);
+    const boards = await readPlanBoards(tx, entry.playerId);
     await tx.tournamentEntry.update({
       where: { id: entry.id },
-      data: { decklist: decklist as unknown as Prisma.InputJsonObject },
+      data: { decklist: encodeDecklist(boards) },
     });
   }
 }
@@ -52,7 +52,9 @@ export class DecklistsService {
    * The draft's decklists, one per joined player, in join order. Throws
    * NoTournamentError if it has no tournament, and TournamentRefusedError
    * without public decklists (`decklists-private`) or during registration
-   * (`tournament-not-started`).
+   * (`tournament-not-started`). Throws MalformedDecklistError, a 500, for
+   * an entry whose snapshot is missing or malformed, rather than serve a
+   * decklist without its boards.
    */
   async read(draftId: string): Promise<DecklistView[]> {
     const tournament = await this.prisma.tournament.findUnique({
@@ -81,7 +83,7 @@ export class DecklistsService {
     }
     return tournament.entries.map((entry) => ({
       playerId: entry.player.userId,
-      ...(entry.decklist as unknown as PlanBoards),
+      ...decodeDecklist(entry.decklist),
     }));
   }
 }

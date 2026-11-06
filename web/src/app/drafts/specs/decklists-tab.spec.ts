@@ -1,7 +1,9 @@
 import type { DecklistView, TournamentView } from 'contract';
 import {
+  accessibleName,
   alice,
   bob,
+  heading,
   items,
   openTab,
   ownTabStop,
@@ -84,12 +86,11 @@ describe('decklists tab', () => {
 
     const tab = await openTab(fixture, page, 'Decklists');
 
-    expect(tab.querySelector('h2')?.textContent).toBe('Decklists');
-    expect([...tab.querySelectorAll('h3')].map((heading) => heading.textContent?.trim())).toEqual([
-      'Alice',
-      'Bob',
-      'Carol',
-    ]);
+    expect(heading(tab, 'Decklists')).toBeDefined();
+    for (const name of ['Alice', 'Bob', 'Carol']) expect(heading(tab, name)).toBeDefined();
+    expect(
+      [...tab.querySelectorAll<HTMLElement>('[aria-label$="’s mainboard"]')].map(accessibleName),
+    ).toEqual(['Alice’s mainboard', 'Bob’s mainboard', 'Carol’s mainboard']);
     expect(items(tab, 'Alice’s mainboard')).toEqual([
       '2 Lightning Bolt',
       '2 Island',

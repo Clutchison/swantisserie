@@ -40,14 +40,18 @@ export interface LostCardView {
   pickedBy: string;
 }
 
-/** The signed-in player's plan, which only they may see. */
-export interface PlanView {
+/** A plan's mainboard and sideboard, with the mainboard's basic lands: what a deck holds. */
+export interface PlanBoards {
   /** Sorted by mana value, then name. */
   mainboard: PlannedCardView[];
   /** Sorted by mana value, then name. */
   sideboard: PlannedCardView[];
   /** The mainboard's basic lands, in the order of `BASIC_LANDS`. A sideboard never holds one. */
   basics: PlannedBasicView[];
+}
+
+/** The signed-in player's plan, which only they may see. */
+export interface PlanView extends PlanBoards {
   /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
   lost: LostCardView[];
 }

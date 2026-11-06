@@ -4,6 +4,7 @@ import {
   computed,
   effect,
   inject,
+  type Signal,
   signal,
   untracked,
   viewChild,
@@ -97,6 +98,15 @@ export class DraftPage {
   protected readonly showDecklists = computed(() => !!this.store.showDecklists());
 
   /**
+   * The panels whose tabs come and go, each with whether it is shown now:
+   * undefined while what decides it is still loading.
+   */
+  private readonly shownBy: Partial<Record<Panel, Signal<boolean | undefined>>> = {
+    Tournament: this.store.showTournament,
+    Decklists: this.store.showDecklists,
+  };
+
+  /**
    * The tab selected, kept in the URL. Only players have the Queue, Plan and
    * Export tabs: one of them selected goes back to Pool as the viewer stops
    * being a player, so the selected tab is always one they can open, and Tab
@@ -110,10 +120,11 @@ export class DraftPage {
     defaultTab: 'Pool',
     canOpen: (tab) => {
       if (this.failed()) return 'no';
-      if (tab === 'Tournament' || tab === 'Decklists') {
-        const shown =
-          tab === 'Tournament' ? this.store.showTournament() : this.store.showDecklists();
-        return shown === undefined ? 'unknown' : shown ? 'yes' : 'no';
+      const shownBy = this.shownBy[tab];
+      if (shownBy) {
+        const shown = shownBy();
+        if (shown === undefined) return 'unknown';
+        return shown ? 'yes' : 'no';
       }
       if (!PLAYERS_ONLY.has(tab)) return 'yes';
       if (!this.store.draft.loaded()) return 'unknown';

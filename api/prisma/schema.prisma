@@ -382,7 +382,7 @@ model Tournament {
   swissRoundOption   SwissRoundOption?
   /// Whether it has public decklists, chosen at tournament setup; it never changes.
   publicDecklists    Boolean           @default(false)
-  state             TournamentState   @default(Registration)
+  state              TournamentState   @default(Registration)
   /// The last tournament round an organizer completed, from 1; 0 before any, and always in round robin.
   lastCompletedRound Int               @default(0)
   entries            TournamentEntry[]

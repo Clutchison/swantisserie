@@ -1,4 +1,4 @@
-import type { PlannedBasicView, PlannedCardView } from './plan.js';
+import type { PlanBoards } from './plan.js';
 
 /** How a tournament pairs its players, chosen once at tournament setup. */
 export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
@@ -349,15 +349,9 @@ export type TournamentSetupRequest = (
  * `GET /api/drafts/:id/tournament/decklists`, which serves one per joined
  * player, in join order, once `TournamentView.showsDecklists`.
  */
-export interface DecklistView {
+export interface DecklistView extends PlanBoards {
   /** The player's Discord user id: a `PlayerView.id`. */
   playerId: string;
-  /** Sorted by mana value, then name. */
-  mainboard: PlannedCardView[];
-  /** Sorted by mana value, then name. */
-  sideboard: PlannedCardView[];
-  /** The mainboard's basic lands, in the order of `BASIC_LANDS`. */
-  basics: PlannedBasicView[];
 }
 
 /** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */

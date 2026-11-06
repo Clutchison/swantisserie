@@ -1,22 +1,31 @@
 import type { DecklistView, PlanView, TournamentSetupRequest } from 'contract';
 import {
+  addToPlan,
   alice,
   aliceCookie,
   bob,
   carol,
   completeDraft,
+  completeRound,
   completeTournament,
+  dropPlayer,
   draftsRequest,
   fullDeck,
   joinTournament,
   movePlanned,
   plan,
   playingTournament,
+  pick,
   poolCardIds,
+  readyDraft,
+  reportCurrentRound,
   roundRobin,
   setBasic,
+  setGameScore,
   setUpTournament,
   signIn,
+  singleElimination,
+  start,
   startTournament,
   swiss,
   tournamentView,
@@ -93,6 +102,80 @@ describe('decklists under public decklists', () => {
     for (const cookie of [aliceCookie, bobCookie, carolCookie, daveCookie]) {
       expect((await decklists(id, cookie).expect(200)).body).toEqual(expected);
     }
+  });
+
+  it('serves a player’s deck as it is: their picks and basic lands, without the unpicked card they planned while drafting', async () => {
+    const id = await readyDraft([aliceCookie, bobCookie], 1, [
+      'Shock',
+      'Lightning Bolt',
+      'Lava Spike',
+      'Skewer the Critics',
+    ]);
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await addToPlan(id, ids['Lava Spike'], aliceCookie).expect(200);
+    await pick(id, ids.Shock, aliceCookie).expect(200);
+    await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+    await setUpTournament(id, aliceCookie, withPublicDecklists()).expect(201);
+    for (const cookie of [aliceCookie, bobCookie]) {
+      await fullDeck(id, cookie);
+      await joinTournament(id, cookie).expect(201);
+    }
+
+    await startTournament(id).expect(200);
+
+    const [aliceDecklist] = (await decklists(id, bobCookie).expect(200))
+      .body as DecklistView[];
+    expect(aliceDecklist).toEqual({
+      playerId: alice.id,
+      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
+      sideboard: [],
+      basics: [{ land: 'Mountain', count: 39 }],
+    });
+  });
+
+  it('still serves a dropped player’s decklist', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie],
+      withPublicDecklists(),
+    );
+
+    await dropPlayer(id, bob.id, bobCookie).expect(200);
+
+    const served = (await decklists(id, daveCookie).expect(200))
+      .body as DecklistView[];
+    expect(served.map((decklist) => decklist.playerId)).toEqual([
+      alice.id,
+      bob.id,
+      carol.id,
+    ]);
+  });
+
+  it('still serves them when a single elimination correction takes a complete tournament back to playing', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      withPublicDecklists(singleElimination),
+    );
+    const cookieOf = {
+      [alice.id]: aliceCookie,
+      [bob.id]: bobCookie,
+      [carol.id]: carolCookie,
+      [dave.id]: daveCookie,
+    };
+    const before = (await decklists(id).expect(200)).body as DecklistView[];
+    for (let round = 0; round < 2; round++) {
+      await reportCurrentRound(id, cookieOf);
+      await completeRound(id).expect(200);
+    }
+    expect((await tournamentView(id)).state).toBe('Complete');
+    const first = (await tournamentView(id)).rounds[0].matches[0];
+
+    await setGameScore(id, first.id, { games: [0, 2] }).expect(200);
+
+    const view = await tournamentView(id);
+    expect(view.state).toBe('Playing');
+    expect(view.showsDecklists).toBe(true);
+    expect((await decklists(id, daveCookie).expect(200)).body).toEqual(before);
   });
 
   it('refuses them during registration, even to the organizer', async () => {

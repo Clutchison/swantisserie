@@ -3,6 +3,7 @@ import {
   BASIC_LANDS,
   type BasicLand,
   type PlanBoard,
+  type PlanBoards,
   type PlannedBasicView,
   type PlannedCardView,
   type PlanRefusal,
@@ -272,10 +273,7 @@ export class PlansService {
   }
 }
 
-/** A player's plan without its plan notice: the deck others see in their decklist. */
-export type PlanBoards = Pick<PlanView, 'mainboard' | 'sideboard' | 'basics'>;
-
-/** The player `playerId`'s mainboard, sideboard and basic lands, as their plan lists them. */
+/** The player `playerId`'s mainboard, sideboard and basic lands, as their plan lists them: the deck others see in their decklist. */
 export async function readPlanBoards(
   tx: Transaction,
   playerId: string,
