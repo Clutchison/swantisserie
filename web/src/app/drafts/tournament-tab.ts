@@ -13,6 +13,7 @@ import {
 import { RouterLink } from '@angular/router';
 import {
   SWISS_ROUND_OPTIONS,
+  TOURNAMENT_FORMAT_NAMES,
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
@@ -40,12 +41,17 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentResults, type ClearGameScore, type SetGameScore } from './tournament-results';
 
-/** The formats tournament setup offers, as it names them. */
-const FORMATS: { format: TournamentFormat; name: string }[] = [
-  { format: 'RoundRobin', name: 'Round robin' },
-  { format: 'Swiss', name: 'Swiss' },
-  { format: 'SingleElimination', name: 'Single elimination' },
-];
+/** The format's name as the tab starts a line with it, such as "Round robin". */
+function formatName(format: TournamentFormat): string {
+  const name = TOURNAMENT_FORMAT_NAMES[format];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** The formats tournament setup offers, in order, as it names them. */
+const FORMATS = (Object.keys(TOURNAMENT_FORMAT_NAMES) as TournamentFormat[]).map((format) => ({
+  format,
+  name: formatName(format),
+}));
 
 /** How tournament setup names each Swiss round option, and how the tab sums it up. */
 const SWISS_ROUND_OPTION_NAMES: Record<SwissRoundOption, { name: string; summary: string }> = {
@@ -71,7 +77,7 @@ function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): st
   const name =
     format === 'Swiss' && swissRoundOption
       ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
-      : (FORMATS.find((option) => option.format === format)?.name ?? format);
+      : formatName(format);
   if (roundCount === 0) return name;
   return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
 }

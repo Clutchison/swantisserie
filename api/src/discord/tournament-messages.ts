@@ -1,3 +1,4 @@
+import { TOURNAMENT_FORMAT_NAMES } from 'contract';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { TournamentFormat } from '../generated/prisma/client.js';
 import type {
@@ -121,15 +122,9 @@ function tournamentCompletedMessage(
   );
 }
 
-const FORMAT_NAMES: Record<TournamentFormat, string> = {
-  RoundRobin: 'round robin',
-  Swiss: 'Swiss',
-  SingleElimination: 'single elimination',
-};
-
 /** Such as "**Red**’s Swiss tournament". */
 function tournamentOf(draft: AnnouncedDraft, format: TournamentFormat) {
-  return `${bold(draft.name)}’s ${FORMAT_NAMES[format]} tournament`;
+  return `${bold(draft.name)}’s ${TOURNAMENT_FORMAT_NAMES[format]} tournament`;
 }
 
 /** Such as "A, B and C". */

@@ -5,6 +5,16 @@ import type { PlanBoards } from './plan.js';
 export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
 
 /**
+ * Each tournament format's name as it reads mid-sentence, such as "a
+ * round robin tournament", in the order tournament setup offers them.
+ */
+export const TOURNAMENT_FORMAT_NAMES: Record<TournamentFormat, string> = {
+  RoundRobin: 'round robin',
+  Swiss: 'Swiss',
+  SingleElimination: 'single elimination',
+};
+
+/**
  * The Swiss round options tournament setup offers, in the order it offers
  * them: until there's a winner (the ceiling of log2 of its joined players),
  * or capped at 3.
