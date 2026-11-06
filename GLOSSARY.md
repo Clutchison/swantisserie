@@ -163,7 +163,7 @@ A draft's picks in the order they were made, each with its pick number, player a
 _Avoid_: History, pick history, feed
 
 **Board tab**:
-The part of a draft's page that shows every player's picks, in seat order, and the pick log.
+The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Decklists tab takes its place once a tournament with public decklists is playing, and for good unless that tournament is cancelled.
 _Avoid_: Picks page, draft board
 
 **Queue**:
@@ -470,7 +470,7 @@ A joined player's deck as others see it under public decklists: as it was locked
 _Avoid_: Deck (that is the player's own), list
 
 **Decklists tab**:
-The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete.
+The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete. It takes the Board tab's place.
 _Avoid_: Decks tab, lists tab
 
 **Match**:
