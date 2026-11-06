@@ -150,6 +150,39 @@ button {
   }
 }
 
+/* A compact quiet button, rounded into a pill: a toggle that shows its value, such as Steal behavior. */
+.button.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 2.5rem;
+  border-radius: 999px;
+
+  .swap {
+    color: var(--color-muted);
+  }
+}
+
+/*
+ * A row of choices, the chosen one marked: aria-pressed buttons, or labels
+ * styled as buttons each holding a visually hidden native radio.
+ */
+.segmented {
+  display: flex;
+  gap: var(--space-xs);
+
+  /* The hidden radio sits inside its label, not off at the page's edge. */
+  label {
+    position: relative;
+  }
+
+  button[aria-pressed='true'],
+  label:has(:checked) {
+    background: var(--color-raised);
+    font-weight: 600;
+  }
+}
+
 /*
  * Not the raised background, as accent text on raised fails AA.
  * No specificity, so a component's own hover wins.
@@ -160,14 +193,16 @@ a:where(:hover) {
 
 /* Separated by the offset, so the ring still shows around an accent button. */
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+.segmented label:has(:focus-visible) {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   a,
-  button {
+  button,
+  .segmented label {
     transition-property: background-color, border-color, color, filter;
     transition-duration: 150ms;
     transition-timing-function: ease-out;

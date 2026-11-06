@@ -42,16 +42,6 @@ h3 {
   gap: var(--space-md);
 }
 
-.segmented {
-  display: flex;
-  gap: var(--space-xs);
-
-  button[aria-pressed='true'] {
-    background: var(--color-raised);
-    font-weight: 600;
-  }
-}
-
 ul {
   margin: 0;
   padding: 0;

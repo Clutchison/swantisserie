@@ -11,6 +11,7 @@ import {
   untracked,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideArrowLeftRight } from '@lucide/angular';
 import {
   SWISS_ROUND_OPTIONS,
   TOURNAMENT_FORMAT_NAMES,
@@ -119,6 +120,7 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
   imports: [
     ChangeStatus,
     LoadingAnimation,
+    LucideArrowLeftRight,
     PlayerAvatar,
     RouterLink,
     SendsChange,
@@ -148,6 +150,10 @@ export class PlayTab {
   protected readonly swissRoundOption = signal<SwissRoundOption>('UntilWinner');
   /** Whether setup gives the tournament public decklists: off unless the organizer chooses them. */
   protected readonly publicDecklists = signal(false);
+  /** The Decklists toggle's value: Public with public decklists, Private without. */
+  protected readonly decklistsName = computed(() =>
+    this.publicDecklists() ? 'Public' : 'Private',
+  );
   /** The format and round count, summed up. */
   protected readonly summary = computed(() => {
     const tournament = this.tournament();

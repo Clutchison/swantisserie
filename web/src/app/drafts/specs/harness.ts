@@ -363,6 +363,13 @@ export function accessibleName(element: Element): string {
   return nameOf(element).replace(/\s+/g, ' ').trim();
 }
 
+/** What a screen reader reads as `element`'s description: the text of the elements its aria-describedby names. */
+export const accessibleDescription = (element: Element) =>
+  (element.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .map((id) => text(element.ownerDocument.getElementById(id)))
+    .join(' ');
+
 /** A link inside `root`, by its accessible name. */
 export const link = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].find((a) => accessibleName(a) === name);
@@ -387,10 +394,15 @@ export const region = (root: HTMLElement, name: string) =>
     (element) => element.getAttribute('aria-label') === name,
   ) ?? null;
 
-/** A group of controls inside `root`, by its accessible name; null if there is none. */
+/**
+ * A group of controls inside `root`, such as a fieldset, by its accessible
+ * name: its aria-label, or else a fieldset's legend. Null if there is none.
+ */
 export const group = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll<HTMLElement>('[role="group"]')].find(
-    (element) => element.getAttribute('aria-label') === name,
+  [...root.querySelectorAll<HTMLElement>('[role="group"], fieldset')].find(
+    (element) =>
+      (element.getAttribute('aria-label') ?? text(element.querySelector(':scope > legend'))) ===
+      name,
   ) ?? null;
 
 /** The first alert inside `root`: an error shown to the viewer, if any. */

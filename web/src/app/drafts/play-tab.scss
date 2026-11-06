@@ -5,9 +5,6 @@
 }
 
 fieldset {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
   margin: 0 0 var(--space-md);
   padding: 0;
   border: 0;
@@ -15,13 +12,29 @@ fieldset {
 
 legend {
   margin-bottom: var(--space-sm);
+  padding: 0;
   font-weight: 600;
 }
 
-label {
+/* A long choice, such as a Swiss round option, wraps onto a phone's next line. */
+.segmented {
+  flex-wrap: wrap;
+}
+
+/* Public or private decklists: a label, then a pill that switches it, then what public means. */
+.decklists {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+
+  .label {
+    font-weight: 600;
+  }
+
+  + .detail {
+    margin: var(--space-sm) 0 var(--space-md);
+  }
 }
 
 .entries {

@@ -6,53 +6,60 @@
       Set up a tournament for this draft’s players to play their decks in. Setup can’t be changed
       afterwards: cancel the tournament and set it up again instead.
     </p>
+    <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
     <fieldset>
       <legend>Format</legend>
-      @for (option of formats; track option.format) {
-        <label>
-          <input
-            type="radio"
-            name="format"
-            [value]="option.format"
-            [checked]="format() === option.format"
-            (change)="format.set(option.format)"
-          />
-          {{ option.name }}
-        </label>
-      }
-    </fieldset>
-    @if (format() === 'Swiss') {
-      <fieldset role="group" aria-label="Swiss round option">
-        <legend>Tournament rounds</legend>
-        @for (option of swissRoundOptions; track option.option) {
-          <label>
+      <div class="segmented">
+        @for (option of formats; track option.format) {
+          <label class="button compact quiet">
             <input
+              class="visually-hidden"
               type="radio"
-              name="swiss-round-option"
-              [value]="option.option"
-              [checked]="swissRoundOption() === option.option"
-              (change)="swissRoundOption.set(option.option)"
+              name="format"
+              [value]="option.format"
+              [checked]="format() === option.format"
+              (change)="format.set(option.format)"
             />
             {{ option.name }}
           </label>
         }
+      </div>
+    </fieldset>
+    @if (format() === 'Swiss') {
+      <fieldset>
+        <legend>Swiss round option</legend>
+        <div class="segmented">
+          @for (option of swissRoundOptions; track option.option) {
+            <label class="button compact quiet">
+              <input
+                class="visually-hidden"
+                type="radio"
+                name="swiss-round-option"
+                [value]="option.option"
+                [checked]="swissRoundOption() === option.option"
+                (change)="swissRoundOption.set(option.option)"
+              />
+              {{ option.name }}
+            </label>
+          }
+        </div>
       </fieldset>
     }
-    <fieldset>
-      <legend>Decklists</legend>
-      <label>
-        <input
-          type="checkbox"
-          name="public-decklists"
-          [checked]="publicDecklists()"
-          (change)="publicDecklists.set($any($event.target).checked)"
-        />
-        Public decklists
-      </label>
-      <p class="detail">
-        Once the tournament starts, everyone who sees this draft sees each joined player’s deck.
-      </p>
-    </fieldset>
+    <div class="decklists">
+      <span class="label">Decklists</span>
+      <button
+        class="button compact quiet pill"
+        type="button"
+        [attr.aria-label]="'Decklists: ' + decklistsName()"
+        aria-describedby="public-decklists-description"
+        (click)="publicDecklists.set(!publicDecklists())"
+      >
+        {{ decklistsName() }}<svg lucideArrowLeftRight class="swap" size="16"></svg>
+      </button>
+    </div>
+    <p id="public-decklists-description" class="detail">
+      Once the tournament starts, everyone who sees this draft sees each joined player’s deck.
+    </p>
     <button class="button" type="submit" appSendsChange="set-up">Set up tournament</button>
   </form>
 } @else if (read.missing()) {

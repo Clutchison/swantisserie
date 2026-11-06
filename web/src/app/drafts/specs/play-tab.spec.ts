@@ -7,6 +7,7 @@ import {
   button,
   completeSnapshot,
   controlByLabel,
+  accessibleDescription,
   draft,
   drafting,
   flushPicks,
@@ -87,13 +88,20 @@ describe('Play tab', () => {
       expect(panel(page).textContent).toContain('Nobody has joined yet.');
     });
 
-    it('offers public decklists, off unless the organizer chooses them, and sets the tournament up with them', async () => {
+    it('offers public decklists as a toggle, private unless the organizer switches it, and sets the tournament up with them', async () => {
       const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
       const tab = await openPlayTab(fixture, page);
-      const choice = controlByLabel(tab, 'checkbox', 'Public decklists')!;
 
-      expect(choice.checked).toBe(false);
-      choice.click();
+      const toggle = button(tab, 'Decklists: Private')!;
+      expect(toggle.textContent?.trim()).toBe('Private');
+      expect(accessibleDescription(toggle)).toBe(
+        'Once the tournament starts, everyone who sees this draft sees each joined player’s deck.',
+      );
+      toggle.click();
+      await fixture.whenStable();
+      http.expectNone('/api/drafts/draft-1/tournament');
+      expect(button(tab, 'Decklists: Private')).toBeUndefined();
+      expect(button(tab, 'Decklists: Public')?.textContent?.trim()).toBe('Public');
       button(tab, 'Set up tournament')!.click();
       const req = await answerChange(fixture, '/api/drafts/draft-1/tournament', 'POST', {
         ...registration(),
@@ -101,6 +109,25 @@ describe('Play tab', () => {
       });
 
       expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: true });
+    });
+
+    it('switches public decklists back to private, and sets the tournament up without them', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, 'Decklists: Private')!.click();
+      await fixture.whenStable();
+      button(tab, 'Decklists: Public')!.click();
+      await fixture.whenStable();
+      button(tab, 'Set up tournament')!.click();
+      const req = await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament',
+        'POST',
+        registration(),
+      );
+
+      expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: false });
     });
 
     it('opens for an organizer asked for by URL', async () => {
