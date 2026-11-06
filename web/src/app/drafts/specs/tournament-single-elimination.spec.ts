@@ -1,5 +1,5 @@
-import type { CorrectionPreview, CorrectionPreviewRequest, ViewerTournamentView } from 'contract';
-import { answer, openDialog, question } from '../../specs-harness';
+import type { ViewerTournamentView } from 'contract';
+import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
@@ -7,9 +7,7 @@ import {
   button,
   controlByLabel,
   group,
-  http,
   items,
-  type AppFixture,
   panel,
   text,
   useDraftsApp,
@@ -233,144 +231,5 @@ describe('both finalists dropping', () => {
     await fixture.whenStable();
 
     expect(text(dialog)).toContain('the trophy is awarded');
-  });
-});
-
-describe('the single elimination correction warning', () => {
-  const PREVIEW = '/api/drafts/draft-1/tournament/matches/m1/game-score/preview';
-  const GAME_SCORE = '/api/drafts/draft-1/tournament/matches/m1/game-score';
-  /** The final cleared, as correcting round 1 to Bob's win would. */
-  const finalCleared: CorrectionPreview = {
-    clears: [{ round: 2, bracketPlace: 0, players: [alice.id, carol.id] }],
-    state: 'Playing',
-  };
-
-  /** Opens the game score choice of Bob vs Carol, of completed round 1, for an organizer, on `tournament`. */
-  async function openCorrecting(tournament: ViewerTournamentView = final) {
-    const opened = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
-    button(opened.tab, 'Correct Bob vs Carol')!.click();
-    await opened.fixture.whenStable();
-    return { ...opened, choice: group(opened.tab, 'Game score of Bob vs Carol')! };
-  }
-
-  /** Answers the pending preview with `preview`, expecting it to preview `games`. */
-  async function answerPreview(
-    fixture: AppFixture,
-    games: CorrectionPreviewRequest['games'],
-    preview: CorrectionPreview,
-  ) {
-    const req = await vi.waitFor(() => http.expectOne(PREVIEW));
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ games });
-    req.flush(preview);
-    await fixture.whenStable();
-  }
-
-  it('lists the later matches a correction that changes the winner clears, then corrects it', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Bob won 2–0')!.click();
-    await answerPreview(fixture, [2, 0], finalCleared);
-    const dialog = await vi.waitFor(() => openDialog()!);
-
-    expect(text(dialog)).toContain('Correct Bob vs Carol?');
-    expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
-    button(dialog, 'Correct')!.click();
-    const req = await answerChange(fixture, GAME_SCORE, 'PUT', final, 1, threePlayers);
-
-    expect(req.request.body).toEqual({ games: [2, 0] });
-    await vi.waitFor(() => expect(openDialog()).toBeNull());
-  });
-
-  it('sends nothing when the organizer cancels the warning', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Bob won 2–0')!.click();
-    await answerPreview(fixture, [2, 0], finalCleared);
-    button(await vi.waitFor(() => openDialog()!), 'Cancel')!.click();
-    await fixture.whenStable();
-
-    http.expectNone(GAME_SCORE);
-    await vi.waitFor(() => expect(openDialog()).toBeNull());
-  });
-
-  it('asks before clearing a match when the clear changes nothing else', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Clear game score')!.click();
-    await answerPreview(fixture, null, { clears: [], state: 'Playing' });
-    const dialog = await question('Clear the game score of Bob vs Carol?');
-    expect(dialog.textContent).toContain('The match is unreported again.');
-    await answer(dialog, 'Clear');
-    await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
-  });
-
-  it('clears nothing when the organizer thinks better of a clear that changes nothing else', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Clear game score')!.click();
-    await answerPreview(fixture, null, { clears: [], state: 'Playing' });
-    await answer(await question('Clear the game score of Bob vs Carol?'), 'Cancel');
-    await fixture.whenStable();
-
-    http.expectNone(GAME_SCORE);
-  });
-
-  it('corrects at once when the correction clears nothing', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Carol won 2–0')!.click();
-    await answerPreview(fixture, [0, 2], { clears: [], state: 'Playing' });
-    const req = await answerChange(fixture, GAME_SCORE, 'PUT', final, 1, threePlayers);
-
-    expect(req.request.body).toEqual({ games: [0, 2] });
-    expect(openDialog()).toBeNull();
-  });
-
-  it('offers Clear for a match of a completed round, warning of the later matches it clears', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Clear game score')!.click();
-    await answerPreview(fixture, null, finalCleared);
-    const dialog = await vi.waitFor(() => openDialog()!);
-
-    expect(text(dialog)).toContain('Clear the game score of Bob vs Carol?');
-    expect(text(dialog)).toContain('The match is unreported again.');
-    expect(items(dialog, 'Matches to clear')).toEqual(['Tournament round 2: Alice vs Carol']);
-    button(dialog, 'Clear')!.click();
-    await answerChange(fixture, GAME_SCORE, 'DELETE', final, 1, threePlayers);
-
-    // The warning asked already: no question follows it.
-    expect(openDialog()).toBeNull();
-  });
-
-  it('warns that a correction has a complete tournament played on, taking the trophy back', async () => {
-    const complete: ViewerTournamentView = {
-      ...final,
-      state: 'Complete',
-      trophyHolders: [carol.id],
-    };
-    const { fixture, choice } = await openCorrecting(complete);
-
-    button(choice, 'Bob won 2–0')!.click();
-    await answerPreview(fixture, [2, 0], finalCleared);
-    const dialog = await vi.waitFor(() => openDialog()!);
-
-    expect(text(dialog)).toContain(
-      'The tournament plays on, and the trophy is taken back until the final is played again.',
-    );
-  });
-
-  it('warns that a change completes the tournament, even when it clears nothing', async () => {
-    const { fixture, choice } = await openCorrecting();
-
-    button(choice, 'Bob won 2–0')!.click();
-    await answerPreview(fixture, [2, 0], { clears: [], state: 'Complete' });
-    const dialog = await vi.waitFor(() => openDialog()!);
-
-    expect(text(dialog)).toContain(
-      'Fewer than 2 players are left in the bracket, so the tournament completes and the trophy is awarded.',
-    );
-    expect(text(dialog)).not.toContain('later matches are cleared');
   });
 });

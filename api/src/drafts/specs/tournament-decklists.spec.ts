@@ -6,7 +6,6 @@ import {
   bob,
   carol,
   completeDraft,
-  completeRound,
   completeTournament,
   dropPlayer,
   draftsRequest,
@@ -18,13 +17,10 @@ import {
   pick,
   poolCardIds,
   readyDraft,
-  reportCurrentRound,
   roundRobin,
   setBasic,
-  setGameScore,
   setUpTournament,
   signIn,
-  singleElimination,
   start,
   startTournament,
   swiss,
@@ -149,33 +145,6 @@ describe('decklists under public decklists', () => {
       bob.id,
       carol.id,
     ]);
-  });
-
-  it('still serves them when a single elimination correction takes a complete tournament back to playing', async () => {
-    const id = await playingTournament(
-      [aliceCookie, bobCookie, carolCookie, daveCookie],
-      withPublicDecklists(singleElimination),
-    );
-    const cookieOf = {
-      [alice.id]: aliceCookie,
-      [bob.id]: bobCookie,
-      [carol.id]: carolCookie,
-      [dave.id]: daveCookie,
-    };
-    const before = (await decklists(id).expect(200)).body as DecklistView[];
-    for (let round = 0; round < 2; round++) {
-      await reportCurrentRound(id, cookieOf);
-      await completeRound(id).expect(200);
-    }
-    expect((await tournamentView(id)).state).toBe('Complete');
-    const first = (await tournamentView(id)).rounds[0].matches[0];
-
-    await setGameScore(id, first.id, { games: [0, 2] }).expect(200);
-
-    const view = await tournamentView(id);
-    expect(view.state).toBe('Playing');
-    expect(view.showsDecklists).toBe(true);
-    expect((await decklists(id, daveCookie).expect(200)).body).toEqual(before);
   });
 
   it('refuses them during registration, even to the organizer', async () => {

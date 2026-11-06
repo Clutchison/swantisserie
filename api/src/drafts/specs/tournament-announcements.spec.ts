@@ -22,6 +22,7 @@ import {
   matchOf,
   registerWebhook,
   removeEntry,
+  reopenRound,
   reportCurrentRound,
   reportWin,
   roundRobin,
@@ -249,6 +250,23 @@ describe('tournament announcements', () => {
     await cancelTournament(id).expect(200);
 
     await posts(id, 0);
+  });
+
+  it('posts nothing on reopening a tournament round, and announces the next one again once it is completed again', async () => {
+    const id = await announcedTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    await posts(id, 1);
+    webhookClient.post.mockClear();
+
+    await reopenRound(id).expect(200);
+
+    await posts(id, 0);
+    await completeRound(id).expect(200);
+    expect((await posts(id, 1))[0].content).toContain('Tournament round 1 of');
   });
 
   it('drops the announcement when the webhook is gone, and posts none after it', async () => {

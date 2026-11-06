@@ -385,6 +385,8 @@ model Tournament {
   state              TournamentState   @default(Registration)
   /// The last tournament round an organizer completed, from 1; 0 before any, and always in round robin.
   lastCompletedRound Int               @default(0)
+  /// The tournament round an organizer reopened, which hasn't been completed again since; null otherwise. Only one round is reopened at a time.
+  reopenedRound      Int?
   entries            TournamentEntry[]
   /// Byes included. Round robin makes every match at Start; Swiss and single elimination make round 1's at Start and each later round's when the one before is completed.
   matches            Match[]
@@ -395,23 +397,25 @@ model Tournament {
 
 /// A draft's player who has joined its tournament. While the tournament is in Registration or Playing, it locks the player's deck.
 model TournamentEntry {
-  id            String     @id @default(uuid())
-  tournamentId  String
-  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  id                String     @id @default(uuid())
+  tournamentId      String
+  tournament        Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   /// Unique: a player joins their draft's one tournament at most once.
-  playerId      String     @unique
-  player        Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  joinedAt      DateTime   @default(now())
+  playerId          String     @unique
+  player            Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  joinedAt          DateTime   @default(now())
   /// Whether the player has dropped from the tournament; their played matches stand.
-  dropped       Boolean    @default(false)
+  dropped           Boolean    @default(false)
+  /// While dropped, the tournament round whose completion the drop came after: the last completed round when the player dropped, or the round Complete round was completing when it dropped them; 0 before any. Reopening round N takes back the drops after N or later. Null while not dropped, and for drops made before this was recorded.
+  droppedAfterRound Int?
   /// Single elimination only: the entry's place in the seed order, from 1, shuffled at Start; null otherwise.
-  seed          Int?
+  seed              Int?
   /// Under public decklists, the player's deck as it was locked when the tournament started (`PlanBoards` in `api/src/drafts/plans.service.ts`), so a later change to it never shows; null before Start and without public decklists.
-  decklist      Json?
+  decklist          Json?
   /// Matches this entry plays first, whose game scores list its games first, and its byes.
-  firstMatches  Match[]    @relation("FirstEntry")
+  firstMatches      Match[]    @relation("FirstEntry")
   /// Matches this entry plays second.
-  secondMatches Match[]    @relation("SecondEntry")
+  secondMatches     Match[]    @relation("SecondEntry")
 
   @@index([tournamentId])
 }

@@ -40,7 +40,7 @@ export const SWISS_STEPS: RoundSteps = {
     if (finalRound) return;
     await tx.tournamentEntry.updateMany({
       where: { id: { in: dropping } },
-      data: { dropped: true },
+      data: { dropped: true, droppedAfterRound: round },
     });
   },
   settleHint: (unreported) =>

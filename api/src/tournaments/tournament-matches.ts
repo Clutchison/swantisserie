@@ -137,3 +137,41 @@ export async function forfeitUnplayed(tx: Transaction, entryId: string) {
     data: { outcome: 'Forfeit', forfeitedBy: 'Second' },
   });
 }
+
+/**
+ * Takes back the drops of the dropped entries `entryIds`, as Reinstate
+ * does: their forfeits become unreported matches again, except against an
+ * entry of the tournament `tournamentId` still dropped, whose forfeits
+ * they become.
+ */
+export async function takeBackDrops(
+  tx: Transaction,
+  tournamentId: string,
+  entryIds: readonly string[],
+) {
+  if (entryIds.length === 0) return;
+  await tx.tournamentEntry.updateMany({
+    where: { id: { in: [...entryIds] } },
+    data: { dropped: false, droppedAfterRound: null },
+  });
+  await tx.match.updateMany({
+    where: {
+      outcome: 'Forfeit',
+      OR: [
+        { firstEntryId: { in: [...entryIds] }, forfeitedBy: 'First' },
+        { secondEntryId: { in: [...entryIds] }, forfeitedBy: 'Second' },
+      ],
+    },
+    data: {
+      outcome: 'Unreported',
+      forfeitedBy: null,
+      reportedById: null,
+      confirmed: false,
+    },
+  });
+  const stillDropped = await tx.tournamentEntry.findMany({
+    where: { tournamentId, dropped: true },
+    select: { id: true },
+  });
+  for (const other of stillDropped) await forfeitUnplayed(tx, other.id);
+}

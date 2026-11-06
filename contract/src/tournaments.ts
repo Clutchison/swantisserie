@@ -215,12 +215,6 @@ export interface TournamentView {
    */
   bracket: BracketRoundView[] | null;
   /**
-   * Whether correcting or clearing a match can clear later matches, as in
-   * single elimination: then an organizer's correction or clear asks for
-   * the correction preview first.
-   */
-  previewsCorrections: boolean;
-  /**
    * What Complete round gives the current tournament round's unreported
    * matches: granted draws in Swiss, with a choice of players to drop from
    * each; granted wins in single elimination, for the winner the organizer
@@ -229,15 +223,6 @@ export interface TournamentView {
    */
   completeRoundGrants: 'GrantedDraws' | 'GrantedWins' | null;
   /**
-   * Whether clearing a match reopens its tournament round, as in single
-   * elimination, which never has a draw: it is unreported again, or a
-   * dropped player's forfeit, whatever the state. Otherwise it is a
-   * dropped player's forfeit while the tournament is playing, else
-   * unreported while its round is open and a granted draw once its round
-   * or the tournament is complete.
-   */
-  clearReopensRound: boolean;
-  /**
    * Whether the standings wait for each tournament round, as in Swiss and
    * single elimination: while the tournament is playing they count only
    * completed tournament rounds, so they change when a round is completed,
@@ -245,6 +230,12 @@ export interface TournamentView {
    * result as it is reported.
    */
   standingsAwaitCompletedRounds: boolean;
+  /**
+   * Reopen round of the last completed tournament round, as an organizer
+   * is offered it: in Swiss and single elimination, while the tournament
+   * is playing and at least one round is completed; null otherwise.
+   */
+  reopenRound: ReopenRoundView | null;
   /** Best first, once it is playing; none during registration. */
   standings: StandingView[];
   /**
@@ -255,6 +246,25 @@ export interface TournamentView {
    * is left, as when both finalists dropped.
    */
   trophyHolders: string[];
+}
+
+/**
+ * Reopen round of the last completed tournament round: whether it would
+ * be refused, and what it takes back.
+ */
+export interface ReopenRoundView {
+  /** The tournament round it reopens: the last completed. */
+  round: number;
+  /**
+   * Why it would be refused, such as a match of the next tournament round
+   * having a game score; null when it wouldn't.
+   */
+  refusal: TournamentRefusal | null;
+  /**
+   * The Discord user ids of the players whose drops it takes back, in join
+   * order: those dropped in completing the round or since.
+   */
+  takesBackDrops: string[];
 }
 
 /**
@@ -339,48 +349,6 @@ export interface GrantedDrawRequest {
    * Ignored in the final tournament round, which completes the tournament.
    */
   drop: string[];
-}
-
-/**
- * A correction or clear an organizer is about to make, for its correction
- * preview from `POST /api/drafts/:id/tournament/matches/:matchId/game-score/preview`:
- * the match's new game score, or null to clear it.
- */
-export interface CorrectionPreviewRequest {
-  games: GameScore | null;
-}
-
-/**
- * The correction preview: what a correction or clear would do beyond its
- * own match. In single elimination, the later matches it would clear
- * because it changes who advances from the match, and whether it completes
- * the tournament or has it played on. None in other formats, or when the
- * same player advances.
- */
-export interface CorrectionPreview {
-  /** In tournament round order. */
-  clears: ClearedMatchView[];
-  /**
-   * The tournament's state once it is made: Complete when it leaves one
-   * player in the bracket, Playing when it reopens a complete tournament.
-   */
-  state: TournamentState;
-}
-
-/** A tournament round and a bracket place in it. The engine's RoundAndBracketPlace is the same type. */
-export interface RoundAndBracketPlace {
-  round: number;
-  bracketPlace: number;
-}
-
-/**
- * A later single elimination match, or bye, a correction would clear: the
- * one the match feeds is paired again with its new winner, unreported, and
- * those after are unpaired until their tournament rounds are paired again.
- */
-export interface ClearedMatchView extends RoundAndBracketPlace {
-  /** The Discord user ids of the players it has now: one for a bye. */
-  players: string[];
 }
 
 /**

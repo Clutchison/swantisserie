@@ -79,10 +79,9 @@ describe('starting a single elimination tournament', () => {
     );
     expect(view.roundCount).toBe(3);
     expect(view).toMatchObject({
-      previewsCorrections: true,
       completeRoundGrants: 'GrantedWins',
-      clearReopensRound: true,
       standingsAwaitCompletedRounds: true,
+      reopenRound: null,
     });
     expect(view.rounds).toHaveLength(1);
     const [round] = view.rounds;

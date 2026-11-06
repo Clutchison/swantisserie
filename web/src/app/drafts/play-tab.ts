@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  inputBinding,
   Injector,
   signal,
   untracked,
@@ -18,6 +17,7 @@ import {
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
+  type ReopenRoundView,
   type MatchView,
   type SwissRoundOption,
   type TournamentFormat,
@@ -25,19 +25,13 @@ import {
   type TournamentView,
 } from 'contract';
 import { GAME_SCORES, SWISS_ROUND_CAP } from 'engine';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { Questions, type Question } from '../question-dialog';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
-import {
-  CORRECTION_WARNING_HEADING,
-  CorrectionWarningDialog,
-  type CorrectionWarning,
-} from './correction-warning-dialog';
 import { DraftStore } from './draft-store';
-import { versus } from './match-lines';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
@@ -115,7 +109,8 @@ const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) => ({
  * standings and matches, the players with Drop, and Reinstate for
  * organizers, Complete tournament (round robin) or Complete round (Swiss,
  * whose dialog grants draws in unreported matches, and single elimination,
- * whose dialog picks their winners) for organizers, and at last the trophy.
+ * whose dialog picks their winners) and Reopen round of the last completed
+ * one for organizers, and at last the trophy.
  */
 @Component({
   selector: 'app-play-tab',
@@ -202,8 +197,14 @@ export class PlayTab {
   );
   /** The game scores a player reports, from their side. */
   protected readonly ownGameScores = OWN_GAME_SCORES;
-  /** Whether a correction or clear can clear later matches, as the read says, so the api previews it first. */
-  private readonly previewsCorrections = computed(() => !!this.tournament()?.previewsCorrections);
+  /**
+   * Reopen round of the last completed tournament round, offered to
+   * organizers while the tournament is playing where the read offers it,
+   * with why the api would refuse it, if it would; null otherwise.
+   */
+  protected readonly offeredReopenRound = computed(() =>
+    this.organizePlay() ? (this.tournament()?.reopenRound ?? null) : null,
+  );
   /** The Complete round dialog, while it's open. */
   private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
 
@@ -426,49 +427,24 @@ export class PlayTab {
     });
   }
 
-  /**
-   * Sets a match's game score, as an organizer reports or corrects it, once
-   * they go ahead with the later matches it clears, if any.
-   */
+  /** Sets a match's game score, as an organizer reports or corrects it. */
   protected setGameScore({ matchId, games }: SetGameScore) {
-    const correct = () => this.api.setGameScore(this.draft().id, matchId, games);
-    const warning = { question: `Correct ${this.matchLabel(matchId)}?`, detail: null };
-    return this.send(
-      () =>
-        this.previewsCorrections()
-          ? this.goesAhead(
-              matchId,
-              games,
-              { ...warning, action: 'Correct' },
-              async () => true,
-            ).then((goAhead) => (goAhead ? correct() : undefined))
-          : correct(),
-      {
-        failure: "Couldn't save the match’s game score. Try again in a moment.",
-        keep: [`correct ${matchId}`],
-      },
-    );
+    return this.send(() => this.api.setGameScore(this.draft().id, matchId, games), {
+      failure: "Couldn't save the match’s game score. Try again in a moment.",
+      keep: [`correct ${matchId}`],
+    });
   }
 
-  /**
-   * Clears a match's game score, once the organizer goes ahead: with the
-   * later matches it clears, if any, else with clearing it.
-   */
+  /** Clears a match's game score, once the organizer goes ahead. */
   protected clearGameScore({ matchId, label, after }: ClearGameScore) {
-    const clear = () => this.api.clearGameScore(this.draft().id, matchId);
     const question = {
       question: `Clear the game score of ${label}?`,
       detail: after,
       action: 'Clear',
     };
-    const asked = () => this.ask(question);
     return this.send(
       async () =>
-        (await (this.previewsCorrections()
-          ? this.goesAhead(matchId, null, question, asked)
-          : asked()))
-          ? clear()
-          : undefined,
+        (await this.ask(question)) ? this.api.clearGameScore(this.draft().id, matchId) : undefined,
       {
         failure: "Couldn't clear the match’s game score. Try again in a moment.",
         keep: [`correct ${matchId}`],
@@ -477,22 +453,20 @@ export class PlayTab {
   }
 
   /**
-   * Whether the organizer goes ahead with setting the match `matchId`'s
-   * game score to `games`, or clearing it when null: asks the api what it
-   * would do, and if it clears anything or changes the tournament's state,
-   * shows the correction warning; else asks `askUnwarned`.
+   * Reopens the last completed tournament round, `offered` as the read
+   * offers Reopen round, once the organizer goes ahead with what it takes
+   * back.
    */
-  private async goesAhead(
-    matchId: string,
-    games: GameScore | null,
-    warning: Omit<CorrectionWarning, 'preview'>,
-    askUnwarned: () => Promise<boolean>,
-  ): Promise<boolean> {
-    const preview = await firstValueFrom(
-      this.api.previewCorrection(this.draft().id, matchId, games),
+  protected reopenRound(offered: ReopenRoundView) {
+    const question = {
+      question: `Reopen tournament round ${offered.round}?`,
+      detail: reopenRoundDetail(offered, (id) => this.store.player(id).name),
+      action: `Reopen round ${offered.round}`,
+    };
+    return this.send(
+      async () => ((await this.ask(question)) ? this.api.reopenRound(this.draft().id) : undefined),
+      { failure: "Couldn't reopen the tournament round. Try again in a moment." },
     );
-    const quiet = preview.clears.length === 0 && preview.state === this.state();
-    return quiet ? askUnwarned() : this.warned({ ...warning, preview });
   }
 
   /** Asks `question` in the question dialog, and answers whether the viewer goes ahead. */
@@ -500,29 +474,10 @@ export class PlayTab {
     return this.questions.ask(question, this.injector);
   }
 
-  /** Shows the correction warning, and answers whether the organizer goes ahead. */
-  private async warned(warning: CorrectionWarning): Promise<boolean> {
-    const ref = this.dialogs.open<CorrectionWarningDialog, boolean>(CorrectionWarningDialog, {
-      labelledBy: CORRECTION_WARNING_HEADING,
-      injector: this.injector,
-      bindings: [inputBinding('warning', () => warning)],
-    });
-    return (await firstValueFrom(ref.closed)) === true;
-  }
-
-  /** How the match `matchId` reads, such as "Bob vs Carol". */
-  private matchLabel(matchId: string) {
-    const match = this.tournament()
-      ?.rounds.flatMap((round) => round.matches)
-      .find((m) => m.id === matchId);
-    return versus((match?.players ?? []).map((id) => this.store.player(id).name));
-  }
-
   /**
    * Sends a change to the tournament, the request `send` makes, and shows
    * the draft it answers with, unless another change is in flight; `send`
-   * makes none if the organizer thinks better of it, and may first ask the
-   * api what it would do. A refusal's reason, or else `failure`, is shown
+   * makes none if the organizer thinks better of it. A refusal's reason, or else `failure`, is shown
    * if it fails.
    */
   private send(
@@ -545,4 +500,25 @@ export class PlayTab {
       { keep },
     );
   }
+}
+
+/** Names joined as a sentence lists them, such as "Alice, Bob, and Carol". */
+const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
+
+/**
+ * What reopening a tournament round does, as its question says it:
+ * its results can be changed again and leave the standings, the next
+ * round's pairings are removed, and the drops it takes back, named by
+ * `name`, are undone.
+ */
+function reopenRoundDetail(
+  { round, takesBackDrops }: ReopenRoundView,
+  name: (id: string) => string,
+) {
+  const names = takesBackDrops.map(name);
+  const back =
+    names.length === 0
+      ? ''
+      : ` ${NAMES.format(names)} ${names.length === 1 ? 'is' : 'are'} back in the tournament, ${names.length === 1 ? 'their drop' : 'their drops'} taken back.`;
+  return `Its results can be corrected or cleared again, and leave the standings until it is completed again. Tournament round ${round + 1}’s pairings are removed, to be paired again then.${back}`;
 }

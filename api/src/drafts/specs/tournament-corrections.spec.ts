@@ -4,16 +4,20 @@ import {
   bob,
   carol,
   clearGameScore,
+  completeRound,
   completeTournament,
   confirmMatch,
   dropPlayer,
   getDraft,
   matchOf,
   playingTournament,
+  reportCurrentRound,
   reportWin,
   setGameScore,
   setWin,
   signIn,
+  singleElimination,
+  swiss,
   tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -25,10 +29,20 @@ const dave = { id: '80351110224678915', name: 'Dave' };
 
 let bobCookie: string;
 let carolCookie: string;
+let daveCookie: string;
+/** Each player's cookie by their Discord user id. */
+let cookieOf: Record<string, string>;
 
 beforeEach(async () => {
   bobCookie = await signIn(bob);
   carolCookie = await signIn(carol);
+  daveCookie = await signIn(dave);
+  cookieOf = {
+    [alice.id]: aliceCookie,
+    [bob.id]: bobCookie,
+    [carol.id]: carolCookie,
+    [dave.id]: daveCookie,
+  };
 });
 
 /** The match between `winner` and `loser` read as `winner`'s games won and `loser`'s. */
@@ -160,7 +174,6 @@ describe('correcting and clearing a game score', () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
     const match = await matchOf(id, bob.id, carol.id);
-    const daveCookie = await signIn(dave);
 
     // Carol is an app admin, so she may.
     for (const cookie of [bobCookie, daveCookie]) {
@@ -171,44 +184,81 @@ describe('correcting and clearing a game score', () => {
   });
 });
 
-describe('corrections after completion', () => {
-  it('move the trophy', async () => {
-    const id = await playingTournament([bobCookie, carolCookie]);
-    await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
-    await completeTournament(id).expect(200);
-    expect((await tournamentView(id)).trophyHolders).toEqual([bob.id]);
-
-    await setWin(id, [carol.id, bob.id], [2, 0]);
-
-    const view = await tournamentView(id);
-    expect(view.state).toBe('Complete');
-    expect(view.trophyHolders).toEqual([carol.id]);
-  });
-
-  it('turn a cleared match into a granted draw, as completing does', async () => {
+describe('completed results', () => {
+  it('are final once a round robin tournament is complete', async () => {
     const id = await playingTournament([bobCookie, carolCookie]);
     await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
     await completeTournament(id).expect(200);
     const match = await matchOf(id, bob.id, carol.id);
 
-    await clearGameScore(id, match.id).expect(200);
+    const corrected = await setGameScore(id, match.id, { games: [0, 2] });
+    const cleared = await clearGameScore(id, match.id);
 
-    expect((await matchOf(id, bob.id, carol.id)).outcome).toEqual({
-      kind: 'GrantedDraw',
-    });
-    expect((await tournamentView(id)).trophyHolders).toEqual([
-      bob.id,
-      carol.id,
-    ]);
+    for (const answer of [corrected, cleared]) {
+      expect(answer.status).toBe(409);
+      expect(answer.body).toMatchObject({
+        error: 'tournament-complete',
+        message: expect.stringContaining('final'),
+      });
+    }
+    expect(await gamesOf(id, [bob.id, carol.id])).toEqual([2, 0]);
+    expect((await tournamentView(id)).trophyHolders).toEqual([bob.id]);
   });
 
-  it('let an organizer give a granted draw a game score', async () => {
-    const id = await playingTournament([bobCookie, carolCookie]);
-    await completeTournament(id).expect(200);
+  it('are final once a Swiss tournament round is completed, saying it can be reopened', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    const [first, second] = (await tournamentView(id)).rounds;
 
-    await setWin(id, [bob.id, carol.id], [2, 1]);
+    const corrected = await setGameScore(id, first.matches[0].id, {
+      games: [0, 2],
+    });
+    const cleared = await clearGameScore(id, first.matches[0].id);
 
-    expect((await tournamentView(id)).trophyHolders).toEqual([bob.id]);
+    for (const answer of [corrected, cleared]) {
+      expect(answer.status).toBe(409);
+      expect(answer.body).toMatchObject({
+        error: 'round-completed',
+        message: expect.stringContaining('Reopen'),
+      });
+    }
+    expect((await tournamentView(id)).rounds[0]).toEqual(first);
+    await setGameScore(id, second.matches[0].id, { games: [2, 1] }).expect(200);
+    await clearGameScore(id, second.matches[0].id).expect(200);
+  });
+
+  it('are final in a single elimination tournament round once it is completed', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      singleElimination,
+    );
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    const [first] = (await tournamentView(id)).rounds;
+
+    await setGameScore(id, first.matches[0].id, { games: [0, 2] }).expect(409);
+    await clearGameScore(id, first.matches[0].id).expect(409);
+
+    expect((await tournamentView(id)).rounds[0]).toEqual(first);
+  });
+
+  it('never become a granted draw when cleared in an open tournament round', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+    await setGameScore(id, match.id, { games: [2, 0] }).expect(200);
+
+    await clearGameScore(id, match.id).expect(200);
+
+    expect((await matchOf(id, ...match.players)).outcome).toEqual({
+      kind: 'Unreported',
+    });
   });
 });
 

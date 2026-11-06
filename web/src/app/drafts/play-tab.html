@@ -240,10 +240,25 @@
             Complete tournament
           </button>
         }
+        @if (offeredReopenRound(); as offered) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="reopenRound(offered)"
+            [disabled]="offered.refusal !== null"
+            [attr.aria-describedby]="offered.refusal ? 'reopen-round-refusal' : null"
+            appSendsChange="reopen-round"
+          >
+            Reopen round {{ offered.round }}
+          </button>
+        }
         <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
           Cancel tournament
         </button>
       </div>
+      @if (offeredReopenRound()?.refusal; as refusal) {
+        <p id="reopen-round-refusal" class="detail">{{ refusal.message }}</p>
+      }
     }
   }
 } @else {

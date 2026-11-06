@@ -191,8 +191,22 @@ export interface TournamentRefusal {
     | 'not-reported'
     /** The player who reported a match can't confirm it: its other player does. */
     | 'own-report'
-    /** A complete tournament can't be cancelled; an organizer can still correct its matches. */
+    /**
+     * A complete tournament's results are final: it can't be cancelled, its
+     * matches can't be corrected or cleared, and its rounds can't be reopened.
+     */
     | 'tournament-complete'
+    /**
+     * A completed tournament round's results are final until it is reopened:
+     * its matches can't be corrected or cleared.
+     */
+    | 'round-completed'
+    /** Reopen round needs a completed tournament round to reopen. */
+    | 'no-completed-round'
+    /** Reopen round is refused once a match of the next tournament round has a game score. */
+    | 'next-round-reported'
+    /** A reopened tournament round must be completed again before the round before it can be reopened. */
+    | 'round-reopened'
     /** A dropped player can't drop again, and only a dropped player can be reinstated. */
     | 'already-dropped'
     | 'not-dropped'
@@ -211,9 +225,9 @@ export interface TournamentRefusal {
      */
     | 'paired-since-drop'
     /**
-     * Complete round is for Swiss and single elimination, whose last
-     * completed round completes the tournament; completing the tournament
-     * outright is for round robin.
+     * Complete round and Reopen round are for Swiss and single elimination,
+     * whose last completed round completes the tournament; completing the
+     * tournament outright is for round robin.
      */
     | 'wrong-format';
   message: string;

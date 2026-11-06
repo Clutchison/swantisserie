@@ -5,8 +5,6 @@ import type {
   CompleteRoundRequest,
   DraftView,
   GameScore,
-  CorrectionPreview,
-  CorrectionPreviewRequest,
   MatchReportRequest,
   TournamentSetupRequest,
 } from 'contract';
@@ -56,21 +54,6 @@ export class TournamentApi {
     } satisfies MatchReportRequest);
   }
 
-  /**
-   * What setting a match's game score to `games`, or clearing it when they
-   * are null, would clear beyond it: the later single elimination matches
-   * it feeds, if it changes who advances. Changes nothing; for organizers.
-   */
-  previewCorrection(
-    draftId: string,
-    matchId: string,
-    games: GameScore | null,
-  ): Observable<CorrectionPreview> {
-    return this.http.post<CorrectionPreview>(`${matchUrl(draftId, matchId)}/game-score/preview`, {
-      games,
-    } satisfies CorrectionPreviewRequest);
-  }
-
   /** Clears a match's game score; for organizers. */
   clearGameScore(draftId: string, matchId: string): Observable<DraftView> {
     return this.http.delete<DraftView>(`${matchUrl(draftId, matchId)}/game-score`);
@@ -87,6 +70,15 @@ export class TournamentApi {
    */
   completeRound(draftId: string, request: CompleteRoundRequest): Observable<DraftView> {
     return this.http.post<DraftView>(`${url(draftId)}/complete-round`, request);
+  }
+
+  /**
+   * Reopens the last completed tournament round of the draft's Swiss or
+   * single elimination tournament, so its results can be corrected or
+   * cleared again; for organizers.
+   */
+  reopenRound(draftId: string): Observable<DraftView> {
+    return this.http.post<DraftView>(`${url(draftId)}/reopen-round`, null);
   }
 
   /** Drops a player from the tournament while it is playing: the signed-in player, or any player for organizers. */

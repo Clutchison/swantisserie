@@ -1,4 +1,3 @@
-import type { CorrectionPreview } from 'contract';
 import type {
   MatchOutcomeKind,
   MatchSide,
@@ -23,25 +22,10 @@ export interface MatchChange {
 }
 
 /**
- * What an organizer's corrections, clears and reinstatements do that
- * depends on the format. DEFAULT_CHANGE_STEPS are round robin's and
- * Swiss's.
+ * What reinstating a player does that depends on the format.
+ * DEFAULT_CHANGE_STEPS are round robin's and Swiss's.
  */
 export interface ChangeSteps {
-  /** Writes an organizer's `change` to the match `matchId`, and changes what depends on it. */
-  changeMatch(
-    tx: Transaction,
-    tournament: TournamentProgress,
-    matchId: string,
-    change: MatchChange,
-  ): Promise<void>;
-  /** What `changeMatch` would do beyond the match for the same change, writing nothing. */
-  previewCorrection(
-    tx: Transaction,
-    tournament: TournamentProgress,
-    matchId: string,
-    change: MatchChange,
-  ): Promise<CorrectionPreview>;
   /**
    * Throws TournamentRefusedError if the dropped entry `entryId` can't be
    * reinstated, as their drop has fed a later pairing.
@@ -55,15 +39,10 @@ export interface ChangeSteps {
 
 /**
  * The change steps of the formats whose matches don't feed one another:
- * a change writes just its match, so it previews nothing, and a player
- * can't be reinstated once a tournament round has been paired without them.
+ * a player can't be reinstated once a tournament round has been paired
+ * without them.
  */
 export const DEFAULT_CHANGE_STEPS: ChangeSteps = {
-  async changeMatch(tx, _tournament, matchId, change) {
-    await tx.match.update({ where: { id: matchId }, data: change });
-  },
-  previewCorrection: (_tx, tournament) =>
-    Promise.resolve({ clears: [], state: tournament.state }),
   async refuseReinstate(tx, tournament, entryId) {
     const pairedWithout = await currentRoundWithout(tx, tournament.id, entryId);
     if (pairedWithout === null) return;

@@ -71,7 +71,7 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
     for (const entryId of drops.flatMap((drop) => drop.entryIds)) {
       await tx.tournamentEntry.update({
         where: { id: entryId },
-        data: { dropped: true },
+        data: { dropped: true, droppedAfterRound: round },
       });
       await forfeitUnplayed(tx, entryId);
     }
@@ -103,7 +103,7 @@ async function seedBracket(
 }
 
 /** What progression reads of a match: its bracket place, its entries and its outcome. */
-export const BRACKET_MATCH = {
+const BRACKET_MATCH = {
   id: true,
   round: true,
   bracketPlace: true,
@@ -117,7 +117,7 @@ export const BRACKET_MATCH = {
   grantedTo: true,
 } as const;
 
-export type BracketMatchRow = {
+type BracketMatchRow = {
   firstEntryId: string;
   secondEntryId: string | null;
 } & Parameters<typeof toOutcome>[0];
@@ -127,10 +127,9 @@ export type BracketMatchRow = {
  * tournament round, as the engine's agreedAdvancingPlayer decides it,
  * `dropped` holding the tournament's dropped entries; null while it is
  * unreported, or when nobody advances from it. Its result is read as
- * agreed, as pairing and counting read only rounds being completed and
- * changes an organizer makes.
+ * agreed, as pairing and counting read only rounds being completed.
  */
-export function advancingEntry(
+function advancingEntry(
   match: BracketMatchRow,
   dropped: readonly string[],
 ): string | null {
@@ -154,7 +153,7 @@ function bracketResult(match: BracketMatchRow): BracketResult {
 }
 
 /** The ids of the tournament's dropped entries. */
-export async function droppedEntries(tx: Transaction, tournamentId: string) {
+async function droppedEntries(tx: Transaction, tournamentId: string) {
   const entries = await tx.tournamentEntry.findMany({
     where: { tournamentId, dropped: true },
     select: { id: true },
@@ -172,11 +171,9 @@ export async function bracketRoundCount(tx: Transaction, tournamentId: string) {
  * Pairs tournament round `round` of the single elimination tournament
  * `tournamentId` from the players who advance from the round before, by
  * bracket place: a player whose would-be opponent nobody sends on has a
- * bye. It makes only the bracket places not paired already, so it also
- * pairs again what a correction cleared. A dropped player it pairs
- * forfeits at once.
+ * bye. A dropped player it pairs forfeits at once.
  */
-export async function pairBracketRound(
+async function pairBracketRound(
   tx: Transaction,
   tournamentId: string,
   round: number,
@@ -194,19 +191,7 @@ export async function pairBracketRound(
   for (const match of previous) {
     advancing[match.bracketPlace!] = advancingEntry(match, dropped);
   }
-  const paired = await tx.match.findMany({
-    where: { tournamentId, round },
-    select: { bracketPlace: true },
-  });
-  const taken = new Set(paired.map((match) => match.bracketPlace));
-  await createMatches(
-    tx,
-    tournamentId,
-    round,
-    nextBracketRound(advancing).filter(
-      (match) => !taken.has(match.bracketPlace),
-    ),
-  );
+  await createMatches(tx, tournamentId, round, nextBracketRound(advancing));
   for (const entryId of dropped) await forfeitUnplayed(tx, entryId);
 }
 
@@ -232,7 +217,7 @@ export async function playersLeft(
  * on, as the engine's countAdvancing counts them, `dropped` holding the
  * dropped entries.
  */
-export function roundPlayersLeft(
+function roundPlayersLeft(
   matches: readonly BracketMatchRow[],
   dropped: readonly string[],
 ) {

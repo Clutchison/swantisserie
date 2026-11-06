@@ -7,7 +7,6 @@ import {
   group,
   http,
   items,
-  namedList,
   panel,
   text,
   useDraftsApp,
@@ -111,28 +110,22 @@ describe('organizer reports, corrections and clears', () => {
     expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob 1–2 Carol');
   });
 
-  it('lets an organizer correct a match once the tournament is complete', async () => {
-    const complete = (m1: ReturnType<typeof openMatch>, holder: string) =>
-      playing([m1], { state: 'Complete', trophyHolders: [holder] });
+  it('offers no correction of a complete tournament’s matches', async () => {
     const m1 = reported(openMatch('m1', bob.id, carol.id), [2, 0]);
-    const { fixture, page, tab } = await openPlaying(complete(m1, bob.id), {
-      powers: ORGANIZE_ONLY,
-    });
-
-    button(tab, 'Correct Bob vs Carol')!.click();
-    await fixture.whenStable();
-    button(group(tab, 'Game score of Bob vs Carol')!, 'Carol won 2–0')!.click();
-    const req = await answerChange(
-      fixture,
-      '/api/drafts/draft-1/tournament/matches/m1/game-score',
-      'PUT',
-      complete(reported(m1, [0, 2], alice.id), carol.id),
-      1,
-      threePlayers,
+    const { tab } = await openPlaying(
+      playing([m1], { state: 'Complete', trophyHolders: [bob.id] }),
+      { powers: ORGANIZE_ONLY },
     );
 
-    expect(req.request.body).toEqual({ games: [0, 2] });
-    expect(text(namedList(panel(page), 'Trophy holders'))).toBe('Carol');
+    expect(button(tab, 'Correct Bob vs Carol')).toBeUndefined();
+    expect(button(tab, 'Report Alice vs Bob')).toBeUndefined();
+  });
+
+  it('offers no correction of a completed tournament round’s matches, only of the open round’s', async () => {
+    const { tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+
+    expect(button(tab, 'Correct Carol vs Bob')).toBeUndefined();
+    expect(button(tab, 'Report Alice vs Carol')).toBeDefined();
   });
 
   it('lets an organizer clear a reported match once they go ahead', async () => {
@@ -156,18 +149,6 @@ describe('organizer reports, corrections and clears', () => {
 
     expect(items(panel(page), 'Tournament round 1')[0]).toContain('Bob vs Carol · Unreported');
     expect(button(panel(page), 'Report Bob vs Carol')).toBeDefined();
-  });
-
-  it('says a cleared match of a completed Swiss tournament round becomes a granted draw', async () => {
-    const { fixture, tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
-
-    button(tab, 'Correct Carol vs Bob')!.click();
-    await fixture.whenStable();
-    button(group(tab, 'Game score of Carol vs Bob')!, 'Clear game score')!.click();
-
-    const dialog = await question('Clear the game score of Carol vs Bob?');
-    expect(dialog.textContent).toContain('The match becomes a granted draw.');
-    await answer(dialog, 'Cancel');
   });
 
   it('sends nothing when the organizer thinks better of clearing', async () => {
