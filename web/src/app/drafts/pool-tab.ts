@@ -28,6 +28,7 @@ import {
   openCardDetail,
 } from './card-detail';
 import { CardImageSource, type ImageVersion } from './card-image-source';
+import { NORMAL_IMAGE } from './card-sizes';
 import { DraftStore } from './draft-store';
 import { ImagePreloader } from './image-preloader';
 import {
@@ -164,7 +165,7 @@ export class PoolTab {
    * and scroll; it needs every row the same height to know where each is.
    */
   protected readonly rowHeight = computed(
-    () => (this.tileWidth() * TILE_HEIGHT) / TILE_WIDTH + TILE_GAP,
+    () => (this.tileWidth() * NORMAL_IMAGE.height) / NORMAL_IMAGE.width + TILE_GAP,
   );
   /** The cards shown, a row of the grid at a time. */
   protected readonly rows = computed(() => {
@@ -216,6 +217,7 @@ export class PoolTab {
 
   /** The gap between tiles, across and down, in px. */
   protected readonly tileGap = TILE_GAP;
+  protected readonly normalImage = NORMAL_IMAGE;
 
   /** Rows are rebuilt whenever the cards shown or the columns change, so they're tracked by position. */
   protected trackRow(index: number) {
@@ -298,9 +300,6 @@ const COLOR_BUTTONS: { color: ColorChoice; name: string }[] = [
   { color: 'C', name: 'Colorless' },
 ];
 
-/** A tile's proportions: those of a card's normal image. */
-const TILE_WIDTH = 488;
-const TILE_HEIGHT = 680;
 /** The narrowest a tile gets, and the gap between tiles, in px. */
 const TILE_MIN_WIDTH = 144;
 const TILE_GAP = 8;

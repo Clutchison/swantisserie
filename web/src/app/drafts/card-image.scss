@@ -1,6 +1,10 @@
+@use './card-shape';
+
+/* Rounded at a printed card's corners. Its aspect ratio is bound from its `width` and `height` inputs. */
 :host {
   position: relative;
   display: block;
+  border-radius: card-shape.$corners;
 }
 
 /* Stacked in the same space, so nothing shifts as one replaces another. */

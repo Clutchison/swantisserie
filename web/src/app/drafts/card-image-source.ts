@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import type { CardImages, PoolCardView } from 'contract';
+import { NORMAL_IMAGE } from './card-sizes';
 
 export type ImageVersion = Exclude<keyof CardImages, 'small'>;
 
@@ -10,8 +11,6 @@ export type ImageVersion = Exclude<keyof CardImages, 'small'>;
  * soft at 160px.
  */
 const SMALL_IMAGE_DECLARED_WIDTH = 160;
-/** The width of a card's normal image, in px. */
-const NORMAL_IMAGE_WIDTH = 488;
 
 /**
  * Says where to load a pool card's images from, across everything on a draft's
@@ -43,7 +42,7 @@ export class CardImageSource {
   srcset(card: PoolCardView): string | null {
     const normal = this.workingUrl(card, 'normal');
     return normal
-      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${NORMAL_IMAGE_WIDTH}w`
+      ? `${card.images[0].small} ${SMALL_IMAGE_DECLARED_WIDTH}w, ${normal} ${NORMAL_IMAGE.width}w`
       : null;
   }
 
