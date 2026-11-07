@@ -42,8 +42,9 @@ export function tournamentMessage(
 }
 
 /**
- * `players` are the draft's players: each but a bot is pinged to join, and
- * the bots, which joined at setup, are named.
+ * `players` are the draft's players, all of whom setup joined: each but a
+ * bot is pinged, told they're in, that they can leave on the Play tab and
+ * that decks lock at Start.
  */
 export function tournamentSetUpMessage(
   draft: AnnouncedDraft,
@@ -52,17 +53,12 @@ export function tournamentSetUpMessage(
 ): WebhookMessage {
   const pinged = players.filter((player) => !player.isBot);
   const pings = pinged.map((player) => mention(player.id)).join(' ');
-  const bots = players
-    .filter((player) => player.isBot)
-    .map((bot) => bold(bot.name));
-  const joined =
-    bots.length === 0
-      ? ''
-      : ` ${listed(bots)} ${bots.length === 1 ? 'has' : 'have'} joined.`;
   return tournamentAnnouncement(
     draft,
-    [`${tournamentOf(draft, format)} is in registration.${joined}`],
-    `${pings ? `${pings} join` : 'Join'} from the Play tab.`,
+    [
+      `${tournamentOf(draft, format)} is in registration, and every player has joined.`,
+    ],
+    `${pings ? `${pings} you’re in. If` : 'If'} you won’t play, leave on the Play tab. Decks lock when the tournament starts.`,
     pinged,
   );
 }

@@ -6,8 +6,6 @@ import {
   completeDraft,
   completeTournament,
   dropPlayer,
-  fullDeck,
-  joinTournament,
   matchOf,
   playingTournament,
   reportWin,
@@ -107,8 +105,6 @@ describe('dropping from a tournament', () => {
   it('refuses dropping during registration', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
-    await fullDeck(id, bobCookie);
-    await joinTournament(id, bobCookie).expect(201);
 
     expect(
       (await dropPlayer(id, bob.id, bobCookie).expect(409)).body.error,

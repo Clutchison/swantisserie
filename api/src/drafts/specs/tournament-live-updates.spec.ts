@@ -60,11 +60,11 @@ const writes: Record<
   },
   Join: async () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
+    await removeEntry(id, bob.id, bobCookie).expect(200);
     return { id, write: () => joinTournament(id, bobCookie).expect(201) };
   },
   'Leave or Remove': async () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
-    await joinTournament(id, bobCookie).expect(201);
     return {
       id,
       write: () => removeEntry(id, bob.id, bobCookie).expect(200),
@@ -80,9 +80,6 @@ const writes: Record<
   },
   Start: async () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await joinTournament(id, cookie).expect(201);
-    }
     return { id, write: () => startTournament(id).expect(200) };
   },
   Report: async () => {

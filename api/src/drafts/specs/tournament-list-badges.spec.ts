@@ -8,7 +8,7 @@ import {
   completeTournament,
   dropPlayer,
   inRegistration,
-  joinTournament,
+  removeEntry,
   listDrafts,
   playingTournament,
   reportWin,
@@ -55,16 +55,17 @@ it('is null for a draft without a tournament', async () => {
 // (tournament-registration.spec.ts); the badge reads it the same way, per viewer.
 it('offers Join in registration to each viewer whom joining would let in, as the tournament read does', async () => {
   const id = await inRegistration([aliceCookie, bobCookie]);
+  expect(await badgeOf(id, bobCookie)).toEqual(withoutJoin('Registration'));
+
+  await removeEntry(id, bob.id, bobCookie).expect(200);
 
   expect(await badgeOf(id, bobCookie)).toEqual({
     state: 'Registration',
     canJoin: true,
     trophyHolders: [],
   });
-  await joinTournament(id, bobCookie).expect(201);
-  expect(await badgeOf(id, bobCookie)).toEqual(withoutJoin('Registration'));
-  // Alice, who hasn't, still may.
-  expect((await badgeOf(id, aliceCookie))?.canJoin).toBe(true);
+  // Alice, still in, may not.
+  expect((await badgeOf(id, aliceCookie))?.canJoin).toBe(false);
 });
 
 it('shows a playing tournament, which nobody may join', async () => {

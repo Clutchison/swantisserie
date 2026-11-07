@@ -56,8 +56,7 @@ export type DraftEvent =
       type: 'tournament-set-up';
       format: TournamentFormat;
       /**
-       * The draft's players, in seat order: each human may join, and each
-       * bot has joined.
+       * The draft's players, in seat order, all of whom setup joined.
        */
       players: EventPlayer[];
     }

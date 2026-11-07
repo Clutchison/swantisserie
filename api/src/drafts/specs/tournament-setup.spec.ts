@@ -6,13 +6,14 @@ import {
   cancelTournament,
   carol,
   completeDraft,
+  completeDraftWithBots,
   completeTournament,
   joinedPlayers,
   fullDeck,
   getDraft,
-  joinTournament,
   playingTournament,
   readyDraft,
+  removeEntry,
   roundRobin,
   reportWin,
   setBasic,
@@ -33,7 +34,7 @@ beforeEach(async () => {
 });
 
 describe('tournament setup', () => {
-  it('lets the organizer of a complete draft set up a round robin tournament, in registration with no one joined', async () => {
+  it('lets the organizer of a complete draft set up a round robin tournament, in registration with every player joined', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
 
     const answer = await setUpTournament(id).expect(201);
@@ -47,7 +48,12 @@ describe('tournament setup', () => {
       state: 'Registration',
       roundCount: 0,
       lastCompletedRound: 0,
-      entries: [],
+      // In seat order, though neither has filled their deck.
+      entries: [alice.id, bob.id].map((playerId) => ({
+        playerId,
+        dropped: false,
+        seed: null,
+      })),
       rounds: [],
       bracket: null,
       completeRoundGrants: null,
@@ -55,9 +61,8 @@ describe('tournament setup', () => {
       reopenRound: null,
       standings: [],
       trophyHolders: [],
-      // Alice, who reads it, has yet to fill her deck.
       canJoin: false,
-      joinRefusal: expect.objectContaining({ error: 'deck-too-small' }),
+      joinRefusal: expect.objectContaining({ error: 'already-joined' }),
     });
     expect((await getDraft(id).expect(200)).body.tournament).toEqual({
       state: 'Registration',
@@ -69,10 +74,6 @@ describe('tournament setup', () => {
     const id = await completeDraft([aliceCookie, bobCookie, carolCookie]);
 
     await setUpTournament(id, aliceCookie, singleElimination).expect(201);
-    for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
 
     const { body } = await tournament(id).expect(200);
     expect(body).toMatchObject({
@@ -84,6 +85,18 @@ describe('tournament setup', () => {
     expect((body as TournamentView).entries.map((entry) => entry.seed)).toEqual(
       [null, null, null],
     );
+  });
+
+  it('joins every human player and every bot of the draft, in seat order, whatever their decks hold', async () => {
+    const { id, botIds } = await completeDraftWithBots(
+      [aliceCookie, bobCookie],
+      2,
+    );
+    await fullDeck(id, aliceCookie);
+
+    await setUpTournament(id).expect(201);
+
+    expect(await joinedPlayers(id)).toEqual([alice.id, bob.id, ...botIds]);
   });
 
   it('sets up a tournament with public decklists, which it reports, though no decklists are shown during registration', async () => {
@@ -206,18 +219,17 @@ describe('reading the tournament', () => {
 });
 
 describe('cancel tournament', () => {
-  it('removes the tournament and its entries during registration, so the organizer can set up again', async () => {
+  it('removes the tournament and its entries during registration, so the organizer can set up again, joining every player, even one who had left', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
-    await fullDeck(id, bobCookie);
-    await joinTournament(id, bobCookie).expect(201);
+    await removeEntry(id, bob.id, bobCookie).expect(200);
 
     const answer = await cancelTournament(id).expect(200);
 
     expect(answer.body.tournament).toBeNull();
     await tournament(id).expect(404);
     await setUpTournament(id).expect(201);
-    expect(await joinedPlayers(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
   });
 
   it('removes the tournament and its matches while playing, so nothing counts and every deck unlocks', async () => {
@@ -235,7 +247,7 @@ describe('cancel tournament', () => {
       await setBasic(id, 'Island', 1, cookie).expect(200);
     }
     await setUpTournament(id).expect(201);
-    expect(await joinedPlayers(id)).toEqual([]);
+    expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
   });
 
   it('refuses a complete tournament, whose results are final', async () => {

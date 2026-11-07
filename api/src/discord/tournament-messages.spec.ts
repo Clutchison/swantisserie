@@ -12,12 +12,21 @@ function player(n: number) {
 }
 
 describe('tournamentSetUpMessage', () => {
-  it('names a bot as joined, never pinging it', () => {
+  it('tells the humans they’re in, that they can leave on the Play tab and that decks lock at Start, never pinging a bot', () => {
     expect(tournamentSetUpMessage(draft, 'Swiss', [alice, bot])).toEqual({
       content:
-        '**Red**’s Swiss tournament is in registration. **Bot 1** has joined.\n' +
-        `<@${alice.id}> join from the Play tab. ${link}`,
+        '**Red**’s Swiss tournament is in registration, and every player has joined.\n' +
+        `<@${alice.id}> you’re in. If you won’t play, leave on the Play tab. Decks lock when the tournament starts. ${link}`,
       allowed_mentions: { parse: [], users: [alice.id] },
+    });
+  });
+
+  it('pings nobody when every player is a bot', () => {
+    expect(tournamentSetUpMessage(draft, 'Swiss', [bot])).toEqual({
+      content:
+        '**Red**’s Swiss tournament is in registration, and every player has joined.\n' +
+        `If you won’t play, leave on the Play tab. Decks lock when the tournament starts. ${link}`,
+      allowed_mentions: { parse: [], users: [] },
     });
   });
 });

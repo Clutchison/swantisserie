@@ -68,14 +68,14 @@
   <app-tournament-progress [tournament]="tournament" [ownId]="playsOn() ? ownId() : undefined" />
   @if (tournament.state === 'Registration') {
     <p class="detail">
-      {{ summary() }}. Joining locks your deck until the tournament is complete or cancelled, or you
-      leave it.
+      {{ summary() }}.
       @if (tournament.publicDecklists) {
         Public decklists: everyone who sees this draft sees your deck once the tournament starts.
       } @else {
         Only you see your deck.
       }
     </p>
+    <app-deck-lock-reminder />
     <h3>Joined players</h3>
     <ul class="entries" aria-label="Joined players">
       @for (player of entries(); track player.id) {
@@ -103,8 +103,6 @@
         <button class="button" type="button" (click)="join()" appSendsChange="join">
           {{ tournament.publicDecklists ? 'Join (public decklist)' : 'Join (deck stays private)' }}
         </button>
-      } @else if (deckTooSmall(); as reason) {
-        <p class="detail">{{ reason }}</p>
       }
       @if (offerLeave()) {
         <button

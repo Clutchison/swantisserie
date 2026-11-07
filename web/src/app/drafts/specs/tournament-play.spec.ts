@@ -456,6 +456,30 @@ describe('Play tab while the tournament is played', () => {
       expect(document.activeElement).toBe(opener);
     });
 
+    it('says why Start was refused, naming the players whose decks are short', async () => {
+      const inRegistration = registration(alice.id, bob.id, carol.id);
+      const { fixture, page, tab } = await openPlaying(inRegistration, { powers: ORGANIZE_ONLY });
+      const reason =
+        'A tournament deck needs at least 40 mainboard cards. These players’ hold fewer: Bob (39), Carol (1). They can fill their deck or leave, or an organizer can remove them.';
+
+      button(tab, 'Start tournament')!.click();
+      await answer(await question('Start the tournament?'), 'Start');
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/start'))).flush(
+        { error: 'deck-too-small', message: reason },
+        { status: 409, statusText: 'Conflict' },
+      );
+      // A refusal catches up with the draft.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(withTournament(inRegistration, threePlayers)),
+      );
+      await flushPicks([]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(panel(page))?.textContent).toContain(reason));
+      expect(currentSteps(panel(page))).toEqual(['Registration']);
+      expect(button(panel(page), 'Start tournament')).toBeDefined();
+    });
+
     it('offers Start only once two players have joined', async () => {
       const { tab } = await openPlaying(registration(alice.id), { powers: ORGANIZE_ONLY });
 

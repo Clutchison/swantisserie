@@ -45,13 +45,13 @@ const BOT_ENTRY: TournamentRefusal = {
 };
 
 describe('bots joining at tournament setup', () => {
-  it('joins every bot in the draft, whatever its deck holds, and no human', async () => {
+  it('joins every bot in the draft, whatever its deck holds, after the humans seated before it', async () => {
     // Each bot's deck holds its one pick, far short of a tournament deck.
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 2);
 
     await setUpTournament(id).expect(201);
 
-    expect(await joinedPlayers(id)).toEqual(botIds);
+    expect(await joinedPlayers(id)).toEqual([alice.id, ...botIds]);
   });
 
   it('joins them again when the tournament is cancelled and set up again', async () => {
@@ -61,7 +61,7 @@ describe('bots joining at tournament setup', () => {
 
     await setUpTournament(id).expect(201);
 
-    expect(await joinedPlayers(id)).toEqual(botIds);
+    expect(await joinedPlayers(id)).toEqual([alice.id, ...botIds]);
   });
 });
 
@@ -70,19 +70,19 @@ describe('starting with bots', () => {
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 1);
     await setUpTournament(id).expect(201);
     await fullDeck(id, aliceCookie);
-    await joinTournament(id, aliceCookie).expect(201);
 
     await startTournament(id).expect(200);
 
     const { rounds } = await tournamentView(id);
     expect(rounds.map((round) => round.matches.map((m) => m.players))).toEqual([
-      [[botIds[0], alice.id]],
+      [[alice.id, botIds[0]]],
     ]);
   });
 
   it('starts with two bots alone', async () => {
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 2);
     await setUpTournament(id).expect(201);
+    await removeEntry(id, alice.id, aliceCookie).expect(200);
 
     await startTournament(id).expect(200);
 
@@ -100,12 +100,13 @@ describe('what a bot can’t do', () => {
     const refused = await removeEntry(id, botIds[0], aliceCookie).expect(409);
 
     expect(refused.body).toEqual(BOT_ENTRY);
-    expect(await joinedPlayers(id)).toEqual(botIds);
+    expect(await joinedPlayers(id)).toEqual([alice.id, ...botIds]);
   });
 
   it('refuses dropping and reinstating a bot, with a reason', async () => {
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 2);
     await setUpTournament(id).expect(201);
+    await removeEntry(id, alice.id, aliceCookie).expect(200);
     await startTournament(id).expect(200);
 
     expect(
@@ -133,18 +134,16 @@ describe('what a bot can’t do', () => {
 
 /**
  * A tournament set up as `setup` on a complete draft of Alice and Bob,
- * both joined, and `bots` bots, which Alice started.
+ * both with full decks, and `bots` bots, all joined at setup, which Alice
+ * started.
  */
 async function playingWithBots(setup: TournamentSetupRequest, bots: number) {
   const { id, botIds } = await completeDraftWithBots(
     [aliceCookie, bobCookie],
     bots,
   );
+  for (const cookie of [aliceCookie, bobCookie]) await fullDeck(id, cookie);
   await setUpTournament(id, aliceCookie, setup).expect(201);
-  for (const cookie of [aliceCookie, bobCookie]) {
-    await fullDeck(id, cookie);
-    await joinTournament(id, cookie).expect(201);
-  }
   await startTournament(id).expect(200);
   return { id, botIds };
 }
@@ -212,7 +211,6 @@ describe('completing a single elimination tournament round with bots', () => {
       const { id, botIds } = await completeDraftWithBots([aliceCookie], 1);
       await setUpTournament(id, aliceCookie, singleElimination).expect(201);
       await fullDeck(id, aliceCookie);
-      await joinTournament(id, aliceCookie).expect(201);
       await startTournament(id).expect(200);
       const [match] = await botMatches(id, botIds);
       const winner = [botIds[0], alice.id][side];
@@ -233,7 +231,6 @@ describe('a bot’s matches', () => {
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 1);
     await setUpTournament(id).expect(201);
     await fullDeck(id, aliceCookie);
-    await joinTournament(id, aliceCookie).expect(201);
     await startTournament(id).expect(200);
 
     await reportWin(id, [alice.id, botIds[0]], [2, 1], aliceCookie);

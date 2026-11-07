@@ -32,6 +32,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
 import { capitalised } from '../record';
 import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
+import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { PlayerAvatar } from './player-avatar';
@@ -107,6 +108,7 @@ const START_DETAILS: Record<TournamentFormat, string> = {
   selector: 'app-play-tab',
   imports: [
     ChangeStatus,
+    DeckLockReminder,
     LoadingAnimation,
     LucideArrowLeftRight,
     PlayerAvatar,
@@ -164,15 +166,10 @@ export class PlayTab {
   protected readonly joined = this.store.joinedTournament;
   /**
    * Join is offered where the api says joining would let the viewer in
-   * (ADR 0003): to the draft's human players during registration who
-   * haven't joined, and whose deck is big enough.
+   * (ADR 0003): to the draft's human players during registration who have
+   * left or been removed, as setup joins everyone.
    */
   protected readonly offerJoin = computed(() => !!this.tournament()?.canJoin);
-  /** Why the viewer can't join for now, said in place of Join: their deck is too small. */
-  protected readonly deckTooSmall = computed(() => {
-    const refusal = this.tournament()?.joinRefusal;
-    return refusal?.error === 'deck-too-small' ? refusal.message : null;
-  });
   protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
   /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(

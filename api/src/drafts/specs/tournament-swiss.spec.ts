@@ -12,9 +12,7 @@ import {
   completeRound,
   completeTournament,
   dropPlayer,
-  fullDeck,
   getDraft,
-  joinTournament,
   playingTournament,
   reinstate,
   reportCurrentRound,
@@ -72,11 +70,8 @@ describe('Swiss tournament setup', () => {
         state: 'Registration',
         lastCompletedRound: 0,
       });
-      for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
-        await fullDeck(id, cookie);
-        await joinTournament(id, cookie).expect(201);
-      }
-      expect((await tournamentView(id)).roundCount).toBe(2);
+      // Setup joined all three.
+      expect(view.roundCount).toBe(2);
     },
   );
 
