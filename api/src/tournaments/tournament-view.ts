@@ -268,7 +268,13 @@ function toBracket(
     if (match.secondEntryId === null) {
       const players = [user(match.firstEntryId), null] as const;
       const advancing = agreedAdvancingPlayer(
-        { players, outcome: null, reportedBy: null, confirmed: false },
+        {
+          players,
+          outcome: null,
+          reportedBy: null,
+          confirmed: false,
+          nextRoundPlayers: nextRoundPlayers(match.round),
+        },
         dropped,
         roundCompleted,
       );

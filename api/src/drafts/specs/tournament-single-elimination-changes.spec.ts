@@ -332,4 +332,14 @@ describe('drops and corrections in the bracket read', () => {
       [seeds[3], 3],
     ]);
   });
+
+  it('keeps the player with a bye advanced from it when they drop during the next tournament round', async () => {
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 3));
+    await playTournamentRound(id, cookieOf);
+
+    await dropPlayer(id, seeds[0], aliceCookie).expect(200);
+
+    const view = await tournamentView(id);
+    expect(placeOf(view, 1, 0).advancing).toBe(seeds[0]);
+  });
 });
