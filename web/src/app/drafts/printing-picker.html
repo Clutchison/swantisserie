@@ -12,14 +12,7 @@
   </figure>
   @if (set(); as chosen) {
     <div class="browse">
-      <label for="printing-set">Set</label>
-      <select id="printing-set" (change)="chooseSet($any($event.target).value)">
-        @for (option of sets(); track option.code; let index = $index) {
-          <option [value]="index" [selected]="index === setIndex()">
-            {{ option.name }} ({{ option.releasedAt.slice(0, 4) }})
-          </option>
-        }
-      </select>
+      <app-set-combobox [sets]="sets() ?? []" [chosen]="chosen" (chose)="chooseSet($event)" />
       <!-- A set with one printing has nothing to step through. -->
       @if (chosen.printings.length > 1) {
         <div class="steps">

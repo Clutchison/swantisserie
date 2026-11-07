@@ -80,6 +80,7 @@ export async function openApp(url: string, user: UserView | ((me: TestRequest) =
 /** The legacy key codes some handlers (such as the CDK's key managers) read, by key. */
 const KEY_CODES: Record<string, number> = {
   Tab: 9,
+  Enter: 13,
   Escape: 27,
   End: 35,
   Home: 36,
