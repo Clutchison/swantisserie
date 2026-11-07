@@ -35,3 +35,5 @@ web/scripts/.reruns/
 # Stryker mutation testing: reports, the incremental-run file and its sandboxes
 engine/reports/
 engine/.stryker-tmp/
+web/reports/
+web/.stryker-tmp/
