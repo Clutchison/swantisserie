@@ -1,6 +1,6 @@
 # Serve many guilds through a REST-only Discord bot
 
-Status: Accepted, not yet built (#352)
+Status: Accepted, not yet built (#169)
 
 v1 served one guild, fixed in config, and talked to Discord only through webhooks an app admin pasted in by hand, with no bot (see `PLAN.md`). We let any guild use the app: a guild admin adds our Discord bot to their guild and sets it up, and the bot creates and archives a draft channel for each draft. A user sees only the drafts of the guilds they belong to, and access comes from their own Discord sign-in (the `guilds` scope gives each guild's ownership and permissions), not from per-guild config.
 
