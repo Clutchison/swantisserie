@@ -47,7 +47,7 @@ One rotisserie event in a guild: a pool, its players, and the picks they make in
 _Avoid_: Game, league, room
 
 **Pool**:
-The fixed set of cards on the platform that a draft picks from, frozen when the draft is created. It never holds a basic land, whatever its pool source names.
+The fixed set of cards on the platform that a draft picks from, frozen once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
 _Avoid_: Card list, cube
 
 **Pool source**:
