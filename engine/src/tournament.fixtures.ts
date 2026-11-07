@@ -32,6 +32,15 @@ export function grantedDraw(a: string, b: string): TournamentMatch {
   return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
 }
 
+/** A match between `a` and `b` the organizer granted to `winner`. */
+export function grantedWin(
+  a: string,
+  b: string,
+  winner: string,
+): TournamentMatch {
+  return { players: [a, b], outcome: { kind: 'GrantedWin', winner } };
+}
+
 /** Each standing's player and rank, in the order of `standings`. */
 export function placings(standings: Standing[]) {
   return standings.map(({ playerId, rank }) => [playerId, rank]);
