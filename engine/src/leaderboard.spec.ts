@@ -152,4 +152,42 @@ describe('leaderboard', () => {
 
     expect(board.map((entry) => entry.playerId)).toEqual(['c', 'b', 'a', 'd']);
   });
+
+  it("lists each player's head-to-head records in leaderboard order, not the order they were played", () => {
+    const trophiesFor = (trophyHolders: string[]) => ({
+      players: trophyHolders,
+      matches: [],
+      trophyHolders,
+    });
+    const board = leaderboard([
+      {
+        players: ['x', 'a', 'b', 'c', 'd'],
+        matches: [
+          { players: ['x', 'd'], outcome: won([2, 0]) },
+          { players: ['c', 'x'], outcome: won([2, 0]) },
+          { players: ['x', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'x'], outcome: won([2, 0]) },
+        ],
+        trophyHolders: [],
+      },
+      trophiesFor(['a', 'b', 'c']),
+      trophiesFor(['a', 'b']),
+      trophiesFor(['a']),
+    ]);
+
+    expect(board.map((entry) => entry.playerId)).toEqual([
+      'a',
+      'b',
+      'c',
+      'x',
+      'd',
+    ]);
+    const x = board.find((entry) => entry.playerId === 'x');
+    expect(x?.opponents.map((opponent) => opponent.playerId)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+  });
 });
