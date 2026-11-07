@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { leaderboard, type LeaderboardTournament } from './leaderboard.js';
 
-const won = (games: [number, number], draws = 0) =>
+const gameScoreOutcome = (games: [number, number], draws = 0) =>
   ({ kind: 'GameScore', games, draws }) as const;
 
 const playerIdsOf = (records: readonly { playerId: string }[]) =>
@@ -13,20 +13,20 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 1]) },
-          { players: ['a', 'c'], outcome: won([2, 0]) },
-          { players: ['b', 'c'], outcome: won([1, 1], 1) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 1]) },
+          { players: ['a', 'c'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['b', 'c'], outcome: gameScoreOutcome([1, 1], 1) },
         ],
         trophyHolders: ['a'],
       },
       {
         players: ['a', 'b'],
-        matches: [{ players: ['b', 'a'], outcome: won([2, 0]) }],
+        matches: [{ players: ['b', 'a'], outcome: gameScoreOutcome([2, 0]) }],
         trophyHolders: ['b'],
       },
       {
         players: ['a', 'c'],
-        matches: [{ players: ['c', 'a'], outcome: won([0, 2]) }],
+        matches: [{ players: ['c', 'a'], outcome: gameScoreOutcome([0, 2]) }],
         trophyHolders: ['a'],
       },
     ];
@@ -97,7 +97,7 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c', 'd', 'e'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 0]) },
           {
             players: ['a', 'c'],
             outcome: { kind: 'Forfeit', forfeitedBy: 'c' },
@@ -122,7 +122,7 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 0]) },
           {
             players: ['a', 'c'],
             outcome: { kind: 'Forfeit', forfeitedBy: 'c' },
@@ -140,15 +140,15 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c', 'd'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 0]) },
-          { players: ['c', 'd'], outcome: won([2, 0]) },
-          { players: ['d', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['c', 'd'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['d', 'b'], outcome: gameScoreOutcome([2, 0]) },
         ],
         trophyHolders: [],
       },
       {
         players: ['b', 'c'],
-        matches: [{ players: ['b', 'c'], outcome: won([0, 2]) }],
+        matches: [{ players: ['b', 'c'], outcome: gameScoreOutcome([0, 2]) }],
         trophyHolders: ['b', 'c'],
       },
     ]);
@@ -157,7 +157,7 @@ describe('leaderboard', () => {
   });
 
   it("lists each player's head-to-head records in leaderboard order, not the order they were played", () => {
-    const tournamentWonBy = (
+    const trophyTournament = (
       trophyHolders: string[],
     ): LeaderboardTournament => ({
       players: trophyHolders,
@@ -168,17 +168,17 @@ describe('leaderboard', () => {
       {
         players: ['x', 'a', 'b', 'c', 'd'],
         matches: [
-          { players: ['x', 'd'], outcome: won([2, 0]) },
-          { players: ['c', 'x'], outcome: won([2, 0]) },
-          { players: ['x', 'b'], outcome: won([2, 0]) },
-          { players: ['a', 'x'], outcome: won([2, 0]) },
+          { players: ['x', 'd'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['c', 'x'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['x', 'b'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['a', 'x'], outcome: gameScoreOutcome([2, 0]) },
         ],
         trophyHolders: [],
       },
       // Trophies: a 3, b 2, c 1, so a, b and c rank above x, who won more matches than d.
-      tournamentWonBy(['a', 'b', 'c']),
-      tournamentWonBy(['a', 'b']),
-      tournamentWonBy(['a']),
+      trophyTournament(['a', 'b', 'c']),
+      trophyTournament(['a', 'b']),
+      trophyTournament(['a']),
     ]);
 
     expect(playerIdsOf(board)).toEqual(['a', 'b', 'c', 'x', 'd']);

@@ -18,6 +18,11 @@ export function won(a: string, b: string): TournamentMatch {
   return played(a, b, [2, 0]);
 }
 
+/** A match between `a` and `b` not yet reported. */
+export function unreported(a: string, b: string): TournamentMatch {
+  return { players: [a, b], outcome: null };
+}
+
 /** A match `forfeitedBy` forfeited to the other of `a` and `b`. */
 export function forfeited(
   a: string,

@@ -18,6 +18,7 @@ import {
   grantedWin,
   placings,
   played,
+  unreported,
 } from './tournament.fixtures.js';
 import { singleEliminationStandings } from './single-elimination.js';
 
@@ -107,12 +108,10 @@ describe('standings', () => {
   });
 
   it('ignores matches not yet reported', () => {
-    expect(ranks(['a', 'b'], [{ players: ['a', 'b'], outcome: null }])).toEqual(
-      [
-        ['a', 1],
-        ['b', 1],
-      ],
-    );
+    expect(ranks(['a', 'b'], [unreported('a', 'b')])).toEqual([
+      ['a', 1],
+      ['b', 1],
+    ]);
   });
 
   it('breaks a two-way tie by head-to-head before game-win %', () => {
@@ -308,7 +307,7 @@ describe('roundCompletion', () => {
     }));
 
   describe('in Swiss', () => {
-    it('pairs the next round while enough undropped players are left', () => {
+    it('pairs the next tournament round while enough undropped players are left', () => {
       expect(
         roundCompletion({
           format: 'Swiss',
@@ -319,7 +318,7 @@ describe('roundCompletion', () => {
       ).toEqual({ completes: false });
     });
 
-    it('completes the tournament after the final round, with a trophy holder', () => {
+    it('completes the tournament after the final tournament round, with a trophy holder', () => {
       expect(
         roundCompletion({
           format: 'Swiss',
@@ -391,7 +390,7 @@ describe('roundCompletion', () => {
       RoundCompletion,
     ][] = [
       [
-        'pairs the next round while enough players advance',
+        'pairs the next tournament round while enough players advance',
         semifinals([win('s1'), win('s3')]),
         { completes: false },
       ],

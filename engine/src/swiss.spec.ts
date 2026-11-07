@@ -12,7 +12,12 @@ import {
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
-import { grantedDraw, placings, played } from './tournament.fixtures.js';
+import {
+  grantedDraw,
+  placings,
+  played,
+  unreported,
+} from './tournament.fixtures.js';
 
 describe('swissRoundCount', () => {
   it('plays until there’s a winner: ⌈log₂ joined players⌉ tournament rounds', () => {
@@ -238,7 +243,7 @@ describe('pairSwissRound', () => {
     expect(round).toEqual({ matches: [], bye: null });
   });
 
-  it('is deterministic for an RNG seed, and pairs round 1 at random', () => {
+  it('is deterministic for an RNG seed, and pairs tournament round 1 at random', () => {
     const players = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
     const roundOne = (rngSeed: number) =>
       pairSwissRound({
@@ -382,7 +387,7 @@ describe('swissStandings', () => {
   it('ignores a match that hasn’t been reported', () => {
     const ranked = swissStandings(
       ['a', 'b', 'c', 'd'],
-      [played('a', 'b', [2, 0]), { players: ['c', 'd'], outcome: null }],
+      [played('a', 'b', [2, 0]), unreported('c', 'd')],
       [],
     );
     expect(standingFor(ranked, 'c')).toMatchObject({
