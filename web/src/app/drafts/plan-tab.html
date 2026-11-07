@@ -153,8 +153,8 @@
                     (pointerdown)="pressed()"
                     (cdkDragStarted)="dragStarted()"
                   >
-                    <!-- The card and its mark show a Card preview, not its buttons, and open its Card detail. A basic land, or a card whose pool card hasn't loaded, opens none: it shows its card already, so it is no Tab stop. -->
-                    @if (poolCard && !card.basic) {
+                    <!-- The card and its mark show a Card preview, not its buttons, and open its Card detail, or a basic land's Printing picker. A card whose pool card hasn't loaded opens none: it shows its card already, so it is no Tab stop. -->
+                    @if (poolCard) {
                       <button
                         class="preview-target"
                         type="button"
@@ -227,11 +227,11 @@
               (cdkDragStarted)="dragStarted()"
             >
               <span class="count">{{ line.count }}</span>
-              <!-- A basic land opens no Card detail. -->
+              <!-- A basic land opens its Printing picker in place of a Card detail. -->
               <app-card-name
                 [card]="cardsById().get(line.poolCardId)"
                 [name]="line.name"
-                [opensDetail]="!line.basic"
+                [opensDetail]="true"
                 (opened)="openLine(line, $event)"
               />
               <span class="line-actions">

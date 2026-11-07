@@ -45,6 +45,7 @@ describe('basic lands in a plan', () => {
         { land: 'Wastes', count: 1 },
       ],
       lost: [],
+      preferredPrintings: {},
     });
     await setBasic(id, 'Mountain', 6, carolCookie).expect(200);
     await setBasic(id, 'Wastes', 0, carolCookie).expect(200);
@@ -83,6 +84,7 @@ describe('basic lands in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
   });
 

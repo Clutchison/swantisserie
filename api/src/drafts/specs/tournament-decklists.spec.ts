@@ -1,6 +1,9 @@
 import type { DecklistView, PlanView, TournamentSetupRequest } from 'contract';
+import request from 'supertest';
 import {
   alice,
+  app,
+  card,
   aliceCookie,
   bob,
   carol,
@@ -16,6 +19,7 @@ import {
   playingTournament,
   poolCardIds,
   removeEntry,
+  scryfall,
   roundRobin,
   setBasic,
   setUpTournament,
@@ -80,8 +84,8 @@ describe('decklists under public decklists', () => {
 
     expect((await tournamentView(id)).showsDecklists).toBe(true);
     const expected: DecklistView[] = [
-      { playerId: bob.id, ...bobDeck },
-      { playerId: alice.id, ...aliceDeck },
+      { playerId: bob.id, ...bobDeck, preferredPrintings: {} },
+      { playerId: alice.id, ...aliceDeck, preferredPrintings: {} },
     ];
     expect(bobDeck).toEqual({
       mainboard: [],
@@ -127,6 +131,7 @@ describe('decklists under public decklists', () => {
       ],
       sideboard: [],
       basics: [],
+      preferredPrintings: {},
     });
   });
 
@@ -173,6 +178,39 @@ describe('decklists under public decklists', () => {
     expect(before.map((decklist) => decklist.basics)).toEqual([
       [{ land: 'Mountain', count: 39 }],
       [{ land: 'Mountain', count: 39 }],
+    ]);
+  });
+
+  it('shows each player’s preferred printings as they are now, not as they were at Start', async () => {
+    const island = card('Island', {
+      id: '0a9e4a3b-1d47-4c3a-a3a7-6d0d5d3a4c1e',
+      set: 'khm',
+      collector_number: '395',
+    });
+    scryfall.card.mockResolvedValue(island);
+    const id = await playingTournament(
+      [aliceCookie, bobCookie],
+      withPublicDecklists(),
+    );
+
+    await request(app.getHttpServer())
+      .put('/api/preferred-printings/Island')
+      .set('Cookie', bobCookie)
+      .send({ scryfallId: island.id })
+      .expect(200);
+
+    const served = (await decklists(id, daveCookie).expect(200))
+      .body as DecklistView[];
+    expect(served.map((decklist) => decklist.preferredPrintings)).toEqual([
+      {},
+      {
+        Island: {
+          scryfallId: island.id,
+          set: 'khm',
+          collectorNumber: '395',
+          images: island.image_uris,
+        },
+      },
     ]);
   });
 

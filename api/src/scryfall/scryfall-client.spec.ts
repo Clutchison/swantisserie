@@ -319,6 +319,45 @@ describe('FetchScryfallClient', () => {
     });
   });
 
+  describe('card', () => {
+    const island = '36e062ec-df51-40c0-ad8a-2ee1cb8f8f17';
+
+    it('looks one printing up by its Scryfall id', async () => {
+      respond(200, { object: 'card', id: island, name: 'Island' });
+
+      const card = await scryfall.card(island);
+
+      expect(card).toMatchObject({ id: island, name: 'Island' });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toBe(`https://api.scryfall.com/cards/${island}`);
+      const headers = new Headers(init?.headers);
+      expect(headers.get('User-Agent')).toMatch(/^Swantisserie\//);
+    });
+
+    it('returns null for an id that is no printing', async () => {
+      respond(404, { object: 'error', status: 404, details: 'No card' });
+
+      expect(await scryfall.card(island)).toBeNull();
+    });
+
+    it('fails plainly once retrying hasn’t helped', async () => {
+      vi.useFakeTimers();
+      try {
+        fetch.mockImplementation(
+          async () => new Response('{}', { status: 503 }),
+        );
+
+        const outcome = scryfall.card(island).catch((err: unknown) => err);
+        await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+        expect(await outcome).toBeInstanceOf(ScryfallUnavailableError);
+        expect(fetch).toHaveBeenCalledTimes(4);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('sets', () => {
     const otj = {
       object: 'set',

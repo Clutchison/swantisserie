@@ -134,6 +134,7 @@ export function card(
     id: `${slug}-id`,
     oracle_id: `${slug}-oracle`,
     name,
+    lang: 'en',
     set: 'ima',
     collector_number: '1',
     type_line: 'Creature — Dragon',

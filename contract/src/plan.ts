@@ -1,3 +1,5 @@
+import type { CardImages } from './pool.js';
+
 /** The part of a plan a card is on. */
 export type PlanBoard = 'Mainboard' | 'Sideboard';
 
@@ -50,10 +52,40 @@ export interface PlanBoards {
   basics: PlannedBasicView[];
 }
 
+/** A basic land printing on Scryfall: the printing whose art a basic land shows. */
+export interface BasicLandPrintingView {
+  scryfallId: string;
+  set: string;
+  collectorNumber: string;
+  /** On Scryfall's CDN, `cards.scryfall.io`. */
+  images: CardImages;
+}
+
+/** A player's preferred printings, by basic land. A basic land with none, which shows its default printing, is absent. */
+export type PreferredPrintings = Partial<
+  Record<BasicLand, BasicLandPrintingView>
+>;
+
+/** The basic land printing to make a player's preferred printing of a basic land, by its Scryfall id. */
+export interface PreferredPrintingRequest {
+  scryfallId: string;
+}
+
+/** Why a preferred printing couldn't be set. */
+export type PreferredPrintingProblem =
+  | {
+      /** The request names no basic land, or no English printing of it. */
+      error: 'invalid';
+      message: string;
+    }
+  | { error: 'scryfall-unavailable'; message: string };
+
 /** The signed-in player's plan, which only they may see. */
 export interface PlanView extends PlanBoards {
   /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
   lost: LostCardView[];
+  /** The player's preferred printings, which their basic lands show. */
+  preferredPrintings: PreferredPrintings;
 }
 
 /** The plan board to move a card in a plan to. */

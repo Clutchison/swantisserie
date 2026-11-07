@@ -1,4 +1,5 @@
 import type { DecklistView, ViewerTournamentView } from 'contract';
+import { openDialog } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   accessibleName,
@@ -9,7 +10,10 @@ import {
   heading,
   http,
   items,
+  namedList,
   openTab,
+  previewImage,
+  tap,
   ownTabStop,
   panelName,
   poolCardOf,
@@ -42,7 +46,20 @@ const spike = poolCardOf('spike', 'Lava Spike');
 const publicPlaying = (fields: Partial<ViewerTournamentView> = {}) =>
   playing([], { publicDecklists: true, showsDecklists: true, ...fields });
 
-/** Each joined player's decklist, in join order: Alice, Bob, then Carol. */
+const ZEN_MOUNTAIN = 'e0000000-0000-4000-8000-000000000243';
+/** Bob's preferred printing of Mountain. */
+const zenMountain = {
+  scryfallId: ZEN_MOUNTAIN,
+  set: 'zen',
+  collectorNumber: '243',
+  images: {
+    small: `https://cards.scryfall.io/small/front/e/0/${ZEN_MOUNTAIN}.jpg`,
+    normal: `https://cards.scryfall.io/normal/front/e/0/${ZEN_MOUNTAIN}.jpg`,
+    large: `https://cards.scryfall.io/large/front/e/0/${ZEN_MOUNTAIN}.jpg`,
+  },
+};
+
+/** Each joined player's decklist, in join order: Alice, Bob, then Carol. Bob prefers Zendikar's Mountain #243. */
 const decklists: DecklistView[] = [
   {
     playerId: alice.id,
@@ -55,14 +72,16 @@ const decklists: DecklistView[] = [
       { land: 'Island', count: 2 },
       { land: 'Mountain', count: 36 },
     ],
+    preferredPrintings: {},
   },
   {
     playerId: bob.id,
     mainboard: [{ poolCardId: spike.id, name: spike.name, picked: true }],
     sideboard: [],
     basics: [{ land: 'Mountain', count: 39 }],
+    preferredPrintings: { Mountain: zenMountain },
   },
-  { playerId: carol.id, mainboard: [], sideboard: [], basics: [] },
+  { playerId: carol.id, mainboard: [], sideboard: [], basics: [], preferredPrintings: {} },
 ];
 
 /** Opens the draft of Alice, Bob and Carol with `tournament`, as Dave, who isn't one of its players. */
@@ -125,6 +144,26 @@ describe('lists tab', () => {
     for (const name of ['Lightning Bolt', 'Shock', 'Lava Spike', 'Mountain', 'Island']) {
       expect(ownTabStop(tab, name)).toBeDefined();
     }
+  });
+
+  it('previews each player’s basic lands in their preferred printings, or else the default printing, and opens no Printing picker', async () => {
+    const { fixture, page } = await openAsViewer(publicPlaying());
+    const tab = await openTab(fixture, page, 'Lists');
+    /** Taps the Mountain in `player`'s mainboard, answering with its Card preview's image. */
+    const previewMountain = (player: string) => {
+      const mountain = [
+        ...namedList(tab, `${player}’s mainboard`).querySelectorAll<HTMLElement>('.name'),
+      ].find((name) => name.textContent?.trim() === 'Mountain')!;
+      tap(mountain);
+      return previewImage()?.getAttribute('src');
+    };
+
+    expect(previewMountain('Bob')).toBe(zenMountain.images.normal);
+    expect(previewMountain('Alice')).toBe(
+      'https://cards.scryfall.io/normal/front/0/5/05f9bdca-0d54-46c7-b803-9083dfc9ee24.jpg',
+    );
+    expect(tab.querySelector('[aria-haspopup="dialog"]')).toBeNull();
+    expect(openDialog()).toBeNull();
   });
 
   it('stays once the tournament is complete', async () => {

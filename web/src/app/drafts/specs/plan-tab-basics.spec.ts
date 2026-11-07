@@ -17,6 +17,7 @@ import {
   type AppFixture,
   drafting,
   router,
+  openTab,
 } from './harness';
 import {
   clickBackdrop,
@@ -24,9 +25,19 @@ import {
   openDialog,
   pressEscape,
   pressTab,
+  text,
 } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
-import { bobsTurn, bolt, openPlan, planBoards, planned, stack } from './plan-tab-harness';
+import {
+  bobsTurn,
+  bolt,
+  openPlan,
+  planBoards,
+  planned,
+  printingSearch,
+  stack,
+} from './plan-tab-harness';
+import { playing, withTournament } from './play-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -42,6 +53,7 @@ describe('basic lands on the plan tab', () => {
     sideboard: [],
     basics,
     lost: [],
+    preferredPrintings: {},
     ...fields,
   });
 
@@ -503,5 +515,322 @@ describe('basic lands on the plan tab', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
+  });
+});
+
+describe('the Printing picker', () => {
+  const cards = [shivan, bolt];
+  /** The Scryfall search the picker sends for every English printing of Island. */
+  const islandSearch = printingSearch('Island');
+  const ONS_335 = '36e062ec-df51-40c0-ad8a-2ee1cb8f8f17';
+  const KHM_394 = 'a0000000-0000-4000-8000-000000000394';
+  const cdn = (version: string, id: string) =>
+    `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;
+  /** An English Island printing as Scryfall's search answers with it. */
+  const printing = (
+    id: string,
+    set: string,
+    setName: string,
+    number: string,
+    released: string,
+  ) => ({
+    object: 'card',
+    id,
+    name: 'Island',
+    lang: 'en',
+    set,
+    set_name: setName,
+    collector_number: number,
+    released_at: released,
+    image_uris: { small: cdn('small', id), normal: cdn('normal', id), large: cdn('large', id) },
+  });
+  // Kaldheim's three, Core Set 2021's one and Onslaught's two, out of order.
+  const islands = [
+    printing('a0000000-0000-4000-8000-000000000395', 'khm', 'Kaldheim', '395', '2021-02-05'),
+    printing('b0000000-0000-4000-8000-000000000336', 'ons', 'Onslaught', '336', '2002-10-07'),
+    printing(KHM_394, 'khm', 'Kaldheim', '394', '2021-02-05'),
+    printing('c0000000-0000-4000-8000-000000000250', 'm21', 'Core Set 2021', '250', '2020-07-03'),
+    printing(ONS_335, 'ons', 'Onslaught', '335', '2002-10-07'),
+    printing('a0000000-0000-4000-8000-000000000396', 'khm', 'Kaldheim', '396', '2021-02-05'),
+  ];
+  const searchPage = (data: unknown[], nextPage?: string) => ({
+    object: 'list',
+    has_more: !!nextPage,
+    ...(nextPage ? { next_page: nextPage } : {}),
+    data,
+  });
+  /** Kaldheim's #394 as the API stores a preferred printing. */
+  const khm394 = {
+    scryfallId: KHM_394,
+    set: 'khm',
+    collectorNumber: '394',
+    images: islands[2].image_uris,
+  };
+  const withIslands = (fields: Partial<PlanView> = {}): PlanView => ({
+    mainboard: [planned(bolt), planned(shivan)],
+    sideboard: [],
+    basics: [{ land: 'Island', count: 2 }],
+    lost: [],
+    preferredPrintings: {},
+    ...fields,
+  });
+
+  beforeEach(() => viewOn('desktop'));
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  /** Opens the Plan tab of a drafting draft, Alice's plan `plan`. */
+  async function openWith(plan = withIslands()) {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan,
+    });
+    return { fixture, page, plan: await openPlan(fixture, page) };
+  }
+  /** The control that opens a stacked Island's Printing picker. */
+  const stackedIsland = (plan: HTMLElement) =>
+    [...namedList(plan, 'Lands').querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')][0];
+  /** Opens the picker from the first stacked Island, and answers its search with `data`. The page is stable once it is answered. */
+  async function openPicker(fixture: AppFixture, plan: HTMLElement, data: unknown[] = islands) {
+    stackedIsland(plan).click();
+    (await vi.waitFor(() => http.expectOne(islandSearch))).flush(searchPage(data));
+    await fixture.whenStable();
+    return openDialog()!;
+  }
+  /** The set dropdown in the open picker. */
+  const setChoice = () => controlByLabel(openDialog()!, 'combobox', 'Set')!;
+  /** Chooses the set the dropdown names `name`. */
+  async function chooseSet(fixture: AppFixture, name: string) {
+    const select = setChoice();
+    select.value = [...select.options].find((option) => option.text.trim() === name)!.value;
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+  }
+  /** The printing the picker shows, by its image's name. */
+  const shownPrinting = () => namedImages(openDialog()!)[0].getAttribute('alt');
+  const shownImage = () => namedImages(openDialog()!)[0].getAttribute('src');
+  /** Every stacked Island's image. */
+  const islandImages = (plan: HTMLElement) =>
+    [...namedList(plan, 'Lands').querySelectorAll('img')].map((img) => img.getAttribute('src'));
+
+  it('opens from a basic land in stacks mode and in list mode, named for its land', async () => {
+    const { fixture, plan } = await openWith();
+
+    const dialog = await openPicker(fixture, plan);
+    expect(heading(dialog, 'Island printing')).toBeDefined();
+    button(dialog, 'Cancel')!.click();
+    await fixture.whenStable();
+    expect(openDialog()).toBeNull();
+
+    button(plan, 'List')!.click();
+    await fixture.whenStable();
+    const name = [...plan.querySelectorAll<HTMLElement>('li .name')].find(
+      (n) => text(n) === 'Island',
+    )!;
+    expect(name.getAttribute('aria-haspopup')).toBe('dialog');
+    name.click();
+    await fixture.whenStable();
+    expect(heading(openDialog()!, 'Island printing')).toBeDefined();
+    // The search is kept from the first opening.
+    http.expectNone(islandSearch);
+  });
+
+  it('opens on the set of the printing shown, every set listed newest first, and steps through its printings in collector-number order, wrapping', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+
+    expect([...setChoice().options].map((option) => text(option))).toEqual([
+      'Kaldheim (2021)',
+      'Core Set 2021 (2020)',
+      'Onslaught (2002)',
+    ]);
+    expect(text(setChoice().selectedOptions[0])).toBe('Onslaught (2002)');
+    expect(shownPrinting()).toBe('Island, ONS #335');
+    expect(text(dialog)).toContain('ONS #335');
+    expect(shownImage()).toBe(cdn('large', ONS_335));
+
+    button(dialog, 'Next printing')!.click();
+    await fixture.whenStable();
+    expect(shownPrinting()).toBe('Island, ONS #336');
+    button(dialog, 'Next printing')!.click();
+    await fixture.whenStable();
+    expect(shownPrinting()).toBe('Island, ONS #335');
+    button(dialog, 'Previous printing')!.click();
+    await fixture.whenStable();
+    expect(shownPrinting()).toBe('Island, ONS #336');
+
+    await chooseSet(fixture, 'Core Set 2021 (2020)');
+    expect(shownPrinting()).toBe('Island, M21 #250');
+    expect(button(dialog, 'Next printing')).toBeUndefined();
+    expect(button(dialog, 'Previous printing')).toBeUndefined();
+
+    await chooseSet(fixture, 'Kaldheim (2021)');
+    expect(shownPrinting()).toBe('Island, KHM #394');
+    for (const number of ['395', '396', '394']) {
+      button(dialog, 'Next printing')!.click();
+      await fixture.whenStable();
+      expect(shownPrinting()).toBe(`Island, KHM #${number}`);
+    }
+  });
+
+  it('reads every page of the search, waiting between them', async () => {
+    const { fixture, plan } = await openWith();
+    stackedIsland(plan).click();
+    const page2 = `${islandSearch}&page=2`;
+
+    (await vi.waitFor(() => http.expectOne(islandSearch))).flush(
+      searchPage(islands.slice(0, 3), page2),
+    );
+    (await vi.waitFor(() => http.expectOne(page2), { timeout: 2000 })).flush(
+      searchPage(islands.slice(3)),
+    );
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
+  });
+
+  it('saves the printing shown as the preferred printing, which every copy of the land then shows', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+    await chooseSet(fixture, 'Kaldheim (2021)');
+    // Browsing changes only the picker.
+    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+
+    button(dialog, 'Use this printing')!.click();
+    const saved = http.expectOne(`/api/preferred-printings/Island`);
+    expect(saved.request.method).toBe('PUT');
+    expect(saved.request.body).toEqual({ scryfallId: KHM_394 });
+    saved.flush({ Island: khm394 });
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    expect(islandImages(plan)).toEqual([cdn('normal', KHM_394), cdn('normal', KHM_394)]);
+  });
+
+  it('opens on the preferred printing, and Use default clears it so the land shows its default printing', async () => {
+    const { fixture, plan } = await openWith(
+      withIslands({ preferredPrintings: { Island: khm394 } }),
+    );
+    expect(islandImages(plan)).toEqual([cdn('normal', KHM_394), cdn('normal', KHM_394)]);
+    const dialog = await openPicker(fixture, plan);
+    expect(text(setChoice().selectedOptions[0])).toBe('Kaldheim (2021)');
+    expect(shownPrinting()).toBe('Island, KHM #394');
+
+    button(dialog, 'Use default')!.click();
+    const cleared = http.expectOne(`/api/preferred-printings/Island`);
+    expect(cleared.request.method).toBe('DELETE');
+    cleared.flush({});
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+  });
+
+  it('offers Use default only once the land has a preferred printing', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+
+    expect(button(dialog, 'Use default')!.disabled).toBe(true);
+  });
+
+  it.each<[string, () => void]>([
+    ['Cancel', () => button(openDialog()!, 'Cancel')!.click()],
+    ['Escape', pressEscape],
+    ['a backdrop click', clickBackdrop],
+  ])('changes nothing on %s', async (_, close) => {
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+    await chooseSet(fixture, 'Kaldheim (2021)');
+
+    close();
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+  });
+
+  it('says so when Scryfall fails, keeping the printing shown, and tries again', async () => {
+    const { fixture, plan } = await openWith();
+    stackedIsland(plan).click();
+
+    (await vi.waitFor(() => http.expectOne(islandSearch))).flush(
+      { object: 'error', details: 'Down' },
+      { status: 503, statusText: 'Unavailable' },
+    );
+    await fixture.whenStable();
+    const dialog = openDialog()!;
+    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings from Scryfall.');
+    expect(shownPrinting()).toBe('Island, ONS #335');
+    expect(setChoice()).toBeUndefined();
+
+    button(dialog, 'Try again')!.click();
+    (await vi.waitFor(() => http.expectOne(islandSearch), { timeout: 2000 })).flush(
+      searchPage(islands),
+    );
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
+    expect(alertIn(dialog)).toBeNull();
+  });
+
+  it('says so when Scryfall finds no printing of the land', async () => {
+    const { fixture, plan } = await openWith();
+
+    await openPicker(fixture, plan, []);
+
+    expect(text(alertIn(openDialog()!))).toBe('Couldn’t load the printings from Scryfall.');
+    expect(button(openDialog()!, 'Try again')).toBeDefined();
+  });
+
+  it('stays open with the error when saving fails, changing nothing', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+    await chooseSet(fixture, 'Kaldheim (2021)');
+
+    button(dialog, 'Use this printing')!.click();
+    http.expectOne(`/api/preferred-printings/Island`).flush(
+      {
+        error: 'scryfall-unavailable',
+        message: 'Scryfall could not be reached. Try again in a moment.',
+      },
+      { status: 502, statusText: 'Bad Gateway' },
+    );
+    await fixture.whenStable();
+
+    expect(openDialog()).toBe(dialog);
+    expect(text(alertIn(dialog))).toBe('Scryfall could not be reached. Try again in a moment.');
+    expect(shownPrinting()).toBe('Island, KHM #394');
+    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+  });
+
+  it('opens from a locked deck', async () => {
+    const tournament = playing();
+    const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
+      cards,
+      plan: withIslands(),
+      tournament,
+    });
+    const deck = await openTab(fixture, page, 'Deck');
+    expect(text(deck)).toContain('Your deck is locked');
+
+    await openPicker(fixture, deck);
+
+    expect(heading(openDialog()!, 'Island printing')).toBeDefined();
+  });
+
+  it('falls back to Scryfall’s API image of a preferred printing when its image fails in the stacks', async () => {
+    const { fixture, plan } = await openWith(
+      withIslands({ preferredPrintings: { Island: khm394 } }),
+    );
+    const island = () => namedList(plan, 'Lands').querySelector<HTMLImageElement>('img')!;
+
+    island().dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+
+    expect(island().getAttribute('src')).toBe(
+      `https://api.scryfall.com/cards/${KHM_394}?format=image&version=normal`,
+    );
   });
 });

@@ -1,0 +1,51 @@
+@use 'sass:math';
+@use './card-shape';
+
+/* The dialog's box, from dialog.scss: its heading, the printing on show, how to browse, then its actions. */
+:host {
+  --dialog-width: 22rem;
+}
+
+h3,
+p {
+  margin: 0;
+}
+
+figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+/* As tall as the screen allows, keeping the card's shape. */
+img {
+  width: min(100%, (100dvh - 18rem) * math.div(card-shape.$large-width, card-shape.$large-height));
+  height: auto;
+  border-radius: card-shape.$corners;
+}
+
+figcaption {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.browse,
+.steps,
+.load-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.browse select {
+  flex: 1;
+  min-width: 0;
+}
+
+.steps {
+  justify-content: center;
+  width: 100%;
+}

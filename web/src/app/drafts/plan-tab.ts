@@ -9,12 +9,12 @@ import {
   ElementRef,
   inject,
   Injector,
+  inputBinding,
   signal,
   untracked,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
-  BASIC_LANDS,
   type BasicLand,
   type PlanBoard,
   type PlannedBasicView,
@@ -24,7 +24,7 @@ import {
 } from 'contract';
 import type { Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
-import { basicCard } from './basic-lands';
+import { basicCards } from './basic-lands';
 import { BASIC_LANDS_HEADING, BasicLandsDialog } from './basic-lands-dialog';
 import { CardDetailRequests, CardDetails, loadedPlaceholder } from './card-detail';
 import { DialogShell } from '../dialog-shell';
@@ -37,6 +37,7 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import {
   QUEUE_UNPICKED_HEADING,
   QueueUnpickedDialog,
@@ -85,9 +86,6 @@ interface PlanLine extends PlanBoardCard {
    */
   key: string;
 }
-
-/** Each basic land's card data, for the images and Card previews of its copies. */
-const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
 
 /**
  * Each plan board: its cards, how stacks mode stacks them and whether each
@@ -139,8 +137,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; each card's Card detail, but a basic
- * land's, to pick, queue or remove it from; the buttons that open the Queue unpicked
+ * the unpicked cards they added; each card's Card detail, to pick, queue or
+ * remove it from, or a basic land's Printing picker, which opens on a
+ * locked deck too; the buttons that open the Queue unpicked
  * and Basic lands dialogs; and the Plan notice of their lost cards.
  *
  * On desktop each plan board shows as stacks of card images, grouped by mana
@@ -219,9 +218,10 @@ export class PlanTab {
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
     const byId = new Map(this.poolCardsById());
+    // Each basic land shows the player's preferred printing, or else its default printing.
+    const basics = basicCards(this.plan().preferredPrintings);
     for (const basic of this.plan().basics) {
-      for (const copy of basicCopies(basic))
-        byId.set(copy.poolCardId, BASIC_CARDS.get(basic.land)!);
+      for (const copy of basicCopies(basic)) byId.set(copy.poolCardId, basics.get(basic.land)!);
     }
     return byId as ReadonlyMap<string, PoolCardView>;
   });
@@ -370,10 +370,12 @@ export class PlanTab {
 
   /**
    * A stacked card clicked: opens its Card detail, showing its image while
-   * the large one loads, unless the click ends a drag.
+   * the large one loads, or a basic land's Printing picker, unless the
+   * click ends a drag.
    */
   protected openStacked(card: PlanBoardCard, event: MouseEvent) {
     if (this.endsDrag(event)) return;
+    if (card.basic) return this.openPicker(card.basic);
     const poolCard = this.poolCardsById().get(card.poolCardId);
     this.openDetail(
       card.poolCardId,
@@ -386,10 +388,12 @@ export class PlanTab {
 
   /**
    * A line's name clicked: opens the Card detail of its first copy not in
-   * the queue, or else of its first copy, unless the click ends a drag.
+   * the queue, or else of its first copy, or a basic land's Printing
+   * picker, unless the click ends a drag.
    */
   protected openLine(line: PlanLine, event: MouseEvent) {
     if (this.endsDrag(event)) return;
+    if (line.basic) return this.openPicker(line.basic);
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
   }
@@ -420,6 +424,19 @@ export class PlanTab {
       returnFocus: (_, opener) =>
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),
+    });
+  }
+
+  /**
+   * Opens a basic land's Printing picker, in any draft state and on a
+   * locked deck too: it changes how the land looks, not the plan. Focus
+   * returns to what opened it.
+   */
+  private openPicker(land: BasicLand) {
+    this.dialogs.open(PrintingPicker, {
+      labelledBy: PRINTING_PICKER_HEADING,
+      injector: this.injector,
+      bindings: [inputBinding('land', () => land)],
     });
   }
 
