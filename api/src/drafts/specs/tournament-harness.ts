@@ -63,7 +63,7 @@ const DRAFTED = [
  * users in seat order, at most 12: each picks one card, Shock, Lightning
  * Bolt, Lava Spike, Skewer the Critics, Fireblast, Chain Lightning and so
  * on in turn, from a pool of at least the first four. Their decks hold just that
- * pick, so give them `fullDeck` before they join a tournament.
+ * pick, so give them `fullDeck` before a tournament starts.
  */
 export async function completeDraft(cookies: string[]) {
   const names = DRAFTED.slice(0, Math.max(4, cookies.length));
@@ -82,7 +82,7 @@ export async function completeDraft(cookies: string[]) {
  * Each picks one card: the users Shock, Lightning Bolt and so on in turn,
  * each bot a random one. Answers with the draft's id and its bots' ids in
  * seat order. Every deck holds just its pick, so give the users `fullDeck`
- * before they join a tournament; the bots join at its setup as they are.
+ * before a tournament starts; the bots play as they are.
  */
 export async function completeDraftWithBots(cookies: string[], bots: number) {
   const names = DRAFTED.slice(0, Math.max(4, cookies.length + bots));
@@ -105,7 +105,7 @@ export async function completeDraftWithBots(cookies: string[], bots: number) {
 }
 
 /**
- * Brings the player's mainboard to the 40 cards joining asks for: their one
+ * Brings the player's mainboard to the 40 cards Start asks for: their one
  * pick plus 39 Mountains, as `completeDraft` leaves them.
  */
 export async function fullDeck(id: string, cookie: string) {
@@ -131,7 +131,10 @@ export function cancelTournament(id: string, cookie = aliceCookie) {
   return draftsRequest('delete', `/${id}/tournament`, cookie);
 }
 
-/** Joins the draft's tournament as whoever `cookie` signs in. */
+/**
+ * Joins the draft's tournament as whoever `cookie` signs in, as a player
+ * who left or was removed does: setup joins everyone.
+ */
 export function joinTournament(id: string, cookie: string) {
   return draftsRequest('post', `/${id}/tournament/entries`, cookie);
 }
@@ -186,7 +189,7 @@ export function completeRound(
 /**
  * A complete draft whose players are the cookies' users in seat order, all
  * with full decks, and its tournament, round robin unless `setup` says
- * otherwise, in registration with no one joined.
+ * otherwise, in registration, which setup joined them all to in seat order.
  */
 export async function inRegistration(
   cookies: string[],
@@ -201,16 +204,13 @@ export async function inRegistration(
 /**
  * A complete draft whose players are the cookies' users in seat order, all
  * with full decks, and its tournament, round robin unless `setup` says
- * otherwise, which they joined in that order and Alice started.
+ * otherwise, which setup joined them to in that order and Alice started.
  */
 export async function playingTournament(
   cookies: string[],
   setup: TournamentSetupRequest = roundRobin,
 ) {
   const id = await inRegistration(cookies, setup);
-  for (const cookie of cookies) {
-    await joinTournament(id, cookie).expect(201);
-  }
   await startTournament(id).expect(200);
   return id;
 }
@@ -294,8 +294,8 @@ export async function matchOf(
 
 /**
  * Each joined player's cookie by their Discord user id, `cookies` given in
- * the order they joined the draft's tournament, as `playingTournament`
- * joins them.
+ * the order they joined the draft's tournament, the seat order setup joins
+ * them in.
  */
 export async function cookiesByPlayer(
   id: string,

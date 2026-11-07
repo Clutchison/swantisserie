@@ -85,18 +85,16 @@ async function posts(id: string, count: number) {
 
 /**
  * A tournament set up as `setup` on an announced draft of the cookies'
- * users, which they all joined and Alice started, with nothing posted yet.
+ * users, with full decks, which setup joined them all to and Alice started,
+ * with nothing posted yet.
  */
 async function announcedTournament(
   cookies: string[],
   setup: TournamentSetupRequest,
 ) {
   const id = await announcedDraft(cookies);
+  for (const cookie of cookies) await fullDeck(id, cookie);
   await setUpTournament(id, aliceCookie, setup).expect(201);
-  for (const cookie of cookies) {
-    await fullDeck(id, cookie);
-    await joinTournament(id, cookie).expect(201);
-  }
   await startTournament(id).expect(200);
   await announcementsSettled(id);
   webhookClient.post.mockClear();
@@ -107,7 +105,7 @@ const tournamentLink = (id: string) =>
   `[Open tournament](<https://roto.example/drafts/${id}?tab=play>)`;
 
 describe('tournament announcements', () => {
-  it('announces registration at tournament setup, pinging each of the draft’s players', async () => {
+  it('announces registration at tournament setup, pinging each of the draft’s players, who are in, can leave and whose decks lock at Start', async () => {
     const id = await announcedDraft([aliceCookie, bobCookie, carolCookie]);
 
     await setUpTournament(id, aliceCookie, swiss()).expect(201);
@@ -115,8 +113,8 @@ describe('tournament announcements', () => {
     expect(await posts(id, 1)).toEqual([
       {
         content:
-          '**Red**’s Swiss tournament is in registration.\n' +
-          `<@${alice.id}> <@${bob.id}> <@${carol.id}> join from the Play tab. ${tournamentLink(id)}`,
+          '**Red**’s Swiss tournament is in registration, and every player has joined.\n' +
+          `<@${alice.id}> <@${bob.id}> <@${carol.id}> you’re in. If you won’t play, leave on the Play tab. Decks lock when the tournament starts. ${tournamentLink(id)}`,
         allowed_mentions: { parse: [], users: [alice.id, bob.id, carol.id] },
       },
     ]);
@@ -128,12 +126,13 @@ describe('tournament announcements', () => {
       1,
     );
     await changeWebhook(id, webhookId).expect(200);
-    // Bot 1 joins at setup.
+    for (const cookie of [carolCookie, aliceCookie]) await fullDeck(id, cookie);
+    // Setup joins Alice, Bob, Carol and Bot 1; Bob leaves, and Alice leaves
+    // and joins again.
     await setUpTournament(id, aliceCookie, roundRobin).expect(201);
-    for (const cookie of [carolCookie, aliceCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
+    await removeEntry(id, bob.id, bobCookie).expect(200);
+    await removeEntry(id, alice.id, aliceCookie).expect(200);
+    await joinTournament(id, aliceCookie).expect(201);
     await announcementsSettled(id);
     webhookClient.post.mockClear();
 
@@ -142,7 +141,7 @@ describe('tournament announcements', () => {
     expect(await posts(id, 1)).toEqual([
       {
         content:
-          '**Red**’s round robin tournament has started with **Bot 1**, **Carol** and **Alice**.\n' +
+          '**Red**’s round robin tournament has started with **Carol**, **Bot 1** and **Alice**.\n' +
           tournamentLink(id),
         allowed_mentions: { parse: [], users: [] },
       },
@@ -233,9 +232,8 @@ describe('tournament announcements', () => {
     await announcementsSettled(id);
     webhookClient.post.mockClear();
 
-    await fullDeck(id, bobCookie);
-    await joinTournament(id, bobCookie).expect(201);
     await removeEntry(id, bob.id, bobCookie).expect(200);
+    await joinTournament(id, bobCookie).expect(201);
 
     await posts(id, 0);
   });
@@ -282,10 +280,7 @@ describe('tournament announcements', () => {
     await posts(id, 1);
     expect((await getDraft(id).expect(200)).body.webhook.gone).toBe(true);
 
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
+    for (const cookie of [aliceCookie, bobCookie]) await fullDeck(id, cookie);
     await startTournament(id).expect(200);
 
     await posts(id, 1);
@@ -313,7 +308,7 @@ describe('tournament announcements with bots', () => {
     return { id, botIds, names };
   }
 
-  it('names the bots that joined at setup, pinging only the draft’s humans', async () => {
+  it('pings only the draft’s humans, though setup joined its bots too', async () => {
     const { id } = await completeDraftWithBots([aliceCookie], 2);
     await changeWebhook(id, webhookId).expect(200);
 
@@ -322,8 +317,8 @@ describe('tournament announcements with bots', () => {
     expect(await posts(id, 1)).toEqual([
       {
         content:
-          '**Red**’s Swiss tournament is in registration. **Bot 1** and **Bot 2** have joined.\n' +
-          `<@${alice.id}> join from the Play tab. ${tournamentLink(id)}`,
+          '**Red**’s Swiss tournament is in registration, and every player has joined.\n' +
+          `<@${alice.id}> you’re in. If you won’t play, leave on the Play tab. Decks lock when the tournament starts. ${tournamentLink(id)}`,
         allowed_mentions: { parse: [], users: [alice.id] },
       },
     ]);
@@ -332,7 +327,6 @@ describe('tournament announcements with bots', () => {
   it('names bots in a tournament round’s matches without pinging them', async () => {
     const { id, botIds, names } = await announcedWithBots(3, swiss());
     await fullDeck(id, aliceCookie);
-    await joinTournament(id, aliceCookie).expect(201);
     await startTournament(id).expect(200);
     await announcementsSettled(id);
     webhookClient.post.mockClear();
@@ -361,7 +355,6 @@ describe('tournament announcements with bots', () => {
   it('names a bot that holds the trophy', async () => {
     const { id, botIds } = await announcedWithBots(1, singleElimination);
     await fullDeck(id, aliceCookie);
-    await joinTournament(id, aliceCookie).expect(201);
     await startTournament(id).expect(200);
     const [final] = (await tournamentView(id)).rounds[0].matches;
     await announcementsSettled(id);

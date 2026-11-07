@@ -34,7 +34,8 @@ export class PlanRefusedError extends Error {
  * every pick they've made and the unpicked cards and basic lands they've
  * added. A plan never changes the draft, so it can be changed in any draft
  * state, except that unpicked cards are only added while the draft is
- * active, and a deck can't be changed at all while it is locked. Every write
+ * active, and a deck can't be changed at all while it is locked, from Start
+ * until its tournament is complete or cancelled. Every write
  * to a plan's cards and basics throws PlanRefusedError (`deck-locked`) then.
  */
 @Injectable()
@@ -242,7 +243,7 @@ export class PlansService {
         throw new PlanRefusedError({
           error: 'deck-locked',
           message:
-            'Your deck is locked while you are in this draft’s tournament.',
+            'Your deck is locked until this draft’s tournament is complete or cancelled.',
         });
       }
       await apply(tx, playerId, state);

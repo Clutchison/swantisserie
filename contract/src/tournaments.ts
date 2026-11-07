@@ -291,8 +291,8 @@ export interface TournamentBadgeView {
   state: TournamentState;
   /**
    * Whether the viewer may join it now, as joining would let them: during
-   * registration, one of the draft's human players who hasn't joined and
-   * whose mainboard holds at least MIN_MAINBOARD_CARDS.
+   * registration, one of the draft's human players who has left it or been
+   * removed, whatever their deck holds.
    */
   canJoin: boolean;
   /** The trophy holders' Discord user ids, each a `PlayerView.id`; empty until it is complete. */
@@ -308,7 +308,7 @@ export interface ViewerTournamentView extends TournamentView {
   canJoin: boolean;
   /**
    * Why joining would refuse the viewer, one of the draft's players,
-   * during registration, such as a deck too small; null when it wouldn't,
+   * during registration, such as having joined already; null when it wouldn't,
    * outside registration, and for anyone who isn't one of the draft's players.
    */
   joinRefusal: TournamentRefusal | null;
@@ -388,7 +388,7 @@ export interface DecklistView extends PlanBoards {
   playerId: string;
 }
 
-/** The fewest cards a deck's mainboard, picks plus basic lands, holds to join a tournament. */
+/** The fewest cards a joined human player's mainboard, picks plus basic lands, holds for the tournament to start. */
 export const MIN_MAINBOARD_CARDS = 40;
 
 /** The fewest joined players, bots included, a tournament needs to start. */

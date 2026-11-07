@@ -561,33 +561,48 @@ describe('plan tab as the deck', () => {
     expect(panel(page).textContent).toContain('Only you can see your plan.');
   });
 
-  describe('while the deck is locked', () => {
+  describe('the deck and the tournament', () => {
     /** The buttons in the Deck tab that would change the deck. */
     const deckEdits = (deck: HTMLElement) =>
       [...deck.querySelectorAll('button')].filter((b) =>
         /^(Move|Remove|Basic lands)/.test(accessibleName(b)),
       );
+    // Four picks and two basics: six cards.
     const deck = planOf({ basics: [{ land: 'Mountain', count: 2 }] });
+    const REMINDER =
+      'Your deck locks when the tournament starts, until it is complete or cancelled.';
+    const SHORT = 'A tournament deck needs at least 40';
 
-    /** Opens the Deck tab of the complete draft with `tournament` set up. */
-    async function openDeck(tournament: ViewerTournamentView) {
+    /** Opens the Deck tab of the complete draft with `tournament` set up, Alice's deck `plan`. */
+    async function openDeck(tournament: ViewerTournamentView, plan = deck) {
       const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
         cards,
-        plan: deck,
+        plan,
         tournament,
       });
       return { fixture, page, tab: await openTab(fixture, page, 'Deck') };
     }
 
-    it('says the deck is locked until its player leaves, and offers no edits, once they have joined the tournament', async () => {
+    it('reminds a joined player during registration that their deck locks at Start, warns that its mainboard is under 40, and offers edits', async () => {
       const { page, tab } = await openDeck(registration(bob.id, alice.id));
 
+      expect(text(tab)).toContain(REMINDER);
       expect(text(tab)).toContain(
-        'Your deck is locked while you’re in this draft’s tournament. Leave the tournament to change it.',
+        'Your mainboard holds 6 cards. A tournament deck needs at least 40: fill your deck, or leave the tournament if you won’t play.',
       );
-      expect(deckEdits(tab)).toEqual([]);
-      expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
+      expect(text(tab)).not.toContain('locked');
+      expect(deckEdits(tab).length).toBeGreaterThan(0);
       expect(buttons(page, 'Export')[0].disabled).toBe(false);
+    });
+
+    it('leaves out the warning once the mainboard holds 40 cards', async () => {
+      const { tab } = await openDeck(
+        registration(bob.id, alice.id),
+        planOf({ basics: [{ land: 'Mountain', count: 36 }] }),
+      );
+
+      expect(text(tab)).toContain(REMINDER);
+      expect(text(tab)).not.toContain(SHORT);
     });
 
     it.each([
@@ -601,15 +616,18 @@ describe('plan tab as the deck', () => {
         expect(text(tab)).toContain(
           'Your deck is locked until the tournament is complete or cancelled.',
         );
-        expect(text(tab)).not.toContain('Leave the tournament');
+        expect(text(tab)).not.toContain(REMINDER);
+        expect(text(tab)).not.toContain(SHORT);
         expect(deckEdits(tab)).toEqual([]);
+        expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
       },
     );
 
-    it('offers edits while the player hasn’t joined', async () => {
+    it('shows no reminder, and offers edits, to a player who has left', async () => {
       const { tab } = await openDeck(registration(bob.id));
 
       expect(tab.textContent).not.toContain('locked');
+      expect(text(tab)).not.toContain(REMINDER);
       expect(deckEdits(tab).length).toBeGreaterThan(0);
     });
 

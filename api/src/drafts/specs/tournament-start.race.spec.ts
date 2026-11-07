@@ -7,49 +7,46 @@ import {
 } from './race-harness.js';
 import {
   aliceCookie,
-  bob,
   clearBasics,
   completeDraft,
   fullDeck,
-  joinedPlayers,
-  joinTournament,
   setUpTournament,
+  startTournament,
+  tournamentView,
 } from './tournament-harness.js';
 
-describeRaces('joining a tournament against a deck change', () => {
+describeRaces('starting a tournament against a deck change', () => {
   it('locks the deck the player had before the write, which is then refused, or refuses the deck the write left', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
+    await fullDeck(id, aliceCookie);
     await fullDeck(id, bobCookie);
     await setUpTournament(id).expect(201);
 
     // Clearing Bob's 39 Mountains leaves his mainboard 1 card, too small to
-    // join with, so whichever lands second sees what the first did.
-    const [joined, cleared] = await race(
-      () => joinTournament(id, bobCookie),
+    // start with, so whichever lands second sees what the first did.
+    const [started, cleared] = await race(
+      () => startTournament(id),
       () => clearBasics(id, bobCookie),
     );
 
     const bobs = await planOf(id, bobCookie);
     expect([
       {
-        joined: 201,
+        started: 200,
         cleared: '409 deck-locked',
-        entries: [bob.id],
-        mainboard: ['Lightning Bolt'],
+        state: 'Playing',
         basics: [{ land: 'Mountain', count: 39 }],
       },
       {
-        joined: '409 deck-too-small',
+        started: '409 deck-too-small',
         cleared: 200,
-        entries: [],
-        mainboard: ['Lightning Bolt'],
+        state: 'Registration',
         basics: [],
       },
     ]).toContainEqual({
-      joined: answered(joined),
+      started: answered(started),
       cleared: answered(cleared),
-      entries: await joinedPlayers(id),
-      mainboard: bobs.mainboard.map((card) => card.name),
+      state: (await tournamentView(id)).state,
       basics: bobs.basics,
     });
   });

@@ -9,8 +9,8 @@ import type { TournamentFormat } from '../generated/prisma/client.js';
 import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
 /**
- * Registration opening for the draft's players, in seat order: its humans
- * to join, its bots joined already. Each of these reads inside a change's
+ * Registration opening for the draft's players, in seat order, all of whom
+ * setup joined. Each of these reads inside a change's
  * transaction, once it is written.
  */
 export async function tournamentSetUp(

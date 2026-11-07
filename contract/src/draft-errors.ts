@@ -141,7 +141,7 @@ export interface PlanRefusal {
     | 'no-copies-left'
     | 'draft-complete'
     | 'draft-closed'
-    /** The player has joined a tournament in registration or playing, which locks their deck. */
+    /** The player has joined a tournament that is playing, which locks their deck. */
     | 'deck-locked';
   message: string;
 }
@@ -165,7 +165,7 @@ export interface TournamentRefusal {
     | 'decklists-private'
     /** Under public decklists, decklists are shown once the tournament starts, not during registration. */
     | 'in-registration'
-    /** The mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
+    /** Start: a joined human player's mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small'
     /** Bots join a tournament at its setup, never by asking. */
     | 'bots-cannot-join'

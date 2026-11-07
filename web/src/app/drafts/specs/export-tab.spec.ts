@@ -25,7 +25,7 @@ import {
   tabPanel,
   text,
 } from './harness';
-import { registration, withTournament } from './play-tab-harness';
+import { playing, threePlayers, withTournament } from './play-tab-harness';
 
 useDraftsApp();
 
@@ -362,18 +362,17 @@ describe('export tab', () => {
         );
       });
 
-      it('copies a locked deck, as its player has joined the tournament', async () => {
+      it('copies a locked deck, as its player’s tournament is playing', async () => {
         const deck: PlanView = {
           ...plan,
           mainboard: plan.mainboard.filter((card) => card.picked),
           sideboard: plan.sideboard.filter((card) => card.picked),
         };
-        const tournament = registration(bob.id, alice.id);
-        const opened = await openExport(
-          yourPicks,
-          withTournament(tournament, { players: [bob, alicePlayer] }),
-          { plan: deck, tournament },
-        );
+        const tournament = playing();
+        const opened = await openExport(yourPicks, withTournament(tournament, threePlayers), {
+          plan: deck,
+          tournament,
+        });
         expect(text(tabPanel(opened.page, 'Deck'))).toContain('Your deck is locked');
 
         expect(await copyFor(opened)).toBe(

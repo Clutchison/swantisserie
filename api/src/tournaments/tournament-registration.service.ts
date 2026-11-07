@@ -6,7 +6,12 @@ import { DraftLock } from '../drafts/draft-lock.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import { snapshotDecklists } from './decklists.service.js';
-import { joinRefusal, JOINING_PLAYER } from './join-rules.js';
+import {
+  deckRefusal,
+  joinRefusal,
+  JOINING_PLAYER,
+  STARTING_PLAYER,
+} from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
@@ -16,7 +21,7 @@ import { entryOf, TournamentLock } from './tournament-lock.js';
 /**
  * A complete draft's tournament from setup through registration: setting
  * it up, players joining and leaving, and starting it; and cancelling it,
- * during registration or play. Joining under the draft's lock also waits
+ * during registration or play. Starting under the draft's lock also waits
  * for any plan write in flight, which share-locks the draft, so a deck
  * can't change as it is checked and locked.
  */
@@ -29,7 +34,8 @@ export class TournamentRegistrationService {
 
   /**
    * Sets up the draft's tournament as `setup` chooses, in registration,
-   * returning its announcement. Throws TournamentRefusedError unless the
+   * and joins every one of the draft's players to it, whatever their decks
+   * hold, returning its announcement. Throws TournamentRefusedError unless the
    * draft is complete and has none yet.
    */
   async setUp(
@@ -65,18 +71,17 @@ export class TournamentRegistrationService {
           },
           select: { id: true },
         });
-        await joinBots(tx, draftId, tournament.id);
+        await joinEveryone(tx, draftId, tournament.id);
         return [await tournamentSetUp(tx, draftId, setup.format)];
       },
     );
   }
 
   /**
-   * Joins the user to the draft's tournament, which locks their deck.
-   * Throws NotAPlayerError if they aren't one of the draft's players, and
-   * TournamentRefusedError if they are a bot, have joined already, or their
-   * mainboard holds fewer than MIN_MAINBOARD_CARDS, or the tournament is
-   * past registration.
+   * Joins the user to the draft's tournament again, after they left or
+   * were removed, whatever their deck holds. Throws NotAPlayerError if they
+   * aren't one of the draft's players, and TournamentRefusedError if they
+   * are a bot, have joined already, or the tournament is past registration.
    */
   async join(draftId: string, userId: string): Promise<void> {
     await this.tournamentLock.inRegistration(
@@ -97,8 +102,8 @@ export class TournamentRegistrationService {
   }
 
   /**
-   * Takes the draft's player `userId` out of its tournament, unlocking
-   * their deck: they leave, or an organizer removes them. Throws
+   * Takes the draft's player `userId` out of its tournament: they leave,
+   * or an organizer removes them. Throws
    * TournamentRefusedError if they haven't joined or are a bot, or the
    * tournament is past registration.
    */
@@ -115,7 +120,7 @@ export class TournamentRegistrationService {
   /**
    * Cancels the draft's tournament during registration or play, deleting it
    * with its entries and matches, so nothing from it counts and every deck
-   * unlocks. Throws TournamentRefusedError once it is complete.
+   * it locked unlocks. Throws TournamentRefusedError once it is complete.
    */
   async cancel(draftId: string): Promise<void> {
     await this.tournamentLock.withTournament(
@@ -134,13 +139,16 @@ export class TournamentRegistrationService {
   }
 
   /**
-   * Starts the draft's tournament, closing joining. Round robin makes the
+   * Starts the draft's tournament, closing joining and locking every joined
+   * player's deck. Round robin makes the
    * match of every pair of its entries, by join order, all open at once and
    * with no byes; Swiss pairs round 1 at random; single
    * elimination seeds its entries at random into the bracket and makes its
    * round 1, byes for the top seeds included. Throws
-   * TournamentRefusedError if fewer than MIN_TOURNAMENT_PLAYERS have joined, or it is
-   * past registration. Returns its announcement.
+   * TournamentRefusedError if fewer than MIN_TOURNAMENT_PLAYERS have
+   * joined, if a joined human player's mainboard holds fewer than
+   * MIN_MAINBOARD_CARDS, or if it is past registration. Returns its
+   * announcement.
    */
   async start(draftId: string): Promise<DraftEvent[]> {
     return this.tournamentLock.inRegistration(
@@ -149,7 +157,7 @@ export class TournamentRegistrationService {
         const entries = await tx.tournamentEntry.findMany({
           where: { tournamentId: tournament.id },
           orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
-          select: { id: true },
+          select: { id: true, player: { select: STARTING_PLAYER } },
         });
         if (entries.length < MIN_TOURNAMENT_PLAYERS) {
           throw new TournamentRefusedError({
@@ -157,6 +165,8 @@ export class TournamentRegistrationService {
             message: `A tournament needs at least ${MIN_TOURNAMENT_PLAYERS} players to start.`,
           });
         }
+        const refusal = deckRefusal(entries.map((entry) => entry.player));
+        if (refusal) throw new TournamentRefusedError(refusal);
         await tx.tournament.update({
           where: { id: tournament.id },
           data: { state: 'Playing', startedAt: new Date() },
@@ -186,27 +196,28 @@ export class TournamentRegistrationService {
 }
 
 /**
- * Joins every bot of the draft to its new tournament `tournamentId`, in
- * seat order, whatever its deck holds: bots exist for testing, and an
- * admin testing alone needs players to pair against. Their decks lock as
- * they are.
+ * Joins every one of the draft's players, humans and bots, to its new
+ * tournament `tournamentId`, in seat order, whatever their decks hold:
+ * nobody has to remember to join, and a player who won't play leaves. Start
+ * checks the humans' decks; bots exist for testing, and an admin testing
+ * alone needs players to pair against.
  */
-async function joinBots(
+async function joinEveryone(
   tx: Transaction,
   draftId: string,
   tournamentId: string,
 ) {
-  const bots = await tx.player.findMany({
-    where: { draftId, user: { isBot: true } },
+  const players = await tx.player.findMany({
+    where: { draftId },
     orderBy: [{ seat: 'asc' }, { joinedAt: 'asc' }],
     select: { id: true },
   });
   // A millisecond apart, so join order is seat order.
   const now = Date.now();
   await tx.tournamentEntry.createMany({
-    data: bots.map((bot, i) => ({
+    data: players.map((player, i) => ({
       tournamentId,
-      playerId: bot.id,
+      playerId: player.id,
       joinedAt: new Date(now + i),
     })),
   });

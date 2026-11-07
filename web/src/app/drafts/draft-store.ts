@@ -24,6 +24,7 @@ import type {
   QueueView,
   ViewerTournamentView,
 } from 'contract';
+import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal, NO_POWERS } from './drafts';
@@ -366,13 +367,31 @@ export class DraftStore {
   });
   /**
    * Whether the signed-in player's deck is locked: they have joined a
-   * tournament in registration or playing. The api then refuses every
-   * change to it with `deck-locked`.
+   * tournament that is playing. The api then refuses every change to it
+   * with `deck-locked`.
    */
-  readonly deckLocked = computed(() => {
-    const state = this.tournamentState();
-    return this.joinedTournament() && (state === 'Registration' || state === 'Playing');
+  readonly deckLocked = computed(
+    () => this.joinedTournament() && this.tournamentState() === 'Playing',
+  );
+  /**
+   * Whether the signed-in player's deck locks at Start: they have joined a
+   * tournament in registration, as setup joins every player.
+   */
+  readonly deckLocksAtStart = computed(
+    () => this.joinedTournament() && this.tournamentState() === 'Registration',
+  );
+  /** How many cards the signed-in player's mainboard holds, picks plus basic lands. */
+  readonly mainboardCards = computed(() => {
+    const { mainboard, basics } = this.plan.value();
+    return mainboard.length + basics.reduce((total, basic) => total + basic.count, 0);
   });
+  /**
+   * Whether the signed-in player's deck locks at Start but its mainboard
+   * holds fewer than MIN_MAINBOARD_CARDS, which the api refuses Start for.
+   */
+  readonly deckTooSmall = computed(
+    () => this.deckLocksAtStart() && this.mainboardCards() < MIN_MAINBOARD_CARDS,
+  );
 
   /**
    * Offering a pick: to players, while the draft is Drafting. The api refuses
@@ -511,15 +530,9 @@ export class DraftStore {
     this.queueResource.set(queue);
   }
 
-  /**
-   * Sends a change to the signed-in player's plan, as `changeQueue` does the
-   * queue. During registration the tournament is read again once it is
-   * made, as the deck decides whether its player may join.
-   */
-  async changePlan(request: Observable<PlanView>): Promise<PlanView> {
-    const plan = await this.changeOwn(this.planResource, request);
-    if (this.tournamentState() === 'Registration') this.tournamentResource.reload();
-    return plan;
+  /** Sends a change to the signed-in player's plan, as `changeQueue` does the queue. */
+  changePlan(request: Observable<PlanView>): Promise<PlanView> {
+    return this.changeOwn(this.planResource, request);
   }
 
   /**

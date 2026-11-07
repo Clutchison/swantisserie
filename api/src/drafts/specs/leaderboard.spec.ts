@@ -13,7 +13,6 @@ import {
   completeTournament,
   dropPlayer,
   fullDeck,
-  joinTournament,
   playingSingleElimination,
   playingTournament,
   reopenRound,
@@ -228,10 +227,6 @@ describe('the leaderboard', () => {
     await cancelTournament(cancelled).expect(200);
     const registering = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(registering).expect(201);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(registering, cookie);
-      await joinTournament(registering, cookie).expect(201);
-    }
 
     const board = await leaderboard();
 
@@ -252,11 +247,10 @@ describe('the leaderboard', () => {
       [aliceCookie, bobCookie],
       1,
     );
-    await setUpTournament(withBot).expect(201);
     for (const cookie of [aliceCookie, bobCookie]) {
       await fullDeck(withBot, cookie);
-      await joinTournament(withBot, cookie).expect(201);
     }
+    await setUpTournament(withBot).expect(201);
     await startTournament(withBot).expect(200);
     await reportWin(withBot, [alice.id, bob.id], [2, 0], aliceCookie);
     await reportWin(withBot, [alice.id, botIds[0]], [2, 0], aliceCookie);

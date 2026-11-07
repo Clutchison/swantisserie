@@ -24,10 +24,7 @@
   </div>
 }
 <p class="detail">
-  @if (deckLocked() && tournamentState() === 'Registration') {
-    Your deck is locked while you’re in this draft’s tournament. Leave the tournament to change it.
-    Your exports still work.
-  } @else if (deckLocked()) {
+  @if (deckLocked()) {
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.
   } @else if (planName() === 'deck') {
     Your deck holds your picks and basic lands. Only you can see your deck.
@@ -36,6 +33,7 @@
     and no other copy is available. Only you can see your plan.
   }
 </p>
+<app-deck-lock-reminder />
 @if (offerQueueUnpicked()) {
   <div class="plan-actions">
     <button

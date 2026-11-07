@@ -15,6 +15,7 @@ import {
   plan,
   playingTournament,
   poolCardIds,
+  removeEntry,
   roundRobin,
   setBasic,
   setUpTournament,
@@ -68,7 +69,8 @@ describe('decklists under public decklists', () => {
       200,
     );
     await setBasic(id, 'Mountain', 40, bobCookie).expect(200);
-    await joinTournament(id, bobCookie).expect(201);
+    // Alice leaves and joins again, so Bob is first in join order.
+    await removeEntry(id, alice.id, aliceCookie).expect(200);
     await fullDeck(id, aliceCookie);
     await joinTournament(id, aliceCookie).expect(201);
     const bobDeck = await deckOf(id, bobCookie);
@@ -107,21 +109,18 @@ describe('decklists under public decklists', () => {
     );
     const ids = await poolCardIds(id);
     await setUpTournament(id, aliceCookie, withPublicDecklists()).expect(201);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
+    for (const cookie of [aliceCookie, bobCookie]) await fullDeck(id, cookie);
 
     await startTournament(id).expect(200);
 
     const served = (await decklists(id, daveCookie).expect(200))
       .body as DecklistView[];
     expect(served.map((decklist) => decklist.playerId)).toEqual([
-      botIds[0],
       alice.id,
       bob.id,
+      botIds[0],
     ]);
-    expect(served[0]).toEqual({
+    expect(served[2]).toEqual({
       playerId: botIds[0],
       mainboard: [
         { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
@@ -151,8 +150,6 @@ describe('decklists under public decklists', () => {
   it('refuses them during registration, even to the organizer', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id, aliceCookie, withPublicDecklists()).expect(201);
-    await fullDeck(id, bobCookie);
-    await joinTournament(id, bobCookie).expect(201);
 
     for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
       expect((await decklists(id, cookie).expect(409)).body.error).toBe(
@@ -179,16 +176,15 @@ describe('decklists under public decklists', () => {
     ]);
   });
 
-  it('never serves the deck of a player who did not join', async () => {
+  it('never serves the deck of a player who left before Start', async () => {
     const id = await completeDraft([aliceCookie, bobCookie, carolCookie]);
+    for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
+      await fullDeck(id, cookie);
+    }
     await setUpTournament(id, aliceCookie, withPublicDecklists(swiss())).expect(
       201,
     );
-    for (const cookie of [aliceCookie, carolCookie]) {
-      await fullDeck(id, cookie);
-      await joinTournament(id, cookie).expect(201);
-    }
-    await fullDeck(id, bobCookie);
+    await removeEntry(id, bob.id, bobCookie).expect(200);
     await startTournament(id).expect(200);
 
     const served = (await decklists(id, bobCookie).expect(200))
