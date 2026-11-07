@@ -351,6 +351,26 @@ describe('agreedAdvancingPlayer', () => {
     expect(agreedAdvancingPlayer(bye, ['a'], false)).toEqual(nobody);
   });
 
+  it('is nobody from a bye whose player dropped before the next tournament round was paired with them', () => {
+    const bye = {
+      players: ['a', null],
+      outcome: null,
+      ...unreported,
+      nextRoundPlayers: ['b', 'c'],
+    } as const;
+    expect(agreedAdvancingPlayer(bye, ['a'], true)).toEqual(nobody);
+  });
+
+  it('is the player with a bye who was paired in the next tournament round, though they dropped since', () => {
+    const bye = {
+      players: ['a', null],
+      outcome: null,
+      ...unreported,
+      nextRoundPlayers: ['a', 'b'],
+    } as const;
+    expect(agreedAdvancingPlayer(bye, ['a'], true)).toEqual(player('a'));
+  });
+
   it('is not agreed while the match is unreported, even once its round is completed', () => {
     expect(
       agreedAdvancingPlayer(
