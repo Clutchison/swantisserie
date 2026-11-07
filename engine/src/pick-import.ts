@@ -239,8 +239,10 @@ export function readPickImport(
     problems.push(
       'The file makes every pick in the draft, so there would be nothing left to draft.',
     );
+  } else if (
     // Stryker disable next-line EqualityOperator: equality is caught by the branch above.
-  } else if (filled.length > allowed) {
+    filled.length > allowed
+  ) {
     problems.push(
       `The file has ${filled.length} picks, but the draft allows ${allowed}.`,
     );
