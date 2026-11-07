@@ -1,20 +1,33 @@
+import type { DialogRef } from '@angular/cdk/dialog';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
+  ElementRef,
   inject,
+  Injector,
   input,
-  linkedSignal,
+  inputBinding,
   output,
+  untracked,
+  viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import type { MatchView, PlayerView, TournamentView } from 'contract';
+import type { GameScore, MatchView, PlayerView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
+import { DialogShell } from '../dialog-shell';
 import { capitalised } from '../record';
-import { SendsChange } from './changes';
+import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { confirmableBy, gameScoreFor, reportedLine } from './match-lines';
+import {
+  MATCH_RESULT_HEADING,
+  MatchResultDialog,
+  type MatchResultChoice,
+  type MatchResultChoices,
+} from './match-result-dialog';
 import { PlayerAvatar } from './player-avatar';
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
@@ -31,11 +44,29 @@ export const OWN_GAME_SCORES: OwnGameScore[] = GAME_SCORES.map(([own, theirs]) =
   theirs,
 }));
 
-/** A report the signed-in player asks to send: their match, their opponent's name, and the game score from their side. */
+/** The games of `score`, the player `own`'s side of `match`, in the match's player order. */
+export function inMatchOrder(match: MatchView, ownId: string, { own, theirs }: OwnGameScore) {
+  return (match.players[0] === ownId ? [own, theirs] : [theirs, own]) satisfies GameScore;
+}
+
+/** What asking whether to report a match adds: that the report is the player's last word on it. */
+export const REPORT_DETAIL = 'Only an organizer can change a reported match.';
+
+/** The question that asks the player whether to report `score`, from their side, against `opponent`. */
+export function reportQuestion({ own, theirs }: OwnGameScore, opponent: string) {
+  return `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}?`;
+}
+
+/**
+ * A report the signed-in player asks to send: their match, their opponent's
+ * name, the game score from their side, and whether they were already
+ * asked to go ahead, as the round robin's dialog asks.
+ */
 export interface OwnReport {
   match: MatchView;
   opponent: string;
   score: OwnGameScore;
+  asked: boolean;
 }
 
 /** One of the signed-in player's matches, with the tournament round it is in. */
@@ -69,19 +100,24 @@ interface OwnMatchLine {
  *
  * In round robin, Your matches: one line per opponent, unreported first,
  * then the rest, each in join order. An unreported match offers Report,
- * which opens its four game scores; a game score someone else reported
- * offers Confirm, dropped or not. Round robin has no tournament rounds, so
- * any match can be reported in any order.
+ * which opens the match result dialog on its four game scores, asking
+ * before it reports one; it closes itself once the match is no longer
+ * reportable. A game score someone else reported offers Confirm, dropped
+ * or not. Round robin has no tournament rounds, so any match can be
+ * reported in any order.
  */
 @Component({
   selector: 'app-your-matches',
-  imports: [NgTemplateOutlet, PlayerAvatar, RouterLink, SendsChange],
+  imports: [FocusKey, NgTemplateOutlet, PlayerAvatar, RouterLink, SendsChange],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './your-matches.html',
   styleUrls: ['./drafts.scss', './draft-panels.scss', './your-matches.scss'],
 })
 export class YourMatches {
   private readonly store = inject(DraftStore);
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
+  private readonly host: HTMLElement = inject(ElementRef).nativeElement;
 
   readonly tournament = input.required<TournamentView>();
   /** The signed-in player's id: joined, dropped or not. */
@@ -99,20 +135,29 @@ export class YourMatches {
   protected readonly single = computed(() => this.tournament().format !== 'RoundRobin');
   protected readonly heading = computed(() => (this.single() ? 'Your match' : 'Your matches'));
 
-  /**
-   * The match whose game scores are open to report, if any. A re-read keeps
-   * it open while the player may still report it, so until it is reported,
-   * the tournament stops playing or they drop.
-   */
-  protected readonly reporting = linkedSignal<TournamentView, string | undefined>({
-    source: this.tournament,
-    computation: (_, previous) => {
-      const open = previous?.value;
-      return this.lines().some((line) => line.match.id === open && line.reportable)
-        ? open
-        : undefined;
-    },
-  });
+  private readonly headingElement = viewChild.required<ElementRef<HTMLElement>>('headingElement');
+
+  /** The match result dialog while it's open, with the id of the match it reports. */
+  private reporting: {
+    ref: DialogRef<MatchResultChoice, MatchResultDialog>;
+    matchId: string;
+  } | null = null;
+
+  constructor() {
+    // The dialog reports a match the player may report: close it once they
+    // no longer may, as when their opponent reports it first, an organizer
+    // corrects it, the tournament stops playing or they drop.
+    effect(() => {
+      const lines = this.lines();
+      untracked(() => {
+        const reporting = this.reporting;
+        if (!reporting) return;
+        if (!lines.some((line) => line.match.id === reporting.matchId && line.reportable)) {
+          reporting.ref.close();
+        }
+      });
+    });
+  }
 
   /** The player's matches, one line per opponent: unreported first, then the rest, each in their opponents' join order. */
   protected readonly lines = computed(() => {
@@ -172,8 +217,59 @@ export class YourMatches {
     }
   }
 
-  /** Opens or closes the game scores to report the match `matchId` at. */
-  protected toggleReporting(matchId: string) {
-    this.reporting.update((open) => (open === matchId ? undefined : matchId));
+  /**
+   * Opens the match result dialog to report the match of `line`, and asks
+   * for the report the player goes ahead with. Once they do, focus moves to
+   * the next unreported match's Report, or to the heading once none is left.
+   */
+  protected openReport({ match, opponent }: OwnMatchLine) {
+    const own = this.ownId();
+    const choices: MatchResultChoices = {
+      label: `Your match against ${opponent.name}`,
+      gameScoresLabel: `Game score against ${opponent.name}`,
+      gameScores: OWN_GAME_SCORES.map((score) => ({
+        games: inMatchOrder(match, own, score),
+        label: score.label,
+        question: reportQuestion(score, opponent.name),
+      })),
+      detail: REPORT_DETAIL,
+      clear: null,
+    };
+    const ref = this.dialogs.open<MatchResultDialog, MatchResultChoice>(MatchResultDialog, {
+      labelledBy: MATCH_RESULT_HEADING,
+      injector: this.injector,
+      bindings: [inputBinding('choices', () => choices)],
+      returnFocus: (opener, choice) =>
+        choice
+          ? this.nextReport(match.id)
+          : opener?.isConnected
+            ? opener
+            : this.headingElement().nativeElement,
+    });
+    this.reporting = { ref, matchId: match.id };
+    ref.closed.subscribe((choice) => {
+      this.reporting = null;
+      if (choice?.kind !== 'GameScore') return;
+      const index = choices.gameScores.findIndex(({ games }) => games === choice.games);
+      this.report.emit({
+        match,
+        opponent: opponent.name,
+        score: OWN_GAME_SCORES[index],
+        asked: true,
+      });
+    });
+  }
+
+  /**
+   * The Report button of the next unreported match after the match
+   * `matchId`, else the first before it, else the heading.
+   */
+  private nextReport(matchId: string): HTMLElement {
+    const reports = [...this.host.querySelectorAll<HTMLElement>('button[data-report]')];
+    const at = reports.findIndex((button) => button.dataset['report'] === matchId);
+    const others = [...reports.slice(at + 1), ...reports.slice(0, Math.max(at, 0))].filter(
+      (button) => button.dataset['report'] !== matchId,
+    );
+    return others[0] ?? this.headingElement().nativeElement;
   }
 }

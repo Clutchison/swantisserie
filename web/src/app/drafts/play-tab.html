@@ -148,7 +148,7 @@
         [tournament]="tournament"
         [ownId]="ownId()!"
         [matches]="ownMatches()"
-        (report)="report($event.match, $event.opponent, $event.score)"
+        (report)="report($event)"
         (confirmMatch)="confirmMatch($event)"
       />
     }

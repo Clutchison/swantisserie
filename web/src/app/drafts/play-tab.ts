@@ -15,7 +15,6 @@ import {
   TOURNAMENT_FORMAT_NAMES,
   type CompleteRoundRequest,
   type DraftView,
-  type GameScore,
   type ReopenRoundView,
   type MatchView,
   MIN_TOURNAMENT_PLAYERS,
@@ -41,7 +40,14 @@ import { TournamentProgress } from './tournament-progress';
 import { ResultsGrid } from './results-grid';
 import { confirmableBy, type ClearGameScore } from './match-lines';
 import { TournamentResults, type SetGameScore } from './tournament-results';
-import { YourMatches, type OwnGameScore, type OwnMatch } from './your-matches';
+import {
+  inMatchOrder,
+  REPORT_DETAIL,
+  reportQuestion,
+  YourMatches,
+  type OwnMatch,
+  type OwnReport,
+} from './your-matches';
 
 /** The format's name as the tab starts a line with it, such as "Round robin". */
 function formatName(format: TournamentFormat): string {
@@ -316,14 +322,18 @@ export class PlayTab {
     );
   }
 
-  /** Reports the signed-in player's match at `score`, from their side, once they go ahead. */
-  protected report(match: MatchView, opponent: string, { own, theirs }: OwnGameScore) {
-    const games: GameScore = match.players[0] === this.ownId() ? [own, theirs] : [theirs, own];
+  /**
+   * Reports the signed-in player's match at `score`, from their side, once
+   * they go ahead: asking them first, unless they were `asked` already.
+   */
+  protected report({ match, opponent, score, asked }: OwnReport) {
+    const games = inMatchOrder(match, this.ownId()!, score);
     return this.send(
       async () =>
+        asked ||
         (await this.ask({
-          question: `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}?`,
-          detail: 'Only an organizer can change a reported match.',
+          question: reportQuestion(score, opponent),
+          detail: REPORT_DETAIL,
           action: 'Report',
         }))
           ? this.api.report(this.draft().id, match.id, games)
