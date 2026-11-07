@@ -1,8 +1,4 @@
-import type {
-  CompleteRoundRequest,
-  TournamentRefusal,
-  TournamentSetupRequest,
-} from 'contract';
+import type { TournamentRefusal, TournamentSetupRequest } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -171,7 +167,7 @@ describe('completing a Swiss tournament round with bots', () => {
         matchId: match.id,
         drop: match === withBot ? [bot] : [],
       })),
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
     expect(refused.body).toEqual(BOT_ENTRY);
 
     await completeRound(id, aliceCookie, {
@@ -179,7 +175,7 @@ describe('completing a Swiss tournament round with bots', () => {
         matchId: match.id,
         drop: [],
       })),
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
     const after = await tournamentView(id);
     expect(after.rounds[0].matches.map((m) => m.outcome.kind)).toEqual([
       'GrantedDraw',
@@ -197,7 +193,7 @@ describe('completing a single elimination tournament round with bots', () => {
 
     const refused = await completeRound(id, aliceCookie, {
       drops: [{ matchId: match.id, drop: [bot] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(refused.body).toEqual(BOT_ENTRY);
   });
@@ -217,7 +213,7 @@ describe('completing a single elimination tournament round with bots', () => {
 
       await completeRound(id, aliceCookie, {
         grantedWins: [{ matchId: match.id, winner }],
-      } satisfies CompleteRoundRequest).expect(200);
+      }).expect(200);
 
       const view = await tournamentView(id);
       expect(view.state).toBe('Complete');

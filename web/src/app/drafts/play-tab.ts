@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   Injector,
+  inputBinding,
   signal,
   untracked,
 } from '@angular/core';
@@ -198,8 +199,13 @@ export class PlayTab {
   protected readonly offeredReopenRound = computed(() =>
     this.organizePlay() ? (this.tournament()?.reopenRound ?? null) : null,
   );
-  /** The Complete round dialog, while it's open. */
-  private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
+  /** The Complete round dialog, while it's open, with the tournament round it was opened for. */
+  private completing: {
+    dialog: DialogRef<CompleteRoundRequest, CompleteRoundDialog>;
+    round: number;
+  } | null = null;
+  /** The tournament's current tournament round: the one after the last completed. */
+  private readonly currentRound = computed(() => (this.tournament()?.lastCompletedRound ?? 0) + 1);
 
   /** The match the signed-in player chose to report from the tournament rounds, if any. */
   protected readonly chosen = signal<string | undefined>(undefined);
@@ -267,10 +273,19 @@ export class PlayTab {
   );
 
   constructor() {
+    // Close the Complete round dialog, sending nothing, once it is stale:
     // Complete round stops being offered once the tournament isn't playing,
-    // as when another organizer completes it: close its dialog then.
+    // as when another organizer completes it, and the dialog's tournament
+    // round stops being current once another organizer completes or reopens
+    // a round.
     effect(() => {
-      if (!this.organizePlay()) untracked(() => this.completing?.close());
+      const playing = this.organizePlay();
+      const round = this.currentRound();
+      untracked(() => {
+        if (this.completing && (!playing || this.completing.round !== round)) {
+          this.completing.dialog.close();
+        }
+      });
     });
   }
 
@@ -401,11 +416,16 @@ export class PlayTab {
    * returns: to the button that opened it.
    */
   protected openCompleteRound() {
+    const round = this.currentRound();
     const completing = this.dialogs.open<CompleteRoundDialog, CompleteRoundRequest>(
       CompleteRoundDialog,
-      { labelledBy: COMPLETE_ROUND_HEADING, injector: this.injector },
+      {
+        labelledBy: COMPLETE_ROUND_HEADING,
+        injector: this.injector,
+        bindings: [inputBinding('round', () => round)],
+      },
     );
-    this.completing = completing;
+    this.completing = { dialog: completing, round };
     completing.closed.subscribe((request) => {
       this.completing = null;
       if (request) void this.completeRound(request);

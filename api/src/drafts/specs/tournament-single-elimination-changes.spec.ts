@@ -1,4 +1,4 @@
-import type { CompleteRoundRequest, TournamentView } from 'contract';
+import type { TournamentView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -162,7 +162,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     await completeRound(id, aliceCookie, {
       drops: [{ matchId: at(before, 1, 0).id, drop: [seeds[3]] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(at(view, 1, 0).outcome).toEqual({
@@ -183,7 +183,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     await completeRound(id, aliceCookie, {
       drops: [{ matchId: match.id, drop: [seeds[3], seeds[4]] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const [, second] = (await tournamentView(id)).rounds;
     expect(second.byes).toEqual([seeds[0]]);
@@ -219,7 +219,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: seeds[1] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('already-dropped');
   });
@@ -231,7 +231,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       drops: [{ matchId: match.id, drop: [seeds[1]] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('match-reported');
   });

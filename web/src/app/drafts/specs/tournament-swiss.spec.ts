@@ -167,7 +167,10 @@ describe('Swiss tournaments on the Play tab', () => {
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ grantedDraws: [{ matchId: 'm1', drop: [bob.id] }] });
+    expect(req.request.body).toEqual({
+      round: 1,
+      grantedDraws: [{ matchId: 'm1', drop: [bob.id] }],
+    });
     await vi.waitFor(() => expect(openDialog()).toBeNull());
   });
 
@@ -190,7 +193,7 @@ describe('Swiss tournaments on the Play tab', () => {
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ grantedDraws: [{ matchId: 'm2', drop: [] }] });
+    expect(req.request.body).toEqual({ round: 2, grantedDraws: [{ matchId: 'm2', drop: [] }] });
     expect(items(panel(page), 'Trophy holders')).toEqual(['Alice']);
     expect(button(panel(page), 'Complete round')).toBeUndefined();
   });
@@ -255,7 +258,7 @@ describe('Swiss tournaments on the Play tab', () => {
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ grantedDraws: [] });
+    expect(req.request.body).toEqual({ round: 1, grantedDraws: [] });
   });
 
   it('sends nothing when the organizer cancels', async () => {
@@ -268,18 +271,14 @@ describe('Swiss tournaments on the Play tab', () => {
     http.expectNone('/api/drafts/draft-1/tournament/complete-round');
   });
 
-  // Fails today, as the dialog stays open on the next tournament round: https://github.com/Clutchison/swantisserie/issues/503
-  it.fails(
-    'closes the dialog, sending nothing, once another organizer completes the tournament round',
-    async () => {
-      const { fixture } = await openCompleteRound(unreportedRoundOne, { user: dave });
+  it('closes the dialog, sending nothing, once another organizer completes the tournament round', async () => {
+    const { fixture } = await openCompleteRound(unreportedRoundOne, { user: dave });
 
-      await pushTournament(fixture, swissPlaying(), 1);
+    await pushTournament(fixture, swissPlaying(), 1);
 
-      await vi.waitFor(() => expect(openDialog()).toBeNull());
-      http.expectNone('/api/drafts/draft-1/tournament/complete-round');
-    },
-  );
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/tournament/complete-round');
+  });
 
   it('shows why completing the tournament round was refused', async () => {
     const { fixture, page, dialog } = await openCompleteRound(unreportedRoundOne);

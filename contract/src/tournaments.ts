@@ -327,10 +327,14 @@ export interface MatchReportRequest {
  * unreported matches: each must be listed. In Swiss each becomes a granted
  * draw; in single elimination, which never has a draw, a granted win for the
  * winner the organizer picks, or a forfeit by the players they drop from
- * it. A list can be left out when empty, and the body when the tournament
- * round has no unreported match.
+ * it. A list can be left out when empty.
  */
 export interface CompleteRoundRequest {
+  /**
+   * The tournament round the organizer is completing, the one they checked.
+   * Complete round refuses it unless it is still the current one.
+   */
+  round: number;
   /** Swiss only. */
   grantedDraws?: GrantedDrawRequest[];
   /** Single elimination only. */

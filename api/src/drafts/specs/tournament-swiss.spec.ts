@@ -1,8 +1,4 @@
-import type {
-  CompleteRoundRequest,
-  MatchReportRequest,
-  TournamentView,
-} from 'contract';
+import type { MatchReportRequest, TournamentView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -12,6 +8,7 @@ import {
   completeRound,
   completeTournament,
   dropPlayer,
+  draftsRequest,
   getDraft,
   playingTournament,
   reinstate,
@@ -212,7 +209,7 @@ describe('Swiss standings', () => {
     } satisfies MatchReportRequest).expect(200);
     await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: top.id, drop: [] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     // The leader is the tournament round 1 winner whose opponent then went
     // on to win tournament round 2: their opponents' match-win % is higher.
@@ -381,7 +378,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
         { matchId: first.id, drop: [gone] },
         { matchId: second.id, drop: [] },
       ],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(view.lastCompletedRound).toBe(1);
@@ -410,7 +407,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: first.id, drop: first.players }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('unreported-matches');
     const view = await tournamentView(id);
@@ -428,7 +425,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
 
     await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: match.id, drop: match.players }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
@@ -457,7 +454,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: alice.id }],
-    } satisfies CompleteRoundRequest).expect(400);
+    }).expect(400);
 
     expect(answer.body.error).toBe('invalid');
     expect((await tournamentView(id)).lastCompletedRound).toBe(0);
@@ -473,7 +470,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
 
     await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: match.id, drop: match.players }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(view.roundCount).toBe(2);
@@ -504,7 +501,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
     ]) {
       const answer = await completeRound(id, aliceCookie, {
         grantedDraws,
-      } satisfies CompleteRoundRequest).expect(400);
+      }).expect(400);
       expect(answer.body.error).toBe('invalid');
     }
     const view = await tournamentView(id);
@@ -525,12 +522,63 @@ describe('completing a Swiss tournament round with unreported matches', () => {
         { matchId: first.id, drop: [] },
         { matchId: second.id, drop: [] },
       ],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('match-reported');
     const view = await tournamentView(id);
     expect(view.lastCompletedRound).toBe(0);
     expect(view.rounds[0].matches[0].outcome.kind).toBe('GameScore');
+  });
+
+  it('is refused for a tournament round already completed, changing nothing', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    const before = await getDraft(id).expect(200);
+    const view = await tournamentView(id);
+
+    const answer = await completeRound(id, aliceCookie, {
+      round: 1,
+      grantedDraws: view.rounds[1].matches.map((match) => ({
+        matchId: match.id,
+        drop: [],
+      })),
+    }).expect(409);
+
+    expect(answer.body).toEqual({
+      error: 'round-completed',
+      message: 'Tournament round 1 is already completed.',
+    });
+    expect(await tournamentView(id)).toEqual(view);
+    expect((await getDraft(id).expect(200)).body.version).toBe(
+      before.body.version,
+    );
+  });
+
+  it('rejects a body that names no tournament round, or one ahead of the current one', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    await reportCurrentRound(id, cookieOf);
+
+    for (const body of [undefined, {}, { round: 0 }, { round: '1' }]) {
+      const answer = await draftsRequest(
+        'post',
+        `/${id}/tournament/complete-round`,
+        aliceCookie,
+        body,
+      ).expect(400);
+      expect(answer.body.error).toBe('invalid');
+    }
+    const ahead = await completeRound(id, aliceCookie, { round: 2 }).expect(
+      400,
+    );
+    expect(ahead.body.error).toBe('invalid');
+    expect((await tournamentView(id)).lastCompletedRound).toBe(0);
   });
 
   it('bumps the draft’s version once', async () => {
@@ -546,7 +594,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
         matchId: match.id,
         drop: [match.players[1]],
       })),
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     expect(answer.body.version).toBe(before.body.version + 1);
   });
@@ -622,7 +670,7 @@ describe('reinstating a player in a Swiss tournament', () => {
         matchId: match.id,
         drop: i === 0 ? [gone] : [],
       })),
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const answer = await reinstate(id, gone).expect(409);
 

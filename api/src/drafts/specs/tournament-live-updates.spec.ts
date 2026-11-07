@@ -1,4 +1,4 @@
-import type { CompleteRoundRequest, DraftView } from 'contract';
+import type { DraftView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -136,7 +136,7 @@ const writes: Record<
       write: () =>
         completeRound(id, aliceCookie, {
           drops: [{ matchId, drop: [bob.id] }],
-        } satisfies CompleteRoundRequest).expect(200),
+        }).expect(200),
     };
   },
   'Reopen round': async () => {

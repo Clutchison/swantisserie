@@ -1,4 +1,4 @@
-import type { CompleteRoundRequest, LeaderboardView } from 'contract';
+import type { LeaderboardView } from 'contract';
 import request from 'supertest';
 import {
   alice,
@@ -152,7 +152,7 @@ describe('the leaderboard', () => {
     const [final] = (await tournamentView(bracket)).rounds[0].matches;
     await completeRound(bracket, aliceCookie, {
       grantedWins: [{ matchId: final.id, winner: alice.id }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     expect(await leaderboard()).toEqual([
       {

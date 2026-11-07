@@ -326,18 +326,26 @@ function parseSetup(body: unknown): TournamentSetupRequest {
 }
 
 /**
- * The granted draws, with their drop choices, the granted wins, with
- * their winners, and the drops, with their players, that Complete round's
- * body lists for the tournament round's unreported matches; none of any it
- * leaves out. A 400 if they aren't match ids each with a list of user ids,
+ * The tournament round Complete round's body names, and the granted draws,
+ * with their drop choices, the granted wins, with their winners, and the
+ * drops, with their players, that it lists for the tournament round's
+ * unreported matches; none of any it leaves out. A 400 if the round isn't a
+ * positive integer, or they aren't match ids each with a list of user ids,
  * with a user id, or with one or two user ids.
  */
 function parseCompleteRound(body: unknown): Required<CompleteRoundRequest> {
   const {
+    round,
     grantedDraws = [],
     grantedWins = [],
     drops = [],
   } = bodyFields<CompleteRoundRequest>(body);
+  if (typeof round !== 'number' || !Number.isInteger(round) || round < 1) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Name the tournament round to complete.',
+    } satisfies RequestProblem);
+  }
   if (
     Array.isArray(grantedDraws) &&
     grantedDraws.every(isGrantedDrawRequest) &&
@@ -346,7 +354,7 @@ function parseCompleteRound(body: unknown): Required<CompleteRoundRequest> {
     Array.isArray(drops) &&
     drops.every(isMatchDropRequest)
   ) {
-    return { grantedDraws, grantedWins, drops };
+    return { round, grantedDraws, grantedWins, drops };
   }
   throw new BadRequestException({
     error: 'invalid',

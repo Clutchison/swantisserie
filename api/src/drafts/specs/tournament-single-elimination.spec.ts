@@ -1,5 +1,4 @@
 import type {
-  CompleteRoundRequest,
   DraftSocketEvents,
   DraftView,
   MatchReportRequest,
@@ -285,7 +284,7 @@ describe('completing a single elimination tournament round', () => {
 
     await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: seeds[4] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(view.lastCompletedRound).toBe(1);
@@ -314,7 +313,7 @@ describe('completing a single elimination tournament round', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: match.id, drop: [] }],
-    } satisfies CompleteRoundRequest).expect(400);
+    }).expect(400);
 
     expect(answer.body.error).toBe('invalid');
     expect((await tournamentView(id)).rounds[0].matches[0].outcome).toEqual({
@@ -329,7 +328,7 @@ describe('completing a single elimination tournament round', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: match.players[1] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('match-reported');
   });
@@ -458,7 +457,7 @@ describe('single elimination’s live updates', () => {
       () =>
         completeRound(id, aliceCookie, {
           grantedWins: [{ matchId: match.id, winner: match.players[1] }],
-        } satisfies CompleteRoundRequest).expect(200),
+        }).expect(200),
       'Playing',
     );
   });

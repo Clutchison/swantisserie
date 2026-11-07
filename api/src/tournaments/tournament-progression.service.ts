@@ -8,7 +8,10 @@ import { reopenRound } from './reopen-round.js';
 import type { RoundSteps } from './round-steps.js';
 import { forfeitUnplayed, takeBackDrops } from './tournament-matches.js';
 import { roundCompletedOrTournamentCompleted } from './tournament-events.js';
-import { TournamentRefusedError } from './tournament-errors.js';
+import {
+  InvalidTournamentRequestError,
+  TournamentRefusedError,
+} from './tournament-errors.js';
 import { entryOf, TournamentLock } from './tournament-lock.js';
 import { roundCount, TOURNAMENT_VIEW } from './tournament-view.js';
 
@@ -63,8 +66,10 @@ export class TournamentProgressionService {
    * the round does: after the final tournament round, or with too few
    * players left. Otherwise it has the format pair the next tournament
    * round. A completed round stays
-   * completed. Throws as the format's round steps do, and
-   * TournamentRefusedError if the tournament isn't playing, the round has
+   * completed. Throws as the format's round steps do,
+   * InvalidTournamentRequestError if `request` names a tournament round
+   * ahead of the current one, and TournamentRefusedError if it names a
+   * completed one, the tournament isn't playing, the round has
    * an unreported match, or it is round robin, which has no tournament
    * rounds. Returns its announcement: the next tournament round's pairings,
    * or the tournament ending.
@@ -83,6 +88,7 @@ export class TournamentProgressionService {
         });
       }
       const round = tournament.lastCompletedRound + 1;
+      refuseOtherRound(request.round, round);
       const joined = await tx.tournamentEntry.count({
         where: { tournamentId: tournament.id },
       });
@@ -181,6 +187,26 @@ export class TournamentProgressionService {
       });
       await reopenRound(tx, tournament.id, row);
     });
+  }
+}
+
+/**
+ * Throws unless `asked`, the tournament round Complete round's request
+ * names, is `current`, the one it would complete:
+ * TournamentRefusedError if `asked` is already completed, and
+ * InvalidTournamentRequestError if it is ahead.
+ */
+function refuseOtherRound(asked: number, current: number): void {
+  if (asked < current) {
+    throw new TournamentRefusedError({
+      error: 'round-completed',
+      message: `Tournament round ${asked} is already completed.`,
+    });
+  }
+  if (asked > current) {
+    throw new InvalidTournamentRequestError(
+      `Tournament round ${asked} hasn’t started yet. Tournament round ${current} is the one to complete.`,
+    );
   }
 }
 

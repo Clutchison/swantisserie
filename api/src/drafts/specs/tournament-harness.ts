@@ -171,19 +171,33 @@ export function completeTournament(id: string, cookie = aliceCookie) {
 
 /**
  * Completes the current tournament round of the draft's tournament, `body`
- * the request body as is (none unless given).
+ * the rest of the request body. The body names the current tournament
+ * round, read when the request is sent, unless `body` names one itself.
+ * Answers `expect` alone, which sends it.
  */
 export function completeRound(
   id: string,
   cookie = aliceCookie,
-  body?: unknown,
+  body: object = {},
 ) {
-  return draftsRequest(
-    'post',
-    `/${id}/tournament/complete-round`,
-    cookie,
-    body,
-  );
+  return {
+    async expect(status: number) {
+      const round = (await currentRound(id)) ?? 1;
+      return draftsRequest('post', `/${id}/tournament/complete-round`, cookie, {
+        round,
+        ...body,
+      }).expect(status);
+    },
+  };
+}
+
+/** The draft's tournament's current tournament round, read from the database; null without a tournament. */
+async function currentRound(id: string): Promise<number | null> {
+  const row = await app.get(PrismaService).tournament.findUnique({
+    where: { draftId: id },
+    select: { lastCompletedRound: true },
+  });
+  return row && row.lastCompletedRound + 1;
 }
 
 /**
