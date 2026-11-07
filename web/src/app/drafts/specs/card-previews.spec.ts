@@ -30,6 +30,7 @@ import {
   queued,
   flushQueueAndPlan,
   accessibleName,
+  button,
   cardName,
   cardNames,
   namedList,
@@ -557,7 +558,7 @@ describe('card previews', () => {
       expect(previewImage()).toBeNull();
     });
 
-    it('opens on list mode names tabbed to on the Plan tab', async () => {
+    it('opens on list mode names, which are buttons there, tabbed to on the Plan tab', async () => {
       const { page, fixture } = await openPicked({
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
@@ -569,7 +570,7 @@ describe('card previews', () => {
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
 
-      tabTo(ownTabStop(panel(page), 'Lightning Bolt')!);
+      tabTo(button(panel(page), 'Lightning Bolt')!);
 
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
@@ -639,7 +640,7 @@ describe('card previews', () => {
   });
 
   describe('in the plan', () => {
-    it('shows on plan rows', async () => {
+    it('shows on plan rows when the mouse rests on them', async () => {
       const { page, fixture } = await openPicked({
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
@@ -651,7 +652,10 @@ describe('card previews', () => {
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
 
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      hover(cardName(panel(page), 'Lightning Bolt'));
+      wait(150);
+      vi.useRealTimers();
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
@@ -677,7 +681,7 @@ describe('card previews', () => {
       expect(
         lists.map((list) =>
           [...list.querySelectorAll<HTMLElement>('app-card-name .name')].map((name) => [
-            name.textContent,
+            name.textContent?.trim(),
             costBefore(name),
           ]),
         ),
