@@ -268,6 +268,19 @@ describe('Swiss tournaments on the Play tab', () => {
     http.expectNone('/api/drafts/draft-1/tournament/complete-round');
   });
 
+  // Fails today, as the dialog stays open on the next tournament round: https://github.com/Clutchison/swantisserie/issues/503
+  it.fails(
+    'closes the dialog, sending nothing, once another organizer completes the tournament round',
+    async () => {
+      const { fixture } = await openCompleteRound(unreportedRoundOne, { user: dave });
+
+      await pushTournament(fixture, swissPlaying(), 1);
+
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      http.expectNone('/api/drafts/draft-1/tournament/complete-round');
+    },
+  );
+
   it('shows why completing the tournament round was refused', async () => {
     const { fixture, page, dialog } = await openCompleteRound(unreportedRoundOne);
 

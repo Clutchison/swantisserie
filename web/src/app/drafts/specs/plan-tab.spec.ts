@@ -42,7 +42,14 @@ import {
   openPlan,
   planBoards,
 } from './plan-tab-harness';
-import { complete, playing, registration, withDrops, withTournament } from './play-tab-harness';
+import {
+  complete,
+  playing,
+  pushTournament,
+  registration,
+  withDrops,
+  withTournament,
+} from './play-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -569,7 +576,7 @@ describe('plan tab as the deck', () => {
         plan: deck,
         tournament,
       });
-      return { page, tab: await openTab(fixture, page, 'Deck') };
+      return { fixture, page, tab: await openTab(fixture, page, 'Deck') };
     }
 
     it('says the deck is locked until its player leaves, and offers no edits, once they have joined the tournament', async () => {
@@ -604,6 +611,20 @@ describe('plan tab as the deck', () => {
 
       expect(tab.textContent).not.toContain('locked');
       expect(deckEdits(tab).length).toBeGreaterThan(0);
+    });
+
+    it.each([
+      ['cancelled', null],
+      ['complete', playing([], { state: 'Complete', trophyHolders: [alice.id] })],
+    ])('offers edits again once the tournament is %s', async (_, tournament) => {
+      const { fixture, page } = await openDeck(playing());
+
+      await pushTournament(fixture, tournament, 1, { asPlayer: true, plan: deck, fields: {} });
+
+      const tab = tabPanel(page, 'Deck');
+      expect(text(tab)).not.toContain('locked');
+      expect(deckEdits(tab).length).toBeGreaterThan(0);
+      expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
     });
   });
 });

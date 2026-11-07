@@ -573,24 +573,29 @@ export const progressLine = (root: HTMLElement) => {
 export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boolean);
 
 /**
- * Pushes the complete draft of Alice, Bob and Carol at `version` with
- * `tournament`, as another viewer's change does, and answers the reads it
- * makes for Dave, who isn't one of its players, or, `asPlayer`, for one
- * who is, their queue and plan included.
+ * Pushes the complete draft of Alice, Bob and Carol, or of `fields`, at
+ * `version` with `tournament`, or with none once it is cancelled, as another
+ * viewer's change does, and answers the reads it makes for Dave, who isn't
+ * one of its players, or, `asPlayer`, for one who is, their queue and
+ * `plan` included.
  */
 export async function pushTournament(
   fixture: AppFixture,
-  tournament: ViewerTournamentView,
+  tournament: ViewerTournamentView | null,
   version: number,
-  { asPlayer = false }: { asPlayer?: boolean } = {},
+  {
+    asPlayer = false,
+    plan = EMPTY_PLAN,
+    fields = threePlayers,
+  }: { asPlayer?: boolean; plan?: PlanView; fields?: DraftFixture } = {},
 ) {
   updates.events.next({
     type: 'changed',
-    draft: draft({ ...withTournament(tournament, threePlayers), version }),
+    draft: draft({ ...withTournament(tournament, fields), version }),
   });
   await flushPicks([]);
-  if (asPlayer) await flushQueueAndPlan();
-  await flushTournament(tournament);
+  if (asPlayer) await flushQueueAndPlan(undefined, plan);
+  if (tournament) await flushTournament(tournament);
   await fixture.whenStable();
 }
 

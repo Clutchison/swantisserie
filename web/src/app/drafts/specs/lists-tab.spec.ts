@@ -25,6 +25,7 @@ import {
   openComplete,
   playing,
   flushTournament,
+  pushTournament,
   registration,
   threePlayers,
   withTournament,
@@ -194,6 +195,17 @@ describe('lists tab', () => {
       await flushPicks([]);
       await fixture.whenStable();
 
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+    });
+
+    it('moves a viewer on the Lists tab to the Pool tab once the tournament is cancelled', async () => {
+      const { fixture, page } = await openAsViewer(publicPlaying());
+      await openTab(fixture, page, 'Lists');
+      await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?tab=lists'));
+
+      await pushTournament(fixture, null, 1);
+
+      expect(panelName(page)).toBe('Pool');
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
     });
 
