@@ -4,22 +4,32 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
-import type { Platform, PoolSourceKind } from '../generated/prisma/client.js';
+import type {
+  Platform,
+  PoolSourceKind,
+  Prisma,
+} from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallClient,
+  type ScryfallCard,
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
 } from '../scryfall/scryfall-client.js';
 import { NO_BASIC_LANDS } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
 import { NoOracleIdError, toPoolCard } from './pool-card.js';
+import { storedSetList } from './pool-source.js';
+import { setListPrintings } from './set-list-pool.js';
+import { SetCatalog } from '../sets/set-catalog.js';
 
 /** A draft's pool source and its platform: what the pool is snapshotted from. */
 interface SnapshotSource {
   poolSourceKind: PoolSourceKind;
   /** Set for a pool query, by the database's check constraints. */
   poolQuery: string | null;
+  /** Set for a set list, by the database's check constraints. */
+  setList: Prisma.JsonValue;
   platform: Platform;
 }
 
@@ -34,8 +44,8 @@ export class PoolFrozenError extends Error {
 class PoolSnapshotError extends Error {}
 
 /**
- * Copies the pool of each draft defined by a pool query from Scryfall in the
- * background: the pool snapshot. Progress lives on the draft (snapshotState,
+ * Copies the pool of each draft defined by a pool query or a set list from
+ * Scryfall in the background: the pool snapshot. Progress lives on the draft (snapshotState,
  * poolTotal, snapshotError) and in its PoolCard rows. A draft defined by a
  * cube link has its snapshot taken whole when it is created, never here.
  */
@@ -50,6 +60,7 @@ export class PoolSnapshotService
   constructor(
     private readonly prisma: PrismaService,
     private readonly scryfall: ScryfallClient,
+    private readonly sets: SetCatalog,
   ) {}
 
   /**
@@ -158,7 +169,12 @@ export class PoolSnapshotService
       await tx.poolCard.deleteMany({ where: { draftId } });
       return tx.draft.findUniqueOrThrow({
         where: { id: draftId },
-        select: { poolSourceKind: true, poolQuery: true, platform: true },
+        select: {
+          poolSourceKind: true,
+          poolQuery: true,
+          setList: true,
+          platform: true,
+        },
       });
     });
   }
@@ -166,11 +182,13 @@ export class PoolSnapshotService
   /** Takes the draft's cards in the way its kind of pool source is taken. */
   private async takeCards(
     draftId: string,
-    { poolSourceKind: kind, poolQuery, platform }: SnapshotSource,
+    { poolSourceKind: kind, poolQuery, setList, platform }: SnapshotSource,
   ): Promise<void> {
     switch (kind) {
       case 'PoolQuery':
         return this.pageThrough(draftId, poolQuery ?? '', platform);
+      case 'SetList':
+        return this.takeSetList(draftId, setList, platform);
       case 'Cube':
         // A cube link's pool is complete from creation; only a draft left
         // unfinished by an older version gets here.
@@ -182,6 +200,28 @@ export class PoolSnapshotService
         throw new Error(`Unknown pool source kind ${String(unhandled)}.`);
       }
     }
+  }
+
+  private async takeSetList(
+    draftId: string,
+    setList: Prisma.JsonValue,
+    platform: Platform,
+  ): Promise<void> {
+    const codes = await this.sets.printingOrder(storedSetList(setList));
+    const total = await takeSetListCards(
+      this.prisma,
+      setListPrintings(this.scryfall, codes, SCRYFALL_GAME[platform]),
+      draftId,
+    );
+    if (total === 0) {
+      throw new PoolSnapshotError(
+        `The set list no longer has any cards on ${platform}.`,
+      );
+    }
+    await this.prisma.draft.update({
+      where: { id: draftId },
+      data: { poolTotal: total },
+    });
   }
 
   private async pageThrough(
@@ -214,6 +254,27 @@ export class PoolSnapshotService
       if (!result.hasMore) return;
     }
   }
+}
+
+/**
+ * Takes a set list's cards set by set, in the order they take their
+ * printings: a pool of several large sets is a few dozen searches, too
+ * long to wait for while the draft is created.
+ */
+async function takeSetListCards(
+  prisma: PrismaService,
+  pages: AsyncGenerator<ScryfallCard[]>,
+  draftId: string,
+): Promise<number> {
+  let total = 0;
+  for await (const cards of pages) {
+    if (cards.length === 0) continue;
+    await prisma.poolCard.createMany({
+      data: cards.map((card) => ({ draftId, ...toPoolCard(card) })),
+    });
+    total += cards.length;
+  }
+  return total;
 }
 
 /** What the organizer is told of a failure with no explanation of its own. */

@@ -29,6 +29,7 @@ export const scryfall = {
   search: vi.fn<ScryfallClient['search']>(),
   printingsOn: vi.fn<ScryfallClient['printingsOn']>(),
   card: vi.fn<ScryfallClient['card']>(),
+  sets: vi.fn<ScryfallClient['sets']>(),
 };
 export const cubeCobra = { cube: vi.fn<CubeCobraClient['cube']>() };
 export const webhookClient = { post: vi.fn<WebhookClient['post']>() };

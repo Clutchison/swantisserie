@@ -18,7 +18,7 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 
 ## Pool
 
-The organizer picks one **pool source** when creating the draft: a **pool query** or a **cube link**. Either way, the pool leaves out the basic lands, and every pool card has a printing on the draft's platform (`arena` or `mtgo`).
+The organizer picks one **pool source** when creating the draft: a **pool query**, a **cube link** or a **set list**. Whichever it is, the pool leaves out the basic lands, and every pool card has a printing on the draft's platform (`arena` or `mtgo`).
 
 - **Pool query:** the organizer enters a Scryfall search. Every card in the results is in the pool, once.
   - **Platform validation:** the app runs `(q) -in:<platform>` for the draft's platform. If that returns any cards, creation fails and lists the cards that aren't on the platform. (Not `-game:<platform>`: `game:` matches printings, so it would also catch cards on the platform that have a printing off it.)
@@ -27,6 +27,12 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
   - **Validation:** creation fails if it isn't a cube link, if no public cube has that id, or if the mainboard holds no cards once the basic lands are left out.
   - **Platform validation:** each card is looked up by `oracle_id` for a printing on the platform, since the cube's own chosen printing often isn't on it. If any card has no printing on the platform, creation fails and lists those cards.
   - **Snapshot:** taken whole while the draft is created, in the same pass as the check, so the pool is complete as soon as the draft exists. A cube that lists a card more than once keeps every copy as its own pool card.
+- **Set list:** the organizer picks one or more Magic sets, and which of each set's sublists to include.
+  - **Sets offered:** only main sets: Scryfall set type `expansion`, `core`, `masters` or `draft_innovation`, with no `parent_set_code`, and with at least one card on the platform. The picker lists them newest first with how many cards each adds on the platform. Scryfall has no count per platform, so each set's is a search of its own (`e:<set> <no basic lands> in:<platform> unique:cards`): counted in the background when the picker first asks, kept in the database, and counted again after a week (a day for a set released in the last 90 days). Until every set is counted the picker says so and asks again.
+  - **Sublists:** a set's sublists are the Scryfall sets whose `parent_set_code` is that set, never of type `token`, `promo` or `memorabilia`, and only with cards on the platform. Bonus sheets (types `expansion`, `masterpiece`, `eternal`, `masters`: e.g. BIG, OTP, STA, BRR, BOT) start included; Alchemy, Commander and other add-ons (e.g. YOTJ, OTC, CLU, J25) start left out.
+  - **Contents:** one pool card per distinct card (oracle id) printed in a chosen set or included sublist that is on the platform. Cards not on the platform are left out quietly: they don't refuse the draft. A card takes its printing on the platform from the earliest-released chosen set or included sublist that has one; if none does, any printing on the platform.
+  - **Snapshot:** after creation, in the background as for a pool query. Each set and sublist, earliest released first, is paged through as `e:<set> <no basic lands> game:<platform> unique:cards`; then `e:<set> <no basic lands> -game:<platform> in:<platform> unique:cards` finds the cards printed there only off the platform, and each is looked up by `oracle_id` for a printing on it. A pool of several large sets is a few dozen searches, too long to hold the create request open.
+  - The draft stores its set list (set codes and the sublists included) and shows it by code, e.g. `OTJ (+ BIG, OTP)`.
 - The snapshot stores per pool card:
   - name, `oracle_id`, the `id` of its printing on the platform, set code, collector number
   - type line, colors, mana value

@@ -7,6 +7,7 @@ import type {
   DraftView,
   PlanView,
   QueueView,
+  SetListEntryView,
   TurnState,
 } from 'contract';
 
@@ -22,6 +23,20 @@ export const NO_POWERS: DraftPowersView = {
   addBots: false,
   switchAnnouncements: false,
 };
+
+/**
+ * A set list as a viewer reads it: each set by its code, with the sublists
+ * it includes beside it, e.g. `MKM, OTJ (+ BIG, OTP)`.
+ */
+export function setListText(setList: SetListEntryView[]): string {
+  return setList
+    .map(({ code, sublists }) =>
+      sublists.length === 0
+        ? code.toUpperCase()
+        : `${code.toUpperCase()} (+ ${sublists.map((s) => s.toUpperCase()).join(', ')})`,
+    )
+    .join(', ');
+}
 
 /** An active draft is any draft that is neither closed nor complete. */
 export function isActive(state: DraftState): boolean {

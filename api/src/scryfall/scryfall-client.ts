@@ -87,6 +87,19 @@ export interface ScryfallSearchPage {
   warnings: string[];
 }
 
+/** A Scryfall set, with the fields we use: https://scryfall.com/docs/api/sets */
+export interface ScryfallSet {
+  /** Lowercase, as `e:` searches take it. */
+  code: string;
+  name: string;
+  /** Scryfall's set type, e.g. expansion, masterpiece, alchemy, token. */
+  setType: string;
+  /** The set it comes with, for a set that comes with another; else null. */
+  parentSetCode: string | null;
+  /** YYYY-MM-DD. */
+  releasedAt: string;
+}
+
 /** https://scryfall.com/docs/api/errors */
 interface ScryfallErrorBody {
   details: string;
@@ -157,6 +170,12 @@ export abstract class ScryfallClient {
   ): Promise<ScryfallCard[]>;
 
   /**
+   * Every Scryfall set. Throws ScryfallUnavailableError if Scryfall itself is
+   * in trouble or can't be reached, even after retrying.
+   */
+  abstract sets(): Promise<ScryfallSet[]>;
+
+  /**
    * The printing with this Scryfall id, or null if there is none. Throws
    * ScryfallUnavailableError if Scryfall itself is in trouble or can't be
    * reached, even after retrying.
@@ -173,26 +192,52 @@ export class FetchScryfallClient extends ScryfallClient {
     const url = new URL(`${API}/cards/search`);
     url.searchParams.set('q', query);
     if (page > 1) url.searchParams.set('page', String(page));
-    return this.get(url.toString(), parseSearch);
+    return this.withRetries(url.toString(), (res) => this.parse(res));
   }
 
-  async card(id: string): Promise<ScryfallCard | null> {
-    return this.get(`${API}/cards/${encodeURIComponent(id)}`, async (res) => {
-      // Scryfall answers an id that isn't one with a 400.
-      if (res.status === 404 || res.status === 400) return null;
+  async sets(): Promise<ScryfallSet[]> {
+    return this.withRetries(`${API}/sets`, async (res) => {
       if (!res.ok) throw new ScryfallUnavailableError(res.status);
-      return (await res.json()) as ScryfallCard;
+      const body = (await res.json()) as {
+        data: {
+          code: string;
+          name: string;
+          set_type: string;
+          parent_set_code?: string;
+          released_at?: string;
+        }[];
+      };
+      return body.data.map((set) => ({
+        code: set.code,
+        name: set.name,
+        setType: set.set_type,
+        parentSetCode: set.parent_set_code ?? null,
+        // Only a few unannounced sets lack one; they sort as the newest.
+        releasedAt: set.released_at ?? '9999-12-31',
+      }));
     });
   }
 
-  /** Requests `url` and reads its answer with `parse`, retrying as Scryfall's trouble allows. */
-  private async get<T>(
+  async card(id: string): Promise<ScryfallCard | null> {
+    return this.withRetries(
+      `${API}/cards/${encodeURIComponent(id)}`,
+      async (res) => {
+        // Scryfall answers an id that isn't one with a 400.
+        if (res.status === 404 || res.status === 400) return null;
+        if (!res.ok) throw new ScryfallUnavailableError(res.status);
+        return (await res.json()) as ScryfallCard;
+      },
+    );
+  }
+
+  /** Requests `url` and reads its answer, retrying when that might help. */
+  private async withRetries<T>(
     url: string,
-    parse: (res: Response) => Promise<T>,
+    read: (res: Response) => Promise<T>,
   ): Promise<T> {
     for (let failures = 0; ; failures++) {
       try {
-        return await this.attempt(url, parse);
+        return await this.attempt(url, read);
       } catch (err) {
         if (!isRetryable(err) || failures === RETRY_DELAYS_MS.length) throw err;
       }
@@ -221,10 +266,10 @@ export class FetchScryfallClient extends ScryfallClient {
   /** Sends the request and reads its answer, once. */
   private async attempt<T>(
     url: string,
-    parse: (res: Response) => Promise<T>,
+    read: (res: Response) => Promise<T>,
   ): Promise<T> {
     try {
-      return await parse(await this.send(url));
+      return await read(await this.send(url));
     } catch (err) {
       if (err instanceof UnreachableError) {
         throw ScryfallUnavailableError.unreachable(err);
@@ -250,6 +295,30 @@ export class FetchScryfallClient extends ScryfallClient {
     }
   }
 
+  private async parse(res: Response): Promise<ScryfallSearchPage | null> {
+    if (res.status === 404) return null;
+    if (res.status === 400) {
+      const error = (await res.json()) as ScryfallErrorBody;
+      throw new ScryfallRejectedSearchError(
+        error.details,
+        error.warnings ?? [],
+      );
+    }
+    if (!res.ok) throw new ScryfallUnavailableError(res.status);
+    const body = (await res.json()) as {
+      total_cards: number;
+      has_more: boolean;
+      data: ScryfallCard[];
+      warnings?: string[];
+    };
+    return {
+      totalCards: body.total_cards,
+      hasMore: body.has_more,
+      cards: body.data,
+      warnings: body.warnings ?? [],
+    };
+  }
+
   /** Reserves the next free slot synchronously, so concurrent requests queue up. */
   private async waitForTurn(): Promise<void> {
     const now = Date.now();
@@ -267,28 +336,6 @@ export class FetchScryfallClient extends ScryfallClient {
       Date.now() + RATE_LIMITED_WAIT_MS,
     );
   }
-}
-
-/** A search's page of results, or null if nothing matched. */
-async function parseSearch(res: Response): Promise<ScryfallSearchPage | null> {
-  if (res.status === 404) return null;
-  if (res.status === 400) {
-    const error = (await res.json()) as ScryfallErrorBody;
-    throw new ScryfallRejectedSearchError(error.details, error.warnings ?? []);
-  }
-  if (!res.ok) throw new ScryfallUnavailableError(res.status);
-  const body = (await res.json()) as {
-    total_cards: number;
-    has_more: boolean;
-    data: ScryfallCard[];
-    warnings?: string[];
-  };
-  return {
-    totalCards: body.total_cards,
-    hasMore: body.has_more,
-    cards: body.data,
-    warnings: body.warnings ?? [],
-  };
 }
 
 /** Whether a retry might help: a server error or no answer at all, but not rate limiting. */

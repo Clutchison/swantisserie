@@ -1,0 +1,63 @@
+<label>
+  Find a set
+  <input
+    type="text"
+    [value]="search()"
+    (input)="searchFor($event)"
+    placeholder="e.g. OTJ or Thunder"
+  />
+</label>
+@if (loading()) {
+  <span class="hint">Loading the sets on {{ platform() }}…</span>
+} @else if (failed()) {
+  <span class="hint error">Couldn’t load the sets from Scryfall. Try reloading the page.</span>
+} @else {
+  <ul class="sets" aria-label="Sets">
+    @for (set of shown(); track set.code) {
+      <li>
+        <label class="choice">
+          <input
+            type="checkbox"
+            [checked]="isChosen(set.code)"
+            [disabled]="disabled() || (full() && !isChosen(set.code))"
+            (change)="toggleSet(set)"
+          />
+          {{ set.code.toUpperCase() }} {{ set.name }}
+          <span class="hint">{{ set.cards }} cards</span>
+        </label>
+      </li>
+    } @empty {
+      <li class="hint">No set on {{ platform() }} matches.</li>
+    }
+  </ul>
+  @if (full()) {
+    <span class="hint">A set list holds at most {{ maxSets }} sets.</span>
+  }
+  @if (counting()) {
+    <span class="hint">Still counting cards on Scryfall, so more sets may appear.</span>
+  }
+}
+<span class="hint">
+  @if (chosen().length > 0) {
+    Chosen: {{ chosenText() }}.
+  }
+  Every card printed in the chosen sets and sublists that is on {{ platform() }} goes in the pool,
+  once; cards that aren’t are left out.
+</span>
+@for (chosen of chosenWithSublists(); track chosen.set.code) {
+  <fieldset class="sublists">
+    <legend>{{ chosen.set.code.toUpperCase() }} sublists</legend>
+    @for (sublist of chosen.set.sublists; track sublist.code) {
+      <label class="choice">
+        <input
+          type="checkbox"
+          [checked]="chosen.entry.sublists.includes(sublist.code)"
+          [disabled]="disabled()"
+          (change)="toggleSublist(chosen.set, sublist.code)"
+        />
+        {{ sublist.code.toUpperCase() }} {{ sublist.name }}
+        <span class="hint">{{ sublist.cards }} cards</span>
+      </label>
+    }
+  </fieldset>
+}

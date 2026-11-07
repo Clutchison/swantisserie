@@ -358,6 +358,68 @@ describe('FetchScryfallClient', () => {
     });
   });
 
+  describe('sets', () => {
+    const otj = {
+      object: 'set',
+      code: 'otj',
+      name: 'Outlaws of Thunder Junction',
+      set_type: 'expansion',
+      released_at: '2024-04-19',
+      card_count: 286,
+    };
+    const big = {
+      object: 'set',
+      code: 'big',
+      name: 'The Big Score',
+      set_type: 'expansion',
+      released_at: '2024-04-19',
+      parent_set_code: 'otj',
+      card_count: 30,
+    };
+
+    it('lists every Scryfall set with its code, name, type, parent and release date', async () => {
+      respond(200, { object: 'list', has_more: false, data: [otj, big] });
+
+      expect(await scryfall.sets()).toEqual([
+        {
+          code: 'otj',
+          name: 'Outlaws of Thunder Junction',
+          setType: 'expansion',
+          parentSetCode: null,
+          releasedAt: '2024-04-19',
+        },
+        {
+          code: 'big',
+          name: 'The Big Score',
+          setType: 'expansion',
+          parentSetCode: 'otj',
+          releasedAt: '2024-04-19',
+        },
+      ]);
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toBe('https://api.scryfall.com/sets');
+      expect(new Headers(init?.headers).get('User-Agent')).toMatch(
+        /^Swantisserie\//,
+      );
+    });
+
+    it('fails plainly when Scryfall answers with an error', async () => {
+      vi.useFakeTimers();
+      try {
+        for (let i = 0; i < 4; i++) {
+          respond(503, { object: 'error', status: 503, details: 'Down' });
+        }
+
+        const outcome = scryfall.sets().catch((err: unknown) => err);
+        await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+        expect(await outcome).toBeInstanceOf(ScryfallUnavailableError);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('when Scryfall itself is in trouble', () => {
     beforeEach(() => {
       vi.useFakeTimers();

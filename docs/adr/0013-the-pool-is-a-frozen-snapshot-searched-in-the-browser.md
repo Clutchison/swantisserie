@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-For each draft, the api takes a **pool snapshot** of its **pool source** once, with each card's data from Scryfall, and stores every card the draft needs: names, printings on the draft's platform, the fields the pool search reads, and image URLs. For a **pool query** it pages through the query's results after creation. For a **cube link** it looks up a printing on the platform for each card in the cube's mainboard, while the draft is created. The pool is then **frozen**: it never changes once the snapshot is complete. The **pool search** takes Scryfall syntax but runs in the browser over the snapshot and never calls Scryfall. There is no local Scryfall bulk database (`PLAN.md`, Pool and Card search).
+For each draft, the api takes a **pool snapshot** of its **pool source** once, with each card's data from Scryfall, and stores every card the draft needs: names, printings on the draft's platform, the fields the pool search reads, and image URLs. For a **pool query** it pages through the query's results after creation. For a **cube link** it looks up a printing on the platform for each card in the cube's mainboard, while the draft is created. For a **set list** it pages through each chosen set and included sublist after creation, as for a pool query, and looks up a printing on the platform for each card printed there only off it: a pool of several large sets takes a few dozen searches, too many to make while the create request waits (#205). The pool is then **frozen**: it never changes once the snapshot is complete. The **pool search** takes Scryfall syntax but runs in the browser over the snapshot and never calls Scryfall. There is no local Scryfall bulk database (`PLAN.md`, Pool and Card search).
 
 ## Considered Options
 
