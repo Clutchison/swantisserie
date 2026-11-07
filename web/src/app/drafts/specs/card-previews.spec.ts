@@ -43,6 +43,7 @@ import {
   type AppFixture,
 } from './harness';
 import { image, openDetail } from './pool-tab-harness';
+import { detailOpener } from './plan-tab-harness';
 import { openDialog, pressKey } from '../../specs-harness';
 
 useDraftsApp();
@@ -442,9 +443,11 @@ describe('card previews', () => {
         });
         tabButton(page, 'Plan').click();
         await fixture.whenStable();
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         const stacked = panel(page).querySelector<HTMLImageElement>('img[alt="Fire // Ice"]')!;
 
-        tap(stacked);
+        hover(detailOpener(panel(page), 'Fire // Ice')!);
+        wait(150);
 
         expect(shownSideways(previewImage()!)).toBe(true);
         expect(getComputedStyle(stacked).transform).not.toMatch(/rotate/);

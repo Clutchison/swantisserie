@@ -23,9 +23,11 @@ import {
   updates,
   viewOn,
   wait,
+  fireIce,
+  shownSideways,
 } from './harness';
 import { openDialog } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
+import { useTallScreen, shivan, brightclimb, newestLarge } from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
@@ -58,6 +60,19 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');
+    });
+
+    it('shows a horizontal card’s Card detail sideways', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards: [...cards, fireIce],
+        plan: planOf({ mainboard: [unpicked(fireIce)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      detailOpener(plan, 'Fire // Ice')!.click();
+      await fixture.whenStable();
+
+      expect(shownSideways(newestLarge(openDialog()!))).toBe(true);
     });
 
     it('opens the Card detail, not the Card preview, when a name is tapped, and still previews it on hover', async () => {
