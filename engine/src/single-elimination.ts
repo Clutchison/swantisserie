@@ -115,15 +115,16 @@ export type Advancing =
  * Who a bracket match, or a bye, sends on to the next tournament round,
  * `dropped` holding every player who has dropped, and `roundCompleted`
  * whether its tournament round is (or the tournament is) completed. The
- * player with a bye advances at once, unless they dropped. A match's winner
- * advances once its result is agreed: once its round is completed, and
- * before that when it is a granted win, a forfeit, a game score the other
- * player confirmed, or one someone not playing in it, an organizer,
- * entered; a player's unconfirmed report isn't agreed yet, nor is an
- * unreported match. Nobody advances from a forfeit whose players both
- * dropped before the next tournament round was paired with either of them,
- * so whoever would have met its winner has a bye. A played match's winner
- * advances even if both its players dropped since.
+ * player with a bye advances at once, unless they dropped before the next
+ * tournament round was paired with them. A match's winner advances once its
+ * result is agreed: once its round is completed, and before that when it is
+ * a granted win, a forfeit, a game score the other player confirmed, or one
+ * someone not playing in it, an organizer, entered; a player's unconfirmed
+ * report isn't agreed yet, nor is an unreported match. Nobody advances
+ * from a forfeit whose players both dropped before the next tournament
+ * round was paired with either of them, so whoever would have met its
+ * winner has a bye. A played match's winner advances even if both its
+ * players dropped since.
  */
 export function agreedAdvancingPlayer(
   {
@@ -138,7 +139,7 @@ export function agreedAdvancingPlayer(
 ): Advancing {
   const [first, second] = players;
   if (second === null) {
-    return dropped.includes(first)
+    return droppedBeforeNextRoundPaired(first, dropped, nextRoundPlayers)
       ? { kind: 'Nobody' }
       : { kind: 'Player', playerId: first };
   }
@@ -179,22 +180,33 @@ export function countAdvancing(
 }
 
 /**
- * Whether `match` is a forfeit that both its players dropped from, which
- * nobody wins: unless either of them is in `nextRoundPlayers`, the players
- * paired in the tournament round after it, as its winner is once they
- * advanced.
+ * Whether `match` is a forfeit that nobody wins: one both its players
+ * dropped from before the tournament round after it was paired with either.
  */
 function nobodyWins(
   match: DecidedMatch,
   dropped: readonly string[],
-  nextRoundPlayers: readonly string[] = [],
+  nextRoundPlayers?: readonly string[],
 ) {
   return (
     match.outcome.kind === 'Forfeit' &&
-    match.players.every(
-      (id) => dropped.includes(id) && !nextRoundPlayers.includes(id),
+    match.players.every((id) =>
+      droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
     )
   );
+}
+
+/**
+ * Whether `playerId` is in `dropped` but not in `nextRoundPlayers`, the
+ * players paired in the tournament round after theirs: whether they dropped
+ * before that round was paired with them.
+ */
+function droppedBeforeNextRoundPaired(
+  playerId: string,
+  dropped: readonly string[],
+  nextRoundPlayers: readonly string[] = [],
+): boolean {
+  return dropped.includes(playerId) && !nextRoundPlayers.includes(playerId);
 }
 
 /**
@@ -364,7 +376,9 @@ export function byesSendingOn(
   dropped: readonly string[],
 ): string[] {
   return rounds.flatMap(({ byes, nextRoundPlayers }) =>
-    byes.filter((id) => !dropped.includes(id) || nextRoundPlayers.includes(id)),
+    byes.filter(
+      (id) => !droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
+    ),
   );
 }
 
