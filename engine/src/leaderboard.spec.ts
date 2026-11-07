@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { leaderboard, type LeaderboardTournament } from './leaderboard.js';
 
-const won = (games: [number, number], draws = 0) =>
+const gameScoreOutcome = (games: [number, number], draws = 0) =>
   ({ kind: 'GameScore', games, draws }) as const;
+
+const playerIdsOf = (records: readonly { playerId: string }[]) =>
+  records.map((record) => record.playerId);
 
 describe('leaderboard', () => {
   it('counts trophies, tournaments played and match and game records across tournaments', () => {
@@ -10,20 +13,20 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 1]) },
-          { players: ['a', 'c'], outcome: won([2, 0]) },
-          { players: ['b', 'c'], outcome: won([1, 1], 1) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 1]) },
+          { players: ['a', 'c'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['b', 'c'], outcome: gameScoreOutcome([1, 1], 1) },
         ],
         trophyHolders: ['a'],
       },
       {
         players: ['a', 'b'],
-        matches: [{ players: ['b', 'a'], outcome: won([2, 0]) }],
+        matches: [{ players: ['b', 'a'], outcome: gameScoreOutcome([2, 0]) }],
         trophyHolders: ['b'],
       },
       {
         players: ['a', 'c'],
-        matches: [{ players: ['c', 'a'], outcome: won([0, 2]) }],
+        matches: [{ players: ['c', 'a'], outcome: gameScoreOutcome([0, 2]) }],
         trophyHolders: ['a'],
       },
     ];
@@ -94,7 +97,7 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c', 'd', 'e'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 0]) },
           {
             players: ['a', 'c'],
             outcome: { kind: 'Forfeit', forfeitedBy: 'c' },
@@ -119,7 +122,7 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 0]) },
           {
             players: ['a', 'c'],
             outcome: { kind: 'Forfeit', forfeitedBy: 'c' },
@@ -129,7 +132,7 @@ describe('leaderboard', () => {
       },
     ]);
 
-    expect(board.map((entry) => entry.playerId)).toEqual(['a', 'b']);
+    expect(playerIdsOf(board)).toEqual(['a', 'b']);
   });
 
   it('ranks by trophies, then matches won, ties keeping the order players first appear in', () => {
@@ -137,19 +140,49 @@ describe('leaderboard', () => {
       {
         players: ['a', 'b', 'c', 'd'],
         matches: [
-          { players: ['a', 'b'], outcome: won([2, 0]) },
-          { players: ['c', 'd'], outcome: won([2, 0]) },
-          { players: ['d', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'b'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['c', 'd'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['d', 'b'], outcome: gameScoreOutcome([2, 0]) },
         ],
         trophyHolders: [],
       },
       {
         players: ['b', 'c'],
-        matches: [{ players: ['b', 'c'], outcome: won([0, 2]) }],
+        matches: [{ players: ['b', 'c'], outcome: gameScoreOutcome([0, 2]) }],
         trophyHolders: ['b', 'c'],
       },
     ]);
 
-    expect(board.map((entry) => entry.playerId)).toEqual(['c', 'b', 'a', 'd']);
+    expect(playerIdsOf(board)).toEqual(['c', 'b', 'a', 'd']);
+  });
+
+  it("lists each player's head-to-head records in leaderboard order, not the order they were played", () => {
+    const trophyTournament = (
+      trophyHolders: string[],
+    ): LeaderboardTournament => ({
+      players: trophyHolders,
+      matches: [],
+      trophyHolders,
+    });
+    const board = leaderboard([
+      {
+        players: ['x', 'a', 'b', 'c', 'd'],
+        matches: [
+          { players: ['x', 'd'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['c', 'x'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['x', 'b'], outcome: gameScoreOutcome([2, 0]) },
+          { players: ['a', 'x'], outcome: gameScoreOutcome([2, 0]) },
+        ],
+        trophyHolders: [],
+      },
+      // Trophies: a 3, b 2, c 1, so a, b and c rank above x, who won more matches than d.
+      trophyTournament(['a', 'b', 'c']),
+      trophyTournament(['a', 'b']),
+      trophyTournament(['a']),
+    ]);
+
+    expect(playerIdsOf(board)).toEqual(['a', 'b', 'c', 'x', 'd']);
+    const x = board.find((entry) => entry.playerId === 'x');
+    expect(playerIdsOf(x?.opponents ?? [])).toEqual(['a', 'b', 'c', 'd']);
   });
 });

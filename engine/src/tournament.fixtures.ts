@@ -18,6 +18,11 @@ export function won(a: string, b: string): TournamentMatch {
   return played(a, b, [2, 0]);
 }
 
+/** A match between `a` and `b` not yet reported. */
+export function unreported(a: string, b: string): TournamentMatch {
+  return { players: [a, b], outcome: null };
+}
+
 /** A match `forfeitedBy` forfeited to the other of `a` and `b`. */
 export function forfeited(
   a: string,
@@ -30,6 +35,15 @@ export function forfeited(
 /** A granted draw between `a` and `b`. */
 export function grantedDraw(a: string, b: string): TournamentMatch {
   return { players: [a, b], outcome: { kind: 'GrantedDraw' } };
+}
+
+/** A match between `a` and `b` the organizer granted to `winner`. */
+export function grantedWin(
+  a: string,
+  b: string,
+  winner: string,
+): TournamentMatch {
+  return { players: [a, b], outcome: { kind: 'GrantedWin', winner } };
 }
 
 /** Each standing's player and rank, in the order of `standings`. */
