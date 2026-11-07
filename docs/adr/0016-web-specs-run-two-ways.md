@@ -8,9 +8,9 @@ Web specs therefore run two ways (#533, #544). `ng test` (and `npm test -w web`)
 
 ## Considered Options
 
-- **Drive `ng test` from Stryker** with the command runner, which reruns a shell command per mutant. Rejected: it reruns the whole suite for every mutant, with no per-test coverage and no incremental runs, which is far too slow for a suite this size.
+- **Drive `ng test` from Stryker** with the command runner, which reruns a shell command per mutant. Rejected: with no per-test coverage, every mutant reruns the whole suite, which is far too slow for a suite this size.
 - **Move all web specs to plain vitest under Analog** and drop `ng test`. Rejected: Analog compiles specs in JIT mode, so templates are no longer type-checked in tests, and we'd leave the Angular CLI's supported test path for a third-party plugin.
-- **No mutation testing on web.** Rejected: #533's run on a single component already found three real gaps.
+- **No mutation testing on web.** Rejected: #533's run on a single component already turned up three survivors that look like real gaps.
 
 ## Consequences
 

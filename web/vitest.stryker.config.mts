@@ -6,7 +6,8 @@ import angular from '@analogjs/vite-plugin-angular';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import ngTestConfig from './vitest.config.mts';
 
-// Merged in for the worker cap, so it lives in one place.
+// Merged in for the worker cap, which applies when this config is run directly
+// with vitest; Stryker's runner forces one worker per process anyway.
 export default mergeConfig(
   ngTestConfig,
   defineConfig({

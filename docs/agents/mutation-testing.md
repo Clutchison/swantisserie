@@ -21,13 +21,12 @@ Stryker is run by hand. It is not part of `npm test` or CI.
 
 ## Web
 
-`ng test` keeps its vitest instance internal, so Stryker can't drive it. Instead, `web/vitest.stryker.config.mts` runs the web specs under plain vitest through Analog's Angular plugins, with `web/src/test-setup.stryker.ts` as its setup file (ADR 0016). **That config exists only for Stryker.** Run web tests with `ng test` (`npm test -w web`) as usual, and don't add specs, setup or options that only it needs.
+`ng test` keeps its vitest instance internal, so Stryker can't drive it. Instead, `web/vitest.stryker.config.mts` runs the web specs under plain vitest through Analog's Angular plugins, with `web/src/test-setup.stryker.ts` as its setup file (ADR 0016). **That config exists only for Stryker.** Run web tests with `ng test` (`npm test -w web`) as usual. If a spec passes under `ng test` but fails under this config, fix the config or its setup file, never the spec.
 
 - **`css: true`.** Analog compiles specs in JIT mode, which loads each component's styles as a CSS import. Vitest blanks CSS imports by default, and specs that read computed styles fail without it.
 - **Templates.** Stryker mutates TypeScript only, never templates. And because Analog compiles in JIT mode, this config doesn't type-check templates; `ng test` and `npm run typecheck -w web` still do.
 - **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 7 minutes for a single component. Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`.
 - **`dryRunTimeoutMinutes`** is raised from Stryker's 5-minute default to 30, so that dry run isn't cut off. JSON can't hold the comment, so it lives here.
-- **Mutated files.** Every non-spec TypeScript file under `web/src`, except the test-only ones: spec harnesses, `src/app/drafts/specs/` and the test setup files.
 
 ## Reading the report
 
