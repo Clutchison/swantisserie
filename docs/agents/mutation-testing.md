@@ -6,26 +6,26 @@ Only the engine is set up for it so far.
 
 ## Running it
 
-```
+```sh
 npm run test:mutation -w engine
 ```
 
-That is the only way to start it. `engine/stryker.config.json` caps Stryker at 2 workers (`concurrency: 2`). Never run Stryker without that cap. Left alone, it starts one worker per core but one, which is 23 on the shared dev machine, and earlyoom will kill the run.
+`engine/stryker.config.json` caps Stryker at 2 workers (`concurrency: 2`); keep that cap, and don't start Stryker from the repo root or with `--concurrency`. Left alone, it starts one worker per core but one, which is 23 on the shared dev machine, and earlyoom will kill the run.
 
-The config mutates every engine `src/**/*.ts` file except the specs and `*.fixtures.ts`. Runs are incremental: Stryker keeps the results in `engine/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything.
+Runs are incremental: Stryker keeps the results in `engine/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything.
 
 Stryker is run by hand. It is not part of `npm test` or CI.
 
 ## Reading the report
 
-- The terminal prints the score per file, then each surviving mutant as a diff with its file and line.
+- The terminal prints each surviving mutant as a diff with its file and line, then the score per file.
 - `engine/reports/mutation/mutation.html` is the same report, browsable by file, with each mutant marked in the source. `engine/reports/mutation/mutation.json` is the same data for scripts.
 - Both are gitignored.
 
-Sort every survivor into one of three groups:
+Sort every survivor into one of three groups. The fix each group names is the work of a gap ticket, done only once the user has approved the list:
 
 - **Real gap**: the change alters behaviour a player or the api would notice, and no test checks it. Write a test that fails against the mutant.
-- **Harmless**: the change has no observable effect, for example a log or error message, or an equivalent way of writing the same thing.
+- **Harmless**: the change has no effect any caller can observe: an equivalent mutant, such as an equivalent way of writing the same thing, or the text of an error message callers don't read.
 - **Dead code**: the mutated code can never run, or its result is never used. Delete the code rather than test it.
 
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
@@ -33,6 +33,6 @@ Sort every survivor into one of three groups:
 ## Rules
 
 - **No target score.** A gap ticket closes specific real gaps, not a number. Each one records the score before and after.
-- **The human approves the gap list** before any gap ticket is filed.
-- **Harmless survivors** are marked in code with `// Stryker disable next-line <mutator>: <reason>`, but only once the human has approved them as harmless.
+- **The user approves the gap list** before any gap ticket is filed.
+- **Harmless survivors** are marked in code with `// Stryker disable next-line <mutator>: <reason>`, but only once the user has approved them as harmless.
 - Whether Stryker becomes a scheduled CI report or a merge gate is decided later.
