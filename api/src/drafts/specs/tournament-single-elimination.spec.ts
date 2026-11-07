@@ -1,5 +1,4 @@
 import type {
-  CompleteRoundRequest,
   DraftSocketEvents,
   DraftView,
   MatchReportRequest,
@@ -15,6 +14,7 @@ import {
   clearGameScore,
   completeDraft,
   completeRound,
+  postCompleteRound,
   confirmMatch,
   getDraft,
   placesOf,
@@ -285,7 +285,7 @@ describe('completing a single elimination tournament round', () => {
 
     await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: seeds[4] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(view.lastCompletedRound).toBe(1);
@@ -314,7 +314,7 @@ describe('completing a single elimination tournament round', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: match.id, drop: [] }],
-    } satisfies CompleteRoundRequest).expect(400);
+    }).expect(400);
 
     expect(answer.body.error).toBe('invalid');
     expect((await tournamentView(id)).rounds[0].matches[0].outcome).toEqual({
@@ -329,7 +329,7 @@ describe('completing a single elimination tournament round', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: match.players[1] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('match-reported');
   });
@@ -347,7 +347,9 @@ describe('completing a single elimination tournament round', () => {
       { grantedWins: [{ matchId: 'm', winner: match.players[0] }] },
       { grantedWins: [{ matchId: match.id, winner: bystander }] },
     ]) {
-      const answer = await completeRound(id, aliceCookie, body).expect(400);
+      const answer = await postCompleteRound(id, { round: 1, ...body }).expect(
+        400,
+      );
       expect(answer.body.error).toBe('invalid');
     }
   });
@@ -458,7 +460,7 @@ describe('single elimination’s live updates', () => {
       () =>
         completeRound(id, aliceCookie, {
           grantedWins: [{ matchId: match.id, winner: match.players[1] }],
-        } satisfies CompleteRoundRequest).expect(200),
+        }).expect(200),
       'Playing',
     );
   });

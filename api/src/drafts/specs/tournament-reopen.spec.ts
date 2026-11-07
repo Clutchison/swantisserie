@@ -1,8 +1,4 @@
-import type {
-  CompleteRoundRequest,
-  MatchReportRequest,
-  TournamentView,
-} from 'contract';
+import type { MatchReportRequest, TournamentView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -78,7 +74,7 @@ describe('reopening a Swiss tournament round', () => {
     }).expect(200);
     await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: unplayed.id, drop: [] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
     expect((await tournamentView(id)).rounds).toHaveLength(2);
 
     await reopenRound(id).expect(200);
@@ -103,7 +99,7 @@ describe('reopening a Swiss tournament round', () => {
     await dropPlayer(id, early, cookieOf[early]).expect(200);
     await completeRound(id, aliceCookie, {
       grantedDraws: [{ matchId: second.id, drop: [late] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
     await dropPlayer(id, afterwards, cookieOf[afterwards]).expect(200);
     expect((await tournamentView(id)).reopenRound).toEqual({
       round: 1,
@@ -194,7 +190,9 @@ describe('reopening a Swiss tournament round', () => {
       games: [0, 2],
     } satisfies MatchReportRequest).expect(200);
 
-    await completeRound(id).expect(200);
+    // Complete round accepts the reopened round, not the one after it.
+    await completeRound(id, aliceCookie, { round: 2 }).expect(400);
+    await completeRound(id, aliceCookie, { round: 1 }).expect(200);
 
     const view = await tournamentView(id);
     expect(view.lastCompletedRound).toBe(1);
@@ -218,7 +216,7 @@ describe('reopening a single elimination tournament round', () => {
     const [first] = (await tournamentView(id)).rounds[0].matches;
     await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: first.id, winner: seeds[4] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
     const before = await tournamentView(id);
     expect(before.rounds).toHaveLength(2);
 
@@ -241,7 +239,7 @@ describe('reopening a single elimination tournament round', () => {
     }).expect(200);
     await completeRound(id, aliceCookie, {
       drops: [{ matchId: first.id, drop: [seeds[3]] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     await reopenRound(id).expect(200);
 
@@ -277,7 +275,7 @@ describe('Reopen round', () => {
         { matchId: first.id, drop: first.players },
         { matchId: second.id, drop: [second.players[0]] },
       ],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
     expect((await tournamentView(id)).state).toBe('Complete');
 
     const answer = await reopenRound(id).expect(409);

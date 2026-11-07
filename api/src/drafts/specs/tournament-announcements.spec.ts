@@ -272,6 +272,22 @@ describe('tournament announcements', () => {
     expect((await posts(id, 1))[0].content).toContain('Tournament round 1 of');
   });
 
+  it('posts nothing when Complete round names a tournament round already completed', async () => {
+    const id = await announcedTournament(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      swiss(),
+    );
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    await posts(id, 1);
+    webhookClient.post.mockClear();
+    await reportCurrentRound(id, cookieOf);
+
+    await completeRound(id, aliceCookie, { round: 1 }).expect(409);
+
+    await posts(id, 0);
+  });
+
   it('drops the announcement when the webhook is gone, and posts none after it', async () => {
     const id = await announcedDraft([aliceCookie, bobCookie]);
     webhookClient.post.mockRejectedValueOnce(new WebhookGoneError(404));

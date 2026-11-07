@@ -198,7 +198,8 @@ export interface TournamentRefusal {
     | 'tournament-complete'
     /**
      * A completed tournament round's results are final until it is reopened:
-     * its matches can't be corrected or cleared.
+     * its matches can't be corrected or cleared, and Complete round can't
+     * complete it again.
      */
     | 'round-completed'
     /** Reopen round needs a completed tournament round to reopen. */

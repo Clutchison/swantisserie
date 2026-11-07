@@ -1,5 +1,5 @@
 import { DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
 import { MIN_PLAYERS_LEFT, roundCompletion, type BracketResult } from 'engine';
 import { DraftStore } from './draft-store';
@@ -10,7 +10,7 @@ export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
 /**
  * The Play tab's Complete round dialog, opened on the dialog shell
  * for organizers of a Swiss or single elimination tournament: what
- * completing its current tournament round does, and its unreported
+ * completing the tournament round it was opened for does, and its unreported
  * matches, as the read's `completeRoundGrants` says. In Swiss they become
  * granted draws, each with a choice of its players to drop, bots aside,
  * except in the final tournament round. In single elimination, which never
@@ -38,8 +38,8 @@ export class CompleteRoundDialog {
   protected readonly grantsWins = computed(
     () => this.tournament()?.completeRoundGrants === 'GrantedWins',
   );
-  /** The tournament round it completes: the one after the last completed. */
-  protected readonly round = computed(() => (this.tournament()?.lastCompletedRound ?? 0) + 1);
+  /** The tournament round it completes: the one it was opened for, which its request names. */
+  readonly round = input.required<number>();
   /** Whether it is the final tournament round, which completes the tournament: then nobody is dropped. */
   protected readonly finalRound = computed(() => {
     const completion = this.completion();
@@ -159,7 +159,8 @@ export class CompleteRoundDialog {
   }
 
   /**
-   * Closes with the request: in single elimination the drops chosen from
+   * Closes with the request, naming its tournament round: in single
+   * elimination the drops chosen from
    * each unreported match, and a granted win for the winner picked in each
    * of the others; otherwise a granted draw in each, with the players
    * chosen to drop from it.
@@ -169,6 +170,7 @@ export class CompleteRoundDialog {
       const dropping = this.unreported().filter((match) => this.drops(match.id));
       const won = this.unreported().filter((match) => !this.drops(match.id));
       this.dialogRef.close({
+        round: this.round(),
         ...(won.length > 0 && {
           grantedWins: won.map((match) => ({
             matchId: match.id,
@@ -185,6 +187,7 @@ export class CompleteRoundDialog {
       return;
     }
     this.dialogRef.close({
+      round: this.round(),
       grantedDraws: this.unreported().map((match) => ({
         matchId: match.id,
         drop: this.dropping()[match.id] ?? [],

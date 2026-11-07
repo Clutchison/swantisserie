@@ -1,4 +1,5 @@
 import type {
+  CompleteRoundRequest,
   MatchReportRequest,
   MatchView,
   PlayerView,
@@ -170,13 +171,28 @@ export function completeTournament(id: string, cookie = aliceCookie) {
 }
 
 /**
- * Completes the current tournament round of the draft's tournament, `body`
- * the request body as is (none unless given).
+ * Completes a tournament round of the draft's tournament, `body` the rest of
+ * the request: the current one, as read when the request is sent, unless
+ * `body` names another. Only `expect` sends it, answering with the response.
  */
 export function completeRound(
   id: string,
   cookie = aliceCookie,
-  body?: unknown,
+  body: Partial<CompleteRoundRequest> = {},
+) {
+  return {
+    async expect(status: number) {
+      const round = (await currentRound(id)) ?? 1;
+      return postCompleteRound(id, { round, ...body }, cookie).expect(status);
+    },
+  };
+}
+
+/** Sends Complete round for the draft's tournament, `body` the request body as is. */
+export function postCompleteRound(
+  id: string,
+  body: unknown,
+  cookie = aliceCookie,
 ) {
   return draftsRequest(
     'post',
@@ -184,6 +200,15 @@ export function completeRound(
     cookie,
     body,
   );
+}
+
+/** The draft's tournament's current tournament round, read from the database; null without a tournament. */
+async function currentRound(id: string): Promise<number | null> {
+  const row = await app.get(PrismaService).tournament.findUnique({
+    where: { draftId: id },
+    select: { lastCompletedRound: true },
+  });
+  return row && row.lastCompletedRound + 1;
 }
 
 /**

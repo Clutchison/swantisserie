@@ -1,4 +1,4 @@
-import type { CompleteRoundRequest, TournamentView } from 'contract';
+import type { TournamentView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -6,6 +6,7 @@ import {
   carol,
   clearGameScore,
   completeRound,
+  postCompleteRound,
   dropPlayer,
   placesOf,
   playingSingleElimination,
@@ -162,7 +163,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     await completeRound(id, aliceCookie, {
       drops: [{ matchId: at(before, 1, 0).id, drop: [seeds[3]] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const view = await tournamentView(id);
     expect(at(view, 1, 0).outcome).toEqual({
@@ -183,7 +184,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     await completeRound(id, aliceCookie, {
       drops: [{ matchId: match.id, drop: [seeds[3], seeds[4]] }],
-    } satisfies CompleteRoundRequest).expect(200);
+    }).expect(200);
 
     const [, second] = (await tournamentView(id)).rounds;
     expect(second.byes).toEqual([seeds[0]]);
@@ -204,7 +205,9 @@ describe('dropping players from the Complete round dialog', () => {
         grantedWins: [{ matchId: match.id, winner: seeds[2] }],
       },
     ]) {
-      const answer = await completeRound(id, aliceCookie, body).expect(400);
+      const answer = await postCompleteRound(id, { round: 1, ...body }).expect(
+        400,
+      );
       expect(answer.body.error).toBe('invalid');
     }
     expect((await tournamentView(id)).entries.some((e) => e.dropped)).toBe(
@@ -219,7 +222,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       grantedWins: [{ matchId: match.id, winner: seeds[1] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('already-dropped');
   });
@@ -231,7 +234,7 @@ describe('dropping players from the Complete round dialog', () => {
 
     const answer = await completeRound(id, aliceCookie, {
       drops: [{ matchId: match.id, drop: [seeds[1]] }],
-    } satisfies CompleteRoundRequest).expect(409);
+    }).expect(409);
 
     expect(answer.body.error).toBe('match-reported');
   });

@@ -6,6 +6,7 @@ import {
   button,
   controlByLabel,
   group,
+  http,
   items,
   panel,
   text,
@@ -70,7 +71,10 @@ describe('single elimination tournaments on the Play tab', () => {
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ grantedWins: [{ matchId: 'm1', winner: carol.id }] });
+    expect(req.request.body).toEqual({
+      round: 1,
+      grantedWins: [{ matchId: 'm1', winner: carol.id }],
+    });
     await vi.waitFor(() => expect(openDialog()).toBeNull());
   });
 
@@ -120,8 +124,20 @@ describe('single elimination tournaments on the Play tab', () => {
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ grantedWins: [{ matchId: 'm2', winner: alice.id }] });
+    expect(req.request.body).toEqual({
+      round: 2,
+      grantedWins: [{ matchId: 'm2', winner: alice.id }],
+    });
     expect(items(panel(page), 'Trophy holders')).toEqual(['Alice']);
+  });
+
+  it('closes the dialog, sending nothing, once another organizer completes the tournament round', async () => {
+    const { fixture } = await openCompleteRound(singleEliminationPlaying(), { user: dave });
+
+    await pushTournament(fixture, final, 1);
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/tournament/complete-round');
   });
 });
 
@@ -146,7 +162,7 @@ describe('dropping players from the single elimination Complete round dialog', (
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ drops: [{ matchId: 'm1', drop: [bob.id] }] });
+    expect(req.request.body).toEqual({ round: 1, drops: [{ matchId: 'm1', drop: [bob.id] }] });
   });
 
   it('says the tournament completes when dropping both players leaves one player in the bracket', async () => {
@@ -169,7 +185,10 @@ describe('dropping players from the single elimination Complete round dialog', (
       1,
       threePlayers,
     );
-    expect(req.request.body).toEqual({ drops: [{ matchId: 'm1', drop: [bob.id, carol.id] }] });
+    expect(req.request.body).toEqual({
+      round: 1,
+      drops: [{ matchId: 'm1', drop: [bob.id, carol.id] }],
+    });
   });
 });
 
@@ -196,7 +215,10 @@ describe('both finalists dropping', () => {
       threePlayers,
     );
 
-    expect(req.request.body).toEqual({ drops: [{ matchId: 'm2', drop: [alice.id, carol.id] }] });
+    expect(req.request.body).toEqual({
+      round: 2,
+      drops: [{ matchId: 'm2', drop: [alice.id, carol.id] }],
+    });
     expect(text(panel(page))).toContain('Nobody holds the trophy');
   });
 
