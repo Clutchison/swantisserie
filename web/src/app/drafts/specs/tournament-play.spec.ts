@@ -52,6 +52,7 @@ import {
   withTournament,
   yourMatches,
   completed,
+  confirmedMatch,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -89,10 +90,7 @@ describe('Play tab while the tournament is played', () => {
       const { tab } = await openPlaying(
         playing([
           reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id),
-          {
-            ...reported(unreportedMatch('m3', carol.id, alice.id), [2, 0], alice.id),
-            confirmed: true,
-          },
+          confirmedMatch(reported(unreportedMatch('m3', carol.id, alice.id), [2, 0], alice.id)),
         ]),
       );
 
@@ -250,7 +248,7 @@ describe('Play tab while the tournament is played', () => {
         fixture,
         '/api/drafts/draft-1/tournament/matches/m2/confirm',
         'POST',
-        playing([{ ...bobBeatAlice, confirmed: true }]),
+        playing([confirmedMatch(bobBeatAlice)]),
         1,
         threePlayers,
       );
@@ -383,10 +381,9 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it('drops the unconfirmed mark once the match is confirmed', async () => {
-      const m1 = {
-        ...reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
-        confirmed: true,
-      };
+      const m1 = confirmedMatch(
+        reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
+      );
       const { tab } = await openPlaying(playing([m1]), { user: dave });
 
       expect(text(gridCell(tab, 'Carol', 'Bob'))).toBe('2–1');
@@ -675,7 +672,7 @@ describe('Play tab once the tournament is complete', () => {
       fixture,
       '/api/drafts/draft-1/tournament/matches/m2/confirm',
       'POST',
-      completeWith({ ...bobBeatAlice, confirmed: true }),
+      completeWith(confirmedMatch(bobBeatAlice)),
       1,
       threePlayers,
     );

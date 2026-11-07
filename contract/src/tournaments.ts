@@ -46,6 +46,13 @@ export interface TournamentEntryView {
   /** Whether they have dropped: their unplayed matches are forfeits. */
   dropped: boolean;
   /**
+   * Whether they can be taken out of the tournament and put back in:
+   * removed during registration, dropped by an organizer, themselves or
+   * Complete round, and reinstated. Never a bot, which stays in its
+   * tournament from setup to the end.
+   */
+  droppable: boolean;
+  /**
    * Single elimination only: their place in the seed order, from 1, which
    * Start shuffles; null in other formats and during registration.
    */
@@ -88,6 +95,20 @@ export interface MatchView {
   reportedBy: string | null;
   /** Whether the other player confirmed the game score it was reported with. */
   confirmed: boolean;
+  /**
+   * The Discord user ids of its players who may confirm it now: while it
+   * is unconfirmed, those confirming would accept, who didn't report its
+   * game score. None without a game score, and none once it is confirmed,
+   * though confirming accepts a confirmed match again, changing nothing.
+   */
+  confirmableBy: string[];
+  /**
+   * What clearing it, as an organizer can while its tournament round is
+   * `correctable`, would leave it as: the forfeit of a player of it who has
+   * dropped, otherwise unreported. Null when it already is that, so
+   * clearing would change nothing.
+   */
+  clearLeaves: MatchOutcomeView | null;
 }
 
 /**

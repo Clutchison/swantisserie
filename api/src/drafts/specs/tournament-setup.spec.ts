@@ -52,6 +52,7 @@ describe('tournament setup', () => {
       entries: [alice.id, bob.id].map((playerId) => ({
         playerId,
         dropped: false,
+        droppable: true,
         seed: null,
       })),
       rounds: [],

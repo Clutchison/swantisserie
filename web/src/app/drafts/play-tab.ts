@@ -38,7 +38,7 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
 import { ResultsGrid } from './results-grid';
-import { confirmableBy, type ClearGameScore } from './match-lines';
+import type { ClearGameScore } from './match-lines';
 import { TournamentResults, type SetGameScore } from './tournament-results';
 import {
   inMatchOrder,
@@ -162,9 +162,12 @@ export class PlayTab {
 
   /** Whether the draft has a tournament; before then organizers see the setup form. */
   protected readonly setUp = computed(() => !!this.draft().tournament);
-  /** The joined players, in join order, as the draft names them. */
+  /** The joined players, in join order, as the draft names them, with whether each can be removed. */
   protected readonly entries = computed(() =>
-    (this.tournament()?.entries ?? []).map((entry) => this.store.player(entry.playerId)),
+    (this.tournament()?.entries ?? []).map((entry) => ({
+      ...this.store.player(entry.playerId),
+      droppable: entry.droppable,
+    })),
   );
   /** The signed-in player's id, if they are one of the draft's players. */
   protected readonly ownId = computed(() => this.store.ownPlayer()?.id);
@@ -210,11 +213,12 @@ export class PlayTab {
   protected readonly playsOn = computed(
     () => this.state() === 'Playing' && this.joined() && !this.ownDropped(),
   );
-  /** The joined players once the tournament is playing, in join order, with whether each dropped. */
+  /** The joined players once the tournament is playing, in join order, with whether each dropped and can be. */
   protected readonly players = computed(() =>
     (this.tournament()?.entries ?? []).map((entry) => ({
       ...this.store.player(entry.playerId),
       dropped: entry.dropped,
+      droppable: entry.droppable,
     })),
   );
   /** Whether the signed-in player joined and has dropped. */
@@ -241,7 +245,7 @@ export class PlayTab {
     const mine = this.mine();
     return (
       mine.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
-      mine.find(({ match }) => unreported(match) || confirmableBy(match, ownId))
+      mine.find(({ match }) => unreported(match) || match.confirmableBy.includes(ownId))
     );
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */

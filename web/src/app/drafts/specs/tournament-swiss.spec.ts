@@ -43,6 +43,7 @@ import {
   threePlayers,
   withTournament,
   completed,
+  confirmedMatch,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -201,9 +202,9 @@ describe('Swiss tournaments on the Play tab', () => {
       swissPlaying({
         lastCompletedRound: 0,
         entries: [
-          { playerId: alice.id, dropped: false, seed: null },
-          { playerId: bob.id, dropped: true, seed: null },
-          { playerId: carol.id, dropped: false, seed: null },
+          { playerId: alice.id, dropped: false, droppable: true, seed: null },
+          { playerId: bob.id, dropped: true, droppable: true, seed: null },
+          { playerId: carol.id, dropped: false, droppable: true, seed: null },
         ],
         rounds: [
           {
@@ -429,7 +430,7 @@ describe('Swiss tournaments on the Play tab', () => {
         fixture,
         '/api/drafts/draft-1/tournament/matches/m2/confirm',
         'POST',
-        swissPlaying({ rounds: swissRoundsWith({ ...carolBeatAlice, confirmed: true }) }),
+        swissPlaying({ rounds: swissRoundsWith(confirmedMatch(carolBeatAlice)) }),
         1,
         threePlayers,
       );

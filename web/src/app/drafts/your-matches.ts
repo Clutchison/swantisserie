@@ -21,7 +21,7 @@ import { DialogShell } from '../dialog-shell';
 import { capitalised } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { confirmableBy, gameScoreFor, reportedLine } from './match-lines';
+import { gameScoreFor, reportedLine } from './match-lines';
 import {
   MATCH_RESULT_HEADING,
   MatchResultDialog,
@@ -177,7 +177,7 @@ export class YourMatches {
   private line({ round, match }: OwnMatch, own: string, playing: boolean): OwnMatchLine {
     const opponent = this.store.player(match.players.find((id) => id !== own)!);
     const { outcome } = match;
-    const confirmable = confirmableBy(match, own);
+    const confirmable = match.confirmableBy.includes(own);
     const [before, says] = this.single()
       ? confirmable
         ? [`Tournament round ${round}:`, reportedLine(match, own, opponent)]

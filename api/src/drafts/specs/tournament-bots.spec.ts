@@ -93,6 +93,21 @@ describe('starting with bots', () => {
 });
 
 describe('what a bot can’t do', () => {
+  it('reads every bot as one that can’t be dropped, and each human player as one that can', async () => {
+    const { id, botIds } = await completeDraftWithBots([aliceCookie], 1);
+    await setUpTournament(id).expect(201);
+
+    expect(
+      (await tournamentView(id)).entries.map(({ playerId, droppable }) => [
+        playerId,
+        droppable,
+      ]),
+    ).toEqual([
+      [alice.id, true],
+      [botIds[0], false],
+    ]);
+  });
+
   it('refuses removing a bot during registration, with a reason', async () => {
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 2);
     await setUpTournament(id).expect(201);

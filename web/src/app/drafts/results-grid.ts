@@ -178,7 +178,6 @@ export class ResultsGrid {
       match,
       [this.name(match.players[0]), this.name(match.players[1])],
       (id) => this.name(id),
-      this.dropped(),
     );
   }
 

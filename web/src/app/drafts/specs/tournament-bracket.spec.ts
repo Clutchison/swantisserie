@@ -145,6 +145,7 @@ describe('the bracket of a single elimination tournament', () => {
       entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
         playerId,
         dropped: playerId !== alice.id,
+        droppable: true,
         seed: i + 1,
       })),
       rounds: [
