@@ -8,7 +8,7 @@ Access note: moxfield.com and its API (`api2.moxfield.com`) sit behind a bot che
 - **Moxfield's shipped front-end JS.** Taken from `assets.moxfield.net`: the bundle `moxfield.cef6c321948dbc3a893f.js`, referenced by the 2026-07-12 Wayback snapshot of a help page, and its lazy chunks `3493.*.js` (bulk edit page) and `5573.*.js` (deck page, Export dialog). This is the UI text and the request shapes. **The actual text parser runs on Moxfield's server and could not be seen.**
 - **Moxfield's public GitHub repo** https://github.com/moxfield/moxfield-public (issues and wiki). Comments by `harryfino` (Harry Finocchiaro, a `COLLABORATOR` on the repo) are treated as Moxfield statements.
 
-So what Moxfield **emits** is well established. What its importer **accepts** is mostly inferred.
+So what Moxfield **emits** is well established. What its importer **accepts** is mostly inferred. Double-faced and other `//` cards are covered in [`moxfield-double-faced-cards.md`](moxfield-double-faced-cards.md).
 
 ---
 
