@@ -131,6 +131,14 @@ describe('preferred printings', () => {
         id: '10000000-0000-4000-8000-000000000003',
         lang: 'ja',
       }),
+      offCdn: card('Island', {
+        id: '10000000-0000-4000-8000-000000000005',
+        image_uris: {
+          small: 'https://example.com/small.jpg',
+          normal: 'https://example.com/normal.jpg',
+          large: 'https://example.com/large.jpg',
+        },
+      }),
     };
     scryfall.card.mockImplementation(
       async (scryfallId) =>
@@ -141,6 +149,7 @@ describe('preferred printings', () => {
       printings.snow.id,
       printings.forest.id,
       printings.japanese.id,
+      printings.offCdn.id,
       // No printing on Scryfall at all.
       '10000000-0000-4000-8000-000000000004',
     ]) {

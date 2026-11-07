@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type {
   BasicLand,
+  CardImages,
   PreferredPrintingProblem,
   PreferredPrintingRequest,
   PreferredPrintings,
@@ -65,7 +66,13 @@ export class PreferredPrintingsController {
     const scryfallId = parseScryfallId(body);
     const card = await this.lookUp(scryfallId);
     const images = card?.image_uris;
-    if (!card || !images || card.name !== basic || card.lang !== 'en') {
+    if (
+      !card ||
+      !images ||
+      !onCdn(images) ||
+      card.name !== basic ||
+      card.lang !== 'en'
+    ) {
       throw invalid(`That isn’t an English printing of ${basic}.`);
     }
     const printing = {
@@ -114,6 +121,13 @@ export class PreferredPrintingsController {
       } satisfies PreferredPrintingProblem);
     }
   }
+}
+
+/** Whether every image is on Scryfall's CDN, which the web loads images from directly. */
+function onCdn(images: CardImages): boolean {
+  return [images.small, images.normal, images.large].every((url) =>
+    url.startsWith('https://cards.scryfall.io/'),
+  );
 }
 
 function invalid(message: string) {

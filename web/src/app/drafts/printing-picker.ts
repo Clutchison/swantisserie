@@ -112,15 +112,20 @@ export class PrintingPicker implements OnInit {
 
   /** Shows the sets, on the set and printing the land shows now. */
   private opened(sets: PrintingSet[]) {
+    // Scryfall answers a search with no results as a failure, so none here is one too.
+    if (sets.length === 0) {
+      this.loadFailed.set(true);
+      return;
+    }
     const { set, scryfallId } = this.current();
     const setIndex = Math.max(
       sets.findIndex((s) => s.code === set),
       0,
     );
-    const printingIndex = sets[setIndex]?.printings.findIndex((p) => p.scryfallId === scryfallId);
+    const printingIndex = sets[setIndex].printings.findIndex((p) => p.scryfallId === scryfallId);
     this.setIndex.set(setIndex);
-    this.printingIndex.set(Math.max(printingIndex ?? 0, 0));
-    this.sets.set(sets.length > 0 ? sets : null);
+    this.printingIndex.set(Math.max(printingIndex, 0));
+    this.sets.set(sets);
   }
 
   /** Shows the first printing of the set at `index`. */

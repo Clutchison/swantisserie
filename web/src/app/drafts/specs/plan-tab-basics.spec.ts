@@ -775,6 +775,15 @@ describe('the Printing picker', () => {
     expect(alertIn(dialog)).toBeNull();
   });
 
+  it('says so when Scryfall finds no printing of the land', async () => {
+    const { fixture, plan } = await openWith();
+
+    await openPicker(fixture, plan, []);
+
+    expect(text(alertIn(openDialog()!))).toBe('Couldn’t load the printings from Scryfall.');
+    expect(button(openDialog()!, 'Try again')).toBeDefined();
+  });
+
   it('stays open with the error when saving fails, changing nothing', async () => {
     const { fixture, plan } = await openWith();
     const dialog = await openPicker(fixture, plan);
