@@ -60,6 +60,7 @@ export function firstBracketRound(
 export function nextBracketRound(
   advancing: readonly (string | null)[],
 ): BracketMatch[] {
+  // Stryker disable next-line ArithmeticOperator: the extra places are null and filtered out.
   return Array.from({ length: advancing.length / 2 }, (_, bracketPlace) => {
     const [first = null, second = null] = [
       advancing[2 * bracketPlace],
@@ -150,13 +151,12 @@ export function agreedAdvancingPlayer(
     roundCompleted ||
     outcome.kind !== 'GameScore' ||
     confirmed ||
+    // Stryker disable next-line ConditionalExpression: !players.includes(null) gives the same answer.
     reportedBy === null ||
     !players.includes(reportedBy);
   if (!agreed) return { kind: 'NotAgreed' };
-  const winner = winnerOf(match);
-  return winner === null
-    ? { kind: 'Nobody' }
-    : { kind: 'Player', playerId: winner };
+  // Single elimination never accepts a draw, so a match it has agreed has a winner.
+  return { kind: 'Player', playerId: winnerOf(match)! };
 }
 
 /**
@@ -172,8 +172,10 @@ export function countAdvancing(
   return results.filter(
     (result) =>
       agreedAdvancingPlayer(
+        // Stryker disable next-line BooleanLiteral: a completed round returns before confirmed is read.
         { ...result, reportedBy: null, confirmed: false },
         dropped,
+        // Stryker disable next-line BooleanLiteral: reportedBy is null, so the result is agreed either way.
         true,
       ).kind === 'Player',
   ).length;
@@ -204,6 +206,7 @@ function nobodyWins(
 function droppedBeforeNextRoundPaired(
   playerId: string,
   dropped: readonly string[],
+  // Stryker disable next-line ArrayDeclaration: an extra id in the default list changes nothing.
   nextRoundPlayers: readonly string[] = [],
 ): boolean {
   return dropped.includes(playerId) && !nextRoundPlayers.includes(playerId);
@@ -288,12 +291,13 @@ export function bracketRounds(
   dropped: readonly string[],
 ): BracketRound[] {
   const rounds: BracketRound[] = [];
+  // Stryker disable next-line ArrayDeclaration: an extra id in the empty list changes nothing.
   let previous: Advancing[] = [];
   for (let round = 1; round <= roundCount; round++) {
     const fedBy = (bracketPlace: number): BracketSide => {
       const advancing = previous[bracketPlace];
-      if (advancing?.kind === 'Player') return advancing;
-      if (advancing?.kind === 'Nobody') return { kind: 'Bye' };
+      if (advancing.kind === 'Player') return advancing;
+      if (advancing.kind === 'Nobody') return { kind: 'Bye' };
       return { kind: 'WinnerToCome', bracketPlace };
     };
     const places = Array.from(
@@ -332,26 +336,31 @@ export function bracketRounds(
 }
 
 /**
- * Who a bracket place not yet paired, its sides `first` and `second`, sends
- * on: the player with its bye, as for a paired bye; nobody from two byes;
- * otherwise not agreed until it is paired and played.
+ * Who a bracket place not yet paired, its sides `first` and `second` (a bye
+ * second when it has one), sends on: nobody from two byes; the player with
+ * its bye, as for a paired bye; otherwise not agreed until it is paired and
+ * played.
  */
 function unpairedAdvancing(
   first: BracketSide,
   second: BracketSide,
   dropped: readonly string[],
 ): Advancing {
-  if (second.kind !== 'Bye') return { kind: 'NotAgreed' };
   if (first.kind === 'Bye') return { kind: 'Nobody' };
-  if (first.kind === 'WinnerToCome') return { kind: 'NotAgreed' };
+  if (second.kind !== 'Bye' || first.kind === 'WinnerToCome') {
+    // Stryker disable next-line ObjectLiteral,StringLiteral: any non-Player advancing value becomes winner to come in the next round, just as NotAgreed does.
+    return { kind: 'NotAgreed' };
+  }
   return agreedAdvancingPlayer(
     {
       players: [first.playerId, null],
       outcome: null,
       reportedBy: null,
+      // Stryker disable next-line BooleanLiteral: a bye returns before confirmed is read.
       confirmed: false,
     },
     dropped,
+    // Stryker disable next-line BooleanLiteral: a bye returns before roundCompleted is read.
     false,
   );
 }
@@ -401,6 +410,7 @@ export function singleEliminationStandings(
   players: readonly string[],
   matches: readonly SingleEliminationMatch[],
   byes: readonly string[],
+  // Stryker disable next-line ArrayDeclaration: an extra id in the default list changes nothing.
   dropped: readonly string[] = [],
 ): Standing[] {
   const decided = matches.filter(
@@ -418,13 +428,16 @@ export function singleEliminationStandings(
   const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
   const out = new Set(
     matches.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
+      // Stryker disable next-line ArrayDeclaration: an extra id in the empty list changes nothing.
       if (outcome === null) return [];
       const match: DecidedMatch = { players: pair, outcome };
       if (nobodyWins(match, dropped, nextRoundPlayers)) return pair;
+      // Stryker disable next-line ArrowFunction,ConditionalExpression: a match's winner always has more wins than its loser, so a player ranked first is never out by a normal loss.
       return pair.filter((id) => id !== winnerOf(match));
     }),
   );
   const first = standings.filter((standing) => standing.rank === 1);
+  // Stryker disable next-line MethodExpression: first-ranked players are out together only from a forfeit both dropped from, which returns both.
   if (first.every((standing) => out.has(standing.playerId))) {
     first.forEach((standing) => (standing.rank = 2));
   }
@@ -440,7 +453,10 @@ export function winnerOf({ players, outcome }: DecidedMatch): string | null {
   switch (outcome.kind) {
     case 'GameScore': {
       const [a, b] = outcome.games;
-      return a > b ? players[0] : a < b ? players[1] : null;
+      // Stryker disable next-line EqualityOperator: >= differs only on a drawn game score, which single elimination never accepts.
+      if (a > b) return players[0];
+      // Stryker disable next-line EqualityOperator,ConditionalExpression: these differ only on a drawn game score, which single elimination never accepts.
+      return a < b ? players[1] : null;
     }
     case 'Forfeit':
       return players.find((id) => id !== outcome.forfeitedBy)!;

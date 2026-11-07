@@ -407,6 +407,22 @@ describe('agreedAdvancingPlayer', () => {
     ).toEqual(advancing);
   });
 
+  it.each<[string, MatchOutcome, string[], string]>([
+    ['a forfeit', forfeit, ['a'], 'b'],
+    ['a granted win', { kind: 'GrantedWin', winner: 'a' }, [], 'a'],
+  ])(
+    'is the winner of %s its player reported, without confirmation',
+    (_, outcome, dropped, winner) => {
+      expect(
+        agreedAdvancingPlayer(
+          { players: ['a', 'b'], outcome, reportedBy: 'b', confirmed: false },
+          dropped,
+          false,
+        ),
+      ).toEqual(player(winner));
+    },
+  );
+
   it('is the winner of a granted win', () => {
     expect(
       agreedAdvancingPlayer(
@@ -643,6 +659,41 @@ describe('bracketRounds', () => {
     );
     expect(rounds[1].places).toEqual([
       { bracketPlace: 0, sides: [bye, bye], advancing: null },
+    ]);
+  });
+
+  it('gives the player waiting on a bracket place of two byes a bye in the next tournament round', () => {
+    // 8 players: s1 v s8 and s4 v s5 all dropped; s3 won the semifinal.
+    const rounds = bracketRounds(
+      3,
+      [
+        match(1, 0, ['s1', 's8'], nobody),
+        match(1, 1, ['s4', 's5'], nobody),
+        match(1, 2, ['s2', 's7'], player('s2')),
+        match(1, 3, ['s3', 's6'], player('s3')),
+        match(2, 1, ['s2', 's3'], player('s3')),
+      ],
+      ['s1', 's8', 's4', 's5'],
+    );
+    expect(rounds[2].places).toEqual([
+      { bracketPlace: 0, sides: [player('s3'), bye], advancing: 's3' },
+    ]);
+  });
+
+  it('leaves a bracket place of a winner to come and a bye waiting for the winner to come', () => {
+    // 8 players: s1 v s8 and s4 v s5 all dropped; s2 and s3 are yet to meet.
+    const rounds = bracketRounds(
+      3,
+      [
+        match(1, 0, ['s1', 's8'], nobody),
+        match(1, 1, ['s4', 's5'], nobody),
+        match(1, 2, ['s2', 's7'], player('s2')),
+        match(1, 3, ['s3', 's6'], player('s3')),
+      ],
+      ['s1', 's8', 's4', 's5'],
+    );
+    expect(rounds[2].places).toEqual([
+      { bracketPlace: 0, sides: [winnerToCome(1), bye], advancing: null },
     ]);
   });
 });
