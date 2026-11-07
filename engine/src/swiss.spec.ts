@@ -112,6 +112,29 @@ describe('pairSwissRound', () => {
     ]).toContainEqual(pairs(round));
   });
 
+  it('pairs down across the smallest gaps in match points when rematches and pair-downs are level', () => {
+    // c has played d, and d has played f. a–b, c–f, d–e pairs two players
+    // down across gaps of 4 and 3 match points; a–c, b–d, e–f pairs two down
+    // across gaps of 2 and 3.
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: [
+        { playerId: 'a', rank: 1, matchPoints: 9 },
+        { playerId: 'b', rank: 2, matchPoints: 9 },
+        { playerId: 'c', rank: 3, matchPoints: 7 },
+        { playerId: 'd', rank: 4, matchPoints: 6 },
+        { playerId: 'e', rank: 5, matchPoints: 3 },
+        { playerId: 'f', rank: 6, matchPoints: 3 },
+      ],
+      pastMatches: [
+        ['c', 'd'],
+        ['d', 'f'],
+      ],
+      rngSeed: 1,
+    });
+    expect(pairs(round)).toEqual(['a-c', 'b-d', 'e-f']);
+  });
+
   it('pairs as few rematches as it can when every way of pairing has one', () => {
     // a has played everyone, and a–b, a–c both bring a second rematch along.
     const round = pairSwissRound({
@@ -171,6 +194,18 @@ describe('pairSwissRound', () => {
     expect(pairs(round)).toHaveLength(2);
   });
 
+  it('gives the bye to the lowest-ranked player left in when every player left in has had one', () => {
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: standingsOf(['a', 6], ['b', 3], ['c', 0], ['d', 0]),
+      pastByes: ['a', 'b', 'c', 'd'],
+      dropped: ['d'],
+      rngSeed: 1,
+    });
+    expect(round.bye).toBe('c');
+    expect(pairs(round)).toEqual(['a-b']);
+  });
+
   it('never pairs a dropped player, nor gives them the bye', () => {
     for (const rngSeed of [1, 2, 3, 4, 5]) {
       const round = pairSwissRound({
@@ -221,6 +256,23 @@ describe('pairSwissRound', () => {
       [1, 2, 3, 4, 5].map((rngSeed) => pairs(roundOne(rngSeed)).join(' ')),
     );
     expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('pairs players best first among equally good ways of pairing, whatever the RNG seed', () => {
+    // Every way of pairing is free of rematches and pair-downs; no players
+    // share a rank, so the RNG seed has nothing to order.
+    for (const rngSeed of [1, 2, 3, 4, 5]) {
+      const round = pairSwissRound({
+        ...noHistory,
+        standings: ['a', 'b', 'c', 'd'].map((playerId, i) => ({
+          playerId,
+          rank: i + 1,
+          matchPoints: 3,
+        })),
+        rngSeed,
+      });
+      expect(pairs(round)).toEqual(['a-b', 'c-d']);
+    }
   });
 
   describe.each([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])(
@@ -325,6 +377,25 @@ describe('swissStandings', () => {
     );
     expect(a).toMatchObject({ playerId: 'a', opponentsMatchWinPercent: 33 });
     expect(c).toMatchObject({ playerId: 'c', opponentsMatchWinPercent: 100 });
+  });
+
+  it('ignores a match that hasn’t been reported', () => {
+    const ranked = swissStandings(
+      ['a', 'b', 'c', 'd'],
+      [played('a', 'b', [2, 0]), { players: ['c', 'd'], outcome: null }],
+      [],
+    );
+    expect(standingFor(ranked, 'c')).toMatchObject({
+      matchPoints: 0,
+      matches: { won: 0, lost: 0, drawn: 0 },
+      opponentsMatchWinPercent: 33,
+    });
+    expect(placings(ranked)).toEqual([
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+      ['d', 3],
+    ]);
   });
 
   it("ranks players level on match points by opponents' match-win % before game-win %", () => {
@@ -477,6 +548,33 @@ describe('swissStandings', () => {
       ['b', 3],
       ['d', 4],
     ]);
+  });
+
+  it('counts two percentages that differ only by floating-point noise as equal', () => {
+    // a and h have 1 match point and level percentages but for opponents'
+    // game-win %. a's opponents, e and f, won 55.6% of their game points
+    // each; h's, g and d, won 44.4% and 66.7%. Both average 55.6%, but the
+    // two sums differ in their last bit.
+    const matches = [
+      played('h', 'g', [1, 1], 1),
+      played('e', 'c', [2, 1]),
+      played('f', 'a', [2, 1]),
+      played('b', 'd', [1, 2]),
+      played('b', 'c', [1, 2]),
+      played('f', 'g', [1, 1], 1),
+      played('a', 'e', [1, 1], 1),
+      played('d', 'h', [2, 1]),
+    ];
+    const ranked = swissStandings(
+      ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+      matches,
+      [],
+    );
+    const a = standingFor(ranked, 'a');
+    const h = standingFor(ranked, 'h');
+    expect(a.opponentsGameWinPercent).not.toBe(h.opponentsGameWinPercent);
+    expect(a.opponentsGameWinPercent).toBeCloseTo(h.opponentsGameWinPercent!);
+    expect(h.rank).toBe(a.rank);
   });
 
   it('floors each percentage at 33%, even before a player has played a game or met an opponent', () => {
