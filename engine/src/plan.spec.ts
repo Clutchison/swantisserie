@@ -40,6 +40,15 @@ describe('plansAfterPick', () => {
     ]);
   });
 
+  it('keeps both copies in the picker’s own plan when it holds the picked copy and an unpicked one', () => {
+    expect(
+      plansAfterPick({ seat: 0, card: 'bolt-1' }, [['bolt-2', 'bolt-1'], []], {
+        pool,
+        picked: [],
+      }),
+    ).toEqual([{ plan: ['bolt-2', 'bolt-1'] }, { plan: [] }]);
+  });
+
   it('leaves the picker’s own picked copy alone, so the card is picked twice', () => {
     // bolt-2 is seat 0's earlier pick, not an unpicked copy.
     expect(
