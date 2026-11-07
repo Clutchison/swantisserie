@@ -22,6 +22,7 @@ import type { PoolCardView } from 'contract';
 import { CardImage } from './card-image';
 import { CardImageSource } from './card-image-source';
 import { NORMAL_IMAGE } from './card-sizes';
+import { isHorizontal } from './horizontal-card';
 
 /** How long the mouse rests on a name before its Card preview opens, in ms. */
 const HOVER_MS = 150;
@@ -46,6 +47,7 @@ const POSITIONS: ConnectedPosition[] = [
     [alt]="card().name"
     [width]="normalImage.width"
     [height]="normalImage.height"
+    [sideways]="sideways()"
     (failed)="images.failed(card(), 'normal')"
   />`,
   styleUrl: './card-preview.scss',
@@ -55,6 +57,9 @@ export class CardPreview {
   protected readonly normalImage = NORMAL_IMAGE;
 
   readonly card = input.required<PoolCardView>();
+
+  /** Whether its front face is a horizontal card's, shown sideways. */
+  protected readonly sideways = computed(() => isHorizontal(this.card(), 0));
 }
 
 /** The draft page's one Card preview: which name it's open on, and when it opens and closes. */

@@ -26,6 +26,12 @@ import {
   pickOf,
   poolCardOf,
   faceImages,
+  fireIce,
+  invasion,
+  aftermath,
+  flipCard as flip,
+  shownSideways,
+  visible,
   queueOf,
   queued,
   flushQueueAndPlan,
@@ -37,6 +43,7 @@ import {
   type AppFixture,
 } from './harness';
 import { image, openDetail } from './pool-tab-harness';
+import { detailOpener } from './plan-tab-harness';
 import { openDialog, pressKey } from '../../specs-harness';
 
 useDraftsApp();
@@ -125,11 +132,20 @@ describe('card previews', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  /** The symbols of the cost before `name`, by their alt text, or the text of one with no SVG. */
+  /**
+   * The symbols a viewer reads before `name`, beside it in its card name: each
+   * by its alt text, or its text if it has no SVG.
+   */
   const costBefore = (name: HTMLElement) =>
-    [...(name.closest('app-card-name')?.querySelectorAll('.cost > *') ?? [])].map((symbol) =>
-      symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent,
-    );
+    [...name.parentElement!.querySelectorAll<HTMLElement>('img, span')]
+      .filter(
+        (symbol) =>
+          symbol.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING &&
+          !name.contains(symbol) &&
+          (symbol instanceof HTMLImageElement ||
+            (symbol.children.length === 0 && symbol.textContent.trim() !== '')),
+      )
+      .map((symbol) => (symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent));
   function hover(name: HTMLElement) {
     name.dispatchEvent(pointer('pointerenter', 'mouse'));
   }
@@ -278,7 +294,7 @@ describe('card previews', () => {
 
     const preview = document.querySelector('app-card-preview')!;
     expect(preview.querySelectorAll('button, a')).toHaveLength(0);
-    expect(preview.querySelectorAll('img')).toHaveLength(1);
+    expect(previewImages()).toHaveLength(1);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'pathway-id'));
     expect(previewImage()?.getAttribute('width')).toBe('488');
     expect(previewImage()?.getAttribute('height')).toBe('680');
@@ -311,23 +327,13 @@ describe('card previews', () => {
 
     tap(cardName(panel(page), 'Lightning Bolt'));
     const preview = document.querySelector('app-card-preview')!;
-    expect(previewImage()!.classList).not.toContain('shown');
-    expect(preview.querySelector('.placeholder')).toBeNull();
+    expect(visible(previewImage()!)).toBe(false);
+    expect(previewImages()).toHaveLength(1);
+    expect(preview.textContent.trim()).toBe('');
 
     await decoded(previewImage()!);
 
-    expect(previewImage()!.classList).toContain('shown');
-  });
-
-  it('fades in even if its image is already loaded', async () => {
-    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
-    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(488);
-    const { page } = await openBoard();
-
-    tap(cardName(panel(page), 'Lightning Bolt'));
-    await decoded(previewImage()!);
-
-    expect(previewImage()!.classList).not.toContain('instant');
+    expect(visible(previewImage()!)).toBe(true);
   });
 
   it('reveals the fallback once a failed image’s retry has decoded', async () => {
@@ -336,12 +342,12 @@ describe('card previews', () => {
     tap(cardName(panel(page), 'Lightning Bolt'));
     previewImage()!.dispatchEvent(new Event('error'));
     TestBed.tick();
-    expect(previewImage()!.classList).not.toContain('shown');
+    expect(visible(previewImage()!)).toBe(false);
 
     await decoded(previewImage()!);
 
     expect(previewImage()!.getAttribute('src')).toContain('api.scryfall.com');
-    expect(previewImage()!.classList).toContain('shown');
+    expect(visible(previewImage()!)).toBe(true);
   });
 
   it('fetches the pool once, for the Pool tab too', async () => {
@@ -392,6 +398,64 @@ describe('card previews', () => {
     tap(page.querySelector('h1')!);
     tap(cardNames(namedList(page, 'Your picks'))[0]!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+  });
+
+  describe('of horizontal cards', () => {
+    it('shows a split card and a battle’s front face sideways', async () => {
+      const { page } = await openBoard({
+        cards: [fireIce, invasion],
+        picks: [pick(1, fireIce), pick(2, invasion, bob.id)],
+      });
+
+      tap(cardName(panel(page), 'Fire // Ice'));
+      expect(shownSideways(previewImage()!)).toBe(true);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'fire-ice-id'));
+
+      tap(cardName(panel(page), 'Invasion of Zendikar // Awakened Skyclave'));
+      expect(shownSideways(previewImage()!)).toBe(true);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'invasion-id'));
+    });
+
+    it('shows Aftermath cards, flip cards and other cards upright', async () => {
+      const { page } = await openBoard({
+        cards: [aftermath, flip, bolt],
+        picks: [pick(1, aftermath), pick(2, flip, bob.id)],
+      });
+
+      for (const name of ['Cut // Ribbons', 'Budoka Gardener // Dokai, Weaver of Life']) {
+        tap(cardName(panel(page), name));
+        expect(shownSideways(previewImage()!)).toBe(false);
+      }
+    });
+
+    it('shows a horizontal card sideways from its image in stacks mode, which stays upright', async () => {
+      viewOn('desktop');
+      try {
+        const { page, fixture } = await openPicked({
+          cards: [fireIce],
+          picks: [pick(1, fireIce)],
+          plan: {
+            mainboard: [{ poolCardId: fireIce.id, name: fireIce.name, picked: true }],
+            sideboard: [],
+            basics: [],
+            lost: [],
+          },
+        });
+        tabButton(page, 'Plan').click();
+        await fixture.whenStable();
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        const stacked = panel(page).querySelector<HTMLImageElement>('img[alt="Fire // Ice"]')!;
+
+        hover(detailOpener(panel(page), 'Fire // Ice')!);
+        wait(150);
+
+        expect(shownSideways(previewImage()!)).toBe(true);
+        expect(getComputedStyle(stacked).transform).not.toMatch(/rotate/);
+      } finally {
+        vi.unstubAllGlobals();
+        localStorage.clear();
+      }
+    });
   });
 
   describe('from the keyboard', () => {
