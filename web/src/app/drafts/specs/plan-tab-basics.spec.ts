@@ -752,7 +752,7 @@ describe('the Printing picker', () => {
     });
     await fixture.whenStable();
     const dialog = openDialog()!;
-    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings from Scryfall.');
+    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(setChoice()).toBeUndefined();
 
@@ -769,7 +769,7 @@ describe('the Printing picker', () => {
 
     const dialog = await openPicker(fixture, plan, { sets: [] });
 
-    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings from Scryfall.');
+    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
     button(dialog, 'Try again')!.click();
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
     await fixture.whenStable();

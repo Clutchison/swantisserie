@@ -253,7 +253,7 @@ A Plains, Island, Swamp, Mountain, Forest or Wastes in a player's plan, added by
 _Avoid_: Land (alone; a pool card can be a land), free land
 
 **Basic land printing**:
-The printing whose art a basic land shows, wherever it appears in a plan, a deck or a decklist. Every copy of a basic land in one shows the same one. It changes only how the land looks, never an export, and is not part of what a deck's lock fixes.
+The printing whose art a basic land shows, wherever it appears in a plan, a deck or a decklist: any English printing of that land with a single-faced image, digital-only ones included. Every copy of a basic land in one shows the same one. It changes only how the land looks, never an export, and is not part of what a deck's lock fixes.
 _Avoid_: Basic land art, land skin
 
 **Preferred printing**:
@@ -265,7 +265,7 @@ The basic land printing a basic land shows to a player with no preferred printin
 _Avoid_: Stock art
 
 **Printing picker**:
-The view that opens from a basic land in a player's own plan or deck, locked or not, where they browse its printings set by set and choose their preferred printing, or go back to the default printing.
+The view that opens from a basic land in a player's own plan or deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. A newly released set's printings join it shortly after the set's release, never before.
 _Avoid_: Art picker, Card detail (that is a pool card's)
 
 **Plan board**:
