@@ -62,7 +62,9 @@ export interface BasicLandPrintingView {
 }
 
 /** A player's preferred printings, by basic land. A basic land with none, which shows its default printing, is absent. */
-export type PreferredPrintings = Partial<Record<BasicLand, BasicLandPrintingView>>;
+export type PreferredPrintings = Partial<
+  Record<BasicLand, BasicLandPrintingView>
+>;
 
 /** The basic land printing to make a player's preferred printing of a basic land, by its Scryfall id. */
 export interface PreferredPrintingRequest {
