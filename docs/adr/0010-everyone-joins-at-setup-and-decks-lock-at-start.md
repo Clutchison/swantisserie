@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Amends 0005. The first tournament spec (#416) had each player join by hand, with joining locking their deck and refusing a mainboard under 40 cards. Now **tournament setup** joins every player in the draft, humans and bots, without asking, so nobody has to remember to join. Decks stay editable through **registration** and **lock** at **Start**, which refuses while any joined human's mainboard holds fewer than 40 cards (#507). A player who won't play leaves during registration.
+Amends 0005. The first tournament spec (#416) had each player join by hand, with joining locking their deck and refusing a mainboard under 40 cards. Now **tournament setup** joins every player in the draft, humans and bots, without asking, so nobody has to remember to join. Decks stay editable through **registration** and **lock** at **Start**, which refuses while any joined human's mainboard holds fewer than 40 cards (#507). Since everyone now joins at setup, locking at join would lock every deck as soon as the organizer sets the tournament up, so the lock moves to Start. A player who won't play leaves during registration.
 
 ## Considered Options
 

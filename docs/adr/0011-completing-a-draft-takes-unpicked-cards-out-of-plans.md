@@ -2,11 +2,11 @@
 
 Status: Accepted
 
-Amends 0002. ADR 0002 lets a plan hold unpicked pool cards. Once a draft is complete no card can be picked any more, and a **deck** holds only what the player can play: their picks and basic lands. So completing a draft makes every plan a deck and deletes every unpicked card from it, in the same transaction, whichever way the draft completes (#416, #421). A closed draft keeps its plans whole, so nothing is lost if it is reopened.
+Amends 0002. ADR 0002 lets a plan hold unpicked pool cards. Once a draft is complete no card can be picked any more, and a **deck** holds only what the player can play: their picks and basic lands. Tournaments made this a hard rule: a locked deck, Start's 40-card check and the public decklists must count only the player's own cards. So completing a draft makes every plan a deck and deletes every unpicked card from it, in the same transaction, whichever way the draft completes (#416, #421). A closed draft keeps its plans whole, so nothing is lost if it is reopened.
 
 ## Considered Options
 
-- **Keep unpicked cards, dimmed, once the draft is complete**, as `PLAN.md` first had it. Replaced by the rule above when tournaments brought locked decks and decklists (#416).
+- **Keep unpicked cards, dimmed, once the draft is complete**, as `PLAN.md` first had it. Rejected because every reader of a deck (Start's 40-card check, the decklists, the exports) would have to leave them out.
 
 ## Consequences
 
