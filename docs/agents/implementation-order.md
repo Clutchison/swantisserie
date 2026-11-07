@@ -2,12 +2,12 @@
 
 ## The next ticket
 
-The candidates are open `ready-for-agent` issues not labelled `spec`, with no open blocker and no open PR that closes them. A spec's tickets are candidates like any other; a spec under `/implement-spec` has a draft PR that closes its tickets, so they drop out.
+The candidates are open `ready-for-agent` issues not labelled `spec`, with no open blocker and no PR that closes them. A spec's tickets are candidates like any other.
 
 ```sh
-gh issue list --state open --search "label:ready-for-agent -label:spec" --json number,title,labels
+gh issue list --state open --limit 200 --search "label:ready-for-agent -label:spec" --json number,title,labels
 gh api repos/Clutchison/swantisserie/issues/<n> --jq .issue_dependencies_summary.blocked_by   # 0 means startable
-gh pr list --state open --search "<n> in:body" --json number,title
+gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | length'   # 0 means no PR closes it
 ```
 
 Take the first candidate by these rules, in order:
