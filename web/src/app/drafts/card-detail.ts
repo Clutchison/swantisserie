@@ -76,10 +76,43 @@ export interface CardDetailOptions {
 }
 
 /**
- * Opens a pool card's Card detail on the dialog shell. Its `closed` tells the
- * host when it has closed, however that came about.
+ * The Card details a host opens, one at a time: opening one closes any other
+ * it has open. Its host provides one.
  */
-export function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
+@Injectable()
+export class CardDetails {
+  private readonly dialogs = inject(DialogShell);
+  /** The Card detail open, if any. */
+  private shown: DialogRef<CardDetailResult, CardDetail> | null = null;
+
+  /** Opens a pool card's Card detail, in place of any other. Its `closed` tells the host when it has closed, however that came about. */
+  open(options: CardDetailOptions): DialogRef<CardDetailResult, CardDetail> {
+    this.shown?.close();
+    const detail = openCardDetail(this.dialogs, options);
+    this.shown = detail;
+    detail.closed.subscribe(() => {
+      if (this.shown === detail) this.shown = null;
+    });
+    return detail;
+  }
+}
+
+/**
+ * The image a card's tile or stacked card has finished loading, if it's the
+ * card's normal image (`normal`): sharp enough for its Card detail to show
+ * while the large one loads.
+ */
+export function loadedPlaceholder(
+  loaded: HTMLImageElement | null | undefined,
+  normal: string | undefined,
+): string | null {
+  return normal && loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal
+    ? normal
+    : null;
+}
+
+/** Opens a pool card's Card detail on the dialog shell. */
+function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
   return dialogs.open<CardDetail, CardDetailResult>(CardDetail, {
     label: options.card.name,
     injector: options.injector,

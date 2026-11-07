@@ -26,12 +26,7 @@ import type { Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { basicCard } from './basic-lands';
 import { BASIC_LANDS_HEADING, BasicLandsDialog } from './basic-lands-dialog';
-import {
-  type CardDetail,
-  CardDetailRequests,
-  type CardDetailResult,
-  openCardDetail,
-} from './card-detail';
+import { CardDetailRequests, CardDetails, loadedPlaceholder } from './card-detail';
 import { DialogShell } from '../dialog-shell';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
@@ -171,7 +166,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucideTrash,
     SendsChange,
   ],
-  providers: [Changes, CardDetailRequests],
+  providers: [Changes, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
@@ -185,6 +180,7 @@ export class PlanTab {
   private readonly store = inject(DraftStore);
   private readonly dialogs = inject(DialogShell);
   private readonly injector = inject(Injector);
+  private readonly cardDetails = inject(CardDetails);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   /** A draft the signed-in user is playing in. */
@@ -268,8 +264,6 @@ export class PlanTab {
     Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
   );
 
-  /** The Card detail open, if any. */
-  private detail: DialogRef<CardDetailResult, CardDetail> | null = null;
   /** Whether a drag has started since the last press on a card, so that releasing it opens nothing. */
   private dragged = false;
 
@@ -381,11 +375,12 @@ export class PlanTab {
   protected openStacked(card: PlanBoardCard, event: MouseEvent) {
     if (this.endsDrag(event)) return;
     const poolCard = this.poolCardsById().get(card.poolCardId);
-    const loaded = (event.currentTarget as HTMLElement).querySelector('img');
-    const normal = poolCard && this.images.url(poolCard, 'normal');
     this.openDetail(
       card.poolCardId,
-      loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
+      loadedPlaceholder(
+        (event.currentTarget as HTMLElement).querySelector('img'),
+        poolCard && this.images.url(poolCard, 'normal'),
+      ),
     );
   }
 
@@ -410,8 +405,7 @@ export class PlanTab {
   private openDetail(poolCardId: string, tilePlaceholder: string | null) {
     const card = this.poolCardsById().get(poolCardId);
     if (!card) return;
-    this.detail?.close();
-    const detail = openCardDetail(this.dialogs, {
+    const detail = this.cardDetails.open({
       card,
       actions: computed(() => ({
         pick: this.store.offerPick(),
@@ -426,10 +420,6 @@ export class PlanTab {
       returnFocus: (_, opener) =>
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),
-    });
-    this.detail = detail;
-    detail.closed.subscribe(() => {
-      if (this.detail === detail) this.detail = null;
     });
   }
 

@@ -18,15 +18,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import type { DialogRef } from '@angular/cdk/dialog';
 import type { PoolCardView } from 'contract';
-import { DialogShell } from '../dialog-shell';
-import {
-  type CardDetail,
-  CardDetailRequests,
-  type CardDetailResult,
-  openCardDetail,
-} from './card-detail';
+import { CardDetailRequests, CardDetails, loadedPlaceholder } from './card-detail';
 import { CardImageSource, type ImageVersion } from './card-image-source';
 import { NORMAL_IMAGE } from './card-sizes';
 import { DraftStore } from './draft-store';
@@ -58,14 +51,14 @@ import { LoadingAnimation } from '../loading/loading-animation';
     TileImage,
     PlayerAvatar,
   ],
-  providers: [TileImageLoader, CardDetailRequests],
+  providers: [TileImageLoader, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pool-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './pool-tab.scss'],
 })
 export class PoolTab {
   private readonly store = inject(DraftStore);
-  private readonly dialogs = inject(DialogShell);
+  private readonly cardDetails = inject(CardDetails);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   protected readonly images = inject(CardImageSource);
@@ -176,8 +169,6 @@ export class PoolTab {
     return rows;
   });
 
-  /** The Card detail open, if any. */
-  private detail: DialogRef<CardDetailResult, CardDetail> | null = null;
   private readonly searchBox = viewChild.required<ElementRef<HTMLInputElement>>('searchBox');
   /** The countdown of the tile the mouse is resting on. */
   private resting?: ReturnType<typeof setTimeout>;
@@ -264,22 +255,17 @@ export class PoolTab {
   protected open(card: PoolCardView, tile: HTMLElement) {
     this.preloader.noteRequested(this.images.url(card, 'large'));
     for (let face = 1; face < card.images.length; face++) this.preloadLarge(card, face);
-    const loaded = tile.querySelector('img');
-    const normal = this.images.url(card, 'normal');
-    this.detail?.close();
-    const detail = openCardDetail(this.dialogs, {
+    this.cardDetails.open({
       card,
       actions: this.actions,
-      tilePlaceholder:
-        loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
+      tilePlaceholder: loadedPlaceholder(
+        tile.querySelector('img'),
+        this.images.url(card, 'normal'),
+      ),
       injector: this.injector,
       returnFocus: (result) =>
         (result === 'picked' && this.hidePicked() ? null : this.tileOf(card.id)) ??
         this.searchBox().nativeElement,
-    });
-    this.detail = detail;
-    detail.closed.subscribe(() => {
-      if (this.detail === detail) this.detail = null;
     });
   }
 
