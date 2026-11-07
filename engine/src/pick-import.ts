@@ -45,7 +45,7 @@ function parseCsv(text: string): string[][] | null {
     rows.push(row);
     row = [];
   };
-  // Stryker disable next-line MethodExpression: trim() strips U+FEFF anyway.
+  // Stryker disable next-line MethodExpression: `trim()` strips U+FEFF anyway.
   for (let i = text.startsWith('\uFEFF') ? 1 : 0; i < text.length; i++) {
     const char = text[i];
     if (quoted) {
@@ -153,7 +153,7 @@ export function readPickImport(
       const marker = index === 0 || index === seats + 1;
       const outside = marker
         ? !DIRECTION_MARKERS.has(cell)
-        : // Stryker disable next-line EqualityOperator: index seats + 1 is a marker and takes the other branch.
+        : // Stryker disable next-line EqualityOperator: index `seats + 1` is a marker and takes the other branch.
           index > seats + 1 && cell;
       if (outside) {
         problems.push(

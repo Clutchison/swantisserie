@@ -60,7 +60,7 @@ export function firstBracketRound(
 export function nextBracketRound(
   advancing: readonly (string | null)[],
 ): BracketMatch[] {
-  // Stryker disable next-line ArithmeticOperator: the extra places are null and filtered out.
+  // Stryker disable next-line ArithmeticOperator: the extra places are `null` and filtered out.
   return Array.from({ length: advancing.length / 2 }, (_, bracketPlace) => {
     const [first = null, second = null] = [
       advancing[2 * bracketPlace],
@@ -151,7 +151,7 @@ export function agreedAdvancingPlayer(
     roundCompleted ||
     outcome.kind !== 'GameScore' ||
     confirmed ||
-    // Stryker disable next-line ConditionalExpression: !players.includes(null) gives the same answer.
+    // Stryker disable next-line ConditionalExpression: `!players.includes(null)` gives the same answer.
     reportedBy === null ||
     !players.includes(reportedBy);
   if (!agreed) return { kind: 'NotAgreed' };
@@ -172,10 +172,10 @@ export function countAdvancing(
   return results.filter(
     (result) =>
       agreedAdvancingPlayer(
-        // Stryker disable next-line BooleanLiteral: a completed round returns before confirmed is read.
+        // Stryker disable next-line BooleanLiteral: `roundCompleted` is true for a completed tournament round, so `confirmed` is never read.
         { ...result, reportedBy: null, confirmed: false },
         dropped,
-        // Stryker disable next-line BooleanLiteral: reportedBy is null, so the result is agreed either way.
+        // Stryker disable next-line BooleanLiteral: `reportedBy` is `null`, so the result is agreed either way.
         true,
       ).kind === 'Player',
   ).length;
@@ -206,7 +206,7 @@ function nobodyWins(
 function droppedBeforeNextRoundPaired(
   playerId: string,
   dropped: readonly string[],
-  // Stryker disable next-line ArrayDeclaration: an extra id in the default list changes nothing.
+  // Stryker disable next-line ArrayDeclaration: an extra id in the default `nextRoundPlayers` changes nothing.
   nextRoundPlayers: readonly string[] = [],
 ): boolean {
   return dropped.includes(playerId) && !nextRoundPlayers.includes(playerId);
@@ -291,7 +291,7 @@ export function bracketRounds(
   dropped: readonly string[],
 ): BracketRound[] {
   const rounds: BracketRound[] = [];
-  // Stryker disable next-line ArrayDeclaration: an extra id in the empty list changes nothing.
+  // Stryker disable next-line ArrayDeclaration: every bracket place of tournament round 1 is paired, so `previous` is replaced before `fedBy` reads it.
   let previous: Advancing[] = [];
   for (let round = 1; round <= roundCount; round++) {
     const fedBy = (bracketPlace: number): BracketSide => {
@@ -348,7 +348,7 @@ function unpairedAdvancing(
 ): Advancing {
   if (first.kind === 'Bye') return { kind: 'Nobody' };
   if (second.kind !== 'Bye' || first.kind === 'WinnerToCome') {
-    // Stryker disable next-line ObjectLiteral,StringLiteral: any non-Player advancing value becomes winner to come in the next round, just as NotAgreed does.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: any `kind` but `Player` or `Nobody` becomes a winner to come in the next tournament round, just as `NotAgreed` does.
     return { kind: 'NotAgreed' };
   }
   return agreedAdvancingPlayer(
@@ -356,11 +356,11 @@ function unpairedAdvancing(
       players: [first.playerId, null],
       outcome: null,
       reportedBy: null,
-      // Stryker disable next-line BooleanLiteral: a bye returns before confirmed is read.
+      // Stryker disable next-line BooleanLiteral: a bye returns before `confirmed` is read.
       confirmed: false,
     },
     dropped,
-    // Stryker disable next-line BooleanLiteral: a bye returns before roundCompleted is read.
+    // Stryker disable next-line BooleanLiteral: a bye returns before `roundCompleted` is read.
     false,
   );
 }
@@ -410,7 +410,7 @@ export function singleEliminationStandings(
   players: readonly string[],
   matches: readonly SingleEliminationMatch[],
   byes: readonly string[],
-  // Stryker disable next-line ArrayDeclaration: an extra id in the default list changes nothing.
+  // Stryker disable next-line ArrayDeclaration: an extra id in the default `dropped` changes nothing.
   dropped: readonly string[] = [],
 ): Standing[] {
   const decided = matches.filter(
@@ -453,7 +453,7 @@ export function winnerOf({ players, outcome }: DecidedMatch): string | null {
   switch (outcome.kind) {
     case 'GameScore': {
       const [a, b] = outcome.games;
-      // Stryker disable next-line EqualityOperator: >= differs only on a drawn game score, which single elimination never accepts.
+      // Stryker disable next-line EqualityOperator: `>=` differs only on a drawn game score, which single elimination never accepts.
       if (a > b) return players[0];
       // Stryker disable next-line EqualityOperator,ConditionalExpression: these differ only on a drawn game score, which single elimination never accepts.
       return a < b ? players[1] : null;

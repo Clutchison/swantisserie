@@ -243,6 +243,6 @@ function compare(a: Cost, b: Cost): number {
 
 /** The same key for a pair of players whichever way round they are given. */
 function pairKey([a, b]: readonly [string, string]) {
-  // Stryker disable next-line EqualityOperator: the key stays the same whichever way round the two ids come.
+  // Stryker disable next-line EqualityOperator: the key stays the same whichever order the two ids come in.
   return a < b ? `${a}\n${b}` : `${b}\n${a}`;
 }
