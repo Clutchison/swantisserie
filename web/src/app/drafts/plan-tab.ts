@@ -6,6 +6,7 @@ import {
   computed,
   DestroyRef,
   effect,
+  ElementRef,
   inject,
   Injector,
   signal,
@@ -25,6 +26,12 @@ import type { Observable } from 'rxjs';
 import { LucideMinus, LucidePlus, LucideTrash } from '@lucide/angular';
 import { basicCard } from './basic-lands';
 import { BASIC_LANDS_HEADING, BasicLandsDialog } from './basic-lands-dialog';
+import {
+  type CardDetail,
+  CardDetailRequests,
+  type CardDetailResult,
+  openCardDetail,
+} from './card-detail';
 import { DialogShell } from '../dialog-shell';
 import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
@@ -74,6 +81,8 @@ interface PlanBoardCard extends PlannedCardView {
 interface PlanLine extends PlanBoardCard {
   /** How many copies the plan board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
   count: number;
+  /** Each copy's pool card id, in the order the plan board holds them. */
+  poolCardIds: string[];
   /**
    * What the line is tracked by: whether its copies are picked, unpicked or
    * a basic land's, and their name. Unlike `poolCardId`, it stays the same
@@ -135,7 +144,8 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 /**
  * The draft view's Plan tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; the buttons that open the Queue unpicked
+ * the unpicked cards they added; each card's Card detail, but a basic
+ * land's, to pick, queue or remove it from; the buttons that open the Queue unpicked
  * and Basic lands dialogs; and the Plan notice of their lost cards.
  *
  * On desktop each plan board shows as stacks of card images, grouped by mana
@@ -161,7 +171,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucideTrash,
     SendsChange,
   ],
-  providers: [Changes],
+  providers: [Changes, CardDetailRequests],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
@@ -175,6 +185,7 @@ export class PlanTab {
   private readonly store = inject(DraftStore);
   private readonly dialogs = inject(DialogShell);
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
@@ -256,6 +267,11 @@ export class PlanTab {
   protected readonly anythingToQueue = computed(() =>
     Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
   );
+
+  /** The Card detail open, if any. */
+  private detail: DialogRef<CardDetailResult, CardDetail> | null = null;
+  /** Whether a drag has started since the last press on a card, so that releasing it opens nothing. */
+  private dragged = false;
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
@@ -339,6 +355,78 @@ export class PlanTab {
     return this.tryChange(() => this.planApi.move(this.draftId(), card.poolCardId, planBoard), {
       keep: [this.moveKey(planBoard, card)],
       status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
+    });
+  }
+
+  /** A card on a plan board has been pressed, which may start a drag. */
+  protected pressed() {
+    this.dragged = false;
+  }
+
+  /** A drag of a card has started: no Card preview gets in its way, and its release opens no Card detail. */
+  protected dragStarted() {
+    this.dragged = true;
+    this.previews.dragStarted();
+  }
+
+  /**
+   * A stacked card clicked: opens its Card detail, showing its image while
+   * the large one loads, unless the click ends a drag. A keyboard's click
+   * (`detail` 0) ends none.
+   */
+  protected openStacked(card: PlanBoardCard, event: MouseEvent) {
+    if (this.dragged && event.detail > 0) return;
+    const poolCard = this.poolCardsById().get(card.poolCardId);
+    const loaded = (event.currentTarget as HTMLElement).querySelector('img');
+    const normal = poolCard && this.images.url(poolCard, 'normal');
+    this.openDetail(
+      card.poolCardId,
+      loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal ? normal : null,
+    );
+  }
+
+  /**
+   * A line's name clicked: opens the Card detail of its first copy not in
+   * the queue, or else of its first copy, unless the click ends a drag, as
+   * `openStacked`.
+   */
+  protected openLine(line: PlanLine, event: MouseEvent) {
+    if (this.dragged && event.detail > 0) return;
+    const queued = this.queued();
+    this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
+  }
+
+  /**
+   * Opens a pool card's Card detail, in place of any other. It offers what
+   * the Pool tab's does, but never Add to Plan, and its queue actions only
+   * while the card is unpicked in the plan. It stays open once the card is
+   * picked, by the player or another, and closes once it's removed from the
+   * plan. Focus then goes back to what opened it, or else to the first card
+   * that opens one.
+   */
+  private openDetail(poolCardId: string, tilePlaceholder: string | null) {
+    const card = this.poolCardsById().get(poolCardId);
+    if (!card) return;
+    this.detail?.close();
+    const detail = openCardDetail(this.dialogs, {
+      card,
+      actions: computed(() => ({
+        pick: this.store.offerPick(),
+        queue: this.store.offerQueue() && this.store.planned().has(poolCardId),
+        addToPlan: false,
+        removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
+      })),
+      tilePlaceholder,
+      injector: this.injector,
+      closesOnPick: false,
+      removedFromPlan: () => detail.close(),
+      returnFocus: (_, opener) =>
+        (opener?.isConnected ? opener : null) ??
+        this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),
+    });
+    this.detail = detail;
+    detail.closed.subscribe(() => {
+      if (this.detail === detail) this.detail = null;
     });
   }
 
@@ -429,8 +517,12 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
   for (const card of cards) {
     const key = `${card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked'} ${card.name}`;
     const line = byName.get(key);
-    if (line) line.count++;
-    else byName.set(key, { ...card, count: 1, key });
+    if (line) {
+      line.count++;
+      line.poolCardIds.push(card.poolCardId);
+    } else {
+      byName.set(key, { ...card, count: 1, poolCardIds: [card.poolCardId], key });
+    }
   }
   return [...byName.values()];
 }

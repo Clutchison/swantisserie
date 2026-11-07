@@ -20,6 +20,21 @@
   }
 }
 
+/* A name that opens its Card detail reads as the name it is, not as a button. */
+button.name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 /*
  * In a list of card rows, the cost and name fill the list's columns: costs
  * right-aligned in one, as wide as the widest, and names starting at one

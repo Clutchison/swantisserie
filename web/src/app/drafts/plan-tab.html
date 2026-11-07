@@ -7,6 +7,29 @@
     <svg lucidePlus size="16"></svg>
   }
 </ng-template>
+<!-- A stacked card's image, or its name while its pool card is unknown, and its Unpicked mark. -->
+<ng-template #stackedCard let-card>
+  @let poolCard = cardsById().get(card.poolCardId);
+  <div class="card">
+    @if (poolCard) {
+      <img
+        [attr.srcset]="images.srcset(poolCard)"
+        sizes="160px"
+        [src]="images.url(poolCard, 'normal')"
+        [alt]="card.name"
+        [width]="normalImage.width"
+        [height]="normalImage.height"
+        loading="lazy"
+        (error)="images.failed(poolCard, 'normal')"
+      />
+    } @else {
+      <span class="placeholder">{{ card.name }}</span>
+    }
+  </div>
+  @if (!card.picked) {
+    <span class="mark">Unpicked</span>
+  }
+</ng-template>
 @if (hasNotice()) {
   <div class="notice" role="status">
     <p>
@@ -116,43 +139,48 @@
                   <span class="count">{{ stack.cards.length }}</span>
                 </h4>
               }
-              <ul>
+              <!-- Named for screen readers, as the sideboard's stack has no header. -->
+              <ul [attr.aria-label]="stack.name">
                 @for (card of stack.cards; track card.poolCardId) {
                   @let poolCard = cardsById().get(card.poolCardId);
+                  @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
                   <li
                     [class.unpicked]="!card.picked"
                     cdkDrag
                     [cdkDragData]="card.poolCardId"
                     [cdkDragDisabled]="!!card.basic"
                     cdkDragPreviewContainer="parent"
-                    (cdkDragStarted)="previews.dragStarted()"
+                    (pointerdown)="pressed()"
+                    (cdkDragStarted)="dragStarted()"
                   >
-                    <!-- The card and its mark show a Card preview, not its buttons. It shows its card already, so it is no Tab stop. -->
-                    <div
-                      class="preview-target"
-                      [appCardPreview]="poolCard"
-                      [appCardPreviewTabStop]="false"
-                    >
-                      <div class="card">
-                        @if (poolCard) {
-                          <img
-                            [attr.srcset]="images.srcset(poolCard)"
-                            sizes="160px"
-                            [src]="images.url(poolCard, 'normal')"
-                            [alt]="card.name"
-                            [width]="normalImage.width"
-                            [height]="normalImage.height"
-                            loading="lazy"
-                            (error)="images.failed(poolCard, 'normal')"
-                          />
-                        } @else {
-                          <span class="placeholder">{{ card.name }}</span>
-                        }
+                    <!-- The card and its mark show a Card preview, not its buttons, and open its Card detail. A basic land, or a card whose pool card hasn't loaded, opens none: it shows its card already, so it is no Tab stop. -->
+                    @if (poolCard && !card.basic) {
+                      <button
+                        class="preview-target"
+                        type="button"
+                        aria-haspopup="dialog"
+                        [attr.aria-label]="cardLabel"
+                        [appCardPreview]="poolCard"
+                        [appCardPreviewOnTap]="false"
+                        (click)="openStacked(card, $event)"
+                      >
+                        <ng-container
+                          *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
+                        />
+                      </button>
+                    } @else {
+                      <div
+                        class="preview-target"
+                        role="img"
+                        [attr.aria-label]="cardLabel"
+                        [appCardPreview]="poolCard"
+                        [appCardPreviewTabStop]="false"
+                      >
+                        <ng-container
+                          *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
+                        />
                       </div>
-                      @if (!card.picked) {
-                        <span class="mark">Unpicked</span>
-                      }
-                    </div>
+                    }
                     <div class="actions">
                       <!-- A basic land stays on the mainboard. -->
                       @if (!card.basic && !deckLocked()) {
@@ -168,19 +196,6 @@
                           <ng-container
                             *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
                           />
-                        </button>
-                      }
-                      @if (!card.picked && offerRemoveFromPlan() && !deckLocked()) {
-                        @let removeName = 'Remove ' + card.name + ' from your plan';
-                        <button
-                          class="icon"
-                          type="button"
-                          [attr.aria-label]="removeName"
-                          [title]="removeName"
-                          (click)="remove(card.poolCardId)"
-                          [appSendsChange]="removeKey(planBoard.name, card)"
-                        >
-                          <svg lucideTrash size="16"></svg>
                         </button>
                       }
                     </div>
@@ -208,10 +223,17 @@
               [cdkDragData]="line.poolCardId"
               [cdkDragDisabled]="!!line.basic"
               cdkDragPreviewContainer="parent"
-              (cdkDragStarted)="previews.dragStarted()"
+              (pointerdown)="pressed()"
+              (cdkDragStarted)="dragStarted()"
             >
               <span class="count">{{ line.count }}</span>
-              <app-card-name [card]="cardsById().get(line.poolCardId)" [name]="line.name" />
+              <!-- A basic land opens no Card detail. -->
+              <app-card-name
+                [card]="cardsById().get(line.poolCardId)"
+                [name]="line.name"
+                [opensDetail]="!line.basic"
+                (opened)="openLine(line, $event)"
+              />
               <span class="line-actions">
                 @if (!line.picked) {
                   <span class="mark">Unpicked</span>

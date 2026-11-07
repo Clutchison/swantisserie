@@ -9,6 +9,7 @@ import {
   alertIn,
   button,
   controlByLabel,
+  group,
   heading,
   namedImages,
   viewOn,
@@ -232,12 +233,10 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    const lands = [...plan.querySelectorAll('.stack')].find(
-      (stack) => stack.querySelector('.stack-name')?.textContent?.trim() === 'Lands',
-    )!;
-    const images = [...lands.querySelectorAll('img')];
-    expect(images.map((image) => image.alt)).toEqual(['Island', 'Island']);
-    expect(images[0].getAttribute('src')).toBe(
+    const lands = plan.querySelector('ul[aria-label="Lands"]')!;
+    const images = [...lands.querySelectorAll('[role="img"]')];
+    expect(images.map((image) => image.getAttribute('aria-label'))).toEqual(['Island', 'Island']);
+    expect(images[0].querySelector('img')!.getAttribute('src')).toBe(
       'https://cards.scryfall.io/normal/front/3/6/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17.jpg',
     );
 
@@ -360,18 +359,23 @@ describe('basic lands on the plan tab', () => {
     expect(openDialog()).toBeNull();
   });
 
-  it('shows only the Basic lands button in the mode controls on mobile', async () => {
+  /** The buttons of the group of controls named `name`, by their text. */
+  const groupButtons = (plan: HTMLElement, name: string) =>
+    [...(group(plan, name)?.querySelectorAll('button') ?? [])].map((b) => b.textContent?.trim());
+
+  it('offers the Basic lands button, but no mode or grouping, on mobile', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
-    const controls = (plan: HTMLElement) =>
-      [...plan.querySelectorAll('.mode-controls button')].map((b) => b.textContent?.trim());
-    expect(controls(plan)).toEqual(['Basic lands']);
+
+    expect(button(plan, 'Basic lands')).toBeDefined();
+    expect(group(plan, 'Mode')).toBeNull();
+    expect(group(plan, 'Group by')).toBeNull();
   });
 
-  it('shows the Basic lands button after the view controls on desktop', async () => {
+  it('offers the mode, the grouping in stacks mode, and the Basic lands button on desktop', async () => {
     viewOn('desktop');
     onTestFinished(() => {
       vi.unstubAllGlobals();
@@ -381,13 +385,15 @@ describe('basic lands on the plan tab', () => {
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
-    const controls = () =>
-      [...plan.querySelectorAll('.mode-controls button')].map((b) => b.textContent?.trim());
-    expect(controls()).toEqual(['Stacks', 'List', 'Mana value', 'Color', 'Type', 'Basic lands']);
+    expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
+    expect(groupButtons(plan, 'Group by')).toEqual(['Mana value', 'Color', 'Type']);
+    expect(button(plan, 'Basic lands')).toBeDefined();
 
     button(plan, 'List')!.click();
     await fixture.whenStable();
-    expect(controls()).toEqual(['Stacks', 'List', 'Basic lands']);
+    expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
+    expect(group(plan, 'Group by')).toBeNull();
+    expect(button(plan, 'Basic lands')).toBeDefined();
   });
 
   it('adds two basics with + pressed twice in a row, focus staying on +', async () => {

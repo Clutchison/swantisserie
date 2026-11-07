@@ -95,17 +95,20 @@ describe('plan tab', () => {
       },
       { heading: 'Sideboard 1 (1 picked)', lines: ['1 Shivan Dragon'] },
     ]);
+    // Each name opens its Card detail.
     const [mainboard, sideboard] = plan.querySelectorAll('section');
-    expect(
-      [...mainboard.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')),
-    ).toEqual([
+    expect([...mainboard.querySelectorAll('button')].map(accessibleName)).toEqual([
+      'Brightclimb Pathway // Grimclimb Pathway',
       'Move Brightclimb Pathway // Grimclimb Pathway to the sideboard',
+      'Lightning Bolt',
       'Move Lightning Bolt to the sideboard',
+      'Shivan Dragon',
       'Move Shivan Dragon to the sideboard',
     ]);
-    expect(
-      [...sideboard.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Move Shivan Dragon to the mainboard']);
+    expect([...sideboard.querySelectorAll('button')].map(accessibleName)).toEqual([
+      'Shivan Dragon',
+      'Move Shivan Dragon to the mainboard',
+    ]);
   });
 
   it('says when a plan board is empty', async () => {

@@ -13,7 +13,7 @@ import {
   wait,
   previewImage,
   pointer,
-  tap,
+  text,
   drafting,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -35,21 +35,17 @@ useTallScreen();
 describe('plan tab', () => {
   describe('on desktop', () => {
     /**
-     * Each plan board's stacks as `name: card, card`, with ` (unpicked)` after a dimmed card;
-     * a stack with no header, as the sideboard's, as `card, card`.
+     * Each plan board's stacks as `name: card, card`, by the names a screen
+     * reader gives them, with ` (unpicked)` after an unpicked card: each card
+     * as the button that opens its Card detail, or a basic land's image.
      */
     const stacksOf = (plan: HTMLElement) =>
       [...plan.querySelectorAll('section')].map((planBoard) =>
-        [...planBoard.querySelectorAll('.stack')].map((stack) => {
-          const name = stack.querySelector('h4 .stack-name')?.textContent?.trim();
-          const held = [...stack.querySelectorAll('li')]
-            .map(
-              (item) =>
-                item.querySelector('img')?.alt +
-                (item.classList.contains('unpicked') ? ' (unpicked)' : ''),
-            )
+        [...planBoard.querySelectorAll('ul[aria-label]')].map((stack) => {
+          const held = [...stack.querySelectorAll('[aria-haspopup="dialog"], [role="img"]')]
+            .map((card) => card.getAttribute('aria-label'))
             .join(', ');
-          return name === undefined ? held : `${name}: ${held}`;
+          return `${stack.getAttribute('aria-label')}: ${held}`;
         }),
       );
     const pressed = (plan: HTMLElement, label: string) =>
@@ -79,7 +75,7 @@ describe('plan tab', () => {
           '1: Lightning Bolt, Lightning Bolt (unpicked)',
           'Lands: Brightclimb Pathway // Grimclimb Pathway',
         ],
-        ['Shivan Dragon'],
+        ['Sideboard: Shivan Dragon'],
       ]);
       expect(planBoards(plan).map((planBoard) => planBoard.heading)).toEqual([
         'Mainboard 3 (2 picked)',
@@ -97,7 +93,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
       const sideboard = [
-        'Lightning Bolt (unpicked), Shivan Dragon, Brightclimb Pathway // Grimclimb Pathway',
+        'Sideboard: Lightning Bolt (unpicked), Shivan Dragon, Brightclimb Pathway // Grimclimb Pathway',
       ];
 
       expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], sideboard]);
@@ -211,7 +207,7 @@ describe('plan tab', () => {
           sideboard: [planned(bolt)],
         }),
       );
-      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Lightning Bolt']));
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
       dropped('Shivan Dragon', mainboard, mainboard);
@@ -248,7 +244,7 @@ describe('plan tab', () => {
       http
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(planOf({ mainboard: [], sideboard: [planned(shivan)] }));
-      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Shivan Dragon']));
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
       const sideboard = dropLists()[1];
       sideboard.triggerEventHandler('cdkDropListDropped', {
         item: boltDrag,
@@ -287,8 +283,13 @@ describe('plan tab', () => {
         });
         const plan = await openPlan(fixture, page);
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-        const mark = plan.querySelector<HTMLElement>('.stack .unpicked .mark')!;
-        return { mark, image: mark.closest('li')!.querySelector('img')! };
+        const card = [...plan.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')].find(
+          (opener) => opener.getAttribute('aria-label') === 'Lightning Bolt (unpicked)',
+        )!;
+        const mark = [...card.querySelectorAll<HTMLElement>('*')].find(
+          (element) => text(element) === 'Unpicked',
+        )!;
+        return { mark, image: card.querySelector('img')! };
       }
       afterEach(() => vi.useRealTimers());
 
@@ -333,14 +334,6 @@ describe('plan tab', () => {
         moveMouse(image, mark);
         moveMouse(mark, image);
         wait(1000);
-        expect(previewImage()?.alt).toBe('Lightning Bolt');
-      });
-
-      it('opens the Card preview on a tap', async () => {
-        const { mark } = await openMark();
-
-        tap(mark);
-
         expect(previewImage()?.alt).toBe('Lightning Bolt');
       });
 

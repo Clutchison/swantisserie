@@ -244,6 +244,20 @@ ul {
   }
 }
 
+/* A stacked card that opens its Card detail is a button that looks like the card it holds. */
+button.preview-target {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: card-shape.$corners;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
 /* A stacked card's mark sits over its top left corner, always; its buttons over the right, while it's pointed at or focused. */
 .stack .mark {
   position: absolute;
