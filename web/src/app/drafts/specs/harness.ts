@@ -547,7 +547,8 @@ export const picksLeftTexts = (root: HTMLElement) =>
 
 /** The form controls with each role, by the selector that finds them. */
 const CONTROLS = {
-  textbox: 'textarea, input:not([type]), input[type="text"], input[type="url"]',
+  textbox:
+    'textarea, input:not([type]):not([role]), input[type="text"]:not([role]), input[type="url"]',
   spinbutton: 'input[type="number"]',
   radio: 'input[type="radio"]',
   checkbox: 'input[type="checkbox"]',
@@ -585,11 +586,43 @@ export const checkboxes = (root: HTMLElement) =>
     (box) => `${box.checked ? '☑' : '☐'} ${text(box.labels?.[0])}`,
   );
 
+/** The controls among `controls` whose label's own text is `label`. */
+const labelled = <C extends HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+  controls: NodeListOf<C>,
+  label: string,
+) =>
+  [...controls].filter((control) => [...(control.labels ?? [])].some((l) => ownText(l) === label));
+
 /** Every form control inside `root` with this role and label, in page order. */
 export const controlsByLabel = <R extends ControlRole>(root: HTMLElement, role: R, label: string) =>
-  [...root.querySelectorAll<ControlOf[R]>(CONTROLS[role])].filter((control) =>
-    [...(control.labels ?? [])].some((l) => ownText(l) === label),
-  );
+  labelled(root.querySelectorAll<ControlOf[R]>(CONTROLS[role]), label);
+
+/**
+ * An editable combobox inside `root`, by its label's own text: a text field
+ * with a list of options below it that narrows as the viewer types.
+ */
+export const editableCombobox = (root: HTMLElement, label: string) =>
+  labelled(root.querySelectorAll<HTMLInputElement>('input[role="combobox"]'), label)[0];
+/** The options an editable combobox's list offers, in order, by their text; none while it is closed. */
+export const comboboxOptions = (field: HTMLInputElement) =>
+  field.getAttribute('aria-expanded') === 'true'
+    ? [
+        ...(document
+          .getElementById(field.getAttribute('aria-controls')!)
+          ?.querySelectorAll<HTMLElement>('[role="option"]') ?? []),
+      ]
+    : [];
+/** The option an editable combobox highlights, by its text, if any. */
+export const highlightedOption = (field: HTMLInputElement) => {
+  const id = field.getAttribute('aria-activedescendant');
+  return id ? collapseWhitespace(document.getElementById(id)?.textContent ?? '') : null;
+};
+/** Types `value` into a text field, replacing what it held, and renders what came of it. */
+export function typeInto(field: HTMLInputElement, value: string) {
+  field.value = value;
+  field.dispatchEvent(new Event('input'));
+  TestBed.tick();
+}
 
 /** A form control inside `root`, by its role and its label's own text. */
 export const controlByLabel = <R extends ControlRole>(root: HTMLElement, role: R, label: string) =>

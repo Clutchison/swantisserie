@@ -1,0 +1,39 @@
+<label [for]="fieldId">Set</label>
+<input
+  #field
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+  type="text"
+  role="combobox"
+  autocomplete="off"
+  aria-autocomplete="list"
+  [id]="fieldId"
+  [value]="text()"
+  [attr.aria-expanded]="open()"
+  [attr.aria-controls]="open() ? listId : null"
+  [attr.aria-activedescendant]="open() ? (keys.activeItem?.id ?? null) : null"
+  (focus)="focused(field)"
+  (input)="input(field)"
+  (keydown)="keydown($event)"
+  (blur)="close()"
+/>
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open()"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayMatchWidth]="true"
+  cdkConnectedOverlayPanelClass="set-combobox-pane"
+>
+  <!-- Pressing the list keeps focus in the field, so it doesn't close before a click lands. -->
+  <div class="popup" (mousedown)="$event.preventDefault()">
+    <ul role="listbox" [id]="listId" aria-label="Sets">
+      @for (set of options(); track set.code) {
+        <li [appComboboxOption]="set" (click)="choose(set)">{{ setText(set) }}</li>
+      }
+    </ul>
+    @if (options().length === 0) {
+      <p role="status">No set matches</p>
+    }
+  </div>
+</ng-template>

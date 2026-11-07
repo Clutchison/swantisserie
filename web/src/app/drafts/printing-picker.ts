@@ -23,6 +23,7 @@ import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
 import { DraftStore } from './draft-store';
 import { PreferredPrintingsApi } from './preferred-printings-api';
+import { SetCombobox } from './set-combobox';
 
 /** The Printing picker's heading's id, which names the dialog. */
 export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
@@ -30,14 +31,15 @@ export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
 /**
  * The Printing picker, opened on the dialog shell from a basic land in the
  * signed-in player's own plan or deck, locked or not: a large image of a
- * printing of the land, which they browse set by set, newest set first, and
- * make their preferred printing, or go back to the default printing. It
+ * printing of the land, which they browse set by set, finding a set by
+ * typing part of its code or name, and make their preferred printing, or go back to the default printing. It
  * opens on the printing the land shows now. Browsing changes only the
  * picker; Cancel, Escape and the backdrop close it with no change.
  */
 @Component({
   selector: 'app-printing-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [SetCombobox],
   templateUrl: './printing-picker.html',
   styleUrls: ['../dialog.scss', './printing-picker.scss'],
 })
@@ -129,9 +131,9 @@ export class PrintingPicker implements OnInit {
     this.sets.set(sets);
   }
 
-  /** Shows the first printing of the set at `index`. */
-  protected chooseSet(index: string) {
-    this.setIndex.set(Number(index));
+  /** Shows the first printing of `set`. */
+  protected chooseSet(set: BasicLandPrintingSetView) {
+    this.setIndex.set(this.sets()?.indexOf(set) ?? 0);
     this.printingIndex.set(0);
   }
 

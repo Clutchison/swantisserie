@@ -1,4 +1,5 @@
 import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
+import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type {
   BasicLandPrintingsView,
@@ -14,8 +15,11 @@ import {
   completeSnapshot,
   alertIn,
   button,
+  comboboxOptions,
   controlByLabel,
+  editableCombobox,
   group,
+  highlightedOption,
   heading,
   namedImages,
   namedList,
@@ -24,12 +28,14 @@ import {
   drafting,
   router,
   openTab,
+  typeInto,
 } from './harness';
 import {
   clickBackdrop,
   hiddenFromAssistiveTech,
   openDialog,
   pressEscape,
+  pressKey,
   pressTab,
   text,
 } from '../../specs-harness';
@@ -539,7 +545,7 @@ describe('the Printing picker', () => {
     collectorNumber: number,
     images: { small: cdn('small', id), normal: cdn('normal', id), large: cdn('large', id) },
   });
-  /** Kaldheim's three, Core Set 2021's one and Onslaught's two, as the API groups them. */
+  /** Kaldheim's three, Core Set 2021's one, Dragons of Tarkir's one and Onslaught's two, as the API groups them. */
   const islands: BasicLandPrintingsView = {
     sets: [
       {
@@ -557,6 +563,12 @@ describe('the Printing picker', () => {
         name: 'Core Set 2021',
         releasedAt: '2020-07-03',
         printings: [printing('c0000000-0000-4000-8000-000000000250', 'm21', '250')],
+      },
+      {
+        code: 'dtk',
+        name: 'Dragons of Tarkir',
+        releasedAt: '2015-03-27',
+        printings: [printing('d0000000-0000-4000-8000-000000000250', 'dtk', '250')],
       },
       {
         code: 'ons',
@@ -604,13 +616,22 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
     return openDialog()!;
   }
-  /** The set dropdown in the open picker. */
-  const setChoice = () => controlByLabel(openDialog()!, 'combobox', 'Set')!;
-  /** Chooses the set the dropdown names `name`. */
+  /** The Set field in the open picker. */
+  const setField = () => editableCombobox(openDialog()!, 'Set');
+  /** The sets the Set field's list offers, by their text. */
+  const setOptions = () => comboboxOptions(setField()!).map((option) => text(option));
+  /** Moves focus to the Set field, which opens its list. */
+  function openSets() {
+    setField()!.blur();
+    setField()!.focus();
+    TestBed.tick();
+  }
+  /** Chooses the set whose option reads `name`, by a click on it. */
   async function chooseSet(fixture: AppFixture, name: string) {
-    const select = setChoice();
-    select.value = [...select.options].find((option) => option.text.trim() === name)!.value;
-    select.dispatchEvent(new Event('change'));
+    openSets();
+    comboboxOptions(setField()!)
+      .find((option) => text(option) === name)!
+      .click();
     await fixture.whenStable();
   }
   /** The printing the picker shows, by its image's name. */
@@ -648,12 +669,17 @@ describe('the Printing picker', () => {
     const { fixture, plan } = await openWith();
     const dialog = await openPicker(fixture, plan);
 
-    expect([...setChoice().options].map((option) => text(option))).toEqual([
-      'Kaldheim (2021)',
-      'Core Set 2021 (2020)',
-      'Onslaught (2002)',
+    expect(setField()!.value).toBe('Onslaught · ONS');
+    expect(setOptions()).toEqual([]);
+    openSets();
+    expect(setOptions()).toEqual([
+      'Kaldheim · KHM',
+      'Core Set 2021 · M21',
+      'Dragons of Tarkir · DTK',
+      'Onslaught · ONS',
     ]);
-    expect(text(setChoice().selectedOptions[0])).toBe('Onslaught (2002)');
+    expect(text(dialog)).not.toMatch(/\b(19|20)\d\d\b/);
+    pressEscape();
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(text(dialog)).toContain('ONS #335');
     expect(shownImage()).toBe(cdn('large', ONS_335));
@@ -668,12 +694,12 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
     expect(shownPrinting()).toBe('Island, ONS #336');
 
-    await chooseSet(fixture, 'Core Set 2021 (2020)');
+    await chooseSet(fixture, 'Core Set 2021 · M21');
     expect(shownPrinting()).toBe('Island, M21 #250');
     expect(button(dialog, 'Next printing')).toBeUndefined();
     expect(button(dialog, 'Previous printing')).toBeUndefined();
 
-    await chooseSet(fixture, 'Kaldheim (2021)');
+    await chooseSet(fixture, 'Kaldheim · KHM');
     expect(shownPrinting()).toBe('Island, KHM #394');
     for (const number of ['395', '396', '394']) {
       button(dialog, 'Next printing')!.click();
@@ -682,10 +708,122 @@ describe('the Printing picker', () => {
     }
   });
 
+  it('narrows the sets to those whose code or name holds what is typed, a set with that very code first', async () => {
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+    openSets();
+
+    typeInto(setField()!, 'kald');
+    expect(setOptions()).toEqual(['Kaldheim · KHM']);
+    typeInto(setField()!, 'M21');
+    expect(setOptions()).toEqual(['Core Set 2021 · M21']);
+    // Dragons of Tarkir is newer, but Onslaught's code is what was typed.
+    typeInto(setField()!, 'ONS');
+    expect(setOptions()).toEqual(['Onslaught · ONS', 'Dragons of Tarkir · DTK']);
+    typeInto(setField()!, 'o');
+    expect(setOptions()).toEqual([
+      'Core Set 2021 · M21',
+      'Dragons of Tarkir · DTK',
+      'Onslaught · ONS',
+    ]);
+  });
+
+  it('chooses the highlighted set on Enter, showing its first printing, while arrowing changes nothing', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+    openSets();
+    typeInto(setField()!, 'k');
+    expect(highlightedOption(setField()!)).toBe('Kaldheim · KHM');
+
+    pressKey(setField()!, 'ArrowDown');
+    expect(highlightedOption(setField()!)).toBe('Dragons of Tarkir · DTK');
+    pressKey(setField()!, 'ArrowUp');
+    expect(highlightedOption(setField()!)).toBe('Kaldheim · KHM');
+    expect(shownPrinting()).toBe('Island, ONS #335');
+
+    pressKey(setField()!, 'Enter');
+    await fixture.whenStable();
+    expect(openDialog()).toBe(dialog);
+    expect(shownPrinting()).toBe('Island, KHM #394');
+    expect(text(dialog)).toContain('1 of 3');
+    expect(setField()!.value).toBe('Kaldheim · KHM');
+    expect(setOptions()).toEqual([]);
+  });
+
+  it('opens the full list on the chosen set, its text selected so typing replaces it', async () => {
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+
+    openSets();
+
+    const field = setField()!;
+    expect(field.getAttribute('aria-expanded')).toBe('true');
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, 'Onslaught · ONS'.length]);
+    expect(highlightedOption(field)).toBe('Onslaught · ONS');
+    expect(setOptions()).toHaveLength(4);
+  });
+
+  it.each<[string, () => void]>([
+    ['Escape', pressEscape],
+    ['leaving the field', () => setField()!.blur()],
+  ])(
+    'restores the chosen set on %s without choosing, the picker staying open',
+    async (_, leave) => {
+      const { fixture, plan } = await openWith();
+      const dialog = await openPicker(fixture, plan);
+      openSets();
+      typeInto(setField()!, 'kald');
+      pressKey(setField()!, 'ArrowDown');
+
+      leave();
+      await fixture.whenStable();
+
+      expect(openDialog()).toBe(dialog);
+      expect(setField()!.value).toBe('Onslaught · ONS');
+      expect(setOptions()).toEqual([]);
+      expect(shownPrinting()).toBe('Island, ONS #335');
+    },
+  );
+
+  it('closes the picker on Escape once the list is closed', async () => {
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+    openSets();
+
+    pressEscape();
+    await fixture.whenStable();
+    expect(openDialog()).not.toBeNull();
+    pressEscape();
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+  });
+
+  it('says when no set matches, keeping the set last chosen', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+    button(dialog, 'Next printing')!.click();
+    await fixture.whenStable();
+    openSets();
+
+    typeInto(setField()!, 'zzz');
+    pressKey(setField()!, 'Enter');
+    await fixture.whenStable();
+
+    expect(setOptions()).toEqual([]);
+    // The list sits in the overlay, over the dialog.
+    expect(text(document.body)).toContain('No set matches');
+    expect(shownPrinting()).toBe('Island, ONS #336');
+    expect(text(dialog)).toContain('2 of 2');
+    button(dialog, 'Next printing')!.click();
+    await fixture.whenStable();
+    expect(shownPrinting()).toBe('Island, ONS #335');
+  });
+
   it('saves the printing shown as the preferred printing, which every copy of the land then shows', async () => {
     const { fixture, plan } = await openWith();
     const dialog = await openPicker(fixture, plan);
-    await chooseSet(fixture, 'Kaldheim (2021)');
+    await chooseSet(fixture, 'Kaldheim · KHM');
     // Browsing changes only the picker.
     expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
 
@@ -706,7 +844,7 @@ describe('the Printing picker', () => {
     );
     expect(islandImages(plan)).toEqual([cdn('normal', KHM_394), cdn('normal', KHM_394)]);
     const dialog = await openPicker(fixture, plan);
-    expect(text(setChoice().selectedOptions[0])).toBe('Kaldheim (2021)');
+    expect(setField()!.value).toBe('Kaldheim · KHM');
     expect(shownPrinting()).toBe('Island, KHM #394');
 
     button(dialog, 'Use default')!.click();
@@ -733,7 +871,7 @@ describe('the Printing picker', () => {
   ])('changes nothing on %s', async (_, close) => {
     const { fixture, plan } = await openWith();
     await openPicker(fixture, plan);
-    await chooseSet(fixture, 'Kaldheim (2021)');
+    await chooseSet(fixture, 'Kaldheim · KHM');
 
     close();
     await fixture.whenStable();
@@ -754,13 +892,13 @@ describe('the Printing picker', () => {
     const dialog = openDialog()!;
     expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
     expect(shownPrinting()).toBe('Island, ONS #335');
-    expect(setChoice()).toBeUndefined();
+    expect(setField()).toBeUndefined();
 
     button(dialog, 'Try again')!.click();
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
     await fixture.whenStable();
 
-    await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
+    await vi.waitFor(() => expect(setField()!.value).toBe('Onslaught · ONS'));
     expect(alertIn(dialog)).toBeNull();
   });
 
@@ -773,13 +911,13 @@ describe('the Printing picker', () => {
     button(dialog, 'Try again')!.click();
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
     await fixture.whenStable();
-    await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
+    await vi.waitFor(() => expect(setField()!.value).toBe('Onslaught · ONS'));
   });
 
   it('stays open with the error when saving fails, changing nothing', async () => {
     const { fixture, plan } = await openWith();
     const dialog = await openPicker(fixture, plan);
-    await chooseSet(fixture, 'Kaldheim (2021)');
+    await chooseSet(fixture, 'Kaldheim · KHM');
 
     button(dialog, 'Use this printing')!.click();
     http.expectOne(`/api/preferred-printings/Island`).flush(

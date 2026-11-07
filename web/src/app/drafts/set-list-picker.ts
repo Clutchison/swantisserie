@@ -20,6 +20,7 @@ import {
   type SetOptionView,
 } from 'contract';
 import { setListText } from './drafts';
+import { setsMatching } from './set-search';
 
 /** How often to ask again for the sets while the api is still counting their cards. */
 export const SET_CATALOG_POLL_MS = new InjectionToken<number>('SET_CATALOG_POLL_MS', {
@@ -59,12 +60,7 @@ export class SetListPicker implements ControlValueAccessor {
   );
   protected readonly search = signal('');
   /** The sets whose code or name holds what was searched for. */
-  protected readonly shown = computed(() => {
-    const search = this.search().trim().toLowerCase();
-    return this.sets().filter(
-      (set) => set.code.includes(search) || set.name.toLowerCase().includes(search),
-    );
-  });
+  protected readonly shown = computed(() => setsMatching(this.sets(), this.search()));
   protected readonly chosen = signal<SetListEntryView[]>([]);
   protected readonly chosenText = computed(() => setListText(this.chosen()));
   /** Each chosen set that has sublists, with what the picker offers of it. */
