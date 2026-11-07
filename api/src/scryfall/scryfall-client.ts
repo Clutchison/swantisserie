@@ -36,6 +36,8 @@ export interface ScryfallCard {
   /** The card's identity across printings; absent only on reversible cards, whose faces carry it. */
   oracle_id?: string;
   name: string;
+  /** The printing's language, e.g. `en`. */
+  lang: string;
   set: string;
   collector_number: string;
   type_line: string;
@@ -153,6 +155,13 @@ export abstract class ScryfallClient {
     game: string,
     oracleIds: string[],
   ): Promise<ScryfallCard[]>;
+
+  /**
+   * The printing with this Scryfall id, or null if there is none. Throws
+   * ScryfallUnavailableError if Scryfall itself is in trouble or can't be
+   * reached, even after retrying.
+   */
+  abstract card(id: string): Promise<ScryfallCard | null>;
 }
 
 @Injectable()
@@ -164,10 +173,26 @@ export class FetchScryfallClient extends ScryfallClient {
     const url = new URL(`${API}/cards/search`);
     url.searchParams.set('q', query);
     if (page > 1) url.searchParams.set('page', String(page));
+    return this.get(url.toString(), parseSearch);
+  }
 
+  async card(id: string): Promise<ScryfallCard | null> {
+    return this.get(`${API}/cards/${encodeURIComponent(id)}`, async (res) => {
+      // Scryfall answers an id that isn't one with a 400.
+      if (res.status === 404 || res.status === 400) return null;
+      if (!res.ok) throw new ScryfallUnavailableError(res.status);
+      return (await res.json()) as ScryfallCard;
+    });
+  }
+
+  /** Requests `url` and reads its answer with `parse`, retrying as Scryfall's trouble allows. */
+  private async get<T>(
+    url: string,
+    parse: (res: Response) => Promise<T>,
+  ): Promise<T> {
     for (let failures = 0; ; failures++) {
       try {
-        return await this.attempt(url.toString());
+        return await this.attempt(url, parse);
       } catch (err) {
         if (!isRetryable(err) || failures === RETRY_DELAYS_MS.length) throw err;
       }
@@ -193,10 +218,13 @@ export class FetchScryfallClient extends ScryfallClient {
     return cards;
   }
 
-  /** Sends the search and reads its answer, once. */
-  private async attempt(url: string): Promise<ScryfallSearchPage | null> {
+  /** Sends the request and reads its answer, once. */
+  private async attempt<T>(
+    url: string,
+    parse: (res: Response) => Promise<T>,
+  ): Promise<T> {
     try {
-      return await this.parse(await this.send(url));
+      return await parse(await this.send(url));
     } catch (err) {
       if (err instanceof UnreachableError) {
         throw ScryfallUnavailableError.unreachable(err);
@@ -222,30 +250,6 @@ export class FetchScryfallClient extends ScryfallClient {
     }
   }
 
-  private async parse(res: Response): Promise<ScryfallSearchPage | null> {
-    if (res.status === 404) return null;
-    if (res.status === 400) {
-      const error = (await res.json()) as ScryfallErrorBody;
-      throw new ScryfallRejectedSearchError(
-        error.details,
-        error.warnings ?? [],
-      );
-    }
-    if (!res.ok) throw new ScryfallUnavailableError(res.status);
-    const body = (await res.json()) as {
-      total_cards: number;
-      has_more: boolean;
-      data: ScryfallCard[];
-      warnings?: string[];
-    };
-    return {
-      totalCards: body.total_cards,
-      hasMore: body.has_more,
-      cards: body.data,
-      warnings: body.warnings ?? [],
-    };
-  }
-
   /** Reserves the next free slot synchronously, so concurrent requests queue up. */
   private async waitForTurn(): Promise<void> {
     const now = Date.now();
@@ -263,6 +267,28 @@ export class FetchScryfallClient extends ScryfallClient {
       Date.now() + RATE_LIMITED_WAIT_MS,
     );
   }
+}
+
+/** A search's page of results, or null if nothing matched. */
+async function parseSearch(res: Response): Promise<ScryfallSearchPage | null> {
+  if (res.status === 404) return null;
+  if (res.status === 400) {
+    const error = (await res.json()) as ScryfallErrorBody;
+    throw new ScryfallRejectedSearchError(error.details, error.warnings ?? []);
+  }
+  if (!res.ok) throw new ScryfallUnavailableError(res.status);
+  const body = (await res.json()) as {
+    total_cards: number;
+    has_more: boolean;
+    data: ScryfallCard[];
+    warnings?: string[];
+  };
+  return {
+    totalCards: body.total_cards,
+    hasMore: body.has_more,
+    cards: body.data,
+    warnings: body.warnings ?? [],
+  };
 }
 
 /** Whether a retry might help: a server error or no answer at all, but not rate limiting. */

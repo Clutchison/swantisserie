@@ -44,6 +44,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
 
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -63,6 +64,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
   });
 
@@ -97,12 +99,14 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [skewer],
       sideboard: [spike],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     // Moving it there again changes nothing.
     await movePlanned(id, ids['Lava Spike'], 'Sideboard', carolCookie).expect(
@@ -119,6 +123,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
   });
 
@@ -153,6 +158,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
   });
 
@@ -178,6 +184,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     // Alice isn't an app admin, and her plan holds Lightning Bolt.
     expect((await plan(id, aliceCookie).expect(200)).body.mainboard).toEqual([
@@ -215,6 +222,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     // A bot can't sign in to see its plan, but its picks land there too.
     const botPlan = await app.get(PrismaService).plannedCard.findMany({
@@ -262,6 +270,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     // Picked again, it lands on the mainboard, not where it was.
     await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
@@ -283,6 +292,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     await start(id).expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
@@ -304,6 +314,7 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
 
     await post(id, 'close').expect(200);
@@ -318,6 +329,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
 
     await post(id, 'reopen').expect(200);
@@ -334,6 +346,7 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      preferredPrintings: {},
     });
     // The draft itself is left alone.
     expect((await getDraft(id).expect(200)).body.version).toBe(

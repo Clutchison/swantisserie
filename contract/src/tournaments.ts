@@ -1,5 +1,5 @@
 import type { TournamentRefusal } from './draft-errors.js';
-import type { PlanBoards } from './plan.js';
+import type { PlanBoards, PreferredPrintings } from './plan.js';
 
 /** How a tournament pairs its players, chosen once at tournament setup. */
 export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
@@ -404,13 +404,16 @@ export type TournamentSetupRequest = (
 
 /**
  * A joined player's locked deck as others see it under public decklists,
- * as it was when the tournament started. From
+ * as it was when the tournament started, its basic lands showing its
+ * player's preferred printings as they are now. From
  * `GET /api/drafts/:id/tournament/decklists`, which serves one per joined
  * player, in join order, once `TournamentView.showsDecklists`.
  */
 export interface DecklistView extends PlanBoards {
   /** The player's Discord user id: a `PlayerView.id`. */
   playerId: string;
+  /** The player's preferred printings as they are now, not as they were at Start: a printing is not part of what the lock fixes. */
+  preferredPrintings: PreferredPrintings;
 }
 
 /** The fewest cards a joined human player's mainboard, picks plus basic lands, holds for the tournament to start. */

@@ -13,6 +13,7 @@ import { DraftReadsService } from './draft-reads.service.js';
 import { DraftsController } from './drafts.controller.js';
 import { DraftsGateway } from './drafts.gateway.js';
 import { PickImportService } from './pick-import.service.js';
+import { PreferredPrintingsController } from './preferred-printings.controller.js';
 import { PlansController } from './plans.controller.js';
 import { PlansService } from './plans.service.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
@@ -23,7 +24,12 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
 
 @Module({
   imports: [AuthModule, CubeCobraModule, DiscordModule, ScryfallModule],
-  controllers: [DraftsController, PlansController, QueuesController],
+  controllers: [
+    DraftsController,
+    PlansController,
+    PreferredPrintingsController,
+    QueuesController,
+  ],
   providers: [
     DraftLock,
     DraftAccess,

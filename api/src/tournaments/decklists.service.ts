@@ -3,6 +3,7 @@ import type { DecklistView } from 'contract';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import { readPlanBoards } from '../drafts/plans.service.js';
+import { readPreferredPrintings } from '../drafts/preferred-printings.js';
 import { decodeDecklist, encodeDecklist } from './decklist-json.js';
 import {
   NoTournamentError,
@@ -81,9 +82,15 @@ export class DecklistsService {
         message: 'Decklists are shown once the tournament starts.',
       });
     }
+    // Each player's preferred printings as they are now: not part of the snapshot.
+    const printings = await readPreferredPrintings(
+      this.prisma,
+      tournament.entries.map((entry) => entry.player.userId),
+    );
     return tournament.entries.map((entry) => ({
       playerId: entry.player.userId,
       ...decodeDecklist(entry.decklist),
+      preferredPrintings: printings.get(entry.player.userId)!,
     }));
   }
 }
