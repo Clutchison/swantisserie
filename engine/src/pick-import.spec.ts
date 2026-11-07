@@ -106,6 +106,14 @@ describe('readPickImport', () => {
       });
     });
 
+    it('reads cells missing from the end of a short row as empty', () => {
+      expect(read(',Ann,Ben,\n->,Ash Golem')).toMatchObject({
+        ok: true,
+        picks: [{ number: 1, seat: 0, poolCardId: 'ash golem' }],
+        next: { pick: 2, seat: 1 },
+      });
+    });
+
     it('reads a doubled quote in a quoted name', () => {
       const cards = [card('The "Big" One')];
       const csv = ',Ann,Ben,\n->,"The ""Big"" One",,';
@@ -188,6 +196,16 @@ describe('readPickImport', () => {
 
       expect(problems(csv)).toEqual([
         'Round 2 has no pick for Ben, but later picks are filled in.',
+      ]);
+    });
+
+    it('names a column with no player name by its number', () => {
+      const threePlayers = { players: 3, picksPerPlayer: 3 };
+      const csv = ',Ann,,Cid,\n->,Ash Golem,,Brine Wisp,';
+
+      expect(problems(csv, threePlayers)).toEqual([
+        'Column 2 of the header has no player name.',
+        'Round 1 has no pick for column 2, but later picks are filled in.',
       ]);
     });
 
@@ -300,6 +318,20 @@ describe('readPickImport', () => {
       const csv = ',Ann,Ben,\n->,Ash Golem,Ash Golem,\n,,Ash Golem,<-';
 
       expect(problems(csv, size, copies)).toEqual([
+        'Ash Golem appears 3 times, but the pool has 2 copies.',
+      ]);
+    });
+
+    it('counts only the uses of that card, among other picks and unknown names', () => {
+      const csv = [
+        ',Ann,Ben,',
+        '->,Ash Golem,Ash Golem,',
+        ',Unknown Card,Brine Wisp,<-',
+        '->,Ash Golem,,',
+      ].join('\n');
+
+      expect(problems(csv, size, copies)).toEqual([
+        'Unknown Card isn’t in this draft’s pool.',
         'Ash Golem appears 3 times, but the pool has 2 copies.',
       ]);
     });

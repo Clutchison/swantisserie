@@ -45,6 +45,7 @@ function parseCsv(text: string): string[][] | null {
     rows.push(row);
     row = [];
   };
+  // Stryker disable next-line MethodExpression: trim() strips U+FEFF anyway.
   for (let i = text.startsWith('\uFEFF') ? 1 : 0; i < text.length; i++) {
     const char = text[i];
     if (quoted) {
@@ -62,6 +63,7 @@ function parseCsv(text: string): string[][] | null {
     }
   }
   if (quoted) return null;
+  // Stryker disable next-line ConditionalExpression,EqualityOperator: a trailing empty row is blank, and blank rows are filtered out.
   if (cell || row.length > 0) endRow();
   return rows;
 }
@@ -123,6 +125,7 @@ export function readPickImport(
     };
   }
   // Blank lines aren't rounds, wherever they fall.
+  // Stryker disable next-line ArrayDeclaration: only reached for an empty file, where the columns come out empty either way.
   const [header = [], ...rows] = parsed.filter((row) => row.some(Boolean));
   const columns = header.slice(1);
   while (columns.at(-1) === '') columns.pop();
@@ -150,7 +153,8 @@ export function readPickImport(
       const marker = index === 0 || index === seats + 1;
       const outside = marker
         ? !DIRECTION_MARKERS.has(cell)
-        : index > seats + 1 && cell;
+        : // Stryker disable next-line EqualityOperator: index seats + 1 is a marker and takes the other branch.
+          index > seats + 1 && cell;
       if (outside) {
         problems.push(
           `Round ${round + 1} has “${cell}” outside the player columns.`,
@@ -235,7 +239,10 @@ export function readPickImport(
     problems.push(
       'The file makes every pick in the draft, so there would be nothing left to draft.',
     );
-  } else if (filled.length > allowed) {
+  } else if (
+    // Stryker disable next-line EqualityOperator: equality is caught by the branch above.
+    filled.length > allowed
+  ) {
     problems.push(
       `The file has ${filled.length} picks, but the draft allows ${allowed}.`,
     );
