@@ -1,6 +1,8 @@
 # The api tells the web a viewer's draft powers
 
-Only the api decides who may organize a draft, add bots and switch its announcements. The web doesn't work these out from the user and the draft. It reads them from the api once, when the draft page opens: `GET /api/drafts/:id/powers` answers with `DraftPowersView { organize, addBots, switchAnnouncements }` for the signed-in viewer (#341). Once guild admins act as organizer in their guild, the rule depends on the draft's guild and the guilds the viewer admins. If the web computed it too, the contract would have to describe guild membership only so the web could repeat the rule, and every change to the rule would have to land in two workspaces, with nothing to check that they agree.
+Status: Accepted
+
+Only the api decides who may organize a draft, add bots and switch its announcements. The web doesn't work these out from the user and the draft. It reads them from the api once, when the draft page opens: `GET /api/drafts/:id/powers` answers with `DraftPowersView { organize, addBots, switchAnnouncements }` for the signed-in viewer (#341). Once guild admins act as organizer in their guild, the rule depends on the draft's guild and the guilds the viewer admins. If the web computed it too, the contract would have to describe guild membership only so the web could repeat the rule, and every change to the rule would have to land in two workspaces, with nothing to check that they agree. The guild-admin part of the rule waits on the multi-guild work (ADR 0001, #352).
 
 ## Considered Options
 
@@ -13,4 +15,4 @@ Only the api decides who may organize a draft, add bots and switch its announcem
 
 - The web reads the powers once, not every time the draft's `version` changes. A viewer's powers depend only on who they are and the draft's organizer and guild, and none of these change while the draft runs (guild-admin status is refreshed at sign-in). Conditions that depend on the draft's state, such as adding bots only in the lobby, are still read from `DraftView`.
 - The api's draft access seam (#299) answers both the access checks and the powers view, so the two can't drift apart.
-- `UserView.isAppAdmin` stays only for app-admin pages that aren't about a draft: App version and Feedback.
+- `UserView.isAppAdmin` stays only for app-admin pages that aren't about a draft: App version, Feedback and Webhooks.

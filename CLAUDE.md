@@ -18,7 +18,7 @@ Every workspace caps its vitest workers in its own config, so run `npm test -w <
 
 - **Read** `GLOSSARY.md` before naming a domain concept: in code, tests, tickets, PRs or UI copy. Use its terms, not the ones it lists under _Avoid_.
 - **Write** to it, via the `domain-modeling` skill, the moment a domain term is introduced, renamed or redefined. Keep it a glossary: definitions only, no implementation detail.
-- **Respect** `docs/adr/`: read the ADRs that touch the area you work in, and say so explicitly when your work contradicts one.
+- **Respect** `docs/adr/`: read the ADRs that touch the area you work in, and say so explicitly when your work contradicts one. Read `docs/agents/adrs.md` before writing an ADR, and whenever your change contradicts an ADR, makes something in one untrue, or builds one marked not yet built.
 
 ## Tickets
 

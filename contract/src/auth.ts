@@ -3,7 +3,11 @@ export interface UserView {
   id: string;
   name: string;
   avatarUrl: string;
-  /** App admins have organizer powers on every draft. */
+  /**
+   * App admins have organizer powers on every draft, which the web reads from
+   * the draft powers (ADR 0003), not from here. It reads this only for the
+   * app-admin pages that aren't about a draft.
+   */
   isAppAdmin: boolean;
 }
 

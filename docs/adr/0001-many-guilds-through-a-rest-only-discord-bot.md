@@ -1,8 +1,10 @@
 # Serve many guilds through a REST-only Discord bot
 
-v1 served one guild, fixed in config, and talked to Discord only through webhooks an app admin pasted in by hand, with no bot (see `PLAN.md`). We now let any guild use the app: a guild admin adds our Discord bot to their guild and sets it up, and the bot creates and archives a draft channel for each draft. A user sees only the drafts of the guilds they belong to, and access comes from their own Discord sign-in (the `guilds` scope gives each guild's ownership and permissions), not from per-guild config.
+Status: Accepted, not yet built (#352)
 
-The Discord bot uses Discord's REST API only, with no gateway connection, so the app still needs no always-on process or extra hosting. Without a gateway, the app learns that the bot was removed from a guild only when its next call there fails. Slash commands, if added later, arrive through an HTTP interactions endpoint on the existing api, which also needs no gateway.
+v1 served one guild, fixed in config, and talked to Discord only through webhooks an app admin pasted in by hand, with no bot (see `PLAN.md`). We let any guild use the app: a guild admin adds our Discord bot to their guild and sets it up, and the bot creates and archives a draft channel for each draft. A user sees only the drafts of the guilds they belong to, and access comes from their own Discord sign-in (the `guilds` scope gives each guild's ownership and permissions), not from per-guild config.
+
+The app runs on one Heroku eco dyno that sleeps after 30 minutes idle (`PLAN.md`, Stack), which keeps it at about $5 a month and is fine because a roto draft has no turn timers. So the Discord bot uses Discord's REST API only, with no gateway connection, and the app still needs no always-on process or extra hosting. Without a gateway, the app learns that the bot was removed from a guild only when its next call there fails. Slash commands, if added later, arrive through an HTTP interactions endpoint on the existing api, which also needs no gateway.
 
 ## Considered Options
 
