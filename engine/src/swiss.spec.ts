@@ -178,6 +178,16 @@ describe('pairSwissRound', () => {
     }
   });
 
+  it('pairs no matches and gives no bye when every player has dropped', () => {
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: standingsOf(['a', 6], ['b', 3], ['c', 0]),
+      dropped: ['a', 'b', 'c'],
+      rngSeed: 1,
+    });
+    expect(round).toEqual({ matches: [], bye: null });
+  });
+
   it('is deterministic for an RNG seed, and pairs round 1 at random', () => {
     const players = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
     const roundOne = (rngSeed: number) =>
@@ -374,6 +384,23 @@ describe('swissStandings', () => {
     expect(first.opponentsGameWinPercent).toBeCloseTo(63.33, 1);
     expect(second.opponentsGameWinPercent).toBeCloseTo(58.33, 1);
     expect(second.rank).toBe(2);
+  });
+
+  it("counts a draw with a drawn game in an opponent's tiebreakers: 1 match point for the draw, 1 game point for the drawn game", () => {
+    // a drew b 1–1 with a drawn game, then beat d 2–0: 4 of 6 match points
+    // (66.7%) and 10 of 15 game points (66.7%). c beat d 2–1 and b 2–0: 100%
+    // and 12 of 15 game points (80%). So d met a and c: opponents' match-win
+    // % (66.7 + 100) / 2 = 83.3, opponents' game-win % (66.7 + 80) / 2 = 73.3.
+    const matches = [
+      played('a', 'b', [1, 1], 1),
+      played('c', 'd', [2, 1]),
+      played('a', 'd', [2, 0]),
+      played('c', 'b', [2, 0]),
+    ];
+    const ranked = swissStandings(['a', 'b', 'c', 'd'], matches, []);
+    const d = standingFor(ranked, 'd');
+    expect(d.opponentsMatchWinPercent).toBeCloseTo(83.3, 1);
+    expect(d.opponentsGameWinPercent).toBeCloseTo(73.3, 1);
   });
 
   it("leaves byes out of opponents' percentages, but not out of the bye's player's own", () => {
