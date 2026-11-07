@@ -1,3 +1,5 @@
+@use 'visually-hidden';
+
 /* You can add global styles to this file, and also import other style files */
 
 /*
@@ -260,13 +262,7 @@ textarea {
 }
 
 .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  @include visually-hidden.visually-hidden;
 }
 
 /* Only the opening: nothing here waits for it, and buttons work from the start. */

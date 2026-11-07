@@ -1,4 +1,5 @@
 @use './card-shape';
+@use '../../visually-hidden';
 
 /* How far a card is darkened to set it apart: see the Pool tab's styles. */
 $dimmed-card: brightness(0.35);
@@ -90,16 +91,20 @@ ul {
 
 .line-actions {
   display: flex;
-  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-sm);
 }
 
-/* The buttons wrap under the name where the panel is too narrow for both. */
+/*
+ * A line keeps to one row at every width: where the panel is narrow, its name gives up the width
+ * and is cut off. There, the Unpicked mark is hidden but still read by screen readers, as the
+ * dimmed line already marks it on screen. A class in the template can't follow the container
+ * query, so this includes the mixin behind the global .visually-hidden.
+ */
 @container (width < 26rem) {
-  .line-actions {
-    grid-column: name / -1;
+  .line-actions .mark {
+    @include visually-hidden.visually-hidden;
   }
 }
 
