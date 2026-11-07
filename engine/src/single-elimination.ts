@@ -336,21 +336,18 @@ export function bracketRounds(
 }
 
 /**
- * Who a bracket place not yet paired, its sides `first` and `second`, sends
- * on: the player with its bye, as for a paired bye; nobody from two byes;
- * otherwise not agreed until it is paired and played.
+ * Who a bracket place not yet paired, its sides `first` and `second` (a bye
+ * second when it has one), sends on: nobody from two byes; the player with
+ * its bye, as for a paired bye; otherwise not agreed until it is paired and
+ * played.
  */
 function unpairedAdvancing(
   first: BracketSide,
   second: BracketSide,
   dropped: readonly string[],
 ): Advancing {
-  if (second.kind !== 'Bye') {
-    // Stryker disable next-line ObjectLiteral,StringLiteral: any non-Player advancing value becomes winner to come in the next round, just as NotAgreed does.
-    return { kind: 'NotAgreed' };
-  }
   if (first.kind === 'Bye') return { kind: 'Nobody' };
-  if (first.kind === 'WinnerToCome') {
+  if (second.kind !== 'Bye' || first.kind === 'WinnerToCome') {
     // Stryker disable next-line ObjectLiteral,StringLiteral: any non-Player advancing value becomes winner to come in the next round, just as NotAgreed does.
     return { kind: 'NotAgreed' };
   }
