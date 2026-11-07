@@ -258,7 +258,7 @@ describe('pairSwissRound', () => {
     expect(seen.size).toBeGreaterThan(1);
   });
 
-  it('pairs players best first among equally good ways of pairing, whatever the RNG seed', () => {
+  it('takes the way of pairing that comes first in standings order when several are equally good, whatever the RNG seed', () => {
     // Every way of pairing is free of rematches and pair-downs; no players
     // share a rank, so the RNG seed has nothing to order.
     for (const rngSeed of [1, 2, 3, 4, 5]) {
