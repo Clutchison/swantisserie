@@ -369,13 +369,17 @@ export class PlanTab {
     this.previews.dragStarted();
   }
 
+  /** Whether a click on a card ends a drag of it. A keyboard's click (`detail` 0) ends none. */
+  private endsDrag(event: MouseEvent) {
+    return this.dragged && event.detail > 0;
+  }
+
   /**
    * A stacked card clicked: opens its Card detail, showing its image while
-   * the large one loads, unless the click ends a drag. A keyboard's click
-   * (`detail` 0) ends none.
+   * the large one loads, unless the click ends a drag.
    */
   protected openStacked(card: PlanBoardCard, event: MouseEvent) {
-    if (this.dragged && event.detail > 0) return;
+    if (this.endsDrag(event)) return;
     const poolCard = this.poolCardsById().get(card.poolCardId);
     const loaded = (event.currentTarget as HTMLElement).querySelector('img');
     const normal = poolCard && this.images.url(poolCard, 'normal');
@@ -387,11 +391,10 @@ export class PlanTab {
 
   /**
    * A line's name clicked: opens the Card detail of its first copy not in
-   * the queue, or else of its first copy, unless the click ends a drag, as
-   * `openStacked`.
+   * the queue, or else of its first copy, unless the click ends a drag.
    */
   protected openLine(line: PlanLine, event: MouseEvent) {
-    if (this.dragged && event.detail > 0) return;
+    if (this.endsDrag(event)) return;
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
   }

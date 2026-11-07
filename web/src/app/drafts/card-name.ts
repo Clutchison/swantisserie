@@ -56,6 +56,7 @@ export class CardName {
   readonly name = input.required<string>();
   /** Whether pressing the name opens its Card detail, which `opened` asks for. */
   readonly opensDetail = input(false);
+  /** The name has been pressed, with `opensDetail`: its Card detail should open. */
   readonly opened = output<MouseEvent>();
 
   protected readonly symbols = computed(() => {

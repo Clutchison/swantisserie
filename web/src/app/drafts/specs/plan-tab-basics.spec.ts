@@ -12,6 +12,7 @@ import {
   group,
   heading,
   namedImages,
+  namedList,
   viewOn,
   type AppFixture,
   drafting,
@@ -25,7 +26,7 @@ import {
   pressTab,
 } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
-import { bobsTurn, bolt, openPlan, planBoards, planned } from './plan-tab-harness';
+import { bobsTurn, bolt, openPlan, planBoards, planned, stack } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -233,10 +234,8 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    const lands = plan.querySelector('ul[aria-label="Lands"]')!;
-    const images = [...lands.querySelectorAll('[role="img"]')];
-    expect(images.map((image) => image.getAttribute('aria-label'))).toEqual(['Island', 'Island']);
-    expect(images[0].querySelector('img')!.getAttribute('src')).toBe(
+    expect(stack(plan, 'Lands')).toEqual(['Island', 'Island']);
+    expect(namedImages(namedList(plan, 'Lands'))[0].getAttribute('src')).toBe(
       'https://cards.scryfall.io/normal/front/3/6/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17.jpg',
     );
 

@@ -27,6 +27,8 @@ import {
   planOf,
   openPlan,
   planBoards,
+  detailOpener,
+  stacksOf,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -34,20 +36,6 @@ useTallScreen();
 
 describe('plan tab', () => {
   describe('on desktop', () => {
-    /**
-     * Each plan board's stacks as `name: card, card`, by the names a screen
-     * reader gives them, with ` (unpicked)` after an unpicked card: each card
-     * as the button that opens its Card detail, or a basic land's image.
-     */
-    const stacksOf = (plan: HTMLElement) =>
-      [...plan.querySelectorAll('section')].map((planBoard) =>
-        [...planBoard.querySelectorAll('ul[aria-label]')].map((stack) => {
-          const held = [...stack.querySelectorAll('[aria-haspopup="dialog"], [role="img"]')]
-            .map((card) => card.getAttribute('aria-label'))
-            .join(', ');
-          return `${stack.getAttribute('aria-label')}: ${held}`;
-        }),
-      );
     const pressed = (plan: HTMLElement, label: string) =>
       button(plan, label)?.getAttribute('aria-pressed');
 
@@ -283,9 +271,7 @@ describe('plan tab', () => {
         });
         const plan = await openPlan(fixture, page);
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-        const card = [...plan.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')].find(
-          (opener) => opener.getAttribute('aria-label') === 'Lightning Bolt (unpicked)',
-        )!;
+        const card = detailOpener(plan, 'Lightning Bolt (unpicked)')!;
         const mark = [...card.querySelectorAll<HTMLElement>('*')].find(
           (element) => text(element) === 'Unpicked',
         )!;

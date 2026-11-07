@@ -35,6 +35,8 @@ import {
   unpicked,
   planOf,
   openPlan,
+  detailOpener,
+  stack,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -42,18 +44,6 @@ useTallScreen();
 
 /** Alice's turn, on the draft's third pick. */
 const alicesTurn = { ...bobsTurn, playerId: alice.id };
-
-/** A stacked card that opens nothing, by its name. */
-const stackedImage = (plan: HTMLElement, name: string) =>
-  [...plan.querySelectorAll<HTMLElement>('[role="img"]')].find(
-    (image) => image.getAttribute('aria-label') === name,
-  );
-
-/** The control that opens a card's Card detail, by the name it gives the card. */
-const opener = (plan: HTMLElement, name: string) =>
-  [...plan.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')].find(
-    (control) => (control.getAttribute('aria-label') ?? control.textContent?.trim()) === name,
-  );
 
 describe('plan tab', () => {
   describe('in list mode', () => {
@@ -64,7 +54,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      opener(plan, 'Shivan Dragon')!.click();
+      detailOpener(plan, 'Shivan Dragon')!.click();
       await fixture.whenStable();
 
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');
@@ -76,7 +66,7 @@ describe('plan tab', () => {
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      const name = opener(plan, 'Shivan Dragon')!;
+      const name = detailOpener(plan, 'Shivan Dragon')!;
 
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       try {
@@ -104,7 +94,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      expect(opener(plan, 'Swamp')).toBeUndefined();
+      expect(detailOpener(plan, 'Swamp')).toBeUndefined();
       tap(cardName(plan, 'Swamp'));
       await fixture.whenStable();
 
@@ -120,7 +110,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      opener(plan, 'Lightning Bolt')!.click();
+      detailOpener(plan, 'Lightning Bolt')!.click();
       await fixture.whenStable();
       button(openDialog()!, 'Add to queue')!.click();
 
@@ -137,7 +127,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      opener(plan, 'Lightning Bolt')!.click();
+      detailOpener(plan, 'Lightning Bolt')!.click();
       await fixture.whenStable();
       button(openDialog()!, 'Remove from queue')!.click();
 
@@ -170,16 +160,16 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      opener(plan, 'Shivan Dragon')!.click();
+      detailOpener(plan, 'Shivan Dragon')!.click();
       await fixture.whenStable();
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');
       button(openDialog()!, 'Close')!.click();
       await fixture.whenStable();
 
       tap(
-        [...opener(plan, 'Lightning Bolt (unpicked)')!.querySelectorAll<HTMLElement>('*')].find(
-          (mark) => text(mark) === 'Unpicked',
-        )!,
+        [
+          ...detailOpener(plan, 'Lightning Bolt (unpicked)')!.querySelectorAll<HTMLElement>('*'),
+        ].find((mark) => text(mark) === 'Unpicked')!,
       );
       await fixture.whenStable();
       expect(previewImage()).toBeNull();
@@ -196,7 +186,7 @@ describe('plan tab', () => {
         plan: planOf({ mainboard: [planned(shivan)] }),
       });
       const plan = await openPlan(fixture, page);
-      const shivanCard = opener(plan, 'Shivan Dragon')!;
+      const shivanCard = detailOpener(plan, 'Shivan Dragon')!;
       const drag = fixture.debugElement
         .queryAll(By.directive(CdkDrag))
         .find((item) => item.nativeElement.contains(shivanCard))!;
@@ -230,8 +220,8 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      expect(stackedImage(plan, 'Island')).toBeDefined();
-      expect(opener(plan, 'Island')).toBeUndefined();
+      expect(stack(plan, 'Lands')).toEqual(['Island']);
+      expect(detailOpener(plan, 'Island')).toBeUndefined();
     });
 
     it('offers Move on a card but no Remove, which its Card detail offers', async () => {
@@ -243,7 +233,7 @@ describe('plan tab', () => {
 
       expect(button(plan, 'Move Lightning Bolt to the sideboard')).toBeDefined();
       expect(button(plan, 'Remove Lightning Bolt from your plan')).toBeUndefined();
-      opener(plan, 'Lightning Bolt (unpicked)')!.click();
+      detailOpener(plan, 'Lightning Bolt (unpicked)')!.click();
       await fixture.whenStable();
       expect(button(openDialog()!, 'Remove from Plan')).toBeDefined();
     });
@@ -258,7 +248,7 @@ describe('plan tab', () => {
         ...opened,
         tab,
         open: async (name: string) => {
-          opener(tab, name)!.click();
+          detailOpener(tab, name)!.click();
           await opened.fixture.whenStable();
           return openDialog()!;
         },
@@ -269,7 +259,7 @@ describe('plan tab', () => {
         (control) => `${control.textContent?.trim()}${control.disabled ? ' (disabled)' : ''}`,
       );
 
-    it('offers queue changes and Remove from Plan on an unpicked card off the player’s turn, but not Pick or Add to Plan', async () => {
+    it('offers queue changes and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Plan', async () => {
       const { open } = await openFromPlan(
         { turn: bobsTurn },
         planOf({ mainboard: [planned(shivan), unpicked(brightclimb)] }),
@@ -332,7 +322,7 @@ describe('plan tab', () => {
       req.flush(planOf({ mainboard: [planned(brightclimb)] }));
       await vi.waitFor(() => expect(openDialog()).toBeNull());
 
-      expect(opener(tab, 'Shivan Dragon')).toBeUndefined();
+      expect(detailOpener(tab, 'Shivan Dragon')).toBeUndefined();
     });
 
     it('stays open once the player picks the card, which is then a pick in the plan', async () => {
