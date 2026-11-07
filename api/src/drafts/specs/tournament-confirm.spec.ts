@@ -3,13 +3,18 @@ import {
   aliceCookie,
   bob,
   carol,
+  completeRound,
   completeTournament,
+  cookiesByPlayer,
   confirmMatch,
   matchOf,
   playingTournament,
+  reportCurrentRound,
   reportWin,
   setWin,
   signIn,
+  swiss,
+  tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -92,5 +97,23 @@ describe('confirming a match', () => {
     await confirmMatch(id, match.id, bobCookie).expect(200);
 
     expect((await matchOf(id, alice.id, bob.id)).confirmed).toBe(true);
+  });
+
+  it('lets the opponent confirm a match of a completed Swiss tournament round, changing nothing else in it', async () => {
+    const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
+    const id = await playingTournament(cookies, swiss());
+    const cookieOf = await cookiesByPlayer(id, cookies);
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    const [completed] = (await tournamentView(id)).rounds;
+    const [match, other] = completed.matches;
+    expect(match.confirmed).toBe(false);
+
+    await confirmMatch(id, match.id, cookieOf[match.players[1]]).expect(200);
+
+    expect((await tournamentView(id)).rounds[0]).toEqual({
+      ...completed,
+      matches: [{ ...match, confirmed: true }, other],
+    });
   });
 });

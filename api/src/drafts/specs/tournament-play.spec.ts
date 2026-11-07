@@ -2,14 +2,19 @@ import {
   alice,
   aliceCookie,
   bob,
+  byeId,
   carol,
+  completeRound,
   completeTournament,
+  cookiesByPlayer,
   matchOf,
   playingTournament,
+  reportCurrentRound,
   reportMatch,
   reportWin,
   setBasic,
   signIn,
+  swiss,
   tournamentView,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -127,6 +132,36 @@ describe('reporting a match', () => {
     }).expect(404);
 
     expect(answer.body.error).toBe('no-match');
+  });
+
+  it('answers 404 no-match for a bye, even to the player who has it', async () => {
+    const cookies = [aliceCookie, bobCookie, carolCookie];
+    const id = await playingTournament(cookies, swiss());
+    const [bye] = (await tournamentView(id)).rounds[0].byes;
+    const cookieOf = await cookiesByPlayer(id, cookies);
+
+    const answer = await reportMatch(id, await byeId(id), cookieOf[bye], {
+      games: [2, 0],
+    }).expect(404);
+
+    expect(answer.body.error).toBe('no-match');
+  });
+
+  it('refuses a match of a completed Swiss tournament round as reported, leaving the tournament round’s game scores as they were', async () => {
+    const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
+    const id = await playingTournament(cookies, swiss());
+    const cookieOf = await cookiesByPlayer(id, cookies);
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    const [completed] = (await tournamentView(id)).rounds;
+    const [match] = completed.matches;
+
+    const answer = await reportMatch(id, match.id, cookieOf[match.players[1]], {
+      games: [0, 2],
+    }).expect(409);
+
+    expect(answer.body.error).toBe('match-reported');
+    expect((await tournamentView(id)).rounds[0]).toEqual(completed);
   });
 });
 
