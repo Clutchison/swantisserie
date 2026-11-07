@@ -18,14 +18,21 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 
 ## Pool
 
-- The organizer pastes a **Scryfall query**. Every card in the results is in the pool.
-- **Platform validation:** the app runs `(q) -in:<platform>` for the draft's platform (`arena` or `mtgo`). If that returns any cards, creation fails and lists the cards that aren't on the platform. (Not `-game:<platform>`: `game:` matches printings, so it would also catch cards on the platform that have a printing off it.)
-- **Snapshot:** a background job pages through `(q) <no basic lands> game:<platform> unique:cards` (175/page, ≤2 req/s, progress bar), which leaves out the basic lands, and stores per card:
+The organizer picks one **pool source** when creating the draft: a **pool query** or a **cube link**. Either way, the pool leaves out the basic lands, and every pool card has a printing on the draft's platform (`arena` or `mtgo`).
+
+- **Pool query:** the organizer enters a Scryfall search. Every card in the results is in the pool, once.
+  - **Platform validation:** the app runs `(q) -in:<platform>` for the draft's platform. If that returns any cards, creation fails and lists the cards that aren't on the platform. (Not `-game:<platform>`: `game:` matches printings, so it would also catch cards on the platform that have a printing off it.)
+  - **Snapshot:** after creation, a background job pages through `(q) <no basic lands> game:<platform> unique:cards` (175/page, ≤2 req/s, progress bar).
+- **Cube link:** the organizer gives a CubeCobra cube link or a bare cube id. Only the cube's mainboard goes in the pool.
+  - **Validation:** creation fails if it isn't a cube link, if no public cube has that id, or if the mainboard holds no cards once the basic lands are left out.
+  - **Platform validation:** each card is looked up by `oracle_id` for a printing on the platform, since the cube's own chosen printing often isn't on it. If any card has no printing on the platform, creation fails and lists those cards.
+  - **Snapshot:** taken whole while the draft is created, in the same pass as the check, so the pool is complete as soon as the draft exists. A cube that lists a card more than once keeps every copy as its own pool card.
+- The snapshot stores per pool card:
   - name, `oracle_id`, the `id` of its printing on the platform, set code, collector number
   - type line, colors, mana value
   - for the pool search: oracle text, mana cost, color identity, keywords, rarity, power/toughness/loyalty, per face
   - image URLs (`small`/`normal`/`large`, per face for double-faced cards)
-- The pool is **frozen at creation**: no changes after the snapshot.
+- The pool is **frozen once its pool snapshot is complete**: no changes after that. The pool source never changes after creation.
 - Starting the draft fails if `picks per player × players > pool size`. It is checked at start, not at creation, since a new draft has no players.
 - No local Scryfall bulk database.
 
@@ -37,7 +44,7 @@ Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/
 - **Singleton**: a card can be picked only once.
 - **No turn timers.**
 - **Lifecycle:** Lobby → Drafting ⇄ Paused → Complete; Drafting or Paused → Closed → Drafting.
-  - Pool query and pick count are locked after start.
+  - Pick count is locked after start.
   - The draft completes when every player has all their picks.
   - Completed drafts stay viewable and exportable forever.
 - **Pick import:** in the lobby, the organizer can load picks made outside the app from a CSV: its columns map to seats by position and its picks run in snake order. After a preview, confirming fixes the seats, writes the picks, clears every queue and starts the draft Paused, with no announcement or queued picks until the organizer resumes it. It is final: a bad pick import means closing that draft and creating a new one.
