@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Only the api decides who may organize a draft, add bots and switch its announcements. The web doesn't work these out from the user and the draft. It reads them from the api once, when the draft page opens: `GET /api/drafts/:id/powers` answers with `DraftPowersView { organize, addBots, switchAnnouncements }` for the signed-in viewer (#341). Once guild admins act as organizer in their guild, the rule depends on the draft's guild and the guilds the viewer admins. If the web computed it too, the contract would have to describe guild membership only so the web could repeat the rule, and every change to the rule would have to land in two workspaces, with nothing to check that they agree. The guild-admin part of the rule waits on the multi-guild work (ADR 0001, #352).
+Only the api decides who may organize a draft, add bots and switch its announcements. The web doesn't work these out from the user and the draft. It reads them from the api once, when the draft page opens: `GET /api/drafts/:id/powers` answers with `DraftPowersView { organize, addBots, switchAnnouncements }` for the signed-in viewer (#341). Once guild admins act as organizer in their guild, the rule depends on the draft's guild and the guilds the viewer admins. If the web computed it too, the contract would have to describe guild membership only so the web could repeat the rule, and every change to the rule would have to land in two workspaces, with nothing to check that they agree. The guild-admin part of the rule waits on the multi-guild work (ADR 0001, #169).
 
 ## Considered Options
 

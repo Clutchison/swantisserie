@@ -12,8 +12,6 @@ For a ticket `#<NUM>`, before starting work: switch to `main`, pull it up to dat
 
 Fetch the ticket with its comments (`gh issue view <NUM> --json number,title,body,labels,comments`) and read the body and every comment before planning or touching code. Comments can narrow, amend or override the body; where they conflict, the latest comment wins. If a comment leaves the scope unclear, ask.
 
-If the ticket has open sub-issues (or carries the `tracking` label), stop: its work lives in those sub-issues. List them and ask which to implement.
-
 Call the Skill tool with "tdd" where possible, at pre-agreed seams.
 
 Read whole files only where you will edit them. For a spec's conventions, read its harness and one `it` block of the nearest spec, not the whole file.
