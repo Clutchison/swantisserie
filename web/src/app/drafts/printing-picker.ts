@@ -31,8 +31,9 @@ export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
 /**
  * The Printing picker, opened on the dialog shell from a basic land in the
  * signed-in player's own plan or deck, locked or not: a large image of a
- * printing of the land, which they browse set by set, finding a set by
- * typing part of its code or name, and make their preferred printing, or go back to the default printing. It
+ * printing of the land, which they browse set by set, newest set first,
+ * finding a set by typing part of its code or name, and make their
+ * preferred printing, or go back to the default printing. It
  * opens on the printing the land shows now. Browsing changes only the
  * picker; Cancel, Escape and the backdrop close it with no change.
  */
@@ -133,7 +134,7 @@ export class PrintingPicker implements OnInit {
 
   /** Shows the first printing of `set`. */
   protected chooseSet(set: BasicLandPrintingSetView) {
-    this.setIndex.set(this.sets()?.indexOf(set) ?? 0);
+    this.setIndex.set(this.sets()!.indexOf(set));
     this.printingIndex.set(0);
   }
 

@@ -1,4 +1,4 @@
-import { ActiveDescendantKeyManager, type Highlightable, _IdGenerator } from '@angular/cdk/a11y';
+import { ActiveDescendantKeyManager, type Highlightable } from '@angular/cdk/a11y';
 import {
   CdkConnectedOverlay,
   CdkOverlayOrigin,
@@ -9,6 +9,7 @@ import {
   Component,
   computed,
   Directive,
+  DOCUMENT,
   effect,
   ElementRef,
   inject,
@@ -19,13 +20,11 @@ import {
   untracked,
   viewChildren,
 } from '@angular/core';
-import { setsMatching } from './set-search';
+import { type FindableSet, setsMatchingCodeFirst } from './set-search';
 
-/** A set as the combobox finds and shows it. */
-export interface ComboboxSet {
-  readonly code: string;
-  readonly name: string;
-}
+/** Numbers the ids each combobox and option gives itself, so each is unique on the page. */
+let lastId = 0;
+const nextId = (prefix: string) => `${prefix}${++lastId}`;
 
 /** Below the field if the list fits, or else above it. */
 const POSITIONS: ConnectedPosition[] = [
@@ -34,11 +33,11 @@ const POSITIONS: ConnectedPosition[] = [
 ];
 
 /** How a set reads in the field and in the list, such as "Onslaught · ONS". */
-const setText = (set: ComboboxSet) => `${set.name} · ${set.code.toUpperCase()}`;
+const setText = (set: FindableSet) => `${set.name} · ${set.code.toUpperCase()}`;
 
 /** One set in the combobox's list, which the arrow keys highlight. */
 @Directive({
-  selector: '[appComboboxOption]',
+  selector: '[appSetOption]',
   host: {
     role: 'option',
     '[id]': 'id',
@@ -46,19 +45,24 @@ const setText = (set: ComboboxSet) => `${set.name} · ${set.code.toUpperCase()}`
     '[class.active]': 'active()',
   },
 })
-export class ComboboxOption implements Highlightable {
+export class SetOption implements Highlightable {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  readonly set = input.required<ComboboxSet>({ alias: 'appComboboxOption' });
-  readonly id = inject(_IdGenerator).getId('set-option-');
+  /** The set it offers. */
+  readonly set = input.required<FindableSet>({ alias: 'appSetOption' });
+  /** Its id, which the field names as its active descendant while it is highlighted. */
+  readonly id = nextId('set-option-');
+  /** Whether it is the option highlighted. */
   readonly active = signal(false);
 
+  /** Highlights it, scrolling it into the list's view. */
   setActiveStyles() {
     this.active.set(true);
     // jsdom doesn't scroll.
     this.element.nativeElement.scrollIntoView?.({ block: 'nearest' });
   }
 
+  /** Takes its highlight away. */
   setInactiveStyles() {
     this.active.set(false);
   }
@@ -76,11 +80,11 @@ export class ComboboxOption implements Highlightable {
 @Component({
   selector: 'app-set-combobox',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CdkConnectedOverlay, CdkOverlayOrigin, ComboboxOption],
+  imports: [CdkConnectedOverlay, CdkOverlayOrigin, SetOption],
   templateUrl: './set-combobox.html',
   styleUrl: './set-combobox.scss',
 })
-export class SetCombobox<S extends ComboboxSet> {
+export class SetCombobox<S extends FindableSet> {
   /** The sets to choose from, in the order the list gives them. */
   readonly sets = input.required<readonly S[]>();
   /** The set chosen, which the field shows while the list is closed. */
@@ -88,13 +92,15 @@ export class SetCombobox<S extends ComboboxSet> {
   /** A set the viewer chose. */
   readonly chose = output<S>();
 
-  private readonly ids = inject(_IdGenerator);
-  protected readonly fieldId = this.ids.getId('set-field-');
-  protected readonly listId = this.ids.getId('set-list-');
+  private readonly document = inject(DOCUMENT);
+  protected readonly fieldId = nextId('set-field-');
+  protected readonly listId = nextId('set-list-');
   protected readonly positions = POSITIONS;
   protected readonly setText = setText;
 
   protected readonly open = signal(false);
+  /** Whether the mouseup of the press that focused the field is still to come, which would undo selecting its text. */
+  private pressFocusing = false;
   /** What the viewer typed since the list opened, or null if nothing yet, for the full list. */
   private readonly typed = signal<string | null>(null);
   /** What the field shows: what was typed, or else the set chosen. */
@@ -102,24 +108,20 @@ export class SetCombobox<S extends ComboboxSet> {
   /** The sets the list offers: those that match what was typed, a set with that very code first. */
   protected readonly options = computed(() => {
     const typed = this.typed();
-    if (typed === null) return this.sets();
-    const code = typed.trim().toLowerCase();
-    const matches = setsMatching(this.sets(), typed);
-    return [
-      ...matches.filter((set) => set.code === code),
-      ...matches.filter((set) => set.code !== code),
-    ];
+    return typed === null ? this.sets() : setsMatchingCodeFirst(this.sets(), typed);
   });
 
-  private readonly items = viewChildren(ComboboxOption);
+  private readonly items = viewChildren(SetOption);
   protected readonly keys = new ActiveDescendantKeyManager(this.items, inject(Injector)).withWrap();
 
   constructor() {
-    // Each time the list changes, highlights the set chosen in the full list, or else the first match.
+    // Each time the list opens or the viewer types, highlights the set
+    // chosen in the full list, or else the first match.
     effect(() => {
       const items = this.items();
+      const typed = this.typed();
       untracked(() => {
-        const chosen = this.typed() === null && items.find((item) => item.set() === this.chosen());
+        const chosen = typed === null && items.find((item) => item.set() === this.chosen());
         if (chosen) this.keys.setActiveItem(chosen);
         else if (items.length > 0) this.keys.setFirstItemActive();
         else this.keys.updateActiveItem(-1);
@@ -127,17 +129,31 @@ export class SetCombobox<S extends ComboboxSet> {
     });
   }
 
+  /** Opens the full list, the chosen set's text selected so typing replaces it. */
   protected focused(field: HTMLInputElement) {
     this.typed.set(null);
     this.open.set(true);
     field.select();
   }
 
+  /** Notes a press on the field that is about to focus it. */
+  protected pressed(field: HTMLInputElement) {
+    this.pressFocusing = this.document.activeElement !== field;
+  }
+
+  /** Keeps the text selected through the end of the press that focused the field, as browsers would put the caret there. */
+  protected released(event: MouseEvent) {
+    if (this.pressFocusing) event.preventDefault();
+    this.pressFocusing = false;
+  }
+
+  /** Narrows the list to the sets that match what is typed. */
   protected input(field: HTMLInputElement) {
     this.typed.set(field.value);
     this.open.set(true);
   }
 
+  /** Moves the highlight on the arrow keys, chooses on Enter, and closes the list on Escape. */
   protected keydown(event: KeyboardEvent) {
     switch (event.key) {
       case 'ArrowDown':
@@ -150,7 +166,8 @@ export class SetCombobox<S extends ComboboxSet> {
         if (!this.open()) return;
         event.preventDefault();
         const active = this.keys.activeItem;
-        if (active) this.choose(active.set() as S);
+        const set = active && this.options()[this.items().indexOf(active)];
+        if (set) this.choose(set);
         return;
       }
       case 'Escape':
@@ -163,6 +180,7 @@ export class SetCombobox<S extends ComboboxSet> {
     }
   }
 
+  /** Chooses `set`, closing the list. */
   protected choose(set: S) {
     this.close();
     this.chose.emit(set);

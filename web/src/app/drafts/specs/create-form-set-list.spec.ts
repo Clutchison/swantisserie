@@ -13,6 +13,7 @@ import {
   http,
   namedList,
   openUrl,
+  typeInto,
   webhooksAnswer,
 } from './harness';
 
@@ -160,26 +161,20 @@ describe('choosing a set list on the create form', () => {
   });
 
   it('finds the sets the Printing picker would: part of a code or name, whatever its case', async () => {
-    const { fixture, page } = await openSets(catalog([otj, mkm, mir]));
+    const { page } = await openSets(catalog([otj, mkm, mir]));
     const find = controlByLabel(page, 'textbox', 'Find a set')!;
 
-    find.value = 'Tj';
-    find.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
+    typeInto(find, 'Tj');
     expect(checkboxes(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
 
-    find.value = 'thunder';
-    find.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
+    typeInto(find, 'thunder');
     expect(checkboxes(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
 
-    find.value = 'zzz';
-    find.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
+    typeInto(find, 'zzz');
     expect(checkboxes(namedList(page, 'Sets'))).toEqual([]);
   });
 

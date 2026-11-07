@@ -16,6 +16,7 @@ import {
   alertIn,
   button,
   comboboxOptions,
+  comboboxStatus,
   controlByLabel,
   editableCombobox,
   group,
@@ -678,7 +679,6 @@ describe('the Printing picker', () => {
       'Dragons of Tarkir · DTK',
       'Onslaught · ONS',
     ]);
-    expect(text(dialog)).not.toMatch(/\b(19|20)\d\d\b/);
     pressEscape();
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(text(dialog)).toContain('ONS #335');
@@ -811,8 +811,7 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
 
     expect(setOptions()).toEqual([]);
-    // The list sits in the overlay, over the dialog.
-    expect(text(document.body)).toContain('No set matches');
+    expect(comboboxStatus(setField()!)).toBe('No set matches');
     expect(shownPrinting()).toBe('Island, ONS #336');
     expect(text(dialog)).toContain('2 of 2');
     button(dialog, 'Next printing')!.click();

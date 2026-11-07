@@ -12,6 +12,8 @@
   [attr.aria-expanded]="open()"
   [attr.aria-controls]="open() ? listId : null"
   [attr.aria-activedescendant]="open() ? (keys.activeItem?.id ?? null) : null"
+  (mousedown)="pressed(field)"
+  (mouseup)="released($event)"
   (focus)="focused(field)"
   (input)="input(field)"
   (keydown)="keydown($event)"
@@ -29,7 +31,7 @@
   <div class="popup" (mousedown)="$event.preventDefault()">
     <ul role="listbox" [id]="listId" aria-label="Sets">
       @for (set of options(); track set.code) {
-        <li [appComboboxOption]="set" (click)="choose(set)">{{ setText(set) }}</li>
+        <li [appSetOption]="set" (click)="choose(set)">{{ setText(set) }}</li>
       }
     </ul>
     @if (options().length === 0) {

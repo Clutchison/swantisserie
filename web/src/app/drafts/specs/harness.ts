@@ -612,13 +612,19 @@ export const comboboxOptions = (field: HTMLInputElement) =>
           ?.querySelectorAll<HTMLElement>('[role="option"]') ?? []),
       ]
     : [];
+/** What the status beside an editable combobox's open list says, such as that nothing matches; null if none. */
+export const comboboxStatus = (field: HTMLInputElement) => {
+  const list = document.getElementById(field.getAttribute('aria-controls') ?? '');
+  const status = list?.parentElement?.querySelector('[role="status"]');
+  return status ? collapseWhitespace(status.textContent) : null;
+};
 /** The option an editable combobox highlights, by its text, if any. */
 export const highlightedOption = (field: HTMLInputElement) => {
   const id = field.getAttribute('aria-activedescendant');
   return id ? collapseWhitespace(document.getElementById(id)?.textContent ?? '') : null;
 };
 /** Types `value` into a text field, replacing what it held, and renders what came of it. */
-export function typeInto(field: HTMLInputElement, value: string) {
+export function typeInto(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
   field.value = value;
   field.dispatchEvent(new Event('input'));
   TestBed.tick();
