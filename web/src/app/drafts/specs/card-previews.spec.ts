@@ -292,7 +292,7 @@ describe('card previews', () => {
 
     const preview = document.querySelector('app-card-preview')!;
     expect(preview.querySelectorAll('button, a')).toHaveLength(0);
-    expect(preview.querySelectorAll('img')).toHaveLength(1);
+    expect(previewImages()).toHaveLength(1);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'pathway-id'));
     expect(previewImage()?.getAttribute('width')).toBe('488');
     expect(previewImage()?.getAttribute('height')).toBe('680');
@@ -326,7 +326,7 @@ describe('card previews', () => {
     tap(cardName(panel(page), 'Lightning Bolt'));
     const preview = document.querySelector('app-card-preview')!;
     expect(visible(previewImage()!)).toBe(false);
-    expect(preview.querySelectorAll('img')).toHaveLength(1);
+    expect(previewImages()).toHaveLength(1);
     expect(preview.textContent.trim()).toBe('');
 
     await decoded(previewImage()!);

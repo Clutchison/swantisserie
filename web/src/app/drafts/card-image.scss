@@ -34,7 +34,6 @@ img {
 
   &.turned {
     @include card-shape.turned-sideways;
-    border-radius: card-shape.$corners;
   }
 }
 

@@ -33,4 +33,6 @@ $corners-sideways: #{3.5% / 4.75%};
   width: 100cqh;
   height: 100cqw;
   transform: translate(-50%, -50%) rotate(90deg);
+  // Its own box is still the card's upright shape.
+  border-radius: $corners;
 }

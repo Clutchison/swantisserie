@@ -232,14 +232,15 @@ describe('pool tab', () => {
       expect(front.getAttribute('src')).toBe(image('large', 'invasion-id', 'front'));
       expect(shownSideways(front)).toBe(true);
 
+      // Each image in the box it was turned for, with no crossfade between shapes.
       await decoded(newestLarge(detail));
       expect(newestLarge(detail).getAttribute('src')).toBe(image('large', 'invasion-id', 'back'));
-      expect(shownSideways(newestLarge(detail))).toBe(false);
+      expect(largeImages(detail).map(shownSideways)).toEqual([false]);
 
       button(detail, 'Flip')!.click();
       await fixture.whenStable();
       await decoded(newestLarge(detail));
-      expect(shownSideways(newestLarge(detail))).toBe(true);
+      expect(largeImages(detail).map(shownSideways)).toEqual([true]);
     });
 
     it('turns the tile’s image sideways too while the large image loads', async () => {

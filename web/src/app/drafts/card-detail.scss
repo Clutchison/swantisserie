@@ -45,7 +45,6 @@
   /* A horizontal face's tile image, turned as the large image is. Its text placeholder isn't. */
   img.placeholder.turned {
     @include card-shape.turned-sideways;
-    border-radius: card-shape.$corners;
   }
 
   span.placeholder {

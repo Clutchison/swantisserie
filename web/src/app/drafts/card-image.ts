@@ -125,7 +125,9 @@ export class CardImage {
 
   private reveal(layer: Layer) {
     if (this.pending() !== layer) return;
-    this.previous.set(layer.instant ? null : this.shown());
+    // An image turned the other way would be squeezed into the box's new shape, so it goes at once.
+    const shown = this.shown();
+    this.previous.set(layer.instant || shown?.sideways !== layer.sideways ? null : shown);
     this.shown.set(layer);
     this.pending.set(null);
     this.fading.set(!layer.instant);
