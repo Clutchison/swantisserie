@@ -15,6 +15,7 @@ import {
 import {
   forfeited,
   grantedDraw,
+  grantedWin,
   placings,
   played,
 } from './tournament.fixtures.js';
@@ -223,11 +224,9 @@ describe('standings', () => {
       matches: { won: 0, lost: 1, drawn: 0 },
     });
   });
+
   it('counts a granted win as a won match for the winner and a lost match for the other, with no games', () => {
-    const [first, second] = standings(
-      ['a', 'b'],
-      [{ players: ['a', 'b'], outcome: { kind: 'GrantedWin', winner: 'b' } }],
-    );
+    const [first, second] = standings(['a', 'b'], [grantedWin('a', 'b', 'b')]);
     expect(first).toMatchObject({
       playerId: 'b',
       matchPoints: 3,

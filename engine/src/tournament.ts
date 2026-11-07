@@ -238,7 +238,11 @@ export function reportProblem([a, b]: readonly [
       message: 'Report a game score with a winner: 2–0 or 2–1.',
     };
   }
-  if (Math.max(a, b) !== 2 || Math.min(a, b) > 1) {
+  if (
+    Math.max(a, b) !== 2 ||
+    // Stryker disable next-line ConditionalExpression: after the draw check, a top score of 2 with a lower score above 1 can only be 2–2, which is a draw.
+    Math.min(a, b) > 1
+  ) {
     return {
       error: 'not-best-of-three',
       // Stryker disable next-line StringLiteral: callers check the error code, not the message text.
