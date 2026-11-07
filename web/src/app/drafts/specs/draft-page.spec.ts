@@ -57,7 +57,7 @@ describe('draft page', () => {
       TestBed.tick();
       expect(page.textContent).not.toContain('Loading…');
     });
-    http.match(() => true).forEach((pending) => pending.flush([]));
+    await flushPool();
   });
 
   it('shows the draft and its pool size once the snapshot is complete', async () => {
@@ -172,6 +172,74 @@ describe('draft page', () => {
       const { page } = await openDraft(completeSnapshot, { webhook: { ...webhook, gone: false } });
 
       expect(statusTexts(page)).not.toContain(goneNotice);
+    });
+  });
+
+  describe('the page title', () => {
+    // The app's title, as index.html sets it; the test document has none of its own.
+    beforeEach(() => (document.title = 'Swantisserie'));
+
+    it('is the draft’s name alone once the draft has loaded', async () => {
+      await openDraft(completeSnapshot, { name: 'Cube Draft #4' });
+
+      expect(document.title).toBe('Cube Draft #4');
+    });
+
+    it('stays the app’s while the draft loads', async () => {
+      await openUrl('/drafts/draft-1');
+      const req = http.expectOne('/api/drafts/draft-1');
+      TestBed.tick();
+
+      expect(document.title).toBe('Swantisserie');
+      req.flush(draft({ state: 'Lobby' }));
+      await flushPool();
+    });
+
+    it('stays the app’s while the draft a different draft id names loads, then is its name', async () => {
+      const { fixture } = await openDraft(completeSnapshot);
+
+      await router.navigateByUrl('/drafts/draft-2');
+      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-2'));
+      TestBed.tick();
+      expect(document.title).toBe('Swantisserie');
+
+      req.flush(draft({ id: 'draft-2', name: 'Blue sphinxes', snapshot: completeSnapshot }));
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-2/pool'))).flush([]);
+      await fixture.whenStable();
+      expect(document.title).toBe('Blue sphinxes');
+    });
+
+    it.each([
+      [404, 'Not Found'],
+      [403, 'Forbidden'],
+      [503, 'Service Unavailable'],
+    ])('stays the app’s when loading the draft fails with %i', async (status, statusText) => {
+      const { fixture } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush({}, { status, statusText });
+      await fixture.whenStable();
+
+      expect(document.title).toBe('Swantisserie');
+    });
+
+    it('goes back to the app’s on leaving the draft', async () => {
+      const { fixture } = await openDraft(completeSnapshot);
+
+      await router.navigateByUrl('/');
+      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+      await fixture.whenStable();
+
+      expect(document.title).toBe('Swantisserie');
+    });
+
+    it('goes back to the app’s when the draft is cancelled, sending the viewer to the draft list', async () => {
+      const { fixture } = await openDraft(completeSnapshot);
+
+      updates.events.next({ type: 'cancelled' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/');
+      expect(document.title).toBe('Swantisserie');
     });
   });
 

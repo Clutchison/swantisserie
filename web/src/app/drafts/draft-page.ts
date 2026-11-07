@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   type Signal,
@@ -10,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { LucideChevronLeft } from '@lucide/angular';
@@ -67,6 +69,7 @@ export class DraftPage {
   private readonly auth = inject(Auth);
   private readonly updates = inject(DraftUpdates);
   private readonly router = inject(Router);
+  private readonly title = inject(Title);
   protected readonly store = inject(DraftStore);
 
   private readonly lobbyControls = viewChild(LobbyControls);
@@ -168,6 +171,15 @@ export class DraftPage {
   });
 
   constructor() {
+    // The page title is the draft's name, so a viewer can find it among their browser tabs,
+    // and the app's again once they leave.
+    const appTitle = this.title.getTitle();
+    inject(DestroyRef).onDestroy(() => this.title.setTitle(appTitle));
+    // The last draft stays shown while another draft id's loads, but its name isn't this page's.
+    effect(() => {
+      const draft = this.draft();
+      this.title.setTitle(draft?.id === this.store.id() ? draft.name : appTitle);
+    });
     // Opening or closing the Export tab forgets any copy.
     effect(() => {
       this.selectedTab();
