@@ -41,6 +41,7 @@ import { CubeCobraClient } from '../cubecobra/cubecobra-client.js';
 import { cubeIdFrom } from '../cubecobra/cube-link.js';
 import { cubePrintings } from './cube-pool.js';
 import { STORED_POOL_SOURCE_KIND } from './pool-source.js';
+import { SetCatalog } from '../sets/set-catalog.js';
 
 /** A cube as a draft keeps it, with a printing on the platform of each mainboard copy. */
 interface CheckedCube {
@@ -67,6 +68,7 @@ export class DraftLobbyService {
     private readonly lock: DraftLock,
     private readonly scryfall: ScryfallClient,
     private readonly cubeCobra: CubeCobraClient,
+    private readonly sets: SetCatalog,
     private readonly snapshots: PoolSnapshotService,
     private readonly turns: TurnsService,
   ) {}
@@ -75,11 +77,11 @@ export class DraftLobbyService {
    * Saves a new draft in Lobby, organized by `organizerId`, with its pool
    * snapshot: complete straight away for a cube link, which the check has
    * already looked up every card of, and started in the background for a
-   * pool query. Throws UnknownWebhookError if its webhook doesn't exist,
-   * GoneWebhookChosenError if it is gone,
-   * PoolQueryError or CubeLinkError if its pool source can't make a pool, and
-   * ScryfallUnavailableError or CubeCobraUnavailableError if that can't be
-   * checked.
+   * pool query or a set list. Throws UnknownWebhookError if its webhook
+   * doesn't exist, GoneWebhookChosenError if it is gone, PoolQueryError,
+   * CubeLinkError or SetNotOfferedError if its pool source can't make a pool,
+   * and ScryfallUnavailableError or CubeCobraUnavailableError if that can't
+   * be checked.
    */
   async create(
     organizerId: string,
@@ -116,6 +118,20 @@ export class DraftLobbyService {
           poolTotal: printings.length,
           pool: { createMany: { data: printings.map(toPoolCard) } },
         });
+      }
+      case 'set-list': {
+        const setList = await this.sets.check(
+          draft.platform,
+          poolSource.setList,
+        );
+        const created = await this.saveDraft({
+          ...fields,
+          poolSourceKind,
+          setList: setList.map(({ code, sublists }) => ({ code, sublists })),
+          organizerId,
+        });
+        await this.snapshots.start(created.id);
+        return created;
       }
       default: {
         const unhandled: never = poolSource;

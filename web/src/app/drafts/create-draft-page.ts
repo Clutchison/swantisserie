@@ -23,20 +23,23 @@ import {
   type NewPoolSourceRequest,
   type Platform,
   type PoolSourceKind,
+  type SetListEntryView,
   type WebhookView,
 } from 'contract';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
+import { SetListPicker } from './set-list-picker';
 
 /** What was typed for each pool source, whichever is chosen. */
 interface PoolSourceFields {
   'pool-query': { poolQuery: string };
   cube: { cubeLink: string };
+  'set-list': { setList: SetListEntryView[] };
 }
 
 @Component({
   selector: 'app-create-draft-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, SetListPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './create-draft-page.html',
   styleUrls: ['../page.scss', './drafts.scss', './create-draft-page.scss'],
@@ -54,6 +57,7 @@ export class CreateDraftPage {
     poolSources: this.fb.group({
       'pool-query': this.fb.group({ poolQuery: '' }),
       cube: this.fb.group({ cubeLink: '' }),
+      'set-list': this.fb.group({ setList: this.fb.control<SetListEntryView[]>([]) }),
     } satisfies Record<PoolSourceKind, unknown>),
     picksPerPlayer: DEFAULT_PICKS_PER_PLAYER,
     platform: 'Arena' as Platform,
@@ -128,6 +132,8 @@ function poolSourceRequest(kind: PoolSourceKind, fields: PoolSourceFields): NewP
       return { kind, poolQuery: fields[kind].poolQuery };
     case 'cube':
       return { kind, cubeLink: fields[kind].cubeLink };
+    case 'set-list':
+      return { kind, setList: fields[kind].setList };
     default: {
       const unknown: never = kind;
       throw new Error(`No request for the pool source ${String(unknown)}`);

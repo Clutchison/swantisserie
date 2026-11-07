@@ -85,6 +85,19 @@ export interface ScryfallSearchPage {
   warnings: string[];
 }
 
+/** A Scryfall set, with the fields we use: https://scryfall.com/docs/api/sets */
+export interface ScryfallSet {
+  /** Lowercase, as `e:` searches take it. */
+  code: string;
+  name: string;
+  /** Scryfall's set type, e.g. expansion, masterpiece, alchemy, token. */
+  setType: string;
+  /** The set it comes with, for a set that comes with another; else null. */
+  parentSetCode: string | null;
+  /** YYYY-MM-DD. */
+  releasedAt: string;
+}
+
 /** https://scryfall.com/docs/api/errors */
 interface ScryfallErrorBody {
   details: string;
@@ -153,6 +166,12 @@ export abstract class ScryfallClient {
     game: string,
     oracleIds: string[],
   ): Promise<ScryfallCard[]>;
+
+  /**
+   * Every Scryfall set. Throws ScryfallUnavailableError if Scryfall itself is
+   * in trouble or can't be reached, even after retrying.
+   */
+  abstract sets(): Promise<ScryfallSet[]>;
 }
 
 @Injectable()
@@ -164,10 +183,40 @@ export class FetchScryfallClient extends ScryfallClient {
     const url = new URL(`${API}/cards/search`);
     url.searchParams.set('q', query);
     if (page > 1) url.searchParams.set('page', String(page));
+    return this.withRetries(url.toString(), (res) => this.parse(res));
+  }
 
+  async sets(): Promise<ScryfallSet[]> {
+    return this.withRetries(`${API}/sets`, async (res) => {
+      if (!res.ok) throw new ScryfallUnavailableError(res.status);
+      const body = (await res.json()) as {
+        data: {
+          code: string;
+          name: string;
+          set_type: string;
+          parent_set_code?: string;
+          released_at?: string;
+        }[];
+      };
+      return body.data.map((set) => ({
+        code: set.code,
+        name: set.name,
+        setType: set.set_type,
+        parentSetCode: set.parent_set_code ?? null,
+        // Only a few unannounced sets lack one; they sort as the newest.
+        releasedAt: set.released_at ?? '9999-12-31',
+      }));
+    });
+  }
+
+  /** Requests `url` and reads its answer, retrying when that might help. */
+  private async withRetries<T>(
+    url: string,
+    read: (res: Response) => Promise<T>,
+  ): Promise<T> {
     for (let failures = 0; ; failures++) {
       try {
-        return await this.attempt(url.toString());
+        return await this.attempt(url, read);
       } catch (err) {
         if (!isRetryable(err) || failures === RETRY_DELAYS_MS.length) throw err;
       }
@@ -193,10 +242,13 @@ export class FetchScryfallClient extends ScryfallClient {
     return cards;
   }
 
-  /** Sends the search and reads its answer, once. */
-  private async attempt(url: string): Promise<ScryfallSearchPage | null> {
+  /** Sends the request and reads its answer, once. */
+  private async attempt<T>(
+    url: string,
+    read: (res: Response) => Promise<T>,
+  ): Promise<T> {
     try {
-      return await this.parse(await this.send(url));
+      return await read(await this.send(url));
     } catch (err) {
       if (err instanceof UnreachableError) {
         throw ScryfallUnavailableError.unreachable(err);

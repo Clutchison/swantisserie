@@ -39,10 +39,20 @@ export type CubeLinkProblem =
       message: string;
     };
 
+/**
+ * A set list names a set or sublist the set list picker doesn't offer on
+ * the draft's platform; sent to the organizer as is.
+ */
+export interface SetListProblem {
+  error: 'set-not-offered';
+  message: string;
+}
+
 /** The body of a failed POST /api/drafts: what to tell the organizer. */
 export type DraftCreationProblem =
   | PoolQueryProblem
   | CubeLinkProblem
+  | SetListProblem
   /** A field to fix, or a webhook that has since been removed or gone. */
   | RequestProblem
   | { error: 'scryfall-unavailable'; message: string }

@@ -24,6 +24,10 @@
         <input type="radio" name="poolSource" formControlName="poolSource" value="cube" />
         Cube link
       </label>
+      <label class="choice">
+        <input type="radio" name="poolSource" formControlName="poolSource" value="set-list" />
+        Sets
+      </label>
     </fieldset>
     <!-- Only the chosen pool source's group shows; the others keep what was typed. -->
     <ng-container formGroupName="poolSources">
@@ -65,6 +69,11 @@
               {{ platform() }}.
             </span>
           </label>
+        }
+        @case ('set-list') {
+          <ng-container formGroupName="set-list">
+            <app-set-list-picker formControlName="setList" [platform]="platform()" />
+          </ng-container>
         }
         @default never;
       }

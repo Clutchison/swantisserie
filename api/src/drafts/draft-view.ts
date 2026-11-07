@@ -16,6 +16,7 @@ import type { PoolCard } from '../generated/prisma/client.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
 import { draftSize } from './draft-shapes.js';
 import { UNEXPECTED_SNAPSHOT_FAILURE } from './pool-snapshot.service.js';
+import { storedSetList } from './pool-source.js';
 import type { LoggedPick } from './turns.service.js';
 
 /** The draft as viewers see it: never its webhook's URL. */
@@ -52,7 +53,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
 
 function toPoolSourceView(draft: DraftWithOrganizer): PoolSourceView {
   // The database's check constraints set exactly the kind's own columns.
-  const { poolSourceKind: kind, poolQuery, cubeId, cubeName } = draft;
+  const { poolSourceKind: kind, poolQuery, cubeId, cubeName, setList } = draft;
   switch (kind) {
     case 'PoolQuery':
       return { kind: 'pool-query', poolQuery: poolQuery ?? '' };
@@ -61,6 +62,8 @@ function toPoolSourceView(draft: DraftWithOrganizer): PoolSourceView {
         kind: 'cube',
         cube: { name: cubeName ?? '', url: cubeUrl(cubeId ?? '') },
       };
+    case 'SetList':
+      return { kind: 'set-list', setList: storedSetList(setList) };
     default: {
       const unhandled: never = kind;
       throw new Error(

@@ -24,12 +24,17 @@ export class NoOracleIdError extends Error {
   }
 }
 
+/** The card's oracle id: a reversible card's faces carry it. Undefined if Scryfall gave none. */
+export function oracleIdOf(card: ScryfallCard): string | undefined {
+  return card.oracle_id ?? card.card_faces?.[0]?.oracle_id;
+}
+
 /** A pool card for the printing, as a draft's own pool cards are created. */
 export function toPoolCard(
   card: ScryfallCard,
 ): Prisma.PoolCardCreateManyDraftInput {
   const faces = card.card_faces ?? [];
-  const oracleId = card.oracle_id ?? faces[0]?.oracle_id;
+  const oracleId = oracleIdOf(card);
   if (!oracleId) throw new NoOracleIdError(card.name);
   const images: StoredCardImages[] = (
     card.image_uris ? [card.image_uris] : faces.map((face) => face.image_uris)

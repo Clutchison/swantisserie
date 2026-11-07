@@ -227,22 +227,22 @@ it.each([
   [
     'no pool source',
     { name: 'Red', poolSource: undefined },
-    'Enter a pool query or a cube link.',
+    'Enter a pool query or a cube link, or choose sets.',
   ],
   [
     'a pool source that is only text',
     { name: 'Red', poolSource: 'c:r' },
-    'Enter a pool query or a cube link.',
+    'Enter a pool query or a cube link, or choose sets.',
   ],
   [
     'a pool source of no kind',
     { name: 'Red', poolSource: { poolQuery: 'c:r' } },
-    'Enter a pool query or a cube link.',
+    'Enter a pool query or a cube link, or choose sets.',
   ],
   [
     'a pool source of an unknown kind',
-    { name: 'Red', poolSource: { kind: 'set-list', poolQuery: 'c:r' } },
-    'Enter a pool query or a cube link.',
+    { name: 'Red', poolSource: { kind: 'deck-list', poolQuery: 'c:r' } },
+    'Enter a pool query or a cube link, or choose sets.',
   ],
   [
     'a pool query pool source with no pool query',

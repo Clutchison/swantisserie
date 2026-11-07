@@ -5,6 +5,7 @@ import type {
   ScryfallClient,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
+import { oracleIdOf } from './pool-card.js';
 
 /** A cube's mainboard in printings on a platform. */
 export interface CubePrintings {
@@ -28,10 +29,7 @@ export async function cubePrintings(
     cube.mainboard.map((card) => card.oracleId),
   );
   const byOracleId = new Map(
-    found.map((printing) => [
-      printing.oracle_id ?? printing.card_faces?.[0]?.oracle_id,
-      printing,
-    ]),
+    found.map((printing) => [oracleIdOf(printing), printing]),
   );
   const printings: ScryfallCard[] = [];
   const missing = new Set<string>();

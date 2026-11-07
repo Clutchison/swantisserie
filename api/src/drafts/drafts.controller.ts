@@ -38,7 +38,9 @@ import {
   MAX_DRAFT_NAME_LENGTH,
   MAX_PICKS_PER_PLAYER,
   MAX_POOL_QUERY_LENGTH,
+  MAX_SET_LIST_SETS,
   MIN_PICKS_PER_PLAYER,
+  type SetListEntryView,
 } from 'contract';
 import { bodyFields } from '../request-body.js';
 import { parseCard } from './parse-card.js';
@@ -70,6 +72,7 @@ import { isPlatform, PLATFORMS } from './platform.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { isPoolSourceKind } from './pool-source.js';
 import { TournamentBadges } from '../tournaments/tournament-badge.js';
+import { SetNotOfferedError } from '../sets/set-catalog.js';
 
 /** Comfortably above a full sheet, which is a few KB; below the JSON body limit. */
 const MAX_PICK_IMPORT_LENGTH = 64 * 1024;
@@ -405,6 +408,12 @@ export class DraftsController {
       if (err instanceof PoolQueryError || err instanceof CubeLinkError) {
         throw new UnprocessableEntityException(err.problem);
       }
+      if (err instanceof SetNotOfferedError) {
+        throw new UnprocessableEntityException({
+          error: 'set-not-offered',
+          message: err.message,
+        } satisfies DraftCreationProblem);
+      }
       if (err instanceof CubeCobraUnavailableError) {
         this.logger.error(err.message);
         throw new BadGatewayException({
@@ -482,9 +491,11 @@ function invalid(message: string): BadRequestException {
 /** The create form's pool source, trimmed, or a 400 saying what to fix. */
 function parsePoolSource(poolSource: unknown): NewPoolSourceRequest {
   const missing = () => invalid('Enter a pool query or a cube link.');
-  if (typeof poolSource !== 'object' || poolSource === null) throw missing();
+  const noKind = () =>
+    invalid('Enter a pool query or a cube link, or choose sets.');
+  if (typeof poolSource !== 'object' || poolSource === null) throw noKind();
   const { kind } = bodyFields<NewPoolSourceRequest>(poolSource);
-  if (!isPoolSourceKind(kind)) throw missing();
+  if (!isPoolSourceKind(kind)) throw noKind();
   switch (kind) {
     case 'pool-query': {
       const { poolQuery } =
@@ -514,11 +525,52 @@ function parsePoolSource(poolSource: unknown): NewPoolSourceRequest {
       }
       return { kind, cubeLink: trimmed };
     }
+    case 'set-list': {
+      const { setList } =
+        bodyFields<Extract<NewPoolSourceRequest, { kind: typeof kind }>>(
+          poolSource,
+        );
+      return { kind, setList: parseSetList(setList) };
+    }
     default: {
       const unhandled: never = kind;
       throw new Error(`Unknown pool source kind ${String(unhandled)}.`);
     }
   }
+}
+
+/**
+ * A set list's sets, each with its sublists, by lowercase code; or a 400
+ * saying what to fix. Whether each is offered is the set catalog's check.
+ */
+function parseSetList(setList: unknown): SetListEntryView[] {
+  const isCodes = (codes: unknown): codes is string[] =>
+    Array.isArray(codes) && codes.every((code) => typeof code === 'string');
+  if (
+    !Array.isArray(setList) ||
+    setList.length === 0 ||
+    !setList.every(
+      (entry: unknown) =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        typeof (entry as SetListEntryView).code === 'string' &&
+        isCodes((entry as SetListEntryView).sublists),
+    )
+  ) {
+    throw invalid('Choose at least one set.');
+  }
+  if (setList.length > MAX_SET_LIST_SETS) {
+    throw invalid(`Choose at most ${MAX_SET_LIST_SETS} sets.`);
+  }
+  const normalize = (code: string) => code.trim().toLowerCase();
+  const parsed = (setList as SetListEntryView[]).map((entry) => ({
+    code: normalize(entry.code),
+    sublists: entry.sublists.map(normalize),
+  }));
+  if (new Set(parsed.map((entry) => entry.code)).size !== parsed.length) {
+    throw invalid('Choose each set once.');
+  }
+  return parsed;
 }
 
 /** The webhook chosen for a draft, null for none, or a 400 if the body doesn't say. */

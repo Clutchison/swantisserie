@@ -28,6 +28,7 @@ export const carol = { id: '80351110224678914', name: 'Carol' };
 export const scryfall = {
   search: vi.fn<ScryfallClient['search']>(),
   printingsOn: vi.fn<ScryfallClient['printingsOn']>(),
+  sets: vi.fn<ScryfallClient['sets']>(),
 };
 export const cubeCobra = { cube: vi.fn<CubeCobraClient['cube']>() };
 export const webhookClient = { post: vi.fn<WebhookClient['post']>() };

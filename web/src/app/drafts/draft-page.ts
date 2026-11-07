@@ -21,6 +21,7 @@ import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
 import { DraftStore } from './draft-store';
+import { setListText } from './drafts';
 import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
@@ -71,6 +72,7 @@ export class DraftPage {
   private readonly router = inject(Router);
   private readonly title = inject(Title);
   protected readonly store = inject(DraftStore);
+  protected readonly setListText = setListText;
 
   private readonly lobbyControls = viewChild(LobbyControls);
   private readonly exportTab = viewChild(ExportTab);

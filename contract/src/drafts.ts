@@ -70,9 +70,21 @@ export interface CubeView {
   url: string;
 }
 
+/**
+ * One set in a set list, with the sublists it includes, each by Scryfall's
+ * lowercase set code.
+ */
+export interface SetListEntryView {
+  code: string;
+  sublists: string[];
+}
+
 /** What defines a draft's pool, chosen once when the draft is created. */
 export type PoolSourceView =
-  { kind: 'pool-query'; poolQuery: string } | { kind: 'cube'; cube: CubeView };
+  | { kind: 'pool-query'; poolQuery: string }
+  | { kind: 'cube'; cube: CubeView }
+  /** Oldest set first. */
+  | { kind: 'set-list'; setList: SetListEntryView[] };
 
 /**
  * Each kind of pool source, by the name the whole app uses for it: the
@@ -87,6 +99,7 @@ export type PoolSourceKind = PoolSourceView['kind'];
 interface NewPoolSourceFields {
   'pool-query': { poolQuery: string };
   cube: { cubeLink: string };
+  'set-list': { setList: SetListEntryView[] };
 }
 
 /** A new draft's pool source, as the organizer gives it on the create form. */
@@ -161,6 +174,8 @@ export const MAX_DRAFT_NAME_LENGTH = 100;
 export const MAX_POOL_QUERY_LENGTH = 900;
 /** The most characters in a cube link: far longer than any CubeCobra cube URL. */
 export const MAX_CUBE_LINK_LENGTH = 300;
+/** The most sets in a set list: far more than any draft needs. */
+export const MAX_SET_LIST_SETS = 50;
 /** The picks per player of a draft created without choosing them. */
 export const DEFAULT_PICKS_PER_PLAYER = 40;
 /** The fewest picks per player a draft can have. */
