@@ -50,6 +50,7 @@ export function cascade(
   for (;;) {
     const turn = currentTurn(draft, picked.length);
     if (!turn) return picks;
+    // Stryker disable next-line OptionalChaining: there is one queue per seat, so remaining[turn.seat] always exists.
     const card = remaining[turn.seat]?.find((queued) => !taken.has(queued));
     if (card === undefined) return picks;
     const pick = { seat: turn.seat, card };
@@ -63,6 +64,5 @@ export function cascade(
     remaining = queuesAfter.map((after) => after.queue);
     planned = plansAfter.map((after) => after.plan);
     picked.push(card);
-    taken.add(card);
   }
 }
