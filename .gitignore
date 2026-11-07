@@ -31,3 +31,7 @@ Thumbs.db
 
 # Reports kept by web/scripts/rerun-suite.mts
 web/scripts/.reruns/
+
+# Stryker mutation testing: reports, the incremental-run file and its sandboxes
+engine/reports/
+engine/.stryker-tmp/

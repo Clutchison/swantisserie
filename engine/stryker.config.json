@@ -1,0 +1,8 @@
+{
+  "$schema": "../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "concurrency": 2,
+  "mutate": ["src/**/*.ts", "!src/**/*.spec.ts", "!src/**/*.fixtures.ts"],
+  "incremental": true,
+  "reporters": ["clear-text", "html", "json", "progress"]
+}
