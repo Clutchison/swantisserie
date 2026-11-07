@@ -1,0 +1,15 @@
+// Hides an element on screen but leaves it for screen readers. Shared by the
+// global .visually-hidden class and component styles, which can't reach it:
+// for one, where an element is hidden only at some widths. Silent comments, so
+// they stay out of every component that uses this.
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

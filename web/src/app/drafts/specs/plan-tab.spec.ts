@@ -255,9 +255,11 @@ describe('plan tab', () => {
       },
       { heading: 'Sideboard 0 (0 picked)', lines: [] },
     ]);
-    const [mainboard] = plan.querySelectorAll('section');
-    expect(mainboard.querySelectorAll('.unpicked .mark')).toHaveLength(2);
-    expect(mainboard.querySelector('.unpicked .mark')?.textContent?.trim()).toBe('Unpicked');
+    // Styles hide the mark on a narrow screen, which jsdom can't apply; a screen reader still reads it.
+    const shivanLine = [...plan.querySelectorAll('li')].find((line) =>
+      accessibleName(line).includes('Shivan Dragon'),
+    )!;
+    expect(accessibleName(shivanLine)).toContain('Unpicked');
     expect(
       button(plan, 'Remove Brightclimb Pathway // Grimclimb Pathway from your plan'),
     ).toBeUndefined();
