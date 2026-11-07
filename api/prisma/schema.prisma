@@ -63,6 +63,8 @@ model Draft {
   cubeId         String?
   /// The cube's name as it was when the draft was created: set exactly when poolSourceKind is Cube, by check constraint.
   cubeName       String?
+  /// The sets whose cards define the pool, each with the sublists it includes, as [{code, sublists}] in Scryfall's lowercase set codes: set exactly when poolSourceKind is SetList, by check constraint.
+  setList        Json?
   picksPerPlayer Int
   /// The game the draft is played on. Chosen at creation; it never changes.
   platform       Platform          @default(Arena)
@@ -96,6 +98,18 @@ model Draft {
 enum PoolSourceKind {
   PoolQuery
   Cube
+  SetList
+}
+
+/// How many cards a Scryfall set adds to a pool on a platform: its cards with a printing on the platform, basic lands left out. Counted in the background for the set list picker, and counted again once stale.
+model SetCardCount {
+  platform  Platform
+  /// Scryfall's set code, lowercase.
+  setCode   String
+  cards     Int
+  countedAt DateTime
+
+  @@id([platform, setCode])
 }
 
 /// The game a draft is played on.

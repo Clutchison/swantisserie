@@ -205,6 +205,9 @@
             Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
           </p>
         }
+        @case ('set-list') {
+          <p class="detail">Sets: {{ setListText(draft.poolSource.setList) }}</p>
+        }
         <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
         @default never(draft.poolSource);
       }

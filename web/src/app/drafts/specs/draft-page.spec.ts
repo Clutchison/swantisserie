@@ -31,6 +31,7 @@ import {
   router,
   webhooksAnswer,
   controlByLabel,
+  text,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -99,6 +100,21 @@ describe('draft page', () => {
       (a) => a.textContent?.trim() === 'The Pauper Cube',
     )!;
     expect(link.href).toBe('https://cubecobra.com/cube/overview/thepaupercube');
+  });
+
+  it('shows the set list a pool came from, each set by code with its included sublists', async () => {
+    const { page } = await openDraft(completeSnapshot, {
+      poolSource: {
+        kind: 'set-list',
+        setList: [
+          { code: 'mkm', sublists: [] },
+          { code: 'otj', sublists: ['big', 'otp'] },
+        ],
+      },
+    });
+
+    expect(text(page)).toContain('Sets: MKM, OTJ (+ BIG, OTP)');
+    expect(text(page)).not.toContain('Pool query:');
   });
 
   it('shows snapshot progress and keeps polling until it is complete', async () => {

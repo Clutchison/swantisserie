@@ -25,6 +25,7 @@ import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
+import { SET_CATALOG_POLL_MS } from '../set-list-picker';
 import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
@@ -159,6 +160,7 @@ export function useDraftsApp() {
         ),
         provideHttpClientTesting(),
         { provide: DRAFT_POLL_MS, useValue: 5 },
+        { provide: SET_CATALOG_POLL_MS, useValue: 5 },
         { provide: DraftUpdates, useValue: updates },
       ],
     });
@@ -536,6 +538,12 @@ const ownText = (label: HTMLLabelElement) =>
             : '',
       )
       .join(' '),
+  );
+
+/** Each checkbox inside `root`, in page order: ☑ or ☐, then its label's text. */
+export const checkboxes = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLInputElement>(CONTROLS.checkbox)].map(
+    (box) => `${box.checked ? '☑' : '☐'} ${text(box.labels?.[0])}`,
   );
 
 /** Every form control inside `root` with this role and label, in page order. */

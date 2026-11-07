@@ -70,6 +70,10 @@ _Avoid_: Cube list, CubeCobra list, pool (that is what a draft picks from)
 The Magic sets an organizer picks, or has the app pick at random, to define a draft's pool. The pool holds every card printed in those sets that is on the platform; cards that aren't are left out.
 _Avoid_: Set selection, set codes, random sets (as a pool source)
 
+**Main set**:
+A Magic set released for drafting or play in its own right, such as an expansion, a core set or a masters set, rather than one that comes with another set. Only a main set can be picked for a set list.
+_Avoid_: Parent set, base set, expansion (for main sets in general)
+
 **Sublist**:
 A smaller set that comes with a main set, such as a bonus sheet, its Alchemy cards or its Commander decks. An organizer chooses which of a set's sublists go in a set list.
 _Avoid_: Bonus sheet (for sublists in general), child set, subset

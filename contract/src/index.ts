@@ -14,5 +14,6 @@ export * from './picks.js';
 export * from './plan.js';
 export * from './pool.js';
 export * from './queue.js';
+export * from './sets.js';
 export * from './tournaments.js';
 export * from './webhooks.js';

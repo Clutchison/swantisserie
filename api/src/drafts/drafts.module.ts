@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DiscordModule } from '../discord/discord.module.js';
 import { CubeCobraModule } from '../cubecobra/cubecobra.module.js';
 import { ScryfallModule } from '../scryfall/scryfall.module.js';
+import { SetsModule } from '../sets/sets.module.js';
 import { BotPickDelay, BotPickRetries, BotPlayers } from './bot-players.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService } from './draft-lobby.service.js';
@@ -22,7 +23,13 @@ import { TurnsService } from './turns.service.js';
 import { TournamentBadges } from '../tournaments/tournament-badge.js';
 
 @Module({
-  imports: [AuthModule, CubeCobraModule, DiscordModule, ScryfallModule],
+  imports: [
+    AuthModule,
+    CubeCobraModule,
+    DiscordModule,
+    ScryfallModule,
+    SetsModule,
+  ],
   controllers: [DraftsController, PlansController, QueuesController],
   providers: [
     DraftLock,
