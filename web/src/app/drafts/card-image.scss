@@ -1,10 +1,20 @@
 @use './card-shape';
 
-/* Rounded at a printed card's corners. Its aspect ratio is bound from its `width` and `height` inputs. */
+/*
+ * Rounded at a printed card's corners. Its aspect ratio is bound from its `width` and `height`
+ * inputs. A size container, so a turned image can take its height as width; its images are
+ * absolutely placed, so that changes nothing upright.
+ */
 :host {
   position: relative;
   display: block;
+  container-type: size;
   border-radius: card-shape.$corners;
+}
+
+/* As wide as the card is tall: its aspect ratio is bound swapped. */
+:host(.sideways) {
+  border-radius: card-shape.$corners-sideways;
 }
 
 /* Stacked in the same space, so nothing shifts as one replaces another. */
@@ -20,6 +30,11 @@ img {
 
   &.shown {
     opacity: 1;
+  }
+
+  &.turned {
+    @include card-shape.turned-sideways;
+    border-radius: card-shape.$corners;
   }
 }
 

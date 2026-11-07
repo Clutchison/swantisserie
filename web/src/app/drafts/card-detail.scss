@@ -8,7 +8,11 @@
   gap: var(--space-md);
   max-height: 100%;
 
-  /* Its shape comes from its image's size, so it holds its space while there's none yet. */
+  /*
+   * Its shape comes from its image's size, so it holds its space while there's none yet. Sideways,
+   * as `CardImage` marks its box while showing a horizontal face, it keeps the same widths, and its
+   * height limit takes the swapped shape.
+   */
   .large {
     flex-shrink: 1;
     width: min(
@@ -17,6 +21,14 @@
       (100dvh - 6rem) * math.div(card-shape.$large-width, card-shape.$large-height)
     );
     min-height: 0;
+
+    &.sideways {
+      width: min(
+        card-shape.$large-width * 1px,
+        100vw - 2 * var(--space-lg),
+        (100dvh - 6rem) * math.div(card-shape.$large-height, card-shape.$large-width)
+      );
+    }
   }
 
   /* Exactly the large image's space, so nothing shifts when it replaces this. */
@@ -28,6 +40,12 @@
     border-radius: inherit;
     box-sizing: border-box;
     object-fit: contain;
+  }
+
+  /* A horizontal face's tile image, turned as the large image is. Its text placeholder isn't. */
+  img.placeholder.turned {
+    @include card-shape.turned-sideways;
+    border-radius: card-shape.$corners;
   }
 
   span.placeholder {

@@ -22,6 +22,7 @@ import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
 import { LARGE_IMAGE, NORMAL_IMAGE } from './card-sizes';
 import { changeFailure, isRefusal } from './drafts';
+import { isHorizontal } from './horizontal-card';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
 import { PlayerAvatar } from './player-avatar';
@@ -140,6 +141,8 @@ export class CardDetail {
 
   /** Which face is shown: 0 is the front. */
   protected readonly face = signal(0);
+  /** Whether the face shown is a horizontal card's, shown sideways. */
+  protected readonly sideways = computed(() => isHorizontal(this.card(), this.face()));
   protected readonly pickError = signal<string | null>(null);
   /** What came of adding the card to the queue, or removing it. */
   protected readonly queueNote = signal<string | null>(null);

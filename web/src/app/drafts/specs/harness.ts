@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import type {
+  CardFace,
   DecklistView,
   DraftBase,
   DraftListItemView,
@@ -328,6 +329,19 @@ export const faceImages = (scryfallId: string, faces = ['front']) =>
     large: image('large', scryfallId, face),
   }));
 
+/** One face of a pool card, typed `typeLine`, with nothing else filled in. */
+export const faceOf = (typeLine: string): CardFace => ({
+  name: '',
+  typeLine,
+  oracleText: null,
+  manaCost: null,
+  colors: null,
+  power: null,
+  toughness: null,
+  loyalty: null,
+  defense: null,
+});
+
 /**
  * A pool card named `name`, with the id `${id}-card`: a normal red instant
  * printed as IMA 1, with `fields` changed.
@@ -358,6 +372,31 @@ export const poolCardOf = (
   faces: [],
   images: faceImages(`${id}-id`),
   ...fields,
+});
+
+/** Horizontal cards, and two that aren't though they're split or flip: as Scryfall lays each out. */
+export const fireIce = poolCardOf('fire-ice', 'Fire // Ice', {
+  layout: 'split',
+  typeLine: 'Instant // Instant',
+});
+export const room = poolCardOf('room', 'Bottomless Pool // Locker Room', {
+  layout: 'split',
+  typeLine: 'Enchantment — Room // Enchantment — Room',
+});
+export const invasion = poolCardOf('invasion', 'Invasion of Zendikar // Awakened Skyclave', {
+  layout: 'transform',
+  typeLine: 'Battle — Siege // Creature — Elemental',
+  faces: [faceOf('Battle — Siege'), faceOf('Creature — Elemental')],
+  images: faceImages('invasion-id', ['front', 'back']),
+});
+export const aftermath = poolCardOf('cut', 'Cut // Ribbons', {
+  layout: 'split',
+  typeLine: 'Sorcery // Sorcery',
+  keywords: ['Aftermath'],
+});
+export const flipCard = poolCardOf('budoka', 'Budoka Gardener // Dokai, Weaver of Life', {
+  layout: 'flip',
+  typeLine: 'Creature — Human Monk // Legendary Creature — Human Monk',
 });
 
 /**
@@ -725,6 +764,27 @@ export const previewImages = () => [
 ];
 /** The Card preview's image, if one is open: it's outside the page. */
 export const previewImage = () => previewImages()[0] ?? null;
+
+/**
+ * Whether a card's image, or what shows while it loads, is turned 90°
+ * clockwise in a box as wide as the card is tall, as a horizontal card's face
+ * is shown: what the viewer sees, from the styles jsdom applies.
+ */
+export function shownSideways(image: Element): boolean {
+  const turned = /rotate\(90deg\)/.test(getComputedStyle(image).transform);
+  if (turned !== inSidewaysBox(image)) throw new Error('A card image is turned in the wrong box.');
+  return turned;
+}
+
+/** Whether `element` is in a card image's box that's as wide as the card is tall. */
+export function inSidewaysBox(element: Element): boolean {
+  const box = element.closest('app-card-image')!;
+  const [width, height] = getComputedStyle(box).aspectRatio.split('/').map(Number);
+  return width > height;
+}
+
+/** Whether a card's image can be seen, rather than waiting hidden to decode, from the styles jsdom applies. */
+export const visible = (image: Element) => getComputedStyle(image).opacity !== '0';
 
 /**
  * An element inside `root` given a Tab stop of its own, as a card name with

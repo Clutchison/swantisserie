@@ -7,6 +7,14 @@ import {
   decoded,
   decodeRefused,
   wait,
+  fireIce,
+  room,
+  invasion,
+  aftermath,
+  flipCard,
+  shownSideways,
+  inSidewaysBox,
+  visible,
 } from './harness';
 import {
   clickBackdrop,
@@ -183,6 +191,76 @@ describe('pool tab', () => {
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(searchBox(page));
+    });
+  });
+
+  describe('of a horizontal card', () => {
+    it.each([
+      ['a split card', fireIce],
+      ['a Room', room],
+      ['a battle’s front face', invasion],
+    ])('shows %s turned sideways, its tile upright', async (_, horizontal) => {
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [horizontal] });
+
+      const detail = await openDetail(fixture, page, 0);
+
+      expect(shownSideways(newestLarge(detail))).toBe(true);
+      expect(getComputedStyle(tiles(page)[0].querySelector('img')!).transform).not.toMatch(
+        /rotate/,
+      );
+    });
+
+    it.each([
+      ['an Aftermath card', aftermath],
+      ['a flip card', flipCard],
+    ])('shows %s upright', async (_, upright) => {
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [upright] });
+
+      const detail = await openDetail(fixture, page, 0);
+
+      expect(shownSideways(newestLarge(detail))).toBe(false);
+    });
+
+    it('shows a battle’s back face upright after Flip, keeping the front sideways until it has decoded', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [invasion] });
+      const detail = await openDetail(fixture, page, 0);
+      await decoded(newestLarge(detail));
+
+      button(detail, 'Flip')!.click();
+      await fixture.whenStable();
+      const front = largeImages(detail).find(visible)!;
+      expect(front.getAttribute('src')).toBe(image('large', 'invasion-id', 'front'));
+      expect(shownSideways(front)).toBe(true);
+
+      await decoded(newestLarge(detail));
+      expect(newestLarge(detail).getAttribute('src')).toBe(image('large', 'invasion-id', 'back'));
+      expect(shownSideways(newestLarge(detail))).toBe(false);
+
+      button(detail, 'Flip')!.click();
+      await fixture.whenStable();
+      await decoded(newestLarge(detail));
+      expect(shownSideways(newestLarge(detail))).toBe(true);
+    });
+
+    it('turns the tile’s image sideways too while the large image loads', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [fireIce] });
+      tileLoaded(tiles(page)[0], image('normal', 'fire-ice-id'));
+
+      const detail = await openDetail(fixture, page, 0);
+
+      expect(largePlaceholder(detail)?.getAttribute('src')).toBe(image('normal', 'fire-ice-id'));
+      expect(shownSideways(largePlaceholder(detail)!)).toBe(true);
+    });
+
+    it('fills a sideways box with the name, which stays upright, while the large image loads', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [fireIce] });
+
+      const detail = await openDetail(fixture, page, 0);
+      const name = largePlaceholder(detail)!;
+
+      expect(name.textContent).toBe('Fire // Ice');
+      expect(inSidewaysBox(name)).toBe(true);
+      expect(getComputedStyle(name).transform).not.toMatch(/rotate/);
     });
   });
 
