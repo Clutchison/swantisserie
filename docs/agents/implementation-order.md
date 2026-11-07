@@ -2,12 +2,13 @@
 
 ## The next ticket
 
-The candidates are open `ready-for-agent` issues not labelled `spec`, with no open blocker and no PR that closes them. A spec's tickets are candidates like any other.
+The candidates are open `ready-for-agent` issues not labelled `spec`, with no open blocker and no PR that closes them. A spec's tickets are candidates like any other, until someone assigns the spec to build it with `/implement-spec`.
 
 ```sh
 gh issue list --state open --limit 200 --search "label:ready-for-agent -label:spec" --json number,title,labels
 gh api repos/Clutchison/swantisserie/issues/<n> --jq .issue_dependencies_summary.blocked_by   # 0 means startable
 gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | length'   # 0 means no PR closes it
+gh api repos/Clutchison/swantisserie/issues/<n> --jq '.parent_issue_url // empty' | xargs -r gh api --jq '.assignees | length'   # 0 or nothing: its spec is unassigned
 ```
 
 Take the first candidate by these rules, in order:
