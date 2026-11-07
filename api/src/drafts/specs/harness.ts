@@ -16,6 +16,9 @@ import {
   startTestApp,
   useTestApp,
 } from '../../testing/app.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { printingsAnswers } from '../../testing/scryfall-printings.js';
+import { scryfallSet } from '../../testing/scryfall-sets.js';
 import type { TestDatabase } from '../../testing/test-database.js';
 
 export {
@@ -122,6 +125,26 @@ export function scryfallAnswers(
     if (result instanceof Error) throw result;
     return result;
   });
+}
+
+/**
+ * Stores `printings`, Scryfall card objects of basic land printings, through
+ * the refresh that asking for a land's printings starts, and waits for it to
+ * finish. Each printing's set is Scryfall's `scryfallSet` of its code.
+ */
+export async function storePrintings(printings: ScryfallCard[]) {
+  const codes = [...new Set(printings.map((printing) => printing.set))];
+  scryfall.sets.mockResolvedValue(codes.map((code) => scryfallSet(code)));
+  scryfallAnswers(printingsAnswers(printings));
+  await request(app.getHttpServer())
+    .get('/api/basic-land-printings/Plains')
+    .set('Cookie', aliceCookie)
+    .expect(200);
+  await vi.waitFor(async () =>
+    expect(await app.get(PrismaService).basicLandPrintingRefresh.count()).toBe(
+      1,
+    ),
+  );
 }
 
 /** A single-faced Scryfall card object with the fields we use. */

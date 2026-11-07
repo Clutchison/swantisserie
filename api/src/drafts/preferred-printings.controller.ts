@@ -1,17 +1,14 @@
 import {
-  BadGatewayException,
   BadRequestException,
   Body,
   Controller,
   Delete,
-  Logger,
   Param,
   Put,
   UseGuards,
 } from '@nestjs/common';
 import type {
   BasicLand,
-  CardImages,
   PreferredPrintingProblem,
   PreferredPrintingRequest,
   PreferredPrintings,
@@ -21,17 +18,13 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
+import { BasicLandPrintings } from '../basic-land-printings/basic-land-printings.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { bodyFields } from '../request-body.js';
-import {
-  type ScryfallCard,
-  ScryfallClient,
-  ScryfallUnavailableError,
-} from '../scryfall/scryfall-client.js';
 import { isBasicLand } from './basic-lands.js';
 import { readPreferredPrintings } from './preferred-printings.js';
 
-/** A Scryfall id is a UUID: anything else is no printing, so Scryfall isn't asked. */
+/** A Scryfall id is a UUID: anything else is no printing, so none is looked up. */
 const SCRYFALL_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -45,16 +38,14 @@ const SCRYFALL_ID =
 @Controller('preferred-printings')
 @UseGuards(SessionGuard)
 export class PreferredPrintingsController {
-  private readonly logger = new Logger(PreferredPrintingsController.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly scryfall: ScryfallClient,
+    private readonly printings: BasicLandPrintings,
   ) {}
 
   /**
    * Makes a printing, by Scryfall id, the player's preferred printing of
-   * `land`, once Scryfall shows it is an English printing of that land.
+   * `land`: it must be a stored printing of that land.
    */
   @Put(':land')
   async set(
@@ -64,29 +55,13 @@ export class PreferredPrintingsController {
   ): Promise<PreferredPrintings> {
     const basic = parseLand(land);
     const scryfallId = parseScryfallId(body);
-    const card = await this.lookUp(scryfallId);
-    const images = card?.image_uris;
-    if (
-      !card ||
-      !images ||
-      !onCdn(images) ||
-      card.name !== basic ||
-      card.lang !== 'en'
-    ) {
+    if (!(await this.printings.isPrintingOf(basic, scryfallId))) {
       throw invalid(`That isn’t an English printing of ${basic}.`);
     }
-    const printing = {
-      scryfallId: card.id,
-      set: card.set,
-      collectorNumber: card.collector_number,
-      imageSmall: images.small,
-      imageNormal: images.normal,
-      imageLarge: images.large,
-    };
     await this.prisma.preferredPrinting.upsert({
       where: { userId_land: { userId: user.id, land: basic } },
-      create: { userId: user.id, land: basic, ...printing },
-      update: printing,
+      create: { userId: user.id, land: basic, scryfallId },
+      update: { scryfallId },
     });
     return this.read(user.id);
   }
@@ -107,27 +82,6 @@ export class PreferredPrintingsController {
   private async read(userId: string): Promise<PreferredPrintings> {
     return (await readPreferredPrintings(this.prisma, [userId])).get(userId)!;
   }
-
-  /** The printing on Scryfall, or null if there is none; a 502 if Scryfall can't be reached. */
-  private async lookUp(scryfallId: string): Promise<ScryfallCard | null> {
-    try {
-      return await this.scryfall.card(scryfallId);
-    } catch (err) {
-      if (!(err instanceof ScryfallUnavailableError)) throw err;
-      this.logger.error(err.message);
-      throw new BadGatewayException({
-        error: 'scryfall-unavailable',
-        message: 'Scryfall could not be reached. Try again in a moment.',
-      } satisfies PreferredPrintingProblem);
-    }
-  }
-}
-
-/** Whether every image is on Scryfall's CDN, which the web loads images from directly. */
-function onCdn(images: CardImages): boolean {
-  return [images.small, images.normal, images.large].every((url) =>
-    url.startsWith('https://cards.scryfall.io/'),
-  );
 }
 
 function invalid(message: string) {

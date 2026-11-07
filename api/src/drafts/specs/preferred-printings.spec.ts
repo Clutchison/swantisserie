@@ -1,17 +1,17 @@
 import type { BasicLandPrintingView, PlanView } from 'contract';
 import request from 'supertest';
-import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
+import { landPrinting, viewOf } from '../../testing/scryfall-printings.js';
 import {
   aliceCookie,
   app,
   bob,
-  card,
   plan,
   playingTournament,
   readyDraft,
   scryfall,
   setBasic,
   signIn,
+  storePrintings,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -39,79 +39,58 @@ async function preferredIn(id: string, cookie = aliceCookie) {
 }
 
 const kaldheimIsland = '0a9e4a3b-1d47-4c3a-a3a7-6d0d5d3a4c1e';
-/** Scryfall's card object of an English Island printing, Kaldheim's #395. */
-const islandCard = card('Island', {
-  id: kaldheimIsland,
-  set: 'khm',
-  collector_number: '395',
-  type_line: 'Basic Land — Island',
-  rarity: 'common',
-  image_uris: {
-    small: `https://cards.scryfall.io/small/front/0/a/${kaldheimIsland}.jpg`,
-    normal: `https://cards.scryfall.io/normal/front/0/a/${kaldheimIsland}.jpg`,
-    large: `https://cards.scryfall.io/large/front/0/a/${kaldheimIsland}.jpg`,
-  },
-});
-const kaldheimIslandView: BasicLandPrintingView = {
-  scryfallId: kaldheimIsland,
-  set: 'khm',
-  collectorNumber: '395',
-  images: islandCard.image_uris!,
-};
+/** An English Island printing, Kaldheim's #395. */
+const islandCard = landPrinting('Island', kaldheimIsland, 'khm', '395');
+const kaldheimIslandView: BasicLandPrintingView = viewOf(islandCard);
+const otherIsland = landPrinting(
+  'Island',
+  '66666666-7777-4888-8999-aaaaaaaaaaaa',
+  'ons',
+  '336',
+);
+const forest = landPrinting(
+  'Forest',
+  '11111111-2222-4333-8444-555555555555',
+  'unf',
+  '239',
+);
 
 describe('preferred printings', () => {
   let bobCookie: string;
 
   beforeEach(async () => {
     bobCookie = await signIn(bob);
-    scryfall.card.mockImplementation(async (id) =>
-      id === kaldheimIsland ? islandCard : null,
-    );
+    await storePrintings([islandCard, otherIsland, forest]);
+    scryfall.search.mockClear();
+    scryfall.sets.mockClear();
   });
 
-  it('sets a player’s preferred printing, once Scryfall shows it is an English printing of that land, for their plans in every draft', async () => {
+  it('sets a player’s preferred printing to a stored printing of that land, for their plans in every draft', async () => {
     const first = await readyDraft([aliceCookie, bobCookie]);
     const second = await readyDraft([aliceCookie]);
     expect(await preferredIn(first)).toEqual({});
+    scryfall.search.mockClear();
 
     const set = await setPreferred('Island', {
       scryfallId: kaldheimIsland,
     }).expect(200);
 
-    expect(scryfall.card).toHaveBeenCalledWith(kaldheimIsland);
     expect(set.body).toEqual({ Island: kaldheimIslandView });
     expect(await preferredIn(first)).toEqual({ Island: kaldheimIslandView });
     expect(await preferredIn(second)).toEqual({ Island: kaldheimIslandView });
     // Only Alice's: Bob's plan shows his own, which he hasn't set.
     expect(await preferredIn(first, bobCookie)).toEqual({});
+    // Checked against the stored printings, not Scryfall.
+    expect(scryfall.search).not.toHaveBeenCalled();
   });
 
   it('replaces a preferred printing, and clears it so the land shows its default printing again', async () => {
     const id = await readyDraft([aliceCookie]);
-    const forest = card('Forest', {
-      id: '11111111-2222-4333-8444-555555555555',
-      set: 'unf',
-      collector_number: '239',
-    });
-    const otherIsland = card('Island', {
-      id: '66666666-7777-4888-8999-aaaaaaaaaaaa',
-      set: 'ons',
-      collector_number: '336',
-    });
-    scryfall.card.mockImplementation(
-      async (scryfallId) =>
-        [islandCard, otherIsland, forest].find((c) => c.id === scryfallId) ??
-        null,
-    );
     await setPreferred('Island', { scryfallId: kaldheimIsland }).expect(200);
     await setPreferred('Forest', { scryfallId: forest.id }).expect(200);
 
     await setPreferred('Island', { scryfallId: otherIsland.id }).expect(200);
-    expect((await preferredIn(id)).Island).toMatchObject({
-      scryfallId: otherIsland.id,
-      set: 'ons',
-      collectorNumber: '336',
-    });
+    expect((await preferredIn(id)).Island).toEqual(viewOf(otherIsland));
 
     const cleared = await clearPreferred('Island').expect(200);
     expect(Object.keys(cleared.body)).toEqual(['Forest']);
@@ -120,44 +99,21 @@ describe('preferred printings', () => {
     await clearPreferred('Island').expect(200);
   });
 
-  it('refuses anything but an English printing of that basic land, saving nothing', async () => {
+  it('refuses anything but a stored printing of that basic land, saving nothing', async () => {
     const id = await readyDraft([aliceCookie]);
-    const printings: Record<string, ReturnType<typeof card>> = {
-      snow: card('Snow-Covered Island', {
-        id: '10000000-0000-4000-8000-000000000001',
-      }),
-      forest: card('Forest', { id: '10000000-0000-4000-8000-000000000002' }),
-      japanese: card('Island', {
-        id: '10000000-0000-4000-8000-000000000003',
-        lang: 'ja',
-      }),
-      offCdn: card('Island', {
-        id: '10000000-0000-4000-8000-000000000005',
-        image_uris: {
-          small: 'https://example.com/small.jpg',
-          normal: 'https://example.com/normal.jpg',
-          large: 'https://example.com/large.jpg',
-        },
-      }),
-    };
-    scryfall.card.mockImplementation(
-      async (scryfallId) =>
-        Object.values(printings).find((c) => c.id === scryfallId) ?? null,
-    );
 
     for (const scryfallId of [
-      printings.snow.id,
-      printings.forest.id,
-      printings.japanese.id,
-      printings.offCdn.id,
-      // No printing on Scryfall at all.
+      // A stored printing, of another land.
+      forest.id,
+      // No stored printing at all.
       '10000000-0000-4000-8000-000000000004',
     ]) {
       const refused = await setPreferred('Island', { scryfallId }).expect(400);
-      expect(refused.body).toMatchObject({ error: 'invalid' });
+      expect(refused.body).toEqual({
+        error: 'invalid',
+        message: 'That isn’t an English printing of Island.',
+      });
     }
-    // Checked before asking Scryfall.
-    scryfall.card.mockClear();
     await setPreferred('Island', {}).expect(400);
     await setPreferred('Island', { scryfallId: 'not-an-id' }).expect(400);
     await setPreferred('Island', { scryfallId: 7 }).expect(400);
@@ -165,19 +121,6 @@ describe('preferred printings', () => {
       scryfallId: kaldheimIsland,
     }).expect(400);
     await clearPreferred('Lotus').expect(400);
-    expect(scryfall.card).not.toHaveBeenCalled();
-    expect(await preferredIn(id)).toEqual({});
-  });
-
-  it('says so when Scryfall can’t be reached, saving nothing', async () => {
-    const id = await readyDraft([aliceCookie]);
-    scryfall.card.mockRejectedValue(new ScryfallUnavailableError(503));
-
-    const refused = await setPreferred('Island', {
-      scryfallId: kaldheimIsland,
-    }).expect(502);
-
-    expect(refused.body).toMatchObject({ error: 'scryfall-unavailable' });
     expect(await preferredIn(id)).toEqual({});
   });
 

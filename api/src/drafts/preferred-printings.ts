@@ -1,20 +1,6 @@
-import type { BasicLandPrintingView, PreferredPrintings } from 'contract';
-import type { PreferredPrinting } from '../generated/prisma/client.js';
+import type { PreferredPrintings } from 'contract';
+import { printingView } from '../basic-land-printings/basic-land-printings.js';
 import type { Transaction } from './draft-shapes.js';
-
-/** A stored preferred printing as the contract shows it. */
-function printingView(printing: PreferredPrinting): BasicLandPrintingView {
-  return {
-    scryfallId: printing.scryfallId,
-    set: printing.set,
-    collectorNumber: printing.collectorNumber,
-    images: {
-      small: printing.imageSmall,
-      normal: printing.imageNormal,
-      large: printing.imageLarge,
-    },
-  };
-}
 
 /** Each of the users' preferred printings, by user id: none for a user who has set none. */
 export async function readPreferredPrintings(
@@ -23,11 +9,13 @@ export async function readPreferredPrintings(
 ): Promise<Map<string, PreferredPrintings>> {
   const rows = await tx.preferredPrinting.findMany({
     where: { userId: { in: userIds } },
+    include: { printing: true },
   });
   const byUser = new Map<string, PreferredPrintings>(
     userIds.map((userId) => [userId, {}]),
   );
-  for (const row of rows) byUser.get(row.userId)![row.land] = printingView(row);
+  for (const row of rows)
+    byUser.get(row.userId)![row.land] = printingView(row.printing);
   return byUser;
 }
 
@@ -38,8 +26,9 @@ export async function playersPreferredPrintings(
 ): Promise<PreferredPrintings> {
   const rows = await tx.preferredPrinting.findMany({
     where: { user: { players: { some: { id: playerId } } } },
+    include: { printing: true },
   });
   return Object.fromEntries(
-    rows.map((row) => [row.land, printingView(row)]),
+    rows.map((row) => [row.land, printingView(row.printing)]),
   ) as PreferredPrintings;
 }

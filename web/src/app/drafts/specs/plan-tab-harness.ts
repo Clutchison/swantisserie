@@ -1,4 +1,4 @@
-import type { PlanView } from 'contract';
+import type { BasicLandPrintingsView, PlanView } from 'contract';
 import {
   accessibleName,
   bob,
@@ -74,29 +74,28 @@ export const stacksOf = (plan: HTMLElement) =>
     ),
   );
 
-/** The Scryfall search the Printing picker sends for every English printing of `land`. */
-export const printingSearch = (land: string) =>
-  `https://api.scryfall.com/cards/search?q=!%22${land}%22%20lang%3Aen&unique=prints&order=released&dir=desc`;
+/** The API request the Printing picker sends for the stored printings of `land`. */
+export const printingsRequest = (land: string) => `/api/basic-land-printings/${land}`;
 
-/** Answers the open Printing picker's search for `land` with one printing, Onslaught's #1. */
-export async function answerPrintingSearch(land: string) {
+/** Answers the open Printing picker's request for `land` with one printing, Onslaught's #1. */
+export async function answerPrintingsRequest(land: string) {
   const id = 'f0000000-0000-4000-8000-000000000001';
   const image = (version: string) => `https://cards.scryfall.io/${version}/front/f/0/${id}.jpg`;
-  (await vi.waitFor(() => http.expectOne(printingSearch(land)))).flush({
-    object: 'list',
-    has_more: false,
-    data: [
+  (await vi.waitFor(() => http.expectOne(printingsRequest(land)))).flush({
+    sets: [
       {
-        object: 'card',
-        id,
-        name: land,
-        lang: 'en',
-        set: 'ons',
-        set_name: 'Onslaught',
-        collector_number: '1',
-        released_at: '2002-10-07',
-        image_uris: { small: image('small'), normal: image('normal'), large: image('large') },
+        code: 'ons',
+        name: 'Onslaught',
+        releasedAt: '2002-10-07',
+        printings: [
+          {
+            scryfallId: id,
+            set: 'ons',
+            collectorNumber: '1',
+            images: { small: image('small'), normal: image('normal'), large: image('large') },
+          },
+        ],
       },
     ],
-  });
+  } satisfies BasicLandPrintingsView);
 }

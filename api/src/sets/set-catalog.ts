@@ -65,7 +65,7 @@ export class SetNotOfferedError extends Error {}
 @Injectable()
 export class SetCatalog implements OnApplicationShutdown {
   private readonly logger = new Logger(SetCatalog.name);
-  private sets: { fetchedAt: number; mainSets: Promise<MainSet[]> } | null =
+  private setList: { fetchedAt: number; sets: Promise<ScryfallSet[]> } | null =
     null;
   /** Counting in flight, by platform. */
   private readonly counting = new Map<Platform, Promise<void>>();
@@ -167,18 +167,26 @@ export class SetCatalog implements OnApplicationShutdown {
       .map(({ code }) => code);
   }
 
-  /** Scryfall's main sets, newest first, each with its possible sublists. */
-  private mainSets(): Promise<MainSet[]> {
+  /**
+   * Every Scryfall set, as fetched at most a day ago. Throws
+   * ScryfallUnavailableError if Scryfall's list of sets can't be had.
+   */
+  scryfallSets(): Promise<ScryfallSet[]> {
     const now = Date.now();
-    if (!this.sets || now - this.sets.fetchedAt > SETS_MAX_AGE_MS) {
-      const mainSets = this.scryfall.sets().then(toMainSets);
+    if (!this.setList || now - this.setList.fetchedAt > SETS_MAX_AGE_MS) {
+      const sets = this.scryfall.sets();
       // A failure is not kept, so the next request asks Scryfall again.
-      mainSets.catch(() => {
-        if (this.sets?.mainSets === mainSets) this.sets = null;
+      sets.catch(() => {
+        if (this.setList?.sets === sets) this.setList = null;
       });
-      this.sets = { fetchedAt: now, mainSets };
+      this.setList = { fetchedAt: now, sets };
     }
-    return this.sets.mainSets;
+    return this.setList.sets;
+  }
+
+  /** Scryfall's main sets, newest first, each with its possible sublists. */
+  private async mainSets(): Promise<MainSet[]> {
+    return toMainSets(await this.scryfallSets());
   }
 
   private async counts(platform: Platform): Promise<Map<string, StoredCount>> {

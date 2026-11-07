@@ -61,6 +61,26 @@ export interface BasicLandPrintingView {
   images: CardImages;
 }
 
+/** A set with at least one English printing of a basic land, and those printings. */
+export interface BasicLandPrintingSetView {
+  /** Scryfall's set code, lowercase. */
+  code: string;
+  name: string;
+  /** YYYY-MM-DD. */
+  releasedAt: string;
+  /** In collector-number order. */
+  printings: BasicLandPrintingView[];
+}
+
+/**
+ * One basic land's printings, from `GET /api/basic-land-printings/:land`,
+ * for the Printing picker: the newest set first. None while they are being
+ * stored for the first time.
+ */
+export interface BasicLandPrintingsView {
+  sets: BasicLandPrintingSetView[];
+}
+
 /** A player's preferred printings, by basic land. A basic land with none, which shows its default printing, is absent. */
 export type PreferredPrintings = Partial<
   Record<BasicLand, BasicLandPrintingView>
@@ -71,14 +91,11 @@ export interface PreferredPrintingRequest {
   scryfallId: string;
 }
 
-/** Why a preferred printing couldn't be set. */
-export type PreferredPrintingProblem =
-  | {
-      /** The request names no basic land, or no English printing of it. */
-      error: 'invalid';
-      message: string;
-    }
-  | { error: 'scryfall-unavailable'; message: string };
+/** Why a preferred printing couldn't be set: the request names no basic land, or no stored printing of it. */
+export interface PreferredPrintingProblem {
+  error: 'invalid';
+  message: string;
+}
 
 /** The signed-in player's plan, which only they may see. */
 export interface PlanView extends PlanBoards {
