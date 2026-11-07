@@ -26,4 +26,4 @@ Mutation testing (Stryker, engine only) is in `docs/agents/mutation-testing.md`.
 
 - **Issue tracker**: GitHub Issues through `gh`; read `docs/agents/issue-tracker.md` before a tracker operation.
 - **Triage labels**: `docs/agents/triage-labels.md`.
-- **Implementation order**: when choosing the next ticket, or filing or triaging one, read `docs/agents/implementation-order.md`.
+- **Implementation order**: when choosing the next ticket, or ordering one ticket before another, read `docs/agents/implementation-order.md`.

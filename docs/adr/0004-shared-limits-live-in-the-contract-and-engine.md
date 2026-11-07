@@ -11,4 +11,4 @@ The web checks the same limits the api enforces, such as field lengths, picks pe
 
 ## Consequences
 
-- New limits follow the same rule, such as a guild name's or a channel name's in the multi-guild work (#352): the contract if the api checks them on a request, the engine if the engine enforces them.
+- New limits follow the same rule, such as a guild name's or a channel name's in the multi-guild work (#169): the contract if the api checks them on a request, the engine if the engine enforces them.
