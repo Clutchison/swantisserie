@@ -6,6 +6,7 @@ import {
   carol,
   clearGameScore,
   completeRound,
+  postCompleteRound,
   dropPlayer,
   placesOf,
   playingSingleElimination,
@@ -204,7 +205,9 @@ describe('dropping players from the Complete round dialog', () => {
         grantedWins: [{ matchId: match.id, winner: seeds[2] }],
       },
     ]) {
-      const answer = await completeRound(id, aliceCookie, body).expect(400);
+      const answer = await postCompleteRound(id, { round: 1, ...body }).expect(
+        400,
+      );
       expect(answer.body.error).toBe('invalid');
     }
     expect((await tournamentView(id)).entries.some((e) => e.dropped)).toBe(

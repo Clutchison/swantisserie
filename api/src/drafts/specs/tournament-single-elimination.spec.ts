@@ -14,6 +14,7 @@ import {
   clearGameScore,
   completeDraft,
   completeRound,
+  postCompleteRound,
   confirmMatch,
   getDraft,
   placesOf,
@@ -346,7 +347,9 @@ describe('completing a single elimination tournament round', () => {
       { grantedWins: [{ matchId: 'm', winner: match.players[0] }] },
       { grantedWins: [{ matchId: match.id, winner: bystander }] },
     ]) {
-      const answer = await completeRound(id, aliceCookie, body).expect(400);
+      const answer = await postCompleteRound(id, { round: 1, ...body }).expect(
+        400,
+      );
       expect(answer.body.error).toBe('invalid');
     }
   });

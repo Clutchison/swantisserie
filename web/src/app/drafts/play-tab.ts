@@ -199,11 +199,8 @@ export class PlayTab {
   protected readonly offeredReopenRound = computed(() =>
     this.organizePlay() ? (this.tournament()?.reopenRound ?? null) : null,
   );
-  /** The Complete round dialog, while it's open, with the tournament round it was opened for. */
-  private completing: {
-    dialog: DialogRef<CompleteRoundRequest, CompleteRoundDialog>;
-    round: number;
-  } | null = null;
+  /** The Complete round dialog, while it's open. */
+  private completing: DialogRef<CompleteRoundRequest, CompleteRoundDialog> | null = null;
   /** The tournament's current tournament round: the one after the last completed. */
   private readonly currentRound = computed(() => (this.tournament()?.lastCompletedRound ?? 0) + 1);
 
@@ -277,13 +274,14 @@ export class PlayTab {
     // Complete round stops being offered once the tournament isn't playing,
     // as when another organizer completes it, and the dialog's tournament
     // round stops being current once another organizer completes or reopens
-    // a round.
+    // a tournament round.
     effect(() => {
       const playing = this.organizePlay();
       const round = this.currentRound();
       untracked(() => {
-        if (this.completing && (!playing || this.completing.round !== round)) {
-          this.completing.dialog.close();
+        const completing = this.completing;
+        if (completing && (!playing || completing.componentInstance?.round() !== round)) {
+          completing.close();
         }
       });
     });
@@ -425,7 +423,7 @@ export class PlayTab {
         bindings: [inputBinding('round', () => round)],
       },
     );
-    this.completing = { dialog: completing, round };
+    this.completing = completing;
     completing.closed.subscribe((request) => {
       this.completing = null;
       if (request) void this.completeRound(request);

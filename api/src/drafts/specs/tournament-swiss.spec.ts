@@ -6,9 +6,9 @@ import {
   carol,
   completeDraft,
   completeRound,
+  postCompleteRound,
   completeTournament,
   dropPlayer,
-  draftsRequest,
   getDraft,
   playingTournament,
   reinstate,
@@ -443,7 +443,9 @@ describe('completing a Swiss tournament round with unreported matches', () => {
       { grantedDraws: [{ matchId: 'm' }] },
       { grantedDraws: [{ matchId: 'm', drop: [1] }] },
     ]) {
-      const answer = await completeRound(id, aliceCookie, body).expect(400);
+      const answer = await postCompleteRound(id, { round: 1, ...body }).expect(
+        400,
+      );
       expect(answer.body.error).toBe('invalid');
     }
   });
@@ -566,12 +568,7 @@ describe('completing a Swiss tournament round with unreported matches', () => {
     await reportCurrentRound(id, cookieOf);
 
     for (const body of [undefined, {}, { round: 0 }, { round: '1' }]) {
-      const answer = await draftsRequest(
-        'post',
-        `/${id}/tournament/complete-round`,
-        aliceCookie,
-        body,
-      ).expect(400);
+      const answer = await postCompleteRound(id, body).expect(400);
       expect(answer.body.error).toBe('invalid');
     }
     const ahead = await completeRound(id, aliceCookie, { round: 2 }).expect(

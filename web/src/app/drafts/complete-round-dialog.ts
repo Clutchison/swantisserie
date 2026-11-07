@@ -159,7 +159,8 @@ export class CompleteRoundDialog {
   }
 
   /**
-   * Closes with the request, naming its tournament round: in single elimination the drops chosen from
+   * Closes with the request, naming its tournament round: in single
+   * elimination the drops chosen from
    * each unreported match, and a granted win for the winner picked in each
    * of the others; otherwise a granted draw in each, with the players
    * chosen to drop from it.
