@@ -25,9 +25,9 @@ export interface CascadePick {
  * The picks a cascade makes, each with its effects: while the seat whose
  * turn it is has a card in its queue not yet picked, it picks the first such
  * card. `queues` are each seat's queued cards in order, indexed by seat; a
- * seat with no queue, such as a bot's, stops the cascade. After each pick,
- * queues change as `queuesAfterPick` says: a queued copy of the picked card
- * may be swapped for another copy, or lost. Under clear queue, a lost card
+ * seat with an empty queue, such as a bot's, stops the cascade. After each
+ * pick, queues change as `queuesAfterPick` says: a queued copy of the picked
+ * card may be swapped for another copy, or lost. Under clear queue, a lost card
  * clears that queue and stops the cascade at that seat's next turn; under
  * pick next, as that seat's entry in `stealBehaviors` may say, the rest of
  * its queue carries on. `plans` are each seat's planned cards, picked or
@@ -43,7 +43,7 @@ export function cascade(
   plans: readonly (readonly string[])[],
 ): CascadePick[] {
   const picked = [...draft.picked];
-  const taken = new Set(picked);
+  const pickedBefore = new Set(picked);
   let remaining = queues;
   let planned = plans;
   const picks: CascadePick[] = [];
@@ -51,7 +51,9 @@ export function cascade(
     const turn = currentTurn(draft, picked.length);
     if (!turn) return picks;
     // Stryker disable next-line OptionalChaining: there is one queue per seat, so remaining[turn.seat] always exists.
-    const card = remaining[turn.seat]?.find((queued) => !taken.has(queued));
+    const card = remaining[turn.seat]?.find(
+      (queued) => !pickedBefore.has(queued),
+    );
     if (card === undefined) return picks;
     const pick = { seat: turn.seat, card };
     const queuesAfter = queuesAfterPick(pick, remaining, {
