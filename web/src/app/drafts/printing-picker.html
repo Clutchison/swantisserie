@@ -1,0 +1,75 @@
+<div class="dialog">
+  <h3 [id]="headingId">{{ land() }} printing</h3>
+  <figure>
+    <img
+      [src]="image()"
+      [alt]="land() + ', ' + label()"
+      [width]="largeImage.width"
+      [height]="largeImage.height"
+      (error)="imageFailed()"
+    />
+    <figcaption>{{ label() }}</figcaption>
+  </figure>
+  @if (set(); as chosen) {
+    <div class="browse">
+      <label for="printing-set">Set</label>
+      <select id="printing-set" (change)="chooseSet($any($event.target).value)">
+        @for (option of sets(); track option.code; let index = $index) {
+          <option [value]="index" [selected]="index === setIndex()">
+            {{ option.name }} ({{ option.year }})
+          </option>
+        }
+      </select>
+      <!-- A set with one printing has nothing to step through. -->
+      @if (chosen.printings.length > 1) {
+        <div class="steps">
+          <button
+            class="button compact quiet"
+            type="button"
+            aria-label="Previous printing"
+            title="Previous printing"
+            (click)="step(-1)"
+          >
+            ◀
+          </button>
+          <span>{{ printingIndex() + 1 }} of {{ chosen.printings.length }}</span>
+          <button
+            class="button compact quiet"
+            type="button"
+            aria-label="Next printing"
+            title="Next printing"
+            (click)="step(1)"
+          >
+            ▶
+          </button>
+        </div>
+      }
+    </div>
+  } @else if (loadFailed()) {
+    <div class="load-failed">
+      <p class="error" role="alert">Couldn’t load the printings from Scryfall.</p>
+      <button class="button compact secondary" type="button" (click)="load()">Try again</button>
+    </div>
+  } @else {
+    <p class="detail" role="status">Loading printings…</p>
+  }
+  @if (saveError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+  <div class="dialog-actions">
+    <button
+      class="button secondary"
+      type="button"
+      (click)="useDefault()"
+      [disabled]="!hasPreferred() || saving()"
+    >
+      Use default
+    </button>
+    <button class="button secondary" type="button" cdkFocusInitial (click)="cancel()">
+      Cancel
+    </button>
+    <button class="button" type="button" (click)="use()" [disabled]="!set() || saving()">
+      Use this printing
+    </button>
+  </div>
+</div>

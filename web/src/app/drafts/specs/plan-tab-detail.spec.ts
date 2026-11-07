@@ -8,7 +8,6 @@ import {
   openDraft,
   completeSnapshot,
   button,
-  cardName,
   drafting,
   draft,
   flushPicks,
@@ -25,6 +24,7 @@ import {
   wait,
   fireIce,
   shownSideways,
+  heading,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, newestLarge } from './pool-tab-harness';
@@ -39,6 +39,7 @@ import {
   openPlan,
   detailOpener,
   stack,
+  answerPrintingSearch,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -102,19 +103,19 @@ describe('plan tab', () => {
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');
     });
 
-    it('opens nothing from a basic land, whose name still shows its Card preview', async () => {
+    it('opens a basic land’s Printing picker, not a Card detail, from its name', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({ mainboard: [planned(shivan)], basics: [{ land: 'Swamp', count: 2 }] }),
       });
       const plan = await openPlan(fixture, page);
 
-      expect(detailOpener(plan, 'Swamp')).toBeUndefined();
-      tap(cardName(plan, 'Swamp'));
+      tap(detailOpener(plan, 'Swamp')!);
+      await answerPrintingSearch('Swamp');
       await fixture.whenStable();
 
-      expect(previewImage()?.alt).toBe('Swamp');
-      expect(openDialog()).toBeNull();
+      expect(previewImage()).toBeNull();
+      expect(heading(openDialog()!, 'Swamp printing')).toBeDefined();
     });
 
     it('opens a line of several unpicked copies on its first copy not in the queue', async () => {
@@ -228,7 +229,7 @@ describe('plan tab', () => {
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');
     });
 
-    it('opens nothing from a basic land', async () => {
+    it('opens a basic land’s Printing picker, not a Card detail', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({ mainboard: [planned(shivan)], basics: [{ land: 'Island', count: 1 }] }),
@@ -236,7 +237,11 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
 
       expect(stack(plan, 'Lands')).toEqual(['Island']);
-      expect(detailOpener(plan, 'Island')).toBeUndefined();
+      detailOpener(plan, 'Island')!.click();
+      await answerPrintingSearch('Island');
+      await fixture.whenStable();
+
+      expect(heading(openDialog()!, 'Island printing')).toBeDefined();
     });
 
     it('offers Move on a card but no Remove, which its Card detail offers', async () => {

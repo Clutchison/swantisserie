@@ -303,7 +303,11 @@ describe('export tab', () => {
         imaPick(5, alice.id, 'opt-card', 'Opt'),
         imaPick(7, alice.id, 'shock-card-2', 'Shock'),
       ];
-      /** Bolt and a Shock on the mainboard with basics, Opt and the other Shock on the sideboard, and an unpicked card on each. */
+      /**
+       * Bolt and a Shock on the mainboard with basics, Opt and the other Shock
+       * on the sideboard, and an unpicked card on each. Its player prefers
+       * Kaldheim's Island #395, which no export names.
+       */
       const plan: PlanView = {
         mainboard: [
           { poolCardId: 'bolt-card', name: 'Lightning Bolt', picked: true },
@@ -320,6 +324,21 @@ describe('export tab', () => {
           { land: 'Mountain', count: 7 },
         ],
         lost: [],
+        preferredPrintings: {
+          Island: {
+            scryfallId: 'a0000000-0000-4000-8000-000000000395',
+            set: 'khm',
+            collectorNumber: '395',
+            images: {
+              small:
+                'https://cards.scryfall.io/small/front/a/0/a0000000-0000-4000-8000-000000000395.jpg',
+              normal:
+                'https://cards.scryfall.io/normal/front/a/0/a0000000-0000-4000-8000-000000000395.jpg',
+              large:
+                'https://cards.scryfall.io/large/front/a/0/a0000000-0000-4000-8000-000000000395.jpg',
+            },
+          },
+        },
       };
 
       const openPlanExport = (fields: DraftFixture = {}, yours = plan) =>

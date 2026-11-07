@@ -1,7 +1,14 @@
 import { CdkDrag } from '@angular/cdk/drag-drop';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import type { PickView, PlanView, PoolCardView, QueueView, UserView } from 'contract';
+import type {
+  PickView,
+  PlanView,
+  PoolCardView,
+  PreferredPrintings,
+  QueueView,
+  UserView,
+} from 'contract';
 import {
   useDraftsApp,
   alice,
@@ -439,6 +446,7 @@ describe('card previews', () => {
             sideboard: [],
             basics: [],
             lost: [],
+            preferredPrintings: {},
           },
         });
         tabButton(page, 'Plan').click();
@@ -629,6 +637,7 @@ describe('card previews', () => {
           sideboard: [],
           basics: [],
           lost: [],
+          preferredPrintings: {},
         },
       });
       tabButton(page, 'Plan').click();
@@ -648,6 +657,7 @@ describe('card previews', () => {
             sideboard: [],
             basics: [],
             lost: [],
+            preferredPrintings: {},
           },
         });
         tabButton(page, 'Plan').click();
@@ -711,6 +721,7 @@ describe('card previews', () => {
           sideboard: [],
           basics: [],
           lost: [],
+          preferredPrintings: {},
         },
       });
       tabButton(page, 'Plan').click();
@@ -731,6 +742,7 @@ describe('card previews', () => {
           sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
           basics: [],
           lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.id }],
+          preferredPrintings: {},
         },
       });
       tabButton(opened.page, 'Plan').click();
@@ -775,42 +787,70 @@ describe('card previews', () => {
       }
     });
 
-    it('shows on a basic land, though it isn’t a pool card', async () => {
+    /** Opens the Plan tab with two Swamps, `preferredPrintings` the player's, and hovers one until its Card preview opens. */
+    async function previewSwamp(preferredPrintings: PreferredPrintings = {}) {
       const { page, fixture } = await openPicked({
         plan: {
           mainboard: [],
           sideboard: [],
           basics: [{ land: 'Swamp', count: 2 }],
           lost: [],
+          preferredPrintings,
         },
       });
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      hover(cardName(panel(page), 'Swamp'));
+      wait(150);
+      vi.useRealTimers();
+    }
 
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+    it('shows on a basic land, though it isn’t a pool card', async () => {
+      await previewSwamp();
+
       expect(previewImage()?.getAttribute('src')).toBe(
         'https://cards.scryfall.io/normal/front/0/3/0356ae45-e5ca-46b9-8ebc-42bf4776e89c.jpg',
       );
     });
 
     it('falls back to Scryfall’s API image of a basic land’s default printing', async () => {
-      const { page, fixture } = await openPicked({
-        plan: {
-          mainboard: [],
-          sideboard: [],
-          basics: [{ land: 'Swamp', count: 2 }],
-          lost: [],
-        },
-      });
-      tabButton(page, 'Plan').click();
-      await fixture.whenStable();
+      await previewSwamp();
 
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
       previewImage()!.dispatchEvent(new Event('error'));
       TestBed.tick();
 
       expect(previewImage()?.getAttribute('src')).toBe(
         'https://api.scryfall.com/cards/0356ae45-e5ca-46b9-8ebc-42bf4776e89c?format=image&version=normal',
+      );
+    });
+
+    const ZNR_SWAMP = 'd0000000-0000-4000-8000-000000000271';
+    const znrSwamp = {
+      scryfallId: ZNR_SWAMP,
+      set: 'znr',
+      collectorNumber: '271',
+      images: {
+        small: `https://cards.scryfall.io/small/front/d/0/${ZNR_SWAMP}.jpg`,
+        normal: `https://cards.scryfall.io/normal/front/d/0/${ZNR_SWAMP}.jpg`,
+        large: `https://cards.scryfall.io/large/front/d/0/${ZNR_SWAMP}.jpg`,
+      },
+    };
+
+    it('shows a basic land’s preferred printing', async () => {
+      await previewSwamp({ Swamp: znrSwamp });
+
+      expect(previewImage()?.getAttribute('src')).toBe(znrSwamp.images.normal);
+    });
+
+    it('falls back to Scryfall’s API image of a preferred printing', async () => {
+      await previewSwamp({ Swamp: znrSwamp });
+
+      previewImage()!.dispatchEvent(new Event('error'));
+      TestBed.tick();
+
+      expect(previewImage()?.getAttribute('src')).toBe(
+        `https://api.scryfall.com/cards/${ZNR_SWAMP}?format=image&version=normal`,
       );
     });
   });

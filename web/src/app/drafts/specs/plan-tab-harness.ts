@@ -2,6 +2,7 @@ import type { PlanView } from 'contract';
 import {
   accessibleName,
   bob,
+  http,
   namedList,
   openTab,
   tabButton,
@@ -32,6 +33,7 @@ export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   sideboard: [],
   basics: [],
   lost: [],
+  preferredPrintings: {},
   ...fields,
 });
 
@@ -71,3 +73,30 @@ export const stacksOf = (plan: HTMLElement) =>
       (list) => `${list.getAttribute('aria-label')}: ${stackedCards(list).join(', ')}`,
     ),
   );
+
+/** The Scryfall search the Printing picker sends for every English printing of `land`. */
+export const printingSearch = (land: string) =>
+  `https://api.scryfall.com/cards/search?q=!%22${land}%22%20lang%3Aen&unique=prints&order=released&dir=desc`;
+
+/** Answers the open Printing picker's search for `land` with one printing, Onslaught's #1. */
+export async function answerPrintingSearch(land: string) {
+  const id = 'f0000000-0000-4000-8000-000000000001';
+  const image = (version: string) => `https://cards.scryfall.io/${version}/front/f/0/${id}.jpg`;
+  (await vi.waitFor(() => http.expectOne(printingSearch(land)))).flush({
+    object: 'list',
+    has_more: false,
+    data: [
+      {
+        object: 'card',
+        id,
+        name: land,
+        lang: 'en',
+        set: 'ons',
+        set_name: 'Onslaught',
+        collector_number: '1',
+        released_at: '2002-10-07',
+        image_uris: { small: image('small'), normal: image('normal'), large: image('large') },
+      },
+    ],
+  });
+}

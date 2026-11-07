@@ -42,6 +42,7 @@ describe('pool tab', () => {
         sideboard: [],
         basics: [],
         lost: [],
+        preferredPrintings: {},
       });
       await fixture.whenStable();
       expect(detail.querySelector('[role="status"]')?.textContent).toContain('Added to your plan.');

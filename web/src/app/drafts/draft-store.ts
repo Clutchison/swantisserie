@@ -18,6 +18,7 @@ import type {
   DraftView,
   PickView,
   PlanView,
+  PreferredPrintings,
   PlayerView,
   PoolCardRequest,
   PoolCardView,
@@ -528,6 +529,25 @@ export class DraftStore {
   /** Shows the queue as a change about to be sent will leave it, or as it was if that change failed. */
   showQueue(queue: QueueView) {
     this.queueResource.set(queue);
+  }
+
+  /**
+   * Shows the signed-in player's preferred printings as a change to them
+   * answered: on their plan, and on their own decklist, if it is shown.
+   * They are the player's, not the draft's, so no draft version applies.
+   */
+  showPreferredPrintings(preferredPrintings: PreferredPrintings) {
+    const userId = this.user()?.id;
+    if (this.planResource.hasValue()) {
+      this.planResource.update((plan) => plan && { ...plan, preferredPrintings });
+    }
+    if (this.decklistsResource.hasValue()) {
+      this.decklistsResource.update((decklists) =>
+        decklists?.map((decklist) =>
+          decklist.playerId === userId ? { ...decklist, preferredPrintings } : decklist,
+        ),
+      );
+    }
   }
 
   /** Sends a change to the signed-in player's plan, as `changeQueue` does the queue. */

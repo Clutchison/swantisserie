@@ -1,17 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import {
-  BASIC_LANDS,
+  type BasicLand,
   type DecklistView,
   type PlannedBasicView,
   type PlannedCardView,
   type PoolCardView,
 } from 'contract';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { basicCard } from './basic-lands';
+import { basicCards } from './basic-lands';
 import { CardName } from './card-name';
 import { DraftStore } from './draft-store';
-
-const BASIC_CARDS = new Map(BASIC_LANDS.map((land) => [land, basicCard(land)]));
 
 /** One line of a decklist's mainboard or sideboard: a card, or a basic land, and its copies. */
 interface DecklistLine {
@@ -34,7 +32,9 @@ interface DecklistBoard {
  * The Lists tab: each joined player's decklist, in join order, read-only,
  * as the tournament locked it at its start. Each lists its mainboard, basic
  * lands last, and its sideboard, as the player's own deck does, every card
- * name showing its Card preview.
+ * name showing its Card preview: a basic land's shows its player's preferred
+ * printing as it is now, or else its default printing. It opens no Printing
+ * picker.
  */
 @Component({
   selector: 'app-lists-tab',
@@ -56,8 +56,14 @@ export class ListsTab {
       playerId: decklist.playerId,
       name: this.store.player(decklist.playerId).name,
       boards: [
-        board('Mainboard', decklist.mainboard, decklist.basics, cards),
-        board('Sideboard', decklist.sideboard, [], cards),
+        board(
+          'Mainboard',
+          decklist.mainboard,
+          decklist.basics,
+          cards,
+          basicCards(decklist.preferredPrintings),
+        ),
+        board('Sideboard', decklist.sideboard, [], cards, new Map()),
       ],
     }));
   });
@@ -69,6 +75,7 @@ function board(
   planned: PlannedCardView[],
   basics: PlannedBasicView[],
   cards: ReadonlyMap<string, PoolCardView>,
+  basicCardsByLand: ReadonlyMap<BasicLand, PoolCardView>,
 ): DecklistBoard {
   const byName = new Map<string, DecklistLine>();
   for (const card of planned) {
@@ -87,7 +94,7 @@ function board(
     key: `basic ${land}`,
     name: land,
     count,
-    card: BASIC_CARDS.get(land),
+    card: basicCardsByLand.get(land),
   }));
   const lines = [...byName.values(), ...basicLines];
   return { name, count: lines.reduce((total, line) => total + line.count, 0), lines };
