@@ -1,6 +1,12 @@
 import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import { By } from '@angular/platform-browser';
-import type { PlannedBasicView, PlanView } from 'contract';
+import type {
+  BasicLandPrintingsView,
+  BasicLandPrintingView,
+  PlannedBasicView,
+  PlanView,
+  PreferredPrintingProblem,
+} from 'contract';
 import {
   useDraftsApp,
   http,
@@ -34,7 +40,7 @@ import {
   openPlan,
   planBoards,
   planned,
-  printingSearch,
+  printingsRequest,
   stack,
 } from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
@@ -520,52 +526,51 @@ describe('basic lands on the plan tab', () => {
 
 describe('the Printing picker', () => {
   const cards = [shivan, bolt];
-  /** The Scryfall search the picker sends for every English printing of Island. */
-  const islandSearch = printingSearch('Island');
+  /** The API request the picker sends for the stored printings of Island. */
+  const islandRequest = printingsRequest('Island');
   const ONS_335 = '36e062ec-df51-40c0-ad8a-2ee1cb8f8f17';
   const KHM_394 = 'a0000000-0000-4000-8000-000000000394';
   const cdn = (version: string, id: string) =>
     `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;
-  /** An English Island printing as Scryfall's search answers with it. */
-  const printing = (
-    id: string,
-    set: string,
-    setName: string,
-    number: string,
-    released: string,
-  ) => ({
-    object: 'card',
-    id,
-    name: 'Island',
-    lang: 'en',
+  /** An English Island printing as the API shows it. */
+  const printing = (id: string, set: string, number: string): BasicLandPrintingView => ({
+    scryfallId: id,
     set,
-    set_name: setName,
-    collector_number: number,
-    released_at: released,
-    image_uris: { small: cdn('small', id), normal: cdn('normal', id), large: cdn('large', id) },
+    collectorNumber: number,
+    images: { small: cdn('small', id), normal: cdn('normal', id), large: cdn('large', id) },
   });
-  // Kaldheim's three, Core Set 2021's one and Onslaught's two, out of order.
-  const islands = [
-    printing('a0000000-0000-4000-8000-000000000395', 'khm', 'Kaldheim', '395', '2021-02-05'),
-    printing('b0000000-0000-4000-8000-000000000336', 'ons', 'Onslaught', '336', '2002-10-07'),
-    printing(KHM_394, 'khm', 'Kaldheim', '394', '2021-02-05'),
-    printing('c0000000-0000-4000-8000-000000000250', 'm21', 'Core Set 2021', '250', '2020-07-03'),
-    printing(ONS_335, 'ons', 'Onslaught', '335', '2002-10-07'),
-    printing('a0000000-0000-4000-8000-000000000396', 'khm', 'Kaldheim', '396', '2021-02-05'),
-  ];
-  const searchPage = (data: unknown[], nextPage?: string) => ({
-    object: 'list',
-    has_more: !!nextPage,
-    ...(nextPage ? { next_page: nextPage } : {}),
-    data,
-  });
-  /** Kaldheim's #394 as the API stores a preferred printing. */
-  const khm394 = {
-    scryfallId: KHM_394,
-    set: 'khm',
-    collectorNumber: '394',
-    images: islands[2].image_uris,
+  /** Kaldheim's three, Core Set 2021's one and Onslaught's two, as the API groups them. */
+  const islands: BasicLandPrintingsView = {
+    sets: [
+      {
+        code: 'khm',
+        name: 'Kaldheim',
+        releasedAt: '2021-02-05',
+        printings: [
+          printing(KHM_394, 'khm', '394'),
+          printing('a0000000-0000-4000-8000-000000000395', 'khm', '395'),
+          printing('a0000000-0000-4000-8000-000000000396', 'khm', '396'),
+        ],
+      },
+      {
+        code: 'm21',
+        name: 'Core Set 2021',
+        releasedAt: '2020-07-03',
+        printings: [printing('c0000000-0000-4000-8000-000000000250', 'm21', '250')],
+      },
+      {
+        code: 'ons',
+        name: 'Onslaught',
+        releasedAt: '2002-10-07',
+        printings: [
+          printing(ONS_335, 'ons', '335'),
+          printing('b0000000-0000-4000-8000-000000000336', 'ons', '336'),
+        ],
+      },
+    ],
   };
+  /** Kaldheim's #394 as the API shows a preferred printing. */
+  const khm394 = islands.sets[0].printings[0];
   const withIslands = (fields: Partial<PlanView> = {}): PlanView => ({
     mainboard: [planned(bolt), planned(shivan)],
     sideboard: [],
@@ -592,10 +597,10 @@ describe('the Printing picker', () => {
   /** The control that opens a stacked Island's Printing picker. */
   const stackedIsland = (plan: HTMLElement) =>
     [...namedList(plan, 'Lands').querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')][0];
-  /** Opens the picker from the first stacked Island, and answers its search with `data`. The page is stable once it is answered. */
-  async function openPicker(fixture: AppFixture, plan: HTMLElement, data: unknown[] = islands) {
+  /** Opens the picker from the first stacked Island, and answers its request with `printings`. The page is stable once it is answered. */
+  async function openPicker(fixture: AppFixture, plan: HTMLElement, printings = islands) {
     stackedIsland(plan).click();
-    (await vi.waitFor(() => http.expectOne(islandSearch))).flush(searchPage(data));
+    (await vi.waitFor(() => http.expectOne(islandRequest))).flush(printings);
     await fixture.whenStable();
     return openDialog()!;
   }
@@ -633,11 +638,13 @@ describe('the Printing picker', () => {
     name.click();
     await fixture.whenStable();
     expect(heading(openDialog()!, 'Island printing')).toBeDefined();
-    // The search is kept from the first opening.
-    http.expectNone(islandSearch);
+    // The printings are kept from the first opening.
+    http.expectNone(islandRequest);
+    // Only the images come from Scryfall, from its CDN.
+    expect(http.match((req) => req.url.startsWith('https://api.scryfall.com/'))).toEqual([]);
   });
 
-  it('opens on the set of the printing shown, every set listed newest first, and steps through its printings in collector-number order, wrapping', async () => {
+  it('opens on the set of the printing shown, every set listed as the API orders them, and steps through its printings, wrapping', async () => {
     const { fixture, plan } = await openWith();
     const dialog = await openPicker(fixture, plan);
 
@@ -673,22 +680,6 @@ describe('the Printing picker', () => {
       await fixture.whenStable();
       expect(shownPrinting()).toBe(`Island, KHM #${number}`);
     }
-  });
-
-  it('reads every page of the search, waiting between them', async () => {
-    const { fixture, plan } = await openWith();
-    stackedIsland(plan).click();
-    const page2 = `${islandSearch}&page=2`;
-
-    (await vi.waitFor(() => http.expectOne(islandSearch))).flush(
-      searchPage(islands.slice(0, 3), page2),
-    );
-    (await vi.waitFor(() => http.expectOne(page2), { timeout: 2000 })).flush(
-      searchPage(islands.slice(3)),
-    );
-    await fixture.whenStable();
-
-    await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
   });
 
   it('saves the printing shown as the preferred printing, which every copy of the land then shows', async () => {
@@ -751,37 +742,38 @@ describe('the Printing picker', () => {
     expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
   });
 
-  it('says so when Scryfall fails, keeping the printing shown, and tries again', async () => {
+  it('says so when the printings fail to load, keeping the printing shown, and tries again', async () => {
     const { fixture, plan } = await openWith();
     stackedIsland(plan).click();
 
-    (await vi.waitFor(() => http.expectOne(islandSearch))).flush(
-      { object: 'error', details: 'Down' },
-      { status: 503, statusText: 'Unavailable' },
-    );
+    (await vi.waitFor(() => http.expectOne(islandRequest))).flush(null, {
+      status: 503,
+      statusText: 'Unavailable',
+    });
     await fixture.whenStable();
     const dialog = openDialog()!;
-    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings from Scryfall.');
+    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(setChoice()).toBeUndefined();
 
     button(dialog, 'Try again')!.click();
-    (await vi.waitFor(() => http.expectOne(islandSearch), { timeout: 2000 })).flush(
-      searchPage(islands),
-    );
+    (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
     expect(alertIn(dialog)).toBeNull();
   });
 
-  it('says so when Scryfall finds no printing of the land', async () => {
+  it('says so while the API is still storing the printings, and tries again', async () => {
     const { fixture, plan } = await openWith();
 
-    await openPicker(fixture, plan, []);
+    const dialog = await openPicker(fixture, plan, { sets: [] });
 
-    expect(text(alertIn(openDialog()!))).toBe('Couldn’t load the printings from Scryfall.');
-    expect(button(openDialog()!, 'Try again')).toBeDefined();
+    expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
+    button(dialog, 'Try again')!.click();
+    (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(setChoice().options).toHaveLength(3));
   });
 
   it('stays open with the error when saving fails, changing nothing', async () => {
@@ -792,15 +784,15 @@ describe('the Printing picker', () => {
     button(dialog, 'Use this printing')!.click();
     http.expectOne(`/api/preferred-printings/Island`).flush(
       {
-        error: 'scryfall-unavailable',
-        message: 'Scryfall could not be reached. Try again in a moment.',
-      },
-      { status: 502, statusText: 'Bad Gateway' },
+        error: 'invalid',
+        message: 'That isn’t an English printing of Island.',
+      } satisfies PreferredPrintingProblem,
+      { status: 400, statusText: 'Bad Request' },
     );
     await fixture.whenStable();
 
     expect(openDialog()).toBe(dialog);
-    expect(text(alertIn(dialog))).toBe('Scryfall could not be reached. Try again in a moment.');
+    expect(text(alertIn(dialog))).toBe('That isn’t an English printing of Island.');
     expect(shownPrinting()).toBe('Island, KHM #394');
     expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
   });

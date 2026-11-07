@@ -12,12 +12,13 @@ import {
 } from '@angular/core';
 import type {
   BasicLand,
+  BasicLandPrintingSetView,
   BasicLandPrintingView,
   PreferredPrintingProblem,
   PreferredPrintings,
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
-import { BasicLandPrintings, type PrintingSet } from './basic-land-printings';
+import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
 import { DraftStore } from './draft-store';
@@ -63,8 +64,8 @@ export class PrintingPicker implements OnInit {
     return { scryfallId, set, collectorNumber, images: images[0] };
   });
 
-  /** The sets with an English printing of the land, once Scryfall has answered. */
-  protected readonly sets = signal<PrintingSet[] | null>(null);
+  /** The sets with an English printing of the land, once the API has answered. */
+  protected readonly sets = signal<BasicLandPrintingSetView[] | null>(null);
   protected readonly loadFailed = signal(false);
   protected readonly setIndex = signal(0);
   protected readonly printingIndex = signal(0);
@@ -111,8 +112,8 @@ export class PrintingPicker implements OnInit {
   }
 
   /** Shows the sets, on the set and printing the land shows now. */
-  private opened(sets: PrintingSet[]) {
-    // Scryfall answers a search with no results as a failure, so none here is one too.
+  private opened(sets: BasicLandPrintingSetView[]) {
+    // None are stored until the API's first refresh finishes: the player can try again.
     if (sets.length === 0) {
       this.loadFailed.set(true);
       return;
@@ -175,7 +176,7 @@ export class PrintingPicker implements OnInit {
   }
 }
 
-/** Why saving failed: the API's reason, such as Scryfall being unreachable, or else a plain apology. */
+/** Why saving failed: the API's reason, such as a printing it doesn't store, or else a plain apology. */
 function saveFailure(err: unknown): string {
   const problem =
     err instanceof HttpErrorResponse

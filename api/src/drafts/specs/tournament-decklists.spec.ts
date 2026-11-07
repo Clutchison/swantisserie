@@ -1,9 +1,9 @@
 import type { DecklistView, PlanView, TournamentSetupRequest } from 'contract';
 import request from 'supertest';
+import { landPrinting } from '../../testing/scryfall-printings.js';
 import {
   alice,
   app,
-  card,
   aliceCookie,
   bob,
   carol,
@@ -19,12 +19,12 @@ import {
   playingTournament,
   poolCardIds,
   removeEntry,
-  scryfall,
   roundRobin,
   setBasic,
   setUpTournament,
   signIn,
   startTournament,
+  storePrintings,
   swiss,
   tournamentView,
   useDraftsApp,
@@ -182,12 +182,13 @@ describe('decklists under public decklists', () => {
   });
 
   it('shows each player’s preferred printings as they are now, not as they were at Start', async () => {
-    const island = card('Island', {
-      id: '0a9e4a3b-1d47-4c3a-a3a7-6d0d5d3a4c1e',
-      set: 'khm',
-      collector_number: '395',
-    });
-    scryfall.card.mockResolvedValue(island);
+    const island = landPrinting(
+      'Island',
+      '0a9e4a3b-1d47-4c3a-a3a7-6d0d5d3a4c1e',
+      'khm',
+      '395',
+    );
+    await storePrintings([island]);
     const id = await playingTournament(
       [aliceCookie, bobCookie],
       withPublicDecklists(),

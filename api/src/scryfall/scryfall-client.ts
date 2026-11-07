@@ -174,13 +174,6 @@ export abstract class ScryfallClient {
    * in trouble or can't be reached, even after retrying.
    */
   abstract sets(): Promise<ScryfallSet[]>;
-
-  /**
-   * The printing with this Scryfall id, or null if there is none. Throws
-   * ScryfallUnavailableError if Scryfall itself is in trouble or can't be
-   * reached, even after retrying.
-   */
-  abstract card(id: string): Promise<ScryfallCard | null>;
 }
 
 @Injectable()
@@ -216,18 +209,6 @@ export class FetchScryfallClient extends ScryfallClient {
         releasedAt: set.released_at ?? '9999-12-31',
       }));
     });
-  }
-
-  async card(id: string): Promise<ScryfallCard | null> {
-    return this.withRetries(
-      `${API}/cards/${encodeURIComponent(id)}`,
-      async (res) => {
-        // Scryfall answers an id that isn't one with a 400.
-        if (res.status === 404 || res.status === 400) return null;
-        if (!res.ok) throw new ScryfallUnavailableError(res.status);
-        return (await res.json()) as ScryfallCard;
-      },
-    );
   }
 
   /** Requests `url` and reads its answer, retrying when that might help. */

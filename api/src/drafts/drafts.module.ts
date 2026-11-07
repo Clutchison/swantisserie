@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
+import { BasicLandPrintingsModule } from '../basic-land-printings/basic-land-printings.module.js';
 import { DiscordModule } from '../discord/discord.module.js';
 import { CubeCobraModule } from '../cubecobra/cubecobra.module.js';
 import { ScryfallModule } from '../scryfall/scryfall.module.js';
@@ -26,6 +27,7 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
 @Module({
   imports: [
     AuthModule,
+    BasicLandPrintingsModule,
     CubeCobraModule,
     DiscordModule,
     ScryfallModule,

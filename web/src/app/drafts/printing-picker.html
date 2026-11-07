@@ -16,7 +16,7 @@
       <select id="printing-set" (change)="chooseSet($any($event.target).value)">
         @for (option of sets(); track option.code; let index = $index) {
           <option [value]="index" [selected]="index === setIndex()">
-            {{ option.name }} ({{ option.year }})
+            {{ option.name }} ({{ option.releasedAt.slice(0, 4) }})
           </option>
         }
       </select>
@@ -47,7 +47,7 @@
     </div>
   } @else if (loadFailed()) {
     <div class="load-failed">
-      <p class="error" role="alert">Couldn’t load the printings from Scryfall.</p>
+      <p class="error" role="alert">Couldn’t load the printings.</p>
       <button class="button compact secondary" type="button" (click)="load()">Try again</button>
     </div>
   } @else {

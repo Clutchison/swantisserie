@@ -39,7 +39,7 @@ import {
   openPlan,
   detailOpener,
   stack,
-  answerPrintingSearch,
+  answerPrintingsRequest,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -111,7 +111,7 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
 
       tap(detailOpener(plan, 'Swamp')!);
-      await answerPrintingSearch('Swamp');
+      await answerPrintingsRequest('Swamp');
       await fixture.whenStable();
 
       expect(previewImage()).toBeNull();
@@ -238,7 +238,7 @@ describe('plan tab', () => {
 
       expect(stack(plan, 'Lands')).toEqual(['Island']);
       detailOpener(plan, 'Island')!.click();
-      await answerPrintingSearch('Island');
+      await answerPrintingsRequest('Island');
       await fixture.whenStable();
 
       expect(heading(openDialog()!, 'Island printing')).toBeDefined();
