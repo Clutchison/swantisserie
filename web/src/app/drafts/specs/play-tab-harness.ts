@@ -79,7 +79,12 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   state: 'Registration',
   roundCount: 0,
   lastCompletedRound: 0,
-  entries: playerIds.map((playerId) => ({ playerId, dropped: false, seed: null })),
+  entries: playerIds.map((playerId) => ({
+    playerId,
+    dropped: false,
+    droppable: true,
+    seed: null,
+  })),
   rounds: [],
   bracket: null,
   standings: [],
@@ -97,9 +102,15 @@ export const unreportedMatch = (id: string, a: string, b: string): MatchView => 
   outcome: { kind: 'Unreported' },
   reportedBy: null,
   confirmed: false,
+  confirmableBy: [],
+  clearLeaves: null,
 });
 
-/** `match` reported by `reportedBy` at the game score `games`, in its player order. */
+/**
+ * `match` reported by `reportedBy` at the game score `games`, in its player
+ * order, as the api reads it: its other players may confirm it, and
+ * clearing it leaves it unreported.
+ */
 export const reported = (
   match: MatchView,
   games: [number, number],
@@ -108,6 +119,21 @@ export const reported = (
   ...match,
   outcome: { kind: 'GameScore', games, draws: 0 },
   reportedBy,
+  confirmableBy: match.players.filter((id) => id !== reportedBy),
+  clearLeaves: { kind: 'Unreported' },
+});
+
+/** `match`, reported, as the api reads it once it is confirmed: nobody may confirm it again. */
+export const confirmedMatch = (match: MatchView): MatchView => ({
+  ...match,
+  confirmed: true,
+  confirmableBy: [],
+});
+
+/** `match`, reported, as the api reads it once its player `playerId` has dropped: clearing it leaves their forfeit. */
+export const againstDropped = (match: MatchView, playerId: string): MatchView => ({
+  ...match,
+  clearLeaves: { kind: 'Forfeit', forfeitedBy: playerId },
 });
 
 /** A standing with no matches played, or with `fields` changed. */
@@ -148,6 +174,7 @@ export function playing(
     entries: [alice.id, bob.id, carol.id].map((playerId) => ({
       playerId,
       dropped: false,
+      droppable: true,
       seed: null,
     })),
     rounds: [
@@ -192,6 +219,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     entries: [alice.id, bob.id, carol.id].map((playerId) => ({
       playerId,
       dropped: false,
+      droppable: true,
       seed: null,
     })),
     rounds: [
@@ -288,6 +316,7 @@ export function singleEliminationPlaying(
     entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
       playerId,
       dropped: false,
+      droppable: true,
       seed: i + 1,
     })),
     rounds: [
@@ -321,18 +350,20 @@ export function singleEliminationPlaying(
 export const carolBeatBob = ({
   confirmed = false,
   completed = false,
-}: { confirmed?: boolean; completed?: boolean } = {}): TournamentRoundView => ({
-  round: 1,
-  correctable: !completed,
-  matches: [
-    {
-      ...reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
-      bracketPlace: 1,
-      confirmed,
-    },
-  ],
-  byes: [alice.id],
-});
+}: { confirmed?: boolean; completed?: boolean } = {}): TournamentRoundView => {
+  const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id);
+  return {
+    round: 1,
+    correctable: !completed,
+    matches: [
+      {
+        ...(confirmed ? confirmedMatch(m1) : m1),
+        bracketPlace: 1,
+      },
+    ],
+    byes: [alice.id],
+  };
+};
 
 /**
  * The single elimination tournament of Alice, Bob and Carol with round 1
@@ -356,10 +387,15 @@ export const singleEliminationFinal = singleEliminationPlaying({
   ],
 });
 
-/** `match` forfeited by the player `forfeitedBy`. */
+/**
+ * `match` forfeited by the player `forfeitedBy`, who dropped, as the api
+ * reads it: clearing it would leave it as it is.
+ */
 export const forfeited = (match: MatchView, forfeitedBy: string): MatchView => ({
   ...match,
   outcome: { kind: 'Forfeit', forfeitedBy },
+  confirmableBy: [],
+  clearLeaves: null,
 });
 
 /**

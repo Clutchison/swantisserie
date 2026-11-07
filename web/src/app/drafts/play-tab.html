@@ -82,7 +82,7 @@
         <li>
           <app-player-avatar [src]="player.avatarUrl" />
           {{ player.name }}
-          @if (offerOrganize() && player.id !== ownId() && !player.isBot) {
+          @if (offerOrganize() && player.id !== ownId() && player.droppable) {
             <button
               class="button compact secondary"
               type="button"
@@ -178,7 +178,7 @@
           @if (player.dropped) {
             · Dropped
           }
-          @if (organizePlay() && !player.isBot && player.dropped) {
+          @if (organizePlay() && player.droppable && player.dropped) {
             <button
               class="button compact secondary"
               type="button"
@@ -188,7 +188,7 @@
             >
               Reinstate
             </button>
-          } @else if (organizePlay() && !player.isBot && player.id !== ownId()) {
+          } @else if (organizePlay() && player.droppable && player.id !== ownId()) {
             <button
               class="button compact secondary"
               type="button"

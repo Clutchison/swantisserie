@@ -31,9 +31,17 @@ const bot = { ...carol, name: 'Bot 1', isBot: true };
 /** The draft of Alice, Bob and the bot. */
 const withBot = { fields: { players: [alicePlayer, bob, bot] } };
 
+/** `tournament` as the api reads it with the bot in Carol's seat: the bot can't be dropped. */
+const botStaysIn = (tournament: ViewerTournamentView): ViewerTournamentView => ({
+  ...tournament,
+  entries: tournament.entries.map((entry) =>
+    entry.playerId === bot.id ? { ...entry, droppable: false } : entry,
+  ),
+});
+
 /** Opens the Play tab of the draft of Alice, Bob and the bot, with `tournament`, for an organizer. */
 const openWithBot = (tournament: ViewerTournamentView) =>
-  openPlaying(tournament, { powers: ORGANIZE_ONLY, ...withBot });
+  openPlaying(botStaysIn(tournament), { powers: ORGANIZE_ONLY, ...withBot });
 
 describe('bots on the Play tab', () => {
   it('lists a bot as joined in registration, with no Remove', async () => {
@@ -60,17 +68,19 @@ describe('bots on the Play tab', () => {
 
   it('offers no drop of a bot from its match as Swiss grants it a draw', async () => {
     const { dialog } = await openCompleteRound(
-      swissPlaying({
-        lastCompletedRound: 0,
-        rounds: [
-          {
-            round: 1,
-            correctable: true,
-            matches: [unreportedMatch('m1', carol.id, bob.id)],
-            byes: [alice.id],
-          },
-        ],
-      }),
+      botStaysIn(
+        swissPlaying({
+          lastCompletedRound: 0,
+          rounds: [
+            {
+              round: 1,
+              correctable: true,
+              matches: [unreportedMatch('m1', carol.id, bob.id)],
+              byes: [alice.id],
+            },
+          ],
+        }),
+      ),
       withBot,
     );
 
@@ -80,7 +90,7 @@ describe('bots on the Play tab', () => {
   });
 
   it('offers either player of a bot’s single elimination match the win, and a drop only to its human', async () => {
-    const { dialog } = await openCompleteRound(singleEliminationPlaying(), withBot);
+    const { dialog } = await openCompleteRound(botStaysIn(singleEliminationPlaying()), withBot);
 
     const winner = group(dialog, 'Winner of Bob vs Bot 1')!;
     expect(controlByLabel(winner, 'radio', 'Bob')).toBeDefined();

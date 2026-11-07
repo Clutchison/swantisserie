@@ -29,6 +29,8 @@ import {
   swissRoundsWith,
   threePlayers,
   withDrops,
+  confirmedMatch,
+  againstDropped,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -118,7 +120,10 @@ describe('organizer reports, corrections and clears', () => {
       fixture,
       withDrops(
         [carol.id],
-        [bobBeatCarol, forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id)],
+        [
+          againstDropped(bobBeatCarol, carol.id),
+          forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id),
+        ],
       ),
       1,
     );
@@ -191,7 +196,10 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('says clearing a match against a dropped player makes it their forfeit', async () => {
-    const m3 = reported(unreportedMatch('m3', carol.id, alice.id), [0, 2], alice.id);
+    const m3 = againstDropped(
+      reported(unreportedMatch('m3', carol.id, alice.id), [0, 2], alice.id),
+      carol.id,
+    );
     const { fixture, tab } = await openPlaying(withDrops([carol.id], [m3]), {
       powers: ORGANIZE_ONLY,
     });
@@ -300,10 +308,10 @@ describe('organizer reports, corrections and clears', () => {
       await pushTournament(
         fixture,
         swissPlaying({
-          rounds: swissRoundsWith(aliceVsCarol, {
-            ...reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id),
-            confirmed: true,
-          }),
+          rounds: swissRoundsWith(
+            aliceVsCarol,
+            confirmedMatch(reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)),
+          ),
         }),
         1,
       );

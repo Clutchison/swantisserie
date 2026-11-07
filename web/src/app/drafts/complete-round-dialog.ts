@@ -12,10 +12,10 @@ export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
  * for organizers of a Swiss or single elimination tournament: what
  * completing the tournament round it was opened for does, and its unreported
  * matches, as the read's `completeRoundGrants` says. In Swiss they become
- * granted draws, each with a choice of its players to drop, bots aside,
- * except in the final tournament round. In single elimination, which never
+ * granted draws, each with a choice of its players to drop, those the read
+ * says are droppable, except in the final tournament round. In single elimination, which never
  * has a draw, the organizer picks each one's winner, who gets a granted
- * win, or drops one or both of its human players, which makes it their
+ * win, or drops one or both of its droppable players, which makes it their
  * forfeit, before the round can be completed. It opens on Cancel, with
  * nobody dropped or picked, and closes with the request to send once the
  * organizer completes the round; the tab sends it.
@@ -47,22 +47,26 @@ export class CompleteRoundDialog {
   });
   /**
    * The round's unreported matches, each with its players as the draft
-   * names them, and those of them who may be dropped: never a bot, which
-   * stays in its tournament.
+   * names them, and those of them the tournament says can be dropped.
    */
-  protected readonly unreported = computed(() =>
-    (this.tournament()?.rounds.find((r) => r.round === this.round())?.matches ?? [])
+  protected readonly unreported = computed(() => {
+    const droppable = new Set(
+      (this.tournament()?.entries ?? [])
+        .filter((entry) => entry.droppable)
+        .map((entry) => entry.playerId),
+    );
+    return (this.tournament()?.rounds.find((r) => r.round === this.round())?.matches ?? [])
       .filter((match) => match.outcome.kind === 'Unreported')
       .map((match) => {
         const players = match.players.map((id) => this.store.player(id));
         return {
           id: match.id,
           players,
-          droppable: players.filter((player) => !player.isBot),
+          droppable: players.filter((player) => droppable.has(player.id)),
           label: `${players[0].name} vs ${players[1].name}`,
         };
-      }),
-  );
+      });
+  });
   /** The players chosen to drop, by the id of the match they drop from. */
   private readonly dropping = signal<Record<string, string[]>>({});
   /** In single elimination, the winner picked for each unreported match, by its id. */

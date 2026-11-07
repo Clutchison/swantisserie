@@ -9,7 +9,7 @@ import { DraftGoneError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import type { TournamentProgress } from './round-steps.js';
-import { ENTRY_OF_MATCH } from './tournament-matches.js';
+import { droppable, ENTRY_OF_MATCH } from './tournament-matches.js';
 import {
   BOT_ENTRY,
   NoMatchError,
@@ -164,6 +164,6 @@ export async function entryOf(
       message: 'That player hasn’t joined this tournament.',
     });
   }
-  if (entry.player.user.isBot) throw new TournamentRefusedError(BOT_ENTRY);
+  if (!droppable(entry)) throw new TournamentRefusedError(BOT_ENTRY);
   return entry;
 }

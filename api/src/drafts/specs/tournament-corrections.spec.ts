@@ -354,3 +354,28 @@ describe('which tournament rounds the read says are correctable', () => {
     await expectRefusalsFollowTheRead(id);
   });
 });
+
+describe('what the read says clearing a match leaves', () => {
+  it('says a reported match would be unreported again, and an unreported one wouldn’t change', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
+
+    expect((await matchOf(id, bob.id, carol.id)).clearLeaves).toEqual({
+      kind: 'Unreported',
+    });
+    expect((await matchOf(id, alice.id, bob.id)).clearLeaves).toBeNull();
+  });
+
+  it('says a match against a dropped player would be their forfeit, and their forfeit wouldn’t change', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    await dropPlayer(id, carol.id, carolCookie).expect(200);
+    expect((await matchOf(id, alice.id, carol.id)).clearLeaves).toBeNull();
+
+    await setWin(id, [alice.id, carol.id], [2, 1]);
+
+    expect((await matchOf(id, alice.id, carol.id)).clearLeaves).toEqual({
+      kind: 'Forfeit',
+      forfeitedBy: carol.id,
+    });
+  });
+});

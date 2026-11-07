@@ -108,17 +108,15 @@ export interface OrganizerChoices {
 
 /**
  * What an organizer can do with `match`, its players named `first` and
- * `second` in its order and `name` naming a player by id; `dropped` holds
- * the ids of the players who have dropped.
+ * `second` in its order and `name` naming a player by id.
  */
 export function organizerChoices(
   match: MatchView,
   [first, second]: [string, string],
   name: (playerId: string) => string,
-  dropped: ReadonlySet<string>,
 ): OrganizerChoices {
   const label = versus([first, second]);
-  const after = afterClearing(match, name, dropped);
+  const after = afterClearing(match, name);
   return {
     label,
     verb: match.outcome.kind === 'Unreported' ? 'Report' : 'Correct',
@@ -131,35 +129,15 @@ export function organizerChoices(
 }
 
 /**
- * What clearing `match` leaves it as, or null if it already is that, as
- * the api's clear does: a match with a dropped player is their forfeit
- * again, and otherwise it is unreported again.
+ * How what clearing `match` leaves it as reads, as the api says it would:
+ * a dropped player's forfeit, or unreported. Null when clearing would
+ * change nothing.
  */
-function afterClearing(
-  { players, outcome }: MatchView,
-  name: (playerId: string) => string,
-  dropped: ReadonlySet<string>,
-) {
-  const forfeiting = players.find((id) => dropped.has(id));
-  if (forfeiting) {
-    return outcome.kind === 'Forfeit'
-      ? null
-      : `It will become a forfeit by ${name(forfeiting)}, who has dropped.`;
-  }
-  return outcome.kind === 'Unreported' ? null : 'The match will be unreported again.';
-}
-
-/**
- * Whether the player `own` can confirm `match`: theirs, its game score
- * reported by someone else, unconfirmed.
- */
-export function confirmableBy(match: MatchView, own: string): boolean {
-  return (
-    match.outcome.kind === 'GameScore' &&
-    !match.confirmed &&
-    match.players.includes(own) &&
-    match.reportedBy !== own
-  );
+function afterClearing({ clearLeaves }: MatchView, name: (playerId: string) => string) {
+  if (!clearLeaves) return null;
+  return clearLeaves.kind === 'Forfeit'
+    ? `It will become a forfeit by ${name(clearLeaves.forfeitedBy)}, who has dropped.`
+    : 'The match will be unreported again.';
 }
 
 /**

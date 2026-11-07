@@ -9,12 +9,10 @@ import {
   output,
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
-import { droppedPlayers } from 'engine';
 import { percent, record } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import {
-  confirmableBy,
   matchIn,
   matchLine,
   organizerChoices,
@@ -111,7 +109,6 @@ export class TournamentResults {
   });
 
   private readonly seeds = computed(() => seedsOf(this.tournament().entries));
-  private readonly dropped = computed(() => new Set(droppedPlayers(this.tournament().entries)));
 
   /** Whether the tournament has a bracket, single elimination's, which shows its matches in place of the list by tournament round. */
   protected readonly showsBracket = computed(() => this.tournament().bracket !== null);
@@ -173,14 +170,13 @@ export class TournamentResults {
   }
 
   /**
-   * Whether the signed-in player can confirm `match` here: theirs, its game
-   * score reported by someone else, while the tournament is playing or once
-   * it is complete, unless it is the match shown as theirs, which offers
+   * Whether the signed-in player can confirm `match` here: whenever the
+   * api says they may, unless it is the match shown as theirs, which offers
    * Confirm there.
    */
   private confirmable(match: MatchView) {
     const own = this.ownId();
-    return !!own && confirmableBy(match, own) && match.id !== this.currentId();
+    return !!own && match.confirmableBy.includes(own) && match.id !== this.currentId();
   }
 
   /** What an organizer can do with `match`, with the label its toggle reads as. */
@@ -189,7 +185,6 @@ export class TournamentResults {
       match,
       [this.name(match.players[0]), this.name(match.players[1])],
       (id) => this.name(id),
-      this.dropped(),
     );
     return { ...choices, toggle: `${choices.verb} ${choices.label}` };
   }

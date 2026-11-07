@@ -14,6 +14,17 @@ export const ENTRY_OF_MATCH = {
 } as const;
 
 /**
+ * Whether the tournament entry `entry` can be taken out of its tournament
+ * and put back in, as removal, dropping, reinstating and Complete round
+ * decide and the tournament read says: never a bot's, which stays in.
+ */
+export function droppable(entry: {
+  player: { user: { isBot: boolean } };
+}): boolean {
+  return !entry.player.user.isBot;
+}
+
+/**
  * The entry of `match`'s player `playerId`, for Complete round to drop.
  * Throws InvalidTournamentRequestError, saying `notInMatch`, if they aren't
  * one of its players, and TournamentRefusedError if they are a bot, which
@@ -24,7 +35,7 @@ export function entryToDrop<
 >(match: { entries: Entry[] }, playerId: string, notInMatch: string): Entry {
   const entry = match.entries.find((e) => e.player.userId === playerId);
   if (!entry) throw new InvalidTournamentRequestError(notInMatch);
-  if (entry.player.user.isBot) throw new TournamentRefusedError(BOT_ENTRY);
+  if (!droppable(entry)) throw new TournamentRefusedError(BOT_ENTRY);
   return entry;
 }
 

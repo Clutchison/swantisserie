@@ -3,6 +3,7 @@ import type { GameScore } from 'contract';
 import { reportProblem } from 'engine';
 import type { MatchChange } from './change-steps.js';
 import { correctionRefusal } from './correction-refusal.js';
+import { clearing, confirmRefusal } from './match-rules.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 import {
   findMatch,
@@ -70,24 +71,8 @@ export class TournamentResultsService {
   ): Promise<void> {
     await this.lock.withTournament(draftId, async (tx, tournament) => {
       const match = await findMatch(tx, tournament.id, matchId);
-      if (!match.players.includes(userId)) {
-        throw new TournamentRefusedError({
-          error: 'not-your-match',
-          message: 'Only a match’s own players can confirm it.',
-        });
-      }
-      if (match.outcome !== 'GameScore') {
-        throw new TournamentRefusedError({
-          error: 'not-reported',
-          message: 'Only a reported game score can be confirmed.',
-        });
-      }
-      if (match.reportedById === userId) {
-        throw new TournamentRefusedError({
-          error: 'own-report',
-          message: 'You reported this match. Your opponent confirms it.',
-        });
-      }
+      const refusal = confirmRefusal(match, userId);
+      if (refusal) throw new TournamentRefusedError(refusal);
       await tx.match.update({
         where: { id: matchId },
         data: { confirmed: true },
@@ -168,29 +153,6 @@ function gameScoreChange(games: GameScore, userId: string): MatchChange {
     forfeitedBy: null,
     grantedTo: null,
     reportedById: userId,
-    confirmed: false,
-  };
-}
-
-/**
- * The change clearing a match writes, `dropped` saying whether each of its
- * players, in its order, has dropped: the forfeit of one who has,
- * otherwise unreported.
- */
-function clearing(dropped: readonly boolean[]): MatchChange {
-  const forfeitedBy = dropped[0]
-    ? ('First' as const)
-    : dropped[1]
-      ? ('Second' as const)
-      : null;
-  return {
-    outcome: forfeitedBy ? 'Forfeit' : 'Unreported',
-    firstGames: 0,
-    secondGames: 0,
-    drawnGames: 0,
-    forfeitedBy,
-    grantedTo: null,
-    reportedById: null,
     confirmed: false,
   };
 }

@@ -113,7 +113,31 @@ describe('confirming a match', () => {
 
     expect((await tournamentView(id)).rounds[0]).toEqual({
       ...completed,
-      matches: [{ ...match, confirmed: true }, other],
+      matches: [{ ...match, confirmed: true, confirmableBy: [] }, other],
     });
+  });
+});
+
+describe('who the tournament read says may confirm a match', () => {
+  it('names the opponent of the player who reported it, until they confirm it', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    expect((await matchOf(id, bob.id, carol.id)).confirmableBy).toEqual([]);
+
+    await reportWin(id, [bob.id, carol.id], [2, 1], carolCookie);
+    const match = await matchOf(id, bob.id, carol.id);
+    expect(match.confirmableBy).toEqual([bob.id]);
+
+    await confirmMatch(id, match.id, bobCookie).expect(200);
+    expect((await matchOf(id, bob.id, carol.id)).confirmableBy).toEqual([]);
+  });
+
+  it('names both players of a game score an organizer who isn’t playing set', async () => {
+    const id = await playingTournament([bobCookie, carolCookie]);
+    await setWin(id, [bob.id, carol.id], [2, 1]);
+
+    expect((await matchOf(id, bob.id, carol.id)).confirmableBy).toEqual([
+      bob.id,
+      carol.id,
+    ]);
   });
 });

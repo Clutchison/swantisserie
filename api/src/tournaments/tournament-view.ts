@@ -24,6 +24,8 @@ import {
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { correctionRefusal } from './correction-refusal.js';
+import { clearing, confirmRefusal } from './match-rules.js';
+import { droppable } from './tournament-matches.js';
 import { offersReopenRound, reopenRoundOf } from './reopen-round.js';
 
 /** What the tournament read selects of a tournament. */
@@ -41,7 +43,7 @@ export const TOURNAMENT_VIEW = {
       dropped: true,
       droppedAfterRound: true,
       seed: true,
-      player: { select: { userId: true } },
+      player: { select: { userId: true, user: { select: { isBot: true } } } },
     },
   },
   matches: {
@@ -109,6 +111,11 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     row.entries.map((entry) => [entry.id, entry.player.userId]),
   );
   const user = (entryId: string) => userOf.get(entryId)!;
+  const droppedEntries = new Set(
+    row.entries.filter((entry) => entry.dropped).map((entry) => entry.id),
+  );
+  const toMatch = (match: MatchRow) =>
+    toMatchView(match, user, (entryId) => droppedEntries.has(entryId));
 
   const rounds: TournamentRoundView[] = [];
   const sorted = [...row.matches].sort(
@@ -134,8 +141,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
       };
       rounds.push(round);
     }
-    if (match.secondEntryId !== null)
-      round.matches.push(toMatchView(match, user));
+    if (match.secondEntryId !== null) round.matches.push(toMatch(match));
     else if (!roundRobin) round.byes.push(user(match.firstEntryId));
   }
 
@@ -143,6 +149,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const entries = row.entries.map((entry) => ({
     playerId: entry.player.userId,
     dropped: entry.dropped,
+    droppable: droppable(entry),
     seed: entry.seed,
   }));
   const dropped = droppedPlayers(entries);
@@ -179,7 +186,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const count = roundCount(row, players.length);
   const bracket =
     row.format === 'SingleElimination' && row.state !== 'Registration'
-      ? toBracket(row, count, sorted, user, dropped, nextRoundPlayers)
+      ? toBracket(row, count, sorted, user, toMatch, dropped, nextRoundPlayers)
       : null;
   const complete = row.state === 'Complete';
   return {
@@ -244,7 +251,7 @@ export function showsDecklists(
 /**
  * The bracket of the single elimination tournament `row`, of `roundCount`
  * tournament rounds, drawn by the engine from its paired `matches`, each
- * sending on the player who advances from it as the engine's
+ * read by `toMatch`, sending on the player who advances from it as the engine's
  * agreedAdvancingPlayer decides, `dropped` holding the dropped players and
  * `nextRoundPlayers` those paired in the tournament round after a
  * tournament round,
@@ -255,6 +262,7 @@ function toBracket(
   roundCount: number,
   matches: readonly MatchRow[],
   user: (entryId: string) => string,
+  toMatch: (match: MatchRow) => MatchView,
   dropped: readonly string[],
   nextRoundPlayers: (round: number) => string[],
 ): BracketRoundView[] {
@@ -280,10 +288,7 @@ function toBracket(
       );
       return { ...place, players, advancing };
     }
-    const { players, outcome, reportedBy, confirmed } = toMatchView(
-      match,
-      user,
-    );
+    const { players, outcome, reportedBy, confirmed } = toMatch(match);
     const advancing = agreedAdvancingPlayer(
       {
         players,
@@ -339,22 +344,50 @@ export function roundCount(
   return singleEliminationRoundCount(joined);
 }
 
+/**
+ * `match` as the read shows it, `user` giving the player of an entry and
+ * `dropped` whether they have dropped: with who may confirm it, as
+ * confirming decides, and what clearing it would leave, as clearing does.
+ */
 function toMatchView(
   match: MatchRow,
   user: (entryId: string) => string,
+  dropped: (entryId: string) => boolean,
 ): MatchView {
-  const players: [string, string] = [
-    user(match.firstEntryId),
-    user(match.secondEntryId!),
-  ];
+  const entries = [match.firstEntryId, match.secondEntryId!];
+  const players = entries.map(user) as [string, string];
+  const outcome = toOutcome(match, players);
+  const cleared = toOutcome(clearing(entries.map(dropped)), players);
   return {
     id: match.id,
     players,
     bracketPlace: match.bracketPlace,
-    outcome: toOutcome(match, players),
+    outcome,
     reportedBy: match.reportedById,
     confirmed: match.confirmed,
+    confirmableBy: match.confirmed
+      ? []
+      : players.filter(
+          (player) => confirmRefusal({ ...match, players }, player) === null,
+        ),
+    clearLeaves: sameOutcome(cleared, outcome) ? null : cleared,
   };
+}
+
+/**
+ * Whether `cleared`, what clearing a match leaves, is its `outcome`
+ * already: both unreported, or both the same player's forfeit.
+ */
+function sameOutcome(
+  cleared: MatchOutcomeView,
+  outcome: MatchOutcomeView,
+): boolean {
+  if (cleared.kind === 'Forfeit') {
+    return (
+      outcome.kind === 'Forfeit' && outcome.forfeitedBy === cleared.forfeitedBy
+    );
+  }
+  return cleared.kind === outcome.kind;
 }
 
 /** The outcome of `match`, whose players, in its order, are `first` and `second`. */
