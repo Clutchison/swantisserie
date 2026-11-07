@@ -4,6 +4,9 @@ import { leaderboard, type LeaderboardTournament } from './leaderboard.js';
 const won = (games: [number, number], draws = 0) =>
   ({ kind: 'GameScore', games, draws }) as const;
 
+const playerIdsOf = (records: readonly { playerId: string }[]) =>
+  records.map((record) => record.playerId);
+
 describe('leaderboard', () => {
   it('counts trophies, tournaments played and match and game records across tournaments', () => {
     const tournaments: LeaderboardTournament[] = [
@@ -129,7 +132,7 @@ describe('leaderboard', () => {
       },
     ]);
 
-    expect(board.map((entry) => entry.playerId)).toEqual(['a', 'b']);
+    expect(playerIdsOf(board)).toEqual(['a', 'b']);
   });
 
   it('ranks by trophies, then matches won, ties keeping the order players first appear in', () => {
@@ -150,6 +153,36 @@ describe('leaderboard', () => {
       },
     ]);
 
-    expect(board.map((entry) => entry.playerId)).toEqual(['c', 'b', 'a', 'd']);
+    expect(playerIdsOf(board)).toEqual(['c', 'b', 'a', 'd']);
+  });
+
+  it("lists each player's head-to-head records in leaderboard order, not the order they were played", () => {
+    const tournamentWonBy = (
+      trophyHolders: string[],
+    ): LeaderboardTournament => ({
+      players: trophyHolders,
+      matches: [],
+      trophyHolders,
+    });
+    const board = leaderboard([
+      {
+        players: ['x', 'a', 'b', 'c', 'd'],
+        matches: [
+          { players: ['x', 'd'], outcome: won([2, 0]) },
+          { players: ['c', 'x'], outcome: won([2, 0]) },
+          { players: ['x', 'b'], outcome: won([2, 0]) },
+          { players: ['a', 'x'], outcome: won([2, 0]) },
+        ],
+        trophyHolders: [],
+      },
+      // Trophies: a 3, b 2, c 1, so a, b and c rank above x, who won more matches than d.
+      tournamentWonBy(['a', 'b', 'c']),
+      tournamentWonBy(['a', 'b']),
+      tournamentWonBy(['a']),
+    ]);
+
+    expect(playerIdsOf(board)).toEqual(['a', 'b', 'c', 'x', 'd']);
+    const x = board.find((entry) => entry.playerId === 'x');
+    expect(playerIdsOf(x?.opponents ?? [])).toEqual(['a', 'b', 'c', 'd']);
   });
 });
