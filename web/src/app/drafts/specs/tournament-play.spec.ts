@@ -1,6 +1,14 @@
-import { answer, openDialog, pressEscape, question, table } from '../../specs-harness';
+import {
+  answer,
+  clickBackdrop,
+  openDialog,
+  pressEscape,
+  question,
+  table,
+} from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
+  type AppFixture,
   alertIn,
   alice,
   bob,
@@ -8,6 +16,7 @@ import {
   draft,
   flushPicks,
   group,
+  heading,
   http,
   items,
   link,
@@ -49,6 +58,13 @@ useDraftsApp();
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+
+/** Presses Report on the line of the match against `opponent` in Your matches, and returns the dialog it opens. */
+async function openReport(fixture: AppFixture, tab: HTMLElement, opponent: string) {
+  button(tab, `Report your match against ${opponent}`)!.click();
+  await fixture.whenStable();
+  return question(`Your match against ${opponent}`);
+}
 
 describe('Play tab while the tournament is played', () => {
   describe('your matches', () => {
@@ -100,19 +116,28 @@ describe('Play tab while the tournament is played', () => {
     it('reports any unreported match in any order, sending the game score in the match’s player order', async () => {
       const { fixture, tab } = await openPlaying(playing());
 
-      button(tab, 'Report your match against Carol')!.click();
-      await fixture.whenStable();
-      const scores = group(tab, 'Game score against Carol')!;
+      const dialog = await openReport(fixture, tab, 'Carol');
+      expect(group(tab, 'Game score against Carol')).toBeNull();
+      const scores = group(dialog, 'Game score against Carol')!;
       expect([...scores.querySelectorAll('button')].map((b) => text(b))).toEqual([
         'Won 2–0',
         'Won 2–1',
         'Lost 1–2',
         'Lost 0–2',
       ]);
+      expect(button(dialog, 'Cancel')).toBeDefined();
       button(scores, 'Won 2–1')!.click();
-      const dialog = await question('Report that you won 2–1 against Carol?');
-      expect(dialog.textContent).toContain('Only an organizer can change a reported match.');
+      await fixture.whenStable();
+      expect(text(dialog)).toContain('Report that you won 2–1 against Carol?');
+      expect(text(dialog)).toContain('Only an organizer can change a reported match.');
+      expect(['Report', 'Back', 'Cancel'].map((label) => !!button(dialog, label))).toEqual([
+        true,
+        true,
+        true,
+      ]);
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(dialog, 'Report')));
       await answer(dialog, 'Report');
+      expect(document.activeElement).toBe(button(tab, 'Report your match against Bob'));
       const req = await answerChange(
         fixture,
         '/api/drafts/draft-1/tournament/matches/m3/report',
@@ -126,47 +151,96 @@ describe('Play tab while the tournament is played', () => {
       expect(yourMatches(tab)).toEqual(['vs Bob', 'vs Carol · Won 2–1']);
     });
 
-    it('sends nothing when you think better of the report', async () => {
-      const { fixture, tab } = await openPlaying(playing());
-      button(tab, 'Report your match against Bob')!.click();
-      await fixture.whenStable();
-      const opener = button(group(tab, 'Game score against Bob')!, 'Won 2–0')!;
-      opener.focus();
-      opener.click();
+    it('moves focus to the Your matches heading once no match is left to report', async () => {
+      const aliceBeatBob = reported(unreportedMatch('m2', alice.id, bob.id), [2, 0], alice.id);
+      const { fixture, tab } = await openPlaying(playing([aliceBeatBob]));
 
-      await answer(await question('Report that you won 2–0 against Bob?'), 'Cancel');
+      const dialog = await openReport(fixture, tab, 'Carol');
+      button(group(dialog, 'Game score against Carol')!, 'Lost 0–2')!.click();
+      await fixture.whenStable();
+      await answer(dialog, 'Report');
+
+      expect(document.activeElement).toBe(heading(tab, 'Your matches'));
+      http.expectOne('/api/drafts/draft-1/tournament/matches/m3/report');
+    });
+
+    it('goes back from the question to the game scores, focus on the one picked, sending nothing', async () => {
+      const { fixture, tab } = await openPlaying(playing());
+      const dialog = await openReport(fixture, tab, 'Bob');
+      button(group(dialog, 'Game score against Bob')!, 'Lost 1–2')!.click();
+      await fixture.whenStable();
+
+      button(dialog, 'Back')!.click();
+      await fixture.whenStable();
+
+      const scores = group(dialog, 'Game score against Bob')!;
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(scores, 'Lost 1–2')));
+      expect(text(dialog)).not.toContain('Report that you');
+      http.expectNone('/api/drafts/draft-1/tournament/matches/m2/report');
+    });
+
+    const dismissals = [
+      ['Cancel', () => button(openDialog()!, 'Cancel')!.click()],
+      ['Escape', () => pressEscape()],
+      ['a click outside', () => clickBackdrop()],
+    ] as const;
+    it.each(
+      dismissals.flatMap(([how, dismiss]) => [
+        [how, 'the game scores', false, dismiss] as const,
+        [how, 'the question', true, dismiss] as const,
+      ]),
+    )('sends nothing when %s closes the dialog on %s', async (_, __, picked, dismiss) => {
+      const { fixture, tab } = await openPlaying(playing());
+      const opener = button(tab, 'Report your match against Bob')!;
+      opener.focus();
+      const dialog = await openReport(fixture, tab, 'Bob');
+      if (picked) {
+        button(group(dialog, 'Game score against Bob')!, 'Won 2–0')!.click();
+        await fixture.whenStable();
+      }
+
+      dismiss();
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(opener);
       http.expectNone('/api/drafts/draft-1/tournament/matches/m2/report');
     });
 
-    it('keeps a match’s game scores open when another match is reported, and closes them once it is', async () => {
-      const { fixture, tab } = await openPlaying(playing());
-      const scoresAgainstCarol = () => group(tab, 'Game score against Carol');
-      button(tab, 'Report your match against Carol')!.click();
-      await fixture.whenStable();
-      expect(scoresAgainstCarol()).not.toBeNull();
+    it.each([
+      ['the game scores', false],
+      ['the question', true],
+    ])(
+      'keeps the dialog open on %s when another match is reported, and closes it once its match is',
+      async (_, picked) => {
+        const { fixture, tab } = await openPlaying(playing());
+        const dialog = await openReport(fixture, tab, 'Carol');
+        if (picked) {
+          button(group(dialog, 'Game score against Carol')!, 'Won 2–0')!.click();
+          await fixture.whenStable();
+        }
 
-      await pushTournament(
-        fixture,
-        playing([reported(unreportedMatch('m1', bob.id, carol.id), [2, 0])]),
-        1,
-        { asPlayer: true },
-      );
-      expect(scoresAgainstCarol()).not.toBeNull();
+        await pushTournament(
+          fixture,
+          playing([reported(unreportedMatch('m1', bob.id, carol.id), [2, 0])]),
+          1,
+          { asPlayer: true },
+        );
+        expect(openDialog()).not.toBeNull();
 
-      await pushTournament(
-        fixture,
-        playing([
-          reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]),
-          reported(unreportedMatch('m3', carol.id, alice.id), [2, 0], carol.id),
-        ]),
-        2,
-        { asPlayer: true },
-      );
-      expect(scoresAgainstCarol()).toBeNull();
-    });
+        await pushTournament(
+          fixture,
+          playing([
+            reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]),
+            reported(unreportedMatch('m3', carol.id, alice.id), [2, 0], carol.id),
+          ]),
+          2,
+          { asPlayer: true },
+        );
+        await vi.waitFor(() => expect(openDialog()).toBeNull());
+        http.expectNone('/api/drafts/draft-1/tournament/matches/m3/report');
+      },
+    );
 
     it('confirms an opponent’s report from its line', async () => {
       const { fixture, tab } = await openPlaying(playing([bobBeatAlice]));
@@ -188,10 +262,10 @@ describe('Play tab while the tournament is played', () => {
     it('says why a report was refused', async () => {
       const { fixture, page, tab } = await openPlaying(playing());
 
-      button(tab, 'Report your match against Bob')!.click();
+      const dialog = await openReport(fixture, tab, 'Bob');
+      button(group(dialog, 'Game score against Bob')!, 'Won 2–0')!.click();
       await fixture.whenStable();
-      button(group(tab, 'Game score against Bob')!, 'Won 2–0')!.click();
-      await answer(await question('Report that you won 2–0 against Bob?'), 'Report');
+      await answer(dialog, 'Report');
       (
         await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/matches/m2/report'))
       ).flush(

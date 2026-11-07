@@ -1,5 +1,6 @@
 <section [attr.aria-label]="heading()">
-  <h3>{{ heading() }}</h3>
+  <!-- Focus lands here once a report leaves no match to report. -->
+  <h3 #headingElement tabindex="-1">{{ heading() }}</h3>
   @if (single()) {
     @if (lines()[0]; as line) {
       <p>
@@ -31,21 +32,14 @@
             <button
               class="button compact secondary"
               type="button"
+              aria-haspopup="dialog"
               [attr.aria-label]="'Report your match against ' + line.opponent.name"
-              [attr.aria-expanded]="reporting() === line.match.id"
-              (click)="toggleReporting(line.match.id)"
+              [attr.data-report]="line.match.id"
+              (click)="openReport(line)"
+              [appFocusKey]="'report ' + line.match.id"
             >
               Report
             </button>
-            @if (reporting() === line.match.id) {
-              <div
-                class="game-scores"
-                role="group"
-                [attr.aria-label]="'Game score against ' + line.opponent.name"
-              >
-                <ng-container *ngTemplateOutlet="gameScores; context: { $implicit: line }" />
-              </div>
-            }
           }
         </li>
       }
@@ -71,17 +65,18 @@
 </ng-template>
 
 <!--
-  The four game scores a line's match can be reported at, from the player's side.
-  "Your match" shares one key, so focus lands on the next match's game scores once one is reported.
+  The four game scores "Your match" can be reported at, from the player's side.
+  They share one key, so focus lands on the next match's game scores once one is reported.
 -->
 <ng-template #gameScores let-line>
   @for (score of ownGameScores; track score.label) {
     <button
       class="button secondary"
-      [class.compact]="!single()"
       type="button"
-      (click)="report.emit({ match: line.match, opponent: line.opponent.name, score })"
-      [appSendsChange]="single() ? 'report' : 'report ' + line.match.id"
+      (click)="
+        report.emit({ match: line.match, opponent: line.opponent.name, score, asked: false })
+      "
+      appSendsChange="report"
     >
       {{ score.label }}
     </button>
