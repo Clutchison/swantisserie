@@ -142,8 +142,8 @@ export interface SwissPairerInput {
 
 /**
  * The next tournament round of a Swiss tournament: its matches and its bye.
- * A search over every way of pairing the players left in finds the best,
- * judged in turn by:
+ * The bye is chosen first, then a search over every way of pairing the
+ * players who remain finds the best, the whole judged in turn by:
  *
  * 1. with an odd count, the bye to a player who hasn't had one, while any
  *    player left in hasn't had one;
