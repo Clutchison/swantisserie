@@ -429,19 +429,19 @@ A tournament's first state, after setup, when the draft's players join and leave
 _Avoid_: Open, lobby (that is the draft's), sign-up
 
 **Join**:
-A draft's player entering a tournament during registration. It locks their deck. Bots join at tournament setup, without asking.
+A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left can join again during registration.
 _Avoid_: Register, enter, sign up
 
 **Leave**:
-A joined player giving up their tournament entry during registration, which unlocks their deck. Once the tournament has started, a player drops instead.
+A joined player giving up their tournament entry during registration. Once the tournament has started, a player drops instead.
 _Avoid_: Withdraw, unregister, quit
 
 **Remove**:
-An organizer ending a joined player's tournament entry during registration, which unlocks their deck. Once the tournament has started, an organizer drops them instead.
+An organizer ending a joined player's tournament entry during registration. Once the tournament has started, an organizer drops them instead.
 _Avoid_: Kick, eject, unregister
 
 **Start**:
-The organizer beginning play once at least two players have joined, which ends registration and makes or pairs the first matches.
+The organizer beginning play once at least two players have joined and every joined player's mainboard holds at least 40 cards, bots aside, which ends registration, locks every joined player's deck, and makes or pairs the first matches.
 _Avoid_: Begin, launch, open (that is the draft's)
 
 **Tournament entry**:
@@ -449,7 +449,7 @@ A joined player's place in a tournament. They keep it if they drop; it ends if t
 _Avoid_: Registration (that is the state), sign-up, entrant
 
 **Locked**:
-Describes a joined player's deck, whose mainboard, sideboard and basic land counts can't change until the tournament is complete or cancelled, or the player leaves it during registration.
+Describes a joined player's deck from the start of play, whose mainboard, sideboard and basic land counts can't change until the tournament is complete or cancelled.
 _Avoid_: Frozen, registered, submitted
 
 **Playing**:
