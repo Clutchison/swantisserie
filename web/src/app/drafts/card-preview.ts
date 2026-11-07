@@ -174,7 +174,9 @@ export class CardPreviews implements OnDestroy {
  * A name with a pool card is a Tab stop, unless it's a control already, and
  * keyboard focus opens its preview at once. A mouse's focus doesn't: the mouse
  * has its hover. `appCardPreviewTabStop` leaves out of the tab order a target
- * that shows its card already, as a card image in stacks mode does.
+ * that shows its card already, as a basic land's image in stacks mode does.
+ * `appCardPreviewOnTap` leaves the preview off a target that opens its Card
+ * detail when pressed, as on the Plan tab.
  *
  * Each event's pointer type decides what it means, so touchscreen laptops work
  * both ways. A touch's own enter and leave say nothing, and a click is the
@@ -205,6 +207,12 @@ export class CardPreviewName implements OnDestroy {
   readonly card = input.required<PoolCardView | undefined>({ alias: 'appCardPreview' });
   /** Whether keyboard focus may come to the target to see its preview. */
   readonly tabStop = input(true, { alias: 'appCardPreviewTabStop' });
+  /**
+   * Whether a tap opens the preview. A target that opens its Card detail when
+   * pressed doesn't: any press on it closes its preview instead, as the Card
+   * detail opens over it.
+   */
+  readonly onTap = input(true, { alias: 'appCardPreviewOnTap' });
 
   /** The tabindex that makes the target a Tab stop, if it should be one and isn't already. */
   protected readonly tabIndex = computed(() =>
@@ -233,7 +241,9 @@ export class CardPreviewName implements OnDestroy {
 
   protected clicked() {
     const card = this.card();
-    if (card && this.pressedWith && this.pressedWith !== 'mouse') {
+    if (!this.onTap()) {
+      this.previews.leave(this.element);
+    } else if (card && this.pressedWith && this.pressedWith !== 'mouse') {
       this.previews.open(this.element, card);
     }
     this.pressedWith = undefined;
