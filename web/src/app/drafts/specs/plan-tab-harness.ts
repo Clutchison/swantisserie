@@ -1,5 +1,13 @@
 import type { PlanView } from 'contract';
-import { bob, openTab, tabButton, type AppFixture, type NamedPoolCard } from './harness';
+import {
+  accessibleName,
+  bob,
+  namedList,
+  openTab,
+  tabButton,
+  type AppFixture,
+  type NamedPoolCard,
+} from './harness';
 import { card, shivan, brightclimb } from './pool-tab-harness';
 
 /** Bob's turn, on the draft's third pick. */
@@ -42,3 +50,24 @@ export function planBoards(plan: HTMLElement) {
     ),
   }));
 }
+
+/** The control inside `root` that opens a plan card's Card detail, by its accessible name, as `Lightning Bolt (unpicked)` for a stacked unpicked card. */
+export const detailOpener = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')].find(
+    (control) => accessibleName(control) === name,
+  );
+
+/** The names of a stack's cards: each the button that opens its Card detail, or a basic land's image. */
+const stackedCards = (stack: Element) =>
+  [...stack.querySelectorAll('[aria-haspopup="dialog"], [role="img"]')].map(accessibleName);
+
+/** The cards of the stack inside `root` named `name`, by their accessible names, with ` (unpicked)` after an unpicked card. */
+export const stack = (root: HTMLElement, name: string) => stackedCards(namedList(root, name));
+
+/** Each plan board's stacks as `name: card, card`, by the names a screen reader gives them. */
+export const stacksOf = (plan: HTMLElement) =>
+  [...plan.querySelectorAll('section')].map((planBoard) =>
+    [...planBoard.querySelectorAll('ul[aria-label]')].map(
+      (list) => `${list.getAttribute('aria-label')}: ${stackedCards(list).join(', ')}`,
+    ),
+  );
