@@ -44,6 +44,7 @@ export function queuesAfterPick(
   {
     pool,
     picked,
+    // Stryker disable next-line ArrayDeclaration: any steal behavior other than `PickNext` acts the same as none.
     stealBehaviors = [],
   }: {
     pool: Pool;

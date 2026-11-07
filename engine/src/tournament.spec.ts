@@ -15,8 +15,10 @@ import {
 import {
   forfeited,
   grantedDraw,
+  grantedWin,
   placings,
   played,
+  unreported,
 } from './tournament.fixtures.js';
 import { singleEliminationStandings } from './single-elimination.js';
 
@@ -106,12 +108,10 @@ describe('standings', () => {
   });
 
   it('ignores matches not yet reported', () => {
-    expect(ranks(['a', 'b'], [{ players: ['a', 'b'], outcome: null }])).toEqual(
-      [
-        ['a', 1],
-        ['b', 1],
-      ],
-    );
+    expect(ranks(['a', 'b'], [unreported('a', 'b')])).toEqual([
+      ['a', 1],
+      ['b', 1],
+    ]);
   });
 
   it('breaks a two-way tie by head-to-head before game-win %', () => {
@@ -223,6 +223,29 @@ describe('standings', () => {
       matches: { won: 0, lost: 1, drawn: 0 },
     });
   });
+
+  it('counts a granted win as a won match for the winner and a lost match for the other, with no games', () => {
+    const [first, second] = standings(['a', 'b'], [grantedWin('a', 'b', 'b')]);
+    expect(first).toMatchObject({
+      playerId: 'b',
+      matchPoints: 3,
+      matches: { won: 1, lost: 0, drawn: 0 },
+      games: { won: 0, lost: 0, drawn: 0 },
+    });
+    expect(second).toMatchObject({
+      playerId: 'a',
+      matchPoints: 0,
+      matches: { won: 0, lost: 1, drawn: 0 },
+      games: { won: 0, lost: 0, drawn: 0 },
+    });
+  });
+
+  it('counts drawn games as played games in game-win %, as the MTR has it', () => {
+    // a won 2 of 4 games played, one of them drawn: 50%, not 2 of 3.
+    expect(
+      standings(['a', 'b'], [played('a', 'b', [2, 1], 1)])[0],
+    ).toMatchObject({ playerId: 'a', gameWinPercent: 50 });
+  });
 });
 
 describe('GAME_SCORES', () => {
@@ -284,7 +307,7 @@ describe('roundCompletion', () => {
     }));
 
   describe('in Swiss', () => {
-    it('pairs the next round while enough undropped players are left', () => {
+    it('pairs the next tournament round while enough undropped players are left', () => {
       expect(
         roundCompletion({
           format: 'Swiss',
@@ -295,7 +318,7 @@ describe('roundCompletion', () => {
       ).toEqual({ completes: false });
     });
 
-    it('completes the tournament after the final round, with a trophy holder', () => {
+    it('completes the tournament after the final tournament round, with a trophy holder', () => {
       expect(
         roundCompletion({
           format: 'Swiss',
@@ -313,6 +336,17 @@ describe('roundCompletion', () => {
           round: 1,
           roundCount: 3,
           entries: entries(['a', 'b', 'c'], ['b', 'c']),
+        }),
+      ).toEqual({ completes: true, reason: 'TooFewLeft', trophyHolder: true });
+    });
+
+    it('still has a trophy holder when it completes because everyone dropped', () => {
+      expect(
+        roundCompletion({
+          format: 'Swiss',
+          round: 1,
+          roundCount: 3,
+          entries: entries(['a', 'b', 'c'], ['a', 'b', 'c']),
         }),
       ).toEqual({ completes: true, reason: 'TooFewLeft', trophyHolder: true });
     });
@@ -356,7 +390,7 @@ describe('roundCompletion', () => {
       RoundCompletion,
     ][] = [
       [
-        'pairs the next round while enough players advance',
+        'pairs the next tournament round while enough players advance',
         semifinals([win('s1'), win('s3')]),
         { completes: false },
       ],

@@ -7,6 +7,7 @@ export function shuffle<T>(
   random: () => number = Math.random,
 ): T[] {
   const shuffled = [...items];
+  // Stryker disable next-line EqualityOperator: `i >= 0` adds a step that swaps an element with itself and draws one extra number, which no caller reuses.
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];

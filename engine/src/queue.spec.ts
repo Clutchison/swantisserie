@@ -115,6 +115,33 @@ describe('queueAfterUndo', () => {
     ).toEqual(['shock', 'bolt', 'skewer']);
   });
 
+  it('puts a cleared queue back at the front even when cards queued since sit at lower places', () => {
+    // Skewer was queued at 0 after Shock and Bolt were cleared from 1 and 2.
+    expect(
+      queueAfterUndo(
+        [{ card: 'skewer', position: 0 }],
+        [
+          { card: 'shock', position: 1 },
+          { card: 'bolt', position: 2 },
+        ],
+        { restKept: false },
+      ),
+    ).toEqual(['shock', 'bolt', 'skewer']);
+  });
+
+  it('leaves a kept queue as it is when the pick took nothing out of it', () => {
+    expect(
+      queueAfterUndo(
+        [
+          { card: 'shock', position: 0 },
+          { card: 'spike', position: 1 },
+        ],
+        [],
+        { restKept: true },
+      ),
+    ).toEqual(['shock', 'spike']);
+  });
+
   it('holds a taken-out card queued again since only once', () => {
     expect(
       queueAfterUndo(
