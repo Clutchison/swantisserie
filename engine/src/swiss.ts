@@ -145,14 +145,17 @@ export interface SwissPairerInput {
  * A search over every way of pairing the players left in finds the best,
  * judged in turn by:
  *
- * 1. the fewest rematches: none whenever that is possible;
- * 2. with an odd count, the bye to the lowest-ranked player who hasn't had
- *    one. Nobody gets a second bye while a player left in hasn't had one,
- *    even if it costs a rematch;
- * 3. the fewest pair-downs, matches between players on different match
+ * 1. with an odd count, the bye to a player who hasn't had one, while any
+ *    player left in hasn't had one;
+ * 2. the bye to the lowest-ranked such player (with every player left in
+ *    having had one, to the lowest-ranked player left in), whatever
+ *    rematches that leaves;
+ * 3. then, among the players who remain, the fewest rematches: none
+ *    whenever that is possible;
+ * 4. the fewest pair-downs, matches between players on different match
  *    points, so an even score group stays together and an odd one pairs
  *    one player down;
- * 4. the smallest gaps in match points across those pair-downs.
+ * 5. the smallest gaps in match points across those pair-downs.
  *
  * Ties go to the way of pairing that comes first with players taken best
  * first, those sharing a rank in an order the RNG seed fixes, so round 1 pairs
@@ -182,19 +185,12 @@ export function pairSwissRound({
     return { matches: bestPairing(order, costOf).matches, bye: null };
   }
   const hadBye = new Set(pastByes);
-  const lowestFirst = [...order].reverse();
-  const withoutBye = lowestFirst.filter((id) => !hadBye.has(id));
-  const candidates = withoutBye.length > 0 ? withoutBye : lowestFirst;
-  let best: (Pairing & { bye: string }) | undefined;
-  for (const bye of candidates) {
-    const pairing = bestPairing(
-      order.filter((id) => id !== bye),
-      costOf,
-    );
-    // Only fewer rematches beat a lower-ranked bye.
-    if (!best || pairing.cost[0] < best.cost[0]) best = { ...pairing, bye };
-  }
-  return { matches: best!.matches, bye: best!.bye };
+  const bye = order.findLast((id) => !hadBye.has(id)) ?? order.at(-1)!;
+  const { matches } = bestPairing(
+    order.filter((id) => id !== bye),
+    costOf,
+  );
+  return { matches, bye };
 }
 
 /** What a way of pairing costs: its rematches, its pair-downs and its gaps in match points, compared in that order. */

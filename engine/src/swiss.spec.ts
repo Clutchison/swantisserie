@@ -145,6 +145,21 @@ describe('pairSwissRound', () => {
     expect(pairs(round)).toEqual(['a-c']);
   });
 
+  it('gives the bye to the lowest-ranked player who hasn’t had one, even when that leaves a rematch', () => {
+    // A bye to a would leave b–c, no rematch; the bye to c leaves a–b again.
+    const round = pairSwissRound({
+      ...noHistory,
+      standings: standingsOf(['a', 6], ['b', 3], ['c', 0]),
+      pastMatches: [
+        ['a', 'b'],
+        ['a', 'c'],
+      ],
+      rngSeed: 1,
+    });
+    expect(round.bye).toBe('c');
+    expect(pairs(round)).toEqual(['a-b']);
+  });
+
   it('gives the bye to the lowest-ranked player who hasn’t had one', () => {
     const round = pairSwissRound({
       ...noHistory,
