@@ -8,12 +8,14 @@
     [alt]="shown.name"
     [width]="largeImage.width"
     [height]="largeImage.height"
+    [sideways]="sideways()"
     [instantIfLoaded]="true"
     (failed)="imageFailed(shown, 'large', face())"
   >
     @if (tilePlaceholder(); as src) {
       <img
         class="placeholder"
+        [class.turned]="sideways()"
         [src]="src"
         alt=""
         aria-hidden="true"
