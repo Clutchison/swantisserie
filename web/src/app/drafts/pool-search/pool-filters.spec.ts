@@ -11,8 +11,11 @@ import { type PoolSearchCard, searchPool } from './pool-search';
 
 const cards = fixtureCards as PoolSearchCard[];
 
+/** Searches fresh copies of the cards, so each test indexes them itself rather than reading another test's. */
 function shownBy(...pressed: ColorChoice[]) {
-  return applyPoolFilters(cards, { colors: new Set(pressed) }).map((card) => card.name);
+  return applyPoolFilters(structuredClone(cards), { colors: new Set(pressed) }).map(
+    (card) => card.name,
+  );
 }
 
 describe('color filter', () => {
@@ -72,7 +75,7 @@ describe('color filter', () => {
       });
 
       it('needs more than -c:c to do so, which rules out a card for any colorless face', () => {
-        const result = searchPool(cards, 'c<=w -c:c');
+        const result = searchPool(structuredClone(cards), 'c<=w -c:c');
         expect(result.ok && result.cards.map((card) => card.name)).not.toContain(emeriasCall);
       });
 
