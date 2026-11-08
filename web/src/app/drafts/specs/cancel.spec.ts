@@ -20,6 +20,7 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
+  openUrl,
 } from './harness';
 
 useDraftsApp();
@@ -177,6 +178,16 @@ describe('cancel', () => {
 
     expect(await flushList(fixture, page)).toBe('Red dragons was cancelled.');
     expect(router.url).toBe('/');
+  });
+
+  it('names no draft in the notice when it is cancelled before it has loaded', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+
+    updates.events.next({ type: 'cancelled' });
+    // Its read, sent as the page opened, answers too late to name it.
+    http.expectOne('/api/drafts/draft-1').flush(draft({}));
+
+    expect(await flushList(fixture, page)).toBe('The draft was cancelled.');
   });
 
   it('shows no notice on the draft list otherwise', async () => {

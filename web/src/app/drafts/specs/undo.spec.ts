@@ -165,6 +165,20 @@ describe('undo', () => {
     expect(undoButton(page)).toBeUndefined();
   });
 
+  it('offers no undo while the pick log loads, then the latest pick', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http.expectOne('/api/drafts/draft-1').flush(draft(aliceUp));
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(cards);
+    const picksReq = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
+    await flushQueueAndPlan();
+    TestBed.tick();
+
+    expect(undoButton(page)).toBeUndefined();
+    picksReq.flush(picks);
+    await fixture.whenStable();
+    expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
+  });
+
   it('offers no undo once the draft is complete', async () => {
     const { page } = await openDraft(
       completeSnapshot,
