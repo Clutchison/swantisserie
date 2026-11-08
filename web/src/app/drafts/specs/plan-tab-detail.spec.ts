@@ -40,6 +40,8 @@ import {
   detailOpener,
   stack,
   answerPrintingsRequest,
+  openPrintingPicker,
+  useOnsPrinting,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -116,6 +118,34 @@ describe('plan tab', () => {
 
       expect(previewImage()).toBeNull();
       expect(heading(openDialog()!, 'Swamp printing')).toBeDefined();
+    });
+
+    it('saves a basic land’s printing while a re-read of the plan has failed, keeping the plan shown', async () => {
+      const swamps = planOf({
+        mainboard: [planned(shivan)],
+        basics: [{ land: 'Swamp', count: 2 }],
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: swamps,
+      });
+      const plan = await openPlan(fixture, page);
+      await openPrintingPicker(plan, 'Swamp');
+      updates.events.next({
+        type: 'changed',
+        draft: draft(drafting({ turn: bobsTurn, version: 1 })),
+      });
+      await flushPicks([]);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queueOf());
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(null, {
+        status: 500,
+        statusText: 'Server Error',
+      });
+
+      await useOnsPrinting('Swamp');
+
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      expect(detailOpener(plan, 'Swamp')).toBeDefined();
     });
 
     it('opens a line of several unpicked copies on its first copy not in the queue', async () => {
