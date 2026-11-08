@@ -9,7 +9,8 @@
     "test": "ng test --watch=false",
     "lint": "oxlint --type-aware src/",
     "format": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --write",
-    "format:check": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --check"
+    "format:check": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --check",
+    "test:mutation": "stryker run"
   },
   "private": true,
   "dependencies": {
@@ -29,9 +30,13 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@analogjs/vite-plugin-angular": "^2.9.6",
+    "@analogjs/vitest-angular": "^2.9.6",
     "@angular/build": "^22.2.5",
     "@angular/cli": "^22.2.5",
     "@angular/compiler-cli": "^22.2.0",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "jsdom": "^30.0.0"
   }
 }

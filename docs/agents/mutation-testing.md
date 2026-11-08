@@ -2,24 +2,36 @@
 
 Mutation testing (StrykerJS) checks whether the tests actually catch mistakes. It makes one small change to the source at a time, called a **mutant** (for example `<` becomes `<=`, a condition becomes `true`, or a function body is emptied), and runs the tests against it. A mutant the tests fail on is **killed**. One they pass on **survives**, which means no test checks that piece of code. The **mutation score** is the share of mutants killed.
 
-Only the engine is set up for it so far.
+The engine and web workspaces are set up for it.
 
 ## Running it
 
 ```sh
 npm run test:mutation -w engine
+npm run test:mutation -w web
 ```
 
-`engine/stryker.config.json` caps Stryker at 2 workers (`concurrency: 2`); keep that cap, and don't start Stryker from the repo root or with `--concurrency`. Left alone, it starts one worker per core but one, which is 23 on the shared dev machine, and earlyoom will kill the run.
+Each workspace's `stryker.config.json` caps Stryker at 2 workers (`concurrency: 2`); keep that cap, and don't start Stryker from the repo root or with `--concurrency`. Left alone, it starts one worker per core but one, which is 23 on the shared dev machine, and earlyoom will kill the run.
 
-Runs are incremental: Stryker keeps the results in `engine/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything.
+Runs are incremental: Stryker keeps the results in `<workspace>/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything.
+
+To mutate only some files, pass a glob: `npm run test:mutation -w web -- --mutate src/app/drafts/webhook-control.ts`.
 
 Stryker is run by hand. It is not part of `npm test` or CI.
+
+## Web
+
+`ng test` keeps its vitest instance internal, so Stryker can't drive it. Instead, `web/vitest.stryker.config.mts` runs the web specs under plain vitest through Analog's Angular plugins, with `web/src/test-setup.stryker.ts` as its setup file (ADR 0016). **That config exists only for Stryker.** Run web tests with `ng test` (`npm test -w web`) as usual. If a spec passes under `ng test` but fails under this config, fix the config or its setup file, never the spec.
+
+- **`css: true`.** Analog compiles specs in JIT mode, which loads each component's styles as a CSS import. Vitest blanks CSS imports by default, and specs that read computed styles fail without it.
+- **Templates.** Stryker mutates TypeScript only, never templates. And because Analog compiles in JIT mode, this config doesn't type-check templates; `ng test` and `npm run typecheck -w web` still do.
+- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 7 minutes, even for a single component. Each mutant then runs dozens of tests, so a full run from scratch (about 6,300 mutants) tested about 3 mutants a minute at `concurrency: 2`, roughly two days, and took about 10 hours at a one-off `--concurrency 8` with the machine otherwise idle (#544). Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped.
+- **`dryRunTimeoutMinutes`** is raised from Stryker's 5-minute default to 30, so that dry run isn't cut off. JSON can't hold the comment, so it lives here.
 
 ## Reading the report
 
 - The terminal prints each surviving mutant as a diff with its file and line, then the score per file.
-- `engine/reports/mutation/mutation.html` is the same report, browsable by file, with each mutant marked in the source. `engine/reports/mutation/mutation.json` is the same data for scripts.
+- `<workspace>/reports/mutation/mutation.html` is the same report, browsable by file, with each mutant marked in the source. `<workspace>/reports/mutation/mutation.json` is the same data for scripts.
 - Both are gitignored.
 
 Sort every survivor into one of three groups. The fix each group names is the work of a gap ticket, done only once the user has approved the list:
@@ -29,6 +41,8 @@ Sort every survivor into one of three groups. The fix each group names is the wo
 - **Dead code**: the mutated code can never run, or its result is never used. Delete the code rather than test it.
 
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
+
+**False survivors.** Stryker runs each mutant only against the tests its per-test coverage says reach it. Code that runs once per spec file is credited only to that file's first test, so later tests that would kill its mutants never run against them. That covers a module-level constant, and a cache filled on first use, such as a module-level `WeakMap`. Before sorting a survivor in such code as a real gap, look for a test that would kill it. If one exists, list it as a false survivor with that test named. To make a cached result count, give each test fresh inputs so it fills the cache itself. Don't switch `coverageAnalysis` to `"all"` for this: on web it makes every mutant run nearly the whole suite (#544).
 
 ## Rules
 
