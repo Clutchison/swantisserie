@@ -68,7 +68,7 @@ export class TileImageLoader implements OnDestroy {
   ngOnDestroy() {
     // Stryker disable next-line CallExpression: as above.
     clearTimeout(this.bufferDelay);
-    // Stryker disable next-line ArrowFunction: as above.
+    // Stryker disable next-line ArrowFunction,CallExpression: as above.
     this.waiting.forEach((tile) => clearTimeout(tile.settling));
     this.observer?.disconnect();
   }

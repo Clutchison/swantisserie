@@ -15,6 +15,7 @@ import {
   shownSideways,
   inSidewaysBox,
   visible,
+  text,
 } from './harness';
 import {
   clickBackdrop,
@@ -39,6 +40,7 @@ import {
   searchFor,
   scrollWindowTo,
 } from './pool-tab-harness';
+import { apiImage } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -104,7 +106,7 @@ describe('pool tab', () => {
     await fixture.whenStable();
 
     expect(newestLarge(detail).getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/brightclimb-id?format=image&version=large&face=back',
+      apiImage('large', 'brightclimb-id', 'back'),
     );
   });
 
@@ -305,8 +307,7 @@ describe('pool tab', () => {
         tileLoaded(tile, image('small', 'shivan-id')),
       );
 
-      expect(placeholder(detail)?.tagName).toBe('SPAN');
-      expect(detail.textContent).toContain('Shivan Dragon');
+      expect(text(placeholder(detail))).toBe('Shivan Dragon');
     });
 
     it('shows an empty card shape with the name if the tile is still loading the normal image', async () => {
@@ -319,8 +320,7 @@ describe('pool tab', () => {
         }),
       );
 
-      expect(placeholder(detail)?.tagName).toBe('SPAN');
-      expect(detail.textContent).toContain('Shivan Dragon');
+      expect(text(placeholder(detail))).toBe('Shivan Dragon');
     });
 
     it('shows an empty card shape with the name if the tile has no image yet', async () => {
@@ -337,8 +337,7 @@ describe('pool tab', () => {
       const { detail, page } = await openOne(shivan);
 
       expect(tiles(page)[0].querySelector('img')).toBeNull();
-      expect(placeholder(detail)?.tagName).toBe('SPAN');
-      expect(detail.textContent).toContain('Shivan Dragon');
+      expect(text(placeholder(detail))).toBe('Shivan Dragon');
     });
 
     it('crossfades from the placeholder, which goes once the fade is over', async () => {
@@ -377,6 +376,19 @@ describe('pool tab', () => {
 
       wait(150);
       expect(shownSrcs(detail)).toEqual([back]);
+    });
+
+    it('crossfades to a face the browser has already loaded', async () => {
+      const { detail } = await openOne(brightclimb);
+      await decoded(newestLarge(detail));
+      wait(150);
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(672);
+
+      flip(detail);
+      await decoded(newestLarge(detail));
+
+      expect(shownSrcs(detail)).toEqual([front, back]);
     });
 
     it('gives a face revealed during the last one’s fade a full fade of its own', async () => {

@@ -32,8 +32,10 @@ const GAP = 8;
 /** Beside the name if it fits, or else above or below it, as on a phone beside a long name. */
 const POSITIONS: ConnectedPosition[] = [
   { originX: 'end', originY: 'center', overlayX: 'start', overlayY: 'center', offsetX: GAP },
+  // Stryker disable next-line UnaryOperator: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
   { originX: 'start', originY: 'center', overlayX: 'end', overlayY: 'center', offsetX: -GAP },
   { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: GAP },
+  // Stryker disable next-line UnaryOperator: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
   { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -GAP },
 ];
 
@@ -126,13 +128,17 @@ export class CardPreviews implements OnDestroy {
     this.cancelHover();
     if (this.dragging || this.shown?.anchor === anchor) return;
     this.close();
+    // Stryker disable next-line ObjectLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
     const overlay = createOverlayRef(this.injector, {
+      // Stryker disable next-line StringLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
       panelClass: 'card-preview-pane',
-      // Stryker disable next-line BooleanLiteral: tabs replace the history entry, so going back leaves the draft page, and each name's `ngOnDestroy` closes the preview.
+      // Stryker disable next-line BooleanLiteral: going back either leaves the draft page, whose names' `ngOnDestroy` closes the preview, or, after a link that pushed a history entry such as the Play tab's Your deck, only changes tab, which leaves the preview open until the next press, scroll or Escape.
       disposeOnNavigation: true,
       positionStrategy: createFlexibleConnectedPositionStrategy(this.injector, anchor)
         .withPositions(POSITIONS)
+        // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
         .withFlexibleDimensions(false)
+        // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
         .withPush(true)
         .withViewportMargin(GAP),
     });

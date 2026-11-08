@@ -24,6 +24,7 @@ import {
   drafting,
   queued,
   openQueue,
+  statusTexts,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
@@ -87,9 +88,7 @@ describe('pool tab', () => {
       req.flush(queueOf({ cards: [queued(brightclimb)] }));
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-        'Removed from your queue.',
-      );
+      expect(statusTexts(detail).join(' ')).toContain('Removed from your queue.');
       expect(button(detail, 'Remove from queue')).toBeUndefined();
       expect(button(detail, 'Add to queue')).toBeDefined();
       expect(names(await openQueue(fixture, page))).toEqual([
@@ -112,9 +111,7 @@ describe('pool tab', () => {
       await flushQueue(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-        "Couldn't remove the card from your queue.",
-      );
+      expect(statusTexts(detail).join(' ')).toContain("Couldn't remove the card from your queue.");
       expect(button(detail, 'Remove from queue')).toBeDefined();
     });
 
@@ -133,14 +130,14 @@ describe('pool tab', () => {
       await flushQueue(EMPTY_QUEUE);
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+      expect(statusTexts(detail).join(' ')).toContain(
         "Couldn't add the card to your queue. Try again in a moment.",
       );
       expect(button(detail, 'Add to queue')!.disabled).toBe(false);
 
       button(detail, 'Add to queue')!.click();
       TestBed.tick();
-      expect(detail.querySelector('[role="status"]')).toBeNull();
+      expect(statusTexts(detail)).toEqual([]);
       http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
       await vi.waitFor(() => expect(detail.textContent).toContain('Added to your queue.'));
     });
@@ -249,7 +246,7 @@ describe('pool tab', () => {
         await until(() => expect(button(other, 'Add to queue')!.disabled).toBe(false));
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="status"]')).toBeNull();
+        expect(statusTexts(other)).toEqual([]);
         button(other, 'Close')!.click();
         await fixture.whenStable();
         expect(button(await openDetail(fixture, page, 1), 'Remove from queue')).toBeDefined();
@@ -275,7 +272,7 @@ describe('pool tab', () => {
         await until(() => expect(button(other, 'Pick')!.disabled).toBe(false));
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="status"]')).toBeNull();
+        expect(statusTexts(other)).toEqual([]);
       });
 
       it('says nothing in the Card detail now open once a removal succeeds, and the card is no longer queued', async () => {
@@ -288,7 +285,7 @@ describe('pool tab', () => {
         await until(() => expect(button(other, 'Add to queue')!.disabled).toBe(false));
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="status"]')).toBeNull();
+        expect(statusTexts(other)).toEqual([]);
         button(other, 'Close')!.click();
         await fixture.whenStable();
         expect(button(await openDetail(fixture, page, 1), 'Add to queue')).toBeDefined();
@@ -316,7 +313,7 @@ describe('pool tab', () => {
         await until(() => expect(button(other, 'Add to queue')).toBeUndefined());
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="status"]')).toBeNull();
+        expect(statusTexts(other)).toEqual([]);
       });
     });
 
@@ -372,9 +369,7 @@ describe('pool tab', () => {
         http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
         await fixture.whenStable();
 
-        expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-          'Removed from your queue.',
-        );
+        expect(statusTexts(detail).join(' ')).toContain('Removed from your queue.');
         expect(button(detail, 'Add to queue')).toBeUndefined();
       });
 
@@ -442,7 +437,7 @@ describe('pool tab', () => {
         await fixture.whenStable();
 
         // The note outlives the turn change the re-read reveals.
-        expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+        expect(statusTexts(detail).join(' ')).toContain(
           'You can’t add to your queue on your turn.',
         );
         expect(button(detail, 'Add to queue')).toBeUndefined();

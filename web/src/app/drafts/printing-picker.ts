@@ -168,8 +168,6 @@ export class PrintingPicker implements OnInit {
 
   /** Sends the change, then shows it everywhere and closes; a failure is said here, changing nothing. */
   private async save(request: Observable<PreferredPrintings>) {
-    // Stryker disable next-line ConditionalExpression: both save buttons are disabled while a save is on its way.
-    if (this.saving()) return;
     this.saving.set(true);
     this.saveError.set(null);
     try {

@@ -10,7 +10,16 @@ import {
   drafting,
   pickOf,
 } from './harness';
-import { useTallScreen, image, card, shivan, brightclimb, tiles } from './pool-tab-harness';
+import {
+  useTallScreen,
+  image,
+  card,
+  shivan,
+  brightclimb,
+  tiles,
+  searchFor,
+} from './pool-tab-harness';
+import { apiImage } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -48,9 +57,7 @@ describe('pool tab', () => {
     img.dispatchEvent(new Event('error'));
     await fixture.whenStable();
 
-    expect(img.getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
-    );
+    expect(img.getAttribute('src')).toBe(apiImage('normal', 'shivan-id'));
     expect(img.hasAttribute('srcset')).toBe(false);
   });
 
@@ -58,9 +65,7 @@ describe('pool tab', () => {
     const { page } = await openDraft(completeSnapshot, {}, { cards: [card({ images: [] })] });
 
     const img = tiles(page)[0].querySelector('img')!;
-    expect(img.getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
-    );
+    expect(img.getAttribute('src')).toBe(apiImage('normal', 'shivan-id'));
     expect(img.hasAttribute('srcset')).toBe(false);
   });
 
@@ -271,14 +276,6 @@ describe('pool tab', () => {
       expect(src(buffer)).toBeUndefined();
     });
 
-    /** Narrows the grid to the cards whose text holds `text`, which may give a card a new tile. */
-    function search(page: HTMLElement, text: string) {
-      const box = page.querySelector<HTMLInputElement>('input[type="search"]')!;
-      box.value = text;
-      box.dispatchEvent(new Event('input'));
-      TestBed.tick();
-    }
-
     it('asks the browser to say when each waiting tile is on screen, and stops once it has requested its image', async () => {
       const { page } = await openPool([brightclimb, shivan]);
       const [first, second] = tiles(page);
@@ -333,7 +330,7 @@ describe('pool tab', () => {
       expect(src(buffer)).toBeUndefined();
 
       // Leaves out Third, so its tile goes and the row keeps the other two.
-      search(page, 'a');
+      searchFor(page, 'a');
       wait(50);
 
       expect(tiles(page)).toEqual([onScreen, buffer]);
@@ -348,7 +345,7 @@ describe('pool tab', () => {
       wait(130);
 
       // Moves Shivan Dragon up a row, which gives it a new tile.
-      search(page, 'shivan');
+      searchFor(page, 'shivan');
       wait(100);
 
       expect(tiles(page)).toHaveLength(1);
@@ -364,9 +361,7 @@ describe('pool tab', () => {
       tile.querySelector('img')!.dispatchEvent(new Event('error'));
       TestBed.tick();
 
-      expect(src(tile)).toBe(
-        'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
-      );
+      expect(src(tile)).toBe(apiImage('normal', 'shivan-id'));
     });
   });
 });

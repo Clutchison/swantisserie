@@ -39,6 +39,7 @@ import { useTallScreen, shivan } from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
+  apiImage,
   cdnImage,
   defaultPrintings,
   openPlan,
@@ -54,16 +55,17 @@ describe('the Printing picker', () => {
   const cards = [shivan, bolt];
   /** The API request the picker sends for the stored printings of Island. */
   const islandRequest = printingsRequest('Island');
-  const ONS_335 = '36e062ec-df51-40c0-ad8a-2ee1cb8f8f17';
   const KHM_394 = 'a0000000-0000-4000-8000-000000000394';
-  const cdn = (version: string, id: string) =>
-    `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;
   /** An English Island printing as the API shows it. */
   const printing = (id: string, set: string, number: string): BasicLandPrintingView => ({
     scryfallId: id,
     set,
     collectorNumber: number,
-    images: { small: cdn('small', id), normal: cdn('normal', id), large: cdn('large', id) },
+    images: {
+      small: cdnImage('small', id),
+      normal: cdnImage('normal', id),
+      large: cdnImage('large', id),
+    },
   });
   /** Kaldheim's three, Core Set 2021's one, Dragons of Tarkir's one and Onslaught's two, as the API groups them. */
   const islands: BasicLandPrintingsView = {
@@ -95,7 +97,7 @@ describe('the Printing picker', () => {
         name: 'Onslaught',
         releasedAt: '2002-10-07',
         printings: [
-          printing(ONS_335, 'ons', '335'),
+          printing(defaultPrintings.Island.id, 'ons', '335'),
           printing('b0000000-0000-4000-8000-000000000336', 'ons', '336'),
         ],
       },
@@ -224,7 +226,7 @@ describe('the Printing picker', () => {
     pressEscape();
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(text(dialog)).toContain('ONS #335');
-    expect(shownImage()).toBe(cdn('large', ONS_335));
+    expect(shownImage()).toBe(cdnImage('large', defaultPrintings.Island.id));
 
     button(dialog, 'Next printing')!.click();
     await fixture.whenStable();
@@ -366,7 +368,10 @@ describe('the Printing picker', () => {
     const dialog = await openPicker(fixture, plan);
     await chooseSet(fixture, 'Kaldheim · KHM');
     // Browsing changes only the picker.
-    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+    expect(islandImages(plan)).toEqual([
+      cdnImage('normal', defaultPrintings.Island.id),
+      cdnImage('normal', defaultPrintings.Island.id),
+    ]);
 
     button(dialog, 'Use this printing')!.click();
     const saved = http.expectOne(`/api/preferred-printings/Island`);
@@ -376,14 +381,14 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
-    expect(islandImages(plan)).toEqual([cdn('normal', KHM_394), cdn('normal', KHM_394)]);
+    expect(islandImages(plan)).toEqual([cdnImage('normal', KHM_394), cdnImage('normal', KHM_394)]);
   });
 
   it('opens on the preferred printing, and Use default clears it so the land shows its default printing', async () => {
     const { fixture, plan } = await openWith(
       withIslands({ preferredPrintings: { Island: khm394 } }),
     );
-    expect(islandImages(plan)).toEqual([cdn('normal', KHM_394), cdn('normal', KHM_394)]);
+    expect(islandImages(plan)).toEqual([cdnImage('normal', KHM_394), cdnImage('normal', KHM_394)]);
     const dialog = await openPicker(fixture, plan);
     expect(setField()!.value).toBe('Kaldheim · KHM');
     expect(shownPrinting()).toBe('Island, KHM #394');
@@ -395,7 +400,10 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
-    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+    expect(islandImages(plan)).toEqual([
+      cdnImage('normal', defaultPrintings.Island.id),
+      cdnImage('normal', defaultPrintings.Island.id),
+    ]);
   });
 
   it('offers Use default only once the land has a preferred printing', async () => {
@@ -418,7 +426,10 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
-    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+    expect(islandImages(plan)).toEqual([
+      cdnImage('normal', defaultPrintings.Island.id),
+      cdnImage('normal', defaultPrintings.Island.id),
+    ]);
   });
 
   it('says so when the printings fail to load, keeping the printing shown, and tries again', async () => {
@@ -484,7 +495,10 @@ describe('the Printing picker', () => {
     expect(openDialog()).toBe(dialog);
     expect(text(alertIn(dialog))).toBe('That isn’t an English printing of Island.');
     expect(shownPrinting()).toBe('Island, KHM #394');
-    expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+    expect(islandImages(plan)).toEqual([
+      cdnImage('normal', defaultPrintings.Island.id),
+      cdnImage('normal', defaultPrintings.Island.id),
+    ]);
   });
 
   it('disables both choices while a save is on its way, and apologises for a failure the API gives no reason for, until the next try', async () => {
@@ -534,9 +548,7 @@ describe('the Printing picker', () => {
     namedImages(openDialog()!)[0].dispatchEvent(new Event('error'));
     await fixture.whenStable();
 
-    expect(shownImage()).toBe(
-      `https://api.scryfall.com/cards/${ONS_335}?format=image&version=large`,
-    );
+    expect(shownImage()).toBe(apiImage('large', defaultPrintings.Island.id));
     expect(shownPrinting()).toBe('Island, ONS #335');
   });
 
@@ -564,8 +576,6 @@ describe('the Printing picker', () => {
     island().dispatchEvent(new Event('error'));
     await fixture.whenStable();
 
-    expect(island().getAttribute('src')).toBe(
-      `https://api.scryfall.com/cards/${KHM_394}?format=image&version=normal`,
-    );
+    expect(island().getAttribute('src')).toBe(apiImage('normal', KHM_394));
   });
 });

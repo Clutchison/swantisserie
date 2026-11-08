@@ -93,11 +93,8 @@ export class CardImage {
       untracked(() => {
         // Back to the image already shown: whatever was on its way is stale, and goes with its element.
         if (this.shown()?.src === src) this.pending.set(null);
-        else if (
-          // Stryker disable next-line ConditionalExpression: the effect reruns only when `src` or `sideways` changes, and `sideways` changes only with the face, which changes `src`.
-          this.pending()?.src !== src
-        )
-          this.pending.set({ src, sideways });
+        // Otherwise `src` is new: the effect reruns only when `src` or `sideways` changes, and `sideways` changes only with the face.
+        else this.pending.set({ src, sideways });
       });
     });
     afterRenderEffect(() => {
@@ -107,7 +104,7 @@ export class CardImage {
       // Stryker disable next-line ConditionalExpression,LogicalOperator: these differ only by asking again for a decode already asked for, which `reveal` ignores, or by throwing in `afterRenderEffect` once nothing is pending, which only the console reports.
       if (element && layer && !layer.decoding) this.decode(element, layer);
     });
-    // Stryker disable next-line BlockStatement: a late decode or fade on a destroyed image changes nothing on screen.
+    // Stryker disable next-line BlockStatement,CallExpression: a late decode or fade on a destroyed image changes nothing on screen.
     inject(DestroyRef).onDestroy(() => {
       // Stryker disable next-line CallExpression: as above.
       clearTimeout(this.fade);
@@ -116,9 +113,9 @@ export class CardImage {
     });
   }
 
-  protected imageFailed(layer: Layer) {
-    // Stryker disable next-line ConditionalExpression: a shown or fading image has already loaded, so it can't fire `error`, and a replaced pending image's element is removed.
-    if (layer === this.pending()) this.failed.emit();
+  /** The pending image failed: a shown or fading one has already loaded, so it can't, and a replaced pending one's element is removed. */
+  protected imageFailed() {
+    this.failed.emit();
   }
 
   private decode(element: HTMLImageElement, layer: Layer) {
@@ -128,9 +125,8 @@ export class CardImage {
     layer.instant =
       this.instantIfLoaded() &&
       !this.shown() &&
-      element.complete &&
-      // Stryker disable next-line ConditionalExpression,EqualityOperator: `instant` matters only if the image is revealed, and one complete with no width is broken, and never revealed.
-      element.naturalWidth > 0;
+      // `instant` matters only once revealed, and a complete image with no width is broken, and never revealed.
+      element.complete;
     void element.decode().then(
       () => this.reveal(layer),
       // A browser may refuse to decode ahead of time. If it has every byte, nothing partial can show.
@@ -151,8 +147,6 @@ export class CardImage {
     this.pending.set(null);
     this.fading.set(!layer.instant);
     clearTimeout(this.fade);
-    // Stryker disable next-line ConditionalExpression: the extra timer only sets `previous` and `fading` to the values they already have.
-    if (layer.instant) return;
     this.fade = setTimeout(() => {
       this.previous.set(null);
       this.fading.set(false);

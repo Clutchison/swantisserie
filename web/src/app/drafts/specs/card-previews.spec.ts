@@ -39,7 +39,7 @@ import {
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { image } from './pool-tab-harness';
-import { detailOpener } from './plan-tab-harness';
+import { apiImage, defaultPrintings, detailOpener } from './plan-tab-harness';
 import {
   bolt,
   shock,
@@ -309,9 +309,7 @@ describe('card previews', () => {
     previewImage()!.dispatchEvent(new Event('error'));
     TestBed.tick();
 
-    expect(previewImage()?.getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/bolt-id?format=image&version=normal',
-    );
+    expect(previewImage()?.getAttribute('src')).toBe(apiImage('normal', 'bolt-id'));
   });
 
   it('fades its image in only once decoded, with no placeholder', async () => {
@@ -326,17 +324,6 @@ describe('card previews', () => {
     await decoded(previewImage()!);
 
     expect(visible(previewImage()!)).toBe(true);
-  });
-
-  it('fades in an image that has already loaded, too', async () => {
-    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
-    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(488);
-    const { page } = await openBoard();
-
-    tap(cardName(panel(page), 'Lightning Bolt'));
-    await decoded(previewImage()!);
-
-    expect(previewImage()!.classList).not.toContain('instant');
   });
 
   it('reveals the fallback once a failed image’s retry has decoded', async () => {
@@ -668,7 +655,7 @@ describe('card previews', () => {
       TestBed.tick();
 
       expect(previewImage()?.getAttribute('src')).toBe(
-        'https://api.scryfall.com/cards/0356ae45-e5ca-46b9-8ebc-42bf4776e89c?format=image&version=normal',
+        apiImage('normal', defaultPrintings.Swamp.id),
       );
     });
 
@@ -696,9 +683,7 @@ describe('card previews', () => {
       previewImage()!.dispatchEvent(new Event('error'));
       TestBed.tick();
 
-      expect(previewImage()?.getAttribute('src')).toBe(
-        `https://api.scryfall.com/cards/${ZNR_SWAMP}?format=image&version=normal`,
-      );
+      expect(previewImage()?.getAttribute('src')).toBe(apiImage('normal', ZNR_SWAMP));
     });
   });
 

@@ -107,6 +107,10 @@ export async function answerPrintingsRequest(land: string) {
 export const cdnImage = (version: string, id: string) =>
   `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;
 
+/** Scryfall's API image of a printing's face in `version`, which an image falls back to once its CDN URL fails. */
+export const apiImage = (version: string, id: string, face: 'front' | 'back' = 'front') =>
+  `https://api.scryfall.com/cards/${id}?format=image&version=${version}${face === 'back' ? '&face=back' : ''}`;
+
 /**
  * Each basic land's default printing, by its Scryfall id and the label the
  * Printing picker gives it: Onslaught's first of each, and Oath of the
