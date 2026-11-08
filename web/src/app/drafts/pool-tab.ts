@@ -262,8 +262,8 @@ export class PoolTab {
    */
   protected open(card: PoolCardView, tile: HTMLElement) {
     this.preloader.noteRequested(this.images.url(card, 'large'));
-    // Stryker disable next-line EqualityOperator: workingUrl answers undefined for a face the card doesn't have, which preloadLarge drops.
-    for (let face = 1; face < card.images.length; face++) this.preloadLarge(card, face);
+    // The front face's was noted just now, so only the other faces load.
+    card.images.forEach((_, face) => this.preloadLarge(card, face));
     this.cardDetails.open({
       card,
       actions: this.actions,

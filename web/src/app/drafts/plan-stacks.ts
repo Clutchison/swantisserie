@@ -35,8 +35,15 @@ const BY_MANA_VALUE: StackRule[] = [
     name: String(value),
     holds: (card: CardFacts) => !isLand(card) && card.manaValue === value,
   })),
-  // Stryker disable next-line ConditionalExpression,LogicalOperator: the first rule that holds a card wins, so mana values 0 to 6 and lands (mana value 0) are already taken.
-  { name: '7+', holds: (card) => !isLand(card) && card.manaValue >= 7 },
+  {
+    name: '7+',
+    holds: (card) =>
+      // The first rule that holds a card wins, so mana values 0 to 6 and lands (mana value 0) are already taken.
+      // Stryker disable next-line LogicalOperator: as above.
+      !isLand(card) &&
+      // Stryker disable next-line ConditionalExpression: as above.
+      card.manaValue >= 7,
+  },
   { name: 'Lands', holds: isLand },
 ];
 
@@ -46,10 +53,14 @@ const BY_COLOR: StackRule[] = [
     holds: (card: CardFacts) =>
       !isLand(card) && card.colors.length === 1 && card.colors[0] === color,
   })),
-  // Stryker disable next-line EqualityOperator: the first rule that holds a card wins, so single-colored cards are already taken.
-  { name: 'Multicolor', holds: (card) => !isLand(card) && card.colors.length > 1 },
-  // Stryker disable next-line ConditionalExpression: the first rule that holds a card wins, and every non-land with a color is already taken.
-  { name: 'Colorless', holds: (card) => !isLand(card) && card.colors.length === 0 },
+  { name: 'Multicolor', holds: (card) => !isLand(card) && card.colors.length >= 2 },
+  {
+    name: 'Colorless',
+    holds: (card) =>
+      !isLand(card) &&
+      // Stryker disable next-line ConditionalExpression: the first rule that holds a card wins, and every non-land with a color is already taken.
+      card.colors.length === 0,
+  },
   { name: 'Lands', holds: isLand },
 ];
 

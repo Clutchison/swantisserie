@@ -531,8 +531,9 @@ const isGrouping = (value: unknown): value is Grouping =>
 function lines(cards: PlanBoardCard[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
   for (const card of cards) {
-    // Stryker disable next-line StringLiteral: with any one prefix emptied the three stay distinct, so lines and focus keys come out the same.
-    const key = `${card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked'} ${card.name}`;
+    // Stryker disable next-line StringLiteral: with any one kind emptied the three stay distinct, so lines and focus keys come out the same.
+    const kind = card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked';
+    const key = `${kind} ${card.name}`;
     const line = byName.get(key);
     if (line) {
       line.count++;
