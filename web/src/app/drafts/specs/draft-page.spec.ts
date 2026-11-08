@@ -1,5 +1,4 @@
 import { TestBed } from '@angular/core/testing';
-import { GuardsCheckEnd, NavigationEnd } from '@angular/router';
 import {
   ALL_POWERS,
   alertIn,
@@ -34,6 +33,8 @@ import {
   controlByLabel,
   text,
   wait,
+  landedUrls,
+  midNavigation,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -684,13 +685,7 @@ describe('draft page', () => {
 
     it('keeps showing the last tab selected while an earlier selection is still being written', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
-      const shownMidway: string[] = [];
-      const watching = router.events.subscribe((event) => {
-        if (!(event instanceof GuardsCheckEnd)) return;
-        TestBed.tick();
-        shownMidway.push(panelName(page)!);
-      });
-      onTestFinished(() => watching.unsubscribe());
+      const shownMidway = midNavigation(() => panelName(page));
 
       tabButton(page, 'Queue').click();
       TestBed.tick();
@@ -924,11 +919,7 @@ describe('draft page', () => {
 
       it('when the draft fails to load, going straight there rather than by the Lists tab', async () => {
         const { fixture } = await openUrl('/drafts/draft-1?tab=board');
-        const landed: string[] = [];
-        const watching = router.events.subscribe((event) => {
-          if (event instanceof NavigationEnd) landed.push(event.urlAfterRedirects);
-        });
-        onTestFinished(() => watching.unsubscribe());
+        const landed = landedUrls();
         http.expectOne('/api/drafts/draft-1').flush({}, { status: 404, statusText: 'Not Found' });
         await fixture.whenStable();
 

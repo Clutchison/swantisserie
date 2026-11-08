@@ -77,6 +77,7 @@ export class DialogShell {
       disableClose: true,
       restoreFocus: false,
       panelClass: 'dialog-pane',
+      // Stryker disable next-line StringLiteral: presentation only: the backdrop's dimming and fade-in.
       backdropClass: 'dialog-backdrop',
       positionStrategy: PLACED_BY_CSS,
       scrollStrategy: createNoopScrollStrategy(),
@@ -84,6 +85,7 @@ export class DialogShell {
       width: '',
       // Stryker disable next-line StringLiteral: the browser ignores an invalid CSS width, which leaves it cleared, as '' does.
       maxWidth: '',
+      // Stryker disable next-line BooleanLiteral: presentation only: the CDK's backdrop fade-out.
       disableAnimations: true,
     });
 

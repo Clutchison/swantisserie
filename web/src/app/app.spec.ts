@@ -1,7 +1,7 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { GuardsCheckEnd, NavigationStart } from '@angular/router';
+import { NavigationStart } from '@angular/router';
 import { App } from './app';
 import { alice, http, openApp, openDialog, router, useApp } from './specs-harness';
 import {
@@ -10,6 +10,7 @@ import {
   expectLoadingAnimation,
   expectSignedOut,
   loadingAnimation,
+  midNavigation,
 } from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
@@ -56,19 +57,13 @@ describe('App', () => {
 
   it('shows no page-wide loading once the first page is shown', async () => {
     const page = await openSettled('/', alice);
-    let loadingMidway: boolean | undefined;
-    const watching = router.events.subscribe((event) => {
-      if (!(event instanceof GuardsCheckEnd)) return;
-      TestBed.tick();
-      loadingMidway = loadingAnimation(page) !== null;
-    });
-    onTestFinished(() => watching.unsubscribe());
+    const loadingMidway = midNavigation(() => loadingAnimation(page) !== null);
 
     await router.navigateByUrl('/status');
     TestBed.tick();
     http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' });
 
-    expect(loadingMidway).toBe(false);
+    expect(loadingMidway).toEqual([false]);
   });
 
   it('asks once who is signed in, not on each page a signed-out viewer tries', async () => {

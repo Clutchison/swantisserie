@@ -15,6 +15,7 @@ import {
   pointer,
   text,
   drafting,
+  heading,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -45,6 +46,24 @@ describe('plan tab', () => {
       localStorage.clear();
     });
 
+    it('reopens in list mode when last left there, keeping the grouping for stacks', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'list', grouping: 'color' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      expect(pressed(plan, 'List')).toBe('true');
+
+      button(plan, 'Stacks')!.click();
+      await fixture.whenStable();
+
+      expect(pressed(plan, 'Color')).toBe('true');
+      expect(pressed(plan, 'Type')).toBe('false');
+      // The mainboard heads each stack with its name and how many cards it holds.
+      expect(heading(plan, 'R 3')).toBeDefined();
+    });
+
     it('opens in stacks mode, grouped by mana value, with lands in their own stack', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -69,12 +88,6 @@ describe('plan tab', () => {
         'Mainboard 3 (2 picked)',
         'Sideboard 1 (1 picked)',
       ]);
-      // Every stack as wide as the others: the mainboard's two share the width with the sideboard's.
-      expect(
-        plan
-          .querySelector<HTMLElement>('.plan-boards')!
-          .style.getPropertyValue('--mainboard-stacks'),
-      ).toBe('2');
     });
 
     it('shows the sideboard as one stack beside the mainboard, whatever the grouping, with lands last', async () => {

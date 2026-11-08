@@ -420,6 +420,7 @@ export class PlanTab {
         pick: this.store.offerPick(),
         queue: this.store.offerQueue() && this.store.planned().has(poolCardId),
         addToPlan: false,
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Plan is offered only for an unpicked card.
         removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
       })),
       tilePlaceholder,

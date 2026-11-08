@@ -18,6 +18,8 @@ import {
   type AppFixture,
   drafting,
   text,
+  alertIn,
+  serverError,
 } from './harness';
 import {
   clickBackdrop,
@@ -26,6 +28,7 @@ import {
   openDialog,
   pressEscape,
   pressTab,
+  question,
 } from '../../specs-harness';
 import { card, shivan } from './pool-tab-harness';
 import { bolt, boltAgain, openPlan, planOf, planned, unpicked } from './plan-tab-harness';
@@ -58,6 +61,31 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await fixture.whenStable();
     return tab;
   }
+
+  it('is named by its heading, and says it couldn’t add to the queue when the request fails without a refusal', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      {
+        cards,
+        plan,
+      },
+    );
+    const tab = await openQueueUnpicked(fixture, page);
+    await question('Queue unpicked cards');
+
+    button(dialog()!, 'Queue 2 cards')!.click();
+    http.expectOne('/api/drafts/draft-1/queue/unpicked').flush(null, serverError);
+
+    await vi.waitFor(() =>
+      expect(alertIn(tab)?.textContent?.trim()).toBe(
+        "Couldn't add to your queue. Try again in a moment.",
+      ),
+    );
+    expect(dialog()).toBeNull();
+    // As for a refusal, the store re-reads the queue.
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(EMPTY_QUEUE);
+  });
 
   it('counts the mainboard’s unpicked copies not yet queued, and the sideboard’s too when included', async () => {
     const { fixture, page } = await openDraft(

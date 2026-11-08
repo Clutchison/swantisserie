@@ -65,7 +65,9 @@ export function tabInUrl<T extends string>({
   });
   /**
    * The tab selected since the URL last changed, which shows before the URL
-   * catches up. A navigation that doesn't land clears it.
+   * catches up. The latest navigation's outcome clears it: one that lands has
+   * changed the URL, which cleared it already; one that doesn't puts back the
+   * tab the URL names.
    */
   const chosen = linkedSignal<string | null, T | undefined>({
     source: requested,

@@ -29,6 +29,7 @@ import {
   queueList,
   accessibleName,
   type AppFixture,
+  alertIn,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
@@ -37,6 +38,15 @@ useDraftsApp();
 useTallScreen();
 
 describe('queue tab', () => {
+  const shivanUp = 'Move Shivan Dragon up';
+  /** The api's refusal of a queue change made against a queue that has since changed: its body, then its status. */
+  const queueChanged = [
+    {
+      error: 'queue-changed',
+      message: 'Your queue has changed. Reload and try again.',
+    } satisfies QueueRefusal,
+    { status: 409, statusText: 'Conflict' },
+  ] as const;
   /** The names in the Queue tab's list, in order. */
   const names = (queue: HTMLElement) =>
     [...queue.querySelectorAll('li .name')].map((name) => name.textContent);
@@ -164,9 +174,7 @@ describe('queue tab', () => {
       queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
     });
     const queue = await openQueue(fixture, page);
-    expect(
-      queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon up"]')!.disabled,
-    ).toBe(true);
+    expect(button(queue, shivanUp)!.disabled).toBe(true);
 
     queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
     await fixture.whenStable();
@@ -229,7 +237,7 @@ describe('queue tab', () => {
     });
     const queue = await openQueue(fixture, page);
 
-    expect(queue.querySelector('.notice')?.textContent?.replace(/\s+/g, ' ')).toContain(
+    expect(statusTexts(queue).join(' ')).toContain(
       'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
     );
   });
@@ -306,19 +314,13 @@ describe('queue tab', () => {
     const queue = await openQueue(fixture, page);
 
     queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
-    http.expectOne('/api/drafts/draft-1/queue').flush(
-      {
-        error: 'queue-changed',
-        message: 'Your queue has changed. Reload and try again.',
-      } satisfies QueueRefusal,
-      { status: 409, statusText: 'Conflict' },
-    );
+    http.expectOne('/api/drafts/draft-1/queue').flush(...queueChanged);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
       queueOf({ cards: [queued(shivan)] }),
     );
     await fixture.whenStable();
 
-    expect(queue.querySelector('[role="alert"]')?.textContent).toContain('Your queue has changed.');
+    expect(alertIn(queue)?.textContent).toContain('Your queue has changed.');
     expect(names(queue)).toEqual(['Shivan Dragon']);
     expect(statusTexts(queue).join(' ')).not.toContain('moved to position');
   });
@@ -330,12 +332,7 @@ describe('queue tab', () => {
     });
     const queue = await openQueue(fixture, page);
     button(queue, 'Move Shivan Dragon down')!.click();
-    http
-      .expectOne('/api/drafts/draft-1/queue')
-      .flush(
-        { error: 'queue-changed', message: 'Your queue has changed. Reload and try again.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/api/drafts/draft-1/queue').flush(...queueChanged);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
       queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
     );
@@ -347,7 +344,7 @@ describe('queue tab', () => {
       .flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
     await fixture.whenStable();
 
-    expect(queue.querySelector('[role="alert"]')).toBeNull();
+    expect(alertIn(queue)).toBeNull();
   });
 
   it('moves the dragged card, even if the queue was re-read during the drag', async () => {
@@ -448,8 +445,8 @@ describe('queue tab', () => {
       });
       const queue = await openQueue(fixture, page);
 
-      button(queue, 'Move Shivan Dragon up')!.focus();
-      button(queue, 'Move Shivan Dragon up')!.click();
+      button(queue, shivanUp)!.focus();
+      button(queue, shivanUp)!.click();
       http
         .expectOne('/api/drafts/draft-1/queue')
         .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
@@ -486,8 +483,8 @@ describe('queue tab', () => {
       });
       const queue = await openQueue(fixture, page);
 
-      button(queue, 'Move Shivan Dragon up')!.focus();
-      button(queue, 'Move Shivan Dragon up')!.click();
+      button(queue, shivanUp)!.focus();
+      button(queue, shivanUp)!.click();
       http
         .expectOne('/api/drafts/draft-1/queue')
         .flush(null, { status: 500, statusText: 'Server Error' });
@@ -495,11 +492,9 @@ describe('queue tab', () => {
       await fixture.whenStable();
 
       await vi.waitFor(() =>
-        expect(queue.querySelector('[role="alert"]')?.textContent).toContain(
-          "Couldn't change your queue.",
-        ),
+        expect(alertIn(queue)?.textContent).toContain("Couldn't change your queue."),
       );
-      expect(document.activeElement?.getAttribute('aria-label')).toBe('Move Shivan Dragon up');
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(shivanUp);
     });
 
     it('puts focus on the moved card’s other button before the move answers, and back on the pressed one once a failed move puts the card back', async () => {
@@ -509,8 +504,8 @@ describe('queue tab', () => {
       });
       const queue = await openQueue(fixture, page);
 
-      button(queue, 'Move Shivan Dragon up')!.focus();
-      button(queue, 'Move Shivan Dragon up')!.click();
+      button(queue, shivanUp)!.focus();
+      button(queue, shivanUp)!.click();
       await fixture.whenStable();
       // Shivan Dragon shows at the top at once, where it can't move up.
       expect(names(queue)[0]).toBe('Shivan Dragon');
@@ -523,9 +518,7 @@ describe('queue tab', () => {
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
       await fixture.whenStable();
 
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Move Shivan Dragon up')),
-      );
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(queue, shivanUp)));
       expect(names(queue)[1]).toBe('Shivan Dragon');
       expect(statusTexts(queue)).toEqual(['']);
     });
@@ -734,7 +727,7 @@ describe('queue tab', () => {
       const queue = await openQueue(fixture, page);
       expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
 
-      button(queue, 'Move Shivan Dragon up').click();
+      button(queue, shivanUp).click();
       await fixture.whenStable();
       expect(rows(queue)).toEqual(['Shivan Dragon', CUTOFF, 'Lightning Bolt']);
       http

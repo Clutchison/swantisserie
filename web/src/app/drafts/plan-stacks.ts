@@ -38,10 +38,9 @@ const BY_MANA_VALUE: StackRule[] = [
   {
     name: '7+',
     holds: (card) =>
-      // The first rule that holds a card wins, so mana values 0 to 6 and lands (mana value 0) are already taken.
-      // Stryker disable next-line LogicalOperator: as above.
+      // Stryker disable next-line LogicalOperator: the 0 to 6 stacks take every non-land of those mana values first, so `||` adds only lands of mana value 7 or more, and a land's mana value is 0.
       !isLand(card) &&
-      // Stryker disable next-line ConditionalExpression: as above.
+      // Stryker disable next-line ConditionalExpression: the 0 to 6 stacks take every non-land of those mana values first, so a non-land that gets here has mana value 7 or more.
       card.manaValue >= 7,
   },
   { name: 'Lands', holds: isLand },
@@ -143,7 +142,14 @@ function sortedByManaValue<Card extends PlannedCardView>(
 }
 
 function cardFacts(card: PoolCardView | undefined): CardFacts {
-  if (!card) return { manaValue: 0, colors: [], types: [] };
+  if (!card) {
+    return {
+      manaValue: 0,
+      colors: [],
+      // Stryker disable next-line ArrayDeclaration: types is read only by isLand, and an unknown card is no land either way.
+      types: [],
+    };
+  }
   // Before the dash come the card types; after it, the subtypes.
   const [types] = frontFace(card.typeLine).split(' — ');
   return { manaValue: card.manaValue, colors: card.colors, types: types.split(' ') };

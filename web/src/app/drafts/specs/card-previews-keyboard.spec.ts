@@ -17,7 +17,9 @@ import {
   button,
   cardName,
   type AppFixture,
+  startDrag,
 } from './harness';
+import { planOf, planned } from './plan-tab-harness';
 import { image, openDetail } from './pool-tab-harness';
 import { openDialog, pressKey } from '../../specs-harness';
 import {
@@ -218,25 +220,12 @@ describe('card previews', () => {
     });
 
     it('opens on names tabbed to on the Plan tab, but not while a drag is under way', async () => {
-      const { page, fixture } = await openPicked({
-        plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
-          sideboard: [],
-          basics: [],
-          lost: [],
-          preferredPrintings: {},
-        },
-      });
+      const { page, fixture } = await openPicked({ plan: planOf({ mainboard: [planned(bolt)] }) });
       tabButton(page, 'Plan').click();
       await fixture.whenStable();
       const name = button(panel(page), 'Lightning Bolt')!;
 
-      fixture.debugElement
-        .query(By.css('app-plan-tab'))
-        .queryAll(By.directive(CdkDrag))
-        .find((drag) => drag.nativeElement.contains(name))!
-        .triggerEventHandler('cdkDragStarted', {});
-      TestBed.tick();
+      startDrag(fixture, name);
       tabTo(name);
 
       expect(previewImage()).toBeNull();

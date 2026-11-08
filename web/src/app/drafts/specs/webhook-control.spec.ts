@@ -18,6 +18,8 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   SWITCH_ANNOUNCEMENTS_ONLY,
+  alertIn,
+  serverError,
 } from './harness';
 
 useDraftsApp();
@@ -185,9 +187,7 @@ describe('changing a draft’s webhook', () => {
     );
     await fixture.whenStable();
 
-    expect(page.querySelector('.webhook-control [role="alert"]')?.textContent).toContain(
-      removedMessage,
-    );
+    expect(alertIn(page)?.textContent).toContain(removedMessage);
     expect(shownOption(control(page)!)).toBe('#roto-main');
     expect(optionNames(control(page)!)).toEqual(['#roto-main', 'None']);
   });
@@ -198,13 +198,10 @@ describe('changing a draft’s webhook', () => {
     choose(control(page)!, '#roto-other');
     http
       .expectOne('/api/drafts/draft-1/webhook')
-      .flush(
-        { statusCode: 500, message: 'Internal server error' },
-        { status: 500, statusText: 'Server Error' },
-      );
+      .flush({ statusCode: 500, message: 'Internal server error' }, serverError);
     await fixture.whenStable();
 
-    expect(page.querySelector('.webhook-control [role="alert"]')?.textContent?.trim()).toBe(
+    expect(alertIn(page)?.textContent?.trim()).toBe(
       "Couldn't change the webhook. Try again in a moment.",
     );
     expect(shownOption(control(page)!)).toBe('#roto-main');
@@ -213,16 +210,14 @@ describe('changing a draft’s webhook', () => {
   it('clears the failure once a save works', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, { webhook: main, version: 3 });
     choose(control(page)!, '#roto-other');
-    http
-      .expectOne('/api/drafts/draft-1/webhook')
-      .flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne('/api/drafts/draft-1/webhook').flush(null, serverError);
     await fixture.whenStable();
 
     choose(control(page)!, '#roto-other');
     http.expectOne('/api/drafts/draft-1/webhook').flush(draft({ webhook: other, version: 4 }));
     await fixture.whenStable();
 
-    expect(page.querySelector('.webhook-control [role="alert"]')).toBeNull();
+    expect(alertIn(page)).toBeNull();
   });
 
   describe('when a webhook is gone', () => {
@@ -254,10 +249,7 @@ describe('changing a draft’s webhook', () => {
     const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft({ webhook: main }));
     await flushPool();
-    (await vi.waitFor(() => http.expectOne('/api/webhooks'))).flush(null, {
-      status: 500,
-      statusText: 'Server Error',
-    });
+    (await vi.waitFor(() => http.expectOne('/api/webhooks'))).flush(null, serverError);
     await fixture.whenStable();
 
     const select = control(page)!;

@@ -25,6 +25,7 @@ import {
   namedList,
   tabPanel,
   text,
+  alertIn,
 } from './harness';
 import { playing, threePlayers, withTournament } from './play-tab-harness';
 
@@ -511,9 +512,7 @@ describe('export tab', () => {
 
       await copyFor(opened, 'Moxfield');
 
-      expect(panel(opened.page).querySelector('[role="alert"]')?.textContent).toContain(
-        "Couldn't copy",
-      );
+      expect(alertIn(panel(opened.page))?.textContent).toContain("Couldn't copy");
       expect(announced(opened.page)).toBe('');
       expect(shownLabel(copyButton(opened.page, 'Moxfield')!)).toBe('Copy for Moxfield');
     });
@@ -524,9 +523,7 @@ describe('export tab', () => {
 
       await copyFor(opened);
 
-      expect(panel(opened.page).querySelector('[role="alert"]')?.textContent).toContain(
-        "Couldn't copy",
-      );
+      expect(alertIn(panel(opened.page))?.textContent).toContain("Couldn't copy");
       expect(announced(opened.page)).toBe('');
       expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
     });
@@ -676,7 +673,7 @@ describe('export tab', () => {
       );
 
       expect(panelName(page)).toBe('Export');
-      expect(panel(page).querySelector('[role="alert"]')).toBeNull();
+      expect(alertIn(panel(page))).toBeNull();
     });
 
     it('keeps the button confirmed, without a flicker, while it copies again', async () => {
@@ -698,7 +695,7 @@ describe('export tab', () => {
       writeText.mockRejectedValue(new Error('denied'));
       await copyFor(opened);
 
-      expect(panel(opened.page).querySelector('[role="alert"]')).not.toBeNull();
+      expect(alertIn(panel(opened.page))).not.toBeNull();
       expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
     });
 
@@ -713,7 +710,7 @@ describe('export tab', () => {
       held[0].reject(new Error('denied'));
       await settled(opened, 0);
 
-      expect(panel(opened.page).querySelector('[role="alert"]')).toBeNull();
+      expect(alertIn(panel(opened.page))).toBeNull();
       expect(shownLabel(copyButton(opened.page, 'Moxfield')!)).toBe('Copied');
     });
 
@@ -727,7 +724,7 @@ describe('export tab', () => {
       held[0].reject(new Error('denied'));
       await settled(opened, 0);
 
-      expect(exportPanel(opened.page).querySelector('[role="alert"]')).toBeNull();
+      expect(alertIn(exportPanel(opened.page))).toBeNull();
     });
 
     it('confirms none of the copies started before the panel closed and opened again', async () => {
@@ -754,7 +751,7 @@ describe('export tab', () => {
 
       await copyFor(opened);
 
-      expect(panel(opened.page).querySelector('[role="alert"]')).toBeNull();
+      expect(alertIn(panel(opened.page))).toBeNull();
       expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
     });
 
@@ -766,7 +763,7 @@ describe('export tab', () => {
       tabButton(opened.page, 'Pool').click();
       await opened.fixture.whenStable();
 
-      expect(exportPanel(opened.page).querySelector('[role="alert"]')).toBeNull();
+      expect(alertIn(exportPanel(opened.page))).toBeNull();
     });
 
     it('offers nothing to copy when you have no picks', async () => {

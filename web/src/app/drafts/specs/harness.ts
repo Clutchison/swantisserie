@@ -1,7 +1,15 @@
+import { CdkDrag } from '@angular/cdk/drag-drop';
 import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { By } from '@angular/platform-browser';
+import {
+  GuardsCheckEnd,
+  NavigationEnd,
+  provideRouter,
+  Router,
+  withComponentInputBinding,
+} from '@angular/router';
 import type {
   CardFace,
   DecklistView,
@@ -800,6 +808,43 @@ export function viewOn(screen: 'desktop' | 'mobile') {
 export function resizeTo(screen: 'desktop' | 'mobile') {
   breakpointListeners.forEach((listener) => listener({ matches: screen === 'desktop' }));
   TestBed.tick();
+}
+
+/**
+ * Starts dragging the card that holds `element`, as the CDK says a drag has
+ * started (jsdom can't drag), and renders what came of it.
+ */
+export function startDrag(fixture: AppFixture, element: HTMLElement) {
+  fixture.debugElement
+    .queryAll(By.directive(CdkDrag))
+    .find((drag) => drag.nativeElement.contains(element))!
+    .triggerEventHandler('cdkDragStarted', {});
+  TestBed.tick();
+}
+
+/**
+ * What `read` finds midway through each navigation from now on, once its
+ * guards have run and before it lands, with the page rendered then; in order.
+ */
+export function midNavigation<T>(read: () => T): T[] {
+  const seen: T[] = [];
+  const watching = TestBed.inject(Router).events.subscribe((event) => {
+    if (!(event instanceof GuardsCheckEnd)) return;
+    TestBed.tick();
+    seen.push(read());
+  });
+  onTestFinished(() => watching.unsubscribe());
+  return seen;
+}
+
+/** The URL each navigation from now on lands on, in order. */
+export function landedUrls(): string[] {
+  const landed: string[] = [];
+  const watching = TestBed.inject(Router).events.subscribe((event) => {
+    if (event instanceof NavigationEnd) landed.push(event.urlAfterRedirects);
+  });
+  onTestFinished(() => watching.unsubscribe());
+  return landed;
 }
 
 /** Lets `ms` pass on the fake timers, then renders what came of it. */

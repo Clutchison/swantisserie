@@ -13,6 +13,7 @@ import {
   pickOf,
   button,
   router,
+  controlByLabel,
 } from './harness';
 import {
   brightclimb,
@@ -257,7 +258,7 @@ describe('preloading the first results', () => {
     const cards = numbered(2);
     const { page } = await openPool(cards, [picked(cards[0])]);
 
-    page.querySelector<HTMLInputElement>('.hide-picked input')!.click();
+    controlByLabel(page, 'checkbox', 'Hide picked')!.click();
     TestBed.tick();
     wait(500);
 
@@ -319,7 +320,7 @@ describe('preloading the first results', () => {
     const { page } = await openPool([reds[0], blue, ...reds.slice(1)]);
 
     wait(300);
-    page.querySelector<HTMLButtonElement>('.color-filter button[aria-label="Red"]')!.click();
+    button(page, 'Red')!.click();
     TestBed.tick();
     wait(500);
 

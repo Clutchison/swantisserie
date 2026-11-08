@@ -1,5 +1,3 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
-import { By } from '@angular/platform-browser';
 import {
   useDraftsApp,
   alice,
@@ -25,6 +23,7 @@ import {
   fireIce,
   shownSideways,
   heading,
+  startDrag,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import {
@@ -214,12 +213,9 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
       const name = detailOpener(plan, 'Shivan Dragon')!;
-      const drag = fixture.debugElement
-        .queryAll(By.directive(CdkDrag))
-        .find((item) => item.nativeElement.contains(name))!;
 
       name.dispatchEvent(pointer('pointerdown', 'mouse'));
-      drag.triggerEventHandler('cdkDragStarted', {});
+      startDrag(fixture, name);
       name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
       await fixture.whenStable();
 
@@ -294,12 +290,9 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
       const shivanCard = detailOpener(plan, 'Shivan Dragon')!;
-      const drag = fixture.debugElement
-        .queryAll(By.directive(CdkDrag))
-        .find((item) => item.nativeElement.contains(shivanCard))!;
 
       shivanCard.dispatchEvent(pointer('pointerdown', 'mouse'));
-      drag.triggerEventHandler('cdkDragStarted', {});
+      startDrag(fixture, shivanCard);
       mouseClick(shivanCard);
       await fixture.whenStable();
       expect(openDialog()).toBeNull();
@@ -314,7 +307,7 @@ describe('plan tab', () => {
 
       // A keyboard's press is never the end of a drag.
       shivanCard.dispatchEvent(pointer('pointerdown', 'mouse'));
-      drag.triggerEventHandler('cdkDragStarted', {});
+      startDrag(fixture, shivanCard);
       shivanCard.click();
       await fixture.whenStable();
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');

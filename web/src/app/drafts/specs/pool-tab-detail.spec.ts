@@ -16,6 +16,7 @@ import {
   inSidewaysBox,
   visible,
   text,
+  controlByLabel,
 } from './harness';
 import {
   clickBackdrop,
@@ -160,7 +161,7 @@ describe('pool tab', () => {
         {},
         { cards: [brightclimb, shivan] },
       );
-      page.querySelector<HTMLInputElement>('.hide-picked input')!.click();
+      controlByLabel(page, 'checkbox', 'Hide picked')!.click();
       await fixture.whenStable();
       tiles(page)[1].focus();
       await openDetail(fixture, page, 1);

@@ -145,9 +145,9 @@ describe('pool tab', () => {
       expect(tiles(page)[0].querySelector('img')!.getAttribute('sizes')).toBe('144px');
     });
 
-    it('makes the grid as tall as its rows of cards, and no taller', async () => {
+    it('renders the rows that fill the screen, and four rows below it', async () => {
       const measure = measuredAs();
-      const cards = Array.from({ length: 18 }, (_, i) =>
+      const cards = Array.from({ length: 180 }, (_, i) =>
         card({ id: `card-${i}`, scryfallId: `id-${i}`, name: `Card ${i}` }),
       );
       const { fixture, page } = await openDraft(completeSnapshot, {}, { cards });
@@ -155,9 +155,9 @@ describe('pool tab', () => {
       measure(1360);
       await fixture.whenStable();
 
-      // Two rows of nine: each a 144px-wide card, 680/488 as tall, and an 8px gap.
-      const spacer = page.querySelector<HTMLElement>('.cdk-virtual-scroll-spacer')!;
-      expect(parseFloat(spacer.style.height)).toBeCloseTo(2 * ((144 * 680) / 488 + 8), 1);
+      // Rows of nine 144px-wide cards, each 680/488 as tall as wide, with an
+      // 8px gap: 208.66px. The 800px screen and four rows below it take 8 rows.
+      expect(tiles(page)).toHaveLength(8 * 9);
     });
   });
 
