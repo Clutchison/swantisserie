@@ -64,6 +64,7 @@ export class Changes {
   async send(
     work: () => Promise<boolean | void>,
     {
+      // Stryker disable next-line ArrayDeclaration: no control has the key it adds, so putting focus back skips it.
       keep = [],
       status = '',
       busyOnceMade = false,
@@ -73,6 +74,7 @@ export class Changes {
     this.press = this.pressed(keep);
     this.inFlight.set(true);
     this.said.set('');
+    // Stryker disable next-line BooleanLiteral: differs only if `work` throws under `busyOnceMade`, and the one such caller, cancel, catches its own failures.
     let made = false;
     try {
       made = (await work()) === true;
@@ -80,6 +82,7 @@ export class Changes {
       return made;
     } finally {
       if (!(made && busyOnceMade)) this.inFlight.set(false);
+      // Stryker disable next-line BooleanLiteral: the press is otherwise read only by `refocus()`, which is only called inside a `send` that has just set a new press.
       this.restore(true);
     }
   }
@@ -128,7 +131,9 @@ export class Changes {
    */
   private restore(settled: boolean) {
     const press = this.press;
+    // Stryker disable next-line ConditionalExpression: `false` keeps a press that only `refocus()` reads, inside a `send` that has just set a new one.
     if (settled) this.press = null;
+    // Stryker disable next-line ConditionalExpression: `false` throws only in `afterNextRender` with focus lost and no press, which Angular reports to the ErrorHandler, changing nothing on the page.
     if (!press) return;
     afterNextRender(
       () => {
@@ -142,6 +147,7 @@ export class Changes {
           }
         }
         const target = press.map((key) => byKey.get(key)).find((element) => element);
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: focusing the element that has focus does nothing, and with no target left these throw only in `afterNextRender`, which Angular reports to the ErrorHandler, changing nothing on the page.
         if (target && target !== focused) target.focus();
       },
       { injector: this.injector },
@@ -155,6 +161,7 @@ export class Changes {
  */
 @Directive({ selector: '[appFocusKey]' })
 export class FocusKey {
+  // Stryker disable next-line StringLiteral: the input is always bound; `appSendsChange` with no value passes ''.
   readonly key = input('', { alias: 'appFocusKey' });
 
   constructor() {
