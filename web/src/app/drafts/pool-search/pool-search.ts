@@ -30,6 +30,7 @@ export function searchPool<C extends PoolSearchCard>(
     // Only once the search parses, so a typo isn't reported as an unsupported keyword.
     if (unsupported) throw unsupported;
   } catch (err) {
+    // Stryker disable next-line ConditionalExpression: the tokenizer and parser throw nothing but a `SearchError`, so the rethrow below never runs.
     if (err instanceof SearchError)
       return { ok: false, error: { kind: err.kind, message: err.message } };
     throw err;
@@ -98,8 +99,10 @@ const indexes = new WeakMap<PoolSearchCard, CardIndex>();
 
 function cardIndex(card: PoolSearchCard): CardIndex {
   let index = indexes.get(card);
+  // Stryker disable next-line ConditionalExpression: it only turns the cache off; the index is rebuilt with the same contents.
   if (!index) {
     index = buildIndex(card);
+    // Stryker disable next-line CallExpression: it only turns the cache off; the index is rebuilt with the same contents.
     indexes.set(card, index);
   }
   return index;
@@ -139,6 +142,7 @@ function buildIndex(card: PoolSearchCard): CardIndex {
     },
     layout: card.layout,
     faces: (faces.length ? faces : [card]).map((face) => ({
+      // Stryker disable next-line StringLiteral: no card type is in either string, so `is:permanent`, `is:spell` and the creature checks answer the same.
       type: (face.typeLine ?? '').toLowerCase(),
       text: face.oracleText ?? '',
       power: face.power,
@@ -153,10 +157,10 @@ function statNumber(value: string): number {
 }
 
 function statValues(card: PoolSearchCard, stat: 'power' | 'toughness' | 'loyalty'): number[] {
-  return [card[stat], ...card.faces.map((face) => face[stat])]
-    .filter((value) => value !== null)
-    .map(statNumber)
-    .filter((value) => !Number.isNaN(value));
+  const values = [card[stat], ...card.faces.map((face) => face[stat])];
+  // Stryker disable next-line MethodExpression,ConditionalExpression: `statNumber(null)` is NaN, which the next filter drops.
+  const known = values.filter((value) => value !== null);
+  return known.map(statNumber).filter((value) => !Number.isNaN(value));
 }
 
 function manaCosts(card: PoolSearchCard): Counts[] {
@@ -170,6 +174,7 @@ function manaCosts(card: PoolSearchCard): Counts[] {
 }
 
 function colorCounts(colors: string[]): Counts {
+  // Stryker disable next-line MethodExpression: a card's colors and the searched colors both pass through here, so they still compare equal.
   return new Map(colors.map((color) => [color.toLowerCase(), 1]));
 }
 
@@ -395,11 +400,12 @@ function countManaSymbols(cost: string): { counts: Counts; allKnown: boolean } {
   let allKnown = true;
   for (const [, braced, bare] of cost.toUpperCase().matchAll(/\{([^}]*)\}|(\d+|.)/g)) {
     const symbol = braced ?? bare;
-    if (!MANA_SYMBOL.test(symbol)) {
+    if (/^\d+$/.test(symbol)) {
+      // Stryker disable next-line StringLiteral: generic mana's key is only a map key, used the same way on both sides, with no / or final P for `is:hybrid` or `is:phyrexian` to see.
+      add('', Number(symbol));
+    } else if (!MANA_SYMBOL.test(symbol)) {
       allKnown = false;
       add(unknownSymbolKey(symbol), 1);
-    } else if (/^\d+$/.test(symbol)) {
-      add('', Number(symbol));
     } else {
       // Hybrid halves in a fixed order, so {U/R} and {R/U} are the same symbol.
       const halves = symbol.split('/');
@@ -429,6 +435,7 @@ function statTerm(stat: Stat): (term: Term) => Matcher {
     if (stat === 'mv' && (word === 'even' || word === 'odd')) {
       const remainder = word === 'even' ? 0 : 1;
       onlyEquals({ keyword, operator, value });
+      // Stryker disable next-line MethodExpression: a card has exactly one mana value.
       return (card) => card.stats.mv.some((mv) => mv % 2 === remainder);
     }
     const other = STAT_KEYWORDS[word];
@@ -472,6 +479,7 @@ const PROPERTIES: Record<string, Matcher> = {
     (card) => card.stats.mv[0] === 2,
     anyCreature(({ power, toughness }) => power === '2' && toughness === '2'),
   ),
+  // Stryker disable next-line Regex: symbol keys have single-character halves (`2/W`, `G/U/P`), so the anchor and the +s change nothing.
   hybrid: hasSymbol((symbol) => /^[^/]+\/[^/P]+/.test(symbol)),
   phyrexian: anyOf(
     hasSymbol((symbol) => symbol.endsWith('P')),
@@ -708,9 +716,11 @@ function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError 
   /** A regular expression up to the next unescaped /. */
   const readRegex = (): { value: string; quoted: boolean; regex: boolean } => {
     const start = ++i;
+    // Stryker disable next-line EqualityOperator: the extra step reads `undefined`, which ends the loop on the same place.
     while (i < search.length && search[i] !== '/') i += search[i] === '\\' ? 2 : 1;
     if (i >= search.length)
       throw new SearchError('parse-error', 'A regular expression isn’t closed.');
+    // Stryker disable next-line BooleanLiteral: a regular expression term never reads `quoted`.
     return { value: search.slice(start, i++), quoted: false, regex: true };
   };
 
@@ -724,6 +734,7 @@ function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError 
       return { value, quoted: true };
     }
     const start = i;
+    // Stryker disable next-line EqualityOperator: the extra step reads `undefined`, which ends the loop with the same slice.
     while (i < search.length && !/[\s()]/.test(search[i])) i++;
     return { value: search.slice(start, i), quoted: false };
   };
@@ -757,6 +768,7 @@ function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError 
         } catch (err) {
           if (!(err instanceof SearchError && err.kind === 'unsupported')) throw err;
           unsupported ??= err;
+          // Stryker disable next-line ArrowFunction,BooleanLiteral: this matcher never runs, since the search always ends with the unsupported error; only its place among the tokens matters to the parser.
           tokens.push(() => false);
         }
         continue;
@@ -800,6 +812,7 @@ class Parser {
       this.i++;
       options.push(this.parseAnd());
     }
+    // Stryker disable next-line ConditionalExpression: a single option in `some` gives the same answer.
     return options.length === 1 ? options[0] : (card) => options.some((matches) => matches(card));
   }
 
@@ -817,6 +830,7 @@ class Parser {
       terms.push(this.parseUnary());
     }
     if (!terms.length) throw this.missingTerm();
+    // Stryker disable next-line ConditionalExpression: a single term in `every` gives the same answer.
     return terms.length === 1 ? terms[0] : (card) => terms.every((matches) => matches(card));
   }
 
