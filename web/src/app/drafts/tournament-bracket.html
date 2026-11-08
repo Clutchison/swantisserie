@@ -11,7 +11,11 @@
             <li [attr.aria-label]="place.label" [attr.aria-current]="place.own ? 'true' : null">
               <div class="match" [class.own]="place.own" aria-hidden="true">
                 @for (side of place.sides; track $index) {
-                  <div class="side" [class.won]="side.won" [class.pending]="side.pending">
+                  <div
+                    class="side"
+                    [attr.data-won]="side.won || null"
+                    [attr.data-not-player]="side.pending || null"
+                  >
                     @if (side.seed !== undefined) {
                       <span class="seed">{{ side.seed }}</span>
                     }

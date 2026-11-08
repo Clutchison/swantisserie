@@ -574,6 +574,32 @@ export const bracket = (root: HTMLElement) => region(root, 'Bracket');
 export const bracketMatches = (root: HTMLElement, round: number) =>
   [...roundLists(bracket(root)!)[round - 1].querySelectorAll('li')].map((li) => accessibleName(li));
 
+/** `element`'s text as it shows on screen: the text of each element inside it apart, however it is wrapped. */
+function shownText(element: Element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const words: string[] = [];
+  while (walker.nextNode()) words.push(walker.currentNode.textContent!.trim());
+  return words.filter(Boolean).join(' ');
+}
+
+/**
+ * Each place of the bracket's tournament round `round` inside `root` as it
+ * is drawn for a sighted viewer, which a screen reader skips for its name:
+ * each side's seed, name and games won, then the note under its match, if
+ * any, as in ['2 Bob 1', '3 Carol 2', 'Confirmed'].
+ */
+export const drawnPlaces = (root: HTMLElement, round: number) =>
+  [...roundLists(bracket(root)!)[round - 1].querySelectorAll(':scope > li')].map((li) =>
+    [...li.querySelector('[aria-hidden="true"]')!.children].map(shownText),
+  );
+
+/**
+ * The sides drawn in the bracket inside `root` as `marked`: those that won
+ * their place, or those that aren't a player yet, as they show, such as '1 Alice'.
+ */
+export const drawnSides = (root: HTMLElement, marked: 'won' | 'not-player') =>
+  [...bracket(root)!.querySelectorAll(`[data-${marked}="true"]`)].map(shownText);
+
 /** The bracket's matches inside `root` highlighted as the signed-in player's path, by accessible name, in order. */
 export const ownPath = (root: HTMLElement) =>
   [...bracket(root)!.querySelectorAll('li[aria-current="true"]')].map((li) => accessibleName(li));
