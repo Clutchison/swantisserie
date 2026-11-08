@@ -61,6 +61,7 @@ export class CardName {
 
   protected readonly symbols = computed(() => {
     const card = this.card();
+    // Stryker disable next-line ArrayDeclaration: an extra symbol with no `src` renders an empty `<span>`, which shows nothing.
     return card ? manaCostOf(card) : [];
   });
 }

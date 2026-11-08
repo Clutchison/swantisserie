@@ -134,10 +134,6 @@ function poolSourceRequest(kind: PoolSourceKind, fields: PoolSourceFields): NewP
       return { kind, cubeLink: fields[kind].cubeLink };
     case 'set-list':
       return { kind, setList: fields[kind].setList };
-    default: {
-      const unknown: never = kind;
-      throw new Error(`No request for the pool source ${String(unknown)}`);
-    }
   }
 }
 
@@ -145,8 +141,10 @@ function problemFrom(err: unknown): DraftProblem {
   if (err instanceof HttpErrorResponse && typeof err.error?.message === 'string') {
     return err.error as DraftCreationProblem;
   }
+  // Stryker disable next-line StringLiteral: the template branches only on `not-on-platform` and `query-rejected`, and shows the message alone otherwise.
+  const error = 'request-failed';
   return {
-    error: 'request-failed',
+    error,
     message: 'Creating the draft failed. Check your connection and try again.',
   };
 }

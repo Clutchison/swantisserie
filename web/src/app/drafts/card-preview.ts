@@ -32,8 +32,10 @@ const GAP = 8;
 /** Beside the name if it fits, or else above or below it, as on a phone beside a long name. */
 const POSITIONS: ConnectedPosition[] = [
   { originX: 'end', originY: 'center', overlayX: 'start', overlayY: 'center', offsetX: GAP },
+  // Stryker disable next-line UnaryOperator: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
   { originX: 'start', originY: 'center', overlayX: 'end', overlayY: 'center', offsetX: -GAP },
   { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: GAP },
+  // Stryker disable next-line UnaryOperator: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
   { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -GAP },
 ];
 
@@ -81,6 +83,7 @@ export class CardPreviews implements OnDestroy {
     const document = inject(DOCUMENT);
     document.addEventListener('scroll', () => this.close(), {
       capture: true,
+      // Stryker disable next-line BooleanLiteral: it affects scroll performance only.
       passive: true,
       signal,
     });
@@ -89,6 +92,7 @@ export class CardPreviews implements OnDestroy {
       ({ target }) => {
         if (this.shown && !this.shown.anchor.contains(target as Node)) this.close();
       },
+      // Stryker disable next-line ObjectLiteral,BooleanLiteral: capturing differs only if a handler stops a press's propagation, and the app's only `stopPropagation`, in the set combobox, isn't on a pointer event.
       { capture: true, signal },
     );
     // Doesn't stop the event, so a dialog under the preview closes on the same press.
@@ -97,11 +101,14 @@ export class CardPreviews implements OnDestroy {
       ({ key }) => {
         if (key === 'Escape') this.close();
       },
+      // Stryker disable next-line ObjectLiteral: a listener left once the page has gone only calls `close()`, which finds nothing open.
       { signal },
     );
     // Rather than the drag's own end, which never comes if its card is lost and its row removed.
     for (const released of ['pointerup', 'pointercancel']) {
+      // Stryker disable next-line ObjectLiteral: as for `pointerdown`, capturing differs only if a handler stops the event's propagation.
       document.addEventListener(released, () => (this.dragging = false), {
+        // Stryker disable next-line BooleanLiteral: as above.
         capture: true,
         signal,
       });
@@ -110,6 +117,7 @@ export class CardPreviews implements OnDestroy {
 
   /** The mouse has come to rest on a name. */
   hover(anchor: Element, card: PoolCardView) {
+    // Stryker disable next-line CallExpression: a real pointer always leaves one name, which cancels its hover, before it enters another.
     this.cancelHover();
     if (this.dragging) return;
     this.hovering = { anchor, timer: setTimeout(() => this.open(anchor, card), HOVER_MS) };
@@ -120,13 +128,22 @@ export class CardPreviews implements OnDestroy {
     this.cancelHover();
     if (this.dragging || this.shown?.anchor === anchor) return;
     this.close();
+    // Stryker disable next-line ObjectLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
     const overlay = createOverlayRef(this.injector, {
+      // Stryker disable next-line StringLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
       panelClass: 'card-preview-pane',
+      // Stryker disable next-line BooleanLiteral: going back either leaves the draft page, whose names' `ngOnDestroy` closes the preview, or, after a link that pushed a history entry such as the Play tab's Your deck, only changes tab, which leaves the preview open until the next press, scroll or Escape.
       disposeOnNavigation: true,
       positionStrategy: createFlexibleConnectedPositionStrategy(this.injector, anchor)
         .withPositions(POSITIONS)
-        .withFlexibleDimensions(false)
-        .withPush(true)
+        .withFlexibleDimensions(
+          // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
+          false,
+        )
+        .withPush(
+          // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
+          true,
+        )
         .withViewportMargin(GAP),
     });
     overlay.attach(new ComponentPortal(CardPreview, null, this.injector)).setInput('card', card);
@@ -136,6 +153,7 @@ export class CardPreviews implements OnDestroy {
   /** The name is going away, or the mouse has left it: nothing opens or stays open on it. */
   leave(anchor: Element) {
     if (this.shown?.anchor === anchor) this.close();
+    // Stryker disable next-line ConditionalExpression: it differs only when another name goes or is tapped while the mouse rests on a name, and opening any preview cancels the hover anyway.
     if (this.hovering?.anchor === anchor) this.cancelHover();
   }
 
@@ -150,8 +168,11 @@ export class CardPreviews implements OnDestroy {
     this.close();
   }
 
+  // Stryker disable next-line BlockStatement: a listener left once the page has gone only calls `close()`, which finds nothing open, and each name's own `ngOnDestroy` closes the preview anyway.
   ngOnDestroy() {
+    // Stryker disable next-line CallExpression: as above.
     this.listening.abort();
+    // Stryker disable next-line CallExpression: as above.
     this.close();
   }
 
@@ -227,6 +248,7 @@ export class CardPreviewName implements OnDestroy {
   }
 
   protected left({ pointerType }: PointerEvent) {
+    // Stryker disable next-line ConditionalExpression: browsers fire a touch's `pointerleave` before its click, so the leave comes before the tap opens the preview.
     if (pointerType === 'mouse') this.previews.leave(this.element);
   }
 

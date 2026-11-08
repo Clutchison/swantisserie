@@ -15,7 +15,7 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import type { GameScore, MatchView, PlayerView, TournamentView } from 'contract';
+import type { GameScore, MatchOutcomeView, MatchView, PlayerView, TournamentView } from 'contract';
 import { GAME_SCORES } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { capitalised } from '../record';
@@ -54,6 +54,7 @@ export const REPORT_DETAIL = 'Only an organizer can change a reported match.';
 
 /** The question that asks the player whether to report `score`, from their side, against `opponent`. */
 export function reportQuestion({ own, theirs }: OwnGameScore, opponent: string) {
+  // Stryker disable next-line EqualityOperator: an own game score is never a draw.
   return `Report that you ${own > theirs ? 'won' : 'lost'} ${own}–${theirs} against ${opponent}?`;
 }
 
@@ -178,32 +179,43 @@ export class YourMatches {
     const opponent = this.store.player(match.players.find((id) => id !== own)!);
     const { outcome } = match;
     const confirmable = match.confirmableBy.includes(own);
-    const [before, says] = this.single()
-      ? confirmable
-        ? [`Tournament round ${round}:`, reportedLine(match, own, opponent)]
-        : [`Tournament round ${round}: against`, opponent.name]
-      : ['', this.says(match, own, opponent, confirmable)];
     return {
       match,
       opponent,
-      before,
-      says,
+      ...this.reads(round, match, own, opponent, confirmable),
       reportable: playing && outcome.kind === 'Unreported',
       confirmable,
     };
   }
 
+  /** What the line of the player `own`'s `match`, in tournament round `round`, says before and after the opponent's avatar. */
+  private reads(
+    round: number,
+    match: MatchView,
+    own: string,
+    opponent: PlayerView,
+    confirmable: boolean,
+  ): Pick<OwnMatchLine, 'before' | 'says'> {
+    if (!this.single()) {
+      // Stryker disable next-line StringLiteral: `before` shows only in "Your match"; round robin's lines never render it.
+      const before = '';
+      return { before, says: this.says(match, own, opponent, confirmable) };
+    }
+    return confirmable
+      ? { before: `Tournament round ${round}:`, says: reportedLine(match, own, opponent) }
+      : { before: `Tournament round ${round}: against`, says: opponent.name };
+  }
+
   /** How the player's `match` against `opponent` reads on its line in Your matches. */
   private says(match: MatchView, own: string, opponent: PlayerView, confirmable: boolean) {
-    const { outcome } = match;
+    // Only single elimination grants wins, and these lines are round robin's.
+    const outcome = match.outcome as Exclude<MatchOutcomeView, { kind: 'GrantedWin' }>;
     const versus = `vs ${opponent.name}`;
     switch (outcome.kind) {
       case 'Unreported':
         return versus;
       case 'GrantedDraw':
         return `${versus} · Granted draw`;
-      case 'GrantedWin':
-        return `${versus} · Granted win for ${outcome.winner === own ? 'you' : opponent.name}`;
       case 'Forfeit':
         return outcome.forfeitedBy === own
           ? `Forfeit: you dropped against ${opponent.name}`
@@ -262,14 +274,14 @@ export class YourMatches {
 
   /**
    * The Report button of the next unreported match after the match
-   * `matchId`, else the first before it, else the heading.
+   * `matchId`, else the first before it, else the heading. The match's own
+   * Report is still there, as the dialog closes with a choice before its
+   * report is sent.
    */
   private nextReport(matchId: string): HTMLElement {
     const reports = [...this.host.querySelectorAll<HTMLElement>('button[data-report]')];
     const at = reports.findIndex((button) => button.dataset['report'] === matchId);
-    const others = [...reports.slice(at + 1), ...reports.slice(0, Math.max(at, 0))].filter(
-      (button) => button.dataset['report'] !== matchId,
-    );
+    const others = [...reports.slice(at + 1), ...reports.slice(0, at)];
     return others[0] ?? this.headingElement().nativeElement;
   }
 }

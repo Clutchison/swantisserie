@@ -31,6 +31,7 @@ useTallScreen();
 
 /** Stands in for the browser's off-page images, keeping those asked for. */
 class FakeImage {
+  fetchPriority = 'auto';
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
   set src(url: string) {
@@ -227,6 +228,14 @@ describe('preloading the first results', () => {
 
     requests[1].image.onerror?.();
     expect(requested()).toEqual(large(...dragons(1, 6)));
+  });
+
+  it('asks for them at low priority, so they don’t hold up the images on screen', async () => {
+    await openPool(numbered(2));
+
+    wait(500);
+
+    expect(requests.map(({ image }) => image.fetchPriority)).toEqual(['low', 'low']);
   });
 
   it('stops at the first 20 cards', async () => {

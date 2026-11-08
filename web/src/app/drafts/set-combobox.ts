@@ -24,9 +24,11 @@ import { type FindableSet, setsMatchingCodeFirst } from './set-search';
 
 /** Numbers the ids each combobox and option gives itself, so each is unique on the page. */
 let lastId = 0;
+// Stryker disable next-line UpdateOperator: counting down keeps the ids unique too.
 const nextId = (prefix: string) => `${prefix}${++lastId}`;
 
 /** Below the field if the list fits, or else above it. */
+// Stryker disable next-line ArrayDeclaration: with no positions the CDK falls back to the same default positions, and jsdom does no layout.
 const POSITIONS: ConnectedPosition[] = [
   { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top' },
   { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom' },
@@ -51,6 +53,7 @@ export class SetOption implements Highlightable {
   /** The set it offers. */
   readonly set = input.required<FindableSet>({ alias: 'appSetOption' });
   /** Its id, which the field names as its active descendant while it is highlighted. */
+  // Stryker disable next-line StringLiteral: the shared counter keeps every id unique without its prefix.
   readonly id = nextId('set-option-');
   /** Whether it is the option highlighted. */
   readonly active = signal(false);
@@ -93,13 +96,16 @@ export class SetCombobox<S extends FindableSet> {
   readonly chose = output<S>();
 
   private readonly document = inject(DOCUMENT);
+  // Stryker disable next-line StringLiteral: the shared counter keeps every id unique without its prefix, and the label's `for` follows the field.
   protected readonly fieldId = nextId('set-field-');
+  // Stryker disable next-line StringLiteral: the shared counter keeps every id unique without its prefix, and the field's `aria-controls` follows the list.
   protected readonly listId = nextId('set-list-');
   protected readonly positions = POSITIONS;
   protected readonly setText = setText;
 
   protected readonly open = signal(false);
   /** Whether the mouseup of the press that focused the field is still to come, which would undo selecting its text. */
+  // Stryker disable next-line BooleanLiteral: it differs only on a mouseup over the field with no mousedown before it, where preventing the default has no visible effect.
   private pressFocusing = false;
   /** What the viewer typed since the list opened, or null if nothing yet, for the full list. */
   private readonly typed = signal<string | null>(null);
@@ -124,14 +130,17 @@ export class SetCombobox<S extends FindableSet> {
         const chosen = typed === null && items.find((item) => item.set() === this.chosen());
         if (chosen) this.keys.setActiveItem(chosen);
         else if (items.length > 0) this.keys.setFirstItemActive();
-        else this.keys.updateActiveItem(-1);
+        else {
+          // Stryker disable next-line UnaryOperator: with no items, either index leaves no item active, and this resets it once items return.
+          this.keys.updateActiveItem(-1);
+        }
       });
     });
   }
 
   /** Opens the full list, the chosen set's text selected so typing replaces it. */
   protected focused(field: HTMLInputElement) {
-    this.typed.set(null);
+    // Nothing is typed: blur, Enter and Escape all close the list, which forgets it.
     this.open.set(true);
     field.select();
   }
@@ -163,7 +172,9 @@ export class SetCombobox<S extends FindableSet> {
         else this.open.set(true);
         return;
       case 'Enter': {
+        // Stryker disable next-line ConditionalExpression: a closed list has no items, so nothing is chosen.
         if (!this.open()) return;
+        // Stryker disable next-line CallExpression: the Printing picker has no form, so Enter does nothing by default.
         event.preventDefault();
         const active = this.keys.activeItem;
         const set = active && this.options()[this.items().indexOf(active)];
@@ -173,7 +184,9 @@ export class SetCombobox<S extends FindableSet> {
       case 'Escape':
         if (!this.open()) return;
         // Closes only the list, not the dialog it's in.
+        // Stryker disable next-line CallExpression: Escape does nothing by default in a text field.
         event.preventDefault();
+        // Stryker disable next-line CallExpression: the CDK sends overlay keydowns only to the topmost overlay, the list's, so the dialog wouldn't close anyway.
         event.stopPropagation();
         this.close();
         return;

@@ -48,6 +48,8 @@ import {
   detailOpener,
   stack,
   answerPrintingsRequest,
+  openPrintingPicker,
+  useOnsPrinting,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -124,6 +126,34 @@ describe('plan tab', () => {
 
       expect(previewImage()).toBeNull();
       expect(heading(openDialog()!, 'Swamp printing')).toBeDefined();
+    });
+
+    it('saves a basic land’s printing while a re-read of the plan has failed, keeping the plan shown', async () => {
+      const swamps = planOf({
+        mainboard: [planned(shivan)],
+        basics: [{ land: 'Swamp', count: 2 }],
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: swamps,
+      });
+      const plan = await openPlan(fixture, page);
+      await openPrintingPicker(plan, 'Swamp');
+      updates.events.next({
+        type: 'changed',
+        draft: draft(drafting({ turn: bobsTurn, version: 1 })),
+      });
+      await flushPicks([]);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queueOf());
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(null, {
+        status: 500,
+        statusText: 'Server Error',
+      });
+
+      await useOnsPrinting('Swamp');
+
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      expect(detailOpener(plan, 'Swamp')).toBeDefined();
     });
 
     it('opens a line of several unpicked copies on its first copy not in the queue', async () => {
@@ -424,6 +454,29 @@ describe('plan tab', () => {
       // Its name has gone with it, so focus goes to the first card's.
       expect(document.activeElement).toBe(
         detailOpener(tab, 'Brightclimb Pathway // Grimclimb Pathway'),
+      );
+    });
+
+    it('stays open, saying so, when removing the card from the plan fails', async () => {
+      const { fixture, open } = await openFromPlan(
+        { turn: bobsTurn },
+        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      );
+      const detail = await open('Shivan Dragon');
+
+      button(detail, 'Remove from Plan')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      // The plan is re-read, as it may have moved on.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
+        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      );
+      await fixture.whenStable();
+
+      expect(openDialog()).toBe(detail);
+      expect(text(detail)).toContain(
+        "Couldn't remove the card from your plan. Try again in a moment.",
       );
     });
 

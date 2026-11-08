@@ -73,6 +73,7 @@ export class BasicLandsDialog {
    */
   protected setBasic(land: BasicLand, count: number) {
     return this.tryChange(() => this.planApi.setBasic(this.store.id(), land, count), {
+      // Stryker disable next-line EqualityOperator: `>=` differs only when `count` is the count held, which never reaches `setBasic`: the buttons send one more or one fewer, and typing the count held returns early. The specs on focus after a change pin `<=`.
       keep: [count > this.heldBasic(land) ? `fewer ${land}` : `more ${land}`],
     });
   }
@@ -83,6 +84,7 @@ export class BasicLandsDialog {
    * back to the count the plan holds, as is a count the api refuses.
    */
   protected async typedBasic(land: BasicLand, held: number, input: HTMLInputElement) {
+    // Stryker disable next-line MethodExpression: a number input's value is never bare spaces, as anything that isn't a number reads as `''`.
     const typed = input.value.trim() === '' ? NaN : Number(input.value);
     if (Number.isNaN(typed)) {
       input.value = String(held);
@@ -98,6 +100,7 @@ export class BasicLandsDialog {
 
   /** Takes every basic land out of the plan. */
   protected clearBasics() {
+    // Stryker disable next-line ObjectLiteral,ArrayDeclaration,StringLiteral: Done is the next control after Clear basics, so focus falls back to it anyway.
     return this.tryChange(() => this.planApi.clearBasics(this.store.id()), { keep: ['done'] });
   }
 
@@ -120,6 +123,7 @@ export class BasicLandsDialog {
       this.error.set(null);
       try {
         await this.store.changePlan(send());
+        // Stryker disable next-line BooleanLiteral: once a change is made, `typedBasic` writes back the plan's count, which is the count just set.
         return true;
       } catch (err) {
         this.error.set(changeFailure(err, changeFailed(this.store.planName())));

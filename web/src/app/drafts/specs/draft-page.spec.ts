@@ -33,6 +33,7 @@ import {
   webhooksAnswer,
   controlByLabel,
   text,
+  wait,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -135,6 +136,33 @@ describe('draft page', () => {
     http.expectNone('/api/drafts/draft-1');
   });
 
+  it('re-reads a running snapshot once a poll after a newer draft is pushed, not on the poll it replaces', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const running = { state: 'Running' as const, cards: 0, total: null };
+      const { fixture, page } = await openDraft(running);
+      wait(3);
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: { ...running, cards: 175, total: 540 }, version: 1 }),
+      });
+      TestBed.tick();
+      wait(3);
+      http.expectNone('/api/drafts/draft-1');
+      wait(2);
+      http
+        .expectOne('/api/drafts/draft-1')
+        .flush(draft({ snapshot: completeSnapshot, version: 1 }));
+      await flushPool();
+      await fixture.whenStable();
+
+      expect(page.textContent).toContain('540 cards in the pool');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows why the snapshot failed and lets a viewer who may organize retry', async () => {
     const { fixture, page } = await openDraft(
       { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
@@ -155,6 +183,34 @@ describe('draft page', () => {
 
     await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
     expect(page.textContent).toContain('540 cards in the pool');
+  });
+
+  it('says it is retrying while the retry is on its way, and when the retry fails', async () => {
+    const { fixture, page } = await openDraft(
+      { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
+      {},
+      { powers: ORGANIZE_ONLY },
+    );
+    const retryFailed = "Couldn't restart the snapshot. Try again in a moment.";
+    expect(page.textContent).not.toContain(retryFailed);
+
+    button(page, 'Retry')!.click();
+    await fixture.whenStable();
+    expect(button(page, 'Retrying…')!.disabled).toBe(true);
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(null, {
+      status: 500,
+      statusText: 'Internal Server Error',
+    });
+    await vi.waitFor(() => expect(button(page, 'Retry')!.disabled).toBe(false));
+    expect(page.textContent).toContain(retryFailed);
+
+    button(page, 'Retry')!.click();
+    await fixture.whenStable();
+    expect(page.textContent).not.toContain(retryFailed);
+    http
+      .expectOne('/api/drafts/draft-1/snapshot')
+      .flush(draft({ snapshot: { state: 'Running', cards: 0, total: null } }));
+    await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
   });
 
   it('offers retry only to a viewer who may organize', async () => {

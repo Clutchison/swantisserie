@@ -2,6 +2,8 @@ import { answer, question } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
+  serverError,
+  alertIn,
   alice,
   draft,
   http,
@@ -31,6 +33,9 @@ describe('close and reopen', () => {
   });
   const closed = { ...underway, state: 'Closed' as const, turn: null };
   const banner = 'This draft is closed. No picks until it reopens.';
+  /** Whether the organizer's button labelled `label` takes presses again, as once a change has settled. */
+  const readyAgain = (page: HTMLElement, label: string) =>
+    button(page, label)!.getAttribute('aria-disabled') === null;
 
   it('closes a drafting draft once the organizer goes ahead, showing the progress', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, underway);
@@ -73,9 +78,11 @@ describe('close and reopen', () => {
     button(page, 'Close draft')!.click();
     await answer(await question('Close Red dragons?'), 'Cancel');
     await fixture.whenStable();
+    await vi.waitFor(() => expect(readyAgain(page, 'Close draft')).toBe(true));
 
     http.expectNone('/api/drafts/draft-1/close');
     expect(page.textContent).not.toContain(banner);
+    expect(alertIn(page)).toBeNull();
   });
 
   it('reopens a closed draft once the organizer goes ahead', async () => {
@@ -105,8 +112,10 @@ describe('close and reopen', () => {
     button(page, 'Reopen draft')!.click();
     await answer(await question('Reopen Red dragons?'), 'Cancel');
     await fixture.whenStable();
+    await vi.waitFor(() => expect(readyAgain(page, 'Reopen draft')).toBe(true));
 
     http.expectNone('/api/drafts/draft-1/reopen');
+    expect(alertIn(page)).toBeNull();
   });
 
   it('says why a close was refused, and catches up with the draft', async () => {
@@ -129,6 +138,28 @@ describe('close and reopen', () => {
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
     expect(button(page, 'Reopen draft')).toBeDefined();
   });
+
+  it.each([
+    { change: 'close', from: underway, button: 'Close draft', question: 'Close Red dragons?' },
+    { change: 'reopen', from: closed, button: 'Reopen draft', question: 'Reopen Red dragons?' },
+  ])(
+    'says the $change failed when it fails without a refusal',
+    async ({ change, from, button: label, question: asked }) => {
+      const { fixture, page } = await openDraft(completeSnapshot, from);
+
+      button(page, label)!.click();
+      await answer(await question(asked), label);
+      (await vi.waitFor(() => http.expectOne(`/api/drafts/draft-1/${change}`))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(alertIn(page)?.textContent).toContain(`Couldn't ${change} the draft.`),
+      );
+    },
+  );
 
   it('offers closing and reopening only to a viewer who may organize', async () => {
     powersAnswer({ ...ALL_POWERS, organize: false });

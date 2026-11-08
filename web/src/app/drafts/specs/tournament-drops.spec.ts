@@ -2,8 +2,10 @@ import { answer, question } from '../../specs-harness';
 import { ORGANIZE_ONLY, alice, bob, button, http, panel, useDraftsApp } from './harness';
 import {
   answerChange,
+  bobUser,
   carol,
   dave,
+  failChange,
   forfeited,
   gridCellName,
   unreportedMatch,
@@ -82,6 +84,12 @@ describe('drops on the Play tab', () => {
     expect(button(tab, 'Reinstate Carol')).toBeUndefined();
   });
 
+  it('offers Drop to a player who plays on after a player who joined before them dropped', async () => {
+    const { tab } = await openPlaying(withDrops([alice.id]), { user: bobUser });
+
+    expect(button(tab, 'Drop from tournament')).toBeDefined();
+  });
+
   it('offers a viewer who didn’t join no Drop', async () => {
     const { tab } = await openPlaying(carolDropped, { user: dave });
 
@@ -137,6 +145,46 @@ describe('drops on the Play tab', () => {
     expect(gridCellName(panel(page), 'Alice', 'Carol')).toBe('Alice against Carol: unreported');
     expect(yourMatches(panel(page))).toContain('vs Carol');
   });
+
+  it.each([
+    [
+      'dropping from the tournament',
+      playing(),
+      {},
+      'Drop from tournament',
+      ['Drop from the tournament?', 'Drop'],
+      `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
+      "Couldn't drop from the tournament. Try again in a moment.",
+    ],
+    [
+      'dropping a player',
+      playing(),
+      { powers: ORGANIZE_ONLY },
+      'Drop Bob',
+      ['Drop Bob from the tournament?', 'Drop'],
+      `/api/drafts/draft-1/tournament/entries/${bob.id}/drop`,
+      "Couldn't drop the player. Try again in a moment.",
+    ],
+    [
+      'reinstating a player',
+      carolDropped,
+      { powers: ORGANIZE_ONLY },
+      'Reinstate Carol',
+      null,
+      `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`,
+      "Couldn't reinstate the player. Try again in a moment.",
+    ],
+  ] as const)(
+    'says %s failed when the api gives no reason',
+    async (_, tournament, options, label, asked, url, failure) => {
+      const { fixture, page, tab } = await openPlaying(tournament, options);
+
+      button(tab, label)!.click();
+      if (asked) await answer(await question(asked[0]), asked[1]);
+
+      expect(await failChange(fixture, page, url)).toBe(failure);
+    },
+  );
 
   it('offers no Drop or Reinstate once the tournament is complete', async () => {
     const { tab } = await openPlaying(completed(carolDropped), { powers: ORGANIZE_ONLY });

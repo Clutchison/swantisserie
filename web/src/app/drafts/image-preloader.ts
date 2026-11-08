@@ -13,6 +13,7 @@ export class ImagePreloader {
   /** Every URL requested so far, by this or by the page showing it. */
   private readonly requested = new Set<string>();
   /** The current results' images yet to start. */
+  // Stryker disable next-line ArrayDeclaration: `startNext` runs only once `preloadResults` has replaced it.
   private waiting: string[] = [];
   /** How many of the results' images are loading. */
   private running = 0;

@@ -166,7 +166,7 @@
 @if (pickImportProblems().length > 0) {
   <div class="pick-import-problems error" role="alert">
     <p>This file can't be imported:</p>
-    <ul>
+    <ul aria-label="Problems with the file">
       @for (problem of pickImportProblems(); track $index) {
         <li>{{ problem }}</li>
       }

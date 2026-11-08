@@ -47,8 +47,8 @@ export class OrganizerControls {
    * once the pool that holds it has loaded. Undo itself doesn't wait for it.
    */
   protected readonly undoLabel = computed(() => {
-    const pick = this.undoable();
-    if (!pick) return '';
+    // Read only while there is a pick to undo.
+    const pick = this.undoable()!;
     const name = this.store.poolCardsById().get(pick.poolCardId)?.name;
     return name ? `Undo pick ${pick.pick} (${name})` : `Undo pick ${pick.pick}`;
   });
@@ -100,6 +100,7 @@ export class OrganizerControls {
         const draft = this.draft();
         // Only a drafting or paused draft is offered this, and both have a turn:
         // the guard never returns early, it only narrows the type to read `turn`.
+        // Stryker disable next-line ConditionalExpression: as above, the guard never returns early.
         if (!hasTurn(draft)) return;
         const { id, name, players, picksPerPlayer, turn } = draft;
         const made = turn.pick - 1;
@@ -154,14 +155,17 @@ export class OrganizerControls {
         this.sendError.set(null);
         try {
           await this.store.changeDraft(request);
+          // Stryker disable next-line BooleanLiteral: with no `status` or `busyOnceMade`, `Changes.send` ignores whether a change was made, and so does the template.
           return true;
         } catch (err) {
           if (isRefusal(err)) {
             // The draft has moved on: show why. The store catches up with it.
+            // Stryker disable next-line OptionalChaining: every 409 from the api has a JSON body.
             this.sendError.set(err.error?.message ?? failure);
           } else {
             this.sendError.set(failure);
           }
+          // Stryker disable next-line BooleanLiteral: with no `status` or `busyOnceMade`, `Changes.send` ignores whether a change was made, and so does the template.
           return false;
         }
       },
