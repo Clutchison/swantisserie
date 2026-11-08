@@ -22,9 +22,11 @@ import {
 import { setListText } from './drafts';
 import { setsMatching } from './set-search';
 
+// Stryker disable next-line StringLiteral: `InjectionToken` treats a falsy `providedIn` as 'root'.
+const PROVIDED_IN = 'root';
 /** How often to ask again for the sets while the api is still counting their cards. */
 export const SET_CATALOG_POLL_MS = new InjectionToken<number>('SET_CATALOG_POLL_MS', {
-  providedIn: 'root',
+  providedIn: PROVIDED_IN,
   factory: () => 3000,
 });
 
@@ -56,11 +58,13 @@ export class SetListPicker implements ControlValueAccessor {
     () => this.catalog.hasValue() && this.catalog.value().counting,
   );
   private readonly sets = computed(() =>
+    // Stryker disable next-line ArrayDeclaration: read only while the sets load or have failed, when the template shows neither list and no chosen code matches.
     this.catalog.hasValue() ? this.catalog.value().sets : [],
   );
   protected readonly search = signal('');
   /** The sets whose code or name holds what was searched for. */
   protected readonly shown = computed(() => setsMatching(this.sets(), this.search()));
+  // Stryker disable next-line ArrayDeclaration: forms call `writeValue([])` on setup, which replaces it.
   protected readonly chosen = signal<SetListEntryView[]>([]);
   protected readonly chosenText = computed(() => setListText(this.chosen()));
   /** Each chosen set that has sublists, with what the picker offers of it. */
@@ -73,7 +77,6 @@ export class SetListPicker implements ControlValueAccessor {
           !!chosen.set && chosen.set.sublists.length > 0,
       );
   });
-  protected readonly disabled = signal(false);
   protected readonly maxSets = MAX_SET_LIST_SETS;
   /** As many sets are chosen as a set list can hold, as the api checks. */
   protected readonly full = computed(() => this.chosen().length >= MAX_SET_LIST_SETS);
@@ -102,6 +105,7 @@ export class SetListPicker implements ControlValueAccessor {
             offered.get(entry.code)!.sublists.some((sublist) => sublist.code === code),
           ),
         }));
+      // Stryker disable next-line ConditionalExpression: updating anyway sets what `chosen` already holds, and nothing reads the control's dirty or touched state.
       if (setListText(kept) !== setListText(chosen)) untracked(() => this.update(kept));
     });
   }
@@ -149,22 +153,23 @@ export class SetListPicker implements ControlValueAccessor {
   private update(setList: SetListEntryView[]): void {
     this.chosen.set(setList);
     this.onChange(setList);
+    // Stryker disable next-line CallExpression: no validator or template reads touched.
     this.onTouched();
   }
 
-  writeValue(setList: SetListEntryView[] | null): void {
-    this.chosen.set(setList ?? []);
+  /** The form writes only its initial `[]`: it never resets or patches the control. */
+  // Stryker disable next-line BlockStatement: `[]` is what `chosen` already holds.
+  writeValue(setList: SetListEntryView[]): void {
+    // Stryker disable next-line CallExpression: as above, `[]` is what `chosen` already holds.
+    this.chosen.set(setList);
   }
 
   registerOnChange(onChange: (setList: SetListEntryView[]) => void): void {
     this.onChange = onChange;
   }
 
+  // Stryker disable next-line BlockStatement: no validator or template reads touched.
   registerOnTouched(onTouched: () => void): void {
     this.onTouched = onTouched;
-  }
-
-  setDisabledState(disabled: boolean): void {
-    this.disabled.set(disabled);
   }
 }

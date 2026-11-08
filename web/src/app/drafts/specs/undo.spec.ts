@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import type { PickView, UndoRefusal } from 'contract';
 import {
   useDraftsApp,
+  serverError,
+  alertIn,
   alice,
   draft,
   http,
@@ -92,10 +94,7 @@ describe('undo', () => {
   it('names the latest pick by number alone when the pool failed to load', async () => {
     const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft(aliceUp));
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(null, {
-      status: 500,
-      statusText: 'Server Error',
-    });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(null, serverError);
     await flushPicks(picks);
     await flushQueueAndPlan();
     await fixture.whenStable();
@@ -130,6 +129,19 @@ describe('undo', () => {
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 3 (Lava Spike)');
+  });
+
+  it('says the undo failed when it fails without a refusal', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
+
+    undoButton(page)!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'))).flush(
+      null,
+      serverError,
+    );
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain("Couldn't undo the pick."));
   });
 
   it('offers undo only to a viewer who may organize', async () => {
@@ -173,5 +185,15 @@ describe('undo', () => {
     );
 
     expect(undoButton(page)).toBeUndefined();
+  });
+
+  it('offers undo on a paused draft', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      { ...aliceUp, state: 'Paused' },
+      { cards, picks },
+    );
+
+    expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
   });
 });

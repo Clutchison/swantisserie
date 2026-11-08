@@ -45,6 +45,9 @@ export { alice, button, buttons, table, tableRows, text };
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
+/** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
+export const serverError = { status: 500, statusText: 'Server Error' };
+
 /**
  * A test's changes to the default draft. Any state goes with any turn here,
  * so partial fixtures spread into each other type-check; `draft` checks they
@@ -500,6 +503,16 @@ export async function expectSignedOut(
 /** A status message inside `root`, by its text. */
 export const statusMessage = (root: HTMLElement, text: string) =>
   [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);
+
+/** The preview of the file chosen for a pick import inside `root`: the status headed Import picks; undefined if none shows. */
+export const pickImportPreview = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
+    heading(status, 'Import picks'),
+  );
+
+/** The problems listed with the file chosen for a pick import inside `root`, in order; none while no list shows. */
+export const pickImportProblems = (root: HTMLElement) =>
+  findNamedList(root, 'Problems with the file') ? items(root, 'Problems with the file') : [];
 
 /** The text of every status message inside `root`, with its whitespace collapsed. */
 export const statusTexts = (root: HTMLElement) =>

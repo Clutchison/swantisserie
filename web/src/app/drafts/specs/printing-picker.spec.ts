@@ -32,6 +32,7 @@ import {
   openDialog,
   pressEscape,
   pressKey,
+  pressPrevented,
   question,
   text,
 } from '../../specs-harness';
@@ -142,6 +143,11 @@ describe('the Printing picker', () => {
   const setField = () => editableCombobox(openDialog()!, 'Set');
   /** The sets the Set field's list offers, by their text. */
   const setOptions = () => comboboxOptions(setField()!).map((option) => text(option));
+  /** The sets the Set field's list marks as selected, by their text: the one highlighted. */
+  const selectedOptions = () =>
+    comboboxOptions(setField()!)
+      .filter((option) => option.getAttribute('aria-selected') === 'true')
+      .map((option) => text(option));
   /** Moves focus to the Set field, which opens its list. */
   function openSets() {
     setField()!.blur();
@@ -270,6 +276,8 @@ describe('the Printing picker', () => {
       'Dragons of Tarkir · DTK',
       'Onslaught · ONS',
     ]);
+    // The first match, though the set chosen, Onslaught, matches too.
+    expect(highlightedOption(setField()!)).toBe('Core Set 2021 · M21');
   });
 
   it('chooses the highlighted set on Enter, showing its first printing, while arrowing changes nothing', async () => {
@@ -278,11 +286,15 @@ describe('the Printing picker', () => {
     openSets();
     typeInto(setField()!, 'k');
     expect(highlightedOption(setField()!)).toBe('Kaldheim · KHM');
+    expect(selectedOptions()).toEqual(['Kaldheim · KHM']);
 
-    pressKey(setField()!, 'ArrowDown');
+    // Held back, as the caret would move and drop the text's selection.
+    expect(pressPrevented(setField()!, { key: 'ArrowDown' })).toBe(true);
     expect(highlightedOption(setField()!)).toBe('Dragons of Tarkir · DTK');
-    pressKey(setField()!, 'ArrowUp');
+    expect(selectedOptions()).toEqual(['Dragons of Tarkir · DTK']);
+    expect(pressPrevented(setField()!, { key: 'ArrowUp' })).toBe(true);
     expect(highlightedOption(setField()!)).toBe('Kaldheim · KHM');
+    expect(selectedOptions()).toEqual(['Kaldheim · KHM']);
     expect(shownPrinting()).toBe('Island, ONS #335');
 
     pressKey(setField()!, 'Enter');
@@ -292,6 +304,55 @@ describe('the Printing picker', () => {
     expect(text(dialog)).toContain('1 of 3');
     expect(setField()!.value).toBe('Kaldheim · KHM');
     expect(setOptions()).toEqual([]);
+
+    // An arrow key opens the closed list again, held back too.
+    expect(pressPrevented(setField()!, { key: 'ArrowDown' })).toBe(true);
+    expect(setOptions()).toHaveLength(4);
+  });
+
+  it('scrolls the highlighted set into the list’s view, as little as it takes', async () => {
+    const scrolls: { element: Element; options: unknown }[] = [];
+    // jsdom has no scrolling of its own.
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value(this: Element, options: unknown) {
+        scrolls.push({ element: this, options });
+      },
+    });
+    try {
+      const { fixture, plan } = await openWith();
+      await openPicker(fixture, plan);
+      openSets();
+
+      pressKey(setField()!, 'ArrowDown');
+
+      const highlighted = comboboxOptions(setField()!).find(
+        (option) => option.id === setField()!.getAttribute('aria-activedescendant'),
+      );
+      expect(scrolls.at(-1)?.element).toBe(highlighted);
+      expect(scrolls.at(-1)?.options).toEqual({ block: 'nearest' });
+    } finally {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    }
+  });
+
+  it('keeps the set’s text selected through the end of the press that focuses the field, and only that press', async () => {
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+    const field = setField()!;
+    field.blur();
+    TestBed.tick();
+
+    expect(pressPrevented(field, { mouse: 'down' })).toBe(false);
+    field.focus();
+    TestBed.tick();
+    // A browser would put the caret where the press ended, dropping the selection.
+    expect(pressPrevented(field, { mouse: 'up' })).toBe(true);
+    // A drag that ends over the field, with no press there.
+    expect(pressPrevented(field, { mouse: 'up' })).toBe(false);
+    // A press on the field already focused places the caret as usual.
+    expect(pressPrevented(field, { mouse: 'down' })).toBe(false);
+    expect(pressPrevented(field, { mouse: 'up' })).toBe(false);
   });
 
   it('opens the full list on the chosen set, its text selected so typing replaces it', async () => {
@@ -351,6 +412,7 @@ describe('the Printing picker', () => {
     openSets();
 
     typeInto(setField()!, 'zzz');
+    expect(highlightedOption(setField()!)).toBeNull();
     pressKey(setField()!, 'Enter');
     await fixture.whenStable();
 

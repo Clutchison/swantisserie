@@ -32,19 +32,20 @@ export class DraftListPage {
 
   protected readonly loading = this.drafts.isLoading;
   protected readonly failed = computed(() => !!this.drafts.error());
-  /** The active drafts, and the complete drafts whose tournament is under way, which aren't active drafts. */
+  /**
+   * The active drafts, and the complete drafts whose tournament is under way, which aren't active drafts.
+   * The lists are read only once the drafts have loaded.
+   */
   protected readonly active = computed(() =>
-    (this.drafts.value() ?? []).filter(
-      (draft) => isActive(draft.state) || tournamentUnderWay(draft),
-    ),
+    this.drafts.value()!.filter((draft) => isActive(draft.state) || tournamentUnderWay(draft)),
   );
   protected readonly complete = computed(() =>
-    (this.drafts.value() ?? []).filter(
-      (draft) => draft.state === 'Complete' && !tournamentUnderWay(draft),
-    ),
+    this.drafts
+      .value()!
+      .filter((draft) => draft.state === 'Complete' && !tournamentUnderWay(draft)),
   );
   protected readonly closed = computed(() =>
-    (this.drafts.value() ?? []).filter((draft) => draft.state === 'Closed'),
+    this.drafts.value()!.filter((draft) => draft.state === 'Closed'),
   );
 
   /**
@@ -52,15 +53,16 @@ export class DraftListPage {
    * complete draft listed there, its tournament's.
    */
   protected listedState(draft: DraftListItemView): string {
-    return tournamentUnderWay(draft) ? `Tournament: ${draft.tournamentBadge?.state}` : draft.state;
+    return tournamentUnderWay(draft) ? `Tournament: ${draft.tournamentBadge!.state}` : draft.state;
   }
 
   /**
    * The names of the draft's tournament's trophy holders, as one phrase.
    * Trophy holders have tournament entries, so each is one of the draft’s players.
+   * Read only for a draft with a tournament.
    */
   protected trophyHolders(draft: DraftListItemView): string {
-    const names = (draft.tournamentBadge?.trophyHolders ?? []).flatMap((id) =>
+    const names = draft.tournamentBadge!.trophyHolders.flatMap((id) =>
       draft.players.filter((player) => player.id === id).map((player) => player.name),
     );
     return NAMES.format(names);

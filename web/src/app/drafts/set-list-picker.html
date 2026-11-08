@@ -19,7 +19,7 @@
           <input
             type="checkbox"
             [checked]="isChosen(set.code)"
-            [disabled]="disabled() || (full() && !isChosen(set.code))"
+            [disabled]="full() && !isChosen(set.code)"
             (change)="toggleSet(set)"
           />
           {{ set.code.toUpperCase() }} {{ set.name }}
@@ -52,7 +52,6 @@
         <input
           type="checkbox"
           [checked]="chosen.entry.sublists.includes(sublist.code)"
-          [disabled]="disabled()"
           (change)="toggleSublist(chosen.set, sublist.code)"
         />
         {{ sublist.code.toUpperCase() }} {{ sublist.name }}

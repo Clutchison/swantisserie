@@ -1,7 +1,9 @@
-import type { DraftChangeRefusal } from 'contract';
+import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
 import { MAX_PLAYERS } from 'engine';
 import {
   useDraftsApp,
+  serverError,
+  alertIn,
   alice,
   draft,
   http,
@@ -20,6 +22,9 @@ import {
 } from './harness';
 
 useDraftsApp();
+
+const PLAYERS_FAILED = "Couldn't update the players.";
+const RETRY_FAILED = "Couldn't restart the snapshot.";
 
 describe('lobby', () => {
   it('lists the players with their avatars', async () => {
@@ -125,6 +130,76 @@ describe('lobby', () => {
     expect(button(page, 'Join')).toBeUndefined();
   });
 
+  it('forgets a failed change once another goes through', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
+    button(page, 'Join')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
+      null,
+      serverError,
+    );
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+
+    button(page, 'Join')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
+      draft({ players: [bob, alicePlayer] }),
+      { status: 201, statusText: 'Created' },
+    );
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(button(page, 'Leave')).toBeDefined());
+    expect(alertIn(page)).toBeNull();
+  });
+
+  describe('beside a failed pool snapshot', () => {
+    beforeEach(() => powersAnswer(ORGANIZE_ONLY));
+    const failedSnapshot: PoolSnapshotView = {
+      state: 'Failed',
+      cards: 0,
+      total: null,
+      error: 'Scryfall is down',
+    };
+
+    it('forgets a failed change once the organizer retries the snapshot', async () => {
+      const { fixture, page } = await openDraft(failedSnapshot, { players: [bob] });
+      button(page, 'Join')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(page.textContent).toContain(PLAYERS_FAILED));
+
+      button(page, 'Retry')!.click();
+      const retry = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'));
+      await fixture.whenStable();
+      expect(page.textContent).not.toContain(PLAYERS_FAILED);
+
+      retry.flush(null, serverError);
+      await fixture.whenStable();
+    });
+
+    it('forgets a failed retry once the organizer sends a change', async () => {
+      const { fixture, page } = await openDraft(failedSnapshot, { players: [bob] });
+      button(page, 'Retry')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(page.textContent).toContain(RETRY_FAILED));
+
+      button(page, 'Join')!.click();
+      const join = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'));
+      await fixture.whenStable();
+      expect(page.textContent).not.toContain(RETRY_FAILED);
+
+      join.flush(null, serverError);
+      await fixture.whenStable();
+    });
+  });
+
   describe('focus after a change', () => {
     const carol = { ...bob, id: 'carol', name: 'Carol' };
     beforeEach(() => powersAnswer(ORGANIZE_ONLY));
@@ -169,6 +244,41 @@ describe('lobby', () => {
       expect(document.activeElement).toBe(button(players, 'Move Alice later'));
     });
 
+    it('moves focus to a player’s Move later once they move into the first seat', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob, carol],
+      });
+      const players = section(page, 'Players');
+
+      button(players, 'Move Bob earlier')!.focus();
+      button(players, 'Move Bob earlier')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
+        draft({ players: [bob, alicePlayer, carol] }),
+      );
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(statusMessage(players, 'Bob moved to seat 1')).toBeDefined());
+      expect(document.activeElement).toBe(button(players, 'Move Bob later'));
+    });
+
+    it('says no player moved when moving a seat fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob, carol],
+      });
+      const players = section(page, 'Players');
+
+      button(players, 'Move Bob later')!.focus();
+      button(players, 'Move Bob later')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+      expect(statusMessage(players, 'Bob moved to seat 3')).toBeUndefined();
+    });
+
     it('moves focus from Join to Leave, and back', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
 
@@ -197,17 +307,13 @@ describe('lobby', () => {
       button(page, 'Join')!.click();
       await fixture.whenStable();
       expect(button(page, 'Join')!.getAttribute('aria-disabled')).toBe('true');
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
+        null,
+        serverError,
+      );
       await fixture.whenStable();
 
-      await vi.waitFor(() =>
-        expect(page.querySelector('[role="alert"]')?.textContent).toContain(
-          "Couldn't update the players.",
-        ),
-      );
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
       expect(button(page, 'Join')!.getAttribute('aria-disabled')).toBeNull();
       expect(document.activeElement).toBe(button(page, 'Join'));
     });
