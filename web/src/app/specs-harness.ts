@@ -92,10 +92,24 @@ const KEY_CODES: Record<string, number> = {
 
 /** Presses `key` on `target`, as the keyboard would with focus there, and renders what came of it. */
 export function pressKey(target: HTMLElement, key: string) {
-  target.dispatchEvent(
-    new KeyboardEvent('keydown', { key, keyCode: KEY_CODES[key], bubbles: true, cancelable: true }),
-  );
+  pressKeyHeldBack(target, key);
+}
+
+/**
+ * Presses `key` as `pressKey` does, and answers whether the page kept the
+ * browser from doing what the key does by default, such as moving a text
+ * field's caret.
+ */
+export function pressKeyHeldBack(target: HTMLElement, key: string): boolean {
+  const press = new KeyboardEvent('keydown', {
+    key,
+    keyCode: KEY_CODES[key],
+    bubbles: true,
+    cancelable: true,
+  });
+  target.dispatchEvent(press);
   TestBed.tick();
+  return press.defaultPrevented;
 }
 
 /** Presses Escape where focus is, as the keyboard would. */
