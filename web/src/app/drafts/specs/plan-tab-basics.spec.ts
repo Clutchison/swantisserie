@@ -179,6 +179,25 @@ describe('basic lands on the plan tab', () => {
     expect(alertIn(openDialog()!)?.textContent).toContain('This draft isn’t open.');
   });
 
+  it('puts back a count typed while another change is in flight, sending nothing', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    inDialog('One more Plains')!.click();
+    typeCount('Island', '8');
+
+    await vi.waitFor(() => expect(countOf('Island').value).toBe('0'));
+    http.expectNone('/api/drafts/draft-1/plan/basics/Island');
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Plains')
+      .flush(boltAndShivanWith([{ land: 'Plains', count: 1 }]));
+    await vi.waitFor(() => expect(countOf('Plains').value).toBe('1'));
+  });
+
   it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,

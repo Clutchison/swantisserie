@@ -19,6 +19,7 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
+  openUrl,
 } from './harness';
 
 useDraftsApp();
@@ -60,6 +61,22 @@ describe('cancel', () => {
       expect(router.url).toBe('/');
     },
   );
+
+  it('leaves the lobby’s controls ignoring presses once the draft is cancelled, while the page leaves', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot);
+    // The draft list never arrives, so the page stays as it leaves.
+    const leave = vi.spyOn(router, 'navigateByUrl').mockReturnValue(new Promise(() => {}));
+
+    button(page, 'Cancel draft')!.click();
+    await answer(await question('Cancel Red dragons?'), 'Cancel draft');
+    (
+      await vi.waitFor(() => http.expectOne({ url: '/api/drafts/draft-1', method: 'DELETE' }))
+    ).flush(null, { status: 204, statusText: 'No Content' });
+    await vi.waitFor(() => expect(leave).toHaveBeenCalled());
+    await fixture.whenStable();
+
+    expect(button(page, 'Cancel draft')!.getAttribute('aria-disabled')).toBe('true');
+  });
 
   it('keeps a draft the organizer thinks better of cancelling', async () => {
     const { fixture, page } = await openDraft(completeSnapshot);
@@ -129,6 +146,16 @@ describe('cancel', () => {
 
     expect(await flushList(fixture, page)).toBe('Red dragons was cancelled.');
     expect(router.url).toBe('/');
+  });
+
+  it('names no draft in the notice when it is cancelled before it has loaded', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+
+    updates.events.next({ type: 'cancelled' });
+    // Its read, sent as the page opened, answers too late to name it.
+    http.expectOne('/api/drafts/draft-1').flush(draft({}));
+
+    expect(await flushList(fixture, page)).toBe('The draft was cancelled.');
   });
 
   it('shows no notice on the draft list otherwise', async () => {
