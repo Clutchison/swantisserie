@@ -18,6 +18,7 @@ import {
   pickOf,
   drafting,
   ALL_POWERS,
+  statusTexts,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
@@ -45,7 +46,7 @@ describe('pool tab', () => {
         preferredPrintings: {},
       });
       await fixture.whenStable();
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain('Added to your plan.');
+      expect(statusTexts(detail).join(' ')).toContain('Added to your plan.');
       // That copy can be taken straight back out.
       expect(button(detail, 'Remove from Plan')!.disabled).toBe(false);
       expect(button(detail, 'Add to Plan')).toBeUndefined();
@@ -82,12 +83,12 @@ describe('pool tab', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+      expect(statusTexts(detail).join(' ')).toContain(
         'Every available copy of that card is in your plan already.',
       );
     });
 
-    it('says when a card could not be added, and re-reads the plan', async () => {
+    it('says when a card could not be added, re-reading the plan, until it is tried again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
       });
@@ -100,9 +101,13 @@ describe('pool tab', () => {
       await flushPlan(EMPTY_PLAN);
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-        "Couldn't add the card to your plan.",
-      );
+      expect(statusTexts(detail).join(' ')).toContain("Couldn't add the card to your plan.");
+
+      button(detail, 'Add to Plan')!.click();
+      TestBed.tick();
+      expect(statusTexts(detail)).toEqual([]);
+      http.expectOne('/api/drafts/draft-1/plan').flush(EMPTY_PLAN);
+      await fixture.whenStable();
     });
 
     describe('made from a Card detail since closed', () => {
@@ -135,7 +140,7 @@ describe('pool tab', () => {
         await answered(other);
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="status"]')).toBeNull();
+        expect(statusTexts(other)).toEqual([]);
         button(other, 'Close')!.click();
         await fixture.whenStable();
         expect(button(await openDetail(fixture, page, 1), 'Remove from Plan')!.disabled).toBe(
@@ -162,7 +167,7 @@ describe('pool tab', () => {
         await answered(other);
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="status"]')).toBeNull();
+        expect(statusTexts(other)).toEqual([]);
       });
     });
 
@@ -261,9 +266,7 @@ describe('pool tab', () => {
       expect(req.request.method).toBe('DELETE');
       req.flush(EMPTY_PLAN);
       await fixture.whenStable();
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-        'Removed from your plan.',
-      );
+      expect(statusTexts(detail).join(' ')).toContain('Removed from your plan.');
       expect(button(detail, 'Add to Plan')!.disabled).toBe(false);
       expect(button(detail, 'Remove from Plan')).toBeUndefined();
 
@@ -309,7 +312,7 @@ describe('pool tab', () => {
       });
 
       // The add's note belongs to the other copy's Card detail, now closed.
-      expect(detail.querySelector('[role="status"]')).toBeNull();
+      expect(statusTexts(detail)).toEqual([]);
     });
 
     it('succeeds after its Card detail has closed without a warning, and the card is no longer planned', async () => {
@@ -351,9 +354,7 @@ describe('pool tab', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-        'That card isn’t in your plan.',
-      );
+      expect(statusTexts(detail).join(' ')).toContain('That card isn’t in your plan.');
     });
 
     it('says when a card could not be removed, and re-reads the plan', async () => {
@@ -370,7 +371,7 @@ describe('pool tab', () => {
       await flushPlan(planned(shivan.id));
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+      expect(statusTexts(detail).join(' ')).toContain(
         "Couldn't remove the card from your plan. Try again in a moment.",
       );
     });
@@ -443,9 +444,7 @@ describe('pool tab', () => {
         req.flush(EMPTY_PLAN);
         await fixture.whenStable();
 
-        expect(detail.querySelector('[role="status"]')?.textContent).toContain(
-          'Removed from your plan.',
-        );
+        expect(statusTexts(detail).join(' ')).toContain('Removed from your plan.');
         expect(button(detail, 'Remove from Plan')).toBeUndefined();
       },
     );

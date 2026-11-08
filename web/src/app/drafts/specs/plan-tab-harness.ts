@@ -103,6 +103,28 @@ export async function answerPrintingsRequest(land: string) {
   } satisfies BasicLandPrintingsView);
 }
 
+/** Scryfall's CDN URL of a printing's front image in `version`, as a basic land printing's images are. */
+export const cdnImage = (version: string, id: string) =>
+  `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;
+
+/** Scryfall's API image of a printing's face in `version`, which an image falls back to once its CDN URL fails. */
+export const apiImage = (version: string, id: string, face: 'front' | 'back' = 'front') =>
+  `https://api.scryfall.com/cards/${id}?format=image&version=${version}${face === 'back' ? '&face=back' : ''}`;
+
+/**
+ * Each basic land's default printing, by its Scryfall id and the label the
+ * Printing picker gives it: Onslaught's first of each, and Oath of the
+ * Gatewatch's plain Wastes.
+ */
+export const defaultPrintings = {
+  Plains: { id: '7bf7d68a-dbd0-45f3-acbb-59ee38e6057e', label: 'ONS #331' },
+  Island: { id: '36e062ec-df51-40c0-ad8a-2ee1cb8f8f17', label: 'ONS #335' },
+  Swamp: { id: '0356ae45-e5ca-46b9-8ebc-42bf4776e89c', label: 'ONS #339' },
+  Mountain: { id: '05f9bdca-0d54-46c7-b803-9083dfc9ee24', label: 'ONS #343' },
+  Forest: { id: 'b361b42d-401f-440a-bae9-35338b5dde0e', label: 'ONS #347' },
+  Wastes: { id: '9cc070d3-4b83-4684-9caf-063e5c473a77', label: 'OGW #183a' },
+} as const;
+
 /**
  * Opens the Printing picker of the basic land `land` inside `root` from its
  * name, answers its request as `answerPrintingsRequest` does, and returns
