@@ -158,6 +158,7 @@ export class SetListPicker implements ControlValueAccessor {
   /** The form writes only its initial `[]`: it never resets or patches the control. */
   // Stryker disable next-line BlockStatement: `[]` is what `chosen` already holds.
   writeValue(setList: SetListEntryView[]): void {
+    // Stryker disable next-line CallExpression: as above, `[]` is what `chosen` already holds.
     this.chosen.set(setList);
   }
 
