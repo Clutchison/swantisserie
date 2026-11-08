@@ -75,7 +75,8 @@ export class TournamentResults {
       const open = previous?.value;
       // Stryker disable next-line OptionalChaining: an open match stays in each re-read while the results show; Cancel tournament removes them.
       if (!open || !this.lineById().get(open)?.organize) return undefined;
-      return sameOutcome(matchIn(previous.source, open), matchIn(tournament, open))
+      // Its line is in both reads, so its match is too.
+      return sameOutcome(matchIn(previous.source, open)!, matchIn(tournament, open)!)
         ? open
         : undefined;
     },

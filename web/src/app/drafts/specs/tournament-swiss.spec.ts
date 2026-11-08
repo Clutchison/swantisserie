@@ -24,6 +24,9 @@ import {
   answerChange,
   carol,
   dave,
+  failChange,
+  forfeited,
+  grantedDraw,
   openComplete,
   openCompleteRound,
   unreportedMatch,
@@ -84,10 +87,23 @@ describe('Swiss tournaments on the Play tab', () => {
     });
   });
 
-  it('shows how many tournament rounds it will have', async () => {
-    const { tab } = await openPlaying(swissRegistration, { user: dave });
+  it.each([
+    [2, 'Swiss, capped at 3: 2 tournament rounds.'],
+    [1, 'Swiss, capped at 3: 1 tournament round.'],
+  ])('shows how many tournament rounds it will have: %i', async (roundCount, summary) => {
+    const { tab } = await openPlaying({ ...swissRegistration, roundCount }, { user: dave });
 
-    expect(text(tab)).toContain('Swiss, capped at 3: 2 tournament rounds');
+    expect(text(tab)).toContain(summary);
+  });
+
+  it('asks before starting, saying tournament round 1 is paired at random', async () => {
+    const { tab } = await openPlaying(swissRegistration, { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Start tournament')!.click();
+    const dialog = await question('Start the tournament?');
+
+    expect(text(dialog)).toContain('Joining closes, and tournament round 1 is paired at random.');
+    await answer(dialog, 'Cancel');
   });
 
   it.each([
@@ -146,6 +162,21 @@ describe('Swiss tournaments on the Play tab', () => {
       'Bob has a bye',
     ]);
     expect(items(tab, 'Tournament round 1')).toEqual(['Carol 2–0 Bob', 'Alice has a bye']);
+  });
+
+  it('notes a match decided without a game score by how it was decided', async () => {
+    const { tab } = await openPlaying(
+      swissPlaying({
+        rounds: swissRoundsWith(
+          forfeited(unreportedMatch('m2', alice.id, carol.id), carol.id),
+          grantedDraw(unreportedMatch('m1', carol.id, bob.id)),
+        ),
+      }),
+      { user: dave },
+    );
+
+    expect(items(tab, 'Tournament round 2')).toContain('Alice vs Carol · Carol forfeited');
+    expect(items(tab, 'Tournament round 1')).toContain('Carol vs Bob · Granted draw');
   });
 
   it('offers no Report or Confirm in the list on the match shown as yours, nor on other players’ matches', async () => {
@@ -347,6 +378,16 @@ describe('Swiss tournaments on the Play tab', () => {
     http.expectNone(COMPLETE_ROUND_URL);
   });
 
+  it('says completing the tournament round failed when the api gives no reason', async () => {
+    const { fixture, page, dialog } = await openCompleteRound(unreportedRoundOne);
+
+    button(dialog, 'Complete round')!.click();
+
+    expect(await failChange(fixture, page, COMPLETE_ROUND_URL)).toBe(
+      "Couldn't complete the tournament round. Try again in a moment.",
+    );
+  });
+
   it('shows why completing the tournament round was refused', async () => {
     const { fixture, page, dialog } = await openCompleteRound(unreportedRoundOne);
 
@@ -502,6 +543,17 @@ describe('Swiss tournaments on the Play tab', () => {
 
       expect(req.request.body).toBeNull();
       expect(text(yourMatch(tab))).toContain('All your matches are reported.');
+    });
+
+    it('offers Confirm in the list of matches once the tournament is complete, as Your match is gone', async () => {
+      const { tab } = await openPlaying(
+        completed(swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) })),
+      );
+
+      expect(region(tab, 'Your match')).toBeNull();
+      expect(
+        button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol'),
+      ).toBeDefined();
     });
 
     it('says all your matches are reported only once nothing is left to report or confirm', async () => {
