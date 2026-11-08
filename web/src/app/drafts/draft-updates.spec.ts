@@ -5,8 +5,7 @@ import type { DraftUpdate, DraftUpdates } from './draft-updates';
 import { draft } from './specs/harness';
 
 /** Stands in for Socket.IO's client: `io` answers the socket a test drives. */
-const { io } = vi.hoisted(() => ({ io: vi.fn() }));
-vi.mock('socket.io-client', () => ({ io }));
+const io = vi.fn();
 
 /** A socket as Socket.IO's client gives one: the API pushes through `push`. */
 class FakeSocket {
@@ -43,11 +42,18 @@ describe('draft updates', () => {
   let watching: Subscription;
 
   // Spec files share their modules, so another's may already have loaded
-  // the updates with the real Socket.IO client: load them afresh.
+  // the updates with the real Socket.IO client: load them afresh with the
+  // stand-in, and leave the next spec file the real client.
   beforeAll(async () => {
+    vi.doMock('socket.io-client', () => ({ io }));
     vi.resetModules();
     const { DraftUpdates } = await import('./draft-updates');
     updates = new DraftUpdates();
+  });
+
+  afterAll(() => {
+    vi.doUnmock('socket.io-client');
+    vi.resetModules();
   });
 
   beforeEach(() => {

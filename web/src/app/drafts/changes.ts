@@ -39,7 +39,10 @@ export class Changes {
   private readonly targets = new Set<FocusTarget>();
   private readonly inFlight = signal(false);
   private readonly said = signal('');
-  /** The keys to put focus back on, or null if focus wasn't here when the change was sent. */
+  /**
+   * The keys to put focus back on for the change in flight, which `send`
+   * sets: null if focus wasn't here when it was sent.
+   */
   private press: Press | null = null;
 
   /** A change is in flight: until it settles, the controls that send one ignore presses. */
@@ -71,7 +74,8 @@ export class Changes {
     }: { keep?: string[]; status?: string; busyOnceMade?: boolean } = {},
   ): Promise<boolean> {
     if (this.inFlight()) return false;
-    this.press = this.pressed(keep);
+    const press = this.pressed(keep);
+    this.press = press;
     this.inFlight.set(true);
     this.said.set('');
     // Stryker disable next-line BooleanLiteral: differs only if `work` throws under `busyOnceMade`, and the one such caller, cancel, catches its own failures.
@@ -82,14 +86,16 @@ export class Changes {
       return made;
     } finally {
       if (!(made && busyOnceMade)) this.inFlight.set(false);
-      // Stryker disable next-line BooleanLiteral: the press is otherwise read only by `refocus()`, which is only called inside a `send` that has just set a new press.
-      this.restore(true);
+      this.restore(press);
     }
   }
 
-  /** Puts focus back now, as a change shows what it does before it settles, and again once it has. */
+  /**
+   * Puts focus back now, as a change shows what it does before it settles,
+   * and again once it has. Only for the `work` of a change being sent.
+   */
   refocus() {
-    this.restore(false);
+    this.restore(this.press);
   }
 
   /** The controls focus can be put back on, in page order. */
@@ -102,7 +108,7 @@ export class Changes {
   /**
    * The keys to put focus back on, from the control focused here: its own,
    * then `keep`, then the other controls' after it, then before it, nearest
-   * first. Nothing, if focus is outside this component or on nothing.
+   * first. Null, if focus is outside this component or on nothing.
    */
   private pressed(keep: string[]): Press | null {
     const focused = this.host.ownerDocument.activeElement;
@@ -113,28 +119,22 @@ export class Changes {
     const at = keys.findIndex(({ here }) => here);
     if (at === -1) return keep;
     const key = (i: number) => keys[i].key;
+    // Stryker disable next-line MethodExpression: all the keys, not just those before, only lists again after the others the keys already listed, so the first control still here is never one of them.
+    const before = keys.slice(0, at);
     return [
       key(at),
       ...keep,
       ...keys.slice(at + 1).map(({ key }) => key),
-      ...keys
-        .slice(0, at)
-        .reverse()
-        .map(({ key }) => key),
+      ...before.reverse().map(({ key }) => key),
     ];
   }
 
   /**
-   * After the next render, puts focus on the first control of the press's
+   * After the next render, puts focus on the first control of `press`'s
    * keys that is still here and enabled, unless the viewer has moved focus
-   * elsewhere meanwhile. `settled` forgets the press, as its change is done.
+   * elsewhere meanwhile. With no press, it leaves focus alone.
    */
-  private restore(settled: boolean) {
-    const press = this.press;
-    // Stryker disable next-line ConditionalExpression: `false` keeps a press that only `refocus()` reads, inside a `send` that has just set a new one.
-    if (settled) this.press = null;
-    // Stryker disable next-line ConditionalExpression: `false` throws only in `afterNextRender` with focus lost and no press, which Angular reports to the ErrorHandler, changing nothing on the page.
-    if (!press) return;
+  private restore(press: Press | null) {
     afterNextRender(
       () => {
         const focused = this.host.ownerDocument.activeElement;
@@ -146,9 +146,11 @@ export class Changes {
             byKey.set(key(), element);
           }
         }
-        const target = press.map((key) => byKey.get(key)).find((element) => element);
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: focusing the element that has focus does nothing, and with no target left these throw only in `afterNextRender`, which Angular reports to the ErrorHandler, changing nothing on the page.
-        if (target && target !== focused) target.focus();
+        // Stryker disable next-line OptionalChaining: with no press, this throws only inside `afterNextRender`, which Angular reports to the ErrorHandler, changing nothing on the page.
+        const target = press?.map((key) => byKey.get(key)).find((element) => element);
+        // Focusing the element that has focus does nothing.
+        // Stryker disable next-line OptionalChaining: with no control left, this throws only inside `afterNextRender`, which Angular reports to the ErrorHandler, changing nothing on the page.
+        target?.focus();
       },
       { injector: this.injector },
     );

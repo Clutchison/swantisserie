@@ -28,7 +28,7 @@ import type {
 import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import { EMPTY_PLAN, EMPTY_QUEUE, hasTurn, isActive, isRefusal, NO_POWERS } from './drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
 
 /** The name of a player id that isn't among the draft's players, wherever a name is shown. */
 const ANOTHER_PLAYER = 'another player';
@@ -110,7 +110,8 @@ export class DraftStore {
   private readonly version = computed(() => this.draft.value()?.version);
   /**
    * The draft as the page shows it. Only for the tabs and controls, which the
-   * page shows once the draft has loaded: it is undefined before then.
+   * page shows once the draft has loaded: read before then, it is undefined,
+   * whatever its type says.
    */
   readonly shown = computed(() => this.draft.value()!);
 
@@ -135,23 +136,23 @@ export class DraftStore {
   readonly canOrganize = computed(() => this.powers().organize);
   /** Whether the viewer's draft powers let them add and remove bots, which they do in the lobby. */
   readonly canAddBots = computed(() => this.powers().addBots);
+  /** The draft's players: none until it has loaded. */
+  // Stryker disable next-line OptionalChaining,LogicalOperator,ArrayDeclaration: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs, and a made-up player has no id to match.
+  private readonly players = computed(() => this.draft.value()?.players ?? []);
   /** Whether the signed-in user is a player in this draft. */
   readonly joined = computed(() => {
     const user = this.user();
-    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
-    return !!user && !!this.draft.value()?.players.some((player) => player.id === user.id);
+    return !!user && this.players().some((player) => player.id === user.id);
   });
   /** The signed-in player, if they have joined. */
   readonly ownPlayer = computed(() => {
     const id = this.user()?.id;
-    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
-    return this.draft.value()?.players.find((player) => player.id === id) ?? null;
+    return this.players().find((player) => player.id === id) ?? null;
   });
 
   /** A player in the draft, by their id, or undefined for an id that isn't among its players. */
   findPlayer(id: string): PlayerView | undefined {
-    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
-    return this.draft.value()?.players.find((player) => player.id === id);
+    return this.players().find((player) => player.id === id);
   }
 
   /**
@@ -163,11 +164,8 @@ export class DraftStore {
   }
 
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */
-  readonly turn = computed(() => {
-    const draft = this.draft.value();
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: the draft is undefined only before its first load, and a draft off its turn has `turn: null` already.
-    return draft && hasTurn(draft) ? draft.turn : null;
-  });
+  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
+  readonly turn = computed(() => this.draft.value()?.turn ?? null);
   readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
 
   /** The pool's cards wait for the snapshot. */

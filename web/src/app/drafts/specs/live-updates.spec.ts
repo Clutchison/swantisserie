@@ -159,30 +159,38 @@ describe('live updates', () => {
 
   it('re-reads the pick log on every reconnect, even when the draft hasn’t moved on', async () => {
     const shown = drafting({ turn: alicesTurn });
-    const { fixture } = await openDraft(completeSnapshot, shown, { cards: [shivan] });
+    const { fixture, page } = await openDraft(completeSnapshot, shown, { cards: [shivan] });
 
-    for (let reconnect = 0; reconnect < 2; reconnect++) {
+    // The first catch-up's pick log misses a pick the second one finds.
+    for (const picks of [[], [shivanPick]]) {
       updates.events.next({ type: 'connected' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft(shown));
-      await flushPicks([]);
+      await flushPicks(picks);
       await fixture.whenStable();
     }
+
+    expect(tiles(page).map(accessibleName)).toEqual([expect.stringContaining('Picked by Alice')]);
   });
 
   it('re-reads the pick log for each draft pushed, even one at the version shown', async () => {
-    const { fixture } = await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })), {
-      cards: [shivan],
-    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      draft(drafting({ turn: alicesTurn })),
+      { cards: [shivan] },
+    );
     // A change's answer, then its push: the same version twice.
     const moved = draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 }));
 
+    // The first re-read's pick log misses the pick the second one finds.
     updates.events.next({ type: 'changed', draft: moved });
-    await flushPicks([shivanPick]);
+    await flushPicks([]);
     await flushQueueAndPlan();
     await fixture.whenStable();
     updates.events.next({ type: 'changed', draft: moved });
     await flushPicks([shivanPick]);
     await fixture.whenStable();
+
+    expect(tiles(page).map(accessibleName)).toEqual([expect.stringContaining('Picked by Alice')]);
   });
 
   it('shows a draft pushed before its first read answers', async () => {

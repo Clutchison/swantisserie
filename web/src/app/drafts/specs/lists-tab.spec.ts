@@ -7,11 +7,8 @@ import {
   accessibleName,
   alice,
   bob,
-  button,
-  comboboxOptions,
   completeSnapshot,
   draft,
-  editableCombobox,
   flushPicks,
   flushPool,
   flushQueueAndPlan,
@@ -45,7 +42,7 @@ import {
   withTournament,
   completed,
 } from './play-tab-harness';
-import { answerPrintingsRequest } from './plan-tab-harness';
+import { onsPrinting, openPrintingPicker, useOnsPrinting } from './plan-tab-harness';
 
 useDraftsApp();
 
@@ -95,41 +92,15 @@ const decklists: DecklistView[] = [
   { playerId: carol.id, mainboard: [], sideboard: [], basics: [], preferredPrintings: {} },
 ];
 
-/** Onslaught's Mountain #1, the one printing `answerPrintingsRequest` offers. */
-const ONS_1 = 'f0000000-0000-4000-8000-000000000001';
-const onsImages = {
-  small: `https://cards.scryfall.io/small/front/f/0/${ONS_1}.jpg`,
-  normal: `https://cards.scryfall.io/normal/front/f/0/${ONS_1}.jpg`,
-  large: `https://cards.scryfall.io/large/front/f/0/${ONS_1}.jpg`,
-};
-
 /** Alice's plan: 36 Mountains. */
 const mountains = { ...EMPTY_PLAN, basics: [{ land: 'Mountain' as const, count: 36 }] };
 
-/** Chooses Onslaught's Mountain #1 for Alice in the Printing picker of her Deck tab, answering the save. */
+/** Chooses Onslaught's Mountain #1 for Alice in the Printing picker of her Deck tab. */
 async function chooseOnsMountain(page: HTMLElement) {
   tabButton(page, 'Deck').click();
   TestBed.tick();
-  [...panel(page).querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')]
-    .find((name) => name.textContent?.trim() === 'Mountain')!
-    .click();
-  await answerPrintingsRequest('Mountain');
-  const setField = await vi.waitFor(() => {
-    TestBed.tick();
-    const field = openDialog() && editableCombobox(openDialog()!, 'Set');
-    if (!field) throw new Error('The Printing picker has no Set field yet');
-    return field;
-  });
-  setField.focus();
-  TestBed.tick();
-  comboboxOptions(setField)
-    .find((option) => option.textContent?.trim() === 'Onslaught · ONS')!
-    .click();
-  TestBed.tick();
-  button(openDialog()!, 'Use this printing')!.click();
-  (await vi.waitFor(() => http.expectOne('/api/preferred-printings/Mountain'))).flush({
-    Mountain: { scryfallId: ONS_1, set: 'ons', collectorNumber: '1', images: onsImages },
-  });
+  await openPrintingPicker(panel(page), 'Mountain');
+  await useOnsPrinting('Mountain');
   await vi.waitFor(() => {
     TestBed.tick();
     expect(openDialog()).toBeNull();
@@ -229,7 +200,7 @@ describe('lists tab', () => {
     await chooseOnsMountain(page);
     const tab = await openTab(fixture, page, 'Lists');
 
-    expect(previewMountain(tab, 'Alice')).toBe(onsImages.normal);
+    expect(previewMountain(tab, 'Alice')).toBe(onsPrinting.images.normal);
     expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
   });
 
