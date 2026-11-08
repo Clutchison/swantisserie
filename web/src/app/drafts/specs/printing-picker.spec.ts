@@ -27,7 +27,14 @@ import {
   statusTexts,
   typeInto,
 } from './harness';
-import { clickBackdrop, openDialog, pressEscape, pressKey, text } from '../../specs-harness';
+import {
+  clickBackdrop,
+  openDialog,
+  pressEscape,
+  pressKey,
+  question,
+  text,
+} from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -154,6 +161,32 @@ describe('the Printing picker', () => {
   const islandImages = (plan: HTMLElement) =>
     [...namedList(plan, 'Lands').querySelectorAll('img')].map((img) => img.getAttribute('src'));
 
+  it('opens from a basic land in stacks mode and in list mode, named for its land', async () => {
+    const { fixture, plan } = await openWith();
+
+    const dialog = await openPicker(fixture, plan);
+    // Named by its heading.
+    expect(await question('Island printing')).toBe(dialog);
+    expect(heading(dialog, 'Island printing')).toBeDefined();
+    button(dialog, 'Cancel')!.click();
+    await fixture.whenStable();
+    expect(openDialog()).toBeNull();
+
+    button(plan, 'List')!.click();
+    await fixture.whenStable();
+    const name = [...plan.querySelectorAll<HTMLElement>('li .name')].find(
+      (n) => text(n) === 'Island',
+    )!;
+    expect(name.getAttribute('aria-haspopup')).toBe('dialog');
+    name.click();
+    await fixture.whenStable();
+    expect(heading(openDialog()!, 'Island printing')).toBeDefined();
+    // The printings are kept from the first opening.
+    http.expectNone(islandRequest);
+    // Only the images come from Scryfall, from its CDN.
+    expect(http.match((req) => req.url.startsWith('https://api.scryfall.com/'))).toEqual([]);
+  });
+
   it.each(Object.entries(defaultPrintings))(
     'shows %s’s default printing while its printings load',
     async (land, { id, label }) => {
@@ -174,30 +207,6 @@ describe('the Printing picker', () => {
       await fixture.whenStable();
     },
   );
-
-  it('opens from a basic land in stacks mode and in list mode, named for its land', async () => {
-    const { fixture, plan } = await openWith();
-
-    const dialog = await openPicker(fixture, plan);
-    expect(heading(dialog, 'Island printing')).toBeDefined();
-    button(dialog, 'Cancel')!.click();
-    await fixture.whenStable();
-    expect(openDialog()).toBeNull();
-
-    button(plan, 'List')!.click();
-    await fixture.whenStable();
-    const name = [...plan.querySelectorAll<HTMLElement>('li .name')].find(
-      (n) => text(n) === 'Island',
-    )!;
-    expect(name.getAttribute('aria-haspopup')).toBe('dialog');
-    name.click();
-    await fixture.whenStable();
-    expect(heading(openDialog()!, 'Island printing')).toBeDefined();
-    // The printings are kept from the first opening.
-    http.expectNone(islandRequest);
-    // Only the images come from Scryfall, from its CDN.
-    expect(http.match((req) => req.url.startsWith('https://api.scryfall.com/'))).toEqual([]);
-  });
 
   it('opens on the set of the printing shown, every set listed as the API orders them, and steps through its printings, wrapping', async () => {
     const { fixture, plan } = await openWith();

@@ -93,8 +93,11 @@ export class CardImage {
       untracked(() => {
         // Back to the image already shown: whatever was on its way is stale, and goes with its element.
         if (this.shown()?.src === src) this.pending.set(null);
-        // Stryker disable next-line ConditionalExpression: the effect reruns only when `src` or `sideways` changes, and `sideways` changes only with the face, which changes `src`.
-        else if (this.pending()?.src !== src) this.pending.set({ src, sideways });
+        else if (
+          // Stryker disable next-line ConditionalExpression: the effect reruns only when `src` or `sideways` changes, and `sideways` changes only with the face, which changes `src`.
+          this.pending()?.src !== src
+        )
+          this.pending.set({ src, sideways });
       });
     });
     afterRenderEffect(() => {
