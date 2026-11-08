@@ -31,6 +31,8 @@ import {
   section,
   statusTexts,
   ORGANIZE_ONLY,
+  heading,
+  openUrl,
 } from './harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 
@@ -153,6 +155,47 @@ describe('live updates', () => {
 
     expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     expect(page.querySelector('.tile')?.classList).toContain('picked');
+  });
+
+  it('re-reads the pick log on every reconnect, even when the draft hasn’t moved on', async () => {
+    const shown = drafting({ turn: alicesTurn });
+    const { fixture } = await openDraft(completeSnapshot, shown, { cards: [shivan] });
+
+    for (let reconnect = 0; reconnect < 2; reconnect++) {
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft(shown));
+      await flushPicks([]);
+      await fixture.whenStable();
+    }
+  });
+
+  it('re-reads the pick log for each draft pushed, even one at the version shown', async () => {
+    const { fixture } = await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })), {
+      cards: [shivan],
+    });
+    // A change's answer, then its push: the same version twice.
+    const moved = draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 }));
+
+    updates.events.next({ type: 'changed', draft: moved });
+    await flushPicks([shivanPick]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+    updates.events.next({ type: 'changed', draft: moved });
+    await flushPicks([shivanPick]);
+    await fixture.whenStable();
+  });
+
+  it('shows a draft pushed before its first read answers', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+
+    updates.events.next({ type: 'changed', draft: draft({ name: 'Pushed dragons' }) });
+    await flushPool();
+    await fixture.whenStable();
+
+    expect(heading(page, 'Pushed dragons')).toBeDefined();
+    for (const req of http.match('/api/drafts/draft-1')) {
+      if (!req.cancelled) req.flush(draft({ name: 'Pushed dragons' }));
+    }
   });
 
   it('catches up again when it reconnects while the last catch-up is loading', async () => {

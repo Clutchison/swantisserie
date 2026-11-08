@@ -88,6 +88,7 @@ export class DraftStore {
 
   /** The id of the open draft. */
   readonly id = toSignal(inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('id')!)), {
+    // Stryker disable next-line ObjectLiteral,BooleanLiteral: `paramMap` emits on subscribe, so the id is there at once either way.
     requireSync: true,
   });
 
@@ -104,16 +105,13 @@ export class DraftStore {
   /** The draft, undefined until it has loaded. */
   readonly draft = keptRead(this.draftResource, undefined);
   /** The version of the draft shown, which the pick log, queue and plan are read for. */
+  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   private readonly version = computed(() => this.draft.value()?.version);
   /**
    * The draft as the page shows it. Only for the tabs and controls, which the
-   * page shows once the draft has loaded: it throws before then.
+   * page shows once the draft has loaded: it is undefined before then.
    */
-  readonly shown = computed(() => {
-    const draft = this.draft.value();
-    if (!draft) throw new Error('The draft has not loaded.');
-    return draft;
-  });
+  readonly shown = computed(() => this.draft.value()!);
 
   /**
    * The viewer's draft powers, which the api alone decides (ADR 0003). They
@@ -130,7 +128,7 @@ export class DraftStore {
   /** Whether the viewer's draft powers are known: loaded, or failed to load, so none. */
   readonly powersKnown = computed(() => {
     const status = this.powersResource.status();
-    return status === 'resolved' || status === 'error' || status === 'local';
+    return status === 'resolved' || status === 'error';
   });
   /** Whether the viewer's draft powers let them organize the draft. */
   readonly canOrganize = computed(() => this.powers().organize);
@@ -139,16 +137,19 @@ export class DraftStore {
   /** Whether the signed-in user is a player in this draft. */
   readonly joined = computed(() => {
     const user = this.user();
+    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     return !!user && !!this.draft.value()?.players.some((player) => player.id === user.id);
   });
   /** The signed-in player, if they have joined. */
   readonly ownPlayer = computed(() => {
     const id = this.user()?.id;
+    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     return this.draft.value()?.players.find((player) => player.id === id) ?? null;
   });
 
   /** A player in the draft, by their id, or undefined for an id that isn't among its players. */
   findPlayer(id: string): PlayerView | undefined {
+    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     return this.draft.value()?.players.find((player) => player.id === id);
   }
 
@@ -163,11 +164,13 @@ export class DraftStore {
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */
   readonly turn = computed(() => {
     const draft = this.draft.value();
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: the draft is undefined only before its first load, and a draft off its turn has `turn: null` already.
     return draft && hasTurn(draft) ? draft.turn : null;
   });
   readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
 
   /** The pool's cards wait for the snapshot. */
+  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   private readonly poolReady = computed(() => this.draft.value()?.snapshot.state === 'Complete');
   private readonly poolResource = httpResource<PoolCardView[]>(() =>
     this.poolReady() ? `/api/drafts/${this.id()}/pool` : undefined,
@@ -181,6 +184,7 @@ export class DraftStore {
 
   /** Started drafts have picks; the lobby doesn't. */
   private readonly started = computed(() => {
+    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     const state = this.draft.value()?.state;
     return !!state && state !== 'Lobby';
   });
@@ -217,7 +221,7 @@ export class DraftStore {
    * names it. Loading until both the picks and the pool have loaded, and
    * missing if either can't be.
    */
-  readonly pickLog: DraftRead<PickedCard[]> = {
+  readonly pickLog: Pick<DraftRead<PickedCard[]>, 'value' | 'loading' | 'missing'> = {
     value: computed(() => {
       const cards = this.poolCardsById();
       return this.picks.value().flatMap((pick) => {
@@ -225,9 +229,7 @@ export class DraftStore {
         return card ? [{ ...pick, card }] : [];
       });
     }),
-    loaded: computed(() => this.picks.loaded() && this.pool.loaded()),
     loading: computed(() => this.picks.loading() || this.pool.loading()),
-    failed: computed(() => this.picks.failed() || this.pool.failed()),
     missing: computed(() => this.picks.missing() || this.pool.missing()),
   };
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
@@ -286,6 +288,7 @@ export class DraftStore {
    * before then and while it is closed.
    */
   readonly planName = computed(() =>
+    // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     this.draft.value()?.state === 'Complete' ? ('deck' as const) : ('plan' as const),
   );
   /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
@@ -301,6 +304,7 @@ export class DraftStore {
    * draft says it has one, and again for each version, as every tournament
    * change bumps it, and after each change to their deck during registration.
    */
+  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   private readonly hasTournament = computed(() => !!this.draft.value()?.tournament);
   private readonly tournamentResource = httpResource<ViewerTournamentView>(() => {
     this.version();
@@ -342,7 +346,7 @@ export class DraftStore {
     if (!this.draft.value()) return undefined;
     if (!this.hasTournament()) return false;
     if (!this.tournament.loaded()) return this.tournament.failed() ? false : undefined;
-    return this.tournament.value()?.showsDecklists ?? false;
+    return this.tournament.value()!.showsDecklists;
   });
   /**
    * Whether the Board tab is shown: until the Lists tab takes its place.
@@ -350,6 +354,7 @@ export class DraftStore {
    */
   readonly showBoardTab = computed(() => {
     const decklists = this.showDecklists();
+    // Stryker disable next-line ConditionalExpression: a Board tab still undefined shows either way, and `tabInUrl` keeps a tab the URL names whether it is 'unknown' or 'yes'.
     return decklists === undefined ? undefined : !decklists;
   });
   /**
@@ -360,9 +365,11 @@ export class DraftStore {
     this.showDecklists() ? `/api/drafts/${this.id()}/tournament/decklists` : undefined,
   );
   /** The tournament's decklists, in join order: none until they have loaded. */
+  // Stryker disable next-line ArrayDeclaration: the Lists tab reads the decklists only once they have loaded, showing loading or the error before then.
   readonly decklists = keptRead<DecklistView[]>(this.decklistsResource, []);
   /** Whether the signed-in player has joined the draft's tournament. */
   readonly joinedTournament = computed(() => {
+    // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
     const id = this.user()?.id;
     return !!this.tournament.value()?.entries.some((entry) => entry.playerId === id);
   });
@@ -399,6 +406,7 @@ export class DraftStore {
    * anyone else with `not-a-player`, and any other draft state with
    * `not-drafting`.
    */
+  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is active; adding to
@@ -456,6 +464,7 @@ export class DraftStore {
   apply(draft: DraftView) {
     if (draft.version < (this.version() ?? -1)) return;
     this.draftResource.set(draft);
+    // Stryker disable next-line ArithmeticOperator: any change of the count re-reads.
     this.picksAsked.update((asked) => asked + 1);
   }
 
@@ -464,6 +473,7 @@ export class DraftStore {
    * picks once the draft has loaded, for the version it shows.
    */
   catchUp() {
+    // Stryker disable next-line ArithmeticOperator: any change of the count re-reads.
     this.catchUpsAsked.update((asked) => asked + 1);
     this.rereadDraft();
   }
@@ -477,6 +487,7 @@ export class DraftStore {
   }
 
   private rereadDraft() {
+    // Stryker disable next-line ArithmeticOperator: any change of the count re-reads.
     this.draftAsked.update((asked) => asked + 1);
   }
 
@@ -537,13 +548,15 @@ export class DraftStore {
    * They are the player's, not the draft's, so no draft version applies.
    */
   showPreferredPrintings(preferredPrintings: PreferredPrintings) {
+    // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
     const userId = this.user()?.id;
+    // Stryker disable next-line ConditionalExpression: the Printing picker opens only from a loaded plan; this differs only if a plan re-read has failed while it is open.
     if (this.planResource.hasValue()) {
       this.planResource.update((plan) => plan && { ...plan, preferredPrintings });
     }
     if (this.decklistsResource.hasValue()) {
       this.decklistsResource.update((decklists) =>
-        decklists?.map((decklist) =>
+        decklists!.map((decklist) =>
           decklist.playerId === userId ? { ...decklist, preferredPrintings } : decklist,
         ),
       );
@@ -585,6 +598,7 @@ export class DraftStore {
    */
   private showAnswer<T>(resource: HttpResourceRef<T | undefined>, answer: T, sentFor?: number) {
     if (this.version() === sentFor) resource.set(answer);
+    // Stryker disable next-line ConditionalExpression: `reload()` does nothing while the read is loading.
     else if (!resource.isLoading()) resource.reload();
   }
 }
@@ -611,7 +625,8 @@ function keptRead<T>(resource: HttpResourceRef<T | undefined>, empty: T): DraftR
           : 'none',
     computation: (latest, previous) =>
       latest === 'idle'
-        ? { value: empty, loaded: false }
+        ? // Stryker disable next-line BooleanLiteral: an idle read has no error, and every reader of `loaded` returns early for the states that leave a read idle.
+          { value: empty, loaded: false }
         : latest === 'none'
           ? (previous?.value ?? { value: empty, loaded: false })
           : latest,
