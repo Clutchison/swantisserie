@@ -97,9 +97,11 @@ describe('webhooks page', () => {
     expect(form.querySelector<HTMLInputElement>('[name="url"]')?.value).toBe('');
   });
 
-  it('says why a webhook could not be added', async () => {
+  it('says why a webhook could not be added, keeping what was typed', async () => {
     const { fixture, page } = await openPage([]);
-    button(page.querySelector('form.add')!, 'Add').click();
+    const form = page.querySelector('form.add')!;
+    fill(form.querySelector('[name="url"]')!, side.url);
+    button(form, 'Add').click();
 
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(
       { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookRegistryProblem,
@@ -108,6 +110,62 @@ describe('webhooks page', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain('Give the webhook a name.');
+    expect(form.querySelector<HTMLInputElement>('[name="url"]')?.value).toBe(side.url);
+  });
+
+  it('says saving failed when no reason comes back', async () => {
+    const { fixture, page } = await openPage([main]);
+    const failed = 'Saving failed. Check your connection and try again.';
+
+    button(row(page, '#roto-main'), 'Rename').click();
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).error(
+      new ProgressEvent('error'),
+    );
+    await fixture.whenStable();
+    expect(page.querySelector('[role="alert"]')?.textContent?.trim()).toBe(failed);
+
+    button(row(page, '#roto-main'), 'Rename').click();
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(null, {
+      status: 502,
+      statusText: 'Bad Gateway',
+    });
+    await fixture.whenStable();
+    expect(page.querySelector('[role="alert"]')?.textContent?.trim()).toBe(failed);
+  });
+
+  it('holds every change while one saves, then takes the next', async () => {
+    const { fixture, page } = await openPage([main]);
+    const controls = () => [
+      button(row(page, '#roto-main'), 'Rename'),
+      button(row(page, '#roto-main'), 'Remove'),
+      button(row(page, '#roto-main'), 'Replace URL'),
+      button(page.querySelector('form.add')!, 'Add'),
+    ];
+
+    button(row(page, '#roto-main'), 'Rename').click();
+    const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
+    await fixture.whenStable();
+    expect(controls().map((b) => b.disabled)).toEqual([true, true, true, true]);
+
+    req.flush(main);
+    await reloaded(fixture, [main]);
+    expect(controls().map((b) => b.disabled)).toEqual([false, false, false, false]);
+  });
+
+  it('clears the reason a change was refused once one saves', async () => {
+    const { fixture, page } = await openPage([main]);
+    button(row(page, '#roto-main'), 'Rename').click();
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(
+      { error: 'invalid', message: 'Give the webhook a name.' } satisfies WebhookRegistryProblem,
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await fixture.whenStable();
+
+    button(row(page, '#roto-main'), 'Rename').click();
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(main);
+    await reloaded(fixture, [main]);
+
+    expect(page.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('renames a webhook', async () => {
