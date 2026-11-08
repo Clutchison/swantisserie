@@ -3,7 +3,6 @@ import {
   afterNextRender,
   ChangeDetectionStrategy,
   Component,
-  computed,
   ElementRef,
   inject,
   Injector,
@@ -21,6 +20,9 @@ export const MATCH_RESULT_HEADING = 'match-result-heading';
 /** What was chosen in the match result dialog: a game score to set, or to clear it. */
 export type MatchResultChoice = { kind: 'GameScore'; games: GameScore } | { kind: 'Clear' };
 
+/** A game score the match result dialog offers. */
+type GameScoreChoice = { games: GameScore; label: string; question?: string };
+
 /** What the match result dialog offers for one match. */
 export interface MatchResultChoices {
   /** Its heading, such as "Bob vs Carol" or "Your match against Carol". */
@@ -32,7 +34,7 @@ export interface MatchResultChoices {
    * it reads, and the question asked before it is chosen, as a player is
    * asked; without one it is chosen at once, as an organizer's is.
    */
-  gameScores: { games: GameScore; label: string; question?: string }[];
+  gameScores: GameScoreChoice[];
   /** What a question adds below it, such as who can change a report once it is sent. */
   detail?: string;
   /** Clearing it, unless it already is what clearing leaves; never a player's. */
@@ -63,13 +65,8 @@ export class MatchResultDialog {
   protected readonly headingId = MATCH_RESULT_HEADING;
   protected readonly questionId = 'match-result-question';
 
-  /** The index of the game score whose question is asked, if any. */
-  private readonly picked = signal<number | null>(null);
-  /** The game score whose question is asked, if any. */
-  protected readonly asking = computed(() => {
-    const picked = this.picked();
-    return picked === null ? null : this.choices().gameScores[picked];
-  });
+  /** The game score whose question is asked, with its index, if any. */
+  protected readonly asking = signal<(GameScoreChoice & { index: number }) | null>(null);
 
   private readonly reportButton = viewChild<ElementRef<HTMLButtonElement>>('report');
   private readonly scoreButtons = viewChildren<ElementRef<HTMLButtonElement>>('score');
@@ -81,15 +78,16 @@ export class MatchResultDialog {
       this.choose({ kind: 'GameScore', games: score.games });
       return;
     }
-    this.picked.set(index);
+    this.asking.set({ ...score, index });
     this.focusAfterRender(() => this.reportButton());
   }
 
   /** Goes back from the question to the game scores, focus on the one picked. */
   protected back() {
-    const picked = this.picked();
-    this.picked.set(null);
-    if (picked !== null) this.focusAfterRender(() => this.scoreButtons()[picked]);
+    // Back shows only while a question is asked.
+    const { index } = this.asking()!;
+    this.asking.set(null);
+    this.focusAfterRender(() => this.scoreButtons()[index]);
   }
 
   protected choose(choice?: MatchResultChoice) {
@@ -97,6 +95,7 @@ export class MatchResultDialog {
   }
 
   private focusAfterRender(target: () => ElementRef<HTMLElement> | undefined) {
+    // Stryker disable next-line OptionalChaining: once rendered, Report or the picked game score's button is always there to focus.
     afterNextRender(() => target()?.nativeElement.focus(), { injector: this.injector });
   }
 }

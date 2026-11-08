@@ -103,7 +103,9 @@ export class TournamentProgress {
     computation: (now, previous) => {
       if (!previous) return '';
       if (now.state !== previous.source.state) return `Tournament: ${now.state}`;
-      return now.round ?? '';
+      // With the state unchanged, the tournament round changed: never to none in Swiss or single
+      // elimination, and round robin has none.
+      return now.round!;
     },
   });
 }
