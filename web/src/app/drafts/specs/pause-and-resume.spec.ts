@@ -1,6 +1,7 @@
 import type { PauseRefusal } from 'contract';
 import {
   useDraftsApp,
+  alertIn,
   alice,
   draft,
   http,
@@ -76,6 +77,30 @@ describe('pause and resume', () => {
 
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
     expect(button(page, 'Resume draft')).toBeDefined();
+  });
+
+  it('says resuming failed, not the reason in the answer, when it fails without a refusal, until a change goes through', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, paused);
+
+    button(page, 'Resume draft')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/resume'))).flush(
+      { message: 'Internal server error' },
+      { status: 500, statusText: 'Server Error' },
+    );
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(alertIn(page)?.textContent).toContain("Couldn't resume the draft."),
+    );
+
+    button(page, 'Resume draft')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/resume'))).flush(
+      draft({ ...aliceUp, version: 1 }),
+    );
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(button(page, 'Pause draft')).toBeDefined());
+    expect(alertIn(page)).toBeNull();
   });
 
   it('offers pause and resume only to a viewer who may organize', async () => {

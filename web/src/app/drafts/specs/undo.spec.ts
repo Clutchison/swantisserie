@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import type { PickView, UndoRefusal } from 'contract';
 import {
   useDraftsApp,
+  alertIn,
   alice,
   draft,
   http,
@@ -132,6 +133,19 @@ describe('undo', () => {
     expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 3 (Lava Spike)');
   });
 
+  it('says the undo failed when it fails without a refusal', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
+
+    undoButton(page)!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'))).flush(null, {
+      status: 500,
+      statusText: 'Server Error',
+    });
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain("Couldn't undo the pick."));
+  });
+
   it('offers undo only to a viewer who may organize', async () => {
     const { page } = await openDraft(completeSnapshot, aliceUp, {
       cards,
@@ -159,5 +173,15 @@ describe('undo', () => {
     );
 
     expect(undoButton(page)).toBeUndefined();
+  });
+
+  it('offers undo on a paused draft', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      { ...aliceUp, state: 'Paused' },
+      { cards, picks },
+    );
+
+    expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
   });
 });
