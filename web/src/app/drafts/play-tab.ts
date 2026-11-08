@@ -83,8 +83,8 @@ const SWISS_ROUND_CHOICES = SWISS_ROUND_OPTIONS.map((option) => ({
  */
 function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): string {
   const name =
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: a Swiss tournament always has a round option, and other formats never do.
-    format === 'Swiss' && swissRoundOption
+    // Only Swiss has a round option.
+    swissRoundOption
       ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
       : formatName(format);
   if (roundCount === 0) return name;
@@ -182,13 +182,10 @@ export class PlayTab {
    */
   // Stryker disable next-line OptionalChaining: read only once the tournament has loaded.
   protected readonly offerJoin = computed(() => !!this.tournament()?.canJoin);
-  // Stryker disable next-line ConditionalExpression: read only in registration, so the state check always holds.
-  protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
-  /** Organizers may remove joined players, start and cancel the tournament during registration. */
-  protected readonly offerOrganize = computed(
-    // Stryker disable next-line ConditionalExpression: read only in registration, so the state check always holds.
-    () => this.canOrganize() && this.state() === 'Registration',
-  );
+  /** Leave is offered to a player who joined; read only during registration. */
+  protected readonly offerLeave = this.joined;
+  /** Organizers may remove joined players, start and cancel the tournament; read only during registration. */
+  protected readonly offerOrganize = this.canOrganize;
   /** Start needs MIN_TOURNAMENT_PLAYERS joined, as the api refuses it with fewer. */
   protected readonly canStart = computed(() => this.entries().length >= MIN_TOURNAMENT_PLAYERS);
   /**
@@ -261,14 +258,13 @@ export class PlayTab {
   // Stryker disable next-line OptionalChaining: read only once the tournament has loaded.
   protected readonly roundRobin = computed(() => this.tournament()?.format === 'RoundRobin');
   /**
-   * Whether the signed-in player's own matches show: round robin's Your
-   * matches for a player who joined, once the tournament has started, so
-   * they can still confirm once it is complete or they have dropped;
-   * "Your match" for one who plays on.
+   * Whether the signed-in player's own matches show, once the tournament
+   * has started, the only time it is read: round robin's Your matches for
+   * a player who joined, so they can still confirm once it is complete or
+   * they have dropped; "Your match" for one who plays on.
    */
   protected readonly showsOwnMatches = computed(() =>
-    // Stryker disable next-line ConditionalExpression,StringLiteral: read only outside registration, so the state check always holds.
-    this.roundRobin() ? this.state() !== 'Registration' && this.joined() : this.playsOn(),
+    this.roundRobin() ? this.joined() : this.playsOn(),
   );
   /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
   protected readonly ownMatches = computed((): OwnMatch[] => {
