@@ -46,4 +46,10 @@ describe('StatusPage', () => {
 
     expect(text).toContain('API unreachable');
   });
+
+  it('shows API unreachable when a proxy answers with an empty body', async () => {
+    const text = await render((req) => req.flush(null, { status: 502, statusText: 'Bad Gateway' }));
+
+    expect(text).toContain('API unreachable');
+  });
 });

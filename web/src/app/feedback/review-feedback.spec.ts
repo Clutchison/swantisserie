@@ -183,6 +183,51 @@ describe('reviewing feedback', () => {
     expect(items(page)).toHaveLength(1);
   });
 
+  it('holds marking while one item is being marked, then takes the next', async () => {
+    const { fixture, page } = await openPage([fromAlice, fromBob]);
+
+    markReviewed(items(page)[0]).click();
+    const put = http.expectOne('/api/admin/feedback/feedback-1/reviewed');
+    await fixture.whenStable();
+    expect(items(page).map((item) => markReviewed(item).disabled)).toEqual([true, true]);
+
+    put.flush(null, { status: 204, statusText: 'No Content' });
+    (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromBob]);
+    await fixture.whenStable();
+    expect(markReviewed(items(page)[0]).disabled).toBe(false);
+  });
+
+  it('clears the failure once marking works', async () => {
+    const { fixture, page } = await openPage([fromAlice]);
+    markReviewed(items(page)[0]).click();
+    http
+      .expectOne('/api/admin/feedback/feedback-1/reviewed')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+
+    markReviewed(items(page)[0]).click();
+    http
+      .expectOne('/api/admin/feedback/feedback-1/reviewed')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([]);
+    await fixture.whenStable();
+
+    expect(page.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('clears the failure on changing tab', async () => {
+    const opened = await openPage([fromAlice]);
+    markReviewed(items(opened.page)[0]).click();
+    http
+      .expectOne('/api/admin/feedback/feedback-1/reviewed')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await opened.fixture.whenStable();
+
+    await clickTab(opened, 'Reviewed');
+
+    expect(opened.page.querySelector('[role="alert"]')).toBeNull();
+  });
+
   describe('the Reviewed view', () => {
     const markUnreviewed = (item: Element) =>
       [...item.querySelectorAll('button')].find(

@@ -35,6 +35,7 @@ export class FeedbackDialog {
 
   protected readonly maxFeedbackLength = MAX_FEEDBACK_LENGTH;
   protected readonly message = signal('');
+  // Stryker disable next-line StringLiteral: the status is only compared with 'Sending', 'Sent' and 'Failed'.
   protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
   protected readonly canSubmit = computed(
     () => this.status() !== 'Sending' && !!this.message().trim(),
@@ -56,7 +57,6 @@ export class FeedbackDialog {
   }
 
   protected async submit() {
-    if (!this.canSubmit()) return;
     this.status.set('Sending');
     try {
       await firstValueFrom(
