@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type {
+  BasicLand,
   BasicLandPrintingsView,
   BasicLandPrintingView,
   PlanView,
@@ -23,11 +24,20 @@ import {
   type AppFixture,
   drafting,
   openTab,
+  statusTexts,
   typeInto,
 } from './harness';
 import { clickBackdrop, openDialog, pressEscape, pressKey, text } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
-import { bobsTurn, bolt, openPlan, planned, printingsRequest } from './plan-tab-harness';
+import {
+  bobsTurn,
+  bolt,
+  cdnImage,
+  defaultPrintings,
+  openPlan,
+  planned,
+  printingsRequest,
+} from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -143,6 +153,27 @@ describe('the Printing picker', () => {
   /** Every stacked Island's image. */
   const islandImages = (plan: HTMLElement) =>
     [...namedList(plan, 'Lands').querySelectorAll('img')].map((img) => img.getAttribute('src'));
+
+  it.each(Object.entries(defaultPrintings))(
+    'shows %s’s default printing while its printings load',
+    async (land, { id, label }) => {
+      const { fixture, plan } = await openWith(
+        withIslands({ basics: [{ land: land as BasicLand, count: 1 }] }),
+      );
+
+      namedList(plan, 'Lands').querySelector<HTMLElement>('[aria-haspopup="dialog"]')!.click();
+      TestBed.tick();
+      await vi.waitFor(() => expect(openDialog()).not.toBeNull());
+      expect(shownPrinting()).toBe(`${land}, ${label}`);
+      expect(shownImage()).toBe(cdnImage('large', id));
+
+      (await vi.waitFor(() => http.expectOne(printingsRequest(land)))).flush(null, {
+        status: 503,
+        statusText: 'Unavailable',
+      });
+      await fixture.whenStable();
+    },
+  );
 
   it('opens from a basic land in stacks mode and in list mode, named for its land', async () => {
     const { fixture, plan } = await openWith();
@@ -384,18 +415,29 @@ describe('the Printing picker', () => {
   it('says so when the printings fail to load, keeping the printing shown, and tries again', async () => {
     const { fixture, plan } = await openWith();
     stackedIsland(plan).click();
+    TestBed.tick();
+    const dialog = await vi.waitFor(() => {
+      expect(openDialog()).not.toBeNull();
+      return openDialog()!;
+    });
+    TestBed.tick();
+    expect(statusTexts(dialog)).toContain('Loading printings…');
+    expect(alertIn(dialog)).toBeNull();
 
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(null, {
       status: 503,
       statusText: 'Unavailable',
     });
     await fixture.whenStable();
-    const dialog = openDialog()!;
     expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
+    expect(statusTexts(dialog)).not.toContain('Loading printings…');
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(setField()).toBeUndefined();
 
     button(dialog, 'Try again')!.click();
+    TestBed.tick();
+    expect(statusTexts(dialog)).toContain('Loading printings…');
+    expect(alertIn(dialog)).toBeNull();
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
     await fixture.whenStable();
 
@@ -434,6 +476,59 @@ describe('the Printing picker', () => {
     expect(text(alertIn(dialog))).toBe('That isn’t an English printing of Island.');
     expect(shownPrinting()).toBe('Island, KHM #394');
     expect(islandImages(plan)).toEqual([cdn('normal', ONS_335), cdn('normal', ONS_335)]);
+  });
+
+  it('disables both choices while a save is on its way, and apologises for a failure the API gives no reason for, until the next try', async () => {
+    const { fixture, plan } = await openWith(
+      withIslands({ preferredPrintings: { Island: khm394 } }),
+    );
+    const dialog = await openPicker(fixture, plan);
+
+    button(dialog, 'Use this printing')!.click();
+    TestBed.tick();
+    expect(button(dialog, 'Use this printing')!.disabled).toBe(true);
+    expect(button(dialog, 'Use default')!.disabled).toBe(true);
+    http
+      .expectOne(`/api/preferred-printings/Island`)
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await vi.waitFor(() =>
+      expect(text(alertIn(dialog))).toBe('Couldn’t save your printing. Try again in a moment.'),
+    );
+    expect(button(dialog, 'Use this printing')!.disabled).toBe(false);
+    expect(button(dialog, 'Use default')!.disabled).toBe(false);
+
+    button(dialog, 'Use this printing')!.click();
+    TestBed.tick();
+    expect(alertIn(dialog)).toBeNull();
+    http.expectOne(`/api/preferred-printings/Island`).flush({ Island: khm394 });
+    await fixture.whenStable();
+    expect(openDialog()).toBeNull();
+  });
+
+  it('opens on a preferred printing that isn’t the first of its set', async () => {
+    const khm395 = islands.sets[0].printings[1];
+    const { fixture, plan } = await openWith(
+      withIslands({ preferredPrintings: { Island: khm395 } }),
+    );
+
+    const dialog = await openPicker(fixture, plan);
+
+    expect(setField()!.value).toBe('Kaldheim · KHM');
+    expect(shownPrinting()).toBe('Island, KHM #395');
+    expect(text(dialog)).toContain('2 of 3');
+  });
+
+  it('falls back to Scryfall’s API image when the printing’s large image fails', async () => {
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+
+    namedImages(openDialog()!)[0].dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+
+    expect(shownImage()).toBe(
+      `https://api.scryfall.com/cards/${ONS_335}?format=image&version=large`,
+    );
+    expect(shownPrinting()).toBe('Island, ONS #335');
   });
 
   it('opens from a locked deck', async () => {

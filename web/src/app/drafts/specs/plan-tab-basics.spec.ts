@@ -24,9 +24,20 @@ import {
   openDialog,
   pressEscape,
   pressTab,
+  question,
+  text,
 } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
-import { bobsTurn, bolt, openPlan, planBoards, planned, stack } from './plan-tab-harness';
+import {
+  bobsTurn,
+  bolt,
+  cdnImage,
+  defaultPrintings,
+  openPlan,
+  planBoards,
+  planned,
+  stack,
+} from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -274,6 +285,38 @@ describe('basic lands on the plan tab', () => {
     );
   });
 
+  it('shows each basic land’s default printing in the Lands stack, Wastes too, offering its small and normal images', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    // By name, as the stack sorts them.
+    const lands = ['Forest', 'Island', 'Mountain', 'Plains', 'Swamp', 'Wastes'] as const;
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(lands.map((land) => ({ land, count: 1 }))),
+    });
+    const plan = await openPlan(fixture, page);
+
+    expect(stack(plan, 'Lands')).toEqual(lands);
+    expect(
+      namedImages(namedList(plan, 'Lands')).map((img) => [
+        img.alt,
+        img.getAttribute('src'),
+        img.getAttribute('srcset'),
+      ]),
+    ).toEqual(
+      lands.map((land) => {
+        const { id } = defaultPrintings[land];
+        return [
+          land,
+          cdnImage('normal', id),
+          `${cdnImage('small', id)} 160w, ${cdnImage('normal', id)} 488w`,
+        ];
+      }),
+    );
+  });
+
   it('sets basics in a Basic lands dialog, not above the plan boards, each labelled by its mana symbol', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
@@ -286,6 +329,8 @@ describe('basic lands on the plan tab', () => {
     const dialog = await openBasics(fixture, plan);
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(heading(dialog, 'Basic lands')).toBeDefined();
+    // Named by its heading.
+    expect(await question('Basic lands')).toBe(dialog);
     const symbols = namedImages(dialog);
     expect(symbols.map((symbol) => [symbol.getAttribute('src'), symbol.alt, symbol.title])).toEqual(
       [
@@ -437,6 +482,93 @@ describe('basic lands on the plan tab', () => {
     http.expectOne('/api/drafts/draft-1/plan/basics/Island').flush(boltAndShivanWith());
 
     await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
+  });
+
+  it('moves focus to − once + takes a basic to 99, not on to the next land', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Island', count: 98 }]),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    inDialog('One more Island')!.focus();
+    inDialog('One more Island')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(boltAndShivanWith([{ land: 'Island', count: 99 }]));
+
+    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One fewer Island')));
+  });
+
+  it('moves focus from a typed count to −, after a higher count, or to +, after a lower one', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    countOf('Island').focus();
+    typeCount('Island', '8');
+    // The number is disabled while its change is sent.
+    await fixture.whenStable();
+    expect(countOf('Island').disabled).toBe(true);
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(boltAndShivanWith([{ land: 'Island', count: 8 }]));
+    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One fewer Island')));
+
+    countOf('Island').focus();
+    typeCount('Island', '2');
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(boltAndShivanWith([{ land: 'Island', count: 2 }]));
+    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
+  });
+
+  it('sends nothing for a typed count the plan already holds, or one kept within 99 to it', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([
+        { land: 'Swamp', count: 2 },
+        { land: 'Forest', count: 99 },
+      ]),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    typeCount('Swamp', '2');
+    typeCount('Forest', '250');
+    await fixture.whenStable();
+
+    http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/basics'));
+    expect(countOf('Forest').value).toBe('99');
+  });
+
+  it('says when a change fails, and takes the error away once a later change is made', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
+    });
+    const plan = await openPlan(fixture, page);
+    const dialog = await openBasics(fixture, plan);
+
+    inDialog('One more Island')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(boltAndShivanWith());
+    await vi.waitFor(() =>
+      expect(text(alertIn(dialog))).toBe("Couldn't change your plan. Try again in a moment."),
+    );
+
+    inDialog('One more Island')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island')
+      .flush(boltAndShivanWith([{ land: 'Island', count: 1 }]));
+    await vi.waitFor(() => expect(countOf('Island').value).toBe('1'));
+    expect(alertIn(dialog)).toBeNull();
   });
 
   it('opens on Done, and keeps Tab and Shift+Tab inside the dialog, wrapping at either end', async () => {
