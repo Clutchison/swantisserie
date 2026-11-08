@@ -27,7 +27,15 @@ import {
   heading,
 } from './harness';
 import { openDialog } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb, newestLarge } from './pool-tab-harness';
+import {
+  useTallScreen,
+  shivan,
+  brightclimb,
+  newestLarge,
+  image,
+  largePlaceholder,
+  tileLoaded,
+} from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
@@ -133,6 +141,59 @@ describe('plan tab', () => {
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ poolCardId: boltAgain.id });
+    });
+
+    it('opens a line of several unpicked copies, none queued, on its first copy', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      detailOpener(plan, 'Lightning Bolt')!.click();
+      await fixture.whenStable();
+      button(openDialog()!, 'Add to queue')!.click();
+
+      expect(http.expectOne('/api/drafts/draft-1/queue').request.body).toEqual({
+        poolCardId: bolt.id,
+      });
+    });
+
+    it('returns focus to the name that opened the Card detail once it closes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      const opener = detailOpener(plan, 'Shivan Dragon')!;
+      expect(detailOpener(plan, 'Lightning Bolt')).not.toBe(opener);
+
+      opener.focus();
+      opener.click();
+      await fixture.whenStable();
+      button(openDialog()!, 'Close')!.click();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(opener);
+    });
+
+    it('opens no Card detail as a dragged line is released', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const name = detailOpener(plan, 'Shivan Dragon')!;
+      const drag = fixture.debugElement
+        .queryAll(By.directive(CdkDrag))
+        .find((item) => item.nativeElement.contains(name))!;
+
+      name.dispatchEvent(pointer('pointerdown', 'mouse'));
+      drag.triggerEventHandler('cdkDragStarted', {});
+      name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      await fixture.whenStable();
+
+      expect(openDialog()).toBeNull();
     });
 
     it('opens a line whose every copy is queued on its first copy', async () => {
@@ -244,6 +305,23 @@ describe('plan tab', () => {
       expect(heading(openDialog()!, 'Island printing')).toBeDefined();
     });
 
+    it('shows the stacked card’s image while the large one loads', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const shivanCard = detailOpener(plan, 'Shivan Dragon')!;
+      tileLoaded(shivanCard, image('normal', 'shivan-id'));
+
+      shivanCard.click();
+      await fixture.whenStable();
+
+      expect(largePlaceholder(openDialog()!)?.getAttribute('src')).toBe(
+        image('normal', 'shivan-id'),
+      );
+    });
+
     it('offers Move on a card but no Remove, which its Card detail offers', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -343,6 +421,10 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(openDialog()).toBeNull());
 
       expect(detailOpener(tab, 'Shivan Dragon')).toBeUndefined();
+      // Its name has gone with it, so focus goes to the first card's.
+      expect(document.activeElement).toBe(
+        detailOpener(tab, 'Brightclimb Pathway // Grimclimb Pathway'),
+      );
     });
 
     it('stays open once the player picks the card, which is then a pick in the plan', async () => {

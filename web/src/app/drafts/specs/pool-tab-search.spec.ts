@@ -52,9 +52,22 @@ describe('pool tab', () => {
       expect(page.textContent).not.toContain('Loading the pool’s cards…');
     });
 
+    it('says nothing of matches when the pool’s cards can’t be loaded', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(null, {
+        status: 500,
+        statusText: 'Server Error',
+      });
+      await fixture.whenStable();
+
+      expect(page.textContent).not.toContain('No cards match');
+    });
+
     it('says so when no card matches the search', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
       expect(page.textContent).not.toContain('No cards match');
+      expect(page.textContent).not.toContain('Every card here has been picked.');
 
       await search(fixture, page, 't:goblin');
 

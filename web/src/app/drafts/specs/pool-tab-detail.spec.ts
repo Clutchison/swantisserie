@@ -152,6 +152,23 @@ describe('pool tab', () => {
       expect(document.activeElement).toBe(tiles(page)[1]);
     });
 
+    it('returns to the card’s tile, with picked cards hidden, when it closes without a pick', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        {},
+        { cards: [brightclimb, shivan] },
+      );
+      page.querySelector<HTMLInputElement>('.hide-picked input')!.click();
+      await fixture.whenStable();
+      tiles(page)[1].focus();
+      await openDetail(fixture, page, 1);
+
+      pressEscape();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(tiles(page)[1]);
+    });
+
     it('returns to the card’s tile when the grid has moved it to another', async () => {
       const { fixture, page } = await openFromTile(1);
 

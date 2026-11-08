@@ -776,8 +776,9 @@ export function viewOn(screen: 'desktop' | 'mobile') {
   breakpointListeners = [];
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: screen === 'desktop' && query === DESKTOP_QUERY,
-    addEventListener: (_type: 'change', listener: (event: { matches: boolean }) => void) => {
-      if (query === DESKTOP_QUERY) breakpointListeners.push(listener);
+    // Only a 'change' listener hears the breakpoint crossed, as in a browser.
+    addEventListener: (type: string, listener: (event: { matches: boolean }) => void) => {
+      if (query === DESKTOP_QUERY && type === 'change') breakpointListeners.push(listener);
     },
   }));
 }

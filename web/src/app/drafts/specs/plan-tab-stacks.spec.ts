@@ -69,6 +69,12 @@ describe('plan tab', () => {
         'Mainboard 3 (2 picked)',
         'Sideboard 1 (1 picked)',
       ]);
+      // Every stack as wide as the others: the mainboard's two share the width with the sideboard's.
+      expect(
+        plan
+          .querySelector<HTMLElement>('.plan-boards')!
+          .style.getPropertyValue('--mainboard-stacks'),
+      ).toBe('2');
     });
 
     it('shows the sideboard as one stack beside the mainboard, whatever the grouping, with lands last', async () => {

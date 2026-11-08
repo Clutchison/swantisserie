@@ -234,6 +234,35 @@ describe('plan tab', () => {
       '1 Brightclimb Pathway // Grimclimb Pathway',
       '2 Lightning Bolt',
     ]);
+    expect(statusMessage(plan, 'Shivan Dragon moved to the sideboard')).toBeUndefined();
+  });
+
+  it('clears the reason a change was refused once one is made', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/shivan-card')
+      .flush(
+        { error: 'not-in-plan', message: 'That card isn’t in your plan.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
+    await vi.waitFor(() => expect(plan.querySelector('[role="alert"]')).not.toBeNull());
+
+    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+      planOf({
+        mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+        sideboard: [planned(shivan)],
+      }),
+    );
+    await fixture.whenStable();
+
+    expect(plan.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('dims unpicked cards, marks them, counts them apart and offers to remove them', async () => {
@@ -507,6 +536,25 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(plan.querySelector('[role="alert"]')).not.toBeNull());
       await fixture.whenStable();
       expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard'));
+    });
+
+    it('keeps focus on a line’s Remove as one of its several copies goes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), unpicked(boltAgain)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const remove = button(plan, 'Remove Lightning Bolt from your plan')!;
+
+      remove.focus();
+      remove.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/bolt-card')
+        .flush(planOf({ mainboard: [planned(brightclimb), unpicked(boltAgain)] }));
+      await vi.waitFor(() => expect(planBoards(plan)[0].lines).toHaveLength(2));
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(button(plan, 'Remove Lightning Bolt from your plan'));
     });
 
     it('moves focus to the next line once removing a card’s last copy takes its line', async () => {
