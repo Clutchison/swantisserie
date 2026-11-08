@@ -179,20 +179,31 @@ export class YourMatches {
     const opponent = this.store.player(match.players.find((id) => id !== own)!);
     const { outcome } = match;
     const confirmable = match.confirmableBy.includes(own);
-    const [before, says] = this.single()
-      ? confirmable
-        ? [`Tournament round ${round}:`, reportedLine(match, own, opponent)]
-        : [`Tournament round ${round}: against`, opponent.name]
-      : // Stryker disable next-line StringLiteral: `before` shows only in "Your match"; round robin's lines never render it.
-        ['', this.says(match, own, opponent, confirmable)];
     return {
       match,
       opponent,
-      before,
-      says,
+      ...this.reads(round, match, own, opponent, confirmable),
       reportable: playing && outcome.kind === 'Unreported',
       confirmable,
     };
+  }
+
+  /** What the line of the player `own`'s `match`, in tournament round `round`, says before and after the opponent's avatar. */
+  private reads(
+    round: number,
+    match: MatchView,
+    own: string,
+    opponent: PlayerView,
+    confirmable: boolean,
+  ): Pick<OwnMatchLine, 'before' | 'says'> {
+    if (!this.single()) {
+      // Stryker disable next-line StringLiteral: `before` shows only in "Your match"; round robin's lines never render it.
+      const before = '';
+      return { before, says: this.says(match, own, opponent, confirmable) };
+    }
+    return confirmable
+      ? { before: `Tournament round ${round}:`, says: reportedLine(match, own, opponent) }
+      : { before: `Tournament round ${round}: against`, says: opponent.name };
   }
 
   /** How the player's `match` against `opponent` reads on its line in Your matches. */

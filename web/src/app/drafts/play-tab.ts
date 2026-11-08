@@ -278,21 +278,16 @@ export class PlayTab {
   );
 
   constructor() {
-    // Close the Complete round dialog, sending nothing, once it is stale:
-    // Complete round stops being offered once the tournament isn't playing,
-    // as when another organizer completes it, and the dialog's tournament
-    // round stops being current once another organizer completes or reopens
-    // a tournament round.
+    // Close the Complete round dialog, sending nothing, once it is stale,
+    // as it is once either of these changes, the only times the effect
+    // re-runs: Complete round stops being offered once the tournament isn't
+    // playing, as when another organizer completes or cancels it, and the
+    // dialog's tournament round stops being current once another organizer
+    // completes or reopens a tournament round.
     effect(() => {
-      const playing = this.organizePlay();
-      const round = this.currentRound();
-      untracked(() => {
-        const completing = this.completing;
-        // Stryker disable next-line ConditionalExpression,OptionalChaining: CDK sets componentInstance before `completing` is assigned; and the effect re-runs only once playing or the current round changes, so the condition can't be always true unseen.
-        if (completing && (!playing || completing.componentInstance?.round() !== round)) {
-          completing.close();
-        }
-      });
+      this.organizePlay();
+      this.currentRound();
+      untracked(() => this.completing?.close());
     });
   }
 
@@ -552,6 +547,7 @@ export class PlayTab {
 }
 
 /** Names joined as a sentence lists them, such as "Alice, Bob, and Carol". */
+// Stryker disable next-line ObjectLiteral: conjunction is Intl.ListFormat's default type, so `{}` lists names the same.
 const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
 
 /**

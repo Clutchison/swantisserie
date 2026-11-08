@@ -74,7 +74,8 @@ export class TournamentResults {
     computation: (tournament, previous) => {
       const open = previous?.value;
       if (!open || !this.lineById().get(open)?.organize) return undefined;
-      return sameOutcome(matchIn(previous.source, open), matchIn(tournament, open))
+      // Its line is in both reads, so its match is too.
+      return sameOutcome(matchIn(previous.source, open)!, matchIn(tournament, open)!)
         ? open
         : undefined;
     },
