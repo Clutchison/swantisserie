@@ -87,8 +87,9 @@ export class DraftStore {
   private readonly pollMs = inject(DRAFT_POLL_MS);
 
   /** The id of the open draft. */
+  // Stryker disable next-line ObjectLiteral: `paramMap` emits on subscribe, so the id is there at once either way.
   readonly id = toSignal(inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('id')!)), {
-    // Stryker disable next-line ObjectLiteral,BooleanLiteral: `paramMap` emits on subscribe, so the id is there at once either way.
+    // Stryker disable next-line BooleanLiteral: `paramMap` emits on subscribe, so the id is there at once either way.
     requireSync: true,
   });
 
@@ -597,9 +598,12 @@ export class DraftStore {
    * may have been served before the change was made.
    */
   private showAnswer<T>(resource: HttpResourceRef<T | undefined>, answer: T, sentFor?: number) {
-    if (this.version() === sentFor) resource.set(answer);
-    // Stryker disable next-line ConditionalExpression: `reload()` does nothing while the read is loading.
-    else if (!resource.isLoading()) resource.reload();
+    if (this.version() === sentFor) {
+      resource.set(answer);
+    } else {
+      // Stryker disable next-line ConditionalExpression: `reload()` does nothing while the read is loading.
+      if (!resource.isLoading()) resource.reload();
+    }
   }
 }
 
