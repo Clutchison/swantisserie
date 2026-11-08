@@ -230,7 +230,7 @@ function resultOf(
     // A granted win: only single elimination grants wins, and the grid is round robin's.
     // Stryker disable next-line ConditionalExpression: the grid never reaches here, as round robin never grants a win.
     default:
-      // Stryker disable next-line StringLiteral: the grid never reaches here, as round robin never grants a win.
+      // Stryker disable next-line StringLiteral,CallExpression: the grid never reaches here, as round robin never grants a win.
       throw new Error('Round robin never grants a win');
   }
 }
