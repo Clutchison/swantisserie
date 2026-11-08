@@ -93,6 +93,8 @@ describe('queueing the unpicked cards on the plan tab', () => {
 
     button(dialog()!, 'Queue 2 cards')!.click();
     const sent = http.expectOne('/api/drafts/draft-1/queue/unpicked');
+    await fixture.whenStable();
+    expect(button(dialog()!, 'Queue 2 cards')!.disabled).toBe(true);
     expect(sent.request.method).toBe('POST');
     expect(sent.request.body).toEqual({ includeSideboard: false });
     sent.flush(queueOf({ cards: [queued(bolt), queued(boltAgain)] }));

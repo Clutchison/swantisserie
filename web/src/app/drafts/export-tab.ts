@@ -76,6 +76,7 @@ export class ExportTab implements OnDestroy {
 
   /** The player's picks, in pick order. */
   protected readonly playerPicks = computed(() =>
+    // Stryker disable next-line OptionalChaining: playerPicks is only read inside the template's @if (player()).
     this.picks().filter((pick) => pick.playerId === this.player()?.id),
   );
 
@@ -113,7 +114,9 @@ export class ExportTab implements OnDestroy {
   /** The latest copy attempt, so that an earlier or cleared one can't report how it went. */
   private latestCopy = 0;
 
+  // Stryker disable next-line BlockStatement: the leftover timer only sets copied on a destroyed component.
   ngOnDestroy() {
+    // Stryker disable next-line CallExpression: the leftover timer only sets copied on a destroyed component.
     clearTimeout(this.confirmationTimer);
   }
 
@@ -153,6 +156,7 @@ export class ExportTab implements OnDestroy {
   }
 
   private clearConfirmation() {
+    // Stryker disable next-line CallExpression: confirm() clears the timer itself before restarting it, and meanwhile it only sets null over null.
     clearTimeout(this.confirmationTimer);
     this.copied.set(null);
   }

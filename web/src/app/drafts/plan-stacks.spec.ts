@@ -39,7 +39,14 @@ describe('plan stacks', () => {
       colors: [],
       typeLine: 'Artifact Creature — Thopter',
     });
-    const cards = [mountain, ornithopter, bolt, shivan, ulamog];
+    const platinum = card({
+      id: 'platinum',
+      name: 'Platinum Angel',
+      manaValue: 7,
+      colors: [],
+      typeLine: 'Artifact Creature — Angel',
+    });
+    const cards = [mountain, ornithopter, bolt, shivan, platinum, ulamog];
 
     expect(
       named(
@@ -53,7 +60,7 @@ describe('plan stacks', () => {
       '0: Ornithopter',
       '1: Lightning Bolt',
       '6: Shivan Dragon',
-      '7+: Ulamog, the Ceaseless Hunger',
+      '7+: Platinum Angel, Ulamog, the Ceaseless Hunger',
       'Lands: Mountain',
     ]);
   });
@@ -161,6 +168,15 @@ describe('plan stacks', () => {
       'Enchantment: Ensoul Artifact',
       'Battle: Invasion of Zendikar // Awakened Skyclave',
       'Land: Mountain',
+    ]);
+  });
+
+  it('counts a card whose pool card is unknown as colorless', () => {
+    const unknown: PlannedCardView = { poolCardId: 'unknown', name: 'Unknown Card', picked: true };
+
+    expect(named(stacks([unknown, planned(bolt)], 'color', pool(bolt)))).toEqual([
+      'R: Lightning Bolt',
+      'Colorless: Unknown Card',
     ]);
   });
 

@@ -77,7 +77,9 @@ export class QueueUnpickedDialog {
       );
     } catch (err) {
       error = changeFailure(err, QUEUE_FAILED);
+      // Stryker disable next-line BlockStatement: the dialog closes right after, so sending is never seen again.
     } finally {
+      // Stryker disable next-line BooleanLiteral: the dialog closes right after, so sending is never seen again.
       this.sending.set(false);
     }
     this.dialogRef.close({ error });

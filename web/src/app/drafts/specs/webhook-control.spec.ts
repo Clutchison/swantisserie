@@ -192,19 +192,37 @@ describe('changing a draft’s webhook', () => {
     expect(optionNames(control(page)!)).toEqual(['#roto-main', 'None']);
   });
 
-  it('goes back to the current webhook when the save fails', async () => {
+  it('goes back to the current webhook when the save fails, saying only that it failed', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, { webhook: main });
 
+    choose(control(page)!, '#roto-other');
+    http
+      .expectOne('/api/drafts/draft-1/webhook')
+      .flush(
+        { statusCode: 500, message: 'Internal server error' },
+        { status: 500, statusText: 'Server Error' },
+      );
+    await fixture.whenStable();
+
+    expect(page.querySelector('.webhook-control [role="alert"]')?.textContent?.trim()).toBe(
+      "Couldn't change the webhook. Try again in a moment.",
+    );
+    expect(shownOption(control(page)!)).toBe('#roto-main');
+  });
+
+  it('clears the failure once a save works', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { webhook: main, version: 3 });
     choose(control(page)!, '#roto-other');
     http
       .expectOne('/api/drafts/draft-1/webhook')
       .flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    expect(page.querySelector('.webhook-control [role="alert"]')?.textContent).toContain(
-      "Couldn't change the webhook. Try again in a moment.",
-    );
-    expect(shownOption(control(page)!)).toBe('#roto-main');
+    choose(control(page)!, '#roto-other');
+    http.expectOne('/api/drafts/draft-1/webhook').flush(draft({ webhook: other, version: 4 }));
+    await fixture.whenStable();
+
+    expect(page.querySelector('.webhook-control [role="alert"]')).toBeNull();
   });
 
   describe('when a webhook is gone', () => {
@@ -244,6 +262,7 @@ describe('changing a draft’s webhook', () => {
 
     const select = control(page)!;
     expect(shownOption(select)).toBe('#roto-main');
+    expect(optionNames(select)).toEqual(['#roto-main', 'None']);
     expect(select.disabled).toBe(true);
     expect(page.querySelector('.webhook-control')?.textContent).toContain(
       "Couldn't load the webhooks.",

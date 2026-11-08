@@ -91,6 +91,7 @@ export class QueueTab {
    */
   protected readonly cutoffIndex = computed(() => {
     const left = this.picksLeft();
+    // Stryker disable next-line ConditionalExpression,LogicalOperator,EqualityOperator: the cutoff is only drawn at index left, which exists only when the queue is longer than left.
     return left !== null && this.queue().cards.length > left ? left : null;
   });
 
@@ -150,7 +151,12 @@ export class QueueTab {
         );
       },
       {
-        keep: [`${to > from ? 'up' : 'down'} ${poolCardId}`, `remove ${poolCardId}`],
+        keep: [
+          // Stryker disable next-line EqualityOperator: move returns early when to equals from.
+          `${to > from ? 'up' : 'down'} ${poolCardId}`,
+          // Stryker disable next-line StringLiteral: the card's other move button is always there when the pressed one goes, so the Remove fallback is never reached.
+          `remove ${poolCardId}`,
+        ],
         status: `${name} moved to position ${to + 1} in your queue`,
         // Put the card back, so focus can go back to the button pressed.
         rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
@@ -162,6 +168,7 @@ export class QueueTab {
   protected remove(poolCardId: string) {
     const cards = this.queue().cards;
     const at = cards.findIndex((card) => card.poolCardId === poolCardId);
+    // Stryker disable next-line ArithmeticOperator: removing the last card leaves no keep, and focus falls back to the nearest control before, the previous row's Remove.
     const neighbours = [cards[at + 1], cards[at - 1]].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
       keep: neighbours.map((card) => `remove ${card.poolCardId}`),

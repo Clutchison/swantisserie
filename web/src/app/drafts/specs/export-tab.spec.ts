@@ -12,6 +12,7 @@ import {
   alicePlayer,
   tabButton,
   panel,
+  panelName,
   openDraft,
   flushPool,
   flushQueue,
@@ -646,6 +647,104 @@ describe('export tab', () => {
 
         expect(shownLabel(exportCopyButton(page))).toBe('Copy for Arena');
       });
+    });
+
+    /** Has each copy from now on wait until the test settles it, and returns their settlers in order. */
+    function holdCopies() {
+      const held: { resolve: () => void; reject: (err: Error) => void }[] = [];
+      writeText.mockImplementation(
+        () => new Promise<void>((resolve, reject) => held.push({ resolve, reject })),
+      );
+      return held;
+    }
+
+    /** Lets the `index`th copy, once settled, report how it went. */
+    async function settled(opened: { fixture: { whenStable(): Promise<unknown> } }, index: number) {
+      await Promise.allSettled([writeText.mock.results[index]!.value]);
+      await opened.fixture.whenStable();
+    }
+
+    it('shows no copy failure on opening the Export tab straight from its URL', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        {
+          state: 'Drafting',
+          players: [bob, alicePlayer],
+          turn: { pick: 4, round: 2, playerId: bob.id },
+        },
+        { cards: cardsOf(picks), picks: picksOf(picks), url: '/drafts/draft-1?tab=export' },
+      );
+
+      expect(panelName(page)).toBe('Export');
+      expect(panel(page).querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('keeps the button confirmed, without a flicker, while it copies again', async () => {
+      const opened = await openExport(picks);
+      await copyFor(opened);
+      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+
+      holdCopies();
+      await copyFor(opened);
+
+      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+    });
+
+    it('takes the confirmation off a confirmed button whose next copy fails', async () => {
+      const opened = await openExport(picks);
+      await copyFor(opened);
+      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+
+      writeText.mockRejectedValue(new Error('denied'));
+      await copyFor(opened);
+
+      expect(panel(opened.page).querySelector('[role="alert"]')).not.toBeNull();
+      expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
+    });
+
+    it('ignores an earlier copy failing once a later one has started', async () => {
+      const opened = await openExport(picks);
+      const held = holdCopies();
+      await copyFor(opened);
+      await copyFor(opened, 'Moxfield');
+      held[1].resolve();
+      await settled(opened, 1);
+
+      held[0].reject(new Error('denied'));
+      await settled(opened, 0);
+
+      expect(panel(opened.page).querySelector('[role="alert"]')).toBeNull();
+      expect(shownLabel(copyButton(opened.page, 'Moxfield')!)).toBe('Copied');
+    });
+
+    it('ignores a copy failing after the panel has closed', async () => {
+      const opened = await openExport(picks);
+      const held = holdCopies();
+      await copyFor(opened);
+
+      tabButton(opened.page, 'Pool').click();
+      await opened.fixture.whenStable();
+      held[0].reject(new Error('denied'));
+      await settled(opened, 0);
+
+      expect(exportPanel(opened.page).querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('confirms none of the copies started before the panel closed and opened again', async () => {
+      const opened = await openExport(picks);
+      const held = holdCopies();
+      await copyFor(opened);
+      await copyFor(opened);
+      tabButton(opened.page, 'Pool').click();
+      await opened.fixture.whenStable();
+      tabButton(opened.page, 'Export').click();
+      await opened.fixture.whenStable();
+      await copyFor(opened);
+
+      held[0].resolve();
+      await settled(opened, 0);
+
+      expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
     });
 
     it('clears the failure alert on the next copy attempt', async () => {
