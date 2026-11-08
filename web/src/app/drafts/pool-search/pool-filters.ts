@@ -23,6 +23,7 @@ const COLORS: ColorChoice[] = ['W', 'U', 'B', 'R', 'G'];
 export function colorFilterSearch(pressed: ReadonlySet<ColorChoice>): string {
   const letters = COLORS.filter((color) => pressed.has(color)).map((color) => color.toLowerCase());
   const colorless = pressed.has('C') ? ['-c>=1'] : [];
+  // Stryker disable next-line StringLiteral: the array holds at most one search.
   if (!letters.length) return colorless.join('');
   const options = [...letters.map((letter) => `c:${letter}`), ...colorless];
   return `(${options.join(' or ')}) c<=${letters.join('')}`;
@@ -35,6 +36,7 @@ const POOL_FILTERS: ((state: PoolFilterState) => string)[] = [
 
 /** Whether any pool filter is narrowing the cards. */
 export function poolFilterActive(state: PoolFilterState): boolean {
+  // Stryker disable next-line MethodExpression: `POOL_FILTERS` holds one pool filter today; this stops being harmless once `POOL_FILTERS` holds a second.
   return POOL_FILTERS.some((filter) => filter(state) !== '');
 }
 
@@ -45,6 +47,7 @@ export function applyPoolFilters<C extends PoolSearchCard>(
 ): C[] {
   return POOL_FILTERS.reduce((remaining, filter) => {
     const result = searchPool(remaining, filter(state));
+    // Stryker disable next-line ConditionalExpression,StringLiteral,CallExpression: `colorFilterSearch` only writes valid searches, so this never fires.
     if (!result.ok) throw new Error(`Bad pool filter search: ${result.error.message}`);
     return result.cards;
   }, cards);

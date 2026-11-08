@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import { answer, question } from '../../specs-harness';
 import {
   ALL_POWERS,
@@ -12,11 +13,15 @@ import {
   draft,
   drafting,
   flushPicks,
+  flushPool,
   heading,
   http,
   openDraft,
+  openUrl,
   panel,
   panelName,
+  powersAnswer,
+  router,
   text,
   updates,
   useDraftsApp,
@@ -137,6 +142,45 @@ describe('Play tab', () => {
       });
 
       expect(panelName(page)).toBe('Play');
+    });
+
+    describe('asked for by URL while the viewer’s draft powers load', () => {
+      beforeEach(() => powersAnswer(null));
+
+      /** Opens the complete draft's Play tab by URL as Dave, who isn't a player, and returns his powers' request. */
+      async function openWhilePowersLoad() {
+        const opened = await openUrl('/drafts/draft-1?tab=play', dave);
+        http
+          .expectOne('/api/drafts/draft-1')
+          .flush(draft({ snapshot: completeSnapshot, ...complete }));
+        const powers = http.expectOne('/api/drafts/draft-1/powers');
+        await flushPool();
+        await flushPicks([]);
+        // Not whenStable: the page isn't stable while the powers are on their way.
+        TestBed.tick();
+        return { ...opened, powers };
+      }
+
+      it('stands while they load, then opens for an organizer', async () => {
+        const { fixture, page, powers } = await openWhilePowersLoad();
+        expect(router.url).toBe('/drafts/draft-1?tab=play');
+
+        powers.flush(ORGANIZE_ONLY);
+        await fixture.whenStable();
+
+        expect(hasPlayTab(page)).toBe(true);
+        expect(panelName(page)).toBe('Play');
+      });
+
+      it('goes back to the Pool tab when they can’t be read', async () => {
+        const { fixture, page, powers } = await openWhilePowersLoad();
+
+        powers.flush(null, { status: 500, statusText: 'Server Error' });
+        await fixture.whenStable();
+
+        expect(router.url).toBe('/drafts/draft-1');
+        expect(panelName(page)).toBe('Pool');
+      });
     });
 
     it('shows why setup was refused', async () => {
