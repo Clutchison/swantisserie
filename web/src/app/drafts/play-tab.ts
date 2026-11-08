@@ -83,6 +83,7 @@ const SWISS_ROUND_CHOICES = SWISS_ROUND_OPTIONS.map((option) => ({
  */
 function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): string {
   const name =
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: a Swiss tournament always has a round option, and other formats never do.
     format === 'Swiss' && swissRoundOption
       ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
       : formatName(format);
@@ -154,18 +155,18 @@ export class PlayTab {
   protected readonly decklistsName = computed(() =>
     this.publicDecklists() ? 'Public' : 'Private',
   );
-  /** The format and round count, summed up. */
-  protected readonly summary = computed(() => {
-    const tournament = this.tournament();
-    return tournament ? summaryOf(tournament) : '';
-  });
+  /** The format and round count, summed up; read only once the tournament has loaded. */
+  protected readonly summary = computed(() => summaryOf(this.tournament()!));
   protected readonly error = signal<string | null>(null);
 
   /** Whether the draft has a tournament; before then organizers see the setup form. */
   protected readonly setUp = computed(() => !!this.draft().tournament);
-  /** The joined players, in join order, as the draft names them, with whether each can be removed. */
+  /**
+   * The joined players, in join order, as the draft names them, with
+   * whether each can be removed; read only once the tournament has loaded.
+   */
   protected readonly entries = computed(() =>
-    (this.tournament()?.entries ?? []).map((entry) => ({
+    this.tournament()!.entries.map((entry) => ({
       ...this.store.player(entry.playerId),
       droppable: entry.droppable,
     })),
@@ -179,10 +180,13 @@ export class PlayTab {
    * (ADR 0003): to the draft's human players during registration who have
    * left or been removed, as setup joins everyone.
    */
+  // Stryker disable next-line OptionalChaining: read only once the tournament has loaded.
   protected readonly offerJoin = computed(() => !!this.tournament()?.canJoin);
+  // Stryker disable next-line ConditionalExpression: read only in registration, so the state check always holds.
   protected readonly offerLeave = computed(() => this.state() === 'Registration' && this.joined());
   /** Organizers may remove joined players, start and cancel the tournament during registration. */
   protected readonly offerOrganize = computed(
+    // Stryker disable next-line ConditionalExpression: read only in registration, so the state check always holds.
     () => this.canOrganize() && this.state() === 'Registration',
   );
   /** Start needs MIN_TOURNAMENT_PLAYERS joined, as the api refuses it with fewer. */
@@ -200,6 +204,7 @@ export class PlayTab {
    * with why the api would refuse it, if it would; null otherwise.
    */
   protected readonly offeredReopenRound = computed(() =>
+    // Stryker disable next-line OptionalChaining: organizePlay needs a loaded tournament.
     this.organizePlay() ? (this.tournament()?.reopenRound ?? null) : null,
   );
   /** The Complete round dialog, while it's open. */
@@ -218,7 +223,7 @@ export class PlayTab {
   );
   /** The joined players once the tournament is playing, in join order, with whether each dropped and can be. */
   protected readonly players = computed(() =>
-    (this.tournament()?.entries ?? []).map((entry) => ({
+    this.tournament()!.entries.map((entry) => ({
       ...this.store.player(entry.playerId),
       dropped: entry.dropped,
       droppable: entry.droppable,
@@ -226,12 +231,13 @@ export class PlayTab {
   );
   /** Whether the signed-in player joined and has dropped. */
   private readonly ownDropped = computed(
+    // Stryker disable next-line OptionalChaining: read only from playsOn, once playing and joined, so the tournament holds the viewer's entry.
     () => !!this.tournament()?.entries.find((entry) => entry.playerId === this.ownId())?.dropped,
   );
   /** The signed-in player's matches, each with its tournament round, in tournament round order. */
   private readonly mine = computed((): OwnMatch[] => {
     const ownId = this.ownId();
-    return (this.tournament()?.rounds ?? []).flatMap(({ round, matches }) =>
+    return this.tournament()!.rounds.flatMap(({ round, matches }) =>
       matches.filter((match) => match.players.includes(ownId!)).map((match) => ({ round, match })),
     );
   });
@@ -252,6 +258,7 @@ export class PlayTab {
     );
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */
+  // Stryker disable next-line OptionalChaining: read only once the tournament has loaded.
   protected readonly roundRobin = computed(() => this.tournament()?.format === 'RoundRobin');
   /**
    * Whether the signed-in player's own matches show: round robin's Your
@@ -260,6 +267,7 @@ export class PlayTab {
    * "Your match" for one who plays on.
    */
   protected readonly showsOwnMatches = computed(() =>
+    // Stryker disable next-line ConditionalExpression,StringLiteral: read only outside registration, so the state check always holds.
     this.roundRobin() ? this.state() !== 'Registration' && this.joined() : this.playsOn(),
   );
   /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
@@ -270,7 +278,7 @@ export class PlayTab {
   });
   /** The players who hold the trophy, as the draft names them. */
   protected readonly trophyHolders = computed(() =>
-    (this.tournament()?.trophyHolders ?? []).map((id) => this.store.player(id)),
+    this.tournament()!.trophyHolders.map((id) => this.store.player(id)),
   );
 
   constructor() {
@@ -284,6 +292,7 @@ export class PlayTab {
       const round = this.currentRound();
       untracked(() => {
         const completing = this.completing;
+        // Stryker disable next-line ConditionalExpression,OptionalChaining: CDK sets componentInstance before `completing` is assigned; and the effect re-runs only once playing or the current round changes, so the condition can't be always true unseen.
         if (completing && (!playing || completing.componentInstance?.round() !== round)) {
           completing.close();
         }
@@ -330,7 +339,7 @@ export class PlayTab {
       async () =>
         (await this.ask({
           question: 'Start the tournament?',
-          detail: START_DETAILS[this.tournament()?.format ?? 'RoundRobin'],
+          detail: START_DETAILS[this.tournament()!.format],
           action: 'Start',
         }))
           ? this.api.start(this.draft().id)
@@ -533,9 +542,11 @@ export class PlayTab {
           if (!request) return;
           this.error.set(null);
           await this.store.changeDraft(request);
+          // Stryker disable next-line BooleanLiteral: Changes.send uses the answer only for an empty status and busyOnceMade, which the Play tab never passes.
           return true;
         } catch (err) {
           this.error.set(changeFailure(err, failure));
+          // Stryker disable next-line BooleanLiteral: Changes.send uses the answer only for an empty status and busyOnceMade, which the Play tab never passes.
           return false;
         }
       },

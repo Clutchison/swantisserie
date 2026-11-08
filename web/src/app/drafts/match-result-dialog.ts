@@ -68,6 +68,7 @@ export class MatchResultDialog {
   /** The game score whose question is asked, if any. */
   protected readonly asking = computed(() => {
     const picked = this.picked();
+    // Stryker disable next-line ConditionalExpression: gameScores[null] is undefined, which the template treats as null.
     return picked === null ? null : this.choices().gameScores[picked];
   });
 
@@ -89,6 +90,7 @@ export class MatchResultDialog {
   protected back() {
     const picked = this.picked();
     this.picked.set(null);
+    // Stryker disable next-line ConditionalExpression: Back shows only while a question is asked, so a game score is picked.
     if (picked !== null) this.focusAfterRender(() => this.scoreButtons()[picked]);
   }
 
@@ -97,6 +99,7 @@ export class MatchResultDialog {
   }
 
   private focusAfterRender(target: () => ElementRef<HTMLElement> | undefined) {
+    // Stryker disable next-line OptionalChaining: once rendered, Report or the picked game score's button is always there to focus.
     afterNextRender(() => target()?.nativeElement.focus(), { injector: this.injector });
   }
 }

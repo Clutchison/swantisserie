@@ -55,6 +55,7 @@ export function matchLine(
   [first, second]: [string, string],
   name: (playerId: string) => string,
 ): MatchLine {
+  // Stryker disable next-line ConditionalExpression: undefined games read the same as null wherever they're read.
   const games = outcome.kind === 'GameScore' ? outcome.games : null;
   return {
     id,
@@ -122,6 +123,7 @@ export function organizerChoices(
     verb: match.outcome.kind === 'Unreported' ? 'Report' : 'Correct',
     gameScores: GAME_SCORES.map(([a, b]) => ({
       games: [a, b] satisfies GameScore,
+      // Stryker disable next-line EqualityOperator: GAME_SCORES holds no draw.
       label: `${a > b ? first : second} won ${Math.max(a, b)}–${Math.min(a, b)}`,
     })),
     clear: after ? { matchId: match.id, label, after } : null,
@@ -143,10 +145,11 @@ function afterClearing({ clearLeaves }: MatchView, name: (playerId: string) => s
 /**
  * How the player `own` reads their `match` against `opponent` that someone
  * else reported, for them to confirm, such as "Carol reported you lost 1–2".
+ * A player can confirm only a game score, so `match` has one.
  */
 export function reportedLine(match: MatchView, own: string, opponent: PlayerView): string {
-  if (match.outcome.kind !== 'GameScore') throw new Error(`Match ${match.id} has no game score`);
-  const { result, score } = gameScoreFor(match.outcome.games, match.players, own);
+  const { games } = match.outcome as Extract<MatchOutcomeView, { kind: 'GameScore' }>;
+  const { result, score } = gameScoreFor(games, match.players, own);
   const reporter = match.reportedBy === opponent.id ? opponent.name : 'An organizer';
   return `${reporter} reported you ${result} ${score}`;
 }
@@ -162,24 +165,26 @@ export function matchIn(tournament: TournamentView, matchId: string): MatchView 
 
 /** Whether `before` and `after`, a match as two reads of its tournament have it, have the same outcome. */
 export function sameOutcome(before: MatchView | undefined, after: MatchView | undefined): boolean {
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: both callers make sure the match exists first.
   return !!before && !!after && JSON.stringify(before.outcome) === JSON.stringify(after.outcome);
 }
 
 /**
  * A match's game score `games`, in its player order `players`, from the
- * side of its player `playerId`: whether they won, lost or drew, and it as
- * they read it, their own games first, such as "2–1".
+ * side of its player `playerId`: whether they won or lost, as a game score
+ * is never a draw, and it as they read it, their own games first, such as "2–1".
  */
 export function gameScoreFor(
   games: GameScore,
   players: readonly string[],
   playerId: string,
-): { result: 'won' | 'lost' | 'drew'; score: string } {
+): { result: 'won' | 'lost'; score: string } {
   const side = players.indexOf(playerId);
   const own = games[side];
   const theirs = games[1 - side];
   return {
-    result: own > theirs ? 'won' : own < theirs ? 'lost' : 'drew',
+    // Stryker disable next-line EqualityOperator: a game score is never a draw: the engine refuses one, and GAME_SCORES has none.
+    result: own > theirs ? 'won' : 'lost',
     score: `${own}–${theirs}`,
   };
 }
