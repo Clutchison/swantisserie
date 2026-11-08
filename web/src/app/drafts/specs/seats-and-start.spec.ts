@@ -21,7 +21,9 @@ import {
   poolCardOf,
   tabButton,
   panel,
-  heading,
+  pickImportPreview,
+  pickImportProblems,
+  serverError,
   type AppFixture,
   ORGANIZE_ONLY,
   powersAnswer,
@@ -145,10 +147,7 @@ describe('seats and start', () => {
     const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
     button(page, 'Start draft')!.click();
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(null, {
-      status: 500,
-      statusText: 'Server Error',
-    });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(null, serverError);
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(START_FAILED));
@@ -162,18 +161,7 @@ describe('seats and start', () => {
     /** The hidden file input that Import picks opens the file picker for. */
     const fileInput = (page: HTMLElement) =>
       page.querySelector<HTMLInputElement>('input[type="file"][aria-label="Import picks"]')!;
-    /** The preview of the file chosen, a status headed Import picks; undefined if none shows. */
-    const previewIn = (page: HTMLElement) =>
-      [...page.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-        heading(status, 'Import picks'),
-      );
-    /** The problems listed with the file chosen, in order. */
-    const listedProblems = (page: HTMLElement) =>
-      [...page.querySelectorAll('[role="alert"]')]
-        .filter((alert) => alert.textContent?.includes("This file can't be imported:"))
-        .flatMap((alert) => [...alert.querySelectorAll('li')].map((li) => li.textContent));
-
-    /** Answers the page's catch-up re-read of the draft, if it sends one. */
+    /** The page's catch-up re-reads of the draft, taken so none is left to answer; none if it sent none. */
     const catchUps = () => http.match({ url: '/api/drafts/draft-1', method: 'GET' });
 
     /** Chooses a made-up file and answers its preview with `answer`. */
@@ -208,7 +196,7 @@ describe('seats and start', () => {
     /** The answer's handling isn't tracked by stability, so wait for it to show. */
     const shownPreview = (page: HTMLElement) =>
       vi.waitFor(() => {
-        const shown = previewIn(page);
+        const shown = pickImportPreview(page);
         if (!shown) throw new Error('No preview yet');
         return shown;
       });
@@ -273,7 +261,7 @@ describe('seats and start', () => {
         );
 
         await vi.waitFor(() => {
-          expect(previewIn(page)).toBeUndefined();
+          expect(pickImportPreview(page)).toBeUndefined();
           expect(button(page, 'Import picks')).toBeUndefined();
         });
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
@@ -326,11 +314,11 @@ describe('seats and start', () => {
         );
 
         await vi.waitFor(() =>
-          expect(listedProblems(page)).toEqual([
+          expect(pickImportProblems(page)).toEqual([
             'The file has 2 player columns, but the draft has 3 players.',
           ]),
         );
-        expect(previewIn(page)).toBeUndefined();
+        expect(pickImportPreview(page)).toBeUndefined();
       });
 
       it('says the import failed when it fails without a refusal, keeping the preview, until it goes through', async () => {
@@ -339,7 +327,7 @@ describe('seats and start', () => {
         await confirmImport(page, { message: 'Internal server error' }, 500);
         await fixture.whenStable();
         await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(IMPORT_FAILED));
-        expect(previewIn(page)).toBeDefined();
+        expect(pickImportPreview(page)).toBeDefined();
         expect(catchUps()).toEqual([]);
 
         await confirmImport(
@@ -377,7 +365,7 @@ describe('seats and start', () => {
       );
 
       await vi.waitFor(() =>
-        expect(listedProblems(page)).toEqual([
+        expect(pickImportProblems(page)).toEqual([
           'Unknown Card isn’t in this draft’s pool.',
           'Ash Golem appears more than once.',
         ]),
@@ -396,12 +384,12 @@ describe('seats and start', () => {
         } satisfies PickImportRefusal,
         422,
       );
-      await vi.waitFor(() => expect(listedProblems(page)).toHaveLength(1));
+      await vi.waitFor(() => expect(pickImportProblems(page)).toHaveLength(1));
 
       await chooseFile(fixture, page, preview);
       await shownPreview(page);
 
-      expect(listedProblems(page)).toEqual([]);
+      expect(pickImportProblems(page)).toEqual([]);
     });
 
     it('opens the file picker on Import picks, unless another change is in flight', async () => {
@@ -415,17 +403,17 @@ describe('seats and start', () => {
       const start = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'));
       button(page, 'Import picks')!.click();
       expect(filePicker).toHaveBeenCalledTimes(1);
-      start.flush(null, { status: 500, statusText: 'Server Error' });
+      start.flush(null, serverError);
       await fixture.whenStable();
     });
 
     it('forgets an earlier failure once a file is previewed', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       button(page, 'Start draft')!.click();
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(
+        null,
+        serverError,
+      );
       await fixture.whenStable();
       await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(START_FAILED));
 
@@ -461,7 +449,7 @@ describe('seats and start', () => {
       updates.events.next({ type: 'changed', draft: draft({ players: [alicePlayer, bob] }) });
       await fixture.whenStable();
 
-      expect(previewIn(page)).toBeDefined();
+      expect(pickImportPreview(page)).toBeDefined();
     });
 
     it('says a file is too large, whoever refused it', async () => {
@@ -489,7 +477,7 @@ describe('seats and start', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(previewIn(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeUndefined();
     });
 
     it('is offered only to a viewer who may organize', async () => {

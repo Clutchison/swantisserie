@@ -15,6 +15,7 @@ import {
   namedList,
   openUrl,
   typeInto,
+  wait,
   webhooksAnswer,
 } from './harness';
 
@@ -46,6 +47,9 @@ const mir: SetOptionView = {
   cards: 335,
   sublists: [],
 };
+
+/** The request for the sets on Arena, the platform the form starts on. */
+const ARENA_SETS = '/api/sets?platform=Arena';
 
 const catalog = (sets: SetOptionView[], counting = false): SetCatalogView => ({ sets, counting });
 
@@ -260,14 +264,14 @@ describe('choosing a set list on the create form', () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
-    const first = await vi.waitFor(() => http.expectOne('/api/sets?platform=Arena'));
+    const first = await vi.waitFor(() => http.expectOne(ARENA_SETS));
     await vi.waitFor(() => {
       TestBed.tick();
       expect(page.textContent).toContain('Loading the sets on Arena…');
     });
 
     first.flush(catalog([otj], true));
-    const again = await vi.waitFor(() => http.expectOne('/api/sets?platform=Arena'));
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS));
     TestBed.tick();
 
     expect(page.textContent).not.toContain('Loading the sets');
@@ -282,21 +286,24 @@ describe('choosing a set list on the create form', () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
-    (await vi.waitFor(() => http.expectOne('/api/sets?platform=Arena'))).flush(
-      catalog([otj], true),
-    );
-    // Once the answer shows, the next ask is due in a moment.
-    await fixture.whenStable();
-    expect(page.textContent).toContain('Still counting cards on Scryfall');
+    const arena = await vi.waitFor(() => http.expectOne(ARENA_SETS));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      arena.flush(catalog([otj], true));
+      await fixture.whenStable();
+      expect(page.textContent).toContain('Still counting cards on Scryfall');
 
-    // Answered before the ask on Arena falls due, so that it would ask again on MTGO.
-    choosePlatform(page, 'MTGO');
-    TestBed.tick();
-    http.expectOne('/api/sets?platform=MTGO').flush(catalog([mkm]));
-    await fixture.whenStable();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+      // Answered before the ask on Arena falls due, so that a stale ask would go to MTGO.
+      choosePlatform(page, 'MTGO');
+      TestBed.tick();
+      http.expectOne('/api/sets?platform=MTGO').flush(catalog([mkm]));
+      await fixture.whenStable();
+      wait(10);
 
-    http.expectNone('/api/sets?platform=MTGO');
+      http.expectNone('/api/sets?platform=MTGO');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('says while the sets are still being counted, and asks again until they are', async () => {
@@ -334,7 +341,7 @@ describe('choosing a set list on the create form', () => {
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
 
-    (await vi.waitFor(() => http.expectOne('/api/sets?platform=Arena'))).flush(
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS))).flush(
       { error: 'scryfall-unavailable', message: 'Scryfall could not be reached.' },
       { status: 502, statusText: 'Bad Gateway' },
     );

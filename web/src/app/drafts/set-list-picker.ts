@@ -22,9 +22,11 @@ import {
 import { setListText } from './drafts';
 import { setsMatching } from './set-search';
 
+// Stryker disable next-line StringLiteral: `InjectionToken` treats a falsy `providedIn` as 'root'.
+const PROVIDED_IN = 'root';
 /** How often to ask again for the sets while the api is still counting their cards. */
 export const SET_CATALOG_POLL_MS = new InjectionToken<number>('SET_CATALOG_POLL_MS', {
-  providedIn: 'root',
+  providedIn: PROVIDED_IN,
   factory: () => 3000,
 });
 

@@ -2,6 +2,7 @@ import { answer, question } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
+  serverError,
   alertIn,
   alice,
   draft,
@@ -148,10 +149,10 @@ describe('close and reopen', () => {
 
       button(page, label)!.click();
       await answer(await question(asked), label);
-      (await vi.waitFor(() => http.expectOne(`/api/drafts/draft-1/${change}`))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne(`/api/drafts/draft-1/${change}`))).flush(
+        null,
+        serverError,
+      );
       await fixture.whenStable();
 
       await vi.waitFor(() =>

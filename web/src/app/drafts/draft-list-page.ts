@@ -53,8 +53,7 @@ export class DraftListPage {
    * complete draft listed there, its tournament's.
    */
   protected listedState(draft: DraftListItemView): string {
-    // Stryker disable next-line OptionalChaining: the badge is read only once `tournamentUnderWay` has found one.
-    return tournamentUnderWay(draft) ? `Tournament: ${draft.tournamentBadge?.state}` : draft.state;
+    return tournamentUnderWay(draft) ? `Tournament: ${draft.tournamentBadge!.state}` : draft.state;
   }
 
   /**

@@ -141,9 +141,10 @@ function problemFrom(err: unknown): DraftProblem {
   if (err instanceof HttpErrorResponse && typeof err.error?.message === 'string') {
     return err.error as DraftCreationProblem;
   }
+  // Stryker disable next-line StringLiteral: the template branches only on `not-on-platform` and `query-rejected`, and shows the message alone otherwise.
+  const error = 'request-failed';
   return {
-    // Stryker disable next-line StringLiteral: the template branches only on `not-on-platform` and `query-rejected`, and shows the message alone otherwise.
-    error: 'request-failed',
+    error,
     message: 'Creating the draft failed. Check your connection and try again.',
   };
 }

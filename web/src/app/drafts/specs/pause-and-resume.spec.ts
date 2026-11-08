@@ -1,6 +1,7 @@
 import type { PauseRefusal } from 'contract';
 import {
   useDraftsApp,
+  serverError,
   alertIn,
   alice,
   draft,
@@ -85,7 +86,7 @@ describe('pause and resume', () => {
     button(page, 'Resume draft')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/resume'))).flush(
       { message: 'Internal server error' },
-      { status: 500, statusText: 'Server Error' },
+      serverError,
     );
     await fixture.whenStable();
     await vi.waitFor(() =>
@@ -161,10 +162,7 @@ describe('pause and resume', () => {
 
     button(page, 'Pause draft')!.focus();
     button(page, 'Pause draft')!.click();
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'))).flush(null, {
-      status: 500,
-      statusText: 'Server Error',
-    });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'))).flush(null, serverError);
     await fixture.whenStable();
 
     await vi.waitFor(() =>

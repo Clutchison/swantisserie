@@ -165,7 +165,10 @@ export class LobbyControls {
         playerIds,
       } satisfies SeatOrderRequest),
       {
-        keep: [`${by === 1 ? 'earlier' : 'later'} ${id}`],
+        // A player moved to the last seat keeps focus on their Move earlier. One moved
+        // to the first seat needs no key: the control after their Move earlier, which
+        // focus falls to, is their Move later.
+        keep: [`earlier ${id}`],
         status: `${name} moved to seat ${index + by + 1}`,
       },
     );

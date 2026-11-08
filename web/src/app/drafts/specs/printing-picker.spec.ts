@@ -30,7 +30,7 @@ import {
   openDialog,
   pressEscape,
   pressKey,
-  pressKeyHeldBack,
+  pressPrevented,
   text,
 } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
@@ -253,10 +253,10 @@ describe('the Printing picker', () => {
     expect(selectedOptions()).toEqual(['Kaldheim · KHM']);
 
     // Held back, as the caret would move and drop the text's selection.
-    expect(pressKeyHeldBack(setField()!, 'ArrowDown')).toBe(true);
+    expect(pressPrevented(setField()!, { key: 'ArrowDown' })).toBe(true);
     expect(highlightedOption(setField()!)).toBe('Dragons of Tarkir · DTK');
     expect(selectedOptions()).toEqual(['Dragons of Tarkir · DTK']);
-    expect(pressKeyHeldBack(setField()!, 'ArrowUp')).toBe(true);
+    expect(pressPrevented(setField()!, { key: 'ArrowUp' })).toBe(true);
     expect(highlightedOption(setField()!)).toBe('Kaldheim · KHM');
     expect(selectedOptions()).toEqual(['Kaldheim · KHM']);
     expect(shownPrinting()).toBe('Island, ONS #335');
@@ -270,7 +270,7 @@ describe('the Printing picker', () => {
     expect(setOptions()).toEqual([]);
 
     // An arrow key opens the closed list again, held back too.
-    expect(pressKeyHeldBack(setField()!, 'ArrowDown')).toBe(true);
+    expect(pressPrevented(setField()!, { key: 'ArrowDown' })).toBe(true);
     expect(setOptions()).toHaveLength(4);
   });
 
@@ -306,23 +306,17 @@ describe('the Printing picker', () => {
     const field = setField()!;
     field.blur();
     TestBed.tick();
-    /** Whether the page kept the browser from what a mouse `type` on the field does by default. */
-    const heldBack = (type: 'mousedown' | 'mouseup') => {
-      const event = new MouseEvent(type, { bubbles: true, cancelable: true });
-      field.dispatchEvent(event);
-      return event.defaultPrevented;
-    };
 
-    expect(heldBack('mousedown')).toBe(false);
+    expect(pressPrevented(field, { mouse: 'down' })).toBe(false);
     field.focus();
     TestBed.tick();
     // A browser would put the caret where the press ended, dropping the selection.
-    expect(heldBack('mouseup')).toBe(true);
+    expect(pressPrevented(field, { mouse: 'up' })).toBe(true);
     // A drag that ends over the field, with no press there.
-    expect(heldBack('mouseup')).toBe(false);
+    expect(pressPrevented(field, { mouse: 'up' })).toBe(false);
     // A press on the field already focused places the caret as usual.
-    expect(heldBack('mousedown')).toBe(false);
-    expect(heldBack('mouseup')).toBe(false);
+    expect(pressPrevented(field, { mouse: 'down' })).toBe(false);
+    expect(pressPrevented(field, { mouse: 'up' })).toBe(false);
   });
 
   it('opens the full list on the chosen set, its text selected so typing replaces it', async () => {

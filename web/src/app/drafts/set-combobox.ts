@@ -28,6 +28,7 @@ let lastId = 0;
 const nextId = (prefix: string) => `${prefix}${++lastId}`;
 
 /** Below the field if the list fits, or else above it. */
+// Stryker disable next-line ArrayDeclaration: with no positions the CDK falls back to the same default positions, and jsdom does no layout.
 const POSITIONS: ConnectedPosition[] = [
   { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top' },
   { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom' },

@@ -2,6 +2,7 @@ import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
 import { MAX_PLAYERS } from 'engine';
 import {
   useDraftsApp,
+  serverError,
   alertIn,
   alice,
   draft,
@@ -24,7 +25,6 @@ useDraftsApp();
 
 const PLAYERS_FAILED = "Couldn't update the players.";
 const RETRY_FAILED = "Couldn't restart the snapshot.";
-const serverError = { status: 500, statusText: 'Server Error' };
 
 describe('lobby', () => {
   it('lists the players with their avatars', async () => {
