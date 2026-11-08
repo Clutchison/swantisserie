@@ -5,6 +5,7 @@ import {
   http,
   section,
   alicePlayer,
+  bob,
   tabButton,
   panel,
   openDraft,
@@ -129,6 +130,24 @@ describe('bots', () => {
       button(page, 'Remove Bot 1')!.click();
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots/bot%3A1'))).flush(
         draft({ players: [alicePlayer, botNumber(2)] }),
+      );
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Remove Bot 2')));
+    });
+
+    it('moves focus to the next bot’s Remove past the players seated between', async () => {
+      const players = [alicePlayer, botNumber(1), bob, botNumber(2)];
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players },
+        { powers: ALL_POWERS },
+      );
+
+      button(page, 'Remove Bot 1')!.focus();
+      button(page, 'Remove Bot 1')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots/bot%3A1'))).flush(
+        draft({ players: [alicePlayer, bob, botNumber(2)] }),
       );
       await fixture.whenStable();
 
