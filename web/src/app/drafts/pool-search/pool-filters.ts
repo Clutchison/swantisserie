@@ -47,7 +47,7 @@ export function applyPoolFilters<C extends PoolSearchCard>(
 ): C[] {
   return POOL_FILTERS.reduce((remaining, filter) => {
     const result = searchPool(remaining, filter(state));
-    // Stryker disable next-line ConditionalExpression,StringLiteral: `colorFilterSearch` only writes valid searches, so this never fires.
+    // Stryker disable next-line ConditionalExpression,StringLiteral,CallExpression: `colorFilterSearch` only writes valid searches, so this never fires.
     if (!result.ok) throw new Error(`Bad pool filter search: ${result.error.message}`);
     return result.cards;
   }, cards);
