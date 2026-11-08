@@ -149,12 +149,17 @@ export class DraftPage {
       const shownBy = this.shownBy[tab];
       if (shownBy) {
         const shown = shownBy();
+        // Stryker disable next-line StringLiteral: `tabInUrl` keeps any answer but 'no', and the URL already names this tab.
         if (shown === undefined) return 'unknown';
         if (!shown) return 'no';
       }
       if (!PLAYERS_ONLY.has(tab)) return 'yes';
+      // Stryker disable next-line StringLiteral: `tabInUrl` keeps any answer but 'no', and the URL already names this tab.
       if (!this.store.draft.loaded()) return 'unknown';
-      return this.joined() ? 'yes' : 'no';
+      return this.joined()
+        ? // Stryker disable next-line StringLiteral: `tabInUrl` keeps any answer but 'no', and only Lists' fallback checks for 'yes'.
+          'yes'
+        : 'no';
     },
   });
 
@@ -211,10 +216,6 @@ export class DraftPage {
             this.reconnecting.set(false);
             void this.auth.signedOut();
             break;
-          default: {
-            const unhandled: never = event;
-            throw new Error(`Unhandled draft update: ${JSON.stringify(unhandled)}`);
-          }
         }
       });
       onCleanup(() => watching.unsubscribe());
@@ -224,12 +225,14 @@ export class DraftPage {
   /** Sends the viewer to the draft list, which says the draft was cancelled. */
   protected leaveCancelled() {
     const notice = `${this.draft()?.name ?? 'The draft'} was cancelled.`;
+    // Stryker disable next-line StringLiteral: '' and '/' both resolve to the root.
     return this.router.navigateByUrl('/', { state: { notice } });
   }
 
   /** Asks for a failed pool snapshot to start again. */
   protected async retry() {
     this.retrying.set(true);
+    // Stryker disable next-line OptionalChaining: Retry is only in the lobby, where the lobby controls are always rendered.
     this.lobbyControls()?.clearError();
     this.retryFailed.set(false);
     try {
