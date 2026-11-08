@@ -228,6 +228,24 @@ describe('reviewing feedback', () => {
     expect(opened.page.querySelector('[role="alert"]')).toBeNull();
   });
 
+  it.each([['Home'], ['Enter'], ['Tab']])(
+    'keeps the failure on %s on the selected tab, which selects nothing new',
+    async (key) => {
+      const { fixture, page } = await openPage([fromAlice]);
+      markReviewed(items(page)[0]).click();
+      http
+        .expectOne('/api/admin/feedback/feedback-1/reviewed')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+
+      tab(page, 'Unreviewed').focus();
+      pressKey(tab(page, 'Unreviewed'), key);
+      await fixture.whenStable();
+
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain('try again');
+    },
+  );
+
   describe('the Reviewed view', () => {
     const markUnreviewed = (item: Element) =>
       [...item.querySelectorAll('button')].find(
