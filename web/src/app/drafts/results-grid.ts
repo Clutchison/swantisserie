@@ -220,8 +220,6 @@ function resultOf(
       return outcome.forfeitedBy === rowId
         ? ['F', `${name(rowId)} forfeited`]
         : ['W', `${name(rowId)} won, ${name(outcome.forfeitedBy)} forfeited`];
-    case 'GrantedWin':
-      return [outcome.winner === rowId ? 'W' : 'L', `granted win for ${name(outcome.winner)}`];
     case 'GameScore': {
       const { result, score } = gameScoreFor(outcome.games, players, rowId);
       return [
@@ -229,5 +227,10 @@ function resultOf(
         `${name(rowId)} ${result} ${score}${confirmed ? '' : ', unconfirmed'}`,
       ];
     }
+    // A granted win: only single elimination grants wins, and the grid is round robin's.
+    // Stryker disable next-line ConditionalExpression: the grid never reaches here, as round robin never grants a win.
+    default:
+      // Stryker disable next-line StringLiteral,CallExpression: the grid never reaches here, as round robin never grants a win.
+      throw new Error('Round robin never grants a win');
   }
 }

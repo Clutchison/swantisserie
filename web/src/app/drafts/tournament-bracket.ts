@@ -20,7 +20,7 @@ interface SideLine {
   games: number | null;
   won: boolean;
   /** Not a player yet: a bye, or a winner to come. */
-  pending: boolean;
+  notPlayer: boolean;
 }
 
 /**
@@ -50,7 +50,8 @@ export class TournamentBracket {
   /** What to show under each paired match, such as its Report and Confirm controls. */
   readonly controls = input<TemplateRef<{ $implicit: string }>>();
 
-  private readonly bracket = computed(() => this.tournament().bracket ?? []);
+  /** The bracket: the tournament results show this component only for a tournament that has one. */
+  private readonly bracket = computed(() => this.tournament().bracket!);
 
   private readonly seeds = computed(() => seedsOf(this.tournament().entries));
 
@@ -71,17 +72,17 @@ export class TournamentBracket {
    */
   protected readonly nextMatch = computed(() => {
     const own = this.ownId();
-    if (!own) return null;
     const reached = this.bracket()
       .flatMap((round) => round.places.map((place) => ({ round: round.round, place })))
       .filter(({ place }) => this.includes(place, own))
       .at(-1);
-    if (!reached || reached.place.advancing !== null) return null;
+    if (!reached) return null;
+    // A last place that sends someone on is a decided match, caught here, or a bye, caught below.
+    // Stryker disable next-line OptionalChaining: every paired place's match is in `lines`, built from the same read's tournament rounds.
     if (reached.place.matchId && this.lines().get(reached.place.matchId)?.decided) return null;
-    const opponent = reached.place.sides.find(
-      (side) => side.kind !== 'Player' || side.playerId !== own,
-    )!;
-    // A bye that sends nobody on is a dropped player's: they have no next match.
+    const opponent = reached.place.sides.find((side) => !isPlayer(side, own))!;
+    // A bye at their last place is a dropped player's, or one both of whose players dropped from
+    // the match it waits on: either way they have no next match.
     if (opponent.kind === 'Bye') return null;
     return `Your next match, ${this.inRound(reached.round)}, is against ${this.describe(reached.round, opponent)}.`;
   });
@@ -105,13 +106,17 @@ export class TournamentBracket {
       bracketPlace: place.bracketPlace,
       matchId: line?.id ?? null,
       label: this.label(round, place, line),
-      own: !!own && this.includes(place, own),
+      own: this.includes(place, own),
       sides: place.sides.map((side, i): SideLine => ({
-        name: side.kind === 'Player' ? this.name(side.playerId) : this.pendingName(round, side),
-        seed: side.kind === 'Player' ? this.seeds().get(side.playerId) : undefined,
+        ...(side.kind === 'Player'
+          ? {
+              name: this.name(side.playerId),
+              seed: this.seeds().get(side.playerId),
+              notPlayer: false,
+            }
+          : { name: this.notPlayerName(round, side), seed: undefined, notPlayer: true }),
         games: line?.games ? line.games[i] : null,
-        won: side.kind === 'Player' && side.playerId === place.advancing,
-        pending: side.kind !== 'Player',
+        won: isPlayer(side, place.advancing),
       })),
       note: line ? joined([line.note, line.confirmed ? 'Confirmed' : null]) || null : null,
     };
@@ -140,9 +145,8 @@ export class TournamentBracket {
    * with their seed, or the winner to come of the place feeding it, named
    * by its players once both are known.
    */
-  private describe(round: number, side: BracketSideView): string {
+  private describe(round: number, side: Exclude<BracketSideView, { kind: 'Bye' }>): string {
     if (side.kind === 'Player') return this.seeded(side.playerId);
-    if (side.kind === 'Bye') return 'a bye';
     const players = this.feederPlayers(round, side.bracketPlace);
     return players
       ? `the winner of ${this.seeded(players[0])} vs ${this.seeded(players[1])}`
@@ -150,9 +154,8 @@ export class TournamentBracket {
   }
 
   /** How a side that isn't a player yet shows in the bracket. */
-  private pendingName(round: number, side: BracketSideView) {
+  private notPlayerName(round: number, side: Exclude<BracketSideView, { kind: 'Player' }>) {
     if (side.kind === 'Bye') return 'Bye';
-    if (side.kind === 'Player') return this.name(side.playerId);
     const players = this.feederPlayers(round, side.bracketPlace);
     return players
       ? `Winner of ${this.name(players[0])} vs ${this.name(players[1])}`
@@ -164,13 +167,17 @@ export class TournamentBracket {
    * before `round`, once both are known; null before, or for a bye.
    */
   private feederPlayers(round: number, bracketPlace: number): [string, string] | null {
+    // Stryker disable next-line OptionalChaining: a winner to come is never in tournament round 1, so the round and place before it exist.
     const sides = this.bracket()[round - 2]?.places[bracketPlace]?.sides;
+    // Stryker disable next-line OptionalChaining: a winner to come is never in tournament round 1, so the round and place before it exist.
     const players = sides?.flatMap((side) => (side.kind === 'Player' ? [side.playerId] : []));
+    // Stryker disable next-line OptionalChaining: a winner to come is never in tournament round 1, so the round and place before it exist.
     return players?.length === 2 ? [players[0], players[1]] : null;
   }
 
-  private includes(place: BracketPlaceView, playerId: string) {
-    return place.sides.some((side) => side.kind === 'Player' && side.playerId === playerId);
+  /** Whether the player `playerId` is a side of `place`; never without one, as for a viewer who didn't join. */
+  private includes(place: BracketPlaceView, playerId: string | undefined) {
+    return place.sides.some((side) => isPlayer(side, playerId));
   }
 
   private name(playerId: string) {
@@ -180,6 +187,12 @@ export class TournamentBracket {
   private seeded(playerId: string) {
     return seededName(this.name(playerId), this.seeds().get(playerId));
   }
+}
+
+/** Whether `side` is the player `playerId`; never without one, as when nobody advances. */
+function isPlayer(side: BracketSideView, playerId: string | null | undefined) {
+  if (side.kind !== 'Player') return false;
+  return side.playerId === playerId;
 }
 
 /** The parts that are there, joined as the Play tab joins them, with " · ". */
