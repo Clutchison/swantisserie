@@ -464,7 +464,7 @@ describe('Play tab', () => {
       );
     });
 
-    it('keeps the tournament when the organizer thinks better of cancelling', async () => {
+    it('keeps the tournament, saying nothing failed, when the organizer thinks better of cancelling', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
@@ -472,7 +472,10 @@ describe('Play tab', () => {
 
       button(tab, 'Cancel tournament')!.click();
       await answer(await question('Cancel the tournament?'), 'Keep tournament');
-      await fixture.whenStable();
+      // Once nothing is in flight, Cancel tournament takes presses again.
+      await vi.waitFor(() =>
+        expect(button(tab, 'Cancel tournament')!.getAttribute('aria-disabled')).toBeNull(),
+      );
 
       http.expectNone('/api/drafts/draft-1/tournament');
       expect(joinedNames(tab)).toEqual(['Bob']);

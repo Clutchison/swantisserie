@@ -1,4 +1,4 @@
-import { openDialog } from '../../specs-harness';
+import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
@@ -48,6 +48,21 @@ describe('single elimination tournaments on the Play tab', () => {
     });
 
     expect(req.request.body).toEqual({ format: 'SingleElimination', publicDecklists: false });
+  });
+
+  it('asks before starting, saying the players are seeded at random into the bracket', async () => {
+    const { tab } = await openPlaying(
+      { ...registration(alice.id, bob.id, carol.id), format: 'SingleElimination', roundCount: 2 },
+      { powers: ORGANIZE_ONLY },
+    );
+
+    button(tab, 'Start tournament')!.click();
+    const dialog = await question('Start the tournament?');
+
+    expect(dialog.textContent).toContain(
+      'Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
+    );
+    await answer(dialog, 'Cancel');
   });
 
   it('asks the organizer to pick the winner of each unreported match before completing the round', async () => {
