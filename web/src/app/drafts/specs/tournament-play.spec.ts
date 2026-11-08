@@ -1,3 +1,4 @@
+import type { MatchView, PlayerView } from 'contract';
 import {
   answer,
   clickBackdrop,
@@ -9,8 +10,10 @@ import {
 import {
   ORGANIZE_ONLY,
   type AppFixture,
+  accessibleDescription,
   alertIn,
   alice,
+  alicePlayer,
   bob,
   button,
   draft,
@@ -32,6 +35,7 @@ import {
   carol,
   currentSteps,
   dave,
+  failChange,
   forfeited,
   gridCell,
   gridCellName,
@@ -59,6 +63,35 @@ useDraftsApp();
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+
+/** Erin, a fourth player, who joined after Carol. */
+const erin: PlayerView = { ...bob, id: 'erin', name: 'Erin' };
+
+/** The complete draft of Alice, Bob, Carol and Erin. */
+const fourPlayers = { players: [alicePlayer, bob, carol, erin] };
+
+/** Alice's unreported matches against Bob (m2), Carol (m3) and Erin (m4). */
+const [againstBob, againstCarol, againstErin] = [
+  unreportedMatch('m2', alice.id, bob.id),
+  unreportedMatch('m3', carol.id, alice.id),
+  unreportedMatch('m4', alice.id, erin.id),
+];
+
+/**
+ * A round robin tournament of Alice, Bob, Carol and Erin, joined in that
+ * order, being played, with `matches` in the order the read gives them.
+ */
+function roundRobinOfFour(matches: MatchView[]) {
+  const tournament = playing();
+  return playing([], {
+    entries: [
+      ...tournament.entries,
+      { playerId: erin.id, dropped: false, droppable: true, seed: null },
+    ],
+    rounds: [{ ...tournament.rounds[0], matches }],
+    standings: [...tournament.standings, standing(erin.id, 1)],
+  });
+}
 
 /** Presses Report on the line of the match against `opponent` in Your matches, and returns the dialog it opens. */
 async function openReport(fixture: AppFixture, tab: HTMLElement, opponent: string) {
@@ -102,6 +135,15 @@ describe('Play tab while the tournament is played', () => {
       expect(button(tab, 'Confirm your match against Carol')).toBeUndefined();
     });
 
+    it('says an organizer reported a game score you can confirm', async () => {
+      const { tab } = await openPlaying(
+        playing([reported(unreportedMatch('m2', alice.id, bob.id), [2, 1], dave.id)]),
+      );
+
+      expect(yourMatches(tab)).toContain('An organizer reported you won 2–1');
+      expect(button(tab, 'Confirm your match against Bob')).toBeDefined();
+    });
+
     it('shows a forfeit by an opponent who dropped', async () => {
       const { tab } = await openPlaying(
         withDrops([carol.id], [forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id)]),
@@ -128,6 +170,9 @@ describe('Play tab while the tournament is played', () => {
       await fixture.whenStable();
       expect(text(dialog)).toContain('Report that you won 2–1 against Carol?');
       expect(text(dialog)).toContain('Only an organizer can change a reported match.');
+      expect(accessibleDescription(button(dialog, 'Report')!)).toBe(
+        'Report that you won 2–1 against Carol?',
+      );
       expect(['Report', 'Back', 'Cancel'].map((label) => !!button(dialog, label))).toEqual([
         true,
         true,
@@ -160,6 +205,29 @@ describe('Play tab while the tournament is played', () => {
 
       expect(document.activeElement).toBe(heading(tab, 'Your matches'));
       http.expectOne('/api/drafts/draft-1/tournament/matches/m3/report');
+    });
+
+    it('moves focus to the next match’s Report once one is reported, not back to the first', async () => {
+      const { fixture, tab } = await openPlaying(
+        roundRobinOfFour([againstBob, againstCarol, againstErin]),
+        { fields: fourPlayers },
+      );
+
+      const dialog = await openReport(fixture, tab, 'Carol');
+      button(group(dialog, 'Game score against Carol')!, 'Won 2–0')!.click();
+      await fixture.whenStable();
+      await answer(dialog, 'Report');
+
+      expect(document.activeElement).toBe(button(tab, 'Report your match against Erin'));
+      http.expectOne('/api/drafts/draft-1/tournament/matches/m3/report');
+    });
+
+    it('lists your opponents in join order, whatever order the read gives their matches', async () => {
+      const { tab } = await openPlaying(roundRobinOfFour([againstErin, againstCarol, againstBob]), {
+        fields: fourPlayers,
+      });
+
+      expect(yourMatches(tab)).toEqual(['vs Bob', 'vs Carol', 'vs Erin']);
     });
 
     it('goes back from the question to the game scores, focus on the one picked, sending nothing', async () => {
@@ -280,6 +348,29 @@ describe('Play tab while the tournament is played', () => {
       await vi.waitFor(() =>
         expect(alertIn(panel(page))?.textContent).toContain('This match has been reported.'),
       );
+    });
+
+    it('says reporting failed when the api gives no reason', async () => {
+      const { fixture, page, tab } = await openPlaying(playing());
+
+      const dialog = await openReport(fixture, tab, 'Bob');
+      button(group(dialog, 'Game score against Bob')!, 'Won 2–0')!.click();
+      await fixture.whenStable();
+      await answer(dialog, 'Report');
+
+      expect(
+        await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/report'),
+      ).toBe("Couldn't report the match. Try again in a moment.");
+    });
+
+    it('says confirming failed when the api gives no reason', async () => {
+      const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]));
+
+      button(tab, 'Confirm your match against Bob')!.click();
+
+      expect(
+        await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
+      ).toBe("Couldn't confirm the match. Try again in a moment.");
     });
 
     it('is absent for a viewer who didn’t join', async () => {
@@ -551,10 +642,13 @@ describe('Play tab while the tournament is played', () => {
       expect(button(panel(page), 'Start tournament')).toBeDefined();
     });
 
-    it('offers Start only once two players have joined', async () => {
-      const { tab } = await openPlaying(registration(alice.id), { powers: ORGANIZE_ONLY });
+    it.each([
+      ['disables', [alice.id], true],
+      ['enables', [alice.id, bob.id], false],
+    ])('%s Start with %j joined, as it needs two players', async (_, joined, disabled) => {
+      const { tab } = await openPlaying(registration(...joined), { powers: ORGANIZE_ONLY });
 
-      expect(button(tab, 'Start tournament')?.disabled).toBe(true);
+      expect(button(tab, 'Start tournament')?.disabled).toBe(disabled);
     });
 
     it('offers Start only to organizers', async () => {
@@ -658,10 +752,57 @@ describe('Play tab while the tournament is played', () => {
 
       expect(button(tab, 'Cancel tournament')).toBeUndefined();
     });
+
+    it.each([
+      [
+        'starting',
+        registration(alice.id, bob.id, carol.id),
+        'Start tournament',
+        ['Start the tournament?', 'Start'],
+        '/api/drafts/draft-1/tournament/start',
+        "Couldn't start the tournament. Try again in a moment.",
+      ],
+      [
+        'completing',
+        playing(),
+        'Complete tournament',
+        ['Complete the tournament?', 'Complete tournament'],
+        '/api/drafts/draft-1/tournament/complete',
+        "Couldn't complete the tournament. Try again in a moment.",
+      ],
+      [
+        'cancelling',
+        playing(),
+        'Cancel tournament',
+        ['Cancel the tournament?', 'Cancel tournament'],
+        '/api/drafts/draft-1/tournament',
+        "Couldn't cancel the tournament. Try again in a moment.",
+      ],
+    ] as const)(
+      'says %s the tournament failed when the api gives no reason',
+      async (_, tournament, label, [asked, action], url, failure) => {
+        const { fixture, page, tab } = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
+
+        button(tab, label)!.click();
+        await answer(await question(asked), action);
+
+        expect(await failChange(fixture, page, url)).toBe(failure);
+      },
+    );
   });
 });
 
 describe('Play tab once the tournament is complete', () => {
+  it('shows a match left unreported as the granted draw completing made it', async () => {
+    const { tab } = await openPlaying(
+      completed(
+        playing([{ ...unreportedMatch('m2', alice.id, bob.id), outcome: { kind: 'GrantedDraw' } }]),
+      ),
+    );
+
+    expect(yourMatches(tab)).toContain('vs Bob · Granted draw');
+  });
+
   it('lets the opponent confirm once the tournament is complete', async () => {
     const completeWith = (m2: ReturnType<typeof unreportedMatch>) =>
       completed(playing([m2], { trophyHolders: [bob.id] }));

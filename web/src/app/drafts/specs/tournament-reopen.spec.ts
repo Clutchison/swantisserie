@@ -1,9 +1,19 @@
 import { answer, question } from '../../specs-harness';
-import { ORGANIZE_ONLY, bob, button, findNamedList, http, panel, useDraftsApp } from './harness';
+import {
+  ORGANIZE_ONLY,
+  bob,
+  button,
+  findNamedList,
+  http,
+  panel,
+  text,
+  useDraftsApp,
+} from './harness';
 import {
   answerChange,
   carol,
   dave,
+  failChange,
   unreportedMatch,
   openPlaying,
   swissPlaying,
@@ -26,7 +36,10 @@ describe('reopening a tournament round', () => {
 
     button(tab, 'Reopen round 1')!.click();
     const dialog = await question('Reopen tournament round 1?');
-    expect(dialog.textContent).toContain('will remove tournament round 2’s pairings');
+    // Nothing follows the detail but the dialog's buttons: it takes back no drops.
+    expect(text(dialog)).toContain(
+      'Its results will be open to correction again, and will leave the standings until it is completed again. Reopening it will remove tournament round 2’s pairings, to be paired again then. Cancel',
+    );
     await answer(dialog, 'Reopen round 1');
     const req = await answerChange(
       fixture,
@@ -42,14 +55,20 @@ describe('reopening a tournament round', () => {
     expect(findNamedList(panel(page), 'Tournament round 2')).toBeNull();
   });
 
-  it('lists the players whose drops it takes back', async () => {
+  it.each([
+    [[bob.id], 'Bob will be back in the tournament, with their drop taken back.'],
+    [
+      [bob.id, carol.id],
+      'Bob and Carol will be back in the tournament, with their drops taken back.',
+    ],
+  ])('lists the players whose drops it takes back: %j', async (takesBackDrops, back) => {
     const { tab } = await openPlaying(
       swissPlaying({
         entries: swissPlaying().entries.map((entry) => ({
           ...entry,
-          dropped: entry.playerId === bob.id,
+          dropped: takesBackDrops.includes(entry.playerId),
         })),
-        reopenRound: { round: 1, refusal: null, takesBackDrops: [bob.id] },
+        reopenRound: { round: 1, refusal: null, takesBackDrops },
       }),
       { powers: ORGANIZE_ONLY },
     );
@@ -57,7 +76,7 @@ describe('reopening a tournament round', () => {
     button(tab, 'Reopen round 1')!.click();
     const dialog = await question('Reopen tournament round 1?');
 
-    expect(dialog.textContent).toContain('Bob will be back in the tournament');
+    expect(text(dialog)).toContain(`to be paired again then. ${back}`);
     await answer(dialog, 'Cancel');
   });
 
@@ -69,6 +88,17 @@ describe('reopening a tournament round', () => {
     await fixture.whenStable();
 
     http.expectNone('/api/drafts/draft-1/tournament/reopen-round');
+  });
+
+  it('says reopening failed when the api gives no reason', async () => {
+    const { fixture, page, tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Reopen round 1')!.click();
+    await answer(await question('Reopen tournament round 1?'), 'Reopen round 1');
+
+    expect(await failChange(fixture, page, '/api/drafts/draft-1/tournament/reopen-round')).toBe(
+      "Couldn't reopen the tournament round. Try again in a moment.",
+    );
   });
 
   it('is disabled, saying why, when the api would refuse it', async () => {

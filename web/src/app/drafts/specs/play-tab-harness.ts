@@ -18,6 +18,7 @@ import {
   ORGANIZE_ONLY,
   accessibleDescription,
   accessibleName,
+  alertIn,
   alice,
   alicePlayer,
   bob,
@@ -32,6 +33,7 @@ import {
   namedList,
   openDraft,
   openTab,
+  panel,
   region,
   tabButton,
   statusTexts,
@@ -659,4 +661,22 @@ export async function answerChange(
   if (tournament) await flushTournament(tournament);
   await fixture.whenStable();
   return req;
+}
+
+/**
+ * Answers the tournament change at `url` with a server error, which gives
+ * no reason, as a 500 or a lost connection does, and returns what the
+ * open tab of `page` then alerts.
+ */
+export async function failChange(fixture: AppFixture, page: HTMLElement, url: string) {
+  (await vi.waitFor(() => http.expectOne(url))).flush('Server error', {
+    status: 500,
+    statusText: 'Internal Server Error',
+  });
+  await fixture.whenStable();
+  return vi.waitFor(() => {
+    const alert = alertIn(panel(page));
+    if (!alert) throw new Error('The Play tab alerts nothing');
+    return text(alert);
+  });
 }

@@ -15,6 +15,7 @@ import {
   carol,
   completed,
   dave,
+  failChange,
   forfeited,
   gridCell,
   gridCellName,
@@ -184,6 +185,32 @@ describe('organizer reports, corrections and clears', () => {
     await fixture.whenStable();
 
     http.expectNone('/api/drafts/draft-1/tournament/matches/m1/game-score');
+  });
+
+  it('says saving a game score failed when the api gives no reason', async () => {
+    const { fixture, page, tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+    button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
+
+    expect(
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m1/game-score'),
+    ).toBe("Couldn't save the match’s game score. Try again in a moment.");
+  });
+
+  it('says clearing a game score failed when the api gives no reason', async () => {
+    const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [2, 0]);
+    const { fixture, page, tab } = await openPlaying(playing([m1]), { powers: ORGANIZE_ONLY });
+
+    button(
+      await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol'),
+      'Clear game score',
+    )!.click();
+    await answer(await question('Clear the game score of Bob vs Carol?'), 'Clear');
+
+    expect(
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m1/game-score'),
+    ).toBe("Couldn't clear the match’s game score. Try again in a moment.");
   });
 
   it('offers Clear game score only for a match with a game score', async () => {
