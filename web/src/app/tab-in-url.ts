@@ -59,8 +59,8 @@ export function tabInUrl<T extends string>({
 }): TabInUrl<T> {
   const route = inject(ActivatedRoute);
   const router = inject(Router);
+  // Stryker disable next-line ObjectLiteral: queryParamMap emits synchronously on subscribe, so the initial value is never read.
   const requested = toSignal(route.queryParamMap.pipe(map((params) => params.get('tab'))), {
-    // Stryker disable next-line ObjectLiteral: queryParamMap emits synchronously on subscribe.
     initialValue: null,
   });
   /**

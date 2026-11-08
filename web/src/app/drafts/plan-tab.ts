@@ -287,11 +287,11 @@ export class PlanTab {
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;
     const listening = new AbortController();
+    // Stryker disable next-line ObjectLiteral: the leftover listener only sets a destroyed component's signal.
     desktop.addEventListener('change', ({ matches }) => this.onDesktop.set(matches), {
-      // Stryker disable next-line ObjectLiteral: the leftover listener only sets a destroyed component's signal.
       signal: listening.signal,
     });
-    // Stryker disable next-line ArrowFunction: the leftover listener only sets a destroyed component's signal.
+    // Stryker disable next-line ArrowFunction,CallExpression: the leftover listener only sets a destroyed component's signal.
     inject(DestroyRef).onDestroy(() => listening.abort());
   }
 

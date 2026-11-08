@@ -112,7 +112,7 @@ export class DialogShell {
     ref.closed.subscribe((result) => {
       // Stryker disable next-line OptionalChaining: every caller passes an injector, so there is always an unlisten.
       unlisten?.();
-      // Stryker disable next-line StringLiteral,BooleanLiteral: a listener left behind only sets a closed dialog's dead variable.
+      // Stryker disable next-line StringLiteral,BooleanLiteral,CallExpression: a listener left behind only sets a closed dialog's dead variable.
       this.document.removeEventListener('mousedown', pressed, true);
       const target = config.returnFocus ? config.returnFocus(opener, result) : opener;
       const active = this.document.activeElement;

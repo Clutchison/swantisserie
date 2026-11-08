@@ -180,7 +180,7 @@ export class PoolTab {
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
       observer.observe(this.host);
-      // Stryker disable next-line ArrowFunction: the leftover observer only sets a destroyed component's width.
+      // Stryker disable next-line ArrowFunction,CallExpression: the leftover observer only sets a destroyed component's width.
       inject(DestroyRef).onDestroy(() => observer.disconnect());
     }
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
