@@ -28,7 +28,6 @@ import {
   pickOf,
   queueList,
   accessibleName,
-  statusTexts,
   type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
