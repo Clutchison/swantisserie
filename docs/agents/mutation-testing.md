@@ -42,6 +42,8 @@ Sort every survivor into one of three groups. The fix each group names is the wo
 
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
 
+**False survivors.** Stryker runs each mutant only against the tests its per-test coverage says reach it. Code that runs once per spec file is credited only to that file's first test, so later tests that would kill its mutants never run against them. That covers a module-level constant, and a cache filled on first use, such as a module-level `WeakMap`. Before sorting a survivor in such code as a real gap, look for a test that would kill it. If one exists, list it as a false survivor with that test named. To make a cached result count, give each test fresh inputs so it fills the cache itself. Don't switch `coverageAnalysis` to `"all"` for this: on web it makes every mutant run nearly the whole suite (#544).
+
 ## Rules
 
 - **No target score.** A gap ticket closes specific real gaps, not a number. Each one records the score before and after.
