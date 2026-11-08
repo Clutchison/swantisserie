@@ -98,13 +98,13 @@ type Counts = Map<string, number>;
 const indexes = new WeakMap<PoolSearchCard, CardIndex>();
 
 function cardIndex(card: PoolSearchCard): CardIndex {
-  let index = indexes.get(card);
-  // Stryker disable next-line ConditionalExpression: it only turns the cache off; the index is rebuilt with the same contents.
-  if (!index) {
-    index = buildIndex(card);
-    // Stryker disable next-line CallExpression: it only turns the cache off; the index is rebuilt with the same contents.
-    indexes.set(card, index);
-  }
+  return indexes.get(card) ?? cacheIndex(card);
+}
+
+function cacheIndex(card: PoolSearchCard): CardIndex {
+  const index = buildIndex(card);
+  // Stryker disable next-line CallExpression: it only turns the cache off; the index is rebuilt with the same contents.
+  indexes.set(card, index);
   return index;
 }
 
@@ -716,12 +716,19 @@ function tokenize(search: string): { tokens: Token[]; unsupported?: SearchError 
   /** A regular expression up to the next unescaped /. */
   const readRegex = (): { value: string; quoted: boolean; regex: boolean } => {
     const start = ++i;
-    // Stryker disable next-line EqualityOperator: the extra step reads `undefined`, which ends the loop on the same place.
-    while (i < search.length && search[i] !== '/') i += search[i] === '\\' ? 2 : 1;
-    if (i >= search.length)
-      throw new SearchError('parse-error', 'A regular expression isn’t closed.');
-    // Stryker disable next-line BooleanLiteral: a regular expression term never reads `quoted`.
-    return { value: search.slice(start, i++), quoted: false, regex: true };
+    // Stryker disable next-line EqualityOperator: the extra step reads `undefined`, which ends the loop the same way.
+    while (i < search.length) {
+      if (search[i] === '/') {
+        return {
+          value: search.slice(start, i++),
+          // Stryker disable next-line BooleanLiteral: a regular expression term never reads `quoted`.
+          quoted: false,
+          regex: true,
+        };
+      }
+      i += search[i] === '\\' ? 2 : 1;
+    }
+    throw new SearchError('parse-error', 'A regular expression isn’t closed.');
   };
 
   /** A quoted string, or a run up to whitespace or a parenthesis. */
@@ -812,8 +819,7 @@ class Parser {
       this.i++;
       options.push(this.parseAnd());
     }
-    // Stryker disable next-line ConditionalExpression: a single option in `some` gives the same answer.
-    return options.length === 1 ? options[0] : (card) => options.some((matches) => matches(card));
+    return anyOf(...options);
   }
 
   private parseAnd(): Matcher {
@@ -830,8 +836,7 @@ class Parser {
       terms.push(this.parseUnary());
     }
     if (!terms.length) throw this.missingTerm();
-    // Stryker disable next-line ConditionalExpression: a single term in `every` gives the same answer.
-    return terms.length === 1 ? terms[0] : (card) => terms.every((matches) => matches(card));
+    return allOf(...terms);
   }
 
   private parseUnary(): Matcher {

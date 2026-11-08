@@ -36,7 +36,7 @@ const POOL_FILTERS: ((state: PoolFilterState) => string)[] = [
 
 /** Whether any pool filter is narrowing the cards. */
 export function poolFilterActive(state: PoolFilterState): boolean {
-  // Stryker disable next-line MethodExpression: there is only one pool filter today; this stops being harmless once a second is added.
+  // Stryker disable next-line MethodExpression: `POOL_FILTERS` holds one pool filter today; this stops being harmless once `POOL_FILTERS` holds a second.
   return POOL_FILTERS.some((filter) => filter(state) !== '');
 }
 

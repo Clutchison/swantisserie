@@ -119,7 +119,9 @@ describe('pool search', () => {
 
   const colorMessage = 'takes colors like wu, a name like red, azorius or quandrix, or a number.';
   const manaMessage = 'm: takes a mana cost like {2}{W}{W} or 2WW.';
+  const mvMessage = 'mv: takes a number, even, odd or another stat like pow or mv.';
   const powMessage = 'pow: takes a number or another stat like pow or mv.';
+  const minusMessage = '- needs a search right after it.';
   const orMessage = '“or” needs a search on each side.';
   const andMessage = '“and” needs a search on each side.';
 
@@ -138,8 +140,8 @@ describe('pool search', () => {
     ['and giant', andMessage],
     ['giant and or t:giant', andMessage],
     ['giant and and t:giant', andMessage],
-    ['giant -', '- needs a search right after it.'],
-    ['- giant', '- needs a search right after it.'],
+    ['giant -', minusMessage],
+    ['- giant', minusMessage],
     ['-or giant', '- needs a search after it.'],
     ['-and giant', '- needs a search after it.'],
     ['c:r (', 'The search ends too soon.'],
@@ -155,8 +157,8 @@ describe('pool search', () => {
     ['m:{Q}', manaMessage],
     ['m:{H2}', manaMessage],
     ['m:2W/', manaMessage],
-    ['mv>big', 'mv: takes a number, even, odd or another stat like pow or mv.'],
-    ['mv=3x', 'mv: takes a number, even, odd or another stat like pow or mv.'],
+    ['mv>big', mvMessage],
+    ['mv=3x', mvMessage],
     ['mv<even', 'mv: can’t be compared with <.'],
     ['pow>name', powMessage],
     ['pow>x3', powMessage],
