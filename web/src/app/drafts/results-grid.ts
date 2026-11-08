@@ -11,7 +11,7 @@ import {
   output,
   untracked,
 } from '@angular/core';
-import type { MatchView, TournamentView } from 'contract';
+import type { MatchOutcomeView, MatchView, TournamentView } from 'contract';
 import { droppedPlayers } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { percent, record } from '../record';
@@ -159,7 +159,7 @@ export class ResultsGrid {
     if (rowId === columnId || !match) {
       return { opponentId: columnId, marker: '—', name: null, organize: null, matchId: null };
     }
-    const [marker, result] = resultOf(match, rowId, (id) => this.name(id));
+    const [marker, result] = resultOf(match as RoundRobinMatch, rowId, (id) => this.name(id));
     return {
       opponentId: columnId,
       marker,
@@ -202,12 +202,15 @@ export class ResultsGrid {
   }
 }
 
+/** A round robin match: round robin never grants a win, as only single elimination does. */
+type RoundRobinMatch = MatchView & { outcome: Exclude<MatchOutcomeView, { kind: 'GrantedWin' }> };
+
 /**
  * The player `rowId`'s result in `match`: what their cell shows, and how
  * it reads in words, `name` naming a player by id.
  */
 function resultOf(
-  { players, outcome, confirmed }: MatchView,
+  { players, outcome, confirmed }: RoundRobinMatch,
   rowId: string,
   name: (playerId: string) => string,
 ): [marker: string, result: string] {
@@ -220,8 +223,6 @@ function resultOf(
       return outcome.forfeitedBy === rowId
         ? ['F', `${name(rowId)} forfeited`]
         : ['W', `${name(rowId)} won, ${name(outcome.forfeitedBy)} forfeited`];
-    case 'GrantedWin':
-      return [outcome.winner === rowId ? 'W' : 'L', `granted win for ${name(outcome.winner)}`];
     case 'GameScore': {
       const { result, score } = gameScoreFor(outcome.games, players, rowId);
       return [
