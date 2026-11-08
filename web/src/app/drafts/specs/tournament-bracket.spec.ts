@@ -1,4 +1,4 @@
-import type { PlayerView, UserView, ViewerTournamentView } from 'contract';
+import type { UserView, ViewerTournamentView } from 'contract';
 import {
   ORGANIZE_ONLY,
   alice,
@@ -20,6 +20,7 @@ import {
   dave,
   drawnPlaces,
   drawnSides,
+  erin,
   firstBracketRound,
   unreportedMatch,
   openPlaying,
@@ -30,7 +31,9 @@ import {
   singleEliminationFinal as final,
   standing,
   singleEliminationPlaying,
+  player,
   pushTournament,
+  signedIn,
   threePlayers,
   winnerToCome,
 } from './play-tab-harness';
@@ -58,8 +61,8 @@ const carolReported = singleEliminationPlaying({
 /** How the bracket starts telling the signed-in player who they face next. */
 const YOUR_NEXT_MATCH = 'Your next match';
 
-/** Bob and Carol's match of round 1, as the bracket draws it once Carol has beaten Bob 2–1. */
-const CAROL_BEAT_BOB_DRAWN = ['2 Bob 1', '3 Carol 2'];
+/** Bob and Carol's match of tournament round 1, as the bracket draws it once Carol has beaten Bob 2–1. */
+const CAROL_BEAT_BOB_DRAWN = '2 Bob 1 3 Carol 2';
 
 describe('the bracket of a single elimination tournament', () => {
   it('draws each tournament round with every match’s players, seeds and game score, and the byes', async () => {
@@ -78,20 +81,20 @@ describe('the bracket of a single elimination tournament', () => {
   it('draws each side’s seed, name and games won, and the note under each match', async () => {
     const { tab } = await openPlaying(final, { user: dave });
 
-    expect(drawnPlaces(tab, 1)).toEqual([['1 Alice', 'Bye'], CAROL_BEAT_BOB_DRAWN]);
-    expect(drawnPlaces(tab, 2)).toEqual([['1 Alice', '3 Carol', 'Unreported']]);
+    expect(drawnPlaces(tab, 1)).toEqual(['1 Alice Bye', CAROL_BEAT_BOB_DRAWN]);
+    expect(drawnPlaces(tab, 2)).toEqual(['1 Alice 3 Carol Unreported']);
   });
 
   it('draws a side still to be decided by the match that decides it', async () => {
     const { tab } = await openPlaying(singleEliminationPlaying(), { user: dave });
 
-    expect(drawnPlaces(tab, 2)).toEqual([['1 Alice', 'Winner of Bob vs Carol']]);
+    expect(drawnPlaces(tab, 2)).toEqual(['1 Alice Winner of Bob vs Carol']);
   });
 
   it('shows a confirmed match as confirmed, drawn and named', async () => {
     const { tab } = await openPlaying(carolWon, { user: dave });
 
-    expect(drawnPlaces(tab, 1)[1]).toEqual([...CAROL_BEAT_BOB_DRAWN, 'Confirmed']);
+    expect(drawnPlaces(tab, 1)[1]).toBe(`${CAROL_BEAT_BOB_DRAWN} Confirmed`);
     expect(bracketMatches(tab, 1)[1]).toBe(
       'Bob (seed 2) 1–2 Carol (seed 3) · Carol won · Confirmed',
     );
@@ -258,18 +261,10 @@ describe('the bracket of a single elimination tournament', () => {
   });
 });
 
-/** A player of the nine-player tournament, by name. */
-const player = (name: string): PlayerView => ({ ...bob, id: name.toLowerCase(), name });
-
-const [erin, finn, gwen, hugo, ivy, jack] = ['Erin', 'Finn', 'Gwen', 'Hugo', 'Ivy', 'Jack'].map(
-  player,
-);
+const [finn, gwen, hugo, ivy, jack] = ['Finn', 'Gwen', 'Hugo', 'Ivy', 'Jack'].map(player);
 
 /** The nine players, in seed order. */
 const ninePlayers = [alicePlayer, bob, carol, erin, finn, gwen, hugo, ivy, jack];
-
-/** `player` signed in. */
-const signedIn = ({ id, name }: PlayerView): UserView => ({ ...alice, id, name });
 
 /**
  * A single elimination tournament of nine players over 4 tournament rounds,
@@ -344,7 +339,7 @@ describe('the bracket of a single elimination tournament of four tournament roun
     const { tab } = await openFourRounds();
 
     expect(bracketMatches(tab, 2)[1]).toBe('Nobody advances to it');
-    expect(drawnPlaces(tab, 2)[1]).toEqual(['Bye', 'Bye']);
+    expect(drawnPlaces(tab, 2)[1]).toBe('Bye Bye');
   });
 
   it('shows which match decides a side whose feeding place still waits on a winner itself', async () => {
@@ -358,10 +353,10 @@ describe('the bracket of a single elimination tournament of four tournament roun
       'the winner of match 1 in the semifinal vs the winner of match 2 in the semifinal',
     ]);
     expect(drawnPlaces(tab, 3)).toEqual([
-      ['Winner to come', 'Bye'],
-      ['Winner of Carol vs Gwen', 'Winner of Hugo vs Bob'],
+      'Winner to come Bye',
+      'Winner of Carol vs Gwen Winner of Hugo vs Bob',
     ]);
-    expect(drawnPlaces(tab, 4)).toEqual([['Winner to come', 'Winner to come']]);
+    expect(drawnPlaces(tab, 4)).toEqual(['Winner to come Winner to come']);
   });
 
   it('tells a player in an unreported match of the first tournament round who they face', async () => {

@@ -51,6 +51,15 @@ export const dave: UserView = { ...alice, id: 'dave', name: 'Dave' };
 /** Carol, a third player, in drafts that list her. */
 export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
 
+/** A player of drafts of more than three, by `name`, which also gives their id. */
+export const player = (name: string): PlayerView => ({ ...bob, id: name.toLowerCase(), name });
+
+/** Erin, a fourth player, in drafts that list her. */
+export const erin = player('Erin');
+
+/** `player` signed in. */
+export const signedIn = ({ id, name }: PlayerView): UserView => ({ ...alice, id, name });
+
 /** Bob signed in, a player of the draft. */
 export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
 
@@ -471,6 +480,9 @@ export async function openComplete(
   });
 }
 
+/** Where Complete round sends its request. */
+export const COMPLETE_ROUND_URL = '/api/drafts/draft-1/tournament/complete-round';
+
 /** Opens the Play tab and returns its panel. */
 export const openPlayTab = (fixture: AppFixture, page: HTMLElement) =>
   openTab(fixture, page, 'Play');
@@ -547,11 +559,14 @@ export const gridCellName = (root: HTMLElement, row: string, column: string) =>
  * and groups of buttons left out, however its text is wrapped.
  */
 export const itemTexts = (list: Element) =>
-  [...list.querySelectorAll(':scope > li')].map((li) => {
-    const shown = li.cloneNode(true) as HTMLElement;
-    shown.querySelectorAll('button, [role="group"]').forEach((control) => control.remove());
-    return text(shown);
-  });
+  [...list.querySelectorAll(':scope > li')].map((li) => text(withoutControls(li)));
+
+/** A copy of `element` with its buttons and groups of buttons left out. */
+function withoutControls(element: Element) {
+  const shown = element.cloneNode(true) as HTMLElement;
+  shown.querySelectorAll('button, [role="group"]').forEach((control) => control.remove());
+  return shown;
+}
 
 /** Each line of the signed-in player's Your matches inside `root`, leaving out its buttons. */
 export const yourMatches = (root: HTMLElement) =>
@@ -584,13 +599,13 @@ function shownText(element: Element) {
 
 /**
  * Each place of the bracket's tournament round `round` inside `root` as it
- * is drawn for a sighted viewer, which a screen reader skips for its name:
- * each side's seed, name and games won, then the note under its match, if
- * any, as in ['2 Bob 1', '3 Carol 2', 'Confirmed'].
+ * shows to a sighted viewer, its controls left out: each side's seed, name
+ * and games won, then the note under its match, if any, as in
+ * '2 Bob 1 3 Carol 2 Confirmed'.
  */
 export const drawnPlaces = (root: HTMLElement, round: number) =>
   [...roundLists(bracket(root)!)[round - 1].querySelectorAll(':scope > li')].map((li) =>
-    [...li.querySelector('[aria-hidden="true"]')!.children].map(shownText),
+    shownText(withoutControls(li)),
   );
 
 /**
@@ -599,6 +614,10 @@ export const drawnPlaces = (root: HTMLElement, round: number) =>
  */
 export const drawnSides = (root: HTMLElement, marked: 'won' | 'not-player') =>
   [...bracket(root)!.querySelectorAll(`[data-${marked}="true"]`)].map(shownText);
+
+/** The controls offered in the list of tournament round `round`'s matches inside `root`, by accessible name. */
+export const listControls = (root: HTMLElement, round: number) =>
+  [...namedList(root, `Tournament round ${round}`).querySelectorAll('button')].map(accessibleName);
 
 /** The bracket's matches inside `root` highlighted as the signed-in player's path, by accessible name, in order. */
 export const ownPath = (root: HTMLElement) =>

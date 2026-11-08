@@ -1,7 +1,6 @@
 import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
-  accessibleName,
   alertIn,
   alice,
   bob,
@@ -45,6 +44,8 @@ import {
   withTournament,
   completed,
   confirmedMatch,
+  COMPLETE_ROUND_URL,
+  listControls,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -147,12 +148,6 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(items(tab, 'Tournament round 1')).toEqual(['Carol 2–0 Bob', 'Alice has a bye']);
   });
 
-  /** The controls offered in the list of tournament round `round`'s matches inside `root`, by accessible name. */
-  const listControls = (root: HTMLElement, round: number) =>
-    [...namedList(root, `Tournament round ${round}`).querySelectorAll('button')].map(
-      accessibleName,
-    );
-
   it('offers no Report or Confirm in the list on the match shown as yours, nor on other players’ matches', async () => {
     const { tab } = await openPlaying(swissPlaying());
 
@@ -200,7 +195,7 @@ describe('Swiss tournaments on the Play tab', () => {
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/complete-round',
+      COMPLETE_ROUND_URL,
       'POST',
       swissPlaying(),
       1,
@@ -226,7 +221,7 @@ describe('Swiss tournaments on the Play tab', () => {
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/complete-round',
+      COMPLETE_ROUND_URL,
       'POST',
       completed(swissPlaying({ lastCompletedRound: 2, trophyHolders: [alice.id] })),
       1,
@@ -285,7 +280,7 @@ describe('Swiss tournaments on the Play tab', () => {
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/complete-round',
+      COMPLETE_ROUND_URL,
       'POST',
       swissPlaying(),
       1,
@@ -315,7 +310,7 @@ describe('Swiss tournaments on the Play tab', () => {
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
-      '/api/drafts/draft-1/tournament/complete-round',
+      COMPLETE_ROUND_URL,
       'POST',
       swissPlaying(),
       1,
@@ -332,7 +327,7 @@ describe('Swiss tournaments on the Play tab', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
-    http.expectNone('/api/drafts/draft-1/tournament/complete-round');
+    http.expectNone(COMPLETE_ROUND_URL);
   });
 
   it.each([
@@ -349,14 +344,14 @@ describe('Swiss tournaments on the Play tab', () => {
     await pushTournament(fixture, after, 1);
 
     await vi.waitFor(() => expect(openDialog()).toBeNull());
-    http.expectNone('/api/drafts/draft-1/tournament/complete-round');
+    http.expectNone(COMPLETE_ROUND_URL);
   });
 
   it('shows why completing the tournament round was refused', async () => {
     const { fixture, page, dialog } = await openCompleteRound(unreportedRoundOne);
 
     button(dialog, 'Complete round')!.click();
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/complete-round'))).flush(
+    (await vi.waitFor(() => http.expectOne(COMPLETE_ROUND_URL))).flush(
       { error: 'not-playing', message: 'This tournament isn’t being played.' },
       { status: 409, statusText: 'Conflict' },
     );

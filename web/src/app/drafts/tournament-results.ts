@@ -125,21 +125,20 @@ export class TournamentResults {
   );
 
   /**
-   * The tournament rounds with their matches: in order for single
-   * elimination, which reads like its bracket, and the current round first
-   * for Swiss.
+   * The tournament rounds with their matches, the current round first, as
+   * Swiss lists them. Only Swiss shows the list: single elimination shows
+   * its bracket in its place, and round robin the results grid.
    */
-  protected readonly rounds = computed(() => {
-    const { format, rounds } = this.tournament();
-    const shown = rounds.map((round) => ({
-      round: round.round,
-      label: `Tournament round ${round.round}`,
-      byes: round.byes.map((id) => this.seeded(id)),
-      matches: round.matches.map((match) => this.line(match, round.correctable)),
-    }));
-    // Stryker disable next-line ConditionalExpression: the list's order shows only in Swiss: single elimination shows its bracket in its place, and round robin the results grid.
-    return format === 'Swiss' ? shown.reverse() : shown;
-  });
+  protected readonly rounds = computed(() =>
+    this.tournament()
+      .rounds.map((round) => ({
+        round: round.round,
+        label: `Tournament round ${round.round}`,
+        byes: round.byes.map((id) => this.seeded(id)),
+        matches: round.matches.map((match) => this.line(match, round.correctable)),
+      }))
+      .reverse(),
+  );
 
   /**
    * How a match reads in its list, and what an organizer can do with it

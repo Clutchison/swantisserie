@@ -7,6 +7,13 @@ import { DraftStore } from './draft-store';
 /** The Complete round dialog's heading's id, which names the dialog. */
 export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
 
+/** How a match of a single elimination tournament round was decided, or will be. */
+type Outcome = NonNullable<BracketResult['outcome']>;
+
+/** Single elimination, as the forecast names it. */
+// Stryker disable next-line StringLiteral: `roundCompletion` tells the formats apart only by whether they are Swiss.
+const SINGLE_ELIMINATION = 'SingleElimination';
+
 /**
  * The Play tab's Complete round dialog, opened on the dialog shell
  * for organizers of a Swiss or single elimination tournament: what
@@ -33,9 +40,9 @@ export class CompleteRoundDialog {
   protected readonly headingId = COMPLETE_ROUND_HEADING;
   protected readonly minPlayersLeft = MIN_PLAYERS_LEFT;
   /**
-   * The tournament read: the dialog opens only on one that has the round,
-   * and the Play tab closes it once that round stops being current or the
-   * tournament is gone.
+   * The tournament read: the dialog opens only on one that has its
+   * tournament round, and the Play tab closes it once that tournament round
+   * stops being current or the tournament is gone.
    */
   private readonly tournament = this.store.tournament.value;
 
@@ -103,8 +110,7 @@ export class CompleteRoundDialog {
     const { roundCount } = tournament;
     return roundCompletion(
       this.grantsWins()
-        ? // Stryker disable next-line StringLiteral: `roundCompletion` tells the formats apart only by whether it is Swiss.
-          { format: 'SingleElimination', round, roundCount, entries, results: this.results() }
+        ? { format: SINGLE_ELIMINATION, round, roundCount, entries, results: this.results() }
         : { format: 'Swiss', round, roundCount, entries },
     );
   });
@@ -121,15 +127,12 @@ export class CompleteRoundDialog {
       if (outcome.kind !== 'Unreported') return { players, outcome };
       // Stryker disable next-line ArrayDeclaration: a forfeit by an unknown id still sends one player on, as the granted win does.
       const dropping = this.dropping()[id] ?? [];
-      return {
-        players,
-        outcome:
-          // Stryker disable next-line ConditionalExpression: a forfeit by an unknown id still sends one player on, as the granted win does.
-          dropping.length === 0
-            ? // Stryker disable next-line ObjectLiteral,StringLiteral,LogicalOperator: the forecast counts only how many players advance, and any granted win sends one on.
-              { kind: 'GrantedWin', winner: this.winners()[id] ?? players[0] }
-            : { kind: 'Forfeit', forfeitedBy: dropping[0] },
-      };
+      const forfeit = dropping.map((forfeitedBy): Outcome => ({ kind: 'Forfeit', forfeitedBy }))[0];
+      // Stryker disable next-line LogicalOperator: the forecast counts only how many players advance, and a granted win sends one on whoever wins it.
+      const winner = this.winners()[id] ?? players[0];
+      // Stryker disable next-line ObjectLiteral,StringLiteral: the forecast counts only how many players advance, and a granted win sends one on whoever wins it.
+      const grantedWin: Outcome = { kind: 'GrantedWin', winner };
+      return { players, outcome: forfeit ?? grantedWin };
     });
     const byes = round.byes.map((id): BracketResult => ({
       players: [id, null],

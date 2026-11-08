@@ -20,7 +20,7 @@ interface SideLine {
   games: number | null;
   won: boolean;
   /** Not a player yet: a bye, or a winner to come. */
-  pending: boolean;
+  notPlayer: boolean;
 }
 
 /**
@@ -77,12 +77,12 @@ export class TournamentBracket {
       .filter(({ place }) => this.includes(place, own))
       .at(-1);
     if (!reached) return null;
-    // Stryker disable next-line ConditionalExpression: a last place someone advances from is a decided match, caught below, or a dropped player's bye, which sends nobody on.
-    if (reached.place.advancing !== null) return null;
+    // A last place that sends someone on is a decided match, caught here, or a bye, caught below.
     // Stryker disable next-line OptionalChaining: every paired place's match is in `lines`, built from the same read's tournament rounds.
     if (reached.place.matchId && this.lines().get(reached.place.matchId)?.decided) return null;
     const opponent = reached.place.sides.find((side) => !isPlayer(side, own))!;
-    // A bye that sends nobody on is a dropped player's: they have no next match.
+    // A bye at their last place is a dropped player's, or one both of whose players dropped from
+    // the match it waits on: either way they have no next match.
     if (opponent.kind === 'Bye') return null;
     return `Your next match, ${this.inRound(reached.round)}, is against ${this.describe(reached.round, opponent)}.`;
   });
@@ -112,9 +112,9 @@ export class TournamentBracket {
           ? {
               name: this.name(side.playerId),
               seed: this.seeds().get(side.playerId),
-              pending: false,
+              notPlayer: false,
             }
-          : { name: this.pendingName(round, side), seed: undefined, pending: true }),
+          : { name: this.notPlayerName(round, side), seed: undefined, notPlayer: true }),
         games: line?.games ? line.games[i] : null,
         won: isPlayer(side, place.advancing),
       })),
@@ -154,7 +154,7 @@ export class TournamentBracket {
   }
 
   /** How a side that isn't a player yet shows in the bracket. */
-  private pendingName(round: number, side: Exclude<BracketSideView, { kind: 'Player' }>) {
+  private notPlayerName(round: number, side: Exclude<BracketSideView, { kind: 'Player' }>) {
     if (side.kind === 'Bye') return 'Bye';
     const players = this.feederPlayers(round, side.bracketPlace);
     return players

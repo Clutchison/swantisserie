@@ -11,7 +11,7 @@ import {
   output,
   untracked,
 } from '@angular/core';
-import type { MatchOutcomeView, MatchView, TournamentView } from 'contract';
+import type { MatchView, TournamentView } from 'contract';
 import { droppedPlayers } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { percent, record } from '../record';
@@ -159,7 +159,7 @@ export class ResultsGrid {
     if (rowId === columnId || !match) {
       return { opponentId: columnId, marker: '—', name: null, organize: null, matchId: null };
     }
-    const [marker, result] = resultOf(match as RoundRobinMatch, rowId, (id) => this.name(id));
+    const [marker, result] = resultOf(match, rowId, (id) => this.name(id));
     return {
       opponentId: columnId,
       marker,
@@ -202,15 +202,12 @@ export class ResultsGrid {
   }
 }
 
-/** A round robin match: round robin never grants a win, as only single elimination does. */
-type RoundRobinMatch = MatchView & { outcome: Exclude<MatchOutcomeView, { kind: 'GrantedWin' }> };
-
 /**
  * The player `rowId`'s result in `match`: what their cell shows, and how
  * it reads in words, `name` naming a player by id.
  */
 function resultOf(
-  { players, outcome, confirmed }: RoundRobinMatch,
+  { players, outcome, confirmed }: MatchView,
   rowId: string,
   name: (playerId: string) => string,
 ): [marker: string, result: string] {
@@ -230,5 +227,10 @@ function resultOf(
         `${name(rowId)} ${result} ${score}${confirmed ? '' : ', unconfirmed'}`,
       ];
     }
+    // A granted win: only single elimination grants wins, and the grid is round robin's.
+    // Stryker disable next-line ConditionalExpression: the grid never reaches here, as round robin never grants a win.
+    default:
+      // Stryker disable next-line StringLiteral: the grid never reaches here, as round robin never grants a win.
+      throw new Error('Round robin never grants a win');
   }
 }

@@ -14,7 +14,7 @@
                   <div
                     class="side"
                     [attr.data-won]="side.won || null"
-                    [attr.data-not-player]="side.pending || null"
+                    [attr.data-not-player]="side.notPlayer || null"
                   >
                     @if (side.seed !== undefined) {
                       <span class="seed">{{ side.seed }}</span>
