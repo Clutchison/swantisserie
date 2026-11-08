@@ -136,10 +136,14 @@ export class CardPreviews implements OnDestroy {
       disposeOnNavigation: true,
       positionStrategy: createFlexibleConnectedPositionStrategy(this.injector, anchor)
         .withPositions(POSITIONS)
-        // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
-        .withFlexibleDimensions(false)
-        // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
-        .withPush(true)
+        .withFlexibleDimensions(
+          // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
+          false,
+        )
+        .withPush(
+          // Stryker disable next-line BooleanLiteral: layout and presentation, which specs leave to the styles (web-specs.md); jsdom does no layout.
+          true,
+        )
         .withViewportMargin(GAP),
     });
     overlay.attach(new ComponentPortal(CardPreview, null, this.injector)).setInput('card', card);
