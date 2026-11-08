@@ -24,11 +24,12 @@ export class LeaderboardPage {
 
   /** The selected player, if any. */
   protected readonly selected = computed(
+    // Stryker disable next-line OptionalChaining: the page reads `selected()` only once the leaderboard has loaded.
     () => this.leaderboard.value()?.find((p) => p.playerId === this.selectedId()) ?? null,
   );
-  /** Each player's name by their id, for naming opponents. */
+  /** Each player's name by their id, for naming opponents, once the leaderboard has loaded. */
   protected readonly nameOf = computed(
-    () => new Map((this.leaderboard.value() ?? []).map((p) => [p.playerId, p.name])),
+    () => new Map(this.leaderboard.value()!.map((p) => [p.playerId, p.name])),
   );
 
   /** Selects the player, or deselects them when they are selected already. */
