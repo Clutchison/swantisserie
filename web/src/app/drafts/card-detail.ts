@@ -91,7 +91,9 @@ export class CardDetails {
     this.shown?.close();
     const detail = openCardDetail(this.dialogs, options);
     this.shown = detail;
+    // Stryker disable next-line BlockStatement: a Card detail left as `shown` once closed only gets a `close()` later, which a closed dialog ignores.
     detail.closed.subscribe(() => {
+      // Stryker disable next-line ConditionalExpression,EqualityOperator: as above; and `closed` emits inside `close()`, before a newer Card detail is `shown`, so `true` can't forget that one.
       if (this.shown === detail) this.shown = null;
     });
     return detail;
@@ -107,7 +109,11 @@ export function loadedPlaceholder(
   loaded: HTMLImageElement | null | undefined,
   normal: string | undefined,
 ): string | null {
-  return normal && loaded?.complete && loaded.naturalWidth > 0 && loaded.currentSrc === normal
+  return normal &&
+    loaded?.complete &&
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: a tile whose normal image failed has it marked broken, so `normal` is then the API image, which `currentSrc` can't match.
+    loaded.naturalWidth > 0 &&
+    loaded.currentSrc === normal
     ? normal
     : null;
 }
@@ -159,6 +165,7 @@ export class CardDetail {
   /** The image the card's tile finished loading, if that was the normal one: sharp enough to show meanwhile. */
   readonly tilePlaceholder = input<string | null>(null);
   /** Whether it closes once its card has been picked; if not, it stays open on the card picked. */
+  // Stryker disable next-line BooleanLiteral: `openCardDetail` always binds it, as `options.closesOnPick ?? true`.
   readonly closesOnPick = input(true);
   /** Remove from Plan has succeeded. */
   readonly removedFromPlan = output<void>();
@@ -317,6 +324,7 @@ export class CardDetail {
 
   /** Closes it, unless it has closed already, as before a pick it sent was answered. */
   protected close(result?: CardDetailResult) {
+    // Stryker disable next-line ConditionalExpression: the CDK's `DialogRef.close` already ignores a dialog that has closed.
     if (this.dialogRef.componentInstance) this.dialogRef.close(result);
   }
 

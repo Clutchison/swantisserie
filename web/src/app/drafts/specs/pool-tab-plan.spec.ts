@@ -87,7 +87,7 @@ describe('pool tab', () => {
       );
     });
 
-    it('says when a card could not be added, and re-reads the plan', async () => {
+    it('says when a card could not be added, re-reading the plan, until it is tried again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
       });
@@ -103,6 +103,12 @@ describe('pool tab', () => {
       expect(detail.querySelector('[role="status"]')?.textContent).toContain(
         "Couldn't add the card to your plan.",
       );
+
+      button(detail, 'Add to Plan')!.click();
+      TestBed.tick();
+      expect(detail.querySelector('[role="status"]')).toBeNull();
+      http.expectOne('/api/drafts/draft-1/plan').flush(EMPTY_PLAN);
+      await fixture.whenStable();
     });
 
     describe('made from a Card detail since closed', () => {

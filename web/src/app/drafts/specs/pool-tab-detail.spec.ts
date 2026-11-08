@@ -309,9 +309,34 @@ describe('pool tab', () => {
       expect(detail.textContent).toContain('Shivan Dragon');
     });
 
-    it('shows an empty card shape with the name if the tile has no image yet', async () => {
-      const { detail } = await openOne(shivan);
+    it('shows an empty card shape with the name if the tile is still loading the normal image', async () => {
+      const { detail } = await openOne(shivan, (tile) =>
+        Object.defineProperties(tile.querySelector('img')!, {
+          complete: { value: false },
+          // A progressive JPEG's size is known before it has all loaded.
+          naturalWidth: { value: 488 },
+          currentSrc: { value: image('normal', 'shivan-id') },
+        }),
+      );
 
+      expect(placeholder(detail)?.tagName).toBe('SPAN');
+      expect(detail.textContent).toContain('Shivan Dragon');
+    });
+
+    it('shows an empty card shape with the name if the tile has no image yet', async () => {
+      // The browser hasn't said the tile is on screen, so it hasn't requested its image.
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+        },
+      );
+      onTestFinished(() => void vi.unstubAllGlobals());
+      const { detail, page } = await openOne(shivan);
+
+      expect(tiles(page)[0].querySelector('img')).toBeNull();
       expect(placeholder(detail)?.tagName).toBe('SPAN');
       expect(detail.textContent).toContain('Shivan Dragon');
     });
@@ -351,6 +376,22 @@ describe('pool tab', () => {
       expect(newestLarge(detail).classList).not.toContain('instant');
 
       wait(150);
+      expect(shownSrcs(detail)).toEqual([back]);
+    });
+
+    it('gives a face revealed during the last one’s fade a full fade of its own', async () => {
+      const { detail } = await openOne(brightclimb);
+      await decoded(newestLarge(detail));
+      wait(100);
+
+      flip(detail);
+      await decoded(newestLarge(detail));
+      expect(shownSrcs(detail)).toEqual([front, back]);
+
+      // Past the end of the front's fade.
+      wait(100);
+      expect(shownSrcs(detail)).toEqual([front, back]);
+      wait(50);
       expect(shownSrcs(detail)).toEqual([back]);
     });
 

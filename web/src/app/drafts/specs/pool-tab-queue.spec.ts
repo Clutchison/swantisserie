@@ -118,6 +118,33 @@ describe('pool tab', () => {
       expect(button(detail, 'Remove from queue')).toBeDefined();
     });
 
+    it('disables Add to queue while an add is on its way, and says when it fails, until it is tried again', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      button(detail, 'Add to queue')!.click();
+      TestBed.tick();
+      expect(button(detail, 'Add to queue')!.disabled).toBe(true);
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await flushQueue(EMPTY_QUEUE);
+      await fixture.whenStable();
+
+      expect(detail.querySelector('[role="status"]')?.textContent).toContain(
+        "Couldn't add the card to your queue. Try again in a moment.",
+      );
+      expect(button(detail, 'Add to queue')!.disabled).toBe(false);
+
+      button(detail, 'Add to queue')!.click();
+      TestBed.tick();
+      expect(detail.querySelector('[role="status"]')).toBeNull();
+      http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
+      await vi.waitFor(() => expect(detail.textContent).toContain('Added to your queue.'));
+    });
+
     it('offers only a disabled Add to queue for a picked card, even one still queued', async () => {
       // Picked since the queue was read: it isn't lost from it yet.
       const { fixture, page } = await openDraft(

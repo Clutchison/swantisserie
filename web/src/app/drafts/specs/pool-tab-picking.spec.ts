@@ -268,6 +268,62 @@ describe('pool tab', () => {
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     });
 
+    it('says the pick failed when a refusal gives no reason', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [shivan],
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      button(detail, 'Pick')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(null, { status: 409, statusText: 'Conflict' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
+      );
+      await flushPicks([{ ...shivanPick, poolCardId: 'other-card' }]);
+      await fixture.whenStable();
+
+      expect(detail.querySelector('[role="alert"]')?.textContent).toContain(
+        "Couldn't make the pick. Try again in a moment.",
+      );
+    });
+
+    it('shows Picking… while a pick is on its way, and says when it fails for a reason other than a refusal, until it is tried again', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [shivan],
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      button(detail, 'Pick')!.click();
+      TestBed.tick();
+      expect(button(detail, 'Pick')).toBeUndefined();
+      expect(button(detail, 'Picking…')!.disabled).toBe(true);
+      // Not a refusal, so its message isn't the pick's to show.
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(
+          { error: 'internal', message: 'Something went wrong.' },
+          { status: 500, statusText: 'Server Error' },
+        );
+      await vi.waitFor(() =>
+        expect(detail.querySelector('[role="alert"]')?.textContent).toContain(
+          "Couldn't make the pick. Try again in a moment.",
+        ),
+      );
+      expect(button(detail, 'Pick')!.disabled).toBe(false);
+
+      button(detail, 'Pick')!.click();
+      TestBed.tick();
+      expect(detail.querySelector('[role="alert"]')).toBeNull();
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+      await flushPicks([shivanPick]);
+      await fixture.whenStable();
+      expect(openDialog()).toBeNull();
+    });
+
     describe('made from a Card detail since closed', () => {
       /** Opens Shivan Dragon's Card detail, picks it, closes it, and opens Brightclimb's. */
       async function pickThenOpenAnother() {
