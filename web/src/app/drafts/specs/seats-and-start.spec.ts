@@ -193,7 +193,9 @@ describe('seats and start', () => {
       Object.defineProperty(input, 'value', {
         configurable: true,
         get: () => value,
-        set: (emptied: string) => (value = emptied),
+        set: (emptied: string) => {
+          value = emptied;
+        },
       });
       input.dispatchEvent(new Event('change'));
       const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pick-import/preview'));
