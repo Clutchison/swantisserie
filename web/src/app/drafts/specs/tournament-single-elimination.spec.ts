@@ -1,7 +1,9 @@
-import { openDialog } from '../../specs-harness';
+import type { PlayerView, ViewerTournamentView } from 'contract';
+import { openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
+  alicePlayer,
   bob,
   button,
   controlByLabel,
@@ -21,12 +23,18 @@ import {
   openCompleteRound,
   openPlaying,
   openPlayTab,
+  place,
   progressLine,
   pushTournament,
   registration,
+  side,
   singleEliminationFinal as final,
   singleEliminationPlaying,
+  standing,
+  standingsColumns,
   threePlayers,
+  unreportedMatch,
+  winnerToCome,
   completed,
 } from './play-tab-harness';
 
@@ -53,6 +61,7 @@ describe('single elimination tournaments on the Play tab', () => {
   it('asks the organizer to pick the winner of each unreported match before completing the round', async () => {
     const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
 
+    expect(await question('Complete tournament round 1')).toBe(dialog);
     expect(text(dialog)).toContain(
       'Completing the round will pair tournament round 2 and open its matches.',
     );
@@ -76,6 +85,18 @@ describe('single elimination tournaments on the Play tab', () => {
       grantedWins: [{ matchId: 'm1', winner: carol.id }],
     });
     await vi.waitFor(() => expect(openDialog()).toBeNull());
+  });
+
+  it('shows the standings without Swiss’s tiebreak columns', async () => {
+    const { tab } = await openPlaying(singleEliminationPlaying(), { user: dave });
+
+    expect(standingsColumns(tab)).toEqual([
+      'Rank',
+      'Player',
+      'Match points',
+      'Matches won, lost and drawn',
+      'Game-win %',
+    ]);
   });
 
   it.each([
@@ -229,5 +250,84 @@ describe('both finalists dropping', () => {
     await fixture.whenStable();
 
     expect(text(dialog)).toContain('award the trophy');
+  });
+});
+
+/** Erin, a fourth player. */
+const erin: PlayerView = { ...bob, id: 'erin', name: 'Erin' };
+
+/**
+ * A single elimination tournament of Alice, Bob, Carol and Erin, seeded in
+ * that order, in its semifinal: Alice plays Erin (m1) and Bob plays Carol
+ * (m2), both unreported, or m1 forfeited by Alice once she and Erin both
+ * dropped, so that nobody advances from it.
+ */
+function semifinalOfFour({ bothDropped = false } = {}): ViewerTournamentView {
+  const m1 = { ...unreportedMatch('m1', alice.id, erin.id), bracketPlace: 0 };
+  return singleEliminationPlaying({
+    entries: [alice.id, bob.id, carol.id, erin.id].map((playerId, i) => ({
+      playerId,
+      dropped: bothDropped && (playerId === alice.id || playerId === erin.id),
+      droppable: true,
+      seed: i + 1,
+    })),
+    rounds: [
+      {
+        round: 1,
+        correctable: true,
+        matches: [
+          bothDropped ? { ...m1, outcome: { kind: 'Forfeit', forfeitedBy: alice.id } } : m1,
+          { ...unreportedMatch('m2', bob.id, carol.id), bracketPlace: 1 },
+        ],
+        byes: [],
+      },
+    ],
+    bracket: [
+      {
+        round: 1,
+        places: [
+          place(0, 'm1', [side(alice.id), side(erin.id)]),
+          place(1, 'm2', [side(bob.id), side(carol.id)]),
+        ],
+      },
+      {
+        round: 2,
+        places: [
+          place(
+            0,
+            null,
+            bothDropped ? [winnerToCome(1), { kind: 'Bye' }] : [winnerToCome(0), winnerToCome(1)],
+          ),
+        ],
+      },
+    ],
+    standings: [alice.id, bob.id, carol.id, erin.id].map((id) => standing(id, 1)),
+  });
+}
+
+describe('the single elimination Complete round dialog with more than one match', () => {
+  const fourPlayers = { players: [alicePlayer, bob, carol, erin] };
+
+  it('stays disabled until every unreported match has a winner picked', async () => {
+    const { fixture, dialog } = await openCompleteRound(semifinalOfFour(), { fields: fourPlayers });
+
+    controlByLabel(group(dialog, 'Winner of Alice vs Erin')!, 'radio', 'Alice')!.click();
+    await fixture.whenStable();
+    expect(button(dialog, 'Complete round')!.disabled).toBe(true);
+
+    controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!.click();
+    await fixture.whenStable();
+    expect(button(dialog, 'Complete round')!.disabled).toBe(false);
+  });
+
+  it('counts a match already decided, beside the unreported one, in what completing the round does', async () => {
+    const { dialog } = await openCompleteRound(semifinalOfFour({ bothDropped: true }), {
+      fields: fourPlayers,
+    });
+
+    expect(group(dialog, 'Winner of Alice vs Erin')).toBeNull();
+    expect(text(dialog)).toContain(
+      'Fewer than 2 players will be left in the bracket, so completing the round will complete the tournament and award the trophy.',
+    );
   });
 });

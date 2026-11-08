@@ -32,11 +32,16 @@ export class CompleteRoundDialog {
 
   protected readonly headingId = COMPLETE_ROUND_HEADING;
   protected readonly minPlayersLeft = MIN_PLAYERS_LEFT;
+  /**
+   * The tournament read: the dialog opens only on one that has the round,
+   * and the Play tab closes it once that round stops being current or the
+   * tournament is gone.
+   */
   private readonly tournament = this.store.tournament.value;
 
   /** Whether Complete round gives granted wins, as single elimination does: each unreported match needs a winner picked. */
   protected readonly grantsWins = computed(
-    () => this.tournament()?.completeRoundGrants === 'GrantedWins',
+    () => this.tournament()!.completeRoundGrants === 'GrantedWins',
   );
   /** The tournament round it completes: the one it was opened for, which its request names. */
   readonly round = input.required<number>();
@@ -51,12 +56,13 @@ export class CompleteRoundDialog {
    */
   protected readonly unreported = computed(() => {
     const droppable = new Set(
-      (this.tournament()?.entries ?? [])
-        .filter((entry) => entry.droppable)
+      this.tournament()!
+        .entries.filter((entry) => entry.droppable)
         .map((entry) => entry.playerId),
     );
-    return (this.tournament()?.rounds.find((r) => r.round === this.round())?.matches ?? [])
-      .filter((match) => match.outcome.kind === 'Unreported')
+    return this.tournament()!
+      .rounds.find((r) => r.round === this.round())!
+      .matches.filter((match) => match.outcome.kind === 'Unreported')
       .map((match) => {
         const players = match.players.map((id) => this.store.player(id));
         return {
@@ -87,17 +93,18 @@ export class CompleteRoundDialog {
    * each unreported match decided as the organizer decides it.
    */
   protected readonly completion = computed(() => {
-    const tournament = this.tournament();
+    const tournament = this.tournament()!;
     const chosen = Object.values(this.dropping()).flat();
-    const entries = (tournament?.entries ?? []).map(({ playerId, dropped }) => ({
+    const entries = tournament.entries.map(({ playerId, dropped }) => ({
       playerId,
       dropped: dropped || chosen.includes(playerId),
     }));
     const round = this.round();
-    const roundCount = tournament?.roundCount ?? 0;
+    const { roundCount } = tournament;
     return roundCompletion(
       this.grantsWins()
-        ? { format: 'SingleElimination', round, roundCount, entries, results: this.results() }
+        ? // Stryker disable next-line StringLiteral: `roundCompletion` tells the formats apart only by whether it is Swiss.
+          { format: 'SingleElimination', round, roundCount, entries, results: this.results() }
         : { format: 'Swiss', round, roundCount, entries },
     );
   });
@@ -109,26 +116,31 @@ export class CompleteRoundDialog {
    * players chosen to drop.
    */
   private readonly results = computed(() => {
-    const round = this.tournament()?.rounds.find((r) => r.round === this.round());
-    const matches = (round?.matches ?? []).map(({ id, players, outcome }): BracketResult => {
+    const round = this.tournament()!.rounds.find((r) => r.round === this.round())!;
+    const matches = round.matches.map(({ id, players, outcome }): BracketResult => {
       if (outcome.kind !== 'Unreported') return { players, outcome };
+      // Stryker disable next-line ArrayDeclaration: a forfeit by an unknown id still sends one player on, as the granted win does.
       const dropping = this.dropping()[id] ?? [];
       return {
         players,
         outcome:
+          // Stryker disable next-line ConditionalExpression: a forfeit by an unknown id still sends one player on, as the granted win does.
           dropping.length === 0
-            ? { kind: 'GrantedWin', winner: this.winners()[id] ?? players[0] }
+            ? // Stryker disable next-line ObjectLiteral,StringLiteral,LogicalOperator: the forecast counts only how many players advance, and any granted win sends one on.
+              { kind: 'GrantedWin', winner: this.winners()[id] ?? players[0] }
             : { kind: 'Forfeit', forfeitedBy: dropping[0] },
       };
     });
-    const byes = (round?.byes ?? []).map((id): BracketResult => ({
+    const byes = round.byes.map((id): BracketResult => ({
       players: [id, null],
       outcome: null,
     }));
     return [...matches, ...byes];
   });
 
+  // Stryker disable next-line BlockStatement: the checkbox keeps the state the organizer clicked; the binding shows only if a re-read re-creates it.
   protected isDropping(matchId: string, playerId: string) {
+    // Stryker disable next-line LogicalOperator: the checkbox keeps the state the organizer clicked; the binding shows only if a re-read re-creates it.
     return this.dropping()[matchId]?.includes(playerId) ?? false;
   }
 
@@ -149,7 +161,9 @@ export class CompleteRoundDialog {
     });
   }
 
+  // Stryker disable next-line BlockStatement: the radio button keeps the state the organizer clicked; the binding shows only if a re-read re-creates it.
   protected isWinner(matchId: string, playerId: string) {
+    // Stryker disable next-line ConditionalExpression: the radio button keeps the state the organizer clicked; the binding shows only if a re-read re-creates it.
     return this.winners()[matchId] === playerId;
   }
 

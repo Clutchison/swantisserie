@@ -73,6 +73,7 @@ export class TournamentResults {
     source: this.tournament,
     computation: (tournament, previous) => {
       const open = previous?.value;
+      // Stryker disable next-line OptionalChaining: an open match stays in each re-read while the results show; Cancel tournament removes them.
       if (!open || !this.lineById().get(open)?.organize) return undefined;
       return sameOutcome(matchIn(previous.source, open), matchIn(tournament, open))
         ? open
@@ -136,6 +137,7 @@ export class TournamentResults {
       byes: round.byes.map((id) => this.seeded(id)),
       matches: round.matches.map((match) => this.line(match, round.correctable)),
     }));
+    // Stryker disable next-line ConditionalExpression: the list's order shows only in Swiss: single elimination shows its bracket in its place, and round robin the results grid.
     return format === 'Swiss' ? shown.reverse() : shown;
   });
 

@@ -35,6 +35,9 @@ import {
 
 useDraftsApp();
 
+/** What clearing a match against Carol says once she has dropped. */
+const CAROL_FORFEITS = 'It will become a forfeit by Carol, who has dropped.';
+
 describe('organizer reports, corrections and clears', () => {
   /** Opens the match of the results grid's cell of `row` against `column`, and answers with its dialog. */
   async function openCell(
@@ -210,7 +213,7 @@ describe('organizer reports, corrections and clears', () => {
     )!.click();
 
     const dialog = await question('Clear the game score of Carol vs Alice?');
-    expect(dialog.textContent).toContain('It will become a forfeit by Carol, who has dropped.');
+    expect(dialog.textContent).toContain(CAROL_FORFEITS);
     await answer(dialog, 'Cancel');
   });
 
@@ -338,6 +341,39 @@ describe('organizer reports, corrections and clears', () => {
       );
 
       expect(scores(tab)).toBeNull();
+    });
+
+    it('closes when its toggle is pressed again', async () => {
+      const { fixture, tab } = await openCorrection();
+
+      button(tab, 'Report Alice vs Carol')!.click();
+      await fixture.whenStable();
+
+      expect(scores(tab)).toBeNull();
+    });
+
+    it('says clearing a match against a dropped player makes it their forfeit', async () => {
+      const swiss = swissPlaying({
+        rounds: swissRoundsWith(againstDropped(reported(aliceVsCarol, [2, 1]), carol.id)),
+      });
+      const { fixture, tab } = await openPlaying(
+        {
+          ...swiss,
+          entries: swiss.entries.map((entry) => ({
+            ...entry,
+            dropped: entry.playerId === carol.id,
+          })),
+        },
+        { user: dave, powers: ORGANIZE_ONLY },
+      );
+
+      button(tab, 'Correct Alice vs Carol')!.click();
+      await fixture.whenStable();
+      button(scores(tab)!, 'Clear game score')!.click();
+
+      const dialog = await question('Clear the game score of Alice vs Carol?');
+      expect(dialog.textContent).toContain(CAROL_FORFEITS);
+      await answer(dialog, 'Cancel');
     });
   });
 
