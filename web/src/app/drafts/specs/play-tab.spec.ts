@@ -31,6 +31,7 @@ import {
   complete,
   currentSteps,
   dave,
+  failChange,
   flushTournament,
   hasPlayTab,
   joinedNames,
@@ -50,6 +51,9 @@ useDraftsApp();
 /** The Join button's label without public decklists, and with them. */
 const JOIN_PRIVATE = 'Join (deck stays private)';
 const JOIN_PUBLIC = 'Join (public decklist)';
+
+/** The tournament's entries, which Join adds to. */
+const ENTRIES = '/api/drafts/draft-1/tournament/entries';
 
 describe('Play tab', () => {
   describe('before setup', () => {
@@ -200,6 +204,17 @@ describe('Play tab', () => {
         expect(alertIn(panel(page))?.textContent).toContain('This draft already has a tournament.'),
       );
     });
+
+    it('says setup failed when the api gives no reason', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, 'Set up tournament')!.click();
+
+      expect(await failChange(fixture, page, '/api/drafts/draft-1/tournament')).toBe(
+        "Couldn't set up the tournament. Try again in a moment.",
+      );
+    });
   });
 
   describe('tournament state', () => {
@@ -265,6 +280,14 @@ describe('Play tab', () => {
       expect(button(tab, 'Cancel tournament')).toBeUndefined();
     });
 
+    it('sums up a round robin by its format alone, as it has no tournament rounds', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id), { user: dave });
+
+      const tab = await openPlayTab(fixture, page);
+
+      expect(text(tab)).toContain('Round robin.');
+    });
+
     it('lets a player leave, then join again', async () => {
       const { fixture, page } = await openComplete(registration(bob.id, alice.id));
       const tab = await openPlayTab(fixture, page);
@@ -281,15 +304,47 @@ describe('Play tab', () => {
       expect(button(panel(page), 'Leave')).toBeUndefined();
 
       button(panel(page), JOIN_PRIVATE)!.click();
-      await answerChange(
-        fixture,
-        '/api/drafts/draft-1/tournament/entries',
-        'POST',
-        registration(bob.id, alice.id),
-        2,
-      );
+      await answerChange(fixture, ENTRIES, 'POST', registration(bob.id, alice.id), 2);
       expect(joinedNames(panel(page))).toEqual(['Bob', 'Alice']);
       expect(button(panel(page), JOIN_PRIVATE)).toBeUndefined();
+    });
+
+    it('says joining failed when the api gives no reason, until a change goes through', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id));
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, JOIN_PRIVATE)!.click();
+      expect(await failChange(fixture, page, ENTRIES)).toBe(
+        "Couldn't join the tournament. Try again in a moment.",
+      );
+
+      button(panel(page), JOIN_PRIVATE)!.click();
+      await answerChange(fixture, ENTRIES, 'POST', registration(bob.id, alice.id));
+
+      expect(alertIn(panel(page))).toBeNull();
+    });
+
+    it.each([
+      [
+        'leaving',
+        {},
+        'Leave',
+        `/api/drafts/draft-1/tournament/entries/${alice.id}`,
+        "Couldn't leave the tournament. Try again in a moment.",
+      ],
+      [
+        'removing a player',
+        { powers: ORGANIZE_ONLY },
+        'Remove Bob',
+        `/api/drafts/draft-1/tournament/entries/${bob.id}`,
+        "Couldn't remove the player. Try again in a moment.",
+      ],
+    ])('says %s failed when the api gives no reason', async (_, options, label, url, failure) => {
+      const { fixture, page } = await openComplete(registration(bob.id, alice.id), options);
+
+      button(await openPlayTab(fixture, page), label)!.click();
+
+      expect(await failChange(fixture, page, url)).toBe(failure);
     });
 
     it('says on the Join button, and beside it, that the deck stays private without public decklists', async () => {
@@ -322,7 +377,7 @@ describe('Play tab', () => {
       const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/entries'))).flush(
+      (await vi.waitFor(() => http.expectOne(ENTRIES))).flush(
         { error: 'not-in-registration', message: 'This tournament has started.' },
         { status: 409, statusText: 'Conflict' },
       );
@@ -422,12 +477,13 @@ describe('Play tab', () => {
       expect(joinedNames(panel(page))).toEqual(['Alice']);
     });
 
-    it('lets an organizer cancel the tournament once they go ahead, offering setup again', async () => {
+    it('lets an organizer cancel the tournament once they go ahead, offering setup again, and moves focus to it', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
       const tab = await openPlayTab(fixture, page);
 
+      button(tab, 'Cancel tournament')!.focus();
       button(tab, 'Cancel tournament')!.click();
       const dialog = await question('Cancel the tournament?');
       expect(dialog.textContent).toContain(
@@ -439,9 +495,12 @@ describe('Play tab', () => {
       expect(panelName(page)).toBe('Play');
       expect(button(panel(page), 'Set up tournament')).toBeDefined();
       expect(stateSteps(panel(page))).toEqual([]);
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(panel(page), 'Set up tournament')),
+      );
     });
 
-    it('keeps the tournament when the organizer thinks better of cancelling', async () => {
+    it('keeps the tournament, saying nothing failed, when the organizer thinks better of cancelling', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
@@ -449,10 +508,14 @@ describe('Play tab', () => {
 
       button(tab, 'Cancel tournament')!.click();
       await answer(await question('Cancel the tournament?'), 'Keep tournament');
-      await fixture.whenStable();
+      // Once nothing is in flight, Cancel tournament takes presses again.
+      await vi.waitFor(() =>
+        expect(button(tab, 'Cancel tournament')!.getAttribute('aria-disabled')).toBeNull(),
+      );
 
       http.expectNone('/api/drafts/draft-1/tournament');
       expect(joinedNames(tab)).toEqual(['Bob']);
+      expect(alertIn(tab)).toBeNull();
     });
 
     it('appears for everyone once a pushed draft has a tournament, and goes when it is cancelled', async () => {

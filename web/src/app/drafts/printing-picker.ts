@@ -69,6 +69,7 @@ export class PrintingPicker implements OnInit {
 
   /** The sets with an English printing of the land, once the API has answered. */
   protected readonly sets = signal<BasicLandPrintingSetView[] | null>(null);
+  // Stryker disable next-line BooleanLiteral: `ngOnInit` calls `load`, which sets it false, before the first render.
   protected readonly loadFailed = signal(false);
   protected readonly setIndex = signal(0);
   protected readonly printingIndex = signal(0);
@@ -117,6 +118,7 @@ export class PrintingPicker implements OnInit {
   /** Shows the sets, on the set and printing the land shows now. */
   private opened(sets: BasicLandPrintingSetView[]) {
     // None are stored until the API's first refresh finishes: the player can try again.
+    // Stryker disable next-line ConditionalExpression,BlockStatement: with no sets, `sets[0].printings` throws inside `load`'s `try`, which sets `loadFailed` all the same.
     if (sets.length === 0) {
       this.loadFailed.set(true);
       return;
@@ -140,6 +142,7 @@ export class PrintingPicker implements OnInit {
 
   /** Steps `by` printings through the set, wrapping at either end. */
   protected step(by: number) {
+    // Stryker disable next-line OptionalChaining: stepping is offered only once a set is chosen.
     const count = this.set()?.printings.length ?? 1;
     this.printingIndex.update((index) => (index + by + count) % count);
   }
@@ -165,7 +168,6 @@ export class PrintingPicker implements OnInit {
 
   /** Sends the change, then shows it everywhere and closes; a failure is said here, changing nothing. */
   private async save(request: Observable<PreferredPrintings>) {
-    if (this.saving()) return;
     this.saving.set(true);
     this.saveError.set(null);
     try {

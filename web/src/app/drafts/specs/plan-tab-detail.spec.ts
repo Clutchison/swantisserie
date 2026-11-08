@@ -375,6 +375,29 @@ describe('plan tab', () => {
       expect(detailOpener(tab, 'Shivan Dragon')).toBeUndefined();
     });
 
+    it('stays open, saying so, when removing the card from the plan fails', async () => {
+      const { fixture, open } = await openFromPlan(
+        { turn: bobsTurn },
+        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      );
+      const detail = await open('Shivan Dragon');
+
+      button(detail, 'Remove from Plan')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      // The plan is re-read, as it may have moved on.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
+        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      );
+      await fixture.whenStable();
+
+      expect(openDialog()).toBe(detail);
+      expect(text(detail)).toContain(
+        "Couldn't remove the card from your plan. Try again in a moment.",
+      );
+    });
+
     it('stays open once the player picks the card, which is then a pick in the plan', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: alicesTurn },

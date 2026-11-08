@@ -49,6 +49,7 @@ export class CardImageSource {
   /** One face's image failed to load, so its next URL is the fallback. */
   failed(card: PoolCardView, version: ImageVersion, face = 0) {
     const url = this.workingUrl(card, version, face);
+    // Stryker disable next-line ConditionalExpression: it would add `undefined` to the broken URLs, which no URL ever matches.
     if (url) this.brokenUrls.update((urls) => new Set(urls).add(url));
   }
 }

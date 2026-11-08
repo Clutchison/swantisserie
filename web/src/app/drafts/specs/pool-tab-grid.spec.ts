@@ -10,7 +10,16 @@ import {
   drafting,
   pickOf,
 } from './harness';
-import { useTallScreen, image, card, shivan, brightclimb, tiles } from './pool-tab-harness';
+import {
+  useTallScreen,
+  image,
+  card,
+  shivan,
+  brightclimb,
+  tiles,
+  searchFor,
+} from './pool-tab-harness';
+import { apiImage } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -48,9 +57,15 @@ describe('pool tab', () => {
     img.dispatchEvent(new Event('error'));
     await fixture.whenStable();
 
-    expect(img.getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
-    );
+    expect(img.getAttribute('src')).toBe(apiImage('normal', 'shivan-id'));
+    expect(img.hasAttribute('srcset')).toBe(false);
+  });
+
+  it('shows Scryfall’s API image of a card the snapshot has no images for', async () => {
+    const { page } = await openDraft(completeSnapshot, {}, { cards: [card({ images: [] })] });
+
+    const img = tiles(page)[0].querySelector('img')!;
+    expect(img.getAttribute('src')).toBe(apiImage('normal', 'shivan-id'));
     expect(img.hasAttribute('srcset')).toBe(false);
   });
 
@@ -88,12 +103,19 @@ describe('pool tab', () => {
   describe('when a tile requests its image', () => {
     /** Stands in for the browser saying which tiles are on screen. */
     let screenChanged: IntersectionObserverCallback;
+    /** The elements the browser has been asked to watch. */
+    let observed: Set<Element>;
     class FakeIntersectionObserver {
       constructor(callback: IntersectionObserverCallback) {
         screenChanged = callback;
+        observed = new Set();
       }
-      observe() {}
-      unobserve() {}
+      observe(element: Element) {
+        observed.add(element);
+      }
+      unobserve(element: Element) {
+        observed.delete(element);
+      }
       disconnect() {}
     }
 
@@ -254,6 +276,82 @@ describe('pool tab', () => {
       expect(src(buffer)).toBeUndefined();
     });
 
+    it('asks the browser to say when each waiting tile is on screen, and stops once it has requested its image', async () => {
+      const { page } = await openPool([brightclimb, shivan]);
+      const [first, second] = tiles(page);
+      expect([...observed]).toEqual([first, second]);
+
+      report(first, true);
+      wait(120);
+
+      expect([...observed]).toEqual([second]);
+    });
+
+    it('ignores word of a tile that has already requested its image, as one may come late', async () => {
+      const { page } = await openPool([brightclimb, shivan]);
+      const [first, second] = tiles(page);
+      report(first, true);
+      wait(120);
+
+      screenChanged(
+        [
+          { target: first, isIntersecting: false },
+          { target: second, isIntersecting: true },
+        ] as unknown as IntersectionObserverEntry[],
+        {} as IntersectionObserver,
+      );
+      wait(120);
+
+      expect(src(first)).toBe(image('normal', 'brightclimb-id'));
+      expect(src(second)).toBe(image('normal', 'shivan-id'));
+    });
+
+    it('still loads the buffer rows once a search removes a tile not yet measured', async () => {
+      // The grid measures three tiles across, so all three share a row.
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(private readonly measured: ResizeObserverCallback) {}
+          observe() {
+            this.measured(
+              [{ contentRect: { width: 470 } } as ResizeObserverEntry],
+              this as unknown as ResizeObserver,
+            );
+          }
+          disconnect() {}
+        },
+      );
+      const { page } = await openPool([brightclimb, shivan, third]);
+      const [onScreen, buffer] = tiles(page);
+      report(onScreen, true);
+      report(buffer, false);
+      wait(220);
+      // Third's tile hasn't been measured, so it may be on screen.
+      expect(src(buffer)).toBeUndefined();
+
+      // Leaves out Third, so its tile goes and the row keeps the other two.
+      searchFor(page, 'a');
+      wait(50);
+
+      expect(tiles(page)).toEqual([onScreen, buffer]);
+      expect(src(buffer)).toBe(image('normal', 'shivan-id'));
+    });
+
+    it('keeps a new tile waiting to be measured when it renders just as the buffer rows are due', async () => {
+      const { page } = await openPool([brightclimb, shivan, third]);
+      const [onScreen, ...buffer] = tiles(page);
+      report(onScreen, true);
+      buffer.forEach((tile) => report(tile, false));
+      wait(130);
+
+      // Moves Shivan Dragon up a row, which gives it a new tile.
+      searchFor(page, 'shivan');
+      wait(100);
+
+      expect(tiles(page)).toHaveLength(1);
+      expect(src(tiles(page)[0])).toBeUndefined();
+    });
+
     it('falls back to Scryfall’s API image when a settled tile’s image fails', async () => {
       const { page } = await openPool([shivan]);
       const [tile] = tiles(page);
@@ -263,9 +361,7 @@ describe('pool tab', () => {
       tile.querySelector('img')!.dispatchEvent(new Event('error'));
       TestBed.tick();
 
-      expect(src(tile)).toBe(
-        'https://api.scryfall.com/cards/shivan-id?format=image&version=normal',
-      );
+      expect(src(tile)).toBe(apiImage('normal', 'shivan-id'));
     });
   });
 });

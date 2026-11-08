@@ -71,11 +71,11 @@ h4 {
     border-top: 1px solid var(--color-divider);
   }
 
-  &.won {
+  &[data-won='true'] {
     font-weight: 700;
   }
 
-  &.pending {
+  &[data-not-player='true'] {
     color: var(--color-muted);
     font-style: italic;
     font-size: var(--font-size-sm);

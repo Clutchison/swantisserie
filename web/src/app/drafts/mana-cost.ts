@@ -18,6 +18,7 @@ export function manaCostOf(card: {
   // A card with several costs shows only its first face's. A double-faced card's
   // front face holds its cost; a split card, Room or adventure writes both
   // halves' costs in one, between them //, and shows the first.
+  // Stryker disable next-line OptionalChaining,StringLiteral: Scryfall leaves the top-level cost null only for a card with faces; and a text with no `{…}` gives no symbols, as `''` does.
   const cost = (card.manaCost ?? card.faces[0]?.manaCost ?? '').split(FACE_SEPARATOR)[0];
   return [...cost.matchAll(/\{[^}]*\}/g)].map(([text]) => manaSymbol(text));
 }
