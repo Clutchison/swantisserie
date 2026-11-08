@@ -25,7 +25,7 @@ Stryker is run by hand. It is not part of `npm test` or CI.
 
 - **`css: true`.** Analog compiles specs in JIT mode, which loads each component's styles as a CSS import. Vitest blanks CSS imports by default, and specs that read computed styles fail without it.
 - **Templates.** Stryker mutates TypeScript only, never templates. And because Analog compiles in JIT mode, this config doesn't type-check templates; `ng test` and `npm run typecheck -w web` still do.
-- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 7 minutes for a single component. Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`.
+- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 7 minutes, even for a single component. Each mutant then runs dozens of tests, so a full run from scratch (about 6,300 mutants) tested about 3 mutants a minute at `concurrency: 2`, roughly two days, and took about 10 hours at a one-off `--concurrency 8` with the machine otherwise idle (#544). Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped.
 - **`dryRunTimeoutMinutes`** is raised from Stryker's 5-minute default to 30, so that dry run isn't cut off. JSON can't hold the comment, so it lives here.
 
 ## Reading the report
