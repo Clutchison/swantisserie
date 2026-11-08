@@ -59,7 +59,7 @@ describe('single elimination tournaments on the Play tab', () => {
     button(tab, 'Start tournament')!.click();
     const dialog = await question('Start the tournament?');
 
-    expect(dialog.textContent).toContain(
+    expect(text(dialog)).toContain(
       'Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
     );
     await answer(dialog, 'Cancel');

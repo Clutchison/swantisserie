@@ -1,14 +1,5 @@
 import { answer, question } from '../../specs-harness';
-import {
-  ORGANIZE_ONLY,
-  bob,
-  button,
-  findNamedList,
-  http,
-  panel,
-  text,
-  useDraftsApp,
-} from './harness';
+import { ORGANIZE_ONLY, bob, button, findNamedList, http, panel, useDraftsApp } from './harness';
 import {
   answerChange,
   carol,
@@ -16,6 +7,7 @@ import {
   failChange,
   unreportedMatch,
   openPlaying,
+  questionDetail,
   swissPlaying,
   threePlayers,
 } from './play-tab-harness';
@@ -29,6 +21,10 @@ const reopened = swissPlaying({
   reopenRound: null,
 });
 
+/** What reopening tournament round 1 does, as its question says it, before any drops it takes back. */
+const REOPEN_DETAIL =
+  'Its results will be open to correction again, and will leave the standings until it is completed again. Reopening it will remove tournament round 2’s pairings, to be paired again then.';
+
 describe('reopening a tournament round', () => {
   it('lets an organizer reopen the last completed round once they go ahead, which unlocks its results', async () => {
     const { fixture, page, tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
@@ -36,10 +32,8 @@ describe('reopening a tournament round', () => {
 
     button(tab, 'Reopen round 1')!.click();
     const dialog = await question('Reopen tournament round 1?');
-    // Nothing follows the detail but the dialog's buttons: it takes back no drops.
-    expect(text(dialog)).toContain(
-      'Its results will be open to correction again, and will leave the standings until it is completed again. Reopening it will remove tournament round 2’s pairings, to be paired again then. Cancel',
-    );
+    // It takes back no drops, so says nothing of anyone being back.
+    expect(questionDetail(dialog)).toBe(REOPEN_DETAIL);
     await answer(dialog, 'Reopen round 1');
     const req = await answerChange(
       fixture,
@@ -76,7 +70,7 @@ describe('reopening a tournament round', () => {
     button(tab, 'Reopen round 1')!.click();
     const dialog = await question('Reopen tournament round 1?');
 
-    expect(text(dialog)).toContain(`to be paired again then. ${back}`);
+    expect(questionDetail(dialog)).toBe(`${REOPEN_DETAIL} ${back}`);
     await answer(dialog, 'Cancel');
   });
 

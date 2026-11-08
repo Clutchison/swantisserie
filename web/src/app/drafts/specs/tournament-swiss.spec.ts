@@ -26,6 +26,7 @@ import {
   dave,
   failChange,
   forfeited,
+  grantedDraw,
   openComplete,
   openCompleteRound,
   unreportedMatch,
@@ -99,9 +100,7 @@ describe('Swiss tournaments on the Play tab', () => {
     button(tab, 'Start tournament')!.click();
     const dialog = await question('Start the tournament?');
 
-    expect(dialog.textContent).toContain(
-      'Joining closes, and tournament round 1 is paired at random.',
-    );
+    expect(text(dialog)).toContain('Joining closes, and tournament round 1 is paired at random.');
     await answer(dialog, 'Cancel');
   });
 
@@ -154,10 +153,10 @@ describe('Swiss tournaments on the Play tab', () => {
   it('notes a match decided without a game score by how it was decided', async () => {
     const { tab } = await openPlaying(
       swissPlaying({
-        rounds: swissRoundsWith(forfeited(unreportedMatch('m2', alice.id, carol.id), carol.id), {
-          ...unreportedMatch('m1', carol.id, bob.id),
-          outcome: { kind: 'GrantedDraw' },
-        }),
+        rounds: swissRoundsWith(
+          forfeited(unreportedMatch('m2', alice.id, carol.id), carol.id),
+          grantedDraw(unreportedMatch('m1', carol.id, bob.id)),
+        ),
       }),
       { user: dave },
     );

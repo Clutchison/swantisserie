@@ -1,4 +1,3 @@
-import type { MatchView, PlayerView } from 'contract';
 import {
   answer,
   clickBackdrop,
@@ -13,7 +12,6 @@ import {
   accessibleDescription,
   alertIn,
   alice,
-  alicePlayer,
   bob,
   button,
   draft,
@@ -35,8 +33,11 @@ import {
   carol,
   currentSteps,
   dave,
+  erin,
   failChange,
   forfeited,
+  fourPlayers,
+  grantedDraw,
   gridCell,
   gridCellName,
   gridColumns,
@@ -49,6 +50,7 @@ import {
   registration,
   reported,
   resultsGrid,
+  roundRobinOfFour,
   roundLabels,
   standing,
   threePlayers,
@@ -64,34 +66,12 @@ useDraftsApp();
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
 
-/** Erin, a fourth player, who joined after Carol. */
-const erin: PlayerView = { ...bob, id: 'erin', name: 'Erin' };
-
-/** The complete draft of Alice, Bob, Carol and Erin. */
-const fourPlayers = { players: [alicePlayer, bob, carol, erin] };
-
 /** Alice's unreported matches against Bob (m2), Carol (m3) and Erin (m4). */
 const [againstBob, againstCarol, againstErin] = [
   unreportedMatch('m2', alice.id, bob.id),
   unreportedMatch('m3', carol.id, alice.id),
   unreportedMatch('m4', alice.id, erin.id),
 ];
-
-/**
- * A round robin tournament of Alice, Bob, Carol and Erin, joined in that
- * order, being played, with `matches` in the order the read gives them.
- */
-function roundRobinOfFour(matches: MatchView[]) {
-  const tournament = playing();
-  return playing([], {
-    entries: [
-      ...tournament.entries,
-      { playerId: erin.id, dropped: false, droppable: true, seed: null },
-    ],
-    rounds: [{ ...tournament.rounds[0], matches }],
-    standings: [...tournament.standings, standing(erin.id, 1)],
-  });
-}
 
 /** Presses Report on the line of the match against `opponent` in Your matches, and returns the dialog it opens. */
 async function openReport(fixture: AppFixture, tab: HTMLElement, opponent: string) {
@@ -415,7 +395,7 @@ describe('Play tab while the tournament is played', () => {
     const carolLeads = playing(
       [
         reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id),
-        { ...unreportedMatch('m3', carol.id, alice.id), outcome: { kind: 'GrantedDraw' } },
+        grantedDraw(unreportedMatch('m3', carol.id, alice.id)),
       ],
       {
         standings: [
@@ -795,9 +775,7 @@ describe('Play tab while the tournament is played', () => {
 describe('Play tab once the tournament is complete', () => {
   it('shows a match left unreported as the granted draw completing made it', async () => {
     const { tab } = await openPlaying(
-      completed(
-        playing([{ ...unreportedMatch('m2', alice.id, bob.id), outcome: { kind: 'GrantedDraw' } }]),
-      ),
+      completed(playing([grantedDraw(unreportedMatch('m2', alice.id, bob.id))])),
     );
 
     expect(yourMatches(tab)).toContain('vs Bob · Granted draw');

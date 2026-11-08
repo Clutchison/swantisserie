@@ -52,6 +52,9 @@ useDraftsApp();
 const JOIN_PRIVATE = 'Join (deck stays private)';
 const JOIN_PUBLIC = 'Join (public decklist)';
 
+/** The tournament's entries, which Join adds to. */
+const ENTRIES = '/api/drafts/draft-1/tournament/entries';
+
 describe('Play tab', () => {
   describe('before setup', () => {
     it.each([
@@ -301,13 +304,7 @@ describe('Play tab', () => {
       expect(button(panel(page), 'Leave')).toBeUndefined();
 
       button(panel(page), JOIN_PRIVATE)!.click();
-      await answerChange(
-        fixture,
-        '/api/drafts/draft-1/tournament/entries',
-        'POST',
-        registration(bob.id, alice.id),
-        2,
-      );
+      await answerChange(fixture, ENTRIES, 'POST', registration(bob.id, alice.id), 2);
       expect(joinedNames(panel(page))).toEqual(['Bob', 'Alice']);
       expect(button(panel(page), JOIN_PRIVATE)).toBeUndefined();
     });
@@ -317,17 +314,12 @@ describe('Play tab', () => {
       const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
-      expect(await failChange(fixture, page, '/api/drafts/draft-1/tournament/entries')).toBe(
+      expect(await failChange(fixture, page, ENTRIES)).toBe(
         "Couldn't join the tournament. Try again in a moment.",
       );
 
       button(panel(page), JOIN_PRIVATE)!.click();
-      await answerChange(
-        fixture,
-        '/api/drafts/draft-1/tournament/entries',
-        'POST',
-        registration(bob.id, alice.id),
-      );
+      await answerChange(fixture, ENTRIES, 'POST', registration(bob.id, alice.id));
 
       expect(alertIn(panel(page))).toBeNull();
     });
@@ -385,7 +377,7 @@ describe('Play tab', () => {
       const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/entries'))).flush(
+      (await vi.waitFor(() => http.expectOne(ENTRIES))).flush(
         { error: 'not-in-registration', message: 'This tournament has started.' },
         { status: 409, statusText: 'Conflict' },
       );
@@ -485,7 +477,7 @@ describe('Play tab', () => {
       expect(joinedNames(panel(page))).toEqual(['Alice']);
     });
 
-    it('lets an organizer cancel the tournament once they go ahead, offering setup again, focus on it', async () => {
+    it('lets an organizer cancel the tournament once they go ahead, offering setup again, and moves focus to it', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });

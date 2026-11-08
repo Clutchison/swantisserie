@@ -9,6 +9,7 @@ import type {
   PlayerView,
   PoolCardView,
   StandingView,
+  TournamentEntryView,
   TournamentRoundView,
   ViewerTournamentView,
   UserView,
@@ -59,6 +60,12 @@ export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
 /** Carol signed in, a player of the draft. */
 export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
 
+/** The tournament entry of the player `playerId`: undropped, droppable and unseeded, or with `fields` changed. */
+export const entry = (
+  playerId: string,
+  fields: Partial<TournamentEntryView> = {},
+): TournamentEntryView => ({ playerId, dropped: false, droppable: true, seed: null, ...fields });
+
 /**
  * A round robin tournament in registration, joined by the players with
  * these ids in order, as Alice, the default viewer, reads it: she may join
@@ -81,12 +88,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   state: 'Registration',
   roundCount: 0,
   lastCompletedRound: 0,
-  entries: playerIds.map((playerId) => ({
-    playerId,
-    dropped: false,
-    droppable: true,
-    seed: null,
-  })),
+  entries: playerIds.map((playerId) => entry(playerId)),
   rounds: [],
   bracket: null,
   standings: [],
@@ -122,6 +124,17 @@ export const reported = (
   outcome: { kind: 'GameScore', games, draws: 0 },
   reportedBy,
   confirmableBy: match.players.filter((id) => id !== reportedBy),
+  clearLeaves: { kind: 'Unreported' },
+});
+
+/**
+ * `match` as the api reads it once completing grants it a draw: nobody may
+ * confirm it, and clearing it leaves it unreported.
+ */
+export const grantedDraw = (match: MatchView): MatchView => ({
+  ...match,
+  outcome: { kind: 'GrantedDraw' },
+  confirmableBy: [],
   clearLeaves: { kind: 'Unreported' },
 });
 
@@ -173,12 +186,7 @@ export function playing(
     state: 'Playing',
     roundCount: 0,
     lastCompletedRound: 0,
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({
-      playerId,
-      dropped: false,
-      droppable: true,
-      seed: null,
-    })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
         round: 1,
@@ -218,12 +226,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({
-      playerId,
-      dropped: false,
-      droppable: true,
-      seed: null,
-    })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
         round: 1,
@@ -315,12 +318,7 @@ export function singleEliminationPlaying(
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 0,
-    entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
-      playerId,
-      dropped: false,
-      droppable: true,
-      seed: i + 1,
-    })),
+    entries: [alice.id, bob.id, carol.id].map((playerId, i) => entry(playerId, { seed: i + 1 })),
     rounds: [
       {
         round: 1,
@@ -420,6 +418,26 @@ export const withDrops = (
 
 /** The complete draft of Alice, Bob and Carol. */
 export const threePlayers: DraftFixture = { players: [alicePlayer, bob, carol] };
+
+/** Erin, a fourth player, in drafts that list her. */
+export const erin: PlayerView = { ...bob, id: 'erin', name: 'Erin' };
+
+/** The complete draft of Alice, Bob, Carol and Erin. */
+export const fourPlayers: DraftFixture = { players: [alicePlayer, bob, carol, erin] };
+
+/**
+ * A round robin tournament of Alice, Bob, Carol and Erin, joined in that
+ * order, being played, with `matches` in the order the read gives them.
+ */
+export function roundRobinOfFour(matches: MatchView[]): ViewerTournamentView {
+  const tournament = playing();
+  return {
+    ...tournament,
+    entries: [...tournament.entries, entry(erin.id)],
+    rounds: [{ ...tournament.rounds[0], matches }],
+    standings: [...tournament.standings, standing(erin.id, 1)],
+  };
+}
 
 /** The complete draft as it is with `tournament` set up, or with none. */
 export const withTournament = (
@@ -554,6 +572,17 @@ export const itemTexts = (list: Element) =>
     shown.querySelectorAll('button, [role="group"]').forEach((control) => control.remove());
     return text(shown);
   });
+
+/**
+ * What the question dialog `dialog` says below its question, as a viewer
+ * reads it: its text without its heading, which names it, and its buttons.
+ */
+export function questionDetail(dialog: HTMLElement) {
+  const shown = dialog.cloneNode(true) as HTMLElement;
+  shown.querySelector(`[id="${dialog.getAttribute('aria-labelledby')}"]`)?.remove();
+  shown.querySelectorAll('button').forEach((control) => control.remove());
+  return text(shown);
+}
 
 /** Each line of the signed-in player's Your matches inside `root`, leaving out its buttons. */
 export const yourMatches = (root: HTMLElement) =>
