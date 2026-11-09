@@ -120,6 +120,16 @@ export class DraftLock {
   }
 
   /**
+   * Bumps the draft's version, with its row locked, for a change committed
+   * outside the lock, so its viewers re-read it. A change holding the
+   * row's share lock (`lockPlayer`) can't bump it itself: two such changes
+   * upgrading their locks at once would deadlock.
+   */
+  async bumpVersion(draftId: string): Promise<void> {
+    await this.run(draftId, async () => undefined);
+  }
+
+  /**
    * Runs `change` in a transaction with the draft's row locked, and bumps
    * the draft's version; `draft` is undefined if there is no such draft.
    * Returns what `change` does. A change still running after

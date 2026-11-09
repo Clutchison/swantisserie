@@ -12,8 +12,10 @@ import {
 import { availableCopies } from 'engine';
 import type { DraftState, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { clearReadyIfDeckTooSmall } from '../tournaments/ready-clearing.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { lockPlayer } from './draft-lock.js';
+import { DraftLock, lockPlayer } from './draft-lock.js';
+import { DraftPublisher } from './draft-publisher.js';
 import type { Transaction } from './draft-shapes.js';
 import { isDeckLocked } from './locked-deck.js';
 import { playersPreferredPrintings } from './preferred-printings.js';
@@ -41,7 +43,11 @@ export class PlanRefusedError extends Error {
  */
 @Injectable()
 export class PlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
+    private readonly publisher: DraftPublisher,
+  ) {}
 
   /** The user's plan in the draft. Throws NotAPlayerError if they're not in it. */
   async plan(draftId: string, userId: string): Promise<PlanView> {
@@ -225,6 +231,13 @@ export class PlansService {
    * the plan as it then is. Throws NotAPlayerError if the user isn't in
    * the draft, and, for a `deckWrite` (the default), PlanRefusedError if
    * their deck is locked.
+   *
+   * A `deckWrite` that takes a ready player's mainboard below 40 cards
+   * clears their ready in the same transaction. Only then does the draft
+   * change for anyone else, so only then is its version bumped and the
+   * draft published, once committed: the transaction holds the draft row's
+   * share lock, which it can't upgrade to bump the version without risking
+   * a deadlock against another player's plan write.
    */
   private async change(
     draftId: string,
@@ -236,20 +249,31 @@ export class PlansService {
     ) => Promise<void>,
     { deckWrite = true }: { deckWrite?: boolean } = {},
   ): Promise<PlanView> {
-    return this.prisma.$transaction(async (tx) => {
-      const locked = await lockPlayer(tx, draftId, userId);
-      if (!locked) throw new NotAPlayerError('plans');
-      const { playerId, state } = locked;
-      if (deckWrite && (await isDeckLocked(tx, playerId))) {
-        throw new PlanRefusedError({
-          error: 'deck-locked',
-          message:
-            'Your deck is locked until this draft’s tournament is complete or cancelled.',
-        });
-      }
-      await apply(tx, playerId, state);
-      return this.read(tx, playerId);
-    });
+    const { plan, readyCleared } = await this.prisma.$transaction(
+      async (tx) => {
+        const locked = await lockPlayer(tx, draftId, userId);
+        if (!locked) throw new NotAPlayerError('plans');
+        const { playerId, state } = locked;
+        if (deckWrite && (await isDeckLocked(tx, playerId))) {
+          throw new PlanRefusedError({
+            error: 'deck-locked',
+            message:
+              'Your deck is locked until this draft’s tournament is complete or cancelled.',
+          });
+        }
+        await apply(tx, playerId, state);
+        return {
+          readyCleared:
+            deckWrite && (await clearReadyIfDeckTooSmall(tx, playerId)),
+          plan: await this.read(tx, playerId),
+        };
+      },
+    );
+    if (readyCleared) {
+      await this.lock.bumpVersion(draftId);
+      await this.publisher.publish(draftId, []);
+    }
+    return plan;
   }
 
   private async read(tx: Transaction, playerId: string): Promise<PlanView> {
