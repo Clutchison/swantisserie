@@ -182,6 +182,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
