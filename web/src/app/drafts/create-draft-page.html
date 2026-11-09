@@ -138,10 +138,10 @@
     }
 
     <div class="actions">
+      <a class="button secondary" routerLink="/">Cancel</a>
       <button class="button" type="submit" [disabled]="saving()">
         {{ saving() ? 'Checking the pool…' : 'Create draft' }}
       </button>
-      <a class="button secondary" routerLink="/">Cancel</a>
     </div>
   </form>
 </main>

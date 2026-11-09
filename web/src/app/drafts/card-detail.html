@@ -27,49 +27,9 @@
     }
   </app-card-image>
   <div class="actions">
-    @if (actions().pick) {
-      <button
-        class="button"
-        type="button"
-        (click)="pick()"
-        [disabled]="!yourTurn() || picksFailed() || picked().has(shown.id) || picking()"
-      >
-        {{ picking() ? 'Picking…' : 'Pick' }}
-      </button>
-    }
-    @if (actions().queue) {
-      <!-- A picked card, even one lost from the queue, is never offered for removal. -->
-      @if (queued().has(shown.id) && !picked().has(shown.id)) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="removeFromQueue()"
-          [disabled]="queueing()"
-        >
-          Remove from queue
-        </button>
-      } @else if (!yourTurn()) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="addToQueue()"
-          [disabled]="picked().has(shown.id) || queueing()"
-        >
-          Add to queue
-        </button>
-      }
-    }
-    @if (move(); as move) {
-      @if (otherPlanBoard(); as planBoard) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="sendMove(move, planBoard.other)"
-          [disabled]="planning()"
-        >
-          Move to {{ planBoard.otherName }}
-        </button>
-      }
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Close</button>
+    @if (shown.images.length > 1) {
+      <button class="button secondary" type="button" (click)="flip()">Flip</button>
     }
     <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
     @if (planned().has(shown.id) && !picked().has(shown.id)) {
@@ -93,10 +53,50 @@
         Add to Plan
       </button>
     }
-    @if (shown.images.length > 1) {
-      <button class="button secondary" type="button" (click)="flip()">Flip</button>
+    @if (move(); as move) {
+      @if (otherPlanBoard(); as planBoard) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="sendMove(move, planBoard.other)"
+          [disabled]="planning()"
+        >
+          Move to {{ planBoard.otherName }}
+        </button>
+      }
     }
-    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Close</button>
+    @if (actions().queue) {
+      <!-- A picked card, even one lost from the queue, is never offered for removal. -->
+      @if (queued().has(shown.id) && !picked().has(shown.id)) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="removeFromQueue()"
+          [disabled]="queueing()"
+        >
+          Remove from queue
+        </button>
+      } @else if (!yourTurn()) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="addToQueue()"
+          [disabled]="picked().has(shown.id) || queueing()"
+        >
+          Add to queue
+        </button>
+      }
+    }
+    @if (actions().pick) {
+      <button
+        class="button"
+        type="button"
+        (click)="pick()"
+        [disabled]="!yourTurn() || picksFailed() || picked().has(shown.id) || picking()"
+      >
+        {{ picking() ? 'Picking…' : 'Pick' }}
+      </button>
+    }
   </div>
   @if (picked().get(shown.id); as picker) {
     <p class="note picked-by">

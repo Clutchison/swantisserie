@@ -10,10 +10,10 @@
       </p>
       <!-- The one match's game scores show straight away: there is nothing else to report. -->
       <div class="controls">
-        <ng-container *ngTemplateOutlet="confirm; context: { $implicit: line }" />
         @if (line.reportable) {
           <ng-container *ngTemplateOutlet="gameScores; context: { $implicit: line }" />
         }
+        <ng-container *ngTemplateOutlet="confirm; context: { $implicit: line }" />
       </div>
       <ng-container *ngTemplateOutlet="deck" />
     } @else {
@@ -27,7 +27,6 @@
             <app-player-avatar [src]="line.opponent.avatarUrl" />
             {{ line.says }}
           </span>
-          <ng-container *ngTemplateOutlet="confirm; context: { $implicit: line }" />
           @if (line.reportable) {
             <button
               class="button compact secondary"
@@ -41,6 +40,7 @@
               Report
             </button>
           }
+          <ng-container *ngTemplateOutlet="confirm; context: { $implicit: line }" />
         </li>
       }
     </ul>
