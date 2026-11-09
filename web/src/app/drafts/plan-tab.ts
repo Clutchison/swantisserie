@@ -74,6 +74,9 @@ interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
+/** What a move acts on: a line's first copy, a stacked card, or a card from its Card detail. */
+type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name'> | PlanLine;
+
 /** One line of a plan board: a card's picked copies, its unpicked ones, or a basic land's, with how many the plan board holds. */
 interface PlanLine extends PlanBoardCard {
   /** How many copies the plan board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
@@ -338,7 +341,7 @@ export class PlanTab {
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */
-  protected moveKey(planBoard: PlanBoard, card: PlanBoardCard | PlanLine) {
+  protected moveKey(planBoard: PlanBoard, card: MovedCard) {
     return `move ${planBoard} ${'key' in card ? card.key : card.poolCardId}`;
   }
 
@@ -348,12 +351,13 @@ export class PlanTab {
   }
 
   /**
-   * Moves one copy of a card, a line's first or one in stacks mode, to
-   * `planBoard`, and shows the plan as it then is. A basic land never moves.
+   * Moves one copy of a card, a line's first, one in stacks mode or one in
+   * its Card detail, to `planBoard`, and shows the plan as it then is. A
+   * basic land never moves.
    * If the card's line is gone from the plan board it left, focus follows
    * the card to `planBoard`.
    */
-  protected move(card: PlanBoardCard | PlanLine, planBoard: PlanBoard) {
+  protected move(card: MovedCard, planBoard: PlanBoard) {
     return this.tryChange(() => this.planApi.move(this.draftId(), card.poolCardId, planBoard), {
       keep: [this.moveKey(planBoard, card)],
       status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
@@ -409,10 +413,11 @@ export class PlanTab {
   /**
    * Opens a pool card's Card detail, in place of any other. It offers what
    * the Pool tab's does, but never Add to Plan, and its queue actions only
-   * while the card is unpicked in the plan. It stays open once the card is
-   * picked, by the player or another, and closes once it's removed from the
-   * plan. Focus then goes back to what opened it, or else to the first card
-   * that opens one.
+   * while the card is unpicked in the plan; and Move, unless the deck is
+   * locked, which moves the card as this tab's move buttons do. It stays
+   * open once the card is picked, by the player or another, and closes once
+   * it's removed from the plan. Focus then goes back to what opened it, or
+   * else to the first card that opens one.
    */
   private openDetail(poolCardId: string, tilePlaceholder: string | null) {
     const card = this.poolCardsById().get(poolCardId);
@@ -426,11 +431,13 @@ export class PlanTab {
         addToPlan: false,
         // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Plan is offered only for an unpicked card.
         removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
+        move: !this.deckLocked(),
       })),
       tilePlaceholder,
       injector: this.injector,
       closesOnPick: false,
       removedFromPlan: () => detail.close(),
+      move: (planBoard) => this.move({ poolCardId, name: card.name }, planBoard),
       returnFocus: (_, opener) =>
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),

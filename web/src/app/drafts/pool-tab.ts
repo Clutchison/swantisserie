@@ -85,6 +85,7 @@ export class PoolTab {
     queue: this.store.offerQueue(),
     addToPlan: this.store.offerAddToPlan(),
     removeFromPlan: this.store.offerRemoveFromPlan(),
+    move: false,
   }));
 
   /** The pool search typed into the search box. */

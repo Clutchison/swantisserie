@@ -25,8 +25,11 @@ import {
   heading,
   startDrag,
   serverError,
+  alertIn,
+  accessibleName,
 } from './harness';
 import { openDialog } from '../../specs-harness';
+import { playing, withTournament } from './play-tab-harness';
 import {
   useTallScreen,
   shivan,
@@ -35,6 +38,8 @@ import {
   image,
   largePlaceholder,
   tileLoaded,
+  tiles,
+  openDetail,
 } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -378,7 +383,7 @@ describe('plan tab', () => {
         (control) => `${control.textContent?.trim()}${control.disabled ? ' (disabled)' : ''}`,
       );
 
-    it('offers queue changes and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Plan', async () => {
+    it('offers queue changes, Move and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Plan', async () => {
       const { open } = await openFromPlan(
         { turn: bobsTurn },
         planOf({ mainboard: [planned(shivan), unpicked(brightclimb)] }),
@@ -387,16 +392,21 @@ describe('plan tab', () => {
       expect(offered(await open('Brightclimb Pathway // Grimclimb Pathway'))).toEqual([
         'Pick (disabled)',
         'Add to queue',
+        'Move to sideboard',
         'Remove from Plan',
         'Flip',
         'Close',
       ]);
     });
 
-    it('offers only a disabled Pick on a picked card', async () => {
+    it('offers only a disabled Pick and Move on a picked card', async () => {
       const { open } = await openFromPlan({ turn: bobsTurn });
 
-      expect(offered(await open('Shivan Dragon'))).toEqual(['Pick (disabled)', 'Close']);
+      expect(offered(await open('Shivan Dragon'))).toEqual([
+        'Pick (disabled)',
+        'Move to sideboard',
+        'Close',
+      ]);
     });
 
     it('offers Pick but no Add to queue on the player’s turn', async () => {
@@ -405,7 +415,12 @@ describe('plan tab', () => {
         planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
       );
 
-      expect(offered(await open('Shivan Dragon'))).toEqual(['Pick', 'Remove from Plan', 'Close']);
+      expect(offered(await open('Shivan Dragon'))).toEqual([
+        'Pick',
+        'Move to sideboard',
+        'Remove from Plan',
+        'Close',
+      ]);
     });
 
     it('adds the card to the end of the queue', async () => {
@@ -424,6 +439,7 @@ describe('plan tab', () => {
       expect(offered(detail)).toEqual([
         'Pick (disabled)',
         'Remove from queue',
+        'Move to sideboard',
         'Remove from Plan',
         'Close',
       ]);
@@ -469,6 +485,88 @@ describe('plan tab', () => {
       );
     });
 
+    it('moves the card to the sideboard, staying open and offering to move it back', async () => {
+      const { fixture, open } = await openFromPlan({ turn: bobsTurn });
+      const detail = await open('Shivan Dragon');
+
+      button(detail, 'Move to sideboard')!.click();
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expect(req.request.method).toBe('PUT');
+      expect(req.request.body).toEqual({ board: 'Sideboard' });
+      req.flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      );
+      await fixture.whenStable();
+
+      expect(openDialog()).toBe(detail);
+      expect(button(detail, 'Move to sideboard')).toBeUndefined();
+      expect(button(detail, 'Move to mainboard')).toBeDefined();
+    });
+
+    it('offers to move an unpicked card on the sideboard to the mainboard', async () => {
+      const { fixture, open } = await openFromPlan(
+        { turn: bobsTurn },
+        planOf({ mainboard: [planned(brightclimb)], sideboard: [unpicked(shivan)] }),
+      );
+      const detail = await open('Shivan Dragon');
+
+      button(detail, 'Move to mainboard')!.click();
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expect(req.request.body).toEqual({ board: 'Mainboard' });
+      req.flush(planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }));
+      await fixture.whenStable();
+
+      expect(button(detail, 'Move to sideboard')).toBeDefined();
+    });
+
+    it('says why a move was refused as the Plan tab does, leaving the card where it was', async () => {
+      const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
+      const detail = await open('Shivan Dragon');
+
+      button(detail, 'Move to sideboard')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(
+          { error: 'not-in-plan', message: 'That card isn’t in your plan.' },
+          { status: 409, statusText: 'Conflict' },
+        );
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
+      await fixture.whenStable();
+
+      expect(alertIn(tab)?.textContent).toContain('That card isn’t in your plan.');
+      expect(openDialog()).toBe(detail);
+      expect(button(detail, 'Move to sideboard')).toBeDefined();
+    });
+
+    it('offers no Move on a locked deck', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, withTournament(playing()), {
+        cards,
+        plan: planOf(),
+        tournament: playing(),
+      });
+      const tab = await openPlan(fixture, page);
+      detailOpener(tab, 'Shivan Dragon')!.click();
+      await fixture.whenStable();
+
+      expect(button(openDialog()!, 'Move to sideboard')).toBeUndefined();
+    });
+
+    it('offers no Move when opened from the Pool tab', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      });
+
+      const shivanTile = tiles(page).findIndex((tile) => accessibleName(tile) === 'Shivan Dragon');
+      const detail = await openDetail(fixture, page, shivanTile);
+
+      expect(button(detail, 'Remove from Plan')).toBeDefined();
+      expect(button(detail, 'Move to sideboard')).toBeUndefined();
+    });
+
     it('stays open once the player picks the card, which is then a pick in the plan', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: alicesTurn },
@@ -488,7 +586,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(offered(detail)).toEqual(['Pick (disabled)', 'Close']);
+      expect(offered(detail)).toEqual(['Pick (disabled)', 'Move to sideboard', 'Close']);
       expect(detail.textContent).toContain('Picked by Alice');
     });
 
