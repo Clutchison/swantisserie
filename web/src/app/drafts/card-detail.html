@@ -59,12 +59,12 @@
         </button>
       }
     }
-    @if (actions().move) {
-      @if (planBoard(); as planBoard) {
+    @if (move(); as move) {
+      @if (otherPlanBoard(); as planBoard) {
         <button
           class="button secondary"
           type="button"
-          (click)="move(planBoard.other)"
+          (click)="sendMove(move, planBoard.other)"
           [disabled]="planning()"
         >
           Move to {{ planBoard.otherName }}

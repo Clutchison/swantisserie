@@ -282,6 +282,27 @@ describe('plan tab', () => {
       expect(openDialog()?.getAttribute('aria-label')).toBe('Lightning Bolt');
     });
 
+    it('moves a stacked card from its Card detail, which stays open', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      detailOpener(plan, 'Shivan Dragon')!.click();
+      await fixture.whenStable();
+      const detail = openDialog()!;
+
+      button(detail, 'Move to sideboard')!.click();
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expect(req.request.body).toEqual({ board: 'Sideboard' });
+      req.flush(planOf({ mainboard: [unpicked(bolt)], sideboard: [planned(shivan)] }));
+      await fixture.whenStable();
+
+      expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
+      expect(openDialog()).toBe(detail);
+      expect(button(detail, 'Move to mainboard')).toBeDefined();
+    });
+
     /** Clicks `target` with the mouse, as a click by keyboard, or `click()`, says no count. */
     const mouseClick = (target: HTMLElement) =>
       target.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));

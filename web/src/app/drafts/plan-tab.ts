@@ -38,6 +38,7 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import {
   QUEUE_UNPICKED_HEADING,
@@ -115,8 +116,7 @@ const PLAN_BOARDS: Record<
     cards: (plan) => plan.mainboard,
     stack: stacks,
     showsStackHeaders: true,
-    other: 'Sideboard',
-    otherName: 'sideboard',
+    ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
   Sideboard: {
@@ -125,8 +125,7 @@ const PLAN_BOARDS: Record<
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
     showsStackHeaders: false,
-    other: 'Mainboard',
-    otherName: 'mainboard',
+    ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
 };
@@ -431,13 +430,16 @@ export class PlanTab {
         addToPlan: false,
         // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Plan is offered only for an unpicked card.
         removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
-        move: !this.deckLocked(),
       })),
       tilePlaceholder,
       injector: this.injector,
       closesOnPick: false,
       removedFromPlan: () => detail.close(),
-      move: (planBoard) => this.move({ poolCardId, name: card.name }, planBoard),
+      move: computed(() =>
+        this.deckLocked()
+          ? null
+          : (planBoard: PlanBoard) => this.move({ poolCardId, name: card.name }, planBoard),
+      ),
       returnFocus: (_, opener) =>
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),

@@ -25,6 +25,7 @@ import { changeFailure, isRefusal } from './drafts';
 import { isHorizontal } from './horizontal-card';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PlayerAvatar } from './player-avatar';
 import { QueueApi } from './queue-api';
 
@@ -39,8 +40,6 @@ export interface CardDetailActions {
   queue: boolean;
   addToPlan: boolean;
   removeFromPlan: boolean;
-  /** Move to the other plan board, for a card on one, through the `move` its host passes. */
-  move: boolean;
 }
 
 /**
@@ -55,6 +54,9 @@ export class CardDetailRequests {
   readonly queueing = signal(false);
   readonly planning = signal(false);
 }
+
+/** How a host moves a Card detail's card to a plan board, settling once the move has been made or has failed. */
+export type MoveCard = (planBoard: PlanBoard) => Promise<unknown>;
 
 /** What a Card detail closes with: `picked` once its card has been picked, else nothing. */
 export type CardDetailResult = 'picked';
@@ -74,8 +76,8 @@ export interface CardDetailOptions {
   ) => HTMLElement | null | undefined;
   /** Called once Remove from Plan has succeeded. */
   removedFromPlan?: () => void;
-  /** Moves the card to a plan board, as its host moves cards, settling once the move has been made or has failed. */
-  move?: (planBoard: PlanBoard) => Promise<unknown>;
+  /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
+  move?: () => MoveCard | null;
   /** Whether it closes once its card has been picked, as it does unless told otherwise. */
   closesOnPick?: boolean;
 }
@@ -128,7 +130,7 @@ function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
       inputBinding('actions', options.actions),
       inputBinding('tilePlaceholder', () => options.tilePlaceholder),
       inputBinding('closesOnPick', () => options.closesOnPick ?? true),
-      inputBinding('moveTo', () => options.move ?? null),
+      inputBinding('move', options.move ?? (() => null)),
       outputBinding('removedFromPlan', () => options.removedFromPlan?.()),
     ],
     returnFocus: (opener, result) => options.returnFocus(result, opener),
@@ -168,8 +170,12 @@ export class CardDetail {
   /** Whether it closes once its card has been picked; if not, it stays open on the card picked. */
   // Stryker disable next-line BooleanLiteral: `openCardDetail` always binds it, as `options.closesOnPick ?? true`.
   readonly closesOnPick = input(true);
-  /** How its host moves the card to a plan board, if it does. */
-  readonly moveTo = input<((planBoard: PlanBoard) => Promise<unknown>) | null>(null);
+  /**
+   * How its host moves the card to a plan board; Move is offered only while
+   * it's given. The host says how a move went, so a refused one shows where
+   * the host's other moves' refusals do, not in this Card detail's plan note.
+   */
+  readonly move = input<MoveCard | null>(null);
   /** Remove from Plan has succeeded. */
   readonly removedFromPlan = output<void>();
 
@@ -181,13 +187,13 @@ export class CardDetail {
   protected readonly queued = this.store.queued;
   /** The pool card ids of the unpicked cards in the signed-in player's plan. */
   protected readonly planned = this.store.planned;
-  /** The plan board the card is on, and the one it would move to, as Move names it; null if it's on neither. */
-  protected readonly planBoard = computed(() => {
+  /** The plan board the card would move to, and its name as Move names it; null if the card is on neither. */
+  protected readonly otherPlanBoard = computed(() => {
     const id = this.card().id;
     const { mainboard, sideboard } = this.store.plan.value();
     const on = (cards: PlannedCardView[]) => cards.some((card) => card.poolCardId === id);
-    if (on(mainboard)) return { other: 'Sideboard' as const, otherName: 'sideboard' };
-    if (on(sideboard)) return { other: 'Mainboard' as const, otherName: 'mainboard' };
+    if (on(mainboard)) return OTHER_PLAN_BOARD.Mainboard;
+    if (on(sideboard)) return OTHER_PLAN_BOARD.Sideboard;
     return null;
   });
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
@@ -335,14 +341,14 @@ export class CardDetail {
   }
 
   /**
-   * Moves the card to `planBoard` as its host moves cards, which says how
+   * Moves the card to `planBoard` through the host's `move`, which says how
    * that went. It stays open, offering to move the card back once the plan
    * shows it moved.
    */
-  protected async move(planBoard: PlanBoard) {
+  protected async sendMove(move: MoveCard, planBoard: PlanBoard) {
     this.planning.set(true);
     try {
-      await this.moveTo()?.(planBoard);
+      await move(planBoard);
     } finally {
       this.planning.set(false);
     }
