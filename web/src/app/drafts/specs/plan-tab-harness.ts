@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import { byAriaLabel, openDialog } from '../../specs-harness';
+import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
   accessibleName,
   bob,
@@ -89,27 +89,56 @@ export const stacksOf = (plan: HTMLElement) =>
   );
 
 /**
- * The stack headers above the strip, one per mainboard stack, each by its
- * accessible name, with ` (current)` after one marked current. Null with no
- * stack headers.
+ * The stack headers above the strip, one per stack in it, each by its
+ * accessible name, with ` (current)` after the one marked as the player's
+ * location in the strip. Null with no stack headers.
  */
 export function stackHeaders(plan: HTMLElement) {
-  const row = stackHeadersNavigation(plan);
-  return (
-    row &&
-    [...row.querySelectorAll('button')].map(
-      (header) =>
-        accessibleName(header) +
-        (header.getAttribute('aria-current') === 'true' ? ' (current)' : ''),
-    )
-  );
+  return stackHeadersNavigation(plan)
+    ? stackHeaderButtons(plan).map(
+        (header) =>
+          accessibleName(header) +
+          (header.getAttribute('aria-current') === 'location' ? ' (current)' : ''),
+      )
+    : null;
 }
 
-/** The stack header inside `plan` named `name`, as `Lands 1`. */
+/** The stack header inside `plan` named `name`, as `Lands, 1 card`. */
 export const stackHeader = (plan: HTMLElement, name: string) =>
-  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].find(
-    (header) => accessibleName(header) === name,
-  );
+  stackHeaderButtons(plan).find((header) => accessibleName(header) === name);
+
+/**
+ * What each stack header shows: its images by alt text, `''` for a
+ * decorative one, as a symbol is; how many other parts it hides from a screen
+ * reader, as a type letter; and the runs of text a screen reader finds, as its
+ * label then its count, e.g. `{ images: [''], hiddenParts: 0, text: ['+', '1'] }`
+ * for a 7+ symbol.
+ */
+export const stackHeaderContents = (plan: HTMLElement) =>
+  stackHeaderButtons(plan).map((header) => ({
+    images: [...header.querySelectorAll('img')].map((image) => image.alt),
+    hiddenParts: header.querySelectorAll('[aria-hidden="true"]').length,
+    text: textRuns(header),
+  }));
+
+/**
+ * The runs of text inside `element` outside any part hidden from a screen
+ * reader, each with its whitespace collapsed, leaving out empty ones.
+ */
+function textRuns(element: Element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const runs: string[] = [];
+  while (walker.nextNode()) {
+    if (walker.currentNode.parentElement?.closest('[aria-hidden="true"]')) continue;
+    runs.push(walker.currentNode.textContent ?? '');
+  }
+  return runs.map(collapseWhitespace).filter((run) => run !== '');
+}
+
+/** The stack headers inside `plan`, in order: none without the navigation. */
+const stackHeaderButtons = (plan: HTMLElement) => [
+  ...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? []),
+];
 
 /** The navigation named Stack headers inside `plan`, if any. */
 const stackHeadersNavigation = (plan: HTMLElement) =>
@@ -139,8 +168,9 @@ export function stubScrolling() {
       unobserve(element: Element) {
         this.observer.watched.delete(element);
       }
+      /** Stops watching every element, as a browser does; the observer can watch again. */
       disconnect() {
-        observers.delete(this.observer);
+        this.observer.watched.clear();
       }
     },
   );
@@ -161,18 +191,30 @@ export function stubScrolling() {
     /** The stacks scrolled into view so far, by name, each with how it was scrolled. */
     scrolled: () => scrolls.map(({ element, options }) => ({ stack: stackName(element), options })),
     /**
-     * Scrolls so that only the stacks named `names` are in view, telling
-     * every watcher of a stack, as a browser does, and renders what came of it.
+     * Scrolls so that each stack named in `inView` shows by that share of its
+     * width, from 0 to 1, and the others not at all, telling every watcher of
+     * a stack, as a browser does, and renders what came of it. The strip is
+     * scrolled to its end once its last stack wholly shows and its first doesn't.
      */
-    showStacks(...names: string[]) {
+    showStacks(inView: Record<string, number>) {
       for (const { callback, watched } of observers) {
         const entries = [...watched].map((target) => {
-          const inView = names.includes(stackName(target) ?? '');
-          return { target, isIntersecting: inView };
+          const share = inView[stackName(target) ?? ''] ?? 0;
+          return { target, isIntersecting: share > 0, intersectionRatio: share };
         });
         callback(entries as IntersectionObserverEntry[], {} as IntersectionObserver);
       }
       TestBed.tick();
+    },
+    /**
+     * Scrolls `strip` until it shows as `showStacks` has it, telling it of
+     * the scroll as a browser does, and of the scroll's end unless `ends` is
+     * false, as midway through it.
+     */
+    scroll(strip: HTMLElement, inView: Record<string, number>, { ends = true } = {}) {
+      strip.dispatchEvent(new Event('scroll'));
+      this.showStacks(inView);
+      if (ends) strip.dispatchEvent(new Event('scrollend'));
     },
   };
 }

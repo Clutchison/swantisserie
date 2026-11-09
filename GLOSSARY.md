@@ -309,8 +309,12 @@ How stacks mode divides the mainboard into stacks: by mana value, by color or by
 _Avoid_: Sort, filter, view
 
 **Stack headers**:
-The row naming each of the mainboard's stacks, then the sideboard's, with its card count, shown above the stacks where there isn't room for them all, and marking the stack the player has scrolled to. Tapping a stack header goes to its stack.
+The row heading each of the mainboard's stacks, then the sideboard's, with the stack's label (a mana symbol, a type letter or short text) and its card count, shown above the stacks where there isn't room for them all, and marking the stack the player has scrolled to. Tapping a stack header goes to its stack.
 _Avoid_: Chips, header row, stack tabs, jump bar
+
+**Type letter**:
+A stylized capital letter standing for a card type, or for Other, as its stack's label.
+_Avoid_: Type icon, type badge, type symbol
 
 **Export tab**:
 The part of a draft's page where a player reviews their picks and copies their exports.

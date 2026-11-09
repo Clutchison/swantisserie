@@ -28,7 +28,7 @@ import {
   alice,
   bob,
 } from './harness';
-import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
+import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
@@ -43,6 +43,7 @@ import {
   stacksOf,
   stack,
   stackHeader,
+  stackHeaderContents,
   stackHeaders,
   stubScrolling,
 } from './plan-tab-harness';
@@ -493,13 +494,13 @@ describe('plan tab', () => {
         ),
       );
 
-      it('head the strip with each mainboard stack’s name and card count, none for the sideboard, as the plan and grouping change', async () => {
+      it('head the strip with each mainboard stack’s name and card count, as the plan and grouping change', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
         });
         const plan = await openPlan(fixture, page);
-        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
         button(plan, 'Move Shivan Dragon to the sideboard')!.click();
         http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
@@ -508,11 +509,128 @@ describe('plan tab', () => {
             sideboard: [planned(shivan)],
           }),
         );
-        await vi.waitFor(() => expect(stackHeaders(plan)).toEqual(['1 2', 'Lands 1']));
+        await vi.waitFor(() =>
+          expect(stackHeaders(plan)).toEqual([
+            '1, 2 cards (current)',
+            'Lands, 1 card',
+            'Sideboard, 1 card',
+          ]),
+        );
 
         button(plan, 'Type')!.click();
         await fixture.whenStable();
-        expect(stackHeaders(plan)).toEqual(['Instant 2', 'Land 1']);
+        expect(stackHeaders(plan)).toEqual([
+          'Instant, 2 cards (current)',
+          'Land, 1 card',
+          'Sideboard, 1 card',
+        ]);
+      });
+
+      it('end with the sideboard’s, labelled SB, which scrolls the strip to the sideboard’s stack', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf({
+            mainboard: [planned(brightclimb), planned(shivan)],
+            sideboard: [planned(bolt), planned(boltAgain)],
+          }),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual([
+          '6, 1 card (current)',
+          'Lands, 1 card',
+          'Sideboard, 2 cards',
+        ]);
+
+        const sideboardHeader = stackHeader(plan, 'Sideboard, 2 cards')!;
+        // Its label, SB, then its count, 2.
+        expect(stackHeaderContents(plan).at(-1)).toEqual({
+          images: [],
+          hiddenParts: 0,
+          text: ['SB', '2'],
+        });
+        sideboardHeader.click();
+        expect(scrolling.scrolled()).toEqual([
+          { stack: 'Sideboard', options: expect.objectContaining({ inline: 'start' }) },
+        ]);
+      });
+
+      it('label mana value and color stacks with mana symbols, and Lands with Land’s type letter, keeping their names, a color’s in full', async () => {
+        const dragonlord = card({
+          id: 'dragonlord-card',
+          name: 'Dragonlord Silumgar',
+          manaValue: 6,
+          colors: ['U', 'B'],
+        });
+        const emrakul = card({
+          id: 'emrakul-card',
+          name: 'Emrakul, the Aeons Torn',
+          manaValue: 15,
+          colors: [],
+        });
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards: [...cards, dragonlord, emrakul],
+          plan: planOf({
+            mainboard: [
+              planned(brightclimb),
+              planned(bolt),
+              planned(boltAgain),
+              planned(shivan),
+              planned(dragonlord),
+              planned(emrakul),
+            ],
+          }),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual([
+          '1, 2 cards (current)',
+          '6, 2 cards',
+          '7+, 1 card',
+          'Lands, 1 card',
+        ]);
+        // Each shows one decorative symbol, Lands its hidden type letter, then its count; 7+ adds a "+" to its symbol.
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], hiddenParts: 0, text: ['2'] },
+          { images: [''], hiddenParts: 0, text: ['2'] },
+          { images: [''], hiddenParts: 0, text: ['+', '1'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
+        ]);
+
+        button(plan, 'Color')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual([
+          'Red, 3 cards (current)',
+          'Multicolor, 1 card',
+          'Colorless, 1 card',
+          'Lands, 1 card',
+        ]);
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], hiddenParts: 0, text: ['3'] },
+          { images: [''], hiddenParts: 0, text: ['1'] },
+          { images: [''], hiddenParts: 0, text: ['1'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
+        ]);
+      });
+
+      it('label card type stacks with type letters, keeping their names', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        button(plan, 'Type')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual([
+          'Creature, 1 card (current)',
+          'Instant, 2 cards',
+          'Land, 1 card',
+        ]);
+        // Each shows its decorative type letter, then its count.
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [], hiddenParts: 1, text: ['1'] },
+          { images: [], hiddenParts: 1, text: ['2'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
+        ]);
       });
 
       it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
@@ -523,7 +641,7 @@ describe('plan tab', () => {
           }),
         });
         const plan = await openPlan(fixture, page);
-        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
         updates.events.next({
           type: 'changed',
@@ -541,7 +659,7 @@ describe('plan tab', () => {
         );
         await fixture.whenStable();
 
-        expect(stackHeaders(plan)).toEqual(['1 1', '6 1', 'Lands 1']);
+        expect(stackHeaders(plan)).toEqual(['1, 1 card (current)', '6, 1 card', 'Lands, 1 card']);
       });
 
       it('scroll the strip to the stack whose header is tapped, to its start', async () => {
@@ -552,26 +670,87 @@ describe('plan tab', () => {
         });
         const plan = await openPlan(fixture, page);
 
-        stackHeader(plan, 'Lands 1')!.click();
+        stackHeader(plan, 'Lands, 1 card')!.click();
         expect(scrolling.scrolled()).toEqual([
           { stack: 'Lands', options: expect.objectContaining({ inline: 'start' }) },
         ]);
       });
 
-      it('mark the stacks in view current, as the strip scrolls and the plan changes', async () => {
+      it('mark the tapped stack header current, through the strip’s scroll to its stack, until the player next scrolls the strip', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(shivan)],
+            sideboard: [planned(boltAgain)],
+          }),
+        });
+        const plan = await openPlan(fixture, page);
+
+        stackHeader(plan, '6, 1 card')!.click();
+        TestBed.tick();
+        expect(stackHeaders(plan)).toEqual([
+          '1, 1 card',
+          '6, 1 card (current)',
+          'Lands, 1 card',
+          'Sideboard, 1 card',
+        ]);
+        const strip = group(plan, 'Plan stacks')!;
+        // On the way, with 1 still mostly in view.
+        scrolling.scroll(strip, { '1': 0.6, '6': 1, Lands: 0.9 }, { ends: false });
+        expect(stackHeaders(plan)).toEqual([
+          '1, 1 card',
+          '6, 1 card (current)',
+          'Lands, 1 card',
+          'Sideboard, 1 card',
+        ]);
+
+        // The strip stops at its end, short of putting Lands at its start.
+        stackHeader(plan, 'Lands, 1 card')!.click();
+        scrolling.scroll(strip, { '6': 0.5, Lands: 1, Sideboard: 1 });
+        expect(stackHeaders(plan)).toEqual([
+          '1, 1 card',
+          '6, 1 card',
+          'Lands, 1 card (current)',
+          'Sideboard, 1 card',
+        ]);
+
+        // A tap on the strip that doesn't scroll it, as on a card, keeps it.
+        strip.dispatchEvent(pointer('pointerdown', 'touch'));
+        TestBed.tick();
+        expect(stackHeaders(plan)).toContain('Lands, 1 card (current)');
+
+        // The player's own scroll, after the tap's, lets it go.
+        scrolling.scroll(strip, { '1': 1, '6': 1, Lands: 0.5 });
+        expect(stackHeaders(plan)).toEqual([
+          '1, 1 card (current)',
+          '6, 1 card',
+          'Lands, 1 card',
+          'Sideboard, 1 card',
+        ]);
+      });
+
+      it('mark one current, the leftmost stack mostly in view, as the strip scrolls and the plan changes', async () => {
         const scrolling = stubScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
         });
         const plan = await openPlan(fixture, page);
-        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+        // The strip starts at its first stack.
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
-        scrolling.showStacks('1', '6');
-        expect(stackHeaders(plan)).toEqual(['1 2 (current)', '6 1 (current)', 'Lands 1']);
+        scrolling.showStacks({ '1': 1, '6': 1, Lands: 0.5 });
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
-        scrolling.showStacks('6', 'Lands');
-        expect(stackHeaders(plan)).toEqual(['1 2', '6 1 (current)', 'Lands 1 (current)']);
+        scrolling.showStacks({ '1': 0.4, '6': 1, Lands: 0.9 });
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards', '6, 1 card (current)', 'Lands, 1 card']);
+
+        scrolling.showStacks({ '1': 0.6, '6': 1, Lands: 0.7 });
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
+
+        scrolling.showStacks({ '6': 0.8, Lands: 0.9 });
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards', '6, 1 card (current)', 'Lands, 1 card']);
 
         button(plan, 'Move Shivan Dragon to the sideboard')!.click();
         http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
@@ -580,32 +759,46 @@ describe('plan tab', () => {
             sideboard: [planned(shivan)],
           }),
         );
-        await vi.waitFor(() => expect(stackHeaders(plan)).toEqual(['1 2', 'Lands 1 (current)']));
+        await vi.waitFor(() =>
+          expect(stackHeaders(plan)).toEqual([
+            '1, 2 cards',
+            'Lands, 1 card (current)',
+            'Sideboard, 1 card',
+          ]),
+        );
 
-        scrolling.showStacks('1', 'Lands');
-        expect(stackHeaders(plan)).toEqual(['1 2 (current)', 'Lands 1 (current)']);
+        // Scrolled to its end, the last stack header is current, though Lands
+        // is further left and wholly in view.
+        scrolling.showStacks({ '1': 0.3, Lands: 1, Sideboard: 1 });
+        expect(stackHeaders(plan)).toEqual([
+          '1, 2 cards',
+          'Lands, 1 card',
+          'Sideboard, 1 card (current)',
+        ]);
       });
 
-      it('keep marking the stacks in view once the grouping changes, and once the window widens to a tablet and narrows again', async () => {
+      it('keep marking one current once the grouping changes, and once the window widens to a tablet and narrows again', async () => {
         const scrolling = stubScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
         });
         const plan = await openPlan(fixture, page);
-        scrolling.showStacks('1', '6');
+        scrolling.showStacks({ '1': 0.4, '6': 1, Lands: 0.8 });
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards', '6, 1 card (current)', 'Lands, 1 card']);
 
+        // The strip starts again at its first stack.
         button(plan, 'Color')!.click();
         await fixture.whenStable();
-        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1']);
-        scrolling.showStacks('R');
-        expect(stackHeaders(plan)).toEqual(['R 3 (current)', 'Lands 1']);
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards (current)', 'Lands, 1 card']);
+        scrolling.showStacks({ R: 0.3, Lands: 1 });
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards', 'Lands, 1 card (current)']);
 
         resizeTo('tablet');
         resizeTo('mobile');
-        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1']);
-        scrolling.showStacks('Lands');
-        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1 (current)']);
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards (current)', 'Lands, 1 card']);
+        scrolling.showStacks({ R: 0.3, Lands: 1 });
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards', 'Lands, 1 card (current)']);
       });
 
       it('show only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
@@ -621,7 +814,7 @@ describe('plan tab', () => {
 
         button(plan, 'Stacks')!.click();
         await fixture.whenStable();
-        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+        expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
         resizeTo('tablet');
         expect(stackHeaders(plan)).toBeNull();
