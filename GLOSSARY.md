@@ -293,7 +293,7 @@ The note on the Plan tab naming a player's lost unpicked cards and who picked ea
 _Avoid_: Deck notice, alert, queue notice (that is the queue's)
 
 **Stacks mode**:
-The way of showing a plan as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, with the sideboard as one stack, beside the mainboard where there is room and below it where there isn't.
+The way of showing a plan as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, then the sideboard as one stack, in one row.
 _Avoid_: Card view, grid view, visual mode, curve view
 
 **List mode**:

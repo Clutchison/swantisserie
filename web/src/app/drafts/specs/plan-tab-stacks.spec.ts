@@ -454,14 +454,17 @@ describe('plan tab', () => {
       expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
     });
 
-    it('keeps the strip where it was scrolled as the plan changes, and starts it at its first stack as the grouping changes', async () => {
+    it('keeps the strip where it was scrolled as the plan changes, and starts it at its first stack as the grouping or mode changes', async () => {
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      const strip = group(plan, 'Mainboard stacks')!;
+      // One strip holds both plan boards' stacks, the sideboard's last.
+      const strip = group(plan, 'Stacks')!;
+      expect(group(strip, 'Mainboard stacks')).not.toBeNull();
+      expect(group(strip, 'Sideboard stacks')).toBeNull();
       strip.scrollLeft = 300;
 
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
@@ -472,11 +475,19 @@ describe('plan tab', () => {
         }),
       );
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      expect(group(plan, 'Mainboard stacks')!.scrollLeft).toBe(300);
+      expect(group(strip, 'Sideboard stacks')).not.toBeNull();
+      expect(group(plan, 'Stacks')!.scrollLeft).toBe(300);
 
       button(plan, 'Color')!.click();
       await fixture.whenStable();
-      expect(group(plan, 'Mainboard stacks')!.scrollLeft).toBe(0);
+      expect(group(plan, 'Stacks')!.scrollLeft).toBe(0);
+
+      group(plan, 'Stacks')!.scrollLeft = 300;
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      button(plan, 'Stacks')!.click();
+      await fixture.whenStable();
+      expect(group(plan, 'Stacks')!.scrollLeft).toBe(0);
     });
 
     describe('the stack headers', () => {

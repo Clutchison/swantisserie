@@ -14,6 +14,7 @@ import {
   type Signal,
   signal,
   untracked,
+  viewChild,
   viewChildren,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
@@ -164,9 +165,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * Each plan board shows as stacks of card images, grouped by mana value,
  * color or card type, or as a list of names. Where there's room for the wide
  * stacks layout, the sideboard's stack sits beside the mainboard's and a card
- * can be dragged onto the other plan board; narrower, the mainboard's stacks
- * are a strip that scrolls sideways, with the sideboard below, and a card
- * moves from its Card detail; above the strip, the stack headers stick to
+ * can be dragged onto the other plan board; narrower, the plan boards are
+ * one strip that scrolls sideways, the mainboard's stacks then the
+ * sideboard's, and a card moves from its Card detail; above the strip, the stack headers stick to
  * the top of the screen, mark the stacks in view and jump to a stack. The
  * list is dragged from on desktop only.
  */
@@ -281,24 +282,27 @@ export class PlanTab {
       };
     }),
   );
-  /** Each plan board's stacks, in stacks mode: the mainboard's are the strip where there's no room for the wide layout. */
+  /** Each plan board's stacks, in stacks mode: the mainboard's scroll sideways in the wide layout, past what fits. */
   private readonly planBoardStacks = viewChildren<ElementRef<HTMLElement>>('planBoardStacks');
+  /** The plan boards' row: the strip, where there's no room for the wide layout. */
+  private readonly planBoardsRow = viewChild.required<ElementRef<HTMLElement>>('planBoardsRow');
   /** The mainboard, as `planBoards` shows it. */
-  private readonly mainboard = computed(() => this.planBoards()[0]);
+  protected readonly mainboard = computed(() => this.planBoards()[0]);
   /**
-   * Whether the mainboard's stacks show as the strip, headed by the stack
-   * headers: in stacks mode, with cards, outside the wide layout.
+   * Whether the plan boards show as the strip, the mainboard's stacks then the
+   * sideboard's, headed by the stack headers: in stacks mode, with mainboard
+   * cards, outside the wide layout.
    */
   protected readonly showingStrip = computed(
     () => this.showingStacks() && this.mainboard().count > 0 && !this.wideStacks(),
   );
-  /** The mainboard's strip, while it shows: the first plan board's stacks, as the mainboard comes first. */
-  private readonly mainboardStrip = computed(() =>
-    this.showingStrip() ? this.planBoardStacks()[0]?.nativeElement : undefined,
+  /** The strip, while it shows: the plan boards' row. */
+  private readonly strip = computed(() =>
+    this.showingStrip() ? this.planBoardsRow().nativeElement : undefined,
   );
   /** The names of the mainboard's stacks in view in the strip: their stack headers are current. */
   protected readonly stacksInView = stacksInView(
-    this.mainboardStrip,
+    this.strip,
     computed(() => this.mainboard().stacks),
   );
   /** How many stacks the mainboard shows, for the stacks' shared width. */
@@ -339,20 +343,27 @@ export class PlanTab {
     });
   }
 
+  /** Shows the plan in `mode`, starting the strip at its first stack, as from the list there's no place in it to keep. */
   protected setMode(mode: PlanMode) {
     this.mode.set(mode);
+    this.scrollToFirstStack();
     this.rememberChoice();
   }
 
   /**
    * Groups the stacks by `grouping`, starting the strip at its first stack, as
-   * where it was scrolled means nothing in the new grouping. Switching from
-   * the list starts it there already, as the strip is drawn anew.
+   * where it was scrolled means nothing in the new grouping.
    */
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
-    for (const stacks of this.planBoardStacks()) stacks.nativeElement.scrollLeft = 0;
+    this.scrollToFirstStack();
     this.rememberChoice();
+  }
+
+  /** Scrolls the strip, and each plan board's stacks, back to their start. */
+  private scrollToFirstStack() {
+    this.planBoardsRow().nativeElement.scrollLeft = 0;
+    for (const stacks of this.planBoardStacks()) stacks.nativeElement.scrollLeft = 0;
   }
 
   /**
@@ -361,7 +372,7 @@ export class PlanTab {
    * page too would put the stack's top under the stack headers.
    */
   protected scrollToStack(name: string) {
-    stackElements(this.mainboardStrip())
+    stackElements(this.strip())
       .find((element) => stackNameOf(element) === name)
       ?.scrollIntoView(TO_STACK);
   }
@@ -638,9 +649,10 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
 /** The name of the stack drawn as `element`, from its `data-stack`; null for anything else. */
 const stackNameOf = (element: Element) => element.getAttribute('data-stack');
 
-/** The stacks drawn in `strip`, if any: its children named by `data-stack`. */
-const stackElements = (strip: HTMLElement | undefined) =>
-  [...(strip?.children ?? [])].filter((element) => stackNameOf(element) !== null);
+/** The stacks named by `data-stack` drawn in `strip`, if any: the mainboard's. */
+const stackElements = (strip: HTMLElement | undefined) => [
+  ...(strip?.querySelectorAll('[data-stack]') ?? []),
+];
 
 /**
  * The names of the stacks in view in `strip`, the stacks' row that scrolls

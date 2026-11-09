@@ -139,10 +139,13 @@ ul {
  */
 .stacks-mode {
   container: plan-boards / inline-size;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-md);
+
+  .plan-boards {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
 
   .plan-board {
     flex: 1 1 100%;
@@ -188,22 +191,51 @@ ul {
   }
 
   /*
-   * The strip: the mainboard's stacks in one row that scrolls sideways, each wide enough that
-   * about two and a half show, between 7rem and 10rem. A swipe settles near a stack's start,
-   * and the edges fade on the side with more to scroll, in place of a scrollbar. The
-   * sideboard's one stack sits below, on the left.
+   * The strip: one row that scrolls sideways, the mainboard's stacks then, past a divider, the
+   * sideboard's, each wide enough that about two and a half show, between 7rem and 10rem. A
+   * swipe settles near a stack's start, and the edges fade on the side with more to scroll, in
+   * place of a scrollbar. Each plan board's heading stays at the left while its stacks scroll.
+   * The `strip` class follows `WIDE_STACKS_QUERY`, and the mainboard holding cards: an empty
+   * mainboard shows as the list, with the sideboard below it.
    */
   @container plan-boards (width < 760px) {
     .plan-board {
       --stack-width: clamp(7rem, (100cqw - 2 * var(--space-sm)) / 2.5, 10rem);
     }
 
-    .stacks {
+    .strip {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: var(--space-sm);
       scroll-snap-type: x proximity;
       scrollbar-width: none;
 
       &::-webkit-scrollbar {
         display: none;
+      }
+
+      .plan-board {
+        flex: none;
+      }
+
+      /* As wide as its one stack, as in the wide layout, its heading wrapping to fit. */
+      .plan-board:last-child {
+        align-self: stretch;
+        width: var(--stack-width);
+        padding-inline-start: var(--space-md);
+        border-inline-start: 1px solid var(--color-divider);
+      }
+
+      h3 {
+        position: sticky;
+        inset-inline-start: 0;
+        width: fit-content;
+      }
+
+      /* The strip scrolls as one, so each plan board's stacks don't scroll on their own. */
+      .stacks {
+        overflow: visible;
+        padding-bottom: 0;
       }
     }
 
@@ -213,13 +245,13 @@ ul {
 
     /* Glides to a stack whose header is tapped, unless the viewer asks for less motion. */
     @media (prefers-reduced-motion: no-preference) {
-      .stacks {
+      .strip {
         scroll-behavior: smooth;
       }
     }
 
     /*
-     * The stack headers: stick to the top of the screen while the mainboard is in view, every
+     * The stack headers: stick to the top of the screen while the strip is in view, every
      * header showing, wrapped onto more rows if need be. Opaque, and above the stacked cards,
      * so they don't show through as they scroll under it.
      */
@@ -255,7 +287,7 @@ ul {
 
     /* Driven by the strip's own scroll. A browser without scroll-driven animations shows no fades, only the strip, whose cut-off stack at the edge still says there's more. */
     @supports (animation-timeline: scroll()) {
-      .stacks {
+      .strip {
         mask-image: linear-gradient(
           to right,
           transparent,
