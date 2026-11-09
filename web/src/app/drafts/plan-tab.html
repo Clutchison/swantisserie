@@ -129,8 +129,8 @@
   <!--
     In the strip, only a few stacks show at once: the stack headers keep the
     mainboard's whole curve in view, then the sideboard's stack, sticking to the
-    top of the screen while the strip does, and jump to a stack. The stacks in
-    view are current. Outside the strip, so they don't scroll sideways with it.
+    top of the screen while the strip does, and jump to a stack. One is current:
+    where the player is in the strip. Outside the strip, so they don't scroll sideways with it.
   -->
   @if (showingStrip()) {
     <nav class="stack-headers" aria-label="Stack headers">
@@ -141,7 +141,7 @@
               type="button"
               [class.set-apart]="header.setApart"
               [attr.aria-label]="header.accessibleName"
-              [attr.aria-current]="stacksInView().has(header.name) || null"
+              [attr.aria-current]="header.name === currentStack() ? 'location' : null"
               (click)="scrollToStack(header.name)"
             >
               <span class="stack-name">{{ header.label }}</span>
@@ -179,7 +179,7 @@
             (cdkDropListDropped)="dropped($event)"
           >
             @for (stack of planBoard.stacks; track stack.name) {
-              <!-- Named for the stack headers, which jump to them and mark those in view. -->
+              <!-- Named for the stack headers, which jump to them and mark the one the player has scrolled to. -->
               <div class="stack" [attr.data-stack]="stack.name">
                 @if (planBoard.namesStacks) {
                   <h4>

@@ -139,6 +139,8 @@ ul {
  */
 .stacks-mode {
   container: plan-boards / inline-size;
+  /* Lifts the strip's scroll timeline to the stack headers, its siblings: see the underline below. */
+  timeline-scope: --strip;
 
   .plan-boards {
     display: flex;
@@ -328,13 +330,16 @@ ul {
         white-space: nowrap;
         cursor: pointer;
 
+        /* Positioned for the current one's underline. */
+        position: relative;
+
         &:hover {
           background: var(--color-raised);
         }
 
         /* Above its neighbours, so their borders don't cover its ring. */
         &:focus-visible {
-          position: relative;
+          z-index: 1;
         }
       }
 
@@ -356,10 +361,18 @@ ul {
         font-size: var(--font-size-xs);
       }
 
-      /* The stacks in view: told apart by the ring as well as the weight, not by color alone. */
-      [aria-current='true'] {
-        box-shadow: inset 0 0 0 1px var(--color-text);
-        font-weight: 600;
+      /*
+       * The current stack header, where the player is in the strip: an accent underline, a shape
+       * as well as a color. Here it jumps from one stack header to the next; where it can, it
+       * slides with the strip's scroll instead (below).
+       */
+      [aria-current='location']::after {
+        content: '';
+        position: absolute;
+        inset: auto 3px 2px;
+        block-size: 3px;
+        border-radius: 2px;
+        background: var(--color-accent);
       }
 
       /*
@@ -400,6 +413,75 @@ ul {
         animation-timeline: scroll(self inline);
       }
     }
+
+    /*
+     * The current stack header's underline sliding with the strip's scroll, from the first stack
+     * header at its start to the last at its end, unless the viewer asks for less motion. Every
+     * stack header is as wide as the others, as every stack is, so the underline moves a stack
+     * header's width for each stack's; the sideboard's gap adds a little drift. Drawn once, on the
+     * row, in place of the current one's own, along the strip's timeline, which `.stacks-mode`
+     * lifts to the stack headers, as they're its siblings.
+     */
+    @supports (animation-timeline: --strip) and (timeline-scope: --strip) {
+      @media (prefers-reduced-motion: no-preference) {
+        #{$strip} {
+          scroll-timeline: --strip inline;
+        }
+
+        .stack-headers {
+          [aria-current='location']::after {
+            content: none;
+          }
+
+          .stack-header-group {
+            --header-count: var(--mainboard-stacks);
+            --set-apart-offset: 0px;
+
+            position: relative;
+
+            &:has(.set-apart) {
+              --header-count: calc(var(--mainboard-stacks) + 1);
+              --set-apart-offset: var(--set-apart-gap);
+            }
+
+            &::after {
+              --header-width: calc((100% - var(--set-apart-offset)) / var(--header-count));
+
+              content: '';
+              position: absolute;
+              inset-block-end: 3px;
+              inset-inline-start: calc(
+                var(--strip-progress) *
+                  ((var(--header-count) - 1) * var(--header-width) + var(--set-apart-offset)) + 3px
+              );
+              inline-size: calc(var(--header-width) - 6px);
+              block-size: 3px;
+              border-radius: 2px;
+              background: var(--color-accent);
+              animation: strip-progress linear both;
+              animation-timeline: --strip;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/* How far the strip is scrolled, from 0 at its start to 1 at its end: the stack headers' underline follows it. */
+@property --strip-progress {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes strip-progress {
+  from {
+    --strip-progress: 0;
+  }
+
+  to {
+    --strip-progress: 1;
   }
 }
 

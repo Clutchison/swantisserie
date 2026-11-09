@@ -173,7 +173,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * can be dragged onto the other plan board; narrower, the plan boards are
  * one strip that scrolls sideways, the mainboard's stacks then the
  * sideboard's, and a card moves from its Card detail. Above the strip, the
- * stack headers stick to the top of the screen, mark the stacks in view and
+ * stack headers stick to the top of the screen, mark the stack the player has scrolled to and
  * jump to a stack. The list is dragged from on desktop only.
  */
 @Component({
@@ -333,8 +333,10 @@ export class PlanTab {
         })),
       ),
   );
-  /** The names of the stacks in view in the strip: their stack headers are current. */
-  protected readonly stacksInView = stacksInView(this.strip, this.stackHeaders);
+  /** Where the player is in the strip: the stack whose stack header is current. */
+  private readonly stripLocation = stripLocation(this.strip, this.stackHeaders);
+  /** The name of the stack whose stack header is current: one, whenever the strip shows. */
+  protected readonly currentStack = this.stripLocation.current;
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
@@ -394,14 +396,18 @@ export class PlanTab {
   private scrollToFirstStack() {
     this.planBoardsRow().nativeElement.scrollLeft = 0;
     for (const stacks of this.planBoardStacks()) stacks.nativeElement.scrollLeft = 0;
+    this.stripLocation.restart();
   }
 
   /**
-   * Scrolls the strip to the stack named `name`, as its stack
-   * header is tapped. Only the strip, where the browser allows: scrolling the
-   * page too would put the stack's top under the stack headers.
+   * Scrolls the strip to the stack named `name`, as its stack header is
+   * tapped, making that stack header current. Only the strip, where the
+   * browser allows: scrolling the page too would put the stack's top under
+   * the stack headers. Instant under reduced motion, by the strip's
+   * `scroll-behavior`.
    */
   protected scrollToStack(name: string) {
+    this.stripLocation.goTo(name);
     stackElements(this.strip())
       .find((element) => stackNameOf(element) === name)
       ?.scrollIntoView(TO_STACK);
@@ -684,52 +690,86 @@ const stackElements = (strip: HTMLElement | undefined) => [
   ...(strip?.querySelectorAll('[data-stack]') ?? []),
 ];
 
+/** How much of a stack's width shows for it to be mostly in view. */
+const MOSTLY_IN_VIEW = 0.5;
+/** How much of a stack's width shows for it to be wholly in view, less a little for rounding. */
+const WHOLLY_IN_VIEW = 0.99;
+
 /**
- * The names of the stacks in view in `strip`, the stacks' row that scrolls
- * sideways, as it scrolls and as the stacks drawn in it, `drawn`, change;
- * none with no strip, or no `IntersectionObserver`, as in some test
- * environments. Each stack is named by its element's `data-stack`.
+ * Where the player is in `strip`, the stacks' row that scrolls sideways: the
+ * name of one of the stacks drawn in it, `drawn`, whose stack header is
+ * current. That's the leftmost stack mostly in view, or the last stack once
+ * the strip is scrolled to its end, so every stack can be current; the strip
+ * is at its end once its last stack wholly shows and its first doesn't. It
+ * follows the strip's scroll and the stacks drawn. With no
+ * `IntersectionObserver`, as in some test environments, the first stack is
+ * current, as where the strip starts. Each stack is named by its element's
+ * `data-stack`.
+ *
+ * `goTo` makes a stack current as its stack header is tapped, until the
+ * player scrolls the strip themselves: the strip may scroll past others on
+ * the way, or stop short of it at its end. `restart` says the strip is back
+ * at its first stack.
  */
-function stacksInView(
+function stripLocation(
   strip: Signal<HTMLElement | undefined>,
   drawn: Signal<readonly { name: string }[]>,
-): Signal<ReadonlySet<string>> {
-  const inViewNames = signal<ReadonlySet<string>>(new Set());
+) {
+  /** How much of each stack shows, by name, as last told; a stack not told of shows none. */
+  const shares = signal<ReadonlyMap<string, number>>(new Map());
+  /** The stack whose stack header was tapped, until the player scrolls the strip. */
+  const tapped = signal<string | undefined>(undefined);
   /** The strip being watched, what watches its stacks, and the stacks it watches. */
   let watched:
-    { strip: HTMLElement; observer: IntersectionObserver; stackElements: Set<Element> } | undefined;
+    | {
+        strip: HTMLElement;
+        observer: IntersectionObserver;
+        stackElements: Set<Element>;
+        stopListening: () => void;
+      }
+    | undefined;
 
   const recordIntersections = (entries: IntersectionObserverEntry[]) =>
-    inViewNames.update((names) => {
-      const next = new Set(names);
-      for (const { target, isIntersecting } of entries) {
+    shares.update((previous) => {
+      const next = new Map(previous);
+      for (const { target, intersectionRatio } of entries) {
         const name = stackNameOf(target);
-        if (name === null) continue;
-        if (isIntersecting) next.add(name);
-        else next.delete(name);
+        if (name !== null) next.set(name, intersectionRatio);
       }
       return next;
     });
 
+  /** The player's own scroll of the strip, by touch, wheel, pointer or key, ends a tap's hold. */
+  const scrollStarts = ['touchstart', 'pointerdown', 'wheel', 'keydown'] as const;
+  const letGo = () => tapped.set(undefined);
+
   afterRenderEffect(() => {
     const currentStrip = strip();
-    const stacks = drawn();
     if (currentStrip !== watched?.strip) {
       watched?.observer.disconnect();
+      watched?.stopListening();
       watched = undefined;
-      inViewNames.set(new Set());
+      shares.set(new Map());
+      tapped.set(undefined);
       if (!currentStrip || typeof IntersectionObserver === 'undefined') return;
-      // Any part of a stack showing counts it in view, threshold 0: the
-      // stack cut off at the edge, as about two and a half fit, is in view
-      // too. A stack snapped to the start leaves the one before it a gap
-      // away, not a sliver, so no higher threshold is needed.
+      for (const start of scrollStarts) {
+        currentStrip.addEventListener(start, letGo, { passive: true });
+      }
+      // Told as a stack crosses half in view, and wholly in view.
       watched = {
         strip: currentStrip,
-        observer: new IntersectionObserver(recordIntersections, { root: currentStrip }),
+        observer: new IntersectionObserver(recordIntersections, {
+          root: currentStrip,
+          threshold: [MOSTLY_IN_VIEW, WHOLLY_IN_VIEW],
+        }),
         stackElements: new Set(),
+        stopListening: () => {
+          for (const start of scrollStarts) currentStrip.removeEventListener(start, letGo);
+        },
       };
     }
     if (!watched) return;
+    drawn();
     const current = stackElements(watched.strip);
     for (const element of watched.stackElements) {
       if (current.includes(element)) continue;
@@ -740,11 +780,29 @@ function stacksInView(
       watched.observer.observe(element);
       watched.stackElements.add(element);
     }
-    // A stack gone from the strip is no longer in view.
-    const names = untracked(inViewNames);
-    const kept = [...names].filter((name) => stacks.some((stack) => stack.name === name));
-    if (kept.length < names.size) inViewNames.set(new Set(kept));
   });
-  inject(DestroyRef).onDestroy(() => watched?.observer.disconnect());
-  return inViewNames.asReadonly();
+  inject(DestroyRef).onDestroy(() => {
+    watched?.observer.disconnect();
+    watched?.stopListening();
+  });
+
+  const current = computed(() => {
+    const names = drawn().map(({ name }) => name);
+    const chosen = tapped();
+    if (chosen !== undefined && names.includes(chosen)) return chosen;
+    const share = (name: string | undefined) => (name && shares().get(name)) || 0;
+    const [first] = names;
+    const last = names.at(-1);
+    if (share(last) >= WHOLLY_IN_VIEW && share(first) < WHOLLY_IN_VIEW) return last;
+    return names.find((name) => share(name) >= MOSTLY_IN_VIEW) ?? first;
+  });
+
+  return {
+    current,
+    goTo: (name: string) => tapped.set(name),
+    restart: () => {
+      shares.set(new Map());
+      tapped.set(undefined);
+    },
+  };
 }

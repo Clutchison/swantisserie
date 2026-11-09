@@ -11,6 +11,7 @@ import {
   image,
   namedList,
   openTab,
+  pointer,
   tabButton,
   text,
   type AppFixture,
@@ -90,8 +91,8 @@ export const stacksOf = (plan: HTMLElement) =>
 
 /**
  * The stack headers above the strip, one per stack in it, each by its
- * accessible name, with ` (current)` after one marked current. Null with no
- * stack headers.
+ * accessible name, with ` (current)` after the one marked as the player's
+ * location in the strip. Null with no stack headers.
  */
 export function stackHeaders(plan: HTMLElement) {
   const row = stackHeadersNavigation(plan);
@@ -100,7 +101,7 @@ export function stackHeaders(plan: HTMLElement) {
     [...row.querySelectorAll('button')].map(
       (header) =>
         accessibleName(header) +
-        (header.getAttribute('aria-current') === 'true' ? ' (current)' : ''),
+        (header.getAttribute('aria-current') === 'location' ? ' (current)' : ''),
     )
   );
 }
@@ -161,18 +162,25 @@ export function stubScrolling() {
     /** The stacks scrolled into view so far, by name, each with how it was scrolled. */
     scrolled: () => scrolls.map(({ element, options }) => ({ stack: stackName(element), options })),
     /**
-     * Scrolls so that only the stacks named `names` are in view, telling
-     * every watcher of a stack, as a browser does, and renders what came of it.
+     * Scrolls so that each stack named in `inView` shows by that share of its
+     * width, from 0 to 1, and the others not at all, telling every watcher of
+     * a stack, as a browser does, and renders what came of it. The strip is
+     * scrolled to its end once its last stack wholly shows and its first doesn't.
      */
-    showStacks(...names: string[]) {
+    showStacks(inView: Record<string, number>) {
       for (const { callback, watched } of observers) {
         const entries = [...watched].map((target) => {
-          const inView = names.includes(stackName(target) ?? '');
-          return { target, isIntersecting: inView };
+          const share = inView[stackName(target) ?? ''] ?? 0;
+          return { target, isIntersecting: share > 0, intersectionRatio: share };
         });
         callback(entries as IntersectionObserverEntry[], {} as IntersectionObserver);
       }
       TestBed.tick();
+    },
+    /** The player swipes `strip` themselves, a touch on it, until it shows as `showStacks` has it. */
+    swipe(strip: HTMLElement, inView: Record<string, number>) {
+      strip.dispatchEvent(pointer('pointerdown', 'touch'));
+      this.showStacks(inView);
     },
   };
 }
