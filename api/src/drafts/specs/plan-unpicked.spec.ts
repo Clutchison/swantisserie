@@ -27,7 +27,7 @@ import {
   poolCardIds,
   copyIds,
   fourCards,
-  pickLog,
+  pickedIds,
   waitForBotPicks,
 } from './harness.js';
 
@@ -497,8 +497,7 @@ describe('unpicked cards in a plan', () => {
       [alice.id, bob.id, carol.id],
     ).expect(200);
 
-    const log = (await pickLog(id)).body as { poolCardId: string }[];
-    const [alices, bobs] = log.map((logged) => logged.poolCardId);
+    const [alices, bobs] = await pickedIds(id);
     const unpicked = (await copyIds(id))['Lightning Bolt'].filter(
       (copy) => copy !== alices && copy !== bobs,
     );
