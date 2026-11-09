@@ -24,7 +24,11 @@ const BYTES_PER_GIB = 1024 * BYTES_PER_MIB;
  * scratch (380 mutants, 5 runners, 36 minutes), sampled the same way: its
  * largest runner peaked at 2,162 MiB, no higher than turn-state's run, so
  * growth with length hasn't shown past that. Stryker's own main process
- * (about 0.5 GiB) isn't a runner and is in the margin below.
+ * isn't a runner and is in the margin below. Whole runs, for scale, sampled
+ * over the run's own process tree: #557's run narrowed to queue-order at
+ * `concurrency: 2` peaked at 3.3 GiB (3,453,692 KiB, Stryker and both
+ * runners), and #559's full run at 5 runners at 7.7 GiB (8,090,340 KiB).
+ * Neither used swap.
  */
 const PEAK_PER_RUNNER_BYTES = 2400 * BYTES_PER_MIB;
 
@@ -172,8 +176,8 @@ export default {
     'src/drafts/queue-order.ts',
   ],
   // Every api spec boots the whole app, so the dry run runs nearly every spec
-  // file, one after another on Stryker's single vitest worker. It took 3 min
-  // 8 s to 3 min 42 s on an idle machine (#557, #559), close to Stryker's
+  // file, one after another on Stryker's single vitest worker. Its measured
+  // time (docs/agents/mutation-testing.md, Api's Cost) is close to Stryker's
   // 5-minute default; 10 leaves room for a machine busy with other agents'
   // runs.
   dryRunTimeoutMinutes: 10,
