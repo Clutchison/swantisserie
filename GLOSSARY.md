@@ -313,7 +313,7 @@ The row naming each of the mainboard's stacks, then the sideboard's, with its ca
 _Avoid_: Chips, header row, stack tabs, jump bar
 
 **Type letter**:
-A card type's stylized capital letter, which labels its stack header under card type in place of the type's name: C, P, I, S, A, E, B and L, with a plain O for Other. The lands' stack header shows the same L under every grouping.
+A card type's stylized capital letter, which labels its stack header under card type in place of the type's name: C, P, I, S, A, E, B and L, and O for Other. The lands' stack header shows the same L under every grouping.
 _Avoid_: Type icon, type badge, type symbol
 
 **Export tab**:

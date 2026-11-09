@@ -44,7 +44,7 @@ import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
 import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
-import { TypeLetterLabel, typeLetterOf } from './type-letter';
+import { TypeLetter, typeLetterOf } from './type-letter';
 import {
   QUEUE_UNPICKED_HEADING,
   QueueUnpickedDialog,
@@ -194,7 +194,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucidePlus,
     LucideTrash,
     SendsChange,
-    TypeLetterLabel,
+    TypeLetter,
   ],
   providers: [Changes, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,

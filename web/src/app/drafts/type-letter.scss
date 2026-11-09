@@ -1,7 +1,9 @@
 /*
- * The type letters, signed off on #620's prototype (its badge variant). Every
- * letter meets AA against its own tile or shield, or, for O, the page; a
- * current stack header changes only its underline, so the same holds there.
+ * The type letters, in the badge variant the owner signed off on #620, as its
+ * write-up gives them:
+ * https://github.com/Clutchison/swantisserie/issues/620#issuecomment-6753432506
+ * Every letter meets AA against its own tile or shield, or, for O, the page;
+ * a current stack header changes only its underline, so the same holds there.
  */
 :host {
   /* A: brushed metal. */
@@ -39,6 +41,7 @@
 
   position: relative;
   display: grid;
+  box-sizing: border-box;
   place-items: center;
   width: 22px;
   height: 22px;
@@ -82,6 +85,8 @@ path {
 :host([data-letter='I']) {
   background: var(--i-fill);
   color: var(--i-letter);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath fill-rule='evenodd' d='M0 0H22V22H0Z M17 -1 L13 6 L16 6 L13.5 11 L23 3.5 L19.5 3.5 L21 -1Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100%;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath fill-rule='evenodd' d='M0 0H22V22H0Z M17 -1 L13 6 L16 6 L13.5 11 L23 3.5 L19.5 3.5 L21 -1Z'/%3E%3C/svg%3E")
     0 0 / 100% 100%;
 }
@@ -89,6 +94,8 @@ path {
 :host([data-letter='S']) {
   background: var(--s-fill);
   color: var(--s-letter);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath fill-rule='evenodd' d='M0 0H22V22H0Z M18.5 0 C22 3 23 6 21 8.5 C19.6 10.2 16.4 10 15.4 8 C14.6 6.4 15.4 4.6 16.6 4 C16.6 5.4 17.4 6.2 18 5.6 C19 4.4 19.2 2.4 18.5 0Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100%;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath fill-rule='evenodd' d='M0 0H22V22H0Z M18.5 0 C22 3 23 6 21 8.5 C19.6 10.2 16.4 10 15.4 8 C14.6 6.4 15.4 4.6 16.6 4 C16.6 5.4 17.4 6.2 18 5.6 C19 4.4 19.2 2.4 18.5 0Z'/%3E%3C/svg%3E")
     0 0 / 100% 100%;
 }

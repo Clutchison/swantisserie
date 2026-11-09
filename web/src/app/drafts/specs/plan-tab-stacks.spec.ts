@@ -549,12 +549,14 @@ describe('plan tab', () => {
         });
         const plan = await openPlan(fixture, page);
         // A label, then a count. Under mana value, only the lands' label is a letter.
-        expect(text(stackHeader(plan, '1, 2 cards'))).toBe('12');
-        expect(text(stackHeader(plan, 'Lands, 1 card'))).toBe('L1');
+        const labelAndCount = (name: string) =>
+          [...stackHeader(plan, name)!.children].map((part) => text(part));
+        expect(labelAndCount('1, 2 cards')).toEqual(['1', '2']);
+        expect(labelAndCount('Lands, 1 card')).toEqual(['L', '1']);
 
         button(plan, 'Color')!.click();
         await fixture.whenStable();
-        expect(text(stackHeader(plan, 'Lands, 1 card'))).toBe('L1');
+        expect(labelAndCount('Lands, 1 card')).toEqual(['L', '1']);
 
         button(plan, 'Type')!.click();
         await fixture.whenStable();
@@ -563,9 +565,9 @@ describe('plan tab', () => {
           'Instant, 2 cards',
           'Land, 1 card',
         ]);
-        expect(text(stackHeader(plan, 'Creature, 1 card'))).toBe('C1');
-        expect(text(stackHeader(plan, 'Instant, 2 cards'))).toBe('I2');
-        expect(text(stackHeader(plan, 'Land, 1 card'))).toBe('L1');
+        expect(labelAndCount('Creature, 1 card')).toEqual(['C', '1']);
+        expect(labelAndCount('Instant, 2 cards')).toEqual(['I', '2']);
+        expect(labelAndCount('Land, 1 card')).toEqual(['L', '1']);
       });
 
       it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
