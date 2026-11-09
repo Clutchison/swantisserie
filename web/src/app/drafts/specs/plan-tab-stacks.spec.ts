@@ -534,7 +534,8 @@ describe('plan tab', () => {
         expect(stackHeaders(plan)).toEqual(['6, 1 card', 'Lands, 1 card', 'Sideboard, 2 cards']);
 
         const sideboardHeader = stackHeader(plan, 'Sideboard, 2 cards')!;
-        expect(text(sideboardHeader)).toMatch(/^SB/);
+        // Its label, SB, then its count, 2.
+        expect(text(sideboardHeader)).toBe('SB2');
         sideboardHeader.click();
         expect(scrolling.scrolled()).toEqual([
           { stack: 'Sideboard', options: expect.objectContaining({ inline: 'start' }) },

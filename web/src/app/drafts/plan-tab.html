@@ -126,22 +126,29 @@
   [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
 >
-  <!-- In the strip, only a few stacks show at once: the stack headers keep the mainboard's whole curve in view, then the sideboard's stack, sticking to the top of the screen while the strip does, and jump to a stack. The stacks in view are current. Outside the strip, so they don't scroll sideways with it. -->
+  <!--
+    In the strip, only a few stacks show at once: the stack headers keep the
+    mainboard's whole curve in view, then the sideboard's stack, sticking to the
+    top of the screen while the strip does, and jump to a stack. The stacks in
+    view are current. Outside the strip, so they don't scroll sideways with it.
+  -->
   @if (showingStrip()) {
     <nav class="stack-headers" aria-label="Stack headers">
-      <div class="stack-header-group">
-        @for (header of stackHeaders(); track header.name) {
-          <button
-            type="button"
-            [class.sideboard]="header.sideboard"
-            [attr.aria-label]="header.accessibleName"
-            [attr.aria-current]="stacksInView().has(header.name) || null"
-            (click)="scrollToStack(header.name)"
-          >
-            <span class="stack-name">{{ header.label }}</span>
-            <span class="count">{{ header.count }}</span>
-          </button>
-        }
+      <div class="stack-header-scroller">
+        <div class="stack-header-group">
+          @for (header of stackHeaders(); track header.name) {
+            <button
+              type="button"
+              [class.set-apart]="header.setApart"
+              [attr.aria-label]="header.accessibleName"
+              [attr.aria-current]="stacksInView().has(header.name) || null"
+              (click)="scrollToStack(header.name)"
+            >
+              <span class="stack-name">{{ header.label }}</span>
+              <span class="count">{{ header.count }}</span>
+            </button>
+          }
+        </div>
       </div>
     </nav>
   }

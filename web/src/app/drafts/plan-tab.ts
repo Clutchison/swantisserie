@@ -122,10 +122,13 @@ const PLAN_BOARDS: Record<
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
     ) => Stack<PlanBoardCard>[];
-    /** Whether each stack has a heading naming it. The sideboard's one stack is named by the plan board's heading. */
-    namesStacks: boolean;
-    /** What a stack's stack header shows for the stack named `name`. */
-    stackLabel: (name: string) => string;
+    /**
+     * For a plan board stacked as one stack, which its heading names: the
+     * short label of that stack's stack header, which is set apart from the
+     * others. Absent where each stack has a heading naming it, and its stack
+     * header shows that name.
+     */
+    oneStackHeader?: { label: string };
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -134,8 +137,6 @@ const PLAN_BOARDS: Record<
   Mainboard: {
     cards: (plan) => plan.mainboard,
     stack: stacks,
-    namesStacks: true,
-    stackLabel: (name) => name,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
@@ -144,9 +145,8 @@ const PLAN_BOARDS: Record<
     // One stack, whatever the grouping, which the plan board heading names.
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
-    namesStacks: false,
     // Short, as the stack headers share one row on a phone.
-    stackLabel: () => 'SB',
+    oneStackHeader: { label: 'SB' },
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
@@ -279,6 +279,8 @@ export class PlanTab {
       return {
         name: planBoard,
         ...rest,
+        /** Whether each stack has a heading naming it: not a plan board's one stack, which its heading names. */
+        namesStacks: rest.oneStackHeader === undefined,
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
@@ -315,19 +317,19 @@ export class PlanTab {
    * The stack headers, one per stack in the strip, the mainboard's then the
    * sideboard's: each stack's name, the label it shows, its card count, what a
    * screen reader names it, starting with the name, as `Lands, 17 cards`, and
-   * whether it heads the sideboard's stack.
+   * whether it is set apart from the others, as the sideboard's is.
    */
   protected readonly stackHeaders = computed(() =>
     this.planBoards()
       // An empty plan board shows as the list, with no stack to head.
       .filter((planBoard) => planBoard.count > 0)
-      .flatMap(({ name: planBoard, stackLabel, stacks }) =>
+      .flatMap(({ oneStackHeader, stacks }) =>
         stacks.map(({ name, cards }) => ({
           name,
-          label: stackLabel(name),
+          label: oneStackHeader?.label ?? name,
           count: cards.length,
           accessibleName: `${name}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
-          sideboard: planBoard === 'Sideboard',
+          setApart: oneStackHeader !== undefined,
         })),
       ),
   );
