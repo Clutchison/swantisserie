@@ -1,10 +1,15 @@
 import { TestBed } from '@angular/core/testing';
+import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
   openDraft,
   completeSnapshot,
   button,
+  buttonOrder,
   decoded,
+  drafting,
+  queueOf,
+  queued,
   decodeRefused,
   wait,
   fireIce,
@@ -17,6 +22,7 @@ import {
   visible,
   text,
   controlByLabel,
+  alice,
 } from './harness';
 import {
   clickBackdrop,
@@ -41,7 +47,7 @@ import {
   searchFor,
   scrollWindowTo,
 } from './pool-tab-harness';
-import { apiImage } from './plan-tab-harness';
+import { apiImage, unpicked } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -111,6 +117,28 @@ describe('pool tab', () => {
     );
   });
 
+  it('offers Close, Flip, the Plan and queue buttons, then Pick, on your turn', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
+      {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(brightclimb)] }),
+        plan: { ...EMPTY_PLAN, mainboard: [unpicked(brightclimb)] },
+      },
+    );
+
+    const detail = await openDetail(fixture, page, 0);
+
+    expect(buttonOrder(detail, 'Pick')).toEqual([
+      'Close',
+      'Flip',
+      'Remove from Plan',
+      'Remove from queue',
+      'Pick',
+    ]);
+  });
+
   describe('focus', () => {
     /** Opens the Pool tab with Brightclimb Pathway and Shivan Dragon, and the Card detail of the `index`th, from its focused tile. */
     async function openFromTile(index: number) {
@@ -124,9 +152,9 @@ describe('pool tab', () => {
     it('stays inside the Card detail, wrapping from its last control to its first and back', async () => {
       const { detail } = await openFromTile(0);
 
-      pressTab();
-      expect(document.activeElement).toBe(button(detail, 'Flip'));
       pressTab({ shift: true });
+      expect(document.activeElement).toBe(button(detail, 'Flip'));
+      pressTab();
       expect(document.activeElement).toBe(button(detail, 'Close'));
     });
 
