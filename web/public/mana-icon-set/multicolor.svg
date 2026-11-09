@@ -1,0 +1,17 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 880 880'><!--
+  Multicolor: the ms-multicolor icon in its gold duo-color form, from the Mana icon set by Andrew Gioia.
+  Source: https://github.com/andrewgioia/mana/blob/6ca9e696d3bda2519dcf3eebd96598f84ad9ddd8/fonts/mana.svg
+  (glyph U+E986 "multicolor-border", filled #cca753 as css/mana.css fills .ms-duo-color.ms-multicolor::after,
+  over glyph U+E985 "multicolor", filled #010101 as it fills .ms-duo-color::before), flipped from font coordinates.
+  Copyright: the Mana font and its CSS are copyright Andrew Gioia; the mana symbol images are copyright
+  Wizards of the Coast.
+  Licence: the Mana font, which these glyphs come from, is licensed under the SIL Open Font License 1.1: it may
+  be used, copied, modified and redistributed, with or without the font, provided it is not sold on its own, the
+  copyright notice and licence go with it, and a modified version doesn't use any Reserved Font Name.
+  Mana's CSS (the colours above) is licensed under the MIT License: free to use, copy, modify and distribute,
+  provided the copyright notice and permission notice are included.
+  (https://github.com/andrewgioia/mana/blob/6ca9e696d3bda2519dcf3eebd96598f84ad9ddd8/README.md#L53-L59,
+  https://openfontlicense.org, https://opensource.org/license/mit)
+  On the app's background (#14262f) the gold disc, whose outline carries the symbol, has a contrast of 6.8:1
+  (4.1:1 on a hovered header, #2a4a60); the black ring sits on the gold, at 9.2:1.
+--><g transform='matrix(1 0 0 -1 0 866.667)'><path fill='#cca753' d='M440 866.667c243.006 0 440-196.994 440-440s-196.994-440-440-440c-243.006 0-440 196.994-440 440s196.994 440 440 440zM439.19 764.511v0c-186.138 0-337.034-150.896-337.034-337.034 0-186.14 150.896-337.036 337.034-337.036 186.14 0 337.036 150.896 337.036 337.036 0 186.138-150.896 337.034-337.036 337.034zM439.19 670.053c133.972 0 242.578-108.606 242.578-242.576 0-133.972-108.606-242.578-242.578-242.578-133.97 0-242.576 108.606-242.576 242.578 0 133.97 108.606 242.576 242.576 242.576z'/><path fill='#010101' d='M439.19 764.511c186.14 0 337.036-150.896 337.036-337.034 0-186.14-150.896-337.036-337.036-337.036-186.138 0-337.034 150.896-337.034 337.036 0 186.138 150.896 337.034 337.034 337.034zM439.19 670.053c-133.97 0-242.576-108.606-242.576-242.576 0-133.972 108.606-242.578 242.576-242.578 133.972 0 242.578 108.606 242.578 242.578 0 133.97-108.606 242.576-242.578 242.576z'/></g></svg>

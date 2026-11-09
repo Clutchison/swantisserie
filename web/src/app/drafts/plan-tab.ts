@@ -51,6 +51,7 @@ import {
   unpickedToQueue,
 } from './queue-unpicked-dialog';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
+import { type StackLabel, textLabel } from './stack-labels';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /** What a failed change says, naming the plan as `planName`. */
@@ -126,9 +127,9 @@ const PLAN_BOARDS: Record<
      * For a plan board stacked as one stack, which its heading names: the
      * short label of that stack's stack header, which is set apart from the
      * others. Absent where each stack has a heading naming it, and its stack
-     * header shows that name.
+     * header shows the stack's own label.
      */
-    oneStackHeader?: { label: string };
+    oneStackHeader?: { label: StackLabel };
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -146,7 +147,7 @@ const PLAN_BOARDS: Record<
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
     // Short, as the stack headers share one row on a phone.
-    oneStackHeader: { label: 'SB' },
+    oneStackHeader: { label: textLabel('SB') },
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
@@ -315,18 +316,19 @@ export class PlanTab {
   );
   /**
    * The stack headers, one per stack in the strip, the mainboard's then the
-   * sideboard's: each stack's name, the label it shows, its card count, what a
-   * screen reader names it, starting with the name, as `Lands, 17 cards`, and
-   * whether it is set apart from the others, as the sideboard's is.
+   * sideboard's: each stack's name, the label it shows (a mana symbol or
+   * text), its card count, what a screen reader names it, starting with the
+   * name, as `Lands, 17 cards`, and whether it is set apart from the others,
+   * as the sideboard's is.
    */
   protected readonly stackHeaders = computed(() =>
     this.planBoards()
       // An empty plan board shows as the list, with no stack to head.
       .filter((planBoard) => planBoard.count > 0)
       .flatMap(({ oneStackHeader, stacks }) =>
-        stacks.map(({ name, cards }) => ({
+        stacks.map(({ name, label, cards }) => ({
           name,
-          label: oneStackHeader?.label ?? name,
+          label: oneStackHeader?.label ?? label,
           count: cards.length,
           accessibleName: `${name}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
           setApart: oneStackHeader !== undefined,
