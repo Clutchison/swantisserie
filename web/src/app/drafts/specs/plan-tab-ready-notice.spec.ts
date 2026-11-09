@@ -6,9 +6,12 @@ useDraftsApp();
 
 const READY_NOTICE_URL = '/api/drafts/draft-1/plan/ready-notice';
 
+/** The tournament in registration, Bob and Alice joined. */
+const aliceJoined = registration(bob.id, alice.id);
+
 /** The Deck tab of a complete draft in its tournament's registration, Alice joined, her plan `plan`. */
 async function openDeck(plan = planOf()) {
-  const { fixture, page } = await openComplete(registration(bob.id, alice.id), { cards, plan });
+  const { fixture, page } = await openComplete(aliceJoined, { cards, plan });
   return { fixture, deck: await openPlan(fixture, page) };
 }
 
@@ -32,7 +35,7 @@ describe('the Ready notice on the Deck tab', () => {
 
     button(deck, 'Move Lightning Bolt to the sideboard')!.click();
     http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(planOf({ readyNotice: true }));
-    await flushTournament(registration(bob.id, alice.id));
+    await flushTournament(aliceJoined);
     await fixture.whenStable();
 
     expect(readyNotice(deck)).toBeDefined();
@@ -45,7 +48,7 @@ describe('the Ready notice on the Deck tab', () => {
     const req = http.expectOne(READY_NOTICE_URL);
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf());
-    await flushTournament(registration(bob.id, alice.id));
+    await flushTournament(aliceJoined);
     await fixture.whenStable();
 
     expect(readyNotice(deck)).toBeUndefined();

@@ -308,6 +308,10 @@ export class PlansService {
         },
       },
     });
+    const entry = await tx.tournamentEntry.findUnique({
+      where: { playerId },
+      select: { readyNotice: true },
+    });
     return {
       ...(await readPlanBoards(tx, playerId)),
       lost: lost.map((card) => ({
@@ -315,12 +319,7 @@ export class PlansService {
         name: card.poolCard.name,
         pickedBy: card.pick.player.userId,
       })),
-      readyNotice: !!(
-        await tx.tournamentEntry.findUnique({
-          where: { playerId },
-          select: { readyNotice: true },
-        })
-      )?.readyNotice,
+      readyNotice: entry?.readyNotice ?? false,
       preferredPrintings: await playersPreferredPrintings(tx, playerId),
     };
   }

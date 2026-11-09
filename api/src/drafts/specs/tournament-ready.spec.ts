@@ -301,13 +301,13 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
       for (const socket of sockets.splice(0)) socket.disconnect();
     });
 
-    /** The drafts pushed to Alice, viewing draft `id`, from once she is connected. */
-    async function watchAsAlice(id: string) {
+    /** The drafts pushed to whoever `cookie` signs in as, viewing draft `id`, from once they are connected. */
+    async function watchAs(id: string, cookie = aliceCookie) {
       const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
         path: '/api/socket.io',
         transports: ['websocket'],
         auth: { draftId: id },
-        extraHeaders: { Cookie: aliceCookie },
+        extraHeaders: { Cookie: cookie },
         reconnection: false,
       });
       sockets.push(socket);
@@ -322,13 +322,29 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
 
     it('pushes the draft, its version bumped, to another viewer when ready clears', async () => {
       const id = await bobReady();
-      const pushed = await watchAsAlice(id);
+      const pushed = await watchAs(id);
       const before = await version(id);
 
       await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
 
       await vi.waitFor(() =>
         expect(pushed.map((draft) => draft.version)).toEqual([before + 1]),
+      );
+    });
+
+    it('pushes the draft to the player’s other device, whose plan read then shows the Ready notice', async () => {
+      const id = await bobReady();
+      const otherDevice = await signIn(bob);
+      const pushed = await watchAs(id, otherDevice);
+      const before = await version(id);
+
+      await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+      await vi.waitFor(() =>
+        expect(pushed.map((draft) => draft.version)).toEqual([before + 1]),
+      );
+      expect((await plan(id, otherDevice).expect(200)).body.readyNotice).toBe(
+        true,
       );
     });
   });
@@ -398,6 +414,23 @@ describe('the Ready notice', () => {
     const answer = await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
 
     expect(answer.body.readyNotice).toBe(true);
+    expect(await readyNotice(id, bobCookie)).toBe(true);
+  });
+
+  it('shows when moving a card to the sideboard clears ready', async () => {
+    const id = await bobReady();
+    const bolt = (await poolCardIds(id))['Lightning Bolt'];
+
+    await movePlanned(id, bolt, 'Sideboard', bobCookie).expect(200);
+
+    expect(await readyNotice(id, bobCookie)).toBe(true);
+  });
+
+  it('shows when clearing basics clears ready', async () => {
+    const id = await bobReady();
+
+    await clearBasics(id, bobCookie).expect(200);
+
     expect(await readyNotice(id, bobCookie)).toBe(true);
   });
 
