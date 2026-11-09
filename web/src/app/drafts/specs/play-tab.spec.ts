@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { EMPTY_QUEUE } from '../drafts';
 import { answer, question } from '../../specs-harness';
 import {
   ALL_POWERS,
@@ -14,6 +15,7 @@ import {
   drafting,
   flushPicks,
   flushPool,
+  flushQueue,
   heading,
   http,
   openDraft,
@@ -447,6 +449,49 @@ describe('Play tab', () => {
 
         expect(text(tab)).toContain(REMINDER);
         expect(text(tab)).toContain(SHORT);
+      });
+
+      /**
+       * Opens the complete draft's Play tab by URL as Alice, joined during
+       * registration, and returns her plan's request, left unanswered.
+       */
+      async function openWhilePlanLoads() {
+        const opened = await openUrl('/drafts/draft-1?tab=play');
+        http
+          .expectOne('/api/drafts/draft-1')
+          .flush(draft(withTournament(registration(bob.id, alice.id))));
+        await flushPool(cards);
+        await flushPicks([]);
+        await flushQueue(EMPTY_QUEUE);
+        await flushTournament(registration(bob.id, alice.id));
+        const plan = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
+        // Not whenStable: the page isn't stable while the plan is on its way.
+        await vi.waitFor(() => {
+          TestBed.tick();
+          expect(text(panel(opened.page))).toContain(REMINDER);
+        });
+        return { ...opened, plan };
+      }
+
+      it('warns only once the player’s plan has loaded, with its real count', async () => {
+        const { fixture, page, plan } = await openWhilePlanLoads();
+        expect(text(panel(page))).not.toContain('Your mainboard holds');
+
+        // Four picks.
+        plan.flush(planOf());
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(text(panel(page))).toContain(SHORT));
+      });
+
+      it('never claims a count when the player’s plan fails to load', async () => {
+        const { fixture, page, plan } = await openWhilePlanLoads();
+
+        plan.flush(null, serverError);
+        await fixture.whenStable();
+
+        expect(text(panel(page))).toContain(REMINDER);
+        expect(text(panel(page))).not.toContain('Your mainboard holds');
       });
 
       it('drops the warning once the player fills their deck', async () => {
