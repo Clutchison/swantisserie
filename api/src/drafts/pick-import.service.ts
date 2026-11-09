@@ -110,9 +110,12 @@ export class PickImportService {
       await planPicks(
         tx,
         draftId,
+        // Stryker disable next-line ObjectLiteral: without the where, planPicks also gets other drafts' picks, and ignores them: their players have no seat here, and their cards are in no plan and have no copies in this draft's pool, so they record no plan effect and exclude no copy. An empty select returns every scalar field, MADE_PICK's included.
         await tx.pick.findMany({ where: { draftId }, select: MADE_PICK }),
       );
+      // Stryker disable next-line ObjectLiteral: an empty argument reads every draft's queued cards with every scalar field, but each player's departure is filtered to their own rows below, so the other drafts' rows are never used.
       const queued = await tx.queuedCard.findMany({
+        // Stryker disable next-line ObjectLiteral: without the where, the read returns every draft's queued cards, but each player's departure is filtered to their own rows below, so the other drafts' rows are never used.
         where: { player: { draftId } },
         select: { playerId: true, poolCardId: true, position: true },
       });
@@ -141,7 +144,14 @@ export class PickImportService {
     const players = await client.player.findMany({
       where: { draftId },
       orderBy: SEAT_ORDER,
-      select: { id: true, userId: true, user: { select: { name: true } } },
+      select: {
+        id: true,
+        userId: true,
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field of the user, name included, and only name is read.
+        user: {
+          select: { name: true },
+        },
+      },
     });
     await checkCanStart(client, draft, players.length);
     const pool = await client.poolCard.findMany({
