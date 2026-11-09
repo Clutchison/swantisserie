@@ -132,14 +132,14 @@
       <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
       <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
       @if (showingStacks() && planBoard.count > 0) {
-        <!-- In the strip, only a few stacks show at once: the header row keeps the whole curve in view, sticking to the top of the screen while the mainboard does, and jumps to a stack. The stacks in view are current. -->
-        @if (planBoard.showsStackHeaders && !wideStacks()) {
+        <!-- In the strip, only a few stacks show at once: the stack headers keep the whole curve in view, sticking to the top of the screen while the mainboard does, and jump to a stack. The stacks in view are current. -->
+        @if (planBoard.showsStackHeaders && showingStrip()) {
           <nav class="stack-headers" aria-label="Stack headers">
-            @for (stack of planBoard.stacks; track stack.name; let index = $index) {
+            @for (stack of planBoard.stacks; track stack.name) {
               <button
                 type="button"
                 [attr.aria-current]="stacksInView().has(stack.name) || null"
-                (click)="scrollToStack(index)"
+                (click)="scrollToStack(stack.name)"
               >
                 <span class="stack-name">{{ stack.name }}</span>
                 <span class="count">{{ stack.cards.length }}</span>
@@ -160,7 +160,7 @@
           (cdkDropListDropped)="dropped($event)"
         >
           @for (stack of planBoard.stacks; track stack.name) {
-            <div class="stack">
+            <div class="stack" [attr.data-stack]="stack.name">
               @if (planBoard.showsStackHeaders) {
                 <h4>
                   <span class="stack-name">{{ stack.name }}</span>

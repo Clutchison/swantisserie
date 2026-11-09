@@ -219,7 +219,7 @@ ul {
     }
 
     /*
-     * The header row: sticks to the top of the screen while the mainboard is in view, every
+     * The stack headers: stick to the top of the screen while the mainboard is in view, every
      * header showing, wrapped onto more rows if need be. Opaque, and above the stacked cards,
      * so they don't show through as they scroll under it.
      */
@@ -250,10 +250,6 @@ ul {
       [aria-current='true'] {
         border-color: var(--color-text);
         font-weight: 600;
-      }
-
-      .count {
-        min-width: 0;
       }
     }
 

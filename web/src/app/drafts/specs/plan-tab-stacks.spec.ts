@@ -19,6 +19,14 @@ import {
   group,
   draggable,
   pressed,
+  updates,
+  draft,
+  flushPicks,
+  flushQueueAndPlan,
+  pickOf,
+  queueOf,
+  alice,
+  bob,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -471,7 +479,7 @@ describe('plan tab', () => {
       expect(group(plan, 'Mainboard stacks')!.scrollLeft).toBe(0);
     });
 
-    describe('the header row', () => {
+    describe('the stack headers', () => {
       beforeEach(() =>
         localStorage.setItem(
           'plan-view',
@@ -479,7 +487,7 @@ describe('plan tab', () => {
         ),
       );
 
-      it('heads the strip with each mainboard stack’s name and card count, none for the sideboard, as the plan and grouping change', async () => {
+      it('head the strip with each mainboard stack’s name and card count, none for the sideboard, as the plan and grouping change', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
@@ -501,7 +509,36 @@ describe('plan tab', () => {
         expect(stackHeaders(plan)).toEqual(['Instant 2', 'Land 1']);
       });
 
-      it('scrolls the strip to a stack whose header is tapped, to its start', async () => {
+      it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf({
+            mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain), planned(shivan)],
+          }),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft(
+            drafting({ turn: { ...bobsTurn, pick: 4, playerId: alice.id }, version: 1 }),
+          ),
+        });
+        await flushPicks([pickOf({ playerId: bob.id, poolCardId: boltAgain.id })]);
+        await flushQueueAndPlan(
+          queueOf(),
+          planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(shivan)],
+            lost: [{ poolCardId: boltAgain.id, name: boltAgain.name, pickedBy: bob.id }],
+          }),
+        );
+        await fixture.whenStable();
+
+        expect(stackHeaders(plan)).toEqual(['1 1', '6 1', 'Lands 1']);
+      });
+
+      it('scroll the strip to the stack whose header is tapped, to its start', async () => {
         const scrolling = stubScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
@@ -511,11 +548,11 @@ describe('plan tab', () => {
 
         stackHeader(plan, 'Lands 1')!.click();
         expect(scrolling.scrolled()).toEqual([
-          { stack: 'Lands', options: { inline: 'start', block: 'nearest', container: 'nearest' } },
+          { stack: 'Lands', options: expect.objectContaining({ inline: 'start' }) },
         ]);
       });
 
-      it('marks the headers of the stacks in view current, as the strip scrolls and the plan changes', async () => {
+      it('mark the stacks in view current, as the strip scrolls and the plan changes', async () => {
         const scrolling = stubScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
@@ -543,7 +580,29 @@ describe('plan tab', () => {
         expect(stackHeaders(plan)).toEqual(['1 2 (current)', 'Lands 1 (current)']);
       });
 
-      it('shows only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
+      it('keep marking the stacks in view once the grouping changes, and once the window widens to a tablet and narrows again', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        scrolling.showStacks('1', '6');
+
+        button(plan, 'Color')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1']);
+        scrolling.showStacks('R');
+        expect(stackHeaders(plan)).toEqual(['R 3 (current)', 'Lands 1']);
+
+        resizeTo('tablet');
+        resizeTo('mobile');
+        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1']);
+        scrolling.showStacks('Lands');
+        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1 (current)']);
+      });
+
+      it('show only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),

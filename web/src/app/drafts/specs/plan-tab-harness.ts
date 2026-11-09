@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import { openDialog } from '../../specs-harness';
+import { byAriaLabel, openDialog } from '../../specs-harness';
 import {
   accessibleName,
   bob,
@@ -89,12 +89,12 @@ export const stacksOf = (plan: HTMLElement) =>
   );
 
 /**
- * The header row above the mainboard's strip: each stack header by its
- * accessible name, with ` (current)` after one marked current. Null with no
- * header row.
+ * The stack headers above the mainboard's strip, each by its accessible
+ * name, with ` (current)` after one marked current. Null with no stack
+ * headers.
  */
 export function stackHeaders(plan: HTMLElement) {
-  const row = headerRow(plan);
+  const row = stackHeadersNavigation(plan);
   return (
     row &&
     [...row.querySelectorAll('button')].map(
@@ -107,11 +107,13 @@ export function stackHeaders(plan: HTMLElement) {
 
 /** The stack header inside `plan` named `name`, as `Lands 1`. */
 export const stackHeader = (plan: HTMLElement, name: string) =>
-  [...(headerRow(plan)?.querySelectorAll('button') ?? [])].find(
+  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].find(
     (header) => accessibleName(header) === name,
   );
 
-const headerRow = (plan: HTMLElement) => plan.querySelector('nav[aria-label="Stack headers"]');
+/** The navigation named Stack headers inside `plan`, if any. */
+const stackHeadersNavigation = (plan: HTMLElement) =>
+  byAriaLabel(plan, 'nav, [role="navigation"]', 'Stack headers');
 
 /**
  * Stands in for the browser's scrolling, which jsdom lacks, for the test to
@@ -166,7 +168,7 @@ export function stubScrolling() {
       for (const { callback, watched } of observers) {
         const entries = [...watched].map((target) => {
           const inView = names.includes(stackName(target) ?? '');
-          return { target, isIntersecting: inView, intersectionRatio: inView ? 1 : 0 };
+          return { target, isIntersecting: inView };
         });
         callback(entries as IntersectionObserverEntry[], {} as IntersectionObserver);
       }

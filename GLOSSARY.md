@@ -308,6 +308,10 @@ _Avoid_: Column, pile
 How stacks mode divides the mainboard into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies, and one with none of the listed types goes under Other.
 _Avoid_: Sort, filter, view
 
+**Stack headers**:
+The row naming each of the mainboard's stacks with its card count, shown above the mainboard's stacks where there isn't room for them all, and marking the stacks in view. Tapping a stack header goes to its stack.
+_Avoid_: Chips, header row, stack tabs, jump bar
+
 **Export tab**:
 The part of a draft's page where a player reviews their picks and copies their exports.
 _Avoid_: Me tab, Picks tab, picks page
