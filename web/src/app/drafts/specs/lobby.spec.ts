@@ -15,13 +15,13 @@ import {
   flushPicks,
   completeSnapshot,
   button,
+  buttonOrder,
   playerAvatar,
   statusMessage,
   ORGANIZE_ONLY,
+  ALL_POWERS,
   powersAnswer,
   RETRY_FAILED,
-  ALL_POWERS,
-  buttonOrder,
 } from './harness';
 
 useDraftsApp();

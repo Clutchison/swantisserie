@@ -67,24 +67,13 @@ describe('pause and resume', () => {
     const cards = [poolCardOf('shock', 'Shock')];
     const picks = [pickOf({ poolCardId: 'shock-card' })];
 
-    it('run Close draft, Undo, Pause draft while drafting', async () => {
-      const { page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
+    it.each([
+      { state: 'drafting', fixture: aliceUp, last: 'Pause draft' },
+      { state: 'paused', fixture: paused, last: 'Resume draft' },
+    ])('run Close draft, Undo, $last while $state', async ({ fixture, last }) => {
+      const { page } = await openDraft(completeSnapshot, fixture, { cards, picks });
 
-      expect(buttonOrder(page, 'Pause draft')).toEqual([
-        'Close draft',
-        'Undo pick 1 (Shock)',
-        'Pause draft',
-      ]);
-    });
-
-    it('run Close draft, Undo, Resume draft while paused', async () => {
-      const { page } = await openDraft(completeSnapshot, paused, { cards, picks });
-
-      expect(buttonOrder(page, 'Resume draft')).toEqual([
-        'Close draft',
-        'Undo pick 1 (Shock)',
-        'Resume draft',
-      ]);
+      expect(buttonOrder(page, last)).toEqual(['Close draft', 'Undo pick 1 (Shock)', last]);
     });
   });
 
