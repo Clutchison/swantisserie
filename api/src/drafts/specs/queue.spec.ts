@@ -153,6 +153,34 @@ describe('queue', () => {
     expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
   });
 
+  it('checks a reorder against the player’s own queue alone, leaving other queues as they were', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await readyDraft([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
+    await enqueue(id, ids.Shock).expect(200);
+    await enqueue(id, ids['Lava Spike']).expect(200);
+    await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
+
+    const reordered = await reorderQueue(id, [
+      ids['Lava Spike'],
+      ids.Shock,
+    ]).expect(200);
+
+    expect(reordered.body.cards).toEqual([spike, shock]);
+    expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([bolt]);
+  });
+
+  it('lets the player in the first seat queue in the lobby once the seats are set', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await readyDraft([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
+    await setSeats(id, [alice.id, bob.id]).expect(200);
+
+    const added = await enqueue(id, ids.Shock).expect(200);
+
+    expect(added.body.cards).toEqual([shock]);
+  });
+
   it('lets a player remove a card from their queue', async () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
@@ -343,6 +371,24 @@ describe('queue', () => {
         restKept: false,
         stealBehavior: 'ClearQueue',
       });
+    });
+
+    it('leaves another player’s lost cards listed when one player dismisses their notice', async () => {
+      const bobCookie = await signIn(bob);
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft([aliceCookie, bobCookie, carolCookie]);
+      await setSeats(id, [alice.id, bob.id, carol.id]).expect(200);
+      const ids = await poolCardIds(id);
+      await enqueue(id, ids.Shock, bobCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+
+      await dismissNotice(id, bobCookie).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body.lost).toEqual([
+        shock,
+      ]);
     });
 
     it('clears a queue for a bot’s pick, too', async () => {

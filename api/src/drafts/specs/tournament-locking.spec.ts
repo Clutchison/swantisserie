@@ -8,6 +8,7 @@ import {
   completeDraft,
   completeTournament,
   dismissPlanNotice,
+  dismissReadyNotice,
   fullDeck,
   movePlanned,
   plan,
@@ -79,7 +80,7 @@ describe('a joined player’s deck', () => {
     expect((await plan(id, aliceCookie).expect(200)).body).toEqual(before);
   });
 
-  it('still serves the deck, which the exports are built from, and lets its notice be dismissed, before and after Start', async () => {
+  it('still serves the deck, which the exports are built from, and lets its notices be dismissed, before and after Start', async () => {
     for (const step of [() => Promise.resolve(), startPlaying]) {
       await step();
       const deck = (await plan(id, aliceCookie).expect(200)).body;
@@ -89,6 +90,7 @@ describe('a joined player’s deck', () => {
       ]);
       expect(deck.basics).toEqual([{ land: 'Mountain', count: 39 }]);
       await dismissPlanNotice(id, aliceCookie).expect(200);
+      await dismissReadyNotice(id, aliceCookie).expect(200);
     }
   });
 

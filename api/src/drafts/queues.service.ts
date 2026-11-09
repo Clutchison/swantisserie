@@ -79,7 +79,13 @@ export class QueuesService {
       await this.checkCanAdd(tx, draftId, playerId, state);
       const card = await tx.poolCard.findFirst({
         where: { id: poolCardId, draftId },
-        select: { id: true, pick: { select: { id: true } } },
+        select: {
+          id: true,
+          // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `id` included, and `add` reads the pick only as truthy.
+          pick: {
+            select: { id: true },
+          },
+        },
       });
       if (!card) {
         throw new QueueRefusedError({
@@ -177,7 +183,11 @@ export class QueuesService {
     return this.change(draftId, userId, async (tx, playerId) => {
       const removed = await tx.queuedCard.findMany({
         where: { playerId, poolCardId },
-        select: { poolCardId: true, position: true },
+        select: {
+          poolCardId: true,
+          // Stryker disable next-line BooleanLiteral: without it, the card's plan copy gets the new departure but keeps whatever queuePosition it had before, from an earlier departure or none, which is harmless only because a queue position only orders cards within one departure, and removing a card makes a departure of that one card alone.
+          position: true,
+        },
       });
       await leaveQueue(tx, playerId, removed);
     });
@@ -292,6 +302,7 @@ export class QueuesService {
     const draft = await tx.draft.findUniqueOrThrow({
       where: { id: draftId },
       select: {
+        // Stryker disable next-line BooleanLiteral: currentTurn reads picks per player only to return null once every pick is made, and `change` refuses a complete draft before this check runs, so picks are always left and the seat is the same.
         picksPerPlayer: true,
         _count: { select: { players: true, picks: true } },
       },
@@ -304,6 +315,7 @@ export class QueuesService {
       draftSize(draft, draft._count.players),
       draft._count.picks,
     );
+    // Stryker disable next-line OptionalChaining: dead code that currentTurn's return type (`Turn | null`) forces: it returns null only once every pick is made, and this check runs only once the draft has started, after `change` has refused a complete draft.
     return turn?.seat === seat;
   }
 
@@ -315,16 +327,33 @@ export class QueuesService {
     const cards = await tx.queuedCard.findMany({
       where: { playerId },
       orderBy: { position: 'asc' },
-      select: { poolCardId: true, poolCard: { select: { name: true } } },
+      select: {
+        poolCardId: true,
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the queue reads only `name`.
+        poolCard: {
+          select: { name: true },
+        },
+      },
     });
     const listed = await tx.takenOutQueuedCard.findMany({
       where: { playerId, noticeHidden: false },
-      orderBy: [{ pick: { number: 'asc' } }, { position: 'asc' }],
+      // Stryker disable next-line ArrayDeclaration: a behaviour change the specs can't reach, not an equivalent mutant: taken-out cards are inserted in pick order, and in queue order within a pick, and never updated while this read returns them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
+      orderBy: [
+        { pick: { number: 'asc' } },
+        // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: taken-out cards are inserted in pick order, and in queue order within a pick, and never updated while this read returns them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
+        { position: 'asc' },
+      ],
       select: {
         poolCardId: true,
         restKept: true,
-        pick: { select: { poolCardId: true } },
-        poolCard: { select: { name: true } },
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the notice reads only `poolCardId`.
+        pick: {
+          select: { poolCardId: true },
+        },
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the notice reads only `name`.
+        poolCard: {
+          select: { name: true },
+        },
       },
     });
     const isLost = (card: (typeof listed)[number]) =>

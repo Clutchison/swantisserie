@@ -94,6 +94,24 @@ describe('unpicked cards in a plan', () => {
     expect(alicesPlan.body.mainboard).toEqual([bolt(first)]);
   });
 
+  it('refuses another copy once the plan holds the rest, not counting a copy another player picked', async () => {
+    const bobCookie = await signIn(bob);
+    const { id, first, second } = await readyDraftWithCopies([
+      bobCookie,
+      aliceCookie,
+    ]);
+    await addToPlan(id, first, aliceCookie).expect(200);
+    await start(id).expect(200);
+    await pick(id, second, bobCookie).expect(200);
+
+    const refused = await addToPlan(id, first, aliceCookie).expect(409);
+
+    expect(refused.body).toEqual({
+      error: 'no-copies-left',
+      message: 'Every available copy of that card is in your plan already.',
+    });
+  });
+
   it('makes an unpicked card the pick when its player picks it, on its board, and undo returns it to unpicked', async () => {
     const { id, ids, first, second } = await readyDraftWithCopies(
       [carolCookie, aliceCookie],
@@ -416,7 +434,10 @@ describe('unpicked cards in a plan', () => {
     const picked = await addToPlan(id, ids['Lava Spike'], carolCookie).expect(
       409,
     );
-    expect(picked.body.error).toBe('already-picked');
+    expect(picked.body).toEqual({
+      error: 'already-picked',
+      message: 'That card has already been picked.',
+    });
     const lastPick = await pick(id, first).expect(200);
     expect(lastPick.body.state).toBe('Complete');
     const complete = await addToPlan(id, ids.Shock, carolCookie).expect(409);
