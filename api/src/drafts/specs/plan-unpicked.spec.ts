@@ -2,6 +2,7 @@ import type { DraftView } from 'contract';
 import {
   alice,
   aliceCookie,
+  bob,
   carol,
   addBot,
   importPicks,
@@ -25,6 +26,8 @@ import {
   getDraft,
   poolCardIds,
   copyIds,
+  fourCards,
+  pickLog,
   waitForBotPicks,
 } from './harness.js';
 
@@ -220,6 +223,27 @@ describe('unpicked cards in a plan', () => {
       sideboard: [
         { poolCardId: second, name: 'Lightning Bolt', picked: false },
       ],
+      basics: [],
+      lost: [],
+      preferredPrintings: {},
+    });
+  });
+
+  it('keeps a card an undo put back in the plan, unpicked, after its player picks it and that pick is undone too', async () => {
+    const id = await readyDraft([aliceCookie, carolCookie], 2, fourCards);
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await addToPlan(id, ids.Shock, carolCookie).expect(200);
+    await pick(id, ids.Shock).expect(200);
+    await undo(id, 1).expect(200);
+    await pick(id, ids['Lightning Bolt']).expect(200);
+    await pick(id, ids.Shock, carolCookie).expect(200);
+
+    await undo(id, 2).expect(200);
+
+    expect((await plan(id, carolCookie).expect(200)).body).toEqual({
+      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: false }],
+      sideboard: [],
       basics: [],
       lost: [],
       preferredPrintings: {},
@@ -451,5 +475,45 @@ describe('unpicked cards in a plan', () => {
     ]);
     expect([first, second]).toContain(imported.mainboard[0].poolCardId);
     expect(imported.lost).toEqual([]);
+  });
+  it('lands each pick import pick on its picker’s mainboard, and moves a plan only to a copy none of the earlier picks took', async () => {
+    const bobCookie = await signIn(bob);
+    const { id } = await readyDraftWithCopies(
+      [aliceCookie, bobCookie, carolCookie],
+      1,
+      ['Lightning Bolt'],
+    );
+    const [one, two, three] = (await copyIds(id))['Lightning Bolt'];
+    await addToPlan(id, one, carolCookie).expect(200);
+    await addToPlan(id, three, carolCookie).expect(200);
+
+    await importPicks(
+      id,
+      [',Ann,Ben,Cid,', '->,Lightning Bolt,Lightning Bolt,,'].join('\n'),
+      [alice.id, bob.id, carol.id],
+    ).expect(200);
+
+    // Alice's pick takes copy one, and Carol's plan holds three, so it moves
+    // to two. Bob's takes two, and one is picked already, so the plan loses it.
+    const log = (await pickLog(id)).body as { poolCardId: string }[];
+    expect(log.map((logged) => logged.poolCardId)).toEqual([one, two]);
+    const bolt = (poolCardId: string, picked: boolean) => ({
+      poolCardId,
+      name: 'Lightning Bolt',
+      picked,
+    });
+    expect((await plan(id, aliceCookie).expect(200)).body.mainboard).toEqual([
+      bolt(one, true),
+    ]);
+    expect((await plan(id, bobCookie).expect(200)).body.mainboard).toEqual([
+      bolt(two, true),
+    ]);
+    expect((await plan(id, carolCookie).expect(200)).body).toEqual({
+      mainboard: [bolt(three, false)],
+      sideboard: [],
+      basics: [],
+      lost: [{ poolCardId: two, name: 'Lightning Bolt', pickedBy: bob.id }],
+      preferredPrintings: {},
+    });
   });
 });
