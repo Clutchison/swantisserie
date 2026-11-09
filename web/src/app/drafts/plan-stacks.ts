@@ -1,5 +1,13 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
 import { frontFace } from 'engine';
+import {
+  LANDS_LABEL,
+  MULTICOLOR_LABEL,
+  manaSymbolLabel,
+  type StackLabel,
+  textLabel,
+  typeLetterLabel,
+} from './stack-labels';
 
 /** How stacks mode divides a plan board into stacks. */
 export type Grouping = 'manaValue' | 'color' | 'type';
@@ -10,6 +18,8 @@ export type Grouping = 'manaValue' | 'color' | 'type';
  */
 export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   name: string;
+  /** What its stack header shows for it. */
+  label: StackLabel;
   /** Sorted by mana value, then name; on the sideboard, with its lands last. */
   cards: Card[];
 }
@@ -25,6 +35,8 @@ interface CardFacts {
 /** Where a stack is, in a grouping's order, and which cards it holds. The first stack to hold a card gets it. */
 interface StackRule {
   name: string;
+  /** What the stack's stack header shows for it. */
+  label: StackLabel;
   holds: (card: CardFacts) => boolean;
 }
 
@@ -33,48 +45,62 @@ const isLand = (card: CardFacts) => card.types.includes('Land');
 const BY_MANA_VALUE: StackRule[] = [
   ...[0, 1, 2, 3, 4, 5, 6].map((value) => ({
     name: String(value),
+    label: manaSymbolLabel(`{${value}}`),
     holds: (card: CardFacts) => !isLand(card) && card.manaValue === value,
   })),
   {
     name: '7+',
+    label: manaSymbolLabel('{7}', '+'),
     holds: (card) =>
       // Stryker disable next-line LogicalOperator: the 0 to 6 stacks take every non-land of those mana values first, so `||` adds only lands of mana value 7 or more, and a land's mana value is 0.
       !isLand(card) &&
       // Stryker disable next-line ConditionalExpression: the 0 to 6 stacks take every non-land of those mana values first, so a non-land that gets here has mana value 7 or more.
       card.manaValue >= 7,
   },
-  { name: 'Lands', holds: isLand },
+  { name: 'Lands', label: LANDS_LABEL, holds: isLand },
 ];
 
 const BY_COLOR: StackRule[] = [
   ...['W', 'U', 'B', 'R', 'G'].map((color) => ({
     name: color,
+    label: manaSymbolLabel(`{${color}}`),
     holds: (card: CardFacts) =>
       !isLand(card) && card.colors.length === 1 && card.colors[0] === color,
   })),
-  { name: 'Multicolor', holds: (card) => !isLand(card) && card.colors.length >= 2 },
+  {
+    name: 'Multicolor',
+    label: MULTICOLOR_LABEL,
+    holds: (card) => !isLand(card) && card.colors.length >= 2,
+  },
   {
     name: 'Colorless',
+    label: manaSymbolLabel('{C}'),
     holds: (card) =>
       !isLand(card) &&
       // Stryker disable next-line ConditionalExpression: the first rule that holds a card wins, and every non-land with a color is already taken.
       card.colors.length === 0,
   },
-  { name: 'Lands', holds: isLand },
+  { name: 'Lands', label: LANDS_LABEL, holds: isLand },
 ];
 
 const BY_TYPE: StackRule[] = [
-  ...[
-    'Creature',
-    'Planeswalker',
-    'Instant',
-    'Sorcery',
-    'Artifact',
-    'Enchantment',
-    'Battle',
-    'Land',
-  ].map((type) => ({ name: type, holds: (card: CardFacts) => card.types.includes(type) })),
-  { name: 'Other', holds: () => true },
+  ...(
+    [
+      ['Creature', typeLetterLabel('C')],
+      ['Planeswalker', typeLetterLabel('P')],
+      ['Instant', typeLetterLabel('I')],
+      ['Sorcery', typeLetterLabel('S')],
+      ['Artifact', typeLetterLabel('A')],
+      ['Enchantment', typeLetterLabel('E')],
+      ['Battle', typeLetterLabel('B')],
+      ['Land', LANDS_LABEL],
+    ] as const
+  ).map(([type, label]) => ({
+    name: type,
+    label,
+    holds: (card: CardFacts) => card.types.includes(type),
+  })),
+  { name: 'Other', label: typeLetterLabel('O'), holds: () => true },
 ];
 
 const RULES: Record<Grouping, StackRule[]> = {
@@ -97,6 +123,7 @@ export function stacks<Card extends PlannedCardView>(
   const sorted = sortedByManaValue(cards, facts);
   const stacked = RULES[grouping].map((rule) => ({
     name: rule.name,
+    label: rule.label,
     cards: [] as Card[],
   }));
   for (const card of sorted) {
@@ -119,6 +146,7 @@ export function sideboardStack<Card extends PlannedCardView>(
   const lands = cards.filter((card) => isLand(facts(card)));
   return {
     name: 'Sideboard',
+    label: textLabel('Sideboard'),
     cards: [
       ...sortedByManaValue(
         cards.filter((card) => !isLand(facts(card))),

@@ -1,31 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import type { Grouping } from './plan-stacks';
 
 /** The character of a card type's type letter. */
 export type TypeLetterChar = 'C' | 'P' | 'I' | 'S' | 'A' | 'E' | 'B' | 'L' | 'O';
-
-/** The letter of each stack under card type, by the stack's name. */
-const BY_TYPE: Record<string, TypeLetterChar> = {
-  Creature: 'C',
-  Planeswalker: 'P',
-  Instant: 'I',
-  Sorcery: 'S',
-  Artifact: 'A',
-  Enchantment: 'E',
-  Battle: 'B',
-  Land: 'L',
-  Other: 'O',
-};
-
-/**
- * The type letter that labels the stack named `stack` under `grouping`, if
- * any: each stack's under card type, and L for the lands under every other
- * grouping, as the Land stack's under card type.
- */
-export function typeLetterOf(stack: string, grouping: Grouping): TypeLetterChar | undefined {
-  if (grouping === 'type') return BY_TYPE[stack];
-  return stack === 'Lands' ? 'L' : undefined;
-}
 
 /** The shields P and B sit on, drawn by hand: a loyalty shield and an upright defense shield. */
 const SHIELDS: Partial<Record<TypeLetterChar, string>> = {
@@ -35,18 +11,18 @@ const SHIELDS: Partial<Record<TypeLetterChar, string>> = {
 
 /**
  * A type letter, drawn in a 22px box: most on a tile whose fill is the type's
- * treatment, P and B on a shield, O plain. Presentation only: the stack
- * header it labels carries the stack's name for a screen reader.
+ * treatment, P and B on a shield, O plain. Decorative, hidden from a
+ * screen reader: the stack header it labels carries the stack's name.
  */
 @Component({
   selector: 'app-type-letter',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `@if (shield()) {
-      <svg viewBox="0 0 22 24" aria-hidden="true"><path [attr.d]="shield()" /></svg>
+      <svg viewBox="0 0 22 24"><path [attr.d]="shield()" /></svg>
     }
     <span>{{ letter() }}</span>`,
   styleUrl: './type-letter.scss',
-  host: { '[attr.data-letter]': 'letter()' },
+  host: { '[attr.data-letter]': 'letter()', 'aria-hidden': 'true' },
 })
 export class TypeLetter {
   readonly letter = input.required<TypeLetterChar>();
