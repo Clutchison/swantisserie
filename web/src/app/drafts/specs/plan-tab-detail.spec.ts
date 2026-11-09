@@ -415,8 +415,8 @@ describe('plan tab', () => {
         'Close',
         'Flip',
         'Remove from Plan',
-        'Move to sideboard',
         'Add to queue',
+        'Move to sideboard',
         'Pick',
       ]);
       expect(pickDisabled(detail)).toBe(true);
@@ -464,8 +464,8 @@ describe('plan tab', () => {
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
         'Remove from Plan',
-        'Move to sideboard',
         'Remove from queue',
+        'Move to sideboard',
         'Pick',
       ]);
       expect(pickDisabled(detail)).toBe(true);

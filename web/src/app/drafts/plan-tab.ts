@@ -108,8 +108,8 @@ interface PlanLine extends PlanBoardCard {
 }
 
 /**
- * Each plan board: its cards, how stacks mode stacks them and whether each
- * stack has a header, the plan board its cards move to, as the button names it,
+ * Each plan board: its cards, how stacks mode stacks them and whether it names
+ * each stack, the plan board its cards move to, as the button names it,
  * and what an empty one says.
  */
 const PLAN_BOARDS: Record<
@@ -121,7 +121,8 @@ const PLAN_BOARDS: Record<
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
     ) => Stack<PlanBoardCard>[];
-    showsStackHeaders: boolean;
+    /** Whether each stack has a heading naming it, and in the strip the stack headers too. The sideboard's one stack is named by the plan board's heading. */
+    namesStacks: boolean;
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -130,7 +131,7 @@ const PLAN_BOARDS: Record<
   Mainboard: {
     cards: (plan) => plan.mainboard,
     stack: stacks,
-    showsStackHeaders: true,
+    namesStacks: true,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
@@ -139,7 +140,7 @@ const PLAN_BOARDS: Record<
     // One stack, whatever the grouping, which the plan board heading names.
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
-    showsStackHeaders: false,
+    namesStacks: false,
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
@@ -280,8 +281,8 @@ export class PlanTab {
       };
     }),
   );
-  /** Each plan board's stacks, as one strip that scrolls sideways where there's no room for the wide layout. */
-  private readonly strips = viewChildren<ElementRef<HTMLElement>>('strip');
+  /** Each plan board's stacks, in stacks mode: the mainboard's are the strip where there's no room for the wide layout. */
+  private readonly planBoardStacks = viewChildren<ElementRef<HTMLElement>>('planBoardStacks');
   /** The mainboard, as `planBoards` shows it. */
   private readonly mainboard = computed(() => this.planBoards()[0]);
   /**
@@ -291,9 +292,9 @@ export class PlanTab {
   protected readonly showingStrip = computed(
     () => this.showingStacks() && this.mainboard().count > 0 && !this.wideStacks(),
   );
-  /** The mainboard's strip, while it shows: the first strip, as the mainboard comes first. */
+  /** The mainboard's strip, while it shows: the first plan board's stacks, as the mainboard comes first. */
   private readonly mainboardStrip = computed(() =>
-    this.showingStrip() ? this.strips()[0]?.nativeElement : undefined,
+    this.showingStrip() ? this.planBoardStacks()[0]?.nativeElement : undefined,
   );
   /** The names of the mainboard's stacks in view in the strip: their stack headers are current. */
   protected readonly stacksInView = stacksInView(
@@ -350,7 +351,7 @@ export class PlanTab {
    */
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
-    for (const strip of this.strips()) strip.nativeElement.scrollLeft = 0;
+    for (const stacks of this.planBoardStacks()) stacks.nativeElement.scrollLeft = 0;
     this.rememberChoice();
   }
 

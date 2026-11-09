@@ -504,14 +504,14 @@ export const inLiveRegion = (element: Element | null): boolean =>
 export const region = (root: HTMLElement, name: string) =>
   byAriaLabel(root, 'section, [role="region"]', name);
 
-/**
- * A group of controls inside `root`, such as a fieldset, by its accessible
- * name: its aria-label, or else a fieldset's legend. Null if there is none.
- */
 /** Whether the toggle button inside `root` named `label` is pressed, such as a chosen mode or grouping; undefined if there is none. */
 export const pressed = (root: HTMLElement, label: string) =>
   button(root, label)?.getAttribute('aria-pressed');
 
+/**
+ * A group of controls inside `root`, such as a fieldset, by its accessible
+ * name: its aria-label, or else a fieldset's legend. Null if there is none.
+ */
 export const group = (root: HTMLElement, name: string) =>
   byAriaLabel(root, '[role="group"], fieldset', name) ??
   [...root.querySelectorAll<HTMLElement>('fieldset:not([aria-label])')].find(

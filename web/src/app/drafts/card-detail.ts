@@ -56,7 +56,7 @@ export class CardDetailRequests {
 }
 
 /** How a host moves a Card detail's card to a plan board, settling once the move has been made or has failed. */
-export type MoveCard = (planBoard: PlanBoard) => Promise<unknown>;
+export type MoveToPlanBoard = (planBoard: PlanBoard) => Promise<unknown>;
 
 /** What a Card detail closes with: `picked` once its card has been picked, else nothing. */
 export type CardDetailResult = 'picked';
@@ -77,7 +77,7 @@ export interface CardDetailOptions {
   /** Called once Remove from Plan has succeeded. */
   removedFromPlan?: () => void;
   /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
-  move?: () => MoveCard | null;
+  move?: () => MoveToPlanBoard | null;
   /** Whether it closes once its card has been picked, as it does unless told otherwise. */
   closesOnPick?: boolean;
 }
@@ -175,7 +175,7 @@ export class CardDetail {
    * it's given. The host says how a move went, so a refused one shows where
    * the host's other moves' refusals do, not in this Card detail's plan note.
    */
-  readonly move = input<MoveCard | null>(null);
+  readonly move = input<MoveToPlanBoard | null>(null);
   /** Remove from Plan has succeeded. */
   readonly removedFromPlan = output<void>();
 
@@ -345,7 +345,7 @@ export class CardDetail {
    * that went. It stays open, offering to move the card back once the plan
    * shows it moved.
    */
-  protected async sendMove(move: MoveCard, planBoard: PlanBoard) {
+  protected async sendMove(move: MoveToPlanBoard, planBoard: PlanBoard) {
     this.planning.set(true);
     try {
       await move(planBoard);
