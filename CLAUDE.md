@@ -14,7 +14,7 @@ Before touching picks, queues, plans, cascades, bots, pick import or undo, read 
 
 Every workspace caps its vitest workers in its own config, so run `npm test -w <workspace>` with no `--maxWorkers`; `ng test` rejects that flag. For one web spec, add `-- --include <spec path>`.
 
-Mutation testing (Stryker, engine, web and api) is in `docs/agents/mutation-testing.md`. Start it with `npm run test:mutation -w <workspace>`, keeping its config's worker cap (the api's config sizes its own; see the doc).
+Mutation testing (Stryker, engine, web and api) is in `docs/agents/mutation-testing.md`. Start it with `npm run test:mutation -w <workspace>`, keeping its config's runner count: 2 on the engine and web, sized at start on the api (see the doc).
 
 ## Domain
 
