@@ -9,6 +9,7 @@ import {
   flushPicks,
   http,
   inLiveRegion,
+  namedList,
   panel,
   text,
   useDraftsApp,
@@ -44,16 +45,25 @@ function withReady(view: ViewerTournamentView, ...playerIds: string[]): ViewerTo
   };
 }
 
+/**
+ * Which style of `.button` `element` is: the accent-filled primary, or the
+ * raised secondary. No accessible attribute carries a style, and #604 asks
+ * the spec to check it, so this reads the class.
+ */
+const variant = (element: HTMLElement) =>
+  element.classList.contains('secondary') ? 'secondary' : 'primary';
+
 describe('marking yourself ready on the Play tab', () => {
-  it('offers a joined player I’m ready, not pressed, beside Leave', async () => {
+  it('offers a joined player I’m ready, not pressed and primary, beside a secondary Leave', async () => {
     const { fixture, page } = await openComplete(registration(bob.id, alice.id));
 
     const tab = await openPlayTab(fixture, page);
 
     const ready = button(tab, IM_READY)!;
     expect(ready.getAttribute('aria-pressed')).toBe('false');
+    expect(variant(ready)).toBe('primary');
     expect(ready.disabled).toBe(false);
-    expect(button(tab, 'Leave')).toBeDefined();
+    expect(variant(button(tab, 'Leave')!)).toBe('secondary');
   });
 
   it('offers no I’m ready to a viewer who hasn’t joined', async () => {
@@ -76,6 +86,7 @@ describe('marking yourself ready on the Play tab', () => {
 
     const ready = button(panel(page), IM_READY)!;
     expect(ready.getAttribute('aria-pressed')).toBe('true');
+    expect(variant(ready)).toBe('secondary');
   });
 
   it('unmarks a ready player on a press, asking nothing', async () => {
@@ -99,10 +110,25 @@ describe('marking yourself ready on the Play tab', () => {
 
     const tab = await openPlayTab(fixture, page);
 
-    expect(button(tab, IM_READY)!.disabled).toBe(true);
+    const ready = button(tab, IM_READY)!;
+    expect(ready.disabled).toBe(true);
+    expect(variant(ready)).toBe('primary');
     expect(text(tab)).toContain(
       'Your mainboard holds 4 cards. A tournament deck needs at least 40: fill your deck before marking yourself ready, or leave the tournament if you won’t play.',
     );
+  });
+
+  it('keeps a disabled I’m ready secondary while the player is ready', async () => {
+    const { fixture, page } = await openComplete(
+      { ...withReady(registration(bob.id, alice.id), alice.id), canToggleReady: false },
+      { cards, plan: planOf() },
+    );
+
+    const ready = button(await openPlayTab(fixture, page), IM_READY)!;
+
+    expect(ready.disabled).toBe(true);
+    expect(ready.getAttribute('aria-pressed')).toBe('true');
+    expect(variant(ready)).toBe('secondary');
   });
 
   it('enables I’m ready once the player fills their deck, as the tournament read again then says', async () => {
@@ -172,6 +198,19 @@ describe('who is ready, on the Play tab', () => {
     const tab = await openPlayTab(fixture, page);
 
     expect(joinedNames(tab)).toEqual(['Alice', 'Bob Ready']);
+  });
+
+  it('shows the Ready badge in the success variant', async () => {
+    const { fixture, page } = await openComplete(
+      withReady(registration(alice.id, bob.id), bob.id),
+      { user: dave },
+    );
+
+    const tab = await openPlayTab(fixture, page);
+
+    // As with `variant`, the style is only in the class.
+    const badge = elementWithText(namedList(tab, 'Joined players'), 'Ready')!;
+    expect(badge.classList).toContain('success');
   });
 
   it('counts “N of M ready” beside Joined players, outside any live region', async () => {

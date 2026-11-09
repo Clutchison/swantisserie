@@ -12,7 +12,7 @@
   }
 }
 
-/* Marks a player the app controls. */
+/* A short tag beside a player's name, such as Bot for a player the app controls. */
 .badge {
   padding: 0 var(--space-sm);
   border-radius: 0.25rem;
@@ -20,4 +20,9 @@
   color: var(--color-muted);
   font-size: var(--font-size-xs);
   font-weight: 600;
+
+  /* A good state, such as a joined player's Ready: the success green passes AA on the surface. */
+  &.success {
+    color: var(--color-success);
+  }
 }
