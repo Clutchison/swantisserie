@@ -15,6 +15,7 @@ export async function leaveQueue(
   playerId: string,
   leaving: readonly QueuedRow[],
 ): Promise<void> {
+  // Stryker disable next-line ConditionalExpression: an empty departure deletes nothing and stamps no plan card; it only uses up one value of the player's departure counter, which is only compared, never shown.
   if (leaving.length === 0) return;
   await tx.queuedCard.deleteMany({
     where: {

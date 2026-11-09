@@ -19,6 +19,8 @@ import {
   post,
   fourCards,
   registerWebhook,
+  setSeats,
+  setStealBehavior,
   shock,
   bolt,
   spike,
@@ -151,6 +153,40 @@ describe('undo', () => {
     ]);
   });
 
+  it('gives each player back only their own taken-out cards, and leaves a queue it took nothing out of alone', async () => {
+    const carolCookie = await signIn(carol);
+    const id = await readyDraft(
+      [aliceCookie, bobCookie, carolCookie],
+      1,
+      fourCards,
+    );
+    const ids = await poolCardIds(id);
+    // Bob picks last, so his queue waits through Alice's and Carol's turns.
+    await setSeats(id, [alice.id, carol.id, bob.id]).expect(200);
+    await start(id).expect(200);
+    await pick(id, ids['Skewer the Critics']).expect(200);
+    await enqueue(id, ids.Shock).expect(200);
+    await enqueue(id, ids['Lightning Bolt']).expect(200);
+    // Alice's turn comes back, and her queue waits for her.
+    await undo(id, 1).expect(200);
+    await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
+    await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
+    await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
+    // Bolt leaves Alice's queue, and Carol loses it, clearing Lava Spike.
+    await pick(id, ids['Lightning Bolt']).expect(200);
+
+    await undo(id, 1).expect(200);
+
+    expect((await queue(id).expect(200)).body.cards).toEqual([shock, bolt]);
+    expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
+      bolt,
+      spike,
+    ]);
+    expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
+      skewer,
+    ]);
+  });
+
   describe('of a pick that cleared a queue', () => {
     let carolCookie: string;
 
@@ -219,6 +255,35 @@ describe('undo', () => {
       ]);
     });
 
+    it('restores a long queue in its original order after one of its cards was queued again and the notice dismissed', async () => {
+      carolCookie = await signIn(carol);
+      // Enough taken-out cards to fill the database's first page of them,
+      // so that queuing one again moves its row after the others.
+      const cards = Array.from(
+        { length: 60 },
+        (_, i) => `Card ${String(i).padStart(2, '0')}`,
+      );
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        cards,
+      );
+      const ids = await poolCardIds(id);
+      for (const name of cards) {
+        await enqueue(id, ids[name], carolCookie).expect(200);
+      }
+      await start(id).expect(200);
+      await pick(id, ids['Card 59']).expect(200);
+      await enqueue(id, ids['Card 00'], carolCookie).expect(200);
+      await dismissNotice(id, carolCookie).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual(
+        cards.map((name) => ({ poolCardId: ids[name], name })),
+      );
+    });
+
     it('restores only what that pick cleared, and drops only that from the notice', async () => {
       carolCookie = await signIn(carol);
       const id = await readyDraft(
@@ -284,6 +349,36 @@ describe('undo', () => {
       });
       // The picked copy is back in the pool.
       await pick(id, first).expect(200);
+    });
+
+    it('puts a lost card back where it sat after an earlier pick made its queue hold another copy', async () => {
+      const carolCookie = await signIn(carol);
+      const { id, ids, first, second } = await readyDraftWithCopies(
+        [aliceCookie, bobCookie, carolCookie],
+        2,
+        ['Skewer the Critics', 'Fireblast'],
+      );
+      // Carol picks first, so Bob picks twice in a row after Alice.
+      await setSeats(id, [carol.id, alice.id, bob.id]).expect(200);
+      await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
+      await start(id).expect(200);
+      await pick(id, ids.Fireblast, carolCookie).expect(200);
+      await enqueue(id, first, carolCookie).expect(200);
+      await enqueue(id, ids.Shock, carolCookie).expect(200);
+      await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
+      // Carol's queue holds the second copy in the first's place.
+      await pick(id, first).expect(200);
+      await pick(id, ids.Shock, bobCookie).expect(200);
+
+      await undo(id, 3).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [{ poolCardId: second, name: 'Lightning Bolt' }, shock, spike],
+        lost: [],
+        cleared: [],
+        restKept: false,
+        stealBehavior: 'PickNext',
+      });
     });
 
     it('restores a queue its pick lost a copy from, every copy in its place', async () => {

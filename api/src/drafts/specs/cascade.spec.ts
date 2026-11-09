@@ -205,6 +205,54 @@ describe('cascade', () => {
     ).toEqual([first, second]);
   });
 
+  it('picks from a queue in order after a pick made it hold another copy, leaving no picked copy queued', async () => {
+    const { id, ids, first, second } = await readyDraftWithCopies(
+      [aliceCookie, bobCookie],
+      2,
+    );
+    await enqueue(id, first, bobCookie).expect(200);
+    await enqueue(id, ids.Shock, bobCookie).expect(200);
+    await start(id).expect(200);
+
+    // Bob's queue holds the second copy in the first's place, and his two
+    // picks follow in the same turn.
+    await pick(id, first).expect(200);
+
+    expect(
+      (await pickLog(id)).body.map(
+        ({ poolCardId }: { poolCardId: string }) => poolCardId,
+      ),
+    ).toEqual([first, second, ids.Shock]);
+    expect((await queue(id, bobCookie).expect(200)).body).toEqual({
+      cards: [],
+      lost: [],
+      cleared: [],
+      restKept: false,
+      stealBehavior: 'ClearQueue',
+    });
+  });
+
+  it('on a later turn, picks the copy a queue holds in a picked card’s place before the cards queued after it', async () => {
+    const carolCookie = await signIn(carol);
+    const { id, ids, first, second } = await readyDraftWithCopies([
+      aliceCookie,
+      bobCookie,
+      carolCookie,
+    ]);
+    await enqueue(id, first, carolCookie).expect(200);
+    await enqueue(id, ids.Shock, carolCookie).expect(200);
+    await start(id).expect(200);
+    await pick(id, first).expect(200);
+
+    await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+
+    expect(
+      (await pickLog(id)).body.map(
+        ({ poolCardId }: { poolCardId: string }) => poolCardId,
+      ),
+    ).toEqual([first, ids['Lava Spike'], second]);
+  });
+
   it('picks the first player’s queued card when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
