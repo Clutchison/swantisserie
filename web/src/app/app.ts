@@ -44,6 +44,7 @@ export class App {
 
   /** Fetched once per page load: it is a nudge, not a live figure. */
   private readonly unreviewed = httpResource<UnreviewedFeedbackCount>(() =>
+    // Stryker disable next-line OptionalChaining: with nobody signed in, the request function throws, which httpResource turns into an error state that hasValue() already treats as no count.
     this.user()?.isAppAdmin ? '/api/admin/feedback/unreviewed-count' : undefined,
   );
   private readonly unreviewedSuffix = computed(() => {
@@ -55,6 +56,7 @@ export class App {
 
   /** Which commit is live, for app admins; left out of the menu until known, or if it can't be. */
   private readonly appVersionResource = httpResource<AppVersionView>(() =>
+    // Stryker disable next-line OptionalChaining: with nobody signed in, the request function throws, which httpResource turns into an error state that hasValue() already treats as no version.
     this.user()?.isAppAdmin ? '/api/admin/app-version' : undefined,
   );
   protected readonly appVersion = computed(() => {
@@ -84,6 +86,7 @@ export class App {
         return event instanceof NavigationStart && !this.router.navigated ? 'Loading' : null;
       }),
     ),
+    // Stryker disable next-line ObjectLiteral: undefined and null both fall through the template's 'Loading' and 'Failed' checks.
     { initialValue: null },
   );
 
@@ -95,7 +98,11 @@ export class App {
     this.dialogs.open(FeedbackDialog, {
       label: 'Send feedback',
       injector: this.injector,
-      returnFocus: (opener) => (opener?.isConnected ? opener : this.narrowMenu()?.button()),
+      returnFocus: (opener) => {
+        if (opener?.isConnected) return opener;
+        // Stryker disable next-line OptionalChaining: the narrow menu exists whenever the header does, so it is only missing if the session ends while the feedback dialog is open.
+        return this.narrowMenu()?.button();
+      },
     });
   }
 

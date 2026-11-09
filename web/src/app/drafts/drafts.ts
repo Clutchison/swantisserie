@@ -68,6 +68,7 @@ export function isRefusal(err: unknown): err is RefusalResponse {
  * the draft, queue or plan has moved on, e.g. a card was lost; else `fallback`.
  */
 export function changeFailure(err: unknown, fallback: string): string {
+  // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
   return (isRefusal(err) && err.error?.message) || fallback;
 }
 

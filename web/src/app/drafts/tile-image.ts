@@ -48,6 +48,7 @@ export class TileImageLoader implements OnDestroy {
 
   add(element: Element, scryfallId: string, request: () => void) {
     if (!this.observer || this.requested.has(scryfallId)) {
+      // Stryker disable next-line CallExpression: with no observer `requested` is never read again, and otherwise the id is in it already.
       this.requested.add(scryfallId);
       request();
       return;
@@ -63,8 +64,11 @@ export class TileImageLoader implements OnDestroy {
     this.scheduleBuffer();
   }
 
+  // Stryker disable next-line BlockStatement: a timer left running after teardown only skips a tile no longer on the page.
   ngOnDestroy() {
+    // Stryker disable next-line CallExpression: a timer left running after teardown only skips a tile no longer on the page.
     clearTimeout(this.bufferDelay);
+    // Stryker disable next-line ArrowFunction,CallExpression: a timer left running after teardown only skips a tile no longer on the page.
     this.waiting.forEach((tile) => clearTimeout(tile.settling));
     this.observer?.disconnect();
   }

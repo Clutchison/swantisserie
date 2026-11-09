@@ -98,5 +98,6 @@ export const knownUser: CanActivateFn = async () => {
 export const appAdmin: CanActivateFn = async () => {
   const auth = inject(Auth);
   const router = inject(Router);
+  // Stryker disable next-line OptionalChaining,ArrayDeclaration,StringLiteral: the parent's signedIn guard stops a signed-out viewer first, so the user is never null here; and an empty or blank command still leads to the draft list.
   return (await auth.currentUser())?.isAppAdmin ? true : router.createUrlTree(['/']);
 };

@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import {
+  alertIn,
   alice,
   carol,
   followBack,
@@ -9,6 +10,7 @@ import {
   openDialog,
   pressKey,
   router,
+  serverError,
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
@@ -35,16 +37,16 @@ const reviewedByCarol: ReviewedFeedbackView = {
   reviewedBy: { name: 'Carol' },
 };
 
-const COUNT = '/api/admin/feedback/unreviewed-count';
+const COUNT_URL = '/api/admin/feedback/unreviewed-count';
 
 describe('reviewing feedback', () => {
   useApp();
 
   /** Answers what an app admin's header asks for: the unreviewed count and app version. */
   function answerAdminHeader(unreviewedCount: number | 'fails' = 0) {
-    const count = http.expectOne(COUNT);
+    const count = http.expectOne(COUNT_URL);
     if (unreviewedCount === 'fails') {
-      count.flush(null, { status: 500, statusText: 'Server Error' });
+      count.flush(null, serverError);
     } else {
       count.flush({ count: unreviewedCount });
     }
@@ -174,14 +176,69 @@ describe('reviewing feedback', () => {
     const { fixture, page } = await openPage([fromAlice]);
 
     markReviewed(items(page)[0]).click();
-    http
-      .expectOne('/api/admin/feedback/feedback-1/reviewed')
-      .flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
     await fixture.whenStable();
 
-    expect(page.querySelector('[role="alert"]')?.textContent).toContain('try again');
+    expect(alertIn(page)?.textContent).toContain('try again');
     expect(items(page)).toHaveLength(1);
   });
+
+  it('holds marking while one item is being marked, then takes the next', async () => {
+    const { fixture, page } = await openPage([fromAlice, fromBob]);
+
+    markReviewed(items(page)[0]).click();
+    const put = http.expectOne('/api/admin/feedback/feedback-1/reviewed');
+    await fixture.whenStable();
+    expect(items(page).map((item) => markReviewed(item).disabled)).toEqual([true, true]);
+
+    put.flush(null, { status: 204, statusText: 'No Content' });
+    (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromBob]);
+    await fixture.whenStable();
+    expect(markReviewed(items(page)[0]).disabled).toBe(false);
+  });
+
+  it('clears the failure once marking works', async () => {
+    const { fixture, page } = await openPage([fromAlice]);
+    markReviewed(items(page)[0]).click();
+    http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
+    await fixture.whenStable();
+
+    markReviewed(items(page)[0]).click();
+    http
+      .expectOne('/api/admin/feedback/feedback-1/reviewed')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([]);
+    await fixture.whenStable();
+
+    expect(alertIn(page)).toBeNull();
+  });
+
+  it('clears the failure on changing tab', async () => {
+    const opened = await openPage([fromAlice]);
+    markReviewed(items(opened.page)[0]).click();
+    http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
+    await opened.fixture.whenStable();
+
+    await clickTab(opened, 'Reviewed');
+
+    expect(alertIn(opened.page)).toBeNull();
+  });
+
+  it.each([['Home'], ['Enter'], ['Tab']])(
+    'keeps the failure on %s on the selected tab, which selects nothing new',
+    async (key) => {
+      const { fixture, page } = await openPage([fromAlice]);
+      markReviewed(items(page)[0]).click();
+      http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
+      await fixture.whenStable();
+
+      tab(page, 'Unreviewed').focus();
+      pressKey(tab(page, 'Unreviewed'), key);
+      await fixture.whenStable();
+
+      expect(alertIn(page)?.textContent).toContain('try again');
+    },
+  );
 
   describe('the Reviewed view', () => {
     const markUnreviewed = (item: Element) =>
@@ -232,12 +289,10 @@ describe('reviewing feedback', () => {
       const { fixture, page } = await openReviewed([reviewedByCarol]);
 
       markUnreviewed(items(page)[0]).click();
-      http
-        .expectOne('/api/admin/feedback/feedback-1/reviewed')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
       await fixture.whenStable();
 
-      expect(page.querySelector('[role="alert"]')?.textContent).toContain('try again');
+      expect(alertIn(page)?.textContent).toContain('try again');
       expect(items(page)).toHaveLength(1);
     });
 
@@ -446,7 +501,7 @@ describe('reviewing feedback', () => {
     it('is not fetched for other users', async () => {
       await openApp('/status', alice);
 
-      http.expectNone(COUNT);
+      http.expectNone(COUNT_URL);
       http.expectOne('/api/health').flush({});
     });
   });
@@ -460,7 +515,7 @@ describe('reviewing feedback', () => {
   it('says when the feedback cannot be loaded', async () => {
     const { fixture, page } = await openApp('/admin/feedback', carol);
     answerAdminHeader();
-    http.expectOne('/api/admin/feedback').flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne('/api/admin/feedback').flush(null, serverError);
     await fixture.whenStable();
 
     expect(page.querySelector('main')?.textContent).toContain("Couldn't load the feedback");

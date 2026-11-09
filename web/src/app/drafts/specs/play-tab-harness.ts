@@ -9,6 +9,7 @@ import type {
   PlayerView,
   PoolCardView,
   StandingView,
+  TournamentEntryView,
   TournamentRoundView,
   ViewerTournamentView,
   UserView,
@@ -18,6 +19,7 @@ import {
   ORGANIZE_ONLY,
   accessibleDescription,
   accessibleName,
+  alertIn,
   alice,
   alicePlayer,
   bob,
@@ -32,6 +34,7 @@ import {
   namedList,
   openDraft,
   openTab,
+  panel,
   region,
   tabButton,
   statusTexts,
@@ -40,7 +43,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { openDialog, table, tableColumns, tableRows } from '../../specs-harness';
+import { openDialog, serverError, table, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -51,11 +54,20 @@ export const dave: UserView = { ...alice, id: 'dave', name: 'Dave' };
 /** Carol, a third player, in drafts that list her. */
 export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
 
-/** Bob signed in, a player of the draft. */
-export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
+/** A player of drafts of more than three, by `name`, which also gives their id. */
+export const player = (name: string): PlayerView => ({ ...bob, id: name.toLowerCase(), name });
 
-/** Carol signed in, a player of the draft. */
-export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
+/** Erin, a fourth player, in drafts that list her. */
+export const erin = player('Erin');
+
+/** `player` signed in. */
+export const signedIn = ({ id, name }: PlayerView): UserView => ({ ...alice, id, name });
+
+/** The tournament entry of the player `playerId`: undropped, droppable and unseeded, or with `fields` changed. */
+export const entry = (
+  playerId: string,
+  fields: Partial<TournamentEntryView> = {},
+): TournamentEntryView => ({ playerId, dropped: false, droppable: true, seed: null, ...fields });
 
 /**
  * A round robin tournament in registration, joined by the players with
@@ -79,12 +91,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   state: 'Registration',
   roundCount: 0,
   lastCompletedRound: 0,
-  entries: playerIds.map((playerId) => ({
-    playerId,
-    dropped: false,
-    droppable: true,
-    seed: null,
-  })),
+  entries: playerIds.map((playerId) => entry(playerId)),
   rounds: [],
   bracket: null,
   standings: [],
@@ -120,6 +127,17 @@ export const reported = (
   outcome: { kind: 'GameScore', games, draws: 0 },
   reportedBy,
   confirmableBy: match.players.filter((id) => id !== reportedBy),
+  clearLeaves: { kind: 'Unreported' },
+});
+
+/**
+ * `match` as the api reads it once completing grants it a draw: nobody may
+ * confirm it, and clearing it leaves it unreported.
+ */
+export const grantedDraw = (match: MatchView): MatchView => ({
+  ...match,
+  outcome: { kind: 'GrantedDraw' },
+  confirmableBy: [],
   clearLeaves: { kind: 'Unreported' },
 });
 
@@ -171,12 +189,7 @@ export function playing(
     state: 'Playing',
     roundCount: 0,
     lastCompletedRound: 0,
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({
-      playerId,
-      dropped: false,
-      droppable: true,
-      seed: null,
-    })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
         round: 1,
@@ -216,12 +229,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
-    entries: [alice.id, bob.id, carol.id].map((playerId) => ({
-      playerId,
-      dropped: false,
-      droppable: true,
-      seed: null,
-    })),
+    entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
         round: 1,
@@ -313,12 +321,7 @@ export function singleEliminationPlaying(
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 0,
-    entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
-      playerId,
-      dropped: false,
-      droppable: true,
-      seed: i + 1,
-    })),
+    entries: [alice.id, bob.id, carol.id].map((playerId, i) => entry(playerId, { seed: i + 1 })),
     rounds: [
       {
         round: 1,
@@ -419,6 +422,23 @@ export const withDrops = (
 /** The complete draft of Alice, Bob and Carol. */
 export const threePlayers: DraftFixture = { players: [alicePlayer, bob, carol] };
 
+/** The complete draft of Alice, Bob, Carol and Erin. */
+export const fourPlayers: DraftFixture = { players: [alicePlayer, bob, carol, erin] };
+
+/**
+ * A round robin tournament of Alice, Bob, Carol and Erin, joined in that
+ * order, being played, with `matches` in the order the read gives them.
+ */
+export function roundRobinOfFour(matches: MatchView[]): ViewerTournamentView {
+  const tournament = playing();
+  return {
+    ...tournament,
+    entries: [...tournament.entries, entry(erin.id)],
+    rounds: [{ ...tournament.rounds[0], matches }],
+    standings: [...tournament.standings, standing(erin.id, 1)],
+  };
+}
+
 /** The complete draft as it is with `tournament` set up, or with none. */
 export const withTournament = (
   tournament: ViewerTournamentView | null,
@@ -470,6 +490,9 @@ export async function openComplete(
     url,
   });
 }
+
+/** Where Complete round sends its request. */
+export const COMPLETE_ROUND_URL = '/api/drafts/draft-1/tournament/complete-round';
 
 /** Opens the Play tab and returns its panel. */
 export const openPlayTab = (fixture: AppFixture, page: HTMLElement) =>
@@ -547,11 +570,25 @@ export const gridCellName = (root: HTMLElement, row: string, column: string) =>
  * and groups of buttons left out, however its text is wrapped.
  */
 export const itemTexts = (list: Element) =>
-  [...list.querySelectorAll(':scope > li')].map((li) => {
-    const shown = li.cloneNode(true) as HTMLElement;
-    shown.querySelectorAll('button, [role="group"]').forEach((control) => control.remove());
-    return text(shown);
-  });
+  [...list.querySelectorAll(':scope > li')].map((li) => text(withoutControls(li)));
+
+/** A copy of `element` with its buttons and groups of buttons left out. */
+function withoutControls(element: Element) {
+  const shown = element.cloneNode(true) as HTMLElement;
+  shown.querySelectorAll('button, [role="group"]').forEach((control) => control.remove());
+  return shown;
+}
+
+/**
+ * What the question dialog `dialog` says below its question, as a viewer
+ * reads it: its text without its heading, which names it, and its buttons.
+ */
+export function questionDetail(dialog: HTMLElement) {
+  const shown = dialog.cloneNode(true) as HTMLElement;
+  shown.querySelector(`[id="${dialog.getAttribute('aria-labelledby')}"]`)?.remove();
+  shown.querySelectorAll('button').forEach((control) => control.remove());
+  return text(shown);
+}
 
 /** Each line of the signed-in player's Your matches inside `root`, leaving out its buttons. */
 export const yourMatches = (root: HTMLElement) =>
@@ -573,6 +610,36 @@ export const bracket = (root: HTMLElement) => region(root, 'Bracket');
 /** Each match of the bracket's tournament round `round` inside `root` by its accessible name, byes included, in order. */
 export const bracketMatches = (root: HTMLElement, round: number) =>
   [...roundLists(bracket(root)!)[round - 1].querySelectorAll('li')].map((li) => accessibleName(li));
+
+/** `element`'s text as it shows on screen: the text of each element inside it apart, however it is wrapped. */
+function shownText(element: Element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const words: string[] = [];
+  while (walker.nextNode()) words.push(walker.currentNode.textContent!.trim());
+  return words.filter(Boolean).join(' ');
+}
+
+/**
+ * Each place of the bracket's tournament round `round` inside `root` as it
+ * shows to a sighted viewer, its controls left out: each side's seed, name
+ * and games won, then the note under its match, if any, as in
+ * '2 Bob 1 3 Carol 2 Confirmed'.
+ */
+export const drawnPlaces = (root: HTMLElement, round: number) =>
+  [...roundLists(bracket(root)!)[round - 1].querySelectorAll(':scope > li')].map((li) =>
+    shownText(withoutControls(li)),
+  );
+
+/**
+ * The sides drawn in the bracket inside `root` as `marked`: those that won
+ * their place, or those that aren't a player yet, as they show, such as '1 Alice'.
+ */
+export const drawnSides = (root: HTMLElement, marked: 'won' | 'not-player') =>
+  [...bracket(root)!.querySelectorAll(`[data-${marked}="true"]`)].map(shownText);
+
+/** The controls offered in the list of tournament round `round`'s matches inside `root`, by accessible name. */
+export const listControls = (root: HTMLElement, round: number) =>
+  [...namedList(root, `Tournament round ${round}`).querySelectorAll('button')].map(accessibleName);
 
 /** The bracket's matches inside `root` highlighted as the signed-in player's path, by accessible name, in order. */
 export const ownPath = (root: HTMLElement) =>
@@ -659,4 +726,19 @@ export async function answerChange(
   if (tournament) await flushTournament(tournament);
   await fixture.whenStable();
   return req;
+}
+
+/**
+ * Answers the tournament change at `url` with a server error, which gives
+ * no reason, as a 500 or a lost connection does, and returns what the
+ * open tab of `page` then alerts.
+ */
+export async function failChange(fixture: AppFixture, page: HTMLElement, url: string) {
+  (await vi.waitFor(() => http.expectOne(url))).flush('Server error', serverError);
+  await fixture.whenStable();
+  return vi.waitFor(() => {
+    const alert = alertIn(panel(page));
+    if (!alert) throw new Error('The Play tab alerts nothing');
+    return text(alert);
+  });
 }

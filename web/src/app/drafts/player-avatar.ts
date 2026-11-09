@@ -37,5 +37,6 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal } from '@angula
 export class PlayerAvatar {
   readonly src = input.required<string>();
   /** Whether this avatar failed to load; another player's gets its own try. */
+  // Stryker disable next-line ArrowFunction: the template reads only `!failed()`.
   protected readonly failed = linkedSignal({ source: this.src, computation: () => false });
 }

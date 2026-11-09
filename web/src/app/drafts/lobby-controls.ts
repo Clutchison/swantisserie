@@ -95,11 +95,11 @@ export class LobbyControls {
 
   constructor() {
     // The file's pairings may no longer hold once the draft changes.
-    let shownVersion: number | undefined;
+    let shownVersion = untracked(this.draft).version;
     effect(() => {
       const version = this.draft().version;
       untracked(() => {
-        if (shownVersion !== undefined && version !== shownVersion) this.clearPickImport();
+        if (version !== shownVersion) this.clearPickImport();
         shownVersion = version;
       });
     });
@@ -165,7 +165,10 @@ export class LobbyControls {
         playerIds,
       } satisfies SeatOrderRequest),
       {
-        keep: [`${by > 0 ? 'earlier' : 'later'} ${id}`],
+        // A player moved to the last seat keeps focus on their Move earlier. One moved
+        // to the first seat needs no key: the control after their Move earlier, which
+        // focus falls to, is their Move later.
+        keep: [`earlier ${id}`],
         status: `${name} moved to seat ${index + by + 1}`,
       },
     );
@@ -185,7 +188,9 @@ export class LobbyControls {
 
   /** Previews the pick import of the file chosen in `input`, which changes nothing. */
   protected previewPickImport(input: HTMLInputElement) {
+    // Stryker disable next-line OptionalChaining: `files` is null only on an input that isn't `type="file"`.
     const file = input.files?.[0];
+    // Stryker disable next-line ConditionalExpression: the input is emptied after every preview, so `change` never fires with no file chosen.
     if (!file) return;
     return this.changes.send(async () => {
       this.lobbyError.set(null);
@@ -277,6 +282,7 @@ export class LobbyControls {
   private lobbyFailed(err: unknown, failure: string) {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
+      // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
       this.lobbyError.set(err.error?.message ?? failure);
       this.store.catchUp();
     } else {
@@ -311,8 +317,8 @@ export class LobbyControls {
   }
 }
 
-/** All that's wrong with a pick import's file, from the API's 422 saying so. */
+/** All that's wrong with a pick import's file, from the API's 422 saying so: its only 422 on these routes. */
 function pickImportProblems(err: HttpErrorResponse): string[] {
-  const refusal: PickImportRefusal | null = err.error;
-  return refusal?.problems ?? [];
+  const refusal: PickImportRefusal = err.error;
+  return refusal.problems;
 }

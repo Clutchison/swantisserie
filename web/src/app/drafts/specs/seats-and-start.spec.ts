@@ -2,6 +2,7 @@ import type { PickImportRefusal, StartRefusal } from 'contract';
 import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
+  alertIn,
   alice,
   draft,
   http,
@@ -20,6 +21,9 @@ import {
   poolCardOf,
   tabButton,
   panel,
+  pickImportPreview,
+  pickImportProblems,
+  serverError,
   type AppFixture,
   ORGANIZE_ONLY,
   powersAnswer,
@@ -27,6 +31,8 @@ import {
 } from './harness';
 
 useDraftsApp();
+
+const START_FAILED = "Couldn't start the draft.";
 
 describe('seats and start', () => {
   beforeEach(() => powersAnswer(ORGANIZE_ONLY));
@@ -137,8 +143,26 @@ describe('seats and start', () => {
     expect(button(page, 'Start draft')).toBeDefined();
   });
 
+  it('says the start failed when it fails without a refusal', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    button(page, 'Start draft')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(null, serverError);
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(START_FAILED));
+  });
+
   describe('pick import', () => {
     const text = ',Ann,Ben,\n->,Ash Golem,,';
+    const readFailed = "Couldn't read the file.";
+    const importFailed = "Couldn't import the picks.";
+
+    /** The hidden file input that Import picks opens the file picker for. */
+    const fileInput = (page: HTMLElement) =>
+      page.querySelector<HTMLInputElement>('input[type="file"][aria-label="Import picks"]')!;
+    /** The page's catch-up re-reads of the draft, taken so none is left to answer; none if it sent none. */
+    const catchUps = () => http.match({ url: '/api/drafts/draft-1', method: 'GET' });
 
     /** Chooses a made-up file and answers its preview with `answer`. */
     async function chooseFile(
@@ -147,10 +171,19 @@ describe('seats and start', () => {
       answer: object,
       status = 200,
     ) {
-      const input = page.querySelector<HTMLInputElement>('input[type="file"]')!;
+      const input = fileInput(page);
       Object.defineProperty(input, 'files', {
         configurable: true,
         value: [new File([text], 'picks.csv', { type: 'text/csv' })],
+      });
+      // jsdom's file input doesn't take its value from `files`, so it is kept here.
+      let value = 'C:\\fakepath\\picks.csv';
+      Object.defineProperty(input, 'value', {
+        configurable: true,
+        get: () => value,
+        set: (emptied: string) => {
+          value = emptied;
+        },
       });
       input.dispatchEvent(new Event('change'));
       const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pick-import/preview'));
@@ -163,7 +196,7 @@ describe('seats and start', () => {
     /** The answer's handling isn't tracked by stability, so wait for it to show. */
     const shownPreview = (page: HTMLElement) =>
       vi.waitFor(() => {
-        const shown = page.querySelector('.pick-import-preview');
+        const shown = pickImportPreview(page);
         if (!shown) throw new Error('No preview yet');
         return shown;
       });
@@ -228,7 +261,7 @@ describe('seats and start', () => {
         );
 
         await vi.waitFor(() => {
-          expect(page.querySelector('.pick-import-preview')).toBeNull();
+          expect(pickImportPreview(page)).toBeUndefined();
           expect(button(page, 'Import picks')).toBeUndefined();
         });
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
@@ -280,13 +313,37 @@ describe('seats and start', () => {
           422,
         );
 
-        await vi.waitFor(() => {
-          const problems = [...page.querySelectorAll('.pick-import-problems li')];
-          expect(problems.map((li) => li.textContent)).toEqual([
+        await vi.waitFor(() =>
+          expect(pickImportProblems(page)).toEqual([
             'The file has 2 player columns, but the draft has 3 players.',
-          ]);
-        });
-        expect(page.querySelector('.pick-import-preview')).toBeNull();
+          ]),
+        );
+        expect(pickImportPreview(page)).toBeUndefined();
+      });
+
+      it('says the import failed when it fails without a refusal, keeping the preview, until it goes through', async () => {
+        const { fixture, page } = await previewed();
+
+        await confirmImport(page, { message: 'Internal server error' }, 500);
+        await fixture.whenStable();
+        await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(importFailed));
+        expect(pickImportPreview(page)).toBeDefined();
+        expect(catchUps()).toEqual([]);
+
+        await confirmImport(
+          page,
+          draft({
+            state: 'Paused',
+            players: [alicePlayer, bob],
+            turn: { pick: 2, round: 1, playerId: bob.id },
+            version: 1,
+          }),
+        );
+        await flushPicks([]);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+        await vi.waitFor(() => expect(button(page, 'Import picks')).toBeUndefined());
+        expect(page.textContent).not.toContain(importFailed);
       });
     });
 
@@ -307,13 +364,92 @@ describe('seats and start', () => {
         422,
       );
 
-      await vi.waitFor(() => {
-        const problems = [...page.querySelectorAll('.pick-import-problems li')];
-        expect(problems.map((li) => li.textContent)).toEqual([
+      await vi.waitFor(() =>
+        expect(pickImportProblems(page)).toEqual([
           'Unknown Card isn’t in this draft’s pool.',
           'Ash Golem appears more than once.',
-        ]);
-      });
+        ]),
+      );
+    });
+
+    it('drops the problems with a file once a valid one is chosen', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+      await chooseFile(
+        fixture,
+        page,
+        {
+          error: 'invalid-pick-import',
+          message: 'This file can’t be imported.',
+          problems: ['Ash Golem appears more than once.'],
+        } satisfies PickImportRefusal,
+        422,
+      );
+      await vi.waitFor(() => expect(pickImportProblems(page)).toHaveLength(1));
+
+      await chooseFile(fixture, page, preview);
+      await shownPreview(page);
+
+      expect(pickImportProblems(page)).toEqual([]);
+    });
+
+    it('opens the file picker on Import picks, unless another change is in flight', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+      const filePicker = vi.spyOn(fileInput(page), 'click');
+
+      button(page, 'Import picks')!.click();
+      expect(filePicker).toHaveBeenCalledTimes(1);
+
+      button(page, 'Start draft')!.click();
+      const start = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'));
+      button(page, 'Import picks')!.click();
+      expect(filePicker).toHaveBeenCalledTimes(1);
+      start.flush(null, serverError);
+      await fixture.whenStable();
+    });
+
+    it('forgets an earlier failure once a file is previewed', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+      button(page, 'Start draft')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/start'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(START_FAILED));
+
+      await chooseFile(fixture, page, preview);
+      await shownPreview(page);
+
+      expect(alertIn(page)).toBeNull();
+    });
+
+    it('says a file couldn’t be read when its preview fails without a refusal, and doesn’t catch up', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+      await chooseFile(fixture, page, { message: 'Internal server error' }, 500);
+
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(readFailed));
+      expect(catchUps()).toEqual([]);
+    });
+
+    it('empties the file chosen once previewed, so choosing the same file again previews it again', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+      await chooseFile(fixture, page, preview);
+      await shownPreview(page);
+
+      expect(fileInput(page).value).toBe('');
+    });
+
+    it('keeps a preview when the draft is read again unchanged, as on reconnecting', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+      await chooseFile(fixture, page, preview);
+      await shownPreview(page);
+
+      updates.events.next({ type: 'changed', draft: draft({ players: [alicePlayer, bob] }) });
+      await fixture.whenStable();
+
+      expect(pickImportPreview(page)).toBeDefined();
     });
 
     it('says a file is too large, whoever refused it', async () => {
@@ -341,7 +477,7 @@ describe('seats and start', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(page.querySelector('.pick-import-preview')).toBeNull();
+      expect(pickImportPreview(page)).toBeUndefined();
     });
 
     it('is offered only to a viewer who may organize', async () => {

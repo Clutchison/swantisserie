@@ -1,17 +1,7 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
 import { TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
-import type {
-  PickView,
-  PlanView,
-  PoolCardView,
-  PreferredPrintings,
-  QueueView,
-  UserView,
-} from 'contract';
+import type { PreferredPrintings, QueueView } from 'contract';
 import {
   useDraftsApp,
-  alice,
   draft,
   http,
   openUrl,
@@ -19,7 +9,6 @@ import {
   alicePlayer,
   tabButton,
   panel,
-  openDraft,
   flushPicks,
   completeSnapshot,
   decoded,
@@ -27,10 +16,8 @@ import {
   viewOn,
   previewImage,
   previewImages,
-  ownTabStop,
   pointer,
   tap,
-  pickOf,
   poolCardOf,
   faceImages,
   fireIce,
@@ -42,76 +29,29 @@ import {
   queueOf,
   queued,
   flushQueueAndPlan,
-  accessibleName,
-  button,
   cardName,
   cardNames,
   namedList,
-  type AppFixture,
+  startDrag,
+  button,
 } from './harness';
-import { image, openDetail } from './pool-tab-harness';
-import { detailOpener } from './plan-tab-harness';
-import { openDialog, pressKey } from '../../specs-harness';
+import { openDialog } from '../../specs-harness';
+import { image } from './pool-tab-harness';
+import { apiImage, defaultPrintings, detailOpener } from './plan-tab-harness';
+import {
+  bolt,
+  shock,
+  pick,
+  hover,
+  unhover,
+  openBoard,
+  openPicked,
+  openQueueWithoutBolt,
+} from './card-previews-harness';
 
 useDraftsApp();
 
 describe('card previews', () => {
-  const bolt = poolCardOf('bolt', 'Lightning Bolt');
-  const shock = poolCardOf('shock', 'Shock');
-  const pick = (number: number, card: PoolCardView, playerId = alice.id): PickView =>
-    pickOf({
-      pick: number,
-      playerId,
-      poolCardId: card.id,
-    });
-
-  /** Opens a draft with `picks` made and `options` as openDraft takes them. */
-  async function openPicked(
-    options: {
-      cards?: PoolCardView[];
-      picks?: PickView[];
-      queue?: QueueView;
-      plan?: PlanView;
-      user?: UserView;
-    } = {},
-  ) {
-    return openDraft(
-      completeSnapshot,
-      {
-        state: 'Drafting',
-        players: [alicePlayer, bob],
-        turn: { pick: 3, round: 1, playerId: bob.id },
-      },
-      { cards: [bolt, shock], picks: [pick(1, bolt), pick(2, shock, bob.id)], ...options },
-    );
-  }
-
-  /** Opens the Board tab of a draft with picks, then takes over the clock. */
-  async function openBoard(options: Parameters<typeof openPicked>[0] = {}) {
-    const opened = await openPicked(options);
-    tabButton(opened.page, 'Board').click();
-    await opened.fixture.whenStable();
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    return opened;
-  }
-
-  /**
-   * Opens the Queue tab of a draft whose pool has only Shock, with Bolt then
-   * Shock queued, then takes over the clock. A queue names its cards, so Bolt
-   * shows a name with no pool card.
-   */
-  async function openQueueWithoutBolt() {
-    const opened = await openPicked({
-      cards: [shock],
-      picks: [],
-      queue: queueOf({ cards: [queued(bolt), queued(shock)] }),
-    });
-    tabButton(opened.page, 'Queue').click();
-    await opened.fixture.whenStable();
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    return opened;
-  }
-
   /**
    * Opens the Queue tab with Bolt queued, the pool's GET left for the test to
    * answer.
@@ -153,16 +93,9 @@ describe('card previews', () => {
             (symbol.children.length === 0 && symbol.textContent.trim() !== '')),
       )
       .map((symbol) => (symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent));
-  function hover(name: HTMLElement) {
-    name.dispatchEvent(pointer('pointerenter', 'mouse'));
-  }
-  function unhover(name: HTMLElement) {
-    name.dispatchEvent(pointer('pointerleave', 'mouse'));
-    TestBed.tick();
-  }
 
   /** Starts dragging a queue row by its `handle`, with the mouse. */
-  function startDrag(handle: HTMLElement) {
+  function pressHandle(handle: HTMLElement) {
     handle.dispatchEvent(pointer('pointerdown', 'mouse'));
     handle.dispatchEvent(
       new MouseEvent('mousedown', {
@@ -269,13 +202,18 @@ describe('card previews', () => {
     expect(previewImage()).toBeNull();
   });
 
-  it('closes on scrolling', async () => {
+  it('closes on scrolling, of the page or of anything on it', async () => {
     const { page } = await openBoard();
 
     tap(cardName(panel(page), 'Lightning Bolt'));
     document.dispatchEvent(new Event('scroll'));
     TestBed.tick();
+    expect(previewImage()).toBeNull();
 
+    // A scroll doesn't bubble: the Plan tab's stacks, say, scroll on their own.
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    panel(page).dispatchEvent(new Event('scroll'));
+    TestBed.tick();
     expect(previewImage()).toBeNull();
   });
 
@@ -289,6 +227,51 @@ describe('card previews', () => {
 
     unhover(cardName(panel(page), 'Shock'));
     expect(previewImage()).toBeNull();
+  });
+
+  it('keeps a preview a tap opened when the mouse crosses another name', async () => {
+    const { page } = await openBoard();
+
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    hover(cardName(panel(page), 'Shock'));
+    wait(50);
+    unhover(cardName(panel(page), 'Shock'));
+    wait(500);
+
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+  });
+
+  it('drops a hover begun on another name when the name shown is tapped again', async () => {
+    const { page } = await openBoard();
+    tap(cardName(panel(page), 'Lightning Bolt'));
+
+    hover(cardName(panel(page), 'Shock'));
+    wait(100);
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    wait(100);
+
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+  });
+
+  it('opens nothing when a touch crosses a name without tapping it', async () => {
+    const { page } = await openBoard();
+
+    cardName(panel(page), 'Lightning Bolt').dispatchEvent(pointer('pointerenter', 'touch'));
+    wait(500);
+
+    expect(previewImage()).toBeNull();
+  });
+
+  it('keeps showing the same preview when its name is tapped again', async () => {
+    const { page } = await openBoard();
+    tap(cardName(panel(page), 'Lightning Bolt'));
+    const shown = previewImage()!;
+    await decoded(shown);
+
+    tap(cardName(panel(page), 'Lightning Bolt'));
+
+    expect(previewImage()).toBe(shown);
+    expect(visible(shown)).toBe(true);
   });
 
   it('is view-only, with the front face only and the card’s shape reserved', async () => {
@@ -324,9 +307,7 @@ describe('card previews', () => {
     previewImage()!.dispatchEvent(new Event('error'));
     TestBed.tick();
 
-    expect(previewImage()?.getAttribute('src')).toBe(
-      'https://api.scryfall.com/cards/bolt-id?format=image&version=normal',
-    );
+    expect(previewImage()?.getAttribute('src')).toBe(apiImage('normal', 'bolt-id'));
   });
 
   it('fades its image in only once decoded, with no placeholder', async () => {
@@ -466,212 +447,6 @@ describe('card previews', () => {
     });
   });
 
-  describe('from the keyboard', () => {
-    /** Tabs to `name`, as a keyboard user does, and renders what came of it. */
-    function tabTo(name: HTMLElement) {
-      pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Tab');
-      name.focus();
-      TestBed.tick();
-    }
-    /** Tabs on from `name` to somewhere with no Card preview. */
-    function tabAway(name: HTMLElement) {
-      pressKey(name, 'Tab');
-      name.blur();
-      TestBed.tick();
-    }
-    function pressEscape() {
-      pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
-    }
-    /** Starts dragging the queued card named `name`, as the drag's start says. */
-    function dragStarted(fixture: AppFixture, name: string) {
-      fixture.debugElement
-        .query(By.css('app-queue-tab'))
-        .queryAll(By.directive(CdkDrag))
-        .find((drag) => accessibleName(drag.nativeElement).includes(name))!
-        .triggerEventHandler('cdkDragStarted', {});
-      TestBed.tick();
-    }
-
-    it('opens at once on tabbing to a name on the Board tab', async () => {
-      const { page } = await openBoard();
-      const name = cardName(panel(page), 'Lightning Bolt');
-
-      expect(name.tabIndex).toBe(0);
-      tabTo(name);
-
-      expect(document.activeElement).toBe(name);
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-    });
-
-    it('closes on tabbing away, and moves to the next name tabbed to', async () => {
-      const { page } = await openBoard();
-      const bolt = cardName(panel(page), 'Lightning Bolt');
-
-      tabTo(bolt);
-      tabTo(cardName(panel(page), 'Shock'));
-      expect(previewImages()).toHaveLength(1);
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
-
-      tabAway(cardName(panel(page), 'Shock'));
-      expect(previewImage()).toBeNull();
-    });
-
-    it('leaves open a preview the mouse has opened on another name', async () => {
-      const { page } = await openBoard();
-      const bolt = cardName(panel(page), 'Lightning Bolt');
-
-      tabTo(bolt);
-      hover(cardName(panel(page), 'Shock'));
-      wait(150);
-      tabAway(bolt);
-
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
-    });
-
-    it('skips a name with no pool card', async () => {
-      const { page } = await openQueueWithoutBolt();
-
-      expect(cardName(panel(page), 'Lightning Bolt').tabIndex).toBe(-1);
-      expect(cardName(panel(page), 'Shock').tabIndex).toBe(0);
-    });
-
-    it('opens nothing through focus when a name is clicked with a mouse', async () => {
-      const { page } = await openBoard();
-      const name = cardName(panel(page), 'Lightning Bolt');
-
-      hover(name);
-      name.dispatchEvent(pointer('pointerdown', 'mouse'));
-      name.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      name.focus();
-      name.click();
-      TestBed.tick();
-      expect(document.activeElement).toBe(name);
-      expect(previewImage()).toBeNull();
-
-      wait(149);
-      expect(previewImage()).toBeNull();
-      wait(1);
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-    });
-
-    it('closes on Escape however it opened, leaving focus where it was', async () => {
-      const { page } = await openBoard();
-      const name = cardName(panel(page), 'Lightning Bolt');
-
-      hover(name);
-      wait(150);
-      pressEscape();
-      expect(previewImage()).toBeNull();
-      unhover(name);
-
-      tap(name);
-      pressEscape();
-      expect(previewImage()).toBeNull();
-
-      tabTo(name);
-      pressEscape();
-      expect(previewImage()).toBeNull();
-      expect(document.activeElement).toBe(name);
-    });
-
-    it('cancels a pending hover on Escape', async () => {
-      const { page } = await openBoard();
-
-      hover(cardName(panel(page), 'Lightning Bolt'));
-      wait(100);
-      pressEscape();
-      wait(500);
-
-      expect(previewImage()).toBeNull();
-    });
-
-    it('closes the Pool tab’s Card detail on the same Escape', async () => {
-      const { fixture, page } = await openBoard();
-      tap(cardName(panel(page), 'Lightning Bolt'));
-      tabButton(page, 'Pool').click();
-      vi.useRealTimers();
-      await fixture.whenStable();
-      expect(await openDetail(fixture, page, 0)).not.toBeNull();
-      expect(previewImage()).not.toBeNull();
-
-      pressEscape();
-      await fixture.whenStable();
-
-      expect(previewImage()).toBeNull();
-      expect(openDialog()).toBeNull();
-    });
-
-    it('opens on names tabbed to on the Export tab', async () => {
-      const { fixture, page } = await openBoard();
-      tabButton(page, 'Export').click();
-      vi.useRealTimers();
-      await fixture.whenStable();
-
-      tabTo(ownTabStop(panel(page), 'Lightning Bolt')!);
-
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-    });
-
-    it('opens on names tabbed to on the Queue tab, but not while a drag is under way', async () => {
-      const opened = await openPicked({
-        queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
-      });
-      const { page, fixture } = opened;
-      tabButton(page, 'Queue').click();
-      await fixture.whenStable();
-      const name = ownTabStop(panel(page), 'Shock')!;
-
-      tabTo(name);
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
-      tabAway(name);
-
-      dragStarted(fixture, 'Shock');
-      tabTo(name);
-      expect(previewImage()).toBeNull();
-    });
-
-    it('opens on list mode names, which are buttons there, tabbed to on the Plan tab', async () => {
-      const { page, fixture } = await openPicked({
-        plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
-          sideboard: [],
-          basics: [],
-          lost: [],
-          preferredPrintings: {},
-        },
-      });
-      tabButton(page, 'Plan').click();
-      await fixture.whenStable();
-
-      tabTo(button(panel(page), 'Lightning Bolt')!);
-
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-    });
-
-    it('adds no Tab stop for a card shown in stacks mode', async () => {
-      viewOn('desktop');
-      try {
-        const { page, fixture } = await openPicked({
-          plan: {
-            mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
-            sideboard: [],
-            basics: [],
-            lost: [],
-            preferredPrintings: {},
-          },
-        });
-        tabButton(page, 'Plan').click();
-        await fixture.whenStable();
-
-        expect(panel(page).querySelector('img[alt="Lightning Bolt"]')).not.toBeNull();
-        expect(ownTabStop(panel(page), 'Lightning Bolt')).toBeUndefined();
-      } finally {
-        vi.unstubAllGlobals();
-        localStorage.clear();
-      }
-    });
-  });
-
   describe('mana costs', () => {
     it('show before names on the Board tab, as symbols with alt and title text', async () => {
       const { page } = await openBoard({
@@ -714,6 +489,58 @@ describe('card previews', () => {
   });
 
   describe('in the plan', () => {
+    /** Opens the Plan tab with Lightning Bolt on the mainboard, in list mode. */
+    async function openPlanList() {
+      const opened = await openPicked({
+        plan: {
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          sideboard: [],
+          basics: [],
+          lost: [],
+          preferredPrintings: {},
+        },
+      });
+      tabButton(opened.page, 'Plan').click();
+      await opened.fixture.whenStable();
+      button(panel(opened.page), 'List')?.click();
+      await opened.fixture.whenStable();
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      return opened;
+    }
+
+    it('opens none over the Card detail of a name clicked as the mouse arrives', async () => {
+      const { page } = await openPlanList();
+      const name = cardName(panel(page), 'Lightning Bolt');
+
+      hover(name);
+      wait(100);
+      name.dispatchEvent(pointer('pointerdown', 'mouse'));
+      name.click();
+      TestBed.tick();
+      wait(100);
+
+      expect(openDialog()).not.toBeNull();
+      expect(previewImage()).toBeNull();
+    });
+
+    it('closes when a plan row is dragged by its name', async () => {
+      viewOn('desktop');
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+        localStorage.clear();
+      });
+      const { fixture, page } = await openPlanList();
+      const name = cardName(panel(page), 'Lightning Bolt');
+      hover(name);
+      wait(150);
+      expect(previewImage()).not.toBeNull();
+
+      name.dispatchEvent(pointer('pointerdown', 'mouse'));
+      startDrag(fixture, name);
+
+      expect(previewImage()).toBeNull();
+    });
+
     it('shows on plan rows when the mouse rests on them', async () => {
       const { page, fixture } = await openPicked({
         plan: {
@@ -821,7 +648,7 @@ describe('card previews', () => {
       TestBed.tick();
 
       expect(previewImage()?.getAttribute('src')).toBe(
-        'https://api.scryfall.com/cards/0356ae45-e5ca-46b9-8ebc-42bf4776e89c?format=image&version=normal',
+        apiImage('normal', defaultPrintings.Swamp.id),
       );
     });
 
@@ -849,9 +676,7 @@ describe('card previews', () => {
       previewImage()!.dispatchEvent(new Event('error'));
       TestBed.tick();
 
-      expect(previewImage()?.getAttribute('src')).toBe(
-        `https://api.scryfall.com/cards/${ZNR_SWAMP}?format=image&version=normal`,
-      );
+      expect(previewImage()?.getAttribute('src')).toBe(apiImage('normal', ZNR_SWAMP));
     });
   });
 
@@ -891,13 +716,41 @@ describe('card previews', () => {
       expect(notice.querySelector('.card-rows')).toBeNull();
     });
 
+    it('closes when its name goes, as a queue row removed', async () => {
+      const { fixture, page } = await openQueue();
+      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      expect(previewImage()).not.toBeNull();
+
+      button(panel(page), 'Remove Shock')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/queue/shock-card')
+        .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
+      await fixture.whenStable();
+
+      expect(panel(page).querySelector('li app-card-name')).toBeNull();
+      expect(previewImage()).toBeNull();
+    });
+
+    it('opens again once a drag is cancelled', async () => {
+      const { page } = await openQueue();
+      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
+      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
+
+      document.dispatchEvent(pointer('pointercancel', 'mouse'));
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      TestBed.tick();
+      tap(name);
+
+      expect(previewImage()).not.toBeNull();
+    });
+
     it('closes when a drag starts, and opens none until it is released', async () => {
       const { page } = await openQueue();
       const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
       tap(name);
       expect(previewImage()).not.toBeNull();
 
-      startDrag(panel(page).querySelector<HTMLElement>('.handle')!);
+      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
       expect(document.querySelector('.cdk-drag-preview')).not.toBeNull();
       expect(previewImage()).toBeNull();
 

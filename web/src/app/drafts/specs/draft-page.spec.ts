@@ -32,6 +32,11 @@ import {
   webhooksAnswer,
   controlByLabel,
   text,
+  wait,
+  landedUrls,
+  midNavigation,
+  serverError,
+  RETRY_FAILED,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -134,6 +139,33 @@ describe('draft page', () => {
     http.expectNone('/api/drafts/draft-1');
   });
 
+  it('re-reads a running snapshot once a poll after a newer draft is pushed, not on the poll it replaces', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const running = { state: 'Running' as const, cards: 0, total: null };
+      const { fixture, page } = await openDraft(running);
+      wait(3);
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: { ...running, cards: 175, total: 540 }, version: 1 }),
+      });
+      TestBed.tick();
+      wait(3);
+      http.expectNone('/api/drafts/draft-1');
+      wait(2);
+      http
+        .expectOne('/api/drafts/draft-1')
+        .flush(draft({ snapshot: completeSnapshot, version: 1 }));
+      await flushPool();
+      await fixture.whenStable();
+
+      expect(page.textContent).toContain('540 cards in the pool');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows why the snapshot failed and lets a viewer who may organize retry', async () => {
     const { fixture, page } = await openDraft(
       { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
@@ -154,6 +186,33 @@ describe('draft page', () => {
 
     await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
     expect(page.textContent).toContain('540 cards in the pool');
+  });
+
+  it('says it is retrying while the retry is on its way, and when the retry fails', async () => {
+    const { fixture, page } = await openDraft(
+      { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
+      {},
+      { powers: ORGANIZE_ONLY },
+    );
+    expect(page.textContent).not.toContain(RETRY_FAILED);
+
+    button(page, 'Retry')!.click();
+    await fixture.whenStable();
+    expect(button(page, 'Retrying…')!.disabled).toBe(true);
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(
+      null,
+      serverError,
+    );
+    await vi.waitFor(() => expect(button(page, 'Retry')!.disabled).toBe(false));
+    expect(page.textContent).toContain(RETRY_FAILED);
+
+    button(page, 'Retry')!.click();
+    await fixture.whenStable();
+    expect(page.textContent).not.toContain(RETRY_FAILED);
+    http
+      .expectOne('/api/drafts/draft-1/snapshot')
+      .flush(draft({ snapshot: { state: 'Running', cards: 0, total: null } }));
+    await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
   });
 
   it('offers retry only to a viewer who may organize', async () => {
@@ -625,6 +684,20 @@ describe('draft page', () => {
       },
     );
 
+    it('keeps showing the last tab selected while an earlier selection is still being written', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
+      const shownMidway = midNavigation(() => panelName(page));
+
+      tabButton(page, 'Queue').click();
+      TestBed.tick();
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/drafts/draft-1?tab=plan');
+      expect(shownMidway.length).toBeGreaterThan(0);
+      expect(shownMidway).not.toContain('Pool');
+    });
+
     it('opens the Pool tab on the draft’s plain URL', async () => {
       const { page } = await openDraft(completeSnapshot, asPlayer);
 
@@ -845,12 +918,14 @@ describe('draft page', () => {
         expect(tabLabels(page)).not.toContain('Queue');
       });
 
-      it('when the draft fails to load', async () => {
+      it('when the draft fails to load, going straight there rather than by the Lists tab', async () => {
         const { fixture } = await openUrl('/drafts/draft-1?tab=board');
+        const landed = landedUrls();
         http.expectOne('/api/drafts/draft-1').flush({}, { status: 404, statusText: 'Not Found' });
         await fixture.whenStable();
 
         await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+        expect(landed).toEqual(['/drafts/draft-1']);
       });
     });
   });

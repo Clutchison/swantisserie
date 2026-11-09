@@ -1,5 +1,3 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
-import { By } from '@angular/platform-browser';
 import {
   useDraftsApp,
   alice,
@@ -25,9 +23,19 @@ import {
   fireIce,
   shownSideways,
   heading,
+  startDrag,
+  serverError,
 } from './harness';
 import { openDialog } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb, newestLarge } from './pool-tab-harness';
+import {
+  useTallScreen,
+  shivan,
+  brightclimb,
+  newestLarge,
+  image,
+  largePlaceholder,
+  tileLoaded,
+} from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
@@ -40,6 +48,8 @@ import {
   detailOpener,
   stack,
   answerPrintingsRequest,
+  openPrintingPicker,
+  useOnsPrinting,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -118,6 +128,31 @@ describe('plan tab', () => {
       expect(heading(openDialog()!, 'Swamp printing')).toBeDefined();
     });
 
+    it('saves a basic land’s printing while a re-read of the plan has failed, keeping the plan shown', async () => {
+      const swamps = planOf({
+        mainboard: [planned(shivan)],
+        basics: [{ land: 'Swamp', count: 2 }],
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: swamps,
+      });
+      const plan = await openPlan(fixture, page);
+      await openPrintingPicker(plan, 'Swamp');
+      updates.events.next({
+        type: 'changed',
+        draft: draft(drafting({ turn: bobsTurn, version: 1 })),
+      });
+      await flushPicks([]);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queueOf());
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(null, serverError);
+
+      await useOnsPrinting('Swamp');
+
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      expect(detailOpener(plan, 'Swamp')).toBeDefined();
+    });
+
     it('opens a line of several unpicked copies on its first copy not in the queue', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -133,6 +168,56 @@ describe('plan tab', () => {
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ poolCardId: boltAgain.id });
+    });
+
+    it('opens a line of several unpicked copies, none queued, on its first copy', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      detailOpener(plan, 'Lightning Bolt')!.click();
+      await fixture.whenStable();
+      button(openDialog()!, 'Add to queue')!.click();
+
+      expect(http.expectOne('/api/drafts/draft-1/queue').request.body).toEqual({
+        poolCardId: bolt.id,
+      });
+    });
+
+    it('returns focus to the name that opened the Card detail once it closes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      const opener = detailOpener(plan, 'Shivan Dragon')!;
+      expect(detailOpener(plan, 'Lightning Bolt')).not.toBe(opener);
+
+      opener.focus();
+      opener.click();
+      await fixture.whenStable();
+      button(openDialog()!, 'Close')!.click();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(opener);
+    });
+
+    it('opens no Card detail as a dragged line is released', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const name = detailOpener(plan, 'Shivan Dragon')!;
+
+      name.dispatchEvent(pointer('pointerdown', 'mouse'));
+      startDrag(fixture, name);
+      name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      await fixture.whenStable();
+
+      expect(openDialog()).toBeNull();
     });
 
     it('opens a line whose every copy is queued on its first copy', async () => {
@@ -203,12 +288,9 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
       const shivanCard = detailOpener(plan, 'Shivan Dragon')!;
-      const drag = fixture.debugElement
-        .queryAll(By.directive(CdkDrag))
-        .find((item) => item.nativeElement.contains(shivanCard))!;
 
       shivanCard.dispatchEvent(pointer('pointerdown', 'mouse'));
-      drag.triggerEventHandler('cdkDragStarted', {});
+      startDrag(fixture, shivanCard);
       mouseClick(shivanCard);
       await fixture.whenStable();
       expect(openDialog()).toBeNull();
@@ -223,7 +305,7 @@ describe('plan tab', () => {
 
       // A keyboard's press is never the end of a drag.
       shivanCard.dispatchEvent(pointer('pointerdown', 'mouse'));
-      drag.triggerEventHandler('cdkDragStarted', {});
+      startDrag(fixture, shivanCard);
       shivanCard.click();
       await fixture.whenStable();
       expect(openDialog()?.getAttribute('aria-label')).toBe('Shivan Dragon');
@@ -242,6 +324,23 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(heading(openDialog()!, 'Island printing')).toBeDefined();
+    });
+
+    it('shows the stacked card’s image while the large one loads', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const shivanCard = detailOpener(plan, 'Shivan Dragon')!;
+      tileLoaded(shivanCard, image('normal', 'shivan-id'));
+
+      shivanCard.click();
+      await fixture.whenStable();
+
+      expect(largePlaceholder(openDialog()!)?.getAttribute('src')).toBe(
+        image('normal', 'shivan-id'),
+      );
     });
 
     it('offers Move on a card but no Remove, which its Card detail offers', async () => {
@@ -343,6 +442,31 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(openDialog()).toBeNull());
 
       expect(detailOpener(tab, 'Shivan Dragon')).toBeUndefined();
+      // Its name has gone with it, so focus goes to the first card's.
+      expect(document.activeElement).toBe(
+        detailOpener(tab, 'Brightclimb Pathway // Grimclimb Pathway'),
+      );
+    });
+
+    it('stays open, saying so, when removing the card from the plan fails', async () => {
+      const { fixture, open } = await openFromPlan(
+        { turn: bobsTurn },
+        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      );
+      const detail = await open('Shivan Dragon');
+
+      button(detail, 'Remove from Plan')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(null, serverError);
+      // The plan is re-read, as it may have moved on.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
+        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+      );
+      await fixture.whenStable();
+
+      expect(openDialog()).toBe(detail);
+      expect(text(detail)).toContain(
+        "Couldn't remove the card from your plan. Try again in a moment.",
+      );
     });
 
     it('stays open once the player picks the card, which is then a pick in the plan', async () => {

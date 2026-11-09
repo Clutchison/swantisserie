@@ -23,6 +23,9 @@ import {
   statusMessage,
   controlByLabel,
   type AppFixture,
+  text,
+  alertIn,
+  serverError,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import {
@@ -40,6 +43,8 @@ useTallScreen();
 
 describe('pool tab', () => {
   describe('picking', () => {
+    /** What a failed pick says when the API gives no reason. */
+    const pickFailed = "Couldn't make the pick. Try again in a moment.";
     /** Alice's turn, on the draft's first pick: she is up unless told otherwise. */
     const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
     const shivanPick: PickView = pickOf({
@@ -264,8 +269,55 @@ describe('pool tab', () => {
       await flushPicks([{ ...shivanPick, poolCardId: 'other-card' }]);
       await fixture.whenStable();
 
-      expect(detail.querySelector('[role="alert"]')?.textContent).toContain('It’s not your turn.');
+      expect(text(alertIn(detail))).toContain('It’s not your turn.');
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+    });
+
+    it('says the pick failed when a refusal gives no reason', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [shivan],
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      button(detail, 'Pick')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(null, { status: 409, statusText: 'Conflict' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
+      );
+      await flushPicks([{ ...shivanPick, poolCardId: 'other-card' }]);
+      await fixture.whenStable();
+
+      expect(text(alertIn(detail))).toContain(pickFailed);
+    });
+
+    it('shows Picking… while a pick is on its way, and says when it fails for a reason other than a refusal, until it is tried again', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
+        cards: [shivan],
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      button(detail, 'Pick')!.click();
+      TestBed.tick();
+      expect(button(detail, 'Pick')).toBeUndefined();
+      expect(button(detail, 'Picking…')!.disabled).toBe(true);
+      // Not a refusal, so its message isn't the pick's to show.
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush({ error: 'internal', message: 'Something went wrong.' }, serverError);
+      await vi.waitFor(() => expect(text(alertIn(detail))).toContain(pickFailed));
+      expect(button(detail, 'Pick')!.disabled).toBe(false);
+
+      button(detail, 'Pick')!.click();
+      TestBed.tick();
+      expect(alertIn(detail)).toBeNull();
+      http
+        .expectOne('/api/drafts/draft-1/picks')
+        .flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+      await flushPicks([shivanPick]);
+      await fixture.whenStable();
+      expect(openDialog()).toBeNull();
     });
 
     describe('made from a Card detail since closed', () => {
@@ -297,7 +349,7 @@ describe('pool tab', () => {
         await answered(other);
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="alert"]')).toBeNull();
+        expect(alertIn(other)).toBeNull();
         expect(button(other, 'Pick')!.disabled).toBe(true);
         expect(tiles(page)[1].textContent).toContain('Picked');
       });
@@ -320,7 +372,7 @@ describe('pool tab', () => {
         await answered(other);
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
-        expect(other.querySelector('[role="alert"]')).toBeNull();
+        expect(alertIn(other)).toBeNull();
       });
     });
   });

@@ -31,33 +31,6 @@ describe('plan stacks', () => {
     typeLine: 'Legendary Creature — Eldrazi',
   });
 
-  it('by mana value, stacks 0 to 6 and 7+, with lands in their own stack after', () => {
-    const ornithopter = card({
-      id: 'ornithopter',
-      name: 'Ornithopter',
-      manaValue: 0,
-      colors: [],
-      typeLine: 'Artifact Creature — Thopter',
-    });
-    const cards = [mountain, ornithopter, bolt, shivan, ulamog];
-
-    expect(
-      named(
-        stacks(
-          cards.map((c) => planned(c)),
-          'manaValue',
-          pool(...cards),
-        ),
-      ),
-    ).toEqual([
-      '0: Ornithopter',
-      '1: Lightning Bolt',
-      '6: Shivan Dragon',
-      '7+: Ulamog, the Ceaseless Hunger',
-      'Lands: Mountain',
-    ]);
-  });
-
   it('by color, stacks each color, multicolor and colorless, with lands in their own stack after', () => {
     const watchwolf = card({
       id: 'watchwolf',
@@ -88,6 +61,40 @@ describe('plan stacks', () => {
       'R: Lightning Bolt',
       'Multicolor: Watchwolf',
       'Colorless: Ulamog, the Ceaseless Hunger',
+      'Lands: Mountain',
+    ]);
+  });
+
+  it('by mana value, stacks 0 to 6 and 7+, with lands in their own stack after', () => {
+    const ornithopter = card({
+      id: 'ornithopter',
+      name: 'Ornithopter',
+      manaValue: 0,
+      colors: [],
+      typeLine: 'Artifact Creature — Thopter',
+    });
+    const platinum = card({
+      id: 'platinum',
+      name: 'Platinum Angel',
+      manaValue: 7,
+      colors: [],
+      typeLine: 'Artifact Creature — Angel',
+    });
+    const cards = [mountain, ornithopter, bolt, shivan, platinum, ulamog];
+
+    expect(
+      named(
+        stacks(
+          cards.map((c) => planned(c)),
+          'manaValue',
+          pool(...cards),
+        ),
+      ),
+    ).toEqual([
+      '0: Ornithopter',
+      '1: Lightning Bolt',
+      '6: Shivan Dragon',
+      '7+: Platinum Angel, Ulamog, the Ceaseless Hunger',
       'Lands: Mountain',
     ]);
   });

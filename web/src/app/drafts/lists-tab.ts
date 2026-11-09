@@ -83,6 +83,7 @@ function board(
     if (line) line.count++;
     else {
       byName.set(card.name, {
+        // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same lines (and log a dev-mode warning).
         key: `card ${card.name}`,
         name: card.name,
         count: 1,
@@ -91,6 +92,7 @@ function board(
     }
   }
   const basicLines = basics.map(({ land, count }): DecklistLine => ({
+    // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same lines (and log a dev-mode warning).
     key: `basic ${land}`,
     name: land,
     count,

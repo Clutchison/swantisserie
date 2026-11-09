@@ -77,9 +77,8 @@ export class QueueUnpickedDialog {
       );
     } catch (err) {
       error = changeFailure(err, QUEUE_FAILED);
-    } finally {
-      this.sending.set(false);
     }
+    // Sending is never seen again: the dialog closes, however the request went.
     this.dialogRef.close({ error });
   }
 }

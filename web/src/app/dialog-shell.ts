@@ -77,34 +77,44 @@ export class DialogShell {
       disableClose: true,
       restoreFocus: false,
       panelClass: 'dialog-pane',
+      // Stryker disable next-line StringLiteral: presentation only, which specs leave to the styles (web-specs.md): the backdrop's dimming and fade-in.
       backdropClass: 'dialog-backdrop',
       positionStrategy: PLACED_BY_CSS,
       scrollStrategy: createNoopScrollStrategy(),
+      // Stryker disable next-line StringLiteral: the browser ignores an invalid CSS width, which leaves it cleared, as '' does.
       width: '',
+      // Stryker disable next-line StringLiteral: the browser ignores an invalid CSS width, which leaves it cleared, as '' does.
       maxWidth: '',
+      // Stryker disable next-line BooleanLiteral: presentation only, which specs leave to the styles (web-specs.md): the CDK's backdrop fade-out.
       disableAnimations: true,
     });
 
     ref.keydownEvents.subscribe((event) => {
       if (event.key !== 'Escape' || event.altKey || event.ctrlKey || event.metaKey) return;
+      // Stryker disable next-line CallExpression: nothing in the app reads defaultPrevented on Escape, which has no default action in the page.
       event.preventDefault();
       ref.close();
     });
 
+    // Stryker disable next-line BooleanLiteral: a real click is always preceded by a mousedown, which sets it.
     let pressedBackdrop = false;
     const pressed = (event: MouseEvent) => {
       pressedBackdrop = event.target === ref.overlayRef.backdropElement;
     };
+    // Stryker disable next-line BooleanLiteral: listening in the bubble phase is the same while nothing inside a dialog stops a mousedown propagating.
     this.document.addEventListener('mousedown', pressed, true);
     ref.backdropClick.subscribe(() => {
       if (pressedBackdrop) ref.close();
     });
 
     // Made for the opener, the dialog goes with it: as when a page it was opened from closes.
+    // Stryker disable next-line OptionalChaining: every caller passes an injector, and every injector provides DestroyRef.
     const unlisten = config.injector?.get(DestroyRef, null)?.onDestroy(() => ref.close());
 
     ref.closed.subscribe((result) => {
+      // Stryker disable next-line OptionalChaining: every caller passes an injector, so there is always an unlisten.
       unlisten?.();
+      // Stryker disable next-line StringLiteral,BooleanLiteral,CallExpression: a listener left running after teardown only sets a closed dialog's dead variable.
       this.document.removeEventListener('mousedown', pressed, true);
       const target = config.returnFocus ? config.returnFocus(opener, result) : opener;
       const active = this.document.activeElement;

@@ -171,6 +171,15 @@ describe('create form', () => {
     await fixture.whenStable();
   }
 
+  it('starts with the name, pool query and cube link empty', async () => {
+    const form = await openForm();
+
+    expect(textBox(form.page, 'Name')!.value).toBe('');
+    expect(textBox(form.page, 'Pool query')!.value).toBe('');
+    await choosePoolSource(form, 'Cube link');
+    expect(textBox(form.page, 'Cube link')!.value).toBe('');
+  });
+
   it('starts on a pool query, with no cube link field', async () => {
     const { page } = await openForm();
 
@@ -453,6 +462,39 @@ describe('create form', () => {
     await fixture.whenStable();
 
     expect(alertIn(page)?.textContent).toContain(body.message);
+  });
+
+  it('holds Create draft while it checks the pool, forgetting the last problem, and offers it again once creating fails', async () => {
+    const form = await openForm();
+    const { fixture, page } = form;
+    const problem: DraftCreationProblem = { error: 'invalid', message: 'Give the draft a name.' };
+    fail(await create(form), 400, problem);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(problem.message));
+    expect(button(page, 'Create draft')!.disabled).toBe(false);
+
+    submit(page);
+    const again = await vi.waitFor(() => http.expectOne('/api/drafts'));
+    await fixture.whenStable();
+    expect(button(page, 'Create draft')).toBeUndefined();
+    expect(button(page, 'Checking the pool…')!.disabled).toBe(true);
+    expect(alertIn(page)).toBeNull();
+
+    fail(again, 400, problem);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(button(page, 'Create draft')!.disabled).toBe(false));
+  });
+
+  it('says creating failed when the failure’s answer has no body', async () => {
+    const form = await openForm();
+    const { fixture, page } = form;
+
+    (await create(form)).flush(null, { status: 502, statusText: 'Bad Gateway' });
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(alertIn(page)?.textContent).toContain('Creating the draft failed'),
+    );
   });
 
   it('still says something when the request fails without a message', async () => {

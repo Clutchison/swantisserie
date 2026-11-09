@@ -35,7 +35,14 @@ const BY_MANA_VALUE: StackRule[] = [
     name: String(value),
     holds: (card: CardFacts) => !isLand(card) && card.manaValue === value,
   })),
-  { name: '7+', holds: (card) => !isLand(card) && card.manaValue >= 7 },
+  {
+    name: '7+',
+    holds: (card) =>
+      // Stryker disable next-line LogicalOperator: the 0 to 6 stacks take every non-land of those mana values first, so `||` adds only lands of mana value 7 or more, and a land's mana value is 0.
+      !isLand(card) &&
+      // Stryker disable next-line ConditionalExpression: the 0 to 6 stacks take every non-land of those mana values first, so a non-land that gets here has mana value 7 or more.
+      card.manaValue >= 7,
+  },
   { name: 'Lands', holds: isLand },
 ];
 
@@ -45,8 +52,14 @@ const BY_COLOR: StackRule[] = [
     holds: (card: CardFacts) =>
       !isLand(card) && card.colors.length === 1 && card.colors[0] === color,
   })),
-  { name: 'Multicolor', holds: (card) => !isLand(card) && card.colors.length > 1 },
-  { name: 'Colorless', holds: (card) => !isLand(card) && card.colors.length === 0 },
+  { name: 'Multicolor', holds: (card) => !isLand(card) && card.colors.length >= 2 },
+  {
+    name: 'Colorless',
+    holds: (card) =>
+      !isLand(card) &&
+      // Stryker disable next-line ConditionalExpression: the first rule that holds a card wins, and every non-land with a color is already taken.
+      card.colors.length === 0,
+  },
   { name: 'Lands', holds: isLand },
 ];
 
@@ -88,6 +101,7 @@ export function stacks<Card extends PlannedCardView>(
   }));
   for (const card of sorted) {
     const stackIndex = RULES[grouping].findIndex((rule) => rule.holds(facts(card)));
+    // Stryker disable next-line ConditionalExpression: every card falls in some stack, since mana values are whole numbers and colors are WUBRG.
     if (stackIndex >= 0) stacked[stackIndex].cards.push(card);
   }
   return stacked.filter((stack) => stack.cards.length > 0);
@@ -128,7 +142,14 @@ function sortedByManaValue<Card extends PlannedCardView>(
 }
 
 function cardFacts(card: PoolCardView | undefined): CardFacts {
-  if (!card) return { manaValue: 0, colors: [], types: [] };
+  if (!card) {
+    return {
+      manaValue: 0,
+      colors: [],
+      // Stryker disable next-line ArrayDeclaration: types is read only by isLand, and an unknown card is no land either way.
+      types: [],
+    };
+  }
   // Before the dash come the card types; after it, the subtypes.
   const [types] = frontFace(card.typeLine).split(' — ');
   return { manaValue: card.manaValue, colors: card.colors, types: types.split(' ') };

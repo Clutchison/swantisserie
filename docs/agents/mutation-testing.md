@@ -17,6 +17,8 @@ Runs are incremental: Stryker keeps the results in `<workspace>/reports/stryker-
 
 To mutate only some files, pass a glob: `npm run test:mutation -w web -- --mutate src/app/drafts/webhook-control.ts`.
 
+Web's `mutate` leaves out `main.ts` and `app.config.ts`. They bootstrap the app in the browser, and no spec loads them: specs set up their own `TestBed` with the providers they need. Every mutant there could only show as no coverage, so they are excluded rather than marked (#553).
+
 Stryker is run by hand. It is not part of `npm test` or CI.
 
 ## Web
@@ -25,7 +27,7 @@ Stryker is run by hand. It is not part of `npm test` or CI.
 
 - **`css: true`.** Analog compiles specs in JIT mode, which loads each component's styles as a CSS import. Vitest blanks CSS imports by default, and specs that read computed styles fail without it.
 - **Templates.** Stryker mutates TypeScript only, never templates. And because Analog compiles in JIT mode, this config doesn't type-check templates; `ng test` and `npm run typecheck -w web` still do.
-- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 7 minutes, even for a single component. Each mutant then runs dozens of tests, so a full run from scratch (about 6,300 mutants) tested about 3 mutants a minute at `concurrency: 2`, roughly two days, and took about 10 hours at a one-off `--concurrency 8` with the machine otherwise idle (#544). Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped.
+- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 8 to 9 minutes, even for a single component. Each mutant then runs dozens of tests, so a run narrowed to one area's files still took 60 to 300 minutes after its dry run (#547 to #553), and a full run from scratch (about 6,300 mutants) tested about 3 mutants a minute at `concurrency: 2`, roughly two days, and took about 10 hours at a one-off `--concurrency 8` with the machine otherwise idle (#544). Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped.
 - **`dryRunTimeoutMinutes`** is raised from Stryker's 5-minute default to 30, so that dry run isn't cut off. JSON can't hold the comment, so it lives here.
 
 ## Reading the report
@@ -34,19 +36,44 @@ Stryker is run by hand. It is not part of `npm test` or CI.
 - `<workspace>/reports/mutation/mutation.html` is the same report, browsable by file, with each mutant marked in the source. `<workspace>/reports/mutation/mutation.json` is the same data for scripts.
 - Both are gitignored.
 
-Sort every survivor into one of three groups. The fix each group names is the work of a gap ticket, done only once the user has approved the list:
+Sort every survivor into one of four groups. The fix each group names is the work of a gap ticket, done only once the user has approved the list:
 
 - **Real gap**: the change alters behaviour a player or the api would notice, and no test checks it. Write a test that fails against the mutant.
 - **Harmless**: the change has no effect any caller can observe: an equivalent mutant, such as an equivalent way of writing the same thing, or the text of an error message callers don't read.
 - **Dead code**: the mutated code can never run, or its result is never used. Delete the code rather than test it.
+- **Out of jsdom's reach**: a real gap that only a real browser shows, such as layout, hit-testing (which element a click lands on) or a real `IntersectionObserver`. No jsdom spec can fail on it without asserting styles, against `web-specs.md`. Record it on the ticket and say so in its comment; mark it only if the user approves it as harmless.
 
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
 
-**False survivors.** Stryker runs each mutant only against the tests its per-test coverage says reach it. Code that runs once per spec file is credited only to that file's first test, so later tests that would kill its mutants never run against them. That covers a module-level constant, and a cache filled on first use, such as a module-level `WeakMap`. Before sorting a survivor in such code as a real gap, look for a test that would kill it. If one exists, list it as a false survivor with that test named. To make a cached result count, give each test fresh inputs so it fills the cache itself. Don't switch `coverageAnalysis` to `"all"` for this: on web it makes every mutant run nearly the whole suite (#544).
+**Timeout counts as detected.** A mutant that makes the tests hang past Stryker's timeout is scored as detected, like a killed one, but names no test that kills it. Many module-level mutants #544's run scored as Timeout survived later runs (#548, #549, #553), so #544's before scores are higher than its tests earned. When a Timeout matters, look for the test that kills it, as for a false survivor.
+
+**False survivors.** Stryker runs each mutant only against the tests its per-test coverage says reach it. Code that runs once per module load is credited only to the test that was running when the module loaded, so later tests that would kill its mutants never run against them. That covers a module-level constant, and a cache filled on first use, such as a module-level `WeakMap`. Putting a killing test first in its spec is meant to earn the credit, but in #553 it did so only some of the time, for a reason not yet pinned down. Neither the Stryker config nor its vitest runner turns off vitest's per-file isolation, so each spec file should load the module afresh. Before sorting a survivor in such code as a real gap, look for a test that would kill it. If one exists, list it as a false survivor with that test named. To make a cached result count, give each test fresh inputs so it fills the cache itself. Don't switch `coverageAnalysis` to `"all"` for this: on web it makes every mutant run nearly the whole suite (#544).
 
 ## Rules
 
 - **No target score.** A gap ticket closes specific real gaps, not a number. Each one records the score before and after.
 - **The user approves the gap list** before any gap ticket is filed.
 - **Harmless survivors** are marked in code with `// Stryker disable next-line <mutator>: <reason>`, but only once the user has approved them as harmless.
+
 - Whether Stryker becomes a scheduled CI report or a merge gate is decided later.
+
+## Marking harmless survivors
+
+`// Stryker disable next-line <mutator>: <reason>` silences the mutants of `<mutator>` that start on the line after it. Write the reason so it stands alone, never "as above". One kind of harmless mutant gets one wording across the source:
+
+- **Presentation**: `presentation only, which specs leave to the styles (web-specs.md)`, then what it changes.
+- **A callback left after teardown**: `a timer left running after teardown only …` (or a listener, observer, decode or fade), then the one thing it does.
+- **The api's refusal body**: `the api's 409 always carries a refusal body.`
+- **Track keys**: `track keys only decide which views are reused, so equal keys render the same …`
+
+**Where Stryker reads it.** A mutant belongs to the line it starts on, and Stryker reads a disable only directly before that line, outside the code the mutant spans:
+
+- An object literal's mutant starts on its `{`. Put the disable before that line, not inside the literal. (A disable inside the literal still reaches a mutant of one property's value, which starts on that property's line.)
+- A mutant of an argument in a chain of calls starts inside the call. A disable between `.a(…)` and `.b(…)` isn't read; put it inside `.b(`'s parentheses, before the argument.
+- An `else if` condition's mutant starts inside its parentheses. A disable before `else if` isn't read; put it inside the parentheses, before the condition.
+
+This settles the placements #548 and #553 disagreed on: the line after the disable must be the one the mutant starts on.
+
+**It silences the whole line.** A next-line disable silences every mutant of that mutator on the line, a killed twin included: a `ConditionalExpression` disable silences both `→ true` and `→ false`, and an `EqualityOperator` one for a harmless `>=` also hides a killed `<=`. When the reason holds for only one of them, prefer a rewrite that keeps behaviour and puts the harmless mutant on its own line, or kill the harmless one with a test. A killed twin that still has to be hidden is listed on the ticket.
+
+**Blocks.** For a run of lines, such as a table of constants, pair `// Stryker disable <mutators>: <reason>` with `// Stryker restore <mutators>` after the run, naming the same mutators. Keep the block to the lines the reason covers.

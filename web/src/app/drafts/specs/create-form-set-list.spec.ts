@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import {
   MAX_SET_LIST_SETS,
   type DraftCreationProblem,
@@ -14,6 +15,7 @@ import {
   namedList,
   openUrl,
   typeInto,
+  wait,
   webhooksAnswer,
 } from './harness';
 
@@ -46,6 +48,9 @@ const mir: SetOptionView = {
   sublists: [],
 };
 
+/** The request for the sets on Arena, the platform the form starts on. */
+const ARENA_SETS_URL = '/api/sets?platform=Arena';
+
 const catalog = (sets: SetOptionView[], counting = false): SetCatalogView => ({ sets, counting });
 
 /** Opens the create form and chooses Sets as the pool source, answering the sets on Arena with `arena`. */
@@ -75,6 +80,13 @@ async function create(fixture: Awaited<ReturnType<typeof openSets>>['fixture'], 
   button(page, 'Create draft')!.click();
   const req = await vi.waitFor(() => http.expectOne('/api/drafts'));
   return req;
+}
+
+/** Chooses the platform named `name` on the form. */
+function choosePlatform(page: HTMLElement, name: string) {
+  const platform = controlByLabel(page, 'combobox', 'Platform')!;
+  platform.selectedIndex = [...platform.options].findIndex((option) => option.text.trim() === name);
+  platform.dispatchEvent(new Event('change'));
 }
 
 const stopHere = (req: ReturnType<typeof http.expectOne>) =>
@@ -174,6 +186,11 @@ describe('choosing a set list on the create form', () => {
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
 
+    typeInto(find, ' otj ');
+    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+      '☐ OTJ Outlaws of Thunder Junction 276 cards',
+    ]);
+
     typeInto(find, 'zzz');
     expect(checkboxes(namedList(page, 'Sets'))).toEqual([]);
   });
@@ -201,9 +218,7 @@ describe('choosing a set list on the create form', () => {
     setBox(page, 'MKM Murders at Karlov Manor')!.click();
     await fixture.whenStable();
 
-    const platform = controlByLabel(page, 'combobox', 'Platform')!;
-    platform.selectedIndex = 1;
-    platform.dispatchEvent(new Event('change'));
+    choosePlatform(page, 'MTGO');
     await answerSets('MTGO', catalog([mkm, mir]));
     await fixture.whenStable();
 
@@ -214,6 +229,81 @@ describe('choosing a set list on the create form', () => {
     const req = await create(fixture, page);
     expect(req.request.body.poolSource.setList).toEqual([{ code: 'mkm', sublists: [] }]);
     stopHere(req);
+  });
+
+  it('shows no sublists for a chosen set that has none', async () => {
+    const { fixture, page } = await openSets();
+
+    setBox(page, 'MKM Murders at Karlov Manor')!.click();
+    await fixture.whenStable();
+
+    expect(group(page, 'MKM sublists')).toBeNull();
+  });
+
+  it('keeps only the sublists the platform chosen offers of a set on both platforms', async () => {
+    const { fixture, page } = await openSets();
+    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
+    await fixture.whenStable();
+
+    choosePlatform(page, 'MTGO');
+    const [big, , yotj] = otj.sublists;
+    await answerSets('MTGO', catalog([{ ...otj, sublists: [big, yotj] }, mir]));
+    await fixture.whenStable();
+
+    expect(page.textContent).toContain('Chosen: OTJ (+ BIG)');
+    expect(checkboxes(group(page, 'OTJ sublists')!)).toEqual([
+      '☑ BIG The Big Score 30 cards',
+      '☐ YOTJ Alchemy: Thunder Junction 30 cards',
+    ]);
+    const req = await create(fixture, page);
+    expect(req.request.body.poolSource.setList).toEqual([{ code: 'otj', sublists: ['big'] }]);
+    stopHere(req);
+  });
+
+  it('says so while the sets load, and keeps them on show while it asks again as they are counted', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    controlByLabel(page, 'radio', 'Sets')!.click();
+    const first = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(page.textContent).toContain('Loading the sets on Arena…');
+    });
+
+    first.flush(catalog([otj], true));
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    TestBed.tick();
+
+    expect(page.textContent).not.toContain('Loading the sets');
+    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+      '☐ OTJ Outlaws of Thunder Junction 276 cards',
+    ]);
+    again.flush(catalog([otj, mkm]));
+    await fixture.whenStable();
+  });
+
+  it('stops asking for the sets on a platform once another is chosen', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    controlByLabel(page, 'radio', 'Sets')!.click();
+    const arena = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      arena.flush(catalog([otj], true));
+      await fixture.whenStable();
+      expect(page.textContent).toContain('Still counting cards on Scryfall');
+
+      // Answered before the ask on Arena falls due, so that a stale ask would go to MTGO.
+      choosePlatform(page, 'MTGO');
+      TestBed.tick();
+      http.expectOne('/api/sets?platform=MTGO').flush(catalog([mkm]));
+      await fixture.whenStable();
+      wait(10);
+
+      http.expectNone('/api/sets?platform=MTGO');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('says while the sets are still being counted, and asks again until they are', async () => {
@@ -251,7 +341,7 @@ describe('choosing a set list on the create form', () => {
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
 
-    (await vi.waitFor(() => http.expectOne('/api/sets?platform=Arena'))).flush(
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
       { error: 'scryfall-unavailable', message: 'Scryfall could not be reached.' },
       { status: 502, statusText: 'Bad Gateway' },
     );

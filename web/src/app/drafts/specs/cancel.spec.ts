@@ -2,6 +2,8 @@ import { answer, question } from '../../specs-harness';
 import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
 import {
   useDraftsApp,
+  serverError,
+  alertIn,
   alice,
   draft,
   http,
@@ -19,6 +21,7 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
+  openUrl,
 } from './harness';
 
 useDraftsApp();
@@ -60,6 +63,22 @@ describe('cancel', () => {
       expect(router.url).toBe('/');
     },
   );
+
+  it('leaves the lobby’s controls ignoring presses once the draft is cancelled, while the page leaves', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot);
+    // The draft list never arrives, so the page stays as it leaves.
+    const leave = vi.spyOn(router, 'navigateByUrl').mockReturnValue(new Promise(() => {}));
+
+    button(page, 'Cancel draft')!.click();
+    await answer(await question('Cancel Red dragons?'), 'Cancel draft');
+    (
+      await vi.waitFor(() => http.expectOne({ url: '/api/drafts/draft-1', method: 'DELETE' }))
+    ).flush(null, { status: 204, statusText: 'No Content' });
+    await vi.waitFor(() => expect(leave).toHaveBeenCalled());
+    await fixture.whenStable();
+
+    expect(button(page, 'Cancel draft')!.getAttribute('aria-disabled')).toBe('true');
+  });
 
   it('keeps a draft the organizer thinks better of cancelling', async () => {
     const { fixture, page } = await openDraft(completeSnapshot);
@@ -118,6 +137,37 @@ describe('cancel', () => {
     expect(router.url).toBe('/drafts/draft-1');
   });
 
+  it('forgets an earlier failure once the organizer goes ahead, and says the cancel failed when it fails without a refusal', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot);
+    button(page, 'Randomize seats')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'))).flush(
+      null,
+      serverError,
+    );
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(alertIn(page)?.textContent).toContain("Couldn't update the players."),
+    );
+
+    button(page, 'Cancel draft')!.click();
+    await answer(await question('Cancel Red dragons?'), 'Cancel draft');
+    const req = await vi.waitFor(() =>
+      http.expectOne({ url: '/api/drafts/draft-1', method: 'DELETE' }),
+    );
+    await fixture.whenStable();
+    expect(alertIn(page)).toBeNull();
+
+    req.flush({ message: 'Internal server error' }, serverError);
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(alertIn(page)?.textContent).toContain("Couldn't cancel the draft."),
+    );
+    // A failure that isn't a refusal says nothing of the draft, so it isn't read again.
+    expect(http.match({ url: '/api/drafts/draft-1', method: 'GET' })).toEqual([]);
+    expect(button(page, 'Cancel draft')!.getAttribute('aria-disabled')).toBeNull();
+    expect(router.url).toBe('/drafts/draft-1');
+  });
+
   it('sends everyone viewing to the draft list, with a notice, when it is cancelled', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
@@ -129,6 +179,16 @@ describe('cancel', () => {
 
     expect(await flushList(fixture, page)).toBe('Red dragons was cancelled.');
     expect(router.url).toBe('/');
+  });
+
+  it('names no draft in the notice when it is cancelled before it has loaded', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+
+    updates.events.next({ type: 'cancelled' });
+    // Its read, sent as the page opened, answers too late to name it.
+    http.expectOne('/api/drafts/draft-1').flush(draft({}));
+
+    expect(await flushList(fixture, page)).toBe('The draft was cancelled.');
   });
 
   it('shows no notice on the draft list otherwise', async () => {

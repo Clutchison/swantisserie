@@ -51,6 +51,7 @@ export class TabList {
 
   protected keyPressed(event: KeyboardEvent) {
     const from = this.tabs().find((tab) => tab.element === event.target);
+    // Stryker disable next-line ConditionalExpression: both tablists hold only tab buttons, so a keydown's target is always a tab.
     if (!from) return;
     this.keys.updateActiveItem(from);
     this.keys.onKeydown(event);

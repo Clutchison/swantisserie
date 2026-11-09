@@ -1,17 +1,24 @@
+import { TestBed } from '@angular/core/testing';
 import type { DecklistView, ViewerTournamentView } from 'contract';
 import { openDialog } from '../../specs-harness';
+import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   ORGANIZE_ONLY,
   accessibleName,
   alice,
   bob,
+  completeSnapshot,
   draft,
   flushPicks,
+  flushPool,
+  flushQueueAndPlan,
   heading,
   http,
   items,
   namedList,
   openTab,
+  openUrl,
+  panel,
   previewImage,
   tap,
   ownTabStop,
@@ -22,6 +29,7 @@ import {
   tabLabels,
   updates,
   useDraftsApp,
+  serverError,
 } from './harness';
 import {
   carol,
@@ -35,6 +43,7 @@ import {
   withTournament,
   completed,
 } from './play-tab-harness';
+import { onsPrinting, openPrintingPicker, useOnsPrinting } from './plan-tab-harness';
 
 useDraftsApp();
 
@@ -83,6 +92,30 @@ const decklists: DecklistView[] = [
   },
   { playerId: carol.id, mainboard: [], sideboard: [], basics: [], preferredPrintings: {} },
 ];
+
+/** Alice's plan: 36 Mountains. */
+const mountains = { ...EMPTY_PLAN, basics: [{ land: 'Mountain' as const, count: 36 }] };
+
+/** Chooses Onslaught's Mountain #1 for Alice in the Printing picker of her Deck tab. */
+async function chooseOnsMountain(page: HTMLElement) {
+  tabButton(page, 'Deck').click();
+  TestBed.tick();
+  await openPrintingPicker(panel(page), 'Mountain');
+  await useOnsPrinting('Mountain');
+  await vi.waitFor(() => {
+    TestBed.tick();
+    expect(openDialog()).toBeNull();
+  });
+}
+
+/** Taps the Mountain in `player`'s mainboard inside `tab`, answering with its Card preview's image. */
+function previewMountain(tab: HTMLElement, player: string) {
+  const mountain = [
+    ...namedList(tab, `${player}’s mainboard`).querySelectorAll<HTMLElement>('.name'),
+  ].find((name) => name.textContent?.trim() === 'Mountain')!;
+  tap(mountain);
+  return previewImage()?.getAttribute('src');
+}
 
 /** Opens the draft of Alice, Bob and Carol with `tournament`, as Dave, who isn't one of its players. */
 const openAsViewer = (tournament: ViewerTournamentView) =>
@@ -149,21 +182,47 @@ describe('lists tab', () => {
   it('previews each player’s basic lands in their preferred printings, or else the default printing, and opens no Printing picker', async () => {
     const { fixture, page } = await openAsViewer(publicPlaying());
     const tab = await openTab(fixture, page, 'Lists');
-    /** Taps the Mountain in `player`'s mainboard, answering with its Card preview's image. */
-    const previewMountain = (player: string) => {
-      const mountain = [
-        ...namedList(tab, `${player}’s mainboard`).querySelectorAll<HTMLElement>('.name'),
-      ].find((name) => name.textContent?.trim() === 'Mountain')!;
-      tap(mountain);
-      return previewImage()?.getAttribute('src');
-    };
 
-    expect(previewMountain('Bob')).toBe(zenMountain.images.normal);
-    expect(previewMountain('Alice')).toBe(
+    expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
+    expect(previewMountain(tab, 'Alice')).toBe(
       'https://cards.scryfall.io/normal/front/0/5/05f9bdca-0d54-46c7-b803-9083dfc9ee24.jpg',
     );
     expect(tab.querySelector('[aria-haspopup="dialog"]')).toBeNull();
     expect(openDialog()).toBeNull();
+  });
+
+  it('shows a player’s own decklist in the printing they choose for a basic land, and no one else’s', async () => {
+    const { fixture, page } = await openComplete(publicPlaying(), {
+      cards: [bolt, shock, spike],
+      plan: mountains,
+      decklists,
+      fields: threePlayers,
+    });
+    await chooseOnsMountain(page);
+    const tab = await openTab(fixture, page, 'Lists');
+
+    expect(previewMountain(tab, 'Alice')).toBe(onsPrinting.images.normal);
+    expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
+  });
+
+  it('keeps reading the decklists when a printing is chosen meanwhile', async () => {
+    const { fixture, page } = await openUrl('/drafts/draft-1');
+    http
+      .expectOne('/api/drafts/draft-1')
+      .flush(
+        draft({ snapshot: completeSnapshot, ...withTournament(publicPlaying(), threePlayers) }),
+      );
+    await flushPool([bolt, shock, spike]);
+    await flushPicks([]);
+    await flushQueueAndPlan(EMPTY_QUEUE, mountains);
+    await flushTournament(publicPlaying());
+    const read = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/decklists'));
+
+    await chooseOnsMountain(page);
+    read.flush(decklists);
+    const tab = await openTab(fixture, page, 'Lists');
+
+    expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
   });
 
   it('stays once the tournament is complete', async () => {
@@ -220,6 +279,24 @@ describe('lists tab', () => {
       ],
     ])('leaves the Board tab in its place %s', async (_, tournament) => {
       const { page } = await openAsViewer(tournament);
+
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);
+    });
+
+    it('leaves the Board tab in its place when the tournament can’t be read', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1', dave);
+      http
+        .expectOne('/api/drafts/draft-1')
+        .flush(
+          draft({ snapshot: completeSnapshot, ...withTournament(publicPlaying(), threePlayers) }),
+        );
+      await flushPool([bolt, shock, spike]);
+      await flushPicks([]);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
 
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);
     });

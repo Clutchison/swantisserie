@@ -13,6 +13,7 @@ const isCurrentUser = (url: string) => url.split('?')[0] === CURRENT_USER_URL;
  * already send a signed-out viewer to sign-in.
  */
 export const signOutWhenSessionEnds: HttpInterceptorFn = (req, next) => {
+  // Stryker disable next-line StringLiteral: every HttpClient request in the app goes to /api/.
   if (!req.url.startsWith('/api/') || isCurrentUser(req.url)) return next(req);
   const auth = inject(Auth);
   return next(req).pipe(

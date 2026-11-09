@@ -29,6 +29,12 @@ export const carol: UserView = {
   isAppAdmin: true,
 };
 
+/** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
+export const serverError = { status: 500, statusText: 'Server Error' };
+
+/** The first alert inside `root`: an error shown to the viewer, if any. */
+export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
+
 export let http: HttpTestingController;
 export let router: Router;
 
@@ -92,14 +98,32 @@ const KEY_CODES: Record<string, number> = {
 
 /** Presses `key` on `target`, as the keyboard would with focus there, and renders what came of it. */
 export function pressKey(target: HTMLElement, key: string) {
-  target.dispatchEvent(
-    new KeyboardEvent('keydown', { key, keyCode: KEY_CODES[key], bubbles: true, cancelable: true }),
-  );
-  TestBed.tick();
+  pressPrevented(target, { key });
 }
 
-/** Presses Escape where focus is, as the keyboard would. */
-export const pressEscape = () => pressKey(document.activeElement as HTMLElement, 'Escape');
+/**
+ * Presses `key` on `target` as `pressKey` does, or the mouse button down or
+ * up on it, renders what came of it, and answers whether the page kept the
+ * browser from what that does by default, such as moving a text field's
+ * caret.
+ */
+export function pressPrevented(
+  target: HTMLElement,
+  press: { key: string } | { mouse: 'down' | 'up' },
+): boolean {
+  const init = { bubbles: true, cancelable: true };
+  const event =
+    'key' in press
+      ? new KeyboardEvent('keydown', { key: press.key, keyCode: KEY_CODES[press.key], ...init })
+      : new MouseEvent(`mouse${press.mouse}`, init);
+  target.dispatchEvent(event);
+  TestBed.tick();
+  return event.defaultPrevented;
+}
+
+/** Presses Escape where focus is, or on the page when nothing has it, as the keyboard would. */
+export const pressEscape = () =>
+  pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
 
 /** The controls Tab stops on, in page order: jsdom doesn't move focus on Tab itself. */
 const tabStops = () =>

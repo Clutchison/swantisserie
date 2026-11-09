@@ -1,7 +1,15 @@
+import { CdkDrag } from '@angular/cdk/drag-drop';
 import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { By } from '@angular/platform-browser';
+import {
+  GuardsCheckEnd,
+  NavigationEnd,
+  provideRouter,
+  Router,
+  withComponentInputBinding,
+} from '@angular/router';
 import type {
   CardFace,
   DecklistView,
@@ -31,17 +39,22 @@ import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import {
+  alertIn,
   alice,
   button,
   buttons,
   byAriaLabel,
   collapseWhitespace,
+  serverError,
   table,
   tableRows,
   text,
 } from '../../specs-harness';
 
-export { alice, button, buttons, table, tableRows, text };
+export { alertIn, alice, button, buttons, serverError, table, tableRows, text };
+
+/** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
+export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -319,9 +332,12 @@ export const pickOf = (fields: Partial<PickView> = {}): PickView => ({
   ...fields,
 });
 
-/** Scryfall's image URL for one face of a printing. */
+/**
+ * Scryfall's CDN URL of one face of a printing in `version`, filed under the
+ * first two characters of its Scryfall id as the CDN files them.
+ */
 export const image = (version: string, id: string, face = 'front') =>
-  `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
+  `https://cards.scryfall.io/${version}/${face}/${id[0]}/${id[1]}/${id}.jpg`;
 
 /** A printing's images, one entry per face, as a pool card holds them. */
 export const faceImages = (scryfallId: string, faces = ['front']) =>
@@ -465,9 +481,6 @@ export const group = (root: HTMLElement, name: string) =>
   ) ??
   null;
 
-/** The first alert inside `root`: an error shown to the viewer, if any. */
-export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
-
 /** The app's header, shown to signed-in viewers. */
 export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');
 
@@ -500,6 +513,16 @@ export async function expectSignedOut(
 /** A status message inside `root`, by its text. */
 export const statusMessage = (root: HTMLElement, text: string) =>
   [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);
+
+/** The preview of the file chosen for a pick import inside `root`: the status headed Import picks; undefined if none shows. */
+export const pickImportPreview = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
+    heading(status, 'Import picks'),
+  );
+
+/** The problems listed with the file chosen for a pick import inside `root`, in order; none while no list shows. */
+export const pickImportProblems = (root: HTMLElement) =>
+  findNamedList(root, 'Problems with the file') ? items(root, 'Problems with the file') : [];
 
 /** The text of every status message inside `root`, with its whitespace collapsed. */
 export const statusTexts = (root: HTMLElement) =>
@@ -776,8 +799,9 @@ export function viewOn(screen: 'desktop' | 'mobile') {
   breakpointListeners = [];
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: screen === 'desktop' && query === DESKTOP_QUERY,
-    addEventListener: (_type: 'change', listener: (event: { matches: boolean }) => void) => {
-      if (query === DESKTOP_QUERY) breakpointListeners.push(listener);
+    // Only a 'change' listener hears the breakpoint crossed, as in a browser.
+    addEventListener: (type: string, listener: (event: { matches: boolean }) => void) => {
+      if (query === DESKTOP_QUERY && type === 'change') breakpointListeners.push(listener);
     },
   }));
 }
@@ -786,6 +810,43 @@ export function viewOn(screen: 'desktop' | 'mobile') {
 export function resizeTo(screen: 'desktop' | 'mobile') {
   breakpointListeners.forEach((listener) => listener({ matches: screen === 'desktop' }));
   TestBed.tick();
+}
+
+/**
+ * Starts dragging the card that holds `element`, as the CDK says a drag has
+ * started (jsdom can't drag), and renders what came of it.
+ */
+export function startDrag(fixture: AppFixture, element: HTMLElement) {
+  fixture.debugElement
+    .queryAll(By.directive(CdkDrag))
+    .find((drag) => drag.nativeElement.contains(element))!
+    .triggerEventHandler('cdkDragStarted', {});
+  TestBed.tick();
+}
+
+/**
+ * What `read` finds midway through each navigation from now on, once its
+ * guards have run and before it lands, with the page rendered then; in order.
+ */
+export function midNavigation<T>(read: () => T): T[] {
+  const seen: T[] = [];
+  const watching = TestBed.inject(Router).events.subscribe((event) => {
+    if (!(event instanceof GuardsCheckEnd)) return;
+    TestBed.tick();
+    seen.push(read());
+  });
+  onTestFinished(() => watching.unsubscribe());
+  return seen;
+}
+
+/** The URL each navigation from now on lands on, in order. */
+export function landedUrls(): string[] {
+  const landed: string[] = [];
+  const watching = TestBed.inject(Router).events.subscribe((event) => {
+    if (event instanceof NavigationEnd) landed.push(event.urlAfterRedirects);
+  });
+  onTestFinished(() => watching.unsubscribe());
+  return landed;
 }
 
 /** Lets `ms` pass on the fake timers, then renders what came of it. */

@@ -6,6 +6,7 @@ import {
   type PreferredPrintings,
 } from 'contract';
 
+// Stryker disable ObjectLiteral,ArrayDeclaration,StringLiteral: a basic land's `colorIdentity` is read only by pool search, which searches pool cards, never basic lands.
 const COLORS: Record<BasicLand, string[]> = {
   Plains: ['W'],
   Island: ['U'],
@@ -14,6 +15,7 @@ const COLORS: Record<BasicLand, string[]> = {
   Forest: ['G'],
   Wastes: [],
 };
+// Stryker restore ObjectLiteral,ArrayDeclaration,StringLiteral
 
 /**
  * Each basic land's default printing: Onslaught's first of each, and Oath of
@@ -74,12 +76,19 @@ function defaultPrinting(land: BasicLand): BasicLandPrintingView {
 export function basicCard(land: BasicLand, preferred?: BasicLandPrintingView): PoolCardView {
   const { scryfallId, set, collectorNumber, images } = preferred ?? defaultPrinting(land);
   return {
+    // Stryker disable next-line StringLiteral: nothing reads a basic land's `id`: Plan rows go by `poolCardId`, Lists lines by `key`.
     id: `basic-${land}`,
     scryfallId,
     set,
     collectorNumber,
     name: land,
-    typeLine: land === 'Wastes' ? 'Basic Land' : `Basic Land — ${land}`,
+    typeLine:
+      // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: the type line is read only for its card types, before any dash, and for Battle, which read the same either way.
+      land === 'Wastes'
+        ? // Wastes has no basic land type.
+          'Basic Land'
+        : `Basic Land — ${land}`,
+    // Stryker disable ArrayDeclaration,StringLiteral: for a basic land these are read only by stacks for nonland cards, `manaCostOf` (a text with no `{…}` gives no symbols) and `isHorizontal` (only `split`, and only `faces[0]?.typeLine`); exports go by land name.
     colors: [],
     manaValue: 0,
     manaCost: '',
@@ -93,6 +102,7 @@ export function basicCard(land: BasicLand, preferred?: BasicLandPrintingView): P
     loyalty: null,
     defense: null,
     faces: [],
+    // Stryker restore ArrayDeclaration,StringLiteral
     images: [images],
   };
 }

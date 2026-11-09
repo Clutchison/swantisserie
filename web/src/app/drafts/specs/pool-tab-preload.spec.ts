@@ -11,6 +11,9 @@ import {
   useDraftsApp,
   wait,
   pickOf,
+  button,
+  router,
+  controlByLabel,
 } from './harness';
 import {
   brightclimb,
@@ -20,6 +23,7 @@ import {
   largeImages,
   shivan,
   tiles,
+  searchFor,
   useTallScreen,
 } from './pool-tab-harness';
 
@@ -28,6 +32,7 @@ useTallScreen();
 
 /** Stands in for the browser's off-page images, keeping those asked for. */
 class FakeImage {
+  fetchPriority = 'auto';
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
   set src(url: string) {
@@ -79,6 +84,28 @@ describe('preloading a single card', () => {
 
     wait(1);
     expect(requested()).toEqual([large]);
+  });
+
+  it('starts nothing when the grid moves on from the tile the mouse rests on', async () => {
+    const { page } = await openPool([shivan, brightclimb]);
+
+    tiles(page)[0].dispatchEvent(new MouseEvent('mouseenter'));
+    searchFor(page, 'brightclimb');
+    wait(150);
+
+    expect(requested()).toEqual([]);
+  });
+
+  it('starts nothing for a card whose large image is known to be broken', async () => {
+    const { fixture, page } = await openPool([shivan]);
+    const detail = await openDetail(fixture, page, 0);
+    largeImages(detail)[0].dispatchEvent(new Event('error'));
+    // Closing returns focus to the tile, which shows interest in it again.
+    button(detail, 'Close')!.click();
+    await fixture.whenStable();
+    tiles(page)[0].dispatchEvent(new Event('focus'));
+
+    expect(requested()).toEqual([]);
   });
 
   it('starts nothing when the mouse crosses a tile quickly', async () => {
@@ -204,6 +231,14 @@ describe('preloading the first results', () => {
     expect(requested()).toEqual(large(...dragons(1, 6)));
   });
 
+  it('asks for them at low priority, so they don’t hold up the images on screen', async () => {
+    await openPool(numbered(2));
+
+    wait(500);
+
+    expect(requests.map(({ image }) => image.fetchPriority)).toEqual(['low', 'low']);
+  });
+
   it('stops at the first 20 cards', async () => {
     await openPool(numbered(25));
 
@@ -223,7 +258,7 @@ describe('preloading the first results', () => {
     const cards = numbered(2);
     const { page } = await openPool(cards, [picked(cards[0])]);
 
-    page.querySelector<HTMLInputElement>('.hide-picked input')!.click();
+    controlByLabel(page, 'checkbox', 'Hide picked')!.click();
     TestBed.tick();
     wait(500);
 
@@ -277,6 +312,33 @@ describe('preloading the first results', () => {
 
     wait(500);
     expect(requested()).toEqual([...large(...dragons(1, 4)), ...large('land-1')]);
+  });
+
+  it('starts over when a filter changes the first results, even keeping the first card', async () => {
+    const reds = numbered(20);
+    const blue = { ...numbered(1, 'blue')[0], colors: ['U'] };
+    const { page } = await openPool([reds[0], blue, ...reds.slice(1)]);
+
+    wait(300);
+    button(page, 'Red')!.click();
+    TestBed.tick();
+    wait(500);
+
+    expect(drainRequests()).toEqual(large(...dragons(1, 20)));
+  });
+
+  it('drops the images not yet requested on leaving the draft page', async () => {
+    const { fixture } = await openPool(numbered(6));
+    wait(500);
+    const running = requests.map((request) => request.image);
+
+    await router.navigateByUrl('/');
+    TestBed.tick();
+    http.expectOne('/api/drafts').flush([]);
+    await fixture.whenStable();
+    running.forEach((image) => image.onload?.());
+
+    expect(requested()).toEqual(large(...dragons(1, 4)));
   });
 
   it('requests each image once across edited searches', async () => {
