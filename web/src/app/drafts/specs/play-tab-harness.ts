@@ -406,6 +406,28 @@ export const singleEliminationFinal = singleEliminationPlaying({
 });
 
 /**
+ * The single elimination tournament of Alice, Bob and Carol in round 1, Bob
+ * having reported beating Carol 2–1 (m1), unconfirmed, and Carol, an
+ * organizer in the drafts that use it, having dropped since: she can still
+ * correct or confirm the match.
+ */
+export const singleEliminationCarolDropped = singleEliminationPlaying({
+  entries: [alice.id, bob.id, carol.id].map((playerId, i) =>
+    entry(playerId, { seed: i + 1, dropped: playerId === carol.id }),
+  ),
+  rounds: [
+    {
+      round: 1,
+      correctable: true,
+      matches: [
+        { ...reported(unreportedMatch('m1', bob.id, carol.id), [2, 1], bob.id), bracketPlace: 1 },
+      ],
+      byes: [alice.id],
+    },
+  ],
+});
+
+/**
  * `match` forfeited by the player `forfeitedBy`, who dropped, as the api
  * reads it: clearing it would leave it as it is.
  */

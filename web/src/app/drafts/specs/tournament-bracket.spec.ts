@@ -5,6 +5,7 @@ import {
   alicePlayer,
   bob,
   button,
+  buttonOrder,
   group,
   text,
   useDraftsApp,
@@ -29,6 +30,7 @@ import {
   singleEliminationFinal as final,
   standing,
   singleEliminationPlaying,
+  singleEliminationCarolDropped,
   player,
   pushTournament,
   signedIn,
@@ -257,6 +259,31 @@ describe('the bracket of a single elimination tournament', () => {
 
     expect(req.request.body).toEqual({ games: [1, 2] });
     expect(bracketMatches(tab, 2)).toEqual(['Alice (seed 1) vs Carol (seed 3)']);
+  });
+
+  it('offers Correct, the game scores, then Confirm, to a dropped organizer whose match was reported', async () => {
+    const { fixture, tab } = await openPlaying(singleEliminationCarolDropped, {
+      user: signedIn(carol),
+      powers: ORGANIZE_ONLY,
+    });
+
+    expect(buttonOrder(bracket(tab)!, 'Confirm your match against Bob')).toEqual([
+      'Correct Bob vs Carol',
+      'Confirm your match against Bob',
+    ]);
+
+    button(bracket(tab)!, 'Correct Bob vs Carol')!.click();
+    await fixture.whenStable();
+
+    expect(buttonOrder(bracket(tab)!, 'Confirm your match against Bob')).toEqual([
+      'Correct Bob vs Carol',
+      'Bob won 2–0',
+      'Bob won 2–1',
+      'Carol won 2–1',
+      'Carol won 2–0',
+      'Clear game score',
+      'Confirm your match against Bob',
+    ]);
   });
 });
 

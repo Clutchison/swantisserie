@@ -6,6 +6,7 @@ import {
   openDraft,
   completeSnapshot,
   button,
+  buttonOrder,
   drafting,
   draft,
   flushPicks,
@@ -399,10 +400,8 @@ describe('plan tab', () => {
         },
       };
     }
-    const offered = (detail: HTMLElement) =>
-      [...detail.querySelectorAll('button')].map(
-        (control) => `${control.textContent?.trim()}${control.disabled ? ' (disabled)' : ''}`,
-      );
+    /** Whether the Card detail's Pick is disabled. */
+    const pickDisabled = (detail: HTMLElement) => button(detail, 'Pick')!.disabled;
 
     it('offers queue changes, Move and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Plan', async () => {
       const { open } = await openFromPlan(
@@ -410,24 +409,26 @@ describe('plan tab', () => {
         planOf({ mainboard: [planned(shivan), unpicked(brightclimb)] }),
       );
 
-      expect(offered(await open('Brightclimb Pathway // Grimclimb Pathway'))).toEqual([
-        'Pick (disabled)',
-        'Add to queue',
-        'Move to sideboard',
-        'Remove from Plan',
-        'Flip',
+      const detail = await open('Brightclimb Pathway // Grimclimb Pathway');
+
+      expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
+        'Flip',
+        'Remove from Plan',
+        'Move to sideboard',
+        'Add to queue',
+        'Pick',
       ]);
+      expect(pickDisabled(detail)).toBe(true);
     });
 
     it('offers only a disabled Pick and Move on a picked card', async () => {
       const { open } = await openFromPlan({ turn: bobsTurn });
 
-      expect(offered(await open('Shivan Dragon'))).toEqual([
-        'Pick (disabled)',
-        'Move to sideboard',
-        'Close',
-      ]);
+      const detail = await open('Shivan Dragon');
+
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Move to sideboard', 'Pick']);
+      expect(pickDisabled(detail)).toBe(true);
     });
 
     it('offers Pick but no Add to queue on the player’s turn', async () => {
@@ -436,12 +437,15 @@ describe('plan tab', () => {
         planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
       );
 
-      expect(offered(await open('Shivan Dragon'))).toEqual([
-        'Pick',
-        'Move to sideboard',
-        'Remove from Plan',
+      const detail = await open('Shivan Dragon');
+
+      expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
+        'Remove from Plan',
+        'Move to sideboard',
+        'Pick',
       ]);
+      expect(pickDisabled(detail)).toBe(false);
     });
 
     it('adds the card to the end of the queue', async () => {
@@ -457,13 +461,14 @@ describe('plan tab', () => {
       req.flush(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
 
-      expect(offered(detail)).toEqual([
-        'Pick (disabled)',
-        'Remove from queue',
-        'Move to sideboard',
-        'Remove from Plan',
+      expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
+        'Remove from Plan',
+        'Move to sideboard',
+        'Remove from queue',
+        'Pick',
       ]);
+      expect(pickDisabled(detail)).toBe(true);
     });
 
     it('closes once the card is removed from the plan', async () => {
@@ -607,7 +612,8 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(offered(detail)).toEqual(['Pick (disabled)', 'Move to sideboard', 'Close']);
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Move to sideboard', 'Pick']);
+      expect(pickDisabled(detail)).toBe(true);
       expect(detail.textContent).toContain('Picked by Alice');
     });
 
@@ -633,7 +639,8 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(offered(detail)).toEqual(['Pick (disabled)', 'Close']);
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Pick']);
+      expect(pickDisabled(detail)).toBe(true);
       expect(detail.textContent).toContain('Picked by Bob');
       expect(text(tab)).toContain('Lost to other players: Shivan Dragon (picked by Bob).');
     });

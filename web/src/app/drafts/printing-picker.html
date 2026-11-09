@@ -50,6 +50,9 @@
     <p class="error" role="alert">{{ message }}</p>
   }
   <div class="dialog-actions">
+    <button class="button secondary" type="button" cdkFocusInitial (click)="cancel()">
+      Cancel
+    </button>
     <button
       class="button secondary"
       type="button"
@@ -57,9 +60,6 @@
       [disabled]="!hasPreferred() || saving()"
     >
       Use default
-    </button>
-    <button class="button secondary" type="button" cdkFocusInitial (click)="cancel()">
-      Cancel
     </button>
     <button class="button" type="button" (click)="use()" [disabled]="!set() || saving()">
       Use this printing

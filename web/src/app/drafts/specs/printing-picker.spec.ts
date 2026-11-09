@@ -12,6 +12,7 @@ import {
   completeSnapshot,
   alertIn,
   button,
+  buttonOrder,
   comboboxOptions,
   comboboxStatus,
   editableCombobox,
@@ -206,6 +207,26 @@ describe('the Printing picker', () => {
       await fixture.whenStable();
     },
   );
+
+  it('offers Cancel, Use default, then Use this printing', async () => {
+    const { fixture, plan } = await openWith();
+
+    const dialog = await openPicker(fixture, plan);
+
+    expect(buttonOrder(dialog, 'Use this printing')).toEqual([
+      'Cancel',
+      'Use default',
+      'Use this printing',
+    ]);
+  });
+
+  it('opens with focus on Cancel', async () => {
+    const { fixture, plan } = await openWith();
+
+    const dialog = await openPicker(fixture, plan);
+
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(dialog, 'Cancel')));
+  });
 
   it('opens on the set of the printing shown, every set listed as the API orders them, and steps through its printings, wrapping', async () => {
     const { fixture, plan } = await openWith();
