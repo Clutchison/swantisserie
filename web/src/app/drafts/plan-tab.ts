@@ -1,17 +1,14 @@
 import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
-  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
-  DestroyRef,
   effect,
   ElementRef,
   inject,
   Injector,
   inputBinding,
-  type Signal,
   signal,
   untracked,
   viewChild,
@@ -52,6 +49,7 @@ import {
   unpickedToQueue,
 } from './queue-unpicked-dialog';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
+import { stackElement, stripLocation } from './strip-location';
 import { type StackLabel, textLabel } from './stack-labels';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -175,8 +173,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * can be dragged onto the other plan board; narrower, the plan boards are
  * one strip that scrolls sideways, the mainboard's stacks then the
  * sideboard's, and a card moves from its Card detail. Above the strip, the
- * stack headers stick to the top of the screen, mark the stacks in view and
- * jump to a stack. The list is dragged from on desktop only.
+ * stack headers stick to the top of the screen, mark the stack the player
+ * has scrolled to and jump to a stack. The list is dragged from on desktop
+ * only.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -337,8 +336,14 @@ export class PlanTab {
         })),
       ),
   );
-  /** The names of the stacks in view in the strip: their stack headers are current. */
-  protected readonly stacksInView = stacksInView(this.strip, this.stackHeaders);
+  /** Where the player is in the strip: the stack whose stack header is current. */
+  private readonly stripLocation = stripLocation(this.strip, this.stackHeaders);
+  /** The name of the stack whose stack header is current: one, whenever the strip shows. */
+  protected readonly currentStack = this.stripLocation.current;
+  /** Whether a tapped stack header is held current, its underline drawn on it rather than sliding with the strip. */
+  protected readonly tapHeld = this.stripLocation.held;
+  /** How many stacks' widths the strip scrolls, for the underline to follow its scroll. */
+  protected readonly stripRange = this.stripLocation.range;
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
@@ -398,17 +403,19 @@ export class PlanTab {
   private scrollToFirstStack() {
     this.planBoardsRow().nativeElement.scrollLeft = 0;
     for (const stacks of this.planBoardStacks()) stacks.nativeElement.scrollLeft = 0;
+    this.stripLocation.restart();
   }
 
   /**
-   * Scrolls the strip to the stack named `name`, as its stack
-   * header is tapped. Only the strip, where the browser allows: scrolling the
-   * page too would put the stack's top under the stack headers.
+   * Scrolls the strip to the stack named `name`, as its stack header is
+   * tapped, making that stack header current. Only the strip, where the
+   * browser allows: scrolling the page too would put the stack's top under
+   * the stack headers. Instant under reduced motion, by the strip's
+   * `scroll-behavior`.
    */
   protected scrollToStack(name: string) {
-    stackElements(this.strip())
-      .find((element) => stackNameOf(element) === name)
-      ?.scrollIntoView(TO_STACK);
+    this.stripLocation.goTo(name);
+    stackElement(this.strip(), name)?.scrollIntoView(TO_STACK);
   }
 
   /** Keeps the chosen mode and grouping for next time, if the browser allows. */
@@ -678,77 +685,4 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
     picked: true,
     basic: land,
   }));
-}
-
-/** The name of the stack drawn as `element`, from its `data-stack`; null for anything else. */
-const stackNameOf = (element: Element) => element.getAttribute('data-stack');
-
-/** The stacks named by `data-stack` drawn in `strip`, if any. */
-const stackElements = (strip: HTMLElement | undefined) => [
-  ...(strip?.querySelectorAll('[data-stack]') ?? []),
-];
-
-/**
- * The names of the stacks in view in `strip`, the stacks' row that scrolls
- * sideways, as it scrolls and as the stacks drawn in it, `drawn`, change;
- * none with no strip, or no `IntersectionObserver`, as in some test
- * environments. Each stack is named by its element's `data-stack`.
- */
-function stacksInView(
-  strip: Signal<HTMLElement | undefined>,
-  drawn: Signal<readonly { name: string }[]>,
-): Signal<ReadonlySet<string>> {
-  const inViewNames = signal<ReadonlySet<string>>(new Set());
-  /** The strip being watched, what watches its stacks, and the stacks it watches. */
-  let watched:
-    { strip: HTMLElement; observer: IntersectionObserver; stackElements: Set<Element> } | undefined;
-
-  const recordIntersections = (entries: IntersectionObserverEntry[]) =>
-    inViewNames.update((names) => {
-      const next = new Set(names);
-      for (const { target, isIntersecting } of entries) {
-        const name = stackNameOf(target);
-        if (name === null) continue;
-        if (isIntersecting) next.add(name);
-        else next.delete(name);
-      }
-      return next;
-    });
-
-  afterRenderEffect(() => {
-    const currentStrip = strip();
-    const stacks = drawn();
-    if (currentStrip !== watched?.strip) {
-      watched?.observer.disconnect();
-      watched = undefined;
-      inViewNames.set(new Set());
-      if (!currentStrip || typeof IntersectionObserver === 'undefined') return;
-      // Any part of a stack showing counts it in view, threshold 0: the
-      // stack cut off at the edge, as about two and a half fit, is in view
-      // too. A stack snapped to the start leaves the one before it a gap
-      // away, not a sliver, so no higher threshold is needed.
-      watched = {
-        strip: currentStrip,
-        observer: new IntersectionObserver(recordIntersections, { root: currentStrip }),
-        stackElements: new Set(),
-      };
-    }
-    if (!watched) return;
-    const current = stackElements(watched.strip);
-    for (const element of watched.stackElements) {
-      if (current.includes(element)) continue;
-      watched.observer.unobserve(element);
-      watched.stackElements.delete(element);
-    }
-    for (const element of current) {
-      watched.observer.observe(element);
-      watched.stackElements.add(element);
-    }
-    // A stack gone from the strip is no longer in view.
-    const names = untracked(inViewNames);
-    const kept = [...names].filter((name) => stacks.some((stack) => stack.name === name));
-    if (kept.length < names.size) inViewNames.set(new Set(kept));
-  });
-  inject(DestroyRef).onDestroy(() => watched?.observer.disconnect());
-  return inViewNames.asReadonly();
 }

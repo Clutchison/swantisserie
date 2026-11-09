@@ -7,6 +7,22 @@ $dimmed-card: brightness(0.35);
 $stack-step: max(16%, 24px);
 /* The width of each button on a list line. */
 $line-action-width: 2.5rem;
+/* How far the current stack header's underline sits in from its sides, and up from its bottom. */
+$underline-inset: 3px;
+$underline-lift: 2px;
+
+/*
+ * The current stack header's underline: an accent line, a shape as well as a color. Absolutely
+ * placed, `$from-bottom` up from its containing block's bottom; the caller places it sideways.
+ */
+@mixin current-underline($from-bottom: $underline-lift) {
+  content: '';
+  position: absolute;
+  inset-block-end: $from-bottom;
+  block-size: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
 
 /* Sits inside the draft page, which has the padding. */
 :host {
@@ -139,6 +155,8 @@ ul {
  */
 .stacks-mode {
   container: plan-boards / inline-size;
+  /* Lifts the strip's scroll timeline to the stack headers, its siblings: see the underline below. */
+  timeline-scope: --strip;
 
   .plan-boards {
     display: flex;
@@ -299,6 +317,9 @@ ul {
        */
       .stack-header-group {
         --set-apart-gap: var(--space-md);
+        /* How many stack headers share the row, and the gap's column before a set-apart one. */
+        --header-count: var(--mainboard-stacks);
+        --set-apart-column: 0px;
 
         display: grid;
         grid-auto-columns: 1fr;
@@ -307,7 +328,10 @@ ul {
         min-width: 100%;
 
         &:has(.set-apart) {
-          grid-template-columns: repeat(var(--mainboard-stacks), 1fr) var(--set-apart-gap) 1fr;
+          --header-count: calc(var(--mainboard-stacks) + 1);
+          --set-apart-column: var(--set-apart-gap);
+
+          grid-template-columns: repeat(var(--mainboard-stacks), 1fr) var(--set-apart-column) 1fr;
         }
       }
 
@@ -329,13 +353,16 @@ ul {
         white-space: nowrap;
         cursor: pointer;
 
+        /* Positioned for the current one's underline. */
+        position: relative;
+
         &:hover {
           background: var(--color-raised);
         }
 
         /* Above its neighbours, so their borders don't cover its ring. */
         &:focus-visible {
-          position: relative;
+          z-index: 1;
         }
       }
 
@@ -372,10 +399,15 @@ ul {
         block-size: 1.125rem;
       }
 
-      /* The stacks in view: told apart by the ring as well as the weight, not by color alone. */
-      [aria-current='true'] {
-        box-shadow: inset 0 0 0 1px var(--color-text);
-        font-weight: 600;
+      /*
+       * The current stack header, where the player is in the strip, underlined. Here the underline
+       * jumps from one stack header to the next; where it can, it slides with the strip's scroll
+       * instead (below).
+       */
+      [aria-current='location']::after {
+        @include current-underline;
+
+        inset-inline: $underline-inset;
       }
 
       /*
@@ -416,6 +448,77 @@ ul {
         animation-timeline: scroll(self inline);
       }
     }
+
+    /*
+     * The current stack header's underline sliding with the strip's scroll, unless the viewer asks
+     * for less motion, or a tapped stack header is held current. Every stack header is as wide as
+     * the others, as every stack is, so the underline moves a stack header's width for each
+     * stack's width the strip scrolls, `--strip-range` of them in all. Over the last stack's width
+     * of scroll it speeds up to reach the last stack header, which is current at the strip's end,
+     * crossing the sideboard's gap on the way. Drawn once, on the row, in place of the current
+     * one's own, along the strip's timeline, which `.stacks-mode` lifts to the stack headers, as
+     * they're its siblings.
+     */
+    @supports (animation-timeline: --strip) and (timeline-scope: --strip) {
+      @media (prefers-reduced-motion: no-preference) {
+        #{$strip} {
+          scroll-timeline: --strip inline;
+        }
+
+        .stack-headers:not(.tap-held) {
+          [aria-current='location']::after {
+            content: none;
+          }
+
+          .stack-header-group {
+            position: relative;
+
+            &::after {
+              /* Each stack header's width: the row's, less the gap's column, shared out. */
+              --header-width: calc((100% - var(--set-apart-column)) / var(--header-count));
+              /* How many stacks' widths the strip is scrolled. */
+              --scrolled: calc(var(--strip-progress) * var(--strip-range, 0));
+              /* Where the last stack's width of scroll starts, and how far through it, 0 to 1. */
+              --ramp-start: max(var(--strip-range, 0) - 1, 0);
+              --ramp: calc(
+                max(var(--scrolled) - var(--ramp-start), 0) /
+                  max(var(--strip-range, 0) - var(--ramp-start), 0.001)
+              );
+
+              @include current-underline($underline-lift + 1px);
+
+              inset-inline-start: calc(
+                (
+                    min(var(--scrolled), var(--ramp-start)) + var(--ramp) *
+                      (var(--header-count) - 1 - var(--ramp-start))
+                  ) *
+                  var(--header-width) + var(--ramp) * var(--set-apart-column) + #{$underline-inset}
+              );
+              inline-size: calc(var(--header-width) - #{2 * $underline-inset});
+              animation: strip-progress linear both;
+              animation-timeline: --strip;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/* How far the strip is scrolled, from 0 at its start to 1 at its end: the stack headers' underline follows it. */
+@property --strip-progress {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes strip-progress {
+  from {
+    --strip-progress: 0;
+  }
+
+  to {
+    --strip-progress: 1;
   }
 }
 
