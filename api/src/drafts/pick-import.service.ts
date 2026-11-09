@@ -110,12 +110,12 @@ export class PickImportService {
       await planPicks(
         tx,
         draftId,
-        // Stryker disable next-line ObjectLiteral: without the where, planPicks also gets other drafts' picks, and ignores them: their players have no seat here, and their cards are in no plan and have no copies in this draft's pool, so they record no plan effect and exclude no copy. An empty select returns every scalar field, MADE_PICK's included.
+        // Stryker disable next-line ObjectLiteral: other drafts' picks change nothing in planPicks, as their cards are in no plan and have no copies in this draft's pool; and an empty select returns every scalar field, `MADE_PICK`'s included.
         await tx.pick.findMany({ where: { draftId }, select: MADE_PICK }),
       );
-      // Stryker disable next-line ObjectLiteral: an empty argument reads every draft's queued cards with every scalar field, but each player's departure is filtered to their own rows below, so the other drafts' rows are never used.
+      // Stryker disable next-line ObjectLiteral: other drafts' queued cards are never used, as each player's departure below takes only their own rows; and an empty select returns every scalar field, the three read included.
       const queued = await tx.queuedCard.findMany({
-        // Stryker disable next-line ObjectLiteral: without the where, the read returns every draft's queued cards, but each player's departure is filtered to their own rows below, so the other drafts' rows are never used.
+        // Stryker disable next-line ObjectLiteral: other drafts' queued cards are never used, as each player's departure below takes only their own rows.
         where: { player: { draftId } },
         select: { playerId: true, poolCardId: true, position: true },
       });
@@ -147,7 +147,7 @@ export class PickImportService {
       select: {
         id: true,
         userId: true,
-        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field of the user, name included, and only name is read.
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the preview reads only `name`.
         user: {
           select: { name: true },
         },

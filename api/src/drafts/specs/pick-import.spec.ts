@@ -99,6 +99,7 @@ describe('pick import', () => {
   });
 
   it('takes this draft’s copies of the cards, beside another draft whose pool shares their names', async () => {
+    // Made first, so a pool read across drafts would meet its copies first.
     await readyDraft([await signIn(carol)], 2, cards);
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
 
@@ -201,7 +202,7 @@ describe('pick import', () => {
     expect((await pickLog(id)).body).toEqual([]);
   });
 
-  it('refuses seats that add one after the file’s columns, and changes nothing', async () => {
+  it('refuses a seat list with more seats than the file has columns, and changes nothing', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
     const before = await getDraft(id).expect(200);
 
