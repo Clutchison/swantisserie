@@ -126,19 +126,30 @@
   [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
 >
-  <!-- In the strip, only a few stacks show at once: the stack headers keep the mainboard's whole curve in view, sticking to the top of the screen while the strip does, and jump to a stack. The stacks in view are current. Outside the strip, so they don't scroll sideways with it. -->
+  <!--
+    In the strip, only a few stacks show at once: the stack headers keep the
+    mainboard's whole curve in view, then the sideboard's stack, sticking to the
+    top of the screen while the strip does, and jump to a stack. The stacks in
+    view are current. Outside the strip, so they don't scroll sideways with it.
+  -->
   @if (showingStrip()) {
     <nav class="stack-headers" aria-label="Stack headers">
-      @for (stack of mainboard().stacks; track stack.name) {
-        <button
-          type="button"
-          [attr.aria-current]="stacksInView().has(stack.name) || null"
-          (click)="scrollToStack(stack.name)"
-        >
-          <span class="stack-name">{{ stack.name }}</span>
-          <span class="count">{{ stack.cards.length }}</span>
-        </button>
-      }
+      <div class="stack-header-scroller">
+        <div class="stack-header-group">
+          @for (header of stackHeaders(); track header.name) {
+            <button
+              type="button"
+              [class.set-apart]="header.setApart"
+              [attr.aria-label]="header.accessibleName"
+              [attr.aria-current]="stacksInView().has(header.name) || null"
+              (click)="scrollToStack(header.name)"
+            >
+              <span class="stack-name">{{ header.label }}</span>
+              <span class="count">{{ header.count }}</span>
+            </button>
+          }
+        </div>
+      </div>
     </nav>
   }
   <!-- Named as a group in the strip, as it scrolls sideways on its own. -->
@@ -168,8 +179,8 @@
             (cdkDropListDropped)="dropped($event)"
           >
             @for (stack of planBoard.stacks; track stack.name) {
-              <!-- The mainboard's stacks are named for the stack headers, which jump to them and mark those in view. -->
-              <div class="stack" [attr.data-stack]="planBoard.namesStacks ? stack.name : null">
+              <!-- Named for the stack headers, which jump to them and mark those in view. -->
+              <div class="stack" [attr.data-stack]="stack.name">
                 @if (planBoard.namesStacks) {
                   <h4>
                     <span class="stack-name">{{ stack.name }}</span>

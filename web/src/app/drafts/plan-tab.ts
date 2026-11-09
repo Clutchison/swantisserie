@@ -122,8 +122,13 @@ const PLAN_BOARDS: Record<
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
     ) => Stack<PlanBoardCard>[];
-    /** Whether each stack has a heading naming it, and in the strip the stack headers too. The sideboard's one stack is named by the plan board's heading. */
-    namesStacks: boolean;
+    /**
+     * For a plan board stacked as one stack, which its heading names: the
+     * short label of that stack's stack header, which is set apart from the
+     * others. Absent where each stack has a heading naming it, and its stack
+     * header shows that name.
+     */
+    oneStackHeader?: { label: string };
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -132,7 +137,6 @@ const PLAN_BOARDS: Record<
   Mainboard: {
     cards: (plan) => plan.mainboard,
     stack: stacks,
-    namesStacks: true,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
@@ -141,7 +145,8 @@ const PLAN_BOARDS: Record<
     // One stack, whatever the grouping, which the plan board heading names.
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
-    namesStacks: false,
+    // Short, as the stack headers share one row on a phone.
+    oneStackHeader: { label: 'SB' },
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
@@ -274,6 +279,8 @@ export class PlanTab {
       return {
         name: planBoard,
         ...rest,
+        /** Whether each stack has a heading naming it: not a plan board's one stack, which its heading names. */
+        namesStacks: rest.oneStackHeader === undefined,
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
@@ -306,11 +313,28 @@ export class PlanTab {
   private readonly strip = computed(() =>
     this.showingStrip() ? this.planBoardsRow().nativeElement : undefined,
   );
-  /** The names of the mainboard's stacks in view in the strip: their stack headers are current. */
-  protected readonly stacksInView = stacksInView(
-    this.strip,
-    computed(() => this.mainboard().stacks),
+  /**
+   * The stack headers, one per stack in the strip, the mainboard's then the
+   * sideboard's: each stack's name, the label it shows, its card count, what a
+   * screen reader names it, starting with the name, as `Lands, 17 cards`, and
+   * whether it is set apart from the others, as the sideboard's is.
+   */
+  protected readonly stackHeaders = computed(() =>
+    this.planBoards()
+      // An empty plan board shows as the list, with no stack to head.
+      .filter((planBoard) => planBoard.count > 0)
+      .flatMap(({ oneStackHeader, stacks }) =>
+        stacks.map(({ name, cards }) => ({
+          name,
+          label: oneStackHeader?.label ?? name,
+          count: cards.length,
+          accessibleName: `${name}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
+          setApart: oneStackHeader !== undefined,
+        })),
+      ),
   );
+  /** The names of the stacks in view in the strip: their stack headers are current. */
+  protected readonly stacksInView = stacksInView(this.strip, this.stackHeaders);
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
@@ -373,7 +397,7 @@ export class PlanTab {
   }
 
   /**
-   * Scrolls the strip to the mainboard's stack named `name`, as its stack
+   * Scrolls the strip to the stack named `name`, as its stack
    * header is tapped. Only the strip, where the browser allows: scrolling the
    * page too would put the stack's top under the stack headers.
    */
@@ -655,7 +679,7 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
 /** The name of the stack drawn as `element`, from its `data-stack`; null for anything else. */
 const stackNameOf = (element: Element) => element.getAttribute('data-stack');
 
-/** The stacks named by `data-stack` drawn in `strip`, if any: the mainboard's. */
+/** The stacks named by `data-stack` drawn in `strip`, if any. */
 const stackElements = (strip: HTMLElement | undefined) => [
   ...(strip?.querySelectorAll('[data-stack]') ?? []),
 ];
@@ -668,7 +692,7 @@ const stackElements = (strip: HTMLElement | undefined) => [
  */
 function stacksInView(
   strip: Signal<HTMLElement | undefined>,
-  drawn: Signal<readonly Stack[]>,
+  drawn: Signal<readonly { name: string }[]>,
 ): Signal<ReadonlySet<string>> {
   const inViewNames = signal<ReadonlySet<string>>(new Set());
   /** The strip being watched, what watches its stacks, and the stacks it watches. */

@@ -89,7 +89,7 @@ export const stacksOf = (plan: HTMLElement) =>
   );
 
 /**
- * The stack headers above the strip, one per mainboard stack, each by its
+ * The stack headers above the strip, one per stack in it, each by its
  * accessible name, with ` (current)` after one marked current. Null with no
  * stack headers.
  */
@@ -105,7 +105,7 @@ export function stackHeaders(plan: HTMLElement) {
   );
 }
 
-/** The stack header inside `plan` named `name`, as `Lands 1`. */
+/** The stack header inside `plan` named `name`, as `Lands, 1 card`. */
 export const stackHeader = (plan: HTMLElement, name: string) =>
   [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].find(
     (header) => accessibleName(header) === name,
