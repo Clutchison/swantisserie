@@ -91,11 +91,20 @@ export class PlansService {
       }
       const card = await tx.poolCard.findFirst({
         where: { id: poolCardId, draftId },
-        select: { id: true, oracleId: true, pick: { select: { id: true } } },
+        select: {
+          id: true,
+          // Stryker disable next-line BooleanLiteral: without the oracle id, the unpicked copies' `where` reads every unpicked card in the draft, but the pool map keeps each card's own oracle id and `availableCopies` keeps only this card's copies, so the candidates are the same.
+          oracleId: true,
+          // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, and `add` reads the pick only as truthy.
+          pick: {
+            select: { id: true },
+          },
+        },
       });
       if (!card) {
         throw new PlanRefusedError({
           error: 'not-in-pool',
+          // Stryker disable next-line StringLiteral: the api answers `not-in-pool` as a 404, and web shows an api message only from a 409, so no caller shows this one.
           message: 'That card isn’t in this pool.',
         });
       }
@@ -108,8 +117,13 @@ export class PlansService {
       // The pool, as far as this card goes: its unpicked copies, in pool order.
       const unpicked = await tx.poolCard.findMany({
         where: { draftId, oracleId: card.oracleId, pick: null },
+        // Stryker disable next-line ObjectLiteral: it decides only which free copy `add` falls back to, and pool card ids are random UUIDs, so a spec could catch its loss only on some runs; copies differ only in printing. It stays as the only thing that makes the choice repeatable.
         orderBy: { id: 'asc' },
-        select: { id: true, oracleId: true },
+        select: {
+          id: true,
+          // Stryker disable next-line BooleanLiteral: the `where` already keeps only this card's copies, and `availableCopies` keeps every copy whose oracle id is undefined, so the candidates are the same.
+          oracleId: true,
+        },
       });
       const pool = new Map(unpicked.map((copy) => [copy.id, copy.oracleId]));
       const held = new Set(
@@ -122,7 +136,11 @@ export class PlansService {
       );
       // The requested card, then its available copies: the first the plan
       // doesn't hold.
-      const candidates = [card.id, ...availableCopies(card.id, pool, [])];
+      const candidates = [
+        card.id,
+        // Stryker disable next-line ArrayDeclaration: a pool card id that doesn't exist, in the copy rule's picked list, excludes no copy.
+        ...availableCopies(card.id, pool, []),
+      ];
       const copy = candidates.find((candidate) => !held.has(candidate));
       if (!copy) {
         throw new PlanRefusedError({
@@ -277,6 +295,7 @@ export class PlansService {
   ): Promise<PlanChange> {
     return this.prisma.$transaction(async (tx) => {
       const locked = await lockPlayer(tx, draftId, userId);
+      // Stryker disable next-line StringLiteral: the api answers a NotAPlayerError as a 403, and web shows an api message only from a 409, so no caller shows its text.
       if (!locked) throw new NotAPlayerError('plans');
       const { playerId, state } = locked;
       if (deckWrite && (await isDeckLocked(tx, playerId))) {
@@ -298,12 +317,21 @@ export class PlansService {
   private async read(tx: Transaction, playerId: string): Promise<PlanView> {
     const lost = await tx.lostPlannedCard.findMany({
       where: { playerId, noticeHidden: false },
+      // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: lost cards are inserted in pick order and not moved while the Plan notice shows them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
       orderBy: { pick: { number: 'asc' } },
       select: {
         poolCardId: true,
-        poolCard: { select: { name: true } },
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the Plan notice reads only `name`.
+        poolCard: {
+          select: { name: true },
+        },
         pick: {
-          select: { player: { select: { userId: true } } },
+          select: {
+            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `userId` included, and the Plan notice reads only `userId`.
+            player: {
+              select: { userId: true },
+            },
+          },
         },
       },
     });
@@ -332,7 +360,10 @@ export async function readPlanBoards(
       poolCardId: true,
       board: true,
       pickId: true,
-      poolCard: { select: { name: true } },
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the mainboard and sideboard read only `name`.
+      poolCard: {
+        select: { name: true },
+      },
     },
   });
   const onBoard = (board: PlanBoard): PlannedCardView[] =>

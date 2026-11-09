@@ -90,6 +90,19 @@ describe('basic lands in a plan', () => {
     });
   });
 
+  it('clears only the player’s own basics', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
+    await setBasic(id, 'Mountain', 3, aliceCookie).expect(200);
+    await setBasic(id, 'Island', 2, bobCookie).expect(200);
+
+    await clearBasics(id, aliceCookie).expect(200);
+
+    expect((await plan(id, bobCookie).expect(200)).body.basics).toEqual([
+      { land: 'Island', count: 2 },
+    ]);
+  });
+
   it('refuses a land that isn’t basic, or a count that isn’t a whole number from 0 to 99', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
 
