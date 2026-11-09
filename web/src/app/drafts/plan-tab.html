@@ -132,6 +132,21 @@
       <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
       <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
       @if (showingStacks() && planBoard.count > 0) {
+        <!-- In the strip, only a few stacks show at once: the header row keeps the whole curve in view, sticking to the top of the screen while the mainboard does, and jumps to a stack. The stacks in view are current. -->
+        @if (planBoard.showsStackHeaders && !wideStacks()) {
+          <nav class="stack-headers" aria-label="Stack headers">
+            @for (stack of planBoard.stacks; track stack.name; let index = $index) {
+              <button
+                type="button"
+                [attr.aria-current]="stacksInView().has(stack.name) || null"
+                (click)="scrollToStack(index)"
+              >
+                <span class="stack-name">{{ stack.name }}</span>
+                <span class="count">{{ stack.cards.length }}</span>
+              </button>
+            }
+          </nav>
+        }
         <!-- Named as a group for screen readers, as in the strip it scrolls sideways on its own. The strip offers no drag, so a swipe always scrolls: the CDK can't turn drag off for touch alone, so a mouse can't drag there either, as a window that narrow offered no stacks, nor drag, before. -->
         <div
           #strip

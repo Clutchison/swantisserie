@@ -34,6 +34,9 @@ import {
   detailOpener,
   stacksOf,
   stack,
+  stackHeader,
+  stackHeaders,
+  stubScrolling,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -466,6 +469,100 @@ describe('plan tab', () => {
       button(plan, 'Color')!.click();
       await fixture.whenStable();
       expect(group(plan, 'Mainboard stacks')!.scrollLeft).toBe(0);
+    });
+
+    describe('the header row', () => {
+      beforeEach(() =>
+        localStorage.setItem(
+          'plan-view',
+          JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }),
+        ),
+      );
+
+      it('heads the strip with each mainboard stack’s name and card count, none for the sideboard, as the plan and grouping change', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+        http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+          planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+            sideboard: [planned(shivan)],
+          }),
+        );
+        await vi.waitFor(() => expect(stackHeaders(plan)).toEqual(['1 2', 'Lands 1']));
+
+        button(plan, 'Type')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual(['Instant 2', 'Land 1']);
+      });
+
+      it('scrolls the strip to a stack whose header is tapped, to its start', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+
+        stackHeader(plan, 'Lands 1')!.click();
+        expect(scrolling.scrolled()).toEqual([
+          { stack: 'Lands', options: { inline: 'start', block: 'nearest', container: 'nearest' } },
+        ]);
+      });
+
+      it('marks the headers of the stacks in view current, as the strip scrolls and the plan changes', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        scrolling.showStacks('1', '6');
+        expect(stackHeaders(plan)).toEqual(['1 2 (current)', '6 1 (current)', 'Lands 1']);
+
+        scrolling.showStacks('6', 'Lands');
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1 (current)', 'Lands 1 (current)']);
+
+        button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+        http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+          planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+            sideboard: [planned(shivan)],
+          }),
+        );
+        await vi.waitFor(() => expect(stackHeaders(plan)).toEqual(['1 2', 'Lands 1 (current)']));
+
+        scrolling.showStacks('1', 'Lands');
+        expect(stackHeaders(plan)).toEqual(['1 2 (current)', 'Lands 1 (current)']);
+      });
+
+      it('shows only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+
+        button(plan, 'List')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toBeNull();
+
+        button(plan, 'Stacks')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        resizeTo('tablet');
+        expect(stackHeaders(plan)).toBeNull();
+        resizeTo('desktop');
+        expect(stackHeaders(plan)).toBeNull();
+      });
     });
   });
 

@@ -1,14 +1,17 @@
 import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
   Injector,
   inputBinding,
+  type Signal,
   signal,
   untracked,
   viewChildren,
@@ -52,6 +55,17 @@ import { LoadingAnimation } from '../loading/loading-animation';
 /** What a failed change says, naming the plan as `planName`. */
 const changeFailed = (planName: string) =>
   `Couldn't change your ${planName}. Try again in a moment.`;
+
+/**
+ * How a stack is scrolled to in the strip: to its start, scrolling only the
+ * strip. `container` is newer than TypeScript's DOM types; a browser without
+ * it scrolls the page as little as it takes.
+ */
+const TO_STACK: ScrollIntoViewOptions & { container?: 'all' | 'nearest' } = {
+  inline: 'start',
+  block: 'nearest',
+  container: 'nearest',
+};
 
 /** How a plan board shows: as stacks of card images, or as a list of names. */
 export type PlanMode = 'stacks' | 'list';
@@ -151,7 +165,8 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * stacks layout, the sideboard's stack sits beside the mainboard's and a card
  * can be dragged onto the other plan board; narrower, the mainboard's stacks
  * are a strip that scrolls sideways, with the sideboard below, and a card
- * moves from its Card detail. The list is dragged from on desktop only.
+ * moves from its Card detail; above the strip, a row of stack headers sticks
+ * to the top of the screen, marks the stacks in view and jumps to a stack. The list is dragged from on desktop only.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -266,6 +281,17 @@ export class PlanTab {
   );
   /** Each plan board's stacks, as one strip that scrolls sideways where there's no room for the wide layout. */
   private readonly strips = viewChildren<ElementRef<HTMLElement>>('strip');
+  /** The mainboard's strip, while it shows: the first plan board's stacks, outside the wide layout. */
+  private readonly mainboardStrip = computed(() =>
+    this.planBoards()[0].count > 0 && !this.wideStacks()
+      ? this.strips()[0]?.nativeElement
+      : undefined,
+  );
+  /** The names of the mainboard's stacks in view in the strip, whose headers are current. */
+  protected readonly stacksInView = inView(
+    this.mainboardStrip,
+    computed(() => this.planBoards()[0].stacks),
+  );
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.planBoards()[0].stacks.length);
 
@@ -318,6 +344,15 @@ export class PlanTab {
     this.grouping.set(grouping);
     for (const strip of this.strips()) strip.nativeElement.scrollLeft = 0;
     this.rememberChoice();
+  }
+
+  /**
+   * Scrolls the strip to the mainboard's stack at `index`, as its header is
+   * tapped. Only the strip, where the browser allows: scrolling the page too
+   * would put the stack's top under the header row.
+   */
+  protected scrollToStack(index: number) {
+    this.mainboardStrip()?.children[index]?.scrollIntoView(TO_STACK);
   }
 
   /** Keeps the chosen mode and grouping for next time, if the browser allows. */
@@ -586,4 +621,65 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
     picked: true,
     basic: land,
   }));
+}
+
+/**
+ * The names of the `stacks` at least half in view in `strip`, the stacks'
+ * row that scrolls sideways, as it scrolls and the stacks change; none with
+ * no strip, or no `IntersectionObserver`, as in some test environments.
+ * Each of the strip's children is the stack at its index.
+ */
+function inView(
+  strip: Signal<HTMLElement | undefined>,
+  stacks: Signal<readonly Stack[]>,
+): Signal<ReadonlySet<string>> {
+  const names = signal<ReadonlySet<string>>(new Set());
+  /** The name of each stack watched, by its element. */
+  const watched = new Map<Element, string>();
+  let watching: { strip: HTMLElement; observer: IntersectionObserver } | undefined;
+
+  const seen = (entries: IntersectionObserverEntry[]) =>
+    names.update((inView) => {
+      const next = new Set(inView);
+      for (const entry of entries) {
+        const name = watched.get(entry.target);
+        if (name === undefined) continue;
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) next.add(name);
+        else next.delete(name);
+      }
+      return next;
+    });
+
+  afterRenderEffect(() => {
+    const now = strip();
+    const held = stacks();
+    if (now !== watching?.strip) {
+      watching?.observer.disconnect();
+      watching = undefined;
+      watched.clear();
+      names.set(new Set());
+      if (!now || typeof IntersectionObserver === 'undefined') return;
+      watching = {
+        strip: now,
+        observer: new IntersectionObserver(seen, { root: now, threshold: 0.5 }),
+      };
+    }
+    if (!watching) return;
+    const elements = [...watching.strip.children];
+    for (const element of watched.keys()) {
+      if (elements.includes(element)) continue;
+      watching.observer.unobserve(element);
+      watched.delete(element);
+    }
+    elements.forEach((element, index) => {
+      watched.set(element, held[index].name);
+      watching!.observer.observe(element);
+    });
+    // A stack gone from the strip is no longer in view.
+    const inView = untracked(names);
+    const kept = [...inView].filter((name) => held.some((stack) => stack.name === name));
+    if (kept.length < inView.size) names.set(new Set(kept));
+  });
+  inject(DestroyRef).onDestroy(() => watching?.observer.disconnect());
+  return names.asReadonly();
 }

@@ -88,6 +88,93 @@ export const stacksOf = (plan: HTMLElement) =>
     ),
   );
 
+/**
+ * The header row above the mainboard's strip: each stack header by its
+ * accessible name, with ` (current)` after one marked current. Null with no
+ * header row.
+ */
+export function stackHeaders(plan: HTMLElement) {
+  const row = headerRow(plan);
+  return (
+    row &&
+    [...row.querySelectorAll('button')].map(
+      (header) =>
+        accessibleName(header) +
+        (header.getAttribute('aria-current') === 'true' ? ' (current)' : ''),
+    )
+  );
+}
+
+/** The stack header inside `plan` named `name`, as `Lands 1`. */
+export const stackHeader = (plan: HTMLElement, name: string) =>
+  [...(headerRow(plan)?.querySelectorAll('button') ?? [])].find(
+    (header) => accessibleName(header) === name,
+  );
+
+const headerRow = (plan: HTMLElement) => plan.querySelector('nav[aria-label="Stack headers"]');
+
+/**
+ * Stands in for the browser's scrolling, which jsdom lacks, for the test to
+ * come: `IntersectionObserver`, for what's in view, and `scrollIntoView`.
+ * Not stubbed for every test, as a Pool tab tile without an
+ * `IntersectionObserver` requests its image straight away. The stubs go once
+ * the test finishes.
+ */
+export function stubScrolling() {
+  const observers = new Set<{ callback: IntersectionObserverCallback; watched: Set<Element> }>();
+  const scrolls: { element: Element; options: unknown }[] = [];
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      private readonly observer;
+      constructor(callback: IntersectionObserverCallback) {
+        this.observer = { callback, watched: new Set<Element>() };
+        observers.add(this.observer);
+      }
+      observe(element: Element) {
+        this.observer.watched.add(element);
+      }
+      unobserve(element: Element) {
+        this.observer.watched.delete(element);
+      }
+      disconnect() {
+        observers.delete(this.observer);
+      }
+    },
+  );
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    configurable: true,
+    value(this: Element, options: unknown) {
+      scrolls.push({ element: this, options });
+    },
+  });
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+  /** The name of the stack `element` is: the name of the list of cards it holds. */
+  const stackName = (element: Element) =>
+    element.querySelector('ul[aria-label]')?.getAttribute('aria-label');
+  return {
+    /** The stacks scrolled into view so far, by name, each with how it was scrolled. */
+    scrolled: () => scrolls.map(({ element, options }) => ({ stack: stackName(element), options })),
+    /**
+     * Scrolls so that only the stacks named `names` are in view, telling
+     * every watcher of a stack, as a browser does, and renders what came of it.
+     */
+    showStacks(...names: string[]) {
+      for (const { callback, watched } of observers) {
+        const entries = [...watched].map((target) => {
+          const inView = names.includes(stackName(target) ?? '');
+          return { target, isIntersecting: inView, intersectionRatio: inView ? 1 : 0 };
+        });
+        callback(entries as IntersectionObserverEntry[], {} as IntersectionObserver);
+      }
+      TestBed.tick();
+    },
+  };
+}
+
 /** The API request the Printing picker sends for the stored printings of `land`. */
 export const printingsRequest = (land: string) => `/api/basic-land-printings/${land}`;
 
