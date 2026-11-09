@@ -8,6 +8,7 @@ import {
   comboboxOptions,
   editableCombobox,
   http,
+  image,
   namedList,
   openTab,
   tabButton,
@@ -84,17 +85,17 @@ export const stacksOf = (plan: HTMLElement) =>
 export const printingsRequest = (land: string) => `/api/basic-land-printings/${land}`;
 
 const ONS_1 = 'f0000000-0000-4000-8000-000000000001';
+
+/** An English printing of a basic land as the API shows it: set `set`, collector number `number`. */
+export const printing = (id: string, set: string, number: string): BasicLandPrintingView => ({
+  scryfallId: id,
+  set,
+  collectorNumber: number,
+  images: { small: image('small', id), normal: image('normal', id), large: image('large', id) },
+});
+
 /** Onslaught's #1, as the API shows a basic land's printing: the one `answerPrintingsRequest` offers. */
-export const onsPrinting: BasicLandPrintingView = {
-  scryfallId: ONS_1,
-  set: 'ons',
-  collectorNumber: '1',
-  images: {
-    small: `https://cards.scryfall.io/small/front/f/0/${ONS_1}.jpg`,
-    normal: `https://cards.scryfall.io/normal/front/f/0/${ONS_1}.jpg`,
-    large: `https://cards.scryfall.io/large/front/f/0/${ONS_1}.jpg`,
-  },
-};
+export const onsPrinting = printing(ONS_1, 'ons', '1');
 
 /** Answers the open Printing picker's request for `land` with one printing, `onsPrinting`. */
 export async function answerPrintingsRequest(land: string) {
@@ -102,10 +103,6 @@ export async function answerPrintingsRequest(land: string) {
     sets: [{ code: 'ons', name: 'Onslaught', releasedAt: '2002-10-07', printings: [onsPrinting] }],
   } satisfies BasicLandPrintingsView);
 }
-
-/** Scryfall's CDN URL of a printing's front image in `version`, as a basic land printing's images are. */
-export const cdnImage = (version: string, id: string) =>
-  `https://cards.scryfall.io/${version}/front/${id[0]}/${id[1]}/${id}.jpg`;
 
 /** Scryfall's API image of a printing's face in `version`, which an image falls back to once its CDN URL fails. */
 export const apiImage = (version: string, id: string, face: 'front' | 'back' = 'front') =>

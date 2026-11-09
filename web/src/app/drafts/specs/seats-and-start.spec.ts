@@ -155,8 +155,8 @@ describe('seats and start', () => {
 
   describe('pick import', () => {
     const text = ',Ann,Ben,\n->,Ash Golem,,';
-    const READ_FAILED = "Couldn't read the file.";
-    const IMPORT_FAILED = "Couldn't import the picks.";
+    const readFailed = "Couldn't read the file.";
+    const importFailed = "Couldn't import the picks.";
 
     /** The hidden file input that Import picks opens the file picker for. */
     const fileInput = (page: HTMLElement) =>
@@ -326,7 +326,7 @@ describe('seats and start', () => {
 
         await confirmImport(page, { message: 'Internal server error' }, 500);
         await fixture.whenStable();
-        await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(IMPORT_FAILED));
+        await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(importFailed));
         expect(pickImportPreview(page)).toBeDefined();
         expect(catchUps()).toEqual([]);
 
@@ -343,7 +343,7 @@ describe('seats and start', () => {
         await flushQueueAndPlan();
         await fixture.whenStable();
         await vi.waitFor(() => expect(button(page, 'Import picks')).toBeUndefined());
-        expect(page.textContent).not.toContain(IMPORT_FAILED);
+        expect(page.textContent).not.toContain(importFailed);
       });
     });
 
@@ -428,7 +428,7 @@ describe('seats and start', () => {
 
       await chooseFile(fixture, page, { message: 'Internal server error' }, 500);
 
-      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(READ_FAILED));
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(readFailed));
       expect(catchUps()).toEqual([]);
     });
 

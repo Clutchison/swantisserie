@@ -39,22 +39,24 @@ import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import {
+  alertIn,
   alice,
   button,
   buttons,
   byAriaLabel,
   collapseWhitespace,
+  serverError,
   table,
   tableRows,
   text,
 } from '../../specs-harness';
 
-export { alice, button, buttons, table, tableRows, text };
+export { alertIn, alice, button, buttons, serverError, table, tableRows, text };
+
+/** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
+export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
-
-/** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
-export const serverError = { status: 500, statusText: 'Server Error' };
 
 /**
  * A test's changes to the default draft. Any state goes with any turn here,
@@ -330,9 +332,12 @@ export const pickOf = (fields: Partial<PickView> = {}): PickView => ({
   ...fields,
 });
 
-/** Scryfall's image URL for one face of a printing. */
+/**
+ * Scryfall's CDN URL of one face of a printing in `version`, filed under the
+ * first two characters of its Scryfall id as the CDN files them.
+ */
 export const image = (version: string, id: string, face = 'front') =>
-  `https://cards.scryfall.io/${version}/${face}/${id}.jpg`;
+  `https://cards.scryfall.io/${version}/${face}/${id[0]}/${id[1]}/${id}.jpg`;
 
 /** A printing's images, one entry per face, as a pool card holds them. */
 export const faceImages = (scryfallId: string, faces = ['front']) =>
@@ -475,9 +480,6 @@ export const group = (root: HTMLElement, name: string) =>
     (fieldset) => text(fieldset.querySelector(':scope > legend')) === name,
   ) ??
   null;
-
-/** The first alert inside `root`: an error shown to the viewer, if any. */
-export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
 
 /** The app's header, shown to signed-in viewers. */
 export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');

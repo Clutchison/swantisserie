@@ -43,7 +43,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { openDialog, table, tableColumns, tableRows } from '../../specs-harness';
+import { openDialog, serverError, table, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -62,12 +62,6 @@ export const erin = player('Erin');
 
 /** `player` signed in. */
 export const signedIn = ({ id, name }: PlayerView): UserView => ({ ...alice, id, name });
-
-/** Bob signed in, a player of the draft. */
-export const bobUser: UserView = { ...alice, id: bob.id, name: bob.name };
-
-/** Carol signed in, a player of the draft. */
-export const carolUser: UserView = { ...alice, id: carol.id, name: carol.name };
 
 /** The tournament entry of the player `playerId`: undropped, droppable and unseeded, or with `fields` changed. */
 export const entry = (
@@ -740,10 +734,7 @@ export async function answerChange(
  * open tab of `page` then alerts.
  */
 export async function failChange(fixture: AppFixture, page: HTMLElement, url: string) {
-  (await vi.waitFor(() => http.expectOne(url))).flush('Server error', {
-    status: 500,
-    statusText: 'Internal Server Error',
-  });
+  (await vi.waitFor(() => http.expectOne(url))).flush('Server error', serverError);
   await fixture.whenStable();
   return vi.waitFor(() => {
     const alert = alertIn(panel(page));

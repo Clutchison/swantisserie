@@ -25,6 +25,7 @@ import {
   text,
   updates,
   useDraftsApp,
+  serverError,
 } from './harness';
 import {
   answerChange,
@@ -53,7 +54,7 @@ const JOIN_PRIVATE = 'Join (deck stays private)';
 const JOIN_PUBLIC = 'Join (public decklist)';
 
 /** The tournament's entries, which Join adds to. */
-const ENTRIES = '/api/drafts/draft-1/tournament/entries';
+const ENTRIES_URL = '/api/drafts/draft-1/tournament/entries';
 
 describe('Play tab', () => {
   describe('before setup', () => {
@@ -178,7 +179,7 @@ describe('Play tab', () => {
       it('goes back to the Pool tab when they can’t be read', async () => {
         const { fixture, page, powers } = await openWhilePowersLoad();
 
-        powers.flush(null, { status: 500, statusText: 'Server Error' });
+        powers.flush(null, serverError);
         await fixture.whenStable();
 
         expect(router.url).toBe('/drafts/draft-1');
@@ -304,7 +305,7 @@ describe('Play tab', () => {
       expect(button(panel(page), 'Leave')).toBeUndefined();
 
       button(panel(page), JOIN_PRIVATE)!.click();
-      await answerChange(fixture, ENTRIES, 'POST', registration(bob.id, alice.id), 2);
+      await answerChange(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id), 2);
       expect(joinedNames(panel(page))).toEqual(['Bob', 'Alice']);
       expect(button(panel(page), JOIN_PRIVATE)).toBeUndefined();
     });
@@ -314,12 +315,12 @@ describe('Play tab', () => {
       const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
-      expect(await failChange(fixture, page, ENTRIES)).toBe(
+      expect(await failChange(fixture, page, ENTRIES_URL)).toBe(
         "Couldn't join the tournament. Try again in a moment.",
       );
 
       button(panel(page), JOIN_PRIVATE)!.click();
-      await answerChange(fixture, ENTRIES, 'POST', registration(bob.id, alice.id));
+      await answerChange(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id));
 
       expect(alertIn(panel(page))).toBeNull();
     });
@@ -377,7 +378,7 @@ describe('Play tab', () => {
       const tab = await openPlayTab(fixture, page);
 
       button(tab, JOIN_PRIVATE)!.click();
-      (await vi.waitFor(() => http.expectOne(ENTRIES))).flush(
+      (await vi.waitFor(() => http.expectOne(ENTRIES_URL))).flush(
         { error: 'not-in-registration', message: 'This tournament has started.' },
         { status: 409, statusText: 'Conflict' },
       );

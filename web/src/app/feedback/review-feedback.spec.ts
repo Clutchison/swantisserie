@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import {
+  alertIn,
   alice,
   carol,
   followBack,
@@ -9,10 +10,10 @@ import {
   openDialog,
   pressKey,
   router,
+  serverError,
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
-import { alertIn, serverError } from '../drafts/specs/harness';
 import { answerDraft42NotFound, link } from './specs-harness';
 
 const fromAlice: FeedbackView = {
@@ -36,14 +37,14 @@ const reviewedByCarol: ReviewedFeedbackView = {
   reviewedBy: { name: 'Carol' },
 };
 
-const COUNT = '/api/admin/feedback/unreviewed-count';
+const COUNT_URL = '/api/admin/feedback/unreviewed-count';
 
 describe('reviewing feedback', () => {
   useApp();
 
   /** Answers what an app admin's header asks for: the unreviewed count and app version. */
   function answerAdminHeader(unreviewedCount: number | 'fails' = 0) {
-    const count = http.expectOne(COUNT);
+    const count = http.expectOne(COUNT_URL);
     if (unreviewedCount === 'fails') {
       count.flush(null, serverError);
     } else {
@@ -500,7 +501,7 @@ describe('reviewing feedback', () => {
     it('is not fetched for other users', async () => {
       await openApp('/status', alice);
 
-      http.expectNone(COUNT);
+      http.expectNone(COUNT_URL);
       http.expectOne('/api/health').flush({});
     });
   });

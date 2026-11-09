@@ -1,6 +1,4 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
 import { TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
 import {
   useDraftsApp,
   tabButton,
@@ -13,15 +11,13 @@ import {
   pointer,
   tap,
   queueOf,
-  accessibleName,
   button,
   cardName,
-  type AppFixture,
   startDrag,
 } from './harness';
 import { planOf, planned } from './plan-tab-harness';
 import { image, openDetail } from './pool-tab-harness';
-import { openDialog, pressKey } from '../../specs-harness';
+import { openDialog, pressEscape, pressKey } from '../../specs-harness';
 import {
   bolt,
   shock,
@@ -48,18 +44,6 @@ describe('card previews', () => {
     function tabAway(name: HTMLElement) {
       pressKey(name, 'Tab');
       name.blur();
-      TestBed.tick();
-    }
-    function pressEscape() {
-      pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
-    }
-    /** Starts dragging the queued card named `name`, as the drag's start says. */
-    function dragStarted(fixture: AppFixture, name: string) {
-      fixture.debugElement
-        .query(By.css('app-queue-tab'))
-        .queryAll(By.directive(CdkDrag))
-        .find((drag) => accessibleName(drag.nativeElement).includes(name))!
-        .triggerEventHandler('cdkDragStarted', {});
       TestBed.tick();
     }
 
@@ -196,7 +180,7 @@ describe('card previews', () => {
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
       tabAway(name);
 
-      dragStarted(fixture, 'Shock');
+      startDrag(fixture, name);
       tabTo(name);
       expect(previewImage()).toBeNull();
     });

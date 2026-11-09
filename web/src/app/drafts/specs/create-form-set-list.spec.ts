@@ -49,7 +49,7 @@ const mir: SetOptionView = {
 };
 
 /** The request for the sets on Arena, the platform the form starts on. */
-const ARENA_SETS = '/api/sets?platform=Arena';
+const ARENA_SETS_URL = '/api/sets?platform=Arena';
 
 const catalog = (sets: SetOptionView[], counting = false): SetCatalogView => ({ sets, counting });
 
@@ -264,14 +264,14 @@ describe('choosing a set list on the create form', () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
-    const first = await vi.waitFor(() => http.expectOne(ARENA_SETS));
+    const first = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
     await vi.waitFor(() => {
       TestBed.tick();
       expect(page.textContent).toContain('Loading the sets on Arena…');
     });
 
     first.flush(catalog([otj], true));
-    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS));
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
     TestBed.tick();
 
     expect(page.textContent).not.toContain('Loading the sets');
@@ -286,7 +286,7 @@ describe('choosing a set list on the create form', () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
-    const arena = await vi.waitFor(() => http.expectOne(ARENA_SETS));
+    const arena = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       arena.flush(catalog([otj], true));
@@ -341,7 +341,7 @@ describe('choosing a set list on the create form', () => {
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
 
-    (await vi.waitFor(() => http.expectOne(ARENA_SETS))).flush(
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
       { error: 'scryfall-unavailable', message: 'Scryfall could not be reached.' },
       { status: 502, statusText: 'Bad Gateway' },
     );

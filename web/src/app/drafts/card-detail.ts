@@ -93,7 +93,7 @@ export class CardDetails {
     this.shown = detail;
     // Stryker disable next-line BlockStatement,CallExpression: a Card detail left as `shown` once closed only gets a `close()` later, which a closed dialog ignores.
     detail.closed.subscribe(() => {
-      // Stryker disable next-line ConditionalExpression,EqualityOperator: as above; and `closed` emits inside `close()`, before a newer Card detail is `shown`, so `true` can't forget that one.
+      // Stryker disable next-line ConditionalExpression,EqualityOperator: a Card detail left as `shown` once closed only gets a `close()` later, which a closed dialog ignores; and `closed` emits inside `close()`, before a newer Card detail is `shown`, so `true` can't forget that one.
       if (this.shown === detail) this.shown = null;
     });
     return detail;

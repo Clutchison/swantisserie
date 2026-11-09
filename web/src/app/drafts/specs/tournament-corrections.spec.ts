@@ -37,7 +37,7 @@ import {
 useDraftsApp();
 
 /** The game score of Bob and Carol's match (m1), which an organizer sets and clears. */
-const BOB_VS_CAROL_GAME_SCORE = '/api/drafts/draft-1/tournament/matches/m1/game-score';
+const BOB_VS_CAROL_GAME_SCORE_URL = '/api/drafts/draft-1/tournament/matches/m1/game-score';
 
 /** What clearing a match against Carol says once she has dropped. */
 const CAROL_FORFEITS = 'It will become a forfeit by Carol, who has dropped.';
@@ -74,7 +74,7 @@ describe('organizer reports, corrections and clears', () => {
       const after = playing([reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], alice.id)]);
       const req = await answerChange(
         fixture,
-        BOB_VS_CAROL_GAME_SCORE,
+        BOB_VS_CAROL_GAME_SCORE_URL,
         'PUT',
         after,
         1,
@@ -92,7 +92,7 @@ describe('organizer reports, corrections and clears', () => {
 
     const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
     button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
-    const req = await vi.waitFor(() => http.expectOne(BOB_VS_CAROL_GAME_SCORE));
+    const req = await vi.waitFor(() => http.expectOne(BOB_VS_CAROL_GAME_SCORE_URL));
 
     expect(req.request.body).toEqual({ games: [2, 0] });
   });
@@ -165,7 +165,7 @@ describe('organizer reports, corrections and clears', () => {
     const dialog = await question('Clear the game score of Bob vs Carol?');
     expect(dialog.textContent).toContain('The match will be unreported again.');
     await answer(dialog, 'Clear');
-    await answerChange(fixture, BOB_VS_CAROL_GAME_SCORE, 'DELETE', playing(), 1, threePlayers);
+    await answerChange(fixture, BOB_VS_CAROL_GAME_SCORE_URL, 'DELETE', playing(), 1, threePlayers);
 
     expect(gridCellName(tab, 'Bob', 'Carol')).toBe('Bob against Carol: unreported');
   });
@@ -181,7 +181,7 @@ describe('organizer reports, corrections and clears', () => {
     await answer(await question('Clear the game score of Bob vs Carol?'), 'Cancel');
     await fixture.whenStable();
 
-    http.expectNone(BOB_VS_CAROL_GAME_SCORE);
+    http.expectNone(BOB_VS_CAROL_GAME_SCORE_URL);
   });
 
   it('says saving a game score failed when the api gives no reason', async () => {
@@ -190,7 +190,7 @@ describe('organizer reports, corrections and clears', () => {
     const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
     button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
 
-    expect(await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE)).toBe(
+    expect(await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL)).toBe(
       "Couldn't save the match’s game score. Try again in a moment.",
     );
   });
@@ -205,7 +205,7 @@ describe('organizer reports, corrections and clears', () => {
     )!.click();
     await answer(await question('Clear the game score of Bob vs Carol?'), 'Clear');
 
-    expect(await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE)).toBe(
+    expect(await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL)).toBe(
       "Couldn't clear the match’s game score. Try again in a moment.",
     );
   });

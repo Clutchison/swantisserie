@@ -25,6 +25,7 @@ import {
   type AppFixture,
   text,
   alertIn,
+  serverError,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import {
@@ -43,7 +44,7 @@ useTallScreen();
 describe('pool tab', () => {
   describe('picking', () => {
     /** What a failed pick says when the API gives no reason. */
-    const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
+    const pickFailed = "Couldn't make the pick. Try again in a moment.";
     /** Alice's turn, on the draft's first pick: she is up unless told otherwise. */
     const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
     const shivanPick: PickView = pickOf({
@@ -288,7 +289,7 @@ describe('pool tab', () => {
       await flushPicks([{ ...shivanPick, poolCardId: 'other-card' }]);
       await fixture.whenStable();
 
-      expect(text(alertIn(detail))).toContain(PICK_FAILED);
+      expect(text(alertIn(detail))).toContain(pickFailed);
     });
 
     it('shows Picking… while a pick is on its way, and says when it fails for a reason other than a refusal, until it is tried again', async () => {
@@ -304,11 +305,8 @@ describe('pool tab', () => {
       // Not a refusal, so its message isn't the pick's to show.
       http
         .expectOne('/api/drafts/draft-1/picks')
-        .flush(
-          { error: 'internal', message: 'Something went wrong.' },
-          { status: 500, statusText: 'Server Error' },
-        );
-      await vi.waitFor(() => expect(text(alertIn(detail))).toContain(PICK_FAILED));
+        .flush({ error: 'internal', message: 'Something went wrong.' }, serverError);
+      await vi.waitFor(() => expect(text(alertIn(detail))).toContain(pickFailed));
       expect(button(detail, 'Pick')!.disabled).toBe(false);
 
       button(detail, 'Pick')!.click();

@@ -3,7 +3,6 @@ import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alice,
-  alicePlayer,
   bob,
   button,
   controlByLabel,
@@ -38,6 +37,8 @@ import {
   completed,
   COMPLETE_ROUND_URL,
   erin,
+  entry,
+  fourPlayers,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -262,12 +263,9 @@ describe('both finalists dropping', () => {
  * (m2), both unreported.
  */
 const semifinalOfFour: ViewerTournamentView = singleEliminationPlaying({
-  entries: [alice.id, bob.id, carol.id, erin.id].map((playerId, i) => ({
-    playerId,
-    dropped: false,
-    droppable: true,
-    seed: i + 1,
-  })),
+  entries: [alice.id, bob.id, carol.id, erin.id].map((playerId, i) =>
+    entry(playerId, { seed: i + 1 }),
+  ),
   rounds: [
     {
       round: 1,
@@ -298,9 +296,9 @@ const semifinalOfFour: ViewerTournamentView = singleEliminationPlaying({
  */
 const semifinalBothDropped: ViewerTournamentView = {
   ...semifinalOfFour,
-  entries: semifinalOfFour.entries.map((entry) => ({
-    ...entry,
-    dropped: entry.playerId === alice.id || entry.playerId === erin.id,
+  entries: semifinalOfFour.entries.map((entered) => ({
+    ...entered,
+    dropped: entered.playerId === alice.id || entered.playerId === erin.id,
   })),
   rounds: semifinalOfFour.rounds.map((round) => ({
     ...round,
@@ -315,8 +313,6 @@ const semifinalBothDropped: ViewerTournamentView = {
 };
 
 describe('the single elimination Complete round dialog with more than one match', () => {
-  const fourPlayers = { players: [alicePlayer, bob, carol, erin] };
-
   it('stays disabled until every unreported match has a winner picked', async () => {
     const { fixture, dialog } = await openCompleteRound(semifinalOfFour, { fields: fourPlayers });
 

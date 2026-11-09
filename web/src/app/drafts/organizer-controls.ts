@@ -100,7 +100,7 @@ export class OrganizerControls {
         const draft = this.draft();
         // Only a drafting or paused draft is offered this, and both have a turn:
         // the guard never returns early, it only narrows the type to read `turn`.
-        // Stryker disable next-line ConditionalExpression: as above, the guard never returns early.
+        // Stryker disable next-line ConditionalExpression: only a drafting or paused draft is offered Close, and both have a turn, so the guard never returns early.
         if (!hasTurn(draft)) return;
         const { id, name, players, picksPerPlayer, turn } = draft;
         const made = turn.pick - 1;
@@ -160,7 +160,7 @@ export class OrganizerControls {
         } catch (err) {
           if (isRefusal(err)) {
             // The draft has moved on: show why. The store catches up with it.
-            // Stryker disable next-line OptionalChaining: every 409 from the api has a JSON body.
+            // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
             this.sendError.set(err.error?.message ?? failure);
           } else {
             this.sendError.set(failure);
