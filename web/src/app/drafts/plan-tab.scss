@@ -3,8 +3,8 @@
 
 /* How far a card is darkened to set it apart: see the Pool tab's styles. */
 $dimmed-card: brightness(0.35);
-/* How much of a stacked card shows above the next: its name. */
-$stack-step: 16%;
+/* How much of a stacked card shows above the next: its name, and never under 24px, to tap. */
+$stack-step: max(16%, 24px);
 /* The width of each button on a list line. */
 $line-action-width: 2.5rem;
 
@@ -132,28 +132,49 @@ ul {
 }
 
 /*
- * In stacks mode, the mainboard on the left and the sideboard on the right, past a divider.
- * Every stack, the sideboard's one included, takes an equal share of the width, between
- * 5.5rem and 10rem; the mainboard's stacks scroll sideways past what fits, and the
- * sideboard stays put.
- * The width they share is the whole less the gaps between the mainboard's stacks, the gap and
- * padding either side of the divider, and the divider's 1px.
+ * In stacks mode, the plan boards lay out by the room they have: the wide layout from 760px of
+ * width, else the strip. `WIDE_STACKS_QUERY` in drafts.ts is kept in step, for the drag.
+ * Every stack, the sideboard's one included, is as wide as the others.
  */
 .side-by-side {
-  --stack-width: clamp(
-    5.5rem,
-    (100cqw - (var(--mainboard-stacks) - 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
-      (var(--mainboard-stacks) + 1),
-    10rem
-  );
-  container-type: inline-size;
+  container: plan-boards / inline-size;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-md);
 
+  .plan-board {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .stack {
+    flex: none;
+    width: var(--stack-width);
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/*
+ * The wide layout: the mainboard on the left and the sideboard on the right, past a divider.
+ * Every stack takes an equal share of the width, between 5.5rem and 10rem; the mainboard's
+ * stacks scroll sideways past what fits, and the sideboard stays put.
+ * The width they share is the whole less the gaps between the mainboard's stacks, the gap and
+ * padding either side of the divider, and the divider's 1px.
+ */
+@container plan-boards (width >= 760px) {
+  .plan-board {
+    --stack-width: clamp(
+      5.5rem,
+      (100cqw - (var(--mainboard-stacks) - 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
+        (var(--mainboard-stacks) + 1),
+      10rem
+    );
+  }
+
   .plan-board:first-child {
     flex: 1 1 0;
-    min-width: 0;
   }
 
   /* Stretched to the mainboard's height, so the divider runs the length of both plan boards. Content-box, as everywhere here: its stack takes the width, and the padding and divider sit outside it. */
@@ -164,12 +185,77 @@ ul {
     padding-inline-start: var(--space-md);
     border-inline-start: 1px solid var(--color-divider);
   }
+}
+
+/*
+ * The strip: the mainboard's stacks in one row that scrolls sideways, each wide enough that
+ * about two and a half show, between 7rem and 10rem. A swipe settles near a stack's start,
+ * and the edges fade on the side with more to scroll, in place of a scrollbar. The sideboard's
+ * one stack sits below, on the left.
+ */
+@container plan-boards (width < 760px) {
+  .plan-board {
+    --stack-width: clamp(7rem, (100cqw - 2 * var(--space-sm)) / 2.5, 10rem);
+  }
+
+  .stacks {
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 
   .stack {
-    flex: none;
-    width: var(--stack-width);
-    min-width: 0;
-    max-width: none;
+    scroll-snap-align: start;
+  }
+
+  /* Driven by the strip's own scroll, so a browser without scroll-driven animations shows no fades. */
+  @supports (animation-timeline: scroll()) {
+    .stacks {
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 var(--fade-start),
+        #000 calc(100% - var(--fade-end)),
+        transparent
+      );
+      animation: strip-fades linear both;
+      animation-timeline: scroll(self inline);
+    }
+  }
+}
+
+/* How far into the strip each edge fades: none while it can't scroll. */
+@property --fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* No fade at the start until the strip is scrolled from it, and none at the end once it's scrolled there. */
+@keyframes strip-fades {
+  0% {
+    --fade-start: 0px;
+    --fade-end: 2rem;
+  }
+
+  2%,
+  98% {
+    --fade-start: 2rem;
+    --fade-end: 2rem;
+  }
+
+  100% {
+    --fade-start: 2rem;
+    --fade-end: 0px;
   }
 }
 

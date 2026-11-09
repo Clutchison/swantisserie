@@ -80,41 +80,39 @@
     </button>
   </div>
 }
-<!-- Stacks or list, and how the stacks group, on desktop only; then the Basic lands button, on every screen. -->
+<!-- Stacks or list, and how the stacks group; then the Basic lands button. -->
 <div class="mode-controls">
-  @if (onDesktop()) {
-    <div class="segmented" role="group" aria-label="Mode">
-      <button
-        class="button compact quiet"
-        type="button"
-        [attr.aria-pressed]="mode() === 'stacks'"
-        (click)="setMode('stacks')"
-      >
-        Stacks
-      </button>
-      <button
-        class="button compact quiet"
-        type="button"
-        [attr.aria-pressed]="mode() === 'list'"
-        (click)="setMode('list')"
-      >
-        List
-      </button>
+  <div class="segmented" role="group" aria-label="Mode">
+    <button
+      class="button compact quiet"
+      type="button"
+      [attr.aria-pressed]="mode() === 'stacks'"
+      (click)="setMode('stacks')"
+    >
+      Stacks
+    </button>
+    <button
+      class="button compact quiet"
+      type="button"
+      [attr.aria-pressed]="mode() === 'list'"
+      (click)="setMode('list')"
+    >
+      List
+    </button>
+  </div>
+  @if (mode() === 'stacks') {
+    <div class="segmented" role="group" aria-label="Group by">
+      @for (option of groupings; track option.grouping) {
+        <button
+          class="button compact quiet"
+          type="button"
+          [attr.aria-pressed]="grouping() === option.grouping"
+          (click)="setGrouping(option.grouping)"
+        >
+          {{ option.name }}
+        </button>
+      }
     </div>
-    @if (mode() === 'stacks') {
-      <div class="segmented" role="group" aria-label="Group by">
-        @for (option of groupings; track option.grouping) {
-          <button
-            class="button compact quiet"
-            type="button"
-            [attr.aria-pressed]="grouping() === option.grouping"
-            (click)="setGrouping(option.grouping)"
-          >
-            {{ option.name }}
-          </button>
-        }
-      </div>
-    }
   }
   @if (!deckLocked()) {
     <button class="button compact secondary" type="button" (click)="openBasics()">
@@ -122,7 +120,7 @@
     </button>
   }
 </div>
-<!-- On desktop, a card dragged from one plan board's drop list onto the other's moves there. In stacks mode the plan boards sit side by side, every stack as wide as the others. -->
+<!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, the mainboard's stacks are a strip that scrolls sideways, with the sideboard below. -->
 <div
   class="plan-boards"
   [class.side-by-side]="showingStacks()"
@@ -134,11 +132,15 @@
       <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
       <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
       @if (showingStacks() && planBoard.count > 0) {
+        <!-- Named as a group for screen readers, as in the strip it scrolls sideways on its own. -->
         <div
+          #strip
           class="stacks"
+          role="group"
+          [attr.aria-label]="planBoard.name + ' stacks'"
           cdkDropList
           [cdkDropListData]="planBoard.name"
-          [cdkDropListDisabled]="changing() || deckLocked()"
+          [cdkDropListDisabled]="changing() || !wideStacks() || deckLocked()"
           cdkDropListSortingDisabled
           (cdkDropListDropped)="dropped($event)"
         >
@@ -155,11 +157,13 @@
                 @for (card of stack.cards; track card.poolCardId) {
                   @let poolCard = cardsById().get(card.poolCardId);
                   @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
+                  <!-- A touch drag starts only after a hold, so a quick swipe still scrolls. -->
                   <li
                     [class.unpicked]="!card.picked"
                     cdkDrag
                     [cdkDragData]="card.poolCardId"
                     [cdkDragDisabled]="!!card.basic"
+                    [cdkDragStartDelay]="dragStartDelay"
                     cdkDragPreviewContainer="parent"
                     (pointerdown)="pressed()"
                     (cdkDragStarted)="dragStarted()"

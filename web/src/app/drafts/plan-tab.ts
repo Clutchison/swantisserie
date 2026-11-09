@@ -11,7 +11,9 @@ import {
   Injector,
   inputBinding,
   signal,
+  type Signal,
   untracked,
+  viewChildren,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -33,7 +35,7 @@ import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { NORMAL_IMAGE } from './card-sizes';
-import { changeFailure, DESKTOP_QUERY } from './drafts';
+import { changeFailure, DESKTOP_QUERY, WIDE_STACKS_QUERY } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
@@ -62,7 +64,8 @@ interface PlanChoice {
   grouping: Grouping;
 }
 const CHOICE_KEY = 'plan-view';
-const DEFAULT_CHOICE: PlanChoice = { mode: 'stacks', grouping: 'manaValue' };
+/** The grouping when none is kept. The mode's default depends on the screen: see `rememberedChoice`. */
+const DEFAULT_GROUPING: Grouping = 'manaValue';
 const MODES: PlanMode[] = ['stacks', 'list'];
 
 /**
@@ -145,10 +148,12 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * locked deck too; the buttons that open the Queue unpicked
  * and Basic lands dialogs; and the Plan notice of their lost cards.
  *
- * On desktop each plan board shows as stacks of card images, grouped by mana
- * value, color or card type, or as a list of names, and a card can be
- * dragged onto the other plan board; below the desktop breakpoint only the list
- * is offered.
+ * Each plan board shows as stacks of card images, grouped by mana value,
+ * color or card type, or as a list of names. Where there's room for the wide
+ * stacks layout, the sideboard's stack sits beside the mainboard's and a card
+ * can be dragged onto the other plan board; narrower, the mainboard's stacks
+ * are a strip that scrolls sideways, with the sideboard below, and a card
+ * moves from its Card detail. The list is dragged from on desktop only.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -210,13 +215,21 @@ export class PlanTab {
   protected readonly error = signal<string | null>(null);
 
   /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
-  protected readonly onDesktop = signal(!!globalThis.matchMedia?.(DESKTOP_QUERY).matches);
-  private readonly remembered = rememberedChoice();
+  protected readonly onDesktop = matching(DESKTOP_QUERY);
+  /**
+   * Whether stacks mode has room for the wide layout, as the page is resized:
+   * else the mainboard's stacks are a strip that scrolls sideways, which
+   * offers no drag. No `matchMedia` counts as a phone, so the strip.
+   */
+  protected readonly wideStacks = matching(WIDE_STACKS_QUERY);
+  private readonly remembered = rememberedChoice(this.wideStacks() ? 'stacks' : 'list');
   protected readonly mode = signal(this.remembered.mode);
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
-  /** Whether the plan boards show as stacks: the chosen mode, on desktop. */
-  protected readonly showingStacks = computed(() => this.onDesktop() && this.mode() === 'stacks');
+  /** How long a stacked card is held before a drag starts: on touch, long enough that a swipe scrolls. */
+  protected readonly dragStartDelay = { touch: 200, mouse: 0 };
+  /** Whether the plan boards show as stacks: the chosen mode. */
+  protected readonly showingStacks = computed(() => this.mode() === 'stacks');
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
@@ -253,6 +266,8 @@ export class PlanTab {
       };
     }),
   );
+  /** Each plan board's stacks, as one strip that scrolls sideways where there's no room for the wide layout. */
+  private readonly strips = viewChildren<ElementRef<HTMLElement>>('strip');
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.planBoards()[0].stacks.length);
 
@@ -289,16 +304,6 @@ export class PlanTab {
     effect(() => {
       if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
     });
-    // Not every test environment's `matchMedia` reports changes.
-    const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
-    if (!desktop?.addEventListener) return;
-    const listening = new AbortController();
-    // Stryker disable next-line ObjectLiteral: a listener left running after teardown only sets a destroyed component's signal.
-    desktop.addEventListener('change', ({ matches }) => this.onDesktop.set(matches), {
-      signal: listening.signal,
-    });
-    // Stryker disable next-line ArrowFunction,CallExpression: a listener left running after teardown only sets a destroyed component's signal.
-    inject(DestroyRef).onDestroy(() => listening.abort());
   }
 
   protected setMode(mode: PlanMode) {
@@ -306,8 +311,14 @@ export class PlanTab {
     this.rememberChoice();
   }
 
+  /**
+   * Groups the stacks by `grouping`, starting the strip at its first stack, as
+   * where it was scrolled means nothing in the new grouping. Switching from
+   * the list starts it there already, as the strip is drawn anew.
+   */
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
+    for (const strip of this.strips()) strip.nativeElement.scrollLeft = 0;
     this.rememberChoice();
   }
 
@@ -523,19 +534,43 @@ export class PlanTab {
   }
 }
 
-/** The mode and grouping the viewer last chose, or the defaults if none is kept or storage is refused. */
-function rememberedChoice(): PlanChoice {
+/**
+ * Whether the media query `query` matches, as the window is resized. No
+ * `matchMedia` counts as no match. Call it in an injection context: it stops
+ * listening as that is destroyed.
+ */
+function matching(query: string): Signal<boolean> {
+  const media = globalThis.matchMedia?.(query);
+  const matches = signal(!!media?.matches);
+  // Not every test environment's `matchMedia` reports changes.
+  if (!media?.addEventListener) return matches.asReadonly();
+  const listening = new AbortController();
+  // Stryker disable next-line ObjectLiteral: a listener left running after teardown only sets a destroyed component's signal.
+  media.addEventListener('change', (event) => matches.set(event.matches), {
+    signal: listening.signal,
+  });
+  // Stryker disable next-line ArrowFunction,CallExpression: a listener left running after teardown only sets a destroyed component's signal.
+  inject(DestroyRef).onDestroy(() => listening.abort());
+  return matches.asReadonly();
+}
+
+/**
+ * The mode and grouping the viewer last chose, one choice for every screen;
+ * if none is kept or storage is refused, `defaultMode` grouped by mana value.
+ */
+function rememberedChoice(defaultMode: PlanMode): PlanChoice {
+  const defaults: PlanChoice = { mode: defaultMode, grouping: DEFAULT_GROUPING };
   try {
     // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.
     const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');
     const { mode, grouping } = (kept ?? {}) as Record<string, unknown>;
     return {
-      mode: isMode(mode) ? mode : DEFAULT_CHOICE.mode,
-      grouping: isGrouping(grouping) ? grouping : DEFAULT_CHOICE.grouping,
+      mode: isMode(mode) ? mode : defaults.mode,
+      grouping: isGrouping(grouping) ? grouping : defaults.grouping,
     };
   } catch {
     // Storage may be refused, as in a private window, or hold something that isn't a choice.
-    return DEFAULT_CHOICE;
+    return defaults;
   }
 }
 

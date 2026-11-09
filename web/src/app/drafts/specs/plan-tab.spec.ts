@@ -26,7 +26,6 @@ import {
   completeSnapshot,
   button,
   updates,
-  viewOn,
   drafting,
   statusMessage,
   alertIn,
@@ -427,26 +426,6 @@ describe('plan tab', () => {
     await fixture.whenStable();
 
     expect(planBoards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
-  });
-
-  it('offers only list mode below the desktop breakpoint, whatever was chosen on desktop', async () => {
-    localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
-    viewOn('mobile');
-    try {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-        cards,
-        plan: planOf(),
-      });
-      const plan = await openPlan(fixture, page);
-
-      expect(button(plan, 'Stacks')).toBeUndefined();
-      expect(button(plan, 'List')).toBeUndefined();
-      expect(plan.querySelector('.stack')).toBeNull();
-      expect(planBoards(plan)[0].lines).toHaveLength(3);
-    } finally {
-      vi.unstubAllGlobals();
-      localStorage.clear();
-    }
   });
 
   it.each(['Lobby', 'Paused', 'Closed', 'Complete'] as const)(

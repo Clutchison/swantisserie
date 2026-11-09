@@ -35,7 +35,7 @@ import { routes } from '../../app.routes';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
-import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
+import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS, WIDE_STACKS_QUERY } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import {
@@ -802,27 +802,51 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
   await fixture.whenStable();
 }
 
-/** What the page has asked to hear of the desktop breakpoint's changes. */
-let breakpointListeners: ((event: { matches: boolean }) => void)[] = [];
+/** A screen the page can be shown on, by the media queries it answers. */
+type Screen = 'desktop' | 'tablet' | 'mobile';
 
 /**
- * Puts the page on a desktop or a mobile screen, by the draft page's
- * breakpoint, for the test to come. Undo it with `vi.unstubAllGlobals()`.
+ * The draft page's breakpoints each screen is past: a desktop's tabs sit at
+ * the top, and a tablet, like a desktop, has room for the wide stacks layout.
  */
-export function viewOn(screen: 'desktop' | 'mobile') {
+const SCREEN_QUERIES: Record<Screen, readonly string[]> = {
+  desktop: [DESKTOP_QUERY, WIDE_STACKS_QUERY],
+  tablet: [WIDE_STACKS_QUERY],
+  mobile: [],
+};
+
+/** The screen the page is on, and what it has asked to hear of each breakpoint's changes. */
+let screenNow: Screen = 'mobile';
+let breakpointListeners: { query: string; listener: (event: { matches: boolean }) => void }[] = [];
+
+/**
+ * Puts the page on a desktop, tablet or mobile screen, by the draft page's
+ * breakpoints, for the test to come. Undo it with `vi.unstubAllGlobals()`.
+ */
+export function viewOn(screen: Screen) {
+  screenNow = screen;
   breakpointListeners = [];
   vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: screen === 'desktop' && query === DESKTOP_QUERY,
-    // Only a 'change' listener hears the breakpoint crossed, as in a browser.
+    matches: SCREEN_QUERIES[screen].includes(query),
+    // Only a 'change' listener hears a breakpoint crossed, as in a browser.
     addEventListener: (type: string, listener: (event: { matches: boolean }) => void) => {
-      if (query === DESKTOP_QUERY && type === 'change') breakpointListeners.push(listener);
+      if (type === 'change') breakpointListeners.push({ query, listener });
     },
   }));
 }
 
-/** Resizes the window across the draft page's breakpoint, onto `screen`, and renders what came of it. */
-export function resizeTo(screen: 'desktop' | 'mobile') {
-  breakpointListeners.forEach((listener) => listener({ matches: screen === 'desktop' }));
+/**
+ * Resizes the window onto `screen`, telling each listener of a breakpoint
+ * it crossed, as a browser does, and renders what came of it.
+ */
+export function resizeTo(screen: Screen) {
+  const matchesOn = (on: Screen, query: string) => SCREEN_QUERIES[on].includes(query);
+  const was = screenNow;
+  screenNow = screen;
+  for (const { query, listener } of breakpointListeners) {
+    const matches = matchesOn(screen, query);
+    if (matches !== matchesOn(was, query)) listener({ matches });
+  }
   TestBed.tick();
 }
 

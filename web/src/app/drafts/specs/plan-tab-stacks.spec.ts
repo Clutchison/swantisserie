@@ -16,6 +16,8 @@ import {
   text,
   drafting,
   heading,
+  type AppFixture,
+  group,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -30,16 +32,26 @@ import {
   planBoards,
   detailOpener,
   stacksOf,
+  stack,
 } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
 
+/** Whether the button inside `plan` named `label` is pressed, as a mode or grouping that is chosen. */
+const pressed = (plan: HTMLElement, label: string) =>
+  button(plan, label)?.getAttribute('aria-pressed');
+
+/** Whether the stacked card named `name` can be dragged onto the other plan board, as the CDK says. */
+const draggable = (fixture: AppFixture, name: string) =>
+  !fixture.debugElement
+    .query(By.css('app-plan-tab'))
+    .queryAll(By.directive(CdkDrag))
+    .find((drag) => drag.nativeElement.contains(detailOpener(drag.nativeElement, name) ?? null))!
+    .injector.get(CdkDrag).disabled;
+
 describe('plan tab', () => {
   describe('on desktop', () => {
-    const pressed = (plan: HTMLElement, label: string) =>
-      button(plan, label)?.getAttribute('aria-pressed');
-
     beforeEach(() => viewOn('desktop'));
     afterEach(() => {
       vi.unstubAllGlobals();
@@ -263,22 +275,27 @@ describe('plan tab', () => {
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');
     });
 
-    it('drops to the list as the window narrows below the breakpoint, and back to stacks as it widens', async () => {
+    it('keeps the chosen mode and grouping as the window narrows to a tablet or a phone, and widens again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      expect(plan.querySelectorAll('.stack')).toHaveLength(3);
+      button(plan, 'Color')!.click();
+      await fixture.whenStable();
 
+      for (const screen of ['tablet', 'mobile', 'desktop'] as const) {
+        resizeTo(screen);
+        expect(pressed(plan, 'Stacks')).toBe('true');
+        expect(pressed(plan, 'Color')).toBe('true');
+        expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
+      }
+
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
       resizeTo('mobile');
-      expect(button(plan, 'Stacks')).toBeUndefined();
-      expect(plan.querySelector('.stack')).toBeNull();
+      expect(pressed(plan, 'List')).toBe('true');
       expect(planBoards(plan)[0].lines).toHaveLength(3);
-
-      resizeTo('desktop');
-      expect(pressed(plan, 'Stacks')).toBe('true');
-      expect(plan.querySelectorAll('.stack')).toHaveLength(3);
     });
 
     describe('a stacked card’s Unpicked mark', () => {
@@ -372,6 +389,119 @@ describe('plan tab', () => {
       await fixture.whenStable();
       expect(pressed(plan, 'List')).toBe('true');
       expect(plan.querySelector('.stack')).toBeNull();
+    });
+  });
+
+  describe('on a phone', () => {
+    beforeEach(() => viewOn('mobile'));
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      localStorage.clear();
+    });
+
+    it('opens in list mode, and offers stacks mode and its groupings, each stack named', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({
+          mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      });
+      const plan = await openPlan(fixture, page);
+      expect(pressed(plan, 'List')).toBe('true');
+      expect(stacksOf(plan)).toEqual([[], []]);
+
+      button(plan, 'Stacks')!.click();
+      await fixture.whenStable();
+
+      expect(pressed(plan, 'Mana value')).toBe('true');
+      expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
+      expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
+      expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
+      expect(heading(plan, '1 2')).toBeDefined();
+
+      button(plan, 'Type')!.click();
+      await fixture.whenStable();
+      expect(stack(plan, 'Instant')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
+    });
+
+    it('opens as it was last left, on any screen', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(pressed(plan, 'Color')).toBe('true');
+      expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
+    });
+
+    it('offers no drag between plan boards, so a swipe always scrolls, until the window widens to a tablet', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
+      });
+      await openPlan(fixture, page);
+
+      expect(draggable(fixture, 'Lightning Bolt')).toBe(false);
+      expect(draggable(fixture, 'Shivan Dragon')).toBe(false);
+
+      resizeTo('tablet');
+      expect(draggable(fixture, 'Lightning Bolt')).toBe(true);
+      expect(draggable(fixture, 'Shivan Dragon')).toBe(true);
+    });
+
+    it('keeps the strip where it was scrolled as the plan changes, and starts it at its first stack as the grouping changes', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      const strip = group(plan, 'Mainboard stacks')!;
+      strip.scrollLeft = 300;
+
+      button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      );
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
+      expect(group(plan, 'Mainboard stacks')!.scrollLeft).toBe(300);
+
+      button(plan, 'Color')!.click();
+      await fixture.whenStable();
+      expect(group(plan, 'Mainboard stacks')!.scrollLeft).toBe(0);
+    });
+  });
+
+  describe('on a tablet', () => {
+    beforeEach(() => viewOn('tablet'));
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      localStorage.clear();
+    });
+
+    it('opens in stacks mode, a card dragged between plan boards as on desktop', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(pressed(plan, 'Mana value')).toBe('true');
+      expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], ['Sideboard: Shivan Dragon']]);
+      expect(draggable(fixture, 'Lightning Bolt')).toBe(true);
+      expect(draggable(fixture, 'Shivan Dragon')).toBe(true);
+
+      resizeTo('mobile');
+      expect(draggable(fixture, 'Lightning Bolt')).toBe(false);
     });
   });
 });

@@ -431,7 +431,7 @@ describe('basic lands on the plan tab', () => {
   const groupButtons = (plan: HTMLElement, name: string) =>
     [...(group(plan, name)?.querySelectorAll('button') ?? [])].map((b) => b.textContent?.trim());
 
-  it('offers the Basic lands button, but no mode or grouping, on mobile', async () => {
+  it('offers the Basic lands button and the mode, in list mode, on mobile', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
@@ -439,7 +439,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
 
     expect(button(plan, 'Basic lands')).toBeDefined();
-    expect(group(plan, 'Mode')).toBeNull();
+    expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
     expect(group(plan, 'Group by')).toBeNull();
   });
 
