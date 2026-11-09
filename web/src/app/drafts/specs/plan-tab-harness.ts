@@ -111,6 +111,16 @@ export const stackHeader = (plan: HTMLElement, name: string) =>
     (header) => accessibleName(header) === name,
   );
 
+/** The text each stack header shows, its label then its count, as `Lands1`: a symbol shows none. */
+export const stackHeaderTexts = (plan: HTMLElement) =>
+  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].map(text);
+
+/** The alt text of the images in the stack headers that have one: none, as their symbols are decorative. */
+export const namedImages = (plan: HTMLElement) =>
+  [...(stackHeadersNavigation(plan)?.querySelectorAll('img') ?? [])]
+    .map((img) => img.alt)
+    .filter((alt) => alt !== '');
+
 /** The navigation named Stack headers inside `plan`, if any. */
 const stackHeadersNavigation = (plan: HTMLElement) =>
   byAriaLabel(plan, 'nav, [role="navigation"]', 'Stack headers');

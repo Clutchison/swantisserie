@@ -51,6 +51,7 @@ import {
   unpickedToQueue,
 } from './queue-unpicked-dialog';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
+import { stackLabel } from './stack-labels';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /** What a failed change says, naming the plan as `planName`. */
@@ -315,7 +316,7 @@ export class PlanTab {
   );
   /**
    * The stack headers, one per stack in the strip, the mainboard's then the
-   * sideboard's: each stack's name, the label it shows, its card count, what a
+   * sideboard's: each stack's name, the label it shows (a mana symbol or text), its card count, what a
    * screen reader names it, starting with the name, as `Lands, 17 cards`, and
    * whether it is set apart from the others, as the sideboard's is.
    */
@@ -326,7 +327,9 @@ export class PlanTab {
       .flatMap(({ oneStackHeader, stacks }) =>
         stacks.map(({ name, cards }) => ({
           name,
-          label: oneStackHeader?.label ?? name,
+          label: oneStackHeader
+            ? ({ kind: 'text', text: oneStackHeader.label } as const)
+            : stackLabel(this.grouping(), name),
           count: cards.length,
           accessibleName: `${name}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
           setApart: oneStackHeader !== undefined,
