@@ -18,9 +18,9 @@ env:
   # prisma.config.ts requires this to resolve, but nothing here connects to a database.
   DIRECT_URL: postgresql://ci@localhost/ci
 
-# The checks run in parallel jobs, each on its own runner. Every job that
-# tests imports contract and engine from dist, so builds them first
-# (.github/actions/setup).
+# The checks run in parallel jobs, each on its own runner. The test jobs import
+# contract and engine from dist, so the setup action (.github/actions/setup)
+# builds them first.
 jobs:
   static:
     name: Lint, format, build, typecheck
@@ -49,21 +49,21 @@ jobs:
       - run: npm test -w web
 
   api-tests:
-    name: Api tests (shard ${{ matrix.shard }}/4)
+    name: Api tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     strategy:
       # Let every shard finish, so one run reports every failing spec.
       fail-fast: false
       matrix:
         # vitest shards by spec file, not by duration: if one shard keeps
-        # lagging, change the count here and in the run step.
+        # lagging, change the count here.
         shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: npm exec -w api -- prisma generate
       # The api suite is CPU-bound on a 4-vCPU runner, hence the shards.
-      - run: npm test -w api -- --project api --shard=${{ matrix.shard }}/4
+      - run: npm test -w api -- --project api --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
   race-tests:
     name: Api race tests (Postgres)
@@ -94,7 +94,7 @@ jobs:
 
   # The one job a required status check would name, whatever the jobs above
   # or the shard count: it passes only when every other job passed.
-  ci:
+  all-passed:
     name: CI passed
     if: always()
     needs: [static, web-tests, api-tests, race-tests]

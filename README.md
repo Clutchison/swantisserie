@@ -73,7 +73,7 @@ To change the database schema, edit `api/prisma/schema.prisma` and run `npm run 
 
 ### Deploy
 
-Every push and pull request runs [CI](.github/workflows/ci.yml): lint, build, typecheck and tests for every workspace. Heroku deploys `main` automatically once CI passes ("Wait for CI to pass" is on), so merging to `main` is the deploy. A red CI run means no deploy.
+Every push and pull request runs [CI](.github/workflows/ci.yml): lint, build, typecheck and tests for every workspace, in parallel jobs (the api tests sharded). Its final `CI passed` job passes only when every other job does, so it is the one to name if a required status check is added. Heroku deploys `main` automatically once CI passes ("Wait for CI to pass" is on), so merging to `main` is the deploy. A red CI run means no deploy.
 
 Heroku app `swantisserie` builds with the Node buildpack (`npm run build`). The `Procfile` release phase runs `prisma migrate deploy` before each release goes live. Health check: `GET /api/health` returns `{"api":"ok","db":"ok"}`, or a 503 with `"db":"error"`. The status page at `/` (after signing in with Discord) shows the result.
 
