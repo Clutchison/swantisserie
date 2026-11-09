@@ -8,10 +8,11 @@ import {
 const RACE_SPECS = '**/*.race.spec.ts';
 
 /**
- * Stryker's sandboxes: copies of the api, specs and all, that last as long as
- * a run, or longer if it is stopped.
+ * What neither project runs. Stryker's sandboxes (`.stryker-tmp/`) are copies
+ * of the api, specs and all, that last as long as a run, or longer if it is
+ * stopped; without this, `npm test -w api` would run every spec twice then.
  */
-const STRYKER_SANDBOXES = '.stryker-tmp/**';
+const EXCLUDE = [...configDefaults.exclude, '.stryker-tmp/**'];
 
 /**
  * Every spec but the race specs, on the test database (PGlite). Stryker runs
@@ -22,7 +23,7 @@ export const apiProject = {
   test: {
     name: 'api',
     include: ['**/*.spec.ts'],
-    exclude: [...configDefaults.exclude, STRYKER_SANDBOXES, RACE_SPECS],
+    exclude: [...EXCLUDE, RACE_SPECS],
     env: {
       // The test database (PGlite) is one Postgres session shared by
       // every connection, so concurrent transactions on two
@@ -54,7 +55,7 @@ export default defineConfig({
           // (`src/testing/race-database.ts`).
           name: 'race',
           include: [RACE_SPECS],
-          exclude: [...configDefaults.exclude, STRYKER_SANDBOXES],
+          exclude: EXCLUDE,
           env: {
             // Enough connections for two transactions to run at once.
             DATABASE_POOL_SIZE: '4',

@@ -1,5 +1,5 @@
 // @ts-check
-// Stryker mutation testing on the api's pick chain (#532). Run it by hand with
+// Stryker mutation testing on the api's pick chain (#557). Run it by hand with
 // `npm run test:mutation -w api`; see docs/agents/mutation-testing.md.
 
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
