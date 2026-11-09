@@ -2,18 +2,19 @@
 
 Mutation testing (StrykerJS) checks whether the tests actually catch mistakes. It makes one small change to the source at a time, called a **mutant** (for example `<` becomes `<=`, a condition becomes `true`, or a function body is emptied), and runs the tests against it. A mutant the tests fail on is **killed**. One they pass on **survives**, which means no test checks that piece of code. The **mutation score** is the share of mutants killed.
 
-The engine and web workspaces are set up for it.
+The engine, web and api workspaces are set up for it.
 
 ## Running it
 
 ```sh
 npm run test:mutation -w engine
 npm run test:mutation -w web
+npm run test:mutation -w api
 ```
 
-Each workspace's `stryker.config.json` caps Stryker at 2 workers (`concurrency: 2`); keep that cap, and don't start Stryker from the repo root or with `--concurrency`. Left alone, it starts one worker per core but one, which is 23 on the shared dev machine, and earlyoom will kill the run.
+Each workspace's Stryker config (`stryker.config.json`, or the api's `stryker.config.mjs`) caps Stryker at 2 workers (`concurrency: 2`); keep that cap, and don't start Stryker from the repo root or with `--concurrency`. Left alone, it starts one worker per core but one, which is 23 on the shared dev machine, and earlyoom will kill the run. If earlyoom kills a run anyway, follow the steps in the shared machine's `CLAUDE.md` (`../CLAUDE.md` from the repo root) before rerunning.
 
-Runs are incremental: Stryker keeps the results in `<workspace>/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything.
+Runs are incremental: Stryker keeps the results in `<workspace>/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped, and a run narrowed with `--mutate` keeps the other files' results.
 
 To mutate only some files, pass a glob: `npm run test:mutation -w web -- --mutate src/app/drafts/webhook-control.ts`.
 
@@ -27,8 +28,17 @@ Stryker is run by hand. It is not part of `npm test` or CI.
 
 - **`css: true`.** Analog compiles specs in JIT mode, which loads each component's styles as a CSS import. Vitest blanks CSS imports by default, and specs that read computed styles fail without it.
 - **Templates.** Stryker mutates TypeScript only, never templates. And because Analog compiles in JIT mode, this config doesn't type-check templates; `ng test` and `npm run typecheck -w web` still do.
-- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 8 to 9 minutes, even for a single component. Each mutant then runs dozens of tests, so a run narrowed to one area's files still took 60 to 300 minutes after its dry run (#547 to #553), and a full run from scratch (about 6,300 mutants) tested about 3 mutants a minute at `concurrency: 2`, roughly two days, and took about 10 hours at a one-off `--concurrency 8` with the machine otherwise idle (#544). Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped.
+- **Cost.** Stryker's vitest runner forces one vitest worker. App-level specs import nearly every component through the app, so almost every spec relates to every file, and the dry run runs nearly the whole suite on that one worker: about 8 to 9 minutes, even for a single component. Each mutant then runs dozens of tests, so a run narrowed to one area's files still took 60 to 300 minutes after its dry run (#547 to #553), and a full run from scratch (about 6,300 mutants) tested about 3 mutants a minute at `concurrency: 2`, roughly two days, and took about 10 hours at a one-off `--concurrency 8` with the machine otherwise idle (#544). Narrow a run with `--mutate`, and lean on incremental runs rather than `--force`.
 - **`dryRunTimeoutMinutes`** is raised from Stryker's 5-minute default to 30, so that dry run isn't cut off. JSON can't hold the comment, so it lives here.
+
+## Api
+
+The api's config is `api/stryker.config.mjs`, a JS module so it can carry its own comments; its `mutate` list and the reason for its `dryRunTimeoutMinutes` live there. It mutates the pick chain only (`docs/agents/pick-effects.md`), leaving out the generated Prisma client, the pick import service and the rest of the api. Widen or narrow it with `--mutate`, as on the engine and web.
+
+- **Prisma client.** `test:mutation` runs `prisma generate` first, as `typecheck` and `build` do, so Stryker's sandbox has the client. Like them it needs `DIRECT_URL`, from the repo-root `.env`.
+- **The `api` vitest project only.** Stryker's vitest runner can't be told which vitest project to run, so under the normal config it would also collect the `race` project. `api/vitest.stryker.config.ts` keeps only the `api` project, with all its settings, `DATABASE_POOL_SIZE: '1'` included, so race specs never run under Stryker. **That config exists only for Stryker**; run api tests with `npm test -w api` as usual. It only narrows projects, so the specs still run one way and it needs no ADR beside ADR 0016.
+- **NestJS.** Decorators and dependency injection work in Stryker's instrumented code. A run narrowed to `turns.service.ts`, the pick chain's one decorated, injected service, finished with a score: 90.00% of the 150 mutants it had then, none timing out, in 25 minutes 54 seconds at `concurrency: 2`, dry run included (#557).
+- **Cost.** Every api spec boots the whole app, so nearly every spec file relates to every pick chain file: the dry run runs 773 of the 803 `api` project tests, one spec file after another on Stryker's single vitest worker, each starting its own test database (PGlite). It took about 3 minutes 40 seconds on an idle machine, whether one file or the whole pick chain was mutated (#557). A run narrowed to `queue-order.ts` (25 mutants, about 39 tests each) took 7 minutes 48 seconds at `concurrency: 2`, dry run included, peaking at about 3.5 GB for Stryker and both runners, with no swap used.
 
 ## Reading the report
 
