@@ -37,3 +37,5 @@ engine/reports/
 engine/.stryker-tmp/
 web/reports/
 web/.stryker-tmp/
+api/reports/
+api/.stryker-tmp/
