@@ -44,6 +44,7 @@ import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
 import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
+import { TypeLetter } from './type-letter';
 import {
   QUEUE_UNPICKED_HEADING,
   QueueUnpickedDialog,
@@ -194,6 +195,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucidePlus,
     LucideTrash,
     SendsChange,
+    TypeLetter,
   ],
   providers: [Changes, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -316,8 +318,8 @@ export class PlanTab {
   );
   /**
    * The stack headers, one per stack in the strip, the mainboard's then the
-   * sideboard's: each stack's name, the label it shows (a mana symbol or
-   * text), its card count, what a screen reader names it, starting with the
+   * sideboard's: each stack's name, the label it shows (a mana symbol, a type
+   * letter or text), its card count, what a screen reader names it, starting with the
    * name, as `Lands, 17 cards`, and whether it is set apart from the others,
    * as the sideboard's is.
    */

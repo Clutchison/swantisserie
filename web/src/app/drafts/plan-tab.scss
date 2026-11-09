@@ -317,7 +317,8 @@ ul {
         align-items: center;
         justify-content: center;
         block-size: var(--stack-header-height);
-        padding: 0 var(--space-sm);
+        /* Narrow enough that card type's nine type letters and SB fit a 343px row (a 375px phone) unscrolled. */
+        padding: 0 var(--space-xs);
         border: 1px solid var(--color-divider);
         border-inline-start: 0;
         border-radius: 0;

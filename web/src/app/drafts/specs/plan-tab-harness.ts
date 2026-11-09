@@ -113,20 +113,29 @@ export const stackHeader = (plan: HTMLElement, name: string) =>
 
 /**
  * What each stack header shows: its images by alt text, `''` for a decorative
- * one, as a symbol is, and its runs of text, as its label then its count,
- * e.g. `{ images: [''], text: ['+', '1'] }` for a 7+ symbol.
+ * one, as a symbol is, a type letter (hidden from a screen reader) counting as
+ * a decorative image, and the runs of text a screen reader finds, as its label
+ * then its count, e.g. `{ images: [''], text: ['+', '1'] }` for a 7+ symbol.
  */
 export const stackHeaderContents = (plan: HTMLElement) =>
   [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].map((header) => ({
-    images: [...header.querySelectorAll('img')].map((img) => img.alt),
+    images: [...header.querySelectorAll('img, [aria-hidden="true"]')].map((image) =>
+      image instanceof HTMLImageElement ? image.alt : '',
+    ),
     text: textRuns(header),
   }));
 
-/** The runs of text inside `element`, each with its whitespace collapsed, leaving out empty ones. */
+/**
+ * The runs of text inside `element` outside any part hidden from a screen
+ * reader, each with its whitespace collapsed, leaving out empty ones.
+ */
 function textRuns(element: Element) {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   const runs: string[] = [];
-  while (walker.nextNode()) runs.push(walker.currentNode.textContent ?? '');
+  while (walker.nextNode()) {
+    if (walker.currentNode.parentElement?.closest('[aria-hidden="true"]')) continue;
+    runs.push(walker.currentNode.textContent ?? '');
+  }
   return runs.map(collapseWhitespace).filter((run) => run !== '');
 }
 

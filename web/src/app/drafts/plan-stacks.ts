@@ -1,6 +1,13 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
 import { frontFace } from 'engine';
-import { MULTICOLOR_LABEL, manaSymbolLabel, type StackLabel, textLabel } from './stack-labels';
+import {
+  LANDS_LABEL,
+  MULTICOLOR_LABEL,
+  manaSymbolLabel,
+  type StackLabel,
+  textLabel,
+  typeLetterLabel,
+} from './stack-labels';
 
 /** How stacks mode divides a plan board into stacks. */
 export type Grouping = 'manaValue' | 'color' | 'type';
@@ -50,7 +57,7 @@ const BY_MANA_VALUE: StackRule[] = [
       // Stryker disable next-line ConditionalExpression: the 0 to 6 stacks take every non-land of those mana values first, so a non-land that gets here has mana value 7 or more.
       card.manaValue >= 7,
   },
-  { name: 'Lands', label: textLabel('Lands'), holds: isLand },
+  { name: 'Lands', label: LANDS_LABEL, holds: isLand },
 ];
 
 const BY_COLOR: StackRule[] = [
@@ -73,25 +80,27 @@ const BY_COLOR: StackRule[] = [
       // Stryker disable next-line ConditionalExpression: the first rule that holds a card wins, and every non-land with a color is already taken.
       card.colors.length === 0,
   },
-  { name: 'Lands', label: textLabel('Lands'), holds: isLand },
+  { name: 'Lands', label: LANDS_LABEL, holds: isLand },
 ];
 
 const BY_TYPE: StackRule[] = [
-  ...[
-    'Creature',
-    'Planeswalker',
-    'Instant',
-    'Sorcery',
-    'Artifact',
-    'Enchantment',
-    'Battle',
-    'Land',
-  ].map((type) => ({
+  ...(
+    [
+      ['Creature', typeLetterLabel('C')],
+      ['Planeswalker', typeLetterLabel('P')],
+      ['Instant', typeLetterLabel('I')],
+      ['Sorcery', typeLetterLabel('S')],
+      ['Artifact', typeLetterLabel('A')],
+      ['Enchantment', typeLetterLabel('E')],
+      ['Battle', typeLetterLabel('B')],
+      ['Land', LANDS_LABEL],
+    ] as const
+  ).map(([type, label]) => ({
     name: type,
-    label: textLabel(type),
+    label,
     holds: (card: CardFacts) => card.types.includes(type),
   })),
-  { name: 'Other', label: textLabel('Other'), holds: () => true },
+  { name: 'Other', label: typeLetterLabel('O'), holds: () => true },
 ];
 
 const RULES: Record<Grouping, StackRule[]> = {

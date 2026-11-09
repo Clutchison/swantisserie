@@ -543,7 +543,7 @@ describe('plan tab', () => {
         ]);
       });
 
-      it('label mana value and color stacks with mana symbols, keeping their names, and Lands with its name', async () => {
+      it('label mana value and color stacks with mana symbols, and Lands with Land’s type letter, keeping their names', async () => {
         const dragonlord = card({
           id: 'dragonlord-card',
           name: 'Dragonlord Silumgar',
@@ -576,12 +576,12 @@ describe('plan tab', () => {
           '7+, 1 card',
           'Lands, 1 card',
         ]);
-        // Each shows one decorative symbol, then its count; 7+ adds a "+" to its symbol.
+        // Each shows one decorative symbol, Lands its type letter, then its count; 7+ adds a "+" to its symbol.
         expect(stackHeaderContents(plan)).toEqual([
           { images: [''], text: ['2'] },
           { images: [''], text: ['2'] },
           { images: [''], text: ['+', '1'] },
-          { images: [], text: ['Lands', '1'] },
+          { images: [''], text: ['1'] },
         ]);
 
         button(plan, 'Color')!.click();
@@ -596,7 +596,28 @@ describe('plan tab', () => {
           { images: [''], text: ['3'] },
           { images: [''], text: ['1'] },
           { images: [''], text: ['1'] },
-          { images: [], text: ['Lands', '1'] },
+          { images: [''], text: ['1'] },
+        ]);
+      });
+
+      it('label card type stacks with type letters, keeping their names', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        button(plan, 'Type')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual([
+          'Creature, 1 card',
+          'Instant, 2 cards',
+          'Land, 1 card',
+        ]);
+        // Each shows its decorative type letter, then its count.
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], text: ['1'] },
+          { images: [''], text: ['2'] },
+          { images: [''], text: ['1'] },
         ]);
       });
 
