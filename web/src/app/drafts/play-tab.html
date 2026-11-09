@@ -88,7 +88,7 @@
           <app-player-avatar [src]="player.avatarUrl" />
           {{ player.name }}
           @if (player.ready) {
-            <span class="badge">Ready</span>
+            <span class="badge success">Ready</span>
           }
           @if (offerOrganize() && player.id !== ownId() && player.droppable) {
             <button
@@ -114,7 +114,8 @@
       }
       @if (offerLeave()) {
         <button
-          class="button secondary ready"
+          class="button ready"
+          [class.secondary]="ownReady()"
           type="button"
           [attr.aria-pressed]="ownReady()"
           [disabled]="!tournament.canToggleReady"

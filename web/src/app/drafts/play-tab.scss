@@ -50,14 +50,19 @@ legend {
   }
 }
 
-/* I'm ready, pressed: the check mark and a ring tell it apart, not color alone. */
+/*
+ * I'm ready: the accent catches the eye until the player is ready, then it
+ * steps back to secondary. Pressed, the check mark and a ring tell it apart,
+ * not color alone. The ring is an inset shadow, not a border, so it takes no
+ * space: the button stays the size of Leave beside it.
+ */
 .ready {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
 
   &[aria-pressed='true'] {
-    border-color: var(--color-text);
+    box-shadow: inset 0 0 0 1px var(--color-text);
     font-weight: 600;
   }
 }
