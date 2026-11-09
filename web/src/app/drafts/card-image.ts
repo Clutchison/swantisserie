@@ -62,6 +62,7 @@ export class CardImage {
   // Stryker disable next-line BooleanLiteral: both callers, the Card detail and the Card preview, always bind it.
   readonly sideways = input(false);
   /** Whether an image already loaded when this opens appears with no fade. */
+  // Stryker disable next-line BooleanLiteral: presentation only, which specs leave to the styles (web-specs.md): whether the Card preview's image, which doesn't bind it, fades in or appears at once.
   readonly instantIfLoaded = input(false);
   /** The image it's waiting on failed to load. */
   readonly failed = output<void>();
