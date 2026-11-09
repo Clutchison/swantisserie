@@ -373,6 +373,52 @@ describe('organizer reports, corrections and clears', () => {
       expect(button(tab, 'Report Alice vs Carol')).not.toBeNull();
     });
 
+    it('moves focus to the match’s toggle once saving its game score shows', async () => {
+      const { fixture, tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+      button(tab, 'Report Alice vs Carol')!.click();
+      await fixture.whenStable();
+
+      button(scores(tab)!, 'Alice won 2–1')!.focus();
+      button(scores(tab)!, 'Alice won 2–1')!.click();
+      await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament/matches/m2/game-score',
+        'PUT',
+        swissPlaying({ rounds: swissRoundsWith(reported(aliceVsCarol, [2, 1], alice.id)) }),
+        1,
+        threePlayers,
+      );
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(tab, 'Correct Alice vs Carol')),
+      );
+    });
+
+    it('moves focus to the match’s toggle once clearing its game score shows', async () => {
+      const { fixture, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(reported(aliceVsCarol, [2, 1])) }),
+        { powers: ORGANIZE_ONLY },
+      );
+      button(tab, 'Correct Alice vs Carol')!.click();
+      await fixture.whenStable();
+
+      button(scores(tab)!, 'Clear game score')!.focus();
+      button(scores(tab)!, 'Clear game score')!.click();
+      await answer(await question('Clear the game score of Alice vs Carol?'), 'Clear');
+      await answerChange(
+        fixture,
+        '/api/drafts/draft-1/tournament/matches/m2/game-score',
+        'DELETE',
+        swissPlaying(),
+        1,
+        threePlayers,
+      );
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(tab, 'Report Alice vs Carol')),
+      );
+    });
+
     it('closes when its toggle is pressed again', async () => {
       const { fixture, tab } = await openCorrection();
 

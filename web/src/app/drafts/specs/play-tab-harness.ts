@@ -718,13 +718,44 @@ export async function answerChange(
   version = 1,
   fields: DraftFixture = {},
 ) {
+  const req = await answerChangeDraft(url, method, tournament, version, fields);
+  if (tournament) await flushTournament(tournament);
+  await fixture.whenStable();
+  return req;
+}
+
+/**
+ * Answers a tournament change as `answerChange` does, but fails the
+ * tournament re-read that follows with a server error.
+ */
+export async function answerChangeFailingReread(
+  fixture: AppFixture,
+  url: string,
+  method: string,
+  tournament: ViewerTournamentView,
+  version = 1,
+) {
+  await answerChangeDraft(url, method, tournament, version, {});
+  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(
+    'Server error',
+    serverError,
+  );
+  await fixture.whenStable();
+}
+
+/** Answers a tournament change with the complete draft, and the picks, queue and plan it re-reads, for Alice. */
+async function answerChangeDraft(
+  url: string,
+  method: string,
+  tournament: ViewerTournamentView | null,
+  version: number,
+  fields: DraftFixture,
+) {
   const req = await vi.waitFor(() => http.expectOne(url));
   expect(req.request.method).toBe(method);
   req.flush(draft({ ...withTournament(tournament, fields), version }));
   await flushPicks([]);
   await flushQueueAndPlan();
-  if (tournament) await flushTournament(tournament);
-  await fixture.whenStable();
   return req;
 }
 
