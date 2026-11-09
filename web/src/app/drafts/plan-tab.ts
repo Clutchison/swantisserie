@@ -122,8 +122,10 @@ const PLAN_BOARDS: Record<
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
     ) => Stack<PlanBoardCard>[];
-    /** Whether each stack has a heading naming it, and in the strip the stack headers too. The sideboard's one stack is named by the plan board's heading. */
+    /** Whether each stack has a heading naming it. The sideboard's one stack is named by the plan board's heading. */
     namesStacks: boolean;
+    /** What a stack's stack header shows for the stack named `name`. */
+    stackLabel: (name: string) => string;
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -133,6 +135,7 @@ const PLAN_BOARDS: Record<
     cards: (plan) => plan.mainboard,
     stack: stacks,
     namesStacks: true,
+    stackLabel: (name) => name,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
@@ -142,6 +145,8 @@ const PLAN_BOARDS: Record<
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
     namesStacks: false,
+    // Short, as the stack headers share one row on a phone.
+    stackLabel: () => 'SB',
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
@@ -306,11 +311,28 @@ export class PlanTab {
   private readonly strip = computed(() =>
     this.showingStrip() ? this.planBoardsRow().nativeElement : undefined,
   );
-  /** The names of the mainboard's stacks in view in the strip: their stack headers are current. */
-  protected readonly stacksInView = stacksInView(
-    this.strip,
-    computed(() => this.mainboard().stacks),
+  /**
+   * The stack headers, one per stack in the strip, the mainboard's then the
+   * sideboard's: each stack's name, the label it shows, its card count, what a
+   * screen reader names it, starting with the name, as `Lands, 17 cards`, and
+   * whether it heads the sideboard's stack.
+   */
+  protected readonly stackHeaders = computed(() =>
+    this.planBoards()
+      // An empty plan board shows as the list, with no stack to head.
+      .filter((planBoard) => planBoard.count > 0)
+      .flatMap(({ name: planBoard, stackLabel, stacks }) =>
+        stacks.map(({ name, cards }) => ({
+          name,
+          label: stackLabel(name),
+          count: cards.length,
+          accessibleName: `${name}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
+          sideboard: planBoard === 'Sideboard',
+        })),
+      ),
   );
+  /** The names of the stacks in view in the strip: their stack headers are current. */
+  protected readonly stacksInView = stacksInView(this.strip, this.stackHeaders);
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
@@ -373,7 +395,7 @@ export class PlanTab {
   }
 
   /**
-   * Scrolls the strip to the mainboard's stack named `name`, as its stack
+   * Scrolls the strip to the stack named `name`, as its stack
    * header is tapped. Only the strip, where the browser allows: scrolling the
    * page too would put the stack's top under the stack headers.
    */
@@ -655,7 +677,7 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
 /** The name of the stack drawn as `element`, from its `data-stack`; null for anything else. */
 const stackNameOf = (element: Element) => element.getAttribute('data-stack');
 
-/** The stacks named by `data-stack` drawn in `strip`, if any: the mainboard's. */
+/** The stacks named by `data-stack` drawn in `strip`, if any. */
 const stackElements = (strip: HTMLElement | undefined) => [
   ...(strip?.querySelectorAll('[data-stack]') ?? []),
 ];
@@ -668,7 +690,7 @@ const stackElements = (strip: HTMLElement | undefined) => [
  */
 function stacksInView(
   strip: Signal<HTMLElement | undefined>,
-  drawn: Signal<readonly Stack[]>,
+  drawn: Signal<readonly { name: string }[]>,
 ): Signal<ReadonlySet<string>> {
   const inViewNames = signal<ReadonlySet<string>>(new Set());
   /** The strip being watched, what watches its stacks, and the stacks it watches. */
