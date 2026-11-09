@@ -373,6 +373,19 @@ describe('queueing a plan’s unpicked cards', () => {
       ]);
     });
 
+    it('takes only the player’s own queued cards in a pick import’s departure, not another player’s', async () => {
+      const { id, ids } = await plannedLobby('Fireblast', 'Lava Axe');
+      // Carol never queued Lava Axe, so it must stay after Fireblast.
+      await enqueue(id, ids['Lava Axe'], bobCookie).expect(200);
+      const csv = [
+        ',Cal,Ann,Ben,',
+        '->,Searing Spear,Lava Spike,Burst Lightning,',
+      ].join('\n');
+      await importPicks(id, csv, [carol.id, alice.id, bob.id]).expect(200);
+
+      expect(await queuedUnpicked(id)).toEqual(['Fireblast', 'Lava Axe']);
+    });
+
     it('keeps a reordered queue’s order once the cards leave it', async () => {
       const { id, ids } = await startedDraft(
         'Fireblast',

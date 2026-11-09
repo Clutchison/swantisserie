@@ -110,9 +110,12 @@ export class PickImportService {
       await planPicks(
         tx,
         draftId,
+        // Stryker disable next-line ObjectLiteral: other drafts' picks change nothing in planPicks, as their cards are in no plan and have no copies in this draft's pool; and an empty select returns every scalar field, `MADE_PICK`'s included.
         await tx.pick.findMany({ where: { draftId }, select: MADE_PICK }),
       );
+      // Stryker disable next-line ObjectLiteral: other drafts' queued cards are never used, as each player's departure below takes only their own rows; and an empty select returns every scalar field, the three read included.
       const queued = await tx.queuedCard.findMany({
+        // Stryker disable next-line ObjectLiteral: other drafts' queued cards are never used, as each player's departure below takes only their own rows.
         where: { player: { draftId } },
         select: { playerId: true, poolCardId: true, position: true },
       });
@@ -141,7 +144,14 @@ export class PickImportService {
     const players = await client.player.findMany({
       where: { draftId },
       orderBy: SEAT_ORDER,
-      select: { id: true, userId: true, user: { select: { name: true } } },
+      select: {
+        id: true,
+        userId: true,
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the preview reads only `name`.
+        user: {
+          select: { name: true },
+        },
+      },
     });
     await checkCanStart(client, draft, players.length);
     const pool = await client.poolCard.findMany({

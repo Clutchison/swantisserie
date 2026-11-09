@@ -42,6 +42,18 @@ describe('pick import preview', () => {
     });
   });
 
+  it('pairs the columns with this draft’s players only, beside another draft with players and the same cards', async () => {
+    await readyDraft([await signIn(carol)], 2, cards);
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
+
+    const answer = await previewPickImport(id, csv).expect(200);
+
+    expect(answer.body.seats).toEqual([
+      { column: 'Ann', playerId: alice.id, player: 'Alice' },
+      { column: 'Ben', playerId: bob.id, player: 'Bob' },
+    ]);
+  });
+
   it('changes nothing in the draft', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
     const before = await getDraft(id).expect(200);
