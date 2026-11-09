@@ -316,10 +316,11 @@ export class DraftStore {
   /**
    * Answers once the tournament read for the draft shown has settled,
    * loaded or failed: at once if there is no tournament to read. A change
-   * that shows a new version awaits it, so it settles once the page shows
-   * the tournament it made.
+   * that shows a new draft version awaits it, so it settles once the page
+   * shows the tournament it made. It can't answer for the older version:
+   * showing the new one starts its read at once, before this first looks.
    */
-  tournamentSettled(): Promise<void> {
+  whenTournamentSettled(): Promise<void> {
     return new Promise((resolve) => {
       const watch = effect(
         () => {

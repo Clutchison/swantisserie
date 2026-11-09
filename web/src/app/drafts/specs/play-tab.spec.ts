@@ -14,7 +14,6 @@ import {
   drafting,
   flushPicks,
   flushPool,
-  flushQueueAndPlan,
   heading,
   http,
   openDraft,
@@ -30,6 +29,7 @@ import {
 } from './harness';
 import {
   answerChange,
+  answerChangeFailingReread,
   complete,
   currentSteps,
   dave,
@@ -339,16 +339,7 @@ describe('Play tab', () => {
 
       button(tab, JOIN_PRIVATE)!.focus();
       button(tab, JOIN_PRIVATE)!.click();
-      (await vi.waitFor(() => http.expectOne(ENTRIES_URL))).flush(
-        draft({ ...withTournament(registration(bob.id, alice.id)), version: 1 }),
-      );
-      await flushPicks([]);
-      await flushQueueAndPlan();
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(
-        'Server error',
-        serverError,
-      );
-      await fixture.whenStable();
+      await answerChangeFailingReread(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id));
 
       const join = button(panel(page), JOIN_PRIVATE)!;
       await vi.waitFor(() => expect(join.getAttribute('aria-disabled')).toBeNull());
