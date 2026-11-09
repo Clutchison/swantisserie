@@ -2,7 +2,6 @@ import { TestBed } from '@angular/core/testing';
 import type {
   BasicLand,
   BasicLandPrintingsView,
-  BasicLandPrintingView,
   PlanView,
   PreferredPrintingProblem,
 } from 'contract';
@@ -26,6 +25,8 @@ import {
   openTab,
   statusTexts,
   typeInto,
+  serverError,
+  image,
 } from './harness';
 import {
   clickBackdrop,
@@ -41,7 +42,7 @@ import {
   bobsTurn,
   bolt,
   apiImage,
-  cdnImage,
+  printing,
   defaultPrintings,
   openPlan,
   planned,
@@ -57,17 +58,6 @@ describe('the Printing picker', () => {
   /** The API request the picker sends for the stored printings of Island. */
   const islandRequest = printingsRequest('Island');
   const KHM_394 = 'a0000000-0000-4000-8000-000000000394';
-  /** An English Island printing as the API shows it. */
-  const printing = (id: string, set: string, number: string): BasicLandPrintingView => ({
-    scryfallId: id,
-    set,
-    collectorNumber: number,
-    images: {
-      small: cdnImage('small', id),
-      normal: cdnImage('normal', id),
-      large: cdnImage('large', id),
-    },
-  });
   /** Kaldheim's three, Core Set 2021's one, Dragons of Tarkir's one and Onslaught's two, as the API groups them. */
   const islands: BasicLandPrintingsView = {
     sets: [
@@ -206,7 +196,7 @@ describe('the Printing picker', () => {
       TestBed.tick();
       await vi.waitFor(() => expect(openDialog()).not.toBeNull());
       expect(shownPrinting()).toBe(`${land}, ${label}`);
-      expect(shownImage()).toBe(cdnImage('large', id));
+      expect(shownImage()).toBe(image('large', id));
 
       (await vi.waitFor(() => http.expectOne(printingsRequest(land)))).flush(null, {
         status: 503,
@@ -232,7 +222,7 @@ describe('the Printing picker', () => {
     pressEscape();
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(text(dialog)).toContain('ONS #335');
-    expect(shownImage()).toBe(cdnImage('large', defaultPrintings.Island.id));
+    expect(shownImage()).toBe(image('large', defaultPrintings.Island.id));
 
     button(dialog, 'Next printing')!.click();
     await fixture.whenStable();
@@ -431,8 +421,8 @@ describe('the Printing picker', () => {
     await chooseSet(fixture, 'Kaldheim · KHM');
     // Browsing changes only the picker.
     expect(islandImages(plan)).toEqual([
-      cdnImage('normal', defaultPrintings.Island.id),
-      cdnImage('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
     ]);
 
     button(dialog, 'Use this printing')!.click();
@@ -443,14 +433,14 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
-    expect(islandImages(plan)).toEqual([cdnImage('normal', KHM_394), cdnImage('normal', KHM_394)]);
+    expect(islandImages(plan)).toEqual([image('normal', KHM_394), image('normal', KHM_394)]);
   });
 
   it('opens on the preferred printing, and Use default clears it so the land shows its default printing', async () => {
     const { fixture, plan } = await openWith(
       withIslands({ preferredPrintings: { Island: khm394 } }),
     );
-    expect(islandImages(plan)).toEqual([cdnImage('normal', KHM_394), cdnImage('normal', KHM_394)]);
+    expect(islandImages(plan)).toEqual([image('normal', KHM_394), image('normal', KHM_394)]);
     const dialog = await openPicker(fixture, plan);
     expect(setField()!.value).toBe('Kaldheim · KHM');
     expect(shownPrinting()).toBe('Island, KHM #394');
@@ -463,8 +453,8 @@ describe('the Printing picker', () => {
 
     expect(openDialog()).toBeNull();
     expect(islandImages(plan)).toEqual([
-      cdnImage('normal', defaultPrintings.Island.id),
-      cdnImage('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
     ]);
   });
 
@@ -489,8 +479,8 @@ describe('the Printing picker', () => {
 
     expect(openDialog()).toBeNull();
     expect(islandImages(plan)).toEqual([
-      cdnImage('normal', defaultPrintings.Island.id),
-      cdnImage('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
     ]);
   });
 
@@ -558,8 +548,8 @@ describe('the Printing picker', () => {
     expect(text(alertIn(dialog))).toBe('That isn’t an English printing of Island.');
     expect(shownPrinting()).toBe('Island, KHM #394');
     expect(islandImages(plan)).toEqual([
-      cdnImage('normal', defaultPrintings.Island.id),
-      cdnImage('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
+      image('normal', defaultPrintings.Island.id),
     ]);
   });
 
@@ -573,9 +563,7 @@ describe('the Printing picker', () => {
     TestBed.tick();
     expect(button(dialog, 'Use this printing')!.disabled).toBe(true);
     expect(button(dialog, 'Use default')!.disabled).toBe(true);
-    http
-      .expectOne(`/api/preferred-printings/Island`)
-      .flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne(`/api/preferred-printings/Island`).flush(null, serverError);
     await vi.waitFor(() =>
       expect(text(alertIn(dialog))).toBe('Couldn’t save your printing. Try again in a moment.'),
     );

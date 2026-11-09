@@ -25,6 +25,7 @@ import {
   queued,
   openQueue,
   statusTexts,
+  serverError,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
@@ -104,9 +105,7 @@ describe('pool tab', () => {
 
       const detail = await openDetail(fixture, page, 0);
       button(detail, 'Remove from queue')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/shivan-card')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(null, serverError);
       // The queue is re-read, as it may have moved on.
       await flushQueue(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
@@ -124,9 +123,7 @@ describe('pool tab', () => {
       button(detail, 'Add to queue')!.click();
       TestBed.tick();
       expect(button(detail, 'Add to queue')!.disabled).toBe(true);
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/drafts/draft-1/queue').flush(null, serverError);
       await flushQueue(EMPTY_QUEUE);
       await fixture.whenStable();
 
@@ -190,10 +187,10 @@ describe('pool tab', () => {
       http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
       await flushPool([shivan]);
       await flushPicks([]);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
+        null,
+        serverError,
+      );
       await flushPlan(EMPTY_PLAN);
       await fixture.whenStable();
 

@@ -29,6 +29,7 @@ import {
   tabLabels,
   updates,
   useDraftsApp,
+  serverError,
 } from './harness';
 import {
   carol,
@@ -291,10 +292,10 @@ describe('lists tab', () => {
         );
       await flushPool([bolt, shock, spike]);
       await flushPicks([]);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(
+        null,
+        serverError,
+      );
       await fixture.whenStable();
 
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);

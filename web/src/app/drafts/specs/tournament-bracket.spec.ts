@@ -11,12 +11,10 @@ import {
 } from './harness';
 import {
   answerChange,
-  bobUser,
   bracket,
   bracketMatches,
   carol,
   carolBeatBob,
-  carolUser,
   dave,
   drawnPlaces,
   drawnSides,
@@ -157,7 +155,7 @@ describe('the bracket of a single elimination tournament', () => {
   });
 
   it('names no winner of a report the other player hasn’t confirmed, nor a next match for its reporter', async () => {
-    const { tab } = await openPlaying(carolReported, { user: carolUser });
+    const { tab } = await openPlaying(carolReported, { user: signedIn(carol) });
 
     expect(bracketMatches(tab, 1)).toContain('Bob (seed 2) 1–2 Carol (seed 3)');
     expect(bracketMatches(tab, 2)).toEqual([
@@ -179,7 +177,7 @@ describe('the bracket of a single elimination tournament', () => {
   });
 
   it('tells a player who they face next', async () => {
-    const { tab } = await openPlaying(final, { user: carolUser });
+    const { tab } = await openPlaying(final, { user: signedIn(carol) });
 
     expect(text(bracket(tab))).toContain(
       'Your next match, in the final, is against Alice (seed 1).',
@@ -191,7 +189,7 @@ describe('the bracket of a single elimination tournament', () => {
   });
 
   it('names no next match for a player who is out', async () => {
-    const { tab } = await openPlaying(final, { user: bobUser });
+    const { tab } = await openPlaying(final, { user: signedIn(bob) });
 
     expect(text(bracket(tab))).not.toContain(YOUR_NEXT_MATCH);
     expect(ownPath(tab)).toEqual(['Bob (seed 2) 1–2 Carol (seed 3) · Carol won']);

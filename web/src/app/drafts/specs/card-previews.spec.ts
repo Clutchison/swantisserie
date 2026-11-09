@@ -1,6 +1,4 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
 import { TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
 import type { PreferredPrintings, QueueView } from 'contract';
 import {
   useDraftsApp,
@@ -34,7 +32,7 @@ import {
   cardName,
   cardNames,
   namedList,
-  accessibleName,
+  startDrag,
   button,
 } from './harness';
 import { openDialog } from '../../specs-harness';
@@ -97,7 +95,7 @@ describe('card previews', () => {
       .map((symbol) => (symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent));
 
   /** Starts dragging a queue row by its `handle`, with the mouse. */
-  function startDrag(handle: HTMLElement) {
+  function pressHandle(handle: HTMLElement) {
     handle.dispatchEvent(pointer('pointerdown', 'mouse'));
     handle.dispatchEvent(
       new MouseEvent('mousedown', {
@@ -538,12 +536,7 @@ describe('card previews', () => {
       expect(previewImage()).not.toBeNull();
 
       name.dispatchEvent(pointer('pointerdown', 'mouse'));
-      fixture.debugElement
-        .query(By.css('app-plan-tab'))
-        .queryAll(By.directive(CdkDrag))
-        .find((drag) => accessibleName(drag.nativeElement).includes('Lightning Bolt'))!
-        .triggerEventHandler('cdkDragStarted', {});
-      TestBed.tick();
+      startDrag(fixture, name);
 
       expect(previewImage()).toBeNull();
     });
@@ -741,7 +734,7 @@ describe('card previews', () => {
     it('opens again once a drag is cancelled', async () => {
       const { page } = await openQueue();
       const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
-      startDrag(panel(page).querySelector<HTMLElement>('.handle')!);
+      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
 
       document.dispatchEvent(pointer('pointercancel', 'mouse'));
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
@@ -757,7 +750,7 @@ describe('card previews', () => {
       tap(name);
       expect(previewImage()).not.toBeNull();
 
-      startDrag(panel(page).querySelector<HTMLElement>('.handle')!);
+      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
       expect(document.querySelector('.cdk-drag-preview')).not.toBeNull();
       expect(previewImage()).toBeNull();
 

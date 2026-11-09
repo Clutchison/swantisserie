@@ -14,6 +14,7 @@ import {
   pickOf,
   accessibleName,
   controlByLabel,
+  serverError,
 } from './harness';
 import { useTallScreen, card, shivan, brightclimb, tiles } from './pool-tab-harness';
 
@@ -187,10 +188,7 @@ describe('pool tab', () => {
     it('says nothing of matches when the pool’s cards can’t be loaded', async () => {
       const { fixture, page } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(null, serverError);
       await fixture.whenStable();
 
       expect(page.textContent).not.toContain('No cards match');

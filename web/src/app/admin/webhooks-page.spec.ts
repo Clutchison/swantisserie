@@ -1,6 +1,15 @@
 import type { WebhookWithUrlView, WebhookRegistryProblem } from 'contract';
-import { alice, answer, carol, http, openApp, question, router, useApp } from '../specs-harness';
-import { alertIn } from '../drafts/specs/harness';
+import {
+  alertIn,
+  alice,
+  answer,
+  carol,
+  http,
+  openApp,
+  question,
+  router,
+  useApp,
+} from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
 
 const main: WebhookWithUrlView = {

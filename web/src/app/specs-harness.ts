@@ -29,6 +29,12 @@ export const carol: UserView = {
   isAppAdmin: true,
 };
 
+/** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
+export const serverError = { status: 500, statusText: 'Server Error' };
+
+/** The first alert inside `root`: an error shown to the viewer, if any. */
+export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
+
 export let http: HttpTestingController;
 export let router: Router;
 
@@ -115,8 +121,9 @@ export function pressPrevented(
   return event.defaultPrevented;
 }
 
-/** Presses Escape where focus is, as the keyboard would. */
-export const pressEscape = () => pressKey(document.activeElement as HTMLElement, 'Escape');
+/** Presses Escape where focus is, or on the page when nothing has it, as the keyboard would. */
+export const pressEscape = () =>
+  pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
 
 /** The controls Tab stops on, in page order: jsdom doesn't move focus on Tab itself. */
 const tabStops = () =>

@@ -17,6 +17,8 @@ import {
   type AppFixture,
   drafting,
   router,
+  serverError,
+  image,
 } from './harness';
 import {
   clickBackdrop,
@@ -32,7 +34,6 @@ import {
   bobsTurn,
   bolt,
   apiImage,
-  cdnImage,
   defaultPrintings,
   openPlan,
   planBoards,
@@ -45,7 +46,7 @@ useTallScreen();
 
 describe('basic lands on the plan tab', () => {
   /** The API request that sets how many Islands the plan holds. */
-  const setIsland = '/api/drafts/draft-1/plan/basics/Island';
+  const setIslandUrl = '/api/drafts/draft-1/plan/basics/Island';
   const cards = [shivan, bolt];
   /** Lightning Bolt and Shivan Dragon picked on the mainboard, and `basics`. */
   const boltAndShivanWith = (
@@ -109,8 +110,8 @@ describe('basic lands on the plan tab', () => {
         const { id } = defaultPrintings[land];
         return [
           land,
-          cdnImage('normal', id),
-          `${cdnImage('small', id)} 160w, ${cdnImage('normal', id)} 488w`,
+          image('normal', id),
+          `${image('small', id)} 160w, ${image('normal', id)} 488w`,
         ];
       }),
     );
@@ -142,7 +143,7 @@ describe('basic lands on the plan tab', () => {
     });
 
     typeCount('Island', '8');
-    const typed = http.expectOne(setIsland);
+    const typed = http.expectOne(setIslandUrl);
     expect(typed.request.body).toEqual({ count: 8 });
     typed.flush(
       boltAndShivanWith([
@@ -166,7 +167,7 @@ describe('basic lands on the plan tab', () => {
     await vi.waitFor(() => expect(countOf('Plains').value).toBe('0'));
 
     typeCount('Island', '0');
-    http.expectOne(setIsland).flush(boltAndShivanWith([]));
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith([]));
     await vi.waitFor(() =>
       expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']),
     );
@@ -200,7 +201,7 @@ describe('basic lands on the plan tab', () => {
 
     typeCount('Island', '8');
     http
-      .expectOne(setIsland)
+      .expectOne(setIslandUrl)
       .flush(
         { error: 'draft-not-open', message: 'This draft isn’t open.' },
         { status: 409, statusText: 'Conflict' },
@@ -227,7 +228,7 @@ describe('basic lands on the plan tab', () => {
     typeCount('Island', '8');
 
     await vi.waitFor(() => expect(countOf('Island').value).toBe('0'));
-    http.expectNone(setIsland);
+    http.expectNone(setIslandUrl);
     http
       .expectOne('/api/drafts/draft-1/plan/basics/Plains')
       .flush(boltAndShivanWith([{ land: 'Plains', count: 1 }]));
@@ -476,12 +477,12 @@ describe('basic lands on the plan tab', () => {
     await fixture.whenStable();
     expect(more.getAttribute('aria-disabled')).toBe('true');
     expect(document.activeElement).toBe(more);
-    http.expectOne(setIsland).flush(boltAndShivanWith([{ land: 'Island', count: 1 }]));
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith([{ land: 'Island', count: 1 }]));
     await vi.waitFor(() => expect(more.getAttribute('aria-disabled')).toBeNull());
     expect(document.activeElement).toBe(more);
 
     more.click();
-    const second = http.expectOne(setIsland);
+    const second = http.expectOne(setIslandUrl);
     expect(second.request.body).toEqual({ count: 2 });
     second.flush(boltAndShivanWith([{ land: 'Island', count: 2 }]));
     await vi.waitFor(() => expect(countOf('Island').value).toBe('2'));
@@ -498,7 +499,7 @@ describe('basic lands on the plan tab', () => {
 
     inDialog('One fewer Island')!.focus();
     inDialog('One fewer Island')!.click();
-    http.expectOne(setIsland).flush(boltAndShivanWith());
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith());
 
     await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
   });
@@ -513,7 +514,7 @@ describe('basic lands on the plan tab', () => {
 
     inDialog('One more Island')!.focus();
     inDialog('One more Island')!.click();
-    http.expectOne(setIsland).flush(boltAndShivanWith([{ land: 'Island', count: 99 }]));
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith([{ land: 'Island', count: 99 }]));
 
     await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One fewer Island')));
   });
@@ -531,12 +532,12 @@ describe('basic lands on the plan tab', () => {
     // The number is disabled while its change is sent.
     await fixture.whenStable();
     expect(countOf('Island').disabled).toBe(true);
-    http.expectOne(setIsland).flush(boltAndShivanWith([{ land: 'Island', count: 8 }]));
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith([{ land: 'Island', count: 8 }]));
     await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One fewer Island')));
 
     countOf('Island').focus();
     typeCount('Island', '2');
-    http.expectOne(setIsland).flush(boltAndShivanWith([{ land: 'Island', count: 2 }]));
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith([{ land: 'Island', count: 2 }]));
     await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
   });
 
@@ -568,14 +569,14 @@ describe('basic lands on the plan tab', () => {
     const dialog = await openBasics(fixture, plan);
 
     inDialog('One more Island')!.click();
-    http.expectOne(setIsland).flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne(setIslandUrl).flush(null, serverError);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(boltAndShivanWith());
     await vi.waitFor(() =>
       expect(text(alertIn(dialog))).toBe("Couldn't change your plan. Try again in a moment."),
     );
 
     inDialog('One more Island')!.click();
-    http.expectOne(setIsland).flush(boltAndShivanWith([{ land: 'Island', count: 1 }]));
+    http.expectOne(setIslandUrl).flush(boltAndShivanWith([{ land: 'Island', count: 1 }]));
     await vi.waitFor(() => expect(countOf('Island').value).toBe('1'));
     expect(alertIn(dialog)).toBeNull();
   });

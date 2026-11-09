@@ -35,6 +35,8 @@ import {
   wait,
   landedUrls,
   midNavigation,
+  serverError,
+  RETRY_FAILED,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -192,22 +194,21 @@ describe('draft page', () => {
       {},
       { powers: ORGANIZE_ONLY },
     );
-    const retryFailed = "Couldn't restart the snapshot. Try again in a moment.";
-    expect(page.textContent).not.toContain(retryFailed);
+    expect(page.textContent).not.toContain(RETRY_FAILED);
 
     button(page, 'Retry')!.click();
     await fixture.whenStable();
     expect(button(page, 'Retrying…')!.disabled).toBe(true);
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(null, {
-      status: 500,
-      statusText: 'Internal Server Error',
-    });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(
+      null,
+      serverError,
+    );
     await vi.waitFor(() => expect(button(page, 'Retry')!.disabled).toBe(false));
-    expect(page.textContent).toContain(retryFailed);
+    expect(page.textContent).toContain(RETRY_FAILED);
 
     button(page, 'Retry')!.click();
     await fixture.whenStable();
-    expect(page.textContent).not.toContain(retryFailed);
+    expect(page.textContent).not.toContain(RETRY_FAILED);
     http
       .expectOne('/api/drafts/draft-1/snapshot')
       .flush(draft({ snapshot: { state: 'Running', cards: 0, total: null } }));

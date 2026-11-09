@@ -2,7 +2,6 @@ import { answer, question } from '../../specs-harness';
 import { ORGANIZE_ONLY, alice, bob, button, http, panel, useDraftsApp } from './harness';
 import {
   answerChange,
-  bobUser,
   carol,
   dave,
   failChange,
@@ -17,6 +16,7 @@ import {
   withDrops,
   yourMatches,
   completed,
+  signedIn,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -85,7 +85,7 @@ describe('drops on the Play tab', () => {
   });
 
   it('offers Drop to a player who plays on after a player who joined before them dropped', async () => {
-    const { tab } = await openPlaying(withDrops([alice.id]), { user: bobUser });
+    const { tab } = await openPlaying(withDrops([alice.id]), { user: signedIn(bob) });
 
     expect(button(tab, 'Drop from tournament')).toBeDefined();
   });

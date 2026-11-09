@@ -19,12 +19,12 @@ import {
   statusMessage,
   ORGANIZE_ONLY,
   powersAnswer,
+  RETRY_FAILED,
 } from './harness';
 
 useDraftsApp();
 
 const PLAYERS_FAILED = "Couldn't update the players.";
-const RETRY_FAILED = "Couldn't restart the snapshot.";
 
 describe('lobby', () => {
   it('lists the players with their avatars', async () => {

@@ -24,6 +24,7 @@ import {
   shownSideways,
   heading,
   startDrag,
+  serverError,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import {
@@ -144,10 +145,7 @@ describe('plan tab', () => {
       });
       await flushPicks([]);
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queueOf());
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(null, {
-        status: 500,
-        statusText: 'Server Error',
-      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(null, serverError);
 
       await useOnsPrinting('Swamp');
 
@@ -458,9 +456,7 @@ describe('plan tab', () => {
       const detail = await open('Shivan Dragon');
 
       button(detail, 'Remove from Plan')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/plan/shivan-card')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(null, serverError);
       // The plan is re-read, as it may have moved on.
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
         planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),

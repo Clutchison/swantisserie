@@ -30,6 +30,7 @@ import {
   accessibleName,
   type AppFixture,
   alertIn,
+  serverError,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
@@ -56,7 +57,7 @@ describe('queue tab', () => {
    * at `currentIndex` in the queue as it is then. Like CDK, the drop says the
    * card's index from when the drag started.
    */
-  const startDrag = (fixture: AppFixture, name: string) => {
+  const dragToIndex = (fixture: AppFixture, name: string) => {
     const list = fixture.debugElement
       .query(By.css('app-queue-tab'))
       .query(By.directive(CdkDropList));
@@ -109,10 +110,7 @@ describe('queue tab', () => {
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
     await flushPool([]);
     await flushPicks([]);
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(null, {
-      status: 500,
-      statusText: 'Server Error',
-    });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(null, serverError);
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
 
@@ -354,7 +352,7 @@ describe('queue tab', () => {
     });
     const queue = await openQueue(fixture, page);
 
-    const drop = startDrag(fixture, 'Shivan Dragon');
+    const drop = dragToIndex(fixture, 'Shivan Dragon');
     await reread(fixture, queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
     drop(1);
     await fixture.whenStable();
@@ -374,7 +372,7 @@ describe('queue tab', () => {
     });
     const queue = await openQueue(fixture, page);
 
-    const drop = startDrag(fixture, 'Lightning Bolt');
+    const drop = dragToIndex(fixture, 'Lightning Bolt');
     await reread(fixture, queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
     drop(1);
     await fixture.whenStable();
@@ -485,9 +483,7 @@ describe('queue tab', () => {
 
       button(queue, shivanUp)!.focus();
       button(queue, shivanUp)!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/drafts/draft-1/queue').flush(null, serverError);
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
       await fixture.whenStable();
 
@@ -512,9 +508,7 @@ describe('queue tab', () => {
       await vi.waitFor(() =>
         expect(document.activeElement).toBe(button(queue, 'Move Shivan Dragon down')),
       );
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+      http.expectOne('/api/drafts/draft-1/queue').flush(null, serverError);
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
       await fixture.whenStable();
 
@@ -583,7 +577,7 @@ describe('queue tab', () => {
       const queue = await openQueue(fixture, page);
       expect(document.activeElement).toBe(document.body);
 
-      startDrag(fixture, 'Shivan Dragon')(0);
+      dragToIndex(fixture, 'Shivan Dragon')(0);
       http
         .expectOne('/api/drafts/draft-1/queue')
         .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
