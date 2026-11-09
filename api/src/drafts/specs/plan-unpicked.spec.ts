@@ -93,7 +93,7 @@ describe('unpicked cards in a plan', () => {
     expect(alicesPlan.body.mainboard).toEqual([bolt(first)]);
   });
 
-  it('adds only this draft’s unpicked copies, refusing once the plan holds every copy left', async () => {
+  it('refuses another copy once the plan holds the rest, not counting a copy another player picked', async () => {
     const bobCookie = await signIn(bob);
     const { id, first, second } = await readyDraftWithCopies([
       bobCookie,

@@ -117,7 +117,7 @@ export class PlansService {
       // The pool, as far as this card goes: its unpicked copies, in pool order.
       const unpicked = await tx.poolCard.findMany({
         where: { draftId, oracleId: card.oracleId, pick: null },
-        // Stryker disable next-line ObjectLiteral: it decides only which free copy `add` falls back to, and pool card ids are random UUIDs, so a spec could catch its loss only on some runs; copies differ only in printing. It stays as the only thing that makes the choice repeatable.
+        // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: it decides which available copy `add` falls back to, and pool card ids are random UUIDs, which order differently from run to run, so a spec could catch its loss only some of the time. It stays as the only thing that makes the choice repeatable.
         orderBy: { id: 'asc' },
         select: {
           id: true,
