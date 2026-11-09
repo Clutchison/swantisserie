@@ -592,6 +592,23 @@ describe('plan tab', () => {
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });
 
+    it('waits to move while another of the Plan tab’s changes is on its way, as the tab’s own move buttons do', async () => {
+      const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
+      button(tab, 'Move Lightning Bolt to the sideboard')!.click();
+      await fixture.whenStable();
+      const detail = await open('Shivan Dragon');
+
+      expect(button(detail, 'Move to sideboard')!.disabled).toBe(true);
+
+      http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(
+        planOf({
+          mainboard: [planned(shivan), planned(brightclimb), planned(boltAgain)],
+          sideboard: [planned(bolt)],
+        }),
+      );
+      await vi.waitFor(() => expect(button(detail, 'Move to sideboard')!.disabled).toBe(false));
+    });
+
     it('offers no Move on a locked deck', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, withTournament(playing()), {
         cards,

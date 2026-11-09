@@ -81,7 +81,7 @@
           class="button secondary"
           type="button"
           (click)="sendMove(move, planBoard.other)"
-          [disabled]="planning()"
+          [disabled]="planning() || moveWaits()"
         >
           Move to {{ planBoard.otherName }}
         </button>

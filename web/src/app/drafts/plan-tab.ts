@@ -495,6 +495,7 @@ export class PlanTab {
           ? null
           : (planBoard: PlanBoard) => this.move({ poolCardId, name: card.name }, planBoard),
       ),
+      moveWaits: this.changing,
       returnFocus: (_, opener) =>
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),

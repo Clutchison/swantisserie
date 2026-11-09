@@ -78,6 +78,8 @@ export interface CardDetailOptions {
   removedFromPlan?: () => void;
   /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
   move?: () => MoveToPlanBoard | null;
+  /** Whether Move waits for another of the host's changes on its way: see `CardDetail.moveWaits`. */
+  moveWaits?: () => boolean;
   /** Whether it closes once its card has been picked, as it does unless told otherwise. */
   closesOnPick?: boolean;
 }
@@ -131,6 +133,7 @@ function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
       inputBinding('tilePlaceholder', () => options.tilePlaceholder),
       inputBinding('closesOnPick', () => options.closesOnPick ?? true),
       inputBinding('move', options.move ?? (() => null)),
+      inputBinding('moveWaits', options.moveWaits ?? (() => false)),
       outputBinding('removedFromPlan', () => options.removedFromPlan?.()),
     ],
     returnFocus: (opener, result) => options.returnFocus(result, opener),
@@ -176,6 +179,13 @@ export class CardDetail {
    * the host's other moves' refusals do, not in this Card detail's plan note.
    */
   readonly move = input<MoveToPlanBoard | null>(null);
+  /**
+   * Whether another of its host's changes is on its way, which its host
+   * would drop a move sent meanwhile for: Move is disabled until it settles,
+   * as the host's own move buttons are.
+   */
+  // Stryker disable next-line BooleanLiteral: `openCardDetail` always binds it, as `options.moveWaits ?? (() => false)`.
+  readonly moveWaits = input(false);
   /** Remove from Plan has succeeded. */
   readonly removedFromPlan = output<void>();
 
