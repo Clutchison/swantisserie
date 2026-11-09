@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Logger,
   Param,
   Post,
   Put,
@@ -29,8 +30,10 @@ import {
 import { isBasicLand } from './basic-lands.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
+import { DraftLock } from './draft-lock.js';
+import { DraftPublisher } from './draft-publisher.js';
 import { parseCard } from './parse-card.js';
-import { PlansService } from './plans.service.js';
+import { type PlanChange, PlansService } from './plans.service.js';
 
 /**
  * The signed-in player's plan in a draft. There is no way to see anyone
@@ -40,9 +43,13 @@ import { PlansService } from './plans.service.js';
 @UseGuards(SessionGuard)
 @UseFilters(DraftErrorsFilter)
 export class PlansController {
+  private readonly logger = new Logger(PlansController.name);
+
   constructor(
     private readonly access: DraftAccess,
     private readonly plans: PlansService,
+    private readonly lock: DraftLock,
+    private readonly publisher: DraftPublisher,
   ) {}
 
   @Get()
@@ -50,7 +57,8 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PlanView> {
-    return this.answer(user, id, () => this.plans.plan(id, user.id));
+    await this.access.canSee(user, id);
+    return this.plans.plan(id, user.id);
   }
 
   /** Adds an unpicked copy of a pool card to the mainboard. */
@@ -62,7 +70,7 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const poolCardId = parseCard(body, 'Say which card to add.');
-    return this.answer(user, id, () => this.plans.add(id, user.id, poolCardId));
+    return this.change(user, id, () => this.plans.add(id, user.id, poolCardId));
   }
 
   /** Stops the Plan notice listing the lost cards. */
@@ -71,7 +79,7 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PlanView> {
-    return this.answer(user, id, () => this.plans.dismissNotice(id, user.id));
+    return this.change(user, id, () => this.plans.dismissNotice(id, user.id));
   }
 
   /** Sets how many copies of a basic land the mainboard holds. */
@@ -84,7 +92,7 @@ export class PlansController {
   ): Promise<PlanView> {
     const basic = parseLand(land);
     const count = parseCount(body);
-    return this.answer(user, id, () =>
+    return this.change(user, id, () =>
       this.plans.setBasic(id, user.id, basic, count),
     );
   }
@@ -95,7 +103,7 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<PlanView> {
-    return this.answer(user, id, () => this.plans.clearBasics(id, user.id));
+    return this.change(user, id, () => this.plans.clearBasics(id, user.id));
   }
 
   /** Takes an unpicked card out of the plan. Declared after `notice` and `basics`, which it would match. */
@@ -105,7 +113,7 @@ export class PlansController {
     @Param('id') id: string,
     @Param('poolCardId') poolCardId: string,
   ): Promise<PlanView> {
-    return this.answer(user, id, () =>
+    return this.change(user, id, () =>
       this.plans.remove(id, user.id, poolCardId),
     );
   }
@@ -119,19 +127,38 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const board = parseBoard(body);
-    return this.answer(user, id, () =>
+    return this.change(user, id, () =>
       this.plans.move(id, user.id, poolCardId, board),
     );
   }
 
-  /** Answers with the plan as `request` leaves it, or why it can’t. */
-  private async answer(
+  /**
+   * Answers with the plan as `request` leaves it, or why it can’t. A
+   * change that cleared the player's ready changed the draft for everyone,
+   * so its version is bumped and it is published, after the change has
+   * committed: the change holds the draft row's share lock, which it can't
+   * upgrade to bump the version without risking a deadlock against another
+   * player's plan write. In the window between that commit and the bump,
+   * a viewer reading the tournament already sees the clear; only the push
+   * waits. A failed bump or publish is logged, not answered: the change is
+   * committed, and the next bump brings viewers up to date.
+   */
+  private async change(
     user: SessionUser,
     id: string,
-    request: () => Promise<PlanView>,
+    request: () => Promise<PlanChange>,
   ): Promise<PlanView> {
     await this.access.canSee(user, id);
-    return request();
+    const { plan, readyCleared } = await request();
+    if (readyCleared) {
+      try {
+        await this.lock.bumpVersion(id);
+        await this.publisher.publish(id, []);
+      } catch (err) {
+        this.logger.error(`Couldn’t publish a ready cleared in ${id}`, err);
+      }
+    }
+    return plan;
   }
 }
 

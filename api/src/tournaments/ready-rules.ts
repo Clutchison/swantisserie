@@ -4,8 +4,13 @@ import {
   type TournamentState,
   type ViewerTournamentView,
 } from 'contract';
+import type { Transaction } from '../drafts/draft-shapes.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { MAINBOARD_COUNT, mainboard } from './mainboard-rules.js';
+import {
+  MAINBOARD_COUNT,
+  type MainboardCounted,
+  mainboard,
+} from './mainboard-rules.js';
 
 /**
  * What marking ready reads of one of the draft's players: whether they are
@@ -32,14 +37,65 @@ export function readyRefusal(player: ReadyingPlayer): TournamentRefusal | null {
   if (player.user.isBot) {
     return { error: 'bots-never-ready', message: 'Bots are never ready.' };
   }
-  const cards = mainboard(player);
-  if (cards < MIN_MAINBOARD_CARDS) {
+  if (deckTooSmallForReady(player)) {
+    const cards = mainboard(player);
     return {
       error: 'deck-too-small-for-ready',
       message: `Your mainboard holds ${cards} ${cards === 1 ? 'card' : 'cards'}. Fill your deck to at least ${MIN_MAINBOARD_CARDS} before marking yourself ready.`,
     };
   }
   return null;
+}
+
+/**
+ * Whether the player's mainboard holds fewer than the MIN_MAINBOARD_CARDS
+ * Start asks for, so they may not be ready: marking ready is refused, and
+ * a deck change that leaves them so clears their ready.
+ */
+export function deckTooSmallForReady(player: MainboardCounted): boolean {
+  return mainboard(player) < MIN_MAINBOARD_CARDS;
+}
+
+/**
+ * After a change to the player `playerId`'s deck, clears their ready if
+ * they are ready in a tournament in registration and `deckTooSmallForReady`
+ * now holds, so ready never claims a deck Start would refuse. Runs in the
+ * deck change's transaction, which must hold the player's row; marking
+ * ready takes the draft's row lock, so it can't land between this check
+ * and the change's commit. Answers whether it cleared ready: the one place
+ * an automatic clear happens.
+ */
+export async function clearReadyIfDeckTooSmall(
+  tx: Transaction,
+  playerId: string,
+): Promise<boolean> {
+  const player = await tx.player.findUnique({
+    where: { id: playerId },
+    select: {
+      tournamentEntry: {
+        select: {
+          id: true,
+          ready: true,
+          tournament: { select: { state: true } },
+        },
+      },
+      ...MAINBOARD_COUNT,
+    },
+  });
+  const entry = player?.tournamentEntry;
+  if (
+    !player ||
+    !entry?.ready ||
+    entry.tournament.state !== 'Registration' ||
+    !deckTooSmallForReady(player)
+  ) {
+    return false;
+  }
+  await tx.tournamentEntry.update({
+    where: { id: entry.id },
+    data: { ready: false },
+  });
+  return true;
 }
 
 /**

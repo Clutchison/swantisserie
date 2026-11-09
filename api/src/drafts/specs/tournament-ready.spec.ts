@@ -1,12 +1,19 @@
-import type { ViewerTournamentView } from 'contract';
+import type {
+  DraftSocketEvents,
+  DraftView,
+  ViewerTournamentView,
+} from 'contract';
+import { io, type Socket } from 'socket.io-client';
 import {
   alice,
   aliceCookie,
+  app,
   announcementsSettled,
   bob,
   cancelTournament,
   carol,
   changeWebhook,
+  clearBasics,
   completeDraft,
   completeDraftWithBots,
   fullDeck,
@@ -14,6 +21,8 @@ import {
   inRegistration,
   joinTournament,
   markReady,
+  movePlanned,
+  poolCardIds,
   registerWebhook,
   removeEntry,
   setBasic,
@@ -248,5 +257,121 @@ describe('what the tournament read tells of ready', () => {
     await setUpTournament(id).expect(201);
 
     expect((await viewOf(id)).readyCount).toEqual({ ready: 0, of: 2 });
+  });
+});
+
+describe('ready clearing when the mainboard drops below 40 cards', () => {
+  /** A tournament in registration with Bob ready, his mainboard exactly 40 cards: Lightning Bolt and 39 Mountains. */
+  async function bobReady() {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    await markReady(id, bobCookie).expect(200);
+    return id;
+  }
+
+  /** The draft's version as Alice reads it. */
+  async function version(id: string) {
+    return (await getDraft(id).expect(200)).body.version as number;
+  }
+
+  it('clears ready when a card moves from the mainboard to the sideboard, bumping the version so others see it', async () => {
+    const id = await bobReady();
+    const bolt = (await poolCardIds(id))['Lightning Bolt'];
+    const before = await version(id);
+
+    await movePlanned(id, bolt, 'Sideboard', bobCookie).expect(200);
+
+    expect(await version(id)).toBe(before + 1);
+    const view = await viewOf(id, aliceCookie);
+    expect(view.entries.find((entry) => entry.playerId === bob.id)?.ready).toBe(
+      false,
+    );
+    expect(view.readyCount).toEqual({ ready: 0, of: 2 });
+  });
+
+  describe('pushed to another viewer', () => {
+    const sockets: Socket<DraftSocketEvents>[] = [];
+
+    beforeEach(async () => {
+      await app.listen(0);
+    });
+
+    afterEach(() => {
+      for (const socket of sockets.splice(0)) socket.disconnect();
+    });
+
+    /** The drafts pushed to Alice, viewing draft `id`, from once she is connected. */
+    async function watchAsAlice(id: string) {
+      const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
+        path: '/api/socket.io',
+        transports: ['websocket'],
+        auth: { draftId: id },
+        extraHeaders: { Cookie: aliceCookie },
+        reconnection: false,
+      });
+      sockets.push(socket);
+      const pushed: DraftView[] = [];
+      socket.on('changed', (draft) => pushed.push(draft));
+      await new Promise<void>((resolve, reject) => {
+        socket.on('connect', resolve);
+        socket.on('connect_error', reject);
+      });
+      return pushed;
+    }
+
+    it('pushes the draft, its version bumped, to another viewer when ready clears', async () => {
+      const id = await bobReady();
+      const pushed = await watchAsAlice(id);
+      const before = await version(id);
+
+      await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+      await vi.waitFor(() =>
+        expect(pushed.map((draft) => draft.version)).toEqual([before + 1]),
+      );
+    });
+  });
+
+  it('clears ready when a basic land count takes the mainboard below 40, and when basics are cleared', async () => {
+    const id = await bobReady();
+
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    expect((await readyByPlayer(id))[bob.id]).toBe(false);
+
+    await fullDeck(id, bobCookie);
+    await markReady(id, bobCookie).expect(200);
+    await clearBasics(id, bobCookie).expect(200);
+    expect((await readyByPlayer(id))[bob.id]).toBe(false);
+  });
+
+  it('leaves ready, and the draft’s version, alone when the mainboard stays at 40 or more', async () => {
+    const id = await bobReady();
+    await setBasic(id, 'Island', 2, bobCookie).expect(200);
+    const before = await version(id);
+
+    await setBasic(id, 'Mountain', 37, bobCookie).expect(200);
+    await setBasic(id, 'Island', 3, bobCookie).expect(200);
+
+    expect((await readyByPlayer(id))[bob.id]).toBe(true);
+    expect(await version(id)).toBe(before);
+  });
+
+  it('leaves the draft’s version alone when a player who isn’t ready shrinks their mainboard', async () => {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    const before = await version(id);
+
+    await clearBasics(id, bobCookie).expect(200);
+
+    expect(await version(id)).toBe(before);
+  });
+
+  it('lets the player mark themselves ready again once their mainboard is back to 40', async () => {
+    const id = await bobReady();
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    expect(await refusedMark(id, bobCookie)).toBe('deck-too-small-for-ready');
+
+    await fullDeck(id, bobCookie);
+
+    await markReady(id, bobCookie).expect(200);
+    expect((await readyByPlayer(id))[bob.id]).toBe(true);
   });
 });
