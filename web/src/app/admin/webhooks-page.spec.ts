@@ -188,7 +188,7 @@ describe('webhooks page', () => {
     const { page } = await openPage([main, side]);
 
     for (const li of [mainRow(page), row(page, '#roto-side')]) {
-      expect(buttonOrder(li, 'Rename')).toEqual(['Remove', 'Rename', 'Replace URL']);
+      expect(buttonOrder(li, 'Rename')).toEqual(['Remove', 'Rename']);
     }
   });
 
