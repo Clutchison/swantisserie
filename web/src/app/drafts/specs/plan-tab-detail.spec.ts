@@ -28,6 +28,7 @@ import {
   serverError,
   alertIn,
   accessibleName,
+  group,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { playing, withTournament } from './play-tab-harness';
@@ -301,6 +302,30 @@ describe('plan tab', () => {
 
       expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
       expect(openDialog()).toBe(detail);
+      expect(button(detail, 'Move to mainboard')).toBeDefined();
+    });
+
+    it('moves a card in the strip from its Card detail on a phone, which stays open', async () => {
+      viewOn('mobile');
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      tap(detailOpener(group(plan, 'Mainboard stacks')!, 'Shivan Dragon')!);
+      await fixture.whenStable();
+      const detail = openDialog()!;
+
+      button(detail, 'Move to sideboard')!.click();
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expect(req.request.body).toEqual({ board: 'Sideboard' });
+      req.flush(planOf({ mainboard: [unpicked(bolt)], sideboard: [planned(shivan)] }));
+      await fixture.whenStable();
+
+      expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
+      expect(openDialog()).toBe(detail);
+      expect(button(detail, 'Move to sideboard')).toBeUndefined();
       expect(button(detail, 'Move to mainboard')).toBeDefined();
     });
 
