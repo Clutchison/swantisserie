@@ -587,8 +587,9 @@ export class DraftStore {
   /**
    * Sends a change to the signed-in player's plan, as `changeQueue` does the
    * queue. Once it goes through while their deck locks at Start, the
-   * tournament is read again: a deck change bumps no draft version, yet the
-   * read says whether they may mark themselves ready, which their deck decides.
+   * tournament is read again: the read says whether they may mark themselves
+   * ready, which their deck decides, yet a deck change bumps the draft
+   * version only when it clears their ready.
    */
   async changePlan(request: Observable<PlanView>): Promise<PlanView> {
     const plan = await this.changeOwn(this.planResource, request);

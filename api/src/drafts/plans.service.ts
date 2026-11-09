@@ -12,7 +12,11 @@ import {
 import { availableCopies } from 'engine';
 import type { DraftState, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { clearReadyIfDeckTooSmall } from '../tournaments/ready-rules.js';
+import {
+  clearReadyIfDeckTooSmall,
+  dismissReadyNotice,
+  readyNoticeShows,
+} from '../tournaments/ready-rules.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
@@ -243,12 +247,7 @@ export class PlansService {
     return this.change(
       draftId,
       userId,
-      async (tx, playerId) => {
-        await tx.tournamentEntry.updateMany({
-          where: { playerId },
-          data: { readyNotice: false },
-        });
-      },
+      (tx, playerId) => dismissReadyNotice(tx, playerId),
       { deckWrite: false },
     );
   }
@@ -308,10 +307,6 @@ export class PlansService {
         },
       },
     });
-    const entry = await tx.tournamentEntry.findUnique({
-      where: { playerId },
-      select: { readyNotice: true },
-    });
     return {
       ...(await readPlanBoards(tx, playerId)),
       lost: lost.map((card) => ({
@@ -319,7 +314,7 @@ export class PlansService {
         name: card.poolCard.name,
         pickedBy: card.pick.player.userId,
       })),
-      readyNotice: entry?.readyNotice ?? false,
+      readyNotice: await readyNoticeShows(tx, playerId),
       preferredPrintings: await playersPreferredPrintings(tx, playerId),
     };
   }
