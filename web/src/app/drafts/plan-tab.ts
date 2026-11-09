@@ -1,17 +1,14 @@
 import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
-  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
-  DestroyRef,
   effect,
   ElementRef,
   inject,
   Injector,
   inputBinding,
-  type Signal,
   signal,
   untracked,
   viewChild,
@@ -51,6 +48,7 @@ import {
   unpickedToQueue,
 } from './queue-unpicked-dialog';
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
+import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /** What a failed change says, naming the plan as `planName`. */
@@ -173,8 +171,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * can be dragged onto the other plan board; narrower, the plan boards are
  * one strip that scrolls sideways, the mainboard's stacks then the
  * sideboard's, and a card moves from its Card detail. Above the strip, the
- * stack headers stick to the top of the screen, mark the stack the player has scrolled to and
- * jump to a stack. The list is dragged from on desktop only.
+ * stack headers stick to the top of the screen, mark the stack the player
+ * has scrolled to and jump to a stack. The list is dragged from on desktop
+ * only.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -337,6 +336,10 @@ export class PlanTab {
   private readonly stripLocation = stripLocation(this.strip, this.stackHeaders);
   /** The name of the stack whose stack header is current: one, whenever the strip shows. */
   protected readonly currentStack = this.stripLocation.current;
+  /** Whether a tapped stack header is held current, its underline drawn on it rather than sliding with the strip. */
+  protected readonly tapHeld = this.stripLocation.held;
+  /** How many stacks' widths the strip scrolls, for the underline to follow its scroll. */
+  protected readonly stripRange = this.stripLocation.range;
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
@@ -408,9 +411,7 @@ export class PlanTab {
    */
   protected scrollToStack(name: string) {
     this.stripLocation.goTo(name);
-    stackElements(this.strip())
-      .find((element) => stackNameOf(element) === name)
-      ?.scrollIntoView(TO_STACK);
+    stackElement(this.strip(), name)?.scrollIntoView(TO_STACK);
   }
 
   /** Keeps the chosen mode and grouping for next time, if the browser allows. */
@@ -680,129 +681,4 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
     picked: true,
     basic: land,
   }));
-}
-
-/** The name of the stack drawn as `element`, from its `data-stack`; null for anything else. */
-const stackNameOf = (element: Element) => element.getAttribute('data-stack');
-
-/** The stacks named by `data-stack` drawn in `strip`, if any. */
-const stackElements = (strip: HTMLElement | undefined) => [
-  ...(strip?.querySelectorAll('[data-stack]') ?? []),
-];
-
-/** How much of a stack's width shows for it to be mostly in view. */
-const MOSTLY_IN_VIEW = 0.5;
-/** How much of a stack's width shows for it to be wholly in view, less a little for rounding. */
-const WHOLLY_IN_VIEW = 0.99;
-
-/**
- * Where the player is in `strip`, the stacks' row that scrolls sideways: the
- * name of one of the stacks drawn in it, `drawn`, whose stack header is
- * current. That's the leftmost stack mostly in view, or the last stack once
- * the strip is scrolled to its end, so every stack can be current; the strip
- * is at its end once its last stack wholly shows and its first doesn't. It
- * follows the strip's scroll and the stacks drawn. With no
- * `IntersectionObserver`, as in some test environments, the first stack is
- * current, as where the strip starts. Each stack is named by its element's
- * `data-stack`.
- *
- * `goTo` makes a stack current as its stack header is tapped, until the
- * player scrolls the strip themselves: the strip may scroll past others on
- * the way, or stop short of it at its end. `restart` says the strip is back
- * at its first stack.
- */
-function stripLocation(
-  strip: Signal<HTMLElement | undefined>,
-  drawn: Signal<readonly { name: string }[]>,
-) {
-  /** How much of each stack shows, by name, as last told; a stack not told of shows none. */
-  const shares = signal<ReadonlyMap<string, number>>(new Map());
-  /** The stack whose stack header was tapped, until the player scrolls the strip. */
-  const tapped = signal<string | undefined>(undefined);
-  /** The strip being watched, what watches its stacks, and the stacks it watches. */
-  let watched:
-    | {
-        strip: HTMLElement;
-        observer: IntersectionObserver;
-        stackElements: Set<Element>;
-        stopListening: () => void;
-      }
-    | undefined;
-
-  const recordIntersections = (entries: IntersectionObserverEntry[]) =>
-    shares.update((previous) => {
-      const next = new Map(previous);
-      for (const { target, intersectionRatio } of entries) {
-        const name = stackNameOf(target);
-        if (name !== null) next.set(name, intersectionRatio);
-      }
-      return next;
-    });
-
-  /** The player's own scroll of the strip, by touch, wheel, pointer or key, ends a tap's hold. */
-  const scrollStarts = ['touchstart', 'pointerdown', 'wheel', 'keydown'] as const;
-  const letGo = () => tapped.set(undefined);
-
-  afterRenderEffect(() => {
-    const currentStrip = strip();
-    if (currentStrip !== watched?.strip) {
-      watched?.observer.disconnect();
-      watched?.stopListening();
-      watched = undefined;
-      shares.set(new Map());
-      tapped.set(undefined);
-      if (!currentStrip || typeof IntersectionObserver === 'undefined') return;
-      for (const start of scrollStarts) {
-        currentStrip.addEventListener(start, letGo, { passive: true });
-      }
-      // Told as a stack crosses half in view, and wholly in view.
-      watched = {
-        strip: currentStrip,
-        observer: new IntersectionObserver(recordIntersections, {
-          root: currentStrip,
-          threshold: [MOSTLY_IN_VIEW, WHOLLY_IN_VIEW],
-        }),
-        stackElements: new Set(),
-        stopListening: () => {
-          for (const start of scrollStarts) currentStrip.removeEventListener(start, letGo);
-        },
-      };
-    }
-    if (!watched) return;
-    drawn();
-    const current = stackElements(watched.strip);
-    for (const element of watched.stackElements) {
-      if (current.includes(element)) continue;
-      watched.observer.unobserve(element);
-      watched.stackElements.delete(element);
-    }
-    for (const element of current) {
-      watched.observer.observe(element);
-      watched.stackElements.add(element);
-    }
-  });
-  inject(DestroyRef).onDestroy(() => {
-    watched?.observer.disconnect();
-    watched?.stopListening();
-  });
-
-  const current = computed(() => {
-    const names = drawn().map(({ name }) => name);
-    const chosen = tapped();
-    if (chosen !== undefined && names.includes(chosen)) return chosen;
-    const share = (name: string | undefined) => (name && shares().get(name)) || 0;
-    const [first] = names;
-    const last = names.at(-1);
-    if (share(last) >= WHOLLY_IN_VIEW && share(first) < WHOLLY_IN_VIEW) return last;
-    return names.find((name) => share(name) >= MOSTLY_IN_VIEW) ?? first;
-  });
-
-  return {
-    current,
-    goTo: (name: string) => tapped.set(name),
-    restart: () => {
-      shares.set(new Map());
-      tapped.set(undefined);
-    },
-  };
 }

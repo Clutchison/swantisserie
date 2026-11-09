@@ -125,15 +125,17 @@
   class="plan-boards-area"
   [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
+  [style.--strip-range]="stripRange()"
 >
   <!--
     In the strip, only a few stacks show at once: the stack headers keep the
-    mainboard's whole curve in view, then the sideboard's stack, sticking to the
-    top of the screen while the strip does, and jump to a stack. One is current:
-    where the player is in the strip. Outside the strip, so they don't scroll sideways with it.
+    mainboard's whole curve in view, then the sideboard's stack, sticking to
+    the top of the screen while the strip does, and jump to a stack. One is
+    current: where the player is in the strip. Outside the strip, so they
+    don't scroll sideways with it.
   -->
   @if (showingStrip()) {
-    <nav class="stack-headers" aria-label="Stack headers">
+    <nav class="stack-headers" aria-label="Stack headers" [class.tap-held]="tapHeld()">
       <div class="stack-header-scroller">
         <div class="stack-header-group">
           @for (header of stackHeaders(); track header.name) {

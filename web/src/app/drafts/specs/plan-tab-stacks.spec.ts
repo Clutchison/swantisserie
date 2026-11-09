@@ -593,7 +593,7 @@ describe('plan tab', () => {
         ]);
       });
 
-      it('mark the tapped stack header current, through the strip’s scroll to its stack, until the player scrolls the strip', async () => {
+      it('mark the tapped stack header current, through the strip’s scroll to its stack, until the player next scrolls the strip', async () => {
         const scrolling = stubScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
@@ -612,8 +612,9 @@ describe('plan tab', () => {
           'Lands, 1 card',
           'Sideboard, 1 card',
         ]);
+        const strip = group(plan, 'Plan stacks')!;
         // On the way, with 1 still mostly in view.
-        scrolling.showStacks({ '1': 0.6, '6': 1, Lands: 0.9 });
+        scrolling.scroll(strip, { '1': 0.6, '6': 1, Lands: 0.9 }, { ends: false });
         expect(stackHeaders(plan)).toEqual([
           '1, 1 card',
           '6, 1 card (current)',
@@ -623,7 +624,7 @@ describe('plan tab', () => {
 
         // The strip stops at its end, short of putting Lands at its start.
         stackHeader(plan, 'Lands, 1 card')!.click();
-        scrolling.showStacks({ '6': 0.5, Lands: 1, Sideboard: 1 });
+        scrolling.scroll(strip, { '6': 0.5, Lands: 1, Sideboard: 1 });
         expect(stackHeaders(plan)).toEqual([
           '1, 1 card',
           '6, 1 card',
@@ -631,7 +632,13 @@ describe('plan tab', () => {
           'Sideboard, 1 card',
         ]);
 
-        scrolling.swipe(group(plan, 'Plan stacks')!, { '1': 1, '6': 1, Lands: 0.5 });
+        // A tap on the strip that doesn't scroll it, as on a card, keeps it.
+        strip.dispatchEvent(pointer('pointerdown', 'touch'));
+        TestBed.tick();
+        expect(stackHeaders(plan)).toContain('Lands, 1 card (current)');
+
+        // The player's own scroll, after the tap's, lets it go.
+        scrolling.scroll(strip, { '1': 1, '6': 1, Lands: 0.5 });
         expect(stackHeaders(plan)).toEqual([
           '1, 1 card (current)',
           '6, 1 card',

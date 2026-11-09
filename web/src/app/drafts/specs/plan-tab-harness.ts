@@ -11,7 +11,6 @@ import {
   image,
   namedList,
   openTab,
-  pointer,
   tabButton,
   text,
   type AppFixture,
@@ -140,8 +139,9 @@ export function stubScrolling() {
       unobserve(element: Element) {
         this.observer.watched.delete(element);
       }
+      /** Stops watching every element, as a browser does; the observer can watch again. */
       disconnect() {
-        observers.delete(this.observer);
+        this.observer.watched.clear();
       }
     },
   );
@@ -177,10 +177,15 @@ export function stubScrolling() {
       }
       TestBed.tick();
     },
-    /** The player swipes `strip` themselves, a touch on it, until it shows as `showStacks` has it. */
-    swipe(strip: HTMLElement, inView: Record<string, number>) {
-      strip.dispatchEvent(pointer('pointerdown', 'touch'));
+    /**
+     * Scrolls `strip` until it shows as `showStacks` has it, telling it of
+     * the scroll as a browser does, and of the scroll's end unless `ends` is
+     * false, as midway through it.
+     */
+    scroll(strip: HTMLElement, inView: Record<string, number>, { ends = true } = {}) {
+      strip.dispatchEvent(new Event('scroll'));
       this.showStacks(inView);
+      if (ends) strip.dispatchEvent(new Event('scrollend'));
     },
   };
 }
