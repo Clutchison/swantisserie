@@ -7,9 +7,10 @@ $dimmed-card: brightness(0.35);
 $stack-step: max(16%, 24px);
 /* The width of each button on a list line. */
 $line-action-width: 2.5rem;
-/* How far the current stack header's underline sits in from its sides, and up from its bottom. */
+/* How far the current stack header's underline sits in from its sides, and up from its bottom, and how thick it is. */
 $underline-inset: 3px;
 $underline-lift: 2px;
+$underline-thickness: 3px;
 
 /*
  * The current stack header's underline: an accent line, a shape as well as a color. Absolutely
@@ -19,7 +20,7 @@ $underline-lift: 2px;
   content: '';
   position: absolute;
   inset-block-end: $from-bottom;
-  block-size: 3px;
+  block-size: $underline-thickness;
   border-radius: 2px;
   background: var(--color-accent);
 }
@@ -317,9 +318,11 @@ ul {
        */
       .stack-header-group {
         --set-apart-gap: var(--space-md);
-        /* How many stack headers share the row, and the gap's column before a set-apart one. */
-        --header-count: var(--mainboard-stacks);
+        /* How many stack headers are set apart (none, or the sideboard's), and the gap's column before one. */
+        --set-apart-count: 0;
         --set-apart-column: 0px;
+        /* How many stack headers share the row. */
+        --header-count: calc(var(--mainboard-stacks) + var(--set-apart-count));
 
         display: grid;
         grid-auto-columns: 1fr;
@@ -328,7 +331,7 @@ ul {
         min-width: 100%;
 
         &:has(.set-apart) {
-          --header-count: calc(var(--mainboard-stacks) + 1);
+          --set-apart-count: 1;
           --set-apart-column: var(--set-apart-gap);
 
           grid-template-columns: repeat(var(--mainboard-stacks), 1fr) var(--set-apart-column) 1fr;
@@ -341,8 +344,11 @@ ul {
         align-items: center;
         justify-content: center;
         block-size: var(--stack-header-height);
-        /* Narrow enough that card type's nine type letters and SB fit a 343px row (a 375px phone) unscrolled. */
-        padding: 0 var(--space-xs);
+        /*
+         * Narrow enough that every grouping's stack headers fit a 343px row (a 375px phone)
+         * unscrolled. The label and count centre in the room above the current one's underline.
+         */
+        padding: 0 var(--space-xs) #{$underline-lift + $underline-thickness};
         border: 1px solid var(--color-divider);
         border-inline-start: 0;
         border-radius: 0;
@@ -379,24 +385,36 @@ ul {
         border-end-end-radius: 0.5rem;
       }
 
+      /* Its line no taller than its digits need, leaving room under a type letter. */
       .count {
         color: var(--color-muted);
         font-size: var(--font-size-xs);
+        line-height: 1;
       }
 
       /*
-       * A mana symbol, and any "+" after it, in place of a stack's name: about a cap height
-       * taller than the text, and narrower than "Lands", so it never widens the row's columns.
+       * A mana symbol in place of a stack's name: about a cap height taller than the text, and
+       * narrower than a type letter, so it never widens the row's columns. Sized here alone: its
+       * box doesn't wait on the image, so it can't shift the row as it loads.
        */
       .stack-name:has(img) {
-        display: flex;
-        align-items: center;
+        position: relative;
       }
 
       .stack-name img {
         display: block;
         inline-size: 1.125rem;
         block-size: 1.125rem;
+      }
+
+      /* Any text after the symbol, 7+'s "+": small, tucked against its top right corner, so it doesn't widen the label. */
+      .symbol-after {
+        position: absolute;
+        inset-block-start: -0.125rem;
+        inset-inline-start: calc(100% - 0.125rem);
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        line-height: 1;
       }
 
       /*
@@ -415,7 +433,6 @@ ul {
        * last column, past the gap's, with a stronger divider in the gap.
        */
       .set-apart {
-        position: relative;
         grid-column: -2;
 
         &::before {
@@ -485,6 +502,7 @@ ul {
                   max(var(--strip-range, 0) - var(--ramp-start), 0.001)
               );
 
+              /* 1px higher than a button's own: the row's bottom is the buttons' outer edge, past their bottom border. */
               @include current-underline($underline-lift + 1px);
 
               inset-inline-start: calc(

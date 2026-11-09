@@ -94,34 +94,30 @@ export const stacksOf = (plan: HTMLElement) =>
  * location in the strip. Null with no stack headers.
  */
 export function stackHeaders(plan: HTMLElement) {
-  const row = stackHeadersNavigation(plan);
-  return (
-    row &&
-    [...row.querySelectorAll('button')].map(
-      (header) =>
-        accessibleName(header) +
-        (header.getAttribute('aria-current') === 'location' ? ' (current)' : ''),
-    )
-  );
+  return stackHeadersNavigation(plan)
+    ? stackHeaderButtons(plan).map(
+        (header) =>
+          accessibleName(header) +
+          (header.getAttribute('aria-current') === 'location' ? ' (current)' : ''),
+      )
+    : null;
 }
 
 /** The stack header inside `plan` named `name`, as `Lands, 1 card`. */
 export const stackHeader = (plan: HTMLElement, name: string) =>
-  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].find(
-    (header) => accessibleName(header) === name,
-  );
+  stackHeaderButtons(plan).find((header) => accessibleName(header) === name);
 
 /**
- * What each stack header shows: its images by alt text, `''` for a decorative
- * one, as a symbol is, a type letter (hidden from a screen reader) counting as
- * a decorative image, and the runs of text a screen reader finds, as its label
- * then its count, e.g. `{ images: [''], text: ['+', '1'] }` for a 7+ symbol.
+ * What each stack header shows: its images by alt text, `''` for a
+ * decorative one, as a symbol is; how many other parts it hides from a screen
+ * reader, as a type letter; and the runs of text a screen reader finds, as its
+ * label then its count, e.g. `{ images: [''], hiddenParts: 0, text: ['+', '1'] }`
+ * for a 7+ symbol.
  */
 export const stackHeaderContents = (plan: HTMLElement) =>
-  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].map((header) => ({
-    images: [...header.querySelectorAll('img, [aria-hidden="true"]')].map((image) =>
-      image instanceof HTMLImageElement ? image.alt : '',
-    ),
+  stackHeaderButtons(plan).map((header) => ({
+    images: [...header.querySelectorAll('img')].map((image) => image.alt),
+    hiddenParts: header.querySelectorAll('[aria-hidden="true"]').length,
     text: textRuns(header),
   }));
 
@@ -138,6 +134,11 @@ function textRuns(element: Element) {
   }
   return runs.map(collapseWhitespace).filter((run) => run !== '');
 }
+
+/** The stack headers inside `plan`, in order: none without the navigation. */
+const stackHeaderButtons = (plan: HTMLElement) => [
+  ...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? []),
+];
 
 /** The navigation named Stack headers inside `plan`, if any. */
 const stackHeadersNavigation = (plan: HTMLElement) =>

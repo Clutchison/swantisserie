@@ -18,6 +18,8 @@ export type Grouping = 'manaValue' | 'color' | 'type';
  */
 export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   name: string;
+  /** Its name in full, as a screen reader says it: a color's, as Red for R; else its name. */
+  fullName: string;
   /** What its stack header shows for it. */
   label: StackLabel;
   /** Sorted by mana value, then name; on the sideboard, with its lands last. */
@@ -35,6 +37,8 @@ interface CardFacts {
 /** Where a stack is, in a grouping's order, and which cards it holds. The first stack to hold a card gets it. */
 interface StackRule {
   name: string;
+  /** Its name in full, where its name is short for it, as R is for Red. */
+  fullName?: string;
   /** What the stack's stack header shows for it. */
   label: StackLabel;
   holds: (card: CardFacts) => boolean;
@@ -61,8 +65,17 @@ const BY_MANA_VALUE: StackRule[] = [
 ];
 
 const BY_COLOR: StackRule[] = [
-  ...['W', 'U', 'B', 'R', 'G'].map((color) => ({
+  ...(
+    [
+      ['W', 'White'],
+      ['U', 'Blue'],
+      ['B', 'Black'],
+      ['R', 'Red'],
+      ['G', 'Green'],
+    ] as const
+  ).map(([color, fullName]) => ({
     name: color,
+    fullName,
     label: manaSymbolLabel(`{${color}}`),
     holds: (card: CardFacts) =>
       !isLand(card) && card.colors.length === 1 && card.colors[0] === color,
@@ -123,6 +136,7 @@ export function stacks<Card extends PlannedCardView>(
   const sorted = sortedByManaValue(cards, facts);
   const stacked = RULES[grouping].map((rule) => ({
     name: rule.name,
+    fullName: rule.fullName ?? rule.name,
     label: rule.label,
     cards: [] as Card[],
   }));
@@ -146,7 +160,9 @@ export function sideboardStack<Card extends PlannedCardView>(
   const lands = cards.filter((card) => isLand(facts(card)));
   return {
     name: 'Sideboard',
-    label: textLabel('Sideboard'),
+    fullName: 'Sideboard',
+    // Short, as the stack headers share one row on a phone.
+    label: textLabel('SB'),
     cards: [
       ...sortedByManaValue(
         cards.filter((card) => !isLand(facts(card))),

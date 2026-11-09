@@ -544,14 +544,18 @@ describe('plan tab', () => {
 
         const sideboardHeader = stackHeader(plan, 'Sideboard, 2 cards')!;
         // Its label, SB, then its count, 2.
-        expect(stackHeaderContents(plan).at(-1)).toEqual({ images: [], text: ['SB', '2'] });
+        expect(stackHeaderContents(plan).at(-1)).toEqual({
+          images: [],
+          hiddenParts: 0,
+          text: ['SB', '2'],
+        });
         sideboardHeader.click();
         expect(scrolling.scrolled()).toEqual([
           { stack: 'Sideboard', options: expect.objectContaining({ inline: 'start' }) },
         ]);
       });
 
-      it('label mana value and color stacks with mana symbols, and Lands with Land’s type letter, keeping their names', async () => {
+      it('label mana value and color stacks with mana symbols, and Lands with Land’s type letter, keeping their names, a color’s in full', async () => {
         const dragonlord = card({
           id: 'dragonlord-card',
           name: 'Dragonlord Silumgar',
@@ -584,27 +588,27 @@ describe('plan tab', () => {
           '7+, 1 card',
           'Lands, 1 card',
         ]);
-        // Each shows one decorative symbol, Lands its type letter, then its count; 7+ adds a "+" to its symbol.
+        // Each shows one decorative symbol, Lands its hidden type letter, then its count; 7+ adds a "+" to its symbol.
         expect(stackHeaderContents(plan)).toEqual([
-          { images: [''], text: ['2'] },
-          { images: [''], text: ['2'] },
-          { images: [''], text: ['+', '1'] },
-          { images: [''], text: ['1'] },
+          { images: [''], hiddenParts: 0, text: ['2'] },
+          { images: [''], hiddenParts: 0, text: ['2'] },
+          { images: [''], hiddenParts: 0, text: ['+', '1'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
         ]);
 
         button(plan, 'Color')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual([
-          'R, 3 cards (current)',
+          'Red, 3 cards (current)',
           'Multicolor, 1 card',
           'Colorless, 1 card',
           'Lands, 1 card',
         ]);
         expect(stackHeaderContents(plan)).toEqual([
-          { images: [''], text: ['3'] },
-          { images: [''], text: ['1'] },
-          { images: [''], text: ['1'] },
-          { images: [''], text: ['1'] },
+          { images: [''], hiddenParts: 0, text: ['3'] },
+          { images: [''], hiddenParts: 0, text: ['1'] },
+          { images: [''], hiddenParts: 0, text: ['1'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
         ]);
       });
 
@@ -623,9 +627,9 @@ describe('plan tab', () => {
         ]);
         // Each shows its decorative type letter, then its count.
         expect(stackHeaderContents(plan)).toEqual([
-          { images: [''], text: ['1'] },
-          { images: [''], text: ['2'] },
-          { images: [''], text: ['1'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
+          { images: [], hiddenParts: 1, text: ['2'] },
+          { images: [], hiddenParts: 1, text: ['1'] },
         ]);
       });
 
@@ -786,15 +790,15 @@ describe('plan tab', () => {
         // The strip starts again at its first stack.
         button(plan, 'Color')!.click();
         await fixture.whenStable();
-        expect(stackHeaders(plan)).toEqual(['R, 3 cards (current)', 'Lands, 1 card']);
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards (current)', 'Lands, 1 card']);
         scrolling.showStacks({ R: 0.3, Lands: 1 });
-        expect(stackHeaders(plan)).toEqual(['R, 3 cards', 'Lands, 1 card (current)']);
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards', 'Lands, 1 card (current)']);
 
         resizeTo('tablet');
         resizeTo('mobile');
-        expect(stackHeaders(plan)).toEqual(['R, 3 cards (current)', 'Lands, 1 card']);
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards (current)', 'Lands, 1 card']);
         scrolling.showStacks({ R: 0.3, Lands: 1 });
-        expect(stackHeaders(plan)).toEqual(['R, 3 cards', 'Lands, 1 card (current)']);
+        expect(stackHeaders(plan)).toEqual(['Red, 3 cards', 'Lands, 1 card (current)']);
       });
 
       it('show only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
