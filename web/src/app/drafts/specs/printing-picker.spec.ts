@@ -208,7 +208,7 @@ describe('the Printing picker', () => {
     },
   );
 
-  it('offers Cancel, Use default, then Use this printing, opening with focus on Cancel', async () => {
+  it('offers Cancel, Use default, then Use this printing', async () => {
     const { fixture, plan } = await openWith();
 
     const dialog = await openPicker(fixture, plan);
@@ -218,6 +218,13 @@ describe('the Printing picker', () => {
       'Use default',
       'Use this printing',
     ]);
+  });
+
+  it('opens with focus on Cancel', async () => {
+    const { fixture, plan } = await openWith();
+
+    const dialog = await openPicker(fixture, plan);
+
     await vi.waitFor(() => expect(document.activeElement).toBe(button(dialog, 'Cancel')));
   });
 

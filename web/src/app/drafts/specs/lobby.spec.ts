@@ -78,7 +78,7 @@ describe('lobby', () => {
     expect(button(page, 'Join')).toBeDefined();
   });
 
-  it('orders a joined organizer’s buttons from Leave to Start draft', async () => {
+  it('offers Leave, Cancel draft, Randomize seats, Add bot, Import picks, then Start draft, to a joined organizer', async () => {
     powersAnswer(ALL_POWERS);
     const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
 

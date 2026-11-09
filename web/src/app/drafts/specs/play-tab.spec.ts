@@ -285,7 +285,7 @@ describe('Play tab', () => {
       expect(button(tab, 'Cancel tournament')).toBeUndefined();
     });
 
-    it('shows a joined organizer their own buttons, then the organizer’s, each ending on the one that moves things on', async () => {
+    it('offers Leave, I’m ready, Cancel tournament, then Start tournament, to a joined organizer', async () => {
       const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
         powers: ORGANIZE_ONLY,
       });
@@ -300,22 +300,22 @@ describe('Play tab', () => {
       ]);
     });
 
-    it('shows a joined player who isn’t an organizer Leave, then I’m ready', async () => {
+    it('offers Leave, then I’m ready, to a joined player who isn’t an organizer', async () => {
       const { fixture, page } = await openComplete(registration(bob.id, alice.id));
 
       const tab = await openPlayTab(fixture, page);
 
-      expect(buttonOrder(tab, 'Leave')).toEqual(['Leave', 'I’m ready']);
+      expect(buttonOrder(tab, 'I’m ready')).toEqual(['Leave', 'I’m ready']);
     });
 
-    it('shows an organizer who hasn’t joined Join first', async () => {
+    it('offers Join, Cancel tournament, then Start tournament, to an organizer who hasn’t joined', async () => {
       const { fixture, page } = await openComplete(registration(bob.id), {
         powers: ORGANIZE_ONLY,
       });
 
       const tab = await openPlayTab(fixture, page);
 
-      expect(buttonOrder(tab, JOIN_PRIVATE)).toEqual([
+      expect(buttonOrder(tab, 'Start tournament')).toEqual([
         JOIN_PRIVATE,
         'Cancel tournament',
         'Start tournament',

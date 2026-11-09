@@ -385,7 +385,7 @@ describe('plan tab', () => {
 
       const detail = await open('Brightclimb Pathway // Grimclimb Pathway');
 
-      expect(buttonOrder(detail, 'Close')).toEqual([
+      expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
         'Flip',
         'Remove from Plan',
@@ -400,7 +400,7 @@ describe('plan tab', () => {
 
       const detail = await open('Shivan Dragon');
 
-      expect(buttonOrder(detail, 'Close')).toEqual(['Close', 'Pick']);
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Pick']);
       expect(pickDisabled(detail)).toBe(true);
     });
 
@@ -412,7 +412,7 @@ describe('plan tab', () => {
 
       const detail = await open('Shivan Dragon');
 
-      expect(buttonOrder(detail, 'Close')).toEqual(['Close', 'Remove from Plan', 'Pick']);
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Remove from Plan', 'Pick']);
       expect(pickDisabled(detail)).toBe(false);
     });
 
@@ -429,7 +429,7 @@ describe('plan tab', () => {
       req.flush(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
 
-      expect(buttonOrder(detail, 'Close')).toEqual([
+      expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
         'Remove from Plan',
         'Remove from queue',
@@ -497,7 +497,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(buttonOrder(detail, 'Close')).toEqual(['Close', 'Pick']);
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Pick']);
       expect(pickDisabled(detail)).toBe(true);
       expect(detail.textContent).toContain('Picked by Alice');
     });
@@ -524,7 +524,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(buttonOrder(detail, 'Close')).toEqual(['Close', 'Pick']);
+      expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Pick']);
       expect(pickDisabled(detail)).toBe(true);
       expect(detail.textContent).toContain('Picked by Bob');
       expect(text(tab)).toContain('Lost to other players: Shivan Dragon (picked by Bob).');

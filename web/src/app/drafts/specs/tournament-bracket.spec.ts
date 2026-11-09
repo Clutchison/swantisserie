@@ -30,9 +30,9 @@ import {
   singleEliminationFinal as final,
   standing,
   singleEliminationPlaying,
+  singleEliminationCarolDropped,
   player,
   pushTournament,
-  reported,
   signedIn,
   threePlayers,
   winnerToCome,
@@ -261,28 +261,8 @@ describe('the bracket of a single elimination tournament', () => {
     expect(bracketMatches(tab, 2)).toEqual(['Alice (seed 1) vs Carol (seed 3)']);
   });
 
-  it('puts the organizer’s correction, with its game scores, before Confirm', async () => {
-    // Carol, an organizer who dropped after Bob reported their match, can still confirm it.
-    const bobReported = singleEliminationPlaying({
-      entries: singleEliminationPlaying().entries.map((entry) => ({
-        ...entry,
-        dropped: entry.playerId === carol.id,
-      })),
-      rounds: [
-        {
-          round: 1,
-          correctable: true,
-          matches: [
-            {
-              ...reported(unreportedMatch('m1', bob.id, carol.id), [2, 1], bob.id),
-              bracketPlace: 1,
-            },
-          ],
-          byes: [alice.id],
-        },
-      ],
-    });
-    const { fixture, tab } = await openPlaying(bobReported, {
+  it('offers Correct, the game scores, then Confirm, to a dropped organizer whose match was reported', async () => {
+    const { fixture, tab } = await openPlaying(singleEliminationCarolDropped, {
       user: signedIn(carol),
       powers: ORGANIZE_ONLY,
     });

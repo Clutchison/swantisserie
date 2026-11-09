@@ -89,7 +89,7 @@ describe('create form', () => {
   it('offers Cancel, then Create draft', async () => {
     const { page } = await openForm();
 
-    expect(buttonOrder(page, 'Cancel')).toEqual(['Cancel', 'Create draft']);
+    expect(buttonOrder(page, 'Create draft')).toEqual(['Cancel', 'Create draft']);
   });
 
   it('links the pool query to Scryfall’s search syntax, in a new tab', async () => {

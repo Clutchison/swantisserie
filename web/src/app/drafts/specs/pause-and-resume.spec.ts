@@ -63,19 +63,20 @@ describe('pause and resume', () => {
     expect(button(page, 'Pause draft')).toBeDefined();
   });
 
-  describe('the organizer’s buttons', () => {
-    const cards = [poolCardOf('shock', 'Shock')];
-    const picks = [pickOf({ poolCardId: 'shock-card' })];
-
-    it.each([
-      { state: 'drafting', fixture: aliceUp, last: 'Pause draft' },
-      { state: 'paused', fixture: paused, last: 'Resume draft' },
-    ])('run Close draft, Undo, $last while $state', async ({ fixture, last }) => {
-      const { page } = await openDraft(completeSnapshot, fixture, { cards, picks });
+  it.each([
+    { state: 'drafting', fixture: aliceUp, last: 'Pause draft' },
+    { state: 'paused', fixture: paused, last: 'Resume draft' },
+  ])(
+    'offers Close draft, Undo, then $last, to the organizer while $state',
+    async ({ fixture, last }) => {
+      const { page } = await openDraft(completeSnapshot, fixture, {
+        cards: [poolCardOf('shock', 'Shock')],
+        picks: [pickOf({ poolCardId: 'shock-card' })],
+      });
 
       expect(buttonOrder(page, last)).toEqual(['Close draft', 'Undo pick 1 (Shock)', last]);
-    });
-  });
+    },
+  );
 
   it('says why a pause was refused, and catches up with the draft', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, aliceUp);
