@@ -315,7 +315,11 @@ describe('Play tab', () => {
 
       const tab = await openPlayTab(fixture, page);
 
-      expect(buttonOrder(tab, JOIN_PRIVATE)[0]).toBe(JOIN_PRIVATE);
+      expect(buttonOrder(tab, JOIN_PRIVATE)).toEqual([
+        JOIN_PRIVATE,
+        'Cancel tournament',
+        'Start tournament',
+      ]);
     });
 
     it('sums up a round robin by its format alone, as it has no tournament rounds', async () => {
