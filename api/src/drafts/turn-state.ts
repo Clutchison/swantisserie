@@ -82,7 +82,10 @@ export async function readTurnState(
         orderBy: { position: 'asc' },
         select: { poolCardId: true, position: true },
       },
-      plan: { select: { poolCardId: true } },
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included.
+      plan: {
+        select: { poolCardId: true },
+      },
     },
   });
   const cards = await tx.poolCard.findMany({
@@ -92,7 +95,10 @@ export async function readTurnState(
       id: true,
       oracleId: true,
       name: true,
-      pick: { select: { number: true } },
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `number` included.
+      pick: {
+        select: { number: true },
+      },
     },
   });
   return {
