@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { EMPTY_QUEUE } from '../drafts';
 import { answer, question } from '../../specs-harness';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   ALL_POWERS,
   ORGANIZE_ONLY,
@@ -435,6 +435,7 @@ describe('Play tab', () => {
     describe('the deck reminder', () => {
       const REMINDER =
         'Your deck locks when the tournament starts, until it is complete or cancelled.';
+      const WARNING = 'Your mainboard holds';
       const SHORT =
         'Your mainboard holds 4 cards. A tournament deck needs at least 40: fill your deck before marking yourself ready, or leave the tournament if you won’t play.';
 
@@ -453,7 +454,7 @@ describe('Play tab', () => {
 
       /**
        * Opens the complete draft's Play tab by URL as Alice, joined during
-       * registration, and returns her plan's request, left unanswered.
+       * registration, and returns her deck's request, left unanswered.
        */
       async function openWhilePlanLoads() {
         const opened = await openUrl('/drafts/draft-1?tab=play');
@@ -465,7 +466,7 @@ describe('Play tab', () => {
         await flushQueue(EMPTY_QUEUE);
         await flushTournament(registration(bob.id, alice.id));
         const plan = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
-        // Not whenStable: the page isn't stable while the plan is on its way.
+        // Not whenStable: the page isn't stable while the deck is on its way.
         await vi.waitFor(() => {
           TestBed.tick();
           expect(text(panel(opened.page))).toContain(REMINDER);
@@ -473,9 +474,9 @@ describe('Play tab', () => {
         return { ...opened, plan };
       }
 
-      it('warns only once the player’s plan has loaded, with its real count', async () => {
+      it('warns only once the player’s deck has loaded, with its real count', async () => {
         const { fixture, page, plan } = await openWhilePlanLoads();
-        expect(text(panel(page))).not.toContain('Your mainboard holds');
+        expect(text(panel(page))).not.toContain(WARNING);
 
         // Four picks.
         plan.flush(planOf());
@@ -484,14 +485,14 @@ describe('Play tab', () => {
         await vi.waitFor(() => expect(text(panel(page))).toContain(SHORT));
       });
 
-      it('never claims a count when the player’s plan fails to load', async () => {
+      it('never claims a count when the player’s deck fails to load', async () => {
         const { fixture, page, plan } = await openWhilePlanLoads();
 
         plan.flush(null, serverError);
         await fixture.whenStable();
 
         expect(text(panel(page))).toContain(REMINDER);
-        expect(text(panel(page))).not.toContain('Your mainboard holds');
+        expect(text(panel(page))).not.toContain(WARNING);
       });
 
       it('drops the warning once the player fills their deck', async () => {

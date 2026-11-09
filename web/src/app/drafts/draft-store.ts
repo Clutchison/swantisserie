@@ -417,8 +417,8 @@ export class DraftStore {
   /**
    * Whether the signed-in player's deck locks at Start but its mainboard
    * holds fewer than MIN_MAINBOARD_CARDS, which the api refuses Start for.
-   * False until their plan has loaded, as the empty plan before then is no
-   * count of theirs.
+   * False until their deck (the plan read) has loaded, as the empty plan
+   * before then is no count of theirs.
    */
   readonly deckTooSmall = computed(
     () =>
