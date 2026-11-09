@@ -115,7 +115,7 @@ describe('bots', () => {
       await fixture.whenStable();
 
       await vi.waitFor(() => expect(button(page, 'Add bot')!.disabled).toBe(true));
-      await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Start draft')));
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Import picks')));
     });
 
     it('moves focus to the next bot’s Remove once a bot is removed', async () => {

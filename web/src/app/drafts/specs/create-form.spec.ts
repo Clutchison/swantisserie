@@ -10,6 +10,7 @@ import {
   useDraftsApp,
   alertIn,
   button,
+  buttonOrder,
   controlByLabel,
   draft,
   http,
@@ -83,6 +84,12 @@ describe('create form', () => {
     await vi.waitFor(() => expect(router.url).toBe('/'));
     (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();
+  });
+
+  it('offers Cancel, then Create draft', async () => {
+    const { page } = await openForm();
+
+    expect(buttonOrder(page, 'Create draft')).toEqual(['Cancel', 'Create draft']);
   });
 
   it('links the pool query to Scryfall’s search syntax, in a new tab', async () => {

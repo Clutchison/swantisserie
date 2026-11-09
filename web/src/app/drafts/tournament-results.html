@@ -86,17 +86,6 @@
 
 <ng-template #matchControls let-matchId>
   @if (lineById().get(matchId); as match) {
-    @if (match.confirmAgainst; as opponent) {
-      <button
-        class="button compact"
-        type="button"
-        [attr.aria-label]="'Confirm your match against ' + opponent"
-        (click)="confirmMatch.emit(match.id)"
-        [appSendsChange]="'confirm ' + match.id"
-      >
-        Confirm
-      </button>
-    }
     @if (match.organize; as organize) {
       <button
         class="button compact secondary"
@@ -145,6 +134,17 @@
         (click)="choose.emit(match.id)"
       >
         Report
+      </button>
+    }
+    @if (match.confirmAgainst; as opponent) {
+      <button
+        class="button compact"
+        type="button"
+        [attr.aria-label]="'Confirm your match against ' + opponent"
+        (click)="confirmMatch.emit(match.id)"
+        [appSendsChange]="'confirm ' + match.id"
+      >
+        Confirm
       </button>
     }
   }

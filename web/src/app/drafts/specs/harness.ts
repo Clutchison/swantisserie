@@ -445,6 +445,26 @@ export function accessibleName(element: Element): string {
   return collapseWhitespace(nameOf(element));
 }
 
+/**
+ * The accessible names, in page order, of the buttons and links in the
+ * action row that holds the button or link `label` inside `root`: the
+ * nearest element around it holding other buttons or links too, however
+ * it is wrapped. A link such as a page's Cancel is one of the row's buttons.
+ * The button-order standard makes this order behaviour.
+ */
+export function buttonOrder(root: HTMLElement, label: string): string[] {
+  const controls = 'button, a[href]';
+  const found = [...root.querySelectorAll<HTMLElement>(controls)].find(
+    (control) => accessibleName(control) === label,
+  );
+  if (!found) throw new Error(`buttonOrder: no button or link "${label}" to find the row by`);
+  let row: HTMLElement = found;
+  while (row !== root && row.parentElement && row.querySelectorAll(controls).length < 2) {
+    row = row.parentElement;
+  }
+  return [...row.querySelectorAll(controls)].map(accessibleName);
+}
+
 /** What a screen reader reads as `element`'s description: the text of the elements its aria-describedby names. */
 export const accessibleDescription = (element: Element) =>
   (element.getAttribute('aria-describedby') ?? '')

@@ -15,9 +15,11 @@ import {
   flushPicks,
   completeSnapshot,
   button,
+  buttonOrder,
   playerAvatar,
   statusMessage,
   ORGANIZE_ONLY,
+  ALL_POWERS,
   powersAnswer,
   RETRY_FAILED,
 } from './harness';
@@ -74,6 +76,20 @@ describe('lobby', () => {
 
     expect(section(page, 'Players').textContent).not.toContain('Alice');
     expect(button(page, 'Join')).toBeDefined();
+  });
+
+  it('offers Leave, Cancel draft, Randomize seats, Add bot, Import picks, then Start draft, to a joined organizer', async () => {
+    powersAnswer(ALL_POWERS);
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual([
+      'Leave',
+      'Cancel draft',
+      'Randomize seats',
+      'Add bot',
+      'Import picks',
+      'Start draft',
+    ]);
   });
 
   it('shows the draft as full at the most players a draft can have, offering no Join', async () => {

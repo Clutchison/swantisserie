@@ -18,22 +18,24 @@
       @for (webhook of webhooks.value(); track webhook.id) {
         <li>
           <input #name [value]="webhook.name" [maxLength]="maxNameLength" aria-label="Name" />
-          <button
-            class="button secondary"
-            type="button"
-            [disabled]="saving()"
-            (click)="rename(webhook, name.value)"
-          >
-            Rename
-          </button>
-          <button
-            class="button secondary"
-            type="button"
-            [disabled]="saving()"
-            (click)="remove(webhook)"
-          >
-            Remove
-          </button>
+          <div class="actions">
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="saving()"
+              (click)="remove(webhook)"
+            >
+              Remove
+            </button>
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="saving()"
+              (click)="rename(webhook, name.value)"
+            >
+              Rename
+            </button>
+          </div>
           @if (webhook.gone) {
             <p class="gone">
               <strong>Gone:</strong> Discord no longer accepts posts here, so drafts' announcements
