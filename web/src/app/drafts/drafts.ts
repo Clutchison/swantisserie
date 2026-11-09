@@ -93,5 +93,6 @@ export const EMPTY_PLAN: PlanView = {
   sideboard: [],
   basics: [],
   lost: [],
+  readyNotice: false,
   preferredPrintings: {},
 };

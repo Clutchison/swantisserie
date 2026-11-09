@@ -16,12 +16,14 @@ import {
   clearBasics,
   completeDraft,
   completeDraftWithBots,
+  dismissReadyNotice,
   fullDeck,
   getDraft,
   inRegistration,
   joinTournament,
   markReady,
   movePlanned,
+  plan,
   poolCardIds,
   registerWebhook,
   removeEntry,
@@ -373,5 +375,89 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
 
     await markReady(id, bobCookie).expect(200);
     expect((await readyByPlayer(id))[bob.id]).toBe(true);
+  });
+});
+
+describe('the Ready notice', () => {
+  /** A tournament in registration with Bob ready, his mainboard exactly 40 cards. */
+  async function bobReady() {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    await markReady(id, bobCookie).expect(200);
+    return id;
+  }
+
+  /** Whether the plan `cookie`'s user reads shows their Ready notice. */
+  async function readyNotice(id: string, cookie: string) {
+    return (await plan(id, cookie).expect(200)).body.readyNotice as boolean;
+  }
+
+  it('shows when ready clears automatically, in the answer to the change and on a later read', async () => {
+    const id = await bobReady();
+    expect(await readyNotice(id, bobCookie)).toBe(false);
+
+    const answer = await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+    expect(answer.body.readyNotice).toBe(true);
+    expect(await readyNotice(id, bobCookie)).toBe(true);
+  });
+
+  it('doesn’t show when the player unmarks themselves', async () => {
+    const id = await bobReady();
+
+    await unmarkReady(id, bobCookie).expect(200);
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+    expect(await readyNotice(id, bobCookie)).toBe(false);
+  });
+
+  it('shows only to its owner', async () => {
+    const id = await bobReady();
+    await markReady(id, aliceCookie).expect(200);
+
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+    expect(await readyNotice(id, bobCookie)).toBe(true);
+    expect(await readyNotice(id, aliceCookie)).toBe(false);
+  });
+
+  it('goes when the player dismisses it, without bumping the draft’s version', async () => {
+    const id = await bobReady();
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    const before = (await getDraft(id).expect(200)).body.version as number;
+
+    const answer = await dismissReadyNotice(id, bobCookie).expect(200);
+
+    expect(answer.body.readyNotice).toBe(false);
+    expect(await readyNotice(id, bobCookie)).toBe(false);
+    expect((await getDraft(id).expect(200)).body.version).toBe(before);
+  });
+
+  it('goes when the player marks themselves ready again', async () => {
+    const id = await bobReady();
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await fullDeck(id, bobCookie);
+
+    await markReady(id, bobCookie).expect(200);
+
+    expect(await readyNotice(id, bobCookie)).toBe(false);
+  });
+
+  it('goes when the tournament starts', async () => {
+    const id = await bobReady();
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await fullDeck(id, bobCookie);
+
+    await startTournament(id).expect(200);
+
+    expect(await readyNotice(id, bobCookie)).toBe(false);
+  });
+
+  it('goes when the tournament is cancelled', async () => {
+    const id = await bobReady();
+    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+    await cancelTournament(id).expect(200);
+
+    expect(await readyNotice(id, bobCookie)).toBe(false);
   });
 });

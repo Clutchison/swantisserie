@@ -40,9 +40,16 @@ export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   sideboard: [],
   basics: [],
   lost: [],
+  readyNotice: false,
   preferredPrintings: {},
   ...fields,
 });
+
+/** The Ready notice inside `root`: the status telling the player they are no longer ready; undefined if none shows. */
+export const readyNotice = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
+    text(status).startsWith('You’re no longer ready'),
+  );
 
 /** Opens the Plan tab, called Deck once the draft is complete, and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) =>

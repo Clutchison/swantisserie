@@ -43,6 +43,7 @@ describe('pool tab', () => {
         sideboard: [],
         basics: [],
         lost: [],
+        readyNotice: false,
         preferredPrintings: {},
       });
       await fixture.whenStable();

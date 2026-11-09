@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
+  MIN_MAINBOARD_CARDS,
   type BasicLand,
   type PlanBoard,
   type PlannedBasicView,
@@ -272,6 +273,9 @@ export class PlanTab {
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
 
+  /** The mainboard size below which a deck change clears ready, which the Ready notice names. */
+  protected readonly minimumMainboard = MIN_MAINBOARD_CARDS;
+
   /** A player's name, by their id; "another player" for one no longer in the draft. */
   protected playerName(id: string): string {
     return this.store.player(id).name;
@@ -462,6 +466,11 @@ export class PlanTab {
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.tryChange(() => this.planApi.dismissNotice(this.draftId()));
+  }
+
+  /** Takes down the Ready notice. */
+  protected dismissReadyNotice() {
+    return this.tryChange(() => this.planApi.dismissReadyNotice(this.draftId()));
   }
 
   /**

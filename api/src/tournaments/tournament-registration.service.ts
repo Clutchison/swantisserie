@@ -125,7 +125,8 @@ export class TournamentRegistrationService {
    * isn't, changes nothing. Throws TournamentRefusedError if they haven't
    * joined, or the tournament is past registration; and on marking, if they
    * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS, as
-   * `readyRefusal` decides. Nothing is announced.
+   * `readyRefusal` decides. Marking ready takes down the player's Ready
+   * notice; unmarking never sets it. Nothing is announced.
    */
   async setReady(
     draftId: string,
@@ -143,7 +144,7 @@ export class TournamentRegistrationService {
       if (refusal) throw new TournamentRefusedError(refusal);
       await tx.tournamentEntry.update({
         where: { id: entry.id },
-        data: { ready },
+        data: ready ? { ready, readyNotice: false } : { ready },
       });
     });
   }
@@ -170,8 +171,9 @@ export class TournamentRegistrationService {
   }
 
   /**
-   * Starts the draft's tournament, closing joining and locking every joined
-   * player's deck. Round robin makes the
+   * Starts the draft's tournament, closing joining, locking every joined
+   * player's deck and taking down every Ready notice, as registration has
+   * ended. Round robin makes the
    * match of every pair of its entries, by join order, all open at once and
    * with no byes; Swiss pairs round 1 at random; single
    * elimination seeds its entries at random into the bracket and makes its
@@ -201,6 +203,10 @@ export class TournamentRegistrationService {
         await tx.tournament.update({
           where: { id: tournament.id },
           data: { state: 'Playing', startedAt: new Date() },
+        });
+        await tx.tournamentEntry.updateMany({
+          where: { tournamentId: tournament.id, readyNotice: true },
+          data: { readyNotice: false },
         });
         await snapshotDecklists(tx, tournament.id);
         const steps = ROUND_STEPS[tournament.format];

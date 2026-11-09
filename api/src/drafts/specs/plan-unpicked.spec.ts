@@ -56,6 +56,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // The plan holds that copy already, so the other one is added instead.
@@ -77,6 +78,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     await addToPlan(id, 'no-such-card', carolCookie).expect(404);
@@ -103,6 +105,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [{ poolCardId: first, name: 'Lightning Bolt', picked: true }],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     await undo(id, 1).expect(200);
@@ -111,6 +114,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [{ poolCardId: first, name: 'Lightning Bolt', picked: false }],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // A pick of a card the plan doesn't hold still lands on the mainboard, and undo takes it out.
@@ -121,6 +125,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [{ poolCardId: first, name: 'Lightning Bolt', picked: false }],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -143,6 +148,7 @@ describe('unpicked cards in a plan', () => {
       ],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     };
     expect((await plan(id, carolCookie).expect(200)).body).toEqual(swapped);
@@ -181,6 +187,7 @@ describe('unpicked cards in a plan', () => {
       lost: [
         { poolCardId: second, name: 'Lightning Bolt', pickedBy: alice.id },
       ],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // Carol picks around it; the notice builds up as Alice picks on.
@@ -222,6 +229,7 @@ describe('unpicked cards in a plan', () => {
       ],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -322,6 +330,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: alice.id }],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // Each notice is dismissed on its own.
@@ -375,6 +384,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [{ poolCardId: first, name: 'Lightning Bolt', pickedBy: alice.id }],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -400,6 +410,7 @@ describe('unpicked cards in a plan', () => {
       sideboard: [],
       basics: [],
       lost: [{ poolCardId: ids.Shock, name: 'Shock', pickedBy: alice.id }],
+      readyNotice: false,
       preferredPrintings: {},
     });
     const aPick = await removeFromPlan(

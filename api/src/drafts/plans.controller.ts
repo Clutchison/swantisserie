@@ -82,6 +82,17 @@ export class PlansController {
     return this.change(user, id, () => this.plans.dismissNotice(id, user.id));
   }
 
+  /** Takes down the Ready notice. Declared before `:poolCardId`, which would match it. */
+  @Delete('ready-notice')
+  async dismissReadyNotice(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<PlanView> {
+    return this.change(user, id, () =>
+      this.plans.dismissReadyNotice(id, user.id),
+    );
+  }
+
   /** Sets how many copies of a basic land the mainboard holds. */
   @Put('basics/:land')
   async setBasic(
@@ -106,7 +117,7 @@ export class PlansController {
     return this.change(user, id, () => this.plans.clearBasics(id, user.id));
   }
 
-  /** Takes an unpicked card out of the plan. Declared after `notice` and `basics`, which it would match. */
+  /** Takes an unpicked card out of the plan. Declared after `notice`, `ready-notice` and `basics`, which it would match. */
   @Delete(':poolCardId')
   async remove(
     @CurrentUser() user: SessionUser,

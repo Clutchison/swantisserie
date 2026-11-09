@@ -48,6 +48,11 @@ export class PlanApi {
   dismissNotice(draftId: string): Observable<PlanView> {
     return this.http.delete<PlanView>(`${url(draftId)}/notice`);
   }
+
+  /** Takes down the Ready notice. */
+  dismissReadyNotice(draftId: string): Observable<PlanView> {
+    return this.http.delete<PlanView>(`${url(draftId)}/ready-notice`);
+  }
 }
 
 function url(draftId: string) {
