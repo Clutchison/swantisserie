@@ -192,7 +192,13 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
   providers: [Changes, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './plan-tab.html',
-  styleUrls: ['../page.scss', './drafts.scss', './plan-tab.scss'],
+  styleUrls: [
+    '../page.scss',
+    './drafts.scss',
+    './plan-tab.scss',
+    './plan-stacks-layout.scss',
+    './plan-stacks.scss',
+  ],
 })
 export class PlanTab {
   private readonly planApi = inject(PlanApi);
