@@ -134,9 +134,10 @@ ul {
 /*
  * In stacks mode, the plan boards lay out by the room they have: the wide layout from 760px of
  * width, else the strip. `WIDE_STACKS_QUERY` in drafts.ts is kept in step, for the drag.
- * Every stack, the sideboard's one included, is as wide as the others.
+ * Every stack, the sideboard's one included, is as wide as the others. Each layout's rules
+ * nest in here, so they match its base rules' specificity and, coming later, win.
  */
-.side-by-side {
+.stacks-mode {
   container: plan-boards / inline-size;
   display: flex;
   flex-wrap: wrap;
@@ -154,75 +155,75 @@ ul {
     min-width: 0;
     max-width: none;
   }
-}
 
-/*
- * The wide layout: the mainboard on the left and the sideboard on the right, past a divider.
- * Every stack takes an equal share of the width, between 5.5rem and 10rem; the mainboard's
- * stacks scroll sideways past what fits, and the sideboard stays put.
- * The width they share is the whole less the gaps between the mainboard's stacks, the gap and
- * padding either side of the divider, and the divider's 1px.
- */
-@container plan-boards (width >= 760px) {
-  .plan-board {
-    --stack-width: clamp(
-      5.5rem,
-      (100cqw - (var(--mainboard-stacks) - 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
-        (var(--mainboard-stacks) + 1),
-      10rem
-    );
-  }
+  /*
+   * The wide layout: the mainboard on the left and the sideboard on the right, past a divider.
+   * Every stack takes an equal share of the width, between 5.5rem and 10rem; the mainboard's
+   * stacks scroll sideways past what fits, and the sideboard stays put.
+   * The width they share is the whole less the gaps between the mainboard's stacks, the gap and
+   * padding either side of the divider, and the divider's 1px.
+   */
+  @container plan-boards (width >= 760px) {
+    .plan-board {
+      --stack-width: clamp(
+        5.5rem,
+        (100cqw - (var(--mainboard-stacks) - 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
+          (var(--mainboard-stacks) + 1),
+        10rem
+      );
+    }
 
-  .plan-board:first-child {
-    flex: 1 1 0;
-  }
+    .plan-board:first-child {
+      flex: 1 1 0;
+    }
 
-  /* Stretched to the mainboard's height, so the divider runs the length of both plan boards. Content-box, as everywhere here: its stack takes the width, and the padding and divider sit outside it. */
-  .plan-board:last-child {
-    align-self: stretch;
-    flex: none;
-    width: var(--stack-width);
-    padding-inline-start: var(--space-md);
-    border-inline-start: 1px solid var(--color-divider);
-  }
-}
-
-/*
- * The strip: the mainboard's stacks in one row that scrolls sideways, each wide enough that
- * about two and a half show, between 7rem and 10rem. A swipe settles near a stack's start,
- * and the edges fade on the side with more to scroll, in place of a scrollbar. The sideboard's
- * one stack sits below, on the left.
- */
-@container plan-boards (width < 760px) {
-  .plan-board {
-    --stack-width: clamp(7rem, (100cqw - 2 * var(--space-sm)) / 2.5, 10rem);
-  }
-
-  .stacks {
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
+    /* Stretched to the mainboard's height, so the divider runs the length of both plan boards. Content-box, as everywhere here: its stack takes the width, and the padding and divider sit outside it. */
+    .plan-board:last-child {
+      align-self: stretch;
+      flex: none;
+      width: var(--stack-width);
+      padding-inline-start: var(--space-md);
+      border-inline-start: 1px solid var(--color-divider);
     }
   }
 
-  .stack {
-    scroll-snap-align: start;
-  }
+  /*
+   * The strip: the mainboard's stacks in one row that scrolls sideways, each wide enough that
+   * about two and a half show, between 7rem and 10rem. A swipe settles near a stack's start,
+   * and the edges fade on the side with more to scroll, in place of a scrollbar. The
+   * sideboard's one stack sits below, on the left.
+   */
+  @container plan-boards (width < 760px) {
+    .plan-board {
+      --stack-width: clamp(7rem, (100cqw - 2 * var(--space-sm)) / 2.5, 10rem);
+    }
 
-  /* Driven by the strip's own scroll, so a browser without scroll-driven animations shows no fades. */
-  @supports (animation-timeline: scroll()) {
     .stacks {
-      mask-image: linear-gradient(
-        to right,
-        transparent,
-        #000 var(--fade-start),
-        #000 calc(100% - var(--fade-end)),
-        transparent
-      );
-      animation: strip-fades linear both;
-      animation-timeline: scroll(self inline);
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    .stack {
+      scroll-snap-align: start;
+    }
+
+    /* Driven by the strip's own scroll. A browser without scroll-driven animations shows no fades, only the strip, whose cut-off stack at the edge still says there's more. */
+    @supports (animation-timeline: scroll()) {
+      .stacks {
+        mask-image: linear-gradient(
+          to right,
+          transparent,
+          #000 var(--fade-start),
+          #000 calc(100% - var(--fade-end)),
+          transparent
+        );
+        animation: strip-fades linear both;
+        animation-timeline: scroll(self inline);
+      }
     }
   }
 }

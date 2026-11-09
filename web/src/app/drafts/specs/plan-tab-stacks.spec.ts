@@ -16,8 +16,9 @@ import {
   text,
   drafting,
   heading,
-  type AppFixture,
   group,
+  draggable,
+  pressed,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -37,18 +38,6 @@ import {
 
 useDraftsApp();
 useTallScreen();
-
-/** Whether the button inside `plan` named `label` is pressed, as a mode or grouping that is chosen. */
-const pressed = (plan: HTMLElement, label: string) =>
-  button(plan, label)?.getAttribute('aria-pressed');
-
-/** Whether the stacked card named `name` can be dragged onto the other plan board, as the CDK says. */
-const draggable = (fixture: AppFixture, name: string) =>
-  !fixture.debugElement
-    .query(By.css('app-plan-tab'))
-    .queryAll(By.directive(CdkDrag))
-    .find((drag) => drag.nativeElement.contains(detailOpener(drag.nativeElement, name) ?? null))!
-    .injector.get(CdkDrag).disabled;
 
 describe('plan tab', () => {
   describe('on desktop', () => {
@@ -444,14 +433,14 @@ describe('plan tab', () => {
         cards,
         plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
       });
-      await openPlan(fixture, page);
+      const plan = await openPlan(fixture, page);
 
-      expect(draggable(fixture, 'Lightning Bolt')).toBe(false);
-      expect(draggable(fixture, 'Shivan Dragon')).toBe(false);
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(false);
+      expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(false);
 
       resizeTo('tablet');
-      expect(draggable(fixture, 'Lightning Bolt')).toBe(true);
-      expect(draggable(fixture, 'Shivan Dragon')).toBe(true);
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
+      expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
     });
 
     it('keeps the strip where it was scrolled as the plan changes, and starts it at its first stack as the grouping changes', async () => {
@@ -497,11 +486,11 @@ describe('plan tab', () => {
       expect(pressed(plan, 'Stacks')).toBe('true');
       expect(pressed(plan, 'Mana value')).toBe('true');
       expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], ['Sideboard: Shivan Dragon']]);
-      expect(draggable(fixture, 'Lightning Bolt')).toBe(true);
-      expect(draggable(fixture, 'Shivan Dragon')).toBe(true);
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
+      expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
 
       resizeTo('mobile');
-      expect(draggable(fixture, 'Lightning Bolt')).toBe(false);
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(false);
     });
   });
 });

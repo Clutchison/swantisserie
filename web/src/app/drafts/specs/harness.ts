@@ -488,6 +488,10 @@ export const region = (root: HTMLElement, name: string) =>
  * A group of controls inside `root`, such as a fieldset, by its accessible
  * name: its aria-label, or else a fieldset's legend. Null if there is none.
  */
+/** Whether the toggle button inside `root` named `label` is pressed, such as a chosen mode or grouping; undefined if there is none. */
+export const pressed = (root: HTMLElement, label: string) =>
+  button(root, label)?.getAttribute('aria-pressed');
+
 export const group = (root: HTMLElement, name: string) =>
   byAriaLabel(root, '[role="group"], fieldset', name) ??
   [...root.querySelectorAll<HTMLElement>('fieldset:not([aria-label])')].find(
@@ -855,12 +859,22 @@ export function resizeTo(screen: Screen) {
  * started (jsdom can't drag), and renders what came of it.
  */
 export function startDrag(fixture: AppFixture, element: HTMLElement) {
-  fixture.debugElement
-    .queryAll(By.directive(CdkDrag))
-    .find((drag) => drag.nativeElement.contains(element))!
-    .triggerEventHandler('cdkDragStarted', {});
+  dragHolding(fixture, element).triggerEventHandler('cdkDragStarted', {});
   TestBed.tick();
 }
+
+/**
+ * Whether the card that holds `element` can be dragged, as the CDK says
+ * (jsdom can't drag): false where a swipe on it must always scroll.
+ */
+export const draggable = (fixture: AppFixture, element: HTMLElement) =>
+  !dragHolding(fixture, element).injector.get(CdkDrag).disabled;
+
+/** The draggable card that holds `element`. */
+const dragHolding = (fixture: AppFixture, element: HTMLElement) =>
+  fixture.debugElement
+    .queryAll(By.directive(CdkDrag))
+    .find((drag) => drag.nativeElement.contains(element))!;
 
 /**
  * What `read` finds midway through each navigation from now on, once its

@@ -123,7 +123,7 @@
 <!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, the mainboard's stacks are a strip that scrolls sideways, with the sideboard below. -->
 <div
   class="plan-boards"
-  [class.side-by-side]="showingStacks()"
+  [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
   cdkDropListGroup
 >
@@ -132,7 +132,7 @@
       <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
       <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
       @if (showingStacks() && planBoard.count > 0) {
-        <!-- Named as a group for screen readers, as in the strip it scrolls sideways on its own. -->
+        <!-- Named as a group for screen readers, as in the strip it scrolls sideways on its own. The strip offers no drag, so a swipe always scrolls: the CDK can't turn drag off for touch alone, so a mouse can't drag there either, as a window that narrow offered no stacks, nor drag, before. -->
         <div
           #strip
           class="stacks"

@@ -4,14 +4,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  DestroyRef,
   effect,
   ElementRef,
   inject,
   Injector,
   inputBinding,
   signal,
-  type Signal,
   untracked,
   viewChildren,
 } from '@angular/core';
@@ -35,7 +33,7 @@ import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { NORMAL_IMAGE } from './card-sizes';
-import { changeFailure, DESKTOP_QUERY, WIDE_STACKS_QUERY } from './drafts';
+import { changeFailure, DESKTOP_QUERY, matching, WIDE_STACKS_QUERY } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
@@ -532,26 +530,6 @@ export class PlanTab {
       }
     }, kept);
   }
-}
-
-/**
- * Whether the media query `query` matches, as the window is resized. No
- * `matchMedia` counts as no match. Call it in an injection context: it stops
- * listening as that is destroyed.
- */
-function matching(query: string): Signal<boolean> {
-  const media = globalThis.matchMedia?.(query);
-  const matches = signal(!!media?.matches);
-  // Not every test environment's `matchMedia` reports changes.
-  if (!media?.addEventListener) return matches.asReadonly();
-  const listening = new AbortController();
-  // Stryker disable next-line ObjectLiteral: a listener left running after teardown only sets a destroyed component's signal.
-  media.addEventListener('change', (event) => matches.set(event.matches), {
-    signal: listening.signal,
-  });
-  // Stryker disable next-line ArrowFunction,CallExpression: a listener left running after teardown only sets a destroyed component's signal.
-  inject(DestroyRef).onDestroy(() => listening.abort());
-  return matches.asReadonly();
 }
 
 /**
