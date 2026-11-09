@@ -1,5 +1,4 @@
-import { MANA_SYMBOLS } from './mana-symbols';
-import type { Grouping } from './plan-stacks';
+import { manaSymbol } from './mana-cost';
 
 /**
  * What a stack header shows for its stack: a mana symbol, decorative, with
@@ -8,34 +7,22 @@ import type { Grouping } from './plan-stacks';
 export type StackLabel =
   { kind: 'symbol'; src: string; after: string } | { kind: 'text'; text: string };
 
-const scryfall = (symbol: string, after = ''): StackLabel => ({
-  kind: 'symbol',
-  src: `mana/${MANA_SYMBOLS[symbol].file}`,
-  after,
-});
+/** The label showing Scryfall's mana symbol `symbol`, as a cost writes it, e.g. {7}, then `after`. */
+export function manaSymbolLabel(symbol: string, after = ''): StackLabel {
+  const { src } = manaSymbol(symbol);
+  if (src === undefined) throw new Error(`The app has no SVG for the mana symbol ${symbol}`);
+  return { kind: 'symbol', src, after };
+}
 
 /**
- * Each grouping's stack labels, by stack name, so the row reads like a mana
- * cost. A stack missing here, as Lands, shows its name.
+ * The label showing the Mana icon set's multicolor symbol, as Scryfall has
+ * none. Its SVG records its source and licence.
  */
-const SYMBOLS: Partial<Record<Grouping, Readonly<Record<string, StackLabel>>>> = {
-  manaValue: {
-    ...Object.fromEntries(
-      [0, 1, 2, 3, 4, 5, 6].map((value) => [String(value), scryfall(`{${value}}`)]),
-    ),
-    '7+': scryfall('{7}', '+'),
-  },
-  color: {
-    ...Object.fromEntries(
-      ['W', 'U', 'B', 'R', 'G'].map((color) => [color, scryfall(`{${color}}`)]),
-    ),
-    // Scryfall has no multicolor symbol: this one is the Mana icon set's, whose source and
-    // licence its SVG records.
-    Multicolor: { kind: 'symbol', src: 'mana-icon-set/multicolor.svg', after: '' },
-    Colorless: scryfall('{C}'),
-  },
+export const MULTICOLOR_LABEL: StackLabel = {
+  kind: 'symbol',
+  src: 'mana-icon-set/multicolor.svg',
+  after: '',
 };
 
-/** The label of the stack named `stack` under `grouping`. */
-export const stackLabel = (grouping: Grouping, stack: string): StackLabel =>
-  SYMBOLS[grouping]?.[stack] ?? { kind: 'text', text: stack };
+/** The label showing `text`. */
+export const textLabel = (text: string): StackLabel => ({ kind: 'text', text });

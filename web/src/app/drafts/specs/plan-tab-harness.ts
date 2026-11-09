@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import { byAriaLabel, openDialog } from '../../specs-harness';
+import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
   accessibleName,
   bob,
@@ -111,15 +111,24 @@ export const stackHeader = (plan: HTMLElement, name: string) =>
     (header) => accessibleName(header) === name,
   );
 
-/** The text each stack header shows, its label then its count, as `Lands1`: a symbol shows none. */
-export const stackHeaderTexts = (plan: HTMLElement) =>
-  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].map(text);
+/**
+ * What each stack header shows: its images by alt text, `''` for a decorative
+ * one, as a symbol is, and its runs of text, as its label then its count,
+ * e.g. `{ images: [''], text: ['+', '1'] }` for a 7+ symbol.
+ */
+export const stackHeaderContents = (plan: HTMLElement) =>
+  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].map((header) => ({
+    images: [...header.querySelectorAll('img')].map((img) => img.alt),
+    text: textRuns(header),
+  }));
 
-/** The alt text of the images in the stack headers that have one: none, as their symbols are decorative. */
-export const namedImages = (plan: HTMLElement) =>
-  [...(stackHeadersNavigation(plan)?.querySelectorAll('img') ?? [])]
-    .map((img) => img.alt)
-    .filter((alt) => alt !== '');
+/** The runs of text inside `element`, each with its whitespace collapsed, leaving out empty ones. */
+function textRuns(element: Element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const runs: string[] = [];
+  while (walker.nextNode()) runs.push(walker.currentNode.textContent ?? '');
+  return runs.map(collapseWhitespace).filter((run) => run !== '');
+}
 
 /** The navigation named Stack headers inside `plan`, if any. */
 const stackHeadersNavigation = (plan: HTMLElement) =>

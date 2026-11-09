@@ -144,16 +144,15 @@
               [attr.aria-current]="stacksInView().has(header.name) || null"
               (click)="scrollToStack(header.name)"
             >
-              <!-- A symbol is decorative: the button's aria-label names the stack. -->
-              @if (header.label.kind === 'symbol') {
-                <span class="stack-name"
-                  ><img [src]="header.label.src" alt="" width="18" height="18" />{{
-                    header.label.after
-                  }}</span
-                >
-              } @else {
-                <span class="stack-name">{{ header.label.text }}</span>
-              }
+              <span class="stack-name">
+                <!-- A symbol is decorative: the button's aria-label names the stack. -->
+                @if (header.label.kind === 'symbol') {
+                  <img [src]="header.label.src" alt="" width="18" height="18" />
+                  {{ header.label.after }}
+                } @else {
+                  {{ header.label.text }}
+                }
+              </span>
               <span class="count">{{ header.count }}</span>
             </button>
           }

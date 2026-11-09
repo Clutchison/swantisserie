@@ -42,9 +42,8 @@ import {
   detailOpener,
   stacksOf,
   stack,
-  namedImages,
   stackHeader,
-  stackHeaderTexts,
+  stackHeaderContents,
   stackHeaders,
   stubScrolling,
 } from './plan-tab-harness';
@@ -537,7 +536,7 @@ describe('plan tab', () => {
 
         const sideboardHeader = stackHeader(plan, 'Sideboard, 2 cards')!;
         // Its label, SB, then its count, 2.
-        expect(text(sideboardHeader)).toBe('SB2');
+        expect(stackHeaderContents(plan).at(-1)).toEqual({ images: [], text: ['SB', '2'] });
         sideboardHeader.click();
         expect(scrolling.scrolled()).toEqual([
           { stack: 'Sideboard', options: expect.objectContaining({ inline: 'start' }) },
@@ -577,9 +576,13 @@ describe('plan tab', () => {
           '7+, 1 card',
           'Lands, 1 card',
         ]);
-        // Each shows its symbol, which is decorative, then its count; 7+ adds a "+" to its symbol.
-        expect(stackHeaderTexts(plan)).toEqual(['2', '2', '+1', 'Lands1']);
-        expect(namedImages(plan)).toEqual([]);
+        // Each shows one decorative symbol, then its count; 7+ adds a "+" to its symbol.
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], text: ['2'] },
+          { images: [''], text: ['2'] },
+          { images: [''], text: ['+', '1'] },
+          { images: [], text: ['Lands', '1'] },
+        ]);
 
         button(plan, 'Color')!.click();
         await fixture.whenStable();
@@ -589,8 +592,12 @@ describe('plan tab', () => {
           'Colorless, 1 card',
           'Lands, 1 card',
         ]);
-        expect(stackHeaderTexts(plan)).toEqual(['3', '1', '1', 'Lands1']);
-        expect(namedImages(plan)).toEqual([]);
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], text: ['3'] },
+          { images: [''], text: ['1'] },
+          { images: [''], text: ['1'] },
+          { images: [], text: ['Lands', '1'] },
+        ]);
       });
 
       it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
