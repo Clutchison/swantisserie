@@ -466,6 +466,20 @@ export const heading = (root: HTMLElement, name: string) =>
 export const namedImages = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLImageElement>('img')].filter((image) => image.alt !== '');
 
+/** The first element inside `root` whose text, as a viewer reads it, is `wanted`; null if there is none. */
+export const elementWithText = (root: HTMLElement, wanted: string) =>
+  [...root.querySelectorAll<HTMLElement>('*')].find((element) => text(element) === wanted) ?? null;
+
+/**
+ * Whether `element` sits in a live region, which announces its changes: it
+ * or an element around it has `aria-live`, or the role status, alert or log.
+ */
+export const inLiveRegion = (element: Element | null): boolean =>
+  !!element &&
+  (element.hasAttribute('aria-live') ||
+    ['status', 'alert', 'log'].includes(element.getAttribute('role') ?? '') ||
+    inLiveRegion(element.parentElement));
+
 /** A region inside `root`, such as a section, by its accessible name; null if there is none. */
 export const region = (root: HTMLElement, name: string) =>
   byAriaLabel(root, 'section, [role="region"]', name);

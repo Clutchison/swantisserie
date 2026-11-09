@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { LucideArrowLeftRight } from '@lucide/angular';
+import { LucideArrowLeftRight, LucideCheck } from '@lucide/angular';
 import {
   SWISS_ROUND_OPTIONS,
   TOURNAMENT_FORMAT_NAMES,
@@ -34,7 +34,7 @@ import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
-import { changeFailure } from './drafts';
+import { changeFailure, isRefusal } from './drafts';
 import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
@@ -119,6 +119,7 @@ const START_DETAILS: Record<TournamentFormat, string> = {
     DeckLockReminder,
     LoadingAnimation,
     LucideArrowLeftRight,
+    LucideCheck,
     PlayerAvatar,
     SendsChange,
     ResultsGrid,
@@ -163,13 +164,19 @@ export class PlayTab {
   protected readonly setUp = computed(() => !!this.draft().tournament);
   /**
    * The joined players, in join order, as the draft names them, with
-   * whether each can be removed; read only once the tournament has loaded.
+   * whether each can be removed and is ready; read only once the tournament
+   * has loaded.
    */
   protected readonly entries = computed(() =>
     this.tournament()!.entries.map((entry) => ({
       ...this.store.player(entry.playerId),
       droppable: entry.droppable,
+      ready: entry.ready,
     })),
+  );
+  /** Whether the signed-in player is ready; read only once the tournament has loaded. */
+  protected readonly ownReady = computed(
+    () => !!this.entries().find((entry) => entry.id === this.ownId())?.ready,
   );
   /** The signed-in player's id, if they are one of the draft's players. */
   protected readonly ownId = computed(() => this.store.ownPlayer()?.id);
@@ -315,6 +322,18 @@ export class PlayTab {
     return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
       failure: "Couldn't leave the tournament. Try again in a moment.",
       keep: ['join'],
+    });
+  }
+
+  /**
+   * Marks the signed-in player ready, or unmarks them if they are. A
+   * refusal re-reads the tournament, as their deck may have changed where
+   * this page didn't see it, so I'm ready shows as the api now allows it.
+   */
+  protected toggleReady() {
+    return this.send(() => this.api.setReady(this.draft().id, !this.ownReady()), {
+      failure: "Couldn't change whether you're ready. Try again in a moment.",
+      refused: () => this.store.rereadTournament(),
     });
   }
 
@@ -520,11 +539,11 @@ export class PlayTab {
    * Sends a change to the tournament, the request `send` makes, and shows
    * the draft it answers with, unless another change is in flight; `send`
    * makes none if the organizer thinks better of it. A refusal's reason, or else `failure`, is shown
-   * if it fails.
+   * if it fails, and `refused`, if any, runs on a refusal.
    */
   private send(
     send: () => Observable<DraftView> | undefined | Promise<Observable<DraftView> | undefined>,
-    { failure, keep }: { failure: string; keep?: string[] },
+    { failure, keep, refused }: { failure: string; keep?: string[]; refused?: () => void },
   ) {
     return this.changes.send(
       async () => {
@@ -538,6 +557,7 @@ export class PlayTab {
           // Stryker disable next-line BooleanLiteral: Changes.send uses the answer only for an empty status and busyOnceMade, which the Play tab never passes.
           return true;
         } catch (err) {
+          if (isRefusal(err)) refused?.();
           this.error.set(changeFailure(err, failure));
           // Stryker disable next-line BooleanLiteral: Changes.send uses the answer only for an empty status and busyOnceMade, which the Play tab never passes.
           return false;

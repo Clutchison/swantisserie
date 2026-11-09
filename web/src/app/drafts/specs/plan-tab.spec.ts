@@ -640,7 +640,7 @@ describe('plan tab as the deck', () => {
 
       expect(text(tab)).toContain(REMINDER);
       expect(text(tab)).toContain(
-        'Your mainboard holds 6 cards. A tournament deck needs at least 40: fill your deck, or leave the tournament if you won’t play.',
+        'Your mainboard holds 6 cards. A tournament deck needs at least 40: fill your deck before marking yourself ready, or leave the tournament if you won’t play.',
       );
       expect(text(tab)).not.toContain('locked');
       expect(deckEdits(tab).length).toBeGreaterThan(0);

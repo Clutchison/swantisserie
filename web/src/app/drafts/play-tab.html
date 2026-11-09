@@ -76,12 +76,20 @@
       }
     </p>
     <app-deck-lock-reminder />
-    <h3>Joined players</h3>
+    <div class="joined-heading">
+      <h3>Joined players</h3>
+      <span class="detail"
+        >{{ tournament.readyCount.ready }} of {{ tournament.readyCount.of }} ready</span
+      >
+    </div>
     <ul class="entries" aria-label="Joined players">
       @for (player of entries(); track player.id) {
         <li>
           <app-player-avatar [src]="player.avatarUrl" />
           {{ player.name }}
+          @if (player.ready) {
+            <span class="badge">Ready</span>
+          }
           @if (offerOrganize() && player.id !== ownId() && player.droppable) {
             <button
               class="button compact secondary"
@@ -105,6 +113,19 @@
         </button>
       }
       @if (offerLeave()) {
+        <button
+          class="button secondary ready"
+          type="button"
+          [attr.aria-pressed]="ownReady()"
+          [disabled]="!tournament.canToggleReady"
+          (click)="toggleReady()"
+          appSendsChange="ready"
+        >
+          @if (ownReady()) {
+            <svg lucideCheck size="16" aria-hidden="true"></svg>
+          }
+          I’m ready
+        </button>
         <button
           class="button secondary"
           type="button"

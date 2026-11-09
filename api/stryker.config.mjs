@@ -24,7 +24,9 @@ import {
  * over the run's own process tree: #557's run narrowed to queue-order at
  * `concurrency: 2` peaked at 3.3 GiB (3,453,692 KiB, Stryker and both
  * runners), and #559's full run at 5 runners at 7.7 GiB (8,090,340 KiB).
- * Neither used swap.
+ * #567's run narrowed to `pick-import.service.ts` (67 mutants, 3 runners, 7
+ * minutes, other agents' runs in progress) peaked at 4.6 GiB (4,843,260 KiB),
+ * its largest runner at 2,005 MiB. None used swap.
  */
 const PEAK_PER_RUNNER_BYTES = 2400 * BYTES_PER_MIB;
 

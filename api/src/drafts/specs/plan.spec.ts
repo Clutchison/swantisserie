@@ -44,6 +44,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
 
@@ -64,6 +65,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -99,6 +101,7 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
@@ -106,6 +109,7 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // Moving it there again changes nothing.
@@ -123,6 +127,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -158,6 +163,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -184,6 +190,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // Alice isn't an app admin, and her plan holds Lightning Bolt.
@@ -222,6 +229,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // A bot can't sign in to see its plan, but its picks land there too.
@@ -270,6 +278,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // Picked again, it lands on the mainboard, not where it was.
@@ -292,6 +301,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     await start(id).expect(200);
@@ -314,6 +324,7 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
 
@@ -329,6 +340,7 @@ describe('plan', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
 
@@ -346,6 +358,7 @@ describe('plan', () => {
       sideboard: [spike],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     // The draft itself is left alone.
