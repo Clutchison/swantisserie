@@ -124,6 +124,31 @@ export class TournamentsController {
   }
 
   /**
+   * Marks the signed-in player ready. It acts only on their own entry:
+   * nobody, an organizer included, marks anyone else ready.
+   */
+  @Put('ready')
+  async markReady(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.access.canSee(user, id);
+    return this.change(id, () => this.registration.setReady(id, user.id, true));
+  }
+
+  /** Unmarks the signed-in player as ready, on their own entry only. */
+  @Delete('ready')
+  async unmarkReady(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+  ): Promise<DraftView> {
+    await this.access.canSee(user, id);
+    return this.change(id, () =>
+      this.registration.setReady(id, user.id, false),
+    );
+  }
+
+  /**
    * Drops the player `playerId` (a Discord user id) from the tournament
    * while it is playing: the signed-in player dropping, or an organizer
    * dropping them.

@@ -93,8 +93,13 @@ export function deckRefusal(
   };
 }
 
-/** How many cards the player's mainboard holds, picks plus basic lands. */
-function mainboard(player: StartingPlayer): number {
+/**
+ * How many cards the player's mainboard holds, picks plus basic lands, as
+ * Start counts it.
+ */
+export function mainboard(
+  player: Pick<StartingPlayer, '_count' | 'basics'>,
+): number {
   return (
     player._count.plan +
     player.basics.reduce((sum, basic) => sum + basic.count, 0)

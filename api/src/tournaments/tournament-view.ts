@@ -41,6 +41,7 @@ export const TOURNAMENT_VIEW = {
     select: {
       id: true,
       dropped: true,
+      ready: true,
       droppedAfterRound: true,
       seed: true,
       player: { select: { userId: true, user: { select: { isBot: true } } } },
@@ -150,8 +151,10 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     playerId: entry.player.userId,
     dropped: entry.dropped,
     droppable: droppable(entry),
+    ready: entry.ready,
     seed: entry.seed,
   }));
+  const humans = entries.filter((entry) => entry.droppable);
   const dropped = droppedPlayers(entries);
   const counted = rounds.filter((round) => countsInStandings(row, round.round));
   const paired = pairedPlayers(rounds);
@@ -198,6 +201,11 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     roundCount: count,
     lastCompletedRound: row.lastCompletedRound,
     entries,
+    // Bots are never ready, so they are left out of both numbers.
+    readyCount: {
+      ready: humans.filter((entry) => entry.ready).length,
+      of: humans.length,
+    },
     rounds,
     bracket,
     ...FORMAT_RULES[row.format],

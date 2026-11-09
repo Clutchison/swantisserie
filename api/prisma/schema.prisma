@@ -461,6 +461,8 @@ model TournamentEntry {
   joinedAt          DateTime   @default(now())
   /// Whether the player has dropped from the tournament; their played matches stand.
   dropped           Boolean    @default(false)
+  /// Whether the player has marked themselves ready during registration; never a bot. A new entry starts not ready, and nothing after Start reads it.
+  ready             Boolean    @default(false)
   /// While dropped, the tournament round whose completion the drop came after: the last completed round when the player dropped, or the round Complete round was completing when it dropped them; 0 before any. Reopening round N takes back the drops after N or later. Null while not dropped, and for drops made before this was recorded.
   droppedAfterRound Int?
   /// Single elimination only: the entry's place in the seed order, from 1, shuffled at Start; null otherwise.

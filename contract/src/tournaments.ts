@@ -53,6 +53,11 @@ export interface TournamentEntryView {
    */
   droppable: boolean;
   /**
+   * Whether they have marked themselves ready during registration. Never a
+   * bot; nothing reads it once the tournament has started.
+   */
+  ready: boolean;
+  /**
    * Single elimination only: their place in the seed order, from 1, which
    * Start shuffles; null in other formats and during registration.
    */
@@ -239,6 +244,8 @@ export interface TournamentView {
   lastCompletedRound: number;
   /** In join order. */
   entries: TournamentEntryView[];
+  /** How many joined players are ready, of how many could be: bots are left out of both. */
+  readyCount: ReadyCountView;
   /**
    * Every tournament round paired so far, in order, once it is playing; none
    * during registration. Swiss pairs them one at a time; round robin makes
@@ -283,6 +290,12 @@ export interface TournamentView {
    * is left, as when both finalists dropped.
    */
   trophyHolders: string[];
+}
+
+/** "N of M ready": the joined human players who are ready, of all of them. */
+export interface ReadyCountView {
+  ready: number;
+  of: number;
 }
 
 /**
@@ -333,6 +346,12 @@ export interface ViewerTournamentView extends TournamentView {
    * outside registration, and for anyone who isn't one of the draft's players.
    */
   joinRefusal: TournamentRefusal | null;
+  /**
+   * Whether the viewer may mark or unmark themselves ready now, as those
+   * changes decide: during registration, a joined human player who is
+   * ready already or whose mainboard holds at least MIN_MAINBOARD_CARDS.
+   */
+  canToggleReady: boolean;
 }
 
 /**

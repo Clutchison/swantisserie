@@ -14,6 +14,7 @@ import {
   getDraft,
   inRegistration,
   joinTournament,
+  markReady,
   matchOf,
   playingTournament,
   reinstate,
@@ -27,6 +28,7 @@ import {
   singleElimination,
   startTournament,
   swiss,
+  unmarkReady,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -69,6 +71,15 @@ const writes: Record<
       id,
       write: () => removeEntry(id, bob.id, bobCookie).expect(200),
     };
+  },
+  'Mark ready': async () => {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    return { id, write: () => markReady(id, bobCookie).expect(200) };
+  },
+  'Unmark ready': async () => {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    await markReady(id, bobCookie).expect(200);
+    return { id, write: () => unmarkReady(id, bobCookie).expect(200) };
   },
   'Cancel tournament in registration': async () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
