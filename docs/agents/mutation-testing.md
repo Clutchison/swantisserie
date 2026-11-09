@@ -67,6 +67,10 @@ Sort every survivor into one of four groups. The fix each group names is the wor
 - **Dead code**: the mutated code can never run, or its result is never used. Delete the code rather than test it. When a type forces the code, such as a guard against a value the type allows but no real path produces, mark it instead, with a reason naming that type.
 - **Out of jsdom's reach**: a real gap that only a real browser shows, such as layout, hit-testing (which element a click lands on) or a real `IntersectionObserver`. No jsdom spec can fail on it without asserting styles, against `web-specs.md`. Record it on the ticket and say so in its comment; mark it only if the user approves it as harmless.
 
+**A message counts as read only if a caller shows it.** Web shows an api message only from a 409 (`isRefusal` in `web/src/app/drafts/drafts.ts`) and its own text for any other status. So emptying the message of a refusal the api answers with a 404 or a 403 is harmless, while emptying a 409's is a real gap.
+
+**An `orderBy` the specs can't pin down** is a behaviour change the specs can't reach, not an equivalent mutant. Rows that are inserted in order and never moved come back in that order from the specs' database without it, and random ids order differently from run to run, so a test could kill the mutant only some of the time; but a real Postgres's vacuum can reorder rows. Mark it as harmless, with that reason.
+
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
 
 **Timeout counts as detected.** A mutant that makes the tests hang past Stryker's timeout is scored as detected, like a killed one, but names no test that kills it. Many module-level mutants #544's run scored as Timeout survived later runs (#548, #549, #553), so #544's before scores are higher than its tests earned. When a Timeout matters, look for the test that kills it, as for a false survivor.
