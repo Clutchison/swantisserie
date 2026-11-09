@@ -22,17 +22,17 @@
             class="button secondary"
             type="button"
             [disabled]="saving()"
-            (click)="rename(webhook, name.value)"
+            (click)="remove(webhook)"
           >
-            Rename
+            Remove
           </button>
           <button
             class="button secondary"
             type="button"
             [disabled]="saving()"
-            (click)="remove(webhook)"
+            (click)="rename(webhook, name.value)"
           >
-            Remove
+            Rename
           </button>
           @if (webhook.gone) {
             <p class="gone">

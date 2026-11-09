@@ -385,18 +385,18 @@ describe('plan tab', () => {
       );
 
       expect(offered(await open('Brightclimb Pathway // Grimclimb Pathway'))).toEqual([
-        'Pick (disabled)',
-        'Add to queue',
-        'Remove from Plan',
-        'Flip',
         'Close',
+        'Flip',
+        'Remove from Plan',
+        'Add to queue',
+        'Pick (disabled)',
       ]);
     });
 
     it('offers only a disabled Pick on a picked card', async () => {
       const { open } = await openFromPlan({ turn: bobsTurn });
 
-      expect(offered(await open('Shivan Dragon'))).toEqual(['Pick (disabled)', 'Close']);
+      expect(offered(await open('Shivan Dragon'))).toEqual(['Close', 'Pick (disabled)']);
     });
 
     it('offers Pick but no Add to queue on the player’s turn', async () => {
@@ -405,7 +405,7 @@ describe('plan tab', () => {
         planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
       );
 
-      expect(offered(await open('Shivan Dragon'))).toEqual(['Pick', 'Remove from Plan', 'Close']);
+      expect(offered(await open('Shivan Dragon'))).toEqual(['Close', 'Remove from Plan', 'Pick']);
     });
 
     it('adds the card to the end of the queue', async () => {
@@ -422,10 +422,10 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(offered(detail)).toEqual([
-        'Pick (disabled)',
-        'Remove from queue',
-        'Remove from Plan',
         'Close',
+        'Remove from Plan',
+        'Remove from queue',
+        'Pick (disabled)',
       ]);
     });
 
@@ -488,7 +488,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(offered(detail)).toEqual(['Pick (disabled)', 'Close']);
+      expect(offered(detail)).toEqual(['Close', 'Pick (disabled)']);
       expect(detail.textContent).toContain('Picked by Alice');
     });
 
@@ -514,7 +514,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(openDialog()).toBe(detail);
-      expect(offered(detail)).toEqual(['Pick (disabled)', 'Close']);
+      expect(offered(detail)).toEqual(['Close', 'Pick (disabled)']);
       expect(detail.textContent).toContain('Picked by Bob');
       expect(text(tab)).toContain('Lost to other players: Shivan Dragon (picked by Bob).');
     });

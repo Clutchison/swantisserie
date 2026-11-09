@@ -11,6 +11,7 @@ import {
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
+import { buttonOrder } from '../drafts/specs/harness';
 
 const main: WebhookWithUrlView = {
   id: 'webhook-main',
@@ -181,6 +182,14 @@ describe('webhooks page', () => {
     await reloaded(fixture, [main]);
 
     expect(alertIn(page)).toBeNull();
+  });
+
+  it('offers Remove, then Rename, on each webhook', async () => {
+    const { page } = await openPage([main, side]);
+
+    for (const li of [mainRow(page), row(page, '#roto-side')]) {
+      expect(buttonOrder(li, 'Rename')).toEqual(['Remove', 'Rename', 'Replace URL']);
+    }
   });
 
   it('renames a webhook', async () => {

@@ -27,14 +27,30 @@
     }
   </app-card-image>
   <div class="actions">
-    @if (actions().pick) {
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Close</button>
+    @if (shown.images.length > 1) {
+      <button class="button secondary" type="button" (click)="flip()">Flip</button>
+    }
+    <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
+    @if (planned().has(shown.id) && !picked().has(shown.id)) {
+      @if (actions().removeFromPlan) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="removeFromPlan()"
+          [disabled]="planning()"
+        >
+          Remove from Plan
+        </button>
+      }
+    } @else if (actions().addToPlan) {
       <button
-        class="button"
+        class="button secondary"
         type="button"
-        (click)="pick()"
-        [disabled]="!yourTurn() || picksFailed() || picked().has(shown.id) || picking()"
+        (click)="addToPlan()"
+        [disabled]="picked().has(shown.id) || planning()"
       >
-        {{ picking() ? 'Picking…' : 'Pick' }}
+        Add to Plan
       </button>
     }
     @if (actions().queue) {
@@ -59,32 +75,16 @@
         </button>
       }
     }
-    <!-- A picked card is never offered for removal: the player's own picks are handled on the Plan tab. -->
-    @if (planned().has(shown.id) && !picked().has(shown.id)) {
-      @if (actions().removeFromPlan) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="removeFromPlan()"
-          [disabled]="planning()"
-        >
-          Remove from Plan
-        </button>
-      }
-    } @else if (actions().addToPlan) {
+    @if (actions().pick) {
       <button
-        class="button secondary"
+        class="button"
         type="button"
-        (click)="addToPlan()"
-        [disabled]="picked().has(shown.id) || planning()"
+        (click)="pick()"
+        [disabled]="!yourTurn() || picksFailed() || picked().has(shown.id) || picking()"
       >
-        Add to Plan
+        {{ picking() ? 'Picking…' : 'Pick' }}
       </button>
     }
-    @if (shown.images.length > 1) {
-      <button class="button secondary" type="button" (click)="flip()">Flip</button>
-    }
-    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Close</button>
   </div>
   @if (picked().get(shown.id); as picker) {
     <p class="note picked-by">
