@@ -94,19 +94,15 @@ export async function planPicks(
 /**
  * Puts back the cards the pick lost from plans, each on the board it was
  * on, and takes the pick out of its player's plan: unless the player added
- * the card before picking it, when it stays, unpicked. Deleting the pick
- * then forgets what it lost.
+ * the card before picking it, when it stays. The caller deletes the pick
+ * straight after, which leaves that card unpicked (`PlannedCard.pick` is
+ * `onDelete: SetNull`) and forgets what the pick lost.
  */
 export async function restorePlans(
   tx: Transaction,
   pickId: string,
 ): Promise<void> {
   await tx.plannedCard.deleteMany({ where: { pickId, added: false } });
-  await tx.plannedCard.updateMany({
-    where: { pickId },
-    // Stryker disable next-line ObjectLiteral: the pick is deleted straight after, and `PlannedCard.pick` is `onDelete: SetNull`, so the database nulls it anyway.
-    data: { pickId: null },
-  });
   const lost = await tx.lostPlannedCard.findMany({
     where: { pickId },
     select: { playerId: true, poolCardId: true, board: true },
