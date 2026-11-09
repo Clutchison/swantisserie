@@ -444,6 +444,14 @@ _Avoid_: Withdraw, unregister, quit
 An organizer ending a joined player's tournament entry during registration. Once the tournament has started, an organizer drops them instead.
 _Avoid_: Kick, eject, unregister
 
+**Ready**:
+Describes a joined player who has told everyone, during registration, that they are ready for the tournament to start. Only the player can mark or unmark it, and only while their mainboard holds at least 40 cards; it clears by itself if their mainboard drops below 40. It is optional and never holds up the start. It belongs to their tournament entry, so a player who leaves and joins again is not ready. Bots are never ready.
+_Avoid_: Checked in, confirmed, locked in (locked is the deck's)
+
+**Ready notice**:
+The note on the Deck tab telling a player that they are no longer ready because their mainboard dropped below 40 cards. It stays until they dismiss it, mark themselves ready again, or registration ends.
+_Avoid_: Not-ready notice, deck notice, alert, notification
+
 **Start**:
 The organizer beginning play once at least two players have joined and every joined player's mainboard holds at least 40 cards, bots aside, which ends registration, locks every joined player's deck, and makes or pairs the first matches.
 _Avoid_: Begin, launch, open (that is the draft's)
