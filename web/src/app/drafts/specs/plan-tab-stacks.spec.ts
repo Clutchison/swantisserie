@@ -542,6 +542,32 @@ describe('plan tab', () => {
         ]);
       });
 
+      it('label each stack by its type’s letter under card type, and the lands by L under every grouping', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        // A label, then a count. Under mana value, only the lands' label is a letter.
+        expect(text(stackHeader(plan, '1, 2 cards'))).toBe('12');
+        expect(text(stackHeader(plan, 'Lands, 1 card'))).toBe('L1');
+
+        button(plan, 'Color')!.click();
+        await fixture.whenStable();
+        expect(text(stackHeader(plan, 'Lands, 1 card'))).toBe('L1');
+
+        button(plan, 'Type')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual([
+          'Creature, 1 card',
+          'Instant, 2 cards',
+          'Land, 1 card',
+        ]);
+        expect(text(stackHeader(plan, 'Creature, 1 card'))).toBe('C1');
+        expect(text(stackHeader(plan, 'Instant, 2 cards'))).toBe('I2');
+        expect(text(stackHeader(plan, 'Land, 1 card'))).toBe('L1');
+      });
+
       it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,

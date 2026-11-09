@@ -312,6 +312,10 @@ _Avoid_: Sort, filter, view
 The row naming each of the mainboard's stacks, then the sideboard's, with its card count, shown above the stacks where there isn't room for them all, and marking the stack the player has scrolled to. Tapping a stack header goes to its stack.
 _Avoid_: Chips, header row, stack tabs, jump bar
 
+**Type letter**:
+A card type's stylized capital letter, which labels its stack header under card type in place of the type's name: C, P, I, S, A, E, B and L, with a plain O for Other. The lands' stack header shows the same L under every grouping.
+_Avoid_: Type icon, type badge, type symbol
+
 **Export tab**:
 The part of a draft's page where a player reviews their picks and copies their exports.
 _Avoid_: Me tab, Picks tab, picks page

@@ -1,0 +1,155 @@
+/*
+ * The type letters, signed off on #620's prototype (its badge variant). Every
+ * letter meets AA against its own tile or shield, or, for O, the page; a
+ * current stack header changes only its underline, so the same holds there.
+ */
+:host {
+  /* A: brushed metal. */
+  --a-hi: #f4f7fa;
+  --a-mid: #c5ced6;
+  --a-lo: #b3bec8;
+  --a-letter: #16222b;
+  /* L: matte tan. */
+  --l-tan: #d9b98a;
+  --l-brown: #6b4a2c;
+  --l-letter: #3a2412;
+  /* E: a Nyx night sky. */
+  --e-sky-top: #3d2c80;
+  --e-sky-bottom: #1b1645;
+  --e-edge: #ab9ff2;
+  --e-letter: #f1eaff;
+  /* P: a black loyalty shield. */
+  --p-fill: #0f1418;
+  --p-edge: #e9e4d8;
+  --p-letter: #fff6e3;
+  /* B: a deep red defense shield. */
+  --b-fill: #5e1616;
+  --b-edge: #ff9d8c;
+  --b-letter: #fff6e3;
+  /* C: a power/toughness box. */
+  --c-fill: #ebe2cb;
+  --c-edge: #0b1419;
+  --c-letter: #1d1a14;
+  /* I: pale electric blue, notched by a bolt. */
+  --i-fill: #b9e0ff;
+  --i-letter: #0d2234;
+  /* S: warm flame, notched by a flame. */
+  --s-fill: #ffbb94;
+  --s-letter: #3b1309;
+
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+span {
+  position: relative;
+}
+
+svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+path {
+  stroke-width: 1.4;
+}
+
+/* A plate bevelled by a light inset top-left and a dark one bottom-right. */
+:host([data-letter='A']) {
+  background: linear-gradient(160deg, var(--a-hi), var(--a-mid) 50%, var(--a-lo));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.8),
+    inset -1px -1px 0 rgb(0 0 0 / 0.35);
+  color: var(--a-letter);
+}
+
+:host([data-letter='L']) {
+  border: 1.5px solid var(--l-brown);
+  background: var(--l-tan);
+  color: var(--l-letter);
+}
+
+/* A plate with its top-right corner notched by the type's shape: a hole in a CSS mask. */
+:host([data-letter='I']) {
+  background: var(--i-fill);
+  color: var(--i-letter);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath fill-rule='evenodd' d='M0 0H22V22H0Z M17 -1 L13 6 L16 6 L13.5 11 L23 3.5 L19.5 3.5 L21 -1Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100%;
+}
+
+:host([data-letter='S']) {
+  background: var(--s-fill);
+  color: var(--s-letter);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath fill-rule='evenodd' d='M0 0H22V22H0Z M18.5 0 C22 3 23 6 21 8.5 C19.6 10.2 16.4 10 15.4 8 C14.6 6.4 15.4 4.6 16.6 4 C16.6 5.4 17.4 6.2 18 5.6 C19 4.4 19.2 2.4 18.5 0Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100%;
+}
+
+/* A night sky, a few faint glints kept to the corners, clear of the letter. */
+:host([data-letter='E']) {
+  border: 1px solid var(--e-edge);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 18% 22%, rgb(255 255 255 / 0.85) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 82% 16%, rgb(255 255 255 / 0.6) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 86% 80%, rgb(220 210 255 / 0.7) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 14% 84%, rgb(255 255 255 / 0.45) 0 0.5px, transparent 1px),
+    linear-gradient(160deg, var(--e-sky-top), var(--e-sky-bottom));
+  color: var(--e-letter);
+}
+
+:host([data-letter='P']),
+:host([data-letter='B']) {
+  height: 24px;
+  border-radius: 0;
+  font-size: 13px;
+}
+
+:host([data-letter='P']) {
+  color: var(--p-letter);
+
+  span {
+    top: -1px;
+  }
+
+  path {
+    fill: var(--p-fill);
+    stroke: var(--p-edge);
+  }
+}
+
+:host([data-letter='B']) {
+  color: var(--b-letter);
+
+  path {
+    fill: var(--b-fill);
+    stroke: var(--b-edge);
+  }
+}
+
+/* An outer ring of the fill sets the dark edge off the dark page. */
+:host([data-letter='C']) {
+  width: 20px;
+  height: 18px;
+  border: 1.5px solid var(--c-edge);
+  border-radius: 4px;
+  background: var(--c-fill);
+  box-shadow:
+    0 0 0 1px var(--c-fill),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2);
+  color: var(--c-letter);
+  font-size: 13px;
+}
+
+:host([data-letter='O']) {
+  color: var(--color-text);
+  font-size: 17px;
+}

@@ -144,7 +144,11 @@
               [attr.aria-current]="stacksInView().has(header.name) || null"
               (click)="scrollToStack(header.name)"
             >
-              <span class="stack-name">{{ header.label }}</span>
+              @if (header.typeLetter; as letter) {
+                <app-type-letter class="stack-name" [letter]="letter" />
+              } @else {
+                <span class="stack-name">{{ header.label }}</span>
+              }
               <span class="count">{{ header.count }}</span>
             </button>
           }

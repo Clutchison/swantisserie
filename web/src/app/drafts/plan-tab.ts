@@ -44,6 +44,7 @@ import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
 import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
+import { TypeLetterLabel, typeLetterOf } from './type-letter';
 import {
   QUEUE_UNPICKED_HEADING,
   QueueUnpickedDialog,
@@ -193,6 +194,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     LucidePlus,
     LucideTrash,
     SendsChange,
+    TypeLetterLabel,
   ],
   providers: [Changes, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -315,9 +317,10 @@ export class PlanTab {
   );
   /**
    * The stack headers, one per stack in the strip, the mainboard's then the
-   * sideboard's: each stack's name, the label it shows, its card count, what a
-   * screen reader names it, starting with the name, as `Lands, 17 cards`, and
-   * whether it is set apart from the others, as the sideboard's is.
+   * sideboard's: each stack's name, the label it shows, its type letter if it
+   * has one, shown instead, its card count, what a screen reader names it,
+   * starting with the name, as `Lands, 17 cards`, and whether it is set apart
+   * from the others, as the sideboard's is.
    */
   protected readonly stackHeaders = computed(() =>
     this.planBoards()
@@ -327,6 +330,7 @@ export class PlanTab {
         stacks.map(({ name, cards }) => ({
           name,
           label: oneStackHeader?.label ?? name,
+          typeLetter: oneStackHeader ? undefined : typeLetterOf(name, this.grouping()),
           count: cards.length,
           accessibleName: `${name}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
           setApart: oneStackHeader !== undefined,
