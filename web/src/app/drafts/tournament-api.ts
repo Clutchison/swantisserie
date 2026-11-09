@@ -29,6 +29,13 @@ export class TournamentApi {
     return this.http.post<DraftView>(`${url(draftId)}/entries`, null);
   }
 
+  /** Marks the signed-in player ready, or unmarks them, as `ready` says. */
+  setReady(draftId: string, ready: boolean): Observable<DraftView> {
+    return ready
+      ? this.http.put<DraftView>(`${url(draftId)}/ready`, null)
+      : this.http.delete<DraftView>(`${url(draftId)}/ready`);
+  }
+
   /** Starts the draft's tournament; for organizers. */
   start(draftId: string): Observable<DraftView> {
     return this.http.post<DraftView>(`${url(draftId)}/start`, null);
