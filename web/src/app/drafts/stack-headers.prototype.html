@@ -7,6 +7,8 @@
     glyph: the treatment is on the letter itself (metal, tan, notches); only P, B, C and E sit on a shape.
     badge: every styled letter sits in a uniform 22px badge whose fill is the treatment.
   Colours come from web/src/styles.scss's tokens (copied below), so it renders on the app's real background.
+  A standalone page, not a ?variant= on the Plan tab's route: that route needs a signed-in, drafted pool, and the question is only how nine letters look, so the copied tokens are enough context.
+  #623 deletes this file before spec #618 merges to main; the branch ST-620 keeps it.
   Open it by double-clicking it, or from WSL: explorer.exe "$(wslpath -w web/src/app/drafts/stack-headers.prototype.html)"
 -->
 <html lang="en">
@@ -436,6 +438,13 @@
     </style>
   </head>
   <body>
+    <!-- The bolt notch for the glyph variant's I, defined once; every I references it by id. Its content is in each I's own 22×22 user space. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <mask id="bolt-notch">
+        <rect width="22" height="22" fill="#fff" />
+        <path d="M15 5 L8.4 11.9 L11.6 11.9 L7 17.5 L14.8 10.1 L11.5 10.1 L16.6 5 Z" fill="#000" />
+      </mask>
+    </svg>
     <main id="app">
       <h1>Type letters</h1>
       <p class="banner">
@@ -449,13 +458,25 @@
       <h2>Every header current (accent underline)</h2>
       <div class="stack-headers" data-row="all"></div>
 
+      <p>
+        Current = normal plus the underline: the background doesn't change, so neither does
+        contrast.
+      </p>
+
       <h2>Hovered (raised background)</h2>
       <div class="stack-headers force-hover" data-row="none"></div>
+
+      <h2>Current and hovered</h2>
+      <div class="stack-headers force-hover" data-row="all"></div>
 
       <h2>Tap to move current</h2>
       <div class="stack-headers" data-row="live"></div>
 
       <h2>Mana value grouping, for the Lands L</h2>
+      <p>
+        Only the Lands L is real here. The text 1–7+ are placeholders, not the mana symbols #622
+        builds.
+      </p>
       <div class="stack-headers" data-row="mv"></div>
 
       <h2>Zoomed ×2.5</h2>
@@ -487,7 +508,7 @@
         '<svg viewBox="0 0 22 24" aria-hidden="true"><path d="M2 2.5 Q11 0.5 20 2.5 L20 12 Q20 18.5 11 22.8 Q2 18.5 2 12 Z"/></svg>';
       // I, glyph variant: a slab-serif I whose stem a bolt cuts through. The mask keeps white and cuts the black bolt.
       const BOLT_I =
-        '<svg viewBox="0 0 22 22" aria-hidden="true"><mask id="bolt"><rect width="22" height="22" fill="#fff"/><path d="M15 5 L8.4 11.9 L11.6 11.9 L7 17.5 L14.8 10.1 L11.5 10.1 L16.6 5 Z" fill="#000"/></mask><path mask="url(#bolt)" d="M5 2 H17 V5.5 H14 V16.5 H17 V20 H5 V16.5 H8 V5.5 H5 Z"/></svg>';
+        '<svg viewBox="0 0 22 22" aria-hidden="true"><path mask="url(#bolt-notch)" d="M5 2 H17 V5.5 H14 V16.5 H17 V20 H5 V16.5 H8 V5.5 H5 Z"/></svg>';
       const SHIELD_B =
         '<svg viewBox="0 0 22 24" aria-hidden="true"><path d="M6 1.5 H16 L20.5 5 V13.5 L11 22.8 L1.5 13.5 V5 Z"/></svg>';
 
