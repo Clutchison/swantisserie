@@ -10,7 +10,7 @@ import {
   signIn,
   readyDraft,
   readyDraftWithCopies,
-  readyDraftWithCopiesStoredInReverse,
+  readyDraftWithCopiesOutOfIdOrder,
   start,
   pick,
   plan,
@@ -171,7 +171,7 @@ describe('unpicked cards in a plan', () => {
     const {
       id,
       copies: [plannedCopy, firstLeft],
-    } = await readyDraftWithCopiesStoredInReverse([aliceCookie, carolCookie]);
+    } = await readyDraftWithCopiesOutOfIdOrder([aliceCookie, carolCookie]);
     await start(id).expect(200);
     await addToPlan(id, plannedCopy, carolCookie).expect(200);
 
