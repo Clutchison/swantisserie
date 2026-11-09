@@ -114,9 +114,9 @@ export class ExportTab implements OnDestroy {
   /** The latest copy attempt, so that an earlier or cleared one can't report how it went. */
   private latestCopy = 0;
 
-  // Stryker disable next-line BlockStatement: the leftover timer only sets copied on a destroyed component.
+  // Stryker disable next-line BlockStatement: a timer left running after teardown only sets `copied` on a destroyed component.
   ngOnDestroy() {
-    // Stryker disable next-line CallExpression: the leftover timer only sets copied on a destroyed component.
+    // Stryker disable next-line CallExpression: a timer left running after teardown only sets `copied` on a destroyed component.
     clearTimeout(this.confirmationTimer);
   }
 

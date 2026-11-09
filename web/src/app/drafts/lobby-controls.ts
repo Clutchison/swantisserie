@@ -282,7 +282,7 @@ export class LobbyControls {
   private lobbyFailed(err: unknown, failure: string) {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
-      // Stryker disable next-line OptionalChaining: every 409 from the api has a JSON body.
+      // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
       this.lobbyError.set(err.error?.message ?? failure);
       this.store.catchUp();
     } else {

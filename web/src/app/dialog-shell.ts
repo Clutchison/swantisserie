@@ -77,7 +77,7 @@ export class DialogShell {
       disableClose: true,
       restoreFocus: false,
       panelClass: 'dialog-pane',
-      // Stryker disable next-line StringLiteral: presentation only: the backdrop's dimming and fade-in.
+      // Stryker disable next-line StringLiteral: presentation only, which specs leave to the styles (web-specs.md): the backdrop's dimming and fade-in.
       backdropClass: 'dialog-backdrop',
       positionStrategy: PLACED_BY_CSS,
       scrollStrategy: createNoopScrollStrategy(),
@@ -85,7 +85,7 @@ export class DialogShell {
       width: '',
       // Stryker disable next-line StringLiteral: the browser ignores an invalid CSS width, which leaves it cleared, as '' does.
       maxWidth: '',
-      // Stryker disable next-line BooleanLiteral: presentation only: the CDK's backdrop fade-out.
+      // Stryker disable next-line BooleanLiteral: presentation only, which specs leave to the styles (web-specs.md): the CDK's backdrop fade-out.
       disableAnimations: true,
     });
 
@@ -114,7 +114,7 @@ export class DialogShell {
     ref.closed.subscribe((result) => {
       // Stryker disable next-line OptionalChaining: every caller passes an injector, so there is always an unlisten.
       unlisten?.();
-      // Stryker disable next-line StringLiteral,BooleanLiteral,CallExpression: a listener left behind only sets a closed dialog's dead variable.
+      // Stryker disable next-line StringLiteral,BooleanLiteral,CallExpression: a listener left running after teardown only sets a closed dialog's dead variable.
       this.document.removeEventListener('mousedown', pressed, true);
       const target = config.returnFocus ? config.returnFocus(opener, result) : opener;
       const active = this.document.activeElement;

@@ -104,11 +104,11 @@ export class CardImage {
       // Stryker disable next-line ConditionalExpression,LogicalOperator: these differ only by asking again for a decode already asked for, which `reveal` ignores, or by throwing in `afterRenderEffect` once nothing is pending, which only the console reports.
       if (element && layer && !layer.decoding) this.decode(element, layer);
     });
-    // Stryker disable next-line BlockStatement,CallExpression: a late decode or fade on a destroyed image changes nothing on screen.
+    // Stryker disable next-line BlockStatement,CallExpression: a decode or fade left running after teardown only changes a destroyed image, which shows nothing.
     inject(DestroyRef).onDestroy(() => {
-      // Stryker disable next-line CallExpression: as above.
+      // Stryker disable next-line CallExpression: a fade left running after teardown only changes a destroyed image, which shows nothing.
       clearTimeout(this.fade);
-      // Stryker disable next-line CallExpression: as above.
+      // Stryker disable next-line CallExpression: a decode left running after teardown only changes a destroyed image, which shows nothing.
       this.pending.set(null);
     });
   }
@@ -119,7 +119,7 @@ export class CardImage {
   }
 
   private decode(element: HTMLImageElement, layer: Layer) {
-    // Stryker disable next-line BooleanLiteral: as for the decode guard above, it differs only by asking again for a decode already asked for.
+    // Stryker disable next-line BooleanLiteral: it differs only by asking again for a decode already asked for, which `reveal` ignores.
     layer.decoding = true;
     // Only for the first image: a change of face always crossfades.
     layer.instant =

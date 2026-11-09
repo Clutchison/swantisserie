@@ -287,11 +287,11 @@ export class PlanTab {
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;
     const listening = new AbortController();
-    // Stryker disable next-line ObjectLiteral: the leftover listener only sets a destroyed component's signal.
+    // Stryker disable next-line ObjectLiteral: a listener left running after teardown only sets a destroyed component's signal.
     desktop.addEventListener('change', ({ matches }) => this.onDesktop.set(matches), {
       signal: listening.signal,
     });
-    // Stryker disable next-line ArrowFunction,CallExpression: the leftover listener only sets a destroyed component's signal.
+    // Stryker disable next-line ArrowFunction,CallExpression: a listener left running after teardown only sets a destroyed component's signal.
     inject(DestroyRef).onDestroy(() => listening.abort());
   }
 
@@ -549,7 +549,7 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
 /** One card per copy of a basic land, each with an id of its own to track it by. */
 function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
   return Array.from({ length: count }, (_, copy) => ({
-    // Stryker disable next-line StringLiteral: basics' ids only serve as track keys and drag data, and basics never move.
+    // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same cards; the id is otherwise only drag data, and basics never move.
     poolCardId: `basic-${land}-${copy}`,
     name: land,
     picked: true,

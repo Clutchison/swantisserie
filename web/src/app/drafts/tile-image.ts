@@ -64,11 +64,11 @@ export class TileImageLoader implements OnDestroy {
     this.scheduleBuffer();
   }
 
-  // Stryker disable next-line BlockStatement: both timers' callbacks skip a tile no longer on the page.
+  // Stryker disable next-line BlockStatement: a timer left running after teardown only skips a tile no longer on the page.
   ngOnDestroy() {
-    // Stryker disable next-line CallExpression: as above.
+    // Stryker disable next-line CallExpression: a timer left running after teardown only skips a tile no longer on the page.
     clearTimeout(this.bufferDelay);
-    // Stryker disable next-line ArrowFunction,CallExpression: as above.
+    // Stryker disable next-line ArrowFunction,CallExpression: a timer left running after teardown only skips a tile no longer on the page.
     this.waiting.forEach((tile) => clearTimeout(tile.settling));
     this.observer?.disconnect();
   }

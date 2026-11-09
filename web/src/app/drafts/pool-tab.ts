@@ -180,7 +180,7 @@ export class PoolTab {
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
       observer.observe(this.host);
-      // Stryker disable next-line ArrowFunction,CallExpression: the leftover observer only sets a destroyed component's width.
+      // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's width.
       inject(DestroyRef).onDestroy(() => observer.disconnect());
     }
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
@@ -197,7 +197,7 @@ export class PoolTab {
       onCleanup(() => clearTimeout(waiting));
     });
     inject(DestroyRef).onDestroy(() => {
-      // Stryker disable next-line CallExpression: the leftover timer's tile is gone with the grid, which tile.isConnected catches.
+      // Stryker disable next-line CallExpression: a timer left running after teardown only finds its tile gone with the grid, which `tile.isConnected` catches.
       clearTimeout(this.resting);
       this.preloader.preloadResults([]);
     });
@@ -217,7 +217,7 @@ export class PoolTab {
   protected readonly normalImage = NORMAL_IMAGE;
 
   /** Rows are rebuilt whenever the cards shown or the columns change, so they're tracked by position. */
-  // Stryker disable next-line BlockStatement: rows are rebuilt by position anyway; equal track ids only reuse row views.
+  // Stryker disable next-line BlockStatement: track keys only decide which views are reused, so equal keys render the same rows.
   protected trackRow(index: number) {
     return index;
   }
