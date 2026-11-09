@@ -18,10 +18,13 @@ const BYTES_PER_GIB = 1024 * BYTES_PER_MIB;
  * `turn-state.ts`, sampling the runner's process tree's resident memory once a
  * second. Each dry run sends every `api` spec file through the one runner, so
  * the heaviest spec files are in it. The runner peaked at 1,905 MiB over
- * queue-order's 25 mutants and 2,162 MiB over turn-state's 52, so it grows
- * with a run's length; this leaves about 10% over the higher peak for runs
- * longer still. Stryker's own main process (about 0.5 GiB) isn't a runner and
- * is in the margin below.
+ * queue-order's 25 mutants and 2,162 MiB over turn-state's 52, so it may
+ * grow with a run's length; this leaves about 10% over the higher peak.
+ * Confirmed on 2026-11-09 (#559) by the full run over all five files from
+ * scratch (380 mutants, 5 runners, 36 minutes), sampled the same way: its
+ * largest runner peaked at 2,162 MiB, no higher than turn-state's run, so
+ * growth with length hasn't shown past that. Stryker's own main process
+ * (about 0.5 GiB) isn't a runner and is in the margin below.
  */
 const PEAK_PER_RUNNER_BYTES = 2400 * BYTES_PER_MIB;
 
@@ -170,8 +173,9 @@ export default {
   ],
   // Every api spec boots the whole app, so the dry run runs nearly every spec
   // file, one after another on Stryker's single vitest worker. It took 3 min
-  // 42 s on an idle machine (#557), close to Stryker's 5-minute default; 10
-  // leaves room for a machine busy with other agents' runs.
+  // 8 s to 3 min 42 s on an idle machine (#557, #559), close to Stryker's
+  // 5-minute default; 10 leaves room for a machine busy with other agents'
+  // runs.
   dryRunTimeoutMinutes: 10,
   ignorePatterns: ['dist', 'reports'],
   incremental: true,
