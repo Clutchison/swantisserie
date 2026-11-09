@@ -77,6 +77,7 @@ export class WebhookControl {
       this.choice.setValue(this.currentId());
       if (isRefusal(err)) {
         // What was on offer has moved on: show why, and catch up with it; the store catches up with the draft.
+        // Stryker disable next-line OptionalChaining: the API's 409 always carries a refusal body.
         this.saveError.set(err.error?.message ?? failure);
         this.webhookResource.reload();
       } else {

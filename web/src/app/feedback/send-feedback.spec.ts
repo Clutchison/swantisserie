@@ -260,6 +260,36 @@ describe('sending feedback', () => {
     expect(document.activeElement).toBe(opener);
   });
 
+  it('leaves focus where it was moved as the dialog closes', async () => {
+    anyButton('Send feedback')!.focus();
+    await open();
+    await vi.waitFor(() => expect(document.activeElement).toBe(field()));
+    const elsewhere = anyButton('Log out')!;
+
+    elsewhere.focus();
+    pressEscape();
+    await fixture.whenStable();
+
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it('puts focus on the menu button when opened from the narrow menu with nothing focused', async () => {
+    const menu = narrowMenuButton(page);
+    menu.click();
+    await fixture.whenStable();
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    anyButton('Send feedback')!.click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(document.activeElement).toBe(field()));
+
+    anyButton('Cancel')!.click();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(menu);
+  });
+
   it('returns focus to the menu button when opened from the narrow menu, whose item is gone', async () => {
     const menu = narrowMenuButton(page);
     menu.click();

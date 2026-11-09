@@ -100,6 +100,67 @@ describe('pool tab', () => {
     expect(tiles(page)[0].querySelector('img')!.getAttribute('sizes')).toBe('149px');
   });
 
+  describe('once the grid is measured', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    /** Stands in for the browser's ResizeObserver, which reports only on the elements it observes. */
+    function measuredAs() {
+      const watchers: { callback: ResizeObserverCallback; observed: Element[] }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          private readonly watcher = { callback: null as never, observed: [] as Element[] };
+          constructor(callback: ResizeObserverCallback) {
+            this.watcher.callback = callback as never;
+            watchers.push(this.watcher);
+          }
+          observe(element: Element) {
+            this.watcher.observed.push(element);
+          }
+          disconnect() {
+            this.watcher.observed = [];
+          }
+        },
+      );
+      return (width: number) => {
+        for (const { callback, observed } of watchers) {
+          for (const target of observed) {
+            callback(
+              [{ target, contentRect: { width } } as unknown as ResizeObserverEntry],
+              {} as ResizeObserver,
+            );
+          }
+        }
+      };
+    }
+
+    it('fits as many of its narrowest tiles across as its width holds exactly', async () => {
+      const measure = measuredAs();
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
+
+      // Nine columns of 144px, with eight 8px gaps.
+      measure(1360);
+      await fixture.whenStable();
+
+      expect(tiles(page)[0].querySelector('img')!.getAttribute('sizes')).toBe('144px');
+    });
+
+    it('renders the rows that fill the screen, and four rows below it', async () => {
+      const measure = measuredAs();
+      const cards = Array.from({ length: 180 }, (_, i) =>
+        card({ id: `card-${i}`, scryfallId: `id-${i}`, name: `Card ${i}` }),
+      );
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards });
+
+      measure(1360);
+      await fixture.whenStable();
+
+      // Rows of nine 144px-wide cards, each 680/488 as tall as wide, with an
+      // 8px gap: 208.66px. The 800px screen and four rows below it take 8 rows.
+      expect(tiles(page)).toHaveLength(8 * 9);
+    });
+  });
+
   describe('when a tile requests its image', () => {
     /** Stands in for the browser saying which tiles are on screen. */
     let screenChanged: IntersectionObserverCallback;

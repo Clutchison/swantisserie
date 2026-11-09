@@ -37,6 +37,7 @@ export type CanOpen = 'yes' | 'no' | 'unknown';
 export function tabInUrl<T extends string>({
   tabs,
   defaultTab,
+  // Stryker disable next-line ArrowFunction,StringLiteral: only the Feedback page uses the default, which has no fallbacks, and the answer is only compared with 'no' and 'unknown'.
   canOpen = () => 'yes',
   fallbacks = {},
 }: {
@@ -58,12 +59,15 @@ export function tabInUrl<T extends string>({
 }): TabInUrl<T> {
   const route = inject(ActivatedRoute);
   const router = inject(Router);
+  // Stryker disable next-line ObjectLiteral: queryParamMap emits synchronously on subscribe, so the initial value is never read.
   const requested = toSignal(route.queryParamMap.pipe(map((params) => params.get('tab'))), {
     initialValue: null,
   });
   /**
    * The tab selected since the URL last changed, which shows before the URL
-   * catches up. A navigation that doesn't land clears it.
+   * catches up. The latest navigation's outcome clears it: one that lands has
+   * changed the URL, which cleared it already; one that doesn't puts back the
+   * tab the URL names.
    */
   const chosen = linkedSignal<string | null, T | undefined>({
     source: requested,
@@ -74,6 +78,7 @@ export function tabInUrl<T extends string>({
   /** Whether the viewer may open the tab named. */
   const allowed = computed<CanOpen>(() => {
     const tab = named();
+    // Stryker disable next-line ConditionalExpression,LogicalOperator,StringLiteral: canOpen never answers 'unknown' for the default tab or for none, and its 'no' falls back to the default tab anyway.
     return tab === undefined || tab === defaultTab ? 'yes' : canOpen(tab);
   });
   const selected = computed(() => {
@@ -91,12 +96,17 @@ export function tabInUrl<T extends string>({
   // Once it's known which tab shows, the URL says so: as a tab is selected,
   // and to correct one the viewer can't open.
   effect(() => {
+    // Stryker disable next-line ConditionalExpression,StringLiteral: this differs only when a tab is selected while canOpen is still unknown; the URL is written sooner, but ends the same.
     if (allowed() === 'unknown') return;
     const tab = selected();
+    // Stryker disable next-line ConditionalExpression: an extra navigation to the URL already shown, which the router skips; clearing the tab selected then changes nothing shown.
     if (requested() === param(tab)) return;
+    // Stryker disable next-line UpdateOperator: counting down tells the latest navigation apart just as counting up does.
     const navigation = ++navigations;
-    const landed = (ok: boolean) => {
-      if (!ok && navigation === navigations) chosen.set(undefined);
+    // Once the URL changes it clears the tab selected itself, so clearing it again once the
+    // navigation lands changes nothing: only one that doesn't land needs to.
+    const landed = () => {
+      if (navigation === navigations) chosen.set(undefined);
     };
     untracked(
       () =>
@@ -108,7 +118,7 @@ export function tabInUrl<T extends string>({
             preserveFragment: true,
             replaceUrl: true,
           })
-          .then(landed, () => landed(false)),
+          .then(landed, landed),
     );
   });
 

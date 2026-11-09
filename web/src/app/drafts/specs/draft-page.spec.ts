@@ -33,6 +33,8 @@ import {
   controlByLabel,
   text,
   wait,
+  landedUrls,
+  midNavigation,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -681,6 +683,20 @@ describe('draft page', () => {
       },
     );
 
+    it('keeps showing the last tab selected while an earlier selection is still being written', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
+      const shownMidway = midNavigation(() => panelName(page));
+
+      tabButton(page, 'Queue').click();
+      TestBed.tick();
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/drafts/draft-1?tab=plan');
+      expect(shownMidway.length).toBeGreaterThan(0);
+      expect(shownMidway).not.toContain('Pool');
+    });
+
     it('opens the Pool tab on the draft’s plain URL', async () => {
       const { page } = await openDraft(completeSnapshot, asPlayer);
 
@@ -901,12 +917,14 @@ describe('draft page', () => {
         expect(tabLabels(page)).not.toContain('Queue');
       });
 
-      it('when the draft fails to load', async () => {
+      it('when the draft fails to load, going straight there rather than by the Lists tab', async () => {
         const { fixture } = await openUrl('/drafts/draft-1?tab=board');
+        const landed = landedUrls();
         http.expectOne('/api/drafts/draft-1').flush({}, { status: 404, statusText: 'Not Found' });
         await fixture.whenStable();
 
         await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
+        expect(landed).toEqual(['/drafts/draft-1']);
       });
     });
   });

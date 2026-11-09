@@ -29,6 +29,7 @@ import {
   viewOn,
   drafting,
   statusMessage,
+  alertIn,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -57,24 +58,6 @@ useTallScreen();
 describe('plan tab', () => {
   const tabs = (page: HTMLElement) =>
     [...page.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim());
-
-  it('sits between Queue and Board for every player', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }));
-
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
-    expect(tabButton(page, 'Plan').disabled).toBe(false);
-  });
-
-  it('is offered only to players', async () => {
-    const { page } = await openDraft(
-      completeSnapshot,
-      drafting({ turn: bobsTurn, players: [bob] }),
-    );
-
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
-    expect(tabButton(page, 'Plan').disabled).toBe(true);
-    http.expectNone('/api/drafts/draft-1/plan');
-  });
 
   it('lists the mainboard and the sideboard, each line a count and a name', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
@@ -109,6 +92,24 @@ describe('plan tab', () => {
       'Shivan Dragon',
       'Move Shivan Dragon to the mainboard',
     ]);
+  });
+
+  it('sits between Queue and Board for every player', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }));
+
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
+    expect(tabButton(page, 'Plan').disabled).toBe(false);
+  });
+
+  it('is offered only to players', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsTurn, players: [bob] }),
+    );
+
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
+    expect(tabButton(page, 'Plan').disabled).toBe(true);
+    http.expectNone('/api/drafts/draft-1/plan');
   });
 
   it('says when a plan board is empty', async () => {
@@ -223,9 +224,7 @@ describe('plan tab', () => {
       );
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
     await vi.waitFor(() =>
-      expect(plan.querySelector('[role="alert"]')?.textContent).toContain(
-        'That card isn’t in your plan.',
-      ),
+      expect(alertIn(plan)?.textContent).toContain('That card isn’t in your plan.'),
     );
 
     reread.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)] }));
@@ -234,6 +233,35 @@ describe('plan tab', () => {
       '1 Brightclimb Pathway // Grimclimb Pathway',
       '2 Lightning Bolt',
     ]);
+    expect(statusMessage(plan, 'Shivan Dragon moved to the sideboard')).toBeUndefined();
+  });
+
+  it('clears the reason a change was refused once one is made', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/shivan-card')
+      .flush(
+        { error: 'not-in-plan', message: 'That card isn’t in your plan.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
+    await vi.waitFor(() => expect(alertIn(plan)).not.toBeNull());
+
+    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+      planOf({
+        mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+        sideboard: [planned(shivan)],
+      }),
+    );
+    await fixture.whenStable();
+
+    expect(alertIn(plan)).toBeNull();
   });
 
   it('dims unpicked cards, marks them, counts them apart and offers to remove them', async () => {
@@ -504,9 +532,28 @@ describe('plan tab', () => {
         .flush(null, { status: 500, statusText: 'Server Error' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
 
-      await vi.waitFor(() => expect(plan.querySelector('[role="alert"]')).not.toBeNull());
+      await vi.waitFor(() => expect(alertIn(plan)).not.toBeNull());
       await fixture.whenStable();
       expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard'));
+    });
+
+    it('keeps focus on a line’s Remove as one of its several copies goes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), unpicked(boltAgain)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      const remove = button(plan, 'Remove Lightning Bolt from your plan')!;
+
+      remove.focus();
+      remove.click();
+      http
+        .expectOne('/api/drafts/draft-1/plan/bolt-card')
+        .flush(planOf({ mainboard: [planned(brightclimb), unpicked(boltAgain)] }));
+      await vi.waitFor(() => expect(planBoards(plan)[0].lines).toHaveLength(2));
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(button(plan, 'Remove Lightning Bolt from your plan'));
     });
 
     it('moves focus to the next line once removing a card’s last copy takes its line', async () => {

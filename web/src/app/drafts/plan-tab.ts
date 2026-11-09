@@ -118,8 +118,8 @@ const PLAN_BOARDS: Record<
   Sideboard: {
     cards: (plan) => plan.sideboard,
     // One stack, whatever the grouping, which the plan board heading names.
-    stack: (cards, _grouping, cardsById) =>
-      cards.length > 0 ? [sideboardStack(cards, cardsById)] : [],
+    // The template shows stacks only for a plan board with cards.
+    stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
     showsStackHeaders: false,
     other: 'Mainboard',
     otherName: 'mainboard',
@@ -245,6 +245,7 @@ export class PlanTab {
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
+        // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
         stacks: this.showingStacks() ? stack(held, this.grouping(), this.cardsById()) : [],
       };
     }),
@@ -265,6 +266,7 @@ export class PlanTab {
   );
 
   /** Whether a drag has started since the last press on a card, so that releasing it opens nothing. */
+  // Stryker disable next-line BooleanLiteral: a real click on a card always follows a press, which resets it.
   private dragged = false;
 
   /** Whether there are lost cards to note. */
@@ -285,9 +287,11 @@ export class PlanTab {
     const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
     if (!desktop?.addEventListener) return;
     const listening = new AbortController();
+    // Stryker disable next-line ObjectLiteral: the leftover listener only sets a destroyed component's signal.
     desktop.addEventListener('change', ({ matches }) => this.onDesktop.set(matches), {
       signal: listening.signal,
     });
+    // Stryker disable next-line ArrowFunction,CallExpression: the leftover listener only sets a destroyed component's signal.
     inject(DestroyRef).onDestroy(() => listening.abort());
   }
 
@@ -408,6 +412,7 @@ export class PlanTab {
    */
   private openDetail(poolCardId: string, tilePlaceholder: string | null) {
     const card = this.poolCardsById().get(poolCardId);
+    // Stryker disable next-line ConditionalExpression: for an unknown pool card the mutant throws on card.name instead, so still nothing opens.
     if (!card) return;
     const detail = this.cardDetails.open({
       card,
@@ -415,6 +420,7 @@ export class PlanTab {
         pick: this.store.offerPick(),
         queue: this.store.offerQueue() && this.store.planned().has(poolCardId),
         addToPlan: false,
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Plan is offered only for an unpicked card.
         removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
       })),
       tilePlaceholder,
@@ -502,6 +508,7 @@ export class PlanTab {
 /** The mode and grouping the viewer last chose, or the defaults if none is kept or storage is refused. */
 function rememberedChoice(): PlanChoice {
   try {
+    // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.
     const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');
     const { mode, grouping } = (kept ?? {}) as Record<string, unknown>;
     return {
@@ -525,7 +532,9 @@ const isGrouping = (value: unknown): value is Grouping =>
 function lines(cards: PlanBoardCard[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
   for (const card of cards) {
-    const key = `${card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked'} ${card.name}`;
+    // Stryker disable next-line StringLiteral: with any one kind emptied the three stay distinct, so lines and focus keys come out the same.
+    const kind = card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked';
+    const key = `${kind} ${card.name}`;
     const line = byName.get(key);
     if (line) {
       line.count++;
@@ -540,6 +549,7 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
 /** One card per copy of a basic land, each with an id of its own to track it by. */
 function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
   return Array.from({ length: count }, (_, copy) => ({
+    // Stryker disable next-line StringLiteral: basics' ids only serve as track keys and drag data, and basics never move.
     poolCardId: `basic-${land}-${copy}`,
     name: land,
     picked: true,

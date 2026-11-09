@@ -87,12 +87,10 @@ export class QueueTab {
 
   /**
    * Where the queue cutoff goes: before the queued card at this index, the
-   * first one past the picks left. Null when the queue fits in them.
+   * first one past the picks left. When the queue fits in them, no card has
+   * that index, so none is drawn.
    */
-  protected readonly cutoffIndex = computed(() => {
-    const left = this.picksLeft();
-    return left !== null && this.queue().cards.length > left ? left : null;
-  });
+  protected readonly cutoffIndex = this.picksLeft;
 
   /** Unless queue changes are offered, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !this.store.offerQueue());
@@ -150,7 +148,12 @@ export class QueueTab {
         );
       },
       {
-        keep: [`${to > from ? 'up' : 'down'} ${poolCardId}`, `remove ${poolCardId}`],
+        keep: [
+          // Stryker disable next-line EqualityOperator: move returns early when to equals from.
+          `${to > from ? 'up' : 'down'} ${poolCardId}`,
+          // Stryker disable next-line StringLiteral: the card's other move button is always there when the pressed one goes, so the Remove fallback is never reached.
+          `remove ${poolCardId}`,
+        ],
         status: `${name} moved to position ${to + 1} in your queue`,
         // Put the card back, so focus can go back to the button pressed.
         rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
@@ -162,7 +165,10 @@ export class QueueTab {
   protected remove(poolCardId: string) {
     const cards = this.queue().cards;
     const at = cards.findIndex((card) => card.poolCardId === poolCardId);
-    const neighbours = [cards[at + 1], cards[at - 1]].filter((card) => card !== undefined);
+    const after = cards[at + 1];
+    // Stryker disable next-line ArithmeticOperator: removing the last card leaves no keep, and focus falls back to the nearest control before, the previous row's Remove.
+    const before = cards[at - 1];
+    const neighbours = [after, before].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
       keep: neighbours.map((card) => `remove ${card.poolCardId}`),
     });

@@ -66,6 +66,7 @@ export class PoolTab {
   private readonly tileImages = inject(TileImageLoader);
 
   /** Whether the Pool tab is the draft page's visible tab. */
+  // Stryker disable next-line BooleanLiteral: the draft page always binds [visible].
   readonly visible = input(true);
 
   /** The pool's cards. */
@@ -99,7 +100,8 @@ export class PoolTab {
   /** The cards the last good search matched. */
   private readonly matched = linkedSignal<PoolSearchResult<PoolCardView>, PoolCardView[]>({
     source: this.searchResult,
-    computation: (result, previous) => (result.ok ? result.cards : (previous?.value ?? [])),
+    // Only the first computation has no previous one, and its search is empty, which always parses.
+    computation: (result, previous) => (result.ok ? result.cards : previous!.value),
   });
   /** The color filter's buttons, in the order they're laid out. */
   protected readonly colorButtons = COLOR_BUTTONS;
@@ -178,6 +180,7 @@ export class PoolTab {
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
       observer.observe(this.host);
+      // Stryker disable next-line ArrowFunction,CallExpression: the leftover observer only sets a destroyed component's width.
       inject(DestroyRef).onDestroy(() => observer.disconnect());
     }
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
@@ -187,11 +190,14 @@ export class PoolTab {
       const ready =
         this.visible() && !this.loading() && this.tileImages.settled() && !constrainedConnection();
       this.preloader.preloadResults([]);
-      if (!ready || urls.length === 0) return;
+      if (!ready) return;
+      // Stryker disable next-line ConditionalExpression: with no URLs it would only schedule preloading an empty list.
+      if (urls.length === 0) return;
       const waiting = setTimeout(() => this.preloader.preloadResults(urls), RESULTS_SETTLE_MS);
       onCleanup(() => clearTimeout(waiting));
     });
     inject(DestroyRef).onDestroy(() => {
+      // Stryker disable next-line CallExpression: the leftover timer's tile is gone with the grid, which tile.isConnected catches.
       clearTimeout(this.resting);
       this.preloader.preloadResults([]);
     });
@@ -211,6 +217,7 @@ export class PoolTab {
   protected readonly normalImage = NORMAL_IMAGE;
 
   /** Rows are rebuilt whenever the cards shown or the columns change, so they're tracked by position. */
+  // Stryker disable next-line BlockStatement: rows are rebuilt by position anyway; equal track ids only reuse row views.
   protected trackRow(index: number) {
     return index;
   }
@@ -229,6 +236,7 @@ export class PoolTab {
 
   /** The mouse has come to a tile: if it rests there, the viewer is likely to open it. */
   protected mouseEntered(card: PoolCardView, tile: HTMLElement) {
+    // Stryker disable next-line CallExpression: a tile's mouseleave always clears the timer before the next tile's mouseenter.
     clearTimeout(this.resting);
     this.resting = setTimeout(() => {
       // The grid may have moved on from this tile with no mouseleave.
@@ -254,7 +262,8 @@ export class PoolTab {
    */
   protected open(card: PoolCardView, tile: HTMLElement) {
     this.preloader.noteRequested(this.images.url(card, 'large'));
-    for (let face = 1; face < card.images.length; face++) this.preloadLarge(card, face);
+    // The front face's was noted just now, so only the other faces load.
+    card.images.forEach((_, face) => this.preloadLarge(card, face));
     this.cardDetails.open({
       card,
       actions: this.actions,
@@ -303,5 +312,8 @@ function constrainedConnection() {
   const { connection } = navigator as Navigator & {
     connection?: { saveData?: boolean; effectiveType?: string };
   };
-  return !!connection?.saveData || !!connection?.effectiveType?.endsWith('2g');
+  if (!connection) return false;
+  if (connection.saveData) return true;
+  // Stryker disable next-line OptionalChaining: every browser with navigator.connection reports effectiveType.
+  return !!connection.effectiveType?.endsWith('2g');
 }

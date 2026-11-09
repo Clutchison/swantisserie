@@ -4,7 +4,14 @@ import { TestBed } from '@angular/core/testing';
 import { NavigationStart } from '@angular/router';
 import { App } from './app';
 import { alice, http, openApp, openDialog, router, useApp } from './specs-harness';
-import { banner, button, expectLoadingAnimation, expectSignedOut } from './drafts/specs/harness';
+import {
+  banner,
+  button,
+  expectLoadingAnimation,
+  expectSignedOut,
+  loadingAnimation,
+  midNavigation,
+} from './drafts/specs/harness';
 import { answerUnreviewedCount } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
 
@@ -46,6 +53,26 @@ describe('App', () => {
     for (const drafts of http.match('/api/drafts')) drafts.flush([]);
     await fixture.whenStable();
     expect(page.textContent).not.toContain('Loading…');
+  });
+
+  it('shows no page-wide loading once the first page is shown', async () => {
+    const page = await openSettled('/', alice);
+    const loadingMidway = midNavigation(() => loadingAnimation(page) !== null);
+
+    await router.navigateByUrl('/status');
+    TestBed.tick();
+    http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' });
+
+    expect(loadingMidway).toEqual([false]);
+  });
+
+  it('asks once who is signed in, not on each page a signed-out viewer tries', async () => {
+    await openSettled('/', (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }));
+
+    void router.navigateByUrl('/leaderboard');
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in?returnTo=%2Fleaderboard'));
+    http.expectNone('/api/auth/me');
   });
 
   it('says so when a page cannot be loaded, rather than staying blank', async () => {
@@ -190,6 +217,17 @@ describe('App', () => {
 
       expect(menuLinks(page)).toEqual([]);
       expect(document.activeElement).toBe(trigger);
+    });
+
+    it('leaves focus where it is on an Escape while it is closed', async () => {
+      const page = await openSettled('/', { ...alice, isAppAdmin: true });
+      const logOut = logOutButton(page)!;
+      logOut.focus();
+
+      logOut.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      TestBed.tick();
+
+      expect(document.activeElement).toBe(logOut);
     });
 
     it('closes when focus moves out of it, leaving focus where it went', async () => {

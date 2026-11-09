@@ -17,7 +17,9 @@ import {
   button,
   cardName,
   type AppFixture,
+  startDrag,
 } from './harness';
+import { planOf, planned } from './plan-tab-harness';
 import { image, openDetail } from './pool-tab-harness';
 import { openDialog, pressKey } from '../../specs-harness';
 import {
@@ -215,6 +217,18 @@ describe('card previews', () => {
       tabTo(button(panel(page), 'Lightning Bolt')!);
 
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
+    });
+
+    it('opens on names tabbed to on the Plan tab, but not while a drag is under way', async () => {
+      const { page, fixture } = await openPicked({ plan: planOf({ mainboard: [planned(bolt)] }) });
+      tabButton(page, 'Plan').click();
+      await fixture.whenStable();
+      const name = button(panel(page), 'Lightning Bolt')!;
+
+      startDrag(fixture, name);
+      tabTo(name);
+
+      expect(previewImage()).toBeNull();
     });
 
     it('adds no Tab stop for a card shown in stacks mode', async () => {
