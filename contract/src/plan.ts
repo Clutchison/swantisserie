@@ -101,6 +101,8 @@ export interface PreferredPrintingProblem {
 export interface PlanView extends PlanBoards {
   /** What the Plan notice lists: the lost cards, in the order they went, until the player dismisses it. */
   lost: LostCardView[];
+  /** Whether the Ready notice shows: a deck change cleared the player's ready during the tournament's registration, and they haven't since dismissed it or marked themselves ready again, nor has registration ended, by Start or by cancelling the tournament. */
+  readyNotice: boolean;
   /** The player's preferred printings, which their basic lands show. */
   preferredPrintings: PreferredPrintings;
 }

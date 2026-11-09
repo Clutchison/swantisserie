@@ -66,6 +66,7 @@ describe('a plan becomes a deck when its draft completes', () => {
       sideboard: [picked(ids.Shock, 'Shock')],
       basics: [{ land: 'Mountain', count: 16 }],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
     expect((await plan(id, bobCookie).expect(200)).body).toEqual({
@@ -73,6 +74,7 @@ describe('a plan becomes a deck when its draft completes', () => {
       sideboard: [],
       basics: [{ land: 'Swamp', count: 3 }],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -93,6 +95,7 @@ describe('a plan becomes a deck when its draft completes', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });
@@ -116,6 +119,7 @@ describe('a plan becomes a deck when its draft completes', () => {
       sideboard: [],
       basics: [],
       lost: [],
+      readyNotice: false,
       preferredPrintings: {},
     });
   });

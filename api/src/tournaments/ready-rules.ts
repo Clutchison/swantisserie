@@ -63,7 +63,7 @@ export function deckTooSmallForReady(player: MainboardCounted): boolean {
  * deck change's transaction, which must hold the player's row; marking
  * ready takes the draft's row lock, so it can't land between this check
  * and the change's commit. Answers whether it cleared ready: the one place
- * an automatic clear happens.
+ * an automatic clear happens, and so the one place the Ready notice is set.
  */
 export async function clearReadyIfDeckTooSmall(
   tx: Transaction,
@@ -93,7 +93,7 @@ export async function clearReadyIfDeckTooSmall(
   }
   await tx.tournamentEntry.update({
     where: { id: entry.id },
-    data: { ready: false },
+    data: { ready: false, readyNotice: true },
   });
   return true;
 }

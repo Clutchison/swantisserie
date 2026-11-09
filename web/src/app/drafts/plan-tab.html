@@ -46,6 +46,17 @@
     </button>
   </div>
 }
+@if (plan().readyNotice) {
+  <div class="notice" role="status">
+    <p>
+      You’re no longer ready: your mainboard dropped below {{ minimumMainboard }} cards. Fill your
+      deck, then mark yourself ready again on the Play tab.
+    </p>
+    <button class="button secondary" type="button" (click)="dismissReadyNotice()" appSendsChange>
+      Dismiss
+    </button>
+  </div>
+}
 <p class="detail">
   @if (deckLocked()) {
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.

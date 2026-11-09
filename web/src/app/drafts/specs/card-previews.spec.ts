@@ -427,6 +427,7 @@ describe('card previews', () => {
             sideboard: [],
             basics: [],
             lost: [],
+            readyNotice: false,
             preferredPrintings: {},
           },
         });
@@ -497,6 +498,7 @@ describe('card previews', () => {
           sideboard: [],
           basics: [],
           lost: [],
+          readyNotice: false,
           preferredPrintings: {},
         },
       });
@@ -548,6 +550,7 @@ describe('card previews', () => {
           sideboard: [],
           basics: [],
           lost: [],
+          readyNotice: false,
           preferredPrintings: {},
         },
       });
@@ -569,6 +572,7 @@ describe('card previews', () => {
           sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
           basics: [],
           lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.id }],
+          readyNotice: false,
           preferredPrintings: {},
         },
       });
@@ -622,6 +626,7 @@ describe('card previews', () => {
           sideboard: [],
           basics: [{ land: 'Swamp', count: 2 }],
           lost: [],
+          readyNotice: false,
           preferredPrintings,
         },
       });

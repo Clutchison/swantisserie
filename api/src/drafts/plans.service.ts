@@ -232,6 +232,28 @@ export class PlansService {
   }
 
   /**
+   * Takes down the user's Ready notice, on their own tournament entry, if
+   * it shows. Not a change to the deck, so allowed while it is locked.
+   * Throws NotAPlayerError if the user isn't in the draft.
+   */
+  async dismissReadyNotice(
+    draftId: string,
+    userId: string,
+  ): Promise<PlanChange> {
+    return this.change(
+      draftId,
+      userId,
+      async (tx, playerId) => {
+        await tx.tournamentEntry.updateMany({
+          where: { playerId },
+          data: { readyNotice: false },
+        });
+      },
+      { deckWrite: false },
+    );
+  }
+
+  /**
    * Runs `apply` on the user's plan, with their row locked, and answers
    * with the plan as it then is. Throws NotAPlayerError if the user isn't
    * in the draft.
@@ -286,6 +308,10 @@ export class PlansService {
         },
       },
     });
+    const entry = await tx.tournamentEntry.findUnique({
+      where: { playerId },
+      select: { readyNotice: true },
+    });
     return {
       ...(await readPlanBoards(tx, playerId)),
       lost: lost.map((card) => ({
@@ -293,6 +319,7 @@ export class PlansService {
         name: card.poolCard.name,
         pickedBy: card.pick.player.userId,
       })),
+      readyNotice: entry?.readyNotice ?? false,
       preferredPrintings: await playersPreferredPrintings(tx, playerId),
     };
   }

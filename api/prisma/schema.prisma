@@ -463,6 +463,8 @@ model TournamentEntry {
   dropped           Boolean    @default(false)
   /// Whether the player has marked themselves ready during registration; never a bot. A new entry starts not ready, and nothing after Start reads it.
   ready             Boolean    @default(false)
+  /// Whether the player's Ready notice shows on their Deck tab: set only when a deck change clears their ready automatically, and cleared when they dismiss it, mark themselves ready again, or registration ends: Start clears it, and cancelling the tournament deletes the entry. Only the player sees it.
+  readyNotice       Boolean    @default(false)
   /// While dropped, the tournament round whose completion the drop came after: the last completed round when the player dropped, or the round Complete round was completing when it dropped them; 0 before any. Reopening round N takes back the drops after N or later. Null while not dropped, and for drops made before this was recorded.
   droppedAfterRound Int?
   /// Single elimination only: the entry's place in the seed order, from 1, shuffled at Start; null otherwise.

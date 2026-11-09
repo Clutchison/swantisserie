@@ -326,6 +326,7 @@ describe('export tab', () => {
           { land: 'Mountain', count: 7 },
         ],
         lost: [],
+        readyNotice: false,
         preferredPrintings: {
           Island: {
             scryfallId: 'a0000000-0000-4000-8000-000000000395',
