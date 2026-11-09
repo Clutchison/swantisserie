@@ -12,10 +12,9 @@ import {
 import { availableCopies } from 'engine';
 import type { DraftState, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { clearReadyIfDeckTooSmall } from '../tournaments/ready-clearing.js';
+import { clearReadyIfDeckTooSmall } from '../tournaments/ready-rules.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { DraftLock, lockPlayer } from './draft-lock.js';
-import { DraftPublisher } from './draft-publisher.js';
+import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
 import { isDeckLocked } from './locked-deck.js';
 import { playersPreferredPrintings } from './preferred-printings.js';
@@ -25,6 +24,16 @@ export const PLAN_ORDER = [
   { poolCard: { manaValue: 'asc' } },
   { poolCard: { name: 'asc' } },
 ] satisfies Prisma.PlannedCardOrderByWithRelationInput[];
+
+/**
+ * A plan change's answer: the plan as it then is, and whether the change
+ * cleared the player's ready, which changes the draft for everyone else,
+ * so whoever made the change must bump its version and publish it.
+ */
+export interface PlanChange {
+  plan: PlanView;
+  readyCleared: boolean;
+}
 
 export class PlanRefusedError extends Error {
   constructor(readonly refusal: PlanRefusal) {
@@ -43,11 +52,7 @@ export class PlanRefusedError extends Error {
  */
 @Injectable()
 export class PlansService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly lock: DraftLock,
-    private readonly publisher: DraftPublisher,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** The user's plan in the draft. Throws NotAPlayerError if they're not in it. */
   async plan(draftId: string, userId: string): Promise<PlanView> {
@@ -71,7 +76,7 @@ export class PlansService {
     draftId: string,
     userId: string,
     poolCardId: string,
-  ): Promise<PlanView> {
+  ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
       if (state === 'Closed' || state === 'Complete') {
         throw new PlanRefusedError(
@@ -137,7 +142,7 @@ export class PlansService {
     userId: string,
     poolCardId: string,
     board: PlanBoard,
-  ): Promise<PlanView> {
+  ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
       const { count } = await tx.plannedCard.updateMany({
         where: { playerId, poolCardId },
@@ -156,7 +161,7 @@ export class PlansService {
     draftId: string,
     userId: string,
     poolCardId: string,
-  ): Promise<PlanView> {
+  ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
       const planned = await tx.plannedCard.findUnique({
         where: { playerId_poolCardId: { playerId, poolCardId } },
@@ -183,7 +188,7 @@ export class PlansService {
     userId: string,
     land: BasicLand,
     count: number,
-  ): Promise<PlanView> {
+  ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
       if (count === 0) {
         await tx.plannedBasic.deleteMany({ where: { playerId, land } });
@@ -201,7 +206,7 @@ export class PlansService {
    * Takes every basic land out of the user's plan. Throws
    * NotAPlayerError if the user isn't in the draft.
    */
-  async clearBasics(draftId: string, userId: string): Promise<PlanView> {
+  async clearBasics(draftId: string, userId: string): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
       await tx.plannedBasic.deleteMany({ where: { playerId } });
     });
@@ -212,7 +217,7 @@ export class PlansService {
    * restores them. Not a change to the deck, so allowed while it is locked.
    * Throws NotAPlayerError if the user isn't in the draft.
    */
-  async dismissNotice(draftId: string, userId: string): Promise<PlanView> {
+  async dismissNotice(draftId: string, userId: string): Promise<PlanChange> {
     return this.change(
       draftId,
       userId,
@@ -227,17 +232,17 @@ export class PlansService {
   }
 
   /**
-   * Runs `apply` on the user's plan, with their row locked, and returns
-   * the plan as it then is. Throws NotAPlayerError if the user isn't in
-   * the draft, and, for a `deckWrite` (the default), PlanRefusedError if
-   * their deck is locked.
+   * Runs `apply` on the user's plan, with their row locked, and answers
+   * with the plan as it then is. Throws NotAPlayerError if the user isn't
+   * in the draft.
    *
-   * A `deckWrite` that takes a ready player's mainboard below 40 cards
-   * clears their ready in the same transaction. Only then does the draft
-   * change for anyone else, so only then is its version bumped and the
-   * draft published, once committed: the transaction holds the draft row's
-   * share lock, which it can't upgrade to bump the version without risking
-   * a deadlock against another player's plan write.
+   * `deckWrite` (the default) marks a change to the deck itself, its cards
+   * or basics, and does two things: the change is refused with
+   * PlanRefusedError (`deck-locked`) while the deck is locked, and, once
+   * applied, a ready player whose mainboard it takes below 40 cards stops
+   * being ready, in the same transaction, which the answer reports as
+   * `readyCleared`. Only a change that doesn't touch the deck, such as
+   * dismissing the Plan notice, passes `deckWrite: false`.
    */
   private async change(
     draftId: string,
@@ -248,32 +253,25 @@ export class PlansService {
       state: DraftState,
     ) => Promise<void>,
     { deckWrite = true }: { deckWrite?: boolean } = {},
-  ): Promise<PlanView> {
-    const { plan, readyCleared } = await this.prisma.$transaction(
-      async (tx) => {
-        const locked = await lockPlayer(tx, draftId, userId);
-        if (!locked) throw new NotAPlayerError('plans');
-        const { playerId, state } = locked;
-        if (deckWrite && (await isDeckLocked(tx, playerId))) {
-          throw new PlanRefusedError({
-            error: 'deck-locked',
-            message:
-              'Your deck is locked until this draft’s tournament is complete or cancelled.',
-          });
-        }
-        await apply(tx, playerId, state);
-        return {
-          readyCleared:
-            deckWrite && (await clearReadyIfDeckTooSmall(tx, playerId)),
-          plan: await this.read(tx, playerId),
-        };
-      },
-    );
-    if (readyCleared) {
-      await this.lock.bumpVersion(draftId);
-      await this.publisher.publish(draftId, []);
-    }
-    return plan;
+  ): Promise<PlanChange> {
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await lockPlayer(tx, draftId, userId);
+      if (!locked) throw new NotAPlayerError('plans');
+      const { playerId, state } = locked;
+      if (deckWrite && (await isDeckLocked(tx, playerId))) {
+        throw new PlanRefusedError({
+          error: 'deck-locked',
+          message:
+            'Your deck is locked until this draft’s tournament is complete or cancelled.',
+        });
+      }
+      await apply(tx, playerId, state);
+      return {
+        readyCleared:
+          deckWrite && (await clearReadyIfDeckTooSmall(tx, playerId)),
+        plan: await this.read(tx, playerId),
+      };
+    });
   }
 
   private async read(tx: Transaction, playerId: string): Promise<PlanView> {

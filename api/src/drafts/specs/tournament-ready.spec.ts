@@ -1,7 +1,13 @@
-import type { ViewerTournamentView } from 'contract';
+import type {
+  DraftSocketEvents,
+  DraftView,
+  ViewerTournamentView,
+} from 'contract';
+import { io, type Socket } from 'socket.io-client';
 import {
   alice,
   aliceCookie,
+  app,
   announcementsSettled,
   bob,
   cancelTournament,
@@ -280,6 +286,49 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
       false,
     );
     expect(view.readyCount).toEqual({ ready: 0, of: 2 });
+  });
+
+  describe('pushed to another viewer', () => {
+    const sockets: Socket<DraftSocketEvents>[] = [];
+
+    beforeEach(async () => {
+      await app.listen(0);
+    });
+
+    afterEach(() => {
+      for (const socket of sockets.splice(0)) socket.disconnect();
+    });
+
+    /** The drafts pushed to Alice, viewing draft `id`, from once she is connected. */
+    async function watchAsAlice(id: string) {
+      const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
+        path: '/api/socket.io',
+        transports: ['websocket'],
+        auth: { draftId: id },
+        extraHeaders: { Cookie: aliceCookie },
+        reconnection: false,
+      });
+      sockets.push(socket);
+      const pushed: DraftView[] = [];
+      socket.on('changed', (draft) => pushed.push(draft));
+      await new Promise<void>((resolve, reject) => {
+        socket.on('connect', resolve);
+        socket.on('connect_error', reject);
+      });
+      return pushed;
+    }
+
+    it('pushes the draft, its version bumped, to another viewer when ready clears', async () => {
+      const id = await bobReady();
+      const pushed = await watchAsAlice(id);
+      const before = await version(id);
+
+      await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+
+      await vi.waitFor(() =>
+        expect(pushed.map((draft) => draft.version)).toEqual([before + 1]),
+      );
+    });
   });
 
   it('clears ready when a basic land count takes the mainboard below 40, and when basics are cleared', async () => {
