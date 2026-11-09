@@ -8,6 +8,7 @@ import {
   alice,
   bob,
   button,
+  buttonOrder,
   completeSnapshot,
   controlByLabel,
   accessibleDescription,
@@ -282,6 +283,43 @@ describe('Play tab', () => {
       expect(button(tab, 'Leave')).toBeUndefined();
       expect(button(tab, 'Remove Bob')).toBeUndefined();
       expect(button(tab, 'Cancel tournament')).toBeUndefined();
+    });
+
+    it('shows a joined organizer their own buttons, then the organizer’s, each ending on the one that moves things on', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      const tab = await openPlayTab(fixture, page);
+
+      expect(buttonOrder(tab, 'Start tournament')).toEqual([
+        'Leave',
+        'I’m ready',
+        'Cancel tournament',
+        'Start tournament',
+      ]);
+    });
+
+    it('shows a joined player who isn’t an organizer Leave, then I’m ready', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id, alice.id));
+
+      const tab = await openPlayTab(fixture, page);
+
+      expect(buttonOrder(tab, 'Leave')).toEqual(['Leave', 'I’m ready']);
+    });
+
+    it('shows an organizer who hasn’t joined Join first', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      const tab = await openPlayTab(fixture, page);
+
+      expect(buttonOrder(tab, JOIN_PRIVATE)).toEqual([
+        JOIN_PRIVATE,
+        'Cancel tournament',
+        'Start tournament',
+      ]);
     });
 
     it('sums up a round robin by its format alone, as it has no tournament rounds', async () => {

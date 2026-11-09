@@ -13,7 +13,7 @@ When the element has no role or name to find it by, give it one in the template:
 
 ## Assert behaviour
 
-Assert what a viewer sees or can do: text shown, a control present, enabled or gone, a dialog open, a request sent. Leave layout and presentation (classes such as `side-by-side` or `capped`, icon class names, the order or tag names of children, which wrapper an element sits in, a fade's transition classes) to the styles, unasserted.
+Assert what a viewer sees or can do: text shown, a control present, enabled or gone, a dialog open, a request sent. Leave layout and presentation (classes such as `side-by-side` or `capped`, icon class names, the order or tag names of children, which wrapper an element sits in, a fade's transition classes) to the styles, unasserted. The one exception is the order of the buttons in an action row, found by accessible name with `buttonOrder` in the drafts spec harness: the button-order standard in `CODING_STANDARDS.md` makes that order behaviour.
 
 ## Flush requests by URL
 
