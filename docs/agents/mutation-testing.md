@@ -28,13 +28,13 @@ This section is the single record of which code Stryker has run over and which r
 
 ### Done
 
-| Workspace | Area                                                                                     | Run                 | Gap tickets                         | Status    |
-| --------- | ---------------------------------------------------------------------------------------- | ------------------- | ----------------------------------- | --------- |
-| engine    | all of `src`                                                                             | #530                | #531                                | Closed    |
-| web       | all of `src`, less the exclusions in Web below                                           | #544                | #546                                | Closed    |
-| api       | pick chain: `turns.service`, `turn-state`, `plan-picks`, `queue-clearing`, `queue-order` | #532, rerun in #559 | #563 closed; #578 open (#579, #580) | Gaps open |
-| api       | `pick-import.service`                                                                    | #567                | #581                                | Closed    |
-| api       | `queues.service`, `plans.service`                                                        | #583                | #588 open (#589, #590)              | Gaps open |
+| Workspace | Area                                                                                     | Run                 | Gap tickets            | Status    |
+| --------- | ---------------------------------------------------------------------------------------- | ------------------- | ---------------------- | --------- |
+| engine    | all of `src`                                                                             | #530                | #531                   | Closed    |
+| web       | all of `src`, less the exclusions in Web below                                           | #544                | #546                   | Closed    |
+| api       | pick chain: `turns.service`, `turn-state`, `plan-picks`, `queue-clearing`, `queue-order` | #532, rerun in #559 | #563, #578             | Closed    |
+| api       | `pick-import.service`                                                                    | #567                | #581                   | Closed    |
+| api       | `queues.service`, `plans.service`                                                        | #583                | #588 open (#589, #590) | Gaps open |
 
 The engine's and web's configs mutate all of `src`, so an incremental run over either picks up files added since. Files there not yet run: the engine's `draft-size.ts` and `index.ts`, and web's `deck-lock-reminder.ts` and `card-sizes.ts`.
 
