@@ -13,7 +13,12 @@ import {
   STARTING_PLAYER,
 } from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
-import { READYING_PLAYER, readyRefusal } from './ready-rules.js';
+import {
+  dismissReadyNotices,
+  READYING_PLAYER,
+  readyRefusal,
+  setEntryReady,
+} from './ready-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
 import { NOT_JOINED, TournamentRefusedError } from './tournament-errors.js';
@@ -142,10 +147,7 @@ export class TournamentRegistrationService {
       if (!entry) throw new TournamentRefusedError(NOT_JOINED);
       const refusal = ready ? readyRefusal(player) : null;
       if (refusal) throw new TournamentRefusedError(refusal);
-      await tx.tournamentEntry.update({
-        where: { id: entry.id },
-        data: ready ? { ready, readyNotice: false } : { ready },
-      });
+      await setEntryReady(tx, entry.id, ready);
     });
   }
 
@@ -204,10 +206,7 @@ export class TournamentRegistrationService {
           where: { id: tournament.id },
           data: { state: 'Playing', startedAt: new Date() },
         });
-        await tx.tournamentEntry.updateMany({
-          where: { tournamentId: tournament.id, readyNotice: true },
-          data: { readyNotice: false },
-        });
+        await dismissReadyNotices(tx, tournament.id);
         await snapshotDecklists(tx, tournament.id);
         const steps = ROUND_STEPS[tournament.format];
         if (steps) {

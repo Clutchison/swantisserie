@@ -13,12 +13,21 @@ import {
 } from './mainboard-rules.js';
 
 /**
+ * What ready reads of a player's tournament entry: which entry it is, and
+ * whether they are ready. Spread into an entry select.
+ */
+const READY_ENTRY = {
+  id: true,
+  ready: true,
+} satisfies Prisma.TournamentEntrySelect;
+
+/**
  * What marking ready reads of one of the draft's players: whether they are
  * a bot, their tournament entry, and their mainboard as Start counts it.
  */
 export const READYING_PLAYER = {
   user: { select: { isBot: true } },
-  tournamentEntry: { select: { id: true, ready: true } },
+  tournamentEntry: { select: READY_ENTRY },
   ...MAINBOARD_COUNT,
 } satisfies Prisma.PlayerSelect;
 
@@ -73,11 +82,7 @@ export async function clearReadyIfDeckTooSmall(
     where: { id: playerId },
     select: {
       tournamentEntry: {
-        select: {
-          id: true,
-          ready: true,
-          tournament: { select: { state: true } },
-        },
+        select: { ...READY_ENTRY, tournament: { select: { state: true } } },
       },
       ...MAINBOARD_COUNT,
     },
@@ -96,6 +101,55 @@ export async function clearReadyIfDeckTooSmall(
     data: { ready: false, readyNotice: true },
   });
   return true;
+}
+
+/**
+ * Marks the tournament entry `entryId` ready, or unmarks it, as `ready`
+ * says. Marking ready takes down its Ready notice; unmarking never sets it.
+ */
+export async function setEntryReady(
+  tx: Transaction,
+  entryId: string,
+  ready: boolean,
+): Promise<void> {
+  await tx.tournamentEntry.update({
+    where: { id: entryId },
+    data: ready ? { ready, readyNotice: false } : { ready },
+  });
+}
+
+/** Whether the player `playerId`'s Ready notice shows: false if they have no tournament entry. */
+export async function readyNoticeShows(
+  tx: Transaction,
+  playerId: string,
+): Promise<boolean> {
+  const entry = await tx.tournamentEntry.findUnique({
+    where: { playerId },
+    select: { readyNotice: true },
+  });
+  return entry?.readyNotice ?? false;
+}
+
+/** Takes down the player `playerId`'s Ready notice, if they have a tournament entry and it shows. */
+export async function dismissReadyNotice(
+  tx: Transaction,
+  playerId: string,
+): Promise<void> {
+  await tx.tournamentEntry.updateMany({
+    where: { playerId },
+    data: { readyNotice: false },
+  });
+}
+
+/** Takes down every Ready notice in the tournament `tournamentId`, as its registration ends. */
+export async function dismissReadyNotices(
+  tx: Transaction,
+  tournamentId: string,
+): Promise<void> {
+  await tx.tournamentEntry.updateMany({
+    where: { tournamentId, readyNotice: true },
+    data: { readyNotice: false },
+  });
 }
 
 /**

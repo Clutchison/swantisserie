@@ -1,10 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import type { ViewerTournamentView } from 'contract';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { viewerJoin } from './join-rules.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { JOINING_PLAYER, viewerJoin } from './join-rules.js';
 import { READYING_PLAYER, viewerReady } from './ready-rules.js';
 import { NoTournamentError } from './tournament-errors.js';
 import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
+
+/**
+ * What the tournament read reads of the viewer as one of the draft's
+ * players: what joining reads, for `viewerJoin`, and what marking ready
+ * reads, for `viewerReady`.
+ */
+const TOURNAMENT_VIEWER = {
+  ...JOINING_PLAYER,
+  ...READYING_PLAYER,
+} satisfies Prisma.PlayerSelect;
 
 /** A draft's tournament as it is read, whatever state it is in. */
 @Injectable()
@@ -23,7 +34,7 @@ export class TournamentReadsService {
         ...TOURNAMENT_VIEW,
         draft: {
           select: {
-            players: { where: { userId: viewerId }, select: READYING_PLAYER },
+            players: { where: { userId: viewerId }, select: TOURNAMENT_VIEWER },
           },
         },
       },
