@@ -1,4 +1,5 @@
 import {
+  alice,
   aliceCookie,
   bob,
   carol,
@@ -14,6 +15,9 @@ import {
   undo,
   poolCardIds,
   setStealBehavior,
+  setSeats,
+  reorderQueue,
+  removeFromQueue,
   fourCards,
   shock,
   bolt,
@@ -265,6 +269,27 @@ describe('steal behavior', () => {
         restKept: false,
         stealBehavior: 'PickNext',
       });
+    });
+
+    it('puts a card lost under pick next back in its place, behind a card queued since into an emptied queue', async () => {
+      const id = await threePlayerDraft();
+      await setSeats(id, [bob.id, carol.id, alice.id]).expect(200);
+      await setStealBehavior(id, 'PickNext').expect(200);
+      const ids = await poolCardIds(id);
+      await enqueue(id, ids.Shock).expect(200);
+      await enqueue(id, ids['Lava Spike']).expect(200);
+      // Reordering to the same order rewrites the positions from 0, so only
+      // the add into the emptied queue below decides whether Lightning Bolt
+      // goes before Lava Spike's old place.
+      await reorderQueue(id, [ids.Shock, ids['Lava Spike']]).expect(200);
+      await start(id).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+      await removeFromQueue(id, ids.Shock).expect(200);
+      await enqueue(id, ids['Lightning Bolt']).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id).expect(200)).body.cards).toEqual([bolt, spike]);
     });
 
     it('restores what a pick took out under clear queue, though the player has since switched to pick next', async () => {
