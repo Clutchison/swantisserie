@@ -340,13 +340,42 @@ describe('undo', () => {
 
     const refused = await undo(id, 1).expect(409);
 
-    expect(refused.body.error).toBe('not-latest');
+    expect(refused.body).toEqual({
+      error: 'not-latest',
+      message:
+        'Only the latest pick can be undone, and the picks have changed.',
+    });
+  });
+
+  it('undoes its own draft’s latest pick, while another draft holds later picks', async () => {
+    const other = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
+    const otherIds = await poolCardIds(other);
+    await start(other).expect(200);
+    await pick(other, otherIds.Shock).expect(200);
+    await pick(other, otherIds['Lightning Bolt'], bobCookie).expect(200);
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await pick(id, ids.Shock).expect(200);
+
+    const undone = await undo(id, 1).expect(200);
+
+    expect(undone.body.turn).toEqual({ pick: 1, round: 1, playerId: alice.id });
+    expect(await pickLogLines(id)).toEqual([]);
+    expect(await pickLogLines(other)).toEqual([
+      'Alice: Shock',
+      'Bob: Lightning Bolt',
+    ]);
   });
 
   it('refuses an undo before the draft starts, or once it is complete', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
-    expect((await undo(id, 1).expect(409)).body.error).toBe('not-drafting');
+    expect((await undo(id, 1).expect(409)).body).toEqual({
+      error: 'not-drafting',
+      message:
+        'Picks can only be undone while the draft is drafting or paused.',
+    });
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);

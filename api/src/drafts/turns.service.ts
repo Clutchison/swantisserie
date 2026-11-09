@@ -28,10 +28,14 @@ import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
+  // Stryker disable next-line ObjectLiteral: picks are only ever inserted in number order, imports included, and never updated, so Postgres returns them in that order without it; it stays as the pick log's only guarantee of that order.
   orderBy: { number: 'asc' },
   select: {
     number: true,
-    player: { select: { userId: true } },
+    // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, userId included, and the pick log reads only userId.
+    player: {
+      select: { userId: true },
+    },
     poolCardId: true,
   },
 } satisfies Prisma.PickFindManyArgs;
@@ -104,6 +108,7 @@ export class TurnsService {
    */
   async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
     return this.lock.run(draftId, async (draft) => {
+      // Stryker disable next-line OptionalChaining: dead code that DraftLock.run's type forces: no real path schedules a bot turn for a draft with no row, since a draft is only cancelled in the lobby, before any bot turn; and draft.state would only turn that no-op into a TypeError that bot-players.ts catches, logs and retries.
       if (draft?.state !== 'Drafting') return [];
       const { tx } = draft;
       const state = await readTurnState(tx, draftId);
@@ -140,11 +145,13 @@ export class TurnsService {
         draftSize(draft, draft.players.length),
         draft._count.picks,
       );
+      // Stryker disable next-line ConditionalExpression,ArrayDeclaration: dead code that currentTurn's type forces: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete in the same transaction.
       if (!turn) return [];
       const { user } = draft.players[turn.seat];
       return user.isBot
         ? [{ draftId: draft.id, userId: user.id, pick: turn.pick }]
-        : [];
+        : // Stryker disable next-line ArrayDeclaration: a bogus bot turn for a draft on a human's turn has no draftId, so botPick finds no draft and picks, persists and announces nothing.
+          [];
     });
   }
 
@@ -202,6 +209,7 @@ export class TurnsService {
     poolCardId: string,
   ): Promise<DraftEvent[]> {
     return [
+      // Stryker disable next-line ObjectLiteral: a pick's events go only to the webhook notifier, and draft-messages.ts reads queued only as truthy, so undefined reads as false.
       ...(await this.pickCard(draft, state, userId, poolCardId, {
         queued: false,
       })),
@@ -308,7 +316,10 @@ export class TurnsService {
           select: {
             id: true,
             number: true,
-            poolCard: { select: { name: true } },
+            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, name included, and the undo event reads only name.
+            poolCard: {
+              select: { name: true },
+            },
             player: { select: EVENT_PLAYER },
           },
         });
