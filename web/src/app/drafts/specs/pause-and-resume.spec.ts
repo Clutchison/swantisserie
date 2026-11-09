@@ -17,6 +17,9 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
+  buttonOrder,
+  pickOf,
+  poolCardOf,
 } from './harness';
 
 useDraftsApp();
@@ -58,6 +61,31 @@ describe('pause and resume', () => {
 
     expect(page.textContent).not.toContain('The draft is paused');
     expect(button(page, 'Pause draft')).toBeDefined();
+  });
+
+  describe('the organizer’s buttons', () => {
+    const cards = [poolCardOf('shock', 'Shock')];
+    const picks = [pickOf({ poolCardId: 'shock-card' })];
+
+    it('run Close draft, Undo, Pause draft while drafting', async () => {
+      const { page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
+
+      expect(buttonOrder(page, 'Pause draft')).toEqual([
+        'Close draft',
+        'Undo pick 1 (Shock)',
+        'Pause draft',
+      ]);
+    });
+
+    it('run Close draft, Undo, Resume draft while paused', async () => {
+      const { page } = await openDraft(completeSnapshot, paused, { cards, picks });
+
+      expect(buttonOrder(page, 'Resume draft')).toEqual([
+        'Close draft',
+        'Undo pick 1 (Shock)',
+        'Resume draft',
+      ]);
+    });
   });
 
   it('says why a pause was refused, and catches up with the draft', async () => {

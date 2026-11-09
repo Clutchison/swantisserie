@@ -20,6 +20,8 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   RETRY_FAILED,
+  ALL_POWERS,
+  buttonOrder,
 } from './harness';
 
 useDraftsApp();
@@ -74,6 +76,20 @@ describe('lobby', () => {
 
     expect(section(page, 'Players').textContent).not.toContain('Alice');
     expect(button(page, 'Join')).toBeDefined();
+  });
+
+  it('orders a joined organizer’s buttons from Leave to Start draft', async () => {
+    powersAnswer(ALL_POWERS);
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual([
+      'Leave',
+      'Cancel draft',
+      'Randomize seats',
+      'Add bot',
+      'Import picks',
+      'Start draft',
+    ]);
   });
 
   it('shows the draft as full at the most players a draft can have, offering no Join', async () => {
