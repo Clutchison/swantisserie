@@ -20,7 +20,7 @@ import {
   undo,
   poolCardIds,
   readyDraftWithCopies,
-  readyDraftWithCopiesStoredInReverse,
+  readyDraftWithCopiesOutOfIdOrder,
   waitForBotPicks,
   addBot,
   fourCards,
@@ -189,7 +189,7 @@ describe('cascade', () => {
       id,
       ids,
       copies: [queuedCopy, firstLeft],
-    } = await readyDraftWithCopiesStoredInReverse([
+    } = await readyDraftWithCopiesOutOfIdOrder([
       aliceCookie,
       bobCookie,
       carolCookie,
