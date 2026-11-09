@@ -114,7 +114,7 @@ Sort every survivor into one of four groups. The fix each group names is the wor
 
 **A message counts as read only if a caller shows it.** Web shows an api message only from a 409 (`isRefusal` in `web/src/app/drafts/drafts.ts`) and its own text for any other status. So emptying the message of a refusal the api answers with a 404 or a 403 is harmless, while emptying a 409's is a real gap.
 
-**An `orderBy` the specs can't pin down** is a behaviour change the specs can't reach, not an equivalent mutant. Rows that are inserted in order and never moved come back in that order from the specs' database without it, and random ids order differently from run to run, so a test could kill the mutant only some of the time; but a real Postgres's vacuum can reorder rows. Mark it as harmless, with that reason.
+**An `orderBy` the specs can't pin down** is a behaviour change the specs can't reach, not an equivalent mutant. Rows that are inserted in order and never updated while the read returns them come back in that order from the specs' database without it, and random ids order differently from run to run, so a test could kill the mutant only some of the time; but a real Postgres's vacuum can reorder rows. Mark it as harmless, with that reason.
 
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
 
@@ -138,6 +138,8 @@ Sort every survivor into one of four groups. The fix each group names is the wor
 - **A callback left after teardown**: `a timer left running after teardown only …` (or a listener, observer, decode or fade), then the one thing it does.
 - **The api's refusal body**: `the api's 409 always carries a refusal body.`
 - **Track keys**: `track keys only decide which views are reused, so equal keys render the same …`
+- **An empty relation select**: `an empty relation select returns every scalar field, <fields> included, and <reader> reads only <fields>.`, each field name in backticks, or `… and <reader> reads the <relation> only as truthy.` when it reads no field.
+- **An `orderBy` the specs can't pin down**: `a behaviour change the specs can't reach, not an equivalent mutant: <rows> are inserted in <order> and never updated while this read returns them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.` Where the order is by random ids, add that they order differently from run to run, so a test could kill the mutant only some of the time, before the vacuum clause.
 
 **Where Stryker reads it.** A mutant belongs to the line it starts on, and Stryker reads a disable only directly before that line, outside the code the mutant spans:
 

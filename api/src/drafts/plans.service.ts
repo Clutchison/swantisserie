@@ -95,7 +95,7 @@ export class PlansService {
           id: true,
           // Stryker disable next-line BooleanLiteral: without the oracle id, the unpicked copies' `where` reads every unpicked card in the draft, but the pool map keeps each card's own oracle id and `availableCopies` keeps only this card's copies, so the candidates are the same.
           oracleId: true,
-          // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, and `add` reads the pick only as truthy.
+          // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `id` included, and `add` reads the pick only as truthy.
           pick: {
             select: { id: true },
           },
@@ -104,7 +104,7 @@ export class PlansService {
       if (!card) {
         throw new PlanRefusedError({
           error: 'not-in-pool',
-          // Stryker disable next-line StringLiteral: the api answers `not-in-pool` as a 404, and web shows an api message only from a 409, so no caller shows this one.
+          // Stryker disable next-line StringLiteral: the api answers `not-in-pool` as a 404, and web shows an api message only from a 409, so no caller shows its text.
           message: 'That card isn’t in this pool.',
         });
       }
@@ -117,7 +117,7 @@ export class PlansService {
       // The pool, as far as this card goes: its unpicked copies, in pool order.
       const unpicked = await tx.poolCard.findMany({
         where: { draftId, oracleId: card.oracleId, pick: null },
-        // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: it decides which available copy `add` falls back to, and pool card ids are random UUIDs, which order differently from run to run, so a spec could catch its loss only some of the time. It stays as the only thing that makes the choice repeatable.
+        // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: pool cards are inserted in the pool source's order and never updated while this read returns them, so the specs' database returns them in that order without it, while the pool's order is by id, and pool card ids are random UUIDs, which order differently from run to run, so a test could kill the mutant only some of the time; but a real Postgres's vacuum can reorder rows. It decides which available copy `add` falls back to.
         orderBy: { id: 'asc' },
         select: {
           id: true,
@@ -317,7 +317,7 @@ export class PlansService {
   private async read(tx: Transaction, playerId: string): Promise<PlanView> {
     const lost = await tx.lostPlannedCard.findMany({
       where: { playerId, noticeHidden: false },
-      // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: lost cards are inserted in pick order and not moved while the Plan notice shows them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
+      // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: lost cards are inserted in pick order and never updated while this read returns them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
       orderBy: { pick: { number: 'asc' } },
       select: {
         poolCardId: true,

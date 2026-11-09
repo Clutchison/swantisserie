@@ -28,7 +28,7 @@ import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
-  // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: picks are only ever inserted in number order, imports included, and never updated, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
+  // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: picks are inserted in number order, imports included, and never updated while this read returns them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
   orderBy: { number: 'asc' },
   select: {
     number: true,
@@ -108,7 +108,7 @@ export class TurnsService {
    */
   async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
     return this.lock.run(draftId, async (draft) => {
-      // Stryker disable next-line OptionalChaining: dead code that DraftLock.run's type forces: no real path schedules a bot turn for a draft with no row.
+      // Stryker disable next-line OptionalChaining: dead code that DraftLock.run's callback type (`LockedDraft | undefined`) forces: no real path schedules a bot turn for a draft with no row.
       if (draft?.state !== 'Drafting') return [];
       const { tx } = draft;
       const state = await readTurnState(tx, draftId);
@@ -152,7 +152,7 @@ export class TurnsService {
         draftSize(draft, draft.players.length),
         draft._count.picks,
       );
-      // Stryker disable next-line ConditionalExpression,ArrayDeclaration: dead code that currentTurn's type forces: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete in the same transaction.
+      // Stryker disable next-line ConditionalExpression,ArrayDeclaration: dead code that currentTurn's return type (`Turn | null`) forces: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete in the same transaction.
       if (!turn) return [];
       const { user } = draft.players[turn.seat];
       return user.isBot
