@@ -456,6 +456,10 @@ _Avoid_: Checked in, confirmed, locked in (locked is the deck's)
 The note on the Deck tab telling a player that they are no longer ready because their mainboard dropped below 40 cards. It stays until they dismiss it, mark themselves ready again, or registration ends.
 _Avoid_: Not-ready notice, deck notice, alert, notification
 
+**Deck lock reminder**:
+The note a joined player sees during registration, on the Play tab and their Deck tab, saying their deck locks at Start. While their mainboard holds fewer than 40 cards, it also warns them how many it holds.
+_Avoid_: Ready notice (that one says they are no longer ready), deck warning, small-deck alert
+
 **Start**:
 The organizer beginning play once at least two players have joined and every joined player's mainboard holds at least 40 cards, bots aside, which ends registration, locks every joined player's deck, and makes or pairs the first matches.
 _Avoid_: Begin, launch, open (that is the draft's)
