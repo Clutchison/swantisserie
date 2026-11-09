@@ -4,8 +4,11 @@
 import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 
-/** Constants are in MiB; `/proc/meminfo` and `ps` count in KiB. */
-const MIB = 1024 * 1024;
+/** Bytes per MiB, the unit the constants below are written in. */
+const BYTES_PER_MIB = 1024 * 1024;
+
+/** Bytes per GiB, the unit the log line gives. */
+const BYTES_PER_GIB = 1024 * BYTES_PER_MIB;
 
 /**
  * The most one runner holds at once: a Stryker runner process, its vitest
@@ -20,7 +23,7 @@ const MIB = 1024 * 1024;
  * longer still. Stryker's own main process (about 0.5 GiB) isn't a runner and
  * is in the margin below.
  */
-const PEAK_PER_RUNNER_BYTES = 2400 * MIB;
+const PEAK_PER_RUNNER_BYTES = 2400 * BYTES_PER_MIB;
 
 /**
  * One other agent's full `npm test -w api` (4 vitest workers, each with a
@@ -29,7 +32,7 @@ const PEAK_PER_RUNNER_BYTES = 2400 * MIB;
  * the test run's process tree's resident memory once a second: it peaked at
  * 4,297 MiB and 3,655 MiB in two runs. This is the higher, rounded up.
  */
-const OTHER_AGENT_TEST_RUN_BYTES = 4400 * MIB;
+const OTHER_AGENT_TEST_RUN_BYTES = 4400 * BYTES_PER_MIB;
 
 /**
  * Kept free for Stryker's own main process and for agents' processes that
@@ -38,7 +41,7 @@ const OTHER_AGENT_TEST_RUN_BYTES = 4400 * MIB;
  * `npm run typecheck -w api` peaked at 621 MiB; lint ends too fast to sample.
  * This covers both, with some 400 MiB over for agents' own sessions.
  */
-const AGENT_PROCESSES_MARGIN_BYTES = 1500 * MIB;
+const AGENT_PROCESSES_MARGIN_BYTES = 1500 * BYTES_PER_MIB;
 
 /** earlyoom's default `-m`, used when its config can't be read. */
 const EARLYOOM_DEFAULT_PERCENT = 10;
@@ -57,64 +60,95 @@ function meminfo(field) {
 
 /**
  * earlyoom kills once available memory drops below this share of the total
- * (`-m` in `/etc/default/earlyoom`) and free swap below its own share. Swap
- * isn't counted here, so the memory share alone is kept free.
+ * and free swap below its own share. It is `-m` on the active (uncommented)
+ * `EARLYOOM_ARGS=` line of `/etc/default/earlyoom`, the last one if there are
+ * several, as the shell reads it. Swap isn't counted here, so the memory share
+ * alone is kept free.
  */
 function earlyoomPercent() {
+  let config;
   try {
-    const args = readFileSync('/etc/default/earlyoom', 'utf8');
-    const match = args.match(/-m\s*(\d+(?:\.\d+)?)/);
-    return match ? Number(match[1]) : EARLYOOM_DEFAULT_PERCENT;
+    config = readFileSync('/etc/default/earlyoom', 'utf8');
   } catch {
     return EARLYOOM_DEFAULT_PERCENT;
   }
+  const args = [...config.matchAll(/^\s*EARLYOOM_ARGS=(.*)$/gm)].at(-1)?.[1];
+  const percent = args?.match(/(?:^|[\s"'])-m\s*(\d+(?:\.\d+)?)/)?.[1];
+  return percent ? Number(percent) : EARLYOOM_DEFAULT_PERCENT;
 }
 
 /** Whether `--concurrency N` (or `-c N`) was passed, which overrides this. */
-function concurrencyFromCommandLine() {
+function concurrencyPassedOnCommandLine() {
   return process.argv.some((arg) => /^(--concurrency|-c)(=|\d|$)/.test(arg));
 }
 
 /** @param {number} bytes */
-const gib = (bytes) => `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
+const inGiB = (bytes) => `${(bytes / BYTES_PER_GIB).toFixed(1)} GiB`;
 
 /**
  * The most runners that fit: cores − 1, or what `MemAvailable` holds after
- * the reserve, at one peak per runner, whichever is smaller. `MemAvailable` is
- * the WSL VM's own figure, bounded by WSL's memory cap rather than the host's
- * RAM, and counts reclaimable cache, which Node's free-memory figure leaves
- * out. Swap is never counted. Sized once, at start: it doesn't adapt mid-run.
+ * the reserve, at one peak per runner, whichever is smaller.
+ * @param {{ cores: number, available: number, total: number, earlyoomPercent: number }} inputs
  */
-function sizedConcurrency() {
-  const cpuLimit = availableParallelism() - 1;
-  const available = meminfo('MemAvailable');
-  const earlyoomThreshold = (meminfo('MemTotal') * earlyoomPercent()) / 100;
+function sizeConcurrency({ cores, available, total, earlyoomPercent }) {
+  const cpuLimit = cores - 1;
+  const earlyoomThreshold = (total * earlyoomPercent) / 100;
   const reserve =
     OTHER_AGENT_TEST_RUN_BYTES +
     earlyoomThreshold +
     AGENT_PROCESSES_MARGIN_BYTES;
   const memoryLimit = Math.floor((available - reserve) / PEAK_PER_RUNNER_BYTES);
-  const count = Math.min(cpuLimit, memoryLimit);
+  return {
+    cpuLimit,
+    memoryLimit,
+    reserve,
+    earlyoomThreshold,
+    count: Math.min(cpuLimit, memoryLimit),
+  };
+}
+
+/**
+ * Sizes the count from this VM, logs it with its four inputs, and refuses to
+ * start when it comes to 0, naming the limit that did. `MemAvailable` is the
+ * WSL VM's own figure, bounded by WSL's memory cap rather than the host's RAM,
+ * and counts reclaimable cache, which Node's free-memory figure leaves out.
+ * Swap is never counted. Sized once, at start: it doesn't adapt mid-run.
+ */
+function sizedConcurrency() {
+  const cores = availableParallelism();
+  const available = meminfo('MemAvailable');
+  const sized = sizeConcurrency({
+    cores,
+    available,
+    total: meminfo('MemTotal'),
+    earlyoomPercent: earlyoomPercent(),
+  });
   const inputs =
-    `cores ${cpuLimit + 1}, MemAvailable ${gib(available)}, ` +
-    `reserve ${gib(reserve)} (earlyoom's ${gib(earlyoomThreshold)} included), ` +
-    `peak per runner ${gib(PEAK_PER_RUNNER_BYTES)}`;
-  if (concurrencyFromCommandLine()) {
+    `cores ${cores}, MemAvailable ${inGiB(available)}, ` +
+    `reserve ${inGiB(sized.reserve)} (earlyoom's ${inGiB(sized.earlyoomThreshold)} included), ` +
+    `peak per runner ${inGiB(PEAK_PER_RUNNER_BYTES)}`;
+  if (concurrencyPassedOnCommandLine()) {
     console.log(
-      `Stryker concurrency: from the command line (sized count would be ${count}: ${inputs})`,
+      `Stryker concurrency: from the command line (sized count would be ${sized.count}: ${inputs})`,
     );
     return undefined;
   }
-  if (count < 1) {
+  if (sized.cpuLimit < 1) {
+    throw new Error(
+      `Not enough cores to start Stryker: it keeps one core free, and this ` +
+        `machine has ${cores}. ${inputs}.`,
+    );
+  }
+  if (sized.memoryLimit < 1) {
     throw new Error(
       `Not enough memory to start Stryker: one runner needs ` +
-        `${gib(reserve + PEAK_PER_RUNNER_BYTES)} available (reserve plus one ` +
-        `peak per runner), and ${gib(available)} is. ${inputs}. Wait for other ` +
+        `${inGiB(sized.reserve + PEAK_PER_RUNNER_BYTES)} available (reserve plus one ` +
+        `peak per runner), and ${inGiB(available)} is. ${inputs}. Wait for other ` +
         `runs to finish, or see docs/agents/mutation-testing.md.`,
     );
   }
-  console.log(`Stryker concurrency: ${count} (${inputs})`);
-  return count;
+  console.log(`Stryker concurrency: ${sized.count} (${inputs})`);
+  return sized.count;
 }
 
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
