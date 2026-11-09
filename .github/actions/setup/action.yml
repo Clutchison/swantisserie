@@ -1,0 +1,20 @@
+name: Set up
+description: Install dependencies and build contract and engine, which the other workspaces import from dist.
+
+inputs:
+  build-deps:
+    description: Build contract and engine (tests import them from dist).
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: npm
+    - run: npm ci
+      shell: bash
+    - if: inputs.build-deps == 'true'
+      run: npm run build -w contract -w engine
+      shell: bash

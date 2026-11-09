@@ -14,8 +14,59 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # prisma.config.ts requires this to resolve, but nothing here connects to a database.
+  DIRECT_URL: postgresql://ci@localhost/ci
+
+# The checks run in parallel jobs, each on its own runner. Every job that
+# tests imports contract and engine from dist, so builds them first
+# (.github/actions/setup).
 jobs:
-  check:
+  static:
+    name: Lint, format, build, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          # The full build below compiles them.
+          build-deps: "false"
+      - run: npm run lint
+      - run: npm run format:check
+      # Build first: it compiles contract and engine (imported from dist) and catches
+      # anything that would break the Heroku build.
+      - run: npm run build
+      - run: npm run typecheck
+
+  web-tests:
+    name: Engine and web tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: npm test -w engine
+      # Through `ng test`, the one way of running web specs that counts (ADR 0016).
+      - run: npm test -w web
+
+  api-tests:
+    name: Api tests (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    strategy:
+      # Let every shard finish, so one run reports every failing spec.
+      fail-fast: false
+      matrix:
+        # vitest shards by spec file, not by duration: if one shard keeps
+        # lagging, change the count here and in the run step.
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: npm exec -w api -- prisma generate
+      # The api suite is CPU-bound on a 4-vCPU runner, hence the shards.
+      - run: npm test -w api -- --project api --shard=${{ matrix.shard }}/4
+
+  race-tests:
+    name: Api race tests (Postgres)
     runs-on: ubuntu-latest
     # A throwaway Postgres for the api's race specs, on production's (Neon's)
     # major version. They create and drop a database of their own on it.
@@ -32,22 +83,24 @@ jobs:
           --health-timeout 5s
           --health-retries 15
     env:
-      # prisma.config.ts requires this to resolve, but nothing here connects to a database.
-      DIRECT_URL: postgresql://ci@localhost/ci
       # The race specs' server (api/src/testing/race-database.ts). Not
       # DIRECT_URL's: the race database refuses to share its database.
       RACE_DATABASE_URL: postgresql://postgres:race@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
-      # Build first: it compiles contract and engine (imported from dist) and catches
-      # anything that would break the Heroku build.
-      - run: npm run build
-      - run: npm run typecheck
-      - run: npm test
+      - uses: ./.github/actions/setup
+      - run: npm exec -w api -- prisma generate
+      - run: npm test -w api -- --project race
+
+  # The one job a required status check would name, whatever the jobs above
+  # or the shard count: it passes only when every other job passed.
+  ci:
+    name: CI passed
+    if: always()
+    needs: [static, web-tests, api-tests, race-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: echo "$NEEDS" | jq -e 'all(.[]; .result == "success")'
