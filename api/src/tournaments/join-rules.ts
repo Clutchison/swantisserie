@@ -5,6 +5,7 @@ import {
   type ViewerTournamentView,
 } from 'contract';
 import type { Prisma } from '../generated/prisma/client.js';
+import { MAINBOARD_COUNT, mainboard } from './mainboard-rules.js';
 
 /** What joining reads of one of the draft's players. */
 export const JOINING_PLAYER = {
@@ -61,8 +62,7 @@ export function viewerJoin(
 /** What Start reads of each joined player to check their deck. */
 export const STARTING_PLAYER = {
   user: { select: { name: true, isBot: true } },
-  _count: { select: { plan: { where: { board: 'Mainboard' } } } },
-  basics: { select: { count: true } },
+  ...MAINBOARD_COUNT,
 } satisfies Prisma.PlayerSelect;
 
 export type StartingPlayer = Prisma.PlayerGetPayload<{
@@ -91,12 +91,4 @@ export function deckRefusal(
     error: 'deck-too-small',
     message: `A tournament deck needs at least ${MIN_MAINBOARD_CARDS} mainboard cards. ${short.length === 1 ? 'This player’s holds' : 'These players’ hold'} fewer: ${listed}. They can fill their deck or leave, or an organizer can remove them.`,
   };
-}
-
-/** How many cards the player's mainboard holds, picks plus basic lands. */
-function mainboard(player: StartingPlayer): number {
-  return (
-    player._count.plan +
-    player.basics.reduce((sum, basic) => sum + basic.count, 0)
-  );
 }

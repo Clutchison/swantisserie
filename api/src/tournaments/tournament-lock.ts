@@ -12,6 +12,7 @@ import type { TournamentProgress } from './round-steps.js';
 import { droppable, ENTRY_OF_MATCH } from './tournament-matches.js';
 import {
   BOT_ENTRY,
+  NOT_JOINED,
   NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
@@ -158,12 +159,7 @@ export async function entryOf(
       player: { select: { user: { select: { isBot: true } } } },
     },
   });
-  if (!entry) {
-    throw new TournamentRefusedError({
-      error: 'not-joined',
-      message: 'That player hasn’t joined this tournament.',
-    });
-  }
+  if (!entry) throw new TournamentRefusedError(NOT_JOINED);
   if (!droppable(entry)) throw new TournamentRefusedError(BOT_ENTRY);
   return entry;
 }

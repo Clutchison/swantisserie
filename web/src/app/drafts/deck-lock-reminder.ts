@@ -21,7 +21,8 @@ import { DraftStore } from './draft-store';
         <p class="warning">
           Your mainboard holds {{ store.mainboardCards() }}
           {{ store.mainboardCards() === 1 ? 'card' : 'cards' }}. A tournament deck needs at least
-          {{ minimum }}: fill your deck, or leave the tournament if you won’t play.
+          {{ minimum }}: fill your deck before marking yourself ready, or leave the tournament if
+          you won’t play.
         </p>
       }
     }

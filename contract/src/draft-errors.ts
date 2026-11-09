@@ -169,8 +169,12 @@ export interface TournamentRefusal {
     | 'draft-not-complete'
     /** A draft has at most one tournament. */
     | 'tournament-exists'
-    /** Joining, leaving and starting happen only during registration. */
+    /** Joining, leaving, marking or unmarking ready, and starting happen only during registration. */
     | 'not-in-registration'
+    /** Bots are never ready. */
+    | 'bots-never-ready'
+    /** Marking ready: the player's mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
+    | 'deck-too-small-for-ready'
     /** Decklists are shown only under public decklists, chosen at tournament setup. */
     | 'decklists-private'
     /** Under public decklists, decklists are shown once the tournament starts, not during registration. */

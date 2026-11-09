@@ -13,9 +13,10 @@ import {
   STARTING_PLAYER,
 } from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
+import { READYING_PLAYER, readyRefusal } from './ready-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
-import { TournamentRefusedError } from './tournament-errors.js';
+import { NOT_JOINED, TournamentRefusedError } from './tournament-errors.js';
 import { entryOf, TournamentLock } from './tournament-lock.js';
 
 /**
@@ -115,6 +116,36 @@ export class TournamentRegistrationService {
         await tx.tournamentEntry.delete({ where: { id: entry.id } });
       },
     );
+  }
+
+  /**
+   * Marks the draft's player `userId` ready, or unmarks them, as `ready`
+   * says: their own tournament entry only, as only the player changes
+   * their ready. Marking an already ready player ready, or unmarking one who
+   * isn't, changes nothing. Throws TournamentRefusedError if they haven't
+   * joined, or the tournament is past registration; and on marking, if they
+   * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS, as
+   * `readyRefusal` decides. Nothing is announced.
+   */
+  async setReady(
+    draftId: string,
+    userId: string,
+    ready: boolean,
+  ): Promise<void> {
+    await this.tournamentLock.inRegistration(draftId, async (tx) => {
+      const player = await tx.player.findUnique({
+        where: { draftId_userId: { draftId, userId } },
+        select: READYING_PLAYER,
+      });
+      const entry = player?.tournamentEntry;
+      if (!entry) throw new TournamentRefusedError(NOT_JOINED);
+      const refusal = ready ? readyRefusal(player) : null;
+      if (refusal) throw new TournamentRefusedError(refusal);
+      await tx.tournamentEntry.update({
+        where: { id: entry.id },
+        data: { ready },
+      });
+    });
   }
 
   /**

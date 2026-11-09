@@ -303,7 +303,8 @@ export class DraftStore {
   /**
    * The draft's tournament as the signed-in viewer reads it, read once the
    * draft says it has one, and again for each version, as every tournament
-   * change bumps it, and after each change to their deck during registration.
+   * change bumps it, and after each change to their deck during registration
+   * (see `changePlan`).
    */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   private readonly hasTournament = computed(() => !!this.draft.value()?.tournament);
@@ -583,9 +584,25 @@ export class DraftStore {
     }
   }
 
-  /** Sends a change to the signed-in player's plan, as `changeQueue` does the queue. */
-  changePlan(request: Observable<PlanView>): Promise<PlanView> {
-    return this.changeOwn(this.planResource, request);
+  /**
+   * Sends a change to the signed-in player's plan, as `changeQueue` does the
+   * queue. Once it goes through while their deck locks at Start, the
+   * tournament is read again: a deck change bumps no draft version, yet the
+   * read says whether they may mark themselves ready, which their deck decides.
+   */
+  async changePlan(request: Observable<PlanView>): Promise<PlanView> {
+    const plan = await this.changeOwn(this.planResource, request);
+    if (this.deckLocksAtStart()) this.rereadTournament();
+    return plan;
+  }
+
+  /**
+   * Re-reads the draft's tournament, as something only the viewer's own
+   * tournament read shows, such as whether they may mark themselves ready,
+   * may have moved on with no new draft version.
+   */
+  rereadTournament() {
+    this.tournamentResource.reload();
   }
 
   /**

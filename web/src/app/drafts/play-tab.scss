@@ -37,6 +37,31 @@ legend {
   }
 }
 
+/* Joined players, with "N of M ready" beside it. */
+.joined-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+
+  .detail {
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* I'm ready, pressed: the check mark and a ring tell it apart, not color alone. */
+.ready {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+
+  &[aria-pressed='true'] {
+    border-color: var(--color-text);
+    font-weight: 600;
+  }
+}
+
 .entries {
   list-style: none;
   padding: 0;
