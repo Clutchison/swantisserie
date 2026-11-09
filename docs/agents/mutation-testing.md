@@ -22,6 +22,51 @@ Web's `mutate` leaves out `main.ts` and `app.config.ts`. They bootstrap the app 
 
 Stryker is run by hand. It is not part of `npm test` or CI.
 
+## Coverage
+
+This section is the single record of which code Stryker has run over and which runs are left. The planned runs are tickets under #592. A run ticket takes its area from **Planned runs**, in order, rather than from the last run's recommendation. When a run's report is posted, move its row to **Done**. When its gap tickets close, update the row's status. A file added later joins the area it belongs to; give it a planned row only if no area fits.
+
+### Done
+
+| Workspace | Area                                                                                     | Run                 | Gap tickets            | Status    |
+| --------- | ---------------------------------------------------------------------------------------- | ------------------- | ---------------------- | --------- |
+| engine    | all of `src`                                                                             | #530                | #531                   | Closed    |
+| web       | all of `src`, less the exclusions in Web below                                           | #544                | #546                   | Closed    |
+| api       | pick chain: `turns.service`, `turn-state`, `plan-picks`, `queue-clearing`, `queue-order` | #532, rerun in #559 | #563, #578             | Closed    |
+| api       | `pick-import.service`                                                                    | #567                | #581                   | Closed    |
+| api       | `queues.service`, `plans.service`                                                        | #583                | #588 open (#589, #590) | Gaps open |
+
+The engine's and web's configs mutate all of `src`, so an incremental run over either picks up files added since. Files there not yet run: the engine's `draft-size.ts` and `index.ts`, and web's `deck-lock-reminder.ts` and `card-sizes.ts`.
+
+### Planned runs
+
+All in the api, under `src/`. Each run is one `--mutate` list, so the dry run is paid once per area. They run in this order: the rules a player meets first, then the services that apply them, then their HTTP and read layers, then the edges.
+
+| #   | Area                                                        | Files                                                                                                                                                                                                                                                                                                      | Lines  | Run  |
+| --- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---- |
+| 1   | Tournament ready and registration                           | `tournaments/join-rules`, `ready-rules`, `mainboard-rules`, `tournament-registration.service`; `drafts/locked-deck`                                                                                                                                                                                        | ~570   | #587 |
+| 2   | Tournament play                                             | `tournaments/tournament-progression.service`, `tournament-matches`, `single-elimination`, `swiss-rounds`, `reopen-round`, `match-rules`, `correction-refusal`, `round-steps`, `change-steps`, `format-steps`, `bracket-changes`, `tournament-lock`, `tournament-results.service`, `complete-tournaments`   | ~1,670 | #593 |
+| 3   | Draft lobby and pool                                        | `drafts/draft-lobby.service`, `draft-lifecycle.service`, `draft-start`, `bot-players`, `draft-lock`, `pool-snapshot.service`, `pool-card`, `cube-pool`, `set-list-pool`, `pool-source`, `parse-card`, `basic-lands`, `preferred-printings`, `platform`, `draft-shapes`                                     | ~1,560 | #594 |
+| 4   | Tournament reads and HTTP, leaderboard                      | `tournaments/tournament-view`, `tournaments.controller`, `tournament-reads.service`, `decklists.service`, `decklist-json`, `tournament-badge`, `tournament-events`, `tournament-errors`, `tournament-errors.filter`; `leaderboard/leaderboard.service`, `leaderboard-tournament`, `leaderboard.controller` | ~1,460 | #595 |
+| 5a  | Drafts controller and draft reads                           | `drafts/drafts.controller`, `draft-view`, `draft-reads.service`, `draft-access`, `draft-events`, `drafts.gateway`, `draft-publisher`                                                                                                                                                                       | ~1,140 | #596 |
+| 5b  | Draft refusals and the plan, queue and printing controllers | `drafts/draft-errors`, `draft-errors.filter`, `plans.controller`, `queues.controller`, `preferred-printings.controller`                                                                                                                                                                                    | ~815   | #601 |
+| 6   | Card catalogs                                               | `scryfall/scryfall-client`; `sets/set-catalog`, `sets.controller`; `basic-land-printings/basic-land-printings`, `basic-land-printings.controller`; `cubecobra/cubecobra-client`, `cube-link`; `http/fetch-with-timeout`                                                                                    | ~1,160 | #597 |
+| 7   | Discord                                                     | every `discord/*.ts` but its modules                                                                                                                                                                                                                                                                       | ~1,010 | #598 |
+| 8   | Auth and the app shell                                      | `auth/*.ts` but its module; `feedback/feedback.controller`; `health/health.controller`; `app-version/app-version`, `app-version.controller`; `canonical-host`, `request-body`, `app.setup`, `prisma/prisma.service`                                                                                        | ~680   | #599 |
+| 9   | New files in the engine and web                             | the four files named under Done                                                                                                                                                                                                                                                                            | small  | #600 |
+
+Runs 6 and 7 call outside services through stubs, so expect more no-coverage mutants there. Sort them as the report section says.
+
+### Skipped
+
+Stryker leaves these out, each for the reason given. Leave them out of any `--mutate` list:
+
+- **The api's `src/testing/` and `src/drafts/specs/`**: test harness code, as web's `specs-harness.ts` is.
+- **The api's `*.module.ts` files**: NestJS wiring only. A broken module stops the app booting, and every spec fails before a mutant could survive.
+- **The api's `main.ts`**: it starts the real server, and no spec loads it, as with web's `main.ts`.
+- **The api's `contract-parity.ts`**: type-level checks only. Stryker has nothing at runtime to mutate.
+- **The `contract` workspace**: types and constants shared by web and the api. It has no specs of its own, and Stryker runs per workspace, so the specs that read its constants can't run against its mutants.
+
 ## Web
 
 `ng test` keeps its vitest instance internal, so Stryker can't drive it. Instead, `web/vitest.stryker.config.mts` runs the web specs under plain vitest through Analog's Angular plugins, with `web/src/test-setup.stryker.ts` as its setup file (ADR 0016). **That config exists only for Stryker.** Run web tests with `ng test` (`npm test -w web`) as usual. If a spec passes under `ng test` but fails under this config, fix the config or its setup file, never the spec.

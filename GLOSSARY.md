@@ -182,6 +182,10 @@ _Avoid_: Chain, auto-run
 Describes a queued card, or an unpicked card in a plan, that another player picked first when no other copy of it was available for that queue or plan: every copy left was picked or already in it.
 _Avoid_: Sniped, taken, removed (that is the player taking a card out by hand)
 
+**Copy rule**:
+What happens when another player picks a queued card, or an unpicked card in a plan: the queue or plan holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none.
+_Avoid_: Swap rule, substitution
+
 **Cleared**:
 Describes a queued card taken out of a player's queue because another player picked a different card in that queue, when the player's steal behavior is clear queue. A cleared card is still available, and the player can queue it again.
 _Avoid_: Wiped, reset, lost (that is the card that was picked)
