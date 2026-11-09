@@ -167,9 +167,9 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * stacks layout, the sideboard's stack sits beside the mainboard's and a card
  * can be dragged onto the other plan board; narrower, the plan boards are
  * one strip that scrolls sideways, the mainboard's stacks then the
- * sideboard's, and a card moves from its Card detail; above the strip, the stack headers stick to
- * the top of the screen, mark the stacks in view and jump to a stack. The
- * list is dragged from on desktop only.
+ * sideboard's, and a card moves from its Card detail. Above the strip, the
+ * stack headers stick to the top of the screen, mark the stacks in view and
+ * jump to a stack. The list is dragged from on desktop only.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -282,20 +282,26 @@ export class PlanTab {
       };
     }),
   );
-  /** Each plan board's stacks, in stacks mode: the mainboard's scroll sideways in the wide layout, past what fits. */
+  /** Each plan board's stacks, in stacks mode: in the wide layout, each scrolls sideways past what fits. */
   private readonly planBoardStacks = viewChildren<ElementRef<HTMLElement>>('planBoardStacks');
   /** The plan boards' row: the strip, where there's no room for the wide layout. */
   private readonly planBoardsRow = viewChild.required<ElementRef<HTMLElement>>('planBoardsRow');
   /** The mainboard, as `planBoards` shows it. */
   protected readonly mainboard = computed(() => this.planBoards()[0]);
   /**
-   * Whether the plan boards show as the strip, the mainboard's stacks then the
-   * sideboard's, headed by the stack headers: in stacks mode, with mainboard
-   * cards, outside the wide layout.
+   * Whether the mainboard shows as stacks: in stacks mode, with cards. Where
+   * there's no room for the wide layout, the plan boards are then the strip;
+   * an empty mainboard shows as the list.
    */
-  protected readonly showingStrip = computed(
-    () => this.showingStacks() && this.mainboard().count > 0 && !this.wideStacks(),
+  protected readonly mainboardStacked = computed(
+    () => this.showingStacks() && this.mainboard().count > 0,
   );
+  /**
+   * Whether the plan boards show as the strip, the mainboard's stacks then the
+   * sideboard's, headed by the stack headers: with the mainboard stacked,
+   * outside the wide layout.
+   */
+  protected readonly showingStrip = computed(() => this.mainboardStacked() && !this.wideStacks());
   /** The strip, while it shows: the plan boards' row. */
   private readonly strip = computed(() =>
     this.showingStrip() ? this.planBoardsRow().nativeElement : undefined,

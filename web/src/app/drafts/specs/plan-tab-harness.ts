@@ -89,9 +89,9 @@ export const stacksOf = (plan: HTMLElement) =>
   );
 
 /**
- * The stack headers above the mainboard's strip, each by its accessible
- * name, with ` (current)` after one marked current. Null with no stack
- * headers.
+ * The stack headers above the strip, one per mainboard stack, each by its
+ * accessible name, with ` (current)` after one marked current. Null with no
+ * stack headers.
  */
 export function stackHeaders(plan: HTMLElement) {
   const row = stackHeadersNavigation(plan);

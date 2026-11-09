@@ -194,16 +194,17 @@ ul {
    * The strip: one row that scrolls sideways, the mainboard's stacks then, past a divider, the
    * sideboard's, each wide enough that about two and a half show, between 7rem and 10rem. A
    * swipe settles near a stack's start, and the edges fade on the side with more to scroll, in
-   * place of a scrollbar. Each plan board's heading stays at the left while its stacks scroll.
-   * The `strip` class follows `WIDE_STACKS_QUERY`, and the mainboard holding cards: an empty
-   * mainboard shows as the list, with the sideboard below it.
+   * place of a scrollbar. Only while the mainboard shows as stacks: an empty mainboard shows as
+   * the list, with the sideboard below it.
    */
   @container plan-boards (width < 760px) {
+    $strip: '.plan-boards.mainboard-stacked';
+
     .plan-board {
       --stack-width: clamp(7rem, (100cqw - 2 * var(--space-sm)) / 2.5, 10rem);
     }
 
-    .strip {
+    #{$strip} {
       flex-wrap: nowrap;
       overflow-x: auto;
       padding-bottom: var(--space-sm);
@@ -226,12 +227,6 @@ ul {
         border-inline-start: 1px solid var(--color-divider);
       }
 
-      h3 {
-        position: sticky;
-        inset-inline-start: 0;
-        width: fit-content;
-      }
-
       /* The strip scrolls as one, so each plan board's stacks don't scroll on their own. */
       .stacks {
         overflow: visible;
@@ -245,7 +240,7 @@ ul {
 
     /* Glides to a stack whose header is tapped, unless the viewer asks for less motion. */
     @media (prefers-reduced-motion: no-preference) {
-      .strip {
+      #{$strip} {
         scroll-behavior: smooth;
       }
     }
@@ -287,7 +282,7 @@ ul {
 
     /* Driven by the strip's own scroll. A browser without scroll-driven animations shows no fades, only the strip, whose cut-off stack at the edge still says there's more. */
     @supports (animation-timeline: scroll()) {
-      .strip {
+      #{$strip} {
         mask-image: linear-gradient(
           to right,
           transparent,

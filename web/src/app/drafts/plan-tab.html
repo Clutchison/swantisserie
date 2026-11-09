@@ -122,7 +122,7 @@
 </div>
 <!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
-  class="stacks-area"
+  class="plan-boards-area"
   [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
 >
@@ -141,13 +141,13 @@
       }
     </nav>
   }
-  <!-- Named as a group in stacks mode, as in the strip it scrolls sideways on its own. -->
+  <!-- Named as a group in the strip, as it scrolls sideways on its own. -->
   <div
     #planBoardsRow
     class="plan-boards"
-    [class.strip]="showingStrip()"
-    [attr.role]="showingStacks() ? 'group' : null"
-    [attr.aria-label]="showingStacks() ? 'Stacks' : null"
+    [class.mainboard-stacked]="mainboardStacked()"
+    [attr.role]="showingStrip() ? 'group' : null"
+    [attr.aria-label]="showingStrip() ? 'Plan stacks' : null"
     cdkDropListGroup
   >
     @for (planBoard of planBoards(); track planBoard.name) {
