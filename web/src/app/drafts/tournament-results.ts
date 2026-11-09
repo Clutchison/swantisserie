@@ -3,10 +3,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   input,
-  linkedSignal,
   output,
+  signal,
+  untracked,
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
 import { percent, record } from '../record';
@@ -63,24 +65,33 @@ export class TournamentResults {
   /** Asks for a match's game score to be cleared, as an organizer does. */
   readonly clearGameScore = output<ClearGameScore>();
 
-  /**
-   * The match whose game score an organizer is choosing, if any. A re-read
-   * keeps it open while the organizer may still correct it and its outcome
-   * is unchanged, so until it is reported, corrected or cleared, its
-   * tournament round is completed or the tournament stops playing.
-   */
-  protected readonly correcting = linkedSignal<TournamentView, string | undefined>({
-    source: this.tournament,
-    computation: (tournament, previous) => {
-      const open = previous?.value;
-      // Stryker disable next-line OptionalChaining: an open match stays in each re-read while the results show; Cancel tournament removes them.
-      if (!open || !this.lineById().get(open)?.organize) return undefined;
-      // Its line is in both reads, so its match is too.
-      return sameOutcome(matchIn(previous.source, open)!, matchIn(tournament, open)!)
-        ? open
-        : undefined;
-    },
-  });
+  /** The match whose game score an organizer is choosing, if any, as it was when they opened it. */
+  private readonly opened = signal<MatchView | undefined>(undefined);
+
+  /** The id of the match whose game score an organizer is choosing, if any. */
+  protected readonly correcting = computed(() => this.opened()?.id);
+
+  constructor() {
+    // A re-read keeps the choice open while the organizer may still correct
+    // its match and its outcome is unchanged. Every read is checked, so it
+    // closes for good once its match is reported, corrected or cleared, its
+    // tournament round is completed or the tournament stops playing, and
+    // stays closed if a later read, as after Reopen round, offers it again.
+    effect(() => {
+      const tournament = this.tournament();
+      const lines = this.lineById();
+      untracked(() => {
+        const opened = this.opened();
+        if (!opened) return;
+        // Stryker disable next-line OptionalChaining: an open match stays in each re-read while the results show; Cancel tournament removes them.
+        const organized = !!lines.get(opened.id)?.organize;
+        // Its line is in the read, so its match is too.
+        if (!organized || !sameOutcome(opened, matchIn(tournament, opened.id)!)) {
+          this.opened.set(undefined);
+        }
+      });
+    });
+  }
 
   /** Swiss standings show the MTR's tiebreak columns: opponents' match-win % and opponents' game-win %. */
   protected readonly swiss = computed(() => this.tournament().format === 'Swiss');
@@ -168,7 +179,9 @@ export class TournamentResults {
 
   /** Opens or closes the organizer's choice of game score for the match `matchId`. */
   protected toggleCorrecting(matchId: string) {
-    this.correcting.update((open) => (open === matchId ? undefined : matchId));
+    this.opened.set(
+      this.correcting() === matchId ? undefined : matchIn(this.tournament(), matchId),
+    );
   }
 
   /**

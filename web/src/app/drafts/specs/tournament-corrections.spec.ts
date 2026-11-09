@@ -364,6 +364,24 @@ describe('organizer reports, corrections and clears', () => {
       expect(scores(tab)).toBeNull();
     });
 
+    it('stays closed once its tournament round is reopened with its match unchanged', async () => {
+      const { fixture, tab } = await openCorrection();
+      await pushTournament(
+        fixture,
+        swissPlaying({
+          lastCompletedRound: 2,
+          rounds: swissRoundsWith(aliceVsCarol).map((round) => ({ ...round, correctable: false })),
+        }),
+        1,
+      );
+      expect(scores(tab)).toBeNull();
+
+      await pushTournament(fixture, swissPlaying({ rounds: swissRoundsWith(aliceVsCarol) }), 2);
+
+      expect(scores(tab)).toBeNull();
+      expect(button(tab, 'Report Alice vs Carol')).not.toBeNull();
+    });
+
     it('closes when its toggle is pressed again', async () => {
       const { fixture, tab } = await openCorrection();
 
