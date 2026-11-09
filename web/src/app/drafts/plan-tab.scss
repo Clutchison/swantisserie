@@ -341,7 +341,8 @@ ul {
         align-items: center;
         justify-content: center;
         block-size: var(--stack-header-height);
-        padding: 0 var(--space-sm);
+        /* Narrow enough that card type's nine type letters and SB fit a 343px row (a 375px phone) unscrolled. */
+        padding: 0 var(--space-xs);
         border: 1px solid var(--color-divider);
         border-inline-start: 0;
         border-radius: 0;
@@ -381,6 +382,21 @@ ul {
       .count {
         color: var(--color-muted);
         font-size: var(--font-size-xs);
+      }
+
+      /*
+       * A mana symbol, and any "+" after it, in place of a stack's name: about a cap height
+       * taller than the text, and narrower than "Lands", so it never widens the row's columns.
+       */
+      .stack-name:has(img) {
+        display: flex;
+        align-items: center;
+      }
+
+      .stack-name img {
+        display: block;
+        inline-size: 1.125rem;
+        block-size: 1.125rem;
       }
 
       /*

@@ -28,7 +28,7 @@ import {
   alice,
   bob,
 } from './harness';
-import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
+import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
@@ -43,6 +43,7 @@ import {
   stacksOf,
   stack,
   stackHeader,
+  stackHeaderContents,
   stackHeaders,
   stubScrolling,
 } from './plan-tab-harness';
@@ -543,10 +544,88 @@ describe('plan tab', () => {
 
         const sideboardHeader = stackHeader(plan, 'Sideboard, 2 cards')!;
         // Its label, SB, then its count, 2.
-        expect(text(sideboardHeader)).toBe('SB2');
+        expect(stackHeaderContents(plan).at(-1)).toEqual({ images: [], text: ['SB', '2'] });
         sideboardHeader.click();
         expect(scrolling.scrolled()).toEqual([
           { stack: 'Sideboard', options: expect.objectContaining({ inline: 'start' }) },
+        ]);
+      });
+
+      it('label mana value and color stacks with mana symbols, and Lands with Land’s type letter, keeping their names', async () => {
+        const dragonlord = card({
+          id: 'dragonlord-card',
+          name: 'Dragonlord Silumgar',
+          manaValue: 6,
+          colors: ['U', 'B'],
+        });
+        const emrakul = card({
+          id: 'emrakul-card',
+          name: 'Emrakul, the Aeons Torn',
+          manaValue: 15,
+          colors: [],
+        });
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards: [...cards, dragonlord, emrakul],
+          plan: planOf({
+            mainboard: [
+              planned(brightclimb),
+              planned(bolt),
+              planned(boltAgain),
+              planned(shivan),
+              planned(dragonlord),
+              planned(emrakul),
+            ],
+          }),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual([
+          '1, 2 cards (current)',
+          '6, 2 cards',
+          '7+, 1 card',
+          'Lands, 1 card',
+        ]);
+        // Each shows one decorative symbol, Lands its type letter, then its count; 7+ adds a "+" to its symbol.
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], text: ['2'] },
+          { images: [''], text: ['2'] },
+          { images: [''], text: ['+', '1'] },
+          { images: [''], text: ['1'] },
+        ]);
+
+        button(plan, 'Color')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual([
+          'R, 3 cards (current)',
+          'Multicolor, 1 card',
+          'Colorless, 1 card',
+          'Lands, 1 card',
+        ]);
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], text: ['3'] },
+          { images: [''], text: ['1'] },
+          { images: [''], text: ['1'] },
+          { images: [''], text: ['1'] },
+        ]);
+      });
+
+      it('label card type stacks with type letters, keeping their names', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        button(plan, 'Type')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual([
+          'Creature, 1 card (current)',
+          'Instant, 2 cards',
+          'Land, 1 card',
+        ]);
+        // Each shows its decorative type letter, then its count.
+        expect(stackHeaderContents(plan)).toEqual([
+          { images: [''], text: ['1'] },
+          { images: [''], text: ['2'] },
+          { images: [''], text: ['1'] },
         ]);
       });
 

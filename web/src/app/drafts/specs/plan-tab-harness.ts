@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import { byAriaLabel, openDialog } from '../../specs-harness';
+import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
   accessibleName,
   bob,
@@ -110,6 +110,34 @@ export const stackHeader = (plan: HTMLElement, name: string) =>
   [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].find(
     (header) => accessibleName(header) === name,
   );
+
+/**
+ * What each stack header shows: its images by alt text, `''` for a decorative
+ * one, as a symbol is, a type letter (hidden from a screen reader) counting as
+ * a decorative image, and the runs of text a screen reader finds, as its label
+ * then its count, e.g. `{ images: [''], text: ['+', '1'] }` for a 7+ symbol.
+ */
+export const stackHeaderContents = (plan: HTMLElement) =>
+  [...(stackHeadersNavigation(plan)?.querySelectorAll('button') ?? [])].map((header) => ({
+    images: [...header.querySelectorAll('img, [aria-hidden="true"]')].map((image) =>
+      image instanceof HTMLImageElement ? image.alt : '',
+    ),
+    text: textRuns(header),
+  }));
+
+/**
+ * The runs of text inside `element` outside any part hidden from a screen
+ * reader, each with its whitespace collapsed, leaving out empty ones.
+ */
+function textRuns(element: Element) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const runs: string[] = [];
+  while (walker.nextNode()) {
+    if (walker.currentNode.parentElement?.closest('[aria-hidden="true"]')) continue;
+    runs.push(walker.currentNode.textContent ?? '');
+  }
+  return runs.map(collapseWhitespace).filter((run) => run !== '');
+}
 
 /** The navigation named Stack headers inside `plan`, if any. */
 const stackHeadersNavigation = (plan: HTMLElement) =>
