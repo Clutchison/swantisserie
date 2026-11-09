@@ -28,7 +28,7 @@ import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
-  // Stryker disable next-line ObjectLiteral: picks are only ever inserted in number order, imports included, and never updated, so they come back in that order without it; it stays as the pick log's only guarantee of that order.
+  // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: picks are only ever inserted in number order, imports included, and never updated, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
   orderBy: { number: 'asc' },
   select: {
     number: true,
