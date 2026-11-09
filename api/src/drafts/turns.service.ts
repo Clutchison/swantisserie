@@ -129,13 +129,20 @@ export class TurnsService {
   /** Every Drafting draft whose turn is a bot's. */
   async botTurns(): Promise<BotTurn[]> {
     const drafts = await this.prisma.draft.findMany({
+      // Stryker disable next-line ObjectLiteral: the read also returns drafts in the lobby or complete. A complete draft has no current turn. A lobby draft with a bot in seat 0 yields a bot turn, but `botPick` sees the draft isn't Drafting and picks, persists and announces nothing. Starting the draft schedules the bot afresh, and the latest schedule wins.
       where: { state: 'Drafting' },
       select: {
         id: true,
+        // Stryker disable next-line BooleanLiteral: with `picksPerPlayer` missing, `currentTurn` still works out the same seat and pick from the player count. Only its completion check reads `picksPerPlayer`, and a Drafting draft is never complete.
         picksPerPlayer: true,
         players: {
           orderBy: SEAT_ORDER,
-          select: { user: { select: { id: true, isBot: true } } },
+          select: {
+            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `id` and `isBot` included, and `botTurns` reads only `id` and `isBot`.
+            user: {
+              select: { id: true, isBot: true },
+            },
+          },
         },
         _count: { select: { picks: true } },
       },
