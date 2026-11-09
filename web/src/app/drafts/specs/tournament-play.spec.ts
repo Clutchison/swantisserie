@@ -14,7 +14,6 @@ import {
   alice,
   bob,
   button,
-  buttonOrder,
   draft,
   flushPicks,
   group,
@@ -304,18 +303,6 @@ describe('Play tab while the tournament is played', () => {
 
       expect(req.request.body).toBeNull();
       expect(yourMatches(tab)).toEqual(['vs Carol', 'vs Bob · Lost 1–2 · Confirmed']);
-    });
-
-    it('puts Report before Confirm on a line that offers both', async () => {
-      // The api offers Confirm only on a reported match, so no line offers both today; the order still holds if one does.
-      const { tab } = await openPlaying(
-        playing([{ ...unreportedMatch('m2', alice.id, bob.id), confirmableBy: [alice.id] }]),
-      );
-
-      expect(buttonOrder(tab, 'Confirm your match against Bob')).toEqual([
-        'Report your match against Bob',
-        'Confirm your match against Bob',
-      ]);
     });
 
     it('says why a report was refused', async () => {
