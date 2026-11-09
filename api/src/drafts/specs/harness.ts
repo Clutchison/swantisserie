@@ -561,6 +561,42 @@ export async function readyDraftWithCopies(
   return { id, ids, first, second };
 }
 
+/**
+ * A ready draft, as readyDraftWithCopies makes, with a third copy of
+ * Lightning Bolt, whose pool card ids go down in the order the snapshot
+ * stores the cards. The database returns unordered rows in the order they
+ * were stored, so a read that doesn't order the pool by id offers the copies
+ * in reverse, and no copy rule test passes by chance. Answers with its pool
+ * card ids by name, and with the ids of Lightning Bolt's three copies as
+ * `copies`, in id order.
+ */
+export async function readyDraftWithCopiesStoredInReverse(
+  cookies: string[],
+  picksPerPlayer = 1,
+) {
+  // Every id the app generates while the draft is made: each one's first 8
+  // hex digits count down, the rest as random as ever.
+  const randomUUID = crypto.randomUUID.bind(crypto);
+  let next = 0xffffffff;
+  const generated = vi
+    .spyOn(crypto, 'randomUUID')
+    .mockImplementation(
+      () =>
+        `${(next--).toString(16).padStart(8, '0')}${randomUUID().slice(8)}` as ReturnType<
+          typeof randomUUID
+        >,
+    );
+  try {
+    const { id, ids } = await readyDraftWithCopies(cookies, picksPerPlayer, [
+      'Lightning Bolt',
+    ]);
+    const copies = (await copyIds(id))['Lightning Bolt'].sort();
+    return { id, ids, copies };
+  } finally {
+    generated.mockRestore();
+  }
+}
+
 export function start(id: string, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/start`, cookie);
 }

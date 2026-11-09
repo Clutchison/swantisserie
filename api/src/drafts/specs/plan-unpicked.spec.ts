@@ -10,6 +10,7 @@ import {
   signIn,
   readyDraft,
   readyDraftWithCopies,
+  readyDraftWithCopiesStoredInReverse,
   start,
   pick,
   plan,
@@ -161,17 +162,10 @@ describe('unpicked cards in a plan', () => {
   });
 
   it('moves a plan to the first available copy by pool card id when another player picks its unpicked card', async () => {
-    // Eight copies of Lightning Bolt: the copies' ids are random, so with
-    // more copies left, the first by id is less likely to also be the first
-    // the database returns unordered.
-    const { id } = await readyDraftWithCopies(
-      [aliceCookie, carolCookie],
-      1,
-      Array<string>(6).fill('Lightning Bolt'),
-    );
-    const [plannedCopy, firstLeft] = (await copyIds(id))['Lightning Bolt']
-      .slice()
-      .sort();
+    const {
+      id,
+      copies: [plannedCopy, firstLeft],
+    } = await readyDraftWithCopiesStoredInReverse([aliceCookie, carolCookie]);
     await start(id).expect(200);
     await addToPlan(id, plannedCopy, carolCookie).expect(200);
 
