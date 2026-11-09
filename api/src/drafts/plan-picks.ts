@@ -76,7 +76,7 @@ export async function planPicks(
   let planned = plans;
   // Stryker disable next-line ArrayDeclaration: a pool card id that doesn't exist, in the copy rule's picked list, excludes no copy.
   const picked: string[] = [];
-  // Stryker disable next-line ArrowFunction,ArithmeticOperator: the pick import's `findMany` has no `orderBy`, but it inserts its picks in number order and never updates them, so they already come back in that order.
+  // Stryker disable next-line ArrowFunction,ArithmeticOperator: picks are only ever inserted in number order, imports included, and never updated, so they come back in that order without the sort; the pick import's `findMany` has no `orderBy` of its own.
   for (const pick of picks.toSorted((a, b) => a.number - b.number)) {
     const after = plansAfterPick(
       {

@@ -25,6 +25,7 @@ import {
   start,
   pick,
   pickLog,
+  pickedIds,
   pickedNames,
   undo,
   poolCardIds,
@@ -175,11 +176,7 @@ describe('bot players', () => {
     await pick(id, first).expect(200);
 
     await waitForBotPicks(1, async () => {
-      expect(
-        (await pickLog(id)).body.map(
-          (logged: { poolCardId: string }) => logged.poolCardId,
-        ),
-      ).toEqual([first, second]);
+      expect(await pickedIds(id)).toEqual([first, second]);
     });
     expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
   });

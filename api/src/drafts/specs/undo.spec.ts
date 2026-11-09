@@ -448,13 +448,14 @@ describe('undo', () => {
 
   it('undoes its own draft’s latest pick, while another draft holds later picks', async () => {
     const other = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
-    const otherIds = await poolCardIds(other);
     await start(other).expect(200);
+    const otherIds = await poolCardIds(other);
     await pick(other, otherIds.Shock).expect(200);
+    // A second pick, so the other draft's latest is numbered after this one's.
     await pick(other, otherIds['Lightning Bolt'], bobCookie).expect(200);
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
-    const ids = await poolCardIds(id);
     await start(id).expect(200);
+    const ids = await poolCardIds(id);
     await pick(id, ids.Shock).expect(200);
 
     const undone = await undo(id, 1).expect(200);

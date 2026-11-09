@@ -28,11 +28,11 @@ import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
-  // Stryker disable next-line ObjectLiteral: picks are only ever inserted in number order, imports included, and never updated, so Postgres returns them in that order without it; it stays as the pick log's only guarantee of that order.
+  // Stryker disable next-line ObjectLiteral: picks are only ever inserted in number order, imports included, and never updated, so they come back in that order without it; it stays as the pick log's only guarantee of that order.
   orderBy: { number: 'asc' },
   select: {
     number: true,
-    // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, userId included, and the pick log reads only userId.
+    // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `userId` included, and the pick log reads only `userId`.
     player: {
       select: { userId: true },
     },
@@ -316,7 +316,7 @@ export class TurnsService {
           select: {
             id: true,
             number: true,
-            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, name included, and the undo event reads only name.
+            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the undo event reads only `name`.
             poolCard: {
               select: { name: true },
             },

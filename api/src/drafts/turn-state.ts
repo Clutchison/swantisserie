@@ -82,7 +82,7 @@ export async function readTurnState(
         orderBy: { position: 'asc' },
         select: { poolCardId: true, position: true },
       },
-      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included.
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the turn state's plans read only `poolCardId`.
       plan: {
         select: { poolCardId: true },
       },
@@ -95,7 +95,7 @@ export async function readTurnState(
       id: true,
       oracleId: true,
       name: true,
-      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `number` included.
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `number` included, and the turn state's picked list reads only `number`.
       pick: {
         select: { number: true },
       },
