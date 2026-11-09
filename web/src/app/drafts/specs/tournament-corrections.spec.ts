@@ -325,6 +325,11 @@ describe('organizer reports, corrections and clears', () => {
     }
     const scores = (tab: HTMLElement) => group(tab, 'Game score of Alice vs Carol');
     const aliceVsCarol = unreportedMatch('m2', alice.id, carol.id);
+    /** The read once the current tournament round is completed, so none of its matches is correctable. */
+    const roundCompleted = swissPlaying({
+      lastCompletedRound: 2,
+      rounds: swissRoundsWith(aliceVsCarol).map((round) => ({ ...round, correctable: false })),
+    });
 
     it('stays open when another match changes, and closes once that match is reported', async () => {
       const { fixture, tab } = await openCorrection();
@@ -352,16 +357,20 @@ describe('organizer reports, corrections and clears', () => {
     it('closes once its tournament round is completed', async () => {
       const { fixture, tab } = await openCorrection();
 
-      await pushTournament(
-        fixture,
-        swissPlaying({
-          lastCompletedRound: 2,
-          rounds: swissRoundsWith(aliceVsCarol).map((round) => ({ ...round, correctable: false })),
-        }),
-        1,
-      );
+      await pushTournament(fixture, roundCompleted, 1);
 
       expect(scores(tab)).toBeNull();
+    });
+
+    it('stays closed once its tournament round is reopened with its match unchanged', async () => {
+      const { fixture, tab } = await openCorrection();
+      await pushTournament(fixture, roundCompleted, 1);
+      expect(scores(tab)).toBeNull();
+
+      await pushTournament(fixture, swissPlaying({ rounds: swissRoundsWith(aliceVsCarol) }), 2);
+
+      expect(scores(tab)).toBeNull();
+      expect(button(tab, 'Report Alice vs Carol')).not.toBeNull();
     });
 
     it('closes when its toggle is pressed again', async () => {
