@@ -5,7 +5,7 @@ import {
   type ViewerTournamentView,
 } from 'contract';
 import type { Prisma } from '../generated/prisma/client.js';
-import { mainboard } from './join-rules.js';
+import { MAINBOARD_COUNT, mainboard } from './mainboard-rules.js';
 
 /**
  * What marking ready reads of one of the draft's players: whether they are
@@ -14,19 +14,12 @@ import { mainboard } from './join-rules.js';
 export const READYING_PLAYER = {
   user: { select: { isBot: true } },
   tournamentEntry: { select: { id: true, ready: true } },
-  _count: { select: { plan: { where: { board: 'Mainboard' } } } },
-  basics: { select: { count: true } },
+  ...MAINBOARD_COUNT,
 } satisfies Prisma.PlayerSelect;
 
 export type ReadyingPlayer = Prisma.PlayerGetPayload<{
   select: typeof READYING_PLAYER;
 }>;
-
-/** The refusal of a ready change by a player who hasn't joined the tournament. */
-export const NOT_JOINED: TournamentRefusal = {
-  error: 'not-joined',
-  message: 'You haven’t joined this tournament.',
-};
 
 /**
  * Why the joined player `player` can't mark themselves ready during

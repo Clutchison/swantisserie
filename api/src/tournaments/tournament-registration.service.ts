@@ -13,10 +13,10 @@ import {
   STARTING_PLAYER,
 } from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
-import { NOT_JOINED, READYING_PLAYER, readyRefusal } from './ready-rules.js';
+import { READYING_PLAYER, readyRefusal } from './ready-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
-import { TournamentRefusedError } from './tournament-errors.js';
+import { NOT_JOINED, TournamentRefusedError } from './tournament-errors.js';
 import { entryOf, TournamentLock } from './tournament-lock.js';
 
 /**

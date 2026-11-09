@@ -5,8 +5,10 @@ import {
   bob,
   button,
   draft,
+  elementWithText,
   flushPicks,
   http,
+  inLiveRegion,
   panel,
   text,
   useDraftsApp,
@@ -41,17 +43,6 @@ function withReady(view: ViewerTournamentView, ...playerIds: string[]): ViewerTo
     readyCount: { ready: playerIds.length, of: view.readyCount.of },
   };
 }
-
-/** Whether `element`, or any element around it, is a live region. */
-const live = (element: Element | null): boolean =>
-  !!element &&
-  (element.hasAttribute('aria-live') ||
-    ['status', 'alert', 'log'].includes(element.getAttribute('role') ?? '') ||
-    live(element.parentElement));
-
-/** The element inside `root` whose own text is `wanted`. */
-const shown = (root: HTMLElement, wanted: string) =>
-  [...root.querySelectorAll<HTMLElement>('*')].find((element) => text(element) === wanted) ?? null;
 
 describe('marking yourself ready on the Play tab', () => {
   it('offers a joined player I’m ready, not pressed, beside Leave', async () => {
@@ -191,9 +182,9 @@ describe('who is ready, on the Play tab', () => {
 
     const tab = await openPlayTab(fixture, page);
 
-    const count = shown(tab, '1 of 2 ready');
+    const count = elementWithText(tab, '1 of 2 ready');
     expect(count).not.toBeNull();
-    expect(live(count)).toBe(false);
+    expect(inLiveRegion(count)).toBe(false);
   });
 
   it('shows another player’s ready as soon as it is pushed', async () => {

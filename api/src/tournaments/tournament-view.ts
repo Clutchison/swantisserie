@@ -154,7 +154,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     ready: entry.ready,
     seed: entry.seed,
   }));
-  const humans = entries.filter((entry) => entry.droppable);
+  const humans = row.entries.filter((entry) => !entry.player.user.isBot);
   const dropped = droppedPlayers(entries);
   const counted = rounds.filter((round) => countsInStandings(row, round.round));
   const paired = pairedPlayers(rounds);

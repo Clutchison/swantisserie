@@ -50,11 +50,12 @@ async function readyByPlayer(id: string, cookie = aliceCookie) {
   );
 }
 
-/** The refusal's code of a ready change `cookie`'s user sends, expecting a 409. */
+/** The refusal's code of marking ready that `cookie`'s user sends, expecting a 409. */
 async function refusedMark(id: string, cookie: string) {
   return (await markReady(id, cookie).expect(409)).body.error as string;
 }
 
+/** The refusal's code of unmarking ready that `cookie`'s user sends, expecting a 409. */
 async function refusedUnmark(id: string, cookie: string) {
   return (await unmarkReady(id, cookie).expect(409)).body.error as string;
 }
