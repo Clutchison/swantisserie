@@ -20,6 +20,7 @@ import {
   undo,
   poolCardIds,
   readyDraftWithCopies,
+  readyDraftWithCopiesStoredInReverse,
   waitForBotPicks,
   addBot,
   fourCards,
@@ -180,6 +181,29 @@ describe('cascade', () => {
     await pick(id, ids.Shock, bobCookie).expect(200);
 
     expect(await pickedIds(id)).toEqual([first, ids.Shock, second]);
+  });
+
+  it('holds the first available copy by pool card id in a picked queued copy’s place, and picks that copy', async () => {
+    const carolCookie = await signIn(carol);
+    const {
+      id,
+      ids,
+      copies: [queuedCopy, firstLeft],
+    } = await readyDraftWithCopiesStoredInReverse([
+      aliceCookie,
+      bobCookie,
+      carolCookie,
+    ]);
+    await enqueue(id, queuedCopy, carolCookie).expect(200);
+    await start(id).expect(200);
+    await pick(id, queuedCopy).expect(200);
+
+    expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
+      { poolCardId: firstLeft, name: 'Lightning Bolt' },
+    ]);
+    await pick(id, ids.Shock, bobCookie).expect(200);
+
+    expect(await pickedIds(id)).toEqual([queuedCopy, ids.Shock, firstLeft]);
   });
 
   it('picks a queued copy that the same cascade moved to a new copy', async () => {

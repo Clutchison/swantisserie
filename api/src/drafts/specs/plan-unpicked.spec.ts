@@ -10,6 +10,7 @@ import {
   signIn,
   readyDraft,
   readyDraftWithCopies,
+  readyDraftWithCopiesStoredInReverse,
   start,
   pick,
   plan,
@@ -164,6 +165,26 @@ describe('unpicked cards in a plan', () => {
     expect(added.body.mainboard).toEqual([
       { poolCardId: first, name: 'Lightning Bolt', picked: false },
     ]);
+  });
+
+  it('moves a plan to the first available copy by pool card id when another player picks its unpicked card', async () => {
+    const {
+      id,
+      copies: [plannedCopy, firstLeft],
+    } = await readyDraftWithCopiesStoredInReverse([aliceCookie, carolCookie]);
+    await start(id).expect(200);
+    await addToPlan(id, plannedCopy, carolCookie).expect(200);
+
+    await pick(id, plannedCopy).expect(200);
+
+    expect((await plan(id, carolCookie).expect(200)).body).toEqual({
+      mainboard: [bolt(firstLeft)],
+      sideboard: [],
+      basics: [],
+      lost: [],
+      readyNotice: false,
+      preferredPrintings: {},
+    });
   });
 
   it('loses a planned card when no copy is left, naming it and who picked it on the Plan notice until dismissed, and an undo puts it back', async () => {
