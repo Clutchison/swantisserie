@@ -160,6 +160,32 @@ describe('unpicked cards in a plan', () => {
     ]);
   });
 
+  it('moves a plan to the first available copy by pool card id when another player picks its unpicked card', async () => {
+    // Eight copies of Lightning Bolt: the copies' ids are random, so with
+    // more copies left, the first by id is less likely to also be the first
+    // the database returns unordered.
+    const { id } = await readyDraftWithCopies(
+      [aliceCookie, carolCookie],
+      1,
+      Array<string>(6).fill('Lightning Bolt'),
+    );
+    const [plannedCopy, firstLeft] = (await copyIds(id))['Lightning Bolt']
+      .slice()
+      .sort();
+    await start(id).expect(200);
+    await addToPlan(id, plannedCopy, carolCookie).expect(200);
+
+    await pick(id, plannedCopy).expect(200);
+
+    expect((await plan(id, carolCookie).expect(200)).body).toEqual({
+      mainboard: [bolt(firstLeft)],
+      sideboard: [],
+      basics: [],
+      lost: [],
+      preferredPrintings: {},
+    });
+  });
+
   it('loses a planned card when no copy is left, naming it and who picked it on the Plan notice until dismissed, and an undo puts it back', async () => {
     const { id, ids, first, second } = await readyDraftWithCopies(
       [aliceCookie, carolCookie],
