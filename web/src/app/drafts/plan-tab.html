@@ -80,41 +80,39 @@
     </button>
   </div>
 }
-<!-- Stacks or list, and how the stacks group, on desktop only; then the Basic lands button, on every screen. -->
+<!-- Stacks or list, and how the stacks group; then the Basic lands button. -->
 <div class="mode-controls">
-  @if (onDesktop()) {
-    <div class="segmented" role="group" aria-label="Mode">
-      <button
-        class="button compact quiet"
-        type="button"
-        [attr.aria-pressed]="mode() === 'stacks'"
-        (click)="setMode('stacks')"
-      >
-        Stacks
-      </button>
-      <button
-        class="button compact quiet"
-        type="button"
-        [attr.aria-pressed]="mode() === 'list'"
-        (click)="setMode('list')"
-      >
-        List
-      </button>
+  <div class="segmented" role="group" aria-label="Mode">
+    <button
+      class="button compact quiet"
+      type="button"
+      [attr.aria-pressed]="mode() === 'stacks'"
+      (click)="setMode('stacks')"
+    >
+      Stacks
+    </button>
+    <button
+      class="button compact quiet"
+      type="button"
+      [attr.aria-pressed]="mode() === 'list'"
+      (click)="setMode('list')"
+    >
+      List
+    </button>
+  </div>
+  @if (mode() === 'stacks') {
+    <div class="segmented" role="group" aria-label="Group by">
+      @for (option of groupings; track option.grouping) {
+        <button
+          class="button compact quiet"
+          type="button"
+          [attr.aria-pressed]="grouping() === option.grouping"
+          (click)="setGrouping(option.grouping)"
+        >
+          {{ option.name }}
+        </button>
+      }
     </div>
-    @if (mode() === 'stacks') {
-      <div class="segmented" role="group" aria-label="Group by">
-        @for (option of groupings; track option.grouping) {
-          <button
-            class="button compact quiet"
-            type="button"
-            [attr.aria-pressed]="grouping() === option.grouping"
-            (click)="setGrouping(option.grouping)"
-          >
-            {{ option.name }}
-          </button>
-        }
-      </div>
-    }
   }
   @if (!deckLocked()) {
     <button class="button compact secondary" type="button" (click)="openBasics()">
@@ -122,177 +120,210 @@
     </button>
   }
 </div>
-<!-- On desktop, a card dragged from one plan board's drop list onto the other's moves there. In stacks mode the plan boards sit side by side, every stack as wide as the others. -->
+<!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
-  class="plan-boards"
-  [class.side-by-side]="showingStacks()"
+  class="plan-boards-area"
+  [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
-  cdkDropListGroup
 >
-  @for (planBoard of planBoards(); track planBoard.name) {
-    <section class="plan-board">
-      <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
-      <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
-      @if (showingStacks() && planBoard.count > 0) {
-        <div
-          class="stacks"
-          cdkDropList
-          [cdkDropListData]="planBoard.name"
-          [cdkDropListDisabled]="changing() || deckLocked()"
-          cdkDropListSortingDisabled
-          (cdkDropListDropped)="dropped($event)"
+  <!-- In the strip, only a few stacks show at once: the stack headers keep the mainboard's whole curve in view, sticking to the top of the screen while the strip does, and jump to a stack. The stacks in view are current. Outside the strip, so they don't scroll sideways with it. -->
+  @if (showingStrip()) {
+    <nav class="stack-headers" aria-label="Stack headers">
+      @for (stack of mainboard().stacks; track stack.name) {
+        <button
+          type="button"
+          [attr.aria-current]="stacksInView().has(stack.name) || null"
+          (click)="scrollToStack(stack.name)"
         >
-          @for (stack of planBoard.stacks; track stack.name) {
-            <div class="stack">
-              @if (planBoard.showsStackHeaders) {
-                <h4>
-                  <span class="stack-name">{{ stack.name }}</span>
-                  <span class="count">{{ stack.cards.length }}</span>
-                </h4>
-              }
-              <!-- Named for screen readers, as the sideboard's stack has no header. -->
-              <ul [attr.aria-label]="stack.name">
-                @for (card of stack.cards; track card.poolCardId) {
-                  @let poolCard = cardsById().get(card.poolCardId);
-                  @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
-                  <li
-                    [class.unpicked]="!card.picked"
-                    cdkDrag
-                    [cdkDragData]="card.poolCardId"
-                    [cdkDragDisabled]="!!card.basic"
-                    cdkDragPreviewContainer="parent"
-                    (pointerdown)="pressed()"
-                    (cdkDragStarted)="dragStarted()"
-                  >
-                    <!-- The card and its mark show a Card preview, not its buttons, and open its Card detail, or a basic land's Printing picker. A card whose pool card hasn't loaded opens none: it shows its card already, so it is no Tab stop. -->
-                    @if (poolCard) {
-                      <button
-                        class="preview-target"
-                        type="button"
-                        aria-haspopup="dialog"
-                        [attr.aria-label]="cardLabel"
-                        [appCardPreview]="poolCard"
-                        [appCardPreviewOnTap]="false"
-                        (click)="openStacked(card, $event)"
-                      >
-                        <ng-container
-                          *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
-                        />
-                      </button>
-                    } @else {
-                      <div
-                        class="preview-target"
-                        role="img"
-                        [attr.aria-label]="cardLabel"
-                        [appCardPreview]="poolCard"
-                        [appCardPreviewTabStop]="false"
-                      >
-                        <ng-container
-                          *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
-                        />
-                      </div>
-                    }
-                    <div class="actions">
-                      <!-- A basic land stays on the mainboard. -->
-                      @if (!card.basic && !deckLocked()) {
-                        @let moveName = 'Move ' + card.name + ' to the ' + planBoard.otherName;
+          <span class="stack-name">{{ stack.name }}</span>
+          <span class="count">{{ stack.cards.length }}</span>
+        </button>
+      }
+    </nav>
+  }
+  <!-- Named as a group in the strip, as it scrolls sideways on its own. -->
+  <div
+    #planBoardsRow
+    class="plan-boards"
+    [class.mainboard-stacked]="mainboardStacked()"
+    [attr.role]="showingStrip() ? 'group' : null"
+    [attr.aria-label]="showingStrip() ? 'Plan stacks' : null"
+    cdkDropListGroup
+  >
+    @for (planBoard of planBoards(); track planBoard.name) {
+      <section class="plan-board">
+        <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
+        <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
+        @if (showingStacks() && planBoard.count > 0) {
+          <!-- Named as a group for screen readers. The strip offers no drag, so a swipe always scrolls: the CDK can't turn drag off for touch alone, so a mouse can't drag there either, as a window that narrow offered no stacks, nor drag, before. -->
+          <div
+            #planBoardStacks
+            class="stacks"
+            role="group"
+            [attr.aria-label]="planBoard.name + ' stacks'"
+            cdkDropList
+            [cdkDropListData]="planBoard.name"
+            [cdkDropListDisabled]="changing() || !wideStacks() || deckLocked()"
+            cdkDropListSortingDisabled
+            (cdkDropListDropped)="dropped($event)"
+          >
+            @for (stack of planBoard.stacks; track stack.name) {
+              <!-- The mainboard's stacks are named for the stack headers, which jump to them and mark those in view. -->
+              <div class="stack" [attr.data-stack]="planBoard.namesStacks ? stack.name : null">
+                @if (planBoard.namesStacks) {
+                  <h4>
+                    <span class="stack-name">{{ stack.name }}</span>
+                    <span class="count">{{ stack.cards.length }}</span>
+                  </h4>
+                }
+                <!-- Named for screen readers, as the sideboard's stack has no header. -->
+                <ul [attr.aria-label]="stack.name">
+                  @for (card of stack.cards; track card.poolCardId) {
+                    @let poolCard = cardsById().get(card.poolCardId);
+                    @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
+                    <!-- A touch drag starts only after a hold, so a quick swipe still scrolls. -->
+                    <li
+                      [class.unpicked]="!card.picked"
+                      cdkDrag
+                      [cdkDragData]="card.poolCardId"
+                      [cdkDragDisabled]="!!card.basic"
+                      [cdkDragStartDelay]="dragStartDelay"
+                      cdkDragPreviewContainer="parent"
+                      (pointerdown)="pressed()"
+                      (cdkDragStarted)="dragStarted()"
+                    >
+                      <!-- The card and its mark show a Card preview, not its buttons, and open its Card detail, or a basic land's Printing picker. A card whose pool card hasn't loaded opens none: it shows its card already, so it is no Tab stop. -->
+                      @if (poolCard) {
                         <button
-                          class="icon"
+                          class="preview-target"
                           type="button"
-                          [attr.aria-label]="moveName"
-                          [title]="moveName"
-                          (click)="move(card, planBoard.other)"
-                          [appSendsChange]="moveKey(planBoard.name, card)"
+                          aria-haspopup="dialog"
+                          [attr.aria-label]="cardLabel"
+                          [appCardPreview]="poolCard"
+                          [appCardPreviewOnTap]="false"
+                          (click)="openStacked(card, $event)"
                         >
                           <ng-container
-                            *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
+                            *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
                           />
                         </button>
+                      } @else {
+                        <div
+                          class="preview-target"
+                          role="img"
+                          [attr.aria-label]="cardLabel"
+                          [appCardPreview]="poolCard"
+                          [appCardPreviewTabStop]="false"
+                        >
+                          <ng-container
+                            *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
+                          />
+                        </div>
                       }
-                    </div>
-                  </li>
-                }
-              </ul>
-            </div>
-          }
-        </div>
-      } @else {
-        <ul
-          class="lines card-rows"
-          [class.with-remove]="planBoard.picked < planBoard.count"
-          [class.capped]="!showingStacks()"
-          cdkDropList
-          [cdkDropListData]="planBoard.name"
-          [cdkDropListDisabled]="changing() || !onDesktop() || deckLocked()"
-          cdkDropListSortingDisabled
-          (cdkDropListDropped)="dropped($event)"
-        >
-          @for (line of planBoard.lines; track line.key) {
-            <li
-              [class.unpicked]="!line.picked"
-              cdkDrag
-              [cdkDragData]="line.poolCardId"
-              [cdkDragDisabled]="!!line.basic"
-              cdkDragPreviewContainer="parent"
-              (pointerdown)="pressed()"
-              (cdkDragStarted)="dragStarted()"
-            >
-              <span class="count">{{ line.count }}</span>
-              <!-- A basic land opens its Printing picker in place of a Card detail. -->
-              <app-card-name
-                [card]="cardsById().get(line.poolCardId)"
-                [name]="line.name"
-                [opensDetail]="true"
-                (opened)="openLine(line, $event)"
-              />
-              <span class="line-actions">
-                @if (!line.picked) {
-                  <span class="mark">Unpicked</span>
-                }
-                <!-- A basic land stays on the mainboard. -->
-                @if (!line.basic && !deckLocked()) {
-                  @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
-                  <button
-                    class="button compact quiet line-action move"
-                    type="button"
-                    [attr.aria-label]="moveName"
-                    [title]="moveName"
-                    (click)="move(line, planBoard.other)"
-                    [appSendsChange]="moveKey(planBoard.name, line)"
+                      <div class="actions">
+                        <!-- A basic land stays on the mainboard. -->
+                        @if (!card.basic && !deckLocked()) {
+                          @let moveName = 'Move ' + card.name + ' to the ' + planBoard.otherName;
+                          <button
+                            class="icon"
+                            type="button"
+                            [attr.aria-label]="moveName"
+                            [title]="moveName"
+                            (click)="move(card, planBoard.other)"
+                            [appSendsChange]="moveKey(planBoard.name, card)"
+                          >
+                            <ng-container
+                              *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
+                            />
+                          </button>
+                        }
+                      </div>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+        } @else {
+          <ul
+            class="lines card-rows"
+            [class.with-remove]="planBoard.picked < planBoard.count"
+            [class.capped]="!showingStacks()"
+            cdkDropList
+            [cdkDropListData]="planBoard.name"
+            [cdkDropListDisabled]="changing() || !onDesktop() || deckLocked()"
+            cdkDropListSortingDisabled
+            (cdkDropListDropped)="dropped($event)"
+          >
+            @for (line of planBoard.lines; track line.key) {
+              <li
+                [class.unpicked]="!line.picked"
+                cdkDrag
+                [cdkDragData]="line.poolCardId"
+                [cdkDragDisabled]="!!line.basic"
+                cdkDragPreviewContainer="parent"
+                (pointerdown)="pressed()"
+                (cdkDragStarted)="dragStarted()"
+              >
+                <span class="count">{{ line.count }}</span>
+                <!-- A basic land opens its Printing picker in place of a Card detail. -->
+                <app-card-name
+                  [card]="cardsById().get(line.poolCardId)"
+                  [name]="line.name"
+                  [opensDetail]="true"
+                  (opened)="openLine(line, $event)"
+                />
+                <span class="line-actions">
+                  @if (!line.picked) {
+                    <span class="mark">Unpicked</span>
+                  }
+                  <!-- A basic land stays on the mainboard. -->
+                  @if (!line.basic && !deckLocked()) {
+                    @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
+                    <button
+                      class="button compact quiet line-action move"
+                      type="button"
+                      [attr.aria-label]="moveName"
+                      [title]="moveName"
+                      (click)="move(line, planBoard.other)"
+                      [appSendsChange]="moveKey(planBoard.name, line)"
+                    >
+                      <ng-container
+                        *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }"
+                      />
+                    </button>
+                  }
+                  @if (!line.picked && offerRemoveFromPlan() && !deckLocked()) {
+                    @let removeName = 'Remove ' + line.name + ' from your plan';
+                    <button
+                      class="button compact quiet line-action"
+                      type="button"
+                      [attr.aria-label]="removeName"
+                      [title]="removeName"
+                      (click)="remove(line.poolCardId)"
+                      [appSendsChange]="removeKey(planBoard.name, line)"
+                    >
+                      <svg lucideTrash size="16"></svg>
+                    </button>
+                  }
+                </span>
+              </li>
+            } @empty {
+              <li class="empty">
+                @if (loading()) {
+                  <app-loading-animation size="tab"
+                    >Loading your {{ planName() }}…</app-loading-animation
                   >
-                    <ng-container *ngTemplateOutlet="moveIcon; context: { $implicit: planBoard }" />
-                  </button>
+                } @else {
+                  {{ planBoard.empty }}
                 }
-                @if (!line.picked && offerRemoveFromPlan() && !deckLocked()) {
-                  @let removeName = 'Remove ' + line.name + ' from your plan';
-                  <button
-                    class="button compact quiet line-action"
-                    type="button"
-                    [attr.aria-label]="removeName"
-                    [title]="removeName"
-                    (click)="remove(line.poolCardId)"
-                    [appSendsChange]="removeKey(planBoard.name, line)"
-                  >
-                    <svg lucideTrash size="16"></svg>
-                  </button>
-                }
-              </span>
-            </li>
-          } @empty {
-            <li class="empty">
-              @if (loading()) {
-                <app-loading-animation size="tab"
-                  >Loading your {{ planName() }}…</app-loading-animation
-                >
-              } @else {
-                {{ planBoard.empty }}
-              }
-            </li>
-          }
-        </ul>
-      }
-    </section>
-  }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+  </div>
 </div>
 @if (error(); as message) {
   <p class="error" role="alert">{{ message }}</p>

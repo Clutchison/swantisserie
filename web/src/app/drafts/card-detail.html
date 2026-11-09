@@ -75,6 +75,18 @@
         </button>
       }
     }
+    @if (move(); as move) {
+      @if (otherPlanBoard(); as planBoard) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="sendMove(move, planBoard.other)"
+          [disabled]="planning() || moveWaits()"
+        >
+          Move to {{ planBoard.otherName }}
+        </button>
+      }
+    }
     @if (actions().pick) {
       <button
         class="button"

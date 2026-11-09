@@ -16,6 +16,17 @@ import {
   text,
   drafting,
   heading,
+  group,
+  draggable,
+  pressed,
+  updates,
+  draft,
+  flushPicks,
+  flushQueueAndPlan,
+  pickOf,
+  queueOf,
+  alice,
+  bob,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
@@ -30,6 +41,10 @@ import {
   planBoards,
   detailOpener,
   stacksOf,
+  stack,
+  stackHeader,
+  stackHeaders,
+  stubScrolling,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -37,9 +52,6 @@ useTallScreen();
 
 describe('plan tab', () => {
   describe('on desktop', () => {
-    const pressed = (plan: HTMLElement, label: string) =>
-      button(plan, label)?.getAttribute('aria-pressed');
-
     beforeEach(() => viewOn('desktop'));
     afterEach(() => {
       vi.unstubAllGlobals();
@@ -263,22 +275,27 @@ describe('plan tab', () => {
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');
     });
 
-    it('drops to the list as the window narrows below the breakpoint, and back to stacks as it widens', async () => {
+    it('keeps the chosen mode and grouping as the window narrows to a tablet or a phone, and widens again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      expect(plan.querySelectorAll('.stack')).toHaveLength(3);
+      button(plan, 'Color')!.click();
+      await fixture.whenStable();
 
+      for (const screen of ['tablet', 'mobile', 'desktop'] as const) {
+        resizeTo(screen);
+        expect(pressed(plan, 'Stacks')).toBe('true');
+        expect(pressed(plan, 'Color')).toBe('true');
+        expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
+      }
+
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
       resizeTo('mobile');
-      expect(button(plan, 'Stacks')).toBeUndefined();
-      expect(plan.querySelector('.stack')).toBeNull();
+      expect(pressed(plan, 'List')).toBe('true');
       expect(planBoards(plan)[0].lines).toHaveLength(3);
-
-      resizeTo('desktop');
-      expect(pressed(plan, 'Stacks')).toBe('true');
-      expect(plan.querySelectorAll('.stack')).toHaveLength(3);
     });
 
     describe('a stacked card’s Unpicked mark', () => {
@@ -372,6 +389,270 @@ describe('plan tab', () => {
       await fixture.whenStable();
       expect(pressed(plan, 'List')).toBe('true');
       expect(plan.querySelector('.stack')).toBeNull();
+    });
+  });
+
+  describe('on a phone', () => {
+    beforeEach(() => viewOn('mobile'));
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      localStorage.clear();
+    });
+
+    it('opens in list mode, and offers stacks mode and its groupings, each stack named', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({
+          mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      });
+      const plan = await openPlan(fixture, page);
+      expect(pressed(plan, 'List')).toBe('true');
+      expect(stacksOf(plan)).toEqual([[], []]);
+
+      button(plan, 'Stacks')!.click();
+      await fixture.whenStable();
+
+      expect(pressed(plan, 'Mana value')).toBe('true');
+      expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
+      expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
+      expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
+      expect(heading(plan, '1 2')).toBeDefined();
+
+      button(plan, 'Type')!.click();
+      await fixture.whenStable();
+      expect(stack(plan, 'Instant')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
+    });
+
+    it('opens as it was last left, on any screen', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'color' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(pressed(plan, 'Color')).toBe('true');
+      expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
+    });
+
+    it('offers no drag between plan boards, so a swipe always scrolls, until the window widens to a tablet', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(false);
+      expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(false);
+
+      resizeTo('tablet');
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
+      expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
+    });
+
+    it('keeps the strip where it was scrolled as the plan changes, and starts it at its first stack as the grouping or mode changes', async () => {
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+      group(plan, 'Plan stacks')!.scrollLeft = 300;
+
+      button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      );
+      await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
+      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(300);
+
+      button(plan, 'Color')!.click();
+      await fixture.whenStable();
+      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(0);
+
+      group(plan, 'Plan stacks')!.scrollLeft = 300;
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      button(plan, 'Stacks')!.click();
+      await fixture.whenStable();
+      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(0);
+    });
+
+    describe('the stack headers', () => {
+      beforeEach(() =>
+        localStorage.setItem(
+          'plan-view',
+          JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }),
+        ),
+      );
+
+      it('head the strip with each mainboard stack’s name and card count, none for the sideboard, as the plan and grouping change', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+        http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+          planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+            sideboard: [planned(shivan)],
+          }),
+        );
+        await vi.waitFor(() => expect(stackHeaders(plan)).toEqual(['1 2', 'Lands 1']));
+
+        button(plan, 'Type')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual(['Instant 2', 'Land 1']);
+      });
+
+      it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf({
+            mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain), planned(shivan)],
+          }),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft(
+            drafting({ turn: { ...bobsTurn, pick: 4, playerId: alice.id }, version: 1 }),
+          ),
+        });
+        await flushPicks([pickOf({ playerId: bob.id, poolCardId: boltAgain.id })]);
+        await flushQueueAndPlan(
+          queueOf(),
+          planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(shivan)],
+            lost: [{ poolCardId: boltAgain.id, name: boltAgain.name, pickedBy: bob.id }],
+          }),
+        );
+        await fixture.whenStable();
+
+        expect(stackHeaders(plan)).toEqual(['1 1', '6 1', 'Lands 1']);
+      });
+
+      it('scroll the strip to the stack whose header is tapped, to its start', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+
+        stackHeader(plan, 'Lands 1')!.click();
+        expect(scrolling.scrolled()).toEqual([
+          { stack: 'Lands', options: expect.objectContaining({ inline: 'start' }) },
+        ]);
+      });
+
+      it('mark the stacks in view current, as the strip scrolls and the plan changes', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        scrolling.showStacks('1', '6');
+        expect(stackHeaders(plan)).toEqual(['1 2 (current)', '6 1 (current)', 'Lands 1']);
+
+        scrolling.showStacks('6', 'Lands');
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1 (current)', 'Lands 1 (current)']);
+
+        button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+        http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
+          planOf({
+            mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+            sideboard: [planned(shivan)],
+          }),
+        );
+        await vi.waitFor(() => expect(stackHeaders(plan)).toEqual(['1 2', 'Lands 1 (current)']));
+
+        scrolling.showStacks('1', 'Lands');
+        expect(stackHeaders(plan)).toEqual(['1 2 (current)', 'Lands 1 (current)']);
+      });
+
+      it('keep marking the stacks in view once the grouping changes, and once the window widens to a tablet and narrows again', async () => {
+        const scrolling = stubScrolling();
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+        scrolling.showStacks('1', '6');
+
+        button(plan, 'Color')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1']);
+        scrolling.showStacks('R');
+        expect(stackHeaders(plan)).toEqual(['R 3 (current)', 'Lands 1']);
+
+        resizeTo('tablet');
+        resizeTo('mobile');
+        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1']);
+        scrolling.showStacks('Lands');
+        expect(stackHeaders(plan)).toEqual(['R 3', 'Lands 1 (current)']);
+      });
+
+      it('show only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+          cards,
+          plan: planOf(),
+        });
+        const plan = await openPlan(fixture, page);
+
+        button(plan, 'List')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toBeNull();
+
+        button(plan, 'Stacks')!.click();
+        await fixture.whenStable();
+        expect(stackHeaders(plan)).toEqual(['1 2', '6 1', 'Lands 1']);
+
+        resizeTo('tablet');
+        expect(stackHeaders(plan)).toBeNull();
+        resizeTo('desktop');
+        expect(stackHeaders(plan)).toBeNull();
+      });
+    });
+  });
+
+  describe('on a tablet', () => {
+    beforeEach(() => viewOn('tablet'));
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      localStorage.clear();
+    });
+
+    it('opens in stacks mode, a card dragged between plan boards as on desktop', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+      expect(pressed(plan, 'Mana value')).toBe('true');
+      expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], ['Sideboard: Shivan Dragon']]);
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
+      expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
+
+      resizeTo('mobile');
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(false);
     });
   });
 });

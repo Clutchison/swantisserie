@@ -1,6 +1,7 @@
 import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -10,8 +11,11 @@ import {
   inject,
   Injector,
   inputBinding,
+  type Signal,
   signal,
   untracked,
+  viewChild,
+  viewChildren,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -33,11 +37,12 @@ import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { NORMAL_IMAGE } from './card-sizes';
-import { changeFailure, DESKTOP_QUERY } from './drafts';
+import { changeFailure, DESKTOP_QUERY, matching, WIDE_STACKS_QUERY } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import {
   QUEUE_UNPICKED_HEADING,
@@ -52,6 +57,17 @@ import { LoadingAnimation } from '../loading/loading-animation';
 const changeFailed = (planName: string) =>
   `Couldn't change your ${planName}. Try again in a moment.`;
 
+/**
+ * How a stack is scrolled to in the strip: to its start, scrolling only the
+ * strip. `container` is newer than TypeScript's DOM types; a browser without
+ * it scrolls the page as little as it takes.
+ */
+const TO_STACK: ScrollIntoViewOptions & { container?: 'all' | 'nearest' } = {
+  inline: 'start',
+  block: 'nearest',
+  container: 'nearest',
+};
+
 /** How a plan board shows: as stacks of card images, or as a list of names. */
 export type PlanMode = 'stacks' | 'list';
 
@@ -61,7 +77,8 @@ interface PlanChoice {
   grouping: Grouping;
 }
 const CHOICE_KEY = 'plan-view';
-const DEFAULT_CHOICE: PlanChoice = { mode: 'stacks', grouping: 'manaValue' };
+/** The grouping when none is kept. The mode's default depends on the screen: see `rememberedChoice`. */
+const DEFAULT_GROUPING: Grouping = 'manaValue';
 const MODES: PlanMode[] = ['stacks', 'list'];
 
 /**
@@ -73,6 +90,9 @@ const MODES: PlanMode[] = ['stacks', 'list'];
 interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
+
+/** What a move acts on: a line's first copy, a stacked card, or a card from its Card detail. */
+type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name'> | PlanLine;
 
 /** One line of a plan board: a card's picked copies, its unpicked ones, or a basic land's, with how many the plan board holds. */
 interface PlanLine extends PlanBoardCard {
@@ -89,8 +109,8 @@ interface PlanLine extends PlanBoardCard {
 }
 
 /**
- * Each plan board: its cards, how stacks mode stacks them and whether each
- * stack has a header, the plan board its cards move to, as the button names it,
+ * Each plan board: its cards, how stacks mode stacks them and whether it names
+ * each stack, the plan board its cards move to, as the button names it,
  * and what an empty one says.
  */
 const PLAN_BOARDS: Record<
@@ -102,7 +122,8 @@ const PLAN_BOARDS: Record<
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
     ) => Stack<PlanBoardCard>[];
-    showsStackHeaders: boolean;
+    /** Whether each stack has a heading naming it, and in the strip the stack headers too. The sideboard's one stack is named by the plan board's heading. */
+    namesStacks: boolean;
     other: PlanBoard;
     otherName: string;
     empty: string;
@@ -111,9 +132,8 @@ const PLAN_BOARDS: Record<
   Mainboard: {
     cards: (plan) => plan.mainboard,
     stack: stacks,
-    showsStackHeaders: true,
-    other: 'Sideboard',
-    otherName: 'sideboard',
+    namesStacks: true,
+    ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
   Sideboard: {
@@ -121,9 +141,8 @@ const PLAN_BOARDS: Record<
     // One stack, whatever the grouping, which the plan board heading names.
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
-    showsStackHeaders: false,
-    other: 'Mainboard',
-    otherName: 'mainboard',
+    namesStacks: false,
+    ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
   },
 };
@@ -143,10 +162,14 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * locked deck too; the buttons that open the Queue unpicked
  * and Basic lands dialogs; and the Plan notice of their lost cards.
  *
- * On desktop each plan board shows as stacks of card images, grouped by mana
- * value, color or card type, or as a list of names, and a card can be
- * dragged onto the other plan board; below the desktop breakpoint only the list
- * is offered.
+ * Each plan board shows as stacks of card images, grouped by mana value,
+ * color or card type, or as a list of names. Where there's room for the wide
+ * stacks layout, the sideboard's stack sits beside the mainboard's and a card
+ * can be dragged onto the other plan board; narrower, the plan boards are
+ * one strip that scrolls sideways, the mainboard's stacks then the
+ * sideboard's, and a card moves from its Card detail. Above the strip, the
+ * stack headers stick to the top of the screen, mark the stacks in view and
+ * jump to a stack. The list is dragged from on desktop only.
  */
 @Component({
   selector: 'app-plan-tab',
@@ -208,13 +231,21 @@ export class PlanTab {
   protected readonly error = signal<string | null>(null);
 
   /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
-  protected readonly onDesktop = signal(!!globalThis.matchMedia?.(DESKTOP_QUERY).matches);
-  private readonly remembered = rememberedChoice();
+  protected readonly onDesktop = matching(DESKTOP_QUERY);
+  /**
+   * Whether stacks mode has room for the wide layout, as the page is resized:
+   * else the mainboard's stacks are a strip that scrolls sideways, which
+   * offers no drag. No `matchMedia` counts as a phone, so the strip.
+   */
+  protected readonly wideStacks = matching(WIDE_STACKS_QUERY);
+  private readonly remembered = rememberedChoice(this.wideStacks() ? 'stacks' : 'list');
   protected readonly mode = signal(this.remembered.mode);
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
-  /** Whether the plan boards show as stacks: the chosen mode, on desktop. */
-  protected readonly showingStacks = computed(() => this.onDesktop() && this.mode() === 'stacks');
+  /** How long a stacked card is held before a drag starts: on touch, long enough that a swipe scrolls. */
+  protected readonly dragStartDelay = { touch: 200, mouse: 0 };
+  /** Whether the plan boards show as stacks: the chosen mode. */
+  protected readonly showingStacks = computed(() => this.mode() === 'stacks');
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
@@ -251,8 +282,37 @@ export class PlanTab {
       };
     }),
   );
+  /** Each plan board's stacks, in stacks mode: in the wide layout, each scrolls sideways past what fits. */
+  private readonly planBoardStacks = viewChildren<ElementRef<HTMLElement>>('planBoardStacks');
+  /** The plan boards' row: the strip, where there's no room for the wide layout. */
+  private readonly planBoardsRow = viewChild.required<ElementRef<HTMLElement>>('planBoardsRow');
+  /** The mainboard, as `planBoards` shows it. */
+  protected readonly mainboard = computed(() => this.planBoards()[0]);
+  /**
+   * Whether the mainboard shows as stacks: in stacks mode, with cards. Where
+   * there's no room for the wide layout, the plan boards are then the strip;
+   * an empty mainboard shows as the list.
+   */
+  protected readonly mainboardStacked = computed(
+    () => this.showingStacks() && this.mainboard().count > 0,
+  );
+  /**
+   * Whether the plan boards show as the strip, the mainboard's stacks then the
+   * sideboard's, headed by the stack headers: with the mainboard stacked,
+   * outside the wide layout.
+   */
+  protected readonly showingStrip = computed(() => this.mainboardStacked() && !this.wideStacks());
+  /** The strip, while it shows: the plan boards' row. */
+  private readonly strip = computed(() =>
+    this.showingStrip() ? this.planBoardsRow().nativeElement : undefined,
+  );
+  /** The names of the mainboard's stacks in view in the strip: their stack headers are current. */
+  protected readonly stacksInView = stacksInView(
+    this.strip,
+    computed(() => this.mainboard().stacks),
+  );
   /** How many stacks the mainboard shows, for the stacks' shared width. */
-  protected readonly mainboardStackCount = computed(() => this.planBoards()[0].stacks.length);
+  protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
   /** How many basic lands the plan holds in all, for the Basic lands button. */
   protected readonly basicsTotal = computed(() =>
@@ -287,26 +347,40 @@ export class PlanTab {
     effect(() => {
       if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
     });
-    // Not every test environment's `matchMedia` reports changes.
-    const desktop = globalThis.matchMedia?.(DESKTOP_QUERY);
-    if (!desktop?.addEventListener) return;
-    const listening = new AbortController();
-    // Stryker disable next-line ObjectLiteral: a listener left running after teardown only sets a destroyed component's signal.
-    desktop.addEventListener('change', ({ matches }) => this.onDesktop.set(matches), {
-      signal: listening.signal,
-    });
-    // Stryker disable next-line ArrowFunction,CallExpression: a listener left running after teardown only sets a destroyed component's signal.
-    inject(DestroyRef).onDestroy(() => listening.abort());
   }
 
+  /** Shows the plan in `mode`, starting the strip at its first stack, as from the list there's no place in it to keep. */
   protected setMode(mode: PlanMode) {
     this.mode.set(mode);
+    this.scrollToFirstStack();
     this.rememberChoice();
   }
 
+  /**
+   * Groups the stacks by `grouping`, starting the strip at its first stack, as
+   * where it was scrolled means nothing in the new grouping.
+   */
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
+    this.scrollToFirstStack();
     this.rememberChoice();
+  }
+
+  /** Scrolls the strip, and each plan board's stacks, back to their start. */
+  private scrollToFirstStack() {
+    this.planBoardsRow().nativeElement.scrollLeft = 0;
+    for (const stacks of this.planBoardStacks()) stacks.nativeElement.scrollLeft = 0;
+  }
+
+  /**
+   * Scrolls the strip to the mainboard's stack named `name`, as its stack
+   * header is tapped. Only the strip, where the browser allows: scrolling the
+   * page too would put the stack's top under the stack headers.
+   */
+  protected scrollToStack(name: string) {
+    stackElements(this.strip())
+      .find((element) => stackNameOf(element) === name)
+      ?.scrollIntoView(TO_STACK);
   }
 
   /** Keeps the chosen mode and grouping for next time, if the browser allows. */
@@ -338,7 +412,7 @@ export class PlanTab {
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */
-  protected moveKey(planBoard: PlanBoard, card: PlanBoardCard | PlanLine) {
+  protected moveKey(planBoard: PlanBoard, card: MovedCard) {
     return `move ${planBoard} ${'key' in card ? card.key : card.poolCardId}`;
   }
 
@@ -348,12 +422,13 @@ export class PlanTab {
   }
 
   /**
-   * Moves one copy of a card, a line's first or one in stacks mode, to
-   * `planBoard`, and shows the plan as it then is. A basic land never moves.
+   * Moves one copy of a card, a line's first, one in stacks mode or one in
+   * its Card detail, to `planBoard`, and shows the plan as it then is. A
+   * basic land never moves.
    * If the card's line is gone from the plan board it left, focus follows
    * the card to `planBoard`.
    */
-  protected move(card: PlanBoardCard | PlanLine, planBoard: PlanBoard) {
+  protected move(card: MovedCard, planBoard: PlanBoard) {
     return this.tryChange(() => this.planApi.move(this.draftId(), card.poolCardId, planBoard), {
       keep: [this.moveKey(planBoard, card)],
       status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
@@ -409,10 +484,11 @@ export class PlanTab {
   /**
    * Opens a pool card's Card detail, in place of any other. It offers what
    * the Pool tab's does, but never Add to Plan, and its queue actions only
-   * while the card is unpicked in the plan. It stays open once the card is
-   * picked, by the player or another, and closes once it's removed from the
-   * plan. Focus then goes back to what opened it, or else to the first card
-   * that opens one.
+   * while the card is unpicked in the plan; and Move, unless the deck is
+   * locked, which moves the card as this tab's move buttons do. It stays
+   * open once the card is picked, by the player or another, and closes once
+   * it's removed from the plan. Focus then goes back to what opened it, or
+   * else to the first card that opens one.
    */
   private openDetail(poolCardId: string, tilePlaceholder: string | null) {
     const card = this.poolCardsById().get(poolCardId);
@@ -431,6 +507,12 @@ export class PlanTab {
       injector: this.injector,
       closesOnPick: false,
       removedFromPlan: () => detail.close(),
+      move: computed(() =>
+        this.deckLocked()
+          ? null
+          : (planBoard: PlanBoard) => this.move({ poolCardId, name: card.name }, planBoard),
+      ),
+      moveWaits: this.changing,
       returnFocus: (_, opener) =>
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),
@@ -514,19 +596,23 @@ export class PlanTab {
   }
 }
 
-/** The mode and grouping the viewer last chose, or the defaults if none is kept or storage is refused. */
-function rememberedChoice(): PlanChoice {
+/**
+ * The mode and grouping the viewer last chose, one choice for every screen;
+ * if none is kept or storage is refused, `defaultMode` grouped by mana value.
+ */
+function rememberedChoice(defaultMode: PlanMode): PlanChoice {
+  const defaults: PlanChoice = { mode: defaultMode, grouping: DEFAULT_GROUPING };
   try {
     // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.
     const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');
     const { mode, grouping } = (kept ?? {}) as Record<string, unknown>;
     return {
-      mode: isMode(mode) ? mode : DEFAULT_CHOICE.mode,
-      grouping: isGrouping(grouping) ? grouping : DEFAULT_CHOICE.grouping,
+      mode: isMode(mode) ? mode : defaults.mode,
+      grouping: isGrouping(grouping) ? grouping : defaults.grouping,
     };
   } catch {
     // Storage may be refused, as in a private window, or hold something that isn't a choice.
-    return DEFAULT_CHOICE;
+    return defaults;
   }
 }
 
@@ -564,4 +650,77 @@ function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
     picked: true,
     basic: land,
   }));
+}
+
+/** The name of the stack drawn as `element`, from its `data-stack`; null for anything else. */
+const stackNameOf = (element: Element) => element.getAttribute('data-stack');
+
+/** The stacks named by `data-stack` drawn in `strip`, if any: the mainboard's. */
+const stackElements = (strip: HTMLElement | undefined) => [
+  ...(strip?.querySelectorAll('[data-stack]') ?? []),
+];
+
+/**
+ * The names of the stacks in view in `strip`, the stacks' row that scrolls
+ * sideways, as it scrolls and as the stacks drawn in it, `drawn`, change;
+ * none with no strip, or no `IntersectionObserver`, as in some test
+ * environments. Each stack is named by its element's `data-stack`.
+ */
+function stacksInView(
+  strip: Signal<HTMLElement | undefined>,
+  drawn: Signal<readonly Stack[]>,
+): Signal<ReadonlySet<string>> {
+  const inViewNames = signal<ReadonlySet<string>>(new Set());
+  /** The strip being watched, what watches its stacks, and the stacks it watches. */
+  let watched:
+    { strip: HTMLElement; observer: IntersectionObserver; stackElements: Set<Element> } | undefined;
+
+  const recordIntersections = (entries: IntersectionObserverEntry[]) =>
+    inViewNames.update((names) => {
+      const next = new Set(names);
+      for (const { target, isIntersecting } of entries) {
+        const name = stackNameOf(target);
+        if (name === null) continue;
+        if (isIntersecting) next.add(name);
+        else next.delete(name);
+      }
+      return next;
+    });
+
+  afterRenderEffect(() => {
+    const currentStrip = strip();
+    const stacks = drawn();
+    if (currentStrip !== watched?.strip) {
+      watched?.observer.disconnect();
+      watched = undefined;
+      inViewNames.set(new Set());
+      if (!currentStrip || typeof IntersectionObserver === 'undefined') return;
+      // Any part of a stack showing counts it in view, threshold 0: the
+      // stack cut off at the edge, as about two and a half fit, is in view
+      // too. A stack snapped to the start leaves the one before it a gap
+      // away, not a sliver, so no higher threshold is needed.
+      watched = {
+        strip: currentStrip,
+        observer: new IntersectionObserver(recordIntersections, { root: currentStrip }),
+        stackElements: new Set(),
+      };
+    }
+    if (!watched) return;
+    const current = stackElements(watched.strip);
+    for (const element of watched.stackElements) {
+      if (current.includes(element)) continue;
+      watched.observer.unobserve(element);
+      watched.stackElements.delete(element);
+    }
+    for (const element of current) {
+      watched.observer.observe(element);
+      watched.stackElements.add(element);
+    }
+    // A stack gone from the strip is no longer in view.
+    const names = untracked(inViewNames);
+    const kept = [...names].filter((name) => stacks.some((stack) => stack.name === name));
+    if (kept.length < names.size) inViewNames.set(new Set(kept));
+  });
+  inject(DestroyRef).onDestroy(() => watched?.observer.disconnect());
+  return inViewNames.asReadonly();
 }

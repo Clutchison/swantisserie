@@ -187,7 +187,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
   - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, **Add to Plan**, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Queue:** drag to reorder, lost and cleared cards named in a notice, and the steal behavior toggle
-  - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type; the desktop default) or list mode (the only mode on a phone), the basic lands control, the Plan notice and Queue unpicked
+  - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type, then the sideboard's one stack; a strip that scrolls sideways on a phone, and the default from tablet width) or list mode (the default on a phone), the basic lands control, the Plan notice and Queue unpicked
   - **Board:** every player's picks and the pick log
   - **Export:** your picks and export buttons
 

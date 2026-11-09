@@ -293,7 +293,7 @@ The note on the Plan tab naming a player's lost unpicked cards and who picked ea
 _Avoid_: Deck notice, alert, queue notice (that is the queue's)
 
 **Stacks mode**:
-The way of showing a plan as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, with the sideboard as one stack, beside the mainboard where there is room and below it where there isn't.
+The way of showing a plan as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, then the sideboard as one stack, in one row.
 _Avoid_: Card view, grid view, visual mode, curve view
 
 **List mode**:
@@ -307,6 +307,10 @@ _Avoid_: Column, pile
 **Grouping**:
 How stacks mode divides the mainboard into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies, and one with none of the listed types goes under Other.
 _Avoid_: Sort, filter, view
+
+**Stack headers**:
+The row naming each of the mainboard's stacks with its card count, shown above the stacks where there isn't room for them all, and marking the stacks in view. Tapping a stack header goes to its stack.
+_Avoid_: Chips, header row, stack tabs, jump bar
 
 **Export tab**:
 The part of a draft's page where a player reviews their picks and copies their exports.

@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { DestroyRef, inject, signal, type Signal } from '@angular/core';
 import type {
   DraftCreationProblem,
   DraftPowersView,
@@ -16,6 +17,35 @@ import type {
  * the top: the breakpoint in `draft-page.scss` and `lobby-controls.scss`.
  */
 export const DESKTOP_QUERY = '(min-width: 1024px)';
+
+/**
+ * The media query of the screens whose Plan tab has room for the wide stacks
+ * layout, with the sideboard's stack beside the mainboard's; narrower, the
+ * mainboard's stacks become a strip that scrolls sideways. Kept in step with
+ * the container query in `plan-tab.scss`, 760px of stacks area, plus the
+ * draft page's padding either side.
+ */
+export const WIDE_STACKS_QUERY = '(min-width: 792px)';
+
+/**
+ * Whether the media query `query` matches, as the window is resized. No
+ * `matchMedia` counts as no match. Call it in an injection context: it stops
+ * listening as that is destroyed.
+ */
+export function matching(query: string): Signal<boolean> {
+  const media = globalThis.matchMedia?.(query);
+  const matches = signal(!!media?.matches);
+  // Not every test environment's `matchMedia` reports changes.
+  if (!media?.addEventListener) return matches.asReadonly();
+  const listening = new AbortController();
+  // Stryker disable next-line ObjectLiteral: a listener left running after teardown only sets a destroyed component's signal.
+  media.addEventListener('change', (event) => matches.set(event.matches), {
+    signal: listening.signal,
+  });
+  // Stryker disable next-line ArrowFunction,CallExpression: a listener left running after teardown only sets a destroyed component's signal.
+  inject(DestroyRef).onDestroy(() => listening.abort());
+  return matches.asReadonly();
+}
 
 /** The draft powers of a viewer who may do nothing to a draft beyond playing in it. */
 export const NO_POWERS: DraftPowersView = {
