@@ -5,6 +5,7 @@ import {
   alicePlayer,
   bob,
   button,
+  buttonOrder,
   group,
   text,
   useDraftsApp,
@@ -31,6 +32,7 @@ import {
   singleEliminationPlaying,
   player,
   pushTournament,
+  reported,
   signedIn,
   threePlayers,
   winnerToCome,
@@ -257,6 +259,51 @@ describe('the bracket of a single elimination tournament', () => {
 
     expect(req.request.body).toEqual({ games: [1, 2] });
     expect(bracketMatches(tab, 2)).toEqual(['Alice (seed 1) vs Carol (seed 3)']);
+  });
+
+  it('puts the organizer’s correction, with its game scores, before Confirm', async () => {
+    // Carol, an organizer who dropped after Bob reported their match, can still confirm it.
+    const bobReported = singleEliminationPlaying({
+      entries: singleEliminationPlaying().entries.map((entry) => ({
+        ...entry,
+        dropped: entry.playerId === carol.id,
+      })),
+      rounds: [
+        {
+          round: 1,
+          correctable: true,
+          matches: [
+            {
+              ...reported(unreportedMatch('m1', bob.id, carol.id), [2, 1], bob.id),
+              bracketPlace: 1,
+            },
+          ],
+          byes: [alice.id],
+        },
+      ],
+    });
+    const { fixture, tab } = await openPlaying(bobReported, {
+      user: signedIn(carol),
+      powers: ORGANIZE_ONLY,
+    });
+
+    expect(buttonOrder(bracket(tab)!, 'Confirm your match against Bob')).toEqual([
+      'Correct Bob vs Carol',
+      'Confirm your match against Bob',
+    ]);
+
+    button(bracket(tab)!, 'Correct Bob vs Carol')!.click();
+    await fixture.whenStable();
+
+    expect(buttonOrder(bracket(tab)!, 'Confirm your match against Bob')).toEqual([
+      'Correct Bob vs Carol',
+      'Bob won 2–0',
+      'Bob won 2–1',
+      'Carol won 2–1',
+      'Carol won 2–0',
+      'Clear game score',
+      'Confirm your match against Bob',
+    ]);
   });
 });
 
