@@ -13,9 +13,15 @@ import {
   STARTING_PLAYER,
 } from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
+import {
+  dismissReadyNotices,
+  READYING_PLAYER,
+  readyRefusal,
+  setEntryReady,
+} from './ready-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
-import { TournamentRefusedError } from './tournament-errors.js';
+import { NOT_JOINED, TournamentRefusedError } from './tournament-errors.js';
 import { entryOf, TournamentLock } from './tournament-lock.js';
 
 /**
@@ -118,6 +124,34 @@ export class TournamentRegistrationService {
   }
 
   /**
+   * Marks the draft's player `userId` ready, or unmarks them, as `ready`
+   * says: their own tournament entry only, as only the player changes
+   * their ready. Marking an already ready player ready, or unmarking one who
+   * isn't, changes nothing. Throws TournamentRefusedError if they haven't
+   * joined, or the tournament is past registration; and on marking, if they
+   * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS, as
+   * `readyRefusal` decides. Marking ready takes down the player's Ready
+   * notice; unmarking never sets it. Nothing is announced.
+   */
+  async setReady(
+    draftId: string,
+    userId: string,
+    ready: boolean,
+  ): Promise<void> {
+    await this.tournamentLock.inRegistration(draftId, async (tx) => {
+      const player = await tx.player.findUnique({
+        where: { draftId_userId: { draftId, userId } },
+        select: READYING_PLAYER,
+      });
+      const entry = player?.tournamentEntry;
+      if (!entry) throw new TournamentRefusedError(NOT_JOINED);
+      const refusal = ready ? readyRefusal(player) : null;
+      if (refusal) throw new TournamentRefusedError(refusal);
+      await setEntryReady(tx, entry.id, ready);
+    });
+  }
+
+  /**
    * Cancels the draft's tournament during registration or play, deleting it
    * with its entries and matches, so nothing from it counts and every deck
    * it locked unlocks. Throws TournamentRefusedError once it is complete.
@@ -139,8 +173,9 @@ export class TournamentRegistrationService {
   }
 
   /**
-   * Starts the draft's tournament, closing joining and locking every joined
-   * player's deck. Round robin makes the
+   * Starts the draft's tournament, closing joining, locking every joined
+   * player's deck and taking down every Ready notice, as registration has
+   * ended. Round robin makes the
    * match of every pair of its entries, by join order, all open at once and
    * with no byes; Swiss pairs round 1 at random; single
    * elimination seeds its entries at random into the bracket and makes its
@@ -171,6 +206,7 @@ export class TournamentRegistrationService {
           where: { id: tournament.id },
           data: { state: 'Playing', startedAt: new Date() },
         });
+        await dismissReadyNotices(tx, tournament.id);
         await snapshotDecklists(tx, tournament.id);
         const steps = ROUND_STEPS[tournament.format];
         if (steps) {

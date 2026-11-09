@@ -57,6 +57,7 @@ describe('basic lands on the plan tab', () => {
     sideboard: [],
     basics,
     lost: [],
+    readyNotice: false,
     preferredPrintings: {},
     ...fields,
   });

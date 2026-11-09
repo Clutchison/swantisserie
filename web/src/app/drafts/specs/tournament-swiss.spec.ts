@@ -268,9 +268,9 @@ describe('Swiss tournaments on the Play tab', () => {
   const bobDroppedAfterBye = swissPlaying({
     lastCompletedRound: 0,
     entries: [
-      { playerId: alice.id, dropped: false, droppable: true, seed: null },
-      { playerId: bob.id, dropped: true, droppable: true, seed: null },
-      { playerId: carol.id, dropped: false, droppable: true, seed: null },
+      { playerId: alice.id, dropped: false, droppable: true, ready: false, seed: null },
+      { playerId: bob.id, dropped: true, droppable: true, ready: false, seed: null },
+      { playerId: carol.id, dropped: false, droppable: true, ready: false, seed: null },
     ],
     rounds: [
       {

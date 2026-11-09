@@ -201,6 +201,7 @@ describe('the bracket of a single elimination tournament', () => {
         playerId,
         dropped: playerId !== alice.id,
         droppable: true,
+        ready: false,
         seed: i + 1,
       })),
       rounds: [
@@ -277,6 +278,7 @@ const fourRounds: ViewerTournamentView = singleEliminationPlaying({
     playerId: id,
     dropped: id === erin.id || id === finn.id,
     droppable: true,
+    ready: false,
     seed: i + 1,
   })),
   rounds: [

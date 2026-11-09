@@ -434,7 +434,7 @@ describe('Play tab', () => {
       const REMINDER =
         'Your deck locks when the tournament starts, until it is complete or cancelled.';
       const SHORT =
-        'Your mainboard holds 4 cards. A tournament deck needs at least 40: fill your deck, or leave the tournament if you won’t play.';
+        'Your mainboard holds 4 cards. A tournament deck needs at least 40: fill your deck before marking yourself ready, or leave the tournament if you won’t play.';
 
       it('reminds a joined player that their deck locks at Start, warning them while their mainboard is under 40', async () => {
         // Four picks.
@@ -449,7 +449,7 @@ describe('Play tab', () => {
         expect(text(tab)).toContain(SHORT);
       });
 
-      it('drops the warning once the player fills their deck, with no need to read the tournament again', async () => {
+      it('drops the warning once the player fills their deck', async () => {
         const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
           cards,
           plan: planOf(),
@@ -460,12 +460,13 @@ describe('Play tab', () => {
         http
           .expectOne('/api/drafts/draft-1/plan/bolt-card')
           .flush(planOf({ basics: [{ land: 'Mountain', count: 37 }] }));
+        // The re-read that says whether the player may now mark themselves ready.
+        await flushTournament(registration(bob.id, alice.id));
         await fixture.whenStable();
         const tab = await openPlayTab(fixture, page);
 
         expect(text(tab)).toContain(REMINDER);
         expect(text(tab)).not.toContain('A tournament deck needs at least 40');
-        http.expectNone('/api/drafts/draft-1/tournament');
       });
 
       it('shows nothing to a player who has left', async () => {

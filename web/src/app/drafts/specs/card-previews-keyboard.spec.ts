@@ -192,6 +192,7 @@ describe('card previews', () => {
           sideboard: [],
           basics: [],
           lost: [],
+          readyNotice: false,
           preferredPrintings: {},
         },
       });
@@ -224,6 +225,7 @@ describe('card previews', () => {
             sideboard: [],
             basics: [],
             lost: [],
+            readyNotice: false,
             preferredPrintings: {},
           },
         });

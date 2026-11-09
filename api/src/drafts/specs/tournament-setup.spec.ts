@@ -53,8 +53,10 @@ describe('tournament setup', () => {
         playerId,
         dropped: false,
         droppable: true,
+        ready: false,
         seed: null,
       })),
+      readyCount: { ready: 0, of: 2 },
       rounds: [],
       bracket: null,
       completeRoundGrants: null,
@@ -64,6 +66,8 @@ describe('tournament setup', () => {
       trophyHolders: [],
       canJoin: false,
       joinRefusal: expect.objectContaining({ error: 'already-joined' }),
+      // Alice's deck holds just her one pick.
+      canToggleReady: false,
     });
     expect((await getDraft(id).expect(200)).body.tournament).toEqual({
       state: 'Registration',
