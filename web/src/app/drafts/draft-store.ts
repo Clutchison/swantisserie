@@ -5,6 +5,7 @@ import {
   inject,
   Injectable,
   InjectionToken,
+  Injector,
   linkedSignal,
   type Signal,
   signal,
@@ -85,6 +86,7 @@ export class DraftStore {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
   private readonly pollMs = inject(DRAFT_POLL_MS);
+  private readonly injector = inject(Injector);
 
   /** The id of the open draft. */
   // Stryker disable next-line ObjectLiteral: `paramMap` emits on subscribe, so the id is there at once either way.
@@ -311,6 +313,24 @@ export class DraftStore {
   });
   /** The draft's tournament: null until it has loaded, and while there is none. */
   readonly tournament = keptRead<ViewerTournamentView | null>(this.tournamentResource, null);
+  /**
+   * Answers once the tournament read for the draft shown has settled,
+   * loaded or failed: at once if there is no tournament to read. A change
+   * that shows a new version awaits it, so it settles once the page shows
+   * the tournament it made.
+   */
+  tournamentSettled(): Promise<void> {
+    return new Promise((resolve) => {
+      const watch = effect(
+        () => {
+          if (this.tournamentResource.isLoading()) return;
+          watch.destroy();
+          resolve();
+        },
+        { injector: this.injector },
+      );
+    });
+  }
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**

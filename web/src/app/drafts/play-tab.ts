@@ -533,6 +533,8 @@ export class PlayTab {
           if (!request) return;
           this.error.set(null);
           await this.store.changeDraft(request);
+          // Settle once the page shows the re-read tournament, so focus is put back among the controls it shows.
+          await this.store.tournamentSettled();
           // Stryker disable next-line BooleanLiteral: Changes.send uses the answer only for an empty status and busyOnceMade, which the Play tab never passes.
           return true;
         } catch (err) {

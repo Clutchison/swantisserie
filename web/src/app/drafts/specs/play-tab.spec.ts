@@ -14,6 +14,7 @@ import {
   drafting,
   flushPicks,
   flushPool,
+  flushQueueAndPlan,
   heading,
   http,
   openDraft,
@@ -308,6 +309,50 @@ describe('Play tab', () => {
       await answerChange(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id), 2);
       expect(joinedNames(panel(page))).toEqual(['Bob', 'Alice']);
       expect(button(panel(page), JOIN_PRIVATE)).toBeUndefined();
+    });
+
+    it('moves focus to Leave once joining shows, and back to Join once leaving does', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id));
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, JOIN_PRIVATE)!.focus();
+      button(tab, JOIN_PRIVATE)!.click();
+      await answerChange(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id));
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(panel(page), 'Leave')));
+
+      button(panel(page), 'Leave')!.click();
+      await answerChange(
+        fixture,
+        `/api/drafts/draft-1/tournament/entries/${alice.id}`,
+        'DELETE',
+        registration(bob.id),
+        2,
+      );
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(panel(page), JOIN_PRIVATE)),
+      );
+    });
+
+    it('keeps focus on Join, pressable again, when the tournament re-read after joining fails', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id));
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, JOIN_PRIVATE)!.focus();
+      button(tab, JOIN_PRIVATE)!.click();
+      (await vi.waitFor(() => http.expectOne(ENTRIES_URL))).flush(
+        draft({ ...withTournament(registration(bob.id, alice.id)), version: 1 }),
+      );
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(
+        'Server error',
+        serverError,
+      );
+      await fixture.whenStable();
+
+      const join = button(panel(page), JOIN_PRIVATE)!;
+      await vi.waitFor(() => expect(join.getAttribute('aria-disabled')).toBeNull());
+      expect(document.activeElement).toBe(join);
     });
 
     it('says joining failed when the api gives no reason, until a change goes through', async () => {
