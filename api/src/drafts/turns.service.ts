@@ -108,7 +108,7 @@ export class TurnsService {
    */
   async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
     return this.lock.run(draftId, async (draft) => {
-      // Stryker disable next-line OptionalChaining: dead code that DraftLock.run's type forces: no real path schedules a bot turn for a draft with no row, since a draft is only cancelled in the lobby, before any bot turn; and draft.state would only turn that no-op into a TypeError that bot-players.ts catches, logs and retries.
+      // Stryker disable next-line OptionalChaining: dead code that DraftLock.run's type forces: no real path schedules a bot turn for a draft with no row.
       if (draft?.state !== 'Drafting') return [];
       const { tx } = draft;
       const state = await readTurnState(tx, draftId);
