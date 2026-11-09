@@ -67,12 +67,19 @@ export const signedIn = ({ id, name }: PlayerView): UserView => ({ ...alice, id,
 export const entry = (
   playerId: string,
   fields: Partial<TournamentEntryView> = {},
-): TournamentEntryView => ({ playerId, dropped: false, droppable: true, seed: null, ...fields });
+): TournamentEntryView => ({
+  playerId,
+  dropped: false,
+  droppable: true,
+  ready: false,
+  seed: null,
+  ...fields,
+});
 
 /**
  * A round robin tournament in registration, joined by the players with
- * these ids in order, as Alice, the default viewer, reads it: she may join
- * until she has.
+ * these ids in order, nobody ready, as Alice, the default viewer, reads it:
+ * she may join until she has, and once she has, may mark herself ready.
  */
 export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   ...(playerIds.includes(alice.id)
@@ -82,8 +89,10 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
           error: 'already-joined',
           message: 'You have already joined this tournament.',
         },
+        canToggleReady: true,
       }
-    : { canJoin: true, joinRefusal: null }),
+    : { canJoin: true, joinRefusal: null, canToggleReady: false }),
+  readyCount: { ready: 0, of: playerIds.length },
   format: 'RoundRobin',
   swissRoundOption: null,
   publicDecklists: false,
@@ -210,6 +219,8 @@ export function playing(
     reopenRound: null,
     canJoin: false,
     joinRefusal: null,
+    canToggleReady: false,
+    readyCount: { ready: 0, of: 3 },
     ...fields,
   };
 }
@@ -256,6 +267,8 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     reopenRound: { round: 1, refusal: null, takesBackDrops: [] },
     canJoin: false,
     joinRefusal: null,
+    canToggleReady: false,
+    readyCount: { ready: 0, of: 3 },
     ...fields,
   };
 }
@@ -341,6 +354,8 @@ export function singleEliminationPlaying(
     reopenRound: null,
     canJoin: false,
     joinRefusal: null,
+    canToggleReady: false,
+    readyCount: { ready: 0, of: 3 },
     ...fields,
   };
 }

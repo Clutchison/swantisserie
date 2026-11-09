@@ -152,6 +152,16 @@ export function removeEntry(id: string, playerId: string, cookie: string) {
   );
 }
 
+/** Marks whoever `cookie` signs in ready in the draft's tournament. */
+export function markReady(id: string, cookie: string) {
+  return draftsRequest('put', `/${id}/tournament/ready`, cookie);
+}
+
+/** Unmarks whoever `cookie` signs in as ready in the draft's tournament. */
+export function unmarkReady(id: string, cookie: string) {
+  return draftsRequest('delete', `/${id}/tournament/ready`, cookie);
+}
+
 /** The ids of the players who have joined the draft's tournament, in join order. */
 export async function joinedPlayers(id: string): Promise<string[]> {
   const { body } = await tournament(id).expect(200);

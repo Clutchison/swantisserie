@@ -101,6 +101,7 @@ describe('the Printing picker', () => {
     sideboard: [],
     basics: [{ land: 'Island', count: 2 }],
     lost: [],
+    readyNotice: false,
     preferredPrintings: {},
     ...fields,
   });

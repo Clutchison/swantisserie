@@ -647,6 +647,11 @@ export function dismissPlanNotice(id: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/notice`, cookie);
 }
 
+/** Dismisses the player's Ready notice. */
+export function dismissReadyNotice(id: string, cookie: string) {
+  return draftsRequest('delete', `/${id}/plan/ready-notice`, cookie);
+}
+
 /** Sets how many copies of a basic land the player's mainboard holds. */
 export function setBasic(
   id: string,

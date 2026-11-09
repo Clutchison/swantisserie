@@ -18,6 +18,15 @@ export const BOT_ENTRY: TournamentRefusal = {
 };
 
 /**
+ * The refusal of taking a player out of the tournament, putting them back
+ * in, or changing their ready, when they haven't joined it.
+ */
+export const NOT_JOINED: TournamentRefusal = {
+  error: 'not-joined',
+  message: 'That player hasn’t joined this tournament.',
+};
+
+/**
  * Thrown for a tournament request whose body names something it can't: a
  * 400, as a body that isn't the request's shape is.
  */
