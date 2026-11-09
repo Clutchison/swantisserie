@@ -377,6 +377,7 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const carolCookie = await signIn(carol);
       const id = await readyDraft([aliceCookie, bobCookie, carolCookie]);
+      await setSeats(id, [alice.id, bob.id, carol.id]).expect(200);
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock, bobCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);

@@ -185,7 +185,7 @@ export class QueuesService {
         where: { playerId, poolCardId },
         select: {
           poolCardId: true,
-          // Stryker disable next-line BooleanLiteral: a queue position only orders the cards that leave in the same departure, and taking out a card by hand makes a departure of one card, so its position is never needed.
+          // Stryker disable next-line BooleanLiteral: without it, the card's plan copy gets the new departure but keeps whatever queuePosition it had before, from an earlier departure or none, which is harmless only because a queue position only orders cards within one departure, and taking out a card by hand makes a departure of that one card alone.
           position: true,
         },
       });
@@ -315,7 +315,7 @@ export class QueuesService {
       draftSize(draft, draft._count.players),
       draft._count.picks,
     );
-    // Stryker disable next-line OptionalChaining: dead code that currentTurn's type forces: it returns null only once every pick is made, and this check runs only once the draft has started, after `change` has refused a complete draft.
+    // Stryker disable next-line OptionalChaining: dead code that currentTurn's nullable return type (`Turn | null`) forces: it returns null only once every pick is made, and this check runs only once the draft has started, after `change` has refused a complete draft.
     return turn?.seat === seat;
   }
 
@@ -337,10 +337,10 @@ export class QueuesService {
     });
     const listed = await tx.takenOutQueuedCard.findMany({
       where: { playerId, noticeHidden: false },
-      // Stryker disable next-line ArrayDeclaration: a behaviour change the specs can't reach, not an equivalent mutant: listed cards are inserted in the order listed and never updated while listed, so the test database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
+      // Stryker disable next-line ArrayDeclaration: a behaviour change the specs can't reach, not an equivalent mutant: listed cards are inserted in the order listed and never updated while listed, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
       orderBy: [
         { pick: { number: 'asc' } },
-        // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: listed cards are inserted in the order listed and never updated while listed, so the test database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
+        // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: listed cards are inserted in the order listed and never updated while listed, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
         { position: 'asc' },
       ],
       select: {

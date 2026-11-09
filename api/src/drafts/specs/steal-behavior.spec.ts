@@ -271,13 +271,16 @@ describe('steal behavior', () => {
       });
     });
 
-    it('puts a card lost under pick next back in its place after a reorder, ahead of a card queued since into an emptied queue', async () => {
+    it('puts a card lost under pick next back in its place, behind a card queued since into an emptied queue', async () => {
       const id = await threePlayerDraft();
       await setSeats(id, [bob.id, carol.id, alice.id]).expect(200);
       await setStealBehavior(id, 'PickNext').expect(200);
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock).expect(200);
       await enqueue(id, ids['Lava Spike']).expect(200);
+      // Reordering to the same order rewrites the positions from 0, so only
+      // the add into the emptied queue below decides whether Lightning Bolt
+      // goes before Lava Spike's old place.
       await reorderQueue(id, [ids.Shock, ids['Lava Spike']]).expect(200);
       await start(id).expect(200);
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
