@@ -77,6 +77,9 @@
       <button class="button" type="button" (click)="join()" appSendsChange="join">Join</button>
     }
     @if (canOrganize()) {
+      <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
+        Cancel draft
+      </button>
       <button
         class="button secondary"
         type="button"
@@ -98,15 +101,6 @@
       </button>
     }
     @if (canOrganize()) {
-      <button
-        class="button"
-        type="button"
-        (click)="start()"
-        [disabled]="!poolReady()"
-        appSendsChange="start"
-      >
-        Start draft
-      </button>
       <input
         #pickImportFile
         type="file"
@@ -124,8 +118,14 @@
       >
         Import picks
       </button>
-      <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
-        Cancel draft
+      <button
+        class="button"
+        type="button"
+        (click)="start()"
+        [disabled]="!poolReady()"
+        appSendsChange="start"
+      >
+        Start draft
       </button>
       @if (!poolReady()) {
         <p class="detail">You can start the draft once the pool snapshot is complete.</p>
