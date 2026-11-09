@@ -257,8 +257,12 @@ describe('undo', () => {
 
     it('restores a long queue in its original order after one of its cards was queued again and the notice dismissed', async () => {
       carolCookie = await signIn(carol);
-      // Enough taken-out cards to fill the database's first page of them,
-      // so that queuing one again moves its row after the others.
+      // Guards the taken-out cards' `orderBy: { position: 'asc' }` in
+      // queue-clearing.ts. Without it they come back in storage order, which
+      // only changes once their rows fill a storage page, so that queuing one
+      // again moves its row after the others: hence 60 cards. A schema or
+      // PGlite change could quietly stop this killing that mutant; a later
+      // Stryker run would show it.
       const cards = Array.from(
         { length: 60 },
         (_, i) => `Card ${String(i).padStart(2, '0')}`,
