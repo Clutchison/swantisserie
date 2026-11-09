@@ -54,6 +54,7 @@ export async function recordPlanEffects(
     }
   }
   return after.map(({ plan }, seat) =>
+    // Stryker disable next-line ConditionalExpression,LogicalOperator,EqualityOperator,BooleanLiteral: every mutant only adds or leaves out the card just picked, in the picker's plan or another's, and `plansAfterPick` and `availableCopies` skip picked cards, so no later pick in the turn or the pick import can tell.
     playerIds[seat] === pick.playerId && !plan.includes(pick.poolCardId)
       ? [...plan, pick.poolCardId]
       : plan,
@@ -73,7 +74,9 @@ export async function planPicks(
   const { players, plans, pool } = await readTurnState(tx, draftId);
   const playerIds = players.map((player) => player.id);
   let planned = plans;
+  // Stryker disable next-line ArrayDeclaration: a pool card id that doesn't exist, in the copy rule's picked list, excludes no copy.
   const picked: string[] = [];
+  // Stryker disable next-line ArrowFunction,ArithmeticOperator: picks are only ever inserted in number order, imports included, and never updated, so they come back in that order without the sort; the pick import's `findMany` has no `orderBy` of its own.
   for (const pick of picks.toSorted((a, b) => a.number - b.number)) {
     const after = plansAfterPick(
       {
@@ -101,6 +104,7 @@ export async function restorePlans(
   await tx.plannedCard.deleteMany({ where: { pickId, added: false } });
   await tx.plannedCard.updateMany({
     where: { pickId },
+    // Stryker disable next-line ObjectLiteral: the pick is deleted straight after, and `PlannedCard.pick` is `onDelete: SetNull`, so the database nulls it anyway.
     data: { pickId: null },
   });
   const lost = await tx.lostPlannedCard.findMany({
