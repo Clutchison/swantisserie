@@ -59,6 +59,21 @@ describe('picks', () => {
     ]);
   });
 
+  it('logs only its own draft’s picks, while another draft holds picks', async () => {
+    const bobCookie = await signIn(bob);
+    const other = await startedDraft(bobCookie);
+    const otherIds = await poolCardIds(other);
+    await pick(other, otherIds.Shock).expect(200);
+    const id = await startedDraft(bobCookie);
+    const ids = await poolCardIds(id);
+
+    await pick(id, ids['Lightning Bolt']).expect(200);
+
+    expect((await pickLog(id)).body).toEqual([
+      { pick: 1, playerId: alice.id, poolCardId: ids['Lightning Bolt'] },
+    ]);
+  });
+
   it('follows snake order across rounds, logging every pick', async () => {
     const bobCookie = await signIn(bob);
     const id = await startedDraft(bobCookie, 2);

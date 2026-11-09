@@ -12,6 +12,7 @@ import {
   getDraft,
   readyDraft,
   pickLog,
+  pickedIds,
   pickedNames,
   pool,
   undo,
@@ -92,13 +93,9 @@ describe('pick import', () => {
       previewed,
     ).expect(200);
 
-    const log = (await pickLog(id)).body as { poolCardId: string }[];
-    expect(
-      log
-        .map((pick) => pick.poolCardId)
-        .slice(0, 2)
-        .sort(),
-    ).toEqual([...copies['Ash Golem']].sort());
+    expect((await pickedIds(id)).slice(0, 2).sort()).toEqual(
+      [...copies['Ash Golem']].sort(),
+    );
   });
 
   it('gives the picks what the exports need of them', async () => {

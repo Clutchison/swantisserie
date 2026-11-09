@@ -426,6 +426,13 @@ export function pickLog(id: string, status = 200) {
   return draftsRequest('get', `/${id}/picks`, aliceCookie).expect(status);
 }
 
+/** The pool card ids picked, in pick order. */
+export async function pickedIds(id: string): Promise<string[]> {
+  return ((await pickLog(id)).body as { poolCardId: string }[]).map(
+    (logged) => logged.poolCardId,
+  );
+}
+
 /** The names of the cards picked, in pick order, taken from the draft's pool. */
 export async function pickedNames(id: string): Promise<string[]> {
   const [log, cards] = await Promise.all([pickLog(id), pool(id).expect(200)]);

@@ -64,7 +64,7 @@ Sort every survivor into one of four groups. The fix each group names is the wor
 
 - **Real gap**: the change alters behaviour a player or the api would notice, and no test checks it. Write a test that fails against the mutant.
 - **Harmless**: the change has no effect any caller can observe: an equivalent mutant, such as an equivalent way of writing the same thing, or the text of an error message callers don't read.
-- **Dead code**: the mutated code can never run, or its result is never used. Delete the code rather than test it.
+- **Dead code**: the mutated code can never run, or its result is never used. Delete the code rather than test it. When a type forces the code, such as a guard against a value the type allows but no real path produces, mark it instead, with a reason naming that type.
 - **Out of jsdom's reach**: a real gap that only a real browser shows, such as layout, hit-testing (which element a click lands on) or a real `IntersectionObserver`. No jsdom spec can fail on it without asserting styles, against `web-specs.md`. Record it on the ticket and say so in its comment; mark it only if the user approves it as harmless.
 
 **No coverage** mutants are code that no test even runs. Treat them as real gaps or dead code.
