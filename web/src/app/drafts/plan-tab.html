@@ -125,7 +125,8 @@
   class="plan-boards-area"
   [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"
-  [style.--strip-range]="stripRange()"
+  [style.--strip-range]="stripMeasure().range"
+  [style.--strip-lead]="stripMeasure().lead"
 >
   <!--
     In the strip, only a few stacks show at once: the stack headers keep the
@@ -139,6 +140,7 @@
       <div class="stack-header-scroller">
         <div class="stack-header-group">
           @for (header of stackHeaders(); track header.name) {
+            <!-- Shows only its label: its aria-label gives its card count too. -->
             <button
               type="button"
               [class.set-apart]="header.setApart"
@@ -159,7 +161,6 @@
                   {{ header.label.text }}
                 }
               </span>
-              <span class="count">{{ header.count }}</span>
             </button>
           }
         </div>

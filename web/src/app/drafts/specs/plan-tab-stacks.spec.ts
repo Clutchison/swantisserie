@@ -494,7 +494,7 @@ describe('plan tab', () => {
         ),
       );
 
-      it('head the strip with each mainboard stack’s name and card count, as the plan and grouping change', async () => {
+      it('head the strip with each mainboard stack, named with its card count, as the plan and grouping change', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
@@ -543,11 +543,11 @@ describe('plan tab', () => {
         ]);
 
         const sideboardHeader = stackHeader(plan, 'Sideboard, 2 cards')!;
-        // Its label, SB, then its count, 2.
+        // Only its label, SB: its count is in its accessible name alone.
         expect(stackHeaderContents(plan).at(-1)).toEqual({
           images: [],
           hiddenParts: 0,
-          text: ['SB', '2'],
+          text: ['SB'],
         });
         sideboardHeader.click();
         expect(scrolling.scrolled()).toEqual([
@@ -588,12 +588,12 @@ describe('plan tab', () => {
           '7+, 1 card',
           'Lands, 1 card',
         ]);
-        // Each shows one decorative symbol, Lands its hidden type letter, then its count; 7+ adds a "+" to its symbol.
+        // Each shows only one decorative symbol, Lands its hidden type letter; 7+ adds a "+" to its symbol.
         expect(stackHeaderContents(plan)).toEqual([
-          { images: [''], hiddenParts: 0, text: ['2'] },
-          { images: [''], hiddenParts: 0, text: ['2'] },
-          { images: [''], hiddenParts: 0, text: ['+', '1'] },
-          { images: [], hiddenParts: 1, text: ['1'] },
+          { images: [''], hiddenParts: 0, text: [] },
+          { images: [''], hiddenParts: 0, text: [] },
+          { images: [''], hiddenParts: 0, text: ['+'] },
+          { images: [], hiddenParts: 1, text: [] },
         ]);
 
         button(plan, 'Color')!.click();
@@ -605,10 +605,10 @@ describe('plan tab', () => {
           'Lands, 1 card',
         ]);
         expect(stackHeaderContents(plan)).toEqual([
-          { images: [''], hiddenParts: 0, text: ['3'] },
-          { images: [''], hiddenParts: 0, text: ['1'] },
-          { images: [''], hiddenParts: 0, text: ['1'] },
-          { images: [], hiddenParts: 1, text: ['1'] },
+          { images: [''], hiddenParts: 0, text: [] },
+          { images: [''], hiddenParts: 0, text: [] },
+          { images: [''], hiddenParts: 0, text: [] },
+          { images: [], hiddenParts: 1, text: [] },
         ]);
       });
 
@@ -625,11 +625,11 @@ describe('plan tab', () => {
           'Instant, 2 cards',
           'Land, 1 card',
         ]);
-        // Each shows its decorative type letter, then its count.
+        // Each shows only its decorative type letter.
         expect(stackHeaderContents(plan)).toEqual([
-          { images: [], hiddenParts: 1, text: ['1'] },
-          { images: [], hiddenParts: 1, text: ['2'] },
-          { images: [], hiddenParts: 1, text: ['1'] },
+          { images: [], hiddenParts: 1, text: [] },
+          { images: [], hiddenParts: 1, text: [] },
+          { images: [], hiddenParts: 1, text: [] },
         ]);
       });
 

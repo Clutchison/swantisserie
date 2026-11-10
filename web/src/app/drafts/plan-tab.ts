@@ -317,9 +317,9 @@ export class PlanTab {
   /**
    * The stack headers, one per stack in the strip, the mainboard's then the
    * sideboard's: each stack's name, the label it shows (a mana symbol, a type
-   * letter or text), its card count, what a screen reader names it, starting
-   * with its name in full, as `Red, 3 cards`, and whether it is set apart from
-   * the others, as the sideboard's is.
+   * letter or text), what a screen reader names it, its name in full then its
+   * card count, as `Red, 3 cards`, and whether it is set apart from the
+   * others, as the sideboard's is.
    */
   protected readonly stackHeaders = computed(() =>
     this.planBoards()
@@ -329,7 +329,6 @@ export class PlanTab {
         stacks.map(({ name, fullName, label, cards }) => ({
           name,
           label,
-          count: cards.length,
           accessibleName: `${fullName}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
           setApart: oneStack === true,
         })),
@@ -341,8 +340,8 @@ export class PlanTab {
   protected readonly currentStack = this.stripLocation.current;
   /** Whether a tapped stack header is held current, its underline drawn on it rather than sliding with the strip. */
   protected readonly tapHeld = this.stripLocation.held;
-  /** How many stacks' widths the strip scrolls, for the underline to follow its scroll. */
-  protected readonly stripRange = this.stripLocation.range;
+  /** How the strip measures, in stacks' widths, for the underline to follow its scroll. */
+  protected readonly stripMeasure = this.stripLocation.measure;
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 

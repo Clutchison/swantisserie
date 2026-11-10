@@ -110,9 +110,8 @@ export const stackHeader = (plan: HTMLElement, name: string) =>
 /**
  * What each stack header shows: its images by alt text, `''` for a
  * decorative one, as a symbol is; how many other parts it hides from a screen
- * reader, as a type letter; and the runs of text a screen reader finds, as its
- * label then its count, e.g. `{ images: [''], hiddenParts: 0, text: ['+', '1'] }`
- * for a 7+ symbol.
+ * reader, as a type letter; and the runs of text a screen reader finds, e.g.
+ * `{ images: [''], hiddenParts: 0, text: ['+'] }` for a 7+ symbol.
  */
 export const stackHeaderContents = (plan: HTMLElement) =>
   stackHeaderButtons(plan).map((header) => ({
