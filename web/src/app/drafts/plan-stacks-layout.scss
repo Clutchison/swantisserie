@@ -2,8 +2,22 @@
 
 /* How far the current stack header's underline sits in from its sides, and up from its bottom, and how thick it is. */
 $underline-inset: 3px;
-$underline-lift: 2px;
+$underline-lift: 3px;
 $underline-thickness: 3px;
+/* How far into the strip, and the stack headers' row, each edge fades. */
+$fade: 2rem;
+
+/*
+ * How many stacks a scroll of `$widths` stacks' widths has passed, as the stacks it stops at
+ * count them: a scroll to a stack stops `--strip-lead` of a stack's width short of its start,
+ * clear of the fade, so the second counts as passed at 1 - lead, and each after at its own
+ * stop. The first's share stretches over the shorter scroll to the second.
+ */
+@function stacks-passed($widths) {
+  @return unquote(
+    'min((#{$widths}) / (1 - var(--strip-lead, 0)), (#{$widths}) + var(--strip-lead, 0))'
+  );
+}
 
 /*
  * The current stack header's underline: an accent line, a shape as well as a color. Absolutely
@@ -95,15 +109,14 @@ $underline-thickness: 3px;
 
     /*
      * The stack headers' geometry, which the stacked cards scroll in below: each header about
-     * Apple's 44pt tap target tall, padded within the row, which has a 1px divider under it and
-     * then a margin.
+     * Apple's 44pt tap target tall, padded within the row, which has a margin under it.
      */
     .stack-headers,
     .stack {
       --stack-header-height: 2.75rem;
       --stack-headers-padding: var(--space-xs);
       --stack-headers-block-size: calc(
-        var(--stack-header-height) + 2 * var(--stack-headers-padding) + 1px
+        var(--stack-header-height) + 2 * var(--stack-headers-padding)
       );
       --stack-headers-margin: var(--space-sm);
     }
@@ -112,6 +125,8 @@ $underline-thickness: 3px;
       flex-wrap: nowrap;
       overflow-x: auto;
       padding-bottom: var(--space-sm);
+      /* A stack scrolled or snapped to stops clear of the faded edge, a faded sliver of the one before it showing. */
+      scroll-padding-inline-start: $fade;
       scroll-snap-type: x proximity;
       scrollbar-width: none;
 
@@ -150,9 +165,8 @@ $underline-thickness: 3px;
     }
 
     /*
-     * The stack headers: one row that sticks to the top of the screen while the strip is in view,
-     * a divider parting it from the cards that scroll under it. Opaque, and above the stacked
-     * cards, so they don't show through.
+     * The stack headers: one quiet row that sticks to the top of the screen while the strip is in
+     * view. Opaque, and above the stacked cards, so they don't show through.
      */
     .stack-headers {
       position: sticky;
@@ -161,7 +175,6 @@ $underline-thickness: 3px;
       box-sizing: border-box;
       block-size: var(--stack-headers-block-size);
       margin-bottom: var(--stack-headers-margin);
-      border-bottom: 1px solid var(--color-divider);
       background: var(--color-bg);
 
       /*
@@ -172,7 +185,7 @@ $underline-thickness: 3px;
       .stack-header-scroller {
         overflow-x: auto;
         padding: var(--stack-headers-padding);
-        scroll-padding-inline: 2rem;
+        scroll-padding-inline: $fade;
         scrollbar-width: none;
 
         &::-webkit-scrollbar {
@@ -182,9 +195,8 @@ $underline-thickness: 3px;
 
       /*
        * Every header as wide as the others: sharing the row's width, or each as wide as the
-       * widest where they need more. Its label over its count, in a connected group with the
-       * quiet compact button's look: rounded outer corners, square inner ones, dividers between.
-       * A header set apart, the sideboard's, has a column of its own after a gap's.
+       * widest where they need more. Only its label shows, with no box or fill around it. A
+       * header set apart, the sideboard's, has a column of its own after a gap's.
        */
       .stack-header-group {
         --set-apart-gap: var(--space-md);
@@ -210,17 +222,15 @@ $underline-thickness: 3px;
 
       button {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
         block-size: var(--stack-header-height);
         /*
          * Narrow enough that every grouping's stack headers fit a 343px row (a 375px phone)
-         * unscrolled. The label and count centre in the room above the current one's underline.
+         * unscrolled. The label centres in the room above the current one's underline.
          */
         padding: 0 var(--space-xs) #{$underline-lift + $underline-thickness};
-        border: 1px solid var(--color-divider);
-        border-inline-start: 0;
+        border: 0;
         border-radius: 0;
         background: transparent;
         color: var(--color-text);
@@ -231,35 +241,6 @@ $underline-thickness: 3px;
 
         /* Positioned for the current one's underline. */
         position: relative;
-
-        &:hover {
-          background: var(--color-raised);
-        }
-
-        /* Above its neighbours, so their borders don't cover its ring. */
-        &:focus-visible {
-          z-index: 1;
-        }
-      }
-
-      button:first-child,
-      .set-apart {
-        border-inline-start: 1px solid var(--color-divider);
-        border-start-start-radius: 0.5rem;
-        border-end-start-radius: 0.5rem;
-      }
-
-      button:last-child,
-      button:has(+ .set-apart) {
-        border-start-end-radius: 0.5rem;
-        border-end-end-radius: 0.5rem;
-      }
-
-      /* Its line no taller than its digits need, leaving room under a type letter. */
-      .count {
-        color: var(--color-muted);
-        font-size: var(--font-size-xs);
-        line-height: 1;
       }
 
       /*
@@ -309,7 +290,7 @@ $underline-thickness: 3px;
           content: '';
           position: absolute;
           inset-block: var(--space-xs);
-          inset-inline-start: calc(var(--set-apart-gap) / -2 - 1px);
+          inset-inline-start: calc(var(--set-apart-gap) / -2);
           border-inline-start: 2px solid var(--color-muted);
         }
       }
@@ -342,9 +323,9 @@ $underline-thickness: 3px;
      * the others, as every stack is, so the underline moves a stack header's width for each
      * stack's width the strip scrolls, `--strip-range` of them in all. Over the last stack's width
      * of scroll it speeds up to reach the last stack header, which is current at the strip's end,
-     * crossing the sideboard's gap on the way. Drawn once, on the row, in place of the current
-     * one's own, along the strip's timeline, which `.stacks-mode` lifts to the stack headers, as
-     * they're its siblings.
+     * crossing the sideboard's gap on the way. It counts stacks by where a scroll to them stops,
+     * clear of the fade, so it reaches each stack header as its stack stops there. Drawn once, on the row, in place of the current one's own, along the strip's
+     * timeline, which `.stacks-mode` lifts to the stack headers, as they're its siblings.
      */
     @supports (animation-timeline: --strip) and (timeline-scope: --strip) {
       @media (prefers-reduced-motion: no-preference) {
@@ -363,17 +344,17 @@ $underline-thickness: 3px;
             &::after {
               /* Each stack header's width: the row's, less the gap's column, shared out. */
               --header-width: calc((100% - var(--set-apart-column)) / var(--header-count));
-              /* How many stacks' widths the strip is scrolled. */
-              --scrolled: calc(var(--strip-progress) * var(--strip-range, 0));
+              /* How many stacks the strip has passed, so far and at its end. */
+              --scrolled: #{stacks-passed('var(--strip-progress) * var(--strip-range, 0)')};
+              --scrolled-end: #{stacks-passed('var(--strip-range, 0)')};
               /* Where the last stack's width of scroll starts, and how far through it, 0 to 1. */
-              --ramp-start: max(var(--strip-range, 0) - 1, 0);
+              --ramp-start: max(var(--scrolled-end) - 1, 0);
               --ramp: calc(
                 max(var(--scrolled) - var(--ramp-start), 0) /
-                  max(var(--strip-range, 0) - var(--ramp-start), 0.001)
+                  max(var(--scrolled-end) - var(--ramp-start), 0.001)
               );
 
-              /* 1px higher than a button's own: the row's bottom is the buttons' outer edge, past their bottom border. */
-              @include current-underline($underline-lift + 1px);
+              @include current-underline;
 
               inset-inline-start: calc(
                 (
@@ -427,17 +408,17 @@ $underline-thickness: 3px;
 @keyframes strip-fades {
   0% {
     --fade-start: 0px;
-    --fade-end: 2rem;
+    --fade-end: #{$fade};
   }
 
   2%,
   98% {
-    --fade-start: 2rem;
-    --fade-end: 2rem;
+    --fade-start: #{$fade};
+    --fade-end: #{$fade};
   }
 
   100% {
-    --fade-start: 2rem;
+    --fade-start: #{$fade};
     --fade-end: 0px;
   }
 }

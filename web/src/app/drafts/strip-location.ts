@@ -30,18 +30,35 @@ const stackElements = (strip: HTMLElement | undefined) => [
 export const stackElement = (strip: HTMLElement | undefined, name: string) =>
   stackElements(strip).find((element) => stackNameOf(element) === name);
 
+/** How the strip measures, in stacks' widths: see `stripLocation`. */
+export interface StripMeasure {
+  range: number;
+  lead: number;
+}
+
+/** What `strip` measures where nothing is laid out, as in some test environments. */
+const UNMEASURED: StripMeasure = { range: 0, lead: 0 };
+
 /**
- * How many stacks' widths `strip` scrolls, start to end: its scroll range
- * over a stack's width and the gap after it. 0 where nothing is laid out, as
- * in some test environments.
+ * How `strip` measures, each over a stack's width and the gap after it: how
+ * far it scrolls, start to end, and its scroll padding at the start, which
+ * keeps a stack scrolled to clear of its faded edge.
  */
-function stripRange(strip: HTMLElement) {
+function measureStrip(strip: HTMLElement): StripMeasure {
   const [stack] = stackElements(strip);
-  if (!stack?.parentElement) return 0;
+  if (!stack?.parentElement) return UNMEASURED;
   const gap = parseFloat(getComputedStyle(stack.parentElement).columnGap) || 0;
   const pitch = stack.getBoundingClientRect().width + gap;
-  return pitch > 0 ? Math.max(strip.scrollWidth - strip.clientWidth, 0) / pitch : 0;
+  if (pitch <= 0) return UNMEASURED;
+  const padding = parseFloat(getComputedStyle(strip).scrollPaddingInlineStart) || 0;
+  return {
+    range: Math.max(strip.scrollWidth - strip.clientWidth, 0) / pitch,
+    lead: padding / pitch,
+  };
 }
+
+/** Whether two measures of the strip are the same, so a remeasure needn't restyle. */
+const sameMeasure = (a: StripMeasure, b: StripMeasure) => a.range === b.range && a.lead === b.lead;
 
 /**
  * Where the player is in `strip`, the stacks' row that scrolls sideways, as
@@ -59,8 +76,9 @@ function stripRange(strip: HTMLElement) {
  *   current through the strip's scroll to it, which may pass others or stop
  *   short of it at the strip's end, until the strip next scrolls after that.
  * - `held`: whether a tapped stack is held current so.
- * - `range`: how many stacks' widths the strip scrolls, for the stack
- *   headers' underline to follow its scroll.
+ * - `measure`: how many stacks' widths the strip scrolls, `range`, and how
+ *   far short of each stack's start a scroll to it stops, `lead`, a share of
+ *   a stack's width, for the stack headers' underline to follow its scroll.
  * - `restart`: says the strip is back at its first stack.
  */
 export function stripLocation(
@@ -71,7 +89,7 @@ export function stripLocation(
   const shares = signal<ReadonlyMap<string, number>>(new Map());
   /** The stack whose stack header was tapped, until the strip scrolls after the tap's own scroll. */
   const tapped = signal<string | undefined>(undefined);
-  const range = signal(0);
+  const measure = signal(UNMEASURED, { equal: sameMeasure });
   /** Counts restarts, each of which asks every stack afresh how much of it shows. */
   const restarts = signal(0);
   /** The strip being watched, what watches its stacks, the stacks it watches, and what stops it all. */
@@ -131,7 +149,7 @@ export function stripLocation(
     const resizes =
       typeof ResizeObserver === 'undefined'
         ? undefined
-        : new ResizeObserver(() => range.set(stripRange(currentStrip)));
+        : new ResizeObserver(() => measure.set(measureStrip(currentStrip)));
     resizes?.observe(currentStrip);
     stopped.addEventListener('abort', () => {
       observer.disconnect();
@@ -156,7 +174,7 @@ export function stripLocation(
       watched = undefined;
       shares.set(new Map());
       letGo();
-      range.set(0);
+      measure.set(UNMEASURED);
       if (!currentStrip || typeof IntersectionObserver === 'undefined') return;
       watched = watch(currentStrip, restart);
     }
@@ -178,7 +196,7 @@ export function stripLocation(
       watched.observer.observe(element);
       watched.observed.add(element);
     }
-    range.set(stripRange(watched.strip));
+    measure.set(measureStrip(watched.strip));
   });
   inject(DestroyRef).onDestroy(() => {
     watched?.listening.abort();
@@ -203,7 +221,7 @@ export function stripLocation(
   return {
     current,
     held,
-    range: range.asReadonly(),
+    measure: measure.asReadonly(),
     goTo: (name: string) => {
       tapped.set(name);
       tapScrolling = true;
