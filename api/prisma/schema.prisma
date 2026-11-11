@@ -256,7 +256,7 @@ model PlannedCard {
   @@index([poolCardId])
 }
 
-/// A basic land, which a plan holds by count on its mainboard, and a pool never holds.
+/// A basic land, which a plan holds by count on each plan board, and a pool never holds.
 enum BasicLand {
   Plains
   Island
@@ -265,16 +265,17 @@ enum BasicLand {
   Forest
 }
 
-/// The copies of one basic land in a player's plan, always on the mainboard. Never a pool card: no one picks it, it is never queued, and no pick or undo changes it.
+/// The copies of one basic land on one plan board of a player's plan. Never a pool card: no one picks it, it is never queued, and no pick or undo changes it.
 model PlannedBasic {
   id       String    @id @default(uuid())
   playerId String
   player   Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   land     BasicLand
-  /// At least 1, by check constraint: a basic with no copies has no row.
+  board    PlanBoard @default(Mainboard)
+  /// At least 1, by check constraint: a basic with no copies on a plan board has no row for it.
   count    Int
 
-  @@unique([playerId, land])
+  @@unique([playerId, land, board])
 }
 
 /// A player's preferred printing of one basic land: the printing its copies show in their plans, decks and decklists, in every draft. Changes only how the land looks, never an export or a decklist snapshot.

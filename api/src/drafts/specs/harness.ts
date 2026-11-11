@@ -1,4 +1,4 @@
-import type { DraftView, Platform } from 'contract';
+import type { BasicLand, DraftView, Platform } from 'contract';
 import request from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
@@ -677,4 +677,24 @@ export function setBasic(
 /** Takes every basic land out of the player's plan. */
 export function clearBasics(id: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/basics`, cookie);
+}
+
+/**
+ * Puts `count` copies of a basic land on the sideboard of the user's plan in
+ * the draft, straight into the database: no route puts a basic land on the
+ * sideboard yet. Moving a copy between plan boards (#644) replaces it.
+ */
+export async function sideboardBasics(
+  id: string,
+  userId: string,
+  land: BasicLand,
+  count: number,
+) {
+  const prisma = app.get(PrismaService);
+  const player = await prisma.player.findUniqueOrThrow({
+    where: { draftId_userId: { draftId: id, userId } },
+  });
+  await prisma.plannedBasic.create({
+    data: { playerId: player.id, land, board: 'Sideboard', count },
+  });
 }

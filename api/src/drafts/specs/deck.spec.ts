@@ -64,7 +64,7 @@ describe('a plan becomes a deck when its draft completes', () => {
     expect((await plan(id, aliceCookie).expect(200)).body).toEqual({
       mainboard: [],
       sideboard: [picked(ids.Shock, 'Shock')],
-      basics: [{ land: 'Mountain', count: 16 }],
+      basics: [{ land: 'Mountain', board: 'Mainboard', count: 16 }],
       lost: [],
       readyNotice: false,
       preferredPrintings: {},
@@ -72,7 +72,7 @@ describe('a plan becomes a deck when its draft completes', () => {
     expect((await plan(id, bobCookie).expect(200)).body).toEqual({
       mainboard: [picked(ids['Lightning Bolt'], 'Lightning Bolt')],
       sideboard: [],
-      basics: [{ land: 'Swamp', count: 3 }],
+      basics: [{ land: 'Swamp', board: 'Mainboard', count: 3 }],
       lost: [],
       readyNotice: false,
       preferredPrintings: {},

@@ -90,8 +90,8 @@ describe('MTGO export', () => {
         mainboard: [card('Lightning Bolt', 'normal')],
         sideboard: [],
         basics: [
-          { land: 'Island', count: 2 },
-          { land: 'Mountain', count: 7 },
+          { land: 'Island', board: 'Mainboard', count: 2 },
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
         ],
       }),
     ).toBe('1 Lightning Bolt\n2 Island\n7 Mountain');
@@ -102,7 +102,7 @@ describe('MTGO export', () => {
       mtgoExport({
         mainboard: [card('Lightning Bolt', 'normal')],
         sideboard: [card('Fire // Ice', 'split'), card('Shock', 'normal'), card('Shock', 'normal')],
-        basics: [{ land: 'Mountain', count: 7 }],
+        basics: [{ land: 'Mountain', board: 'Mainboard', count: 7 }],
       }),
     ).toBe('1 Lightning Bolt\n7 Mountain\n\n1 Fire/Ice\n2 Shock');
   });

@@ -63,8 +63,8 @@ const decklists: DecklistView[] = [
     ],
     sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
     basics: [
-      { land: 'Island', count: 2 },
-      { land: 'Mountain', count: 36 },
+      { land: 'Island', board: 'Mainboard', count: 2 },
+      { land: 'Mountain', board: 'Mainboard', count: 36 },
     ],
     preferredPrintings: {},
   },
@@ -72,14 +72,17 @@ const decklists: DecklistView[] = [
     playerId: bob.id,
     mainboard: [{ poolCardId: spike.id, name: spike.name, picked: true }],
     sideboard: [],
-    basics: [{ land: 'Mountain', count: 39 }],
+    basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
     preferredPrintings: { Mountain: zenMountain },
   },
   { playerId: carol.id, mainboard: [], sideboard: [], basics: [], preferredPrintings: {} },
 ];
 
 /** Alice's plan: 36 Mountains. */
-const mountains = { ...EMPTY_PLAN, basics: [{ land: 'Mountain' as const, count: 36 }] };
+const mountains = {
+  ...EMPTY_PLAN,
+  basics: [{ land: 'Mountain' as const, board: 'Mainboard' as const, count: 36 }],
+};
 
 /** Chooses Onslaught's Mountain #1 for Alice in the Printing picker of her Deck tab. */
 async function chooseOnsMountain(page: HTMLElement) {

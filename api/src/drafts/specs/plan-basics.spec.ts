@@ -17,6 +17,7 @@ import {
   post,
   getDraft,
   fourCards,
+  sideboardBasics,
 } from './harness.js';
 
 useDraftsApp();
@@ -40,9 +41,9 @@ describe('basic lands in a plan', () => {
       mainboard: [],
       sideboard: [],
       basics: [
-        { land: 'Plains', count: 2 },
-        { land: 'Mountain', count: 7 },
-        { land: 'Forest', count: 1 },
+        { land: 'Plains', board: 'Mainboard', count: 2 },
+        { land: 'Mountain', board: 'Mainboard', count: 7 },
+        { land: 'Forest', board: 'Mainboard', count: 1 },
       ],
       lost: [],
       readyNotice: false,
@@ -51,8 +52,38 @@ describe('basic lands in a plan', () => {
     await setBasic(id, 'Mountain', 6, carolCookie).expect(200);
     await setBasic(id, 'Forest', 0, carolCookie).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([
-      { land: 'Plains', count: 2 },
-      { land: 'Mountain', count: 6 },
+      { land: 'Plains', board: 'Mainboard', count: 2 },
+      { land: 'Mountain', board: 'Mainboard', count: 6 },
+    ]);
+  });
+
+  it('lists the mainboard’s basics first, then the sideboard’s, each in the basic lands’ order', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    await setBasic(id, 'Forest', 2, carolCookie).expect(200);
+    await setBasic(id, 'Island', 3, carolCookie).expect(200);
+    await sideboardBasics(id, carol.id, 'Mountain', 4);
+    await sideboardBasics(id, carol.id, 'Plains', 1);
+    await sideboardBasics(id, carol.id, 'Island', 5);
+
+    expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([
+      { land: 'Island', board: 'Mainboard', count: 3 },
+      { land: 'Forest', board: 'Mainboard', count: 2 },
+      { land: 'Plains', board: 'Sideboard', count: 1 },
+      { land: 'Island', board: 'Sideboard', count: 5 },
+      { land: 'Mountain', board: 'Sideboard', count: 4 },
+    ]);
+  });
+
+  it('sets a count on the mainboard, leaving the sideboard’s copies of that land alone', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    await sideboardBasics(id, carol.id, 'Island', 2);
+
+    await setBasic(id, 'Island', 3, carolCookie).expect(200);
+    await setBasic(id, 'Island', 4, carolCookie).expect(200);
+    const zero = await setBasic(id, 'Island', 0, carolCookie).expect(200);
+
+    expect(zero.body.basics).toEqual([
+      { land: 'Island', board: 'Sideboard', count: 2 },
     ]);
   });
 
@@ -66,17 +97,18 @@ describe('basic lands in a plan', () => {
     expect(moved.body.error).toBe('not-in-plan');
     expect((await plan(id, carolCookie).expect(200)).body).toMatchObject({
       sideboard: [],
-      basics: [{ land: 'Island', count: 3 }],
+      basics: [{ land: 'Island', board: 'Mainboard', count: 3 }],
     });
   });
 
-  it('clears every basic, leaving the rest of the plan', async () => {
+  it('clears every basic from both plan boards, leaving the rest of the plan', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock, carolCookie).expect(200);
     await setBasic(id, 'Plains', 2, carolCookie).expect(200);
     await setBasic(id, 'Swamp', 3, carolCookie).expect(200);
+    await sideboardBasics(id, carol.id, 'Island', 2);
 
     const cleared = await clearBasics(id, carolCookie).expect(200);
 
@@ -99,7 +131,7 @@ describe('basic lands in a plan', () => {
     await clearBasics(id, aliceCookie).expect(200);
 
     expect((await plan(id, bobCookie).expect(200)).body.basics).toEqual([
-      { land: 'Island', count: 2 },
+      { land: 'Island', board: 'Mainboard', count: 2 },
     ]);
   });
 
@@ -146,7 +178,9 @@ describe('basic lands in a plan', () => {
     await clearBasics(id, carolCookie).expect(200);
     const complete = await setBasic(id, 'Mountain', 4, carolCookie).expect(200);
 
-    expect(complete.body.basics).toEqual([{ land: 'Mountain', count: 4 }]);
+    expect(complete.body.basics).toEqual([
+      { land: 'Mountain', board: 'Mainboard', count: 4 },
+    ]);
     expect((await getDraft(id).expect(200)).body.version).toBe(
       lastPick.body.version,
     );
@@ -166,7 +200,7 @@ describe('basic lands in a plan', () => {
     await undo(id, 1).expect(200);
 
     expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([
-      { land: 'Mountain', count: 5 },
+      { land: 'Mountain', board: 'Mainboard', count: 5 },
     ]);
   });
 
@@ -174,7 +208,9 @@ describe('basic lands in a plan', () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 1, fourCards);
     // Alice isn't an app admin.
     const set = await setBasic(id, 'Plains', 1, aliceCookie).expect(200);
-    expect(set.body.basics).toEqual([{ land: 'Plains', count: 1 }]);
+    expect(set.body.basics).toEqual([
+      { land: 'Plains', board: 'Mainboard', count: 1 },
+    ]);
 
     await setBasic(id, 'Plains', 1, carolCookie).expect(403);
     await clearBasics(id, carolCookie).expect(403);

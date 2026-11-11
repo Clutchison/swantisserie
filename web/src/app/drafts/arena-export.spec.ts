@@ -52,8 +52,8 @@ describe('Arena export', () => {
         mainboard: [{ name: 'Lightning Bolt', layout: 'normal' }],
         sideboard: [],
         basics: [
-          { land: 'Island', count: 2 },
-          { land: 'Mountain', count: 7 },
+          { land: 'Island', board: 'Mainboard', count: 2 },
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
         ],
       }),
     ).toBe('Deck\n1 Lightning Bolt\n2 Island\n7 Mountain');
@@ -68,7 +68,7 @@ describe('Arena export', () => {
           { name: 'Shock', layout: 'normal' },
           { name: 'Bonecrusher Giant // Stomp', layout: 'adventure' },
         ],
-        basics: [{ land: 'Mountain', count: 7 }],
+        basics: [{ land: 'Mountain', board: 'Mainboard', count: 7 }],
       }),
     ).toBe('Deck\n1 Lightning Bolt\n7 Mountain\n\nSideboard\n2 Shock\n1 Bonecrusher Giant');
   });

@@ -98,7 +98,7 @@ describe('decklists under public decklists', () => {
           picked: true,
         },
       ],
-      basics: [{ land: 'Mountain', count: 40 }],
+      basics: [{ land: 'Mountain', board: 'Mainboard', count: 40 }],
     });
     for (const cookie of [aliceCookie, bobCookie, carolCookie, daveCookie]) {
       expect((await decklists(id, cookie).expect(200)).body).toEqual(expected);
@@ -178,8 +178,8 @@ describe('decklists under public decklists', () => {
     expect((await tournamentView(id)).showsDecklists).toBe(true);
     expect((await decklists(id, daveCookie).expect(200)).body).toEqual(before);
     expect(before.map((decklist) => decklist.basics)).toEqual([
-      [{ land: 'Mountain', count: 39 }],
-      [{ land: 'Mountain', count: 39 }],
+      [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
+      [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
     ]);
   });
 

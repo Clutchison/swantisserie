@@ -322,8 +322,8 @@ describe('export tab', () => {
           { poolCardId: 'duress-card', name: 'Duress', picked: false },
         ],
         basics: [
-          { land: 'Island', count: 8 },
-          { land: 'Mountain', count: 7 },
+          { land: 'Island', board: 'Mainboard', count: 8 },
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
         ],
         lost: [],
         readyNotice: false,

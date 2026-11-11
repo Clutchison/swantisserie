@@ -12,6 +12,7 @@ import {
   removeEntry,
   setBasic,
   setUpTournament,
+  sideboardBasics,
   signIn,
   startTournament,
   tournamentView,
@@ -132,12 +133,13 @@ describe('starting a tournament', () => {
 });
 
 describe('the 40-card minimum at Start', () => {
-  it('refuses Start while a joined human player’s mainboard holds fewer than 40 cards, picks and basic lands counted, naming every short player', async () => {
+  it('refuses Start while a joined human player’s mainboard holds fewer than 40 cards, picks and mainboard basic lands counted, naming every short player', async () => {
     const id = await completeDraft([aliceCookie, bobCookie, carolCookie]);
     await fullDeck(id, aliceCookie);
-    // One pick and 38 basics: 39.
+    // One pick and 38 mainboard basics: 39. The sideboard's basics don't count.
     await setBasic(id, 'Mountain', 20, bobCookie).expect(200);
     await setBasic(id, 'Swamp', 18, bobCookie).expect(200);
+    await sideboardBasics(id, bob.id, 'Mountain', 3);
     await setUpTournament(id).expect(201);
 
     expect((await startTournament(id).expect(409)).body).toEqual({

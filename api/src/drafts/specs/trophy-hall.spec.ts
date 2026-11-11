@@ -297,7 +297,7 @@ describe('the Trophy Hall', () => {
       playerId: alice.id,
       mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
       sideboard: [],
-      basics: [{ land: 'Mountain', count: 39 }],
+      basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
       preferredPrintings: {
         Island: {
           scryfallId: island.id,

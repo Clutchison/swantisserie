@@ -100,7 +100,7 @@ describe('the Printing picker', () => {
   const withIslands = (fields: Partial<PlanView> = {}): PlanView => ({
     mainboard: [planned(bolt), planned(shivan)],
     sideboard: [],
-    basics: [{ land: 'Island', count: 2 }],
+    basics: [{ land: 'Island', board: 'Mainboard', count: 2 }],
     lost: [],
     readyNotice: false,
     preferredPrintings: {},
@@ -191,7 +191,7 @@ describe('the Printing picker', () => {
     'shows %s’s default printing while its printings load',
     async (land, { id, label }) => {
       const { fixture, plan } = await openWith(
-        withIslands({ basics: [{ land: land as BasicLand, count: 1 }] }),
+        withIslands({ basics: [{ land: land as BasicLand, board: 'Mainboard', count: 1 }] }),
       );
 
       namedList(plan, 'Lands').querySelector<HTMLElement>('[aria-haspopup="dialog"]')!.click();

@@ -52,8 +52,8 @@ describe('Moxfield export', () => {
         mainboard: [{ name: 'Lightning Bolt', set: 'sta', collectorNumber: '42' }],
         sideboard: [],
         basics: [
-          { land: 'Island', count: 2 },
-          { land: 'Mountain', count: 7 },
+          { land: 'Island', board: 'Mainboard', count: 2 },
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
         ],
       }),
     ).toBe('1 Lightning Bolt (STA) 42\n2 Island\n7 Mountain');
@@ -67,7 +67,7 @@ describe('Moxfield export', () => {
           { name: 'Shock', set: 'm21', collectorNumber: '159' },
           { name: 'Shock', set: 'm21', collectorNumber: '159' },
         ],
-        basics: [{ land: 'Mountain', count: 7 }],
+        basics: [{ land: 'Mountain', board: 'Mainboard', count: 7 }],
       }),
     ).toBe('1 Lightning Bolt (STA) 42\n7 Mountain\n\nSIDEBOARD:\n2 Shock (M21) 159');
   });

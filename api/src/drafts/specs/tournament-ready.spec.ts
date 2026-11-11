@@ -29,6 +29,7 @@ import {
   removeEntry,
   setBasic,
   setUpTournament,
+  sideboardBasics,
   signIn,
   startTournament,
   tournament,
@@ -162,11 +163,13 @@ describe('marking yourself ready', () => {
 });
 
 describe('ready refusals', () => {
-  it('refuses marking ready while the player’s mainboard holds fewer than 40 cards, and lets it once it holds 40', async () => {
-    // Bob's deck holds his one pick and 38 Mountains.
+  it('refuses marking ready while the player’s mainboard holds fewer than 40 cards, sideboard basics not counted, and lets it once it holds 40', async () => {
+    // Bob's mainboard holds his one pick and 38 Mountains; his sideboard's
+    // 5 Islands don't count.
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
     await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await sideboardBasics(id, bob.id, 'Island', 5);
 
     expect((await markReady(id, bobCookie).expect(409)).body).toEqual({
       error: 'deck-too-small-for-ready',

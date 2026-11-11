@@ -477,7 +477,7 @@ A joined player's place in a tournament. They keep it if they drop; it ends if t
 _Avoid_: Registration (that is the state), sign-up, entrant
 
 **Locked**:
-Describes a joined player's deck from the start of play, whose mainboard, sideboard and basic land counts can't change until the tournament is complete or cancelled.
+Describes a joined player's deck from the start of play, whose mainboard and sideboard, basic lands included, can't change until the tournament is complete or cancelled.
 _Avoid_: Frozen, registered, submitted
 
 **Playing**:

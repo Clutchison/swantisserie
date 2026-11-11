@@ -88,7 +88,9 @@ describe('a joined player’s deck', () => {
       expect(deck.mainboard).toEqual([
         { poolCardId: ids.Shock, name: 'Shock', picked: true },
       ]);
-      expect(deck.basics).toEqual([{ land: 'Mountain', count: 39 }]);
+      expect(deck.basics).toEqual([
+        { land: 'Mountain', board: 'Mainboard', count: 39 },
+      ]);
       await dismissPlanNotice(id, aliceCookie).expect(200);
       await dismissReadyNotice(id, aliceCookie).expect(200);
     }
@@ -126,8 +128,8 @@ describe('a joined player’s deck', () => {
       (await setBasic(id, 'Island', 3, aliceCookie).expect(409)).body.error,
     ).toBe('deck-locked');
     expect((await plan(id, aliceCookie).expect(200)).body.basics).toEqual([
-      { land: 'Island', count: 2 },
-      { land: 'Mountain', count: 39 },
+      { land: 'Island', board: 'Mainboard', count: 2 },
+      { land: 'Mountain', board: 'Mainboard', count: 39 },
     ]);
   });
 });

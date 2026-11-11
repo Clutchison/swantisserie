@@ -35,7 +35,7 @@ describeRaces('starting a tournament against a deck change', () => {
         started: 200,
         cleared: '409 deck-locked',
         state: 'Playing',
-        basics: [{ land: 'Mountain', count: 39 }],
+        basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
       },
       {
         started: '409 deck-too-small',

@@ -20,16 +20,17 @@ export const BASIC_LANDS = [
   'Forest',
 ] as const;
 
-/** A basic land, which a plan holds by count on its mainboard, and a pool never holds. */
+/** A basic land, which a plan holds by count on each plan board, and a pool never holds. */
 export type BasicLand = (typeof BASIC_LANDS)[number];
 
 /** The most copies of one basic land a plan holds. */
 export const MOST_BASICS = 99;
 
-/** The copies of one basic land in a plan, always on the mainboard. Never a pool card: no one picks it, and it is never queued. */
+/** The copies of one basic land on one plan board of a plan. Never a pool card: no one picks it, and it is never queued. */
 export interface PlannedBasicView {
   land: BasicLand;
-  /** At least 1: a basic with no copies isn't listed. */
+  board: PlanBoard;
+  /** At least 1: a basic with no copies on a plan board isn't listed for it. */
   count: number;
 }
 
@@ -41,13 +42,13 @@ export interface LostCardView {
   pickedBy: string;
 }
 
-/** A plan's mainboard and sideboard, with the mainboard's basic lands: what a deck holds. */
+/** A plan's mainboard and sideboard, with their basic lands: what a deck holds. */
 export interface PlanBoards {
   /** Sorted by mana value, then name. */
   mainboard: PlannedCardView[];
   /** Sorted by mana value, then name. */
   sideboard: PlannedCardView[];
-  /** The mainboard's basic lands, in the order of `BASIC_LANDS`. A sideboard never holds one. */
+  /** Both plan boards' basic lands: the mainboard's first, then the sideboard's, each in the order of `BASIC_LANDS`. */
   basics: PlannedBasicView[];
 }
 

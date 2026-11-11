@@ -19,8 +19,8 @@ const alices: DecklistView = {
   ],
   sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
   basics: [
-    { land: 'Island', count: 2 },
-    { land: 'Mountain', count: 36 },
+    { land: 'Island', board: 'Mainboard', count: 2 },
+    { land: 'Mountain', board: 'Mainboard', count: 36 },
   ],
   preferredPrintings: { Mountain: zenMountain },
 };

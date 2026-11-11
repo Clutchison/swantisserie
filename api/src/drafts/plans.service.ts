@@ -202,8 +202,8 @@ export class PlansService {
 
   /**
    * Sets how many copies of the basic land `land` the user's mainboard
-   * holds; at 0 it holds none. Throws NotAPlayerError if the user isn't in
-   * the draft.
+   * holds; at 0 it holds none. The sideboard's copies stay as they are.
+   * Throws NotAPlayerError if the user isn't in the draft.
    */
   async setBasic(
     draftId: string,
@@ -213,19 +213,23 @@ export class PlansService {
   ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
       if (count === 0) {
-        await tx.plannedBasic.deleteMany({ where: { playerId, land } });
+        await tx.plannedBasic.deleteMany({
+          where: { playerId, land, board: 'Mainboard' },
+        });
         return;
       }
       await tx.plannedBasic.upsert({
-        where: { playerId_land: { playerId, land } },
-        create: { playerId, land, count },
+        where: {
+          playerId_land_board: { playerId, land, board: 'Mainboard' },
+        },
+        create: { playerId, land, board: 'Mainboard', count },
         update: { count },
       });
     });
   }
 
   /**
-   * Takes every basic land out of the user's plan. Throws
+   * Takes every basic land out of the user's plan, from both plan boards. Throws
    * NotAPlayerError if the user isn't in the draft.
    */
   async clearBasics(draftId: string, userId: string): Promise<PlanChange> {
@@ -376,14 +380,17 @@ export async function readPlanBoards(
       }));
   const plannedBasics = await tx.plannedBasic.findMany({
     where: { playerId },
-    select: { land: true, count: true },
+    select: { land: true, board: true, count: true },
   });
-  const counts = new Map(plannedBasics.map(({ land, count }) => [land, count]));
-  // A plan lists its basics in the order of `BASIC_LANDS`.
-  const basics = BASIC_LANDS.flatMap((land): PlannedBasicView[] => {
-    const count = counts.get(land);
-    return count === undefined ? [] : [{ land, count }];
-  });
+  // A plan lists the mainboard's basics, then the sideboard's, each in the
+  // order of `BASIC_LANDS`.
+  const basicsOn = (board: PlanBoard): PlannedBasicView[] =>
+    BASIC_LANDS.flatMap((land) =>
+      plannedBasics
+        .filter((basic) => basic.board === board && basic.land === land)
+        .map(({ count }) => ({ land, board, count })),
+    );
+  const basics = [...basicsOn('Mainboard'), ...basicsOn('Sideboard')];
   return {
     mainboard: onBoard('Mainboard'),
     sideboard: onBoard('Sideboard'),

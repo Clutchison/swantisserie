@@ -545,7 +545,7 @@ describe('Play tab', () => {
         button(deck, 'Move Lightning Bolt to the sideboard')!.click();
         http
           .expectOne('/api/drafts/draft-1/plan/bolt-card')
-          .flush(planOf({ basics: [{ land: 'Mountain', count: 37 }] }));
+          .flush(planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 37 }] }));
         // The re-read that says whether the player may now mark themselves ready.
         await flushTournament(registration(bob.id, alice.id));
         await fixture.whenStable();
