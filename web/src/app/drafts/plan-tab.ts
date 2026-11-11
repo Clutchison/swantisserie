@@ -40,6 +40,7 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { planChangeFailed } from './plan-change-failed';
 import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -52,10 +53,6 @@ import {
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
-
-/** What a failed change says, naming the plan as `planName`. */
-const changeFailed = (planName: string) =>
-  `Couldn't change your ${planName}. Try again in a moment.`;
 
 /**
  * How a stack is scrolled to in the strip: to its start, scrolling only the
@@ -556,13 +553,25 @@ export class PlanTab {
   /**
    * Opens the Printing picker of a basic land's copy on `planBoard`, in any
    * draft state and on a locked deck too, where it changes only how the land
-   * looks; elsewhere it can take the copy out. Focus returns to what opened it.
+   * looks; elsewhere it can take the copy out. Focus returns to what opened
+   * it or, should Remove have taken that away, to the next card or line that
+   * opens a dialog, or else the one before.
    */
   private openPicker(land: BasicLand, planBoard: PlanBoard) {
+    const openers = [...this.host.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')];
     this.dialogs.open(PrintingPicker, {
       labelledBy: PRINTING_PICKER_HEADING,
       injector: this.injector,
       bindings: [inputBinding('land', () => land), inputBinding('planBoard', () => planBoard)],
+      returnFocus: (opener) => {
+        if (!opener || opener.isConnected) return opener;
+        const at = openers.indexOf(opener);
+        const still = (element: HTMLElement) => element.isConnected;
+        return (
+          openers.slice(at + 1).find(still) ??
+          openers.slice(0, Math.max(at, 0)).reverse().find(still)
+        );
+      },
     });
   }
 
@@ -574,14 +583,17 @@ export class PlanTab {
     });
   }
 
-  /** Takes one unpicked copy of a card out of the plan; should its line go, focus goes to the next. */
-  protected remove(poolCardId: string) {
-    return this.tryChange(() => this.planApi.remove(this.draftId(), poolCardId));
-  }
-
-  /** Takes one copy of a basic land off `planBoard`; should its line go, focus goes to the next. */
-  protected removeBasic(land: BasicLand, planBoard: PlanBoard) {
-    return this.tryChange(() => this.planApi.removeBasic(this.draftId(), land, planBoard));
+  /**
+   * Takes one copy of a line out of the plan: an unpicked card's, or a basic
+   * land's off `planBoard`. Should its line go, focus goes to the next.
+   */
+  protected removeLine(line: PlanLine, planBoard: PlanBoard) {
+    const { basic, poolCardId } = line;
+    return this.tryChange(() =>
+      basic
+        ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
+        : this.planApi.remove(this.draftId(), poolCardId),
+    );
   }
 
   /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
@@ -633,7 +645,7 @@ export class PlanTab {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, changeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
         return false;
       }
     }, kept);

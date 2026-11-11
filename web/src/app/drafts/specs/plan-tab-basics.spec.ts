@@ -40,6 +40,8 @@ import {
   planBoards,
   planned,
   stack,
+  answerPrintingsRequest,
+  detailOpener,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -674,6 +676,55 @@ describe('basic lands on the plan tab', () => {
 
     expect(openDialog()).toBeNull();
     expect(document.activeElement).toBe(basicsButton(plan));
+  });
+
+  it('moves focus to the next line’s trash button once the trash button takes a basic land’s last copy', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([
+        { land: 'Island', board: 'Mainboard', count: 1 },
+        { land: 'Forest', board: 'Mainboard', count: 2 },
+      ]),
+    });
+    const plan = await openPlan(fixture, page);
+
+    const remove = button(plan, 'Remove Island from your plan')!;
+    remove.focus();
+    remove.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard')
+      .flush(boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 2 }]));
+    await fixture.whenStable();
+
+    expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon', '2 Forest']);
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(button(plan, 'Remove Forest from your plan')),
+    );
+  });
+
+  it('moves focus to the next line once the Printing picker’s Remove takes a basic land’s last copy', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([
+        { land: 'Island', board: 'Mainboard', count: 1 },
+        { land: 'Forest', board: 'Mainboard', count: 2 },
+      ]),
+    });
+    const plan = await openPlan(fixture, page);
+    const island = detailOpener(plan, 'Island')!;
+    island.focus();
+    island.click();
+    await answerPrintingsRequest('Island');
+    await fixture.whenStable();
+
+    button(openDialog()!, 'Remove')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard')
+      .flush(boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 2 }]));
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    await vi.waitFor(() => expect(document.activeElement).toBe(detailOpener(plan, 'Forest')));
   });
 
   it('takes one copy of a basic land out of the plan with the trash button on its line in list mode', async () => {

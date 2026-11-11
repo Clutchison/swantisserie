@@ -127,9 +127,9 @@ export class PlansController {
     @Param('board') board: string,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const from = parseBoard({ board });
+    const planBoard = parseBoardParam(board);
     return this.change(user, id, () =>
-      this.plans.removeBasic(id, user.id, basic, from),
+      this.plans.removeBasic(id, user.id, basic, planBoard),
     );
   }
 
@@ -210,6 +210,17 @@ function parseLand(land: string): BasicLand {
     } satisfies RequestProblem);
   }
   return land;
+}
+
+/** The plan board named in the path, or a 400 if it isn't one. */
+function parseBoardParam(board: string): PlanBoard {
+  if (!isPlanBoard(board)) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose the mainboard or the sideboard.',
+    } satisfies RequestProblem);
+  }
+  return board;
 }
 
 /** How many copies of a basic land to hold, or a 400 if it isn't a whole number up to MOST_BASICS. */

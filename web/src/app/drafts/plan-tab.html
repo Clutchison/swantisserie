@@ -320,18 +320,14 @@
                     </button>
                   }
                   <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
-                  @if ((line.basic || (!line.picked && offerRemoveFromPlan())) && !deckLocked()) {
+                  @if ((line.basic || !line.picked) && offerRemoveFromPlan() && !deckLocked()) {
                     @let removeName = 'Remove ' + line.name + ' from your plan';
                     <button
                       class="button compact quiet line-action"
                       type="button"
                       [attr.aria-label]="removeName"
                       [title]="removeName"
-                      (click)="
-                        line.basic
-                          ? removeBasic(line.basic, planBoard.name)
-                          : remove(line.poolCardId)
-                      "
+                      (click)="removeLine(line, planBoard.name)"
                       [appSendsChange]="removeKey(planBoard.name, line)"
                     >
                       <svg lucideTrash size="16"></svg>
