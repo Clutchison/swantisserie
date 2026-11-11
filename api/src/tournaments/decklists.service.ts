@@ -9,7 +9,7 @@ import {
   NoTournamentError,
   TournamentRefusedError,
 } from './tournament-errors.js';
-import { decklistsRefusal } from './tournament-view.js';
+import { decklistsRefusal, UNKEPT_DECKLISTS } from './tournament-view.js';
 
 /**
  * Snapshots each entry's deck, bots' included, as it is when the
@@ -49,10 +49,11 @@ export class DecklistsService {
   /**
    * The draft's decklists, one per joined player, in join order. Throws
    * NoTournamentError if it has no tournament, and TournamentRefusedError
-   * during registration (`in-registration`) or while playing without
-   * public decklists (`decklists-private`). Throws MalformedDecklistError, a 500, for
-   * an entry whose snapshot is missing or malformed, rather than serve a
-   * decklist without its boards.
+   * during registration (`in-registration`), while playing without
+   * public decklists (`decklists-private`), or for a tournament completed
+   * before every deck was kept (`decklists-not-kept`). Throws
+   * MalformedDecklistError, a 500, for an entry whose snapshot is malformed,
+   * rather than serve a decklist without its boards.
    */
   async read(draftId: string): Promise<DecklistView[]> {
     const tournament = await this.prisma.tournament.findUnique({
@@ -60,6 +61,7 @@ export class DecklistsService {
       select: {
         publicDecklists: true,
         state: true,
+        ...UNKEPT_DECKLISTS,
         entries: {
           orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
           select: { decklist: true, player: { select: { userId: true } } },

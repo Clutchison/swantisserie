@@ -44,9 +44,6 @@ export async function readCompleteTournaments(
       draftId: true,
       draft: { select: { name: true, ...POOL_SOURCE } },
       ...TOURNAMENT_VIEW,
-      _count: {
-        select: { entries: { where: { player: { user: { isBot: true } } } } },
-      },
     },
   });
   return rows.map((row) => ({
@@ -57,7 +54,7 @@ export async function readCompleteTournaments(
       poolSourceWithCubeId: toPoolSourceWithCubeId(row.draft),
     },
     view: toTournamentView(row),
-    botsPlayed: row._count.entries > 0,
+    botsPlayed: row.entries.some((entry) => entry.player.user.isBot),
   }));
 }
 

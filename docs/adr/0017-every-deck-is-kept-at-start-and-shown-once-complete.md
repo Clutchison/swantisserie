@@ -15,4 +15,4 @@ Now every joined player's deck is kept as it was locked at Start, whatever the t
 ## Consequences
 
 - Organizers and players can no longer promise that a deck stays private for good. Tournament setup and the registration copy must say that decklists are shown once the tournament completes.
-- Tournaments that completed before this decision kept no snapshot of private decks, so they have no decklists and stay off the Trophy Hall. A tournament that was playing when this was built had its locked decks snapshotted then, since a locked deck can't have changed.
+- Tournaments that completed before this decision without public decklists kept no snapshot of their decks, so they have no decklists: they keep the Board tab, their decklists are refused, and they stay off the Trophy Hall. A tournament that was playing when this was built had its locked decks snapshotted then, since a locked deck can't have changed.

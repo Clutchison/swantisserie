@@ -167,7 +167,7 @@ A draft's picks in the order they were made, each with its pick number, player a
 _Avoid_: History, pick history, feed
 
 **Board tab**:
-The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Lists tab takes its place once a tournament with public decklists is playing, or once any tournament is complete, and for good unless that tournament is cancelled.
+The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Lists tab takes its place once a tournament with public decklists is playing, or once any tournament whose decklists were kept is complete, and for good unless that tournament is cancelled.
 _Avoid_: Picks page, draft board
 
 **Queue**:
@@ -505,7 +505,7 @@ The organizer removing a tournament during registration or playing, with all its
 _Avoid_: Delete, abort, reset
 
 **Public decklists**:
-A tournament setting under which every joined player's locked deck can be seen by everyone who sees the draft while the tournament is playing. Once a tournament is complete, its decklists are shown whatever the setting.
+A tournament setting under which every joined player's locked deck can be seen by everyone who sees the draft while the tournament is playing. Once a tournament is complete, its decklists are shown whatever the setting, unless it completed before every deck was kept, which kept none without public decklists.
 _Avoid_: Open decklists, open decks, shared decks
 
 **Decklist**:
@@ -513,7 +513,7 @@ A joined player's deck as others see it, under public decklists or once the tour
 _Avoid_: Deck (that is the player's own), list
 
 **Lists tab**:
-The part of a draft's page that shows the decklists: present under public decklists once the tournament is playing, and for every tournament once it is complete. It takes the Board tab's place.
+The part of a draft's page that shows the decklists: present under public decklists once the tournament is playing, and for every tournament whose decklists were kept once it is complete. It takes the Board tab's place.
 _Avoid_: Decklists tab, decks tab
 
 **Match**:

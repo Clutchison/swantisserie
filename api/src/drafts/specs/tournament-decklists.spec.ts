@@ -11,6 +11,7 @@ import {
   completeDraft,
   completeDraftWithBots,
   completeTournament,
+  completedBeforeDecklistsWereKept,
   dropPlayer,
   draftsRequest,
   fullDeck,
@@ -306,6 +307,22 @@ describe('decklists without public decklists', () => {
     ];
     for (const cookie of [aliceCookie, bobCookie, daveCookie]) {
       expect((await decklists(id, cookie).expect(200)).body).toEqual(expected);
+    }
+  });
+
+  it('refuses them, and shows none, for a tournament completed before every deck was kept', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    await completeTournament(id).expect(200);
+
+    await completedBeforeDecklistsWereKept(id);
+
+    expect((await tournamentView(id)).showsDecklists).toBe(false);
+    for (const cookie of [aliceCookie, bobCookie, daveCookie]) {
+      const { body } = await decklists(id, cookie).expect(409);
+      expect(body).toEqual({
+        error: 'decklists-not-kept',
+        message: expect.stringContaining('completed before'),
+      });
     }
   });
 

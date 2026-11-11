@@ -23,14 +23,26 @@ import {
   type RoundAndBracketPlace,
   type TournamentMatch,
 } from 'engine';
-import type { Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { correctionRefusal } from './correction-refusal.js';
 import { clearing, confirmRefusal } from './match-rules.js';
 import { droppable } from './tournament-matches.js';
 import { offersReopenRound, reopenRoundOf } from './reopen-round.js';
 
+/**
+ * What a read selects of a tournament for `decklistsRefusal`: how many of
+ * its entries have no decklist kept, as before Start, and in a tournament
+ * completed before every deck was kept (ADR 0017).
+ */
+export const UNKEPT_DECKLISTS = {
+  _count: {
+    select: { entries: { where: { decklist: { equals: Prisma.DbNull } } } },
+  },
+} as const satisfies Prisma.TournamentSelect;
+
 /** What the tournament read selects of a tournament. */
 export const TOURNAMENT_VIEW = {
+  ...UNKEPT_DECKLISTS,
   format: true,
   swissRoundOption: true,
   publicDecklists: true,
@@ -249,16 +261,20 @@ function countsInStandings(
   );
 }
 
+/** What `decklistsRefusal` reads of a tournament. */
+type DecklistsRow = Pick<TournamentRow, 'publicDecklists' | 'state'> &
+  Prisma.TournamentGetPayload<{ select: typeof UNKEPT_DECKLISTS }>;
+
 /**
  * Why the tournament's decklists can't be read now, or null when they can:
  * under public decklists once it has started, and for every tournament
  * once it is complete (ADR 0017). Refused during registration
- * (`in-registration`), and while playing without public decklists
- * (`decklists-private`).
+ * (`in-registration`), while playing without public decklists
+ * (`decklists-private`), and for a tournament completed before every deck
+ * was kept, which kept none without public decklists
+ * (`decklists-not-kept`).
  */
-export function decklistsRefusal(
-  row: Pick<TournamentRow, 'publicDecklists' | 'state'>,
-): TournamentRefusal | null {
+export function decklistsRefusal(row: DecklistsRow): TournamentRefusal | null {
   if (row.state === 'Registration') {
     return {
       error: 'in-registration',
@@ -273,13 +289,18 @@ export function decklistsRefusal(
       message: 'This tournament’s decks are private until it is complete.',
     };
   }
+  if (row._count.entries > 0) {
+    return {
+      error: 'decklists-not-kept',
+      message:
+        'This tournament completed before every deck was kept, so it has no decklists.',
+    };
+  }
   return null;
 }
 
 /** Whether the tournament's decklists may be read now: when decklistsRefusal gives none. */
-export function showsDecklists(
-  row: Pick<TournamentRow, 'publicDecklists' | 'state'>,
-): boolean {
+export function showsDecklists(row: DecklistsRow): boolean {
   return decklistsRefusal(row) === null;
 }
 

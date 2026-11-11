@@ -7,6 +7,7 @@ import type {
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
+import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   addBot,
@@ -275,6 +276,23 @@ export function placesOf(round: TournamentView['rounds'][number]) {
     bracketPlace,
     players,
   }));
+}
+
+/**
+ * Makes the draft's complete tournament as the migration of ADR 0017 left
+ * one that completed before every deck was kept, without public
+ * decklists: no completion time, and no decklist kept for anyone.
+ */
+export async function completedBeforeDecklistsWereKept(id: string) {
+  const prisma = app.get(PrismaService);
+  await prisma.tournament.update({
+    where: { draftId: id },
+    data: { completedAt: null },
+  });
+  await prisma.tournamentEntry.updateMany({
+    where: { tournament: { draftId: id } },
+    data: { decklist: Prisma.DbNull },
+  });
 }
 
 /** The draft's tournament as everyone who sees it reads it. */
