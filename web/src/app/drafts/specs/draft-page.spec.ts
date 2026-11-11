@@ -40,6 +40,7 @@ import {
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
+import { openPlan } from './plan-tab-harness';
 
 useDraftsApp();
 
@@ -683,8 +684,7 @@ describe('draft page', () => {
 
       tabButton(page, 'Queue').click();
       TestBed.tick();
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
 
       expect(router.url).toBe('/drafts/draft-1?tab=deck');
       expect(shownMidway.length).toBeGreaterThan(0);

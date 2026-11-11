@@ -37,7 +37,7 @@ import {
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { image } from './pool-tab-harness';
-import { apiImage, defaultPrintings, detailOpener } from './plan-tab-harness';
+import { apiImage, defaultPrintings, detailOpener, openPlan } from './plan-tab-harness';
 import {
   bolt,
   shock,
@@ -423,8 +423,7 @@ describe('card previews', () => {
             preferredPrintings: {},
           },
         });
-        tabButton(page, 'Deck').click();
-        await fixture.whenStable();
+        await openPlan(fixture, page);
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         const stacked = panel(page).querySelector<HTMLImageElement>('img[alt="Fire // Ice"]')!;
 
@@ -489,8 +488,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(opened.page, 'Deck').click();
-      await opened.fixture.whenStable();
+      await openPlan(opened.fixture, opened.page);
       button(panel(opened.page), 'List')?.click();
       await opened.fixture.whenStable();
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -541,8 +539,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
 
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       hover(cardName(panel(page), 'Lightning Bolt'));
@@ -552,7 +549,7 @@ describe('card previews', () => {
     });
 
     /** Opens the Deck tab with Lightning Bolt on the mainboard, Shock on the sideboard, and Bolt lost. */
-    async function openPlan() {
+    async function openBoltPlan() {
       const opened = await openPicked({
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
@@ -563,13 +560,12 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(opened.page, 'Deck').click();
-      await opened.fixture.whenStable();
+      await openPlan(opened.fixture, opened.page);
       return opened;
     }
 
     it('shows mana costs before list lines’ names, each plan board its own list', async () => {
-      const { page } = await openPlan();
+      const { page } = await openBoltPlan();
 
       const lists = [...panel(page).querySelectorAll<HTMLElement>('.plan-board .card-rows')];
       expect(
@@ -583,7 +579,7 @@ describe('card previews', () => {
     });
 
     it('shows mana costs inline in the Deck notice', async () => {
-      const { page } = await openPlan();
+      const { page } = await openBoltPlan();
 
       const notice = panel(page).querySelector<HTMLElement>('.notice')!;
       expect(costBefore(notice.querySelector<HTMLElement>('strong .name')!)).toEqual([
@@ -595,7 +591,7 @@ describe('card previews', () => {
     it('shows no mana costs on stacks’ card images', async () => {
       viewOn('desktop');
       try {
-        const { page } = await openPlan();
+        const { page } = await openBoltPlan();
 
         expect(panel(page).querySelector('.stacks')).not.toBeNull();
         expect(panel(page).querySelector('.stacks .cost')).toBeNull();
@@ -617,8 +613,7 @@ describe('card previews', () => {
           preferredPrintings,
         },
       });
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       hover(cardName(panel(page), 'Swamp'));
       wait(150);

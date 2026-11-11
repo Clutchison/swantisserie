@@ -7,7 +7,6 @@ import {
   bob,
   draft,
   http,
-  tabButton,
   panel,
   openDraft,
   flushPicks,
@@ -22,6 +21,7 @@ import {
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
+import { openPlan } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -53,9 +53,7 @@ describe('pool tab', () => {
       expect(button(detail, 'Add to Deck')).toBeUndefined();
 
       button(detail, 'Close')!.click();
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
-      const plan = panel(page);
+      const plan = await openPlan(fixture, page);
       expect(plan.querySelector('.plan-board h3')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
         'Mainboard 1 (0 picked)',
       );
@@ -272,8 +270,7 @@ describe('pool tab', () => {
       expect(button(detail, 'Remove from Deck')).toBeUndefined();
 
       button(detail, 'Close')!.click();
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
       expect(panel(page).querySelector('li.unpicked')).toBeNull();
     });
 

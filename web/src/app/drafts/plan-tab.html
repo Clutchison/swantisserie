@@ -57,10 +57,10 @@
     </button>
   </div>
 }
-@if (sideboardCountOverArenaCap(); as count) {
+@if (sideboardOverArenaCap(); as over) {
   <div class="notice" role="status">
     <p>
-      Your sideboard has {{ count }} cards. Arena's import may keep only {{ arenaSideboardCap }} of
+      Your sideboard has {{ over.count }} cards. Arena's import may keep only {{ over.cap }} of
       them, though your export has them all.
     </p>
   </div>
@@ -230,7 +230,9 @@
                   [attr.aria-label]="stack.name"
                   cdkDropList
                   [cdkDropListData]="stack.dropTarget"
-                  [cdkDropListDisabled]="changing() || !wideStacks() || refusesDrop(stack.dropTarget)"
+                  [cdkDropListDisabled]="
+                    changing() || !wideStacks() || refusesDrop(stack.dropTarget)
+                  "
                   [cdkDropListEnterPredicate]="enters"
                   cdkDropListSortingDisabled
                   (cdkDropListDropped)="dropped($event)"

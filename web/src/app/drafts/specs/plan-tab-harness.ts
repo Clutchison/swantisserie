@@ -55,18 +55,18 @@ export const readyNotice = (root: HTMLElement) =>
     text(status).startsWith('You’re no longer ready'),
   );
 
-/** Arena's sideboard-cap notice inside `root`: the status saying Arena may keep only 15; undefined if none shows. */
-export const sideboardNotice = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
+/** The Deck tab's panel, even while it's hidden behind another tab. */
+export const planPanel = (page: HTMLElement) => tabPanel(page, 'Deck');
+
+/** Arena's sideboard-cap notice on the Deck tab: the status saying Arena may keep only 15; undefined if none shows. */
+export const sideboardNotice = (page: HTMLElement) =>
+  [...planPanel(page).querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
     text(status).startsWith('Your sideboard has'),
   );
 
-/** The Deck tab's panel, even while it's hidden behind another tab. */
-export const deckPanel = (root: HTMLElement) => tabPanel(root, 'Deck');
-
-/** A copy button inside `root`, by the export it copies, whether it shows its label or its confirmation. */
-export const copyButton = (root: HTMLElement, target: ExportTarget = 'Arena') =>
-  [...root.querySelectorAll('button')].find((candidate) =>
+/** A copy button on the Deck tab, by the export it copies, whether it shows its label or its confirmation. */
+export const copyButton = (page: HTMLElement, target: ExportTarget = 'Arena') =>
+  [...planPanel(page).querySelectorAll('button')].find((candidate) =>
     candidate.textContent?.includes(`Copy for ${target}`),
   );
 

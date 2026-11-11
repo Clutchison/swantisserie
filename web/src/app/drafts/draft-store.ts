@@ -322,12 +322,15 @@ export class DraftStore implements TournamentViewer {
       !this.plan.missing(),
   );
   /**
-   * How many cards the exported sideboard holds, its basics included, when
-   * it's over what Arena's import may keep; otherwise null.
+   * When the exported sideboard holds more cards, its basics included, than
+   * Arena's import may keep: how many it holds, and how many Arena keeps;
+   * otherwise null.
    */
-  readonly sideboardCountOverArenaCap = computed(() => {
+  readonly sideboardOverArenaCap = computed(() => {
     const count = planBoardCount(this.exportPlan(), 'Sideboard');
-    return this.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP ? count : null;
+    return this.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP
+      ? { count, cap: ARENA_SIDEBOARD_CAP }
+      : null;
   });
 
   /**

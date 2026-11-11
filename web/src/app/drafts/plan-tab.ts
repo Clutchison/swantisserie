@@ -47,7 +47,6 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { ExportButtons } from './export-buttons';
-import { ARENA_SIDEBOARD_CAP } from './export-plan';
 import { PlanApi } from './plan-api';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
@@ -415,9 +414,8 @@ export class PlanTab {
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
-  /** How many cards the exported sideboard holds, when Arena's import may cut it short. */
-  protected readonly sideboardCountOverArenaCap = this.store.sideboardCountOverArenaCap;
-  protected readonly arenaSideboardCap = ARENA_SIDEBOARD_CAP;
+  /** How many cards the exported sideboard holds, and Arena keeps, when Arena's import may cut it short. */
+  protected readonly sideboardOverArenaCap = this.store.sideboardOverArenaCap;
   private readonly exportButtons = viewChild.required(ExportButtons);
 
   /** The mainboard size below which a deck change clears ready, which the Ready notice names. */

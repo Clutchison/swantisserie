@@ -23,7 +23,6 @@ import {
   viewOn,
   type AppFixture,
   drafting,
-  openTab,
   statusTexts,
   typeInto,
   serverError,
@@ -688,7 +687,7 @@ describe('the Printing picker', () => {
       plan: withIslands(),
       tournament,
     });
-    const deck = await openTab(fixture, page, 'Deck');
+    const deck = await openPlan(fixture, page);
     expect(text(deck)).toContain('Your deck is locked');
 
     const dialog = await openPicker(fixture, deck);
