@@ -35,6 +35,7 @@ import {
   openUrl,
 } from './harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
+import { openPlan } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -290,8 +291,7 @@ describe('live updates', () => {
       expect(statusTexts(queue)).toContainEqual(
         expect.stringContaining('Lost to other players: Shivan Dragon'),
       );
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
       expect(panel(page).textContent?.replace(/\s+/g, ' ')).toContain('Mainboard 1 (1 picked)');
     });
   });

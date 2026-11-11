@@ -7,9 +7,7 @@ import {
   alicePlayer,
   bob,
   heading,
-  openTab,
   tabLabels,
-  tabPanel,
   text,
   http,
   tabButton,
@@ -39,6 +37,7 @@ import {
   unpicked,
   planOf,
   openPlan,
+  planPanel,
   planBoards,
 } from './plan-tab-harness';
 import {
@@ -107,7 +106,7 @@ describe('plan tab', () => {
 
     expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
     expect(tabButton(page, 'Deck').disabled).toBe(true);
-    expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
+    expect(planPanel(page).textContent).toContain('Only players have a deck.');
     http.expectNone('/api/drafts/draft-1/plan');
   });
 
@@ -567,7 +566,7 @@ describe('the Deck tab’s name', () => {
     });
 
     expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
-    const deck = await openTab(fixture, page, 'Deck');
+    const deck = await openPlan(fixture, page);
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');
     expect(text(deck)).not.toMatch(/\bplan\b/i);
@@ -580,7 +579,7 @@ describe('the Deck tab’s name', () => {
     });
 
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
-    const deck = await openTab(fixture, page, 'Deck');
+    const deck = await openPlan(fixture, page);
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');
     expect(text(deck)).not.toMatch(/\bplan\b/i);
@@ -591,7 +590,7 @@ describe('the Deck tab’s name', () => {
     const { page } = await openDraft(completeSnapshot, { ...complete, players: [bob] });
 
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
-    expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
+    expect(planPanel(page).textContent).toContain('Only players have a deck.');
   });
 
   describe('the deck and the tournament', () => {
@@ -607,17 +606,17 @@ describe('the Deck tab’s name', () => {
     const SHORT = 'A tournament deck needs at least 40';
 
     /** Opens the Deck tab of the complete draft with `tournament` set up, Alice's deck `plan`. */
-    async function openDeck(tournament: ViewerTournamentView, plan = deck) {
+    async function openPlanIn(tournament: ViewerTournamentView, plan = deck) {
       const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
         cards,
         plan,
         tournament,
       });
-      return { fixture, page, tab: await openTab(fixture, page, 'Deck') };
+      return { fixture, page, tab: await openPlan(fixture, page) };
     }
 
     it('reminds a joined player during registration that their deck locks at Start, warns that its mainboard is under 40, and offers edits', async () => {
-      const { tab } = await openDeck(registration(bob.id, alice.id));
+      const { tab } = await openPlanIn(registration(bob.id, alice.id));
 
       expect(text(tab)).toContain(REMINDER);
       expect(text(tab)).toContain(
@@ -628,7 +627,7 @@ describe('the Deck tab’s name', () => {
     });
 
     it('leaves out the warning once the mainboard holds 40 cards', async () => {
-      const { tab } = await openDeck(
+      const { tab } = await openPlanIn(
         registration(bob.id, alice.id),
         planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 36 }] }),
       );
@@ -638,7 +637,7 @@ describe('the Deck tab’s name', () => {
     });
 
     it('counts only the mainboard’s basic lands toward the 40, not the sideboard’s', async () => {
-      const { tab } = await openDeck(
+      const { tab } = await openPlanIn(
         registration(bob.id, alice.id),
         planOf({
           basics: [
@@ -657,7 +656,7 @@ describe('the Deck tab’s name', () => {
     ])(
       'says the deck stays locked until the tournament is complete or cancelled while its player is %s',
       async (_, tournament) => {
-        const { tab } = await openDeck(tournament);
+        const { tab } = await openPlanIn(tournament);
 
         expect(text(tab)).toContain(
           'Your deck is locked until the tournament is complete or cancelled.',
@@ -670,7 +669,7 @@ describe('the Deck tab’s name', () => {
     );
 
     it('shows no reminder, and offers edits, to a player who has left', async () => {
-      const { tab } = await openDeck(registration(bob.id));
+      const { tab } = await openPlanIn(registration(bob.id));
 
       expect(tab.textContent).not.toContain('locked');
       expect(text(tab)).not.toContain(REMINDER);
@@ -681,11 +680,11 @@ describe('the Deck tab’s name', () => {
       ['cancelled', null],
       ['complete', playing([], { state: 'Complete', trophyHolders: [alice.id] })],
     ])('offers edits again once the tournament is %s', async (_, tournament) => {
-      const { fixture, page } = await openDeck(playing());
+      const { fixture, page } = await openPlanIn(playing());
 
       await pushTournament(fixture, tournament, 1, { asPlayer: true, plan: deck, fields: {} });
 
-      const tab = tabPanel(page, 'Deck');
+      const tab = planPanel(page);
       expect(text(tab)).not.toContain('locked');
       expect(deckEdits(tab).length).toBeGreaterThan(0);
       expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');

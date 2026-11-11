@@ -40,6 +40,7 @@ import {
   dragOf,
   drop,
   dropped,
+  openPrintingPicker,
 } from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
 
@@ -243,6 +244,24 @@ describe('Deck tab stack moves', () => {
     await vi.waitFor(() => expect(stack(plan, 'Sideboard')).toEqual(['Island']));
     expect(stack(plan, '1')).toEqual(['Island', 'Lightning Bolt', 'Lightning Bolt']);
     expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
+  });
+
+  it('takes the stack move of the basic land’s copy its Printing picker removes, keeping its other copies’ in place', async () => {
+    const twoForests = (count = 2): PlannedBasicView[] => [
+      { land: 'Forest', board: 'Mainboard', count },
+    ];
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: withBasics(twoForests()),
+    });
+    const plan = await openPlan(fixture, page);
+    await stackMoved(fixture, 'Forest', 'Lands', '1');
+
+    const picker = await openPrintingPicker(namedList(plan, '1'), 'Forest');
+    button(picker, 'Remove')!.click();
+    http.expectOne(`${basicUrl('Forest')}/Mainboard`).flush(withBasics(twoForests(1)));
+    await vi.waitFor(() => expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt']));
+    expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Forest']);
   });
 
   it('keeps the stack move of an unpicked card another player picks, on the copy that takes its place', async () => {

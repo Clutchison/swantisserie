@@ -15,7 +15,7 @@ import {
   cardName,
   startDrag,
 } from './harness';
-import { planOf, planned } from './plan-tab-harness';
+import { planOf, planned, openPlan } from './plan-tab-harness';
 import { image, openDetail } from './pool-tab-harness';
 import { openDialog, pressEscape, pressKey } from '../../specs-harness';
 import {
@@ -185,8 +185,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
 
       tabTo(button(panel(page), 'Lightning Bolt')!);
 
@@ -195,8 +194,7 @@ describe('card previews', () => {
 
     it('opens on names tabbed to on the Deck tab, but not while a drag is under way', async () => {
       const { page, fixture } = await openPicked({ plan: planOf({ mainboard: [planned(bolt)] }) });
-      tabButton(page, 'Deck').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
       const name = button(panel(page), 'Lightning Bolt')!;
 
       startDrag(fixture, name);
@@ -218,8 +216,7 @@ describe('card previews', () => {
             preferredPrintings: {},
           },
         });
-        tabButton(page, 'Deck').click();
-        await fixture.whenStable();
+        await openPlan(fixture, page);
 
         expect(panel(page).querySelector('img[alt="Lightning Bolt"]')).not.toBeNull();
         expect(ownTabStop(panel(page), 'Lightning Bolt')).toBeUndefined();

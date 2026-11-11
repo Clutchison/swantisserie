@@ -70,8 +70,14 @@ export function stackMovesOf(
 /**
  * The stack moves `kept` once the plan goes from `was` to `now`: those of
  * cards still on the mainboard, and a card's that left the plan carried to
- * a copy of it, by name, that came into the mainboard from outside the plan
- * in its place.
+ * a copy of it that came into the mainboard from outside the plan in its
+ * place.
+ *
+ * A copy is found by name, the one identity a planned card carries to the
+ * web: the api's copy rule matches copies by oracle id, and within a pool
+ * only copies of one card share a name. A copy the player added by hand in
+ * the same update could take the move in the substitute's place, but it is
+ * then the same card in the same stack.
  */
 function followed(kept: StackMoves, was: Followed, now: Followed): StackMoves {
   const isOn = (cards: readonly PlannedCardView[]) => {

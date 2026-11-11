@@ -179,10 +179,14 @@ const RULES: Record<Grouping, StackRule[]> = {
  */
 export function gaps(shown: readonly Stack[], id: number) {
   return [undefined, ...shown].map((before) => ({
-    name: `New stack, ${before ? `after ${before.fullName}` : 'at the start'}`,
+    name: `New stack, ${placeAfter(before)}`,
     into: { kind: 'playerMade', id, after: before?.key ?? null } satisfies PlayerMadeStackMove,
   }));
 }
+
+/** Where a stack sits, by the stack `before` it, as `after Red`; with none, `at the start`. */
+const placeAfter = (before?: Pick<Stack, 'fullName'>) =>
+  before ? `after ${before.fullName}` : 'at the start';
 
 /** How `stacks` arranges the mainboard beyond its grouping. */
 export interface Arrangement {
@@ -221,14 +225,17 @@ export function stacks<Card extends PlannedCardView>(
 ): Stack<Card>[] {
   const facts = factsFrom(poolCardsById);
   const sorted = sortedByManaValue(cards, facts);
-  const byRule = RULES[grouping].map((rule): Stack<Card> => ({
-    name: rule.name,
-    key: rule.name,
-    fullName: rule.fullName ?? rule.name,
-    label: rule.label,
-    cards: [],
-    move: { kind: 'grouping', name: rule.name },
-  }));
+  const byRule = RULES[grouping].map((rule): Stack<Card> => {
+    const move: GroupingStackMove = { kind: 'grouping', name: rule.name };
+    return {
+      name: rule.name,
+      key: stackKey(move),
+      fullName: rule.fullName ?? rule.name,
+      label: rule.label,
+      cards: [],
+      move,
+    };
+  });
   const playerMade = new Map<number, PlayerMadeCards<Card>>();
   for (const card of sorted) {
     const moved = moves.get(card.poolCardId);
@@ -296,11 +303,11 @@ function inOrder<Card extends PlannedCardView>(
  * start; numbered from the second after the same one.
  */
 function namedInPlace<Card extends PlannedCardView>(ordered: Placed<Card>[]): Stack<Card>[] {
-  let place = 'at the start';
+  let place = placeAfter();
   let count = 0;
   return ordered.map((stack) => {
     if ('name' in stack) {
-      place = `after ${stack.fullName}`;
+      place = placeAfter(stack);
       count = 0;
       return stack;
     }

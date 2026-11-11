@@ -8,7 +8,6 @@ import {
   updates,
   bob,
   alicePlayer,
-  tabButton,
   openDraft,
   flushPicks,
   flushQueueAndPlan,
@@ -37,6 +36,7 @@ import {
   openDetail,
   searchBox,
 } from './pool-tab-harness';
+import { openPlan } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -518,8 +518,7 @@ describe('pool tab', () => {
     button(detail, 'Close')!.click();
     await fixture.whenStable();
 
-    tabButton(page, 'Deck').click();
-    await fixture.whenStable();
+    await openPlan(fixture, page);
     expect(button(page, 'Copy for Arena')).toBeDefined();
     expect(button(page, 'Copy for Moxfield')).toBeDefined();
   });
