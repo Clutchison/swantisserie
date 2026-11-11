@@ -1,6 +1,3 @@
-import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
-import type { DebugElement } from '@angular/core';
-import { By } from '@angular/platform-browser';
 import type { PlannedBasicView, PlanView } from 'contract';
 import {
   useDraftsApp,
@@ -42,6 +39,8 @@ import {
   stack,
   stacksOf,
   zenMountain,
+  planDropLists,
+  dropped,
 } from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
 
@@ -664,16 +663,6 @@ describe('basic lands on the plan tab', () => {
     /** The API request that moves one copy of `land` to a plan board. */
     const moveUrl = (land: string) => `/api/drafts/draft-1/plan/basics/${land}`;
 
-    /** Each of the Plan tab's drop lists, the mainboard's then the sideboard's. The Queue tab has one of its own. */
-    const dropLists = (fixture: AppFixture) =>
-      fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
-    /** The drags in `list` whose card image is `alt`. */
-    const dragsOf = (list: DebugElement, alt: string) =>
-      list
-        .queryAll(By.directive(CdkDrag))
-        .filter((drag) => drag.nativeElement.querySelector('img')?.alt === alt)
-        .map((drag) => drag.injector.get(CdkDrag));
-
     it('moves one copy from its line to the sideboard and back in list mode, each plan board listing its own basics', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -723,18 +712,9 @@ describe('basic lands on the plan tab', () => {
       const plan = await openPlan(fixture, page);
       button(plan, 'List')!.click();
       await fixture.whenStable();
-      const [mainboard, sideboard] = dropLists(fixture);
-      const forest = sideboard
-        .queryAll(By.directive(CdkDrag))
-        .find((drag) => drag.nativeElement.textContent?.includes('Forest'))!
-        .injector.get(CdkDrag);
-      expect(forest.disabled).toBe(false);
+      const [mainboard, sideboard] = planDropLists(fixture);
 
-      mainboard.triggerEventHandler('cdkDropListDropped', {
-        item: forest,
-        previousContainer: sideboard.injector.get(CdkDropList),
-        container: mainboard.injector.get(CdkDropList),
-      });
+      dropped('Forest', sideboard, mainboard);
       await fixture.whenStable();
 
       const moved = http.expectOne(moveUrl('Forest'));
@@ -779,14 +759,8 @@ describe('basic lands on the plan tab', () => {
         expect(document.activeElement).toBe(button(plan, 'Move Island to the mainboard')),
       );
 
-      const [mainboard, sideboard] = dropLists(fixture);
-      const [forest] = dragsOf(sideboard, 'Forest');
-      expect(forest.disabled).toBe(false);
-      mainboard.triggerEventHandler('cdkDropListDropped', {
-        item: forest,
-        previousContainer: sideboard.injector.get(CdkDropList),
-        container: mainboard.injector.get(CdkDropList),
-      });
+      const [mainboard, sideboard] = planDropLists(fixture);
+      dropped('Forest', sideboard, mainboard);
       await fixture.whenStable();
 
       const dragged = http.expectOne(moveUrl('Forest'));
@@ -818,7 +792,7 @@ describe('basic lands on the plan tab', () => {
       ).toEqual(Array(3).fill(zenMountain.images.normal));
     });
 
-    it('offers no move button and no drag for a basic land on a locked deck, in either mode', async () => {
+    it('offers no move button for a basic land on a locked deck, and moves none dropped on the other plan board, in either mode', async () => {
       viewOn('desktop');
       onTestFinished(() => {
         vi.unstubAllGlobals();
@@ -838,11 +812,20 @@ describe('basic lands on the plan tab', () => {
         await fixture.whenStable();
         expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
         expect(button(plan, 'Move Island to the mainboard')).toBeUndefined();
-        expect(dropLists(fixture).map((list) => list.injector.get(CdkDropList).disabled)).toEqual([
-          true,
-          true,
-        ]);
+
+        const [mainboard, sideboard] = planDropLists(fixture);
+        dropped('Island', mainboard, sideboard);
+        dropped('Island', sideboard, mainboard);
+        await fixture.whenStable();
+        http.expectNone(moveUrl('Island'));
       }
+      expect(planBoards(plan)).toEqual([
+        {
+          heading: 'Mainboard 3 (3 picked)',
+          lines: ['1 Lightning Bolt', '1 Shivan Dragon', '1 Island'],
+        },
+        { heading: 'Sideboard 1 (1 picked)', lines: ['1 Island'] },
+      ]);
     });
   });
 });

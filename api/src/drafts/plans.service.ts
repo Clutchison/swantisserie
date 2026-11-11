@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   BASIC_LANDS,
   PLAN_BOARDS,
+  otherPlanBoard,
   type BasicLand,
   type PlanBoard,
   type PlanBoards,
@@ -238,7 +239,7 @@ export class PlansService {
     land: BasicLand,
     board: PlanBoard,
   ): Promise<PlanChange> {
-    const from: PlanBoard = board === 'Mainboard' ? 'Sideboard' : 'Mainboard';
+    const from = otherPlanBoard(board);
     return this.change(draftId, userId, async (tx, playerId) => {
       const source = await tx.plannedBasic.findUnique({
         where: { playerId_land_board: { playerId, land, board: from } },

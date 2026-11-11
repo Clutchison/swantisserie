@@ -37,6 +37,7 @@ export function planBoardCount<Card>(plan: ExportPlan<Card>, planBoard: PlanBoar
   );
 }
 
-function cardsOn<Card>(plan: ExportPlan<Card>, planBoard: PlanBoard): Card[] {
+/** The cards a plan board holds, its basics left out. */
+export function cardsOn<Card>(plan: ExportPlan<Card>, planBoard: PlanBoard): Card[] {
   return planBoard === 'Mainboard' ? plan.mainboard : plan.sideboard;
 }
