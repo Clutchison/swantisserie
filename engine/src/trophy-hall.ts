@@ -1,4 +1,4 @@
-import type { Place } from './my-stats.js';
+import { placeIn, ranked, type Place } from './tournament.js';
 
 /**
  * A draft's pool source as the Trophy Hall groups it: a cube by its
@@ -103,11 +103,8 @@ export function trophyHall<T extends TrophyHallTournament>(
   newestFirst: readonly T[],
 ): TrophyHall<T> {
   const shown = newestFirst.filter(onTrophyHall);
-  const trophies = new Map<string, number>();
-  for (const { trophyHolders } of shown) {
-    for (const playerId of trophyHolders)
-      trophies.set(playerId, (trophies.get(playerId) ?? 0) + 1);
-  }
+  const ranking = trophyRanking(shown);
+  const trophies = new Map(ranking.map((e) => [e.playerId, e.trophies]));
 
   const groups = new Map<string, TrophyHallGroup<T>>();
   for (const tournament of shown) {
@@ -125,24 +122,38 @@ export function trophyHall<T extends TrophyHallTournament>(
       });
     }
   }
-  return { ranking: ranking(trophies), groups: [...groups.values()] };
+  return { ranking, groups: [...groups.values()] };
 }
 
 /**
- * The trophy ranking of `trophies`, given by player newest trophy first:
- * most trophies first, a player's place one after everyone with more, and
- * shared with everyone with as many.
+ * The trophy ranking of `shown`, newest first: most trophies first, a
+ * player's place one after everyone with more, and shared with everyone
+ * with as many; of those, the newest trophy first.
  */
-function ranking(trophies: Map<string, number>): TrophyRankingEntry[] {
-  const counts = [...trophies.values()];
-  return [...trophies]
-    .sort(([, a], [, b]) => b - a)
-    .map(([playerId, count]) => ({
-      playerId,
-      trophies: count,
-      place: {
-        rank: 1 + counts.filter((other) => other > count).length,
-        shared: counts.filter((other) => other === count).length > 1,
-      },
-    }));
+function trophyRanking(
+  shown: readonly TrophyHallTournament[],
+): TrophyRankingEntry[] {
+  // `newest` is where the player's newest trophy is in `shown`.
+  const table = new Map<
+    string,
+    { playerId: string; trophies: number; newest: number; rank: number }
+  >();
+  shown.forEach(({ trophyHolders }, index) => {
+    for (const playerId of trophyHolders) {
+      const entry = table.get(playerId);
+      if (entry) entry.trophies++;
+      else
+        table.set(playerId, { playerId, trophies: 1, newest: index, rank: 0 });
+    }
+  });
+  const entries = ranked(
+    [...table.values()],
+    (a, b) => b.trophies - a.trophies,
+    (a, b) => a.newest - b.newest,
+  );
+  return entries.map((entry) => ({
+    playerId: entry.playerId,
+    trophies: entry.trophies,
+    place: placeIn(entries, entry),
+  }));
 }

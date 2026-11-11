@@ -11,8 +11,13 @@
   background: var(--color-surface);
   border-radius: 0.25rem;
 
+  /* Each item stays a list item, its place, name and count in the list's columns. */
   li {
-    display: contents;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    padding: 0;
+    border-bottom: none;
   }
 
   .place,

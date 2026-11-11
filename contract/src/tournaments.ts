@@ -187,6 +187,12 @@ export interface BracketRoundView {
   places: BracketPlaceView[];
 }
 
+/** A place in a ranking, from 1, and whether another player shares it: shown as =2nd when shared. */
+export interface PlaceView {
+  rank: number;
+  shared: boolean;
+}
+
 /** Matches or games won, lost and drawn. */
 export interface TallyView {
   won: number;

@@ -11,7 +11,7 @@
     } @else {
       <ol class="ranking" aria-label="Trophy ranking">
         @for (entry of hall.value().ranking; track entry.playerId) {
-          <!-- The spaces read the place, name and count apart; the grid leaves them out. -->
+          <!-- The spaces read the place, name and count apart; the subgrid leaves them out. -->
           <li>
             <span class="place">{{ place(entry.place) }}</span
             >{{ ' ' }} <span class="name">{{ entry.name }}</span

@@ -1,6 +1,5 @@
-import type { PlaceView } from './my-stats.js';
 import type { PoolCardView } from './pool.js';
-import type { DecklistView } from './tournaments.js';
+import type { DecklistView, PlaceView } from './tournaments.js';
 
 /** A set or sublist in a Trophy Hall group's set list, with its name. */
 export interface NamedSetView {

@@ -203,22 +203,41 @@ export function standings(
   return ranked(all, compare);
 }
 
+/** A place in a ranking, from 1, and whether another player shares it. */
+export interface Place {
+  rank: number;
+  shared: boolean;
+}
+
 /**
  * `table` sorted by `compare`, best first, with ranks from 1: players
- * `compare` finds equal share a rank and keep their order, and the rank
- * after a shared one skips, as in 1, 1, 3.
+ * `compare` finds equal share a rank, and the rank after a shared one
+ * skips, as in 1, 1, 3. Players sharing a rank are in `tieOrder`, or keep
+ * their order without one.
  */
-export function ranked(
-  table: Standing[],
-  compare: (a: Standing, b: Standing) => number,
-): Standing[] {
-  const sorted = table.sort(compare);
-  sorted.forEach((standing, i) => {
+export function ranked<T extends { rank: number }>(
+  table: T[],
+  compare: (a: T, b: T) => number,
+  tieOrder: (a: T, b: T) => number = () => 0,
+): T[] {
+  const sorted = table.sort((a, b) => compare(a, b) || tieOrder(a, b));
+  sorted.forEach((entry, i) => {
     const previous = sorted[i - 1];
-    standing.rank =
-      previous && compare(previous, standing) === 0 ? previous.rank : i + 1;
+    entry.rank =
+      previous && compare(previous, entry) === 0 ? previous.rank : i + 1;
   });
   return sorted;
+}
+
+/** `entry`'s place in `table`, ranked: shared when another entry has its rank. */
+export function placeIn<T extends { rank: number }>(
+  table: readonly T[],
+  entry: T,
+): Place {
+  return {
+    rank: entry.rank,
+    shared: table.some((other) => other !== entry && other.rank === entry.rank),
+  };
 }
 
 /**
