@@ -518,7 +518,7 @@ describe('pool tab', () => {
     button(detail, 'Close')!.click();
     await fixture.whenStable();
 
-    tabButton(page, 'Export').click();
+    tabButton(page, 'Deck').click();
     await fixture.whenStable();
     expect(button(page, 'Copy for Arena')).toBeDefined();
     expect(button(page, 'Copy for Moxfield')).toBeDefined();

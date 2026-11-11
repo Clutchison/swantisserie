@@ -45,6 +45,8 @@ import {
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
+import { ExportButtons } from './export-buttons';
+import { ARENA_SIDEBOARD_CAP } from './export-plan';
 import { PlanApi } from './plan-api';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
@@ -198,6 +200,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     CdkDrag,
     CdkDropList,
     CdkDropListGroup,
+    ExportButtons,
     LoadingAnimation,
     LucideMinus,
     LucidePlus,
@@ -387,6 +390,10 @@ export class PlanTab {
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
+  /** How many cards the exported sideboard holds, when Arena's import may cut it short. */
+  protected readonly sideboardCountOverArenaCap = this.store.sideboardCountOverArenaCap;
+  protected readonly arenaSideboardCap = ARENA_SIDEBOARD_CAP;
+  private readonly exportButtons = viewChild.required(ExportButtons);
 
   /** The mainboard size below which a deck change clears ready, which the Ready notice names. */
   protected readonly minimumMainboard = MIN_MAINBOARD_CARDS;
@@ -691,6 +698,11 @@ export class PlanTab {
   /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
   protected withBasics(lines: PlanLine[]) {
     return lines.some((line) => line.basic);
+  }
+
+  /** Forgets how the latest copy of the deck went, as the tab opens or closes. */
+  clearCopy() {
+    this.exportButtons().clearCopy();
   }
 
   /** Stops the notice listing the lost cards. */

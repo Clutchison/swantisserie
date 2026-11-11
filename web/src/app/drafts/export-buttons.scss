@@ -1,0 +1,34 @@
+/* Sits at the end of the Deck tab's controls row, its buttons wrapping with the row's. */
+:host {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* A copy button's label and confirmation share one cell, so the label alone sets its width. */
+.copy {
+  display: inline-grid;
+  justify-items: center;
+  align-items: center;
+
+  > * {
+    grid-area: 1 / 1;
+  }
+
+  &.copied .label {
+    visibility: hidden;
+  }
+}
+
+.confirmation {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* The clipboard error takes its own line. */
+.error {
+  flex-basis: 100%;
+  margin: 0;
+}
