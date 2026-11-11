@@ -49,7 +49,7 @@ export class TournamentProgressionService {
       });
       await tx.tournament.update({
         where: { id: tournament.id },
-        data: { state: 'Complete', completedAt: new Date() },
+        data: completion(),
       });
       return [
         await roundCompletedOrTournamentCompleted(tx, draftId, tournament.id),
@@ -109,7 +109,7 @@ export class TournamentProgressionService {
         data: {
           lastCompletedRound: round,
           reopenedRound: null,
-          ...(completes && { state: 'Complete', completedAt: new Date() }),
+          ...(completes && completion()),
         },
       });
       if (!completes) await steps.pairNext(tx, tournament.id, round + 1);
@@ -188,6 +188,15 @@ export class TournamentProgressionService {
       await reopenRound(tx, tournament.id, row);
     });
   }
+}
+
+/**
+ * What marks a tournament Complete: its state and its completion time,
+ * written together so no completion goes without its time. A complete
+ * tournament's results are final (ADR 0009), so this is written once.
+ */
+function completion() {
+  return { state: 'Complete', completedAt: new Date() } as const;
 }
 
 /**

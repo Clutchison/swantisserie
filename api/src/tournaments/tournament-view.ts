@@ -4,6 +4,7 @@ import {
   type MatchView,
   MIN_TOURNAMENT_PLAYERS,
   type TournamentFormat,
+  type TournamentRefusal,
   type TournamentRoundView,
   type TournamentView,
 } from 'contract';
@@ -249,17 +250,37 @@ function countsInStandings(
 }
 
 /**
- * Whether the tournament's decklists may be read: under public decklists,
- * once it has started; and for every tournament once it is complete
- * (ADR 0017).
+ * Why the tournament's decklists can't be read now, or null when they can:
+ * under public decklists once it has started, and for every tournament
+ * once it is complete (ADR 0017). Refused during registration
+ * (`in-registration`), and while playing without public decklists
+ * (`decklists-private`).
  */
+export function decklistsRefusal(
+  row: Pick<TournamentRow, 'publicDecklists' | 'state'>,
+): TournamentRefusal | null {
+  if (row.state === 'Registration') {
+    return {
+      error: 'in-registration',
+      message: row.publicDecklists
+        ? 'Decklists are shown once the tournament starts.'
+        : 'Decklists are shown once the tournament is complete.',
+    };
+  }
+  if (row.state === 'Playing' && !row.publicDecklists) {
+    return {
+      error: 'decklists-private',
+      message: 'This tournament’s decks are private until it is complete.',
+    };
+  }
+  return null;
+}
+
+/** Whether the tournament's decklists may be read now: when decklistsRefusal gives none. */
 export function showsDecklists(
   row: Pick<TournamentRow, 'publicDecklists' | 'state'>,
 ): boolean {
-  return (
-    row.state === 'Complete' ||
-    (row.publicDecklists && row.state !== 'Registration')
-  );
+  return decklistsRefusal(row) === null;
 }
 
 /**

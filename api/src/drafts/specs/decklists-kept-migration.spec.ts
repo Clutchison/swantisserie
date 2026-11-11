@@ -1,3 +1,4 @@
+import type { PGlite } from '@electric-sql/pglite';
 import { databaseBefore } from '../../testing/migrations.js';
 
 const DECKLISTS_KEPT = '20261119120000_decklists_kept';
@@ -75,7 +76,7 @@ function tournament(id: string, state: string, aliceDecklist?: object) {
 }
 
 /** Each entry's decklist after the migration, by entry id. */
-async function decklists(db: Awaited<ReturnType<typeof databaseWith>>['db']) {
+async function decklists(db: PGlite) {
   const { rows } = await db.query<{ id: string; decklist: unknown }>(
     `SELECT "id", "decklist" FROM "TournamentEntry" ORDER BY "id"`,
   );

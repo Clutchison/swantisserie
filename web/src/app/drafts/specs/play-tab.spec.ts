@@ -108,7 +108,7 @@ describe('Play tab', () => {
       const toggle = button(tab, 'Decklists: Private')!;
       expect(toggle.textContent?.trim()).toBe('Private');
       expect(accessibleDescription(toggle)).toBe(
-        'Once the tournament is complete, everyone who sees this draft sees each joined player’s deck. Public decklists show them while it is played, too.',
+        'Once the tournament is complete, everyone who sees this draft sees each joined player’s decklist. Public decklists show them while it is played, too.',
       );
       toggle.click();
       await fixture.whenStable();

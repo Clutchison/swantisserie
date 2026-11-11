@@ -9,7 +9,7 @@ import {
   NoTournamentError,
   TournamentRefusedError,
 } from './tournament-errors.js';
-import { showsDecklists } from './tournament-view.js';
+import { decklistsRefusal } from './tournament-view.js';
 
 /**
  * Snapshots each entry's deck, bots' included, as it is when the
@@ -67,22 +67,8 @@ export class DecklistsService {
       },
     });
     if (!tournament) throw new NoTournamentError();
-    if (!showsDecklists(tournament)) {
-      throw new TournamentRefusedError(
-        tournament.state === 'Registration'
-          ? {
-              error: 'in-registration',
-              message: tournament.publicDecklists
-                ? 'Decklists are shown once the tournament starts.'
-                : 'Decklists are shown once the tournament is complete.',
-            }
-          : {
-              error: 'decklists-private',
-              message:
-                'This tournament’s decks are private until it is complete.',
-            },
-      );
-    }
+    const refusal = decklistsRefusal(tournament);
+    if (refusal) throw new TournamentRefusedError(refusal);
     // Each player's preferred printings as they are now: not part of the snapshot.
     const printings = await readPreferredPrintings(
       this.prisma,

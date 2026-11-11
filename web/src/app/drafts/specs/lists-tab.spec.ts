@@ -249,7 +249,7 @@ describe('lists tab', () => {
 
     it('takes the Board tab’s place once a tournament without public decklists is complete', async () => {
       const { fixture, page } = await openAsViewer(
-        completed(playing([], { showsDecklists: true, trophyHolders: [alice.id] })),
+        completed(playing([], { trophyHolders: [alice.id] })),
       );
 
       expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);

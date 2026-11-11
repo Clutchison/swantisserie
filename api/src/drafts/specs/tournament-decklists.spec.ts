@@ -252,6 +252,17 @@ describe('decklists under public decklists', () => {
 });
 
 describe('decklists without public decklists', () => {
+  it('refuses them during registration, even to the organizer', async () => {
+    const id = await completeDraft([aliceCookie, bobCookie]);
+    await setUpTournament(id).expect(201);
+
+    for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
+      expect((await decklists(id, cookie).expect(409)).body.error).toBe(
+        'in-registration',
+      );
+    }
+  });
+
   it('refuses them while playing, to players, the organizer or an app admin', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     expect((await tournamentView(id)).showsDecklists).toBe(false);
