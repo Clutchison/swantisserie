@@ -1,22 +1,38 @@
 import { linkedSignal, type Signal } from '@angular/core';
-import type { Grouping, StackMove, StackMoves } from './plan-stacks';
+import type { PlannedCardView, PlanView } from 'contract';
+import { type Grouping, NO_MOVES, type StackMove, type StackMoves } from './plan-stacks';
+
+/** The plan as stack moves follow it: its mainboard's cards, and the pool card ids it holds anywhere else. */
+interface Followed {
+  grouping: Grouping;
+  mainboard: readonly PlannedCardView[];
+  elsewhere: ReadonlySet<string>;
+}
 
 /**
  * The Deck tab's stack moves, kept in its memory only: never stored, nor
  * sent, so no one else sees them. Changing the grouping wipes them all; a
- * card that leaves the mainboard loses its own, so it comes back to its
- * natural stack, while the others stay through any deck change.
+ * card that leaves the mainboard loses its own, so it comes back in its own
+ * stack, while the others stay through any deck change. A copy swapped in
+ * for a planned card, by the copy rule, keeps that card's stack move.
  *
- * `mainboard` is the pool card ids (a basic land's copy's id for a copy) of
- * the cards on the mainboard.
+ * `mainboard` is the mainboard's cards, a basic land's copies included.
  */
-export function stackMovesOf(grouping: Signal<Grouping>, mainboard: Signal<ReadonlySet<string>>) {
-  const moves = linkedSignal<{ grouping: Grouping; mainboard: ReadonlySet<string> }, StackMoves>({
-    source: () => ({ grouping: grouping(), mainboard: mainboard() }),
+export function stackMovesOf(
+  grouping: Signal<Grouping>,
+  plan: Signal<PlanView>,
+  mainboard: Signal<readonly PlannedCardView[]>,
+) {
+  const moves = linkedSignal<Followed, StackMoves>({
+    source: () => ({
+      grouping: grouping(),
+      mainboard: mainboard(),
+      elsewhere: new Set([...plan().sideboard, ...plan().lost].map((card) => card.poolCardId)),
+    }),
     computation: (now, before) =>
       before && before.source.grouping === now.grouping
-        ? new Map([...before.value].filter(([poolCardId]) => now.mainboard.has(poolCardId)))
-        : new Map(),
+        ? followed(before.value, before.source, now)
+        : NO_MOVES,
   });
   return {
     /** The stack moves, by the moved card's `poolCardId`. */
@@ -25,5 +41,53 @@ export function stackMovesOf(grouping: Signal<Grouping>, mainboard: Signal<Reado
     move(poolCardId: string, move: StackMove) {
       moves.update((current) => new Map(current).set(poolCardId, move));
     },
+    /**
+     * The mainboard card `poolCardId` is leaving, one of `copies`, the ids of
+     * a basic land's copies there in order: it loses its stack move. As a
+     * copy's id is its place among them, each later copy's move takes the
+     * place before. Answers how to undo that, should the card stay.
+     */
+    leave(poolCardId: string, copies: readonly string[] = [poolCardId]) {
+      const before = moves();
+      const after = new Map(before);
+      for (const [at, copy] of copies.entries()) {
+        if (at < copies.indexOf(poolCardId)) continue;
+        const next = before.get(copies[at + 1]);
+        if (next) after.set(copy, next);
+        else after.delete(copy);
+      }
+      moves.set(after);
+      return () => moves.set(before);
+    },
   };
+}
+
+/**
+ * The stack moves `kept` once the plan goes from `was` to `now`: those of
+ * cards still on the mainboard, and a card's that left the plan carried to
+ * a copy of it, by name, that came into the mainboard from outside the plan
+ * in its place.
+ */
+function followed(kept: StackMoves, was: Followed, now: Followed): StackMoves {
+  const isOn = (cards: readonly PlannedCardView[]) => {
+    const ids = new Set(cards.map((card) => card.poolCardId));
+    return (poolCardId: string) => ids.has(poolCardId);
+  };
+  const onNow = isOn(now.mainboard);
+  const onBefore = isOn(was.mainboard);
+  const swappedIn = now.mainboard.filter(
+    (card) => !onBefore(card.poolCardId) && !was.elsewhere.has(card.poolCardId),
+  );
+  const result = new Map<string, StackMove>();
+  for (const [poolCardId, move] of kept) {
+    if (onNow(poolCardId)) {
+      result.set(poolCardId, move);
+      continue;
+    }
+    if (now.elsewhere.has(poolCardId)) continue;
+    const name = was.mainboard.find((card) => card.poolCardId === poolCardId)?.name;
+    const copy = swappedIn.findIndex((card) => card.name === name);
+    if (copy >= 0) result.set(swappedIn.splice(copy, 1)[0].poolCardId, move);
+  }
+  return result;
 }

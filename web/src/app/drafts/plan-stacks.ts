@@ -24,6 +24,8 @@ export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   label: StackLabel;
   /** Sorted by mana value, then name; on the sideboard, with its lands last. */
   cards: Card[];
+  /** The stack move into it: a mainboard stack's; the sideboard's stack takes none. */
+  move?: StackMove;
 }
 
 /**
@@ -38,7 +40,8 @@ export interface StackMove {
 /** The stack moves on the mainboard, by the moved card's `poolCardId`. */
 export type StackMoves = ReadonlyMap<string, StackMove>;
 
-const NO_MOVES: StackMoves = new Map();
+/** No stack moves: every card in its own stack. */
+export const NO_MOVES: StackMoves = new Map();
 
 /** What a grouping goes by, from a card's pool card. */
 interface CardFacts {
@@ -156,6 +159,7 @@ export function stacks<Card extends PlannedCardView>(
     fullName: rule.fullName ?? rule.name,
     label: rule.label,
     cards: [] as Card[],
+    move: { kind: 'grouping', name: rule.name } satisfies StackMove,
   }));
   for (const card of sorted) {
     const moved = moves.get(card.poolCardId);

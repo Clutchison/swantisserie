@@ -11,6 +11,15 @@ import {
   draggable,
   resizeTo,
   tabButton,
+  namedList,
+  updates,
+  draft,
+  flushPicks,
+  flushQueueAndPlan,
+  pickOf,
+  queueOf,
+  alice,
+  bob,
   type AppFixture,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -20,12 +29,16 @@ import {
   boltAgain,
   cards,
   planned,
+  unpicked,
   planOf,
   openPlan,
   detailOpener,
   stack,
   stacksOf,
-  stackDropList,
+  dropListNamed,
+  acceptsDrop,
+  dragOf,
+  drop,
   dropped,
 } from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
@@ -39,7 +52,7 @@ const withBasics = (basics: PlannedBasicView[]) => planOf({ basics });
 
 /** Drops the card named `name` from the stack `from` on the stack `onto`, and renders what came of it. */
 async function stackMoved(fixture: AppFixture, name: string, from: string, onto: string) {
-  dropped(name, stackDropList(fixture, from), stackDropList(fixture, onto));
+  dropped(name, dropListNamed(fixture, from), dropListNamed(fixture, onto));
   await fixture.whenStable();
 }
 
@@ -57,7 +70,7 @@ describe('Deck tab stack moves', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    dropped('Shivan Dragon', stackDropList(fixture, '6'), stackDropList(fixture, '1'));
+    dropped('Shivan Dragon', dropListNamed(fixture, '6'), dropListNamed(fixture, '1'));
     await fixture.whenStable();
 
     expect(stacksOf(plan)[0]).toEqual([
@@ -197,6 +210,65 @@ describe('Deck tab stack moves', () => {
     );
   });
 
+  it('takes the stack move of a basic land’s copy that leaves the mainboard, keeping its other copies’ moves', async () => {
+    const twoIslands = (sideboard = 0): PlannedBasicView[] => [
+      { land: 'Island', board: 'Mainboard', count: 2 - sideboard },
+      ...(sideboard
+        ? [{ land: 'Island' as const, board: 'Sideboard' as const, count: sideboard }]
+        : []),
+    ];
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: withBasics(twoIslands()),
+    });
+    const plan = await openPlan(fixture, page);
+
+    // The moved copy leaves: the one left stays in Lands.
+    await stackMoved(fixture, 'Island', 'Lands', '1');
+    dropped('Island', dropListNamed(fixture, '1'), dropListNamed(fixture, 'Sideboard'));
+    http.expectOne(basicUrl('Island')).flush(withBasics(twoIslands(1)));
+    await vi.waitFor(() => expect(stack(plan, 'Sideboard')).toEqual(['Island']));
+    expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt']);
+    expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Island']);
+
+    // Back to two, the second copy moved: the first leaves, and the moved one stays moved.
+    button(plan, 'Move Island to the mainboard')!.click();
+    http.expectOne(basicUrl('Island')).flush(withBasics(twoIslands()));
+    await vi.waitFor(() => expect(stack(plan, 'Lands')).toHaveLength(3));
+    drop(dragOf(dropListNamed(fixture, 'Lands'), 'Island', 1), dropListNamed(fixture, '1'));
+    await fixture.whenStable();
+    button(namedList(plan, 'Lands'), 'Move Island to the sideboard')!.click();
+    http.expectOne(basicUrl('Island')).flush(withBasics(twoIslands(1)));
+    await vi.waitFor(() => expect(stack(plan, 'Sideboard')).toEqual(['Island']));
+    expect(stack(plan, '1')).toEqual(['Island', 'Lightning Bolt', 'Lightning Bolt']);
+    expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
+  });
+
+  it('keeps the stack move of an unpicked card another player picks, on the copy that takes its place', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), planned(shivan)] }),
+    });
+    const plan = await openPlan(fixture, page);
+    await stackMoved(fixture, 'Lightning Bolt', '1', '6');
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: { ...bobsTurn, pick: 4, playerId: alice.id }, version: 1 })),
+    });
+    await flushPicks([pickOf({ playerId: bob.id, poolCardId: bolt.id })]);
+    await flushQueueAndPlan(
+      queueOf(),
+      planOf({ mainboard: [planned(brightclimb), unpicked(boltAgain), planned(shivan)] }),
+    );
+    await fixture.whenStable();
+
+    expect(stacksOf(plan)[0]).toEqual([
+      '6: Lightning Bolt (unpicked), Shivan Dragon',
+      'Lands: Brightclimb Pathway // Grimclimb Pathway',
+    ]);
+  });
+
   it('makes stack moves on a locked deck, whose sideboard refuses a drop, sending nothing', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, withTournament(playing()), {
       cards,
@@ -211,7 +283,12 @@ describe('Deck tab stack moves', () => {
     await stackMoved(fixture, 'Shivan Dragon', '6', '1');
     expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Shivan Dragon']);
 
+    const sideboard = namedList(plan, 'Sideboard');
     expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
+    expect(draggable(fixture, detailOpener(sideboard, 'Lightning Bolt')!)).toBe(false);
+    const boltDrag = dragOf(dropListNamed(fixture, '1'), 'Lightning Bolt');
+    expect(acceptsDrop(dropListNamed(fixture, 'Sideboard'), boltDrag)).toBe(false);
+    expect(acceptsDrop(dropListNamed(fixture, 'Lands'), boltDrag)).toBe(true);
     await stackMoved(fixture, 'Lightning Bolt', '1', 'Sideboard');
     expect(stack(plan, 'Sideboard')).toEqual(['Lightning Bolt']);
     http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/'));

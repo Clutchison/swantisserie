@@ -39,7 +39,7 @@ import {
   stacksOf,
   zenMountain,
   planDropLists,
-  stackDropList,
+  dropListNamed,
   dropped,
   answerPrintingsRequest,
   detailOpener,
@@ -794,7 +794,7 @@ describe('basic lands on the plan tab', () => {
         expect(document.activeElement).toBe(button(plan, 'Move Island to the mainboard')),
       );
 
-      dropped('Forest', stackDropList(fixture, 'Sideboard'), stackDropList(fixture, '6'));
+      dropped('Forest', dropListNamed(fixture, 'Sideboard'), dropListNamed(fixture, '6'));
       await fixture.whenStable();
 
       const dragged = http.expectOne(moveUrl('Forest'));
@@ -849,7 +849,7 @@ describe('basic lands on the plan tab', () => {
 
         const [mainboard, sideboard] =
           mode === 'Stacks'
-            ? [stackDropList(fixture, 'Lands'), stackDropList(fixture, 'Sideboard')]
+            ? [dropListNamed(fixture, 'Lands'), dropListNamed(fixture, 'Sideboard')]
             : planDropLists(fixture);
         dropped('Island', mainboard, sideboard);
         dropped('Island', sideboard, mainboard);

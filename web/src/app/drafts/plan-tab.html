@@ -203,9 +203,7 @@
                   [attr.aria-label]="stack.name"
                   cdkDropList
                   [cdkDropListData]="stack.dropTarget"
-                  [cdkDropListDisabled]="
-                    changing() || !wideStacks() || (deckLocked() && planBoard.name === 'Sideboard')
-                  "
+                  [cdkDropListDisabled]="changing() || !wideStacks() || refusesDrop(planBoard.name)"
                   [cdkDropListEnterPredicate]="enters"
                   cdkDropListSortingDisabled
                   (cdkDropListDropped)="dropped($event)"
@@ -275,8 +273,10 @@
             }
           </div>
         } @else {
+          <!-- Named for screen readers, as each stack's list is. -->
           <ul
             class="lines card-rows"
+            [attr.aria-label]="planBoard.name"
             [class.with-remove]="planBoard.picked < planBoard.count || withBasics(planBoard.lines)"
             [class.capped]="!showingStacks()"
             cdkDropList

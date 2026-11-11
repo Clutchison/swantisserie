@@ -44,7 +44,7 @@ import {
   stackHeaders,
   stubScrolling,
   planDropLists,
-  stackDropList,
+  dropListNamed,
   dragOf,
   drop,
   dropped,
@@ -195,8 +195,8 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      // The empty sideboard shows as its list, the last drop list.
-      dropped('Lightning Bolt', stackDropList(fixture, '1'), planDropLists(fixture).at(-1)!);
+      // The empty sideboard shows as its list.
+      dropped('Lightning Bolt', dropListNamed(fixture, '1'), dropListNamed(fixture, 'Sideboard'));
       await fixture.whenStable();
       const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
       expect(req.request.method).toBe('PUT');
@@ -210,7 +210,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
-      dropped('Shivan Dragon', stackDropList(fixture, '6'), stackDropList(fixture, '6'));
+      dropped('Shivan Dragon', dropListNamed(fixture, '6'), dropListNamed(fixture, '6'));
       await fixture.whenStable();
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
 
@@ -230,7 +230,7 @@ describe('plan tab', () => {
         plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
-      const boltDrag = dragOf(stackDropList(fixture, '1'), 'Lightning Bolt');
+      const boltDrag = dragOf(dropListNamed(fixture, '1'), 'Lightning Bolt');
 
       // Bolt is lost while it is being dragged.
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
@@ -238,7 +238,7 @@ describe('plan tab', () => {
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(planOf({ mainboard: [], sideboard: [planned(shivan)] }));
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      drop(boltDrag, stackDropList(fixture, 'Sideboard'));
+      drop(boltDrag, dropListNamed(fixture, 'Sideboard'));
       await fixture.whenStable();
 
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');
