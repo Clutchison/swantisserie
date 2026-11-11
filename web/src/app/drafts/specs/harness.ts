@@ -146,7 +146,7 @@ export function powersAnswer(powers: DraftPowersView | null) {
 export function useDraftsApp() {
   beforeEach(() => {
     // Spec files share one environment, so a choice saved by an earlier file
-    // (such as the Plan tab's List mode) would otherwise carry into this one.
+    // (such as the Deck tab's List mode) would otherwise carry into this one.
     localStorage.clear();
     decodes = new Map();
     registeredWebhooks = [];

@@ -31,6 +31,7 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -175,7 +176,7 @@ export class DraftStore implements TournamentViewer {
   private readonly poolResource = httpResource<PoolCardView[]>(() =>
     this.poolReady() ? `/api/drafts/${this.id()}/pool` : undefined,
   );
-  /** The pool's cards, which the Pool, Queue and Plan tabs and the Card previews share. */
+  /** The pool's cards, which the Pool, Queue and Deck tabs and the Card previews share. */
   readonly pool = keptRead(this.poolResource, []);
   /** The pool's cards by id, for finding the card a name is of. */
   readonly poolCardsById = computed<ReadonlyMap<string, PoolCardView>>(
@@ -249,7 +250,7 @@ export class DraftStore implements TournamentViewer {
   readonly picksLeft = computed(() => {
     const draft = this.draft.value();
     const own = this.ownPlayer();
-    if (!draft || !own || draft.state === 'Complete') return null;
+    if (!draft || !own || this.draftComplete()) return null;
     if (draft.state === 'Lobby') return draft.picksPerPlayer;
     if (!this.picks.loaded()) return null;
     const made = this.picks.value().filter((pick) => pick.playerId === own.id).length;
@@ -282,14 +283,10 @@ export class DraftStore implements TournamentViewer {
   });
   /** The signed-in player's plan. */
   readonly plan = keptRead(this.planResource, EMPTY_PLAN);
-  /**
-   * What the page calls the signed-in player's plan: their "deck" once the
-   * draft is complete, which took its unpicked cards out, and their "plan"
-   * before then and while it is closed.
-   */
-  readonly planName = computed(() =>
+  /** Whether the draft is complete, which took the unpicked cards out of every plan. */
+  readonly draftComplete = computed(
     // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
-    this.draft.value()?.state === 'Complete' ? ('deck' as const) : ('plan' as const),
+    () => this.draft.value()?.state === 'Complete',
   );
   /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
   readonly planned = computed(() => {
@@ -297,6 +294,43 @@ export class DraftStore implements TournamentViewer {
     return new Set(
       [...mainboard, ...sideboard].filter((card) => !card.picked).map((card) => card.poolCardId),
     );
+  });
+
+  /**
+   * What the signed-in player's exports are made of: their plan without its
+   * unpicked cards, each plan board's picks in pick order. A pick the plan
+   * doesn't have yet is on the mainboard, where every pick lands.
+   */
+  readonly exportPlan = computed<ExportPlan<PoolCardView>>(() => {
+    const { sideboard, basics } = this.plan.value();
+    const onSideboard = new Set(sideboard.map((card) => card.poolCardId));
+    const plan: ExportPlan<PoolCardView> = { mainboard: [], sideboard: [], basics };
+    // Stryker disable next-line OptionalChaining: a viewer who isn't a player has no Deck tab to export from.
+    const own = this.ownPlayer()?.id;
+    for (const { playerId, poolCardId, card } of this.pickLog.value()) {
+      if (playerId !== own) continue;
+      (onSideboard.has(poolCardId) ? plan.sideboard : plan.mainboard).push(card);
+    }
+    return plan;
+  });
+  /** Whether the picks, the pool that names them and the plan, which `exportPlan` is made of, have all loaded. */
+  readonly exportPlanLoaded = computed(
+    () =>
+      !this.pickLog.loading() &&
+      !this.pickLog.missing() &&
+      !this.plan.loading() &&
+      !this.plan.missing(),
+  );
+  /**
+   * When the exported sideboard holds more cards, its basics included, than
+   * Arena's import may keep: how many it holds, and how many Arena keeps;
+   * otherwise null.
+   */
+  readonly sideboardOverArenaCap = computed(() => {
+    const count = planBoardCount(this.exportPlan(), 'Sideboard');
+    return this.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP
+      ? { count, cap: ARENA_SIDEBOARD_CAP }
+      : null;
   });
 
   /**
@@ -341,7 +375,7 @@ export class DraftStore implements TournamentViewer {
    */
   readonly showQueueTab = computed(() => {
     const draft = this.draft.value();
-    return draft ? draft.state !== 'Complete' : undefined;
+    return draft ? !this.draftComplete() : undefined;
   });
   /**
    * Whether the Play tab is shown: only for a complete draft, and
@@ -352,7 +386,7 @@ export class DraftStore implements TournamentViewer {
   readonly showPlayTab = computed(() => {
     const draft = this.draft.value();
     if (!draft) return undefined;
-    if (draft.state !== 'Complete') return false;
+    if (!this.draftComplete()) return false;
     if (draft.tournament) return true;
     return this.powersKnown() ? this.canOrganize() : undefined;
   });

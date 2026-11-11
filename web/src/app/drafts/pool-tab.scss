@@ -1,6 +1,6 @@
 @use './card-shape';
 
-/* How far a card is darkened to set it apart: a picked card here, an unpicked one in the Plan tab's stacks. */
+/* How far a card is darkened to set it apart: a picked card here, an unpicked one in the Deck tab's stacks. */
 $dimmed-card: brightness(0.35);
 
 /* Sits inside the draft page, which has the padding. */

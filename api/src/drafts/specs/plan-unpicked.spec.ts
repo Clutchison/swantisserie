@@ -71,7 +71,7 @@ describe('unpicked cards in a plan', () => {
     const refused = await addToPlan(id, second, carolCookie).expect(409);
     expect(refused.body).toEqual({
       error: 'no-copies-left',
-      message: 'Every available copy of that card is in your plan already.',
+      message: 'Every available copy of that card is in your deck already.',
     });
     // Picks and unpicked cards sort together.
     await pick(id, ids.Shock, carolCookie).expect(200);
@@ -108,7 +108,7 @@ describe('unpicked cards in a plan', () => {
 
     expect(refused.body).toEqual({
       error: 'no-copies-left',
-      message: 'Every available copy of that card is in your plan already.',
+      message: 'Every available copy of that card is in your deck already.',
     });
   });
 
@@ -205,7 +205,7 @@ describe('unpicked cards in a plan', () => {
     });
   });
 
-  it('loses a planned card when no copy is left, naming it and who picked it on the Plan notice until dismissed, and an undo puts it back', async () => {
+  it('loses a planned card when no copy is left, naming it and who picked it on the Deck notice until dismissed, and an undo puts it back', async () => {
     const { id, ids, first, second } = await readyDraftWithCopies(
       [aliceCookie, carolCookie],
       3,
@@ -445,7 +445,7 @@ describe('unpicked cards in a plan', () => {
       error: 'draft-complete',
       message: 'This draft is complete.',
     });
-    // Completing the draft took the unpicked cards out; the Plan notice of Alice's pick of the first copy stays.
+    // Completing the draft took the unpicked cards out; the Deck notice of Alice's pick of the first copy stays.
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
         { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },

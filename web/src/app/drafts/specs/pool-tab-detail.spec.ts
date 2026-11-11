@@ -117,7 +117,7 @@ describe('pool tab', () => {
     );
   });
 
-  it('offers Close, Flip, the Plan and queue buttons, then Pick, on the player’s turn', async () => {
+  it('offers Close, Flip, the deck and queue buttons, then Pick, on the player’s turn', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
@@ -133,7 +133,7 @@ describe('pool tab', () => {
     expect(buttonOrder(detail, 'Pick')).toEqual([
       'Close',
       'Flip',
-      'Remove from Plan',
+      'Remove from Deck',
       'Remove from queue',
       'Pick',
     ]);

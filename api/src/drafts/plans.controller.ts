@@ -72,7 +72,7 @@ export class PlansController {
     return this.change(user, id, () => this.plans.add(id, user.id, poolCardId));
   }
 
-  /** Stops the Plan notice listing the lost cards. */
+  /** Stops the Deck notice listing the lost cards. */
   @Delete('notice')
   async dismissNotice(
     @CurrentUser() user: SessionUser,

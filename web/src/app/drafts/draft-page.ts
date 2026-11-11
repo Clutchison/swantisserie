@@ -23,7 +23,6 @@ import { ListsTab } from './lists-tab';
 import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
 import { setListText } from './drafts';
-import { ExportTab } from './export-tab';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { LobbyControls } from './lobby-controls';
@@ -37,17 +36,16 @@ import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Plan', 'Board', 'Lists', 'Play', 'Export'] as const;
+const PANELS = ['Pool', 'Queue', 'Deck', 'Board', 'Lists', 'Play'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
-const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
+const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
 
 @Component({
   selector: 'app-draft-page',
   imports: [
     BoardTab,
     ListsTab,
-    ExportTab,
     LoadingAnimation,
     LobbyControls,
     LucideChevronLeft,
@@ -83,7 +81,7 @@ export class DraftPage {
   protected readonly setListText = setListText;
 
   private readonly lobbyControls = viewChild(LobbyControls);
-  private readonly exportTab = viewChild(ExportTab);
+  private readonly planTab = viewChild(PlanTab);
 
   protected readonly draft = this.store.draft.value;
   protected readonly loading = this.store.draft.loading;
@@ -102,8 +100,6 @@ export class DraftPage {
   /** Whether the queue or plan couldn't be loaded. A failed re-read keeps the last one loaded. */
   protected readonly queueFailed = this.store.queue.missing;
   protected readonly planFailed = this.store.plan.missing;
-  /** "plan", or "deck" once the draft is complete. */
-  protected readonly planName = this.store.planName;
   /**
    * Whether the Play tab is there: only once the draft is complete,
    * and before setup only for organizers.
@@ -123,7 +119,7 @@ export class DraftPage {
   /** Whether the Queue tab is there: until the draft is complete. */
   protected readonly showQueueTab = computed(() => !!this.store.showQueueTab());
 
-  /** The viewer's picks left, shown beside the Pool, Queue and Plan headings while not null. */
+  /** The viewer's picks left, shown beside the Pool, Queue and Deck headings while not null. */
   protected readonly picksLeft = this.store.picksLeft;
   /** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
   protected readonly highlightPicksLeftAt = 10;
@@ -140,8 +136,8 @@ export class DraftPage {
   };
 
   /**
-   * The tab selected, kept in the URL. Only players have the Queue, Plan and
-   * Export tabs: one of them selected goes back to Pool as the viewer stops
+   * The tab selected, kept in the URL. Only players have the Queue and Deck
+   * tabs: one of them selected goes back to Pool as the viewer stops
    * being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
@@ -196,10 +192,10 @@ export class DraftPage {
       const draft = this.draft();
       this.title.setTitle(draft?.id === this.store.id() ? draft.name : appTitle);
     });
-    // Opening or closing the Export tab forgets any copy.
+    // Opening or closing the Deck tab forgets any copy.
     effect(() => {
       this.selectedTab();
-      untracked(() => this.exportTab()?.clearCopy());
+      untracked(() => this.planTab()?.clearCopy());
     });
     // Everyone viewing sees each change as it happens. Every connect
     // catches up, the first too: a change made after the page's first read

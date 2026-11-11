@@ -103,7 +103,7 @@ describe('basic lands in a plan', () => {
     const refused = await addBasic(id, 'Island', carolCookie).expect(409);
     expect(refused.body).toEqual({
       error: 'most-basics',
-      message: 'Your plan already holds 99 copies of Island.',
+      message: 'Your deck already holds 99 copies of Island.',
     });
     await addBasic(id, 'Forest', carolCookie).expect(409);
     await addBasic(id, 'Plains', carolCookie).expect(200);

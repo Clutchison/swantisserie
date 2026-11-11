@@ -9,6 +9,7 @@ import {
   inject,
   Injector,
   inputBinding,
+  linkedSignal,
   signal,
   untracked,
   viewChild,
@@ -35,12 +36,18 @@ import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { NORMAL_IMAGE } from './card-sizes';
-import { changeFailure, DESKTOP_QUERY, matching, WIDE_STACKS_QUERY } from './drafts';
+import {
+  changeFailure,
+  DESKTOP_QUERY,
+  matching,
+  PLAN_CHANGE_FAILED,
+  WIDE_STACKS_QUERY,
+} from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
+import { ExportButtons } from './export-buttons';
 import { PlanApi } from './plan-api';
-import { planChangeFailed } from './plan-change-failed';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -50,7 +57,15 @@ import {
   type QueueUnpickedResult,
   unpickedToQueue,
 } from './queue-unpicked-dialog';
-import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
+import {
+  gaps,
+  type Grouping,
+  type Stack,
+  type StackMove,
+  sideboardStack,
+  stacks,
+} from './plan-stacks';
+import { stackMovesOf } from './stack-moves';
 import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -87,6 +102,12 @@ interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
+/** Where a dragged card is dropped: a plan board, and on a mainboard stack or in a gap between, the stack move into it. */
+interface DropTarget {
+  planBoard: PlanBoard;
+  into?: StackMove;
+}
+
 /** What a move acts on: a line's first copy, a stacked card, or a card from its Card detail. */
 type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name' | 'basic'> | PlanLine;
 
@@ -105,18 +126,14 @@ interface PlanLine extends PlanBoardCard {
 }
 
 /**
- * How each plan board shows: how stacks mode stacks its cards and whether it
- * names each stack, the plan board its cards move to, as the button names
- * it, and what an empty one says.
+ * How each plan board shows: whether stacks mode names each stack, the plan
+ * board its cards move to, as the button names it, and what an empty one
+ * says. Stacks mode stacks the mainboard by the grouping, the sideboard as
+ * one stack.
  */
 const PLAN_BOARD_DISPLAY: Record<
   PlanBoard,
   {
-    stack: (
-      cards: PlanBoardCard[],
-      grouping: Grouping,
-      cardsById: ReadonlyMap<string, PoolCardView>,
-    ) => Stack<PlanBoardCard>[];
     /** Whether it's stacked as one stack, which its heading names, its stack header set apart from the others. */
     oneStack?: boolean;
     other: PlanBoard;
@@ -125,14 +142,10 @@ const PLAN_BOARD_DISPLAY: Record<
   }
 > = {
   Mainboard: {
-    stack: stacks,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
   Sideboard: {
-    // One stack, whatever the grouping, which the plan board heading names.
-    // The template shows stacks only for a plan board with cards.
-    stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
     oneStack: true,
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
@@ -147,17 +160,18 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 ];
 
 /**
- * The draft view's Plan tab: the signed-in player's plan, as its mainboard
+ * The draft view's Deck tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
  * the unpicked cards they added; each card's Card detail, to pick, queue or
  * remove it from, or a basic land's Printing picker, which opens on a
  * locked deck too; the buttons that open the Queue unpicked
- * and Basic lands dialogs; and the Plan notice of their lost cards.
+ * and Basic lands dialogs; and the Deck notice of their lost cards.
  *
  * Each plan board shows as stacks of card images, grouped by mana value,
  * color or card type, or as a list of names. Where there's room for the wide
  * stacks layout, the sideboard's stack sits beside the mainboard's and a card
- * can be dragged onto the other plan board; narrower, the plan boards are
+ * can be dragged onto the other plan board, or onto another mainboard stack
+ * as a stack move (see `stack-moves.ts`); narrower, the plan boards are
  * one strip that scrolls sideways, the mainboard's stacks then the
  * sideboard's, and a card moves from its Card detail. Above the strip, the
  * stack headers stick to the top of the screen, mark the stack the player
@@ -176,6 +190,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     CdkDrag,
     CdkDropList,
     CdkDropListGroup,
+    ExportButtons,
     LoadingAnimation,
     LucideMinus,
     LucidePlus,
@@ -212,8 +227,8 @@ export class PlanTab {
   protected readonly plan = this.store.plan.value;
   /** The pool's cards by id, for the Card previews of the names here. */
   private readonly poolCardsById = this.store.poolCardsById;
-  /** "plan", or "deck" once the draft is complete. */
-  protected readonly planName = this.store.planName;
+  /** Whether the draft is complete, so the plan holds no unpicked cards. */
+  protected readonly draftComplete = this.store.draftComplete;
   /** Whether the deck is locked, as its player's tournament is playing: then it offers no edits. */
   protected readonly deckLocked = this.store.deckLocked;
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
@@ -246,6 +261,10 @@ export class PlanTab {
   protected readonly dragStartDelay = { touch: 200, mouse: 0 };
   /** Whether the plan boards show as stacks: the chosen mode. */
   protected readonly showingStacks = computed(() => this.mode() === 'stacks');
+  /** The mainboard's cards, a basic land's copies included. */
+  private readonly mainboardCards = computed(() => heldOn(this.plan(), 'Mainboard'));
+  /** The player's stack moves: shown only in the wide stacks layout, kept while the window is narrow. */
+  private readonly stackMoves = stackMovesOf(this.grouping, this.plan, this.mainboardCards);
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
@@ -259,14 +278,53 @@ export class PlanTab {
   });
 
   /**
+   * The mainboard's stacks in stacks mode, by the grouping, with the stack
+   * moves in the wide layout; and the order of those the player last saw
+   * with them, which places a player-made stack whose stack it was made
+   * after has gone.
+   */
+  private readonly mainboardStacks = linkedSignal({
+    source: () => ({
+      showing: this.showingStacks(),
+      wide: this.wideStacks(),
+      cards: this.mainboardCards(),
+      grouping: this.grouping(),
+      cardsById: this.cardsById(),
+      // Read in any mode, so a card that leaves the mainboard loses its stack move then.
+      moves: this.stackMoves.moves(),
+    }),
+    computation: (
+      { showing, wide, cards, grouping, cardsById, moves },
+      previous?: { value: { lastSeen: readonly string[] } },
+    ): { stacks: Stack<PlanBoardCard>[]; lastSeen: readonly string[] } => {
+      const lastSeen = previous?.value.lastSeen ?? [];
+      // Stryker disable next-line ArrayDeclaration: stacks, and the gaps around them, are only read in stacks mode.
+      if (!showing) return { stacks: [], lastSeen };
+      const shown = stacks(cards, grouping, cardsById, wide ? { moves, lastSeen } : {});
+      return { stacks: shown, lastSeen: wide ? shown.map((stack) => stack.key) : lastSeen };
+    },
+  });
+  /** The sideboard's one stack in stacks mode, whatever the grouping, which its heading names. */
+  private readonly sideboardStacks = computed(() =>
+    this.showingStacks()
+      ? [sideboardStack(heldOn(this.plan(), 'Sideboard'), this.cardsById())]
+      : // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
+        [],
+  );
+
+  /**
    * The mainboard, then the sideboard, each as its lines and counts, and its
    * stacks when showing them: the mainboard's by the grouping, the sideboard's
    * always one.
    */
-  protected readonly planBoards = computed(() =>
-    PLAN_BOARDS.map((planBoard) => {
-      const { stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
+  protected readonly planBoards = computed(() => {
+    const wide = this.wideStacks();
+    return PLAN_BOARDS.map((planBoard) => {
+      const rest = PLAN_BOARD_DISPLAY[planBoard];
       const held = heldOn(this.plan(), planBoard);
+      const dropTarget = (into?: StackMove): DropTarget => ({ planBoard, into });
+      const shown =
+        planBoard === 'Mainboard' ? this.mainboardStacks().stacks : this.sideboardStacks();
       return {
         name: planBoard,
         ...rest,
@@ -275,11 +333,19 @@ export class PlanTab {
         count: held.length,
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
-        // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
-        stacks: this.showingStacks() ? stack(held, this.grouping(), this.cardsById()) : [],
+        dropTarget: dropTarget(),
+        stacks: shown.map((each) => ({ ...each, dropTarget: dropTarget(each.move) })),
+        /** In the wide layout, the mainboard's gaps around and between its stacks, where a drop makes a new stack. */
+        gaps:
+          wide && !rest.oneStack
+            ? gaps(shown, this.stackMoves.nextId()).map(({ name, into }) => ({
+                name,
+                dropTarget: dropTarget(into),
+              }))
+            : [],
       };
-    }),
-  );
+    });
+  });
   /** Each plan board's stacks, in stacks mode: in the wide layout, each scrolls sideways past what fits. */
   private readonly planBoardStacks = viewChildren<ElementRef<HTMLElement>>('planBoardStacks');
   /** The plan boards' row: the strip, where there's no room for the wide layout. */
@@ -348,6 +414,9 @@ export class PlanTab {
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
+  /** How many cards the exported sideboard holds, and Arena keeps, when Arena's import may cut it short. */
+  protected readonly sideboardOverArenaCap = this.store.sideboardOverArenaCap;
+  private readonly exportButtons = viewChild.required(ExportButtons);
 
   /** The mainboard size below which a deck change clears ready, which the Ready notice names. */
   protected readonly minimumMainboard = MIN_MAINBOARD_CARDS;
@@ -412,21 +481,41 @@ export class PlanTab {
   }
 
   /**
-   * A card dropped on a plan board: it moves there, unless that's the plan
-   * board it came from or the deck is locked. It's found by id, as the plan may have been re-read
-   * since the drag began; if it has left the plan, the drop does nothing.
+   * Whether a drop list refuses a dragged card, and offers none to drag: on
+   * a locked deck, any but a mainboard stack or gap, as only a stack move is
+   * no deck change.
    */
-  protected dropped({
+  protected refusesDrop({ planBoard, into }: DropTarget) {
+    return this.deckLocked() && (planBoard === 'Sideboard' || !into);
+  }
+
+  /** Whether a drag may enter a drop list: not one that refuses it. */
+  protected readonly enters = (_: CdkDrag, list: CdkDropList<DropTarget>) =>
+    !this.refusesDrop(list.data);
+
+  /**
+   * A card dropped on a plan board: it moves there, unless that's the plan
+   * board it came from or either refuses it. Dropped on a mainboard stack, it
+   * is then a stack move into that stack, or in a gap, into a new stack
+   * there, on a locked deck too. It's found by id, as the plan may have been
+   * re-read since the drag began; if it has left the plan, the drop does
+   * nothing.
+   */
+  protected async dropped({
     item,
     previousContainer,
     container,
-  }: CdkDragDrop<PlanBoard, PlanBoard, string>) {
-    if (this.deckLocked() || previousContainer.data === container.data) return;
-    const card = heldOn(this.plan(), previousContainer.data).find(
-      (held) => held.poolCardId === item.data,
-    );
+  }: CdkDragDrop<DropTarget, DropTarget, string>) {
+    const from = previousContainer.data.planBoard;
+    const { planBoard, into } = container.data;
+    const card = heldOn(this.plan(), from).find((held) => held.poolCardId === item.data);
     if (!card) return;
-    return this.move(card, container.data);
+    let moved: MovedCard | null = card;
+    if (from !== planBoard) {
+      const refused = this.refusesDrop(previousContainer.data) || this.refusesDrop(container.data);
+      moved = refused ? null : await this.move(card, planBoard);
+    }
+    if (moved && into) this.stackMoves.move(moved.poolCardId, into);
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */
@@ -443,31 +532,52 @@ export class PlanTab {
    * Moves one copy of a card, a line's first, one in stacks mode or one in
    * its Card detail, to `planBoard`, and shows the plan as it then is; for
    * a basic land, one of its copies. If the card's line is gone from the
-   * plan board it left, focus follows the card to `planBoard`.
+   * plan board it left, focus follows the card to `planBoard`. Answers the
+   * card as it is there, or null if it didn't move.
    */
-  protected move(card: MovedCard, planBoard: PlanBoard) {
+  protected async move(card: MovedCard, planBoard: PlanBoard): Promise<MovedCard | null> {
     const { basic } = card;
-    return this.tryChange(
+    const after = this.cardAfterMove(card, planBoard);
+    const stays = this.leaving(card, PLAN_BOARD_DISPLAY[planBoard].other);
+    const moved = await this.tryChange(
       () =>
         basic
           ? this.planApi.moveBasic(this.draftId(), basic, planBoard)
           : this.planApi.move(this.draftId(), card.poolCardId, planBoard),
       {
-        keep: [this.moveKey(planBoard, this.focusTarget(card, planBoard))],
+        keep: [this.moveKey(planBoard, after)],
         status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
       },
     );
+    if (!moved) stays();
+    return moved ? after : null;
   }
 
   /**
-   * What focus follows once `card` moves to `planBoard`. A line keeps its key
-   * on either plan board, and a pool card its id, so each is followed as it
-   * is; a stacked basic land's copy changes id as it moves, so focus goes to
-   * the copy the move adds there.
+   * `card` once it has moved to `planBoard`, which focus follows. A line
+   * keeps its key on either plan board, and a pool card its id; a stacked
+   * basic land's copy changes id as it moves, to the copy the move adds
+   * there. Asked before the move, as the copy's id depends on what
+   * `planBoard` holds.
    */
-  private focusTarget(card: MovedCard, planBoard: PlanBoard): MovedCard {
+  private cardAfterMove(card: MovedCard, planBoard: PlanBoard): MovedCard {
     const isLine = 'key' in card;
     return card.basic && !isLine ? this.movedCopy(card.basic, planBoard) : card;
+  }
+
+  /**
+   * `card` is leaving `planBoard`: off the mainboard, it loses its stack
+   * move, a basic land's copy among its land's copies. Answers how to undo
+   * that, should it stay.
+   */
+  private leaving(card: MovedCard, planBoard: PlanBoard): () => void {
+    if (planBoard !== 'Mainboard') return () => undefined;
+    const copies = card.basic
+      ? heldOn(this.plan(), 'Mainboard')
+          .filter((held) => held.basic === card.basic)
+          .map((held) => held.poolCardId)
+      : undefined;
+    return this.stackMoves.leave(card.poolCardId, copies);
   }
 
   /** The copy of `land` a move puts on `planBoard`: after those it holds already. */
@@ -501,7 +611,7 @@ export class PlanTab {
    */
   protected openStacked(card: PlanBoardCard, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (card.basic) return this.openPicker(card.basic, planBoard);
+    if (card.basic) return this.openPicker(card, card.basic, planBoard);
     const poolCard = this.poolCardsById().get(card.poolCardId);
     this.openDetail(
       card.poolCardId,
@@ -519,14 +629,14 @@ export class PlanTab {
    */
   protected openLine(line: PlanLine, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (line.basic) return this.openPicker(line.basic, planBoard);
+    if (line.basic) return this.openPicker(line, line.basic, planBoard);
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
   }
 
   /**
    * Opens a pool card's Card detail, in place of any other. It offers what
-   * the Pool tab's does, but never Add to Plan, and its queue actions only
+   * the Pool tab's does, but never Add to Deck, and its queue actions only
    * while the card is unpicked in the plan; and Move, unless the deck is
    * locked, which moves the card as this tab's move buttons do. It stays
    * open once the card is picked, by the player or another, and closes once
@@ -543,7 +653,7 @@ export class PlanTab {
         pick: this.store.offerPick(),
         queue: this.store.offerQueue() && this.store.planned().has(poolCardId),
         addToPlan: false,
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Plan is offered only for an unpicked card.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Deck is offered only for an unpicked card.
         removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
       })),
       tilePlaceholder,
@@ -563,18 +673,24 @@ export class PlanTab {
   }
 
   /**
-   * Opens the Printing picker of a basic land's copy on `planBoard`, in any
-   * draft state and on a locked deck too, where it changes only how the land
-   * looks; elsewhere it can take the copy out. Focus returns to what opened
+   * Opens the Printing picker of `card`, a copy of the basic land `land` on
+   * `planBoard`, in any draft state and on a locked deck too, where it
+   * changes only how the land looks; elsewhere it can take the copy out,
+   * which leaves the mainboard as a Remove button's does. Focus returns to what opened
    * it or, should Remove have taken that away, to the next card or line that
    * opens a dialog, or else the one before.
    */
-  private openPicker(land: BasicLand, planBoard: PlanBoard) {
+  private openPicker(card: MovedCard, land: BasicLand, planBoard: PlanBoard) {
     const openers = [...this.host.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')];
+    const removing = () => this.leaving(card, planBoard);
     this.dialogs.open(PrintingPicker, {
       labelledBy: PRINTING_PICKER_HEADING,
       injector: this.injector,
-      bindings: [inputBinding('land', () => land), inputBinding('planBoard', () => planBoard)],
+      bindings: [
+        inputBinding('land', () => land),
+        inputBinding('planBoard', () => planBoard),
+        inputBinding('removing', () => removing),
+      ],
       returnFocus: (opener) => {
         if (!opener || opener.isConnected) return opener;
         const at = openers.indexOf(opener);
@@ -599,18 +715,26 @@ export class PlanTab {
    * Takes one copy of a line out of the plan: an unpicked card's, or a basic
    * land's off `planBoard`. Should its line go, focus goes to the next.
    */
-  protected removeLine(line: PlanLine, planBoard: PlanBoard) {
+  protected async removeLine(line: PlanLine, planBoard: PlanBoard) {
     const { basic, poolCardId } = line;
-    return this.tryChange(() =>
+    const stays = this.leaving(line, planBoard);
+    const removed = await this.tryChange(() =>
       basic
         ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
         : this.planApi.remove(this.draftId(), poolCardId),
     );
+    if (!removed) stays();
+    return removed;
   }
 
   /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
   protected withBasics(lines: PlanLine[]) {
     return lines.some((line) => line.basic);
+  }
+
+  /** Forgets how the latest copy of the deck went, as the tab opens or closes. */
+  clearCopy() {
+    this.exportButtons().clearCopy();
   }
 
   /** Stops the notice listing the lost cards. */
@@ -657,7 +781,7 @@ export class PlanTab {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, PLAN_CHANGE_FAILED));
         return false;
       }
     }, kept);

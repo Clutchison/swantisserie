@@ -23,7 +23,7 @@ export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
 }
 
 /**
- * The Plan tab's Queue unpicked dialog, opened on the dialog shell: it adds
+ * The Deck tab's Queue unpicked dialog, opened on the dialog shell: it adds
  * the plan's unpicked cards the queue doesn't hold to the end of the queue,
  * the mainboard's and, if the player includes it, the sideboard's. It
  * opens on Cancel, with the sideboard left out, and closes once it has

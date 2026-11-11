@@ -1,6 +1,6 @@
 # Players see one deck from the draft's start, and the code keeps calling it a plan
 
-Status: Proposed
+Status: Accepted
 
 Amends 0002. ADR 0002 named a player's private mainboard and sideboard a **plan**, which became a **deck** once the draft completed, on a Plan tab that became the Deck tab. Players saw the word change mid-draft, for the same thing on the same tab. Now the domain has one term, [Deck](../../GLOSSARY.md), from the draft's start, and the tab is always the Deck tab.
 

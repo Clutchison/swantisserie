@@ -20,7 +20,7 @@ import {
 } from './harness.js';
 
 describeRaces('plan changes against a cascade', () => {
-  it('adds a card the cascade then takes out of the plan, listing it on the Plan notice, or is refused once it is picked', async () => {
+  it('adds a card the cascade then takes out of the plan, listing it on the Deck notice, or is refused once it is picked', async () => {
     // Carol neither picks nor is picked for, so only the locks order her
     // change against the cascade.
     const carolCookie = await signIn(carol);

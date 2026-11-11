@@ -660,7 +660,7 @@ export function removeFromPlan(id: string, poolCardId: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/${poolCardId}`, cookie);
 }
 
-/** Dismisses the player's Plan notice. */
+/** Dismisses the player's Deck notice. */
 export function dismissPlanNotice(id: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/notice`, cookie);
 }

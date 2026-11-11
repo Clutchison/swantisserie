@@ -15,7 +15,7 @@ import {
   cardName,
   startDrag,
 } from './harness';
-import { planOf, planned } from './plan-tab-harness';
+import { planOf, planned, openPlan } from './plan-tab-harness';
 import { image, openDetail } from './pool-tab-harness';
 import { openDialog, pressEscape, pressKey } from '../../specs-harness';
 import {
@@ -156,17 +156,6 @@ describe('card previews', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens on names tabbed to on the Export tab', async () => {
-      const { fixture, page } = await openBoard();
-      tabButton(page, 'Export').click();
-      vi.useRealTimers();
-      await fixture.whenStable();
-
-      tabTo(ownTabStop(panel(page), 'Lightning Bolt')!);
-
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-    });
-
     it('opens on names tabbed to on the Queue tab, but not while a drag is under way', async () => {
       const opened = await openPicked({
         queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
@@ -185,7 +174,7 @@ describe('card previews', () => {
       expect(previewImage()).toBeNull();
     });
 
-    it('opens on list mode names, which are buttons there, tabbed to on the Plan tab', async () => {
+    it('opens on list mode names, which are buttons there, tabbed to on the Deck tab', async () => {
       const { page, fixture } = await openPicked({
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
@@ -196,18 +185,16 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(page, 'Plan').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
 
       tabTo(button(panel(page), 'Lightning Bolt')!);
 
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
-    it('opens on names tabbed to on the Plan tab, but not while a drag is under way', async () => {
+    it('opens on names tabbed to on the Deck tab, but not while a drag is under way', async () => {
       const { page, fixture } = await openPicked({ plan: planOf({ mainboard: [planned(bolt)] }) });
-      tabButton(page, 'Plan').click();
-      await fixture.whenStable();
+      await openPlan(fixture, page);
       const name = button(panel(page), 'Lightning Bolt')!;
 
       startDrag(fixture, name);
@@ -229,8 +216,7 @@ describe('card previews', () => {
             preferredPrintings: {},
           },
         });
-        tabButton(page, 'Plan').click();
-        await fixture.whenStable();
+        await openPlan(fixture, page);
 
         expect(panel(page).querySelector('img[alt="Lightning Bolt"]')).not.toBeNull();
         expect(ownTabStop(panel(page), 'Lightning Bolt')).toBeUndefined();

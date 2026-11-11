@@ -3,6 +3,7 @@ import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
+import type { ExportTarget } from '../export-buttons';
 import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
   accessibleName,
@@ -14,7 +15,7 @@ import {
   image,
   namedList,
   openTab,
-  tabButton,
+  tabPanel,
   text,
   type AppFixture,
   type NamedPoolCard,
@@ -54,9 +55,23 @@ export const readyNotice = (root: HTMLElement) =>
     text(status).startsWith('You’re no longer ready'),
   );
 
-/** Opens the Plan tab, called Deck once the draft is complete, and returns its panel. */
-export const openPlan = (fixture: AppFixture, page: HTMLElement) =>
-  openTab(fixture, page, tabButton(page, 'Deck') ? 'Deck' : 'Plan');
+/** The Deck tab's panel, even while it's hidden behind another tab. */
+export const planPanel = (page: HTMLElement) => tabPanel(page, 'Deck');
+
+/** Arena's sideboard-cap notice on the Deck tab: the status saying Arena may keep only 15; undefined if none shows. */
+export const sideboardNotice = (page: HTMLElement) =>
+  [...planPanel(page).querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
+    text(status).startsWith('Your sideboard has'),
+  );
+
+/** A copy button on the Deck tab, by the export it copies, whether it shows its label or its confirmation. */
+export const copyButton = (page: HTMLElement, target: ExportTarget = 'Arena') =>
+  [...planPanel(page).querySelectorAll('button')].find((candidate) =>
+    candidate.textContent?.includes(`Copy for ${target}`),
+  );
+
+/** Opens the Deck tab and returns its panel. */
+export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');
 
 /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
 export function planBoards(plan: HTMLElement) {
@@ -86,7 +101,7 @@ export const stack = (root: HTMLElement, name: string) => stackedCards(namedList
 /** Each plan board's stacks as `name: card, card`, by the names a screen reader gives them. */
 export const stacksOf = (plan: HTMLElement) =>
   [...plan.querySelectorAll('section')].map((planBoard) =>
-    [...planBoard.querySelectorAll('ul[aria-label]')].map(
+    [...planBoard.querySelectorAll('[role="group"] ul[aria-label]')].map(
       (list) => `${list.getAttribute('aria-label')}: ${stackedCards(list).join(', ')}`,
     ),
   );
@@ -298,22 +313,38 @@ export async function useOnsPrinting(land: string) {
 }
 
 /**
- * The Plan tab's drop lists, the mainboard's then the sideboard's, which a
- * dragged card lands in. The Queue tab has one of its own.
+ * The Deck tab's drop lists, which a dragged card lands in: in list mode, or
+ * for an empty plan board, the mainboard's then the sideboard's; in stacks
+ * mode, one per stack, as `dropListNamed` finds them. The Queue tab has one
+ * of its own.
  */
 export const planDropLists = (fixture: AppFixture) =>
   fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
 
-/** The drag of the first card named `name` on the plan board `from`, by its card image or its line. */
-export const dragOf = (from: DebugElement, name: string) =>
+/**
+ * The Deck tab's drop list named `name`, as a screen reader names it: in
+ * stacks mode a stack's, one of the mainboard's or Sideboard; else a plan
+ * board's list, Mainboard or Sideboard.
+ */
+export const dropListNamed = (fixture: AppFixture, name: string) =>
+  planDropLists(fixture).find((list) => list.nativeElement.getAttribute('aria-label') === name)!;
+
+/** The drag of the card named `name` in the drop list `from`, by its card image or its line: the first such card, or the `nth` from 0. */
+export const dragOf = (from: DebugElement, name: string, nth = 0) =>
   from
     .queryAll(By.directive(CdkDrag))
-    .find((drag) =>
+    .filter((drag) =>
       [drag.nativeElement.querySelector('img')?.alt, drag.nativeElement.textContent].some((text) =>
         text?.includes(name),
       ),
-    )!
-    .injector.get(CdkDrag);
+    )
+    [nth].injector.get(CdkDrag);
+
+/** Whether the drop list `onto` lets the drag `item` in, as the CDK asks it while a drag passes over (jsdom can't drag). */
+export function acceptsDrop(onto: DebugElement, item: CdkDrag) {
+  const list = onto.injector.get(CdkDropList);
+  return list.enterPredicate(item, list);
+}
 
 /** Ends the drag `item` on the plan board `onto`, as the CDK does, from the plan board it began on. */
 export function drop(item: CdkDrag, onto: DebugElement) {

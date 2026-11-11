@@ -57,14 +57,22 @@
     </button>
   </div>
 }
+@if (sideboardOverArenaCap(); as over) {
+  <div class="notice" role="status">
+    <p>
+      Your sideboard has {{ over.count }} cards. Arena's import may keep only {{ over.cap }} of
+      them, though your export has them all.
+    </p>
+  </div>
+}
 <p class="detail">
   @if (deckLocked()) {
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.
-  } @else if (planName() === 'deck') {
+  } @else if (draftComplete()) {
     Your deck holds your picks and basic lands. Only you can see your deck.
   } @else {
     Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
-    and no other copy is available. Only you can see your plan.
+    and no other copy is available. Only you can see your deck.
   }
 </p>
 <app-deck-lock-reminder />
@@ -80,7 +88,7 @@
     </button>
   </div>
 }
-<!-- Stacks or list, and how the stacks group; then the Add basics button. -->
+<!-- Stacks or list, and how the stacks group; then the Add basics button and the copy buttons. -->
 <div class="mode-controls">
   <div class="segmented" role="group" aria-label="Mode">
     <button
@@ -119,8 +127,9 @@
       Add basics
     </button>
   }
+  <app-export-buttons />
 </div>
-<!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
+<!-- A card dragged onto the other plan board moves there: in the wide stacks layout, or the list on desktop. In the wide stacks layout, one dragged onto another mainboard stack is a stack move into it. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
   class="plan-boards-area"
   [class.stacks-mode]="showingStacks()"
@@ -173,7 +182,7 @@
     class="plan-boards"
     [class.mainboard-stacked]="mainboardStacked()"
     [attr.role]="showingStrip() ? 'group' : null"
-    [attr.aria-label]="showingStrip() ? 'Plan stacks' : null"
+    [attr.aria-label]="showingStrip() ? 'Deck stacks' : null"
     cdkDropListGroup
   >
     @for (planBoard of planBoards(); track planBoard.name) {
@@ -181,29 +190,53 @@
         <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
         <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
         @if (showingStacks() && planBoard.count > 0) {
+          <!-- A gap between stacks, or before the first or after the last, in the wide layout: a card dropped there makes a new stack of the player's own. A line marks it while a drag is over it. A separator, as a screen reader may name one. -->
+          <ng-template #stackGap let-gap>
+            <div
+              class="stack-gap"
+              role="separator"
+              aria-orientation="vertical"
+              [attr.aria-label]="gap.name"
+              cdkDropList
+              [cdkDropListData]="gap.dropTarget"
+              [cdkDropListDisabled]="changing()"
+              [cdkDropListEnterPredicate]="enters"
+              cdkDropListSortingDisabled
+              (cdkDropListDropped)="dropped($event)"
+            ></div>
+          </ng-template>
           <!-- Named as a group for screen readers. The strip offers no drag, so a swipe always scrolls: the CDK can't turn drag off for touch alone, so a mouse can't drag there either, as a window that narrow offered no stacks, nor drag, before. -->
           <div
             #planBoardStacks
             class="stacks"
             role="group"
             [attr.aria-label]="planBoard.name + ' stacks'"
-            cdkDropList
-            [cdkDropListData]="planBoard.name"
-            [cdkDropListDisabled]="changing() || !wideStacks() || deckLocked()"
-            cdkDropListSortingDisabled
-            (cdkDropListDropped)="dropped($event)"
           >
-            @for (stack of planBoard.stacks; track stack.name) {
+            @for (stack of planBoard.stacks; track stack.key; let at = $index) {
+              @if (planBoard.gaps[at]; as gap) {
+                <ng-container *ngTemplateOutlet="stackGap; context: { $implicit: gap }" />
+              }
               <!-- Named for the stack headers, which jump to them and mark the one the player has scrolled to. -->
               <div class="stack" [attr.data-stack]="stack.name">
-                @if (planBoard.namesStacks) {
+                <!-- Not in the wide layout, where a stack's place says what it holds. -->
+                @if (planBoard.namesStacks && !wideStacks()) {
                   <h4>
                     <span class="stack-name">{{ stack.name }}</span>
                     <span class="count">{{ stack.cards.length }}</span>
                   </h4>
                 }
-                <!-- Named for screen readers, as the sideboard's stack has no header. -->
-                <ul [attr.aria-label]="stack.name">
+                <!-- Named for screen readers, as the sideboard's stack has no header. A card dropped on a mainboard stack is a stack move into it, a locked deck's too; on the sideboard, a move there, which a locked deck refuses. -->
+                <ul
+                  [attr.aria-label]="stack.name"
+                  cdkDropList
+                  [cdkDropListData]="stack.dropTarget"
+                  [cdkDropListDisabled]="
+                    changing() || !wideStacks() || refusesDrop(stack.dropTarget)
+                  "
+                  [cdkDropListEnterPredicate]="enters"
+                  cdkDropListSortingDisabled
+                  (cdkDropListDropped)="dropped($event)"
+                >
                   @for (card of stack.cards; track card.poolCardId) {
                     @let poolCard = cardsById().get(card.poolCardId);
                     @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
@@ -267,15 +300,20 @@
                 </ul>
               </div>
             }
+            @if (planBoard.gaps[planBoard.stacks.length]; as gap) {
+              <ng-container *ngTemplateOutlet="stackGap; context: { $implicit: gap }" />
+            }
           </div>
         } @else {
+          <!-- Named for screen readers, as each stack's list is. -->
           <ul
             class="lines card-rows"
+            [attr.aria-label]="planBoard.name"
             [class.with-remove]="planBoard.picked < planBoard.count || withBasics(planBoard.lines)"
             [class.capped]="!showingStacks()"
             cdkDropList
-            [cdkDropListData]="planBoard.name"
-            [cdkDropListDisabled]="changing() || !onDesktop() || deckLocked()"
+            [cdkDropListData]="planBoard.dropTarget"
+            [cdkDropListDisabled]="changing() || !onDesktop() || refusesDrop(planBoard.dropTarget)"
             cdkDropListSortingDisabled
             (cdkDropListDropped)="dropped($event)"
           >
@@ -317,7 +355,7 @@
                   }
                   <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
                   @if ((line.basic || !line.picked) && offerRemoveFromPlan() && !deckLocked()) {
-                    @let removeName = 'Remove ' + line.name + ' from your plan';
+                    @let removeName = 'Remove ' + line.name + ' from your deck';
                     <button
                       class="button compact quiet line-action"
                       type="button"
@@ -334,9 +372,7 @@
             } @empty {
               <li class="empty">
                 @if (loading()) {
-                  <app-loading-animation size="tab"
-                    >Loading your {{ planName() }}…</app-loading-animation
-                  >
+                  <app-loading-animation size="tab">Loading your deck…</app-loading-animation>
                 } @else {
                   {{ planBoard.empty }}
                 }

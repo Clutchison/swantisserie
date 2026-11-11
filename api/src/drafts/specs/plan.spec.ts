@@ -149,7 +149,7 @@ describe('plan', () => {
 
     expect(refused.body).toEqual({
       error: 'not-in-plan',
-      message: 'That card isn’t in your plan.',
+      message: 'That card isn’t in your deck.',
     });
     await movePlanned(id, 'no-such-card', 'Sideboard', carolCookie).expect(409);
     await movePlanned(id, ids['Lava Spike'], 'Bench', carolCookie).expect(400);
@@ -377,7 +377,7 @@ describe('plan', () => {
 
     expect(refused.body).toEqual({
       error: 'not-a-player',
-      message: 'Only the draft’s players have plans.',
+      message: 'Only the draft’s players have decks.',
     });
     await movePlanned(id, ids.Shock, 'Sideboard', carolCookie).expect(403);
     // No board shows in what everyone sees, either.

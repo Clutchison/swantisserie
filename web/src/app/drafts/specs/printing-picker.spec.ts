@@ -23,7 +23,6 @@ import {
   viewOn,
   type AppFixture,
   drafting,
-  openTab,
   statusTexts,
   typeInto,
   serverError,
@@ -115,7 +114,7 @@ describe('the Printing picker', () => {
     localStorage.clear();
   });
 
-  /** Opens the Plan tab of a drafting draft, Alice's plan `plan`. */
+  /** Opens the Deck tab of a drafting draft, Alice's plan `plan`. */
   async function openWith(plan = withIslands()) {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
@@ -688,7 +687,7 @@ describe('the Printing picker', () => {
       plan: withIslands(),
       tournament,
     });
-    const deck = await openTab(fixture, page, 'Deck');
+    const deck = await openPlan(fixture, page);
     expect(text(deck)).toContain('Your deck is locked');
 
     const dialog = await openPicker(fixture, deck);

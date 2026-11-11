@@ -44,6 +44,7 @@ import {
   stackHeaders,
   stubScrolling,
   planDropLists,
+  dropListNamed,
   dragOf,
   drop,
   dropped,
@@ -74,8 +75,7 @@ describe('plan tab', () => {
 
       expect(pressed(plan, 'Color')).toBe('true');
       expect(pressed(plan, 'Type')).toBe('false');
-      // The mainboard heads each stack with its name and how many cards it holds.
-      expect(heading(plan, 'R 3')).toBeDefined();
+      expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
     });
 
     it('opens in stacks mode, grouped by mana value, with lands in their own stack', async () => {
@@ -195,9 +195,8 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      const [mainboard, sideboard] = planDropLists(fixture);
-
-      dropped('Lightning Bolt', mainboard, sideboard);
+      // The empty sideboard shows as its list.
+      dropped('Lightning Bolt', dropListNamed(fixture, '1'), dropListNamed(fixture, 'Sideboard'));
       await fixture.whenStable();
       const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
       expect(req.request.method).toBe('PUT');
@@ -211,7 +210,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
-      dropped('Shivan Dragon', mainboard, mainboard);
+      dropped('Shivan Dragon', dropListNamed(fixture, '6'), dropListNamed(fixture, '6'));
       await fixture.whenStable();
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
 
@@ -231,8 +230,7 @@ describe('plan tab', () => {
         plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
-      const [mainboard] = planDropLists(fixture);
-      const boltDrag = dragOf(mainboard, 'Lightning Bolt');
+      const boltDrag = dragOf(dropListNamed(fixture, '1'), 'Lightning Bolt');
 
       // Bolt is lost while it is being dragged.
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
@@ -240,7 +238,7 @@ describe('plan tab', () => {
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(planOf({ mainboard: [], sideboard: [planned(shivan)] }));
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      drop(boltDrag, planDropLists(fixture)[1]);
+      drop(boltDrag, dropListNamed(fixture, 'Sideboard'));
       await fixture.whenStable();
 
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');
@@ -432,7 +430,7 @@ describe('plan tab', () => {
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      group(plan, 'Plan stacks')!.scrollLeft = 300;
+      group(plan, 'Deck stacks')!.scrollLeft = 300;
 
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
       http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
@@ -442,18 +440,18 @@ describe('plan tab', () => {
         }),
       );
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(300);
+      expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(300);
 
       button(plan, 'Color')!.click();
       await fixture.whenStable();
-      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(0);
+      expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(0);
 
-      group(plan, 'Plan stacks')!.scrollLeft = 300;
+      group(plan, 'Deck stacks')!.scrollLeft = 300;
       button(plan, 'List')!.click();
       await fixture.whenStable();
       button(plan, 'Stacks')!.click();
       await fixture.whenStable();
-      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(0);
+      expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(0);
     });
 
     describe('the stack headers', () => {
@@ -665,7 +663,7 @@ describe('plan tab', () => {
           'Lands, 1 card',
           'Sideboard, 1 card',
         ]);
-        const strip = group(plan, 'Plan stacks')!;
+        const strip = group(plan, 'Deck stacks')!;
         // On the way, with 1 still mostly in view.
         scrolling.scroll(strip, { '1': 0.6, '6': 1, Lands: 0.9 }, { ends: false });
         expect(stackHeaders(plan)).toEqual([

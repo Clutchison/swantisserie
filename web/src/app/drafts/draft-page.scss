@@ -20,13 +20,12 @@ h1 {
 .pool,
 .queue,
 .plan,
-.board,
-.export {
+.board {
   margin-top: var(--space-xl);
 }
 
 /*
- * The Pool, Queue and Plan headings, with the viewer's picks left beside
+ * The Pool, Queue and Deck headings, with the viewer's picks left beside
  * them: on a phone the count wraps onto its own line under the heading.
  */
 .panel-heading {
@@ -126,7 +125,7 @@ main {
   main {
     /* The Pool's search bar sticks just below the tabs. */
     --tab-bar-height: 2.75rem;
-    /* The width of the capped tabs below; the Plan tab's List mode lines share it. */
+    /* The width of the capped tabs below; the Deck tab's List mode lines share it. */
     --capped-tab-width: 48rem;
 
     padding-bottom: var(--space-lg);
@@ -155,9 +154,8 @@ main {
     }
   }
 
-  /* Pool and Board use the full width; these read better capped. */
-  .queue,
-  .export {
+  /* Pool and Board use the full width; the Queue tab reads better capped. */
+  .queue {
     max-width: var(--capped-tab-width);
   }
 }
