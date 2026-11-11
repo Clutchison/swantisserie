@@ -138,6 +138,10 @@ _Avoid_: AI, dummy, CPU
 A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts.
 _Avoid_: Slot, position
 
+**Players panel**:
+The part of a draft's page that shows its players in seat order, and where the organizer sets the seat order and bots are added.
+_Avoid_: Sidebar, side pane, Players section
+
 **Snake order**:
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
 _Avoid_: Serpentine, wheel
