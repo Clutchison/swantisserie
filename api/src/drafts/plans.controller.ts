@@ -94,13 +94,35 @@ export class PlansController {
     );
   }
 
-  /** Sets how many copies of a basic land the mainboard holds. */
+  /**
+   * Moves one copy of a basic land to the plan board the body names, taking
+   * it from the other. Declared before `:poolCardId`, which would match it.
+   * A body with a `count` instead still sets the mainboard's count, until
+   * adding one copy at a time replaces that.
+   */
   @Put('basics/:land')
-  async setBasic(
+  async moveBasic(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('land') land: string,
     @Body() body: unknown,
+  ): Promise<PlanView> {
+    if (bodyFields<PlannedBasicCountRequest>(body).count !== undefined) {
+      return this.setBasic(user, id, land, body);
+    }
+    const basic = parseLand(land);
+    const board = parseBoard(body);
+    return this.change(user, id, () =>
+      this.plans.moveBasic(id, user.id, basic, board),
+    );
+  }
+
+  /** Sets how many copies of a basic land the mainboard holds. */
+  async setBasic(
+    user: SessionUser,
+    id: string,
+    land: string,
+    body: unknown,
   ): Promise<PlanView> {
     const basic = parseLand(land);
     const count = parseCount(body);

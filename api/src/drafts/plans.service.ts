@@ -227,6 +227,46 @@ export class PlansService {
   }
 
   /**
+   * Moves one copy of the basic land `land` in the user's plan to `board`,
+   * taking it from the other plan board. Throws PlanRefusedError
+   * (`not-in-plan`) if the other plan board holds none, and NotAPlayerError
+   * if the user isn't in the draft.
+   */
+  async moveBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    board: PlanBoard,
+  ): Promise<PlanChange> {
+    const from: PlanBoard = board === 'Mainboard' ? 'Sideboard' : 'Mainboard';
+    return this.change(draftId, userId, async (tx, playerId) => {
+      const source = await tx.plannedBasic.findUnique({
+        where: { playerId_land_board: { playerId, land, board: from } },
+        select: { id: true, count: true },
+      });
+      if (!source) {
+        throw new PlanRefusedError({
+          error: 'not-in-plan',
+          message: `Your ${from.toLowerCase()} holds no ${land}.`,
+        });
+      }
+      if (source.count === 1) {
+        await tx.plannedBasic.delete({ where: { id: source.id } });
+      } else {
+        await tx.plannedBasic.update({
+          where: { id: source.id },
+          data: { count: { decrement: 1 } },
+        });
+      }
+      await tx.plannedBasic.upsert({
+        where: { playerId_land_board: { playerId, land, board } },
+        create: { playerId, land, board, count: 1 },
+        update: { count: { increment: 1 } },
+      });
+    });
+  }
+
+  /**
    * Takes every basic land out of the user's plan, from both plan boards. Throws
    * NotAPlayerError if the user isn't in the draft.
    */
