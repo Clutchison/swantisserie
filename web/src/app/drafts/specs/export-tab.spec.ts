@@ -307,8 +307,8 @@ describe('export tab', () => {
       ];
       /**
        * Bolt and a Shock on the mainboard with basics, Opt, the other Shock
-       * and two Plains on the sideboard, and an unpicked card on each. Its player prefers
-       * Kaldheim's Island #395, which no export names.
+       * and two Plains on the sideboard, and an unpicked card on each. Its
+       * player prefers Kaldheim's Island #395, which no export names.
        */
       const plan: PlanView = {
         mainboard: [

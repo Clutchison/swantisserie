@@ -7,6 +7,7 @@ import {
 } from 'contract';
 import { basicCards } from './basic-lands';
 import { CardName } from './card-name';
+import { basicsOn } from './plan-basics';
 
 /** One line of a decklist's mainboard or sideboard: a card, or a basic land, and its copies. */
 interface DecklistLine {
@@ -27,10 +28,10 @@ interface DecklistBoard {
 
 /**
  * One decklist, read-only, under its player's name: its mainboard and its
- * sideboard, each with its basic lands last, as the player's own deck lists them, every
- * card name showing its Card preview. A basic land's shows the decklist's
- * preferred printing, or else its default printing. It opens no Printing
- * picker.
+ * sideboard, each with its basic lands last, as the player's own deck lists
+ * them, every card name showing its Card preview. A basic land's shows the
+ * decklist's preferred printing, or else its default printing. It opens no
+ * Printing picker.
  *
  * It reads no draft store, so it works on any page; that page provides
  * `CardImageSource` and `CardPreviews`, as the draft page does.
@@ -64,15 +65,13 @@ export class Decklist {
     const cards = this.cards();
     const basics = basicCards(decklist.preferredPrintings);
     const basicLines = (planBoard: PlanBoard) =>
-      decklist.basics
-        .filter(({ board }) => board === planBoard)
-        .map(({ land, count }): DecklistLine => ({
-          // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same lines (and log a dev-mode warning).
-          key: `basic ${land}`,
-          name: land,
-          count,
-          card: basics.get(land),
-        }));
+      basicsOn(decklist.basics, planBoard).map(({ land, count }): DecklistLine => ({
+        // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same lines (and log a dev-mode warning).
+        key: `basic ${land}`,
+        name: land,
+        count,
+        card: basics.get(land),
+      }));
     return [
       board('Mainboard', [...cardLines(decklist.mainboard, cards), ...basicLines('Mainboard')]),
       board('Sideboard', [...cardLines(decklist.sideboard, cards), ...basicLines('Sideboard')]),

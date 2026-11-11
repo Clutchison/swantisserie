@@ -1,5 +1,6 @@
 import type { PlanBoard, PlannedBasicView } from 'contract';
 import { countedLines } from './counted-lines';
+import { basicsOn } from './plan-basics';
 
 /**
  * What an export is made of: a player's plan without its unpicked cards,
@@ -22,11 +23,20 @@ export function planBoardLines<Card>(
   planBoard: PlanBoard,
   name: (card: Card) => string,
 ): string[] {
-  const cards = planBoard === 'Mainboard' ? plan.mainboard : plan.sideboard;
   return [
-    ...countedLines(cards.map(name)),
-    ...plan.basics
-      .filter(({ board }) => board === planBoard)
-      .map(({ land, count }) => `${count} ${land}`),
+    ...countedLines(cardsOn(plan, planBoard).map(name)),
+    ...basicsOn(plan.basics, planBoard).map(({ land, count }) => `${count} ${land}`),
   ];
+}
+
+/** How many cards a plan board holds, its basics included. */
+export function planBoardCount<Card>(plan: ExportPlan<Card>, planBoard: PlanBoard): number {
+  return basicsOn(plan.basics, planBoard).reduce(
+    (total, { count }) => total + count,
+    cardsOn(plan, planBoard).length,
+  );
+}
+
+function cardsOn<Card>(plan: ExportPlan<Card>, planBoard: PlanBoard): Card[] {
+  return planBoard === 'Mainboard' ? plan.mainboard : plan.sideboard;
 }

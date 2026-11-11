@@ -13,8 +13,8 @@ export type ArenaExportCard = Pick<PoolCardView, 'name' | 'layout'>;
  */
 export function arenaExport(plan: ExportPlan<ArenaExportCard>): string {
   const lines = ['Deck', ...planBoardLines(plan, 'Mainboard', arenaName)];
-  const sideboard = planBoardLines(plan, 'Sideboard', arenaName);
-  if (sideboard.length > 0) lines.push('', 'Sideboard', ...sideboard);
+  const sideboardLines = planBoardLines(plan, 'Sideboard', arenaName);
+  if (sideboardLines.length > 0) lines.push('', 'Sideboard', ...sideboardLines);
   return lines.join('\n');
 }
 

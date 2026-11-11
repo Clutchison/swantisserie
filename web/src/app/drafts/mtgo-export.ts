@@ -13,8 +13,8 @@ export type MtgoExportCard = Pick<PoolCardView, 'name' | 'layout' | 'typeLine'>;
  */
 export function mtgoExport(plan: ExportPlan<MtgoExportCard>): string {
   const lines = planBoardLines(plan, 'Mainboard', mtgoName);
-  const sideboard = planBoardLines(plan, 'Sideboard', mtgoName);
-  if (sideboard.length > 0) lines.push('', ...sideboard);
+  const sideboardLines = planBoardLines(plan, 'Sideboard', mtgoName);
+  if (sideboardLines.length > 0) lines.push('', ...sideboardLines);
   return lines.join('\n');
 }
 

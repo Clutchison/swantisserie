@@ -14,8 +14,8 @@ export type MoxfieldExportCard = Pick<PoolCardView, 'name' | 'set' | 'collectorN
  */
 export function moxfieldExport(plan: ExportPlan<MoxfieldExportCard>): string {
   const lines = planBoardLines(plan, 'Mainboard', moxfieldName);
-  const sideboard = planBoardLines(plan, 'Sideboard', moxfieldName);
-  if (sideboard.length > 0) lines.push('', 'SIDEBOARD:', ...sideboard);
+  const sideboardLines = planBoardLines(plan, 'Sideboard', moxfieldName);
+  if (sideboardLines.length > 0) lines.push('', 'SIDEBOARD:', ...sideboardLines);
   return lines.join('\n');
 }
 
