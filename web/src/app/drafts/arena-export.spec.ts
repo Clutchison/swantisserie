@@ -72,4 +72,28 @@ describe('Arena export', () => {
       }),
     ).toBe('Deck\n1 Lightning Bolt\n7 Mountain\n\nSideboard\n2 Shock\n1 Bonecrusher Giant');
   });
+
+  it('lists the sideboard’s basics after its other cards, and the mainboard’s in the mainboard', () => {
+    expect(
+      arenaExport({
+        mainboard: [{ name: 'Lightning Bolt', layout: 'normal' }],
+        sideboard: [{ name: 'Shock', layout: 'normal' }],
+        basics: [
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
+          { land: 'Island', board: 'Sideboard', count: 2 },
+          { land: 'Mountain', board: 'Sideboard', count: 1 },
+        ],
+      }),
+    ).toBe('Deck\n1 Lightning Bolt\n7 Mountain\n\nSideboard\n1 Shock\n2 Island\n1 Mountain');
+  });
+
+  it('lists a sideboard that holds only basics', () => {
+    expect(
+      arenaExport({
+        mainboard: [{ name: 'Lightning Bolt', layout: 'normal' }],
+        sideboard: [],
+        basics: [{ land: 'Island', board: 'Sideboard', count: 3 }],
+      }),
+    ).toBe('Deck\n1 Lightning Bolt\n\nSideboard\n3 Island');
+  });
 });

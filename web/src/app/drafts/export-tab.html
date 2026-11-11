@@ -35,7 +35,7 @@
     </p>
   } @else if (sideboardOverArenaCap()) {
     <p class="notice">
-      Your sideboard has {{ exportPlan().sideboard.length }} cards. Arena's import may keep only
+      Your sideboard has {{ sideboardCount() }} cards. Arena's import may keep only
       {{ arenaSideboardCap }} of them, though your export has them all.
     </p>
   }
