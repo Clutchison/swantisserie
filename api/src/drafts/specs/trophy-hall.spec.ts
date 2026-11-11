@@ -135,6 +135,10 @@ const rowsOf = (hall: TrophyHallView) =>
     group.rows.map((row) => `${row.draftId} ${row.name} ${row.trophies}`),
   );
 
+/** The trophy ranking as each player's name, trophies and place. */
+const rankingOf = (hall: TrophyHallView) =>
+  hall.ranking.map(({ name, trophies, place }) => ({ name, trophies, place }));
+
 describe('the Trophy Hall', () => {
   it('groups trophies by pool source, the group of the newest trophy first, each row newest first with its holder’s trophies', async () => {
     const t1 = await wonBy([A(), B()], { poolQuery: 'c:r' });
@@ -263,6 +267,38 @@ describe('the Trophy Hall', () => {
     ]);
   });
 
+  it('ranks every trophy holder by their trophies under their current name, players with as many sharing a place', async () => {
+    await wonBy([A(), B()], { poolQuery: 'c:r' });
+    await wonBy([B(), C()], { cube: { id: 'vintage', name: 'V' } });
+    await wonBy([A(), C()], { poolQuery: 'c:g' });
+    await wonBy([C(), B()], { poolQuery: 'c:r' });
+    await wonBy([B(), A()], { poolQuery: 'c:u' });
+    await app
+      .get(PrismaService)
+      .user.update({ where: { id: carol.id }, data: { name: 'Caroline' } });
+
+    expect((await trophyHall()).ranking).toEqual([
+      {
+        playerId: bob.id,
+        name: 'Bob',
+        trophies: 2,
+        place: { rank: 1, shared: true },
+      },
+      {
+        playerId: alice.id,
+        name: 'Alice',
+        trophies: 2,
+        place: { rank: 1, shared: true },
+      },
+      {
+        playerId: carol.id,
+        name: 'Caroline',
+        trophies: 1,
+        place: { rank: 3, shared: false },
+      },
+    ]);
+  });
+
   it('leaves out a shared first place, and counts none of its trophies, when any holder’s decklist wasn’t kept', async () => {
     const counted = await wonBy([B(), A()]);
     // Alice and Bob share first, but only Alice's decklist was kept.
@@ -274,7 +310,11 @@ describe('the Trophy Hall', () => {
       data: { decklist: Prisma.DbNull },
     });
 
-    expect(rowsOf(await trophyHall())).toEqual([[`${counted} Bob 1`]]);
+    const hall = await trophyHall();
+    expect(rowsOf(hall)).toEqual([[`${counted} Bob 1`]]);
+    expect(rankingOf(hall)).toEqual([
+      { name: 'Bob', trophies: 1, place: { rank: 1, shared: false } },
+    ]);
   });
 
   it('gives each row its holder’s deck as locked at Start, with its cards and preferred printings, even after they edit it', async () => {
@@ -368,11 +408,15 @@ describe('the Trophy Hall', () => {
     const playing = await playingTournament([aliceCookie, bobCookie]);
     await reportWin(playing, [alice.id, bob.id], [2, 0], aliceCookie);
 
-    expect(rowsOf(await trophyHall())).toEqual([[`${counted} Alice 1`]]);
+    const hall = await trophyHall();
+    expect(rowsOf(hall)).toEqual([[`${counted} Alice 1`]]);
+    expect(rankingOf(hall)).toEqual([
+      { name: 'Alice', trophies: 1, place: { rank: 1, shared: false } },
+    ]);
   });
 
-  it('has no groups before anyone holds a trophy', async () => {
-    expect(await trophyHall()).toEqual({ groups: [] });
+  it('has no groups and nobody ranked before anyone holds a trophy', async () => {
+    expect(await trophyHall()).toEqual({ ranking: [], groups: [] });
   });
 
   it('is only for signed-in users', async () => {

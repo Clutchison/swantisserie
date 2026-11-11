@@ -1,5 +1,5 @@
 import type { PoolCardView } from './pool.js';
-import type { DecklistView } from './tournaments.js';
+import type { DecklistView, PlaceView } from './tournaments.js';
 
 /** A set or sublist in a Trophy Hall group's set list, with its name. */
 export interface NamedSetView {
@@ -48,12 +48,26 @@ export interface TrophyHallGroupView {
   rows: TrophyHallRowView[];
 }
 
+/** A trophy holder in the trophy ranking. */
+export interface TrophyRankingEntryView {
+  /** Their Discord user id. */
+  playerId: string;
+  /** Their user's current name. */
+  name: string;
+  /** How many trophies they hold across the Trophy Hall. */
+  trophies: number;
+  /** Shared with every player holding as many trophies, such as =2nd. */
+  place: PlaceView;
+}
+
 /**
  * The Trophy Hall, from `GET /api/trophy-hall`, which every signed-in user
  * may read: the trophies of complete tournaments whose decklists were kept,
  * leaving out any a bot played in.
  */
 export interface TrophyHallView {
+  /** Every trophy holder, most trophies first; of those with as many, the newest trophy first. */
+  ranking: TrophyRankingEntryView[];
   /** The group of the newest trophy first. */
   groups: TrophyHallGroupView[];
 }

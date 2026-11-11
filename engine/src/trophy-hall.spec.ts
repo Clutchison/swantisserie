@@ -186,3 +186,62 @@ describe('trophyHall', () => {
     expect(group.rows.map((row) => row.tournament)).toEqual([newer, older]);
   });
 });
+
+describe('the trophy ranking', () => {
+  /** Each entry as `<player> <trophies> <place>`, a shared place marked with =. */
+  const ranking = (tournaments: ReturnType<typeof won>[]) =>
+    trophyHall(tournaments).ranking.map(
+      ({ playerId, trophies, place }) =>
+        `${playerId} ${trophies} ${place.shared ? '=' : ''}${place.rank}`,
+    );
+
+  it('ranks every trophy holder by their trophies, most first', () => {
+    expect(
+      ranking([
+        won('t4', query('c:r'), 'bob'),
+        won('t3', cube('vintage'), 'carol'),
+        won('t2', query('c:r'), 'carol'),
+        won('t1', cube('vintage'), 'carol', 'bob'),
+      ]),
+    ).toEqual(['carol 3 1', 'bob 2 2']);
+  });
+
+  it('gives players with as many trophies a shared place, skipping the places they fill', () => {
+    expect(
+      ranking([
+        won('t5', query('c:r'), 'dave'),
+        won('t4', query('c:r'), 'alice'),
+        won('t3', query('c:r'), 'carol'),
+        won('t2', query('c:r'), 'bob'),
+        won('t1', query('c:r'), 'alice', 'bob', 'carol'),
+      ]),
+    ).toEqual(['alice 2 =1', 'carol 2 =1', 'bob 2 =1', 'dave 1 4']);
+  });
+
+  it('lists players sharing a place by their newest trophy first', () => {
+    expect(
+      ranking([
+        won('t3', query('c:r'), 'carol'),
+        won('t2', query('c:r'), 'alice'),
+        won('t1', query('c:r'), 'bob', 'dave'),
+      ]),
+    ).toEqual(['carol 1 =1', 'alice 1 =1', 'bob 1 =1', 'dave 1 =1']);
+  });
+
+  it('counts only the trophies on the Trophy Hall', () => {
+    expect(
+      ranking([
+        won('t3', query('c:r'), 'alice'),
+        { ...won('t2', query('c:r'), 'bob'), decklistsKept: [] },
+        {
+          ...won('t1', query('c:r'), 'bob', 'alice'),
+          decklistsKept: ['alice'],
+        },
+      ]),
+    ).toEqual(['alice 1 1']);
+  });
+
+  it('is empty with no trophies', () => {
+    expect(trophyHall([]).ranking).toEqual([]);
+  });
+});
