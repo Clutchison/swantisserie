@@ -1,5 +1,5 @@
 import type { BasicLand, DraftView, Platform, PlanView } from 'contract';
-import request, { type Response } from 'supertest';
+import request from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
 import {
@@ -670,47 +670,31 @@ export function addBasic(id: string, land: string, cookie: string) {
 }
 
 /**
- * Brings the player's mainboard up to `count` copies of a basic land, adding
- * one copy at a time as a player does, and answers with the last add's
- * answer, or the first refused one; with the plan's, when it already holds
- * `count`. `.expect(status)` checks that answer's status, as supertest's
- * does. It never takes copies off: throws if the mainboard holds more.
+ * Adds copies of a basic land to the player's mainboard one at a time, as a
+ * player does, until it holds `count`, and answers with the last answer:
+ * the plan as it then is. Throws if an add is refused, or if the mainboard
+ * already holds more than `count`.
  */
-export function setBasic(
+export async function addBasicsUpTo(
   id: string,
   land: BasicLand,
   count: number,
   cookie: string,
 ) {
-  const answer = (async () => {
-    const read = await plan(id, cookie);
-    const basics = (read.body as Partial<PlanView>).basics ?? [];
-    const held =
-      basics.find((b) => b.land === land && b.board === 'Mainboard')?.count ??
-      0;
-    if (count < held) {
-      throw new Error(
-        `setBasic can't take ${land} from ${held} down to ${count}: no route takes copies off yet.`,
-      );
-    }
-    let last: Response = read;
-    for (let added = held; added < count; added++) {
-      last = await addBasic(id, land, cookie);
-      if (last.status !== 200) break;
-    }
-    return last;
-  })();
-  return Object.assign(answer, {
-    async expect(status: number) {
-      const res = await answer;
-      if (res.status !== status) {
-        throw new Error(
-          `Expected ${status}, got ${res.status}: ${JSON.stringify(res.body)}`,
-        );
-      }
-      return res;
-    },
-  });
+  let last = await plan(id, cookie).expect(200);
+  const held =
+    (last.body as PlanView).basics.find(
+      (b) => b.land === land && b.board === 'Mainboard',
+    )?.count ?? 0;
+  if (count < held) {
+    throw new Error(
+      `addBasicsUpTo can't take ${land} from ${held} down to ${count}.`,
+    );
+  }
+  for (let added = held; added < count; added++) {
+    last = await addBasic(id, land, cookie).expect(200);
+  }
+  return last;
 }
 
 /** Takes every basic land out of the player's plan. */

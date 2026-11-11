@@ -68,7 +68,7 @@ export class BasicLandsDialog {
   protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
   /** Add's tooltip once the plan holds MOST_BASICS of `land`, saying why it is disabled. */
   protected fullTitle(land: BasicLand) {
-    return `Your plan holds ${MOST_BASICS} copies of ${land}.`;
+    return `Your plan already holds ${MOST_BASICS} copies of ${land}.`;
   }
 
   protected close() {

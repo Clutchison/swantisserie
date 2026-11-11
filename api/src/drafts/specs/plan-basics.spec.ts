@@ -7,7 +7,7 @@ import {
   readyDraft,
   start,
   plan,
-  setBasic,
+  addBasicsUpTo,
   addBasic,
   clearBasics,
   draftsRequest,
@@ -57,8 +57,8 @@ describe('basic lands in a plan', () => {
 
   it('lists the mainboard’s basics first, then the sideboard’s, each in the basic lands’ order', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
-    await setBasic(id, 'Forest', 2, carolCookie).expect(200);
-    await setBasic(id, 'Island', 3, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Forest', 2, carolCookie);
+    await addBasicsUpTo(id, 'Island', 3, carolCookie);
     await putBasicsOnSideboard(id, carol.id, 'Mountain', 4);
     await putBasicsOnSideboard(id, carol.id, 'Plains', 1);
     await putBasicsOnSideboard(id, carol.id, 'Island', 5);
@@ -87,8 +87,8 @@ describe('basic lands in a plan', () => {
   it('refuses a copy once the plan holds 99 of that land across both plan boards', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     await putBasicsOnSideboard(id, carol.id, 'Island', 9);
-    await setBasic(id, 'Island', 90, carolCookie).expect(200);
-    await setBasic(id, 'Forest', 99, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 90, carolCookie);
+    await addBasicsUpTo(id, 'Forest', 99, carolCookie);
 
     const refused = await addBasic(id, 'Island', carolCookie).expect(409);
     expect(refused.body).toEqual({
@@ -107,7 +107,7 @@ describe('basic lands in a plan', () => {
 
   it('never puts a basic on the sideboard', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
-    await setBasic(id, 'Island', 3, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 3, carolCookie);
 
     const moved = await movePlanned(id, 'Island', 'Sideboard', carolCookie);
 
@@ -124,8 +124,8 @@ describe('basic lands in a plan', () => {
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock, carolCookie).expect(200);
-    await setBasic(id, 'Plains', 2, carolCookie).expect(200);
-    await setBasic(id, 'Swamp', 3, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Plains', 2, carolCookie);
+    await addBasicsUpTo(id, 'Swamp', 3, carolCookie);
     await putBasicsOnSideboard(id, carol.id, 'Island', 2);
 
     const cleared = await clearBasics(id, carolCookie).expect(200);
@@ -143,8 +143,8 @@ describe('basic lands in a plan', () => {
   it('clears only the player’s own basics', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
-    await setBasic(id, 'Mountain', 3, aliceCookie).expect(200);
-    await setBasic(id, 'Island', 2, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 3, aliceCookie);
+    await addBasicsUpTo(id, 'Island', 2, bobCookie);
 
     await clearBasics(id, aliceCookie).expect(200);
 
@@ -170,12 +170,12 @@ describe('basic lands in a plan', () => {
     expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([]);
   });
 
-  it('no longer sets a count', async () => {
+  it('refuses a body that names a count of copies, holding none', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
 
     await draftsRequest('put', `/${id}/plan/basics/Island`, carolCookie, {
       count: 3,
-    });
+    }).expect(404);
 
     expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([]);
   });
@@ -183,20 +183,20 @@ describe('basic lands in a plan', () => {
   it('changes basics in the lobby and while active, paused, closed and complete, leaving the draft alone', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 1, fourCards);
     const ids = await poolCardIds(id);
-    await setBasic(id, 'Plains', 1, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Plains', 1, carolCookie);
     await start(id).expect(200);
-    await setBasic(id, 'Plains', 2, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Plains', 2, carolCookie);
     await post(id, 'pause').expect(200);
-    await setBasic(id, 'Plains', 3, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Plains', 3, carolCookie);
     await post(id, 'close').expect(200);
-    await setBasic(id, 'Plains', 4, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Plains', 4, carolCookie);
     await post(id, 'reopen').expect(200);
     await pick(id, ids['Lava Spike'], carolCookie).expect(200);
     const lastPick = await pick(id, ids.Shock).expect(200);
     expect(lastPick.body.state).toBe('Complete');
 
     await clearBasics(id, carolCookie).expect(200);
-    const complete = await setBasic(id, 'Mountain', 4, carolCookie).expect(200);
+    const complete = await addBasicsUpTo(id, 'Mountain', 4, carolCookie);
 
     expect(complete.body.basics).toEqual([
       { land: 'Mountain', board: 'Mainboard', count: 4 },
@@ -210,7 +210,7 @@ describe('basic lands in a plan', () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
-    await setBasic(id, 'Mountain', 5, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 5, carolCookie);
 
     await pick(id, ids.Shock, carolCookie).expect(200);
     const queued = await enqueue(id, 'Mountain', carolCookie).expect(404);
@@ -227,13 +227,13 @@ describe('basic lands in a plan', () => {
   it('lets every player set their basics, and keeps them private to that player', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 1, fourCards);
     // Alice isn't an app admin.
-    const set = await setBasic(id, 'Plains', 1, aliceCookie).expect(200);
+    const set = await addBasicsUpTo(id, 'Plains', 1, aliceCookie);
     expect(set.body.basics).toEqual([
       { land: 'Plains', board: 'Mainboard', count: 1 },
     ]);
 
-    await setBasic(id, 'Plains', 1, carolCookie).expect(403);
+    await addBasic(id, 'Plains', carolCookie).expect(403);
     await clearBasics(id, carolCookie).expect(403);
-    await setBasic('no-such-draft', 'Plains', 1, carolCookie).expect(404);
+    await addBasic('no-such-draft', 'Plains', carolCookie).expect(404);
   });
 });

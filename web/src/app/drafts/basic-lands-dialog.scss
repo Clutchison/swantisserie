@@ -7,17 +7,14 @@ h3 {
   margin: 0;
 }
 
-ul {
+.rows {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 /* A basic land's symbol, name, mainboard count and Add. */
-li {
+.row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -38,6 +35,15 @@ img {
   min-width: 2ch;
   text-align: end;
   font-variant-numeric: tabular-nums;
+}
+
+/* Add's wrapper, which carries its tooltip: a disabled button lets the pointer through to it. */
+.add {
+  display: inline-flex;
+
+  button:disabled {
+    pointer-events: none;
+  }
 }
 
 .error {

@@ -11,7 +11,7 @@ import {
   waitForBotPicks,
   addToPlan,
   movePlanned,
-  setBasic,
+  addBasicsUpTo,
   useDraftsApp,
   readyDraft,
   start,
@@ -52,9 +52,9 @@ describe('a plan becomes a deck when its draft completes', () => {
     await addToPlan(id, ids['Lava Spike'], aliceCookie).expect(200);
     await addToPlan(id, ids['Play with Fire'], aliceCookie).expect(200);
     await movePlanned(id, ids['Play with Fire'], 'Sideboard', aliceCookie);
-    await setBasic(id, 'Mountain', 16, aliceCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 16, aliceCookie);
     await addToPlan(id, ids['Burst Lightning'], bobCookie).expect(200);
-    await setBasic(id, 'Swamp', 3, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Swamp', 3, bobCookie);
     await pick(id, ids.Shock, aliceCookie).expect(200);
     await movePlanned(id, ids.Shock, 'Sideboard', aliceCookie).expect(200);
 

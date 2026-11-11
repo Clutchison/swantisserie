@@ -15,7 +15,7 @@ import {
   poolCardIds,
   removeEntry,
   removeFromPlan,
-  setBasic,
+  addBasicsUpTo,
   addBasic,
   setUpTournament,
   signIn,
@@ -57,7 +57,7 @@ async function startPlaying() {
 describe('a joined player’s deck', () => {
   it('takes every plan write during registration, though setup joined its player', async () => {
     await movePlanned(id, ids.Shock, 'Sideboard', aliceCookie).expect(200);
-    await setBasic(id, 'Island', 2, aliceCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 2, aliceCookie);
     await clearBasics(id, aliceCookie).expect(200);
     await movePlanned(id, ids.Shock, 'Mainboard', aliceCookie).expect(200);
 
@@ -101,7 +101,7 @@ describe('a joined player’s deck', () => {
     await removeEntry(id, carol.id, carolCookie).expect(200);
     await startTournament(id).expect(200);
 
-    await setBasic(id, 'Island', 2, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 2, carolCookie);
   });
 
   it('unlocks once the tournament is complete', async () => {
@@ -121,7 +121,7 @@ describe('a joined player’s deck', () => {
   });
 
   it('locks the deck as its player last edited it during registration', async () => {
-    await setBasic(id, 'Island', 2, aliceCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 2, aliceCookie);
     await removeEntry(id, carol.id, carolCookie).expect(200);
     await startTournament(id).expect(200);
 

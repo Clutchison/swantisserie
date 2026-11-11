@@ -10,7 +10,7 @@ import {
   joinTournament,
   playingTournament,
   removeEntry,
-  setBasic,
+  addBasicsUpTo,
   setUpTournament,
   putBasicsOnSideboard,
   signIn,
@@ -137,8 +137,8 @@ describe('the 40-card minimum at Start', () => {
     const id = await completeDraft([aliceCookie, bobCookie, carolCookie]);
     await fullDeck(id, aliceCookie);
     // One pick and 38 mainboard basics: 39. The sideboard's basics don't count.
-    await setBasic(id, 'Mountain', 20, bobCookie).expect(200);
-    await setBasic(id, 'Swamp', 18, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 20, bobCookie);
+    await addBasicsUpTo(id, 'Swamp', 18, bobCookie);
     await putBasicsOnSideboard(id, bob.id, 'Mountain', 3);
     await setUpTournament(id).expect(201);
 
@@ -161,7 +161,7 @@ describe('the 40-card minimum at Start', () => {
     );
     await removeEntry(id, carol.id, aliceCookie).expect(200);
     await joinTournament(id, bobCookie).expect(201);
-    await setBasic(id, 'Mountain', 39, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 39, bobCookie);
 
     await startTournament(id).expect(200);
     expect((await tournamentView(id)).entries.map((e) => e.playerId)).toEqual([

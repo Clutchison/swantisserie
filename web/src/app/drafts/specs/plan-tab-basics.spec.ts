@@ -73,8 +73,13 @@ describe('basic lands on the plan tab', () => {
   const inDialog = (label: string) => button(openDialog()!, label);
   /** The Add button for `land` in the open dialog. */
   const addOf = (land: string) => inDialog(`Add ${land}`)!;
-  /** What the open dialog's row for `land` reads: its name, the mainboard's count and Add. */
-  const row = (land: string) => text(addOf(land).closest('li'));
+  /** The open dialog's row for `land`: a group named by the land. */
+  const row = (land: string) => group(openDialog()!, land)!;
+  /** How many copies of `land` the open dialog says the mainboard holds. */
+  const mainboardCount = (land: string) =>
+    Number(/(\d+) on your mainboard/.exec(text(row(land)))?.[1]);
+  /** The tooltip a pointer resting on `land`'s Add shows, or '' for none. */
+  const tooltip = (land: string) => addOf(land).closest('[title]')?.getAttribute('title') ?? '';
 
   // First in the file: Stryker credits module-level code, such as the default printings, only to each spec file's first test.
   it('shows each basic land’s default printing in the Lands stack, offering its small and normal images', async () => {
@@ -118,12 +123,8 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
-    expect(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map(row)).toEqual([
-      'Plains 0 Add',
-      'Island 0 Add',
-      'Swamp 0 Add',
-      'Mountain 0 Add',
-      'Forest 0 Add',
+    expect(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map(mainboardCount)).toEqual([
+      0, 0, 0, 0, 0,
     ]);
 
     addOf('Plains').click();
@@ -132,7 +133,7 @@ describe('basic lands on the plan tab', () => {
     expect(added.request.body).toBeNull();
     added.flush(boltAndShivanWith([{ land: 'Plains', board: 'Mainboard', count: 1 }]));
 
-    await vi.waitFor(() => expect(row('Plains')).toBe('Plains 1 Add'));
+    await vi.waitFor(() => expect(mainboardCount('Plains')).toBe(1));
     expect(planBoards(plan)[0]).toEqual({
       heading: 'Mainboard 3 (3 picked)',
       lines: ['1 Lightning Bolt', '1 Shivan Dragon', '1 Plains'],
@@ -151,8 +152,8 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    expect(row('Island')).toBe('Island 2 Add');
-    expect(row('Forest')).toBe('Forest 0 Add');
+    expect(mainboardCount('Island')).toBe(2);
+    expect(mainboardCount('Forest')).toBe(0);
   });
 
   it('disables Add once the plan holds 99 of a land across both plan boards, its tooltip saying so', async () => {
@@ -167,11 +168,14 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    expect(row('Island')).toBe('Island 90 Add');
+    expect(mainboardCount('Island')).toBe(90);
     expect(addOf('Island').disabled).toBe(true);
-    expect(addOf('Island').title).toBe('Your plan holds 99 copies of Island.');
+    expect(tooltip('Island')).toBe('Your plan already holds 99 copies of Island.');
+    // Said in the row too, for assistive technology, which reads no tooltip.
+    expect(text(row('Island'))).toContain('Your plan already holds 99 copies of Island.');
     expect(addOf('Forest').disabled).toBe(false);
-    expect(addOf('Forest').title).toBe('');
+    expect(tooltip('Forest')).toBe('');
+    expect(text(row('Forest'))).not.toContain('already holds');
   });
 
   it('shows the plan as it now is when another change landed first, saying why', async () => {
@@ -198,7 +202,7 @@ describe('basic lands on the plan tab', () => {
     );
 
     await vi.waitFor(() => expect(addOf('Island').disabled).toBe(true));
-    expect(row('Island')).toBe('Island 98 Add');
+    expect(mainboardCount('Island')).toBe(98);
     // Said in the dialog, as the page behind it is hidden from assistive technology.
     expect(text(alertIn(openDialog()!))).toBe('Your plan already holds 99 copies of Island.');
   });
@@ -218,7 +222,7 @@ describe('basic lands on the plan tab', () => {
       },
       { heading: 'Sideboard 0 (0 picked)', lines: [] },
     ]);
-    expect(row('Forest')).toBe('Forest 3 Add');
+    expect(mainboardCount('Forest')).toBe(3);
     expect(button(plan, 'Move Forest to the sideboard')).toBeUndefined();
     expect(button(plan, 'Remove Forest from your plan')).toBeUndefined();
     expect(button(plan, 'Move Shivan Dragon to the sideboard')).toBeDefined();
@@ -240,7 +244,7 @@ describe('basic lands on the plan tab', () => {
     expect(cleared.request.method).toBe('DELETE');
     cleared.flush(boltAndShivanWith());
 
-    await vi.waitFor(() => expect(row('Mountain')).toBe('Mountain 0 Add'));
+    await vi.waitFor(() => expect(mainboardCount('Mountain')).toBe(0));
     expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']);
     expect(inDialog('Clear basics')!.disabled).toBe(true);
   });
@@ -253,7 +257,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    expect(row('Swamp')).toBe('Swamp 0 Add');
+    expect(mainboardCount('Swamp')).toBe(0);
     expect(inDialog('Clear basics')!.disabled).toBe(false);
   });
 
@@ -332,13 +336,17 @@ describe('basic lands on the plan tab', () => {
     expect(heading(dialog, 'Basic lands')).toBeDefined();
     // Named by its heading.
     expect(await question('Basic lands')).toBe(dialog);
-    // Each symbol sits beside its land's name, so it says nothing more to assistive technology.
+    // Each row is named by its land, so its symbol says nothing more to assistive technology.
     expect(namedImages(dialog)).toEqual([]);
     const lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
     expect(
-      lands.map((land) => addOf(land).closest('li')!.querySelector('img')!.getAttribute('src')),
-    ).toEqual(['mana/W.svg', 'mana/U.svg', 'mana/B.svg', 'mana/R.svg', 'mana/G.svg']);
-    expect(lands.map(row)).toEqual(lands.map((land) => `${land} 0 Add`));
+      lands.map((land) =>
+        [...row(land).querySelectorAll('img')].map((img) => img.getAttribute('src')),
+      ),
+    ).toEqual([['mana/W.svg'], ['mana/U.svg'], ['mana/B.svg'], ['mana/R.svg'], ['mana/G.svg']]);
+    expect(lands.map((land) => text(row(land)))).toEqual(
+      lands.map((land) => expect.stringContaining(land)),
+    );
     // Wastes is no basic land: a pool can hold it as a card.
     expect(button(dialog, 'Add Wastes')).toBeUndefined();
     expect(button(dialog, 'Clear basics')).toBeDefined();
@@ -435,7 +443,7 @@ describe('basic lands on the plan tab', () => {
       button(dialog, `Add ${land}`)!.click();
       offered.push({ land, board: 'Mainboard', count: 1 });
       http.expectOne(`/api/drafts/draft-1/plan/basics/${land}`).flush(boltAndShivanWith(offered));
-      await vi.waitFor(() => expect(row(land)).toBe(`${land} 1 Add`));
+      await vi.waitFor(() => expect(mainboardCount(land)).toBe(1));
     }
     inDialog('Done')!.click();
     await fixture.whenStable();
@@ -487,14 +495,14 @@ describe('basic lands on the plan tab', () => {
       .expectOne(addIslandUrl)
       .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 1 }]));
     await vi.waitFor(() => expect(add.getAttribute('aria-disabled')).toBeNull());
-    expect(row('Island')).toBe('Island 1 Add');
+    expect(mainboardCount('Island')).toBe(1);
     expect(document.activeElement).toBe(add);
 
     add.click();
     http
       .expectOne(addIslandUrl)
       .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 2 }]));
-    await vi.waitFor(() => expect(row('Island')).toBe('Island 2 Add'));
+    await vi.waitFor(() => expect(mainboardCount('Island')).toBe(2));
     expect(document.activeElement).toBe(add);
   });
 
@@ -517,7 +525,7 @@ describe('basic lands on the plan tab', () => {
     http
       .expectOne(addIslandUrl)
       .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 1 }]));
-    await vi.waitFor(() => expect(row('Island')).toBe('Island 1 Add'));
+    await vi.waitFor(() => expect(mainboardCount('Island')).toBe(1));
     expect(alertIn(dialog)).toBeNull();
   });
 

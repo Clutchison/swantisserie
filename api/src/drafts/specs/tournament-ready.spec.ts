@@ -27,7 +27,7 @@ import {
   poolCardIds,
   registerWebhook,
   removeEntry,
-  setBasic,
+  addBasicsUpTo,
   addBasic,
   shrinkDeck,
   setUpTournament,
@@ -170,7 +170,7 @@ describe('ready refusals', () => {
     // 5 Islands don't count.
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 38, bobCookie);
     await putBasicsOnSideboard(id, bob.id, 'Island', 5);
 
     expect((await markReady(id, bobCookie).expect(409)).body).toEqual({

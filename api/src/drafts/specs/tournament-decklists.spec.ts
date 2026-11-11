@@ -22,7 +22,7 @@ import {
   poolCardIds,
   removeEntry,
   roundRobin,
-  setBasic,
+  addBasicsUpTo,
   setUpTournament,
   signIn,
   startTournament,
@@ -74,7 +74,7 @@ describe('decklists under public decklists', () => {
     await movePlanned(id, ids['Lightning Bolt'], 'Sideboard', bobCookie).expect(
       200,
     );
-    await setBasic(id, 'Mountain', 40, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 40, bobCookie);
     // Alice leaves and joins again, so Bob is first in join order.
     await removeEntry(id, alice.id, aliceCookie).expect(200);
     await fullDeck(id, aliceCookie);
@@ -173,7 +173,7 @@ describe('decklists under public decklists', () => {
     const before = (await decklists(id).expect(200)).body as DecklistView[];
 
     await completeTournament(id).expect(200);
-    await setBasic(id, 'Island', 5, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 5, bobCookie);
 
     expect((await tournamentView(id)).showsDecklists).toBe(true);
     expect((await decklists(id, daveCookie).expect(200)).body).toEqual(before);
@@ -289,7 +289,7 @@ describe('decklists without public decklists', () => {
     await startTournament(id).expect(200);
 
     await completeTournament(id).expect(200);
-    await setBasic(id, 'Island', 5, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 5, bobCookie);
 
     expect((await tournamentView(id)).showsDecklists).toBe(true);
     const expected: DecklistView[] = [

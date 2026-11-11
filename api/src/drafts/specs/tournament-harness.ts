@@ -22,7 +22,7 @@ import {
   pick,
   poolCardIds,
   readyDraft,
-  setBasic,
+  addBasicsUpTo,
   signIn,
   start,
   waitForBotPicks,
@@ -114,7 +114,7 @@ export async function completeDraftWithBots(cookies: string[], bots: number) {
  * pick plus 39 Mountains, as `completeDraft` leaves them.
  */
 export async function fullDeck(id: string, cookie: string) {
-  await setBasic(id, 'Mountain', 39, cookie).expect(200);
+  await addBasicsUpTo(id, 'Mountain', 39, cookie);
 }
 
 /**

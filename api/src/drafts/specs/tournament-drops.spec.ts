@@ -9,7 +9,7 @@ import {
   matchOf,
   playingTournament,
   reportWin,
-  setBasic,
+  addBasic,
   setUpTournament,
   signIn,
   tournamentView,
@@ -135,10 +135,10 @@ describe('dropping from a tournament', () => {
     await dropPlayer(id, bob.id, bobCookie).expect(200);
 
     expect(
-      (await setBasic(id, 'Island', 1, bobCookie).expect(409)).body.error,
+      (await addBasic(id, 'Island', bobCookie).expect(409)).body.error,
     ).toBe('deck-locked');
     await completeTournament(id).expect(200);
-    await setBasic(id, 'Island', 1, bobCookie).expect(200);
+    await addBasic(id, 'Island', bobCookie).expect(200);
   });
 });
 
