@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   BASIC_LANDS,
+  PLAN_BOARDS,
   type BasicLand,
   type PlanBoard,
   type PlanBoards,
@@ -211,18 +212,15 @@ export class PlansService {
     land: BasicLand,
     count: number,
   ): Promise<PlanChange> {
+    const board: PlanBoard = 'Mainboard';
     return this.change(draftId, userId, async (tx, playerId) => {
       if (count === 0) {
-        await tx.plannedBasic.deleteMany({
-          where: { playerId, land, board: 'Mainboard' },
-        });
+        await tx.plannedBasic.deleteMany({ where: { playerId, land, board } });
         return;
       }
       await tx.plannedBasic.upsert({
-        where: {
-          playerId_land_board: { playerId, land, board: 'Mainboard' },
-        },
-        create: { playerId, land, board: 'Mainboard', count },
+        where: { playerId_land_board: { playerId, land, board } },
+        create: { playerId, land, board, count },
         update: { count },
       });
     });
@@ -384,13 +382,11 @@ export async function readPlanBoards(
   });
   // A plan lists the mainboard's basics, then the sideboard's, each in the
   // order of `BASIC_LANDS`.
-  const basicsOn = (board: PlanBoard): PlannedBasicView[] =>
-    BASIC_LANDS.flatMap((land) =>
-      plannedBasics
-        .filter((basic) => basic.board === board && basic.land === land)
-        .map(({ count }) => ({ land, board, count })),
-    );
-  const basics = [...basicsOn('Mainboard'), ...basicsOn('Sideboard')];
+  const basics: PlannedBasicView[] = plannedBasics.toSorted(
+    (a, b) =>
+      PLAN_BOARDS.indexOf(a.board) - PLAN_BOARDS.indexOf(b.board) ||
+      BASIC_LANDS.indexOf(a.land) - BASIC_LANDS.indexOf(b.land),
+  );
   return {
     mainboard: onBoard('Mainboard'),
     sideboard: onBoard('Sideboard'),

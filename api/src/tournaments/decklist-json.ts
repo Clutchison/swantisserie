@@ -5,6 +5,7 @@ import {
   type PlannedBasicView,
   type PlannedCardView,
 } from 'contract';
+import { isPlanBoard } from '../drafts/plan-boards.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** Thrown when a tournament entry's decklist snapshot is missing or isn't a deck's boards. */
@@ -94,7 +95,7 @@ function isBasic(value: unknown): value is SnapshotBasic {
   return (
     isObject(value) &&
     (BASIC_LANDS as readonly unknown[]).includes(value.land) &&
-    [undefined, 'Mainboard', 'Sideboard'].includes(value.board as string) &&
+    (value.board === undefined || isPlanBoard(value.board)) &&
     Number.isInteger(value.count) &&
     (value.count as number) > 0
   );

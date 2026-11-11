@@ -17,6 +17,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import {
   MIN_MAINBOARD_CARDS,
+  PLAN_BOARDS,
   type BasicLand,
   type PlanBoard,
   type PlannedBasicView,
@@ -112,7 +113,7 @@ interface PlanLine extends PlanBoardCard {
  * each stack, the plan board its cards move to, as the button names it,
  * and what an empty one says.
  */
-const PLAN_BOARDS: Record<
+const PLAN_BOARD_DISPLAY: Record<
   PlanBoard,
   {
     cards: (plan: PlanView) => PlannedCardView[];
@@ -270,9 +271,9 @@ export class PlanTab {
    * always one.
    */
   protected readonly planBoards = computed(() =>
-    (['Mainboard', 'Sideboard'] as const).map((planBoard) => {
-      const { cards, stack, ...rest } = PLAN_BOARDS[planBoard];
-      // The basic lands are always on the mainboard.
+    PLAN_BOARDS.map((planBoard) => {
+      const { cards, stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
+      // Reads every basic land as a mainboard one for now: moving one between the plan boards (#644) places each on its own.
       const held: PlanBoardCard[] = [
         ...cards(this.plan()),
         ...(planBoard === 'Mainboard' ? this.plan().basics.flatMap(basicCopies) : []),
@@ -437,7 +438,7 @@ export class PlanTab {
     container,
   }: CdkDragDrop<PlanBoard, PlanBoard, string>) {
     if (previousContainer.data === container.data) return;
-    const card = PLAN_BOARDS[previousContainer.data]
+    const card = PLAN_BOARD_DISPLAY[previousContainer.data]
       .cards(this.plan())
       .find((planned) => planned.poolCardId === item.data);
     if (!card) return;

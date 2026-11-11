@@ -28,6 +28,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { isBasicLand } from './basic-lands.js';
+import { isPlanBoard } from './plan-boards.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftLock } from './draft-lock.js';
@@ -176,7 +177,7 @@ export class PlansController {
 /** The board to move the card to, or a 400 if it isn't one. */
 function parseBoard(body: unknown): PlanBoard {
   const { board } = bodyFields<PlanMoveRequest>(body);
-  if (board !== 'Mainboard' && board !== 'Sideboard') {
+  if (!isPlanBoard(board)) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose the mainboard or the sideboard.',

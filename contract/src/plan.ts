@@ -1,7 +1,10 @@
 import type { CardImages } from './pool.js';
 
+/** The plan boards, in the order a plan lists them: the mainboard first. */
+export const PLAN_BOARDS = ['Mainboard', 'Sideboard'] as const;
+
 /** The part of a plan a card is on. */
-export type PlanBoard = 'Mainboard' | 'Sideboard';
+export type PlanBoard = (typeof PLAN_BOARDS)[number];
 
 /** A card in a plan. */
 export interface PlannedCardView {

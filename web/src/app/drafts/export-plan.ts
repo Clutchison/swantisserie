@@ -3,7 +3,8 @@ import { countedLines } from './counted-lines';
 
 /**
  * What an export is made of: a player's plan without its unpicked cards,
- * as each plan board's picked cards (one entry per copy) and the mainboard's basics.
+ * as each plan board's picked cards (one entry per copy) and its basics. The exports
+ * list every basic on the mainboard for now; #646 lists each on its own plan board.
  */
 export interface ExportPlan<Card> {
   mainboard: Card[];

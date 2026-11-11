@@ -684,7 +684,7 @@ export function clearBasics(id: string, cookie: string) {
  * the draft, straight into the database: no route puts a basic land on the
  * sideboard yet. Moving a copy between plan boards (#644) replaces it.
  */
-export async function sideboardBasics(
+export async function putBasicsOnSideboard(
   id: string,
   userId: string,
   land: BasicLand,

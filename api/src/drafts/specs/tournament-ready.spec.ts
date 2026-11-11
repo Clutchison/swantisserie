@@ -29,7 +29,7 @@ import {
   removeEntry,
   setBasic,
   setUpTournament,
-  sideboardBasics,
+  putBasicsOnSideboard,
   signIn,
   startTournament,
   tournament,
@@ -169,7 +169,7 @@ describe('ready refusals', () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
     await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
-    await sideboardBasics(id, bob.id, 'Island', 5);
+    await putBasicsOnSideboard(id, bob.id, 'Island', 5);
 
     expect((await markReady(id, bobCookie).expect(409)).body).toEqual({
       error: 'deck-too-small-for-ready',
