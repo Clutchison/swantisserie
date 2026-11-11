@@ -40,9 +40,9 @@ import {
   grantedDraw,
   gridCell,
   gridCellName,
-  gridColumnHeader,
+  gridColumnAvatar,
   gridColumns,
-  gridHeaderReadings,
+  gridHeaderReading,
   gridRows,
   unreportedMatch,
   openPlaying,
@@ -443,38 +443,35 @@ describe('Play tab while the tournament is played', () => {
     it('heads each opponent’s column with their avatar, named and titled by their full name', async () => {
       const { tab } = await openPlaying(carolLeads, { user: dave });
 
-      const header = gridColumnHeader(tab, 'Carol')!;
-      expect(header.querySelector('img')?.getAttribute('src')).toBe(carol.avatarUrl);
-      expect(gridHeaderReadings(tab).slice(2, 5)).toEqual([
-        { shown: '', name: 'Carol', tooltip: 'Carol' },
-        { shown: '', name: 'Alice', tooltip: 'Alice' },
-        { shown: '', name: 'Bob', tooltip: 'Bob' },
-      ]);
+      expect(gridColumnAvatar(tab, 'Carol')?.getAttribute('src')).toBe(carol.avatarUrl);
+      expect(gridColumnAvatar(tab, 'Alice')?.getAttribute('src')).toBe(alice.avatarUrl);
+      expect(gridColumnAvatar(tab, 'Bob')?.getAttribute('src')).toBe(bob.avatarUrl);
+      expect(gridHeaderReading(tab, 'Carol')).toEqual({ shown: '', tooltip: 'Carol' });
     });
 
     it('shows an opponent’s rank in their column’s header once their avatar fails to load', async () => {
       const { fixture, tab } = await openPlaying(carolLeads, { user: dave });
 
-      gridColumnHeader(tab, 'Alice')!.querySelector('img')!.dispatchEvent(new Event('error'));
+      gridColumnAvatar(tab, 'Alice')!.dispatchEvent(new Event('error'));
       fixture.detectChanges();
 
-      expect(gridColumnHeader(tab, 'Alice')!.querySelector('img')).toBeNull();
-      expect(gridHeaderReadings(tab)[3]).toEqual({ shown: '2', name: 'Alice', tooltip: 'Alice' });
-      expect(gridColumnHeader(tab, 'Carol')!.querySelector('img')).not.toBeNull();
+      expect(gridColumnAvatar(tab, 'Alice')).toBeNull();
+      expect(gridHeaderReading(tab, 'Alice')).toEqual({ shown: '2', tooltip: 'Alice' });
+      expect(gridColumnAvatar(tab, 'Carol')).not.toBeNull();
     });
 
     it('abbreviates the stat headers, spelling each out on hover, as its name and in the key', async () => {
       const { tab } = await openPlaying(carolLeads, { user: dave });
 
-      expect(gridHeaderReadings(tab).slice(5)).toEqual([
-        { shown: 'MP', name: 'Match points', tooltip: 'Match points' },
-        {
-          shown: 'W–L–D',
-          name: 'Matches won, lost and drawn',
-          tooltip: 'Matches won, lost and drawn',
-        },
-        { shown: 'GW%', name: 'Game-win %', tooltip: 'Game-win %' },
-      ]);
+      expect(gridHeaderReading(tab, 'Match points')).toEqual({
+        shown: 'MP',
+        tooltip: 'Match points',
+      });
+      expect(gridHeaderReading(tab, 'Matches won, lost and drawn')).toEqual({
+        shown: 'W–L–D',
+        tooltip: 'Matches won, lost and drawn',
+      });
+      expect(gridHeaderReading(tab, 'Game-win %')).toEqual({ shown: 'GW%', tooltip: 'Game-win %' });
       expect(accessibleDescription(resultsGrid(tab)!)).toContain(
         'MP match points, W–L–D matches won, lost and drawn, GW% game-win %',
       );

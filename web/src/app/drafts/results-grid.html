@@ -9,30 +9,28 @@
         <th scope="col" class="player">Player</th>
         <!-- Each opponent by their avatar, or their rank once it fails; named and titled by their full name. -->
         @for (column of columns(); track column.id) {
-          <th scope="col" class="opponent" [attr.aria-label]="column.name" [title]="column.name">
-            @if (column.avatarUrl && !failedAvatars().has(column.avatarUrl)) {
-              <img
-                class="avatar"
-                [src]="column.avatarUrl"
-                alt=""
-                width="28"
-                height="28"
-                (error)="avatarFailed(column.avatarUrl)"
-              />
-            } @else {
-              {{ column.rank }}
-            }
+          <th scope="col" class="even" [attr.aria-label]="column.name" [title]="column.name">
+            <span class="fit">
+              @if (column.avatarUrl && !failedAvatars().has(column.avatarUrl)) {
+                <app-player-avatar
+                  [src]="column.avatarUrl"
+                  (failedToLoad)="avatarFailed(column.avatarUrl)"
+                />
+              } @else {
+                {{ column.rank }}
+              }
+            </span>
           </th>
         }
         <!-- Abbreviated to fit the even columns, so each header is named in full. -->
-        <th scope="col" class="stat" aria-label="Match points">
-          <abbr title="Match points">MP</abbr>
+        <th scope="col" class="even" aria-label="Match points">
+          <abbr class="fit" title="Match points">MP</abbr>
         </th>
-        <th scope="col" class="stat" aria-label="Matches won, lost and drawn">
-          <abbr title="Matches won, lost and drawn">W–L–D</abbr>
+        <th scope="col" class="even" aria-label="Matches won, lost and drawn">
+          <abbr class="fit" title="Matches won, lost and drawn">W–L–D</abbr>
         </th>
-        <th scope="col" class="stat" aria-label="Game-win %">
-          <abbr title="Game-win %">GW%</abbr>
+        <th scope="col" class="even" aria-label="Game-win %">
+          <abbr class="fit" title="Game-win %">GW%</abbr>
         </th>
       </tr>
     </thead>
@@ -43,25 +41,33 @@
           <th scope="row" class="player">{{ row.name }}</th>
           @for (cell of row.cells; track cell.opponentId) {
             <!-- An organizer's cell is named by its button; anyone else's by the cell itself. -->
-            <td class="result" [attr.aria-label]="cell.organize ? null : cell.name">
-              @if (cell.organize; as organize) {
-                <button
-                  class="cell-button"
-                  type="button"
-                  aria-haspopup="dialog"
-                  [attr.aria-label]="cell.name"
-                  (click)="openMatch(cell.matchId!, organize)"
-                >
+            <td class="even" [attr.aria-label]="cell.organize ? null : cell.name">
+              <span class="fit">
+                @if (cell.organize; as organize) {
+                  <button
+                    class="cell-button"
+                    type="button"
+                    aria-haspopup="dialog"
+                    [attr.aria-label]="cell.name"
+                    (click)="openMatch(cell.matchId!, organize)"
+                  >
+                    {{ cell.marker }}
+                  </button>
+                } @else {
                   {{ cell.marker }}
-                </button>
-              } @else {
-                {{ cell.marker }}
-              }
+                }
+              </span>
             </td>
           }
-          <td class="stat">{{ row.matchPoints }}</td>
-          <td class="stat">{{ row.record }}</td>
-          <td class="stat">{{ row.gameWinPercent }}</td>
+          <td class="even">
+            <span class="fit">{{ row.matchPoints }}</span>
+          </td>
+          <td class="even">
+            <span class="fit">{{ row.record }}</span>
+          </td>
+          <td class="even">
+            <span class="fit">{{ row.gameWinPercent }}</span>
+          </td>
         </tr>
       }
     </tbody>

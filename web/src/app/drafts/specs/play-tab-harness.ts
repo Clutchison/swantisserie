@@ -599,20 +599,29 @@ const gridHeaders = (root: HTMLElement) => [
 export const gridColumns = (root: HTMLElement) =>
   gridHeaders(root).map((header) => header.querySelector('abbr')?.title ?? accessibleName(header));
 
-/**
- * How each of the results grid's column headers inside `root` reads: the
- * text a viewer sees, its accessible name, and the tooltip hovering it shows.
- */
-export const gridHeaderReadings = (root: HTMLElement) =>
-  gridHeaders(root).map((header) => ({
-    shown: text(header),
-    name: accessibleName(header),
-    tooltip: (header.querySelector('[title]') ?? header).getAttribute('title'),
-  }));
-
 /** The results grid's column header inside `root` named `name`, such as a player's. */
-export const gridColumnHeader = (root: HTMLElement, name: string) =>
+const gridColumnHeader = (root: HTMLElement, name: string) =>
   gridHeaders(root).find((header) => accessibleName(header) === name);
+
+/**
+ * How the results grid's column header inside `root` named `name` reads:
+ * the text a viewer sees and the tooltip hovering it shows.
+ */
+export function gridHeaderReading(root: HTMLElement, name: string) {
+  const header = gridColumnHeader(root, name)!;
+  return {
+    shown: text(header),
+    tooltip: (header.querySelector('[title]') ?? header).getAttribute('title'),
+  };
+}
+
+/**
+ * The avatar heading the results grid's column of the player `name`
+ * inside `root`; null once it fails. Decorative, it is found by its role
+ * within the header the player's name names.
+ */
+export const gridColumnAvatar = (root: HTMLElement, name: string) =>
+  gridColumnHeader(root, name)!.querySelector<HTMLImageElement>('[role="presentation"]');
 
 /** Each row of the results grid inside `root`, in standings order, as its cells' visible text. */
 export const gridRows = (root: HTMLElement) => tableRows(resultsGrid(root)!);

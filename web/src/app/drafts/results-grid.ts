@@ -17,6 +17,7 @@ import { droppedPlayers } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { percent, record } from '../record';
 import { DraftStore } from './draft-store';
+import { PlayerAvatar } from './player-avatar';
 import {
   gameScoreFor,
   matchIn,
@@ -63,6 +64,7 @@ interface GridCell {
 @Component({
   selector: 'app-results-grid',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PlayerAvatar],
   templateUrl: './results-grid.html',
   styleUrls: ['./drafts.scss', './results-grid.scss'],
 })
