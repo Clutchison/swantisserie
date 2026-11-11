@@ -293,7 +293,7 @@ The way of showing each deck board as lines of card names with counts.
 _Avoid_: Text mode, compact view
 
 **Stack**:
-One column of stacks mode. On the mainboard, it holds the cards that share a grouping's value, unless a stack move put them elsewhere, sorted by mana value then name. The sideboard is always one stack, whatever the grouping: its cards sorted by mana value then name, with lands last.
+One column of stacks mode. On the mainboard, it holds the cards that share a grouping's value, unless a stack move put them elsewhere, or is a player-made stack, sorted by mana value then name. The sideboard is always one stack, whatever the grouping: its cards sorted by mana value then name, with lands last.
 _Avoid_: Column, pile
 
 **Grouping**:
@@ -303,6 +303,10 @@ _Avoid_: Sort, filter, view
 **Stack move**:
 A player putting a mainboard card into another of its stacks, or into a new stack of their own between two, to plan their curve as they count it, such as a 7-drop they mean to play as a 2-drop. It changes nothing in the deck, nothing anyone else sees and no export, and lasts only until they change the grouping or leave the page: switching tabs, switching to list mode or narrowing the window keeps it. A card that leaves the mainboard loses it.
 _Avoid_: Reorder, column move, override
+
+**Player-made stack**:
+A mainboard stack a player makes with a stack move into a gap between two stacks, or before the first or after the last. It has no name of its own, so it is known by where it sits, as "Your stack, after 2", and it goes once it holds no cards.
+_Avoid_: Custom stack, user stack, new column
 
 **Stack headers**:
 The row heading each of the mainboard's stacks, then the sideboard's, each showing only the stack's label (a mana symbol, a type letter or short text), shown above the stacks where there isn't room for them all, and marking the stack the player has scrolled to. Tapping a stack header goes to its stack.

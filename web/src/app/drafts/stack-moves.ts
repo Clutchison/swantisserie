@@ -1,6 +1,12 @@
-import { linkedSignal, type Signal } from '@angular/core';
+import { effect, linkedSignal, type Signal, signal } from '@angular/core';
 import type { PlannedCardView, PlanView } from 'contract';
-import { type Grouping, NO_MOVES, type StackMove, type StackMoves } from './plan-stacks';
+import {
+  type Grouping,
+  NO_MOVES,
+  type Stack,
+  type StackMove,
+  type StackMoves,
+} from './plan-stacks';
 
 /** The plan as stack moves follow it: its mainboard's cards, and the pool card ids it holds anywhere else. */
 interface Followed {
@@ -17,11 +23,15 @@ interface Followed {
  * for a planned card, by the copy rule, keeps that card's stack move.
  *
  * `mainboard` is the mainboard's cards, a basic land's copies included.
+ * `shown` is the mainboard's stacks as the player sees them with their stack
+ * moves, or undefined while they don't: what they last saw places a
+ * player-made stack whose stack it was made after has gone.
  */
 export function stackMovesOf(
   grouping: Signal<Grouping>,
   plan: Signal<PlanView>,
   mainboard: Signal<readonly PlannedCardView[]>,
+  shown: () => readonly Stack[] | undefined,
 ) {
   const moves = linkedSignal<Followed, StackMoves>({
     source: () => ({
@@ -34,13 +44,26 @@ export function stackMovesOf(
         ? followed(before.value, before.source, now)
         : NO_MOVES,
   });
+  /** The id the next player-made stack gets: above every one made so far, so none is ever taken for one gone. */
+  const nextId = signal(1);
+  // Not a signal: what the player saw matters only to the next arrangement, so it changes none itself.
+  let seen: readonly string[] = [];
+  effect(() => {
+    const stacks = shown();
+    if (stacks) seen = stacks.map((stack) => stack.key);
+  });
   return {
     /** The stack moves, by the moved card's `poolCardId`. */
     moves: moves.asReadonly(),
     /** Moves the mainboard card `poolCardId` into the stack `move` names. */
     move(poolCardId: string, move: StackMove) {
       moves.update((current) => new Map(current).set(poolCardId, move));
+      if (move.kind === 'playerMade') nextId.update((id) => Math.max(id, move.id + 1));
     },
+    /** The id a new player-made stack is to get. */
+    nextId: nextId.asReadonly(),
+    /** The keys of the mainboard's stacks, in order, as the player last saw them with their stack moves. */
+    seen: () => seen,
     /**
      * The mainboard card `poolCardId` is leaving, one of `copies`, the ids of
      * a basic land's copies there in order: it loses its stack move. As a

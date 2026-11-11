@@ -58,6 +58,7 @@ import {
   unpickedToQueue,
 } from './queue-unpicked-dialog';
 import {
+  gaps,
   type Grouping,
   NO_MOVES,
   type Stack,
@@ -103,7 +104,7 @@ interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
-/** Where a dragged card is dropped: a plan board, and on a mainboard stack, the stack move into it. */
+/** Where a dragged card is dropped: a plan board, and on a mainboard stack or in a gap between, the stack move into it. */
 interface DropTarget {
   planBoard: PlanBoard;
   into?: StackMove;
@@ -139,6 +140,7 @@ const PLAN_BOARD_DISPLAY: Record<
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
       moves: StackMoves,
+      seen: readonly string[],
     ) => Stack<PlanBoardCard>[];
     /** Whether it's stacked as one stack, which its heading names, its stack header set apart from the others. */
     oneStack?: boolean;
@@ -276,6 +278,7 @@ export class PlanTab {
     this.grouping,
     this.plan,
     computed(() => heldOn(this.plan(), 'Mainboard')),
+    () => (this.showingStacks() && this.wideStacks() ? this.mainboard().stacks : undefined),
   );
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
@@ -297,10 +300,21 @@ export class PlanTab {
   protected readonly planBoards = computed(() => {
     // Read in any mode, so a card that leaves the mainboard loses its stack move then.
     const moves = this.stackMoves.moves();
+    const wide = this.wideStacks();
     return PLAN_BOARDS.map((planBoard) => {
       const { stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
       const held = heldOn(this.plan(), planBoard);
       const dropTarget = (into?: StackMove): DropTarget => ({ planBoard, into });
+      // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
+      const shown = this.showingStacks()
+        ? stack(
+            held,
+            this.grouping(),
+            this.cardsById(),
+            wide ? moves : NO_MOVES,
+            this.stackMoves.seen(),
+          )
+        : [];
       return {
         name: planBoard,
         ...rest,
@@ -310,15 +324,15 @@ export class PlanTab {
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
         dropTarget: dropTarget(),
-        // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
-        stacks: this.showingStacks()
-          ? stack(
-              held,
-              this.grouping(),
-              this.cardsById(),
-              this.wideStacks() ? moves : NO_MOVES,
-            ).map((shown) => ({ ...shown, dropTarget: dropTarget(shown.move) }))
-          : [],
+        stacks: shown.map((each) => ({ ...each, dropTarget: dropTarget(each.move) })),
+        /** In the wide layout, the mainboard's gaps around and between its stacks, where a drop makes a new stack. */
+        gaps:
+          wide && !rest.oneStack
+            ? gaps(shown, this.stackMoves.nextId()).map(({ name, into }) => ({
+                name,
+                dropTarget: dropTarget(into),
+              }))
+            : [],
       };
     });
   });
@@ -473,9 +487,10 @@ export class PlanTab {
   /**
    * A card dropped on a plan board: it moves there, unless that's the plan
    * board it came from or either refuses it. Dropped on a mainboard stack, it
-   * is then a stack move into that stack, on a locked deck too. It's found by
-   * id, as the plan may have been re-read since the drag began; if it has
-   * left the plan, the drop does nothing.
+   * is then a stack move into that stack, or in a gap, into a new stack
+   * there, on a locked deck too. It's found by id, as the plan may have been
+   * re-read since the drag began; if it has left the plan, the drop does
+   * nothing.
    */
   protected async dropped({
     item,

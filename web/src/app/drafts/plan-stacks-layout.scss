@@ -66,14 +66,14 @@ $fade: 2rem;
    * The wide layout: the mainboard on the left and the sideboard on the right, past a divider.
    * Every stack takes an equal share of the width, between 5.5rem and 10rem; the mainboard's
    * stacks scroll sideways past what fits, and the sideboard stays put.
-   * The width they share is the whole less the gaps between the mainboard's stacks, the gap and
-   * padding either side of the divider, and the divider's 1px.
+   * The width they share is the whole less the gaps around and between the mainboard's stacks,
+   * the gap and padding either side of the divider, and the divider's 1px.
    */
   @container plan-boards (width >= 760px) {
     .plan-board {
       --stack-width: clamp(
         5.5rem,
-        (100cqw - (var(--mainboard-stacks) - 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
+        (100cqw - (var(--mainboard-stacks) + 1) * var(--space-sm) - 2 * var(--space-md) - 1px) /
           (var(--mainboard-stacks) + 1),
         10rem
       );
