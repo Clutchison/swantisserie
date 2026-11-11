@@ -6,7 +6,11 @@ const gameScore = (games: [number, number], draws = 0) =>
 
 const tally = (won: number, lost: number, drawn = 0) => ({ won, lost, drawn });
 
-/** A complete tournament: its final standings as player ids by rank, its matches and trophy holders. */
+/**
+ * A complete tournament: its final standings as player ids by rank, each
+ * with their standings record from `records` (none if absent), its matches
+ * and trophy holders.
+ */
 function tournament(
   id: string,
   ranks: Record<string, number>,
@@ -14,12 +18,14 @@ function tournament(
   trophyHolders = Object.keys(ranks).filter(
     (playerId) => ranks[playerId] === 1,
   ),
+  records: Record<string, ReturnType<typeof tally>> = {},
 ): StatsTournament & { id: string } {
   return {
     id,
     standings: Object.entries(ranks).map(([playerId, rank]) => ({
       playerId,
       rank,
+      matches: records[playerId] ?? tally(0, 0),
     })),
     matches,
     trophyHolders,
@@ -56,26 +62,36 @@ describe('myStats', () => {
     expect(stats.gameWinRate).toBeCloseTo(62.5, 2);
   });
 
-  it('gives a result for each tournament the player joined, in the order given', () => {
+  it('gives a result for each tournament the player joined, in the order given, with their standings record', () => {
     const tournaments = [
-      tournament('t1', { a: 1, b: 2 }, [
-        { players: ['a', 'b'], outcome: gameScore([2, 0]) },
-      ]),
+      // a's bye counts in their standings record as a won match.
+      tournament(
+        't1',
+        { a: 1, b: 2 },
+        [{ players: ['a', 'b'], outcome: gameScore([2, 0]) }],
+        ['a'],
+        { a: tally(2, 0), b: tally(0, 1) },
+      ),
       tournament('t2', { b: 1, c: 2 }, [
         { players: ['b', 'c'], outcome: gameScore([2, 0]) },
       ]),
-      tournament('t3', { b: 1, a: 2 }, [
-        { players: ['b', 'a'], outcome: gameScore([2, 1]) },
-      ]),
+      tournament(
+        't3',
+        { b: 1, a: 2 },
+        [{ players: ['b', 'a'], outcome: gameScore([2, 1]) }],
+        ['b'],
+        { b: tally(1, 0), a: tally(0, 1) },
+      ),
     ];
 
-    const { results } = myStats('a', tournaments);
+    const { results, matches } = myStats('a', tournaments);
 
+    expect(matches).toEqual(tally(1, 1));
     expect(results).toEqual([
       {
         tournament: tournaments[0],
         place: { rank: 1, shared: false },
-        matches: tally(1, 0),
+        matches: tally(2, 0),
         trophy: true,
       },
       {
@@ -124,7 +140,7 @@ describe('myStats', () => {
     });
   });
 
-  it('counts played matches only: forfeits, granted draws, granted wins and unreported matches count for nothing', () => {
+  it('counts played matches only in its records: forfeits, granted draws, granted wins and unreported matches count for nothing', () => {
     const tournaments = [
       tournament(
         't1',
@@ -140,6 +156,7 @@ describe('myStats', () => {
           { players: ['a', 'b'], outcome: null },
         ],
         ['a'],
+        { a: tally(3, 0, 1) },
       ),
     ];
 
@@ -147,7 +164,8 @@ describe('myStats', () => {
 
     expect(stats.matches).toEqual(tally(1, 0));
     expect(stats.games).toEqual(tally(2, 0));
-    expect(stats.results[0].matches).toEqual(tally(1, 0));
+    // The result's record is the standings', which count them all.
+    expect(stats.results[0].matches).toEqual(tally(3, 0, 1));
   });
 
   it('keeps a dropped player’s played matches and place', () => {

@@ -27,14 +27,22 @@
           <dt>Match win rate</dt>
           <dd>
             {{ rate(mine.matchWinRate) }}
-            <span class="record">({{ record(mine.matches) }})</span>
+            <span class="record"
+              >(<abbr title="Played matches won, lost and drawn">{{ record(mine.matches) }}</abbr
+              >)</span
+            >
           </dd>
         </div>
         <div>
           <dt>Game win rate</dt>
           <dd>
             {{ rate(mine.gameWinRate) }}
-            <span class="record">({{ record(mine.games) }})</span>
+            <span class="record"
+              >(<abbr title="Games of played matches won, lost and drawn">{{
+                record(mine.games)
+              }}</abbr
+              >)</span
+            >
           </dd>
         </div>
         @if (mine.bestFinish; as best) {
@@ -44,6 +52,10 @@
           </div>
         }
       </dl>
+      <p class="hint">
+        Win rates and their records count played matches only: byes, forfeits and granted results
+        are left out.
+      </p>
 
       <h2>Results</h2>
       <div class="scroll">
@@ -54,7 +66,9 @@
               <th scope="col">Draft</th>
               <th scope="col">Pool source</th>
               <th scope="col">Place</th>
-              <th scope="col"><abbr title="Matches won, lost and drawn">Matches</abbr></th>
+              <th scope="col">
+                <abbr title="Matches won, lost and drawn, as its standings count them">Record</abbr>
+              </th>
               <th scope="col">Trophy</th>
             </tr>
           </thead>

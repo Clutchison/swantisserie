@@ -12,7 +12,7 @@ import {
   loadingAnimation,
   midNavigation,
 } from './drafts/specs/harness';
-import { answerUnreviewedCount } from './feedback/specs-harness';
+import { answerUnreviewedCount, link } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
 
 describe('App', () => {
@@ -151,26 +151,26 @@ describe('App', () => {
       // Nor do they ask which version is live.
       expect(http.match('/api/admin/app-version')).toEqual([]);
     });
-
-    it('shows the user menu, named by the username, then the user image on the right', async () => {
-      const page = await openSettled('/', alice);
-
-      const right = [...page.querySelector('header .right-group')!.children];
-      expect(right.map((el) => el.textContent?.trim() || el.tagName)).toEqual(['Alice', 'IMG']);
-      expect(userMenuButton(page)).toBeDefined();
-    });
   });
 
   describe('user menu', () => {
-    it('opens on click and holds My stats, then Log out', async () => {
+    it('is a closed menu named by the username', async () => {
       const page = await openSettled('/', alice);
+
+      expect(userMenuButton(page)!.getAttribute('aria-expanded')).toBe('false');
+      expect(link(banner(page)!, 'My stats')).toBeUndefined();
       expect(button(page, 'Log out')).toBeUndefined();
+    });
+
+    it('opens on click and holds My stats and Log out', async () => {
+      const page = await openSettled('/', alice);
 
       userMenuButton(page)!.click();
       TestBed.tick();
 
-      expect(menuText(page)).toEqual(['My stats', 'Log out']);
       expect(userMenuButton(page)!.getAttribute('aria-expanded')).toBe('true');
+      expect(link(banner(page)!, 'My stats')?.getAttribute('href')).toBe('/my-stats');
+      expect(button(banner(page)!, 'Log out')).toBeDefined();
     });
 
     it('closes when My stats is chosen, and goes there', async () => {
@@ -178,7 +178,7 @@ describe('App', () => {
       userMenuButton(page)!.click();
       TestBed.tick();
 
-      page.querySelector<HTMLElement>('header .panel a[href="/my-stats"]')!.click();
+      link(banner(page)!, 'My stats')!.click();
       (await vi.waitFor(() => http.expectOne('/api/my-stats'))).flush(null, {
         status: 500,
         statusText: 'Server Error',
@@ -186,7 +186,8 @@ describe('App', () => {
 
       await vi.waitFor(() => expect(router.url).toBe('/my-stats'));
       TestBed.tick();
-      expect(page.querySelector('.panel')).toBeNull();
+      expect(userMenuButton(page)!.getAttribute('aria-expanded')).toBe('false');
+      expect(link(banner(page)!, 'My stats')).toBeUndefined();
     });
   });
 
@@ -229,7 +230,7 @@ describe('App', () => {
     it('closes on an outside click', async () => {
       const { page } = await openAppAdmin();
 
-      page.querySelector<HTMLElement>('header .avatar')!.click();
+      banner(page)!.click();
       TestBed.tick();
 
       expect(menuLinks(page)).toEqual([]);
@@ -363,7 +364,7 @@ describe('App', () => {
     it('closes on an outside click', async () => {
       const page = await openMenu(alice);
 
-      page.querySelector<HTMLElement>('header .avatar')!.click();
+      banner(page)!.click();
       TestBed.tick();
 
       expect(page.querySelector('.panel')).toBeNull();

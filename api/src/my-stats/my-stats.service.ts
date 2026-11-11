@@ -4,9 +4,9 @@ import { myStats, type StatsTournament } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   readCompleteTournaments,
+  toEngineTournament,
   type CompleteTournament,
 } from '../tournaments/complete-tournaments.js';
-import { toTournamentMatch } from '../tournaments/tournament-view.js';
 
 /** A complete tournament as My stats reads it, with the draft its result names. */
 type StatsRead = StatsTournament & { complete: CompleteTournament };
@@ -58,15 +58,7 @@ function newestFirst(
     );
 }
 
-/** The complete tournament as My stats reads it: its final standings, its matches without its byes, and its trophy holders. */
+/** The complete tournament as My stats reads it, carrying it along for its result. */
 function toStatsRead(complete: CompleteTournament): StatsRead {
-  const { view } = complete;
-  return {
-    standings: view.standings,
-    matches: view.rounds
-      .flatMap((round) => round.matches)
-      .map(toTournamentMatch),
-    trophyHolders: view.trophyHolders,
-    complete,
-  };
+  return { ...toEngineTournament(complete.view), complete };
 }

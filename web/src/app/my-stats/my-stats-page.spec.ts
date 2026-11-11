@@ -7,6 +7,7 @@ import {
   openApp,
   router,
   table,
+  tableColumns,
   tableRows,
   text,
   useApp,
@@ -145,6 +146,9 @@ describe('the My stats page', () => {
       ['Game win rate', '61% (11–6–1)'],
       ['Best finish', '=1st'],
     ]);
+    expect(text(page)).toContain(
+      'Win rates and their records count played matches only: byes, forfeits and granted results are left out.',
+    );
   });
 
   it('shows no win rate without a played match', async () => {
@@ -173,9 +177,17 @@ describe('the My stats page', () => {
     ]);
   });
 
-  it('lists each result newest first with its date, draft, pool source, place, match record and trophy', async () => {
+  it('lists each result newest first with its date, draft, pool source, place, standings record and trophy', async () => {
     const page = await openMyStats();
 
+    expect(tableColumns(table(page, 'Results')!)).toEqual([
+      'Completed',
+      'Draft',
+      'Pool source',
+      'Place',
+      'Matches won, lost and drawn, as its standings count them',
+      'Trophy',
+    ]);
     expect(results(page)).toEqual([
       ['Nov 10, 2026', 'Cube night', 'Cube: Vintage Cube', '3rd', '1–2–0', ''],
       ['Oct 2, 2026', 'Bloomburrow', 'Sets: BLB (+ SPG)', '=1st', '2–0–1', '🏆'],

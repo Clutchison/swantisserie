@@ -1,6 +1,7 @@
 import {
   addGames,
   emptyTally,
+  playedMatches,
   resultFor,
   type Tally,
   type TournamentMatch,
@@ -8,8 +9,11 @@ import {
 
 /** A complete tournament as My stats reads it. */
 export interface StatsTournament {
-  /** Its final standings: everyone who joined it, dropped players too, with their rank from 1. */
-  standings: readonly { playerId: string; rank: number }[];
+  /**
+   * Its final standings: everyone who joined it, dropped players too, with
+   * their rank from 1 and their record as the standings count it.
+   */
+  standings: readonly { playerId: string; rank: number; matches: Tally }[];
   /** Its matches, byes left out. */
   matches: readonly TournamentMatch[];
   trophyHolders: readonly string[];
@@ -25,7 +29,7 @@ export interface Place {
 export interface TournamentResult<T extends StatsTournament> {
   tournament: T;
   place: Place;
-  /** Their played matches only. */
+  /** Their record in its final standings, as its Play tab shows it: byes, forfeits and granted results count. */
   matches: Tally;
   /** Whether they hold its trophy, alone or shared. */
   trophy: boolean;
@@ -69,15 +73,12 @@ export function myStats<T extends StatsTournament>(
   for (const tournament of tournaments) {
     const standing = tournament.standings.find((s) => s.playerId === playerId);
     if (!standing) continue;
-    const own = emptyTally();
-    for (const { players, outcome } of tournament.matches) {
-      const side = players.indexOf(playerId);
-      if (side === -1 || outcome?.kind !== 'GameScore') continue;
-      own[resultFor({ players, outcome }, side)]++;
-      addGames(games, outcome, side);
+    for (const match of playedMatches(tournament.matches)) {
+      const side = match.players.indexOf(playerId);
+      if (side === -1) continue;
+      matches[resultFor(match, side)]++;
+      addGames(games, match.outcome, side);
     }
-    for (const key of ['won', 'lost', 'drawn'] as const)
-      matches[key] += own[key];
     results.push({
       tournament,
       place: {
@@ -86,7 +87,7 @@ export function myStats<T extends StatsTournament>(
           (s) => s.rank === standing.rank && s.playerId !== playerId,
         ),
       },
-      matches: own,
+      matches: { ...standing.matches },
       trophy: tournament.trophyHolders.includes(playerId),
     });
   }

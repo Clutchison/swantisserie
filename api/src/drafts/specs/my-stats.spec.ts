@@ -159,12 +159,18 @@ describe('My stats', () => {
     });
   });
 
-  it('counts played matches only, leaving out byes, forfeits, granted draws and granted wins', async () => {
+  it('counts played matches only in its records and win rates, but gives each result its standings record', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 1], aliceCookie);
     // Bob's match with Carol becomes a forfeit; Alice's with Carol a granted draw.
     await dropPlayer(id, bob.id, bobCookie).expect(200);
     await completeTournament(id).expect(200);
+    // Each player's played matches in that round robin.
+    const played = {
+      [alice.id]: { matches: tally(1, 0), games: tally(2, 1) },
+      [bob.id]: { matches: tally(0, 1), games: tally(1, 2) },
+      [carol.id]: { matches: tally(0, 0), games: tally(0, 0) },
+    };
 
     const bracket = await playingTournament(
       [aliceCookie, bobCookie, carolCookie],
@@ -184,18 +190,19 @@ describe('My stats', () => {
       [carol.id]: carolCookie,
     };
 
-    // The top seed had a bye, then a granted win: no played match in the bracket.
+    // The top seed had a bye, then a granted win: no played match in the
+    // bracket, though its standings count both as won.
     const stats = await myStats(cookieOf[top]);
-    const [bracketResult] = stats.results;
 
-    expect(bracketResult).toMatchObject({
+    expect(stats).toMatchObject(played[top]);
+    expect(stats.results[0]).toMatchObject({
       draftId: bracket,
       place: { rank: 1, shared: false },
-      matches: tally(0, 0),
+      matches: tally(2, 0),
       trophy: true,
     });
     const aliceStats = await myStats();
-    expect(aliceStats.results[1].matches).toEqual(tally(1, 0));
+    expect(aliceStats.results[1].matches).toEqual(tally(1, 0, 1));
   });
 
   it('leaves out tournaments a bot played in, cancelled ones and ones not complete', async () => {

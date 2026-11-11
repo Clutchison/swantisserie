@@ -15,7 +15,7 @@ export interface MyStatsResultView {
   /** When the tournament completed, ISO; null for one completed before completion times were kept. */
   completedAt: string | null;
   place: PlaceView;
-  /** Their played matches only. */
+  /** Their record in its final standings, as its Play tab shows it: byes, forfeits and granted results count. */
   matches: TallyView;
   /** Whether they hold its trophy, alone or shared. */
   trophy: boolean;
@@ -24,9 +24,10 @@ export interface MyStatsResultView {
 /**
  * The signed-in player's My stats, from `GET /api/my-stats`, which returns
  * only their own: over complete tournaments, leaving out any a bot played in.
- * Records count played matches only, so forfeits, granted draws, granted
- * wins and byes are left out. Rates are from 0 to 100, with no floor, and
- * null when there is nothing to count them over.
+ * Its records and win rates count played matches only, so forfeits, granted
+ * draws, granted wins and byes are left out; each result's record is its
+ * standings'. Rates are from 0 to 100, with no floor, and null when there is
+ * nothing to count them over.
  */
 export interface MyStatsView {
   tournamentsPlayed: number;
