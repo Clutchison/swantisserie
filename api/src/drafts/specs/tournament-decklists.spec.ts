@@ -6,6 +6,7 @@ import {
   app,
   aliceCookie,
   bob,
+  cancelTournament,
   carol,
   completeDraft,
   completeDraftWithBots,
@@ -251,7 +252,7 @@ describe('decklists under public decklists', () => {
 });
 
 describe('decklists without public decklists', () => {
-  it('never serves them, to players, the organizer or an app admin, while playing or once complete', async () => {
+  it('refuses them while playing, to players, the organizer or an app admin', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     expect((await tournamentView(id)).showsDecklists).toBe(false);
 
@@ -260,12 +261,51 @@ describe('decklists without public decklists', () => {
         'decklists-private',
       );
     }
+  });
+
+  it('serves every joined player’s deck as it was locked at Start, bots included, to everyone once complete', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const { id, botIds } = await completeDraftWithBots(
+      [aliceCookie, bobCookie],
+      1,
+    );
+    const ids = await poolCardIds(id);
+    await setUpTournament(id).expect(201);
+    for (const cookie of [aliceCookie, bobCookie]) await fullDeck(id, cookie);
+    const aliceDeck = await deckOf(id, aliceCookie);
+    const bobDeck = await deckOf(id, bobCookie);
+    await startTournament(id).expect(200);
+
     await completeTournament(id).expect(200);
-    for (const cookie of [aliceCookie, carolCookie]) {
-      expect((await decklists(id, cookie).expect(409)).body.error).toBe(
-        'decklists-private',
-      );
+    await setBasic(id, 'Island', 5, bobCookie).expect(200);
+
+    expect((await tournamentView(id)).showsDecklists).toBe(true);
+    const expected: DecklistView[] = [
+      { playerId: alice.id, ...aliceDeck, preferredPrintings: {} },
+      { playerId: bob.id, ...bobDeck, preferredPrintings: {} },
+      {
+        playerId: botIds[0],
+        mainboard: [
+          { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+        ],
+        sideboard: [],
+        basics: [],
+        preferredPrintings: {},
+      },
+    ];
+    for (const cookie of [aliceCookie, bobCookie, daveCookie]) {
+      expect((await decklists(id, cookie).expect(200)).body).toEqual(expected);
     }
+  });
+
+  it('never serves a cancelled tournament’s decklists', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+
+    await cancelTournament(id).expect(200);
+
+    expect((await decklists(id, daveCookie).expect(404)).body.error).toBe(
+      'no-tournament',
+    );
   });
 
   it('answers no-tournament for a draft without one', async () => {

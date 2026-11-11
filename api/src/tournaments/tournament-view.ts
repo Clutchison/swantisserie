@@ -248,12 +248,16 @@ function countsInStandings(
 
 /**
  * Whether the tournament's decklists may be read: under public decklists,
- * once it has started, whether playing or complete.
+ * once it has started; and for every tournament once it is complete
+ * (ADR 0017).
  */
 export function showsDecklists(
   row: Pick<TournamentRow, 'publicDecklists' | 'state'>,
 ): boolean {
-  return row.publicDecklists && row.state !== 'Registration';
+  return (
+    row.state === 'Complete' ||
+    (row.publicDecklists && row.state !== 'Registration')
+  );
 }
 
 /**
