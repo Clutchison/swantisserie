@@ -373,18 +373,10 @@ describe('card previews', () => {
     expect(previewImage()).toBeNull();
   });
 
-  it('shows on names in the pick log and on your picks on the Export tab', async () => {
-    const { fixture, page } = await openBoard();
+  it('shows on names in the pick log', async () => {
+    const { page } = await openBoard();
 
     tap(cardNames(namedList(page, 'Pick log'))[0]!);
-    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-
-    tabButton(page, 'Export').click();
-    TestBed.tick();
-    vi.useRealTimers();
-    await fixture.whenStable();
-    tap(page.querySelector('h1')!);
-    tap(cardNames(namedList(page, 'Your picks'))[0]!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
@@ -477,15 +469,10 @@ describe('card previews', () => {
       expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
-    it('show before names in the pick log and on the Export tab', async () => {
-      const { fixture, page } = await openBoard();
+    it('show before names in the pick log', async () => {
+      const { page } = await openBoard();
 
       expect(costBefore(cardNames(namedList(page, 'Pick log'))[0]!)).toEqual(['one red mana']);
-
-      tabButton(page, 'Export').click();
-      vi.useRealTimers();
-      await fixture.whenStable();
-      expect(costBefore(cardNames(namedList(page, 'Your picks'))[0]!)).toEqual(['one red mana']);
     });
   });
 

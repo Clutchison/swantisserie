@@ -6,7 +6,6 @@ import {
   alice,
   alicePlayer,
   bob,
-  buttons,
   heading,
   openTab,
   tabLabels,
@@ -96,7 +95,7 @@ describe('plan tab', () => {
   it('sits between Queue and Board for every player', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }));
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
     expect(tabButton(page, 'Deck').disabled).toBe(false);
   });
 
@@ -106,7 +105,7 @@ describe('plan tab', () => {
       drafting({ turn: bobsTurn, players: [bob] }),
     );
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
     expect(tabButton(page, 'Deck').disabled).toBe(true);
     expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
     http.expectNone('/api/drafts/draft-1/plan');
@@ -567,7 +566,7 @@ describe('the Deck tab’s name', () => {
       plan: planOf(),
     });
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
     const deck = await openTab(fixture, page, 'Deck');
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');
@@ -580,7 +579,7 @@ describe('the Deck tab’s name', () => {
       plan: planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 2 }] }),
     });
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     const deck = await openTab(fixture, page, 'Deck');
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');
@@ -591,7 +590,7 @@ describe('the Deck tab’s name', () => {
   it('tells a viewer who isn’t a player of a complete draft that only players have a deck', async () => {
     const { page } = await openDraft(completeSnapshot, { ...complete, players: [bob] });
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
   });
 
@@ -618,7 +617,7 @@ describe('the Deck tab’s name', () => {
     }
 
     it('reminds a joined player during registration that their deck locks at Start, warns that its mainboard is under 40, and offers edits', async () => {
-      const { page, tab } = await openDeck(registration(bob.id, alice.id));
+      const { tab } = await openDeck(registration(bob.id, alice.id));
 
       expect(text(tab)).toContain(REMINDER);
       expect(text(tab)).toContain(
@@ -626,7 +625,6 @@ describe('the Deck tab’s name', () => {
       );
       expect(text(tab)).not.toContain('locked');
       expect(deckEdits(tab).length).toBeGreaterThan(0);
-      expect(buttons(page, 'Export')[0].disabled).toBe(false);
     });
 
     it('leaves out the warning once the mainboard holds 40 cards', async () => {

@@ -61,10 +61,9 @@ describe('picks left beside the panel headings', () => {
   it('leaves the tab buttons and the other panels without the count', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }));
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
     expect(tabs(page).flatMap(picksLeftTexts)).toEqual([]);
     expect(picksLeftTexts(tabPanel(page, 'Board'))).toEqual([]);
-    expect(picksLeftTexts(tabPanel(page, 'Export'))).toEqual([]);
   });
 
   it('shows the viewer’s picks left, less the picks they have made', async () => {

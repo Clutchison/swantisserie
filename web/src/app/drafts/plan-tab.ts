@@ -45,6 +45,7 @@ import {
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
+import { ARENA_SIDEBOARD_CAP, ExportButtons, sideboardOverArenaCap } from './export-buttons';
 import { PlanApi } from './plan-api';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
@@ -181,6 +182,7 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
     CdkDrag,
     CdkDropList,
     CdkDropListGroup,
+    ExportButtons,
     LoadingAnimation,
     LucideMinus,
     LucidePlus,
@@ -353,6 +355,11 @@ export class PlanTab {
 
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
+  /** How many cards the exported sideboard holds, when Arena's import may cut it short. */
+  protected readonly sideboardOverArenaCap = computed(() => sideboardOverArenaCap(this.store));
+  protected readonly arenaSideboardCap = ARENA_SIDEBOARD_CAP;
+  /** The copy buttons, whose latest copy the draft page forgets as the tab opens or closes. */
+  readonly exportButtons = viewChild.required(ExportButtons);
 
   /** The mainboard size below which a deck change clears ready, which the Ready notice names. */
   protected readonly minimumMainboard = MIN_MAINBOARD_CARDS;

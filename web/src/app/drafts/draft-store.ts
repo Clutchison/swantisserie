@@ -31,6 +31,7 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import type { ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -293,6 +294,24 @@ export class DraftStore implements TournamentViewer {
     return new Set(
       [...mainboard, ...sideboard].filter((card) => !card.picked).map((card) => card.poolCardId),
     );
+  });
+
+  /**
+   * What the signed-in player's exports are made of: their plan without its
+   * unpicked cards, each plan board's picks in pick order. A pick the plan
+   * doesn't have yet is on the mainboard, where every pick lands.
+   */
+  readonly exportPlan = computed<ExportPlan<PoolCardView>>(() => {
+    const { sideboard, basics } = this.plan.value();
+    const onSideboard = new Set(sideboard.map((card) => card.poolCardId));
+    const plan: ExportPlan<PoolCardView> = { mainboard: [], sideboard: [], basics };
+    // Stryker disable next-line OptionalChaining: a viewer who isn't a player has no Deck tab to export from.
+    const own = this.ownPlayer()?.id;
+    for (const { playerId, poolCardId, card } of this.pickLog.value()) {
+      if (playerId !== own) continue;
+      (onSideboard.has(poolCardId) ? plan.sideboard : plan.mainboard).push(card);
+    }
+    return plan;
   });
 
   /**

@@ -1,0 +1,138 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  type OnDestroy,
+  signal,
+} from '@angular/core';
+import type { Platform, PoolCardView } from 'contract';
+import { LucideCheck } from '@lucide/angular';
+import { arenaExport } from './arena-export';
+import { DraftStore } from './draft-store';
+import type { ExportPlan } from './export-plan';
+import { planBoardCount } from './plan-boards';
+import { moxfieldExport } from './moxfield-export';
+import { mtgoExport } from './mtgo-export';
+
+/** Where a player's deck can be exported to. */
+type ExportTarget = 'Arena' | 'MTGO' | 'Moxfield';
+
+/** Each export target's export of a player's deck. */
+const EXPORTS: Record<ExportTarget, (plan: ExportPlan<PoolCardView>) => string> = {
+  Arena: arenaExport,
+  MTGO: mtgoExport,
+  Moxfield: moxfieldExport,
+};
+
+/** The export targets a draft on each platform offers. */
+const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
+  Arena: ['Arena', 'Moxfield'],
+  MTGO: ['MTGO', 'Moxfield'],
+};
+
+/** The most sideboard cards Arena's import may keep. */
+export const ARENA_SIDEBOARD_CAP = 15;
+
+/**
+ * How many cards the signed-in player's exported sideboard holds, its basics
+ * included, when Arena's import may cut it short; otherwise null.
+ */
+export function sideboardOverArenaCap(store: DraftStore): number | null {
+  const count = planBoardCount(store.exportPlan(), 'Sideboard');
+  return store.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP ? count : null;
+}
+
+/** How long a copy button shows its confirmation. */
+const CONFIRMATION_MS = 2000;
+
+/**
+ * The Deck tab's copy buttons, one per export the draft's platform offers,
+ * each copying the signed-in player's deck as that export. They show once the
+ * player has a pick and their deck has loaded, locked or not.
+ */
+@Component({
+  selector: 'app-export-buttons',
+  imports: [LucideCheck],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { role: 'group', 'aria-label': 'Exports' },
+  templateUrl: './export-buttons.html',
+  styleUrls: ['../page.scss', './drafts.scss', './export-buttons.scss'],
+})
+export class ExportButtons implements OnDestroy {
+  private readonly store = inject(DraftStore);
+
+  /** What the exports are made of. */
+  private readonly exportPlan = this.store.exportPlan;
+
+  /** Whether there's a deck to copy: the player has a pick, and their picks and deck have loaded. */
+  protected readonly ready = computed(() => {
+    const { mainboard, sideboard } = this.exportPlan();
+    return (
+      mainboard.length + sideboard.length > 0 &&
+      !this.store.pickLog.loading() &&
+      !this.store.pickLog.missing() &&
+      !this.store.plan.loading() &&
+      !this.store.plan.missing()
+    );
+  });
+
+  /** In the order their buttons show. */
+  protected readonly exportTargets = computed(() => PLATFORM_EXPORTS[this.store.shown().platform]);
+
+  /** What the latest copy of the deck was copied for, while it's confirmed. */
+  protected readonly copied = signal<ExportTarget | null>(null);
+  /** Whether the latest copy of the deck failed. */
+  protected readonly copyFailed = signal(false);
+
+  private confirmationTimer?: ReturnType<typeof setTimeout>;
+  /** The latest copy attempt, so that an earlier or cleared one can't report how it went. */
+  private latestCopy = 0;
+
+  // Stryker disable next-line BlockStatement: a timer left running after teardown only sets `copied` on a destroyed component.
+  ngOnDestroy() {
+    // Stryker disable next-line CallExpression: a timer left running after teardown only sets `copied` on a destroyed component.
+    clearTimeout(this.confirmationTimer);
+  }
+
+  /** Forgets how the latest copy went, as the Deck tab opens or closes. */
+  clearCopy() {
+    this.latestCopy++;
+    this.clearConfirmation();
+    this.copyFailed.set(false);
+  }
+
+  /** Copies the deck to the clipboard as an export for `target`, confirming how it went. */
+  protected async copyFor(target: ExportTarget) {
+    const copy = ++this.latestCopy;
+    this.copyFailed.set(false);
+    // The same button stays confirmed while it copies again, rather than flickering.
+    if (this.copied() !== target) {
+      this.clearConfirmation();
+    }
+    try {
+      await navigator.clipboard.writeText(EXPORTS[target](this.exportPlan()));
+      if (copy === this.latestCopy) {
+        this.confirm(target);
+      }
+    } catch {
+      if (copy === this.latestCopy) {
+        this.clearConfirmation();
+        this.copyFailed.set(true);
+      }
+    }
+  }
+
+  /** Shows the confirmation for `target` for `CONFIRMATION_MS`. */
+  private confirm(target: ExportTarget) {
+    clearTimeout(this.confirmationTimer);
+    this.copied.set(target);
+    this.confirmationTimer = setTimeout(() => this.copied.set(null), CONFIRMATION_MS);
+  }
+
+  private clearConfirmation() {
+    // Stryker disable next-line CallExpression: confirm() clears the timer itself before restarting it, and meanwhile it only sets null over null.
+    clearTimeout(this.confirmationTimer);
+    this.copied.set(null);
+  }
+}

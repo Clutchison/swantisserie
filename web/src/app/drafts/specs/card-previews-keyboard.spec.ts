@@ -156,17 +156,6 @@ describe('card previews', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens on names tabbed to on the Export tab', async () => {
-      const { fixture, page } = await openBoard();
-      tabButton(page, 'Export').click();
-      vi.useRealTimers();
-      await fixture.whenStable();
-
-      tabTo(ownTabStop(panel(page), 'Lightning Bolt')!);
-
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
-    });
-
     it('opens on names tabbed to on the Queue tab, but not while a drag is under way', async () => {
       const opened = await openPicked({
         queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
