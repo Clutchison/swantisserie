@@ -48,6 +48,8 @@ const otherIsland = landPrinting(
   'ons',
   '336',
 );
+/** Oath of the Gatewatch's plain Wastes, #183a: no basic land's printing. */
+const oathWastes = '9cc070d3-4b83-4684-9caf-063e5c473a77';
 const forest = landPrinting(
   'Forest',
   '11111111-2222-4333-8444-555555555555',
@@ -121,7 +123,7 @@ describe('preferred printings', () => {
       scryfallId: kaldheimIsland,
     }).expect(400);
     const wastes = await setPreferred('Wastes', {
-      scryfallId: '9cc070d3-4b83-4684-9caf-063e5c473a77',
+      scryfallId: oathWastes,
     }).expect(400);
     expect(wastes.body).toEqual({
       error: 'invalid',

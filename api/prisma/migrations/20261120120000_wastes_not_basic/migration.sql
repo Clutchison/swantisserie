@@ -1,4 +1,4 @@
--- Wastes is no longer a basic land (#637): delete every row that names
+-- Wastes is no longer a basic land (#640): delete every row that names
 -- it, then drop it from the enum. Preferred printings go first, as each
 -- refers to its stored printing.
 DELETE FROM "PreferredPrinting" WHERE "land" = 'Wastes';

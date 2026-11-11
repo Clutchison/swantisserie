@@ -65,9 +65,13 @@ export const OTJ_SETS: ScryfallSet[] = [
   }),
 ];
 
+/** The Scryfall search terms that leave the basic lands out, by exact name. */
+export const NO_BASICS =
+  '-!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest"';
+
 /** The search that counts a set's cards on the platform, basic lands left out. */
 export const countQuery = (code: string, platform: Platform = 'Arena') =>
-  `e:${code} -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" in:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
+  `e:${code} ${NO_BASICS} in:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
 
 /**
  * Answers to the searches that count each set's cards on the platform, for

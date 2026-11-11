@@ -18,7 +18,7 @@ import {
 } from '../../testing/app.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { printingsAnswers } from '../../testing/scryfall-printings.js';
-import { scryfallSet } from '../../testing/scryfall-sets.js';
+import { NO_BASICS, scryfallSet } from '../../testing/scryfall-sets.js';
 import type { TestDatabase } from '../../testing/test-database.js';
 
 export {
@@ -194,7 +194,7 @@ export const snapshotQuery = (
   poolQuery: string,
   platform: Platform = 'Arena',
 ) =>
-  `(${poolQuery}) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
+  `(${poolQuery}) ${NO_BASICS} game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
 
 /** A pool query whose cards are all on Arena, with a two-card pool. */
 export function allOnArena(poolQuery: string) {

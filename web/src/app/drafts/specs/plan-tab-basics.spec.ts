@@ -442,6 +442,36 @@ describe('basic lands on the plan tab', () => {
     expect(group(plan, 'Group by')).toBeNull();
   });
 
+  it('shows no Wastes among the basic lands, in the Lands stack or in the list', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith(),
+    });
+    const plan = await openPlan(fixture, page);
+    const dialog = await openBasics(fixture, plan);
+    // One of each basic land the dialog offers.
+    const offered: PlannedBasicView[] = [];
+    for (const land of ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'] as const) {
+      button(dialog, `One more ${land}`)!.click();
+      offered.push({ land, count: 1 });
+      http.expectOne(`/api/drafts/draft-1/plan/basics/${land}`).flush(boltAndShivanWith(offered));
+      await vi.waitFor(() => expect(countOf(land).value).toBe('1'));
+    }
+    inDialog('Done')!.click();
+    await fixture.whenStable();
+
+    expect(stack(plan, 'Lands')).toEqual(['Forest', 'Island', 'Mountain', 'Plains', 'Swamp']);
+    button(plan, 'List')!.click();
+    await fixture.whenStable();
+    const lines = planBoards(plan)[0].lines;
+    expect(lines).toContain('1 Forest');
+    expect(lines.some((line) => line.includes('Wastes'))).toBe(false);
+  });
+
   it('offers the mode, the grouping in stacks mode, and the Basic lands button on desktop', async () => {
     viewOn('desktop');
     onTestFinished(() => {

@@ -10,7 +10,7 @@ const KHM_395 = '0a9e4a3b-1d47-4c3a-a3a7-6d0d5d3a4c1e';
 
 describe('the migration that makes Wastes no basic land', () => {
   it(
-    'deletes every basic land printing, basic land in a plan and preferred printing of Wastes, keeping the five basic lands’',
+    'deletes every basic land printing, basic land in a plan and preferred printing of Wastes, keeping the five basic lands',
     async () => {
       const { db, applyMigration } = await databaseBefore(WASTES_NOT_BASIC);
       await db.query(
