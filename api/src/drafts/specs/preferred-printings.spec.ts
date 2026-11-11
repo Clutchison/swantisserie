@@ -9,7 +9,7 @@ import {
   playingTournament,
   readyDraft,
   scryfall,
-  setBasic,
+  addBasic,
   signIn,
   storePrintings,
   useDraftsApp,
@@ -146,7 +146,7 @@ describe('preferred printings', () => {
 
   it('changes while the player’s deck is locked, leaving the deck alone', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
-    await setBasic(id, 'Mountain', 1, bobCookie).expect(409);
+    await addBasic(id, 'Mountain', bobCookie).expect(409);
     const before = (await plan(id, bobCookie).expect(200)).body as PlanView;
 
     await setPreferred(

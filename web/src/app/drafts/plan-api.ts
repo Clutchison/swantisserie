@@ -1,14 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type {
-  BasicLand,
-  PlanBoard,
-  PlanMoveRequest,
-  PlannedBasicCountRequest,
-  PlanView,
-  PoolCardRequest,
-} from 'contract';
+import type { BasicLand, PlanBoard, PlanMoveRequest, PlanView, PoolCardRequest } from 'contract';
 
 /** Changes to the signed-in player's plan, each answered with the plan as it now is. */
 @Injectable({ providedIn: 'root' })
@@ -32,11 +25,9 @@ export class PlanApi {
     return this.http.delete<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
   }
 
-  /** Sets how many copies of a basic land the plan's mainboard holds. */
-  setBasic(draftId: string, land: BasicLand, count: number): Observable<PlanView> {
-    return this.http.put<PlanView>(`${url(draftId)}/basics/${land}`, {
-      count,
-    } satisfies PlannedBasicCountRequest);
+  /** Adds one copy of a basic land to the mainboard. */
+  addBasic(draftId: string, land: BasicLand): Observable<PlanView> {
+    return this.http.post<PlanView>(`${url(draftId)}/basics/${land}`, null);
   }
 
   /** Takes every basic land out of the plan. */

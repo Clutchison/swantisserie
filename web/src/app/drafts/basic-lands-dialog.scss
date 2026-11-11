@@ -16,19 +16,13 @@ ul {
   list-style: none;
 }
 
-/* A basic land's symbol, −, number and +. */
+/* A basic land's symbol, name, mainboard count and Add. */
 li {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-divider);
-}
-
-label {
-  display: flex;
-  margin-inline-end: var(--space-sm);
 }
 
 img {
@@ -36,9 +30,14 @@ img {
   height: 1.5rem;
 }
 
-input {
-  width: 3.5rem;
-  text-align: center;
+.name {
+  flex: 1;
+}
+
+.count {
+  min-width: 2ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 
 .error {

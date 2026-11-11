@@ -16,6 +16,7 @@ import {
   removeEntry,
   removeFromPlan,
   setBasic,
+  addBasic,
   setUpTournament,
   signIn,
   startTournament,
@@ -41,7 +42,7 @@ beforeEach(async () => {
 /** Every plan write Alice can send, each answering with its status. */
 const planWrites = () => [
   () => movePlanned(id, ids.Shock, 'Sideboard', aliceCookie),
-  () => setBasic(id, 'Island', 2, aliceCookie),
+  () => addBasic(id, 'Island', aliceCookie),
   () => clearBasics(id, aliceCookie),
   () => addToPlan(id, ids['Lava Spike'], aliceCookie),
   () => removeFromPlan(id, ids.Shock, aliceCookie),
@@ -125,7 +126,7 @@ describe('a joined player’s deck', () => {
     await startTournament(id).expect(200);
 
     expect(
-      (await setBasic(id, 'Island', 3, aliceCookie).expect(409)).body.error,
+      (await addBasic(id, 'Island', aliceCookie).expect(409)).body.error,
     ).toBe('deck-locked');
     expect((await plan(id, aliceCookie).expect(200)).body.basics).toEqual([
       { land: 'Island', board: 'Mainboard', count: 2 },

@@ -8,7 +8,9 @@ import {
   start,
   plan,
   setBasic,
+  addBasic,
   clearBasics,
+  draftsRequest,
   movePlanned,
   poolCardIds,
   pick,
@@ -29,32 +31,28 @@ describe('basic lands in a plan', () => {
     carolCookie = await signIn(carol);
   });
 
-  it('adds basics to the mainboard by count, and takes them out at 0', async () => {
+  it('adds one copy of a basic land to the mainboard at a time', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     await start(id).expect(200);
 
-    await setBasic(id, 'Mountain', 7, carolCookie).expect(200);
-    await setBasic(id, 'Forest', 1, carolCookie).expect(200);
-    const set = await setBasic(id, 'Plains', 2, carolCookie).expect(200);
+    await addBasic(id, 'Mountain', carolCookie).expect(200);
+    await addBasic(id, 'Plains', carolCookie).expect(200);
+    const added = await addBasic(id, 'Mountain', carolCookie).expect(200);
 
-    expect(set.body).toEqual({
+    expect(added.body).toEqual({
       mainboard: [],
       sideboard: [],
       basics: [
-        { land: 'Plains', board: 'Mainboard', count: 2 },
-        { land: 'Mountain', board: 'Mainboard', count: 7 },
-        { land: 'Forest', board: 'Mainboard', count: 1 },
+        { land: 'Plains', board: 'Mainboard', count: 1 },
+        { land: 'Mountain', board: 'Mainboard', count: 2 },
       ],
       lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
-    await setBasic(id, 'Mountain', 6, carolCookie).expect(200);
-    await setBasic(id, 'Forest', 0, carolCookie).expect(200);
-    expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([
-      { land: 'Plains', board: 'Mainboard', count: 2 },
-      { land: 'Mountain', board: 'Mainboard', count: 6 },
-    ]);
+    expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual(
+      added.body.basics,
+    );
   });
 
   it('lists the mainboard’s basics first, then the sideboard’s, each in the basic lands’ order', async () => {
@@ -74,16 +72,36 @@ describe('basic lands in a plan', () => {
     ]);
   });
 
-  it('sets a count on the mainboard, leaving the sideboard’s copies of that land alone', async () => {
+  it('adds a copy to the mainboard, leaving the sideboard’s copies of that land alone', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
     await putBasicsOnSideboard(id, carol.id, 'Island', 2);
 
-    await setBasic(id, 'Island', 3, carolCookie).expect(200);
-    await setBasic(id, 'Island', 4, carolCookie).expect(200);
-    const zero = await setBasic(id, 'Island', 0, carolCookie).expect(200);
+    const added = await addBasic(id, 'Island', carolCookie).expect(200);
 
-    expect(zero.body.basics).toEqual([
+    expect(added.body.basics).toEqual([
+      { land: 'Island', board: 'Mainboard', count: 1 },
       { land: 'Island', board: 'Sideboard', count: 2 },
+    ]);
+  });
+
+  it('refuses a copy once the plan holds 99 of that land across both plan boards', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    await putBasicsOnSideboard(id, carol.id, 'Island', 9);
+    await setBasic(id, 'Island', 90, carolCookie).expect(200);
+    await setBasic(id, 'Forest', 99, carolCookie).expect(200);
+
+    const refused = await addBasic(id, 'Island', carolCookie).expect(409);
+    expect(refused.body).toEqual({
+      error: 'most-basics',
+      message: 'Your plan already holds 99 copies of Island.',
+    });
+    await addBasic(id, 'Forest', carolCookie).expect(409);
+    await addBasic(id, 'Plains', carolCookie).expect(200);
+    expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([
+      { land: 'Plains', board: 'Mainboard', count: 1 },
+      { land: 'Island', board: 'Mainboard', count: 90 },
+      { land: 'Forest', board: 'Mainboard', count: 99 },
+      { land: 'Island', board: 'Sideboard', count: 9 },
     ]);
   });
 
@@ -135,29 +153,31 @@ describe('basic lands in a plan', () => {
     ]);
   });
 
-  it('refuses a land that isn’t basic, Wastes among them, or a count that isn’t a whole number from 0 to 99', async () => {
+  it('refuses to add a land that isn’t basic, Wastes among them', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
 
-    const notBasic = await setBasic(id, 'Shock', 1, carolCookie).expect(400);
+    const notBasic = await addBasic(id, 'Shock', carolCookie).expect(400);
     expect(notBasic.body).toEqual({
       error: 'invalid',
       message: 'Choose a basic land.',
     });
-    await setBasic(id, 'plains', 1, carolCookie).expect(400);
-    const wastes = await setBasic(id, 'Wastes', 1, carolCookie).expect(400);
+    await addBasic(id, 'plains', carolCookie).expect(400);
+    const wastes = await addBasic(id, 'Wastes', carolCookie).expect(400);
     expect(wastes.body).toEqual({
       error: 'invalid',
       message: 'Choose a basic land.',
     });
-    for (const count of [-1, 1.5, 100, '2', null]) {
-      const refused = await setBasic(id, 'Plains', count, carolCookie);
-      expect(refused.status).toBe(400);
-      expect(refused.body).toEqual({
-        error: 'invalid',
-        message: 'Choose a number of copies from 0 to 99.',
-      });
-    }
-    await setBasic(id, 'Plains', 99, carolCookie).expect(200);
+    expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([]);
+  });
+
+  it('no longer sets a count', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+
+    await draftsRequest('put', `/${id}/plan/basics/Island`, carolCookie, {
+      count: 3,
+    });
+
+    expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([]);
   });
 
   it('changes basics in the lobby and while active, paused, closed and complete, leaving the draft alone', async () => {

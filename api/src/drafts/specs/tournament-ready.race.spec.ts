@@ -5,7 +5,7 @@ import {
   bob,
   inRegistration,
   markReady,
-  setBasic,
+  shrinkDeck,
   tournament,
 } from './tournament-harness.js';
 
@@ -13,11 +13,11 @@ describeRaces('marking ready against a deck change', () => {
   it('never leaves the player ready with fewer than 40 cards: the change clears the ready marked first, or the mark sees the smaller deck', async () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
 
-    // 38 Mountains and Bob's one pick make 39 cards, too few to be ready, so
+    // Shrunk, Bob's mainboard is too small to be ready, so
     // whichever lands second sees what the first did.
     const [marked, shrunk] = await race(
       () => markReady(id, bobCookie),
-      () => setBasic(id, 'Mountain', 38, bobCookie),
+      () => shrinkDeck(id, bobCookie),
     );
 
     const view = (await tournament(id).expect(200))

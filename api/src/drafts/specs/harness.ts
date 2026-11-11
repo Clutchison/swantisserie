@@ -1,5 +1,5 @@
-import type { BasicLand, DraftView, Platform } from 'contract';
-import request from 'supertest';
+import type { BasicLand, DraftView, Platform, PlanView } from 'contract';
+import request, { type Response } from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
 import {
@@ -664,14 +664,53 @@ export function dismissReadyNotice(id: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/ready-notice`, cookie);
 }
 
-/** Sets how many copies of a basic land the player's mainboard holds. */
+/** Adds one copy of a basic land to the player's mainboard. */
+export function addBasic(id: string, land: string, cookie: string) {
+  return draftsRequest('post', `/${id}/plan/basics/${land}`, cookie);
+}
+
+/**
+ * Brings the player's mainboard up to `count` copies of a basic land, adding
+ * one copy at a time as a player does, and answers with the last add's
+ * answer, or the first refused one; with the plan's, when it already holds
+ * `count`. `.expect(status)` checks that answer's status, as supertest's
+ * does. It never takes copies off: throws if the mainboard holds more.
+ */
 export function setBasic(
   id: string,
-  land: string,
-  count: unknown,
+  land: BasicLand,
+  count: number,
   cookie: string,
 ) {
-  return draftsRequest('put', `/${id}/plan/basics/${land}`, cookie, { count });
+  const answer = (async () => {
+    const read = await plan(id, cookie);
+    const basics = (read.body as Partial<PlanView>).basics ?? [];
+    const held =
+      basics.find((b) => b.land === land && b.board === 'Mainboard')?.count ??
+      0;
+    if (count < held) {
+      throw new Error(
+        `setBasic can't take ${land} from ${held} down to ${count}: no route takes copies off yet.`,
+      );
+    }
+    let last: Response = read;
+    for (let added = held; added < count; added++) {
+      last = await addBasic(id, land, cookie);
+      if (last.status !== 200) break;
+    }
+    return last;
+  })();
+  return Object.assign(answer, {
+    async expect(status: number) {
+      const res = await answer;
+      if (res.status !== status) {
+        throw new Error(
+          `Expected ${status}, got ${res.status}: ${JSON.stringify(res.body)}`,
+        );
+      }
+      return res;
+    },
+  });
 }
 
 /** Takes every basic land out of the player's plan. */

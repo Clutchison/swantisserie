@@ -16,11 +16,9 @@ import type {
   BasicLand,
   PlanBoard,
   PlanMoveRequest,
-  PlannedBasicCountRequest,
   PlanView,
   RequestProblem,
 } from 'contract';
-import { MOST_BASICS } from 'contract';
 import { bodyFields } from '../request-body.js';
 import {
   CurrentUser,
@@ -94,19 +92,16 @@ export class PlansController {
     );
   }
 
-  /** Sets how many copies of a basic land the mainboard holds. */
-  @Put('basics/:land')
-  async setBasic(
+  /** Adds one copy of a basic land to the mainboard. */
+  @Post('basics/:land')
+  @HttpCode(200)
+  async addBasic(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('land') land: string,
-    @Body() body: unknown,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const count = parseCount(body);
-    return this.change(user, id, () =>
-      this.plans.setBasic(id, user.id, basic, count),
-    );
+    return this.change(user, id, () => this.plans.addBasic(id, user.id, basic));
   }
 
   /** Takes every basic land out of the plan. Declared before `:poolCardId`, which would match it. */
@@ -195,21 +190,4 @@ function parseLand(land: string): BasicLand {
     } satisfies RequestProblem);
   }
   return land;
-}
-
-/** How many copies of a basic land to hold, or a 400 if it isn't a whole number up to MOST_BASICS. */
-function parseCount(body: unknown): number {
-  const { count } = bodyFields<PlannedBasicCountRequest>(body);
-  if (
-    typeof count !== 'number' ||
-    !Number.isInteger(count) ||
-    count < 0 ||
-    count > MOST_BASICS
-  ) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: `Choose a number of copies from 0 to ${MOST_BASICS}.`,
-    } satisfies RequestProblem);
-  }
-  return count;
 }

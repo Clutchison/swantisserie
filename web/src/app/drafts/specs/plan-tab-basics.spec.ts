@@ -8,7 +8,6 @@ import {
   completeSnapshot,
   alertIn,
   button,
-  controlByLabel,
   group,
   heading,
   namedImages,
@@ -45,8 +44,8 @@ useDraftsApp();
 useTallScreen();
 
 describe('basic lands on the plan tab', () => {
-  /** The API request that sets how many Islands the plan holds. */
-  const setIslandUrl = '/api/drafts/draft-1/plan/basics/Island';
+  /** The API request that adds an Island to the mainboard. */
+  const addIslandUrl = '/api/drafts/draft-1/plan/basics/Island';
   const cards = [shivan, bolt];
   /** Lightning Bolt and Shivan Dragon picked on the mainboard, and `basics`. */
   const boltAndShivanWith = (
@@ -62,11 +61,8 @@ describe('basic lands on the plan tab', () => {
     ...fields,
   });
 
-  /** The Basic lands button, whatever count it shows. */
-  const basicsButton = (plan: HTMLElement) =>
-    [...plan.querySelectorAll('button')].find((b) =>
-      b.textContent?.trim().startsWith('Basic lands'),
-    );
+  /** The Add basics button, which opens the Basic lands dialog. */
+  const basicsButton = (plan: HTMLElement) => button(plan, 'Add basics');
   /** Opens the Basic lands dialog, and answers with it. */
   async function openBasics(fixture: AppFixture, plan: HTMLElement) {
     basicsButton(plan)!.click();
@@ -75,15 +71,10 @@ describe('basic lands on the plan tab', () => {
   }
   /** A button in the open dialog, by its text or aria-label. */
   const inDialog = (label: string) => button(openDialog()!, label);
-
-  /** The Basic lands control's number for `land`, labelled by the land, if the dialog is open. */
-  const countOf = (land: string) => controlByLabel(document.body, 'spinbutton', land)!;
-  /** Types `value` into the number for `land`, as a player does before leaving it. */
-  function typeCount(land: string, value: string) {
-    const input = countOf(land);
-    input.value = value;
-    input.dispatchEvent(new Event('change'));
-  }
+  /** The Add button for `land` in the open dialog. */
+  const addOf = (land: string) => inDialog(`Add ${land}`)!;
+  /** What the open dialog's row for `land` reads: its name, the mainboard's count and Add. */
+  const row = (land: string) => text(addOf(land).closest('li'));
 
   // First in the file: Stryker credits module-level code, such as the default printings, only to each spec file's first test.
   it('shows each basic land’s default printing in the Lands stack, offering its small and normal images', async () => {
@@ -120,123 +111,99 @@ describe('basic lands on the plan tab', () => {
     );
   });
 
-  it('adds and removes each basic with − and +, and by typing a number, on the mainboard', async () => {
+  it('adds one copy of a basic land to the mainboard with Add, the row and the plan updating', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
-    expect(
-      ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((land) => countOf(land).value),
-    ).toEqual(['0', '0', '0', '0', '0']);
-    expect(inDialog('One fewer Plains')!.disabled).toBe(true);
+    expect(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map(row)).toEqual([
+      'Plains 0 Add',
+      'Island 0 Add',
+      'Swamp 0 Add',
+      'Mountain 0 Add',
+      'Forest 0 Add',
+    ]);
 
-    inDialog('One more Plains')!.click();
+    addOf('Plains').click();
     const added = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
-    expect(added.request.method).toBe('PUT');
-    expect(added.request.body).toEqual({ count: 1 });
+    expect(added.request.method).toBe('POST');
+    expect(added.request.body).toBeNull();
     added.flush(boltAndShivanWith([{ land: 'Plains', board: 'Mainboard', count: 1 }]));
-    await vi.waitFor(() => expect(countOf('Plains').value).toBe('1'));
+
+    await vi.waitFor(() => expect(row('Plains')).toBe('Plains 1 Add'));
     expect(planBoards(plan)[0]).toEqual({
       heading: 'Mainboard 3 (3 picked)',
       lines: ['1 Lightning Bolt', '1 Shivan Dragon', '1 Plains'],
     });
-
-    typeCount('Island', '8');
-    const typed = http.expectOne(setIslandUrl);
-    expect(typed.request.body).toEqual({ count: 8 });
-    typed.flush(
-      boltAndShivanWith([
-        { land: 'Plains', board: 'Mainboard', count: 1 },
-        { land: 'Island', board: 'Mainboard', count: 8 },
-      ]),
-    );
-    await vi.waitFor(() =>
-      expect(planBoards(plan)[0].lines).toEqual([
-        '1 Lightning Bolt',
-        '1 Shivan Dragon',
-        '1 Plains',
-        '8 Island',
-      ]),
-    );
-
-    inDialog('One fewer Plains')!.click();
-    const fewer = http.expectOne('/api/drafts/draft-1/plan/basics/Plains');
-    expect(fewer.request.body).toEqual({ count: 0 });
-    fewer.flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 8 }]));
-    await vi.waitFor(() => expect(countOf('Plains').value).toBe('0'));
-
-    typeCount('Island', '0');
-    http.expectOne(setIslandUrl).flush(boltAndShivanWith([]));
-    await vi.waitFor(() =>
-      expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']),
-    );
   });
 
-  it('puts back a typed number that isn’t one, and keeps a typed number within 0 to 99', async () => {
+  it('counts only the mainboard’s copies in each row', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: boltAndShivanWith([{ land: 'Swamp', board: 'Mainboard', count: 2 }]),
+      plan: boltAndShivanWith([
+        { land: 'Island', board: 'Mainboard', count: 2 },
+        { land: 'Island', board: 'Sideboard', count: 3 },
+        { land: 'Forest', board: 'Sideboard', count: 1 },
+      ]),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    typeCount('Swamp', '');
-    expect(countOf('Swamp').value).toBe('2');
-    http.expectNone('/api/drafts/draft-1/plan/basics/Swamp');
-
-    typeCount('Swamp', '250');
-    expect(http.expectOne('/api/drafts/draft-1/plan/basics/Swamp').request.body).toEqual({
-      count: 99,
-    });
+    expect(row('Island')).toBe('Island 2 Add');
+    expect(row('Forest')).toBe('Forest 0 Add');
   });
 
-  it('puts back a typed count the api refuses', async () => {
+  it('disables Add once the plan holds 99 of a land across both plan boards, its tooltip saying so', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: boltAndShivanWith(),
+      plan: boltAndShivanWith([
+        { land: 'Island', board: 'Mainboard', count: 90 },
+        { land: 'Forest', board: 'Mainboard', count: 98 },
+        { land: 'Island', board: 'Sideboard', count: 9 },
+      ]),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    typeCount('Island', '8');
+    expect(row('Island')).toBe('Island 90 Add');
+    expect(addOf('Island').disabled).toBe(true);
+    expect(addOf('Island').title).toBe('Your plan holds 99 copies of Island.');
+    expect(addOf('Forest').disabled).toBe(false);
+    expect(addOf('Forest').title).toBe('');
+  });
+
+  it('shows the plan as it now is when another change landed first, saying why', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 98 }]),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    addOf('Island').click();
     http
-      .expectOne(setIslandUrl)
+      .expectOne(addIslandUrl)
       .flush(
-        { error: 'draft-not-open', message: 'This draft isn’t open.' },
+        { error: 'most-basics', message: 'Your plan already holds 99 copies of Island.' },
         { status: 409, statusText: 'Conflict' },
       );
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
-    reread.flush(boltAndShivanWith());
-    await fixture.whenStable();
+    reread.flush(
+      boltAndShivanWith([
+        { land: 'Island', board: 'Mainboard', count: 98 },
+        { land: 'Island', board: 'Sideboard', count: 1 },
+      ]),
+    );
 
-    await vi.waitFor(() => expect(countOf('Island').value).toBe('0'));
-    expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands');
+    await vi.waitFor(() => expect(addOf('Island').disabled).toBe(true));
+    expect(row('Island')).toBe('Island 98 Add');
     // Said in the dialog, as the page behind it is hidden from assistive technology.
-    expect(alertIn(openDialog()!)?.textContent).toContain('This draft isn’t open.');
+    expect(text(alertIn(openDialog()!))).toBe('Your plan already holds 99 copies of Island.');
   });
 
-  it('puts back a count typed while another change is in flight, sending nothing', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: boltAndShivanWith(),
-    });
-    const plan = await openPlan(fixture, page);
-    await openBasics(fixture, plan);
-
-    inDialog('One more Plains')!.click();
-    typeCount('Island', '8');
-
-    await vi.waitFor(() => expect(countOf('Island').value).toBe('0'));
-    http.expectNone(setIslandUrl);
-    http
-      .expectOne('/api/drafts/draft-1/plan/basics/Plains')
-      .flush(boltAndShivanWith([{ land: 'Plains', board: 'Mainboard', count: 1 }]));
-    await vi.waitFor(() => expect(countOf('Plains').value).toBe('1'));
-  });
-
-  it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
+  it('keeps basics on the mainboard, with nothing to move or remove them by', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 3 }]),
@@ -251,18 +218,18 @@ describe('basic lands on the plan tab', () => {
       },
       { heading: 'Sideboard 0 (0 picked)', lines: [] },
     ]);
-    expect(countOf('Forest').value).toBe('3');
+    expect(row('Forest')).toBe('Forest 3 Add');
     expect(button(plan, 'Move Forest to the sideboard')).toBeUndefined();
     expect(button(plan, 'Remove Forest from your plan')).toBeUndefined();
     expect(button(plan, 'Move Shivan Dragon to the sideboard')).toBeDefined();
   });
 
-  it('clears every basic', async () => {
+  it('clears every basic from both plan boards', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith([
         { land: 'Mountain', board: 'Mainboard', count: 5 },
-        { land: 'Forest', board: 'Mainboard', count: 1 },
+        { land: 'Forest', board: 'Sideboard', count: 1 },
       ]),
     });
     const plan = await openPlan(fixture, page);
@@ -273,10 +240,21 @@ describe('basic lands on the plan tab', () => {
     expect(cleared.request.method).toBe('DELETE');
     cleared.flush(boltAndShivanWith());
 
-    await vi.waitFor(() => expect(countOf('Mountain').value).toBe('0'));
-    expect(countOf('Forest').value).toBe('0');
+    await vi.waitFor(() => expect(row('Mountain')).toBe('Mountain 0 Add'));
     expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']);
     expect(inDialog('Clear basics')!.disabled).toBe(true);
+  });
+
+  it('offers Clear basics only while the plan holds a basic land, on either plan board', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Swamp', board: 'Sideboard', count: 2 }]),
+    });
+    const plan = await openPlan(fixture, page);
+    await openBasics(fixture, plan);
+
+    expect(row('Swamp')).toBe('Swamp 0 Add');
+    expect(inDialog('Clear basics')!.disabled).toBe(false);
   });
 
   it('can change basics once the draft is complete', async () => {
@@ -288,7 +266,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
 
-    inDialog('One more Forest')!.click();
+    addOf('Forest').click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Forest');
   });
 
@@ -340,13 +318,13 @@ describe('basic lands on the plan tab', () => {
     expect(island().getAttribute('src')).toBe(apiImage('normal', defaultPrintings.Island.id));
   });
 
-  it('sets basics in a Basic lands dialog, not above the plan boards, each labelled by its mana symbol', async () => {
+  it('adds basics in a Basic lands dialog, not above the plan boards, each row showing its land’s mana symbol and name', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
-    expect(countOf('Plains')).toBeUndefined();
+    expect(button(plan, 'Add Plains')).toBeUndefined();
     expect(openDialog()).toBeNull();
 
     const dialog = await openBasics(fixture, plan);
@@ -354,25 +332,20 @@ describe('basic lands on the plan tab', () => {
     expect(heading(dialog, 'Basic lands')).toBeDefined();
     // Named by its heading.
     expect(await question('Basic lands')).toBe(dialog);
-    const symbols = namedImages(dialog);
-    expect(symbols.map((symbol) => [symbol.getAttribute('src'), symbol.alt, symbol.title])).toEqual(
-      [
-        ['mana/W.svg', 'Plains', 'Plains'],
-        ['mana/U.svg', 'Island', 'Island'],
-        ['mana/B.svg', 'Swamp', 'Swamp'],
-        ['mana/R.svg', 'Mountain', 'Mountain'],
-        ['mana/G.svg', 'Forest', 'Forest'],
-      ],
-    );
-    // Each number is labelled by its land, through its symbol's alt text.
-    expect(countOf('Forest')).toBeDefined();
+    // Each symbol sits beside its land's name, so it says nothing more to assistive technology.
+    expect(namedImages(dialog)).toEqual([]);
+    const lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
+    expect(
+      lands.map((land) => addOf(land).closest('li')!.querySelector('img')!.getAttribute('src')),
+    ).toEqual(['mana/W.svg', 'mana/U.svg', 'mana/B.svg', 'mana/R.svg', 'mana/G.svg']);
+    expect(lands.map(row)).toEqual(lands.map((land) => `${land} 0 Add`));
     // Wastes is no basic land: a pool can hold it as a card.
-    expect(button(dialog, 'One more Wastes')).toBeUndefined();
+    expect(button(dialog, 'Add Wastes')).toBeUndefined();
     expect(button(dialog, 'Clear basics')).toBeDefined();
     expect(button(dialog, 'Done')).toBeDefined();
   });
 
-  it('counts the plan’s basics on the button, and only when it holds some', async () => {
+  it('names the button Add basics, with no count, and updates the plan behind the dialog as each change saves', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith([
@@ -381,23 +354,24 @@ describe('basic lands on the plan tab', () => {
       ]),
     });
     const plan = await openPlan(fixture, page);
-    expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (6)');
+    expect(text(basicsButton(plan))).toBe('Add basics');
 
     const dialog = await openBasics(fixture, plan);
-    button(dialog, 'One more Forest')!.click();
+    addOf('Forest').click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Forest').flush(
       boltAndShivanWith([
         { land: 'Mountain', board: 'Mainboard', count: 5 },
         { land: 'Forest', board: 'Mainboard', count: 2 },
       ]),
     );
-    // The plan behind the dialog updates as each change saves.
-    await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands (7)'));
-    expect(planBoards(plan)[0].lines).toContain('2 Forest');
+    await vi.waitFor(() => expect(planBoards(plan)[0].lines).toContain('2 Forest'));
+    expect(text(basicsButton(plan))).toBe('Add basics');
 
     button(dialog, 'Clear basics')!.click();
     http.expectOne('/api/drafts/draft-1/plan/basics').flush(boltAndShivanWith());
-    await vi.waitFor(() => expect(basicsButton(plan)!.textContent?.trim()).toBe('Basic lands'));
+    await vi.waitFor(() =>
+      expect(planBoards(plan)[0].lines).toEqual(['1 Lightning Bolt', '1 Shivan Dragon']),
+    );
     expect(openDialog()).not.toBeNull();
   });
 
@@ -432,14 +406,14 @@ describe('basic lands on the plan tab', () => {
   const groupButtons = (plan: HTMLElement, name: string) =>
     [...(group(plan, name)?.querySelectorAll('button') ?? [])].map((b) => b.textContent?.trim());
 
-  it('offers the Basic lands button and the mode, in list mode, on mobile', async () => {
+  it('offers the Add basics button and the mode, in list mode, on mobile', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
 
-    expect(button(plan, 'Basic lands')).toBeDefined();
+    expect(basicsButton(plan)).toBeDefined();
     expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
     expect(group(plan, 'Group by')).toBeNull();
   });
@@ -458,10 +432,10 @@ describe('basic lands on the plan tab', () => {
     // One of each basic land the dialog offers.
     const offered: PlannedBasicView[] = [];
     for (const land of ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'] as const) {
-      button(dialog, `One more ${land}`)!.click();
+      button(dialog, `Add ${land}`)!.click();
       offered.push({ land, board: 'Mainboard', count: 1 });
       http.expectOne(`/api/drafts/draft-1/plan/basics/${land}`).flush(boltAndShivanWith(offered));
-      await vi.waitFor(() => expect(countOf(land).value).toBe('1'));
+      await vi.waitFor(() => expect(row(land)).toBe(`${land} 1 Add`));
     }
     inDialog('Done')!.click();
     await fixture.whenStable();
@@ -474,7 +448,7 @@ describe('basic lands on the plan tab', () => {
     expect(lines.some((line) => line.includes('Wastes'))).toBe(false);
   });
 
-  it('offers the mode, the grouping in stacks mode, and the Basic lands button on desktop', async () => {
+  it('offers the mode, the grouping in stacks mode, and the Add basics button on desktop', async () => {
     viewOn('desktop');
     onTestFinished(() => {
       vi.unstubAllGlobals();
@@ -486,118 +460,42 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
     expect(groupButtons(plan, 'Group by')).toEqual(['Mana value', 'Color', 'Type']);
-    expect(button(plan, 'Basic lands')).toBeDefined();
+    expect(basicsButton(plan)).toBeDefined();
 
     button(plan, 'List')!.click();
     await fixture.whenStable();
     expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
     expect(group(plan, 'Group by')).toBeNull();
-    expect(button(plan, 'Basic lands')).toBeDefined();
+    expect(basicsButton(plan)).toBeDefined();
   });
 
-  it('adds two basics with + pressed twice in a row, focus staying on +', async () => {
+  it('adds two copies with Add pressed twice in a row, focus staying on Add and the count updating after each', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
     await openBasics(fixture, plan);
-    const more = inDialog('One more Island')!;
+    const add = addOf('Island');
 
-    more.focus();
-    more.click();
+    add.focus();
+    add.click();
     await fixture.whenStable();
-    expect(more.getAttribute('aria-disabled')).toBe('true');
-    expect(document.activeElement).toBe(more);
+    expect(add.getAttribute('aria-disabled')).toBe('true');
+    expect(document.activeElement).toBe(add);
     http
-      .expectOne(setIslandUrl)
+      .expectOne(addIslandUrl)
       .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 1 }]));
-    await vi.waitFor(() => expect(more.getAttribute('aria-disabled')).toBeNull());
-    expect(document.activeElement).toBe(more);
+    await vi.waitFor(() => expect(add.getAttribute('aria-disabled')).toBeNull());
+    expect(row('Island')).toBe('Island 1 Add');
+    expect(document.activeElement).toBe(add);
 
-    more.click();
-    const second = http.expectOne(setIslandUrl);
-    expect(second.request.body).toEqual({ count: 2 });
-    second.flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 2 }]));
-    await vi.waitFor(() => expect(countOf('Island').value).toBe('2'));
-    expect(document.activeElement).toBe(more);
-  });
-
-  it('moves focus to + once − takes a basic to none', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 1 }]),
-    });
-    const plan = await openPlan(fixture, page);
-    await openBasics(fixture, plan);
-
-    inDialog('One fewer Island')!.focus();
-    inDialog('One fewer Island')!.click();
-    http.expectOne(setIslandUrl).flush(boltAndShivanWith());
-
-    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
-  });
-
-  it('moves focus to − once + takes a basic to 99, not on to the next land', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 98 }]),
-    });
-    const plan = await openPlan(fixture, page);
-    await openBasics(fixture, plan);
-
-    inDialog('One more Island')!.focus();
-    inDialog('One more Island')!.click();
+    add.click();
     http
-      .expectOne(setIslandUrl)
-      .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 99 }]));
-
-    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One fewer Island')));
-  });
-
-  it('moves focus from a typed count to −, after a higher count, or to +, after a lower one', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: boltAndShivanWith(),
-    });
-    const plan = await openPlan(fixture, page);
-    await openBasics(fixture, plan);
-
-    countOf('Island').focus();
-    typeCount('Island', '8');
-    // The number is disabled while its change is sent.
-    await fixture.whenStable();
-    expect(countOf('Island').disabled).toBe(true);
-    http
-      .expectOne(setIslandUrl)
-      .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 8 }]));
-    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One fewer Island')));
-
-    countOf('Island').focus();
-    typeCount('Island', '2');
-    http
-      .expectOne(setIslandUrl)
+      .expectOne(addIslandUrl)
       .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 2 }]));
-    await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('One more Island')));
-  });
-
-  it('sends nothing for a typed count the plan already holds, or one kept within 99 to it', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: boltAndShivanWith([
-        { land: 'Swamp', board: 'Mainboard', count: 2 },
-        { land: 'Forest', board: 'Mainboard', count: 99 },
-      ]),
-    });
-    const plan = await openPlan(fixture, page);
-    await openBasics(fixture, plan);
-
-    typeCount('Swamp', '2');
-    typeCount('Forest', '250');
-    await fixture.whenStable();
-
-    http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/basics'));
-    expect(countOf('Forest').value).toBe('99');
+    await vi.waitFor(() => expect(row('Island')).toBe('Island 2 Add'));
+    expect(document.activeElement).toBe(add);
   });
 
   it('says when a change fails, and takes the error away once a later change is made', async () => {
@@ -608,18 +506,18 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
     const dialog = await openBasics(fixture, plan);
 
-    inDialog('One more Island')!.click();
-    http.expectOne(setIslandUrl).flush(null, serverError);
+    addOf('Island').click();
+    http.expectOne(addIslandUrl).flush(null, serverError);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(boltAndShivanWith());
     await vi.waitFor(() =>
       expect(text(alertIn(dialog))).toBe("Couldn't change your plan. Try again in a moment."),
     );
 
-    inDialog('One more Island')!.click();
+    addOf('Island').click();
     http
-      .expectOne(setIslandUrl)
+      .expectOne(addIslandUrl)
       .flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 1 }]));
-    await vi.waitFor(() => expect(countOf('Island').value).toBe('1'));
+    await vi.waitFor(() => expect(row('Island')).toBe('Island 1 Add'));
     expect(alertIn(dialog)).toBeNull();
   });
 
@@ -632,9 +530,9 @@ describe('basic lands on the plan tab', () => {
     await openBasics(fixture, plan);
     await vi.waitFor(() => expect(document.activeElement).toBe(inDialog('Done')));
 
-    // With no basics, − and Clear basics are disabled: Plains's number is the first control.
+    // With no basics, Clear basics is disabled: Plains's Add is the first control.
     pressTab();
-    expect(document.activeElement).toBe(countOf('Plains'));
+    expect(document.activeElement).toBe(addOf('Plains'));
     pressTab({ shift: true });
     expect(document.activeElement).toBe(inDialog('Done'));
   });
@@ -659,7 +557,7 @@ describe('basic lands on the plan tab', () => {
     ['Done', () => inDialog('Done')!.click()],
     ['Escape', pressEscape],
     ['a backdrop click', clickBackdrop],
-  ])('returns focus to the Basic lands button on %s', async (_, close) => {
+  ])('returns focus to the Add basics button on %s', async (_, close) => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith(),

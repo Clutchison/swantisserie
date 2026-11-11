@@ -80,7 +80,7 @@
     </button>
   </div>
 }
-<!-- Stacks or list, and how the stacks group; then the Basic lands button. -->
+<!-- Stacks or list, and how the stacks group; then the Add basics button. -->
 <div class="mode-controls">
   <div class="segmented" role="group" aria-label="Mode">
     <button
@@ -116,7 +116,7 @@
   }
   @if (!deckLocked()) {
     <button class="button compact secondary" type="button" (click)="openBasics()">
-      Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
+      Add basics
     </button>
   }
 </div>

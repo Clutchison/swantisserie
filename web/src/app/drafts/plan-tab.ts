@@ -346,11 +346,6 @@ export class PlanTab {
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
-  /** How many basic lands the plan holds in all, for the Basic lands button. */
-  protected readonly basicsTotal = computed(() =>
-    this.plan().basics.reduce((total, basic) => total + basic.count, 0),
-  );
-
   /** The Queue unpicked dialog, while it's open. */
   private queueing: DialogRef<QueueUnpickedResult, QueueUnpickedDialog> | null = null;
   /** Whether Queue unpicked has anything to add, from either plan board. */

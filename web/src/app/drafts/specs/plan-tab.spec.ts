@@ -596,7 +596,7 @@ describe('plan tab as the deck', () => {
     /** The buttons in the Deck tab that would change the deck. */
     const deckEdits = (deck: HTMLElement) =>
       [...deck.querySelectorAll('button')].filter((b) =>
-        /^(Move|Remove|Basic lands)/.test(accessibleName(b)),
+        /^(Move|Remove|Add basics)/.test(accessibleName(b)),
       );
     // Four picks and two basics: six cards.
     const deck = planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 2 }] });

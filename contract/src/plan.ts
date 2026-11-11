@@ -26,7 +26,7 @@ export const BASIC_LANDS = [
 /** A basic land, which a plan holds by count on each plan board, and a pool never holds. */
 export type BasicLand = (typeof BASIC_LANDS)[number];
 
-/** The most copies of one basic land a plan holds. */
+/** The most copies of one basic land a plan holds, across both plan boards. */
 export const MOST_BASICS = 99;
 
 /** The copies of one basic land on one plan board of a plan. Never a pool card: no one picks it, and it is never queued. */
@@ -113,9 +113,4 @@ export interface PlanView extends PlanBoards {
 /** The plan board to move a card in a plan to. */
 export interface PlanMoveRequest {
   board: PlanBoard;
-}
-
-/** How many copies of a basic land a plan's mainboard is to hold: 0 takes it out. */
-export interface PlannedBasicCountRequest {
-  count: number;
 }

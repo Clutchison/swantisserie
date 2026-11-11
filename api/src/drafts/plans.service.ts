@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   BASIC_LANDS,
+  MOST_BASICS,
   PLAN_BOARDS,
   type BasicLand,
   type PlanBoard,
@@ -202,26 +203,31 @@ export class PlansService {
   }
 
   /**
-   * Sets how many copies of the basic land `land` the user's mainboard
-   * holds; at 0 it holds none. The sideboard's copies stay as they are.
-   * Throws NotAPlayerError if the user isn't in the draft.
+   * Adds one copy of the basic land `land` to the user's mainboard. Throws
+   * PlanRefusedError once the plan holds MOST_BASICS of it across both plan
+   * boards, and NotAPlayerError if the user isn't in the draft.
    */
-  async setBasic(
+  async addBasic(
     draftId: string,
     userId: string,
     land: BasicLand,
-    count: number,
   ): Promise<PlanChange> {
     const board: PlanBoard = 'Mainboard';
     return this.change(draftId, userId, async (tx, playerId) => {
-      if (count === 0) {
-        await tx.plannedBasic.deleteMany({ where: { playerId, land, board } });
-        return;
+      const held = await tx.plannedBasic.aggregate({
+        where: { playerId, land },
+        _sum: { count: true },
+      });
+      if ((held._sum.count ?? 0) >= MOST_BASICS) {
+        throw new PlanRefusedError({
+          error: 'most-basics',
+          message: `Your plan already holds ${MOST_BASICS} copies of ${land}.`,
+        });
       }
       await tx.plannedBasic.upsert({
         where: { playerId_land_board: { playerId, land, board } },
-        create: { playerId, land, board, count },
-        update: { count },
+        create: { playerId, land, board, count: 1 },
+        update: { count: { increment: 1 } },
       });
     });
   }
