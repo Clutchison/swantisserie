@@ -29,10 +29,8 @@ import type {
 import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
+import { anotherPlayer, TournamentPlayers } from './tournament-players';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
-
-/** The name of a player id that isn't among the draft's players, wherever a name is shown. */
-const ANOTHER_PLAYER = 'another player';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -82,7 +80,7 @@ export interface PickedCard extends PickView {
  * rather than being handed its state.
  */
 @Injectable()
-export class DraftStore {
+export class DraftStore implements TournamentPlayers {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
   private readonly pollMs = inject(DRAFT_POLL_MS);
@@ -162,7 +160,7 @@ export class DraftStore {
    * players gets one fallback, named "another player", with no avatar.
    */
   player(id: string): PlayerView {
-    return this.findPlayer(id) ?? { id, name: ANOTHER_PLAYER, avatarUrl: '', isBot: false };
+    return this.findPlayer(id) ?? anotherPlayer(id);
   }
 
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */

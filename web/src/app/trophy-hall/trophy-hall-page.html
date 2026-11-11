@@ -30,7 +30,6 @@
                   <span class="count">{{ row.trophies }}&nbsp;🏆</span>{{ ' ' }}
                   <span class="name">{{ row.name }}</span
                   >{{ ' ' }}
-                  <!-- View Tournament (#635) goes in these actions, after View Deck. -->
                   <div class="actions">
                     <button
                       class="button quiet compact"
@@ -40,6 +39,14 @@
                       (click)="toggle(row)"
                     >
                       View Deck
+                    </button>
+                    <button
+                      class="button quiet compact"
+                      type="button"
+                      aria-haspopup="dialog"
+                      (click)="viewTournament(row, heading)"
+                    >
+                      View Tournament
                     </button>
                   </div>
                 </div>

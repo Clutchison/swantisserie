@@ -8,9 +8,9 @@ import {
   type TemplateRef,
 } from '@angular/core';
 import type { BracketPlaceView, BracketSideView, TournamentView } from 'contract';
-import { DraftStore } from './draft-store';
 import { seededName, seedsOf, type MatchLine } from './match-lines';
 import { inRound, roundName } from './round-names';
+import { TournamentPlayers } from './tournament-players';
 
 /** How one side of a bracket place shows: a player, a bye, or the winner to come of a place before. */
 interface SideLine {
@@ -40,7 +40,7 @@ interface SideLine {
   styleUrl: './tournament-bracket.scss',
 })
 export class TournamentBracket {
-  private readonly store = inject(DraftStore);
+  private readonly players = inject(TournamentPlayers);
 
   readonly tournament = input.required<TournamentView>();
   /** The signed-in player's id, if they joined. */
@@ -181,7 +181,7 @@ export class TournamentBracket {
   }
 
   private name(playerId: string) {
-    return this.store.player(playerId).name;
+    return this.players.player(playerId).name;
   }
 
   private seeded(playerId: string) {

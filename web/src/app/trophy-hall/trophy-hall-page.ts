@@ -1,5 +1,13 @@
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  Injector,
+  inputBinding,
+  signal,
+} from '@angular/core';
 import type {
   PoolCardView,
   TrophyHallPoolSourceView,
@@ -10,7 +18,9 @@ import { CardImageSource } from '../drafts/card-image-source';
 import { CardPreviews } from '../drafts/card-preview';
 import { Decklist } from '../drafts/decklist';
 import { setsText } from '../drafts/drafts';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { TOURNAMENT_SUMMARY_HEADING, TournamentSummary } from './tournament-summary';
 
 /** What heads a Trophy Hall group: its pool source's title, and where it links, if anywhere. */
 interface GroupHeader {
@@ -33,6 +43,9 @@ interface GroupHeader {
   styleUrls: ['../page.scss', './trophy-hall-page.scss'],
 })
 export class TrophyHallPage {
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
+
   protected readonly hall = httpResource<TrophyHallView>(() => '/api/trophy-hall');
   /** The rows whose decklists are expanded, by `rowKey`. */
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
@@ -58,6 +71,15 @@ export class TrophyHallPage {
   /** What tells the row apart from every other: a player holds a tournament's trophy at most once. */
   protected rowKey(row: TrophyHallRowView): string {
     return `${row.draftId}-${row.playerId}`;
+  }
+
+  /** Opens the row's Tournament summary, its pool source as its group is headed by it. */
+  protected viewTournament(row: TrophyHallRowView, poolSource: string) {
+    this.dialogs.open(TournamentSummary, {
+      labelledBy: TOURNAMENT_SUMMARY_HEADING,
+      injector: this.injector,
+      bindings: [inputBinding('row', () => row), inputBinding('poolSource', () => poolSource)],
+    });
   }
 
   /** Expands the row's decklist, or collapses it when it is expanded. */

@@ -11,9 +11,9 @@ import {
   untracked,
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
-import { percent, record } from '../record';
+import { droppedPlayers } from 'engine';
+import { percent, place, record } from '../record';
 import { FocusKey, SendsChange } from './changes';
-import { DraftStore } from './draft-store';
 import {
   matchIn,
   matchLine,
@@ -24,6 +24,18 @@ import {
   type ClearGameScore,
 } from './match-lines';
 import { TournamentBracket } from './tournament-bracket';
+import { TournamentPlayers } from './tournament-players';
+
+/** A rank in `tournament`'s standings as the Tournament summary shows it: a place, marked = when shared, such as =2nd. */
+export function summaryPlace(tournament: TournamentView, rank: number): string {
+  const sharing = tournament.standings.filter((standing) => standing.rank === rank).length;
+  return place({ rank, shared: sharing > 1 });
+}
+
+/** The player `playerId`'s `name` as the Tournament summary shows it: marked 🏆 when they hold `tournament`'s trophy. */
+export function withTrophy(tournament: TournamentView, playerId: string, name: string): string {
+  return tournament.trophyHolders.includes(playerId) ? `${name} 🏆` : name;
+}
 
 /** A game score an organizer sets for a match, in its player order. */
 export interface SetGameScore {
@@ -49,9 +61,14 @@ export interface SetGameScore {
   styleUrls: ['./drafts.scss', './tournament-results.scss'],
 })
 export class TournamentResults {
-  private readonly store = inject(DraftStore);
+  private readonly players = inject(TournamentPlayers);
 
   readonly tournament = input.required<TournamentView>();
+  /**
+   * Shown in the Tournament summary: each rank as a place, such as =2nd,
+   * and trophy holders marked 🏆 and dropped players marked by name.
+   */
+  readonly summary = input(false);
   /** The signed-in player's id, if they joined. */
   readonly ownId = input<string>();
   /** The match shown as the signed-in player's, which needs no Report or Confirm here. */
@@ -99,7 +116,7 @@ export class TournamentResults {
   protected readonly standings = computed(() =>
     this.tournament().standings.map((standing) => ({
       ...standing,
-      name: this.name(standing.playerId),
+      ...this.summarised(standing.playerId, standing.rank, this.name(standing.playerId)),
       record: record(standing.matches),
       gameWinPercent: percent(standing.gameWinPercent),
       opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent),
@@ -173,7 +190,7 @@ export class TournamentResults {
       confirmAgainst: this.confirmable(match)
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
-      organize: this.store.canOrganize() && correctable ? this.organizerControls(match) : null,
+      organize: this.players.canOrganize() && correctable ? this.organizerControls(match) : null,
     };
   }
 
@@ -204,8 +221,22 @@ export class TournamentResults {
     return { ...choices, toggle: `${choices.verb} ${choices.label}` };
   }
 
+  /**
+   * The rank and name of the player `playerId` as the standings show
+   * them: in the Tournament summary, the rank as a place and the player
+   * marked if they dropped or hold the trophy.
+   */
+  private summarised(playerId: string, rank: number, name: string) {
+    if (!this.summary()) return { rank: String(rank), name };
+    const dropped = droppedPlayers(this.tournament().entries).includes(playerId);
+    return {
+      rank: summaryPlace(this.tournament(), rank),
+      name: withTrophy(this.tournament(), playerId, dropped ? `${name} (dropped)` : name),
+    };
+  }
+
   private name(playerId: string) {
-    return this.store.player(playerId).name;
+    return this.players.player(playerId).name;
   }
 
   /** The player's name, with their seed in single elimination, as in "Alice (seed 1)". */

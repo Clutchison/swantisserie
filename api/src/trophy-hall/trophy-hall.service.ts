@@ -101,6 +101,7 @@ export class TrophyHallService {
             name: names.get(playerId)!,
             trophies,
             draftId: tournament.complete.draftId,
+            draftName: tournament.complete.draft.name,
             completedAt: tournament.complete.view.completedAt,
             decklist: {
               playerId,
