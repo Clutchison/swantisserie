@@ -16,6 +16,7 @@ import {
   completeRound,
   postCompleteRound,
   confirmMatch,
+  expectCompletedSince,
   getDraft,
   placesOf,
   playingSingleElimination,
@@ -361,12 +362,14 @@ describe('completing a single elimination tournament round', () => {
     await completeRound(id).expect(200);
     const semifinal = (await tournamentView(id)).rounds[0].matches[0];
     const finalist = semifinal.players[0];
-
     await reportCurrentRound(id, cookieOf);
+    const before = Date.now();
+
     await completeRound(id).expect(200);
 
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
+    expectCompletedSince(view, before);
     expect(view.lastCompletedRound).toBe(2);
     expect(view.rounds.map((round) => placesOf(round))).toEqual([
       [{ bracketPlace: 1, players: [seeds[1], seeds[2]] }],

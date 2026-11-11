@@ -448,6 +448,8 @@ model Tournament {
   createdAt          DateTime          @default(now())
   /// When the organizer started it; null during registration.
   startedAt          DateTime?
+  /// When it completed, set once in the transaction that marks it Complete; null until then, and for tournaments that completed before this was recorded.
+  completedAt        DateTime?
 }
 
 /// A draft's player who has joined its tournament. While the tournament is in Registration or Playing, it locks the player's deck.
@@ -469,7 +471,7 @@ model TournamentEntry {
   droppedAfterRound Int?
   /// Single elimination only: the entry's place in the seed order, from 1, shuffled at Start; null otherwise.
   seed              Int?
-  /// Under public decklists, the player's deck as it was locked when the tournament started (`PlanBoards` in `api/src/drafts/plans.service.ts`), so a later change to it never shows; null before Start and without public decklists.
+  /// The player's deck as it was locked when the tournament started, bots' included, whatever the tournament's public decklists setting (`PlanBoards` in `api/src/drafts/plans.service.ts`), so a later change to it never shows; null before Start, and for tournaments that completed before every deck was kept (ADR 0017).
   decklist          Json?
   /// Matches this entry plays first, whose game scores list its games first, and its byes.
   firstMatches      Match[]    @relation("FirstEntry")

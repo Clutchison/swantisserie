@@ -295,8 +295,9 @@ export class TournamentsController {
 
   /**
    * The draft's decklists, for everyone who sees the draft, once its
-   * tournament has started under public decklists; never otherwise, to
-   * anyone, organizers and app admins included (ADR 0005). Read-only.
+   * tournament has started under public decklists, and for every
+   * tournament once it is complete; never otherwise, to anyone, organizers
+   * and app admins included (ADRs 0005 and 0017). Read-only.
    */
   @Get('decklists')
   async readDecklists(

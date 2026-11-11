@@ -1,6 +1,6 @@
 # Every deck is kept at Start, and every decklist is shown once its tournament is complete
 
-Status: Accepted, not yet built (#629)
+Status: Accepted
 
 Amends 0005 and 0002. ADR 0005 kept a deck private forever unless its tournament had **public decklists**, and only those decks were kept as they were locked. A deck unlocks when its tournament completes, so a private deck's player could change it afterwards, and the deck they played was lost. The Trophy Hall needs every trophy holder's deck as they played it. Decided while specifying the Trophy Hall (#629).
 

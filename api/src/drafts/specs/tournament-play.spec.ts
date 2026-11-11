@@ -7,6 +7,7 @@ import {
   completeRound,
   completeTournament,
   cookiesByPlayer,
+  expectCompletedSince,
   matchOf,
   playingTournament,
   reportCurrentRound,
@@ -210,12 +211,15 @@ describe('completing a tournament', () => {
     expect(
       (await setBasic(id, 'Island', 1, aliceCookie).expect(409)).body.error,
     ).toBe('deck-locked');
+    expect((await tournamentView(id)).completedAt).toBeNull();
+    const before = Date.now();
 
     const answer = await completeTournament(id).expect(200);
 
     expect(answer.body.tournament).toEqual({ state: 'Complete' });
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
+    expectCompletedSince(view, before);
     expect((await matchOf(id, alice.id, carol.id)).outcome).toEqual({
       kind: 'GrantedDraw',
     });

@@ -27,6 +27,7 @@ import {
   completeSnapshot,
   draft,
   drafting,
+  flushDecklists,
   flushPicks,
   findNamedList,
   flushQueueAndPlan,
@@ -105,6 +106,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   state: 'Registration',
   roundCount: 0,
   lastCompletedRound: 0,
+  completedAt: null,
   entries: playerIds.map((playerId) => entry(playerId)),
   rounds: [],
   bracket: null,
@@ -203,6 +205,7 @@ export function playing(
     state: 'Playing',
     roundCount: 0,
     lastCompletedRound: 0,
+    completedAt: null,
     entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
@@ -245,6 +248,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
+    completedAt: null,
     entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
@@ -280,12 +284,14 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
 
 /**
  * The tournament `view` once it is complete: none of its rounds
- * correctable any more, as the api reads it.
+ * correctable any more, and its decklists shown, as the api reads it.
  */
 export function completed(view: ViewerTournamentView): ViewerTournamentView {
   return {
     ...view,
     state: 'Complete',
+    showsDecklists: true,
+    completedAt: '2026-11-10T20:00:00.000Z',
     rounds: view.rounds.map((round) => ({ ...round, correctable: false })),
   };
 }
@@ -339,6 +345,7 @@ export function singleEliminationPlaying(
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 0,
+    completedAt: null,
     entries: [alice.id, bob.id, carol.id].map((playerId, i) => entry(playerId, { seed: i + 1 })),
     rounds: [
       {
@@ -528,9 +535,31 @@ export async function openComplete(
     cards,
     plan,
     tournament: tournament ?? undefined,
-    decklists,
+    decklists: decklists ?? (tournament?.showsDecklists ? emptyDecklists(tournament) : undefined),
     url,
   });
+}
+
+/**
+ * The decklists of `tournament`'s joined players, in join order, each with
+ * empty boards: what a spec that doesn't look at them answers their read with.
+ */
+export const emptyDecklists = (tournament: ViewerTournamentView): DecklistView[] =>
+  tournament.entries.map(({ playerId }) => ({
+    playerId,
+    mainboard: [],
+    sideboard: [],
+    basics: [],
+    preferredPrintings: {},
+  }));
+
+/**
+ * Answers the page's GET of draft-1's decklists with `tournament`'s empty
+ * decklists, when `tournament` shows them and they weren't shown before
+ * (`shownBefore`): the page reads them once a tournament change shows them.
+ */
+async function flushDecklistsOnceShown(tournament: ViewerTournamentView, shownBefore: boolean) {
+  if (tournament.showsDecklists && !shownBefore) await flushDecklists(emptyDecklists(tournament));
 }
 
 /** Where Complete round sends its request. */
@@ -755,7 +784,8 @@ export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boo
  * `version` with `tournament`, or with none once it is cancelled, as another
  * viewer's change does, and answers the reads it makes for Dave, who isn't
  * one of its players, or, `asPlayer`, for one who is, their queue and
- * `plan` included.
+ * `plan` included, and its decklists once `tournament` shows them, unless
+ * they were shown before (`decklistsShownBefore`).
  */
 export async function pushTournament(
   fixture: AppFixture,
@@ -765,7 +795,13 @@ export async function pushTournament(
     asPlayer = false,
     plan = EMPTY_PLAN,
     fields = threePlayers,
-  }: { asPlayer?: boolean; plan?: PlanView; fields?: DraftFixture } = {},
+    decklistsShownBefore = false,
+  }: {
+    asPlayer?: boolean;
+    plan?: PlanView;
+    fields?: DraftFixture;
+    decklistsShownBefore?: boolean;
+  } = {},
 ) {
   updates.events.next({
     type: 'changed',
@@ -773,7 +809,10 @@ export async function pushTournament(
   });
   await flushPicks([]);
   if (asPlayer) await flushQueueAndPlan(undefined, plan);
-  if (tournament) await flushTournament(tournament);
+  if (tournament) {
+    await flushTournament(tournament);
+    await flushDecklistsOnceShown(tournament, decklistsShownBefore);
+  }
   await fixture.whenStable();
 }
 
@@ -783,7 +822,8 @@ export const hasPlayTab = (page: HTMLElement) => !!tabButton(page, 'Play');
 /**
  * Answers a tournament change with the complete draft at `version`, its
  * tournament now `tournament` or gone, then the reads the newer version
- * re-reads, for Alice, a player.
+ * re-reads, for Alice, a player: its decklists too once `tournament` shows
+ * them, unless they were shown before (`decklistsShownBefore`).
  */
 export async function answerChange(
   fixture: AppFixture,
@@ -792,9 +832,13 @@ export async function answerChange(
   tournament: ViewerTournamentView | null,
   version = 1,
   fields: DraftFixture = {},
+  decklistsShownBefore = false,
 ) {
   const req = await answerChangeDraft(url, method, tournament, version, fields);
-  if (tournament) await flushTournament(tournament);
+  if (tournament) {
+    await flushTournament(tournament);
+    await flushDecklistsOnceShown(tournament, decklistsShownBefore);
+  }
   await fixture.whenStable();
   return req;
 }

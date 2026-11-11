@@ -833,6 +833,7 @@ describe('Play tab once the tournament is complete', () => {
       completeWith(confirmedMatch(bobBeatAlice)),
       1,
       threePlayers,
+      true,
     );
 
     expect(yourMatches(tab)).toContain('vs Bob · Lost 1–2 · Confirmed');
