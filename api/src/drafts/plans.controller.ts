@@ -116,9 +116,9 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const board = parseBoard(body);
+    const planBoard = parseBoard(body);
     return this.change(user, id, () =>
-      this.plans.moveBasic(id, user.id, basic, board),
+      this.plans.moveBasic(id, user.id, basic, planBoard),
     );
   }
 
@@ -137,10 +137,10 @@ export class PlansController {
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('land') land: string,
-    @Param('board') board: string,
+    @Param('board') planBoardName: string,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const planBoard = parseBoardParam(board);
+    const planBoard = parsePlanBoard(planBoardName);
     return this.change(user, id, () =>
       this.plans.removeBasic(id, user.id, basic, planBoard),
     );
@@ -166,9 +166,9 @@ export class PlansController {
     @Param('poolCardId') poolCardId: string,
     @Body() body: unknown,
   ): Promise<PlanView> {
-    const board = parseBoard(body);
+    const planBoard = parseBoard(body);
     return this.change(user, id, () =>
-      this.plans.move(id, user.id, poolCardId, board),
+      this.plans.move(id, user.id, poolCardId, planBoard),
     );
   }
 
@@ -202,16 +202,9 @@ export class PlansController {
   }
 }
 
-/** The board to move the card to, or a 400 if it isn't one. */
+/** The plan board the body names to move to, or a 400 if it names none. */
 function parseBoard(body: unknown): PlanBoard {
-  const { board } = bodyFields<PlanMoveRequest>(body);
-  if (!isPlanBoard(board)) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Choose the mainboard or the sideboard.',
-    } satisfies RequestProblem);
-  }
-  return board;
+  return parsePlanBoard(bodyFields<PlanMoveRequest>(body).board);
 }
 
 /** The basic land named in the path, or a 400 if it isn't one. */
@@ -225,13 +218,13 @@ function parseLand(land: string): BasicLand {
   return land;
 }
 
-/** The plan board named in the path, or a 400 if it isn't one. */
-function parseBoardParam(board: string): PlanBoard {
-  if (!isPlanBoard(board)) {
+/** `value` as a plan board, from a body or a path, or a 400 if it isn't one. */
+function parsePlanBoard(value: unknown): PlanBoard {
+  if (!isPlanBoard(value)) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose the mainboard or the sideboard.',
     } satisfies RequestProblem);
   }
-  return board;
+  return value;
 }

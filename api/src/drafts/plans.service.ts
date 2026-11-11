@@ -3,7 +3,6 @@ import {
   BASIC_LANDS,
   MOST_BASICS,
   PLAN_BOARDS,
-  otherPlanBoard,
   type BasicLand,
   type PlanBoard,
   type PlanBoards,
@@ -24,6 +23,7 @@ import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
 import { isDeckLocked } from './locked-deck.js';
+import { otherPlanBoard } from './plan-boards.js';
 import { playersPreferredPrintings } from './preferred-printings.js';
 
 /** The order a plan board lists its cards in: by mana value, then name. */
@@ -213,7 +213,6 @@ export class PlansService {
     userId: string,
     land: BasicLand,
   ): Promise<PlanChange> {
-    const board: PlanBoard = 'Mainboard';
     return this.change(draftId, userId, async (tx, playerId) => {
       const held = await tx.plannedBasic.aggregate({
         where: { playerId, land },
@@ -225,16 +224,12 @@ export class PlansService {
           message: `Your plan already holds ${MOST_BASICS} copies of ${land}.`,
         });
       }
-      await tx.plannedBasic.upsert({
-        where: { playerId_land_board: { playerId, land, board } },
-        create: { playerId, land, board, count: 1 },
-        update: { count: { increment: 1 } },
-      });
+      await putOneBasic(tx, playerId, land, 'Mainboard');
     });
   }
 
   /**
-   * Moves one copy of the basic land `land` in the user's plan to `board`,
+   * Moves one copy of the basic land `land` in the user's plan to `planBoard`,
    * taking it from the other plan board. Throws PlanRefusedError
    * (`not-in-plan`) if the other plan board holds none, and NotAPlayerError
    * if the user isn't in the draft.
@@ -243,31 +238,27 @@ export class PlansService {
     draftId: string,
     userId: string,
     land: BasicLand,
-    board: PlanBoard,
+    planBoard: PlanBoard,
   ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      await takeOneBasic(tx, playerId, land, otherPlanBoard(board));
-      await tx.plannedBasic.upsert({
-        where: { playerId_land_board: { playerId, land, board } },
-        create: { playerId, land, board, count: 1 },
-        update: { count: { increment: 1 } },
-      });
+      await takeOneBasic(tx, playerId, land, otherPlanBoard(planBoard));
+      await putOneBasic(tx, playerId, land, planBoard);
     });
   }
 
   /**
    * Takes one copy of the basic land `land` off the user's plan board
-   * `board`. Throws PlanRefusedError (`not-in-plan`) if that plan board
+   * `planBoard`. Throws PlanRefusedError (`not-in-plan`) if that plan board
    * holds none, and NotAPlayerError if the user isn't in the draft.
    */
   async removeBasic(
     draftId: string,
     userId: string,
     land: BasicLand,
-    board: PlanBoard,
+    planBoard: PlanBoard,
   ): Promise<PlanChange> {
     return this.change(draftId, userId, (tx, playerId) =>
-      takeOneBasic(tx, playerId, land, board),
+      takeOneBasic(tx, playerId, land, planBoard),
     );
   }
 
@@ -446,17 +437,31 @@ function notInPlan() {
   });
 }
 
+/** Puts one more copy of the basic land `land` on the player's plan board `planBoard`. */
+async function putOneBasic(
+  tx: Transaction,
+  playerId: string,
+  land: BasicLand,
+  planBoard: PlanBoard,
+) {
+  await tx.plannedBasic.upsert({
+    where: { playerId_land_board: { playerId, land, board: planBoard } },
+    create: { playerId, land, board: planBoard, count: 1 },
+    update: { count: { increment: 1 } },
+  });
+}
+
 /**
  * Takes one copy of the basic land `land` off the player's plan board
- * `board`, throwing PlanRefusedError (`not-in-plan`) if it holds none.
+ * `planBoard`, throwing PlanRefusedError (`not-in-plan`) if it holds none.
  */
 async function takeOneBasic(
   tx: Transaction,
   playerId: string,
   land: BasicLand,
-  board: PlanBoard,
+  planBoard: PlanBoard,
 ) {
-  const where = { playerId_land_board: { playerId, land, board } };
+  const where = { playerId_land_board: { playerId, land, board: planBoard } };
   const planned = await tx.plannedBasic.findUnique({
     where,
     select: { count: true },
@@ -464,7 +469,7 @@ async function takeOneBasic(
   if (!planned) {
     throw new PlanRefusedError({
       error: 'not-in-plan',
-      message: `Your ${board.toLowerCase()} holds no ${land}.`,
+      message: `Your ${planBoard.toLowerCase()} holds no ${land}.`,
     });
   }
   if (planned.count === 1) {

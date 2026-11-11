@@ -707,32 +707,38 @@ export async function addBasicsUpTo(
 export function removeBasic(
   id: string,
   land: string,
-  board: string,
+  planBoard: string,
   cookie: string,
 ) {
-  return draftsRequest('delete', `/${id}/plan/basics/${land}/${board}`, cookie);
+  return draftsRequest(
+    'delete',
+    `/${id}/plan/basics/${land}/${planBoard}`,
+    cookie,
+  );
 }
 
-/** Moves one copy of a basic land in the player's plan to `board`, taking it from the other plan board. */
+/** Moves one copy of a basic land in the player's plan to `planBoard`, taking it from the other plan board. */
 export function moveBasic(
   id: string,
   land: string,
-  board: unknown,
+  planBoard: unknown,
   cookie: string,
 ) {
-  return draftsRequest('put', `/${id}/plan/basics/${land}`, cookie, { board });
+  return draftsRequest('put', `/${id}/plan/basics/${land}`, cookie, {
+    board: planBoard,
+  });
 }
 
-/** Moves `copies` copies of a basic land to `board`, one at a time, each answered 200. */
+/** Moves `copies` copies of a basic land to `planBoard`, one at a time, each answered 200. */
 export async function moveBasics(
   id: string,
   land: string,
-  board: PlanBoard,
+  planBoard: PlanBoard,
   copies: number,
   cookie: string,
 ) {
   for (let i = 0; i < copies; i++) {
-    await moveBasic(id, land, board, cookie).expect(200);
+    await moveBasic(id, land, planBoard, cookie).expect(200);
   }
 }
 

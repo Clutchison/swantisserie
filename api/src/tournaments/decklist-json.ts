@@ -1,10 +1,10 @@
 import {
-  BASIC_LANDS,
   type PlanBoard,
   type PlanBoards,
   type PlannedBasicView,
   type PlannedCardView,
 } from 'contract';
+import { isBasicLand } from '../drafts/basic-lands.js';
 import { isPlanBoard } from '../drafts/plan-boards.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
@@ -94,7 +94,8 @@ type SnapshotBasic = Omit<PlannedBasicView, 'board'> & { board?: PlanBoard };
 function isBasic(value: unknown): value is SnapshotBasic {
   return (
     isObject(value) &&
-    (BASIC_LANDS as readonly unknown[]).includes(value.land) &&
+    typeof value.land === 'string' &&
+    isBasicLand(value.land) &&
     (value.board === undefined || isPlanBoard(value.board)) &&
     Number.isInteger(value.count) &&
     (value.count as number) > 0

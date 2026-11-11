@@ -6,11 +6,6 @@ export const PLAN_BOARDS = ['Mainboard', 'Sideboard'] as const;
 /** The part of a plan a card is on. */
 export type PlanBoard = (typeof PLAN_BOARDS)[number];
 
-/** The plan board a card on `planBoard` moves to: the other one. */
-export function otherPlanBoard(planBoard: PlanBoard): PlanBoard {
-  return planBoard === 'Mainboard' ? 'Sideboard' : 'Mainboard';
-}
-
 /** A card in a plan. */
 export interface PlannedCardView {
   poolCardId: string;
