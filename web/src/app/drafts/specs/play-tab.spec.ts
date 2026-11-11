@@ -54,7 +54,7 @@ import { cards, openPlan, planOf } from './plan-tab-harness';
 useDraftsApp();
 
 /** The Join button's label without public decklists, and with them. */
-const JOIN_PRIVATE = 'Join (deck private until complete)';
+const JOIN_PRIVATE = 'Join (deck stays private)';
 const JOIN_PUBLIC = 'Join (public decklist)';
 
 /** The tournament's entries, which Join adds to. */
