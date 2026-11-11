@@ -16,12 +16,13 @@ import {
   aliceCookie,
   app,
   carol,
+  clearBasics,
   draftsRequest,
   getDraft,
   pick,
   poolCardIds,
   readyDraft,
-  setBasic,
+  addBasicsUpTo,
   signIn,
   start,
   waitForBotPicks,
@@ -113,7 +114,16 @@ export async function completeDraftWithBots(cookies: string[], bots: number) {
  * pick plus 39 Mountains, as `completeDraft` leaves them.
  */
 export async function fullDeck(id: string, cookie: string) {
-  await setBasic(id, 'Mountain', 39, cookie).expect(200);
+  await addBasicsUpTo(id, 'Mountain', 39, cookie);
+}
+
+/**
+ * Takes the player's mainboard below the 40 cards Start asks for, from the
+ * 40 `fullDeck` gives it, by a deck change: clearing their basic lands,
+ * which leaves their one pick.
+ */
+export function shrinkDeck(id: string, cookie: string) {
+  return clearBasics(id, cookie);
 }
 
 /** Sets up the draft's tournament, round robin unless `body` says otherwise. */

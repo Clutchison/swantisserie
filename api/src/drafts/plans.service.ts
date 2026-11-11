@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import {
   BASIC_LANDS,
+  MOST_BASICS,
+  PLAN_BOARDS,
   type BasicLand,
   type PlanBoard,
   type PlanBoards,
@@ -21,6 +23,7 @@ import { NotAPlayerError } from './draft-errors.js';
 import { lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
 import { isDeckLocked } from './locked-deck.js';
+import { otherPlanBoard } from './plan-boards.js';
 import { playersPreferredPrintings } from './preferred-printings.js';
 
 /** The order a plan board lists its cards in: by mana value, then name. */
@@ -201,31 +204,66 @@ export class PlansService {
   }
 
   /**
-   * Sets how many copies of the basic land `land` the user's mainboard
-   * holds; at 0 it holds none. Throws NotAPlayerError if the user isn't in
-   * the draft.
+   * Adds one copy of the basic land `land` to the user's mainboard. Throws
+   * PlanRefusedError once the plan holds MOST_BASICS of it across both plan
+   * boards, and NotAPlayerError if the user isn't in the draft.
    */
-  async setBasic(
+  async addBasic(
     draftId: string,
     userId: string,
     land: BasicLand,
-    count: number,
   ): Promise<PlanChange> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      if (count === 0) {
-        await tx.plannedBasic.deleteMany({ where: { playerId, land } });
-        return;
-      }
-      await tx.plannedBasic.upsert({
-        where: { playerId_land: { playerId, land } },
-        create: { playerId, land, count },
-        update: { count },
+      const held = await tx.plannedBasic.aggregate({
+        where: { playerId, land },
+        _sum: { count: true },
       });
+      if ((held._sum.count ?? 0) >= MOST_BASICS) {
+        throw new PlanRefusedError({
+          error: 'most-basics',
+          message: `Your plan already holds ${MOST_BASICS} copies of ${land}.`,
+        });
+      }
+      await putOneBasic(tx, playerId, land, 'Mainboard');
     });
   }
 
   /**
-   * Takes every basic land out of the user's plan. Throws
+   * Moves one copy of the basic land `land` in the user's plan to `planBoard`,
+   * taking it from the other plan board. Throws PlanRefusedError
+   * (`not-in-plan`) if the other plan board holds none, and NotAPlayerError
+   * if the user isn't in the draft.
+   */
+  async moveBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    planBoard: PlanBoard,
+  ): Promise<PlanChange> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      await takeOneBasic(tx, playerId, land, otherPlanBoard(planBoard));
+      await putOneBasic(tx, playerId, land, planBoard);
+    });
+  }
+
+  /**
+   * Takes one copy of the basic land `land` off the user's plan board
+   * `planBoard`. Throws PlanRefusedError (`not-in-plan`) if that plan board
+   * holds none, and NotAPlayerError if the user isn't in the draft.
+   */
+  async removeBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    planBoard: PlanBoard,
+  ): Promise<PlanChange> {
+    return this.change(draftId, userId, (tx, playerId) =>
+      takeOneBasic(tx, playerId, land, planBoard),
+    );
+  }
+
+  /**
+   * Takes every basic land out of the user's plan, from both plan boards. Throws
    * NotAPlayerError if the user isn't in the draft.
    */
   async clearBasics(draftId: string, userId: string): Promise<PlanChange> {
@@ -376,14 +414,15 @@ export async function readPlanBoards(
       }));
   const plannedBasics = await tx.plannedBasic.findMany({
     where: { playerId },
-    select: { land: true, count: true },
+    select: { land: true, board: true, count: true },
   });
-  const counts = new Map(plannedBasics.map(({ land, count }) => [land, count]));
-  // A plan lists its basics in the order of `BASIC_LANDS`.
-  const basics = BASIC_LANDS.flatMap((land): PlannedBasicView[] => {
-    const count = counts.get(land);
-    return count === undefined ? [] : [{ land, count }];
-  });
+  // A plan lists the mainboard's basics, then the sideboard's, each in the
+  // order of `BASIC_LANDS`.
+  const basics: PlannedBasicView[] = plannedBasics.toSorted(
+    (a, b) =>
+      PLAN_BOARDS.indexOf(a.board) - PLAN_BOARDS.indexOf(b.board) ||
+      BASIC_LANDS.indexOf(a.land) - BASIC_LANDS.indexOf(b.land),
+  );
   return {
     mainboard: onBoard('Mainboard'),
     sideboard: onBoard('Sideboard'),
@@ -396,4 +435,49 @@ function notInPlan() {
     error: 'not-in-plan',
     message: 'That card isn’t in your plan.',
   });
+}
+
+/** Puts one more copy of the basic land `land` on the player's plan board `planBoard`. */
+async function putOneBasic(
+  tx: Transaction,
+  playerId: string,
+  land: BasicLand,
+  planBoard: PlanBoard,
+) {
+  await tx.plannedBasic.upsert({
+    where: { playerId_land_board: { playerId, land, board: planBoard } },
+    create: { playerId, land, board: planBoard, count: 1 },
+    update: { count: { increment: 1 } },
+  });
+}
+
+/**
+ * Takes one copy of the basic land `land` off the player's plan board
+ * `planBoard`, throwing PlanRefusedError (`not-in-plan`) if it holds none.
+ */
+async function takeOneBasic(
+  tx: Transaction,
+  playerId: string,
+  land: BasicLand,
+  planBoard: PlanBoard,
+) {
+  const where = { playerId_land_board: { playerId, land, board: planBoard } };
+  const planned = await tx.plannedBasic.findUnique({
+    where,
+    select: { count: true },
+  });
+  if (!planned) {
+    throw new PlanRefusedError({
+      error: 'not-in-plan',
+      message: `Your ${planBoard.toLowerCase()} holds no ${land}.`,
+    });
+  }
+  if (planned.count === 1) {
+    await tx.plannedBasic.delete({ where });
+  } else {
+    await tx.plannedBasic.update({
+      where,
+      data: { count: { decrement: 1 } },
+    });
+  }
 }

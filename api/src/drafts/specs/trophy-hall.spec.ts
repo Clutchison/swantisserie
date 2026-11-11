@@ -24,7 +24,7 @@ import {
   poolCardIds,
   reportWin,
   scryfall,
-  setBasic,
+  clearBasics,
   setUpTournament,
   signIn,
   singleElimination,
@@ -289,7 +289,7 @@ describe('the Trophy Hall', () => {
     const ids = await poolCardIds(id);
     // Alice's deck unlocks once the tournament completes, and she changes it.
     await movePlanned(id, ids.Shock, 'Sideboard', aliceCookie).expect(200);
-    await setBasic(id, 'Mountain', 20, aliceCookie).expect(200);
+    await clearBasics(id, aliceCookie).expect(200);
 
     const [row] = (await trophyHall()).groups[0].rows;
 
@@ -297,7 +297,7 @@ describe('the Trophy Hall', () => {
       playerId: alice.id,
       mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
       sideboard: [],
-      basics: [{ land: 'Mountain', count: 39 }],
+      basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
       preferredPrintings: {
         Island: {
           scryfallId: island.id,

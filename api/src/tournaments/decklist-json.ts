@@ -1,9 +1,11 @@
 import {
-  BASIC_LANDS,
+  type PlanBoard,
   type PlanBoards,
   type PlannedBasicView,
   type PlannedCardView,
 } from 'contract';
+import { isBasicLand } from '../drafts/basic-lands.js';
+import { isPlanBoard } from '../drafts/plan-boards.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 /** Thrown when a tournament entry's decklist snapshot is missing or isn't a deck's boards. */
@@ -18,7 +20,11 @@ export function encodeDecklist(boards: PlanBoards): Prisma.InputJsonObject {
   return {
     mainboard: boards.mainboard.map(encodeCard),
     sideboard: boards.sideboard.map(encodeCard),
-    basics: boards.basics.map(({ land, count }) => ({ land, count })),
+    basics: boards.basics.map(({ land, board, count }) => ({
+      land,
+      board,
+      count,
+    })),
   };
 }
 
@@ -40,7 +46,13 @@ export function decodeDecklist(json: Prisma.JsonValue | null): PlanBoards {
   return {
     mainboard: mainboard.map(decodeCard),
     sideboard: sideboard.map(decodeCard),
-    basics: basics.map(({ land, count }) => ({ land, count })),
+    // A snapshot kept before basics had a plan board holds them all on the
+    // mainboard.
+    basics: basics.map(({ land, board, count }) => ({
+      land,
+      board: board ?? 'Mainboard',
+      count,
+    })),
   };
 }
 
@@ -76,10 +88,15 @@ function isCard(value: unknown): value is PlannedCardView {
   );
 }
 
-function isBasic(value: unknown): value is PlannedBasicView {
+/** A basic as a snapshot holds it: one kept before basics had a plan board has none. */
+type SnapshotBasic = Omit<PlannedBasicView, 'board'> & { board?: PlanBoard };
+
+function isBasic(value: unknown): value is SnapshotBasic {
   return (
     isObject(value) &&
-    (BASIC_LANDS as readonly unknown[]).includes(value.land) &&
+    typeof value.land === 'string' &&
+    isBasicLand(value.land) &&
+    (value.board === undefined || isPlanBoard(value.board)) &&
     Number.isInteger(value.count) &&
     (value.count as number) > 0
   );

@@ -28,6 +28,7 @@ import {
   typeInto,
   serverError,
   image,
+  flushPlan,
 } from './harness';
 import {
   clickBackdrop,
@@ -47,6 +48,7 @@ import {
   defaultPrintings,
   openPlan,
   planned,
+  planBoards,
   printingsRequest,
 } from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
@@ -100,7 +102,7 @@ describe('the Printing picker', () => {
   const withIslands = (fields: Partial<PlanView> = {}): PlanView => ({
     mainboard: [planned(bolt), planned(shivan)],
     sideboard: [],
-    basics: [{ land: 'Island', count: 2 }],
+    basics: [{ land: 'Island', board: 'Mainboard', count: 2 }],
     lost: [],
     readyNotice: false,
     preferredPrintings: {},
@@ -191,7 +193,7 @@ describe('the Printing picker', () => {
     'shows %s’s default printing while its printings load',
     async (land, { id, label }) => {
       const { fixture, plan } = await openWith(
-        withIslands({ basics: [{ land: land as BasicLand, count: 1 }] }),
+        withIslands({ basics: [{ land: land as BasicLand, board: 'Mainboard', count: 1 }] }),
       );
 
       namedList(plan, 'Lands').querySelector<HTMLElement>('[aria-haspopup="dialog"]')!.click();
@@ -208,16 +210,71 @@ describe('the Printing picker', () => {
     },
   );
 
-  it('offers Cancel, Use default, then Use this printing', async () => {
+  it('offers Cancel, Remove, Use default, then Use this printing', async () => {
     const { fixture, plan } = await openWith();
 
     const dialog = await openPicker(fixture, plan);
 
     expect(buttonOrder(dialog, 'Use this printing')).toEqual([
       'Cancel',
+      'Remove',
       'Use default',
       'Use this printing',
     ]);
+  });
+
+  it('takes the copy it opened from off its plan board with Remove, then closes', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+
+    button(dialog, 'Remove')!.click();
+    const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard');
+    expect(removed.request.method).toBe('DELETE');
+    removed.flush(withIslands({ basics: [{ land: 'Island', board: 'Mainboard', count: 1 }] }));
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    expect(islandImages(plan)).toEqual([image('normal', defaultPrintings.Island.id)]);
+  });
+
+  it('takes a sideboard copy off the sideboard with Remove', async () => {
+    const { fixture, plan } = await openWith(
+      withIslands({ basics: [{ land: 'Island', board: 'Sideboard', count: 2 }] }),
+    );
+    button(plan, 'List')!.click();
+    await fixture.whenStable();
+    [...plan.querySelectorAll<HTMLElement>('li .name')].find((n) => text(n) === 'Island')!.click();
+    (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
+    await fixture.whenStable();
+
+    button(openDialog()!, 'Remove')!.click();
+    const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Island/Sideboard');
+    expect(removed.request.method).toBe('DELETE');
+    removed.flush(withIslands({ basics: [{ land: 'Island', board: 'Sideboard', count: 1 }] }));
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    expect(planBoards(plan)[1]).toEqual({ heading: 'Sideboard 1 (1 picked)', lines: ['1 Island'] });
+  });
+
+  it('stays open with the reason when Remove is refused, showing the plan as it now is', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+
+    button(dialog, 'Remove')!.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard')
+      .flush(
+        { error: 'not-in-plan', message: 'Your mainboard holds no Island.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await flushPlan(withIslands({ basics: [] }));
+    await fixture.whenStable();
+
+    expect(openDialog()).toBe(dialog);
+    expect(text(alertIn(dialog))).toBe('Your mainboard holds no Island.');
+    // Bolt and Shivan Dragon leave no Lands stack once the Islands are gone.
+    expect(namedList(plan, 'Lands')).toBeNull();
   });
 
   it('opens with focus on Cancel', async () => {
@@ -624,7 +681,7 @@ describe('the Printing picker', () => {
     expect(shownPrinting()).toBe('Island, ONS #335');
   });
 
-  it('opens from a locked deck', async () => {
+  it('opens from a locked deck, offering no Remove, and still changes the printing', async () => {
     const tournament = playing();
     const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
       cards,
@@ -634,9 +691,16 @@ describe('the Printing picker', () => {
     const deck = await openTab(fixture, page, 'Deck');
     expect(text(deck)).toContain('Your deck is locked');
 
-    await openPicker(fixture, deck);
+    const dialog = await openPicker(fixture, deck);
 
-    expect(heading(openDialog()!, 'Island printing')).toBeDefined();
+    expect(heading(dialog, 'Island printing')).toBeDefined();
+    expect(button(dialog, 'Remove')).toBeUndefined();
+    await chooseSet(fixture, 'Kaldheim · KHM');
+    button(dialog, 'Use this printing')!.click();
+    http.expectOne(`/api/preferred-printings/Island`).flush({ Island: khm394 });
+    await fixture.whenStable();
+    expect(openDialog()).toBeNull();
+    expect(islandImages(deck)).toEqual([image('normal', KHM_394), image('normal', KHM_394)]);
   });
 
   it('falls back to Scryfall’s API image of a preferred printing when its image fails in the stacks', async () => {

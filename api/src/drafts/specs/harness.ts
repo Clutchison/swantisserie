@@ -1,4 +1,10 @@
-import type { DraftView, Platform } from 'contract';
+import type {
+  BasicLand,
+  DraftView,
+  PlanBoard,
+  Platform,
+  PlanView,
+} from 'contract';
 import request from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
@@ -664,14 +670,76 @@ export function dismissReadyNotice(id: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/ready-notice`, cookie);
 }
 
-/** Sets how many copies of a basic land the player's mainboard holds. */
-export function setBasic(
+/** Adds one copy of a basic land to the player's mainboard. */
+export function addBasic(id: string, land: string, cookie: string) {
+  return draftsRequest('post', `/${id}/plan/basics/${land}`, cookie);
+}
+
+/**
+ * Adds copies of a basic land to the player's mainboard one at a time, as a
+ * player does, until it holds `count`, and answers with the last answer:
+ * the plan as it then is. Throws if an add is refused, or if the mainboard
+ * already holds more than `count`.
+ */
+export async function addBasicsUpTo(
   id: string,
-  land: string,
-  count: unknown,
+  land: BasicLand,
+  count: number,
   cookie: string,
 ) {
-  return draftsRequest('put', `/${id}/plan/basics/${land}`, cookie, { count });
+  let last = await plan(id, cookie).expect(200);
+  const held =
+    (last.body as PlanView).basics.find(
+      (b) => b.land === land && b.board === 'Mainboard',
+    )?.count ?? 0;
+  if (count < held) {
+    throw new Error(
+      `addBasicsUpTo can't take ${land} from ${held} down to ${count}.`,
+    );
+  }
+  for (let added = held; added < count; added++) {
+    last = await addBasic(id, land, cookie).expect(200);
+  }
+  return last;
+}
+
+/** Takes one copy of a basic land off a plan board of the player's plan. */
+export function removeBasic(
+  id: string,
+  land: string,
+  planBoard: string,
+  cookie: string,
+) {
+  return draftsRequest(
+    'delete',
+    `/${id}/plan/basics/${land}/${planBoard}`,
+    cookie,
+  );
+}
+
+/** Moves one copy of a basic land in the player's plan to `planBoard`, taking it from the other plan board. */
+export function moveBasic(
+  id: string,
+  land: string,
+  planBoard: unknown,
+  cookie: string,
+) {
+  return draftsRequest('put', `/${id}/plan/basics/${land}`, cookie, {
+    board: planBoard,
+  });
+}
+
+/** Moves `copies` copies of a basic land to `planBoard`, one at a time, each answered 200. */
+export async function moveBasics(
+  id: string,
+  land: string,
+  planBoard: PlanBoard,
+  copies: number,
+  cookie: string,
+) {
+  for (let i = 0; i < copies; i++) {
+    await moveBasic(id, land, planBoard, cookie).expect(200);
+  }
 }
 
 /** Takes every basic land out of the player's plan. */

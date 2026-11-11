@@ -13,7 +13,7 @@ import {
   reportCurrentRound,
   reportMatch,
   reportWin,
-  setBasic,
+  addBasic,
   signIn,
   swiss,
   tournamentView,
@@ -229,7 +229,7 @@ describe('completing a tournament', () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 0], aliceCookie);
     expect(
-      (await setBasic(id, 'Island', 1, aliceCookie).expect(409)).body.error,
+      (await addBasic(id, 'Island', aliceCookie).expect(409)).body.error,
     ).toBe('deck-locked');
     expect((await tournamentView(id)).completedAt).toBeNull();
     const before = Date.now();
@@ -262,7 +262,7 @@ describe('completing a tournament', () => {
     ]);
     expect(view.trophyHolders).toEqual([alice.id]);
     for (const cookie of [aliceCookie, bobCookie, carolCookie]) {
-      await setBasic(id, 'Island', 1, cookie).expect(200);
+      await addBasic(id, 'Island', cookie).expect(200);
     }
   });
 

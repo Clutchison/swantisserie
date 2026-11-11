@@ -7,28 +7,19 @@ h3 {
   margin: 0;
 }
 
-ul {
+.rows {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-/* A basic land's symbol, −, number and +. */
-li {
+/* A basic land's symbol, name, mainboard count and Add. */
+.row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-divider);
-}
-
-label {
-  display: flex;
-  margin-inline-end: var(--space-sm);
 }
 
 img {
@@ -36,9 +27,23 @@ img {
   height: 1.5rem;
 }
 
-input {
-  width: 3.5rem;
-  text-align: center;
+.name {
+  flex: 1;
+}
+
+.count {
+  min-width: 2ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Add's wrapper, which carries its tooltip: a disabled button lets the pointer through to it. */
+.add {
+  display: inline-flex;
+
+  button:disabled {
+    pointer-events: none;
+  }
 }
 
 .error {

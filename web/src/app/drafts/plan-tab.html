@@ -80,7 +80,7 @@
     </button>
   </div>
 }
-<!-- Stacks or list, and how the stacks group; then the Basic lands button. -->
+<!-- Stacks or list, and how the stacks group; then the Add basics button. -->
 <div class="mode-controls">
   <div class="segmented" role="group" aria-label="Mode">
     <button
@@ -116,7 +116,7 @@
   }
   @if (!deckLocked()) {
     <button class="button compact secondary" type="button" (click)="openBasics()">
-      Basic lands{{ basicsTotal() > 0 ? ' (' + basicsTotal() + ')' : '' }}
+      Add basics
     </button>
   }
 </div>
@@ -212,7 +212,6 @@
                       [class.unpicked]="!card.picked"
                       cdkDrag
                       [cdkDragData]="card.poolCardId"
-                      [cdkDragDisabled]="!!card.basic"
                       [cdkDragStartDelay]="dragStartDelay"
                       cdkDragPreviewContainer="parent"
                       (pointerdown)="pressed()"
@@ -227,7 +226,7 @@
                           [attr.aria-label]="cardLabel"
                           [appCardPreview]="poolCard"
                           [appCardPreviewOnTap]="false"
-                          (click)="openStacked(card, $event)"
+                          (click)="openStacked(card, $event, planBoard.name)"
                         >
                           <ng-container
                             *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
@@ -247,8 +246,7 @@
                         </div>
                       }
                       <div class="actions">
-                        <!-- A basic land stays on the mainboard. -->
-                        @if (!card.basic && !deckLocked()) {
+                        @if (!deckLocked()) {
                           @let moveName = 'Move ' + card.name + ' to the ' + planBoard.otherName;
                           <button
                             class="icon"
@@ -273,7 +271,7 @@
         } @else {
           <ul
             class="lines card-rows"
-            [class.with-remove]="planBoard.picked < planBoard.count"
+            [class.with-remove]="planBoard.picked < planBoard.count || withBasics(planBoard.lines)"
             [class.capped]="!showingStacks()"
             cdkDropList
             [cdkDropListData]="planBoard.name"
@@ -286,7 +284,6 @@
                 [class.unpicked]="!line.picked"
                 cdkDrag
                 [cdkDragData]="line.poolCardId"
-                [cdkDragDisabled]="!!line.basic"
                 cdkDragPreviewContainer="parent"
                 (pointerdown)="pressed()"
                 (cdkDragStarted)="dragStarted()"
@@ -297,14 +294,13 @@
                   [card]="cardsById().get(line.poolCardId)"
                   [name]="line.name"
                   [opensDetail]="true"
-                  (opened)="openLine(line, $event)"
+                  (opened)="openLine(line, $event, planBoard.name)"
                 />
                 <span class="line-actions">
                   @if (!line.picked) {
                     <span class="mark">Unpicked</span>
                   }
-                  <!-- A basic land stays on the mainboard. -->
-                  @if (!line.basic && !deckLocked()) {
+                  @if (!deckLocked()) {
                     @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
                     <button
                       class="button compact quiet line-action move"
@@ -319,14 +315,15 @@
                       />
                     </button>
                   }
-                  @if (!line.picked && offerRemoveFromPlan() && !deckLocked()) {
+                  <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
+                  @if ((line.basic || !line.picked) && offerRemoveFromPlan() && !deckLocked()) {
                     @let removeName = 'Remove ' + line.name + ' from your plan';
                     <button
                       class="button compact quiet line-action"
                       type="button"
                       [attr.aria-label]="removeName"
                       [title]="removeName"
-                      (click)="remove(line.poolCardId)"
+                      (click)="removeLine(line, planBoard.name)"
                       [appSendsChange]="removeKey(planBoard.name, line)"
                     >
                       <svg lucideTrash size="16"></svg>

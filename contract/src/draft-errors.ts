@@ -149,6 +149,8 @@ export interface PlanRefusal {
     | 'already-picked'
     /** Every available copy of the card is in the plan already. */
     | 'no-copies-left'
+    /** The plan holds MOST_BASICS copies of the basic land already, across both plan boards. */
+    | 'most-basics'
     | 'draft-complete'
     | 'draft-closed'
     /** The player has joined a tournament that is playing, which locks their deck. */

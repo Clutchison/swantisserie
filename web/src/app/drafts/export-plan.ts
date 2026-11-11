@@ -1,20 +1,26 @@
-import type { PlannedBasicView } from 'contract';
+import type { PlanBoard } from 'contract';
 import { countedLines } from './counted-lines';
+import { basicsOn, cardsOn, type PlanBoardsOf } from './plan-boards';
 
 /**
  * What an export is made of: a player's plan without its unpicked cards,
- * as each plan board's picked cards (one entry per copy) and the mainboard's basics.
+ * as each plan board's picked cards (one entry per copy), and the basics of
+ * both plan boards, each on its own.
  */
-export interface ExportPlan<Card> {
-  mainboard: Card[];
-  sideboard: Card[];
-  basics: PlannedBasicView[];
-}
+export type ExportPlan<Card> = PlanBoardsOf<Card>;
 
 /**
- * A plan board's `<count> <line>` lines: its cards', with copies sharing a line in
- * the order each first appears, then its basics', in the plan's order.
+ * A plan board's `<count> <line>` lines: its cards', named by `name`, with
+ * copies sharing a line in the order each first appears, then its basics', in
+ * the plan's order.
  */
-export function planBoardLines(cards: string[], basics: PlannedBasicView[] = []): string[] {
-  return [...countedLines(cards), ...basics.map(({ land, count }) => `${count} ${land}`)];
+export function planBoardLines<Card>(
+  plan: ExportPlan<Card>,
+  planBoard: PlanBoard,
+  name: (card: Card) => string,
+): string[] {
+  return [
+    ...countedLines(cardsOn(plan, planBoard).map(name)),
+    ...basicsOn(plan.basics, planBoard).map(({ land, count }) => `${count} ${land}`),
+  ];
 }

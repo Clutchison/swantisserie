@@ -559,7 +559,7 @@ describe('plan tab as the deck', () => {
   it('takes the Plan tab’s place once the draft is complete, its copy saying deck', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, complete, {
       cards,
-      plan: planOf({ basics: [{ land: 'Mountain', count: 2 }] }),
+      plan: planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 2 }] }),
     });
 
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
@@ -596,10 +596,10 @@ describe('plan tab as the deck', () => {
     /** The buttons in the Deck tab that would change the deck. */
     const deckEdits = (deck: HTMLElement) =>
       [...deck.querySelectorAll('button')].filter((b) =>
-        /^(Move|Remove|Basic lands)/.test(accessibleName(b)),
+        /^(Move|Remove|Add basics)/.test(accessibleName(b)),
       );
     // Four picks and two basics: six cards.
-    const deck = planOf({ basics: [{ land: 'Mountain', count: 2 }] });
+    const deck = planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 2 }] });
     const REMINDER =
       'Your deck locks when the tournament starts, until it is complete or cancelled.';
     const SHORT = 'A tournament deck needs at least 40';
@@ -629,11 +629,25 @@ describe('plan tab as the deck', () => {
     it('leaves out the warning once the mainboard holds 40 cards', async () => {
       const { tab } = await openDeck(
         registration(bob.id, alice.id),
-        planOf({ basics: [{ land: 'Mountain', count: 36 }] }),
+        planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 36 }] }),
       );
 
       expect(text(tab)).toContain(REMINDER);
       expect(text(tab)).not.toContain(SHORT);
+    });
+
+    it('counts only the mainboard’s basic lands toward the 40, not the sideboard’s', async () => {
+      const { tab } = await openDeck(
+        registration(bob.id, alice.id),
+        planOf({
+          basics: [
+            { land: 'Mountain', board: 'Mainboard', count: 35 },
+            { land: 'Mountain', board: 'Sideboard', count: 5 },
+          ],
+        }),
+      );
+
+      expect(text(tab)).toContain('Your mainboard holds 39 cards.');
     });
 
     it.each([

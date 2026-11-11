@@ -141,7 +141,7 @@ describe('marking yourself ready on the Play tab', () => {
     button(deck, 'Move Lightning Bolt to the sideboard')!.click();
     http
       .expectOne('/api/drafts/draft-1/plan/bolt-card')
-      .flush(planOf({ basics: [{ land: 'Mountain', count: 37 }] }));
+      .flush(planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 37 }] }));
     await flushTournament(registration(bob.id, alice.id));
     await fixture.whenStable();
     const tab = await openPlayTab(fixture, page);

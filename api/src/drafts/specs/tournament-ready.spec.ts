@@ -27,8 +27,11 @@ import {
   poolCardIds,
   registerWebhook,
   removeEntry,
-  setBasic,
+  addBasicsUpTo,
+  addBasic,
+  shrinkDeck,
   setUpTournament,
+  moveBasics,
   signIn,
   startTournament,
   tournament,
@@ -162,11 +165,14 @@ describe('marking yourself ready', () => {
 });
 
 describe('ready refusals', () => {
-  it('refuses marking ready while the player’s mainboard holds fewer than 40 cards, and lets it once it holds 40', async () => {
-    // Bob's deck holds his one pick and 38 Mountains.
+  it('refuses marking ready while the player’s mainboard holds fewer than 40 cards, sideboard basics not counted, and lets it once it holds 40', async () => {
+    // Bob's mainboard holds his one pick and 38 Mountains; his sideboard's
+    // 5 Islands don't count.
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await addBasicsUpTo(id, 'Mountain', 38, bobCookie);
+    await addBasicsUpTo(id, 'Island', 5, bobCookie);
+    await moveBasics(id, 'Island', 'Sideboard', 5, bobCookie);
 
     expect((await markReady(id, bobCookie).expect(409)).body).toEqual({
       error: 'deck-too-small-for-ready',
@@ -325,7 +331,7 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
       const pushed = await watchAs(id);
       const before = await version(id);
 
-      await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+      await shrinkDeck(id, bobCookie).expect(200);
 
       await vi.waitFor(() =>
         expect(pushed.map((draft) => draft.version)).toEqual([before + 1]),
@@ -338,7 +344,7 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
       const pushed = await watchAs(id, otherDevice);
       const before = await version(id);
 
-      await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+      await shrinkDeck(id, bobCookie).expect(200);
 
       await vi.waitFor(() =>
         expect(pushed.map((draft) => draft.version)).toEqual([before + 1]),
@@ -349,25 +355,22 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
     });
   });
 
-  it('clears ready when a basic land count takes the mainboard below 40, and when basics are cleared', async () => {
+  it('clears ready when clearing basics takes the mainboard below 40', async () => {
     const id = await bobReady();
 
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
-    expect((await readyByPlayer(id))[bob.id]).toBe(false);
-
-    await fullDeck(id, bobCookie);
-    await markReady(id, bobCookie).expect(200);
     await clearBasics(id, bobCookie).expect(200);
+
     expect((await readyByPlayer(id))[bob.id]).toBe(false);
   });
 
   it('leaves ready, and the draft’s version, alone when the mainboard stays at 40 or more', async () => {
     const id = await bobReady();
-    await setBasic(id, 'Island', 2, bobCookie).expect(200);
+    await addBasic(id, 'Island', bobCookie).expect(200);
+    const bolt = (await poolCardIds(id))['Lightning Bolt'];
     const before = await version(id);
 
-    await setBasic(id, 'Mountain', 37, bobCookie).expect(200);
-    await setBasic(id, 'Island', 3, bobCookie).expect(200);
+    await addBasic(id, 'Island', bobCookie).expect(200);
+    await movePlanned(id, bolt, 'Sideboard', bobCookie).expect(200);
 
     expect((await readyByPlayer(id))[bob.id]).toBe(true);
     expect(await version(id)).toBe(before);
@@ -384,7 +387,7 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
 
   it('lets the player mark themselves ready again once their mainboard is back to 40', async () => {
     const id = await bobReady();
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
     expect(await refusedMark(id, bobCookie)).toBe('deck-too-small-for-ready');
 
     await fullDeck(id, bobCookie);
@@ -411,7 +414,7 @@ describe('the Ready notice', () => {
     const id = await bobReady();
     expect(await readyNotice(id, bobCookie)).toBe(false);
 
-    const answer = await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    const answer = await shrinkDeck(id, bobCookie).expect(200);
 
     expect(answer.body.readyNotice).toBe(true);
     expect(await readyNotice(id, bobCookie)).toBe(true);
@@ -438,7 +441,7 @@ describe('the Ready notice', () => {
     const id = await bobReady();
 
     await unmarkReady(id, bobCookie).expect(200);
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
 
     expect(await readyNotice(id, bobCookie)).toBe(false);
   });
@@ -447,7 +450,7 @@ describe('the Ready notice', () => {
     const id = await bobReady();
     await markReady(id, aliceCookie).expect(200);
 
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
 
     expect(await readyNotice(id, bobCookie)).toBe(true);
     expect(await readyNotice(id, aliceCookie)).toBe(false);
@@ -455,7 +458,7 @@ describe('the Ready notice', () => {
 
   it('goes when the player dismisses it, without bumping the draft’s version', async () => {
     const id = await bobReady();
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
     const before = (await getDraft(id).expect(200)).body.version as number;
 
     const answer = await dismissReadyNotice(id, bobCookie).expect(200);
@@ -467,7 +470,7 @@ describe('the Ready notice', () => {
 
   it('goes when the player marks themselves ready again', async () => {
     const id = await bobReady();
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
     await fullDeck(id, bobCookie);
 
     await markReady(id, bobCookie).expect(200);
@@ -477,7 +480,7 @@ describe('the Ready notice', () => {
 
   it('goes when the tournament starts', async () => {
     const id = await bobReady();
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
     await fullDeck(id, bobCookie);
 
     await startTournament(id).expect(200);
@@ -487,7 +490,7 @@ describe('the Ready notice', () => {
 
   it('goes when the tournament is cancelled', async () => {
     const id = await bobReady();
-    await setBasic(id, 'Mountain', 38, bobCookie).expect(200);
+    await shrinkDeck(id, bobCookie).expect(200);
 
     await cancelTournament(id).expect(200);
 

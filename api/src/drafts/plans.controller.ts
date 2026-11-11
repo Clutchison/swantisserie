@@ -16,11 +16,9 @@ import type {
   BasicLand,
   PlanBoard,
   PlanMoveRequest,
-  PlannedBasicCountRequest,
   PlanView,
   RequestProblem,
 } from 'contract';
-import { MOST_BASICS } from 'contract';
 import { bodyFields } from '../request-body.js';
 import {
   CurrentUser,
@@ -28,6 +26,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { isBasicLand } from './basic-lands.js';
+import { isPlanBoard } from './plan-boards.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftLock } from './draft-lock.js';
@@ -93,18 +92,33 @@ export class PlansController {
     );
   }
 
-  /** Sets how many copies of a basic land the mainboard holds. */
+  /** Adds one copy of a basic land to the mainboard. */
+  @Post('basics/:land')
+  @HttpCode(200)
+  async addBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    return this.change(user, id, () => this.plans.addBasic(id, user.id, basic));
+  }
+
+  /**
+   * Moves one copy of a basic land to the plan board the body names, taking
+   * it from the other. Declared before `:poolCardId`, which would match it.
+   */
   @Put('basics/:land')
-  async setBasic(
+  async moveBasic(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Param('land') land: string,
     @Body() body: unknown,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const count = parseCount(body);
+    const planBoard = parseBoard(body);
     return this.change(user, id, () =>
-      this.plans.setBasic(id, user.id, basic, count),
+      this.plans.moveBasic(id, user.id, basic, planBoard),
     );
   }
 
@@ -115,6 +129,21 @@ export class PlansController {
     @Param('id') id: string,
   ): Promise<PlanView> {
     return this.change(user, id, () => this.plans.clearBasics(id, user.id));
+  }
+
+  /** Takes one copy of a basic land off a plan board. Declared before `:poolCardId`, which would match it. */
+  @Delete('basics/:land/:board')
+  async removeBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+    @Param('board') planBoardName: string,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    const planBoard = parsePlanBoard(planBoardName);
+    return this.change(user, id, () =>
+      this.plans.removeBasic(id, user.id, basic, planBoard),
+    );
   }
 
   /** Takes an unpicked card out of the plan. Declared after `notice`, `ready-notice` and `basics`, which it would match. */
@@ -137,9 +166,9 @@ export class PlansController {
     @Param('poolCardId') poolCardId: string,
     @Body() body: unknown,
   ): Promise<PlanView> {
-    const board = parseBoard(body);
+    const planBoard = parseBoard(body);
     return this.change(user, id, () =>
-      this.plans.move(id, user.id, poolCardId, board),
+      this.plans.move(id, user.id, poolCardId, planBoard),
     );
   }
 
@@ -173,16 +202,9 @@ export class PlansController {
   }
 }
 
-/** The board to move the card to, or a 400 if it isn't one. */
+/** The plan board the body names to move to, or a 400 if it names none. */
 function parseBoard(body: unknown): PlanBoard {
-  const { board } = bodyFields<PlanMoveRequest>(body);
-  if (board !== 'Mainboard' && board !== 'Sideboard') {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Choose the mainboard or the sideboard.',
-    } satisfies RequestProblem);
-  }
-  return board;
+  return parsePlanBoard(bodyFields<PlanMoveRequest>(body).board);
 }
 
 /** The basic land named in the path, or a 400 if it isn't one. */
@@ -196,19 +218,13 @@ function parseLand(land: string): BasicLand {
   return land;
 }
 
-/** How many copies of a basic land to hold, or a 400 if it isn't a whole number up to MOST_BASICS. */
-function parseCount(body: unknown): number {
-  const { count } = bodyFields<PlannedBasicCountRequest>(body);
-  if (
-    typeof count !== 'number' ||
-    !Number.isInteger(count) ||
-    count < 0 ||
-    count > MOST_BASICS
-  ) {
+/** `value` as a plan board, from a body or a path, or a 400 if it isn't one. */
+function parsePlanBoard(value: unknown): PlanBoard {
+  if (!isPlanBoard(value)) {
     throw new BadRequestException({
       error: 'invalid',
-      message: `Choose a number of copies from 0 to ${MOST_BASICS}.`,
+      message: 'Choose the mainboard or the sideboard.',
     } satisfies RequestProblem);
   }
-  return count;
+  return value;
 }

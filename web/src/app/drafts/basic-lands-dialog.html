@@ -1,53 +1,35 @@
 <div class="dialog">
   <app-change-status />
   <h3 [id]="headingId">Basic lands</h3>
-  <ul>
+  <div class="rows">
     @for (basic of basics(); track basic.land) {
-      <li>
-        <label [for]="'basic-' + basic.land">
-          <img
-            [src]="basic.symbol"
-            [alt]="basic.land"
-            [title]="basic.land"
-            width="24"
-            height="24"
-          />
-        </label>
-        <button
-          class="button compact quiet"
-          type="button"
-          [attr.aria-label]="'One fewer ' + basic.land"
-          [title]="'One fewer ' + basic.land"
-          (click)="setBasic(basic.land, basic.count - 1)"
-          [disabled]="basic.count === 0"
-          [appSendsChange]="'fewer ' + basic.land"
+      <!-- Each row is a group named by its land, for assistive technology to read the count against. -->
+      <div class="row" role="group" [attr.aria-label]="basic.land">
+        <!-- The symbol says nothing to assistive technology: the row is named by its land. -->
+        <img [src]="basic.symbol" alt="" width="24" height="24" />
+        <span class="name" aria-hidden="true">{{ basic.land }}</span>
+        <span class="count"
+          >{{ basic.count }}<span class="visually-hidden">&ngsp;on your mainboard</span></span
         >
-          <svg lucideMinus size="16"></svg>
-        </button>
-        <input
-          [id]="'basic-' + basic.land"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          [max]="mostBasics"
-          [value]="basic.count"
-          (change)="typedBasic(basic.land, basic.count, $any($event.target))"
-          [disabled]="changing()"
-        />
-        <button
-          class="button compact quiet"
-          type="button"
-          [attr.aria-label]="'One more ' + basic.land"
-          [title]="'One more ' + basic.land"
-          (click)="setBasic(basic.land, basic.count + 1)"
-          [disabled]="basic.count >= mostBasics"
-          [appSendsChange]="'more ' + basic.land"
-        >
-          <svg lucidePlus size="16"></svg>
-        </button>
-      </li>
+        <!-- A disabled button shows no tooltip in some browsers, so its wrapper carries it; assistive technology reads why from the hidden text. -->
+        @if (basic.full) {
+          <span class="visually-hidden">{{ fullTitle(basic.land) }}</span>
+        }
+        <span class="add" [attr.title]="basic.full ? fullTitle(basic.land) : null">
+          <button
+            class="button compact secondary"
+            type="button"
+            [attr.aria-label]="'Add ' + basic.land"
+            (click)="addBasic(basic.land)"
+            [disabled]="basic.full"
+            [appSendsChange]="'add ' + basic.land"
+          >
+            Add
+          </button>
+        </span>
+      </div>
     }
-  </ul>
+  </div>
   @if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   }

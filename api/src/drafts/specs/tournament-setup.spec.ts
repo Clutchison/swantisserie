@@ -16,7 +16,7 @@ import {
   removeEntry,
   roundRobin,
   reportWin,
-  setBasic,
+  addBasic,
   setUpTournament,
   signIn,
   singleElimination,
@@ -242,7 +242,7 @@ describe('cancel tournament', () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 0], bobCookie);
     expect(
-      (await setBasic(id, 'Island', 1, bobCookie).expect(409)).body.error,
+      (await addBasic(id, 'Island', bobCookie).expect(409)).body.error,
     ).toBe('deck-locked');
 
     const answer = await cancelTournament(id).expect(200);
@@ -250,7 +250,7 @@ describe('cancel tournament', () => {
     expect(answer.body.tournament).toBeNull();
     await tournament(id).expect(404);
     for (const cookie of [aliceCookie, bobCookie]) {
-      await setBasic(id, 'Island', 1, cookie).expect(200);
+      await addBasic(id, 'Island', cookie).expect(200);
     }
     await setUpTournament(id).expect(201);
     expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);

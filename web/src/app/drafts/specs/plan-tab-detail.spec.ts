@@ -123,7 +123,10 @@ describe('plan tab', () => {
     it('opens a basic land’s Printing picker, not a Card detail, from its name', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan)], basics: [{ land: 'Swamp', count: 2 }] }),
+        plan: planOf({
+          mainboard: [planned(shivan)],
+          basics: [{ land: 'Swamp', board: 'Mainboard', count: 2 }],
+        }),
       });
       const plan = await openPlan(fixture, page);
 
@@ -138,7 +141,7 @@ describe('plan tab', () => {
     it('saves a basic land’s printing while a re-read of the plan has failed, keeping the plan shown', async () => {
       const swamps = planOf({
         mainboard: [planned(shivan)],
-        basics: [{ land: 'Swamp', count: 2 }],
+        basics: [{ land: 'Swamp', board: 'Mainboard', count: 2 }],
       });
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -366,7 +369,10 @@ describe('plan tab', () => {
     it('opens a basic land’s Printing picker, not a Card detail', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan)], basics: [{ land: 'Island', count: 1 }] }),
+        plan: planOf({
+          mainboard: [planned(shivan)],
+          basics: [{ land: 'Island', board: 'Mainboard', count: 1 }],
+        }),
       });
       const plan = await openPlan(fixture, page);
 

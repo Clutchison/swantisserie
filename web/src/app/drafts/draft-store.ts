@@ -31,6 +31,7 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import { planBoardCount } from './plan-boards';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -407,11 +408,8 @@ export class DraftStore implements TournamentViewer {
   readonly deckLocksAtStart = computed(
     () => this.joinedTournament() && this.tournamentState() === 'Registration',
   );
-  /** How many cards the signed-in player's mainboard holds, picks plus basic lands. */
-  readonly mainboardCards = computed(() => {
-    const { mainboard, basics } = this.plan.value();
-    return mainboard.length + basics.reduce((total, basic) => total + basic.count, 0);
-  });
+  /** How many cards the signed-in player's mainboard holds, its basic lands included. */
+  readonly mainboardCards = computed(() => planBoardCount(this.plan.value(), 'Mainboard'));
   /**
    * Whether the signed-in player's deck locks at Start but its mainboard
    * holds fewer than MIN_MAINBOARD_CARDS, which the api refuses Start for.

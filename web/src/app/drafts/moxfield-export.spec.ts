@@ -52,8 +52,8 @@ describe('Moxfield export', () => {
         mainboard: [{ name: 'Lightning Bolt', set: 'sta', collectorNumber: '42' }],
         sideboard: [],
         basics: [
-          { land: 'Island', count: 2 },
-          { land: 'Mountain', count: 7 },
+          { land: 'Island', board: 'Mainboard', count: 2 },
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
         ],
       }),
     ).toBe('1 Lightning Bolt (STA) 42\n2 Island\n7 Mountain');
@@ -67,8 +67,34 @@ describe('Moxfield export', () => {
           { name: 'Shock', set: 'm21', collectorNumber: '159' },
           { name: 'Shock', set: 'm21', collectorNumber: '159' },
         ],
-        basics: [{ land: 'Mountain', count: 7 }],
+        basics: [{ land: 'Mountain', board: 'Mainboard', count: 7 }],
       }),
     ).toBe('1 Lightning Bolt (STA) 42\n7 Mountain\n\nSIDEBOARD:\n2 Shock (M21) 159');
+  });
+
+  it('lists the sideboard’s basics after its other cards, with no printing, and the mainboard’s in the mainboard', () => {
+    expect(
+      moxfieldExport({
+        mainboard: [{ name: 'Lightning Bolt', set: 'sta', collectorNumber: '42' }],
+        sideboard: [{ name: 'Shock', set: 'm21', collectorNumber: '159' }],
+        basics: [
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
+          { land: 'Island', board: 'Sideboard', count: 2 },
+          { land: 'Mountain', board: 'Sideboard', count: 1 },
+        ],
+      }),
+    ).toBe(
+      '1 Lightning Bolt (STA) 42\n7 Mountain\n\nSIDEBOARD:\n1 Shock (M21) 159\n2 Island\n1 Mountain',
+    );
+  });
+
+  it('lists a sideboard that holds only basics', () => {
+    expect(
+      moxfieldExport({
+        mainboard: [{ name: 'Lightning Bolt', set: 'sta', collectorNumber: '42' }],
+        sideboard: [],
+        basics: [{ land: 'Island', board: 'Sideboard', count: 3 }],
+      }),
+    ).toBe('1 Lightning Bolt (STA) 42\n\nSIDEBOARD:\n3 Island');
   });
 });

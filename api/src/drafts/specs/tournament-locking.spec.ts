@@ -10,12 +10,15 @@ import {
   dismissPlanNotice,
   dismissReadyNotice,
   fullDeck,
+  moveBasic,
   movePlanned,
   plan,
   poolCardIds,
+  removeBasic,
   removeEntry,
   removeFromPlan,
-  setBasic,
+  addBasicsUpTo,
+  addBasic,
   setUpTournament,
   signIn,
   startTournament,
@@ -41,7 +44,9 @@ beforeEach(async () => {
 /** Every plan write Alice can send, each answering with its status. */
 const planWrites = () => [
   () => movePlanned(id, ids.Shock, 'Sideboard', aliceCookie),
-  () => setBasic(id, 'Island', 2, aliceCookie),
+  () => addBasic(id, 'Island', aliceCookie),
+  () => moveBasic(id, 'Mountain', 'Sideboard', aliceCookie),
+  () => removeBasic(id, 'Mountain', 'Mainboard', aliceCookie),
   () => clearBasics(id, aliceCookie),
   () => addToPlan(id, ids['Lava Spike'], aliceCookie),
   () => removeFromPlan(id, ids.Shock, aliceCookie),
@@ -56,7 +61,7 @@ async function startPlaying() {
 describe('a joined player’s deck', () => {
   it('takes every plan write during registration, though setup joined its player', async () => {
     await movePlanned(id, ids.Shock, 'Sideboard', aliceCookie).expect(200);
-    await setBasic(id, 'Island', 2, aliceCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 2, aliceCookie);
     await clearBasics(id, aliceCookie).expect(200);
     await movePlanned(id, ids.Shock, 'Mainboard', aliceCookie).expect(200);
 
@@ -88,7 +93,9 @@ describe('a joined player’s deck', () => {
       expect(deck.mainboard).toEqual([
         { poolCardId: ids.Shock, name: 'Shock', picked: true },
       ]);
-      expect(deck.basics).toEqual([{ land: 'Mountain', count: 39 }]);
+      expect(deck.basics).toEqual([
+        { land: 'Mountain', board: 'Mainboard', count: 39 },
+      ]);
       await dismissPlanNotice(id, aliceCookie).expect(200);
       await dismissReadyNotice(id, aliceCookie).expect(200);
     }
@@ -98,7 +105,7 @@ describe('a joined player’s deck', () => {
     await removeEntry(id, carol.id, carolCookie).expect(200);
     await startTournament(id).expect(200);
 
-    await setBasic(id, 'Island', 2, carolCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 2, carolCookie);
   });
 
   it('unlocks once the tournament is complete', async () => {
@@ -118,16 +125,16 @@ describe('a joined player’s deck', () => {
   });
 
   it('locks the deck as its player last edited it during registration', async () => {
-    await setBasic(id, 'Island', 2, aliceCookie).expect(200);
+    await addBasicsUpTo(id, 'Island', 2, aliceCookie);
     await removeEntry(id, carol.id, carolCookie).expect(200);
     await startTournament(id).expect(200);
 
     expect(
-      (await setBasic(id, 'Island', 3, aliceCookie).expect(409)).body.error,
+      (await addBasic(id, 'Island', aliceCookie).expect(409)).body.error,
     ).toBe('deck-locked');
     expect((await plan(id, aliceCookie).expect(200)).body.basics).toEqual([
-      { land: 'Island', count: 2 },
-      { land: 'Mountain', count: 39 },
+      { land: 'Island', board: 'Mainboard', count: 2 },
+      { land: 'Mountain', board: 'Mainboard', count: 39 },
     ]);
   });
 });

@@ -29,7 +29,7 @@ const deckOf = (playerId: string, card = bolt): DecklistView => ({
   playerId,
   mainboard: [{ poolCardId: card.id, name: card.name, picked: true }],
   sideboard: [],
-  basics: [{ land: 'Mountain', count: 39 }],
+  basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
   preferredPrintings: {},
 });
 

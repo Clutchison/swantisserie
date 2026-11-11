@@ -8,17 +8,14 @@ export type MoxfieldExportCard = Pick<PoolCardView, 'name' | 'set' | 'collectorN
  * The plan in Moxfield's bulk edit format: the mainboard's
  * `1 Card Name (SET) 123` lines, using each card's snapshotted printing, with
  * copies of a card on one line, then its basics with no printing. A sideboard
- * follows after a blank line, under a `SIDEBOARD:` header, unless it's empty:
- * the shape of Moxfield's own export (see `docs/research/moxfield.md`).
+ * follows after a blank line, under a `SIDEBOARD:` header, with its basics,
+ * unless it's empty: the shape of Moxfield's own export (see
+ * `docs/research/moxfield.md`).
  */
-export function moxfieldExport({
-  mainboard,
-  sideboard,
-  basics,
-}: ExportPlan<MoxfieldExportCard>): string {
-  const lines = planBoardLines(mainboard.map(moxfieldName), basics);
-  if (sideboard.length > 0)
-    lines.push('', 'SIDEBOARD:', ...planBoardLines(sideboard.map(moxfieldName)));
+export function moxfieldExport(plan: ExportPlan<MoxfieldExportCard>): string {
+  const lines = planBoardLines(plan, 'Mainboard', moxfieldName);
+  const sideboardLines = planBoardLines(plan, 'Sideboard', moxfieldName);
+  if (sideboardLines.length > 0) lines.push('', 'SIDEBOARD:', ...sideboardLines);
   return lines.join('\n');
 }
 

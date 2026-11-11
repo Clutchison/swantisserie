@@ -17,6 +17,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import {
   MIN_MAINBOARD_CARDS,
+  PLAN_BOARDS,
   type BasicLand,
   type PlanBoard,
   type PlannedBasicView,
@@ -39,7 +40,8 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
-import { OTHER_PLAN_BOARD } from './plan-boards';
+import { planChangeFailed } from './plan-change-failed';
+import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
 import {
@@ -51,10 +53,6 @@ import {
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
-
-/** What a failed change says, naming the plan as `planName`. */
-const changeFailed = (planName: string) =>
-  `Couldn't change your ${planName}. Try again in a moment.`;
 
 /**
  * How a stack is scrolled to in the strip: to its start, scrolling only the
@@ -82,16 +80,15 @@ const MODES: PlanMode[] = ['stacks', 'list'];
 
 /**
  * A card on a plan board as the tab shows it: a planned pool card, or a
- * copy of a basic land, which counts as picked and stays on the mainboard.
- * A basic's `poolCardId` is no pool card's, but keys its card data in the
- * tab's `cardsById`.
+ * copy of a basic land, which counts as picked. A basic's `poolCardId` is
+ * no pool card's, but keys its card data in the tab's `cardsById`.
  */
 interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
 /** What a move acts on: a line's first copy, a stacked card, or a card from its Card detail. */
-type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name'> | PlanLine;
+type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name' | 'basic'> | PlanLine;
 
 /** One line of a plan board: a card's picked copies, its unpicked ones, or a basic land's, with how many the plan board holds. */
 interface PlanLine extends PlanBoardCard {
@@ -108,14 +105,13 @@ interface PlanLine extends PlanBoardCard {
 }
 
 /**
- * Each plan board: its cards, how stacks mode stacks them and whether it names
- * each stack, the plan board its cards move to, as the button names it,
- * and what an empty one says.
+ * How each plan board shows: how stacks mode stacks its cards and whether it
+ * names each stack, the plan board its cards move to, as the button names
+ * it, and what an empty one says.
  */
-const PLAN_BOARDS: Record<
+const PLAN_BOARD_DISPLAY: Record<
   PlanBoard,
   {
-    cards: (plan: PlanView) => PlannedCardView[];
     stack: (
       cards: PlanBoardCard[],
       grouping: Grouping,
@@ -129,13 +125,11 @@ const PLAN_BOARDS: Record<
   }
 > = {
   Mainboard: {
-    cards: (plan) => plan.mainboard,
     stack: stacks,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
   Sideboard: {
-    cards: (plan) => plan.sideboard,
     // One stack, whatever the grouping, which the plan board heading names.
     // The template shows stacks only for a plan board with cards.
     stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
@@ -270,13 +264,9 @@ export class PlanTab {
    * always one.
    */
   protected readonly planBoards = computed(() =>
-    (['Mainboard', 'Sideboard'] as const).map((planBoard) => {
-      const { cards, stack, ...rest } = PLAN_BOARDS[planBoard];
-      // The basic lands are always on the mainboard.
-      const held: PlanBoardCard[] = [
-        ...cards(this.plan()),
-        ...(planBoard === 'Mainboard' ? this.plan().basics.flatMap(basicCopies) : []),
-      ];
+    PLAN_BOARDS.map((planBoard) => {
+      const { stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
+      const held = heldOn(this.plan(), planBoard);
       return {
         name: planBoard,
         ...rest,
@@ -344,11 +334,6 @@ export class PlanTab {
   protected readonly stripMeasure = this.stripLocation.measure;
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
-
-  /** How many basic lands the plan holds in all, for the Basic lands button. */
-  protected readonly basicsTotal = computed(() =>
-    this.plan().basics.reduce((total, basic) => total + basic.count, 0),
-  );
 
   /** The Queue unpicked dialog, while it's open. */
   private queueing: DialogRef<QueueUnpickedResult, QueueUnpickedDialog> | null = null;
@@ -428,7 +413,7 @@ export class PlanTab {
 
   /**
    * A card dropped on a plan board: it moves there, unless that's the plan
-   * board it came from. It's found by id, as the plan may have been re-read
+   * board it came from or the deck is locked. It's found by id, as the plan may have been re-read
    * since the drag began; if it has left the plan, the drop does nothing.
    */
   protected dropped({
@@ -436,10 +421,10 @@ export class PlanTab {
     previousContainer,
     container,
   }: CdkDragDrop<PlanBoard, PlanBoard, string>) {
-    if (previousContainer.data === container.data) return;
-    const card = PLAN_BOARDS[previousContainer.data]
-      .cards(this.plan())
-      .find((planned) => planned.poolCardId === item.data);
+    if (this.deckLocked() || previousContainer.data === container.data) return;
+    const card = heldOn(this.plan(), previousContainer.data).find(
+      (held) => held.poolCardId === item.data,
+    );
     if (!card) return;
     return this.move(card, container.data);
   }
@@ -456,16 +441,41 @@ export class PlanTab {
 
   /**
    * Moves one copy of a card, a line's first, one in stacks mode or one in
-   * its Card detail, to `planBoard`, and shows the plan as it then is. A
-   * basic land never moves.
-   * If the card's line is gone from the plan board it left, focus follows
-   * the card to `planBoard`.
+   * its Card detail, to `planBoard`, and shows the plan as it then is; for
+   * a basic land, one of its copies. If the card's line is gone from the
+   * plan board it left, focus follows the card to `planBoard`.
    */
   protected move(card: MovedCard, planBoard: PlanBoard) {
-    return this.tryChange(() => this.planApi.move(this.draftId(), card.poolCardId, planBoard), {
-      keep: [this.moveKey(planBoard, card)],
-      status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
-    });
+    const { basic } = card;
+    return this.tryChange(
+      () =>
+        basic
+          ? this.planApi.moveBasic(this.draftId(), basic, planBoard)
+          : this.planApi.move(this.draftId(), card.poolCardId, planBoard),
+      {
+        keep: [this.moveKey(planBoard, this.focusTarget(card, planBoard))],
+        status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
+      },
+    );
+  }
+
+  /**
+   * What focus follows once `card` moves to `planBoard`. A line keeps its key
+   * on either plan board, and a pool card its id, so each is followed as it
+   * is; a stacked basic land's copy changes id as it moves, so focus goes to
+   * the copy the move adds there.
+   */
+  private focusTarget(card: MovedCard, planBoard: PlanBoard): MovedCard {
+    const isLine = 'key' in card;
+    return card.basic && !isLine ? this.movedCopy(card.basic, planBoard) : card;
+  }
+
+  /** The copy of `land` a move puts on `planBoard`: after those it holds already. */
+  private movedCopy(land: BasicLand, planBoard: PlanBoard): PlanBoardCard {
+    const held = this.plan().basics.find(
+      (basic) => basic.land === land && basic.board === planBoard,
+    );
+    return { poolCardId: basicCopyId(planBoard, land, held?.count ?? 0), name: land, picked: true };
   }
 
   /** A card on a plan board has been pressed, which may start a drag. */
@@ -489,9 +499,9 @@ export class PlanTab {
    * the large one loads, or a basic land's Printing picker, unless the
    * click ends a drag.
    */
-  protected openStacked(card: PlanBoardCard, event: MouseEvent) {
+  protected openStacked(card: PlanBoardCard, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (card.basic) return this.openPicker(card.basic);
+    if (card.basic) return this.openPicker(card.basic, planBoard);
     const poolCard = this.poolCardsById().get(card.poolCardId);
     this.openDetail(
       card.poolCardId,
@@ -507,9 +517,9 @@ export class PlanTab {
    * the queue, or else of its first copy, or a basic land's Printing
    * picker, unless the click ends a drag.
    */
-  protected openLine(line: PlanLine, event: MouseEvent) {
+  protected openLine(line: PlanLine, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (line.basic) return this.openPicker(line.basic);
+    if (line.basic) return this.openPicker(line.basic, planBoard);
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
   }
@@ -553,15 +563,27 @@ export class PlanTab {
   }
 
   /**
-   * Opens a basic land's Printing picker, in any draft state and on a
-   * locked deck too: it changes how the land looks, not the plan. Focus
-   * returns to what opened it.
+   * Opens the Printing picker of a basic land's copy on `planBoard`, in any
+   * draft state and on a locked deck too, where it changes only how the land
+   * looks; elsewhere it can take the copy out. Focus returns to what opened
+   * it or, should Remove have taken that away, to the next card or line that
+   * opens a dialog, or else the one before.
    */
-  private openPicker(land: BasicLand) {
+  private openPicker(land: BasicLand, planBoard: PlanBoard) {
+    const openers = [...this.host.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')];
     this.dialogs.open(PrintingPicker, {
       labelledBy: PRINTING_PICKER_HEADING,
       injector: this.injector,
-      bindings: [inputBinding('land', () => land)],
+      bindings: [inputBinding('land', () => land), inputBinding('planBoard', () => planBoard)],
+      returnFocus: (opener) => {
+        if (!opener || opener.isConnected) return opener;
+        const at = openers.indexOf(opener);
+        const still = (element: HTMLElement) => element.isConnected;
+        return (
+          openers.slice(at + 1).find(still) ??
+          openers.slice(0, Math.max(at, 0)).reverse().find(still)
+        );
+      },
     });
   }
 
@@ -573,9 +595,22 @@ export class PlanTab {
     });
   }
 
-  /** Takes one unpicked copy of a card out of the plan; should its line go, focus goes to the next. */
-  protected remove(poolCardId: string) {
-    return this.tryChange(() => this.planApi.remove(this.draftId(), poolCardId));
+  /**
+   * Takes one copy of a line out of the plan: an unpicked card's, or a basic
+   * land's off `planBoard`. Should its line go, focus goes to the next.
+   */
+  protected removeLine(line: PlanLine, planBoard: PlanBoard) {
+    const { basic, poolCardId } = line;
+    return this.tryChange(() =>
+      basic
+        ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
+        : this.planApi.remove(this.draftId(), poolCardId),
+    );
+  }
+
+  /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
+  protected withBasics(lines: PlanLine[]) {
+    return lines.some((line) => line.basic);
   }
 
   /** Stops the notice listing the lost cards. */
@@ -622,7 +657,7 @@ export class PlanTab {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, changeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
         return false;
       }
     }, kept);
@@ -674,13 +709,21 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
   return [...byName.values()];
 }
 
-/** One card per copy of a basic land, each with an id of its own to track it by. */
-function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
+/** The cards `planBoard` holds: its planned pool cards, then a card per copy of each of its basic lands. */
+function heldOn(plan: PlanView, planBoard: PlanBoard): PlanBoardCard[] {
+  return [...cardsOn(plan, planBoard), ...basicsOn(plan.basics, planBoard).flatMap(basicCopies)];
+}
+
+/** One card per copy of a basic land on its plan board, each with an id of its own to track and drag it by. */
+function basicCopies({ land, board, count }: PlannedBasicView): PlanBoardCard[] {
   return Array.from({ length: count }, (_, copy) => ({
-    // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same cards; the id is otherwise only drag data, and basics never move.
-    poolCardId: `basic-${land}-${copy}`,
+    poolCardId: basicCopyId(board, land, copy),
     name: land,
     picked: true,
     basic: land,
   }));
 }
+
+/** The id of a basic land's copy: which plan board holds it, and which copy there it is. */
+const basicCopyId = (planBoard: PlanBoard, land: BasicLand, copy: number) =>
+  `basic-${planBoard}-${land}-${copy}`;

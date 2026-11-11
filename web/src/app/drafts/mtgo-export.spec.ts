@@ -90,8 +90,8 @@ describe('MTGO export', () => {
         mainboard: [card('Lightning Bolt', 'normal')],
         sideboard: [],
         basics: [
-          { land: 'Island', count: 2 },
-          { land: 'Mountain', count: 7 },
+          { land: 'Island', board: 'Mainboard', count: 2 },
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
         ],
       }),
     ).toBe('1 Lightning Bolt\n2 Island\n7 Mountain');
@@ -102,8 +102,32 @@ describe('MTGO export', () => {
       mtgoExport({
         mainboard: [card('Lightning Bolt', 'normal')],
         sideboard: [card('Fire // Ice', 'split'), card('Shock', 'normal'), card('Shock', 'normal')],
-        basics: [{ land: 'Mountain', count: 7 }],
+        basics: [{ land: 'Mountain', board: 'Mainboard', count: 7 }],
       }),
     ).toBe('1 Lightning Bolt\n7 Mountain\n\n1 Fire/Ice\n2 Shock');
+  });
+
+  it('lists the sideboard’s basics after its other cards, and the mainboard’s in the mainboard', () => {
+    expect(
+      mtgoExport({
+        mainboard: [card('Lightning Bolt', 'normal')],
+        sideboard: [card('Shock', 'normal')],
+        basics: [
+          { land: 'Mountain', board: 'Mainboard', count: 7 },
+          { land: 'Island', board: 'Sideboard', count: 2 },
+          { land: 'Mountain', board: 'Sideboard', count: 1 },
+        ],
+      }),
+    ).toBe('1 Lightning Bolt\n7 Mountain\n\n1 Shock\n2 Island\n1 Mountain');
+  });
+
+  it('lists a sideboard that holds only basics', () => {
+    expect(
+      mtgoExport({
+        mainboard: [card('Lightning Bolt', 'normal')],
+        sideboard: [],
+        basics: [{ land: 'Island', board: 'Sideboard', count: 3 }],
+      }),
+    ).toBe('1 Lightning Bolt\n\n3 Island');
   });
 });
