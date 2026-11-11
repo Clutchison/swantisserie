@@ -206,6 +206,8 @@ export interface StandingView {
   playerId: string;
   /** From 1. Players still tied after every tiebreaker share a rank. */
   rank: number;
+  /** Whether another player shares its rank: its place reads as =2nd when shared. */
+  shared: boolean;
   matchPoints: number;
   matches: TallyView;
   games: TallyView;

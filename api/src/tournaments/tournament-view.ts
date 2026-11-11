@@ -13,6 +13,7 @@ import {
   bracketRounds,
   byesSendingOn,
   droppedPlayers,
+  placeIn,
   singleEliminationRoundCount,
   singleEliminationStandings,
   standings,
@@ -225,7 +226,10 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     bracket,
     ...FORMAT_RULES[row.format],
     reopenRound: offersReopenRound(row) ? reopenRoundOf(row) : null,
-    standings: table,
+    standings: table.map((standing) => ({
+      ...standing,
+      ...placeIn(table, standing),
+    })),
     trophyHolders: complete ? trophyHolders(table) : [],
   };
 }

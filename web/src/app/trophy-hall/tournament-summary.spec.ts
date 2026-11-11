@@ -85,6 +85,7 @@ const SWISS = completed(
         opponentsGameWinPercent: 45,
       }),
       standing(carol.id, 2, {
+        shared: true,
         matchPoints: 3,
         matches: { won: 1, lost: 1, drawn: 0 },
         gameWinPercent: 50,
@@ -92,6 +93,7 @@ const SWISS = completed(
         opponentsGameWinPercent: 55,
       }),
       standing('bob', 2, {
+        shared: true,
         matchPoints: 3,
         matches: { won: 1, lost: 1, drawn: 0 },
         gameWinPercent: 50,
@@ -196,7 +198,11 @@ describe('the Tournament summary', () => {
       fixture,
       completed({
         ...withDrops(['bob']),
-        standings: [standing(alice.id, 1), standing(carol.id, 1), standing('bob', 3)],
+        standings: [
+          standing(alice.id, 1, { shared: true }),
+          standing(carol.id, 1, { shared: true }),
+          standing('bob', 3),
+        ],
         trophyHolders: [alice.id, carol.id],
       }),
     );

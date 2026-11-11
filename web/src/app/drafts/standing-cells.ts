@@ -1,5 +1,5 @@
 import type { StandingView, TournamentView } from 'contract';
-import { droppedPlayers, placeIn } from 'engine';
+import { droppedPlayers } from 'engine';
 import { place } from '../record';
 
 /** Where a table of a tournament's standings shows, which decides how its ranks and players read. */
@@ -14,7 +14,8 @@ export interface StandingCellsOptions {
  * How `standing`, one of `tournament`'s, reads in a table of its
  * standings, its player named `name`: its rank, and its player, marked
  * "(dropped)" once they have dropped. In the Tournament summary the rank
- * is a place, such as =2nd, and a trophy holder is marked 🏆; elsewhere
+ * is its place, such as =2nd, as the api reads it, and a trophy holder is
+ * marked 🏆; elsewhere
  * the rank is a number, and only a table that always marks dropped
  * players marks them.
  */
@@ -30,7 +31,7 @@ export function standingCells(
   const marked = dropped ? `${name} (dropped)` : name;
   if (!summary) return { rank: String(standing.rank), name: marked };
   return {
-    rank: place(placeIn(tournament.standings, standing)),
+    rank: place(standing),
     name: tournament.trophyHolders.includes(standing.playerId) ? `${marked} 🏆` : marked,
   };
 }

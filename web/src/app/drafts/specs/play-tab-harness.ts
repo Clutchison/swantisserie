@@ -170,7 +170,7 @@ export const againstDropped = (match: MatchView, playerId: string): MatchView =>
   clearLeaves: { kind: 'Forfeit', forfeitedBy: playerId },
 });
 
-/** A standing with no matches played, or with `fields` changed. */
+/** A standing with no matches played, its rank unshared unless `fields` says so, or with `fields` changed. */
 export const standing = (
   playerId: string,
   rank: number,
@@ -178,6 +178,7 @@ export const standing = (
 ): StandingView => ({
   playerId,
   rank,
+  shared: false,
   matchPoints: 0,
   matches: { won: 0, lost: 0, drawn: 0 },
   games: { won: 0, lost: 0, drawn: 0 },
