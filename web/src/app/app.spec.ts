@@ -12,7 +12,7 @@ import {
   loadingAnimation,
   midNavigation,
 } from './drafts/specs/harness';
-import { answerUnreviewedCount } from './feedback/specs-harness';
+import { answerUnreviewedCount, link } from './feedback/specs-harness';
 import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
 
 describe('App', () => {
@@ -151,16 +151,43 @@ describe('App', () => {
       // Nor do they ask which version is live.
       expect(http.match('/api/admin/app-version')).toEqual([]);
     });
+  });
 
-    it('shows the username, user image and Log out on the right, in order', async () => {
+  describe('user menu', () => {
+    it('is a closed menu named by the username', async () => {
       const page = await openSettled('/', alice);
 
-      const right = [...page.querySelector('header .right-group')!.children];
-      expect(right.map((el) => el.textContent?.trim() || el.tagName)).toEqual([
-        'Alice',
-        'IMG',
-        'Log out',
-      ]);
+      expect(userMenuButton(page)!.getAttribute('aria-expanded')).toBe('false');
+      expect(link(banner(page)!, 'My stats')).toBeUndefined();
+      expect(button(page, 'Log out')).toBeUndefined();
+    });
+
+    it('opens on click and holds My stats and Log out', async () => {
+      const page = await openSettled('/', alice);
+
+      userMenuButton(page)!.click();
+      TestBed.tick();
+
+      expect(userMenuButton(page)!.getAttribute('aria-expanded')).toBe('true');
+      expect(link(banner(page)!, 'My stats')?.getAttribute('href')).toBe('/my-stats');
+      expect(button(banner(page)!, 'Log out')).toBeDefined();
+    });
+
+    it('closes when My stats is chosen, and goes there', async () => {
+      const page = await openSettled('/', alice);
+      userMenuButton(page)!.click();
+      TestBed.tick();
+
+      link(banner(page)!, 'My stats')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/my-stats'))).flush(null, {
+        status: 500,
+        statusText: 'Server Error',
+      });
+
+      await vi.waitFor(() => expect(router.url).toBe('/my-stats'));
+      TestBed.tick();
+      expect(userMenuButton(page)!.getAttribute('aria-expanded')).toBe('false');
+      expect(link(banner(page)!, 'My stats')).toBeUndefined();
     });
   });
 
@@ -203,7 +230,7 @@ describe('App', () => {
     it('closes on an outside click', async () => {
       const { page } = await openAppAdmin();
 
-      page.querySelector<HTMLElement>('.name')!.click();
+      banner(page)!.click();
       TestBed.tick();
 
       expect(menuLinks(page)).toEqual([]);
@@ -221,7 +248,7 @@ describe('App', () => {
 
     it('leaves focus where it is on an Escape while it is closed', async () => {
       const page = await openSettled('/', { ...alice, isAppAdmin: true });
-      const logOut = logOutButton(page)!;
+      const logOut = userMenuButton(page)!;
       logOut.focus();
 
       logOut.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -233,7 +260,7 @@ describe('App', () => {
     it('closes when focus moves out of it, leaving focus where it went', async () => {
       const { page, trigger } = await openAppAdmin();
       const lastItem = menuItems(page).at(-1)!;
-      const logOut = logOutButton(page)!;
+      const logOut = userMenuButton(page)!;
 
       trigger.focus();
       lastItem.focus();
@@ -337,7 +364,7 @@ describe('App', () => {
     it('closes on an outside click', async () => {
       const page = await openMenu(alice);
 
-      page.querySelector<HTMLElement>('.name')!.click();
+      banner(page)!.click();
       TestBed.tick();
 
       expect(page.querySelector('.panel')).toBeNull();
@@ -543,7 +570,7 @@ describe('App', () => {
       expect(router.url).toBe('/status');
       expect(page.textContent).toContain('API ok');
       expect(page.textContent).toContain('DB ok');
-      expect(logOutButton(page)).toBeUndefined();
+      expect(userMenuButton(page)).toBeUndefined();
     });
 
     it('shows signed-in users the header', async () => {
@@ -553,7 +580,7 @@ describe('App', () => {
       );
 
       expect(page.textContent).toContain('API ok');
-      expect(logOutButton(page)).toBeDefined();
+      expect(userMenuButton(page)).toBeDefined();
     });
 
     it('logs out to a plain sign-in page, not one that returns here', async () => {
@@ -609,12 +636,16 @@ function versionLink(page: HTMLElement) {
   return page.querySelector<HTMLAnchorElement>('header .panel a[href*="/commit/"]');
 }
 
-function logOutButton(page: HTMLElement) {
-  return button(page, 'Log out');
+/** The user menu's button, named by the signed-in user's name; Alice is everyone these specs sign in. */
+function userMenuButton(page: HTMLElement) {
+  return button(page, 'Alice');
 }
 
+/** Opens the user menu and chooses Log out. */
 function clickLogOut(page: HTMLElement) {
-  logOutButton(page)!.click();
+  userMenuButton(page)!.click();
+  TestBed.tick();
+  button(page, 'Log out')!.click();
 }
 
 /** The link that starts signing in with Discord. */

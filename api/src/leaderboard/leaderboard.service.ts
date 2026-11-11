@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import type { LeaderboardView } from 'contract';
 import { leaderboard } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { readCompleteTournaments } from '../tournaments/complete-tournaments.js';
-import { toLeaderboardTournament } from './leaderboard-tournament.js';
+import {
+  readCompleteTournaments,
+  toEngineTournament,
+} from '../tournaments/complete-tournaments.js';
 
 /** The leaderboard. Until drafts belong to guilds (#208), it covers every draft's tournament. */
 @Injectable()
@@ -22,7 +24,7 @@ export class LeaderboardService {
     const entries = leaderboard(
       complete
         .filter(({ botsPlayed }) => !botsPlayed)
-        .map(({ view }) => toLeaderboardTournament(view)),
+        .map(({ view }) => toEngineTournament(view)),
     );
     const users = await this.prisma.user.findMany({
       where: { id: { in: entries.map((entry) => entry.playerId) } },

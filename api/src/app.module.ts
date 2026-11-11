@@ -8,6 +8,7 @@ import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
 import { FeedbackModule } from './feedback/feedback.module.js';
 import { LeaderboardModule } from './leaderboard/leaderboard.module.js';
+import { MyStatsModule } from './my-stats/my-stats.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { TournamentsModule } from './tournaments/tournaments.module.js';
 
@@ -29,6 +30,7 @@ export class AppModule {
         TournamentsModule,
         FeedbackModule,
         LeaderboardModule,
+        MyStatsModule,
         WebhooksModule,
         ServeStaticModule.forRoot({
           rootPath: webRoot,

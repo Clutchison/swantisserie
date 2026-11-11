@@ -1,7 +1,9 @@
 import type {
   PoolSourceKind as ContractKind,
+  PoolSourceView,
   SetListEntryView,
 } from 'contract';
+import { cubeUrl } from '../cubecobra/cubecobra-client.js';
 import type { PoolSourceKind, Prisma } from '../generated/prisma/client.js';
 
 /**
@@ -29,4 +31,42 @@ export function isPoolSourceKind(value: unknown): value is ContractKind {
  */
 export function storedSetList(setList: Prisma.JsonValue): SetListEntryView[] {
   return setList as unknown as SetListEntryView[];
+}
+
+/** What a read selects of a draft for `toPoolSourceView`: its pool source's columns. */
+export const POOL_SOURCE = {
+  id: true,
+  poolSourceKind: true,
+  poolQuery: true,
+  cubeId: true,
+  cubeName: true,
+  setList: true,
+} as const satisfies Prisma.DraftSelect;
+
+/** A draft's stored pool source, as `POOL_SOURCE` selects it. */
+export type StoredPoolSource = Prisma.DraftGetPayload<{
+  select: typeof POOL_SOURCE;
+}>;
+
+/** The draft's pool source as viewers see it. */
+export function toPoolSourceView(draft: StoredPoolSource): PoolSourceView {
+  // The database's check constraints set exactly the kind's own columns.
+  const { poolSourceKind: kind, poolQuery, cubeId, cubeName, setList } = draft;
+  switch (kind) {
+    case 'PoolQuery':
+      return { kind: 'pool-query', poolQuery: poolQuery ?? '' };
+    case 'Cube':
+      return {
+        kind: 'cube',
+        cube: { name: cubeName ?? '', url: cubeUrl(cubeId ?? '') },
+      };
+    case 'SetList':
+      return { kind: 'set-list', setList: storedSetList(setList) };
+    default: {
+      const unhandled: never = kind;
+      throw new Error(
+        `Draft ${draft.id} has pool source kind ${String(unhandled)}.`,
+      );
+    }
+  }
 }

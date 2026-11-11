@@ -1,6 +1,7 @@
 import {
   addGames,
   emptyTally,
+  playedMatches,
   resultFor,
   type Tally,
   type TournamentMatch,
@@ -68,9 +69,8 @@ export function leaderboard(
       entryOf(playerId).tournamentsPlayed++;
     for (const playerId of tournament.trophyHolders)
       entryOf(playerId).trophies++;
-    for (const { players, outcome } of tournament.matches) {
-      if (outcome?.kind !== 'GameScore') continue;
-      const match = { players, outcome };
+    for (const match of playedMatches(tournament.matches)) {
+      const { players, outcome } = match;
       for (const side of [0, 1]) {
         const entry = entryOf(players[side]);
         const opponentId = players[1 - side];

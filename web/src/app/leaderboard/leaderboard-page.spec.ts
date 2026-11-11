@@ -76,6 +76,9 @@ describe('the leaderboard page', () => {
     expect(loadingAnimation(page)).toBeNull();
   });
 
+  /** The page's main landmark: the top bar's user menu button is also named Alice. */
+  const main = (page: HTMLElement) => page.querySelector<HTMLElement>('main')!;
+
   /** The text of each row of the table named `name`, its header row left out; null if there is none. */
   function rows(page: HTMLElement, name: string) {
     const found = table(page, name);
@@ -110,18 +113,18 @@ describe('the leaderboard page', () => {
   it('shows a selected player’s head-to-head record against each opponent', async () => {
     const page = await openLeaderboard();
 
-    button(page, 'Bob').click();
+    button(main(page), 'Bob').click();
     TestBed.tick();
 
-    expect(button(page, 'Bob').getAttribute('aria-pressed')).toBe('true');
+    expect(button(main(page), 'Bob').getAttribute('aria-pressed')).toBe('true');
     expect(heading(page, 'Bob’s head-to-head records')).toBeDefined();
-    expect(button(page, 'Alice').getAttribute('aria-pressed')).toBe('false');
+    expect(button(main(page), 'Alice').getAttribute('aria-pressed')).toBe('false');
     expect(rows(page, 'Head-to-head records of Bob')).toEqual([
       ['Alice', '1–3–0', '3–6–1'],
       ['Carol', '1–0–1', '2–1–0'],
     ]);
 
-    button(page, 'Carol').click();
+    button(main(page), 'Carol').click();
     TestBed.tick();
 
     expect(rows(page, 'Head-to-head records of Bob')).toBeNull();
@@ -134,12 +137,12 @@ describe('the leaderboard page', () => {
   it('hides the head-to-head records when the selected player is selected again', async () => {
     const page = await openLeaderboard();
 
-    button(page, 'Bob').click();
+    button(main(page), 'Bob').click();
     TestBed.tick();
-    button(page, 'Bob').click();
+    button(main(page), 'Bob').click();
     TestBed.tick();
 
-    expect(button(page, 'Bob').getAttribute('aria-pressed')).toBe('false');
+    expect(button(main(page), 'Bob').getAttribute('aria-pressed')).toBe('false');
     expect(rows(page, 'Head-to-head records of Bob')).toBeNull();
   });
 

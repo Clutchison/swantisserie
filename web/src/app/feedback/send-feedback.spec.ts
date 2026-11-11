@@ -264,7 +264,7 @@ describe('sending feedback', () => {
     anyButton('Send feedback')!.focus();
     await open();
     await vi.waitFor(() => expect(document.activeElement).toBe(field()));
-    const elsewhere = anyButton('Log out')!;
+    const elsewhere = anyButton('Alice')!;
 
     elsewhere.focus();
     pressEscape();

@@ -1,0 +1,110 @@
+<main>
+  <h1>My stats</h1>
+
+  @if (stats.error()) {
+    <p class="error">Couldn't load your stats. Try reloading the page.</p>
+  } @else if (stats.isLoading() && !stats.hasValue()) {
+    <app-loading-animation size="page">Loading…</app-loading-animation>
+  } @else if (stats.hasValue()) {
+    @let mine = stats.value();
+    @if (mine.tournamentsPlayed === 0) {
+      <p class="empty">You haven’t joined a complete tournament yet.</p>
+    } @else {
+      <dl class="stats" aria-label="My stats">
+        <div>
+          <dt>Tournaments played</dt>
+          <dd>{{ mine.tournamentsPlayed }}</dd>
+        </div>
+        <div>
+          <dt>Trophies</dt>
+          <dd>{{ mine.trophies }}</dd>
+        </div>
+        <div>
+          <dt>Trophy rate</dt>
+          <dd>{{ rate(mine.trophyRate) }}</dd>
+        </div>
+        <div>
+          <dt>Match win rate</dt>
+          <dd>
+            {{ rate(mine.matchWinRate) }}
+            <span class="record"
+              >(<abbr title="Played matches won, lost and drawn">{{ record(mine.matches) }}</abbr
+              >)</span
+            >
+          </dd>
+        </div>
+        <div>
+          <dt>Game win rate</dt>
+          <dd>
+            {{ rate(mine.gameWinRate) }}
+            <span class="record"
+              >(<abbr title="Games of played matches won, lost and drawn">{{
+                record(mine.games)
+              }}</abbr
+              >)</span
+            >
+          </dd>
+        </div>
+        @if (mine.bestFinish; as best) {
+          <div>
+            <dt>Best finish</dt>
+            <dd>{{ place(best) }}</dd>
+          </div>
+        }
+      </dl>
+      <p class="hint">
+        Win rates and their records count played matches only: byes, forfeits and granted results
+        are left out.
+      </p>
+
+      <h2>Results</h2>
+      <div class="scroll">
+        <table aria-label="Results">
+          <thead>
+            <tr>
+              <th scope="col">Completed</th>
+              <th scope="col">Draft</th>
+              <th scope="col">Pool source</th>
+              <th scope="col">Place</th>
+              <th scope="col">
+                <abbr title="Matches won, lost and drawn, as its standings count them">Record</abbr>
+              </th>
+              <th scope="col">Trophy</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of mine.results; track result.draftId) {
+              <tr>
+                <td>{{ result.completedAt ? (result.completedAt | date: 'mediumDate') : '–' }}</td>
+                <th scope="row">
+                  <a [routerLink]="['/drafts', result.draftId]">{{ result.draftName }}</a>
+                </th>
+                <td>
+                  @switch (result.poolSource.kind) {
+                    @case ('cube') {
+                      Cube:
+                      <a [href]="result.poolSource.cube.url" target="_blank" rel="noopener">{{
+                        result.poolSource.cube.name
+                      }}</a>
+                    }
+                    @case ('pool-query') {
+                      Pool query: <code>{{ result.poolSource.poolQuery }}</code>
+                    }
+                    @case ('set-list') {
+                      Sets: {{ setListText(result.poolSource.setList) }}
+                    }
+                    <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
+                    @default never(result.poolSource);
+                  }
+                </td>
+                <td>{{ place(result.place) }}</td>
+                <td>{{ record(result.matches) }}</td>
+                <td>{{ result.trophy ? '🏆' : '' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</main>

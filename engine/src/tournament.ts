@@ -146,6 +146,23 @@ export interface Standing {
 /** A match with an outcome: reported, a granted draw or a forfeit. */
 export type DecidedMatch = TournamentMatch & { outcome: MatchOutcome };
 
+/** A played match: one decided by a game score its players played. */
+export type PlayedMatch = TournamentMatch & {
+  outcome: Extract<MatchOutcome, { kind: 'GameScore' }>;
+};
+
+/**
+ * The played matches among `matches`: forfeits, granted draws, granted
+ * wins and unreported matches aren't, and byes aren't matches at all.
+ */
+export function playedMatches(
+  matches: readonly TournamentMatch[],
+): PlayedMatch[] {
+  return matches.filter(
+    (match): match is PlayedMatch => match.outcome?.kind === 'GameScore',
+  );
+}
+
 /**
  * The standings of `players` after `matches`, best first. Players rank by
  * match points, then head-to-head (the match points each earned in matches
