@@ -253,7 +253,7 @@ The order a player's plan remembers its cards in, from where each sat in their q
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:
-A Plains, Island, Swamp, Mountain or Forest in a player's plan, added by count. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked, and it is always on the mainboard. Neither a snow-covered basic nor Wastes is one: each can be a pool card.
+A Plains, Island, Swamp, Mountain or Forest in a player's plan, added one copy at a time onto the mainboard. Like any card, a copy moves between the plan boards, and the player can take it out of their plan. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked. Neither a snow-covered basic nor Wastes is one: each can be a pool card.
 _Avoid_: Land (alone; a pool card can be a land), free land
 
 **Basic land printing**:
@@ -269,7 +269,7 @@ The basic land printing a basic land shows to a player with no preferred printin
 _Avoid_: Stock art
 
 **Printing picker**:
-The view that opens from a basic land in a player's own plan or deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. A newly released set's printings join it shortly after the set's release, never before.
+The view that opens from a basic land in a player's own plan or deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked plan or deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release, never before.
 _Avoid_: Art picker, Card detail (that is a pool card's)
 
 **Plan board**:
