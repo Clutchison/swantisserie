@@ -40,6 +40,7 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { planChangeFailed } from './plan-change-failed';
 import { basicsOn } from './plan-basics';
 import { cardsOn } from './export-plan';
 import { OTHER_PLAN_BOARD } from './plan-boards';
@@ -54,10 +55,6 @@ import {
 import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
 import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
-
-/** What a failed change says, naming the plan as `planName`. */
-const changeFailed = (planName: string) =>
-  `Couldn't change your ${planName}. Try again in a moment.`;
 
 /**
  * How a stack is scrolled to in the strip: to its start, scrolling only the
@@ -504,9 +501,9 @@ export class PlanTab {
    * the large one loads, or a basic land's Printing picker, unless the
    * click ends a drag.
    */
-  protected openStacked(card: PlanBoardCard, event: MouseEvent) {
+  protected openStacked(card: PlanBoardCard, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (card.basic) return this.openPicker(card.basic);
+    if (card.basic) return this.openPicker(card.basic, planBoard);
     const poolCard = this.poolCardsById().get(card.poolCardId);
     this.openDetail(
       card.poolCardId,
@@ -522,9 +519,9 @@ export class PlanTab {
    * the queue, or else of its first copy, or a basic land's Printing
    * picker, unless the click ends a drag.
    */
-  protected openLine(line: PlanLine, event: MouseEvent) {
+  protected openLine(line: PlanLine, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (line.basic) return this.openPicker(line.basic);
+    if (line.basic) return this.openPicker(line.basic, planBoard);
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
   }
@@ -568,15 +565,27 @@ export class PlanTab {
   }
 
   /**
-   * Opens a basic land's Printing picker, in any draft state and on a
-   * locked deck too: it changes how the land looks, not the plan. Focus
-   * returns to what opened it.
+   * Opens the Printing picker of a basic land's copy on `planBoard`, in any
+   * draft state and on a locked deck too, where it changes only how the land
+   * looks; elsewhere it can take the copy out. Focus returns to what opened
+   * it or, should Remove have taken that away, to the next card or line that
+   * opens a dialog, or else the one before.
    */
-  private openPicker(land: BasicLand) {
+  private openPicker(land: BasicLand, planBoard: PlanBoard) {
+    const openers = [...this.host.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')];
     this.dialogs.open(PrintingPicker, {
       labelledBy: PRINTING_PICKER_HEADING,
       injector: this.injector,
-      bindings: [inputBinding('land', () => land)],
+      bindings: [inputBinding('land', () => land), inputBinding('planBoard', () => planBoard)],
+      returnFocus: (opener) => {
+        if (!opener || opener.isConnected) return opener;
+        const at = openers.indexOf(opener);
+        const still = (element: HTMLElement) => element.isConnected;
+        return (
+          openers.slice(at + 1).find(still) ??
+          openers.slice(0, Math.max(at, 0)).reverse().find(still)
+        );
+      },
     });
   }
 
@@ -588,9 +597,22 @@ export class PlanTab {
     });
   }
 
-  /** Takes one unpicked copy of a card out of the plan; should its line go, focus goes to the next. */
-  protected remove(poolCardId: string) {
-    return this.tryChange(() => this.planApi.remove(this.draftId(), poolCardId));
+  /**
+   * Takes one copy of a line out of the plan: an unpicked card's, or a basic
+   * land's off `planBoard`. Should its line go, focus goes to the next.
+   */
+  protected removeLine(line: PlanLine, planBoard: PlanBoard) {
+    const { basic, poolCardId } = line;
+    return this.tryChange(() =>
+      basic
+        ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
+        : this.planApi.remove(this.draftId(), poolCardId),
+    );
+  }
+
+  /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
+  protected withBasics(lines: PlanLine[]) {
+    return lines.some((line) => line.basic);
   }
 
   /** Stops the notice listing the lost cards. */
@@ -637,7 +659,7 @@ export class PlanTab {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, changeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
         return false;
       }
     }, kept);

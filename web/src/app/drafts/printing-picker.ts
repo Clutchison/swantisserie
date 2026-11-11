@@ -1,10 +1,12 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   inject,
+  Injector,
   input,
   type OnInit,
   PendingTasks,
@@ -14,6 +16,7 @@ import type {
   BasicLand,
   BasicLandPrintingSetView,
   BasicLandPrintingView,
+  PlanBoard,
   PreferredPrintingProblem,
   PreferredPrintings,
 } from 'contract';
@@ -21,7 +24,10 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
+import { changeFailure } from './drafts';
 import { DraftStore } from './draft-store';
+import { PlanApi } from './plan-api';
+import { planChangeFailed } from './plan-change-failed';
 import { PreferredPrintingsApi } from './preferred-printings-api';
 import { SetCombobox } from './set-combobox';
 
@@ -29,13 +35,16 @@ import { SetCombobox } from './set-combobox';
 export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
 
 /**
- * The Printing picker, opened on the dialog shell from a basic land in the
- * signed-in player's own plan or deck, locked or not: a large image of a
- * printing of the land, which they browse set by set, newest set first,
- * finding a set by typing part of its code or name, and make their
- * preferred printing, or go back to the default printing. It
+ * The Printing picker, opened on the dialog shell from a copy of a basic land
+ * on a plan board of the signed-in player's own plan or deck, locked or not.
+ * It shows a large image of a printing of the land, which they browse set by
+ * set, newest set first, finding a set by typing part of its code or name,
+ * and make their preferred printing, or go back to the default printing. It
  * opens on the printing the land shows now. Browsing changes only the
- * picker; Cancel, Escape and the backdrop close it with no change.
+ * picker. In an unlocked plan or deck it also offers Remove, which takes the
+ * copy it opened from off that plan board. Each choice closes it once made,
+ * and a failed one is said in it; Cancel, Escape and the backdrop close it
+ * with no change.
  */
 @Component({
   selector: 'app-printing-picker',
@@ -48,11 +57,20 @@ export class PrintingPicker implements OnInit {
   private readonly store = inject(DraftStore);
   private readonly printings = inject(BasicLandPrintings);
   private readonly api = inject(PreferredPrintingsApi);
+  private readonly planApi = inject(PlanApi);
   private readonly dialogRef = inject(DialogRef);
   private readonly pendingTasks = inject(PendingTasks);
+  private readonly injector = inject(Injector);
 
   /** The basic land whose printings it shows. */
   readonly land = input.required<BasicLand>();
+  /** The plan board of the copy it opened from, which Remove takes it off. */
+  readonly planBoard = input.required<PlanBoard>();
+
+  /** Whether Remove is offered: as for an unpicked card, to a player, never on a locked deck. */
+  protected readonly offerRemove = computed(
+    () => this.store.offerRemoveFromPlan() && !this.store.deckLocked(),
+  );
 
   protected readonly headingId = PRINTING_PICKER_HEADING;
   protected readonly largeImage = LARGE_IMAGE;
@@ -166,18 +184,46 @@ export class PrintingPicker implements OnInit {
     this.dialogRef.close();
   }
 
-  /** Sends the change, then shows it everywhere and closes; a failure is said here, changing nothing. */
-  private async save(request: Observable<PreferredPrintings>) {
+  /** Takes the copy it opened from off its plan board, then closes; a refusal is said here. */
+  protected remove() {
+    return this.send(
+      async () => {
+        await this.store.changePlan(
+          this.planApi.removeBasic(this.store.id(), this.land(), this.planBoard()),
+        );
+        // Closes once the plan shows the copy gone, so focus goes back to what is still there.
+        await new Promise<void>((shown) => afterNextRender(shown, { injector: this.injector }));
+      },
+      (err) => changeFailure(err, planChangeFailed(this.store.planName())),
+    );
+  }
+
+  /** Sends the preferred printing change, then shows it everywhere and closes; a failure is said here, changing nothing. */
+  private save(request: Observable<PreferredPrintings>) {
+    return this.send(
+      async () => this.store.showPreferredPrintings(await firstValueFrom(request)),
+      saveFailure,
+    );
+  }
+
+  /**
+   * Runs `change`, the choices disabled meanwhile, then closes; a failure
+   * stays open, saying what `failure` makes of it. The page isn't stable
+   * until it has done one or the other.
+   */
+  private send(change: () => Promise<unknown>, failure: (err: unknown) => string) {
     this.saving.set(true);
     this.saveError.set(null);
-    try {
-      this.store.showPreferredPrintings(await firstValueFrom(request));
-      this.dialogRef.close();
-    } catch (err) {
-      this.saveError.set(saveFailure(err));
-    } finally {
-      this.saving.set(false);
-    }
+    return this.pendingTasks.run(async () => {
+      try {
+        await change();
+        this.dialogRef.close();
+      } catch (err) {
+        this.saveError.set(failure(err));
+      } finally {
+        this.saving.set(false);
+      }
+    });
   }
 }
 

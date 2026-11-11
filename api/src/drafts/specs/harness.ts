@@ -703,6 +703,16 @@ export async function addBasicsUpTo(
   return last;
 }
 
+/** Takes one copy of a basic land off a plan board of the player's plan. */
+export function removeBasic(
+  id: string,
+  land: string,
+  board: string,
+  cookie: string,
+) {
+  return draftsRequest('delete', `/${id}/plan/basics/${land}/${board}`, cookie);
+}
+
 /** Moves one copy of a basic land in the player's plan to `board`, taking it from the other plan board. */
 export function moveBasic(
   id: string,

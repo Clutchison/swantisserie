@@ -131,6 +131,21 @@ export class PlansController {
     return this.change(user, id, () => this.plans.clearBasics(id, user.id));
   }
 
+  /** Takes one copy of a basic land off a plan board. Declared before `:poolCardId`, which would match it. */
+  @Delete('basics/:land/:board')
+  async removeBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+    @Param('board') board: string,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    const planBoard = parseBoardParam(board);
+    return this.change(user, id, () =>
+      this.plans.removeBasic(id, user.id, basic, planBoard),
+    );
+  }
+
   /** Takes an unpicked card out of the plan. Declared after `notice`, `ready-notice` and `basics`, which it would match. */
   @Delete(':poolCardId')
   async remove(
@@ -208,4 +223,15 @@ function parseLand(land: string): BasicLand {
     } satisfies RequestProblem);
   }
   return land;
+}
+
+/** The plan board named in the path, or a 400 if it isn't one. */
+function parseBoardParam(board: string): PlanBoard {
+  if (!isPlanBoard(board)) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Choose the mainboard or the sideboard.',
+    } satisfies RequestProblem);
+  }
+  return board;
 }

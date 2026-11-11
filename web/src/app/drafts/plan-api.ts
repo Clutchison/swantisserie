@@ -30,6 +30,11 @@ export class PlanApi {
     return this.http.post<PlanView>(`${url(draftId)}/basics/${land}`, null);
   }
 
+  /** Takes one copy of a basic land off a plan board. */
+  removeBasic(draftId: string, land: BasicLand, planBoard: PlanBoard): Observable<PlanView> {
+    return this.http.delete<PlanView>(`${url(draftId)}/basics/${land}/${planBoard}`);
+  }
+
   /** Moves one copy of a basic land to `planBoard`, taking it from the other plan board. */
   moveBasic(draftId: string, land: BasicLand, planBoard: PlanBoard): Observable<PlanView> {
     return this.http.put<PlanView>(`${url(draftId)}/basics/${land}`, {

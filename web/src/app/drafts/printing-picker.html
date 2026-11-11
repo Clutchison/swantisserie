@@ -53,6 +53,11 @@
     <button class="button secondary" type="button" cdkFocusInitial (click)="cancel()">
       Cancel
     </button>
+    @if (offerRemove()) {
+      <button class="button secondary" type="button" (click)="remove()" [disabled]="saving()">
+        Remove
+      </button>
+    }
     <button
       class="button secondary"
       type="button"

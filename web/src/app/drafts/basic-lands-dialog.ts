@@ -7,10 +7,7 @@ import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { manaSymbol } from './mana-cost';
 import { PlanApi } from './plan-api';
-
-/** What a failed change says, naming the plan as `planName`. */
-const changeFailed = (planName: string) =>
-  `Couldn't change your ${planName}. Try again in a moment.`;
+import { planChangeFailed } from './plan-change-failed';
 
 /** Each basic land's mana symbol, shown beside its name. */
 const BASIC_SYMBOLS: Record<BasicLand, string> = {
@@ -98,7 +95,7 @@ export class BasicLandsDialog {
       try {
         await this.store.changePlan(send());
       } catch (err) {
-        this.error.set(changeFailure(err, changeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
       }
     }, kept);
   }
