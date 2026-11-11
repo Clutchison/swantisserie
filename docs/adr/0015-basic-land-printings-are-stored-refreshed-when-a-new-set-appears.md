@@ -11,7 +11,7 @@ A refresh is keyed on release dates, not on new set codes. A set still in spoile
 ## Considered Options
 
 - **Keep reading them live from Scryfall.** Rejected: every opening of the picker cost several paced searches, and setting a preferred printing failed whenever Scryfall did, for data that almost never changes.
-- **Import Scryfall's bulk data files.** Rejected: they are hundreds of MB, for the one or two thousand printings needed; six paged searches read them all.
+- **Import Scryfall's bulk data files.** Rejected: they are hundreds of MB, for the one or two thousand printings needed; five paged searches read them all.
 - **Refresh on a schedule.** Rejected: there is no scheduler, and a refresh would mostly find nothing new. Checking the cached set list on each request costs nothing extra.
 
 ## Consequences

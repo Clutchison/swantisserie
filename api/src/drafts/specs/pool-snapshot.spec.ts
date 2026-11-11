@@ -70,7 +70,7 @@ describe('pool snapshot', () => {
 
     await snapshotted(created.body.id);
     expect(scryfall.search).toHaveBeenCalledWith(
-      '(t:land) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:arena unique:cards',
+      '(t:land) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" game:arena unique:cards',
       1,
     );
   });

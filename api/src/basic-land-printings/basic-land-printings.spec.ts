@@ -165,8 +165,9 @@ it('stores only English printings named exactly that land with a single-faced im
   });
 });
 
-it('refuses any other land, and is only for signed-in users', async () => {
+it('refuses any other land, Wastes among them, and is only for signed-in users', async () => {
   await printingsRequest('Snow-Covered Island').expect(400);
+  await printingsRequest('Wastes').expect(400);
   const refused = await printingsRequest('Lotus').expect(400);
   expect(refused.body).toMatchObject({ error: 'invalid' });
   await printingsRequest('Island', null).expect(401);
@@ -197,8 +198,12 @@ it('answers at once while the first refresh runs, and starts no second one', asy
 
   answerIsland();
   await stored('Island');
-  // One search per basic land: the later requests started no refresh of their own.
-  expect(scryfall.search).toHaveBeenCalledTimes(6);
+  // One search per basic land, Wastes not among them: the later requests started no refresh of their own.
+  expect(scryfall.search).toHaveBeenCalledTimes(5);
+  expect(scryfall.search).not.toHaveBeenCalledWith(
+    '!"Wastes" lang:en unique:prints',
+    1,
+  );
 });
 
 it('refreshes again only once a set has been released since the last refresh started, keeping every printing it stored', async () => {

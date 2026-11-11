@@ -291,7 +291,7 @@ describe('the pool snapshot of a cube link', () => {
     expect(scryfall.printingsOn).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the cube’s basic lands out of the pool, as a plan adds them by count', async () => {
+  it('leaves the cube’s basic lands out of the pool, as a plan adds them by count, but puts its Wastes in', async () => {
     cubesAre({
       landcube: cube('Land Cube', 'Lightning Bolt', 'Mountain', 'Wastes'),
     });
@@ -304,14 +304,14 @@ describe('the pool snapshot of a cube link', () => {
 
     expect(created.body.snapshot).toEqual({
       state: 'Complete',
-      cards: 1,
-      total: 1,
+      cards: 2,
+      total: 2,
     });
     expect(
       (await pool(created.body.id).expect(200)).body.map(
         (c: { name: string }) => c.name,
       ),
-    ).toEqual(['Lightning Bolt']);
+    ).toEqual(['Lightning Bolt', 'Wastes']);
   });
 
   it('refuses a retry, keeping the pool as it was, because the pool is frozen', async () => {

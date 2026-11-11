@@ -13,14 +13,13 @@ import { PlanApi } from './plan-api';
 const changeFailed = (planName: string) =>
   `Couldn't change your ${planName}. Try again in a moment.`;
 
-/** Each basic land's mana symbol, which labels it: Wastes's is colorless. */
+/** Each basic land's mana symbol, which labels it. */
 const BASIC_SYMBOLS: Record<BasicLand, string> = {
   Plains: '{W}',
   Island: '{U}',
   Swamp: '{B}',
   Mountain: '{R}',
   Forest: '{G}',
-  Wastes: '{C}',
 };
 
 /** The Basic lands dialog's heading's id, which names the dialog. */

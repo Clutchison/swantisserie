@@ -120,7 +120,15 @@ describe('preferred printings', () => {
     await setPreferred('Snow-Covered Island', {
       scryfallId: kaldheimIsland,
     }).expect(400);
+    const wastes = await setPreferred('Wastes', {
+      scryfallId: '9cc070d3-4b83-4684-9caf-063e5c473a77',
+    }).expect(400);
+    expect(wastes.body).toEqual({
+      error: 'invalid',
+      message: 'Choose a basic land.',
+    });
     await clearPreferred('Lotus').expect(400);
+    await clearPreferred('Wastes').expect(400);
     expect(await preferredIn(id)).toEqual({});
   });
 

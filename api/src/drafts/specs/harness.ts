@@ -194,7 +194,7 @@ export const snapshotQuery = (
   poolQuery: string,
   platform: Platform = 'Arena',
 ) =>
-  `(${poolQuery}) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes" game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
+  `(${poolQuery}) -!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
 
 /** A pool query whose cards are all on Arena, with a two-card pool. */
 export function allOnArena(poolQuery: string) {

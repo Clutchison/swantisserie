@@ -31,8 +31,7 @@ import type {
 
 useDraftsApp();
 
-const NO_BASICS =
-  '-!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest" -!"Wastes"';
+const NO_BASICS = '-!"Plains" -!"Island" -!"Swamp" -!"Mountain" -!"Forest"';
 const game = (platform: Platform) => (platform === 'Arena' ? 'arena' : 'mtgo');
 /** The search for the set's printings on the platform, one per card. */
 const onPlatformQuery = (code: string, platform: Platform = 'Arena') =>
