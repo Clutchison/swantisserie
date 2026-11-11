@@ -35,12 +35,17 @@ import { CardImageSource } from './card-image-source';
 import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { NORMAL_IMAGE } from './card-sizes';
-import { changeFailure, DESKTOP_QUERY, matching, WIDE_STACKS_QUERY } from './drafts';
+import {
+  changeFailure,
+  DESKTOP_QUERY,
+  matching,
+  PLAN_CHANGE_FAILED,
+  WIDE_STACKS_QUERY,
+} from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
-import { PLAN_CHANGE_FAILED } from './plan-change-failed';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -213,7 +218,7 @@ export class PlanTab {
   /** The pool's cards by id, for the Card previews of the names here. */
   private readonly poolCardsById = this.store.poolCardsById;
   /** Whether the draft is complete, so the plan holds no unpicked cards. */
-  protected readonly complete = this.store.complete;
+  protected readonly draftComplete = this.store.draftComplete;
   /** Whether the deck is locked, as its player's tournament is playing: then it offers no edits. */
   protected readonly deckLocked = this.store.deckLocked;
   /** Whether the plan is still on its way, so `plan` says nothing yet. */

@@ -24,10 +24,9 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
-import { changeFailure } from './drafts';
+import { changeFailure, PLAN_CHANGE_FAILED } from './drafts';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
-import { PLAN_CHANGE_FAILED } from './plan-change-failed';
 import { PreferredPrintingsApi } from './preferred-printings-api';
 import { SetCombobox } from './set-combobox';
 

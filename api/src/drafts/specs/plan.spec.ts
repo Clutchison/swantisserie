@@ -377,7 +377,7 @@ describe('plan', () => {
 
     expect(refused.body).toEqual({
       error: 'not-a-player',
-      message: 'Only the draft’s players have plans.',
+      message: 'Only the draft’s players have decks.',
     });
     await movePlanned(id, ids.Shock, 'Sideboard', carolCookie).expect(403);
     // No board shows in what everyone sees, either.

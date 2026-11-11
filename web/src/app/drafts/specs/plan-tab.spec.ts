@@ -65,7 +65,7 @@ describe('plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    expect(plan.querySelector('h2')?.textContent).toBe('Deck');
+    expect(heading(plan, 'Deck')).toBeDefined();
     expect(planBoards(plan)).toEqual([
       {
         heading: 'Mainboard 4 (4 picked)',
@@ -219,12 +219,12 @@ describe('plan tab', () => {
     http
       .expectOne('/api/drafts/draft-1/plan/shivan-card')
       .flush(
-        { error: 'not-in-plan', message: 'That card isn’t in your plan.' },
+        { error: 'not-in-plan', message: 'That card isn’t in your deck.' },
         { status: 409, statusText: 'Conflict' },
       );
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
     await vi.waitFor(() =>
-      expect(alertIn(plan)?.textContent).toContain('That card isn’t in your plan.'),
+      expect(alertIn(plan)?.textContent).toContain('That card isn’t in your deck.'),
     );
 
     reread.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)] }));
@@ -246,7 +246,7 @@ describe('plan tab', () => {
     http
       .expectOne('/api/drafts/draft-1/plan/shivan-card')
       .flush(
-        { error: 'not-in-plan', message: 'That card isn’t in your plan.' },
+        { error: 'not-in-plan', message: 'That card isn’t in your deck.' },
         { status: 409, statusText: 'Conflict' },
       );
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
@@ -406,7 +406,7 @@ describe('plan tab', () => {
     await fixture.whenStable();
 
     const plan = await openPlan(fixture, page);
-    expect(plan.querySelector('.error')?.textContent).toContain("Couldn't load your deck");
+    expect(alertIn(plan)?.textContent).toContain("Couldn't load your deck");
     expect(plan.querySelector('app-plan-tab')).toBeNull();
   });
 

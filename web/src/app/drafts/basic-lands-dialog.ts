@@ -4,10 +4,9 @@ import { BASIC_LANDS, MOST_BASICS, type BasicLand, type PlanView } from 'contrac
 import type { Observable } from 'rxjs';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
-import { changeFailure } from './drafts';
+import { changeFailure, PLAN_CHANGE_FAILED } from './drafts';
 import { manaSymbol } from './mana-cost';
 import { PlanApi } from './plan-api';
-import { PLAN_CHANGE_FAILED } from './plan-change-failed';
 
 /** Each basic land's mana symbol, shown beside its name. */
 const BASIC_SYMBOLS: Record<BasicLand, string> = {

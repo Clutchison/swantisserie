@@ -249,7 +249,7 @@ export class DraftStore implements TournamentViewer {
   readonly picksLeft = computed(() => {
     const draft = this.draft.value();
     const own = this.ownPlayer();
-    if (!draft || !own || draft.state === 'Complete') return null;
+    if (!draft || !own || this.draftComplete()) return null;
     if (draft.state === 'Lobby') return draft.picksPerPlayer;
     if (!this.picks.loaded()) return null;
     const made = this.picks.value().filter((pick) => pick.playerId === own.id).length;
@@ -283,7 +283,7 @@ export class DraftStore implements TournamentViewer {
   /** The signed-in player's plan. */
   readonly plan = keptRead(this.planResource, EMPTY_PLAN);
   /** Whether the draft is complete, which took the unpicked cards out of every plan. */
-  readonly complete = computed(
+  readonly draftComplete = computed(
     // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     () => this.draft.value()?.state === 'Complete',
   );
@@ -337,7 +337,7 @@ export class DraftStore implements TournamentViewer {
    */
   readonly showQueueTab = computed(() => {
     const draft = this.draft.value();
-    return draft ? draft.state !== 'Complete' : undefined;
+    return draft ? !this.draftComplete() : undefined;
   });
   /**
    * Whether the Play tab is shown: only for a complete draft, and
@@ -348,7 +348,7 @@ export class DraftStore implements TournamentViewer {
   readonly showPlayTab = computed(() => {
     const draft = this.draft.value();
     if (!draft) return undefined;
-    if (draft.state !== 'Complete') return false;
+    if (!this.draftComplete()) return false;
     if (draft.tournament) return true;
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
