@@ -296,11 +296,20 @@ export async function useOnsPrinting(land: string) {
 }
 
 /**
- * The Deck tab's drop lists, the mainboard's then the sideboard's, which a
- * dragged card lands in. The Queue tab has one of its own.
+ * The Deck tab's drop lists, which a dragged card lands in: in list mode, or
+ * for an empty plan board, the mainboard's then the sideboard's; in stacks
+ * mode, one per stack, as `stackDropList` finds them. The Queue tab has one
+ * of its own.
  */
 export const planDropLists = (fixture: AppFixture) =>
   fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
+
+/**
+ * The drop list in stacks mode of the stack named `name`, as a screen reader
+ * names it: one of the mainboard's stacks, or Sideboard.
+ */
+export const stackDropList = (fixture: AppFixture, name: string) =>
+  planDropLists(fixture).find((list) => list.nativeElement.getAttribute('aria-label') === name)!;
 
 /** The drag of the first card named `name` on the plan board `from`, by its card image or its line. */
 export const dragOf = (from: DebugElement, name: string) =>

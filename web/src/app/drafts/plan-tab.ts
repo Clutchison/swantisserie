@@ -55,7 +55,8 @@ import {
   type QueueUnpickedResult,
   unpickedToQueue,
 } from './queue-unpicked-dialog';
-import { type Grouping, type Stack, sideboardStack, stacks } from './plan-stacks';
+import { type Grouping, type Stack, type StackMoves, sideboardStack, stacks } from './plan-stacks';
+import { stackMovesOf } from './stack-moves';
 import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -92,6 +93,12 @@ interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
+/** Where a dragged card is dropped: a plan board, and in stacks mode, the stack it's dropped on. */
+interface DropTarget {
+  planBoard: PlanBoard;
+  stack?: string;
+}
+
 /** What a move acts on: a line's first copy, a stacked card, or a card from its Card detail. */
 type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name' | 'basic'> | PlanLine;
 
@@ -121,6 +128,7 @@ const PLAN_BOARD_DISPLAY: Record<
       cards: PlanBoardCard[],
       grouping: Grouping,
       cardsById: ReadonlyMap<string, PoolCardView>,
+      moves: StackMoves,
     ) => Stack<PlanBoardCard>[];
     /** Whether it's stacked as one stack, which its heading names, its stack header set apart from the others. */
     oneStack?: boolean;
@@ -162,7 +170,8 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * Each plan board shows as stacks of card images, grouped by mana value,
  * color or card type, or as a list of names. Where there's room for the wide
  * stacks layout, the sideboard's stack sits beside the mainboard's and a card
- * can be dragged onto the other plan board; narrower, the plan boards are
+ * can be dragged onto the other plan board, or onto another mainboard stack
+ * as a stack move (see `stack-moves.ts`); narrower, the plan boards are
  * one strip that scrolls sideways, the mainboard's stacks then the
  * sideboard's, and a card moves from its Card detail. Above the strip, the
  * stack headers stick to the top of the screen, mark the stack the player
@@ -251,6 +260,11 @@ export class PlanTab {
   protected readonly dragStartDelay = { touch: 200, mouse: 0 };
   /** Whether the plan boards show as stacks: the chosen mode. */
   protected readonly showingStacks = computed(() => this.mode() === 'stacks');
+  /** The player's stack moves: shown only in the wide stacks layout, kept while the window is narrow. */
+  private readonly stackMoves = stackMovesOf(
+    this.grouping,
+    computed(() => new Set(heldOn(this.plan(), 'Mainboard').map((card) => card.poolCardId))),
+  );
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
@@ -268,8 +282,10 @@ export class PlanTab {
    * stacks when showing them: the mainboard's by the grouping, the sideboard's
    * always one.
    */
-  protected readonly planBoards = computed(() =>
-    PLAN_BOARDS.map((planBoard) => {
+  protected readonly planBoards = computed(() => {
+    // Read in any mode, so a card that leaves the mainboard loses its stack move then.
+    const moves = this.stackMoves.moves();
+    return PLAN_BOARDS.map((planBoard) => {
       const { stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
       const held = heldOn(this.plan(), planBoard);
       return {
@@ -281,10 +297,21 @@ export class PlanTab {
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
         // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
-        stacks: this.showingStacks() ? stack(held, this.grouping(), this.cardsById()) : [],
+        dropTarget: { planBoard } as DropTarget,
+        stacks: this.showingStacks()
+          ? stack(
+              held,
+              this.grouping(),
+              this.cardsById(),
+              this.wideStacks() ? moves : new Map(),
+            ).map((shown) => ({
+              ...shown,
+              dropTarget: { planBoard, stack: shown.name } as DropTarget,
+            }))
+          : [],
       };
-    }),
-  );
+    });
+  });
   /** Each plan board's stacks, in stacks mode: in the wide layout, each scrolls sideways past what fits. */
   private readonly planBoardStacks = viewChildren<ElementRef<HTMLElement>>('planBoardStacks');
   /** The plan boards' row: the strip, where there's no room for the wide layout. */
@@ -416,22 +443,31 @@ export class PlanTab {
     }
   }
 
+  /** Whether a drag may enter a drop list: not the sideboard of a locked deck. */
+  protected readonly enters = (_: CdkDrag, list: CdkDropList<DropTarget>) =>
+    list.data.planBoard === 'Mainboard' || !this.deckLocked();
+
   /**
    * A card dropped on a plan board: it moves there, unless that's the plan
-   * board it came from or the deck is locked. It's found by id, as the plan may have been re-read
-   * since the drag began; if it has left the plan, the drop does nothing.
+   * board it came from or the deck is locked. Dropped on a mainboard stack, it
+   * is then a stack move into that stack, on a locked deck too. It's found by
+   * id, as the plan may have been re-read since the drag began; if it has
+   * left the plan, the drop does nothing.
    */
-  protected dropped({
+  protected async dropped({
     item,
     previousContainer,
     container,
-  }: CdkDragDrop<PlanBoard, PlanBoard, string>) {
-    if (this.deckLocked() || previousContainer.data === container.data) return;
-    const card = heldOn(this.plan(), previousContainer.data).find(
-      (held) => held.poolCardId === item.data,
-    );
+  }: CdkDragDrop<DropTarget, DropTarget, string>) {
+    const from = previousContainer.data.planBoard;
+    const { planBoard, stack } = container.data;
+    const card = heldOn(this.plan(), from).find((held) => held.poolCardId === item.data);
     if (!card) return;
-    return this.move(card, container.data);
+    const into = planBoard === 'Mainboard' ? stack : undefined;
+    // A basic land's copy changes id as it moves.
+    const { poolCardId } = from === planBoard ? card : this.focusTarget(card, planBoard);
+    if (from !== planBoard && (this.deckLocked() || !(await this.move(card, planBoard)))) return;
+    if (into) this.stackMoves.move(poolCardId, { kind: 'grouping', name: into });
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */

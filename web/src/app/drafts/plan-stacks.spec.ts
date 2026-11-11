@@ -1,6 +1,6 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
 import { describe, expect, it } from 'vitest';
-import { sideboardStack, stacks } from './plan-stacks';
+import { sideboardStack, type StackMove, stacks } from './plan-stacks';
 import { card } from './specs/pool-tab-harness';
 
 describe('plan stacks', () => {
@@ -272,5 +272,56 @@ describe('plan stacks', () => {
     expect(named(stacks([unknown], 'manaValue', pool()))).toEqual(['0: Gone Card']);
     expect(named(stacks([unknown], 'color', pool()))).toEqual(['Colorless: Gone Card']);
     expect(named(stacks([unknown], 'type', pool()))).toEqual(['Other: Gone Card']);
+  });
+
+  describe('with stack moves', () => {
+    const counterspell = card({
+      id: 'counterspell',
+      name: 'Counterspell',
+      manaValue: 2,
+      colors: ['U'],
+      typeLine: 'Instant',
+    });
+    const cards = [mountain, bolt, counterspell, shivan, ulamog];
+    const inPlan = cards.map((c) => planned(c));
+    const into = (name: string): StackMove => ({ kind: 'grouping', name });
+
+    it('puts each moved card in the stack it was moved into, sorted there by mana value then name, leaving out a stack it emptied', () => {
+      const moves = new Map([
+        ['ulamog', into('2')],
+        ['shivan', into('1')],
+        ['mountain', into('2')],
+      ]);
+
+      expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+        '1: Lightning Bolt, Shivan Dragon',
+        '2: Mountain, Counterspell, Ulamog, the Ceaseless Hunger',
+      ]);
+    });
+
+    it('brings back a stack a card returns to in its grouping order', () => {
+      const lone = [bolt, shivan, mountain].map((c) => planned(c));
+      const moves = new Map([['shivan', into('0')]]);
+
+      expect(named(stacks(lone, 'manaValue', pool(...cards), moves))).toEqual([
+        '0: Shivan Dragon',
+        '1: Lightning Bolt',
+        'Lands: Mountain',
+      ]);
+    });
+
+    it('puts a card in any of the grouping’s stacks, but leaves one whose move names a stack the grouping doesn’t have in its own', () => {
+      const moves = new Map([
+        ['bolt', into('U')],
+        ['shivan', into('Lands')],
+      ]);
+
+      expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+        '1: Lightning Bolt',
+        '2: Counterspell',
+        '7+: Ulamog, the Ceaseless Hunger',
+        'Lands: Mountain, Shivan Dragon',
+      ]);
+    });
   });
 });

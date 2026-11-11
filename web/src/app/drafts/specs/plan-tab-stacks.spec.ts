@@ -44,6 +44,7 @@ import {
   stackHeaders,
   stubScrolling,
   planDropLists,
+  stackDropList,
   dragOf,
   drop,
   dropped,
@@ -74,8 +75,7 @@ describe('plan tab', () => {
 
       expect(pressed(plan, 'Color')).toBe('true');
       expect(pressed(plan, 'Type')).toBe('false');
-      // The mainboard heads each stack with its name and how many cards it holds.
-      expect(heading(plan, 'R 3')).toBeDefined();
+      expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
     });
 
     it('opens in stacks mode, grouped by mana value, with lands in their own stack', async () => {
@@ -195,9 +195,8 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      const [mainboard, sideboard] = planDropLists(fixture);
-
-      dropped('Lightning Bolt', mainboard, sideboard);
+      // The empty sideboard shows as its list, the last drop list.
+      dropped('Lightning Bolt', stackDropList(fixture, '1'), planDropLists(fixture).at(-1)!);
       await fixture.whenStable();
       const req = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
       expect(req.request.method).toBe('PUT');
@@ -211,7 +210,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Lightning Bolt']));
 
       // Dropped back where it came from: nothing to change.
-      dropped('Shivan Dragon', mainboard, mainboard);
+      dropped('Shivan Dragon', stackDropList(fixture, '6'), stackDropList(fixture, '6'));
       await fixture.whenStable();
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
 
@@ -231,8 +230,7 @@ describe('plan tab', () => {
         plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
-      const [mainboard] = planDropLists(fixture);
-      const boltDrag = dragOf(mainboard, 'Lightning Bolt');
+      const boltDrag = dragOf(stackDropList(fixture, '1'), 'Lightning Bolt');
 
       // Bolt is lost while it is being dragged.
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
@@ -240,7 +238,7 @@ describe('plan tab', () => {
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(planOf({ mainboard: [], sideboard: [planned(shivan)] }));
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      drop(boltDrag, planDropLists(fixture)[1]);
+      drop(boltDrag, stackDropList(fixture, 'Sideboard'));
       await fixture.whenStable();
 
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');

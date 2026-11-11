@@ -120,7 +120,7 @@
     </button>
   }
 </div>
-<!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
+<!-- A card dragged onto the other plan board moves there: in the wide stacks layout, or the list on desktop. In the wide stacks layout, one dragged onto another mainboard stack is a stack move into it. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
   class="plan-boards-area"
   [class.stacks-mode]="showingStacks()"
@@ -187,23 +187,29 @@
             class="stacks"
             role="group"
             [attr.aria-label]="planBoard.name + ' stacks'"
-            cdkDropList
-            [cdkDropListData]="planBoard.name"
-            [cdkDropListDisabled]="changing() || !wideStacks() || deckLocked()"
-            cdkDropListSortingDisabled
-            (cdkDropListDropped)="dropped($event)"
           >
             @for (stack of planBoard.stacks; track stack.name) {
               <!-- Named for the stack headers, which jump to them and mark the one the player has scrolled to. -->
               <div class="stack" [attr.data-stack]="stack.name">
-                @if (planBoard.namesStacks) {
+                <!-- Not in the wide layout, where a stack's place says what it holds. -->
+                @if (planBoard.namesStacks && !wideStacks()) {
                   <h4>
                     <span class="stack-name">{{ stack.name }}</span>
                     <span class="count">{{ stack.cards.length }}</span>
                   </h4>
                 }
-                <!-- Named for screen readers, as the sideboard's stack has no header. -->
-                <ul [attr.aria-label]="stack.name">
+                <!-- Named for screen readers, as the sideboard's stack has no header. A card dropped on a mainboard stack is a stack move into it, a locked deck's too; on the sideboard, a move there, which a locked deck refuses. -->
+                <ul
+                  [attr.aria-label]="stack.name"
+                  cdkDropList
+                  [cdkDropListData]="stack.dropTarget"
+                  [cdkDropListDisabled]="
+                    changing() || !wideStacks() || (deckLocked() && planBoard.name === 'Sideboard')
+                  "
+                  [cdkDropListEnterPredicate]="enters"
+                  cdkDropListSortingDisabled
+                  (cdkDropListDropped)="dropped($event)"
+                >
                   @for (card of stack.cards; track card.poolCardId) {
                     @let poolCard = cardsById().get(card.poolCardId);
                     @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
@@ -274,7 +280,7 @@
             [class.with-remove]="planBoard.picked < planBoard.count || withBasics(planBoard.lines)"
             [class.capped]="!showingStacks()"
             cdkDropList
-            [cdkDropListData]="planBoard.name"
+            [cdkDropListData]="planBoard.dropTarget"
             [cdkDropListDisabled]="changing() || !onDesktop() || deckLocked()"
             cdkDropListSortingDisabled
             (cdkDropListDropped)="dropped($event)"
