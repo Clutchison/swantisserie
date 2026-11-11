@@ -1,6 +1,6 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
 import { describe, expect, it } from 'vitest';
-import { sideboardStack, type StackMove, stackKey, stacks } from './plan-stacks';
+import { gaps, sideboardStack, type StackMove, stackKey, stacks } from './plan-stacks';
 import { card } from './specs/pool-tab-harness';
 
 describe('plan stacks', () => {
@@ -299,7 +299,7 @@ describe('plan stacks', () => {
         ['mountain', into('2')],
       ]);
 
-      expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+      expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves }))).toEqual([
         '1: Lightning Bolt, Shivan Dragon',
         '2: Mountain, Counterspell, Ulamog, the Ceaseless Hunger',
       ]);
@@ -309,7 +309,7 @@ describe('plan stacks', () => {
       const lone = [bolt, shivan, mountain].map((c) => planned(c));
       const moves = new Map([['shivan', into('0')]]);
 
-      expect(named(stacks(lone, 'manaValue', pool(...cards), moves))).toEqual([
+      expect(named(stacks(lone, 'manaValue', pool(...cards), { moves }))).toEqual([
         '0: Shivan Dragon',
         '1: Lightning Bolt',
         'Lands: Mountain',
@@ -322,7 +322,7 @@ describe('plan stacks', () => {
         ['shivan', into('Lands')],
       ]);
 
-      expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+      expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves }))).toEqual([
         '1: Lightning Bolt',
         '2: Counterspell',
         '7+: Ulamog, the Ceaseless Hunger',
@@ -339,12 +339,36 @@ describe('plan stacks', () => {
           ['mountain', made(4, null)],
         ]);
 
-        expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+        expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves }))).toEqual([
           'Your stack, at the start: Mountain',
           '1: Lightning Bolt',
           'Your stack, after 1: Ulamog, the Ceaseless Hunger',
           'Your stack 2, after 1: Shivan Dragon',
           'Your stack 3, after 1: Counterspell',
+        ]);
+      });
+
+      it('names each gap, and each player-made stack, by the full name of the stack before it', () => {
+        const moves = new Map([
+          ['bolt', made(1, 'R')],
+          ['counterspell', made(2, null)],
+        ]);
+        const shown = stacks(inPlan, 'color', pool(...cards), { moves });
+
+        expect(named(shown)).toEqual([
+          'Your stack, at the start: Counterspell',
+          'R: Shivan Dragon',
+          'Your stack, after Red: Lightning Bolt',
+          'Colorless: Ulamog, the Ceaseless Hunger',
+          'Lands: Mountain',
+        ]);
+        expect(gaps(shown, 3).map((gap) => gap.name)).toEqual([
+          'New stack, at the start',
+          'New stack, after your stack at the start',
+          'New stack, after Red',
+          'New stack, after your stack after Red',
+          'New stack, after Colorless',
+          'New stack, after Lands',
         ]);
       });
 
@@ -354,8 +378,8 @@ describe('plan stacks', () => {
           ['counterspell', into('1')],
           ['shivan', made(1, '2')],
         ]);
-        const stacked = (seen: string[]) =>
-          named(stacks(inPlan, 'manaValue', pool(...cards), moves, seen));
+        const stacked = (lastSeen: string[]) =>
+          named(stacks(inPlan, 'manaValue', pool(...cards), { moves, lastSeen }));
 
         expect(stacked(['1', '2', made1, '7+', 'Lands'])).toEqual([
           '1: Lightning Bolt, Counterspell',
@@ -388,7 +412,7 @@ describe('plan stacks', () => {
               all.map((c) => planned(c)),
               'manaValue',
               pool(...all),
-              moves,
+              { moves },
             ),
           ),
         ).toEqual([
@@ -406,9 +430,9 @@ describe('plan stacks', () => {
           ['gone', made(1, '1')],
           ['shivan', made(2, stackKey(made(1, '1')))],
         ]);
-        const seen = ['1', stackKey(made(1, '1')), '2'];
+        const lastSeen = ['1', stackKey(made(1, '1')), '2'];
 
-        expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves, seen))).toEqual([
+        expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves, lastSeen }))).toEqual([
           '1: Lightning Bolt',
           'Your stack, after 1: Shivan Dragon',
           '2: Counterspell',

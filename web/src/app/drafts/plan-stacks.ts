@@ -18,13 +18,17 @@ export type Grouping = 'manaValue' | 'color' | 'type';
  */
 export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   /**
-   * What a screen reader names it: a grouping's stack by its name, as R;
-   * a player-made stack by where it sits, as `Your stack, after 2`.
+   * What a screen reader names its list: a grouping's stack by its name, as
+   * R; a player-made stack by where it sits, as `Your stack, after Red`.
    */
   name: string;
-  /** What it is known by while it shows, as a player-made stack's place is: a grouping's stack's name, a player-made stack's id. */
+  /** What it's known by: see `stackKey`. */
   key: string;
-  /** Its name in full, as a screen reader says it: a color's, as Red for R; else its name. */
+  /**
+   * Its name in full, as a screen reader says it within a sentence: a
+   * grouping's stack's, as Red for R; a player-made stack's, as `your stack
+   * after Red`. A gap, and a player-made stack, says where it is by it.
+   */
   fullName: string;
   /** What its stack header shows for it. */
   label: StackLabel;
@@ -57,7 +61,12 @@ export interface PlayerMadeStackMove {
   after: string | null;
 }
 
-/** The key of the stack `move` moves a card into, as `Stack.key`. */
+/**
+ * The key of the stack `move` moves a card into: a grouping's stack's name,
+ * or a player-made stack's id. It only tells stacks apart, to track them
+ * and to say which one a player-made stack was made after, and is never
+ * read for what it says.
+ */
 export const stackKey = (move: StackMove) =>
   move.kind === 'grouping' ? move.name : `player-made ${move.id}`;
 
@@ -165,14 +174,32 @@ const RULES: Record<Grouping, StackRule[]> = {
 
 /**
  * The gaps around and between the stacks `shown`, before the first to after
- * the last: each by its name, as `New stack, after 2`, and the stack move a
- * card dropped in it makes, into a new player-made stack with the id `id`.
+ * the last: each by its name, as `New stack, after Red`, and the stack move
+ * a card dropped in it makes, into a new player-made stack with the id `id`.
  */
 export function gaps(shown: readonly Stack[], id: number) {
   return [undefined, ...shown].map((before) => ({
-    name: `New stack, ${before ? `after ${before.name}` : 'at the start'}`,
+    name: `New stack, ${before ? `after ${before.fullName}` : 'at the start'}`,
     into: { kind: 'playerMade', id, after: before?.key ?? null } satisfies PlayerMadeStackMove,
   }));
+}
+
+/** How `stacks` arranges the mainboard beyond its grouping. */
+export interface Arrangement {
+  /** The player's stack moves. */
+  moves?: StackMoves;
+  /** The keys of the stacks, in order, as the player last saw them: see `stacks`. */
+  lastSeen?: readonly string[];
+}
+
+/** A stack in its place: a grouping's, or a player-made stack's cards, which its place names. */
+type Placed<Card extends PlannedCardView> = Stack<Card> | PlayerMadeCards<Card>;
+
+/** A player-made stack's cards, before it has its place and so its name. */
+interface PlayerMadeCards<Card extends PlannedCardView> {
+  key: string;
+  move: PlayerMadeStackMove;
+  cards: Card[];
 }
 
 /**
@@ -184,19 +211,17 @@ export function gaps(shown: readonly Stack[], id: number) {
  *
  * Each player-made stack sits just after the stack it was made after, the
  * later made first. Where that stack isn't shown, it sits after the nearest
- * earlier one that is, in `seen`, the keys of the stacks as the player last
- * saw them; failing that, at the start.
+ * earlier one that is, in `lastSeen`; failing that, at the start.
  */
 export function stacks<Card extends PlannedCardView>(
   cards: Card[],
   grouping: Grouping,
   poolCardsById: ReadonlyMap<string, PoolCardView>,
-  moves: StackMoves = NO_MOVES,
-  seen: readonly string[] = [],
+  { moves = NO_MOVES, lastSeen = [] }: Arrangement = {},
 ): Stack<Card>[] {
   const facts = factsFrom(poolCardsById);
   const sorted = sortedByManaValue(cards, facts);
-  const stacked = RULES[grouping].map((rule): Stack<Card> => ({
+  const byRule = RULES[grouping].map((rule): Stack<Card> => ({
     name: rule.name,
     key: rule.name,
     fullName: rule.fullName ?? rule.name,
@@ -204,11 +229,11 @@ export function stacks<Card extends PlannedCardView>(
     cards: [],
     move: { kind: 'grouping', name: rule.name },
   }));
-  const playerMade = new Map<number, Stack<Card> & { move: PlayerMadeStackMove }>();
+  const playerMade = new Map<number, PlayerMadeCards<Card>>();
   for (const card of sorted) {
     const moved = moves.get(card.poolCardId);
     if (moved?.kind === 'playerMade') {
-      const made = playerMade.get(moved.id) ?? playerMadeStack<Card>(moved);
+      const made = playerMade.get(moved.id) ?? { key: stackKey(moved), move: moved, cards: [] };
       playerMade.set(moved.id, made);
       made.cards.push(card);
       continue;
@@ -217,81 +242,72 @@ export function stacks<Card extends PlannedCardView>(
     const stackIndex =
       movedInto >= 0 ? movedInto : RULES[grouping].findIndex((rule) => rule.holds(facts(card)));
     // Stryker disable next-line ConditionalExpression: every card falls in some stack, since mana values are whole numbers and colors are WUBRG.
-    if (stackIndex >= 0) stacked[stackIndex].cards.push(card);
+    if (stackIndex >= 0) byRule[stackIndex].cards.push(card);
   }
-  const shown = stacked.filter((stack) => stack.cards.length > 0);
-  return named(placed(shown, [...playerMade.values()], seen));
-}
-
-/** An empty player-made stack, which `move` moves cards into: `named` names it. */
-function playerMadeStack<Card extends PlannedCardView>(move: PlayerMadeStackMove) {
-  return {
-    name: '',
-    key: stackKey(move),
-    fullName: '',
-    label: textLabel(''),
-    cards: [] as Card[],
-    move,
-  };
+  const shown = byRule.filter((stack) => stack.cards.length > 0);
+  return namedInPlace(inOrder(shown, [...playerMade.values()], lastSeen));
 }
 
 /**
  * The grouping's stacks `shown`, in its order, with the player-made stacks
- * `made` each just after the stack it was made after, or where `stacks`
- * says if that one isn't shown, the later made first.
+ * `playerMade` each just after the stack it was made after, or where
+ * `stacks` says if that one isn't shown, the later made first.
  */
-function placed<Card extends PlannedCardView>(
+function inOrder<Card extends PlannedCardView>(
   shown: Stack<Card>[],
-  made: (Stack<Card> & { move: PlayerMadeStackMove })[],
-  seen: readonly string[],
-): Stack<Card>[] {
-  const keys = new Set([...shown, ...made].map((stack) => stack.key));
-  const anchorOf = ({ key, move }: Stack<Card> & { move: PlayerMadeStackMove }) => {
+  playerMade: PlayerMadeCards<Card>[],
+  lastSeen: readonly string[],
+): Placed<Card>[] {
+  const keys = new Set([...shown, ...playerMade].map((stack) => stack.key));
+  const anchorOf = ({ key, move }: PlayerMadeCards<Card>) => {
     if (move.after === null || keys.has(move.after)) return move.after;
-    const from = seen.includes(move.after) ? seen.indexOf(move.after) : seen.indexOf(key);
-    const earlier = seen.slice(0, Math.max(from, 0)).reverse();
+    const from = lastSeen.includes(move.after)
+      ? lastSeen.indexOf(move.after)
+      : lastSeen.indexOf(key);
+    const earlier = lastSeen.slice(0, Math.max(from, 0)).reverse();
     return earlier.find((stack) => keys.has(stack) && stack !== key) ?? null;
   };
-  const after = new Map<string | null, Stack<Card>[]>();
-  for (const stack of [...made].sort((a, b) => b.move.id - a.move.id)) {
-    const anchor = anchorOf(stack);
-    after.set(anchor, [...(after.get(anchor) ?? []), stack]);
+  const madeAfter = new Map<string | null, PlayerMadeCards<Card>[]>();
+  for (const made of [...playerMade].sort((a, b) => b.move.id - a.move.id)) {
+    const anchor = anchorOf(made);
+    madeAfter.set(anchor, [...(madeAfter.get(anchor) ?? []), made]);
   }
-  const result: Stack<Card>[] = [];
-  const followedBy = (key: string | null) => {
-    const next = after.get(key) ?? [];
-    after.delete(key);
-    for (const stack of next) {
-      result.push(stack);
-      followedBy(stack.key);
+  const result: Placed<Card>[] = [];
+  const addMadeAfter = (key: string | null) => {
+    const next = madeAfter.get(key) ?? [];
+    madeAfter.delete(key);
+    for (const made of next) {
+      result.push(made);
+      addMadeAfter(made.key);
     }
   };
-  followedBy(null);
+  addMadeAfter(null);
   for (const stack of shown) {
     result.push(stack);
-    followedBy(stack.key);
+    addMadeAfter(stack.key);
   }
   // Any made after one another round in a loop, which no stack leads to.
-  return [...result, ...[...after.values()].flat()];
+  return [...result, ...[...madeAfter.values()].flat()];
 }
 
 /**
- * Names each player-made stack in `stacks` by where it sits: after the
- * nearest grouping's stack before it, by that one's full name, or at the
+ * `ordered` as stacks, each player-made stack named by where it sits: after
+ * the nearest grouping's stack before it, by that one's full name, or at the
  * start; numbered from the second after the same one.
  */
-function named<Card extends PlannedCardView>(stacks: Stack<Card>[]): Stack<Card>[] {
-  let before = 'at the start';
+function namedInPlace<Card extends PlannedCardView>(ordered: Placed<Card>[]): Stack<Card>[] {
+  let place = 'at the start';
   let count = 0;
-  return stacks.map((stack) => {
-    if (stack.move?.kind !== 'playerMade') {
-      before = `after ${stack.fullName}`;
+  return ordered.map((stack) => {
+    if ('name' in stack) {
+      place = `after ${stack.fullName}`;
       count = 0;
       return stack;
     }
     count += 1;
-    const name = `Your stack${count > 1 ? ` ${count}` : ''}, ${before}`;
-    return { ...stack, name, fullName: name, label: textLabel(name) };
+    const number = count > 1 ? ` ${count}` : '';
+    const name = `Your stack${number}, ${place}`;
+    return { ...stack, name, fullName: `your stack${number} ${place}`, label: textLabel(name) };
   });
 }
 

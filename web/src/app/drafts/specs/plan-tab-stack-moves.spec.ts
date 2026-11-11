@@ -310,7 +310,7 @@ describe('Deck tab stack moves', () => {
       'Your stack, after 1: Shivan Dragon',
     ]);
 
-    await stackMoved(fixture, 'Lightning Bolt', '1', 'New stack, after Your stack, after 1');
+    await stackMoved(fixture, 'Lightning Bolt', '1', 'New stack, after your stack after 1');
     expect(stacksOf(plan)[0]).toEqual([
       'Your stack, at the start: Brightclimb Pathway // Grimclimb Pathway',
       '1: Lightning Bolt',
@@ -326,6 +326,23 @@ describe('Deck tab stack moves', () => {
       'Your stack, after 1: Lightning Bolt, Shivan Dragon',
     ]);
     http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/'));
+  });
+
+  it('keeps a player-made stack where the player saw it once the stack it was made after is gone', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    await stackMoved(fixture, 'Lightning Bolt', '1', 'New stack, after 6');
+
+    await stackMoved(fixture, 'Shivan Dragon', '6', '1');
+
+    expect(stacksOf(plan)[0]).toEqual([
+      '1: Lightning Bolt, Shivan Dragon',
+      'Your stack, after 1: Lightning Bolt',
+      'Lands: Brightclimb Pathway // Grimclimb Pathway',
+    ]);
   });
 
   it('moves a sideboard card dropped in a gap to the mainboard, with one request, and into a new stack there', async () => {
