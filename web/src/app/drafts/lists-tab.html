@@ -5,6 +5,6 @@
   <app-loading-animation size="tab">Loading the decklists…</app-loading-animation>
 } @else {
   @for (decklist of decklists(); track decklist.playerId) {
-    <app-decklist [decklist]="decklist" [playerName]="name(decklist)" [cards]="cards()" />
+    <app-decklist [decklist]="decklist" [playerName]="playerName(decklist)" [cards]="cards()" />
   }
 }

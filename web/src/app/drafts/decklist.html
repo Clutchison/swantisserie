@@ -1,5 +1,5 @@
-<section [attr.aria-labelledby]="'decklist-' + decklist().playerId">
-  <h3 [id]="'decklist-' + decklist().playerId">{{ playerName() }}</h3>
+<section [attr.aria-labelledby]="headingId()">
+  <h3 [id]="headingId()">{{ playerName() }}</h3>
   <div class="boards">
     @for (board of boards(); track board.name) {
       <div class="board">

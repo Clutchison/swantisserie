@@ -4,22 +4,11 @@ import type { DecklistView, PoolCardView } from 'contract';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
 import { Decklist } from './decklist';
-import { heading, items, namedList, poolCardOf, previewImage, tap } from './specs/harness';
+import { heading, items, poolCardOf, previewInList } from './specs/harness';
+import { zenMountain } from './specs/plan-tab-harness';
 
 const bolt = poolCardOf('bolt', 'Lightning Bolt');
 const shock = poolCardOf('shock', 'Shock');
-
-const ZEN_MOUNTAIN = 'e0000000-0000-4000-8000-000000000243';
-const zenMountain = {
-  scryfallId: ZEN_MOUNTAIN,
-  set: 'zen',
-  collectorNumber: '243',
-  images: {
-    small: `https://cards.scryfall.io/small/front/e/0/${ZEN_MOUNTAIN}.jpg`,
-    normal: `https://cards.scryfall.io/normal/front/e/0/${ZEN_MOUNTAIN}.jpg`,
-    large: `https://cards.scryfall.io/large/front/e/0/${ZEN_MOUNTAIN}.jpg`,
-  },
-};
 
 /** Alice's decklist: two Bolts, two Islands and 36 Mountains, Shock in the sideboard; she prefers Zendikar's Mountain #243. */
 const alices: DecklistView = {
@@ -48,20 +37,29 @@ class Host {
   cards: ReadonlyMap<string, PoolCardView> = new Map([bolt, shock].map((card) => [card.id, card]));
 }
 
+/** A page showing two of Alice's decklists, as the Trophy Hall does for a player with two trophies. */
+@Component({
+  imports: [Decklist],
+  providers: [CardImageSource, CardPreviews],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<app-decklist
+      [decklist]="decklist"
+      playerName="Alice"
+      [cards]="cards"
+      idPrefix="first"
+    />
+    <app-decklist [decklist]="decklist" playerName="Alice" [cards]="cards" idPrefix="second" />`,
+})
+class TwoDecks {
+  decklist = alices;
+  cards: ReadonlyMap<string, PoolCardView> = new Map();
+}
+
 function render(fields: Partial<Host> = {}) {
   const fixture = TestBed.createComponent(Host);
   Object.assign(fixture.componentInstance, fields);
   fixture.detectChanges();
   return fixture.nativeElement as HTMLElement;
-}
-
-/** Taps the card named `name` in `list`, returning its Card preview's image. */
-function preview(page: HTMLElement, list: string, name: string) {
-  const target = [...namedList(page, list).querySelectorAll<HTMLElement>('.name')].find(
-    (element) => element.textContent?.trim() === name,
-  )!;
-  tap(target);
-  return previewImage()?.getAttribute('src');
 }
 
 describe('a decklist', () => {
@@ -88,14 +86,29 @@ describe('a decklist', () => {
   it('previews each card from the cards it is given, and each basic land in its player’s preferred printing', () => {
     const page = render();
 
-    expect(preview(page, 'Alice’s mainboard', 'Lightning Bolt')).toBe(bolt.images[0]!.normal);
-    expect(preview(page, 'Alice’s mainboard', 'Mountain')).toBe(zenMountain.images.normal);
+    expect(previewInList(page, 'Alice’s mainboard', 'Lightning Bolt')).toBe(bolt.images[0]!.normal);
+    expect(previewInList(page, 'Alice’s mainboard', 'Mountain')).toBe(zenMountain.images.normal);
   });
 
   it('lists a card it is given no card data for by name alone, with no Card preview', () => {
     const page = render({ cards: new Map() });
 
     expect(items(page, 'Alice’s mainboard')[0]).toBe('2 Lightning Bolt');
-    expect(preview(page, 'Alice’s mainboard', 'Lightning Bolt')).toBeUndefined();
+    expect(previewInList(page, 'Alice’s mainboard', 'Lightning Bolt')).toBeUndefined();
+  });
+
+  it('keeps its ids apart from another decklist of the same player, given another id prefix', () => {
+    const fixture = TestBed.createComponent(TwoDecks);
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+
+    const ids = [...page.querySelectorAll('[id]')].map((element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const regions = [...page.querySelectorAll<HTMLElement>('[aria-labelledby]')];
+    expect(
+      regions.map(
+        (region) => page.querySelector(`#${region.getAttribute('aria-labelledby')}`)?.textContent,
+      ),
+    ).toEqual(['Alice', 'Alice']);
   });
 });

@@ -25,7 +25,7 @@ export class ListsTab {
   protected readonly cards = this.store.poolCardsById;
 
   /** The decklist's player's name. */
-  protected name(decklist: DecklistView): string {
+  protected playerName(decklist: DecklistView): string {
     return this.store.player(decklist.playerId).name;
   }
 }
