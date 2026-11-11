@@ -133,7 +133,7 @@ describe('pool tab', () => {
     expect(buttonOrder(detail, 'Pick')).toEqual([
       'Close',
       'Flip',
-      'Remove from Plan',
+      'Remove from Deck',
       'Remove from queue',
       'Pick',
     ]);

@@ -432,7 +432,7 @@ describe('plan tab', () => {
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      group(plan, 'Plan stacks')!.scrollLeft = 300;
+      group(plan, 'Deck stacks')!.scrollLeft = 300;
 
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
       http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
@@ -442,18 +442,18 @@ describe('plan tab', () => {
         }),
       );
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(300);
+      expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(300);
 
       button(plan, 'Color')!.click();
       await fixture.whenStable();
-      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(0);
+      expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(0);
 
-      group(plan, 'Plan stacks')!.scrollLeft = 300;
+      group(plan, 'Deck stacks')!.scrollLeft = 300;
       button(plan, 'List')!.click();
       await fixture.whenStable();
       button(plan, 'Stacks')!.click();
       await fixture.whenStable();
-      expect(group(plan, 'Plan stacks')!.scrollLeft).toBe(0);
+      expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(0);
     });
 
     describe('the stack headers', () => {
@@ -665,7 +665,7 @@ describe('plan tab', () => {
           'Lands, 1 card',
           'Sideboard, 1 card',
         ]);
-        const strip = group(plan, 'Plan stacks')!;
+        const strip = group(plan, 'Deck stacks')!;
         // On the way, with 1 still mostly in view.
         scrolling.scroll(strip, { '1': 0.6, '6': 1, Lands: 0.9 }, { ends: false });
         expect(stackHeaders(plan)).toEqual([

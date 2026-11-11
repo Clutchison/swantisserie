@@ -63,8 +63,6 @@ export class ExportTab implements OnDestroy {
   protected readonly planLoading = this.store.plan.loading;
   /** Whether the plan couldn't be loaded. */
   protected readonly planFailed = this.store.plan.missing;
-  /** "plan", or "deck" once the draft is complete. */
-  protected readonly planName = this.store.planName;
   /** The pick log, in pick order, with each pick's pool card. */
   private readonly picks = this.store.pickLog.value;
   /** Whether the picks, or the pool that names them, are still on their way. */

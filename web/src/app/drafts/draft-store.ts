@@ -175,7 +175,7 @@ export class DraftStore implements TournamentViewer {
   private readonly poolResource = httpResource<PoolCardView[]>(() =>
     this.poolReady() ? `/api/drafts/${this.id()}/pool` : undefined,
   );
-  /** The pool's cards, which the Pool, Queue and Plan tabs and the Card previews share. */
+  /** The pool's cards, which the Pool, Queue and Deck tabs and the Card previews share. */
   readonly pool = keptRead(this.poolResource, []);
   /** The pool's cards by id, for finding the card a name is of. */
   readonly poolCardsById = computed<ReadonlyMap<string, PoolCardView>>(
@@ -282,14 +282,10 @@ export class DraftStore implements TournamentViewer {
   });
   /** The signed-in player's plan. */
   readonly plan = keptRead(this.planResource, EMPTY_PLAN);
-  /**
-   * What the page calls the signed-in player's plan: their "deck" once the
-   * draft is complete, which took its unpicked cards out, and their "plan"
-   * before then and while it is closed.
-   */
-  readonly planName = computed(() =>
+  /** Whether the draft is complete, which took the unpicked cards out of every plan. */
+  readonly complete = computed(
     // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
-    this.draft.value()?.state === 'Complete' ? ('deck' as const) : ('plan' as const),
+    () => this.draft.value()?.state === 'Complete',
   );
   /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
   readonly planned = computed(() => {

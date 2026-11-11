@@ -65,7 +65,7 @@ describe('plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    expect(plan.querySelector('h2')?.textContent).toBe('Plan');
+    expect(plan.querySelector('h2')?.textContent).toBe('Deck');
     expect(planBoards(plan)).toEqual([
       {
         heading: 'Mainboard 4 (4 picked)',
@@ -96,8 +96,8 @@ describe('plan tab', () => {
   it('sits between Queue and Board for every player', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }));
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
-    expect(tabButton(page, 'Plan').disabled).toBe(false);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabButton(page, 'Deck').disabled).toBe(false);
   });
 
   it('is offered only to players', async () => {
@@ -106,8 +106,9 @@ describe('plan tab', () => {
       drafting({ turn: bobsTurn, players: [bob] }),
     );
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
-    expect(tabButton(page, 'Plan').disabled).toBe(true);
+    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    expect(tabButton(page, 'Deck').disabled).toBe(true);
+    expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
     http.expectNone('/api/drafts/draft-1/plan');
   });
 
@@ -200,10 +201,10 @@ describe('plan tab', () => {
       text: '',
       tooltip: 'Move Lightning Bolt to the mainboard',
     });
-    expect(shown('Remove Shivan Dragon from your plan')).toEqual({
+    expect(shown('Remove Shivan Dragon from your deck')).toEqual({
       icon: ['lucide-trash'],
       text: '',
-      tooltip: 'Remove Shivan Dragon from your plan',
+      tooltip: 'Remove Shivan Dragon from your deck',
     });
   });
 
@@ -291,10 +292,10 @@ describe('plan tab', () => {
     )!;
     expect(accessibleName(shivanLine)).toContain('Unpicked');
     expect(
-      button(plan, 'Remove Brightclimb Pathway // Grimclimb Pathway from your plan'),
+      button(plan, 'Remove Brightclimb Pathway // Grimclimb Pathway from your deck'),
     ).toBeUndefined();
 
-    button(plan, 'Remove Shivan Dragon from your plan')!.click();
+    button(plan, 'Remove Shivan Dragon from your deck')!.click();
     const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)] }));
@@ -376,15 +377,15 @@ describe('plan tab', () => {
     );
   });
 
-  it('says so while the plan loads', async () => {
+  it('says so while the deck loads', async () => {
     const { page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting({ turn: bobsTurn })));
     await flushPool(cards);
     await flushPicks([]);
     await flushQueue(EMPTY_QUEUE);
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
-    tabButton(page, 'Plan').click();
-    await expectLoadingAnimation(() => panel(page), 'Loading your plan…', 64);
+    tabButton(page, 'Deck').click();
+    await expectLoadingAnimation(() => panel(page), 'Loading your deck…', 64);
 
     req.flush(planOf());
     await vi.waitFor(() =>
@@ -392,7 +393,7 @@ describe('plan tab', () => {
     );
   });
 
-  it('says when the plan couldn’t be loaded', async () => {
+  it('says when the deck couldn’t be loaded', async () => {
     const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting({ turn: bobsTurn })));
     await flushPool(cards);
@@ -405,7 +406,7 @@ describe('plan tab', () => {
     await fixture.whenStable();
 
     const plan = await openPlan(fixture, page);
-    expect(plan.querySelector('.error')?.textContent).toContain("Couldn't load your plan");
+    expect(plan.querySelector('.error')?.textContent).toContain("Couldn't load your deck");
     expect(plan.querySelector('app-plan-tab')).toBeNull();
   });
 
@@ -440,7 +441,7 @@ describe('plan tab', () => {
 
       expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(false);
       expect(planBoards(plan)[1].lines).toEqual(['1 Lightning Bolt (unpicked)']);
-      expect(button(plan, 'Remove Lightning Bolt from your plan')!.disabled).toBe(false);
+      expect(button(plan, 'Remove Lightning Bolt from your deck')!.disabled).toBe(false);
     },
   );
 
@@ -522,7 +523,7 @@ describe('plan tab', () => {
         plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), unpicked(boltAgain)] }),
       });
       const plan = await openPlan(fixture, page);
-      const remove = button(plan, 'Remove Lightning Bolt from your plan')!;
+      const remove = button(plan, 'Remove Lightning Bolt from your deck')!;
 
       remove.focus();
       remove.click();
@@ -532,7 +533,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(planBoards(plan)[0].lines).toHaveLength(2));
       await fixture.whenStable();
 
-      expect(document.activeElement).toBe(button(plan, 'Remove Lightning Bolt from your plan'));
+      expect(document.activeElement).toBe(button(plan, 'Remove Lightning Bolt from your deck'));
     });
 
     it('moves focus to the next line once removing a card’s last copy takes its line', async () => {
@@ -542,8 +543,8 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      button(plan, 'Remove Lightning Bolt from your plan')!.focus();
-      button(plan, 'Remove Lightning Bolt from your plan')!.click();
+      button(plan, 'Remove Lightning Bolt from your deck')!.focus();
+      button(plan, 'Remove Lightning Bolt from your deck')!.click();
       http
         .expectOne('/api/drafts/draft-1/plan/bolt-card')
         .flush(planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }));
@@ -555,8 +556,25 @@ describe('plan tab', () => {
   });
 });
 
-describe('plan tab as the deck', () => {
-  it('takes the Plan tab’s place once the draft is complete, its copy saying deck', async () => {
+describe('the Deck tab’s name', () => {
+  it.each([
+    ['drafting', drafting({ turn: { pick: 3, round: 2, playerId: bob.id } })],
+    ['paused', drafting({ state: 'Paused', turn: { pick: 3, round: 2, playerId: bob.id } })],
+    ['closed', drafting({ state: 'Closed', turn: null })],
+  ])('is the Deck tab while the draft is %s, its copy saying deck', async (_, fields) => {
+    const { fixture, page } = await openDraft(completeSnapshot, fields, {
+      cards,
+      plan: planOf(),
+    });
+
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
+    const deck = await openTab(fixture, page, 'Deck');
+    expect(heading(deck, 'Deck')).toBeDefined();
+    expect(deck.textContent).toContain('Only you can see your deck.');
+    expect(text(deck)).not.toMatch(/\bplan\b/i);
+  });
+
+  it('stays the Deck tab once the draft is complete, its copy saying deck', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, complete, {
       cards,
       plan: planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 2 }] }),
@@ -566,30 +584,15 @@ describe('plan tab as the deck', () => {
     const deck = await openTab(fixture, page, 'Deck');
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');
-    expect(deck.textContent).not.toMatch(/\bplan\b/i);
+    expect(text(deck)).not.toMatch(/\bplan\b/i);
     expect(planBoards(deck)[0].heading).toBe('Mainboard 6 (6 picked)');
   });
 
-  it('tells a viewer who isn’t a player that only players have a deck', async () => {
+  it('tells a viewer who isn’t a player of a complete draft that only players have a deck', async () => {
     const { page } = await openDraft(completeSnapshot, { ...complete, players: [bob] });
 
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
     expect(tabPanel(page, 'Deck').textContent).toContain('Only players have a deck.');
-  });
-
-  it.each([
-    ['still drafting', drafting({ turn: { pick: 3, round: 2, playerId: bob.id } })],
-    ['closed', drafting({ state: 'Closed', turn: null })],
-  ])('stays the Plan tab while the draft is %s', async (_, fields) => {
-    const { fixture, page } = await openDraft(completeSnapshot, fields, {
-      cards,
-      plan: planOf(),
-    });
-
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
-    const plan = await openTab(fixture, page, 'Plan');
-    expect(heading(plan, 'Plan')).toBeDefined();
-    expect(panel(page).textContent).toContain('Only you can see your plan.');
   });
 
   describe('the deck and the tournament', () => {

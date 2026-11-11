@@ -197,7 +197,7 @@ export class CardPreviews implements OnDestroy {
  * has its hover. `appCardPreviewTabStop` leaves out of the tab order a target
  * that shows its card already, as a basic land's image in stacks mode does.
  * `appCardPreviewOnTap` leaves the preview off a target that opens its Card
- * detail when pressed, as on the Plan tab.
+ * detail when pressed, as on the Deck tab.
  *
  * Each event's pointer type decides what it means, so touchscreen laptops work
  * both ways. A touch's own enter and leave say nothing, and a click is the

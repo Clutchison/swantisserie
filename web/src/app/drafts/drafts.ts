@@ -19,7 +19,7 @@ import type {
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /**
- * The media query of the screens whose Plan tab has room for the wide stacks
+ * The media query of the screens whose Deck tab has room for the wide stacks
  * layout, with the sideboard's stack beside the mainboard's; narrower, the
  * mainboard's stacks become a strip that scrolls sideways. Kept in step with
  * the container query in `plan-tab.scss`, 760px of stacks area, plus the

@@ -30,7 +30,7 @@ import {
 useDraftsApp();
 
 /** The panels whose headings show the viewer's picks left. */
-const PANELS = ['Pool', 'Queue', 'Plan'] as const;
+const PANELS = ['Pool', 'Queue', 'Deck'] as const;
 
 describe('picks left beside the panel headings', () => {
   /** Opens the tab named `name` and returns its panel; Pool is open already. */
@@ -61,7 +61,7 @@ describe('picks left beside the panel headings', () => {
   it('leaves the tab buttons and the other panels without the count', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }));
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Plan', 'Board', 'Export']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board', 'Export']);
     expect(tabs(page).flatMap(picksLeftTexts)).toEqual([]);
     expect(picksLeftTexts(tabPanel(page, 'Board'))).toEqual([]);
     expect(picksLeftTexts(tabPanel(page, 'Export'))).toEqual([]);

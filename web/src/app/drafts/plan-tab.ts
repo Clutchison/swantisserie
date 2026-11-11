@@ -40,7 +40,7 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
-import { planChangeFailed } from './plan-change-failed';
+import { PLAN_CHANGE_FAILED } from './plan-change-failed';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -147,12 +147,12 @@ const GROUPINGS: { grouping: Grouping; name: string }[] = [
 ];
 
 /**
- * The draft view's Plan tab: the signed-in player's plan, as its mainboard
+ * The draft view's Deck tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
  * the unpicked cards they added; each card's Card detail, to pick, queue or
  * remove it from, or a basic land's Printing picker, which opens on a
  * locked deck too; the buttons that open the Queue unpicked
- * and Basic lands dialogs; and the Plan notice of their lost cards.
+ * and Basic lands dialogs; and the Deck notice of their lost cards.
  *
  * Each plan board shows as stacks of card images, grouped by mana value,
  * color or card type, or as a list of names. Where there's room for the wide
@@ -212,8 +212,8 @@ export class PlanTab {
   protected readonly plan = this.store.plan.value;
   /** The pool's cards by id, for the Card previews of the names here. */
   private readonly poolCardsById = this.store.poolCardsById;
-  /** "plan", or "deck" once the draft is complete. */
-  protected readonly planName = this.store.planName;
+  /** Whether the draft is complete, so the plan holds no unpicked cards. */
+  protected readonly complete = this.store.complete;
   /** Whether the deck is locked, as its player's tournament is playing: then it offers no edits. */
   protected readonly deckLocked = this.store.deckLocked;
   /** Whether the plan is still on its way, so `plan` says nothing yet. */
@@ -526,7 +526,7 @@ export class PlanTab {
 
   /**
    * Opens a pool card's Card detail, in place of any other. It offers what
-   * the Pool tab's does, but never Add to Plan, and its queue actions only
+   * the Pool tab's does, but never Add to Deck, and its queue actions only
    * while the card is unpicked in the plan; and Move, unless the deck is
    * locked, which moves the card as this tab's move buttons do. It stays
    * open once the card is picked, by the player or another, and closes once
@@ -543,7 +543,7 @@ export class PlanTab {
         pick: this.store.offerPick(),
         queue: this.store.offerQueue() && this.store.planned().has(poolCardId),
         addToPlan: false,
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Plan is offered only for an unpicked card.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Deck is offered only for an unpicked card.
         removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
       })),
       tilePlaceholder,
@@ -657,7 +657,7 @@ export class PlanTab {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, PLAN_CHANGE_FAILED));
         return false;
       }
     }, kept);

@@ -7,7 +7,7 @@ import { DraftStore } from './draft-store';
 import { changeFailure } from './drafts';
 import { manaSymbol } from './mana-cost';
 import { PlanApi } from './plan-api';
-import { planChangeFailed } from './plan-change-failed';
+import { PLAN_CHANGE_FAILED } from './plan-change-failed';
 
 /** Each basic land's mana symbol, shown beside its name. */
 const BASIC_SYMBOLS: Record<BasicLand, string> = {
@@ -22,7 +22,7 @@ const BASIC_SYMBOLS: Record<BasicLand, string> = {
 export const BASIC_LANDS_HEADING = 'basics-heading';
 
 /**
- * The Plan tab's Basic lands dialog, opened on the dialog shell: how many
+ * The Deck tab's Basic lands dialog, opened on the dialog shell: how many
  * copies of each basic land the signed-in player's mainboard holds, with an
  * Add that puts one more copy on the mainboard, and Clear basics, which
  * takes every basic land off both plan boards. It opens on Done.
@@ -65,7 +65,7 @@ export class BasicLandsDialog {
   protected readonly hasBasics = computed(() => this.plan().basics.length > 0);
   /** Add's tooltip once the plan holds MOST_BASICS of `land`, saying why it is disabled. */
   protected fullTitle(land: BasicLand) {
-    return `Your plan already holds ${MOST_BASICS} copies of ${land}.`;
+    return `Your deck already holds ${MOST_BASICS} copies of ${land}.`;
   }
 
   protected close() {
@@ -95,7 +95,7 @@ export class BasicLandsDialog {
       try {
         await this.store.changePlan(send());
       } catch (err) {
-        this.error.set(changeFailure(err, planChangeFailed(this.store.planName())));
+        this.error.set(changeFailure(err, PLAN_CHANGE_FAILED));
       }
     }, kept);
   }

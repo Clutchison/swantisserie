@@ -14,7 +14,6 @@ import {
   image,
   namedList,
   openTab,
-  tabButton,
   text,
   type AppFixture,
   type NamedPoolCard,
@@ -54,9 +53,8 @@ export const readyNotice = (root: HTMLElement) =>
     text(status).startsWith('You’re no longer ready'),
   );
 
-/** Opens the Plan tab, called Deck once the draft is complete, and returns its panel. */
-export const openPlan = (fixture: AppFixture, page: HTMLElement) =>
-  openTab(fixture, page, tabButton(page, 'Deck') ? 'Deck' : 'Plan');
+/** Opens the Deck tab and returns its panel. */
+export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');
 
 /** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
 export function planBoards(plan: HTMLElement) {
@@ -298,7 +296,7 @@ export async function useOnsPrinting(land: string) {
 }
 
 /**
- * The Plan tab's drop lists, the mainboard's then the sideboard's, which a
+ * The Deck tab's drop lists, the mainboard's then the sideboard's, which a
  * dragged card lands in. The Queue tab has one of its own.
  */
 export const planDropLists = (fixture: AppFixture) =>

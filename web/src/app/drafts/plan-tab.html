@@ -60,11 +60,11 @@
 <p class="detail">
   @if (deckLocked()) {
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.
-  } @else if (planName() === 'deck') {
+  } @else if (complete()) {
     Your deck holds your picks and basic lands. Only you can see your deck.
   } @else {
     Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
-    and no other copy is available. Only you can see your plan.
+    and no other copy is available. Only you can see your deck.
   }
 </p>
 <app-deck-lock-reminder />
@@ -173,7 +173,7 @@
     class="plan-boards"
     [class.mainboard-stacked]="mainboardStacked()"
     [attr.role]="showingStrip() ? 'group' : null"
-    [attr.aria-label]="showingStrip() ? 'Plan stacks' : null"
+    [attr.aria-label]="showingStrip() ? 'Deck stacks' : null"
     cdkDropListGroup
   >
     @for (planBoard of planBoards(); track planBoard.name) {
@@ -317,7 +317,7 @@
                   }
                   <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
                   @if ((line.basic || !line.picked) && offerRemoveFromPlan() && !deckLocked()) {
-                    @let removeName = 'Remove ' + line.name + ' from your plan';
+                    @let removeName = 'Remove ' + line.name + ' from your deck';
                     <button
                       class="button compact quiet line-action"
                       type="button"
@@ -334,9 +334,7 @@
             } @empty {
               <li class="empty">
                 @if (loading()) {
-                  <app-loading-animation size="tab"
-                    >Loading your {{ planName() }}…</app-loading-animation
-                  >
+                  <app-loading-animation size="tab">Loading your deck…</app-loading-animation>
                 } @else {
                   {{ planBoard.empty }}
                 }

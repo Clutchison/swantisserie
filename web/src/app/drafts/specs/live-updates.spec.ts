@@ -293,7 +293,7 @@ describe('live updates', () => {
       expect(statusTexts(queue)).toContainEqual(
         expect.stringContaining('Lost to other players: Shivan Dragon'),
       );
-      tabButton(page, 'Plan').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
       expect(panel(page).textContent?.replace(/\s+/g, ' ')).toContain('Mainboard 1 (1 picked)');
     });

@@ -509,14 +509,14 @@ describe('draft page', () => {
     });
   });
 
-  it('has a tab bar of Pool, Queue, Plan, Board and Export, where only Pool and Board work for a non-player', async () => {
+  it('has a tab bar of Pool, Queue, Deck, Board and Export, where only Pool and Board work for a non-player', async () => {
     const { page } = await openDraft(completeSnapshot);
 
     const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
       'Pool',
       'Queue',
-      'Plan',
+      'Deck',
       'Board',
       'Export',
     ]);
@@ -612,7 +612,7 @@ describe('draft page', () => {
       },
     );
 
-    it.each(['Queue', 'Plan', 'Export'])(
+    it.each(['Queue', 'Deck', 'Export'])(
       'goes back to the Pool tab, a Tab stop, when the %s tab closes as the player leaves',
       async (from) => {
         const { fixture, page } = await openAsPlayer();
@@ -672,7 +672,7 @@ describe('draft page', () => {
   describe('the tab in the URL', () => {
     const asPlayer = { players: [alicePlayer] };
 
-    it.each(['Pool', 'Queue', 'Plan', 'Board', 'Export'])(
+    it.each(['Pool', 'Queue', 'Deck', 'Board', 'Export'])(
       'reopens the %s tab on a reload of its URL',
       async (tab) => {
         const { page } = await openDraft(completeSnapshot, asPlayer, {
@@ -690,10 +690,10 @@ describe('draft page', () => {
 
       tabButton(page, 'Queue').click();
       TestBed.tick();
-      tabButton(page, 'Plan').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
 
-      expect(router.url).toBe('/drafts/draft-1?tab=plan');
+      expect(router.url).toBe('/drafts/draft-1?tab=deck');
       expect(shownMidway.length).toBeGreaterThan(0);
       expect(shownMidway).not.toContain('Pool');
     });
@@ -705,7 +705,7 @@ describe('draft page', () => {
       expect(router.url).toBe('/drafts/draft-1');
     });
 
-    it.each(['Queue', 'Plan', 'Board', 'Export'])(
+    it.each(['Queue', 'Deck', 'Board', 'Export'])(
       'writes the %s tab to the URL when it is clicked',
       async (tab) => {
         const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
@@ -720,8 +720,8 @@ describe('draft page', () => {
 
     it.each([
       ['Pool', 'ArrowRight', 'Queue'],
-      ['Queue', 'ArrowRight', 'Plan'],
-      ['Plan', 'ArrowRight', 'Board'],
+      ['Queue', 'ArrowRight', 'Deck'],
+      ['Deck', 'ArrowRight', 'Board'],
       ['Board', 'ArrowRight', 'Export'],
       ['Queue', 'ArrowLeft', 'Pool'],
     ])('writes the tab an arrow key moves to: from %s, %s to %s', async (from, key, to) => {
@@ -834,7 +834,7 @@ describe('draft page', () => {
     });
 
     describe('corrects the URL to the Pool tab', () => {
-      it.each(['queue', 'plan', 'export'])(
+      it.each(['queue', 'deck', 'export'])(
         'for a viewer who isn’t a player opening the players-only tab ?tab=%s',
         async (tab) => {
           const { page } = await openDraft(
@@ -861,13 +861,13 @@ describe('draft page', () => {
         await openDraft(
           completeSnapshot,
           {},
-          { url: '/drafts/draft-1?ref=discord&tab=plan#picks' },
+          { url: '/drafts/draft-1?ref=discord&tab=deck#picks' },
         );
 
         await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?ref=discord#picks'));
       });
 
-      it.each(['Queue', 'Plan', 'Export'])(
+      it.each(['Queue', 'Deck', 'Export'])(
         'when a player on the %s tab leaves the draft',
         async (tab) => {
           const { fixture, page } = await openDraft(completeSnapshot, asPlayer, {
