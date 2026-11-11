@@ -4,7 +4,7 @@ The draft list keeps working out every complete tournament's trophy holders on e
 
 ## Why this is out of scope
 
-Deriving the trophy from the standings on every read is deliberate. The Play tab, the leaderboard, the draft list and the ended announcement all get it from one place, so they can't disagree (#416). A stored winner column would add a second source of truth, which the issue itself ruled out.
+Deriving the trophy from the standings on every read is deliberate. The Play tab, the Trophy Hall, the draft list and the ended announcement all get it from one place, so they can't disagree (#416). A stored winner column would add a second source of truth, which the issue itself ruled out.
 
 The cheaper paths that keep one source of truth don't buy anything worth having. The full tournament read of a complete tournament was timed in memory, on synthetic tournaments with every match reported:
 

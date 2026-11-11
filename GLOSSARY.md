@@ -167,7 +167,7 @@ A draft's picks in the order they were made, each with its pick number, player a
 _Avoid_: History, pick history, feed
 
 **Board tab**:
-The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Lists tab takes its place once a tournament with public decklists is playing, and for good unless that tournament is cancelled.
+The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Lists tab takes its place once a tournament with public decklists is playing, or once any tournament is complete, and for good unless that tournament is cancelled.
 _Avoid_: Picks page, draft board
 
 **Queue**:
@@ -505,15 +505,15 @@ The organizer removing a tournament during registration or playing, with all its
 _Avoid_: Delete, abort, reset
 
 **Public decklists**:
-A tournament setting under which every joined player's locked deck can be seen by everyone who sees the draft, from the start of play onwards.
+A tournament setting under which every joined player's locked deck can be seen by everyone who sees the draft while the tournament is playing. Once a tournament is complete, its decklists are shown whatever the setting.
 _Avoid_: Open decklists, open decks, shared decks
 
 **Decklist**:
-A joined player's deck as others see it under public decklists: as it was locked when the tournament started.
+A joined player's deck as others see it, under public decklists or once the tournament is complete: as it was locked when the tournament started.
 _Avoid_: Deck (that is the player's own), list
 
 **Lists tab**:
-The part of a draft's page that shows the decklists, present only under public decklists once the tournament is playing, and still once it is complete. It takes the Board tab's place.
+The part of a draft's page that shows the decklists: present under public decklists once the tournament is playing, and for every tournament once it is complete. It takes the Board tab's place.
 _Avoid_: Decklists tab, decks tab
 
 **Match**:
@@ -578,7 +578,7 @@ _Avoid_: Default, walkover, no-show
 
 **Standings**:
 A tournament's players ranked by their results: in round robin every result so far; in Swiss and single elimination only the completed tournament rounds', so they change when a round is completed, not with each result, and every player is level until round 1 is. Players rank by match points, then by tiebreakers that depend on the format. Round robin breaks ties by head-to-head, then game-win %; Swiss by the MTR's order: opponents' match-win %, game-win %, then opponents' game-win %. Single elimination ranks players by the tournament round they reached instead, the winner of the final alone first; when both finalists drop, they share second and nobody is first. Players still tied after every tiebreaker share their place.
-_Avoid_: Leaderboard (that is the guild's), rankings, table
+_Avoid_: Trophy Hall (that is the guild's), rankings, table
 
 **Match points**:
 What a player earns from their matches, which standings rank by first: 3 for a won match, 1 for a draw, 0 for a lost one.
@@ -590,15 +590,15 @@ _Avoid_: Score (that is a match's game score), win–loss
 
 **Head-to-head**:
 In round robin, the tiebreaker after match points: the match points each of the players tied on match points earned in their matches against each other only, however many are tied.
-_Avoid_: Direct encounter, mutual result, head-to-head for a leaderboard record (that is a head-to-head record)
+_Avoid_: Direct encounter, mutual result
 
 **Game-win %**:
 In round robin, the share of the games a player played in their matches that they won: the tiebreaker after head-to-head. In Swiss, the MTR's: game points (3 a game won, 1 a game drawn) over 3 per game played, never below 33%: the tiebreaker after opponents' match-win %.
-_Avoid_: Win rate, game percentage
+_Avoid_: Game win rate (that is My stats'), game percentage
 
 **Match-win %**:
 In Swiss, a player's match points over 3 per tournament round they played, never below 33%. A player who dropped is measured over the tournament rounds they played.
-_Avoid_: Win rate, record (that is the matches won, lost and drawn)
+_Avoid_: Match win rate (that is My stats'), record (that is the matches won, lost and drawn)
 
 **Opponents' match-win %**:
 In Swiss, the tiebreaker after match points: the average match-win % of the players someone has met. Byes are left out, as a bye has no opponent. Abbreviated OMW %.
@@ -612,21 +612,45 @@ _Avoid_: Opponent game rate, game strength of schedule
 The part of a complete draft's page where organizers set up its tournament, players join it and report their matches, and everyone follows its standings or bracket.
 _Avoid_: Tournament tab, games tab, results tab, bracket tab
 
-**Leaderboard**:
-A guild's players ranked by their trophies, then matches won, with each player's tournaments played, their match and game records, and their head-to-head record against each opponent, across all its complete tournaments. Records count played matches only: forfeits, granted draws, granted wins and byes are left out, and every format counts the same. A player appears once they have a played match, under their current name; bots never do. A cancelled tournament counts nowhere, and neither does a tournament any bot played in.
-_Avoid_: Standings (that is one tournament's), stats page, rankings, player profile
+**Trophy Hall**:
+A guild's trophies and the decks that won them, grouped by pool source, beside its trophy ranking. Only complete tournaments whose decklists were kept appear. A cancelled tournament counts nowhere, and neither does a tournament any bot played in; bots never appear.
+_Avoid_: Leaderboard, hall of fame, standings (that is one tournament's)
+
+**Trophy ranking**:
+On the Trophy Hall, every player who holds a trophy, under their current name, by how many trophies they hold. Players with as many trophies share their place.
+_Avoid_: Leaderboard, rankings, standings (that is one tournament's)
+
+**Tournament summary**:
+A complete tournament's format, players and final standings, or its bracket in single elimination, opened from its row on the Trophy Hall.
+_Avoid_: Tournament info, results modal
+
+**My stats**:
+A player's own results across a guild's complete tournaments, which only they can see: their trophy rate, match and game records, best finish and the results of every tournament they joined.
+_Avoid_: Profile, player page, leaderboard
+
+**Match win rate**:
+On My stats, the share of a player's played matches that they won, across complete tournaments. Unlike match-win %, it has no floor.
+_Avoid_: Match-win % (that is Swiss's tiebreaker), win rate (alone)
+
+**Game win rate**:
+On My stats, the share of the games a player played in their played matches that they won, across complete tournaments. Unlike game-win %, it has no floor.
+_Avoid_: Game-win % (that is a tiebreaker), win rate (alone)
+
+**Trophy rate**:
+On My stats, a player's trophies over their tournaments played. A shared trophy counts as a whole one.
+_Avoid_: Win rate, trophy %
+
+**Best finish**:
+On My stats, the highest place a player reached in a complete tournament's standings, shown as shared when they shared it.
+_Avoid_: Peak, top finish, best result
 
 **Played match**:
 A tournament match decided by a game score its players played. Forfeits, granted draws, granted wins and byes are not played matches.
 _Avoid_: Real match, counted match
 
 **Tournaments played**:
-On the leaderboard, how many complete tournaments a player joined.
+On My stats, how many complete tournaments a player joined.
 _Avoid_: Events, entries
-
-**Head-to-head record**:
-On the leaderboard, a player's match and game records against one opponent, from their played matches across complete tournaments.
-_Avoid_: Head-to-head (alone; that is round robin's tiebreaker), matchup, rivalry
 
 **Trophy**:
 One tournament won by a player. A complete tournament's trophy goes to everyone who shares first in its standings; in single elimination, to the player who advances from the final, or to the one player left in the bracket if it completed before the final. When nobody is left, as when both finalists drop, the tournament completes with no trophy holder.
