@@ -7,7 +7,7 @@ import {
 } from 'contract';
 import { basicCards } from './basic-lands';
 import { CardName } from './card-name';
-import { basicsOn } from './plan-basics';
+import { basicsOn } from './plan-boards';
 
 /** One line of a decklist's mainboard or sideboard: a card, or a basic land, and its copies. */
 interface DecklistLine {

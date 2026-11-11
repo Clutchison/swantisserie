@@ -41,9 +41,7 @@ import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
 import { planChangeFailed } from './plan-change-failed';
-import { basicsOn } from './plan-basics';
-import { cardsOn } from './export-plan';
-import { OTHER_PLAN_BOARD } from './plan-boards';
+import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
 import {

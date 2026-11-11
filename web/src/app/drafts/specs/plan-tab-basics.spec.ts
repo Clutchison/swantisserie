@@ -258,6 +258,31 @@ describe('basic lands on the plan tab', () => {
     http.expectOne('/api/drafts/draft-1/plan/basics/Forest');
   });
 
+  it('can move and remove basics once the draft is complete', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Complete', turn: null }),
+      { cards, plan: boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 2 }]) },
+    );
+    const plan = await openPlan(fixture, page);
+
+    button(plan, 'Move Forest to the sideboard')!.click();
+    const moved = http.expectOne('/api/drafts/draft-1/plan/basics/Forest');
+    expect(moved.request.method).toBe('PUT');
+    expect(moved.request.body).toEqual({ board: 'Sideboard' });
+    moved.flush(
+      boltAndShivanWith([
+        { land: 'Forest', board: 'Mainboard', count: 1 },
+        { land: 'Forest', board: 'Sideboard', count: 1 },
+      ]),
+    );
+    await fixture.whenStable();
+
+    button(plan, 'Remove Forest from your plan')!.click();
+    const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Forest/Mainboard');
+    expect(removed.request.method).toBe('DELETE');
+  });
+
   it('shows basics in the Lands stack on desktop, with their card images', async () => {
     viewOn('desktop');
     onTestFinished(() => {

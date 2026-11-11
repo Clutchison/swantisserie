@@ -1,4 +1,4 @@
--- Each planned basic sits on a plan board (#642). Every existing row is
+-- Each planned basic sits on a plan board. Every existing row is
 -- on the mainboard, the only plan board a basic could sit on before.
 ALTER TABLE "PlannedBasic" ADD COLUMN "board" "PlanBoard" NOT NULL DEFAULT 'Mainboard';
 
