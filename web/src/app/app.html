@@ -28,9 +28,11 @@
       </div>
     </div>
     <div class="right-group">
-      <span class="name">{{ user.name }}</span>
+      <app-top-bar-menu class="shrinks" [label]="user.name" align="end">
+        <a class="menu-item" routerLink="/my-stats">My stats</a>
+        <button class="menu-item" type="button" (click)="logout()">Log out</button>
+      </app-top-bar-menu>
       <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
-      <button class="button quiet compact" type="button" (click)="logout()">Log out</button>
     </div>
   </header>
   <ng-template #appAdminItems>

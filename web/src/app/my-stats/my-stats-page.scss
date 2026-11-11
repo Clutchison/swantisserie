@@ -1,0 +1,49 @@
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-md);
+  margin: 0 0 var(--space-lg);
+
+  dt {
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .record {
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+  }
+}
+
+/* A narrow phone scrolls the table, not the page. */
+.scroll {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  overflow-wrap: normal;
+
+  th,
+  td {
+    padding: var(--space-xs) var(--space-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  th[scope='row'] {
+    font-weight: normal;
+  }
+
+  td {
+    font-variant-numeric: tabular-nums;
+  }
+}

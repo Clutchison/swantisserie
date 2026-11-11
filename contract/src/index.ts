@@ -10,6 +10,7 @@ export * from './drafts.js';
 export * from './feedback.js';
 export * from './health.js';
 export * from './leaderboard.js';
+export * from './my-stats.js';
 export * from './picks.js';
 export * from './plan.js';
 export * from './pool.js';

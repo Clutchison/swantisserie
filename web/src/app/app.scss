@@ -21,7 +21,7 @@ header {
   align-self: stretch;
 }
 
-/* The only part of the bar that gives way: a long name truncates, so nothing else has to. */
+/* The only part of the bar that gives way: a long name on the user menu truncates, so nothing else has to. */
 .right-group {
   display: flex;
   flex: 0 1 auto;
@@ -43,14 +43,6 @@ header {
 .avatar {
   flex: none;
   border-radius: 50%;
-}
-
-.name {
-  min-width: 0;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Projected into the menus, so styled here. */
