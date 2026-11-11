@@ -253,7 +253,7 @@ The order a player's plan remembers its cards in, from where each sat in their q
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:
-A Plains, Island, Swamp, Mountain, Forest or Wastes in a player's plan, added by count. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked, and it is always on the mainboard. A snow-covered basic is not one: it can be a pool card.
+A Plains, Island, Swamp, Mountain or Forest in a player's plan, added by count. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked, and it is always on the mainboard. Neither a snow-covered basic nor Wastes is one: each can be a pool card.
 _Avoid_: Land (alone; a pool card can be a land), free land
 
 **Basic land printing**:
