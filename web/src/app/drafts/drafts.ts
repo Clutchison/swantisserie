@@ -59,11 +59,22 @@ export const NO_POWERS: DraftPowersView = {
  * it includes beside it, e.g. `MKM, OTJ (+ BIG, OTP)`.
  */
 export function setListText(setList: SetListEntryView[]): string {
-  return setList
-    .map(({ code, sublists }) =>
-      sublists.length === 0
-        ? code.toUpperCase()
-        : `${code.toUpperCase()} (+ ${sublists.map((s) => s.toUpperCase()).join(', ')})`,
+  return setsText(
+    setList.map(({ code, sublists }) => ({
+      name: code.toUpperCase(),
+      sublists: sublists.map((sublist) => sublist.toUpperCase()),
+    })),
+  );
+}
+
+/**
+ * Sets as a viewer reads them, each with the sublists it includes beside
+ * it, e.g. `MKM, OTJ (+ BIG, OTP)`, or the same by the sets' names.
+ */
+export function setsText(sets: { name: string; sublists: string[] }[]): string {
+  return sets
+    .map(({ name, sublists }) =>
+      sublists.length === 0 ? name : `${name} (+ ${sublists.join(', ')})`,
     )
     .join(', ');
 }

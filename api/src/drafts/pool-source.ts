@@ -1,4 +1,5 @@
 import type {
+  CubeView,
   PoolSourceKind as ContractKind,
   PoolSourceView,
   SetListEntryView,
@@ -69,4 +70,24 @@ export function toPoolSourceView(draft: StoredPoolSource): PoolSourceView {
       );
     }
   }
+}
+
+/**
+ * A draft's pool source as viewers see it, but a cube with its CubeCobra
+ * id too, which the view gives only as a URL: the Trophy Hall groups cube
+ * drafts by it, so a cube whose list changed stays one group.
+ */
+export type PoolSourceWithCubeId =
+  | Exclude<PoolSourceView, { kind: 'cube' }>
+  | { kind: 'cube'; cube: CubeView & { id: string } };
+
+/** The draft's pool source as viewers see it, a cube with its CubeCobra id. */
+export function toPoolSourceWithCubeId(
+  draft: StoredPoolSource,
+): PoolSourceWithCubeId {
+  const view = toPoolSourceView(draft);
+  // The database's check constraints set a cube draft's cube id.
+  return view.kind === 'cube'
+    ? { kind: 'cube', cube: { id: draft.cubeId ?? '', ...view.cube } }
+    : view;
 }

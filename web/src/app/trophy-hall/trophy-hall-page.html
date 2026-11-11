@@ -1,0 +1,63 @@
+<main>
+  <h1>Trophy Hall</h1>
+
+  @if (hall.error()) {
+    <p class="error">Couldn't load the Trophy Hall. Try reloading the page.</p>
+  } @else if (hall.isLoading() && !hall.hasValue()) {
+    <app-loading-animation size="page">Loading…</app-loading-animation>
+  } @else if (hall.hasValue()) {
+    @if (hall.value().groups.length === 0) {
+      <p class="empty">Nobody has won a trophy yet.</p>
+    } @else {
+      <!-- The trophy ranking (#634) goes here, floated beside the groups. -->
+      @for (group of groups(); track $index) {
+        @let heading = group.header.title;
+        <section class="group" [attr.aria-labelledby]="'group-' + $index">
+          <h2 [id]="'group-' + $index">
+            @if (group.header.href; as href) {
+              <a [href]="href" target="_blank" rel="noopener">{{ heading }}</a>
+            } @else {
+              {{ heading }}
+            }
+          </h2>
+          <ul class="rows" [attr.aria-label]="'Trophies won with ' + heading">
+            @for (row of group.rows; track rowKey(row)) {
+              @let key = rowKey(row);
+              @let open = expanded().has(key);
+              <li>
+                <div class="trophy">
+                  <!-- The spaces read the count, name and actions apart; the flex gaps leave them out. -->
+                  <span class="count">{{ row.trophies }}&nbsp;🏆</span>{{ ' ' }}
+                  <span class="name">{{ row.name }}</span
+                  >{{ ' ' }}
+                  <!-- View Tournament (#635) goes in these actions, after View Deck. -->
+                  <div class="actions">
+                    <button
+                      class="button quiet compact"
+                      type="button"
+                      [attr.aria-expanded]="open"
+                      [attr.aria-controls]="'deck-' + key"
+                      (click)="toggle(row)"
+                    >
+                      View Deck
+                    </button>
+                  </div>
+                </div>
+                <div class="deck" [id]="'deck-' + key">
+                  @if (open) {
+                    <app-decklist
+                      [decklist]="row.decklist"
+                      [playerName]="row.name"
+                      [cards]="cards().get(row)!"
+                      [idPrefix]="'decklist-' + row.draftId"
+                    />
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+</main>

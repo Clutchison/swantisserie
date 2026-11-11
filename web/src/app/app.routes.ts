@@ -26,10 +26,11 @@ export const routes: Routes = [
         loadComponent: () => import('./drafts/draft-page').then((m) => m.DraftPage),
       },
       {
-        path: 'leaderboard',
-        loadComponent: () =>
-          import('./leaderboard/leaderboard-page').then((m) => m.LeaderboardPage),
+        path: 'trophy-hall',
+        loadComponent: () => import('./trophy-hall/trophy-hall-page').then((m) => m.TrophyHallPage),
       },
+      // The Trophy Hall replaced the leaderboard: old links still work.
+      { path: 'leaderboard', redirectTo: 'trophy-hall' },
       {
         path: 'my-stats',
         loadComponent: () => import('./my-stats/my-stats-page').then((m) => m.MyStatsPage),

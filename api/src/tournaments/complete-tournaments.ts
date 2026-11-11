@@ -1,6 +1,11 @@
 import type { PoolSourceView, TournamentView } from 'contract';
 import type { Tally, TournamentMatch } from 'engine';
-import { POOL_SOURCE, toPoolSourceView } from '../drafts/pool-source.js';
+import {
+  POOL_SOURCE,
+  toPoolSourceView,
+  toPoolSourceWithCubeId,
+  type PoolSourceWithCubeId,
+} from '../drafts/pool-source.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   TOURNAMENT_VIEW,
@@ -14,12 +19,8 @@ export interface CompleteTournament {
   draft: {
     name: string;
     poolSource: PoolSourceView;
-    /**
-     * A cube draft's CubeCobra cube id, which its pool source view gives
-     * only as a URL; null for other pool sources. The Trophy Hall (#633)
-     * groups cube drafts by it, so a cube whose list changed stays one group.
-     */
-    cubeId: string | null;
+    /** Its pool source, a cube with its CubeCobra id, for the Trophy Hall. */
+    poolSourceWithCubeId: PoolSourceWithCubeId;
   };
   view: TournamentView;
   /** Whether any bot played in it, as every bot of its draft does. */
@@ -30,7 +31,7 @@ export interface CompleteTournament {
  * Every complete tournament, in the order they started, as the tournament
  * read sees it, with its draft's name and pool source. Its trophy holders
  * are computed on each read from its standings, the one place the trophy is
- * decided, so the Play tab, My stats, the draft list and the ended
+ * decided, so the Play tab, the Trophy Hall, My stats, the draft list and the ended
  * announcement can't disagree.
  */
 export async function readCompleteTournaments(
@@ -53,11 +54,26 @@ export async function readCompleteTournaments(
     draft: {
       name: row.draft.name,
       poolSource: toPoolSourceView(row.draft),
-      cubeId: row.draft.cubeId,
+      poolSourceWithCubeId: toPoolSourceWithCubeId(row.draft),
     },
     view: toTournamentView(row),
     botsPlayed: row._count.entries > 0,
   }));
+}
+
+/**
+ * `tournaments`, given in the order they started, newest first: by when
+ * they completed, then those completed before completion times were kept,
+ * the latest started first.
+ */
+export function newestFirst(
+  tournaments: readonly CompleteTournament[],
+): CompleteTournament[] {
+  return [...tournaments]
+    .reverse()
+    .sort((a, b) =>
+      (b.view.completedAt ?? '').localeCompare(a.view.completedAt ?? ''),
+    );
 }
 
 /** A complete tournament as the engine's functions over complete tournaments read it. */
