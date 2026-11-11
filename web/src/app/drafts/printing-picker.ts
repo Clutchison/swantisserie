@@ -65,6 +65,11 @@ export class PrintingPicker implements OnInit {
   readonly land = input.required<BasicLand>();
   /** The plan board of the copy it opened from, which Remove takes it off. */
   readonly planBoard = input.required<PlanBoard>();
+  /**
+   * Called as Remove sends, for the host to let go of the copy it opened
+   * from; answers how to undo that, should the copy stay.
+   */
+  readonly removing = input<() => () => void>(() => () => undefined);
 
   /** Whether Remove is offered: as for an unpicked card, to a player, never on a locked deck. */
   protected readonly offerRemove = computed(
@@ -187,9 +192,15 @@ export class PrintingPicker implements OnInit {
   protected remove() {
     return this.send(
       async () => {
-        await this.store.changePlan(
-          this.planApi.removeBasic(this.store.id(), this.land(), this.planBoard()),
-        );
+        const stays = this.removing()();
+        try {
+          await this.store.changePlan(
+            this.planApi.removeBasic(this.store.id(), this.land(), this.planBoard()),
+          );
+        } catch (err) {
+          stays();
+          throw err;
+        }
         // Closes once the plan shows the copy gone, so focus goes back to what is still there.
         await new Promise<void>((shown) => afterNextRender(shown, { injector: this.injector }));
       },

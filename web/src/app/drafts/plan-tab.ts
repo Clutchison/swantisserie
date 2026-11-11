@@ -483,17 +483,17 @@ export class PlanTab {
   }
 
   /**
-   * Whether `planBoard` refuses a dragged card, and offers none to drag: a
-   * locked deck's sideboard, as only a stack move, on the mainboard, is no
-   * deck change.
+   * Whether a drop list refuses a dragged card, and offers none to drag: on
+   * a locked deck, any but a mainboard stack or gap, as only a stack move is
+   * no deck change.
    */
-  protected refusesDrop(planBoard: PlanBoard) {
-    return planBoard === 'Sideboard' && this.deckLocked();
+  protected refusesDrop({ planBoard, into }: DropTarget) {
+    return this.deckLocked() && (planBoard === 'Sideboard' || !into);
   }
 
-  /** Whether a drag may enter a drop list: not one whose plan board refuses it. */
+  /** Whether a drag may enter a drop list: not one that refuses it. */
   protected readonly enters = (_: CdkDrag, list: CdkDropList<DropTarget>) =>
-    !this.refusesDrop(list.data.planBoard);
+    !this.refusesDrop(list.data);
 
   /**
    * A card dropped on a plan board: it moves there, unless that's the plan
@@ -512,13 +512,12 @@ export class PlanTab {
     const { planBoard, into } = container.data;
     const card = heldOn(this.plan(), from).find((held) => held.poolCardId === item.data);
     if (!card) return;
-    // The card's id once it's moved, while the plan is as it was.
-    const { poolCardId } = from === planBoard ? card : this.cardAfterMove(card, planBoard);
+    let moved: MovedCard | null = card;
     if (from !== planBoard) {
-      const refused = this.refusesDrop(from) || this.refusesDrop(planBoard);
-      if (refused || !(await this.move(card, planBoard))) return;
+      const refused = this.refusesDrop(previousContainer.data) || this.refusesDrop(container.data);
+      moved = refused ? null : await this.move(card, planBoard);
     }
-    if (into) this.stackMoves.move(poolCardId, into);
+    if (moved && into) this.stackMoves.move(moved.poolCardId, into);
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */
@@ -535,12 +534,13 @@ export class PlanTab {
    * Moves one copy of a card, a line's first, one in stacks mode or one in
    * its Card detail, to `planBoard`, and shows the plan as it then is; for
    * a basic land, one of its copies. If the card's line is gone from the
-   * plan board it left, focus follows the card to `planBoard`.
+   * plan board it left, focus follows the card to `planBoard`. Answers the
+   * card as it is there, or null if it didn't move.
    */
-  protected async move(card: MovedCard, planBoard: PlanBoard) {
+  protected async move(card: MovedCard, planBoard: PlanBoard): Promise<MovedCard | null> {
     const { basic } = card;
     const after = this.cardAfterMove(card, planBoard);
-    const stays = planBoard === 'Sideboard' ? this.leavingMainboard(card) : undefined;
+    const stays = this.leaving(card, PLAN_BOARD_DISPLAY[planBoard].other);
     const moved = await this.tryChange(
       () =>
         basic
@@ -551,8 +551,8 @@ export class PlanTab {
         status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
       },
     );
-    if (!moved) stays?.();
-    return moved;
+    if (!moved) stays();
+    return moved ? after : null;
   }
 
   /**
@@ -568,10 +568,12 @@ export class PlanTab {
   }
 
   /**
-   * `card` is leaving the mainboard: it loses its stack move, a basic land's
-   * copy among its land's copies. Answers how to undo that, should it stay.
+   * `card` is leaving `planBoard`: off the mainboard, it loses its stack
+   * move, a basic land's copy among its land's copies. Answers how to undo
+   * that, should it stay.
    */
-  private leavingMainboard(card: MovedCard) {
+  private leaving(card: MovedCard, planBoard: PlanBoard): () => void {
+    if (planBoard !== 'Mainboard') return () => undefined;
     const copies = card.basic
       ? heldOn(this.plan(), 'Mainboard')
           .filter((held) => held.basic === card.basic)
@@ -611,7 +613,7 @@ export class PlanTab {
    */
   protected openStacked(card: PlanBoardCard, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (card.basic) return this.openPicker(card.basic, planBoard);
+    if (card.basic) return this.openPicker(card, card.basic, planBoard);
     const poolCard = this.poolCardsById().get(card.poolCardId);
     this.openDetail(
       card.poolCardId,
@@ -629,7 +631,7 @@ export class PlanTab {
    */
   protected openLine(line: PlanLine, event: MouseEvent, planBoard: PlanBoard) {
     if (this.endsDrag(event)) return;
-    if (line.basic) return this.openPicker(line.basic, planBoard);
+    if (line.basic) return this.openPicker(line, line.basic, planBoard);
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
   }
@@ -673,18 +675,24 @@ export class PlanTab {
   }
 
   /**
-   * Opens the Printing picker of a basic land's copy on `planBoard`, in any
-   * draft state and on a locked deck too, where it changes only how the land
-   * looks; elsewhere it can take the copy out. Focus returns to what opened
+   * Opens the Printing picker of `card`, a copy of the basic land `land` on
+   * `planBoard`, in any draft state and on a locked deck too, where it
+   * changes only how the land looks; elsewhere it can take the copy out,
+   * which leaves the mainboard as a Remove button's does. Focus returns to what opened
    * it or, should Remove have taken that away, to the next card or line that
    * opens a dialog, or else the one before.
    */
-  private openPicker(land: BasicLand, planBoard: PlanBoard) {
+  private openPicker(card: MovedCard, land: BasicLand, planBoard: PlanBoard) {
     const openers = [...this.host.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')];
+    const removing = () => this.leaving(card, planBoard);
     this.dialogs.open(PrintingPicker, {
       labelledBy: PRINTING_PICKER_HEADING,
       injector: this.injector,
-      bindings: [inputBinding('land', () => land), inputBinding('planBoard', () => planBoard)],
+      bindings: [
+        inputBinding('land', () => land),
+        inputBinding('planBoard', () => planBoard),
+        inputBinding('removing', () => removing),
+      ],
       returnFocus: (opener) => {
         if (!opener || opener.isConnected) return opener;
         const at = openers.indexOf(opener);
@@ -711,13 +719,13 @@ export class PlanTab {
    */
   protected async removeLine(line: PlanLine, planBoard: PlanBoard) {
     const { basic, poolCardId } = line;
-    const stays = planBoard === 'Mainboard' ? this.leavingMainboard(line) : undefined;
+    const stays = this.leaving(line, planBoard);
     const removed = await this.tryChange(() =>
       basic
         ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
         : this.planApi.remove(this.draftId(), poolCardId),
     );
-    if (!removed) stays?.();
+    if (!removed) stays();
     return removed;
   }
 

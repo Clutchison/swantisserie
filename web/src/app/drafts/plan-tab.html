@@ -230,7 +230,7 @@
                   [attr.aria-label]="stack.name"
                   cdkDropList
                   [cdkDropListData]="stack.dropTarget"
-                  [cdkDropListDisabled]="changing() || !wideStacks() || refusesDrop(planBoard.name)"
+                  [cdkDropListDisabled]="changing() || !wideStacks() || refusesDrop(stack.dropTarget)"
                   [cdkDropListEnterPredicate]="enters"
                   cdkDropListSortingDisabled
                   (cdkDropListDropped)="dropped($event)"
@@ -311,7 +311,7 @@
             [class.capped]="!showingStacks()"
             cdkDropList
             [cdkDropListData]="planBoard.dropTarget"
-            [cdkDropListDisabled]="changing() || !onDesktop() || deckLocked()"
+            [cdkDropListDisabled]="changing() || !onDesktop() || refusesDrop(planBoard.dropTarget)"
             cdkDropListSortingDisabled
             (cdkDropListDropped)="dropped($event)"
           >
