@@ -1,0 +1,25 @@
+<section [attr.aria-labelledby]="headingId()">
+  <h3 [id]="headingId()">{{ playerName() }}</h3>
+  <div class="boards">
+    @for (board of boards(); track board.name) {
+      <div class="board">
+        <h4>{{ board.name }} {{ board.count }}</h4>
+        <ul
+          class="lines card-rows"
+          [attr.aria-label]="playerName() + '’s ' + board.name.toLowerCase()"
+        >
+          @for (line of board.lines; track line.key) {
+            <!-- The space reads the count apart from the name; the grid leaves it out. -->
+            <li>
+              <span class="count">{{ line.count }}</span
+              >{{ ' ' }}
+              <app-card-name [card]="line.card" [name]="line.name" />
+            </li>
+          } @empty {
+            <li class="empty">No cards.</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+</section>
