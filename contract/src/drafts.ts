@@ -86,6 +86,27 @@ export type PoolSourceView =
   /** Oldest set first. */
   | { kind: 'set-list'; setList: SetListEntryView[] };
 
+/** A set or sublist in a set list, with its name. */
+export interface NamedSetView {
+  code: string;
+  /** Its name on Scryfall, or its code in capitals when Scryfall can't name it. */
+  name: string;
+}
+
+/** A set in a set list, with its name and the sublists it includes. */
+export interface NamedSetListEntryView extends NamedSetView {
+  sublists: NamedSetView[];
+}
+
+/**
+ * A pool source as the Trophy Hall and My stats show it: a cube by its
+ * name and link, a pool query, or the sets of a set list, oldest first,
+ * with their names.
+ */
+export type NamedPoolSourceView =
+  | Exclude<PoolSourceView, { kind: 'set-list' }>
+  | { kind: 'set-list'; setList: NamedSetListEntryView[] };
+
 /**
  * Each kind of pool source, by the name the whole app uses for it: the
  * source of truth for these strings.

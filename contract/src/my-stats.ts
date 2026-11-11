@@ -1,11 +1,11 @@
-import type { PoolSourceView } from './drafts.js';
+import type { NamedPoolSourceView } from './drafts.js';
 import type { PlaceView, TallyView } from './tournaments.js';
 
 /** How the signed-in player did in one complete tournament they joined. */
 export interface MyStatsResultView {
   draftId: string;
   draftName: string;
-  poolSource: PoolSourceView;
+  poolSource: NamedPoolSourceView;
   /** When the tournament completed, ISO; null for one completed before completion times were kept. */
   completedAt: string | null;
   place: PlaceView;

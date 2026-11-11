@@ -54,7 +54,6 @@ const HALL: TrophyHallView = {
       poolSource: {
         kind: 'cube',
         cube: {
-          id: 'vintage',
           name: 'Vintage Cube',
           url: 'https://cubecobra.com/cube/overview/vintage',
         },

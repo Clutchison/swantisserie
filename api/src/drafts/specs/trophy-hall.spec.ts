@@ -1,4 +1,4 @@
-import type { Platform, SetListEntryView, TrophyHallView } from 'contract';
+import type { Platform, TrophyHallView } from 'contract';
 import request from 'supertest';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -15,6 +15,8 @@ import {
   completeRound,
   completeTournament,
   completedBeforeDecklistsWereKept,
+  drawnFrom,
+  type Source,
   dropPlayer,
   fullDeck,
   movePlanned,
@@ -53,53 +55,6 @@ async function trophyHall(cookie = aliceCookie): Promise<TrophyHallView> {
     .set('Cookie', cookie)
     .expect(200);
   return res.body as TrophyHallView;
-}
-
-/** A pool source as a spec gives a draft one. */
-type Source =
-  | { cube: { id: string; name: string } }
-  | { poolQuery: string }
-  | { setList: SetListEntryView[] };
-
-/**
- * Gives the draft `id` the pool source `source` on `platform`, as if it
- * had been created from them. A draft's pool source never changes once
- * created, and the Trophy Hall reads only what is stored, so a spec sets it
- * here rather than fake a cube or a set list's snapshot for each draft.
- */
-async function drawnFrom(
-  id: string,
-  source: Source,
-  platform: Platform = 'Arena',
-) {
-  const columns =
-    'cube' in source
-      ? {
-          poolSourceKind: 'Cube' as const,
-          poolQuery: null,
-          cubeId: source.cube.id,
-          cubeName: source.cube.name,
-          setList: Prisma.DbNull,
-        }
-      : 'poolQuery' in source
-        ? {
-            poolSourceKind: 'PoolQuery' as const,
-            poolQuery: source.poolQuery,
-            cubeId: null,
-            cubeName: null,
-            setList: Prisma.DbNull,
-          }
-        : {
-            poolSourceKind: 'SetList' as const,
-            poolQuery: null,
-            cubeId: null,
-            cubeName: null,
-            setList: source.setList as unknown as Prisma.InputJsonArray,
-          };
-  await app.get(PrismaService).draft.update({
-    where: { id },
-    data: { ...columns, platform },
-  });
 }
 
 /** A complete round robin tournament of the cookies' users, which the first wins. */
@@ -170,7 +125,6 @@ describe('the Trophy Hall', () => {
     expect(hall.groups[0].poolSource).toEqual({
       kind: 'cube',
       cube: {
-        id: 'vintage',
         name: 'Vintage Cube (2026)',
         url: 'https://cubecobra.com/cube/overview/vintage',
       },

@@ -15,7 +15,7 @@ import { Decklist } from '../drafts/decklist';
 import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { place } from '../record';
-import { poolSourceHeader, type PoolSourceHeader } from './pool-source-header';
+import { poolSourceHeader, type PoolSourceHeader } from '../pool-source-header';
 import { TOURNAMENT_SUMMARY_HEADING, TournamentSummary } from './tournament-summary';
 
 /**

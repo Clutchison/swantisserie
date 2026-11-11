@@ -1,10 +1,10 @@
-import { DatePipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { MyStatsView } from 'contract';
-import { setListText } from '../drafts/drafts';
+import { CompletionDatePipe } from '../completion-date';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { poolSourceHeader } from '../pool-source-header';
 import { percent, place, record } from '../record';
 
 /**
@@ -13,7 +13,7 @@ import { percent, place, record } from '../record';
  */
 @Component({
   selector: 'app-my-stats-page',
-  imports: [DatePipe, LoadingAnimation, RouterLink],
+  imports: [CompletionDatePipe, LoadingAnimation, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './my-stats-page.html',
   styleUrls: ['../page.scss', './my-stats-page.scss'],
@@ -22,7 +22,7 @@ export class MyStatsPage {
   protected readonly stats = httpResource<MyStatsView>(() => '/api/my-stats');
   protected readonly record = record;
   protected readonly place = place;
-  protected readonly setListText = setListText;
+  protected readonly poolSourceHeader = poolSourceHeader;
 
   /** A rate as the page shows it, or a dash when there is nothing to count it over. */
   protected rate(value: number | null): string {

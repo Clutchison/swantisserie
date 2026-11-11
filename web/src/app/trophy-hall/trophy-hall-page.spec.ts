@@ -72,7 +72,6 @@ const HALL: TrophyHallView = {
       poolSource: {
         kind: 'cube',
         cube: {
-          id: 'vintage',
           name: 'Vintage Cube',
           url: 'https://cubecobra.com/cube/overview/vintage',
         },
@@ -168,6 +167,7 @@ describe('the Trophy Hall page', () => {
     const page = await openTrophyHall();
 
     expect(headingsAt(main(page), 2)).toEqual([
+      'Trophy ranking',
       'Vintage Cube',
       'c:r t:instant',
       'Outlaws of Thunder Junction (+ The Big Score), Murders at Karlov Manor',
@@ -206,7 +206,7 @@ describe('the Trophy Hall page', () => {
 
     const title =
       'Murders at Karlov Manor, Outlaws of Thunder Junction (+ The Big Score, Breaking News)';
-    expect(headingsAt(main(page), 2)).toEqual([title]);
+    expect(headingsAt(main(page), 2)).toEqual(['Trophy ranking', title]);
     expect(link(main(page), title)).toBeUndefined();
     expect(items(main(page), `Trophies won with ${title}`)).toEqual([
       '1 🏆 Dave View Deck View Tournament',
@@ -275,6 +275,8 @@ describe('the Trophy Hall page', () => {
   it('ranks the trophy holders by place, name and trophy count, shared places marked', async () => {
     const page = await openTrophyHall();
 
+    expect(heading(main(page), 'Trophy ranking')).toBeDefined();
+
     expect(items(main(page), 'Trophy ranking')).toEqual([
       '1st Alice 2 🏆',
       '=2nd Bob 1 🏆',
@@ -288,6 +290,7 @@ describe('the Trophy Hall page', () => {
 
     expect(text(main(page))).toContain('Nobody has won a trophy yet.');
     expect(findNamedList(main(page), 'Trophy ranking')).toBeNull();
+    expect(heading(main(page), 'Trophy ranking')).toBeUndefined();
   });
 
   it('says so when the Trophy Hall can’t be loaded', async () => {

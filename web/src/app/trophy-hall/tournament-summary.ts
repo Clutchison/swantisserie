@@ -1,15 +1,15 @@
 import { DialogRef } from '@angular/cdk/dialog';
-import { DatePipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { CompletionDatePipe } from '../completion-date';
 import type { DraftView, PlayerView, TournamentView, TrophyHallRowView } from 'contract';
 import { summaryOf } from '../drafts/tournament-format-names';
 import { ResultsGrid } from '../drafts/results-grid';
 import { playerIn, TournamentViewer } from '../drafts/tournament-viewer';
 import { TournamentResults } from '../drafts/tournament-results';
 import { LoadingAnimation } from '../loading/loading-animation';
-import type { PoolSourceHeader } from './pool-source-header';
+import type { PoolSourceHeader } from '../pool-source-header';
 
 /** The Tournament summary's heading's id, which names the dialog. */
 export const TOURNAMENT_SUMMARY_HEADING = 'tournament-summary-heading';
@@ -26,7 +26,7 @@ export const TOURNAMENT_SUMMARY_HEADING = 'tournament-summary-heading';
  */
 @Component({
   selector: 'app-tournament-summary',
-  imports: [DatePipe, LoadingAnimation, ResultsGrid, RouterLink, TournamentResults],
+  imports: [CompletionDatePipe, LoadingAnimation, ResultsGrid, RouterLink, TournamentResults],
   providers: [{ provide: TournamentViewer, useExisting: TournamentSummary }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tournament-summary.html',

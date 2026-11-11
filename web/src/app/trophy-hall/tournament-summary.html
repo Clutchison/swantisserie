@@ -14,7 +14,7 @@
         }
       </dd>
       <dt>Completed</dt>
-      <dd>{{ row().completedAt ? (row().completedAt | date: 'mediumDate') : '–' }}</dd>
+      <dd>{{ row().completedAt | completionDate }}</dd>
       <dt>Format</dt>
       <dd>{{ format() }}</dd>
       <dt>Players</dt>

@@ -44,6 +44,7 @@ import {
   button,
   buttons,
   byAriaLabel,
+  byName,
   collapseWhitespace,
   serverError,
   table,
@@ -568,7 +569,7 @@ export const statusTexts = (root: HTMLElement) =>
 
 /** A list inside `root`, by its accessible name, such as "Pick log"; null if there is none. */
 export const findNamedList = (root: HTMLElement, name: string) =>
-  byAriaLabel(root, 'ul, ol, [role="list"]', name);
+  byName(root, 'ul, ol, [role="list"]', name);
 
 /** A list inside `root` that is there, by its accessible name, such as "Pick log" or "Your picks". */
 export const namedList = (root: HTMLElement, name: string) => findNamedList(root, name)!;

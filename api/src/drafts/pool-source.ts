@@ -1,5 +1,7 @@
 import type {
   CubeView,
+  NamedPoolSourceView,
+  NamedSetView,
   PoolSourceKind as ContractKind,
   PoolSourceView,
   SetListEntryView,
@@ -90,4 +92,37 @@ export function toPoolSourceWithCubeId(
   return view.kind === 'cube'
     ? { kind: 'cube', cube: { id: draft.cubeId ?? '', ...view.cube } }
     : view;
+}
+
+/**
+ * The draft's pool source as the Trophy Hall and My stats show it: a cube
+ * without its CubeCobra id, and each set of a set list named from
+ * `setNames`, or by its code in capitals when it has no name there.
+ */
+export function toNamedPoolSource(
+  source: PoolSourceWithCubeId,
+  setNames: ReadonlyMap<string, string>,
+): NamedPoolSourceView {
+  switch (source.kind) {
+    case 'cube':
+      return {
+        kind: 'cube',
+        cube: { name: source.cube.name, url: source.cube.url },
+      };
+    case 'pool-query':
+      return source;
+    case 'set-list': {
+      const named = (code: string): NamedSetView => ({
+        code,
+        name: setNames.get(code) ?? code.toUpperCase(),
+      });
+      return {
+        kind: 'set-list',
+        setList: source.setList.map(({ code, sublists }) => ({
+          ...named(code),
+          sublists: sublists.map(named),
+        })),
+      };
+    }
+  }
 }

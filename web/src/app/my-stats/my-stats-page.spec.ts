@@ -5,6 +5,7 @@ import {
   button,
   http,
   openApp,
+  byAriaLabel,
   router,
   table,
   tableColumns,
@@ -12,8 +13,14 @@ import {
   text,
   useApp,
 } from '../specs-harness';
-import { banner, expectLoadingAnimation, heading, loadingAnimation } from '../drafts/specs/harness';
-import { link } from '../feedback/specs-harness';
+import {
+  banner,
+  expectLoadingAnimation,
+  heading,
+  link,
+  loadingAnimation,
+} from '../drafts/specs/harness';
+import { describedTerms } from '../drafts/specs/outline-harness';
 
 const tally = (won: number, lost: number, drawn = 0) => ({ won, lost, drawn });
 
@@ -42,7 +49,16 @@ const STATS: MyStatsView = {
     {
       draftId: 'd2',
       draftName: 'Bloomburrow',
-      poolSource: { kind: 'set-list', setList: [{ code: 'blb', sublists: ['spg'] }] },
+      poolSource: {
+        kind: 'set-list',
+        setList: [
+          {
+            code: 'blb',
+            name: 'Bloomburrow',
+            sublists: [{ code: 'spg', name: 'Special Guests' }],
+          },
+        ],
+      },
       completedAt: '2026-10-02T12:00:00.000Z',
       place: { rank: 1, shared: true },
       matches: tally(2, 0, 1),
@@ -86,13 +102,7 @@ describe('the My stats page', () => {
   }
 
   /** Each stat shown, as its name and its value. */
-  function stats(page: HTMLElement) {
-    const list = page.querySelector('dl[aria-label="My stats"]');
-    return (
-      list &&
-      [...list.querySelectorAll('dt')].map((term) => [text(term), text(term.nextElementSibling)])
-    );
-  }
+  const stats = (page: HTMLElement) => describedTerms(page, 'My stats');
 
   /** The text of each row of the results table, its header row left out; null if there is none. */
   function results(page: HTMLElement) {
@@ -189,13 +199,13 @@ describe('the My stats page', () => {
       'Trophy',
     ]);
     expect(results(page)).toEqual([
-      ['Nov 10, 2026', 'Cube night', 'Cube: Vintage Cube', '3rd', '1–2–0', ''],
-      ['Oct 2, 2026', 'Bloomburrow', 'Sets: BLB (+ SPG)', '=1st', '2–0–1', '🏆'],
-      ['–', 'Red', 'Pool query: c:r', '1st', '2–0–0', '🏆'],
+      ['Nov 10, 2026', 'Cube night', 'Vintage Cube', '3rd', '1–2–0', ''],
+      ['Oct 2, 2026', 'Bloomburrow', 'Bloomburrow (+ Special Guests)', '=1st', '2–0–1', '🏆'],
+      ['–', 'Red', 'c:r', '1st', '2–0–0', '🏆'],
     ]);
   });
 
-  it('links each result to its draft, and a cube to CubeCobra', async () => {
+  it('links each result to its draft, a cube to CubeCobra and a pool query to Scryfall', async () => {
     const page = await openMyStats();
     const found = table(page, 'Results')!;
 
@@ -204,13 +214,15 @@ describe('the My stats page', () => {
     expect(link(found, 'Vintage Cube')?.getAttribute('href')).toBe(
       'https://cubecobra.com/cube/overview/vintage',
     );
+    expect(link(found, 'c:r')?.getAttribute('href')).toBe('https://scryfall.com/search?q=c%3Ar');
+    expect(link(found, 'Bloomburrow (+ Special Guests)')).toBeUndefined();
   });
 
   it('says so for a player who has joined no complete tournament', async () => {
     const page = await openMyStats(NO_TOURNAMENTS);
 
     expect(text(page)).toContain('You haven’t joined a complete tournament yet.');
-    expect(stats(page)).toBeNull();
+    expect(byAriaLabel(page, 'dl', 'My stats')).toBeNull();
     expect(results(page)).toBeNull();
   });
 

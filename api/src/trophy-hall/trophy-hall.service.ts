@@ -1,23 +1,21 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type {
-  NamedSetView,
-  PlanBoards,
-  TrophyHallPoolSourceView,
-  TrophyHallView,
-} from 'contract';
+import { Injectable } from '@nestjs/common';
+import type { PlanBoards, TrophyHallView } from 'contract';
 import {
   trophyHall,
   type GroupedPoolSource,
   type TrophyHallTournament,
 } from 'engine';
 import { toPoolCardView } from '../drafts/draft-view.js';
-import type { PoolSourceWithCubeId } from '../drafts/pool-source.js';
+import {
+  toNamedPoolSource,
+  type PoolSourceWithCubeId,
+} from '../drafts/pool-source.js';
 import { readPreferredPrintings } from '../drafts/preferred-printings.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SetCatalog } from '../sets/set-catalog.js';
+import { setNamesFor } from '../sets/set-names.js';
 import {
-  newestFirst,
-  readCompleteTournaments,
+  readTournamentsThatCount,
   type CompleteTournament,
 } from '../tournaments/complete-tournaments.js';
 import { decodeDecklist } from '../tournaments/decklist-json.js';
@@ -32,8 +30,6 @@ type TournamentWithDecklists = TrophyHallTournament & {
 /** The Trophy Hall. Until drafts belong to guilds (#208), it covers every draft's tournament. */
 @Injectable()
 export class TrophyHallService {
-  private readonly logger = new Logger(TrophyHallService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly sets: SetCatalog,
@@ -41,23 +37,17 @@ export class TrophyHallService {
 
   /**
    * The Trophy Hall of every complete tournament, worked out on each read
-   * from their standings. Cancelled tournaments are gone, so count
-   * nowhere, and neither does a tournament any bot played in, as bots exist
-   * for testing. Nor does one with a trophy holder whose decklist wasn't
+   * from their standings, of the complete tournaments that count. Nor does one with a trophy holder whose decklist wasn't
    * kept at Start (ADR 0017), as the engine's `onTrophyHall` decides.
    */
   async read(): Promise<TrophyHallView> {
-    const complete = newestFirst(
-      (await readCompleteTournaments(this.prisma)).filter(
-        ({ botsPlayed }) => !botsPlayed,
-      ),
-    );
+    const complete = await readTournamentsThatCount(this.prisma);
     const kept = await this.keptDecklists(complete);
     const hall = trophyHall(
       complete.map((tournament): TournamentWithDecklists => {
         const decklists = kept.get(tournament.draftId) ?? new Map();
         return {
-          poolSource: groupedPoolSource(tournament.draft.poolSourceWithCubeId),
+          poolSource: groupedPoolSource(tournament.draft.poolSource),
           trophyHolders: tournament.view.trophyHolders,
           decklistsKept: [...decklists.keys()],
           complete: tournament,
@@ -83,11 +73,10 @@ export class TrophyHallService {
     const names = await this.currentNames(playerIds);
     const printings = await readPreferredPrintings(this.prisma, playerIds);
     const poolCards = await this.poolCards(rows.flatMap((row) => row.planned));
-    const setNames = groups.some(
-      ({ latest }) => latest.complete.draft.poolSource.kind === 'set-list',
-    )
-      ? await this.setNames()
-      : new Map<string, string>();
+    const setNames = await setNamesFor(
+      this.sets,
+      groups.map(({ latest }) => latest.complete.draft.poolSource),
+    );
 
     return {
       // Every ranked player holds a trophy, so has a row, and a name here.
@@ -98,8 +87,8 @@ export class TrophyHallService {
         place,
       })),
       groups: groups.map(({ latest, rows }) => ({
-        poolSource: headerOf(
-          latest.complete.draft.poolSourceWithCubeId,
+        poolSource: toNamedPoolSource(
+          latest.complete.draft.poolSource,
           setNames,
         ),
         rows: rows.map(
@@ -182,23 +171,6 @@ export class TrophyHallService {
     });
     return new Map(found.map((card) => [card.id, toPoolCardView(card)]));
   }
-
-  /**
-   * Every Scryfall set's name, by its code; none when Scryfall can't list
-   * them, so a set list is headed by its codes rather than the Trophy Hall
-   * failing.
-   */
-  private async setNames(): Promise<Map<string, string>> {
-    try {
-      const sets = await this.sets.scryfallSets();
-      return new Map(sets.map((set) => [set.code, set.name]));
-    } catch (error) {
-      this.logger.warn(
-        `Naming the Trophy Hall's sets failed: ${String(error)}`,
-      );
-      return new Map();
-    }
-  }
 }
 
 /** The pool source as the Trophy Hall groups it. */
@@ -206,23 +178,4 @@ function groupedPoolSource(source: PoolSourceWithCubeId): GroupedPoolSource {
   return source.kind === 'cube'
     ? { kind: 'cube', cubeId: source.cube.id }
     : source;
-}
-
-/** The pool source as a group is headed by it, its sets named. */
-function headerOf(
-  source: PoolSourceWithCubeId,
-  setNames: Map<string, string>,
-): TrophyHallPoolSourceView {
-  if (source.kind !== 'set-list') return source;
-  const named = (code: string): NamedSetView => ({
-    code,
-    name: setNames.get(code) ?? code.toUpperCase(),
-  });
-  return {
-    kind: 'set-list',
-    setList: source.setList.map(({ code, sublists }) => ({
-      ...named(code),
-      sublists: sublists.map(named),
-    })),
-  };
 }

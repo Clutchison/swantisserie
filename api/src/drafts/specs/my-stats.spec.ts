@@ -1,5 +1,6 @@
 import type { MyStatsView } from 'contract';
 import request from 'supertest';
+import { OTJ_SETS } from '../../testing/scryfall-sets.js';
 import {
   alice,
   aliceCookie,
@@ -11,10 +12,12 @@ import {
   completeDraftWithBots,
   completeRound,
   completeTournament,
+  drawnFrom,
   dropPlayer,
   fullDeck,
   playingTournament,
   reportWin,
+  scryfall,
   seedsOf,
   setUpTournament,
   setWin,
@@ -116,6 +119,52 @@ describe('My stats', () => {
         trophy: true,
       },
     ]);
+  });
+
+  it('names a result’s sets, and gives its cube’s name and link, as the Trophy Hall does', async () => {
+    scryfall.sets.mockResolvedValue(OTJ_SETS);
+    const sets = await playingTournament([aliceCookie, bobCookie]);
+    await drawnFrom(sets, { setList: [{ code: 'otj', sublists: ['big'] }] });
+    await completeTournament(sets).expect(200);
+    const cube = await playingTournament([aliceCookie, bobCookie]);
+    await drawnFrom(cube, { cube: { id: 'vintage', name: 'Vintage Cube' } });
+    await completeTournament(cube).expect(200);
+
+    const { results } = await myStats();
+
+    expect(results.map((result) => result.poolSource)).toEqual([
+      {
+        kind: 'cube',
+        cube: {
+          name: 'Vintage Cube',
+          url: 'https://cubecobra.com/cube/overview/vintage',
+        },
+      },
+      {
+        kind: 'set-list',
+        setList: [
+          {
+            code: 'otj',
+            name: 'Outlaws of Thunder Junction',
+            sublists: [{ code: 'big', name: 'The Big Score' }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('names a set by its code when Scryfall can’t name it', async () => {
+    scryfall.sets.mockRejectedValue(new Error('Scryfall is down'));
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    await drawnFrom(id, { setList: [{ code: 'otj', sublists: [] }] });
+    await completeTournament(id).expect(200);
+
+    const [result] = (await myStats()).results;
+
+    expect(result.poolSource).toEqual({
+      kind: 'set-list',
+      setList: [{ code: 'otj', name: 'OTJ', sublists: [] }],
+    });
   });
 
   it('gives only the signed-in player’s own stats', async () => {

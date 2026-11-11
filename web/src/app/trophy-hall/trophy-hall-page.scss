@@ -1,15 +1,25 @@
 /* The trophy ranking floats beside the groups; on a phone it stacks above them. */
 .ranking {
   float: right;
-  display: grid;
-  grid-template-columns: auto auto auto;
-  justify-content: start;
-  gap: var(--space-xs) var(--space-sm);
   margin: 0 0 var(--space-md) var(--space-lg);
   padding: var(--space-sm) var(--space-md);
-  list-style: none;
   background: var(--color-surface);
   border-radius: 0.25rem;
+
+  h2 {
+    margin: 0 0 var(--space-xs);
+    font-size: var(--font-size-sm);
+  }
+
+  ol {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    gap: var(--space-xs) var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
 
   /* Each item stays a list item, its place, name and count in the list's columns. */
   li {

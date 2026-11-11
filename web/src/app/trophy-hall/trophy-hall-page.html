@@ -9,17 +9,20 @@
     @if (hall.value().groups.length === 0) {
       <p class="empty">Nobody has won a trophy yet.</p>
     } @else {
-      <ol class="ranking" aria-label="Trophy ranking">
-        @for (entry of hall.value().ranking; track entry.playerId) {
-          <!-- The spaces read the place, name and count apart; the subgrid leaves them out. -->
-          <li>
-            <span class="place">{{ place(entry.place) }}</span
-            >{{ ' ' }} <span class="name">{{ entry.name }}</span
-            >{{ ' ' }}
-            <span class="count">{{ entry.trophies }}&nbsp;🏆</span>
-          </li>
-        }
-      </ol>
+      <div class="ranking">
+        <h2 id="trophy-ranking">Trophy ranking</h2>
+        <ol aria-labelledby="trophy-ranking">
+          @for (entry of hall.value().ranking; track entry.playerId) {
+            <!-- The spaces read the place, name and count apart; the subgrid leaves them out. -->
+            <li>
+              <span class="place">{{ place(entry.place) }}</span
+              >{{ ' ' }} <span class="name">{{ entry.name }}</span
+              >{{ ' ' }}
+              <span class="count">{{ entry.trophies }}&nbsp;🏆</span>
+            </li>
+          }
+        </ol>
+      </div>
       @for (group of groups(); track $index) {
         @let heading = group.header.title;
         <section class="group" [attr.aria-labelledby]="'group-' + $index">

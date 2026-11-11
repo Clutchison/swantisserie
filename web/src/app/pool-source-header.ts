@@ -1,14 +1,14 @@
-import type { TrophyHallPoolSourceView } from 'contract';
-import { setsText } from '../drafts/drafts';
+import type { NamedPoolSourceView } from 'contract';
+import { setsText } from './drafts/drafts';
 
-/** What heads a Trophy Hall group, and the Tournament summary of each of its rows: its pool source's title, and where it links, if anywhere. */
+/** How a pool source shows on the Trophy Hall, in its Tournament summaries and on My stats: its title, and where it links, if anywhere. */
 export interface PoolSourceHeader {
   title: string;
   href: string | null;
 }
 
-/** A Trophy Hall pool source's header: its cube's name, linked to CubeCobra; its pool query, linked to Scryfall; or its sets' names. */
-export function poolSourceHeader(source: TrophyHallPoolSourceView): PoolSourceHeader {
+/** A pool source's header: its cube's name, linked to CubeCobra; its pool query, linked to Scryfall; or its sets' names. */
+export function poolSourceHeader(source: NamedPoolSourceView): PoolSourceHeader {
   switch (source.kind) {
     case 'cube':
       return { title: source.cube.name, href: source.cube.url };

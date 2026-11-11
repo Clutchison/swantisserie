@@ -1,5 +1,7 @@
 import type {
   CompleteRoundRequest,
+  Platform,
+  SetListEntryView,
   MatchReportRequest,
   MatchView,
   PlayerView,
@@ -292,6 +294,53 @@ export async function completedBeforeDecklistsWereKept(id: string) {
   await prisma.tournamentEntry.updateMany({
     where: { tournament: { draftId: id } },
     data: { decklist: Prisma.DbNull },
+  });
+}
+
+/** A pool source as a spec gives a draft one. */
+export type Source =
+  | { cube: { id: string; name: string } }
+  | { poolQuery: string }
+  | { setList: SetListEntryView[] };
+
+/**
+ * Gives the draft `id` the pool source `source` on `platform`, as if it
+ * had been created from them. A draft's pool source never changes once
+ * created, and the Trophy Hall reads only what is stored, so a spec sets it
+ * here rather than fake a cube or a set list's snapshot for each draft.
+ */
+export async function drawnFrom(
+  id: string,
+  source: Source,
+  platform: Platform = 'Arena',
+) {
+  const columns =
+    'cube' in source
+      ? {
+          poolSourceKind: 'Cube' as const,
+          poolQuery: null,
+          cubeId: source.cube.id,
+          cubeName: source.cube.name,
+          setList: Prisma.DbNull,
+        }
+      : 'poolQuery' in source
+        ? {
+            poolSourceKind: 'PoolQuery' as const,
+            poolQuery: source.poolQuery,
+            cubeId: null,
+            cubeName: null,
+            setList: Prisma.DbNull,
+          }
+        : {
+            poolSourceKind: 'SetList' as const,
+            poolQuery: null,
+            cubeId: null,
+            cubeName: null,
+            setList: source.setList as unknown as Prisma.InputJsonArray,
+          };
+  await app.get(PrismaService).draft.update({
+    where: { id },
+    data: { ...columns, platform },
   });
 }
 

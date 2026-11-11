@@ -1,26 +1,19 @@
-import type { PoolSourceView, TournamentView } from 'contract';
-import type { Tally, TournamentMatch } from 'engine';
+import type { TournamentView } from 'contract';
 import {
   POOL_SOURCE,
-  toPoolSourceView,
   toPoolSourceWithCubeId,
   type PoolSourceWithCubeId,
 } from '../drafts/pool-source.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import {
-  TOURNAMENT_VIEW,
-  toTournamentMatch,
-  toTournamentView,
-} from './tournament-view.js';
+import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
 /** A complete tournament as the tournament read sees it, with its draft. */
 export interface CompleteTournament {
   draftId: string;
   draft: {
     name: string;
-    poolSource: PoolSourceView;
-    /** Its pool source, a cube with its CubeCobra id, for the Trophy Hall. */
-    poolSourceWithCubeId: PoolSourceWithCubeId;
+    /** Its pool source, a cube with its CubeCobra id, which the Trophy Hall groups by. */
+    poolSource: PoolSourceWithCubeId;
   };
   view: TournamentView;
   /** Whether any bot played in it, as every bot of its draft does. */
@@ -50,8 +43,7 @@ export async function readCompleteTournaments(
     draftId: row.draftId,
     draft: {
       name: row.draft.name,
-      poolSource: toPoolSourceView(row.draft),
-      poolSourceWithCubeId: toPoolSourceWithCubeId(row.draft),
+      poolSource: toPoolSourceWithCubeId(row.draft),
     },
     view: toTournamentView(row),
     botsPlayed: row.entries.some((entry) => entry.player.user.isBot),
@@ -59,11 +51,24 @@ export async function readCompleteTournaments(
 }
 
 /**
+ * The complete tournaments the Trophy Hall and My stats count, newest
+ * first: every one but those a bot played in, which count nowhere, as bots
+ * exist for testing (ADR 0008). Cancelled tournaments are gone, so are
+ * never read.
+ */
+export async function readTournamentsThatCount(
+  prisma: PrismaService,
+): Promise<CompleteTournament[]> {
+  const complete = await readCompleteTournaments(prisma);
+  return newestFirst(complete.filter(({ botsPlayed }) => !botsPlayed));
+}
+
+/**
  * `tournaments`, given in the order they started, newest first: by when
  * they completed, then those completed before completion times were kept,
  * the latest started first.
  */
-export function newestFirst(
+function newestFirst(
   tournaments: readonly CompleteTournament[],
 ): CompleteTournament[] {
   return [...tournaments]
@@ -71,27 +76,4 @@ export function newestFirst(
     .sort((a, b) =>
       (b.view.completedAt ?? '').localeCompare(a.view.completedAt ?? ''),
     );
-}
-
-/** A complete tournament as the engine's functions over complete tournaments read it. */
-export interface EngineTournament {
-  /** Everyone who joined it. */
-  players: string[];
-  /** Its final standings, each player's rank and record. */
-  standings: { playerId: string; rank: number; matches: Tally }[];
-  /** Its matches, byes left out. */
-  matches: TournamentMatch[];
-  trophyHolders: string[];
-}
-
-/** The complete tournament `view` as the engine reads it: its players, final standings, matches without its byes, and trophy holders. */
-export function toEngineTournament(view: TournamentView): EngineTournament {
-  return {
-    players: view.entries.map((entry) => entry.playerId),
-    standings: view.standings,
-    matches: view.rounds
-      .flatMap((round) => round.matches)
-      .map(toTournamentMatch),
-    trophyHolders: view.trophyHolders,
-  };
 }
