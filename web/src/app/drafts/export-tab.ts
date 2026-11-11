@@ -11,7 +11,7 @@ import { LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
 import { CardName } from './card-name';
 import { DraftStore } from './draft-store';
-import type { ExportPlan } from './export-plan';
+import { planBoardCount, type ExportPlan } from './export-plan';
 import { moxfieldExport } from './moxfield-export';
 import { mtgoExport } from './mtgo-export';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -97,9 +97,13 @@ export class ExportTab implements OnDestroy {
 
   /** For the warning's text. */
   protected readonly arenaSideboardCap = ARENA_SIDEBOARD_CAP;
+  /** How many cards the exported sideboard holds, its basics included. */
+  protected readonly sideboardCount = computed(() =>
+    planBoardCount(this.exportPlan(), 'Sideboard'),
+  );
   /** Whether Arena's import may cut the exported sideboard short. */
   protected readonly sideboardOverArenaCap = computed(
-    () => this.platform() === 'Arena' && this.exportPlan().sideboard.length > ARENA_SIDEBOARD_CAP,
+    () => this.platform() === 'Arena' && this.sideboardCount() > ARENA_SIDEBOARD_CAP,
   );
 
   /** In the order their buttons show. */

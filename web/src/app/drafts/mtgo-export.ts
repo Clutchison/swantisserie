@@ -8,11 +8,13 @@ export type MtgoExportCard = Pick<PoolCardView, 'name' | 'layout' | 'typeLine'>;
 /**
  * The plan in MTGO's deck import format, with no header: the mainboard's
  * `1 Card Name` lines, with copies of a card on one line, as `2 Card Name`,
- * and its basics. A sideboard follows after a blank line, unless it's empty.
+ * and its basics. A sideboard follows after a blank line, with its basics,
+ * unless it's empty.
  */
-export function mtgoExport({ mainboard, sideboard, basics }: ExportPlan<MtgoExportCard>): string {
-  const lines = planBoardLines(mainboard.map(mtgoName), basics);
-  if (sideboard.length > 0) lines.push('', ...planBoardLines(sideboard.map(mtgoName)));
+export function mtgoExport(plan: ExportPlan<MtgoExportCard>): string {
+  const lines = planBoardLines(plan, 'Mainboard', mtgoName);
+  const sideboardLines = planBoardLines(plan, 'Sideboard', mtgoName);
+  if (sideboardLines.length > 0) lines.push('', ...sideboardLines);
   return lines.join('\n');
 }
 
