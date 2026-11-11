@@ -9,12 +9,12 @@ export type ArenaExportCard = Pick<PoolCardView, 'name' | 'layout'>;
  * The plan in Arena's import format: a `Deck` header, then the mainboard's
  * `1 Card Name` lines, with copies of a card on one line, as `2 Card Name`,
  * and its basics. A sideboard follows after a blank line, under a
- * `Sideboard` header, unless it's empty.
+ * `Sideboard` header, with its basics, unless it's empty.
  */
-export function arenaExport({ mainboard, sideboard, basics }: ExportPlan<ArenaExportCard>): string {
-  const lines = ['Deck', ...planBoardLines(mainboard.map(arenaName), basics)];
-  if (sideboard.length > 0)
-    lines.push('', 'Sideboard', ...planBoardLines(sideboard.map(arenaName)));
+export function arenaExport(plan: ExportPlan<ArenaExportCard>): string {
+  const lines = ['Deck', ...planBoardLines(plan, 'Mainboard', arenaName)];
+  const sideboard = planBoardLines(plan, 'Sideboard', arenaName);
+  if (sideboard.length > 0) lines.push('', 'Sideboard', ...sideboard);
   return lines.join('\n');
 }
 

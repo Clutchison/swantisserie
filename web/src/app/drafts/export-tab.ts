@@ -97,9 +97,17 @@ export class ExportTab implements OnDestroy {
 
   /** For the warning's text. */
   protected readonly arenaSideboardCap = ARENA_SIDEBOARD_CAP;
+  /** How many cards the exported sideboard holds, its basics included. */
+  protected readonly sideboardCount = computed(() => {
+    const { sideboard, basics } = this.exportPlan();
+    return basics.reduce(
+      (total, { board, count }) => (board === 'Sideboard' ? total + count : total),
+      sideboard.length,
+    );
+  });
   /** Whether Arena's import may cut the exported sideboard short. */
   protected readonly sideboardOverArenaCap = computed(
-    () => this.platform() === 'Arena' && this.exportPlan().sideboard.length > ARENA_SIDEBOARD_CAP,
+    () => this.platform() === 'Arena' && this.sideboardCount() > ARENA_SIDEBOARD_CAP,
   );
 
   /** In the order their buttons show. */

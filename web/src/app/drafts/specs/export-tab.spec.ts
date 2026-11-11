@@ -306,8 +306,8 @@ describe('export tab', () => {
         imaPick(7, alice.id, 'shock-card-2', 'Shock'),
       ];
       /**
-       * Bolt and a Shock on the mainboard with basics, Opt and the other Shock
-       * on the sideboard, and an unpicked card on each. Its player prefers
+       * Bolt and a Shock on the mainboard with basics, Opt, the other Shock
+       * and two Plains on the sideboard, and an unpicked card on each. Its player prefers
        * Kaldheim's Island #395, which no export names.
        */
       const plan: PlanView = {
@@ -324,6 +324,7 @@ describe('export tab', () => {
         basics: [
           { land: 'Island', board: 'Mainboard', count: 8 },
           { land: 'Mountain', board: 'Mainboard', count: 7 },
+          { land: 'Plains', board: 'Sideboard', count: 2 },
         ],
         lost: [],
         readyNotice: false,
@@ -347,27 +348,27 @@ describe('export tab', () => {
       const openPlanExport = (fields: DraftFixture = {}, yours = plan) =>
         openExport(yourPicks, fields, { plan: yours });
 
-      it('copies it for Arena: the mainboard and its basics, then the sideboard, without unpicked cards', async () => {
+      it('copies it for Arena: the mainboard and its basics, then the sideboard and its basics, without unpicked cards', async () => {
         const opened = await openPlanExport();
 
         expect(await copyFor(opened)).toBe(
-          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock',
+          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock\n2 Plains',
         );
       });
 
-      it('copies it for MTGO: the mainboard and its basics, a blank line, then the sideboard', async () => {
+      it('copies it for MTGO: the mainboard and its basics, a blank line, then the sideboard and its basics', async () => {
         const opened = await openPlanExport({ platform: 'MTGO' });
 
         expect(await copyFor(opened, 'MTGO')).toBe(
-          '1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\n1 Opt\n1 Shock',
+          '1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\n1 Opt\n1 Shock\n2 Plains',
         );
       });
 
-      it('copies it for Moxfield: the mainboard and its basics, then the sideboard', async () => {
+      it('copies it for Moxfield: the mainboard and its basics, then the sideboard and its basics', async () => {
         const opened = await openPlanExport();
 
         expect(await copyFor(opened, 'Moxfield')).toBe(
-          '1 Shock (IMA) 1\n1 Lightning Bolt (IMA) 1\n8 Island\n7 Mountain\n\nSIDEBOARD:\n1 Opt (IMA) 1\n1 Shock (IMA) 1',
+          '1 Shock (IMA) 1\n1 Lightning Bolt (IMA) 1\n8 Island\n7 Mountain\n\nSIDEBOARD:\n1 Opt (IMA) 1\n1 Shock (IMA) 1\n2 Plains',
         );
       });
 
@@ -380,7 +381,7 @@ describe('export tab', () => {
         const opened = await openPlanExport({ state: 'Complete', turn: null }, deck);
 
         expect(await copyFor(opened)).toBe(
-          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock',
+          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock\n2 Plains',
         );
       });
 
@@ -398,7 +399,7 @@ describe('export tab', () => {
         expect(text(tabPanel(opened.page, 'Deck'))).toContain('Your deck is locked');
 
         expect(await copyFor(opened)).toBe(
-          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock',
+          'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock\n2 Plains',
         );
       });
 
@@ -489,6 +490,17 @@ describe('export tab', () => {
           );
           const copied = (await copyFor(opened))!.split('\n');
           expect(copied.slice(copied.indexOf('Sideboard') + 1)).toHaveLength(16);
+        });
+
+        it('counts the sideboard’s basics toward Arena’s 15', async () => {
+          const { sideboardPicks, yours } = sideboardOf(14);
+          const { page } = await openExport(
+            sideboardPicks,
+            {},
+            { plan: { ...yours, basics: [{ land: 'Island', board: 'Sideboard', count: 2 }] } },
+          );
+
+          expect(warning(page)?.textContent).toContain('Your sideboard has 16 cards.');
         });
 
         it('doesn’t warn at 15', async () => {
