@@ -118,6 +118,21 @@ export class PlansController {
     return this.change(user, id, () => this.plans.clearBasics(id, user.id));
   }
 
+  /** Takes one copy of a basic land off a plan board. Declared before `:poolCardId`, which would match it. */
+  @Delete('basics/:land/:board')
+  async removeBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+    @Param('board') board: string,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    const from = parseBoard({ board });
+    return this.change(user, id, () =>
+      this.plans.removeBasic(id, user.id, basic, from),
+    );
+  }
+
   /** Takes an unpicked card out of the plan. Declared after `notice`, `ready-notice` and `basics`, which it would match. */
   @Delete(':poolCardId')
   async remove(

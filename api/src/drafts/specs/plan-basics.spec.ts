@@ -18,7 +18,14 @@ import {
   getDraft,
   fourCards,
   putBasicsOnSideboard,
+  removeBasic,
 } from './harness.js';
+import {
+  inRegistration,
+  markReady,
+  playingTournament,
+  tournament,
+} from './tournament-harness.js';
 
 useDraftsApp();
 
@@ -215,5 +222,112 @@ describe('basic lands in a plan', () => {
     await setBasic(id, 'Plains', 1, carolCookie).expect(403);
     await clearBasics(id, carolCookie).expect(403);
     await setBasic('no-such-draft', 'Plains', 1, carolCookie).expect(404);
+  });
+});
+
+describe('taking a basic land’s copy out of the plan', () => {
+  let carolCookie: string;
+
+  beforeEach(async () => {
+    carolCookie = await signIn(carol);
+  });
+
+  it('takes one copy off the named plan board, leaving the other plan board alone', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    await setBasic(id, 'Island', 2, carolCookie).expect(200);
+    await putBasicsOnSideboard(id, carol.id, 'Island', 1);
+
+    const fromMainboard = await removeBasic(
+      id,
+      'Island',
+      'Mainboard',
+      carolCookie,
+    ).expect(200);
+    expect(fromMainboard.body.basics).toEqual([
+      { land: 'Island', board: 'Mainboard', count: 1 },
+      { land: 'Island', board: 'Sideboard', count: 1 },
+    ]);
+
+    await removeBasic(id, 'Island', 'Sideboard', carolCookie).expect(200);
+    const last = await removeBasic(
+      id,
+      'Island',
+      'Mainboard',
+      carolCookie,
+    ).expect(200);
+    expect(last.body.basics).toEqual([]);
+  });
+
+  it('refuses a plan board that holds no copy of the land, changing nothing', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    await setBasic(id, 'Island', 2, carolCookie).expect(200);
+    const before = (await plan(id, carolCookie).expect(200)).body;
+
+    const refused = await removeBasic(id, 'Island', 'Sideboard', carolCookie);
+
+    expect(refused.status).toBe(409);
+    expect(refused.body).toEqual({
+      error: 'not-in-plan',
+      message: 'Your sideboard holds no Island.',
+    });
+    const forest = await removeBasic(id, 'Forest', 'Mainboard', carolCookie);
+    expect(forest.status).toBe(409);
+    expect(forest.body).toEqual({
+      error: 'not-in-plan',
+      message: 'Your mainboard holds no Forest.',
+    });
+    expect((await plan(id, carolCookie).expect(200)).body).toEqual(before);
+  });
+
+  it('refuses a land that isn’t basic, or a plan board that isn’t one', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    await setBasic(id, 'Plains', 1, carolCookie).expect(200);
+
+    const wastes = await removeBasic(id, 'Wastes', 'Mainboard', carolCookie);
+    expect(wastes.status).toBe(400);
+    expect(wastes.body).toEqual({
+      error: 'invalid',
+      message: 'Choose a basic land.',
+    });
+    const board = await removeBasic(id, 'Plains', 'mainboard', carolCookie);
+    expect(board.status).toBe(400);
+    expect(board.body).toEqual({
+      error: 'invalid',
+      message: 'Choose the mainboard or the sideboard.',
+    });
+  });
+
+  it('clears a ready player’s ready and raises the Ready notice when their mainboard drops below 40', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    await markReady(id, bobCookie).expect(200);
+
+    const answer = await removeBasic(
+      id,
+      'Mountain',
+      'Mainboard',
+      bobCookie,
+    ).expect(200);
+
+    expect(answer.body.readyNotice).toBe(true);
+    const entries = (await tournament(id).expect(200)).body.entries as {
+      playerId: string;
+      ready: boolean;
+    }[];
+    expect(entries.find((entry) => entry.playerId === bob.id)?.ready).toBe(
+      false,
+    );
+  });
+
+  it('refuses on a locked deck, changing nothing', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    const before = (await plan(id, bobCookie).expect(200)).body;
+
+    const refused = await removeBasic(id, 'Mountain', 'Mainboard', bobCookie);
+
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toBe('deck-locked');
+    expect((await plan(id, bobCookie).expect(200)).body).toEqual(before);
   });
 });

@@ -674,6 +674,16 @@ export function setBasic(
   return draftsRequest('put', `/${id}/plan/basics/${land}`, cookie, { count });
 }
 
+/** Takes one copy of a basic land off a plan board of the player's plan. */
+export function removeBasic(
+  id: string,
+  land: string,
+  board: string,
+  cookie: string,
+) {
+  return draftsRequest('delete', `/${id}/plan/basics/${land}/${board}`, cookie);
+}
+
 /** Takes every basic land out of the player's plan. */
 export function clearBasics(id: string, cookie: string) {
   return draftsRequest('delete', `/${id}/plan/basics`, cookie);
