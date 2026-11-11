@@ -1,6 +1,6 @@
 # Build decks in the app, as each player's private plan
 
-Status: Amended by 0005, 0011 and 0017
+Status: Amended by 0005, 0011, 0017 and 0018
 
 The project plan left deckbuilding out of v1 because decks are built in Arena, MTGO or Moxfield. We now build them in the app instead (#171). Each player has a private **plan** for each draft: a mainboard and a sideboard holding every pick they've made, plus any unpicked pool cards and basic lands they add. Every pick lands on the mainboard, the exports come from the plan, and the unpicked cards can be sent to the queue. A roto draft runs for weeks, and a player needs to see what deck their picks add up to while they are still picking, not only once the draft is over.
 

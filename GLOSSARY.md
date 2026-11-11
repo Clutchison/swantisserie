@@ -87,7 +87,7 @@ One copy of a card in a pool, with the printing on the platform that the snapsho
 _Avoid_: Card entry, catalog card
 
 **Card preview**:
-A view-only image of a pool card that appears next to its name when a viewer hovers over, taps or tabs to the name, or next to its card on the Pool tab or in stacks mode when a viewer rests the mouse on the card. Escape closes it. On the Plan tab, tapping a name opens its Card detail instead.
+A view-only image of a pool card that appears next to its name when a viewer hovers over, taps or tabs to the name, or next to its card on the Pool tab or in stacks mode when a viewer rests the mouse on the card. Escape closes it. On the Deck tab, tapping a name opens its Card detail instead.
 _Avoid_: Tooltip, hover card
 
 **Mana cost**:
@@ -95,7 +95,7 @@ The mana symbols shown before a pool card's name wherever the name has a Card pr
 _Avoid_: Casting cost, mana value (that is the cost's total)
 
 **Card detail**:
-The view of a pool card that opens from the Pool tab or the Plan tab, showing its large image and the actions a viewer can take on it.
+The view of a pool card that opens from the Pool tab or the Deck tab, showing its large image and the actions a viewer can take on it.
 _Avoid_: Card modal, card popup
 
 **Horizontal card**:
@@ -179,11 +179,11 @@ A run of queued picks that fire one after another because each next player also 
 _Avoid_: Chain, auto-run
 
 **Lost**:
-Describes a queued card, or an unpicked card in a plan, that another player picked first when no other copy of it was available for that queue or plan: every copy left was picked or already in it.
+Describes a queued card, or an unpicked card in a deck, that another player picked first when no other copy of it was available for that queue or deck: every copy left was picked or already in it.
 _Avoid_: Sniped, taken, removed (that is the player taking a card out by hand)
 
 **Copy rule**:
-What happens when another player picks a queued card, or an unpicked card in a plan: the queue or plan holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none.
+What happens when another player picks a queued card, or an unpicked card in a deck: the queue or deck holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none.
 _Avoid_: Swap rule, substitution
 
 **Cleared**:
@@ -215,53 +215,53 @@ The note on the Queue tab naming a player's lost and cleared cards, and saying w
 _Avoid_: Alert, warning, notification
 
 **Undo**:
-The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue, a lost card, and a cleared queue, any unpicked card it took out of a plan goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
+The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue, a lost card, and a cleared queue, any unpicked card it took out of a deck goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
-A player's plan, without its unpicked cards, as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
+A player's deck, without its unpicked cards, as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
 _Avoid_: Decklist, Arena import (that is what the player does with it)
 
 **MTGO export**:
-A player's plan, without its unpicked cards, as text that Magic Online's deck import accepts, each card named the way MTGO names it. Only MTGO drafts offer it.
+A player's deck, without its unpicked cards, as text that Magic Online's deck import accepts, each card named the way MTGO names it. Only MTGO drafts offer it.
 _Avoid_: Decklist, MTGO import (that is what the player does with it)
 
 **Moxfield export**:
-A player's plan, without its unpicked cards, as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
+A player's deck, without its unpicked cards, as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
 _Avoid_: Decklist, Moxfield import (that is what the player does with it)
 
-## Plan
+## Deck
 
-**Plan**:
-A player's private mainboard and sideboard for one draft. It holds every pick they made, plus any unpicked pool cards and basic lands they add.
-_Avoid_: Deck (before its draft is complete), Deck Planner, deck plan, decklist, maybeboard
+**Deck**:
+A player's private mainboard and sideboard for one draft, from its start. It holds every pick they made, plus any basic lands and, until the draft completes, any unpicked pool cards they add: completing the draft takes every unpicked card out.
+_Avoid_: Plan, Deck Planner, deck plan, decklist (that is a deck as others see it), list, maybeboard
 
 **Mainboard**:
-The part of a player's plan they intend to play. Each new pick lands in it.
+The part of a player's deck they intend to play. Each new pick lands in it.
 _Avoid_: Main deck, maindeck, board (alone)
 
 **Sideboard**:
-The part of a player's plan holding cards they don't intend to play.
+The part of a player's deck holding cards they don't intend to play.
 _Avoid_: Maybeboard, bench, board (alone)
 
 **Unpicked card**:
-A pool card in a player's plan that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, another player picks it when no other copy is available for the plan, or the draft completes.
+A pool card in a player's deck that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, another player picks it when no other copy is available for the deck, or the draft completes.
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
 **Queue order**:
-The order a player's plan remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the plan's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the plan loses its place.
+The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck loses its place.
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:
-A Plains, Island, Swamp, Mountain or Forest in a player's plan, added one copy at a time onto the mainboard. Like any card, a copy moves between the plan boards, and the player can take it out of their plan. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked. Neither a snow-covered basic nor Wastes is one: each can be a pool card.
+A Plains, Island, Swamp, Mountain or Forest in a player's deck, added one copy at a time onto the mainboard. Like any card, a copy moves between the deck boards, and the player can take it out of their deck. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked. Neither a snow-covered basic nor Wastes is one: each can be a pool card.
 _Avoid_: Land (alone; a pool card can be a land), free land
 
 **Basic land printing**:
-The printing whose art a basic land shows, wherever it appears in a plan, a deck or a decklist: any English printing of that land with a single-faced image, digital-only ones included. Every copy of a basic land in one shows the same one. It changes only how the land looks, never an export, and is not part of what a deck's lock fixes.
+The printing whose art a basic land shows, wherever it appears in a deck or a decklist: any English printing of that land with a single-faced image, digital-only ones included. Every copy of a basic land in one shows the same one. It changes only how the land looks, never an export, and is not part of what a deck's lock fixes.
 _Avoid_: Basic land art, land skin
 
 **Preferred printing**:
-The basic land printing a player chose for one basic land. It applies to their plans and decks in every draft, whatever the platform, and to their decklists, so everyone who sees a decklist sees it, and sees any later change to it. Without one, a basic land shows its default printing.
+The basic land printing a player chose for one basic land. It applies to their decks in every draft, whatever the platform, and to their decklists, so everyone who sees a decklist sees it, and sees any later change to it. Without one, a basic land shows its default printing.
 _Avoid_: Land preference, favourite art
 
 **Default printing**:
@@ -269,44 +269,40 @@ The basic land printing a basic land shows to a player with no preferred printin
 _Avoid_: Stock art
 
 **Printing picker**:
-The view that opens from a basic land in a player's own plan or deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked plan or deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release, never before.
+The view that opens from a basic land in a player's own deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release, never before.
 _Avoid_: Art picker, Card detail (that is a pool card's)
 
-**Plan board**:
-Either part of a player's plan: the mainboard or the sideboard. A card in a plan is on exactly one.
-_Avoid_: Board (alone; that is the Board tab), zone, section
-
-**Plan tab**:
-The part of a draft's page where a player builds their plan. Once the draft is complete it is the Deck tab.
-_Avoid_: Deck tab (before the draft is complete), deckbuilder, Deck Planner
-
-**Deck**:
-A player's plan once their draft is complete. It holds only their picks and basic lands: completing the draft takes every unpicked card out.
-_Avoid_: Plan (once the draft is complete), decklist (that is a deck as others see it), list
+**Deck board**:
+Either part of a player's deck: the mainboard or the sideboard. A card in a deck is on exactly one.
+_Avoid_: Plan board, board (alone; that is the Board tab), zone, section
 
 **Deck tab**:
-The Plan tab of a complete draft, where a player builds their deck.
-_Avoid_: Plan tab (once the draft is complete), deckbuilder
+The part of a draft's page where a player builds their deck and copies its exports, from the draft's start to long after it completes.
+_Avoid_: Plan tab, Export tab, deckbuilder, Deck Planner
 
-**Plan notice**:
-The note on the Plan tab naming a player's lost unpicked cards and who picked each. It builds up until the player dismisses it, and an undo takes off what that pick added.
-_Avoid_: Deck notice, alert, queue notice (that is the queue's)
+**Deck notice**:
+The note on the Deck tab naming a player's lost unpicked cards and who picked each. It builds up until the player dismisses it, and an undo takes off what that pick added.
+_Avoid_: Plan notice, alert, queue notice (that is the queue's)
 
 **Stacks mode**:
-The way of showing a plan as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, then the sideboard as one stack, in one row.
+The way of showing a deck as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, then the sideboard as one stack, in one row.
 _Avoid_: Card view, grid view, visual mode, curve view
 
 **List mode**:
-The way of showing each plan board as lines of card names with counts.
+The way of showing each deck board as lines of card names with counts.
 _Avoid_: Text mode, compact view
 
 **Stack**:
-One column of stacks mode. On the mainboard, it holds the cards that share a grouping's value, sorted by mana value then name. The sideboard is always one stack, whatever the grouping: its cards sorted by mana value then name, with lands last.
+One column of stacks mode. On the mainboard, it holds the cards that share a grouping's value, unless a stack move put them elsewhere, sorted by mana value then name. The sideboard is always one stack, whatever the grouping: its cards sorted by mana value then name, with lands last.
 _Avoid_: Column, pile
 
 **Grouping**:
 How stacks mode divides the mainboard into stacks: by mana value, by color or by card type. Under mana value and color, lands have a stack of their own; under card type, a card with several types goes in the first that applies, and one with none of the listed types goes under Other.
 _Avoid_: Sort, filter, view
+
+**Stack move**:
+A player putting a mainboard card into another of its stacks, or into a new stack of their own between two, to plan their curve as they count it, such as a 7-drop they mean to play as a 2-drop. It changes nothing in the deck, nothing anyone else sees and no export, and lasts only until they change the grouping or leave the page: switching tabs, switching to list mode or narrowing the window keeps it. A card that leaves the mainboard loses it.
+_Avoid_: Reorder, column move, override
 
 **Stack headers**:
 The row heading each of the mainboard's stacks, then the sideboard's, each showing only the stack's label (a mana symbol, a type letter or short text), shown above the stacks where there isn't room for them all, and marking the stack the player has scrolled to. Tapping a stack header goes to its stack.
@@ -315,10 +311,6 @@ _Avoid_: Chips, header row, stack tabs, jump bar
 **Type letter**:
 A stylized capital letter standing for a card type, or for Other, as its stack's label.
 _Avoid_: Type icon, type badge, type symbol
-
-**Export tab**:
-The part of a draft's page where a player reviews their picks and copies their exports.
-_Avoid_: Me tab, Picks tab, picks page
 
 ## Draft lifecycle
 
@@ -351,7 +343,7 @@ The organizer loading picks made outside the app into a draft in the lobby, whic
 _Avoid_: Upload, sheet sync, import (alone)
 
 **Cancel**:
-The organizer permanently removing a draft that is still in the lobby, with its pool, players, queues and plans. It can't be undone, and a started draft can't be cancelled.
+The organizer permanently removing a draft that is still in the lobby, with its pool, players, queues and decks. It can't be undone, and a started draft can't be cancelled.
 _Avoid_: Delete, abort
 
 **Active draft**:
