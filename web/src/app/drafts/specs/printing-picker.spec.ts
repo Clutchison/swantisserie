@@ -48,6 +48,7 @@ import {
   defaultPrintings,
   openPlan,
   planned,
+  planBoards,
   printingsRequest,
 } from './plan-tab-harness';
 import { playing, withTournament } from './play-tab-harness';
@@ -234,6 +235,26 @@ describe('the Printing picker', () => {
 
     expect(openDialog()).toBeNull();
     expect(islandImages(plan)).toEqual([image('normal', defaultPrintings.Island.id)]);
+  });
+
+  it('takes a sideboard copy off the sideboard with Remove', async () => {
+    const { fixture, plan } = await openWith(
+      withIslands({ basics: [{ land: 'Island', board: 'Sideboard', count: 2 }] }),
+    );
+    button(plan, 'List')!.click();
+    await fixture.whenStable();
+    [...plan.querySelectorAll<HTMLElement>('li .name')].find((n) => text(n) === 'Island')!.click();
+    (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
+    await fixture.whenStable();
+
+    button(openDialog()!, 'Remove')!.click();
+    const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Island/Sideboard');
+    expect(removed.request.method).toBe('DELETE');
+    removed.flush(withIslands({ basics: [{ land: 'Island', board: 'Sideboard', count: 1 }] }));
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    expect(planBoards(plan)[1]).toEqual({ heading: 'Sideboard 1 (1 picked)', lines: ['1 Island'] });
   });
 
   it('stays open with the reason when Remove is refused, showing the plan as it now is', async () => {

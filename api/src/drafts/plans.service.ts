@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   BASIC_LANDS,
   PLAN_BOARDS,
+  otherPlanBoard,
   type BasicLand,
   type PlanBoard,
   type PlanBoards,
@@ -227,9 +228,31 @@ export class PlansService {
   }
 
   /**
+   * Moves one copy of the basic land `land` in the user's plan to `board`,
+   * taking it from the other plan board. Throws PlanRefusedError
+   * (`not-in-plan`) if the other plan board holds none, and NotAPlayerError
+   * if the user isn't in the draft.
+   */
+  async moveBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    board: PlanBoard,
+  ): Promise<PlanChange> {
+    return this.change(draftId, userId, async (tx, playerId) => {
+      await takeOneBasic(tx, playerId, land, otherPlanBoard(board));
+      await tx.plannedBasic.upsert({
+        where: { playerId_land_board: { playerId, land, board } },
+        create: { playerId, land, board, count: 1 },
+        update: { count: { increment: 1 } },
+      });
+    });
+  }
+
+  /**
    * Takes one copy of the basic land `land` off the user's plan board
-   * `board`. Throws PlanRefusedError if that plan board holds none, and
-   * NotAPlayerError if the user isn't in the draft.
+   * `board`. Throws PlanRefusedError (`not-in-plan`) if that plan board
+   * holds none, and NotAPlayerError if the user isn't in the draft.
    */
   async removeBasic(
     draftId: string,
@@ -237,23 +260,9 @@ export class PlansService {
     land: BasicLand,
     board: PlanBoard,
   ): Promise<PlanChange> {
-    return this.change(draftId, userId, async (tx, playerId) => {
-      const where = { playerId_land_board: { playerId, land, board } };
-      const planned = await tx.plannedBasic.findUnique({ where });
-      if (!planned) {
-        throw new PlanRefusedError({
-          error: 'not-in-plan',
-          message: `Your ${board.toLowerCase()} holds no ${land}.`,
-        });
-      }
-      if (planned.count === 1) await tx.plannedBasic.delete({ where });
-      else {
-        await tx.plannedBasic.update({
-          where,
-          data: { count: { decrement: 1 } },
-        });
-      }
-    });
+    return this.change(draftId, userId, (tx, playerId) =>
+      takeOneBasic(tx, playerId, land, board),
+    );
   }
 
   /**
@@ -429,4 +438,35 @@ function notInPlan() {
     error: 'not-in-plan',
     message: 'That card isn’t in your plan.',
   });
+}
+
+/**
+ * Takes one copy of the basic land `land` off the player's plan board
+ * `board`, throwing PlanRefusedError (`not-in-plan`) if it holds none.
+ */
+async function takeOneBasic(
+  tx: Transaction,
+  playerId: string,
+  land: BasicLand,
+  board: PlanBoard,
+) {
+  const where = { playerId_land_board: { playerId, land, board } };
+  const planned = await tx.plannedBasic.findUnique({
+    where,
+    select: { count: true },
+  });
+  if (!planned) {
+    throw new PlanRefusedError({
+      error: 'not-in-plan',
+      message: `Your ${board.toLowerCase()} holds no ${land}.`,
+    });
+  }
+  if (planned.count === 1) {
+    await tx.plannedBasic.delete({ where });
+  } else {
+    await tx.plannedBasic.update({
+      where,
+      data: { count: { decrement: 1 } },
+    });
+  }
 }
