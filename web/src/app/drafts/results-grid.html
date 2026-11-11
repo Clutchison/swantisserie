@@ -7,12 +7,33 @@
       <tr>
         <th scope="col" class="rank"><abbr title="Rank">#</abbr></th>
         <th scope="col" class="player">Player</th>
+        <!-- Each opponent by their avatar, or their rank once it fails; named and titled by their full name. -->
         @for (column of columns(); track column.id) {
-          <th scope="col" class="opponent">{{ column.name }}</th>
+          <th scope="col" class="opponent" [attr.aria-label]="column.name" [title]="column.name">
+            @if (column.avatarUrl && !failedAvatars().has(column.avatarUrl)) {
+              <img
+                class="avatar"
+                [src]="column.avatarUrl"
+                alt=""
+                width="28"
+                height="28"
+                (error)="avatarFailed(column.avatarUrl)"
+              />
+            } @else {
+              {{ column.rank }}
+            }
+          </th>
         }
-        <th scope="col">Match points</th>
-        <th scope="col"><abbr title="Matches won, lost and drawn">W–L–D</abbr></th>
-        <th scope="col">Game-win %</th>
+        <!-- Abbreviated to fit the even columns, so each header is named in full. -->
+        <th scope="col" class="stat" aria-label="Match points">
+          <abbr title="Match points">MP</abbr>
+        </th>
+        <th scope="col" class="stat" aria-label="Matches won, lost and drawn">
+          <abbr title="Matches won, lost and drawn">W–L–D</abbr>
+        </th>
+        <th scope="col" class="stat" aria-label="Game-win %">
+          <abbr title="Game-win %">GW%</abbr>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -38,9 +59,9 @@
               }
             </td>
           }
-          <td>{{ row.matchPoints }}</td>
-          <td>{{ row.record }}</td>
-          <td>{{ row.gameWinPercent }}</td>
+          <td class="stat">{{ row.matchPoints }}</td>
+          <td class="stat">{{ row.record }}</td>
+          <td class="stat">{{ row.gameWinPercent }}</td>
         </tr>
       }
     </tbody>
@@ -48,5 +69,5 @@
 </div>
 <p id="results-grid-key" class="detail">
   Each cell is the row player’s result: their game score, ? until confirmed, F a forfeit, W a win by
-  forfeit, D a granted draw.
+  forfeit, D a granted draw. MP match points, W–L–D matches won, lost and drawn, GW% game-win %.
 </p>

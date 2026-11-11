@@ -16,6 +16,8 @@
 
 .grid {
   --rank-width: 2.5rem;
+  /* Every opponent and stat column, whatever the names: fits "12–3–1", "2–1?", an avatar and a 44px cell button. A rarer, wider value overflows rather than resize its column. */
+  --even-width: 4.5rem;
 
   border-collapse: separate;
   border-spacing: 0;
@@ -51,9 +53,21 @@
     border-right: 1px solid var(--color-divider);
   }
 
-  .result {
+  .opponent,
+  .result,
+  .stat {
+    box-sizing: border-box;
+    width: var(--even-width);
+    min-width: var(--even-width);
+    max-width: var(--even-width);
+    padding-inline: var(--space-xs);
     text-align: center;
-    min-width: 2.75rem;
+  }
+
+  .avatar {
+    display: block;
+    margin-inline: auto;
+    border-radius: 50%;
   }
 }
 

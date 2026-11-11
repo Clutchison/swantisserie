@@ -52,7 +52,12 @@ export const complete = drafting({ state: 'Complete', turn: null });
 export const dave: UserView = { ...alice, id: 'dave', name: 'Dave' };
 
 /** Carol, a third player, in drafts that list her. */
-export const carol: PlayerView = { ...bob, id: 'carol', name: 'Carol' };
+export const carol: PlayerView = {
+  ...bob,
+  id: 'carol',
+  name: 'Carol',
+  avatarUrl: 'https://cdn.discordapp.com/embed/avatars/2.png',
+};
 
 /** A player of drafts of more than three, by `name`, which also gives their id. */
 export const player = (name: string): PlayerView => ({ ...bob, id: name.toLowerCase(), name });
@@ -582,8 +587,32 @@ export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(roo
 export const resultsGrid = (root: HTMLElement) =>
   region(root, 'Results grid')?.querySelector<HTMLElement>('table, [role="table"]') ?? null;
 
-/** The results grid's column headers inside `root`, each spelled out where it is abbreviated. */
-export const gridColumns = (root: HTMLElement) => tableColumns(resultsGrid(root)!);
+/** The results grid's column headers inside `root`. */
+const gridHeaders = (root: HTMLElement) => [
+  ...resultsGrid(root)!.querySelectorAll<HTMLElement>('th[scope="col"], [role="columnheader"]'),
+];
+
+/**
+ * The results grid's column headers inside `root`, each spelled out where
+ * it is abbreviated, or by its accessible name where it shows no text.
+ */
+export const gridColumns = (root: HTMLElement) =>
+  gridHeaders(root).map((header) => header.querySelector('abbr')?.title ?? accessibleName(header));
+
+/**
+ * How each of the results grid's column headers inside `root` reads: the
+ * text a viewer sees, its accessible name, and the tooltip hovering it shows.
+ */
+export const gridHeaderReadings = (root: HTMLElement) =>
+  gridHeaders(root).map((header) => ({
+    shown: text(header),
+    name: accessibleName(header),
+    tooltip: (header.querySelector('[title]') ?? header).getAttribute('title'),
+  }));
+
+/** The results grid's column header inside `root` named `name`, such as a player's. */
+export const gridColumnHeader = (root: HTMLElement, name: string) =>
+  gridHeaders(root).find((header) => accessibleName(header) === name);
 
 /** Each row of the results grid inside `root`, in standings order, as its cells' visible text. */
 export const gridRows = (root: HTMLElement) => tableRows(resultsGrid(root)!);

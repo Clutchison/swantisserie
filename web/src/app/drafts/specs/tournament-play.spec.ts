@@ -40,7 +40,9 @@ import {
   grantedDraw,
   gridCell,
   gridCellName,
+  gridColumnHeader,
   gridColumns,
+  gridHeaderReadings,
   gridRows,
   unreportedMatch,
   openPlaying,
@@ -436,6 +438,46 @@ describe('Play tab while the tournament is played', () => {
       expect(table(tab, 'Standings')).toBeNull();
       expect(roundLabels(tab)).toEqual([]);
       expect(text(tab)).not.toContain('Tournament round');
+    });
+
+    it('heads each opponent’s column with their avatar, named and titled by their full name', async () => {
+      const { tab } = await openPlaying(carolLeads, { user: dave });
+
+      const header = gridColumnHeader(tab, 'Carol')!;
+      expect(header.querySelector('img')?.getAttribute('src')).toBe(carol.avatarUrl);
+      expect(gridHeaderReadings(tab).slice(2, 5)).toEqual([
+        { shown: '', name: 'Carol', tooltip: 'Carol' },
+        { shown: '', name: 'Alice', tooltip: 'Alice' },
+        { shown: '', name: 'Bob', tooltip: 'Bob' },
+      ]);
+    });
+
+    it('shows an opponent’s rank in their column’s header once their avatar fails to load', async () => {
+      const { fixture, tab } = await openPlaying(carolLeads, { user: dave });
+
+      gridColumnHeader(tab, 'Alice')!.querySelector('img')!.dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+
+      expect(gridColumnHeader(tab, 'Alice')!.querySelector('img')).toBeNull();
+      expect(gridHeaderReadings(tab)[3]).toEqual({ shown: '2', name: 'Alice', tooltip: 'Alice' });
+      expect(gridColumnHeader(tab, 'Carol')!.querySelector('img')).not.toBeNull();
+    });
+
+    it('abbreviates the stat headers, spelling each out on hover, as its name and in the key', async () => {
+      const { tab } = await openPlaying(carolLeads, { user: dave });
+
+      expect(gridHeaderReadings(tab).slice(5)).toEqual([
+        { shown: 'MP', name: 'Match points', tooltip: 'Match points' },
+        {
+          shown: 'W–L–D',
+          name: 'Matches won, lost and drawn',
+          tooltip: 'Matches won, lost and drawn',
+        },
+        { shown: 'GW%', name: 'Game-win %', tooltip: 'Game-win %' },
+      ]);
+      expect(accessibleDescription(resultsGrid(tab)!)).toContain(
+        'MP match points, W–L–D matches won, lost and drawn, GW% game-win %',
+      );
     });
 
     it('names each cell’s result in words, from its row’s side', async () => {
