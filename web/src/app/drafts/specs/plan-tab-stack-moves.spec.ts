@@ -160,6 +160,7 @@ describe('Deck tab stack moves', () => {
       'Lands: Brightclimb Pathway // Grimclimb Pathway',
     ]);
     expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(false);
+    expect(dropListNamed(fixture, 'New stack, after 1')).toBeUndefined();
 
     resizeTo('desktop');
     await fixture.whenStable();
@@ -291,6 +292,100 @@ describe('Deck tab stack moves', () => {
     expect(acceptsDrop(dropListNamed(fixture, 'Lands'), boltDrag)).toBe(true);
     await stackMoved(fixture, 'Lightning Bolt', '1', 'Sideboard');
     expect(stack(plan, 'Sideboard')).toEqual(['Lightning Bolt']);
+    http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/'));
+  });
+
+  it('makes a new stack of the player’s own in a gap between stacks, or before the first or after the last, holding the card, which takes drops like any stack, sending nothing', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+
+    await stackMoved(fixture, 'Shivan Dragon', '6', 'New stack, after 1');
+    await stackMoved(fixture, 'Brightclimb Pathway', 'Lands', 'New stack, at the start');
+    expect(stacksOf(plan)[0]).toEqual([
+      'Your stack, at the start: Brightclimb Pathway // Grimclimb Pathway',
+      '1: Lightning Bolt, Lightning Bolt',
+      'Your stack, after 1: Shivan Dragon',
+    ]);
+
+    await stackMoved(fixture, 'Lightning Bolt', '1', 'New stack, after your stack after 1');
+    expect(stacksOf(plan)[0]).toEqual([
+      'Your stack, at the start: Brightclimb Pathway // Grimclimb Pathway',
+      '1: Lightning Bolt',
+      'Your stack, after 1: Shivan Dragon',
+      'Your stack 2, after 1: Lightning Bolt',
+    ]);
+
+    // Emptied, a player-made stack goes, and the one made after it takes its place.
+    await stackMoved(fixture, 'Shivan Dragon', 'Your stack, after 1', 'Your stack 2, after 1');
+    expect(stacksOf(plan)[0]).toEqual([
+      'Your stack, at the start: Brightclimb Pathway // Grimclimb Pathway',
+      '1: Lightning Bolt',
+      'Your stack, after 1: Lightning Bolt, Shivan Dragon',
+    ]);
+    http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/'));
+  });
+
+  it('keeps a player-made stack where the player saw it once the stack it was made after is gone', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf(),
+    });
+    const plan = await openPlan(fixture, page);
+    await stackMoved(fixture, 'Lightning Bolt', '1', 'New stack, after 6');
+
+    await stackMoved(fixture, 'Shivan Dragon', '6', '1');
+
+    expect(stacksOf(plan)[0]).toEqual([
+      '1: Lightning Bolt, Shivan Dragon',
+      'Your stack, after 1: Lightning Bolt',
+      'Lands: Brightclimb Pathway // Grimclimb Pathway',
+    ]);
+  });
+
+  it('moves a sideboard card dropped in a gap to the mainboard, with one request, and into a new stack there', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({
+        mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+        sideboard: [planned(shivan)],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    await stackMoved(fixture, 'Shivan Dragon', 'Sideboard', 'New stack, after Lands');
+    const moved = http.expectOne(shivanUrl);
+    expect(moved.request.body).toEqual({ board: 'Mainboard' });
+    moved.flush(planOf());
+
+    await vi.waitFor(() =>
+      expect(stacksOf(plan)[0]).toEqual([
+        '1: Lightning Bolt, Lightning Bolt',
+        'Lands: Brightclimb Pathway // Grimclimb Pathway',
+        'Your stack, after Lands: Shivan Dragon',
+      ]),
+    );
+  });
+
+  it('makes new stacks on a locked deck, sending nothing', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, withTournament(playing()), {
+      cards,
+      plan: planOf(),
+      tournament: playing(),
+    });
+    const plan = await openPlan(fixture, page);
+
+    expect(
+      acceptsDrop(
+        dropListNamed(fixture, 'New stack, after 1'),
+        dragOf(dropListNamed(fixture, '6'), 'Shivan Dragon'),
+      ),
+    ).toBe(true);
+    await stackMoved(fixture, 'Shivan Dragon', '6', 'New stack, after 1');
+
+    expect(stack(plan, 'Your stack, after 1')).toEqual(['Shivan Dragon']);
     http.expectNone((req) => req.url.startsWith('/api/drafts/draft-1/plan/'));
   });
 

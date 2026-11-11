@@ -190,6 +190,21 @@
         <h3>{{ planBoard.name }} {{ planBoard.count }} ({{ planBoard.picked }} picked)</h3>
         <!-- An empty plan board shows as the list in either mode: what it says, and a drop list to drag onto. -->
         @if (showingStacks() && planBoard.count > 0) {
+          <!-- A gap between stacks, or before the first or after the last, in the wide layout: a card dropped there makes a new stack of the player's own. A line marks it while a drag is over it. A separator, as a screen reader may name one. -->
+          <ng-template #stackGap let-gap>
+            <div
+              class="stack-gap"
+              role="separator"
+              aria-orientation="vertical"
+              [attr.aria-label]="gap.name"
+              cdkDropList
+              [cdkDropListData]="gap.dropTarget"
+              [cdkDropListDisabled]="changing()"
+              [cdkDropListEnterPredicate]="enters"
+              cdkDropListSortingDisabled
+              (cdkDropListDropped)="dropped($event)"
+            ></div>
+          </ng-template>
           <!-- Named as a group for screen readers. The strip offers no drag, so a swipe always scrolls: the CDK can't turn drag off for touch alone, so a mouse can't drag there either, as a window that narrow offered no stacks, nor drag, before. -->
           <div
             #planBoardStacks
@@ -197,7 +212,10 @@
             role="group"
             [attr.aria-label]="planBoard.name + ' stacks'"
           >
-            @for (stack of planBoard.stacks; track stack.name) {
+            @for (stack of planBoard.stacks; track stack.key; let at = $index) {
+              @if (planBoard.gaps[at]; as gap) {
+                <ng-container *ngTemplateOutlet="stackGap; context: { $implicit: gap }" />
+              }
               <!-- Named for the stack headers, which jump to them and mark the one the player has scrolled to. -->
               <div class="stack" [attr.data-stack]="stack.name">
                 <!-- Not in the wide layout, where a stack's place says what it holds. -->
@@ -279,6 +297,9 @@
                   }
                 </ul>
               </div>
+            }
+            @if (planBoard.gaps[planBoard.stacks.length]; as gap) {
+              <ng-container *ngTemplateOutlet="stackGap; context: { $implicit: gap }" />
             }
           </div>
         } @else {

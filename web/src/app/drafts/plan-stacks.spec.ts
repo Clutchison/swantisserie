@@ -1,6 +1,6 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
 import { describe, expect, it } from 'vitest';
-import { sideboardStack, type StackMove, stacks } from './plan-stacks';
+import { gaps, sideboardStack, type StackMove, stackKey, stacks } from './plan-stacks';
 import { card } from './specs/pool-tab-harness';
 
 describe('plan stacks', () => {
@@ -285,6 +285,12 @@ describe('plan stacks', () => {
     const cards = [mountain, bolt, counterspell, shivan, ulamog];
     const inPlan = cards.map((c) => planned(c));
     const into = (name: string): StackMove => ({ kind: 'grouping', name });
+    /** The player-made stack `id`, made in the gap after the stack `after` (by its key), or at the start. */
+    const made = (id: number, after: string | null): StackMove => ({
+      kind: 'playerMade',
+      id,
+      after,
+    });
 
     it('puts each moved card in the stack it was moved into, sorted there by mana value then name, leaving out a stack it emptied', () => {
       const moves = new Map([
@@ -293,7 +299,7 @@ describe('plan stacks', () => {
         ['mountain', into('2')],
       ]);
 
-      expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+      expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves }))).toEqual([
         '1: Lightning Bolt, Shivan Dragon',
         '2: Mountain, Counterspell, Ulamog, the Ceaseless Hunger',
       ]);
@@ -303,7 +309,7 @@ describe('plan stacks', () => {
       const lone = [bolt, shivan, mountain].map((c) => planned(c));
       const moves = new Map([['shivan', into('0')]]);
 
-      expect(named(stacks(lone, 'manaValue', pool(...cards), moves))).toEqual([
+      expect(named(stacks(lone, 'manaValue', pool(...cards), { moves }))).toEqual([
         '0: Shivan Dragon',
         '1: Lightning Bolt',
         'Lands: Mountain',
@@ -316,12 +322,124 @@ describe('plan stacks', () => {
         ['shivan', into('Lands')],
       ]);
 
-      expect(named(stacks(inPlan, 'manaValue', pool(...cards), moves))).toEqual([
+      expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves }))).toEqual([
         '1: Lightning Bolt',
         '2: Counterspell',
         '7+: Ulamog, the Ceaseless Hunger',
         'Lands: Mountain, Shivan Dragon',
       ]);
+    });
+
+    describe('into player-made stacks', () => {
+      it('puts each player-made stack just after the stack it was made after, the later made first, among the grouping’s in their order, each named by where it sits', () => {
+        const moves = new Map([
+          ['shivan', made(1, '1')],
+          ['ulamog', made(2, '1')],
+          ['counterspell', made(3, stackKey(made(1, '1')))],
+          ['mountain', made(4, null)],
+        ]);
+
+        expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves }))).toEqual([
+          'Your stack, at the start: Mountain',
+          '1: Lightning Bolt',
+          'Your stack, after 1: Ulamog, the Ceaseless Hunger',
+          'Your stack 2, after 1: Shivan Dragon',
+          'Your stack 3, after 1: Counterspell',
+        ]);
+      });
+
+      it('names each gap, and each player-made stack, by the full name of the stack before it', () => {
+        const moves = new Map([
+          ['bolt', made(1, 'R')],
+          ['counterspell', made(2, null)],
+        ]);
+        const shown = stacks(inPlan, 'color', pool(...cards), { moves });
+
+        expect(named(shown)).toEqual([
+          'Your stack, at the start: Counterspell',
+          'R: Shivan Dragon',
+          'Your stack, after Red: Lightning Bolt',
+          'Colorless: Ulamog, the Ceaseless Hunger',
+          'Lands: Mountain',
+        ]);
+        expect(gaps(shown, 3).map((gap) => gap.name)).toEqual([
+          'New stack, at the start',
+          'New stack, after your stack at the start',
+          'New stack, after Red',
+          'New stack, after your stack after Red',
+          'New stack, after Colorless',
+          'New stack, after Lands',
+        ]);
+      });
+
+      it('puts a player-made stack whose stack it was made after isn’t shown after the nearest earlier stack the player last saw that is, or at the start', () => {
+        const made1 = stackKey(made(1, '2'));
+        const moves = new Map([
+          ['counterspell', into('1')],
+          ['shivan', made(1, '2')],
+        ]);
+        const stacked = (lastSeen: string[]) =>
+          named(stacks(inPlan, 'manaValue', pool(...cards), { moves, lastSeen }));
+
+        expect(stacked(['1', '2', made1, '7+', 'Lands'])).toEqual([
+          '1: Lightning Bolt, Counterspell',
+          'Your stack, after 1: Shivan Dragon',
+          '7+: Ulamog, the Ceaseless Hunger',
+          'Lands: Mountain',
+        ]);
+        // Seen since without the stack it was made after: by its own place.
+        expect(stacked(['1', made1, '7+', 'Lands'])).toEqual(
+          stacked(['1', '2', made1, '7+', 'Lands']),
+        );
+        expect(stacked(['2', made1, '7+'])[0]).toBe('Your stack, at the start: Shivan Dragon');
+      });
+
+      it('brings a grouping’s stack back in its grouping order, after a player-made stack made after the stack before it', () => {
+        const opt = card({
+          id: 'opt',
+          name: 'Opt',
+          manaValue: 1,
+          colors: ['U'],
+          typeLine: 'Instant',
+        });
+        const negate = card({ id: 'negate', name: 'Negate', manaValue: 2, colors: ['U'] });
+        const all = [...cards, opt, negate];
+        const moves = new Map([['counterspell', made(1, '1')]]);
+
+        expect(
+          named(
+            stacks(
+              all.map((c) => planned(c)),
+              'manaValue',
+              pool(...all),
+              { moves },
+            ),
+          ),
+        ).toEqual([
+          '1: Lightning Bolt, Opt',
+          'Your stack, after 1: Counterspell',
+          '2: Negate',
+          '6: Shivan Dragon',
+          '7+: Ulamog, the Ceaseless Hunger',
+          'Lands: Mountain',
+        ]);
+      });
+
+      it('leaves out a player-made stack with no cards, placing one made after it as if it weren’t there', () => {
+        const moves = new Map([
+          ['gone', made(1, '1')],
+          ['shivan', made(2, stackKey(made(1, '1')))],
+        ]);
+        const lastSeen = ['1', stackKey(made(1, '1')), '2'];
+
+        expect(named(stacks(inPlan, 'manaValue', pool(...cards), { moves, lastSeen }))).toEqual([
+          '1: Lightning Bolt',
+          'Your stack, after 1: Shivan Dragon',
+          '2: Counterspell',
+          '7+: Ulamog, the Ceaseless Hunger',
+          'Lands: Mountain',
+        ]);
+      });
     });
   });
 });

@@ -9,6 +9,7 @@ import {
   inject,
   Injector,
   inputBinding,
+  linkedSignal,
   signal,
   untracked,
   viewChild,
@@ -58,11 +59,10 @@ import {
   unpickedToQueue,
 } from './queue-unpicked-dialog';
 import {
+  gaps,
   type Grouping,
-  NO_MOVES,
   type Stack,
   type StackMove,
-  type StackMoves,
   sideboardStack,
   stacks,
 } from './plan-stacks';
@@ -103,7 +103,7 @@ interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
 }
 
-/** Where a dragged card is dropped: a plan board, and on a mainboard stack, the stack move into it. */
+/** Where a dragged card is dropped: a plan board, and on a mainboard stack or in a gap between, the stack move into it. */
 interface DropTarget {
   planBoard: PlanBoard;
   into?: StackMove;
@@ -127,19 +127,14 @@ interface PlanLine extends PlanBoardCard {
 }
 
 /**
- * How each plan board shows: how stacks mode stacks its cards and whether it
- * names each stack, the plan board its cards move to, as the button names
- * it, and what an empty one says.
+ * How each plan board shows: whether stacks mode names each stack, the plan
+ * board its cards move to, as the button names it, and what an empty one
+ * says. Stacks mode stacks the mainboard by the grouping, the sideboard as
+ * one stack.
  */
 const PLAN_BOARD_DISPLAY: Record<
   PlanBoard,
   {
-    stack: (
-      cards: PlanBoardCard[],
-      grouping: Grouping,
-      cardsById: ReadonlyMap<string, PoolCardView>,
-      moves: StackMoves,
-    ) => Stack<PlanBoardCard>[];
     /** Whether it's stacked as one stack, which its heading names, its stack header set apart from the others. */
     oneStack?: boolean;
     other: PlanBoard;
@@ -148,14 +143,10 @@ const PLAN_BOARD_DISPLAY: Record<
   }
 > = {
   Mainboard: {
-    stack: stacks,
     ...OTHER_PLAN_BOARD.Mainboard,
     empty: 'No picks yet.',
   },
   Sideboard: {
-    // One stack, whatever the grouping, which the plan board heading names.
-    // The template shows stacks only for a plan board with cards.
-    stack: (cards, _grouping, cardsById) => [sideboardStack(cards, cardsById)],
     oneStack: true,
     ...OTHER_PLAN_BOARD.Sideboard,
     empty: 'Nothing on your sideboard.',
@@ -271,12 +262,10 @@ export class PlanTab {
   protected readonly dragStartDelay = { touch: 200, mouse: 0 };
   /** Whether the plan boards show as stacks: the chosen mode. */
   protected readonly showingStacks = computed(() => this.mode() === 'stacks');
+  /** The mainboard's cards, a basic land's copies included. */
+  private readonly mainboardCards = computed(() => heldOn(this.plan(), 'Mainboard'));
   /** The player's stack moves: shown only in the wide stacks layout, kept while the window is narrow. */
-  private readonly stackMoves = stackMovesOf(
-    this.grouping,
-    this.plan,
-    computed(() => heldOn(this.plan(), 'Mainboard')),
-  );
+  private readonly stackMoves = stackMovesOf(this.grouping, this.plan, this.mainboardCards);
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
@@ -290,17 +279,53 @@ export class PlanTab {
   });
 
   /**
+   * The mainboard's stacks in stacks mode, by the grouping, with the stack
+   * moves in the wide layout; and the order of those the player last saw
+   * with them, which places a player-made stack whose stack it was made
+   * after has gone.
+   */
+  private readonly mainboardStacks = linkedSignal({
+    source: () => ({
+      showing: this.showingStacks(),
+      wide: this.wideStacks(),
+      cards: this.mainboardCards(),
+      grouping: this.grouping(),
+      cardsById: this.cardsById(),
+      // Read in any mode, so a card that leaves the mainboard loses its stack move then.
+      moves: this.stackMoves.moves(),
+    }),
+    computation: (
+      { showing, wide, cards, grouping, cardsById, moves },
+      previous?: { value: { lastSeen: readonly string[] } },
+    ): { stacks: Stack<PlanBoardCard>[]; lastSeen: readonly string[] } => {
+      const lastSeen = previous?.value.lastSeen ?? [];
+      // Stryker disable next-line ArrayDeclaration: stacks, and the gaps around them, are only read in stacks mode.
+      if (!showing) return { stacks: [], lastSeen };
+      const shown = stacks(cards, grouping, cardsById, wide ? { moves, lastSeen } : {});
+      return { stacks: shown, lastSeen: wide ? shown.map((stack) => stack.key) : lastSeen };
+    },
+  });
+  /** The sideboard's one stack in stacks mode, whatever the grouping, which its heading names. */
+  private readonly sideboardStacks = computed(() =>
+    this.showingStacks()
+      ? [sideboardStack(heldOn(this.plan(), 'Sideboard'), this.cardsById())]
+      : // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
+        [],
+  );
+
+  /**
    * The mainboard, then the sideboard, each as its lines and counts, and its
    * stacks when showing them: the mainboard's by the grouping, the sideboard's
    * always one.
    */
   protected readonly planBoards = computed(() => {
-    // Read in any mode, so a card that leaves the mainboard loses its stack move then.
-    const moves = this.stackMoves.moves();
+    const wide = this.wideStacks();
     return PLAN_BOARDS.map((planBoard) => {
-      const { stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
+      const rest = PLAN_BOARD_DISPLAY[planBoard];
       const held = heldOn(this.plan(), planBoard);
       const dropTarget = (into?: StackMove): DropTarget => ({ planBoard, into });
+      const shown =
+        planBoard === 'Mainboard' ? this.mainboardStacks().stacks : this.sideboardStacks();
       return {
         name: planBoard,
         ...rest,
@@ -310,15 +335,15 @@ export class PlanTab {
         picked: held.filter((card) => card.picked).length,
         lines: lines(held),
         dropTarget: dropTarget(),
-        // Stryker disable next-line ArrayDeclaration: stacks are only read in stacks mode.
-        stacks: this.showingStacks()
-          ? stack(
-              held,
-              this.grouping(),
-              this.cardsById(),
-              this.wideStacks() ? moves : NO_MOVES,
-            ).map((shown) => ({ ...shown, dropTarget: dropTarget(shown.move) }))
-          : [],
+        stacks: shown.map((each) => ({ ...each, dropTarget: dropTarget(each.move) })),
+        /** In the wide layout, the mainboard's gaps around and between its stacks, where a drop makes a new stack. */
+        gaps:
+          wide && !rest.oneStack
+            ? gaps(shown, this.stackMoves.nextId()).map(({ name, into }) => ({
+                name,
+                dropTarget: dropTarget(into),
+              }))
+            : [],
       };
     });
   });
@@ -473,9 +498,10 @@ export class PlanTab {
   /**
    * A card dropped on a plan board: it moves there, unless that's the plan
    * board it came from or either refuses it. Dropped on a mainboard stack, it
-   * is then a stack move into that stack, on a locked deck too. It's found by
-   * id, as the plan may have been re-read since the drag began; if it has
-   * left the plan, the drop does nothing.
+   * is then a stack move into that stack, or in a gap, into a new stack
+   * there, on a locked deck too. It's found by id, as the plan may have been
+   * re-read since the drag began; if it has left the plan, the drop does
+   * nothing.
    */
   protected async dropped({
     item,

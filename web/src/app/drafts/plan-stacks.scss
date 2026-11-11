@@ -15,6 +15,29 @@ $stack-step: max(16%, 24px);
   padding-bottom: var(--space-sm);
 }
 
+/*
+ * The mainboard's gaps, in the wide layout, around and between its stacks, take the place of the
+ * space between them. A drag over one draws an accented line down it; the card it would drop
+ * stays out of sight, as the line says where it goes.
+ */
+.stacks:has(> .stack-gap) {
+  gap: 0;
+}
+
+.stack-gap {
+  flex: none;
+  width: var(--space-sm);
+
+  &.cdk-drop-list-dragging {
+    background: linear-gradient(var(--color-accent), var(--color-accent)) center / 3px 100%
+      no-repeat;
+  }
+
+  .cdk-drag-placeholder {
+    display: none;
+  }
+}
+
 .stack {
   flex: 1 1 0;
   min-width: 5.5rem;
