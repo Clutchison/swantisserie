@@ -11,12 +11,11 @@ import { LucideCheck } from '@lucide/angular';
 import { arenaExport } from './arena-export';
 import { DraftStore } from './draft-store';
 import type { ExportPlan } from './export-plan';
-import { planBoardCount } from './plan-boards';
 import { moxfieldExport } from './moxfield-export';
 import { mtgoExport } from './mtgo-export';
 
 /** Where a player's deck can be exported to. */
-type ExportTarget = 'Arena' | 'MTGO' | 'Moxfield';
+export type ExportTarget = 'Arena' | 'MTGO' | 'Moxfield';
 
 /** Each export target's export of a player's deck. */
 const EXPORTS: Record<ExportTarget, (plan: ExportPlan<PoolCardView>) => string> = {
@@ -30,18 +29,6 @@ const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
   Arena: ['Arena', 'Moxfield'],
   MTGO: ['MTGO', 'Moxfield'],
 };
-
-/** The most sideboard cards Arena's import may keep. */
-export const ARENA_SIDEBOARD_CAP = 15;
-
-/**
- * How many cards the signed-in player's exported sideboard holds, its basics
- * included, when Arena's import may cut it short; otherwise null.
- */
-export function sideboardOverArenaCap(store: DraftStore): number | null {
-  const count = planBoardCount(store.exportPlan(), 'Sideboard');
-  return store.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP ? count : null;
-}
 
 /** How long a copy button shows its confirmation. */
 const CONFIRMATION_MS = 2000;
@@ -68,13 +55,7 @@ export class ExportButtons implements OnDestroy {
   /** Whether there's a deck to copy: the player has a pick, and their picks and deck have loaded. */
   protected readonly ready = computed(() => {
     const { mainboard, sideboard } = this.exportPlan();
-    return (
-      mainboard.length + sideboard.length > 0 &&
-      !this.store.pickLog.loading() &&
-      !this.store.pickLog.missing() &&
-      !this.store.plan.loading() &&
-      !this.store.plan.missing()
-    );
+    return mainboard.length + sideboard.length > 0 && this.store.exportPlanLoaded();
   });
 
   /** In the order their buttons show. */

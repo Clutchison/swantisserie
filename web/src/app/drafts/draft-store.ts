@@ -31,7 +31,7 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
-import type { ExportPlan } from './export-plan';
+import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -312,6 +312,22 @@ export class DraftStore implements TournamentViewer {
       (onSideboard.has(poolCardId) ? plan.sideboard : plan.mainboard).push(card);
     }
     return plan;
+  });
+  /** Whether the picks, the pool that names them and the plan, which `exportPlan` is made of, have all loaded. */
+  readonly exportPlanLoaded = computed(
+    () =>
+      !this.pickLog.loading() &&
+      !this.pickLog.missing() &&
+      !this.plan.loading() &&
+      !this.plan.missing(),
+  );
+  /**
+   * How many cards the exported sideboard holds, its basics included, when
+   * it's over what Arena's import may keep; otherwise null.
+   */
+  readonly sideboardCountOverArenaCap = computed(() => {
+    const count = planBoardCount(this.exportPlan(), 'Sideboard');
+    return this.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP ? count : null;
   });
 
   /**

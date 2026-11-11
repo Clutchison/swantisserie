@@ -195,7 +195,7 @@ export class DraftPage {
     // Opening or closing the Deck tab forgets any copy.
     effect(() => {
       this.selectedTab();
-      untracked(() => this.planTab()?.exportButtons().clearCopy());
+      untracked(() => this.planTab()?.clearCopy());
     });
     // Everyone viewing sees each change as it happens. Every connect
     // catches up, the first too: a change made after the page's first read

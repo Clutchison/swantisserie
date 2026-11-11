@@ -7,7 +7,9 @@
       (click)="copyFor(target)"
     >
       <!-- Stays when hidden, so the button keeps its width. -->
-      <span class="label">Copy for {{ target }}</span>
+      <span class="label" [attr.aria-hidden]="copied() === target ? 'true' : null"
+        >Copy for {{ target }}</span
+      >
       @if (copied() === target) {
         <span class="confirmation">
           <svg lucideCheck size="16"></svg>

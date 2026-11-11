@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import type { PickView, PlanView, PoolCardView } from 'contract';
 import { byAriaLabel } from '../../specs-harness';
 import type { PickedCard } from '../draft-store';
+import type { ExportTarget } from '../export-buttons';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -12,7 +13,6 @@ import {
   bob,
   alicePlayer,
   tabButton,
-  tabPanel,
   panelName,
   openDraft,
   flushPool,
@@ -26,7 +26,13 @@ import {
   alertIn,
   button,
   buttonOrder,
+  accessibleName,
 } from './harness';
+import {
+  copyButton as copyButtonIn,
+  deckPanel,
+  sideboardNotice as sideboardNoticeIn,
+} from './plan-tab-harness';
 import { playing, threePlayers, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -52,30 +58,20 @@ const cardsOf = (picked: PickedCard[]) => picked.map(({ card }) => card);
 const picksOf = (picked: PickedCard[]): PickView[] =>
   picked.map(({ pick, playerId, poolCardId }) => ({ pick, playerId, poolCardId }));
 
-/** The Deck tab's panel, even while it's hidden behind another tab. */
-const deckPanel = (root: HTMLElement) => tabPanel(root, 'Deck');
 /** The Deck tab's copy buttons, with their live region and clipboard error. */
 const exportsGroup = (root: HTMLElement) =>
   byAriaLabel(deckPanel(root), '[role="group"]', 'Exports');
 
-type Target = 'Arena' | 'MTGO' | 'Moxfield';
-
 /** A copy button on the Deck tab, by the export it copies, whatever it shows. */
-const copyButton = (root: HTMLElement, target: Target = 'Arena') =>
-  [...deckPanel(root).querySelectorAll('button')].find((candidate) =>
-    candidate.textContent?.includes(`Copy for ${target}`),
-  );
-/** What a copy button shows: its confirmation, once it has one, or else its label. */
-const shownLabel = (copy: HTMLElement) =>
-  (copy.querySelector('.confirmation') ?? copy).textContent?.trim();
+const copyButton = (root: HTMLElement, target: ExportTarget = 'Arena') =>
+  copyButtonIn(deckPanel(root), target);
+/** What a copy button reads as: its confirmation, once it has one, or else its label. */
+const shownLabel = (copy: HTMLElement) => accessibleName(copy).replace(/\s+/g, ' ').trim();
 /** What the copy buttons' hidden status region announces. */
 const announced = (root: HTMLElement) =>
   exportsGroup(root)?.querySelector('[role="status"]')?.textContent?.trim();
 /** Arena's sideboard-cap notice on the Deck tab; undefined if none shows. */
-const sideboardNotice = (root: HTMLElement) =>
-  [...deckPanel(root).querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-    text(status).startsWith('Your sideboard has'),
-  );
+const sideboardNotice = (root: HTMLElement) => sideboardNoticeIn(deckPanel(root));
 
 describe('Deck tab exports', () => {
   const picks: PickedCard[] = [
@@ -178,7 +174,7 @@ describe('Deck tab exports', () => {
     /** Copies for `target`, and answers with what was copied. */
     async function copyFor(
       opened: { fixture: { whenStable(): Promise<unknown> }; page: HTMLElement },
-      target: Target = 'Arena',
+      target: ExportTarget = 'Arena',
     ) {
       copyButton(opened.page, target)!.click();
       await opened.fixture.whenStable();
