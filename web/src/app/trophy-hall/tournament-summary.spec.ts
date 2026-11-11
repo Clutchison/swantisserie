@@ -14,7 +14,7 @@ import {
   useApp,
 } from '../specs-harness';
 import { draft, heading, link, text } from '../drafts/specs/harness';
-import { listItems } from '../drafts/specs/outline-harness';
+import { buttonNames, describedTerms, listItems } from '../drafts/specs/outline-harness';
 import {
   bracket,
   carol,
@@ -48,6 +48,7 @@ const ROW: TrophyHallRowView = {
 };
 
 const HALL: TrophyHallView = {
+  ranking: [{ playerId: alice.id, name: 'Alice', trophies: 1, place: { rank: 1, shared: false } }],
   groups: [
     {
       poolSource: {
@@ -134,10 +135,9 @@ describe('the Tournament summary', () => {
   }
 
   /** The summary's header as each of its terms with its value. */
-  const details = (dialog: HTMLElement) =>
-    [...dialog.querySelectorAll('dt')].map((term) => [text(term), text(term.nextElementSibling)]);
+  const details = (dialog: HTMLElement) => describedTerms(dialog, 'About the tournament');
 
-  it('opens from View Tournament, named by its draft and headed by its pool source, completion date, format and player count', async () => {
+  it('opens from View Tournament, named by its draft and headed by its pool source, completion date, format and player count, dropped players counted', async () => {
     const { fixture } = await openSummary();
     const dialog = await flushReads(fixture, SWISS);
 
@@ -149,8 +149,10 @@ describe('the Tournament summary', () => {
       ['Pool source', 'Vintage Cube'],
       ['Completed', 'Nov 10, 2026'],
       ['Format', 'Swiss, capped at 3: 2 tournament rounds'],
+      // Bob dropped, and still counts.
       ['Players', '3'],
     ]);
+    expect(link(dialog, 'Vintage Cube')?.href).toBe('https://cubecobra.com/cube/overview/vintage');
   });
 
   it('shows the final standings with places, shared ones marked, the trophy holder and dropped players, and no bracket', async () => {
@@ -173,7 +175,7 @@ describe('the Tournament summary', () => {
       completed(swissPlaying({ reopenRound: null, completeRoundGrants: null })),
     );
 
-    expect([...dialog.querySelectorAll('button')].map((b) => text(b))).toEqual(['Close']);
+    expect(buttonNames(dialog)).toEqual(['Close']);
   });
 
   it('shows a single elimination tournament’s bracket', async () => {
@@ -185,7 +187,7 @@ describe('the Tournament summary', () => {
 
     expect(bracket(dialog)).not.toBeNull();
     expect(roundLabels(dialog)).toEqual(['Semifinal', 'Final']);
-    expect([...dialog.querySelectorAll('button')].map((b) => text(b))).toEqual(['Close']);
+    expect(buttonNames(dialog)).toEqual(['Close']);
   });
 
   it('shows a round robin tournament’s results grid, with places, the trophy holder and dropped players', async () => {
@@ -205,7 +207,7 @@ describe('the Tournament summary', () => {
       ['3rd', 'Bob (dropped)'],
     ]);
     expect(table(dialog, 'Standings')).toBeNull();
-    expect(dialog.querySelectorAll('button')).toHaveLength(1);
+    expect(buttonNames(dialog)).toEqual(['Close']);
   });
 
   it('links to the draft’s Play and Lists tabs', async () => {

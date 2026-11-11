@@ -11,8 +11,7 @@ import {
   untracked,
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
-import { droppedPlayers } from 'engine';
-import { percent, place, record } from '../record';
+import { percent, record } from '../record';
 import { FocusKey, SendsChange } from './changes';
 import {
   matchIn,
@@ -23,19 +22,9 @@ import {
   seedsOf,
   type ClearGameScore,
 } from './match-lines';
+import { standingCells } from './standing-cells';
 import { TournamentBracket } from './tournament-bracket';
-import { TournamentPlayers } from './tournament-players';
-
-/** A rank in `tournament`'s standings as the Tournament summary shows it: a place, marked = when shared, such as =2nd. */
-export function summaryPlace(tournament: TournamentView, rank: number): string {
-  const sharing = tournament.standings.filter((standing) => standing.rank === rank).length;
-  return place({ rank, shared: sharing > 1 });
-}
-
-/** The player `playerId`'s `name` as the Tournament summary shows it: marked 🏆 when they hold `tournament`'s trophy. */
-export function withTrophy(tournament: TournamentView, playerId: string, name: string): string {
-  return tournament.trophyHolders.includes(playerId) ? `${name} 🏆` : name;
-}
+import { TournamentViewer } from './tournament-viewer';
 
 /** A game score an organizer sets for a match, in its player order. */
 export interface SetGameScore {
@@ -61,7 +50,7 @@ export interface SetGameScore {
   styleUrls: ['./drafts.scss', './tournament-results.scss'],
 })
 export class TournamentResults {
-  private readonly players = inject(TournamentPlayers);
+  private readonly viewer = inject(TournamentViewer);
 
   readonly tournament = input.required<TournamentView>();
   /**
@@ -116,7 +105,10 @@ export class TournamentResults {
   protected readonly standings = computed(() =>
     this.tournament().standings.map((standing) => ({
       ...standing,
-      ...this.summarised(standing.playerId, standing.rank, this.name(standing.playerId)),
+      ...standingCells(this.tournament(), standing, this.name(standing.playerId), {
+        summary: this.summary(),
+        alwaysMarksDropped: false,
+      }),
       record: record(standing.matches),
       gameWinPercent: percent(standing.gameWinPercent),
       opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent),
@@ -190,7 +182,7 @@ export class TournamentResults {
       confirmAgainst: this.confirmable(match)
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
-      organize: this.players.canOrganize() && correctable ? this.organizerControls(match) : null,
+      organize: this.viewer.canOrganize() && correctable ? this.organizerControls(match) : null,
     };
   }
 
@@ -221,22 +213,8 @@ export class TournamentResults {
     return { ...choices, toggle: `${choices.verb} ${choices.label}` };
   }
 
-  /**
-   * The rank and name of the player `playerId` as the standings show
-   * them: in the Tournament summary, the rank as a place and the player
-   * marked if they dropped or hold the trophy.
-   */
-  private summarised(playerId: string, rank: number, name: string) {
-    if (!this.summary()) return { rank: String(rank), name };
-    const dropped = droppedPlayers(this.tournament().entries).includes(playerId);
-    return {
-      rank: summaryPlace(this.tournament(), rank),
-      name: withTrophy(this.tournament(), playerId, dropped ? `${name} (dropped)` : name),
-    };
-  }
-
   private name(playerId: string) {
-    return this.players.player(playerId).name;
+    return this.viewer.player(playerId).name;
   }
 
   /** The player's name, with their seed in single elimination, as in "Alice (seed 1)". */

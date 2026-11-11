@@ -29,7 +29,7 @@ import type {
 import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
-import { anotherPlayer, TournamentPlayers } from './tournament-players';
+import { playerIn, TournamentViewer } from './tournament-viewer';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
@@ -80,7 +80,7 @@ export interface PickedCard extends PickView {
  * rather than being handed its state.
  */
 @Injectable()
-export class DraftStore implements TournamentPlayers {
+export class DraftStore implements TournamentViewer {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
   private readonly pollMs = inject(DRAFT_POLL_MS);
@@ -160,7 +160,7 @@ export class DraftStore implements TournamentPlayers {
    * players gets one fallback, named "another player", with no avatar.
    */
   player(id: string): PlayerView {
-    return this.findPlayer(id) ?? anotherPlayer(id);
+    return playerIn(this.players(), id);
   }
 
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */

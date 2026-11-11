@@ -1,11 +1,5 @@
 import type { PoolSourceView } from './drafts.js';
-import type { TallyView } from './tournaments.js';
-
-/** A player's place in a tournament's final standings, from 1, and whether another player shares it. */
-export interface PlaceView {
-  rank: number;
-  shared: boolean;
-}
+import type { PlaceView, TallyView } from './tournaments.js';
 
 /** How the signed-in player did in one complete tournament they joined. */
 export interface MyStatsResultView {

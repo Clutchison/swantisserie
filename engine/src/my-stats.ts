@@ -1,8 +1,10 @@
 import {
   addGames,
   emptyTally,
+  placeIn,
   playedMatches,
   resultFor,
+  type Place,
   type Tally,
   type TournamentMatch,
 } from './tournament.js';
@@ -17,12 +19,6 @@ export interface StatsTournament {
   /** Its matches, byes left out. */
   matches: readonly TournamentMatch[];
   trophyHolders: readonly string[];
-}
-
-/** A player's place in a tournament's final standings, and whether another player shares it. */
-export interface Place {
-  rank: number;
-  shared: boolean;
 }
 
 /** How a player did in one complete tournament they joined. */
@@ -81,12 +77,7 @@ export function myStats<T extends StatsTournament>(
     }
     results.push({
       tournament,
-      place: {
-        rank: standing.rank,
-        shared: tournament.standings.some(
-          (s) => s.rank === standing.rank && s.playerId !== playerId,
-        ),
-      },
+      place: placeIn(tournament.standings, standing),
       matches: { ...standing.matches },
       trophy: tournament.trophyHolders.includes(playerId),
     });

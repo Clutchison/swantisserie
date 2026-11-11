@@ -25,7 +25,7 @@ import {
 } from 'contract';
 import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
-import { formatName, summaryOf, SWISS_ROUND_OPTION_NAMES } from './round-names';
+import { formatName, summaryOf, SWISS_ROUND_OPTION_NAMES } from './tournament-format-names';
 import { Questions, type Question } from '../question-dialog';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ChangeStatus, Changes, SendsChange } from './changes';

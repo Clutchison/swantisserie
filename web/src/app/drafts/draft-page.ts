@@ -20,7 +20,7 @@ import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
-import { TournamentPlayers } from './tournament-players';
+import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
 import { setListText } from './drafts';
 import { ExportTab } from './export-tab';
@@ -67,7 +67,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
     CardPreviews,
     DraftStore,
     // The Play tab's standings, results grid and bracket read its players from the draft.
-    { provide: TournamentPlayers, useExisting: DraftStore },
+    { provide: TournamentViewer, useExisting: DraftStore },
     ImagePreloader,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

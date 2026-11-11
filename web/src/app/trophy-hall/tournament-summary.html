@@ -4,9 +4,15 @@
     <p class="error">Couldn't load the tournament. Try again in a moment.</p>
   } @else if (loaded()) {
     @let shown = tournament.value()!;
-    <dl class="header">
+    <dl class="header" aria-label="About the tournament">
       <dt>Pool source</dt>
-      <dd>{{ poolSource() }}</dd>
+      <dd>
+        @if (poolSource().href; as href) {
+          <a [href]="href" target="_blank" rel="noopener">{{ poolSource().title }}</a>
+        } @else {
+          {{ poolSource().title }}
+        }
+      </dd>
       <dt>Completed</dt>
       <dd>{{ row().completedAt ? (row().completedAt | date: 'mediumDate') : '–' }}</dd>
       <dt>Format</dt>

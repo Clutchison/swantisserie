@@ -4,11 +4,12 @@ import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { DraftView, PlayerView, TournamentView, TrophyHallRowView } from 'contract';
-import { summaryOf } from '../drafts/round-names';
+import { summaryOf } from '../drafts/tournament-format-names';
 import { ResultsGrid } from '../drafts/results-grid';
-import { anotherPlayer, TournamentPlayers } from '../drafts/tournament-players';
+import { playerIn, TournamentViewer } from '../drafts/tournament-viewer';
 import { TournamentResults } from '../drafts/tournament-results';
 import { LoadingAnimation } from '../loading/loading-animation';
+import type { PoolSourceHeader } from './pool-source-header';
 
 /** The Tournament summary's heading's id, which names the dialog. */
 export const TOURNAMENT_SUMMARY_HEADING = 'tournament-summary-heading';
@@ -26,18 +27,18 @@ export const TOURNAMENT_SUMMARY_HEADING = 'tournament-summary-heading';
 @Component({
   selector: 'app-tournament-summary',
   imports: [DatePipe, LoadingAnimation, ResultsGrid, RouterLink, TournamentResults],
-  providers: [{ provide: TournamentPlayers, useExisting: TournamentSummary }],
+  providers: [{ provide: TournamentViewer, useExisting: TournamentSummary }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tournament-summary.html',
   styleUrls: ['../dialog.scss', './tournament-summary.scss'],
 })
-export class TournamentSummary implements TournamentPlayers {
+export class TournamentSummary implements TournamentViewer {
   private readonly dialogRef = inject(DialogRef);
 
   /** The Trophy Hall row it was opened from. */
   readonly row = input.required<TrophyHallRowView>();
   /** The pool source as the row's group is headed by it. */
-  readonly poolSource = input.required<string>();
+  readonly poolSource = input.required<PoolSourceHeader>();
 
   protected readonly headingId = TOURNAMENT_SUMMARY_HEADING;
 
@@ -55,7 +56,7 @@ export class TournamentSummary implements TournamentPlayers {
   readonly canOrganize = signal(false).asReadonly();
 
   player(id: string): PlayerView {
-    return this.draft.value()?.players.find((player) => player.id === id) ?? anotherPlayer(id);
+    return playerIn(this.draft.value()?.players ?? [], id);
   }
 
   protected close() {
