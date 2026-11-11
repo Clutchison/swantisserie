@@ -24,7 +24,24 @@ export interface Stack<Card extends PlannedCardView = PlannedCardView> {
   label: StackLabel;
   /** Sorted by mana value, then name; on the sideboard, with its lands last. */
   cards: Card[];
+  /** The stack move into it: a mainboard stack's; the sideboard's stack takes none. */
+  move?: StackMove;
 }
+
+/**
+ * Which stack a stack move put a mainboard card in: one of the grouping's,
+ * by its name. A player-made stack is to join this as a kind of its own.
+ */
+export interface StackMove {
+  kind: 'grouping';
+  name: string;
+}
+
+/** The stack moves on the mainboard, by the moved card's `poolCardId`. */
+export type StackMoves = ReadonlyMap<string, StackMove>;
+
+/** No stack moves: every card in its own stack. */
+export const NO_MOVES: StackMoves = new Map();
 
 /** What a grouping goes by, from a card's pool card. */
 interface CardFacts {
@@ -124,13 +141,16 @@ const RULES: Record<Grouping, StackRule[]> = {
 
 /**
  * Divides a plan board's cards into the stacks of `grouping`, in its order,
- * leaving out empty stacks. A card whose pool card is unknown counts as a
- * colorless card of mana value 0 with no type.
+ * leaving out empty stacks. A card with a stack move goes in the stack it was
+ * moved into, while the grouping has that stack; else in its own. A card
+ * whose pool card is unknown counts as a colorless card of mana value 0 with
+ * no type.
  */
 export function stacks<Card extends PlannedCardView>(
   cards: Card[],
   grouping: Grouping,
   poolCardsById: ReadonlyMap<string, PoolCardView>,
+  moves: StackMoves = NO_MOVES,
 ): Stack<Card>[] {
   const facts = factsFrom(poolCardsById);
   const sorted = sortedByManaValue(cards, facts);
@@ -139,9 +159,13 @@ export function stacks<Card extends PlannedCardView>(
     fullName: rule.fullName ?? rule.name,
     label: rule.label,
     cards: [] as Card[],
+    move: { kind: 'grouping', name: rule.name } satisfies StackMove,
   }));
   for (const card of sorted) {
-    const stackIndex = RULES[grouping].findIndex((rule) => rule.holds(facts(card)));
+    const moved = moves.get(card.poolCardId);
+    const movedInto = RULES[grouping].findIndex((rule) => rule.name === moved?.name);
+    const stackIndex =
+      movedInto >= 0 ? movedInto : RULES[grouping].findIndex((rule) => rule.holds(facts(card)));
     // Stryker disable next-line ConditionalExpression: every card falls in some stack, since mana values are whole numbers and colors are WUBRG.
     if (stackIndex >= 0) stacked[stackIndex].cards.push(card);
   }
