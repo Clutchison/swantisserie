@@ -53,7 +53,10 @@ const spike = poolCardOf('spike', 'Lava Spike');
 const publicPlaying = (fields: Partial<ViewerTournamentView> = {}) =>
   playing([], { publicDecklists: true, showsDecklists: true, ...fields });
 
-/** Each joined player's decklist, in join order: Alice, Bob, then Carol. Bob prefers Zendikar's Mountain #243. */
+/**
+ * Each joined player's decklist, in join order: Alice, Bob, then Carol. Alice
+ * and Bob each hold basics on the sideboard. Bob prefers Zendikar's Mountain #243.
+ */
 const decklists: DecklistView[] = [
   {
     playerId: alice.id,
@@ -65,6 +68,7 @@ const decklists: DecklistView[] = [
     basics: [
       { land: 'Island', board: 'Mainboard', count: 2 },
       { land: 'Mountain', board: 'Mainboard', count: 36 },
+      { land: 'Island', board: 'Sideboard', count: 3 },
     ],
     preferredPrintings: {},
   },
@@ -72,7 +76,10 @@ const decklists: DecklistView[] = [
     playerId: bob.id,
     mainboard: [{ poolCardId: spike.id, name: spike.name, picked: true }],
     sideboard: [],
-    basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
+    basics: [
+      { land: 'Mountain', board: 'Mainboard', count: 39 },
+      { land: 'Mountain', board: 'Sideboard', count: 1 },
+    ],
     preferredPrintings: { Mountain: zenMountain },
   },
   { playerId: carol.id, mainboard: [], sideboard: [], basics: [], preferredPrintings: {} },
@@ -125,7 +132,7 @@ describe('lists tab', () => {
     expect(tabButton(page, 'Lists')).toBeUndefined();
   });
 
-  it('shows everyone who sees the draft each joined player’s mainboard, basic lands and sideboard', async () => {
+  it('shows everyone who sees the draft each joined player’s mainboard and sideboard, each with its basic lands', async () => {
     const { fixture, page } = await openAsViewer(publicPlaying());
 
     const tab = await openTab(fixture, page, 'Lists');
@@ -140,12 +147,13 @@ describe('lists tab', () => {
       '2 Island',
       '36 Mountain',
     ]);
-    expect(items(tab, 'Alice’s sideboard')).toEqual(['1 Shock']);
+    expect(items(tab, 'Alice’s sideboard')).toEqual(['1 Shock', '3 Island']);
     expect(items(tab, 'Bob’s mainboard')).toEqual(['1 Lava Spike', '39 Mountain']);
-    expect(items(tab, 'Bob’s sideboard')).toEqual(['No cards.']);
+    expect(items(tab, 'Bob’s sideboard')).toEqual(['1 Mountain']);
     expect(items(tab, 'Carol’s mainboard')).toEqual(['No cards.']);
+    expect(items(tab, 'Carol’s sideboard')).toEqual(['No cards.']);
     expect(tab.textContent).toContain('Mainboard 40');
-    expect(tab.textContent).toContain('Sideboard 1');
+    expect(tab.textContent).toContain('Sideboard 4');
   });
 
   it('gives each card and basic land a card preview', async () => {
@@ -163,6 +171,7 @@ describe('lists tab', () => {
     const tab = await openTab(fixture, page, 'Lists');
 
     expect(previewInList(tab, 'Bob’s mainboard', 'Mountain')).toBe(zenMountain.images.normal);
+    expect(previewInList(tab, 'Bob’s sideboard', 'Mountain')).toBe(zenMountain.images.normal);
     expect(previewInList(tab, 'Alice’s mainboard', 'Mountain')).toBe(
       'https://cards.scryfall.io/normal/front/0/5/05f9bdca-0d54-46c7-b803-9083dfc9ee24.jpg',
     );
