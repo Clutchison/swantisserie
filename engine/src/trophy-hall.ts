@@ -1,3 +1,5 @@
+import type { Place } from './my-stats.js';
+
 /**
  * A draft's pool source as the Trophy Hall groups it: a cube by its
  * CubeCobra id, a pool query by its text, a set list by its sets and their
@@ -60,8 +62,19 @@ export interface TrophyHallGroup<T extends TrophyHallTournament> {
   rows: TrophyHallRow<T>[];
 }
 
+/** A trophy holder's place in the trophy ranking. */
+export interface TrophyRankingEntry {
+  playerId: string;
+  /** How many trophies they hold across the Trophy Hall. */
+  trophies: number;
+  /** Shared with every player holding as many trophies. */
+  place: Place;
+}
+
 /** The Trophy Hall. */
 export interface TrophyHall<T extends TrophyHallTournament> {
+  /** Every trophy holder, most trophies first; of those with as many, the newest trophy first. */
+  ranking: TrophyRankingEntry[];
   /** The group of the newest trophy first. */
   groups: TrophyHallGroup<T>[];
 }
@@ -112,5 +125,24 @@ export function trophyHall<T extends TrophyHallTournament>(
       });
     }
   }
-  return { groups: [...groups.values()] };
+  return { ranking: ranking(trophies), groups: [...groups.values()] };
+}
+
+/**
+ * The trophy ranking of `trophies`, given by player newest trophy first:
+ * most trophies first, a player's place one after everyone with more, and
+ * shared with everyone with as many.
+ */
+function ranking(trophies: Map<string, number>): TrophyRankingEntry[] {
+  const counts = [...trophies.values()];
+  return [...trophies]
+    .sort(([, a], [, b]) => b - a)
+    .map(([playerId, count]) => ({
+      playerId,
+      trophies: count,
+      place: {
+        rank: 1 + counts.filter((other) => other > count).length,
+        shared: counts.filter((other) => other === count).length > 1,
+      },
+    }));
 }

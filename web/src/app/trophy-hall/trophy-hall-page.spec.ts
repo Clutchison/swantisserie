@@ -1,9 +1,15 @@
 import { TestBed } from '@angular/core/testing';
-import type { DecklistView, TrophyHallRowView, TrophyHallView } from 'contract';
+import type {
+  DecklistView,
+  TrophyHallRowView,
+  TrophyHallView,
+  TrophyRankingEntryView,
+} from 'contract';
 import { alice, button, http, openApp, router, useApp } from '../specs-harness';
 import {
   banner,
   expectLoadingAnimation,
+  findNamedList,
   heading,
   items,
   link,
@@ -44,7 +50,22 @@ const row = (
   cards: [card],
 });
 
+/** `name`'s entry in the trophy ranking: their `trophies`, at `rank`, shared or not. */
+const ranked = (
+  playerId: string,
+  name: string,
+  trophies: number,
+  rank: number,
+  shared = false,
+): TrophyRankingEntryView => ({ playerId, name, trophies, place: { rank, shared } });
+
 const HALL: TrophyHallView = {
+  ranking: [
+    ranked('alice', 'Alice', 2, 1),
+    ranked('bob', 'Bob', 1, 2, true),
+    ranked('carol', 'Carol', 1, 2, true),
+    ranked('dave', 'Dave', 1, 2, true),
+  ],
   groups: [
     {
       poolSource: {
@@ -160,6 +181,7 @@ describe('the Trophy Hall page', () => {
 
   it('heads a set list group by its sets’ names, each with the sublists it includes, unlinked', async () => {
     const page = await openTrophyHall({
+      ranking: [ranked('dave', 'Dave', 1, 1)],
       groups: [
         {
           poolSource: {
@@ -241,10 +263,22 @@ describe('the Trophy Hall page', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('says so before anyone holds a trophy', async () => {
-    const page = await openTrophyHall({ groups: [] });
+  it('ranks the trophy holders by place, name and trophy count, shared places marked', async () => {
+    const page = await openTrophyHall();
+
+    expect(items(main(page), 'Trophy ranking')).toEqual([
+      '1st Alice 2 🏆',
+      '=2nd Bob 1 🏆',
+      '=2nd Carol 1 🏆',
+      '=2nd Dave 1 🏆',
+    ]);
+  });
+
+  it('says so before anyone holds a trophy, with no trophy ranking', async () => {
+    const page = await openTrophyHall({ ranking: [], groups: [] });
 
     expect(text(main(page))).toContain('Nobody has won a trophy yet.');
+    expect(findNamedList(main(page), 'Trophy ranking')).toBeNull();
   });
 
   it('says so when the Trophy Hall can’t be loaded', async () => {

@@ -90,6 +90,13 @@ export class TrophyHallService {
       : new Map<string, string>();
 
     return {
+      // Every ranked player holds a trophy, so has a row, and a name here.
+      ranking: hall.ranking.map(({ playerId, trophies, place }) => ({
+        playerId,
+        name: names.get(playerId)!,
+        trophies,
+        place,
+      })),
       groups: groups.map(({ latest, rows }) => ({
         poolSource: headerOf(
           latest.complete.draft.poolSourceWithCubeId,

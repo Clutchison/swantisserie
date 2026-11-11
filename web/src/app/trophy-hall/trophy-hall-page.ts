@@ -11,6 +11,7 @@ import { CardPreviews } from '../drafts/card-preview';
 import { Decklist } from '../drafts/decklist';
 import { setsText } from '../drafts/drafts';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { place } from '../record';
 
 /** What heads a Trophy Hall group: its pool source's title, and where it links, if anywhere. */
 interface GroupHeader {
@@ -20,8 +21,9 @@ interface GroupHeader {
 
 /**
  * The Trophy Hall: every trophy and the deck that won it, grouped by pool
- * source, the group of the newest trophy first. Each row's View Deck
- * expands its holder's decklist under it. Fetched afresh on each visit.
+ * source, the group of the newest trophy first, with the trophy ranking
+ * beside them. Each row's View Deck expands its holder's decklist under it.
+ * Fetched afresh on each visit.
  */
 @Component({
   selector: 'app-trophy-hall-page',
@@ -34,6 +36,7 @@ interface GroupHeader {
 })
 export class TrophyHallPage {
   protected readonly hall = httpResource<TrophyHallView>(() => '/api/trophy-hall');
+  protected readonly place = place;
   /** The rows whose decklists are expanded, by `rowKey`. */
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
 

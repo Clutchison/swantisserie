@@ -9,7 +9,17 @@
     @if (hall.value().groups.length === 0) {
       <p class="empty">Nobody has won a trophy yet.</p>
     } @else {
-      <!-- The trophy ranking (#634) goes here, floated beside the groups. -->
+      <ol class="ranking" aria-label="Trophy ranking">
+        @for (entry of hall.value().ranking; track entry.playerId) {
+          <!-- The spaces read the place, name and count apart; the grid leaves them out. -->
+          <li>
+            <span class="place">{{ place(entry.place) }}</span
+            >{{ ' ' }} <span class="name">{{ entry.name }}</span
+            >{{ ' ' }}
+            <span class="count">{{ entry.trophies }}&nbsp;🏆</span>
+          </li>
+        }
+      </ol>
       @for (group of groups(); track $index) {
         @let heading = group.header.title;
         <section class="group" [attr.aria-labelledby]="'group-' + $index">
