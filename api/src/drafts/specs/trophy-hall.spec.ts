@@ -263,6 +263,20 @@ describe('the Trophy Hall', () => {
     ]);
   });
 
+  it('leaves out a shared first place, and counts none of its trophies, when any holder’s decklist wasn’t kept', async () => {
+    const counted = await wonBy([B(), A()]);
+    // Alice and Bob share first, but only Alice's decklist was kept.
+    const shared = await playingTournament([aliceCookie, bobCookie]);
+    await completeTournament(shared).expect(200);
+    expect((await tournamentView(shared)).trophyHolders).toHaveLength(2);
+    await app.get(PrismaService).tournamentEntry.updateMany({
+      where: { tournament: { draftId: shared }, player: { userId: bob.id } },
+      data: { decklist: Prisma.DbNull },
+    });
+
+    expect(rowsOf(await trophyHall())).toEqual([[`${counted} Bob 1`]]);
+  });
+
   it('gives each row its holder’s deck as locked at Start, with its cards and preferred printings, even after they edit it', async () => {
     const island = landPrinting(
       'Island',

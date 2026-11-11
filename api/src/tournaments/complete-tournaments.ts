@@ -1,6 +1,11 @@
 import type { PoolSourceView, TournamentView } from 'contract';
 import type { Tally, TournamentMatch } from 'engine';
-import { POOL_SOURCE, toPoolSourceView } from '../drafts/pool-source.js';
+import {
+  POOL_SOURCE,
+  toPoolSourceView,
+  toPoolSourceWithCubeId,
+  type PoolSourceWithCubeId,
+} from '../drafts/pool-source.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   TOURNAMENT_VIEW,
@@ -14,12 +19,8 @@ export interface CompleteTournament {
   draft: {
     name: string;
     poolSource: PoolSourceView;
-    /**
-     * A cube draft's CubeCobra cube id, which its pool source view gives
-     * only as a URL; null for other pool sources. The Trophy Hall groups
-     * cube drafts by it, so a cube whose list changed stays one group.
-     */
-    cubeId: string | null;
+    /** Its pool source, a cube with its CubeCobra id, for the Trophy Hall. */
+    poolSourceWithCubeId: PoolSourceWithCubeId;
   };
   view: TournamentView;
   /** Whether any bot played in it, as every bot of its draft does. */
@@ -53,7 +54,7 @@ export async function readCompleteTournaments(
     draft: {
       name: row.draft.name,
       poolSource: toPoolSourceView(row.draft),
-      cubeId: row.draft.cubeId,
+      poolSourceWithCubeId: toPoolSourceWithCubeId(row.draft),
     },
     view: toTournamentView(row),
     botsPlayed: row._count.entries > 0,

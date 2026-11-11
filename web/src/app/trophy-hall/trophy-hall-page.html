@@ -10,29 +10,14 @@
       <p class="empty">Nobody has won a trophy yet.</p>
     } @else {
       <!-- The trophy ranking (#634) goes here, floated beside the groups. -->
-      @for (group of hall.value().groups; track $index) {
-        @let heading = title(group.poolSource);
+      @for (group of groups(); track $index) {
+        @let heading = group.header.title;
         <section class="group" [attr.aria-labelledby]="'group-' + $index">
           <h2 [id]="'group-' + $index">
-            @switch (group.poolSource.kind) {
-              @case ('cube') {
-                <a [href]="group.poolSource.cube.url" target="_blank" rel="noopener">{{
-                  heading
-                }}</a>
-              }
-              @case ('pool-query') {
-                <a
-                  [href]="scryfallSearch(group.poolSource.poolQuery)"
-                  target="_blank"
-                  rel="noopener"
-                  ><code>{{ heading }}</code></a
-                >
-              }
-              @case ('set-list') {
-                {{ heading }}
-              }
-              <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
-              @default never(group.poolSource);
+            @if (group.header.href; as href) {
+              <a [href]="href" target="_blank" rel="noopener">{{ heading }}</a>
+            } @else {
+              {{ heading }}
             }
           </h2>
           <ul class="rows" [attr.aria-label]="'Trophies won with ' + heading">

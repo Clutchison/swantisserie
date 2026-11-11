@@ -8,11 +8,11 @@ import {
   items,
   link,
   loadingAnimation,
-  namedList,
   poolCardOf,
   previewInList,
   text,
 } from '../drafts/specs/harness';
+import { headingsAt, listItems } from '../drafts/specs/outline-harness';
 import { zenMountain } from '../drafts/specs/plan-tab-harness';
 
 const bolt = poolCardOf('bolt', 'Lightning Bolt');
@@ -107,13 +107,7 @@ describe('the Trophy Hall page', () => {
 
   /** The row of the list named `list` at `index`. */
   const rowIn = (page: HTMLElement, list: string, index: number) =>
-    namedList(main(page), list).querySelectorAll<HTMLElement>(':scope > li')[index];
-
-  /** The text of each row of the list named `list`, its expanded decklists left out. */
-  const rowsOf = (page: HTMLElement, list: string) =>
-    [...namedList(main(page), list).querySelectorAll<HTMLElement>(':scope > li')].map((li) =>
-      text(li.firstElementChild as HTMLElement),
-    );
+    listItems(main(page), list)[index];
 
   it('says so with the loading animation while the Trophy Hall loads', async () => {
     const { fixture, page } = await openApp('/trophy-hall', alice);
@@ -151,7 +145,7 @@ describe('the Trophy Hall page', () => {
   it('heads each group by its pool source, a cube linked to CubeCobra and a pool query to Scryfall', async () => {
     const page = await openTrophyHall();
 
-    expect([...main(page).querySelectorAll('h2')].map((h2) => text(h2))).toEqual([
+    expect(headingsAt(main(page), 2)).toEqual([
       'Vintage Cube',
       'c:r t:instant',
       'Outlaws of Thunder Junction (+ The Big Score), Murders at Karlov Manor',
@@ -164,12 +158,42 @@ describe('the Trophy Hall page', () => {
     );
   });
 
+  it('heads a set list group by its sets’ names, each with the sublists it includes, unlinked', async () => {
+    const page = await openTrophyHall({
+      groups: [
+        {
+          poolSource: {
+            kind: 'set-list',
+            setList: [
+              { code: 'mkm', name: 'Murders at Karlov Manor', sublists: [] },
+              {
+                code: 'otj',
+                name: 'Outlaws of Thunder Junction',
+                sublists: [
+                  { code: 'big', name: 'The Big Score' },
+                  { code: 'otp', name: 'Breaking News' },
+                ],
+              },
+            ],
+          },
+          rows: [row('d0', 'dave', 'Dave', 1)],
+        },
+      ],
+    });
+
+    const title =
+      'Murders at Karlov Manor, Outlaws of Thunder Junction (+ The Big Score, Breaking News)';
+    expect(headingsAt(main(page), 2)).toEqual([title]);
+    expect(link(main(page), title)).toBeUndefined();
+    expect(items(main(page), `Trophies won with ${title}`)).toEqual(['1 🏆 Dave View Deck']);
+  });
+
   it('shows each trophy as its holder’s trophy count and name', async () => {
     const page = await openTrophyHall();
 
-    expect(rowsOf(page, CUBE)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Bob View Deck']);
-    expect(rowsOf(page, QUERY)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Carol View Deck']);
-    expect(rowsOf(page, SETS)).toEqual(['1 🏆 Dave View Deck']);
+    expect(items(main(page), CUBE)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Bob View Deck']);
+    expect(items(main(page), QUERY)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Carol View Deck']);
+    expect(items(main(page), SETS)).toEqual(['1 🏆 Dave View Deck']);
   });
 
   it('expands a holder’s decklist under their row with View Deck, and collapses it again', async () => {

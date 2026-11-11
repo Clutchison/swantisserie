@@ -96,13 +96,16 @@ describe('poolSourceIdentity', () => {
   });
 });
 
-/** A complete tournament drawn from `poolSource`, won by `trophyHolders`. */
+/**
+ * A complete tournament drawn from `poolSource`, won by `trophyHolders`,
+ * every trophy holder's decklist kept.
+ */
 function won(
   id: string,
   poolSource: GroupedPoolSource,
   ...trophyHolders: string[]
 ): TrophyHallTournament & { id: string } {
-  return { id, poolSource, trophyHolders };
+  return { id, poolSource, trophyHolders, decklistsKept: trophyHolders };
 }
 
 /** Each group as its tournaments' ids and each row's player and trophy count. */
@@ -146,11 +149,26 @@ describe('trophyHall', () => {
     expect(shape(hall)).toEqual([['t2 alice 1']]);
   });
 
+  it('leaves out a tournament, and counts none of its trophies, when any trophy holder’s decklist wasn’t kept', () => {
+    const hall = trophyHall([
+      won('t3', cube('vintage'), 'alice'),
+      // A shared first: only Alice's decklist was kept.
+      {
+        ...won('t2', cube('vintage'), 'alice', 'bob'),
+        decklistsKept: ['alice'],
+      },
+      // Completed before every deck was kept (ADR 0017).
+      { ...won('t1', query('c:r'), 'bob'), decklistsKept: [] },
+    ]);
+
+    expect(shape(hall)).toEqual([['t3 alice 1']]);
+  });
+
   it('has no groups with no trophies', () => {
     expect(trophyHall([]).groups).toEqual([]);
   });
 
-  it('gives each group the pool source of its first tournament, and its identity', () => {
+  it('gives each group its newest tournament, the first given, for its pool source', () => {
     const newer = won(
       't2',
       sets({ code: 'otj', sublists: [] }, { code: 'mkm', sublists: [] }),
@@ -165,6 +183,6 @@ describe('trophyHall', () => {
     const [group] = trophyHall([newer, older]).groups;
 
     expect(group.latest).toBe(newer);
-    expect(group.identity).toBe(poolSourceIdentity(older.poolSource));
+    expect(group.rows.map((row) => row.tournament)).toEqual([newer, older]);
   });
 });
