@@ -2,7 +2,7 @@
   <header role="banner">
     <div class="left-group">
       <app-top-bar-menu #narrowMenu class="narrow-only" accessibleName="Menu">
-        <a class="menu-item" routerLink="/leaderboard">Leaderboard</a>
+        <a class="menu-item" routerLink="/trophy-hall">Trophy Hall</a>
         <button class="menu-item" type="button" (click)="openFeedback()">Send feedback</button>
         @if (user.isAppAdmin) {
           <div role="group" aria-labelledby="narrow-app-admin-heading">
@@ -16,7 +16,7 @@
         <span class="title">Swantisserie</span>
       </a>
       <div class="wide-only">
-        <a class="button quiet compact" routerLink="/leaderboard">Leaderboard</a>
+        <a class="button quiet compact" routerLink="/trophy-hall">Trophy Hall</a>
         @if (user.isAppAdmin) {
           <app-top-bar-menu [label]="appAdminLabel()">
             <ng-container [ngTemplateOutlet]="appAdminItems" />
@@ -28,9 +28,11 @@
       </div>
     </div>
     <div class="right-group">
-      <span class="name">{{ user.name }}</span>
+      <app-top-bar-menu class="shrinks" [label]="user.name" align="end">
+        <a class="menu-item" routerLink="/my-stats">My stats</a>
+        <button class="menu-item" type="button" (click)="logout()">Log out</button>
+      </app-top-bar-menu>
       <img class="avatar" [src]="user.avatarUrl" alt="" width="32" height="32" />
-      <button class="button quiet compact" type="button" (click)="logout()">Log out</button>
     </div>
   </header>
   <ng-template #appAdminItems>

@@ -2,11 +2,11 @@
 
 Status: Accepted
 
-Bots exist so that an admin can test the app alone, and testing tournaments by hand needs opponents. So every bot in a draft joins its tournament at tournament setup, whatever its deck holds, and takes full part: pairings, byes, standings, the bracket, decklists and the trophy. Bots are passive: they never report or confirm, and they can't leave, be removed, be dropped or be reinstated, so their opponents and organizers settle their matches. A complete tournament that any bot played in counts nowhere on the leaderboard: no records, head-to-head records or trophies for anyone from it (#442).
+Bots exist so that an admin can test the app alone, and testing tournaments by hand needs opponents. So every bot in a draft joins its tournament at tournament setup, whatever its deck holds, and takes full part: pairings, byes, standings, the bracket, decklists and the trophy. Bots are passive: they never report or confirm, and they can't leave, be removed, be dropped or be reinstated, so their opponents and organizers settle their matches. A complete tournament that any bot played in counts nowhere, on the Trophy Hall or My stats: no trophies or records for anyone from it (#442).
 
 This reverses the first tournament spec (#416), which kept bots out of tournaments.
 
 ## Considered Options
 
 - **Bots never join a tournament.** Rejected because an admin then can't play a tournament through without recruiting other people.
-- **Count the tournament, but leave the bots out of the leaderboard.** Rejected because the humans' results in it are a test, not a real event: a trophy won over bots, or a record padded by wins against them, would count as a real one.
+- **Count the tournament, but leave the bots out of the Trophy Hall and My stats.** Rejected because the humans' results in it are a test, not a real event: a trophy won over bots, or a record padded by wins against them, would count as a real one.

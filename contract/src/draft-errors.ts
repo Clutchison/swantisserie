@@ -175,9 +175,11 @@ export interface TournamentRefusal {
     | 'bots-never-ready'
     /** Marking ready: the player's mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small-for-ready'
-    /** Decklists are shown only under public decklists, chosen at tournament setup. */
+    /** While a tournament without public decklists is playing, its decklists aren't shown; they are once it is complete. */
     | 'decklists-private'
-    /** Under public decklists, decklists are shown once the tournament starts, not during registration. */
+    /** A tournament completed before every deck was kept (ADR 0017) kept no decklists without public decklists, so it never shows them. */
+    | 'decklists-not-kept'
+    /** Decklists are never shown during registration: under public decklists from Start, otherwise once complete. */
     | 'in-registration'
     /** Start: a joined human player's mainboard, picks plus basic lands, holds fewer than MIN_MAINBOARD_CARDS. */
     | 'deck-too-small'

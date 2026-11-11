@@ -60,6 +60,7 @@ describe('starting a tournament', () => {
       [alice.id, bob.id].map((playerId) => ({
         playerId,
         rank: 1,
+        shared: true,
         matchPoints: 0,
         matches: { won: 0, lost: 0, drawn: 0 },
         games: { won: 0, lost: 0, drawn: 0 },

@@ -15,7 +15,7 @@
 </button>
 @if (open()) {
   <!-- Keyboard users choose an item with its own link or button; this only sees the click bubble up. -->
-  <div class="panel" (click)="panelClicked($event)">
+  <div class="panel" [class.end]="align() === 'end'" (click)="panelClicked($event)">
     <ng-content />
   </div>
 }

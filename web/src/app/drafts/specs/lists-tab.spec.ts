@@ -15,12 +15,10 @@ import {
   heading,
   http,
   items,
-  namedList,
   openTab,
   openUrl,
   panel,
-  previewImage,
-  tap,
+  previewInList,
   ownTabStop,
   panelName,
   poolCardOf,
@@ -43,7 +41,7 @@ import {
   withTournament,
   completed,
 } from './play-tab-harness';
-import { onsPrinting, openPrintingPicker, useOnsPrinting } from './plan-tab-harness';
+import { onsPrinting, openPrintingPicker, useOnsPrinting, zenMountain } from './plan-tab-harness';
 
 useDraftsApp();
 
@@ -54,19 +52,6 @@ const spike = poolCardOf('spike', 'Lava Spike');
 /** The tournament of Alice, Bob and Carol being played under public decklists. */
 const publicPlaying = (fields: Partial<ViewerTournamentView> = {}) =>
   playing([], { publicDecklists: true, showsDecklists: true, ...fields });
-
-const ZEN_MOUNTAIN = 'e0000000-0000-4000-8000-000000000243';
-/** Bob's preferred printing of Mountain. */
-const zenMountain = {
-  scryfallId: ZEN_MOUNTAIN,
-  set: 'zen',
-  collectorNumber: '243',
-  images: {
-    small: `https://cards.scryfall.io/small/front/e/0/${ZEN_MOUNTAIN}.jpg`,
-    normal: `https://cards.scryfall.io/normal/front/e/0/${ZEN_MOUNTAIN}.jpg`,
-    large: `https://cards.scryfall.io/large/front/e/0/${ZEN_MOUNTAIN}.jpg`,
-  },
-};
 
 /** Each joined player's decklist, in join order: Alice, Bob, then Carol. Bob prefers Zendikar's Mountain #243. */
 const decklists: DecklistView[] = [
@@ -106,15 +91,6 @@ async function chooseOnsMountain(page: HTMLElement) {
     TestBed.tick();
     expect(openDialog()).toBeNull();
   });
-}
-
-/** Taps the Mountain in `player`'s mainboard inside `tab`, answering with its Card preview's image. */
-function previewMountain(tab: HTMLElement, player: string) {
-  const mountain = [
-    ...namedList(tab, `${player}’s mainboard`).querySelectorAll<HTMLElement>('.name'),
-  ].find((name) => name.textContent?.trim() === 'Mountain')!;
-  tap(mountain);
-  return previewImage()?.getAttribute('src');
 }
 
 /** Opens the draft of Alice, Bob and Carol with `tournament`, as Dave, who isn't one of its players. */
@@ -183,8 +159,8 @@ describe('lists tab', () => {
     const { fixture, page } = await openAsViewer(publicPlaying());
     const tab = await openTab(fixture, page, 'Lists');
 
-    expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
-    expect(previewMountain(tab, 'Alice')).toBe(
+    expect(previewInList(tab, 'Bob’s mainboard', 'Mountain')).toBe(zenMountain.images.normal);
+    expect(previewInList(tab, 'Alice’s mainboard', 'Mountain')).toBe(
       'https://cards.scryfall.io/normal/front/0/5/05f9bdca-0d54-46c7-b803-9083dfc9ee24.jpg',
     );
     expect(tab.querySelector('[aria-haspopup="dialog"]')).toBeNull();
@@ -201,8 +177,8 @@ describe('lists tab', () => {
     await chooseOnsMountain(page);
     const tab = await openTab(fixture, page, 'Lists');
 
-    expect(previewMountain(tab, 'Alice')).toBe(onsPrinting.images.normal);
-    expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
+    expect(previewInList(tab, 'Alice’s mainboard', 'Mountain')).toBe(onsPrinting.images.normal);
+    expect(previewInList(tab, 'Bob’s mainboard', 'Mountain')).toBe(zenMountain.images.normal);
   });
 
   it('keeps reading the decklists when a printing is chosen meanwhile', async () => {
@@ -222,7 +198,7 @@ describe('lists tab', () => {
     read.flush(decklists);
     const tab = await openTab(fixture, page, 'Lists');
 
-    expect(previewMountain(tab, 'Bob')).toBe(zenMountain.images.normal);
+    expect(previewInList(tab, 'Bob’s mainboard', 'Mountain')).toBe(zenMountain.images.normal);
   });
 
   it('stays once the tournament is complete', async () => {
@@ -269,6 +245,16 @@ describe('lists tab', () => {
       const { page } = await openAsViewer(completed(publicPlaying({ trophyHolders: [alice.id] })));
 
       expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
+    });
+
+    it('takes the Board tab’s place once a tournament without public decklists is complete', async () => {
+      const { fixture, page } = await openAsViewer(
+        completed(playing([], { trophyHolders: [alice.id] })),
+      );
+
+      expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
+      const tab = await openTab(fixture, page, 'Lists');
+      expect(items(tab, 'Bob’s mainboard')).toEqual(['1 Lava Spike', '39 Mountain']);
     });
 
     it.each([

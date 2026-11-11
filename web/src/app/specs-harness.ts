@@ -229,6 +229,20 @@ export const byAriaLabel = (root: HTMLElement, selector: string, name: string) =
     (element) => element.getAttribute('aria-label') === name,
   ) ?? null;
 
+/**
+ * The element inside `root` that `selector` finds and whose accessible name
+ * is `name`: its aria-label, or the text of the element its
+ * aria-labelledby names; null if there is none.
+ */
+export const byName = (root: HTMLElement, selector: string, name: string) =>
+  [...root.querySelectorAll<HTMLElement>(selector)].find((element) => {
+    const labelledBy = element.getAttribute('aria-labelledby');
+    const label = labelledBy
+      ? text(element.ownerDocument.getElementById(labelledBy))
+      : element.getAttribute('aria-label');
+    return label === name;
+  }) ?? null;
+
 /** A table inside `root`, by its accessible name (its aria-label); null if there is none. */
 export const table = (root: HTMLElement, name: string) =>
   byAriaLabel(root, 'table, [role="table"]', name);

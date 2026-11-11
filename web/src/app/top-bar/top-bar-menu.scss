@@ -21,4 +21,22 @@
   border-radius: 0.5rem;
   background: var(--color-surface);
   box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
+
+  &.end {
+    right: 0;
+    left: auto;
+  }
+}
+
+/* A menu that may give way, such as the user menu: its label truncates, so nothing else has to. */
+:host(.shrinks) {
+  flex: 0 1 auto;
+  min-width: 0;
+
+  > button {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

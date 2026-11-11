@@ -7,6 +7,7 @@ import {
   completeRound,
   completeTournament,
   cookiesByPlayer,
+  expectCompletedSince,
   matchOf,
   playingTournament,
   reportCurrentRound,
@@ -178,6 +179,7 @@ describe('standings', () => {
       {
         playerId: carol.id,
         rank: 1,
+        shared: false,
         matchPoints: 6,
         matches: { won: 2, lost: 0, drawn: 0 },
         games: { won: 4, lost: 1, drawn: 0 },
@@ -186,6 +188,7 @@ describe('standings', () => {
       {
         playerId: bob.id,
         rank: 2,
+        shared: false,
         matchPoints: 3,
         matches: { won: 1, lost: 1, drawn: 0 },
         games: { won: 2, lost: 2, drawn: 0 },
@@ -194,11 +197,29 @@ describe('standings', () => {
       {
         playerId: alice.id,
         rank: 3,
+        shared: false,
         matchPoints: 0,
         matches: { won: 0, lost: 2, drawn: 0 },
         games: { won: 1, lost: 4, drawn: 0 },
         gameWinPercent: 20,
       },
+    ]);
+  });
+});
+
+describe('standings places', () => {
+  it('say whether each place is shared, as =1st reads', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    // Each beats one other 2–0: all level after every tiebreaker.
+    await reportWin(id, [alice.id, bob.id], [2, 0], aliceCookie);
+    await reportWin(id, [bob.id, carol.id], [2, 0], bobCookie);
+    await reportWin(id, [carol.id, alice.id], [2, 0], carolCookie);
+    const tied = (await tournamentView(id)).standings;
+
+    expect(tied.map(({ rank, shared }) => ({ rank, shared }))).toEqual([
+      { rank: 1, shared: true },
+      { rank: 1, shared: true },
+      { rank: 1, shared: true },
     ]);
   });
 });
@@ -210,12 +231,15 @@ describe('completing a tournament', () => {
     expect(
       (await setBasic(id, 'Island', 1, aliceCookie).expect(409)).body.error,
     ).toBe('deck-locked');
+    expect((await tournamentView(id)).completedAt).toBeNull();
+    const before = Date.now();
 
     const answer = await completeTournament(id).expect(200);
 
     expect(answer.body.tournament).toEqual({ state: 'Complete' });
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
+    expectCompletedSince(view, before);
     expect((await matchOf(id, alice.id, carol.id)).outcome).toEqual({
       kind: 'GrantedDraw',
     });

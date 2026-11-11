@@ -187,6 +187,12 @@ export interface BracketRoundView {
   places: BracketPlaceView[];
 }
 
+/** A place in a ranking, from 1, and whether another player shares it: shown as =2nd when shared. */
+export interface PlaceView {
+  rank: number;
+  shared: boolean;
+}
+
 /** Matches or games won, lost and drawn. */
 export interface TallyView {
   won: number;
@@ -200,6 +206,8 @@ export interface StandingView {
   playerId: string;
   /** From 1. Players still tied after every tiebreaker share a rank. */
   rank: number;
+  /** Whether another player shares its rank: its place reads as =2nd when shared. */
+  shared: boolean;
   matchPoints: number;
   matches: TallyView;
   games: TallyView;
@@ -228,10 +236,16 @@ export interface TournamentView {
   publicDecklists: boolean;
   /**
    * Whether everyone who sees the draft may read its decklists now: under
-   * public decklists, once it is playing, and still once it is complete.
+   * public decklists once it is playing, and for every tournament once it
+   * is complete.
    */
   showsDecklists: boolean;
   state: TournamentState;
+  /**
+   * When it completed, as an ISO 8601 timestamp; null until then, and for
+   * a tournament that completed before completion times were recorded.
+   */
+  completedAt: string | null;
   /**
    * How many tournament rounds it will have, for the players joined so far
    * during registration. Always 0 in round robin, which has none.
@@ -422,8 +436,8 @@ export type TournamentSetupRequest = (
 ) & { publicDecklists?: boolean };
 
 /**
- * A joined player's locked deck as others see it under public decklists,
- * as it was when the tournament started, its basic lands showing its
+ * A joined player's locked deck as others see it, under public decklists
+ * or once the tournament is complete: as it was when the tournament started, its basic lands showing its
  * player's preferred printings as they are now. From
  * `GET /api/drafts/:id/tournament/decklists`, which serves one per joined
  * player, in join order, once `TournamentView.showsDecklists`.

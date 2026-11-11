@@ -1,5 +1,7 @@
 import type {
   CompleteRoundRequest,
+  Platform,
+  SetListEntryView,
   MatchReportRequest,
   MatchView,
   PlayerView,
@@ -7,6 +9,7 @@ import type {
   TournamentSetupRequest,
   TournamentView,
 } from 'contract';
+import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   addBot,
@@ -277,9 +280,81 @@ export function placesOf(round: TournamentView['rounds'][number]) {
   }));
 }
 
+/**
+ * Makes the draft's complete tournament as the migration of ADR 0017 left
+ * one that completed before every deck was kept, without public
+ * decklists: no completion time, and no decklist kept for anyone.
+ */
+export async function completedBeforeDecklistsWereKept(id: string) {
+  const prisma = app.get(PrismaService);
+  await prisma.tournament.update({
+    where: { draftId: id },
+    data: { completedAt: null },
+  });
+  await prisma.tournamentEntry.updateMany({
+    where: { tournament: { draftId: id } },
+    data: { decklist: Prisma.DbNull },
+  });
+}
+
+/** A pool source as a spec gives a draft one. */
+export type Source =
+  | { cube: { id: string; name: string } }
+  | { poolQuery: string }
+  | { setList: SetListEntryView[] };
+
+/**
+ * Gives the draft `id` the pool source `source` on `platform`, as if it
+ * had been created from them. A draft's pool source never changes once
+ * created, and the Trophy Hall reads only what is stored, so a spec sets it
+ * here rather than fake a cube or a set list's snapshot for each draft.
+ */
+export async function drawnFrom(
+  id: string,
+  source: Source,
+  platform: Platform = 'Arena',
+) {
+  const columns =
+    'cube' in source
+      ? {
+          poolSourceKind: 'Cube' as const,
+          poolQuery: null,
+          cubeId: source.cube.id,
+          cubeName: source.cube.name,
+          setList: Prisma.DbNull,
+        }
+      : 'poolQuery' in source
+        ? {
+            poolSourceKind: 'PoolQuery' as const,
+            poolQuery: source.poolQuery,
+            cubeId: null,
+            cubeName: null,
+            setList: Prisma.DbNull,
+          }
+        : {
+            poolSourceKind: 'SetList' as const,
+            poolQuery: null,
+            cubeId: null,
+            cubeName: null,
+            setList: source.setList as unknown as Prisma.InputJsonArray,
+          };
+  await app.get(PrismaService).draft.update({
+    where: { id },
+    data: { ...columns, platform },
+  });
+}
+
 /** The draft's tournament as everyone who sees it reads it. */
 export async function tournamentView(id: string): Promise<TournamentView> {
   return (await tournament(id).expect(200)).body as TournamentView;
+}
+
+/** Expects `view` to have completed at `since` (a `Date.now()`) or later, and no later than now. */
+export function expectCompletedSince(view: TournamentView, since: number) {
+  expect(view.completedAt).not.toBeNull();
+  const completedAt = new Date(view.completedAt!).getTime();
+  expect(completedAt).toBeGreaterThanOrEqual(since);
+  expect(completedAt).toBeLessThanOrEqual(Date.now());
 }
 
 /**

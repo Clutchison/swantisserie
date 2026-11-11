@@ -44,6 +44,7 @@ import {
   button,
   buttons,
   byAriaLabel,
+  byName,
   collapseWhitespace,
   serverError,
   table,
@@ -568,7 +569,7 @@ export const statusTexts = (root: HTMLElement) =>
 
 /** A list inside `root`, by its accessible name, such as "Pick log"; null if there is none. */
 export const findNamedList = (root: HTMLElement, name: string) =>
-  byAriaLabel(root, 'ul, ol, [role="list"]', name);
+  byName(root, 'ul, ol, [role="list"]', name);
 
 /** A list inside `root` that is there, by its accessible name, such as "Pick log" or "Your picks". */
 export const namedList = (root: HTMLElement, name: string) => findNamedList(root, name)!;
@@ -944,6 +945,12 @@ export const previewImages = () => [
 ];
 /** The Card preview's image, if one is open: it's outside the page. */
 export const previewImage = () => previewImages()[0] ?? null;
+
+/** Taps the card named `card` in the list inside `root` named `list`, returning its Card preview's image URL, if one opens. */
+export function previewInList(root: HTMLElement, list: string, card: string) {
+  tap(cardName(namedList(root, list), card));
+  return previewImage()?.getAttribute('src');
+}
 
 /**
  * Whether a card's image, or what shows while it loads, is turned 90°

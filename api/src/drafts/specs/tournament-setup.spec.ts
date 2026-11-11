@@ -46,6 +46,7 @@ describe('tournament setup', () => {
       publicDecklists: false,
       showsDecklists: false,
       state: 'Registration',
+      completedAt: null,
       roundCount: 0,
       lastCompletedRound: 0,
       // In seat order, though neither has filled their deck.

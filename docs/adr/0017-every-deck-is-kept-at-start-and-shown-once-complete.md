@@ -1,6 +1,6 @@
 # Every deck is kept at Start, and every decklist is shown once its tournament is complete
 
-Status: Accepted, not yet built (#629)
+Status: Accepted
 
 Amends 0005 and 0002. ADR 0005 kept a deck private forever unless its tournament had **public decklists**, and only those decks were kept as they were locked. A deck unlocks when its tournament completes, so a private deck's player could change it afterwards, and the deck they played was lost. The Trophy Hall needs every trophy holder's deck as they played it. Decided while specifying the Trophy Hall (#629).
 
@@ -15,4 +15,4 @@ Now every joined player's deck is kept as it was locked at Start, whatever the t
 ## Consequences
 
 - Organizers and players can no longer promise that a deck stays private for good. Tournament setup and the registration copy must say that decklists are shown once the tournament completes.
-- Tournaments that completed before this decision kept no snapshot of private decks, so they have no decklists and stay off the Trophy Hall. A tournament that was playing when this was built had its locked decks snapshotted then, since a locked deck can't have changed.
+- Tournaments that completed before this decision without public decklists kept no snapshot of their decks, so they have no decklists: they keep the Board tab, their decklists are refused, and they stay off the Trophy Hall. A tournament that was playing when this was built had its locked decks snapshotted then, since a locked deck can't have changed.

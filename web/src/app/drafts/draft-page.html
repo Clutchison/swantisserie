@@ -100,7 +100,7 @@
       >
         {{ planName() === 'deck' ? 'Deck' : 'Plan' }}
       </button>
-      <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started. -->
+      <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
       @if (showBoardTab()) {
         <button
           id="board-tab"
@@ -271,7 +271,7 @@
       </section>
     }
 
-    <!-- Only a tournament under public decklists has a Lists tab, once it has started. -->
+    <!-- A tournament has a Lists tab under public decklists once it has started, and always once it is complete. -->
     @if (showListsTab()) {
       <section
         id="lists-panel"

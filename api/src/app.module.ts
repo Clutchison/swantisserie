@@ -7,9 +7,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { WebhooksModule } from './discord/webhooks.module.js';
 import { DraftsModule } from './drafts/drafts.module.js';
 import { FeedbackModule } from './feedback/feedback.module.js';
-import { LeaderboardModule } from './leaderboard/leaderboard.module.js';
+import { MyStatsModule } from './my-stats/my-stats.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { TournamentsModule } from './tournaments/tournaments.module.js';
+import { TrophyHallModule } from './trophy-hall/trophy-hall.module.js';
 
 export interface AppOptions {
   /** Directory holding the built Angular app. */
@@ -28,7 +29,8 @@ export class AppModule {
         DraftsModule,
         TournamentsModule,
         FeedbackModule,
-        LeaderboardModule,
+        TrophyHallModule,
+        MyStatsModule,
         WebhooksModule,
         ServeStaticModule.forRoot({
           rootPath: webRoot,

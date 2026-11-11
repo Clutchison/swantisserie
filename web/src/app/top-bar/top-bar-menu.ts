@@ -30,6 +30,8 @@ export class TopBarMenu {
   readonly label = input<string>();
   /** Names the button, and is its tooltip, when it shows only the menu icon. */
   readonly accessibleName = input<string>();
+  /** Which edge of the button the panel lines up with: its start, or its end for a menu at the bar's far end. */
+  readonly align = input<'start' | 'end'>('start');
 
   protected readonly open = signal(false);
 

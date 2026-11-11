@@ -234,6 +234,9 @@ export const printing = (id: string, set: string, number: string): BasicLandPrin
 /** Onslaught's #1, as the API shows a basic land's printing: the one `answerPrintingsRequest` offers. */
 export const onsPrinting = printing(ONS_1, 'ons', '1');
 
+/** Zendikar's Mountain #243, a basic land printing a player can prefer. */
+export const zenMountain = printing('e0000000-0000-4000-8000-000000000243', 'zen', '243');
+
 /** Answers the open Printing picker's request for `land` with one printing, `onsPrinting`. */
 export async function answerPrintingsRequest(land: string) {
   (await vi.waitFor(() => http.expectOne(printingsRequest(land)))).flush({

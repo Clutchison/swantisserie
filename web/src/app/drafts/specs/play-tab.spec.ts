@@ -108,7 +108,7 @@ describe('Play tab', () => {
       const toggle = button(tab, 'Decklists: Private')!;
       expect(toggle.textContent?.trim()).toBe('Private');
       expect(accessibleDescription(toggle)).toBe(
-        'Once the tournament starts, everyone who sees this draft sees each joined player’s deck.',
+        'Once the tournament is complete, everyone who sees this draft sees each joined player’s decklist. Public decklists show them while it is played, too.',
       );
       toggle.click();
       await fixture.whenStable();
@@ -424,14 +424,16 @@ describe('Play tab', () => {
       expect(await failChange(fixture, page, url)).toBe(failure);
     });
 
-    it('says on the Join button, and beside it, that the deck stays private without public decklists', async () => {
+    it('says on the Join button, and beside it, that the deck stays private until the tournament is complete without public decklists', async () => {
       const { fixture, page } = await openComplete(registration(bob.id));
 
       const tab = await openPlayTab(fixture, page);
 
       expect(button(tab, JOIN_PRIVATE)).toBeDefined();
       expect(button(tab, JOIN_PUBLIC)).toBeUndefined();
-      expect(tab.textContent).toContain('Only you see your deck.');
+      expect(tab.textContent).toContain(
+        'Only you see your deck until the tournament is complete; then everyone who sees this draft does.',
+      );
     });
 
     it('says on the Join button, and beside it, that the deck will be public under public decklists', async () => {

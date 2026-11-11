@@ -13,7 +13,6 @@ import {
 import type { GameScore, MatchView, TournamentView } from 'contract';
 import { percent, record } from '../record';
 import { FocusKey, SendsChange } from './changes';
-import { DraftStore } from './draft-store';
 import {
   matchIn,
   matchLine,
@@ -23,7 +22,9 @@ import {
   seedsOf,
   type ClearGameScore,
 } from './match-lines';
+import { standingCells } from './standing-cells';
 import { TournamentBracket } from './tournament-bracket';
+import { TournamentViewer } from './tournament-viewer';
 
 /** A game score an organizer sets for a match, in its player order. */
 export interface SetGameScore {
@@ -49,9 +50,14 @@ export interface SetGameScore {
   styleUrls: ['./drafts.scss', './tournament-results.scss'],
 })
 export class TournamentResults {
-  private readonly store = inject(DraftStore);
+  private readonly viewer = inject(TournamentViewer);
 
   readonly tournament = input.required<TournamentView>();
+  /**
+   * Shown in the Tournament summary: each rank as a place, such as =2nd,
+   * and trophy holders marked 🏆 and dropped players marked by name.
+   */
+  readonly summary = input(false);
   /** The signed-in player's id, if they joined. */
   readonly ownId = input<string>();
   /** The match shown as the signed-in player's, which needs no Report or Confirm here. */
@@ -99,7 +105,10 @@ export class TournamentResults {
   protected readonly standings = computed(() =>
     this.tournament().standings.map((standing) => ({
       ...standing,
-      name: this.name(standing.playerId),
+      ...standingCells(this.tournament(), standing, this.name(standing.playerId), {
+        summary: this.summary(),
+        alwaysMarksDropped: false,
+      }),
       record: record(standing.matches),
       gameWinPercent: percent(standing.gameWinPercent),
       opponentsMatchWinPercent: percent(standing.opponentsMatchWinPercent),
@@ -173,7 +182,7 @@ export class TournamentResults {
       confirmAgainst: this.confirmable(match)
         ? this.name(match.players.find((id) => id !== own)!)
         : null,
-      organize: this.store.canOrganize() && correctable ? this.organizerControls(match) : null,
+      organize: this.viewer.canOrganize() && correctable ? this.organizerControls(match) : null,
     };
   }
 
@@ -205,7 +214,7 @@ export class TournamentResults {
   }
 
   private name(playerId: string) {
-    return this.store.player(playerId).name;
+    return this.viewer.player(playerId).name;
   }
 
   /** The player's name, with their seed in single elimination, as in "Alice (seed 1)". */

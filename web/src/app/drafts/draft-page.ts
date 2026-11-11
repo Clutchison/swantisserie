@@ -20,6 +20,7 @@ import { BoardTab } from './board-tab';
 import { CardImageSource } from './card-image-source';
 import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
+import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
 import { setListText } from './drafts';
 import { ExportTab } from './export-tab';
@@ -61,7 +62,14 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Plan', 'Export']);
     TabList,
     WebhookControl,
   ],
-  providers: [CardImageSource, CardPreviews, DraftStore, ImagePreloader],
+  providers: [
+    CardImageSource,
+    CardPreviews,
+    DraftStore,
+    // The Play tab's standings, results grid and bracket read its players from the draft.
+    { provide: TournamentViewer, useExisting: DraftStore },
+    ImagePreloader,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './draft-page.scss'],
@@ -103,7 +111,8 @@ export class DraftPage {
   protected readonly showPlayTab = computed(() => !!this.store.showPlayTab());
   /**
    * Whether the Lists tab is there, in the Board tab's place: under
-   * public decklists, once the tournament has started.
+   * public decklists, once the tournament has started, and for every
+   * tournament once it is complete.
    */
   protected readonly showListsTab = computed(() => !!this.store.showDecklists());
   /**

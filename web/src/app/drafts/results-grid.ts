@@ -13,10 +13,8 @@ import {
   untracked,
 } from '@angular/core';
 import type { MatchView, TournamentView } from 'contract';
-import { droppedPlayers } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { percent, record } from '../record';
-import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
 import {
   gameScoreFor,
@@ -31,7 +29,9 @@ import {
   MatchResultDialog,
   type MatchResultChoice,
 } from './match-result-dialog';
+import { standingCells } from './standing-cells';
 import type { SetGameScore } from './tournament-results';
+import { TournamentViewer } from './tournament-viewer';
 
 /** One cell of the results grid: the row player's result against the column player. */
 interface GridCell {
@@ -69,11 +69,13 @@ interface GridCell {
   styleUrls: ['./drafts.scss', './results-grid.scss'],
 })
 export class ResultsGrid {
-  private readonly store = inject(DraftStore);
+  private readonly viewer = inject(TournamentViewer);
   private readonly dialogs = inject(DialogShell);
   private readonly injector = inject(Injector);
 
   readonly tournament = input.required<TournamentView>();
+  /** Shown in the Tournament summary: each rank as a place, such as =2nd, and trophy holders marked 🏆. */
+  readonly summary = input(false);
   /** Asks for a match's game score to be set, as an organizer reports or corrects it. */
   readonly setGameScore = output<SetGameScore>();
   /** Asks for a match's game score to be cleared, as an organizer does. */
@@ -108,7 +110,7 @@ export class ResultsGrid {
     effect(() => {
       const tournament = this.tournament();
       const correctable = this.correctable();
-      const organize = this.store.canOrganize();
+      const organize = this.viewer.canOrganize();
       untracked(() => {
         const opened = this.opened;
         if (!opened) return;
@@ -126,12 +128,10 @@ export class ResultsGrid {
     });
   }
 
-  private readonly dropped = computed(() => new Set(droppedPlayers(this.tournament().entries)));
-
   /** The players in standings order, the order of both rows and columns, as the draft names them, with their rank. */
   protected readonly columns = computed(() =>
     this.tournament().standings.map((standing) => ({
-      ...this.store.player(standing.playerId),
+      ...this.viewer.player(standing.playerId),
       rank: standing.rank,
     })),
   );
@@ -150,8 +150,10 @@ export class ResultsGrid {
       const name = this.name(standing.playerId);
       return {
         playerId: standing.playerId,
-        rank: standing.rank,
-        name: this.dropped().has(standing.playerId) ? `${name} (dropped)` : name,
+        ...standingCells(this.tournament(), standing, name, {
+          summary: this.summary(),
+          alwaysMarksDropped: true,
+        }),
         matchPoints: standing.matchPoints,
         record: record(standing.matches),
         gameWinPercent: percent(standing.gameWinPercent),
@@ -180,7 +182,7 @@ export class ResultsGrid {
       marker,
       name: `${this.name(rowId)} against ${this.name(columnId)}: ${result}`,
       organize:
-        this.store.canOrganize() && this.correctable().has(match.id)
+        this.viewer.canOrganize() && this.correctable().has(match.id)
           ? this.choicesFor(match)
           : null,
       matchId: match.id,
@@ -213,7 +215,7 @@ export class ResultsGrid {
   }
 
   private name(playerId: string) {
-    return this.store.player(playerId).name;
+    return this.viewer.player(playerId).name;
   }
 }
 
