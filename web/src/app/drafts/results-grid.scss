@@ -16,6 +16,8 @@
 
 .grid {
   --rank-width: 2.5rem;
+  /* Every opponent and stat column, whatever the names: fits "12–3–1", "2–1?", an avatar and a 44px cell button. */
+  --even-width: 4.5rem;
 
   border-collapse: separate;
   border-spacing: 0;
@@ -51,9 +53,15 @@
     border-right: 1px solid var(--color-divider);
   }
 
-  .result {
+  .even {
+    padding-inline: var(--space-xs);
     text-align: center;
-    min-width: 2.75rem;
+  }
+
+  /* An auto-layout table ignores a cell's max-width, so the cell's content sits in a box of the column's width: a rarer, wider value overflows it rather than widen the column. */
+  .fit {
+    display: block;
+    width: calc(var(--even-width) - 2 * var(--space-xs));
   }
 }
 

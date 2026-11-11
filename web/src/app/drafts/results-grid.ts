@@ -9,6 +9,7 @@ import {
   input,
   inputBinding,
   output,
+  signal,
   untracked,
 } from '@angular/core';
 import type { MatchView, TournamentView } from 'contract';
@@ -16,6 +17,7 @@ import { droppedPlayers } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { percent, record } from '../record';
 import { DraftStore } from './draft-store';
+import { PlayerAvatar } from './player-avatar';
 import {
   gameScoreFor,
   matchIn,
@@ -55,11 +57,14 @@ interface GridCell {
  * its round is correctable, an organizer opens either cell of a match to
  * report, correct or clear it in the match result dialog, which closes
  * itself once it no longer is or that match's outcome changes. It scrolls
- * sideways in its own region, the rank and name columns fixed.
+ * sideways in its own region, the rank and name columns fixed. Each
+ * opponent's column is headed by their avatar, or their rank once it
+ * fails, and every opponent and stat column is the same width.
  */
 @Component({
   selector: 'app-results-grid',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PlayerAvatar],
   templateUrl: './results-grid.html',
   styleUrls: ['./drafts.scss', './results-grid.scss'],
 })
@@ -123,10 +128,20 @@ export class ResultsGrid {
 
   private readonly dropped = computed(() => new Set(droppedPlayers(this.tournament().entries)));
 
-  /** The players in standings order, the order of both rows and columns, as the draft names them. */
+  /** The players in standings order, the order of both rows and columns, as the draft names them, with their rank. */
   protected readonly columns = computed(() =>
-    this.tournament().standings.map((standing) => this.store.player(standing.playerId)),
+    this.tournament().standings.map((standing) => ({
+      ...this.store.player(standing.playerId),
+      rank: standing.rank,
+    })),
   );
+
+  /** The avatars, by their URL, that failed to load, whose columns show their player's rank instead. */
+  protected readonly failedAvatars = signal<ReadonlySet<string>>(new Set());
+
+  protected avatarFailed(avatarUrl: string) {
+    this.failedAvatars.update((failed) => new Set(failed).add(avatarUrl));
+  }
 
   /** Each row: a player's standing, their name, and a cell for each column. */
   protected readonly rows = computed(() => {

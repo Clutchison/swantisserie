@@ -40,7 +40,9 @@ import {
   grantedDraw,
   gridCell,
   gridCellName,
+  gridColumnAvatar,
   gridColumns,
+  gridHeaderReading,
   gridRows,
   unreportedMatch,
   openPlaying,
@@ -436,6 +438,43 @@ describe('Play tab while the tournament is played', () => {
       expect(table(tab, 'Standings')).toBeNull();
       expect(roundLabels(tab)).toEqual([]);
       expect(text(tab)).not.toContain('Tournament round');
+    });
+
+    it('heads each opponent’s column with their avatar, named and titled by their full name', async () => {
+      const { tab } = await openPlaying(carolLeads, { user: dave });
+
+      expect(gridColumnAvatar(tab, 'Carol')?.getAttribute('src')).toBe(carol.avatarUrl);
+      expect(gridColumnAvatar(tab, 'Alice')?.getAttribute('src')).toBe(alice.avatarUrl);
+      expect(gridColumnAvatar(tab, 'Bob')?.getAttribute('src')).toBe(bob.avatarUrl);
+      expect(gridHeaderReading(tab, 'Carol')).toEqual({ shown: '', tooltip: 'Carol' });
+    });
+
+    it('shows an opponent’s rank in their column’s header once their avatar fails to load', async () => {
+      const { fixture, tab } = await openPlaying(carolLeads, { user: dave });
+
+      gridColumnAvatar(tab, 'Alice')!.dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+
+      expect(gridColumnAvatar(tab, 'Alice')).toBeNull();
+      expect(gridHeaderReading(tab, 'Alice')).toEqual({ shown: '2', tooltip: 'Alice' });
+      expect(gridColumnAvatar(tab, 'Carol')).not.toBeNull();
+    });
+
+    it('abbreviates the stat headers, spelling each out on hover, as its name and in the key', async () => {
+      const { tab } = await openPlaying(carolLeads, { user: dave });
+
+      expect(gridHeaderReading(tab, 'Match points')).toEqual({
+        shown: 'MP',
+        tooltip: 'Match points',
+      });
+      expect(gridHeaderReading(tab, 'Matches won, lost and drawn')).toEqual({
+        shown: 'W–L–D',
+        tooltip: 'Matches won, lost and drawn',
+      });
+      expect(gridHeaderReading(tab, 'Game-win %')).toEqual({ shown: 'GW%', tooltip: 'Game-win %' });
+      expect(accessibleDescription(resultsGrid(tab)!)).toContain(
+        'MP match points, W–L–D matches won, lost and drawn, GW% game-win %',
+      );
     });
 
     it('names each cell’s result in words, from its row’s side', async () => {

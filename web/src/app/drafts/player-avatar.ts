@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, linkedSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, linkedSignal, output } from '@angular/core';
 
 /**
  * A player's round avatar, which leaves itself out if it fails to load.
@@ -18,7 +18,7 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal } from '@angula
         alt=""
         width="32"
         height="32"
-        (error)="failed.set(true)"
+        (error)="failed.set(true); failedToLoad.emit()"
       />
     }
   `,
@@ -36,6 +36,8 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal } from '@angula
 })
 export class PlayerAvatar {
   readonly src = input.required<string>();
+  /** Says this avatar failed to load, for a host that shows something else in its place. */
+  readonly failedToLoad = output();
   /** Whether this avatar failed to load; another player's gets its own try. */
   // Stryker disable next-line ArrowFunction: the template reads only `!failed()`.
   protected readonly failed = linkedSignal({ source: this.src, computation: () => false });
