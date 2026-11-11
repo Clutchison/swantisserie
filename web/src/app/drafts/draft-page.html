@@ -93,12 +93,12 @@
       <button
         id="plan-tab"
         type="button"
-        [appTab]="selectedTab() === 'Plan'"
+        [appTab]="selectedTab() === 'Deck'"
         aria-controls="plan-panel"
-        (click)="selectedTab.select('Plan')"
+        (click)="selectedTab.select('Deck')"
         [disabled]="!joined()"
       >
-        {{ planName() === 'deck' ? 'Deck' : 'Plan' }}
+        Deck
       </button>
       <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
       @if (showBoardTab()) {
@@ -234,27 +234,21 @@
       </section>
     }
 
-    <!-- The Plan tab, called the Deck tab once the draft is complete. -->
     <section
       id="plan-panel"
       class="plan"
       role="tabpanel"
       aria-labelledby="plan-tab"
-      [hidden]="selectedTab() !== 'Plan'"
+      [hidden]="selectedTab() !== 'Deck'"
     >
-      <ng-container
-        *ngTemplateOutlet="
-          headingWithPicksLeft;
-          context: { $implicit: planName() === 'deck' ? 'Deck' : 'Plan' }
-        "
-      />
+      <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Deck' }" />
       @if (planFailed()) {
-        <p class="error">Couldn't load your {{ planName() }}. Try reloading the page.</p>
+        <p class="error" role="alert">Couldn't load your deck. Try reloading the page.</p>
       }
       @if (joined() && !planFailed()) {
         <app-plan-tab />
       } @else if (!joined()) {
-        <p class="empty">Only players have a {{ planName() }}.</p>
+        <p class="empty">Only players have a deck.</p>
       }
     </section>
 

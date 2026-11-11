@@ -253,7 +253,7 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
 
       expect(button(plan, 'Move Lightning Bolt to the sideboard')).toBeDefined();
-      expect(button(plan, 'Remove Lightning Bolt from your plan')).toBeDefined();
+      expect(button(plan, 'Remove Lightning Bolt from your deck')).toBeDefined();
     });
   });
 
@@ -409,15 +409,15 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
 
       expect(button(plan, 'Move Lightning Bolt to the sideboard')).toBeDefined();
-      expect(button(plan, 'Remove Lightning Bolt from your plan')).toBeUndefined();
+      expect(button(plan, 'Remove Lightning Bolt from your deck')).toBeUndefined();
       detailOpener(plan, 'Lightning Bolt (unpicked)')!.click();
       await fixture.whenStable();
-      expect(button(openDialog()!, 'Remove from Plan')).toBeDefined();
+      expect(button(openDialog()!, 'Remove from Deck')).toBeDefined();
     });
   });
 
   describe('the Card detail', () => {
-    /** Opens the Plan tab, in list mode, with `open` to open the Card detail of the card it names. */
+    /** Opens the Deck tab, in list mode, with `open` to open the Card detail of the card it names. */
     async function openFromPlan(fields: Parameters<typeof drafting>[0], plan = planOf()) {
       const opened = await openDraft(completeSnapshot, drafting(fields), { cards, plan });
       const tab = await openPlan(opened.fixture, opened.page);
@@ -434,7 +434,7 @@ describe('plan tab', () => {
     /** Whether the Card detail's Pick is disabled. */
     const pickDisabled = (detail: HTMLElement) => button(detail, 'Pick')!.disabled;
 
-    it('offers queue changes, Move and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Plan', async () => {
+    it('offers queue changes, Move and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Deck', async () => {
       const { open } = await openFromPlan(
         { turn: bobsTurn },
         planOf({ mainboard: [planned(shivan), unpicked(brightclimb)] }),
@@ -445,7 +445,7 @@ describe('plan tab', () => {
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
         'Flip',
-        'Remove from Plan',
+        'Remove from Deck',
         'Add to queue',
         'Move to sideboard',
         'Pick',
@@ -472,7 +472,7 @@ describe('plan tab', () => {
 
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
-        'Remove from Plan',
+        'Remove from Deck',
         'Move to sideboard',
         'Pick',
       ]);
@@ -494,7 +494,7 @@ describe('plan tab', () => {
 
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
-        'Remove from Plan',
+        'Remove from Deck',
         'Remove from queue',
         'Move to sideboard',
         'Pick',
@@ -508,7 +508,7 @@ describe('plan tab', () => {
         planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
       );
 
-      button(await open('Shivan Dragon'), 'Remove from Plan')!.click();
+      button(await open('Shivan Dragon'), 'Remove from Deck')!.click();
       const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
       expect(req.request.method).toBe('DELETE');
       req.flush(planOf({ mainboard: [planned(brightclimb)] }));
@@ -528,7 +528,7 @@ describe('plan tab', () => {
       );
       const detail = await open('Shivan Dragon');
 
-      button(detail, 'Remove from Plan')!.click();
+      button(detail, 'Remove from Deck')!.click();
       http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(null, serverError);
       // The plan is re-read, as it may have moved on.
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
@@ -538,7 +538,7 @@ describe('plan tab', () => {
 
       expect(openDialog()).toBe(detail);
       expect(text(detail)).toContain(
-        "Couldn't remove the card from your plan. Try again in a moment.",
+        "Couldn't remove the card from your deck. Try again in a moment.",
       );
     });
 
@@ -579,7 +579,7 @@ describe('plan tab', () => {
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });
 
-    it('says why a move was refused as the Plan tab does, leaving the card where it was', async () => {
+    it('says why a move was refused as the Deck tab does, leaving the card where it was', async () => {
       const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
       const detail = await open('Shivan Dragon');
 
@@ -587,18 +587,18 @@ describe('plan tab', () => {
       http
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(
-          { error: 'not-in-plan', message: 'That card isn’t in your plan.' },
+          { error: 'not-in-plan', message: 'That card isn’t in your deck.' },
           { status: 409, statusText: 'Conflict' },
         );
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
       await fixture.whenStable();
 
-      expect(alertIn(tab)?.textContent).toContain('That card isn’t in your plan.');
+      expect(alertIn(tab)?.textContent).toContain('That card isn’t in your deck.');
       expect(openDialog()).toBe(detail);
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });
 
-    it('waits to move while another of the Plan tab’s changes is on its way, as the tab’s own move buttons do', async () => {
+    it('waits to move while another of the Deck tab’s changes is on its way, as the tab’s own move buttons do', async () => {
       const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
       button(tab, 'Move Lightning Bolt to the sideboard')!.click();
       await fixture.whenStable();
@@ -637,7 +637,7 @@ describe('plan tab', () => {
       const shivanTile = tiles(page).findIndex((tile) => accessibleName(tile) === 'Shivan Dragon');
       const detail = await openDetail(fixture, page, shivanTile);
 
-      expect(button(detail, 'Remove from Plan')).toBeDefined();
+      expect(button(detail, 'Remove from Deck')).toBeDefined();
       expect(button(detail, 'Move to sideboard')).toBeUndefined();
     });
 

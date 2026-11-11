@@ -148,7 +148,7 @@ export class PlansService {
       if (!copy) {
         throw new PlanRefusedError({
           error: 'no-copies-left',
-          message: 'Every available copy of that card is in your plan already.',
+          message: 'Every available copy of that card is in your deck already.',
         });
       }
       await tx.plannedCard.create({
@@ -221,7 +221,7 @@ export class PlansService {
       if ((held._sum.count ?? 0) >= MOST_BASICS) {
         throw new PlanRefusedError({
           error: 'most-basics',
-          message: `Your plan already holds ${MOST_BASICS} copies of ${land}.`,
+          message: `Your deck already holds ${MOST_BASICS} copies of ${land}.`,
         });
       }
       await putOneBasic(tx, playerId, land, 'Mainboard');
@@ -273,7 +273,7 @@ export class PlansService {
   }
 
   /**
-   * Stops the Plan notice listing the user's lost cards. An undo still
+   * Stops the Deck notice listing the user's lost cards. An undo still
    * restores them. Not a change to the deck, so allowed while it is locked.
    * Throws NotAPlayerError if the user isn't in the draft.
    */
@@ -319,7 +319,7 @@ export class PlansService {
    * applied, a ready player whose mainboard it takes below 40 cards stops
    * being ready, in the same transaction, which the answer reports as
    * `readyCleared`. Only a change that doesn't touch the deck, such as
-   * dismissing the Plan notice, passes `deckWrite: false`.
+   * dismissing the Deck notice, passes `deckWrite: false`.
    */
   private async change(
     draftId: string,
@@ -359,13 +359,13 @@ export class PlansService {
       orderBy: { pick: { number: 'asc' } },
       select: {
         poolCardId: true,
-        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the Plan notice reads only `name`.
+        // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the Deck notice reads only `name`.
         poolCard: {
           select: { name: true },
         },
         pick: {
           select: {
-            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `userId` included, and the Plan notice reads only `userId`.
+            // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `userId` included, and the Deck notice reads only `userId`.
             player: {
               select: { userId: true },
             },
@@ -433,7 +433,7 @@ export async function readPlanBoards(
 function notInPlan() {
   return new PlanRefusedError({
     error: 'not-in-plan',
-    message: 'That card isn’t in your plan.',
+    message: 'That card isn’t in your deck.',
   });
 }
 

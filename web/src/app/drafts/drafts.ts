@@ -19,7 +19,7 @@ import type {
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /**
- * The media query of the screens whose Plan tab has room for the wide stacks
+ * The media query of the screens whose Deck tab has room for the wide stacks
  * layout, with the sideboard's stack beside the mainboard's; narrower, the
  * mainboard's stacks become a strip that scrolls sideways. Kept in step with
  * the container query in `plan-tab.scss`, 760px of stacks area, plus the
@@ -112,6 +112,9 @@ export function changeFailure(err: unknown, fallback: string): string {
   // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
   return (isRefusal(err) && err.error?.message) || fallback;
 }
+
+/** What a failed change to the plan says when the api gives no reason. */
+export const PLAN_CHANGE_FAILED = "Couldn't change your deck. Try again in a moment.";
 
 /** Why creating a draft failed, from the API or the request itself: what to tell the organizer. */
 export type DraftProblem =

@@ -175,9 +175,9 @@ describe('basic lands on the plan tab', () => {
 
     expect(mainboardCount('Island')).toBe(90);
     expect(addOf('Island').disabled).toBe(true);
-    expect(tooltip('Island')).toBe('Your plan already holds 99 copies of Island.');
+    expect(tooltip('Island')).toBe('Your deck already holds 99 copies of Island.');
     // Said in the row too, for assistive technology, which reads no tooltip.
-    expect(text(row('Island'))).toContain('Your plan already holds 99 copies of Island.');
+    expect(text(row('Island'))).toContain('Your deck already holds 99 copies of Island.');
     expect(addOf('Forest').disabled).toBe(false);
     expect(tooltip('Forest')).toBe('');
     expect(text(row('Forest'))).not.toContain('already holds');
@@ -195,7 +195,7 @@ describe('basic lands on the plan tab', () => {
     http
       .expectOne(addIslandUrl)
       .flush(
-        { error: 'most-basics', message: 'Your plan already holds 99 copies of Island.' },
+        { error: 'most-basics', message: 'Your deck already holds 99 copies of Island.' },
         { status: 409, statusText: 'Conflict' },
       );
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
@@ -209,7 +209,7 @@ describe('basic lands on the plan tab', () => {
     await vi.waitFor(() => expect(addOf('Island').disabled).toBe(true));
     expect(mainboardCount('Island')).toBe(98);
     // Said in the dialog, as the page behind it is hidden from assistive technology.
-    expect(text(alertIn(openDialog()!))).toBe('Your plan already holds 99 copies of Island.');
+    expect(text(alertIn(openDialog()!))).toBe('Your deck already holds 99 copies of Island.');
   });
 
   it('clears every basic from both plan boards', async () => {
@@ -278,7 +278,7 @@ describe('basic lands on the plan tab', () => {
     );
     await fixture.whenStable();
 
-    button(plan, 'Remove Forest from your plan')!.click();
+    button(plan, 'Remove Forest from your deck')!.click();
     const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Forest/Mainboard');
     expect(removed.request.method).toBe('DELETE');
   });
@@ -514,7 +514,7 @@ describe('basic lands on the plan tab', () => {
     http.expectOne(addIslandUrl).flush(null, serverError);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(boltAndShivanWith());
     await vi.waitFor(() =>
-      expect(text(alertIn(dialog))).toBe("Couldn't change your plan. Try again in a moment."),
+      expect(text(alertIn(dialog))).toBe("Couldn't change your deck. Try again in a moment."),
     );
 
     addOf('Island').click();
@@ -588,7 +588,7 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    const remove = button(plan, 'Remove Island from your plan')!;
+    const remove = button(plan, 'Remove Island from your deck')!;
     remove.focus();
     remove.click();
     http
@@ -634,7 +634,7 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    button(plan, 'Remove Forest from your plan')!.click();
+    button(plan, 'Remove Forest from your deck')!.click();
     const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Forest/Mainboard');
     expect(removed.request.method).toBe('DELETE');
     removed.flush(boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 2 }]));
@@ -653,7 +653,7 @@ describe('basic lands on the plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    button(plan, 'Remove Forest from your plan')!.click();
+    button(plan, 'Remove Forest from your deck')!.click();
     const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Forest/Sideboard');
     expect(removed.request.method).toBe('DELETE');
     removed.flush(boltAndShivanWith([{ land: 'Forest', board: 'Sideboard', count: 1 }]));
@@ -676,7 +676,7 @@ describe('basic lands on the plan tab', () => {
     expect(text(deck)).toContain('Your deck is locked');
 
     expect(planBoards(deck)[0].lines).toContain('3 Forest');
-    expect(button(deck, 'Remove Forest from your plan')).toBeUndefined();
+    expect(button(deck, 'Remove Forest from your deck')).toBeUndefined();
   });
 
   it('closes with the page it was opened from', async () => {

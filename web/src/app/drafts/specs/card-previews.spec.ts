@@ -210,7 +210,7 @@ describe('card previews', () => {
     TestBed.tick();
     expect(previewImage()).toBeNull();
 
-    // A scroll doesn't bubble: the Plan tab's stacks, say, scroll on their own.
+    // A scroll doesn't bubble: the Deck tab's stacks, say, scroll on their own.
     tap(cardName(panel(page), 'Lightning Bolt'));
     panel(page).dispatchEvent(new Event('scroll'));
     TestBed.tick();
@@ -431,7 +431,7 @@ describe('card previews', () => {
             preferredPrintings: {},
           },
         });
-        tabButton(page, 'Plan').click();
+        tabButton(page, 'Deck').click();
         await fixture.whenStable();
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         const stacked = panel(page).querySelector<HTMLImageElement>('img[alt="Fire // Ice"]')!;
@@ -490,7 +490,7 @@ describe('card previews', () => {
   });
 
   describe('in the plan', () => {
-    /** Opens the Plan tab with Lightning Bolt on the mainboard, in list mode. */
+    /** Opens the Deck tab with Lightning Bolt on the mainboard, in list mode. */
     async function openPlanList() {
       const opened = await openPicked({
         plan: {
@@ -502,7 +502,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(opened.page, 'Plan').click();
+      tabButton(opened.page, 'Deck').click();
       await opened.fixture.whenStable();
       button(panel(opened.page), 'List')?.click();
       await opened.fixture.whenStable();
@@ -554,7 +554,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(page, 'Plan').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
 
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -564,7 +564,7 @@ describe('card previews', () => {
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
-    /** Opens the Plan tab with Lightning Bolt on the mainboard, Shock on the sideboard, and Bolt lost. */
+    /** Opens the Deck tab with Lightning Bolt on the mainboard, Shock on the sideboard, and Bolt lost. */
     async function openPlan() {
       const opened = await openPicked({
         plan: {
@@ -576,7 +576,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(opened.page, 'Plan').click();
+      tabButton(opened.page, 'Deck').click();
       await opened.fixture.whenStable();
       return opened;
     }
@@ -595,7 +595,7 @@ describe('card previews', () => {
       ).toEqual([[['Lightning Bolt', ['one red mana']]], [['Shock', ['one red mana']]]]);
     });
 
-    it('shows mana costs inline in the Plan notice', async () => {
+    it('shows mana costs inline in the Deck notice', async () => {
       const { page } = await openPlan();
 
       const notice = panel(page).querySelector<HTMLElement>('.notice')!;
@@ -618,7 +618,7 @@ describe('card previews', () => {
       }
     });
 
-    /** Opens the Plan tab with two Swamps, `preferredPrintings` the player's, and hovers one until its Card preview opens. */
+    /** Opens the Deck tab with two Swamps, `preferredPrintings` the player's, and hovers one until its Card preview opens. */
     async function previewSwamp(preferredPrintings: PreferredPrintings = {}) {
       const { page, fixture } = await openPicked({
         plan: {
@@ -630,7 +630,7 @@ describe('card previews', () => {
           preferredPrintings,
         },
       });
-      tabButton(page, 'Plan').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       hover(cardName(panel(page), 'Swamp'));

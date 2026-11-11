@@ -9,7 +9,7 @@ import { readTurnState } from './turn-state.js';
  * holds it, or another unpicked copy of it, which then becomes the pick
  * where it is. In each other plan holding it unpicked, it is swapped for
  * another copy or lost; a lost card is kept against the pick, with its
- * board, so that undoing it can put it back, and listed on the Plan notice.
+ * board, so that undoing it can put it back, and listed on the Deck notice.
  * A swapped copy stays swapped: it is as good as the one picked.
  * Returns each player's planned cards, picked or not, as they now are.
  */

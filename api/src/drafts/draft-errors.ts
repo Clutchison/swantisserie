@@ -118,7 +118,8 @@ export class NotAPlayerError extends Error {
         ? 'Only the draft’s players can pick.'
         : what === 'tournaments'
           ? 'Only the draft’s players can join its tournament.'
-          : `Only the draft’s players have ${what}.`,
+          : // A plan is the player's deck (ADR 0018), and players read this.
+            `Only the draft’s players have ${what === 'plans' ? 'decks' : what}.`,
     );
   }
 }

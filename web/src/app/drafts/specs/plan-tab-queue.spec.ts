@@ -54,7 +54,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
       .find((label) => label.textContent?.trim() === 'Include sideboard')!
       .querySelector('input')!;
 
-  /** Opens the Queue unpicked dialog on the Plan tab. */
+  /** Opens the Queue unpicked dialog on the Deck tab. */
   async function openQueueUnpicked(fixture: AppFixture, page: HTMLElement) {
     const tab = await openPlan(fixture, page);
     button(tab, 'Queue unpicked')!.click();
@@ -277,7 +277,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await fixture.whenStable();
     expect(dialog()).toBeNull();
     // The player moves on, and the turn passes to Bob.
-    tabButton(page, 'Plan').focus();
+    tabButton(page, 'Deck').focus();
     updates.events.next({
       type: 'changed',
       draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 2 })),
@@ -287,7 +287,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await fixture.whenStable();
 
     expect(dialog()).toBeNull();
-    expect(document.activeElement).toBe(tabButton(page, 'Plan'));
+    expect(document.activeElement).toBe(tabButton(page, 'Deck'));
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
     expect(sideboardBox().checked).toBe(false);

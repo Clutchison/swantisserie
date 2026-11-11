@@ -185,7 +185,7 @@ describe('card previews', () => {
       expect(previewImage()).toBeNull();
     });
 
-    it('opens on list mode names, which are buttons there, tabbed to on the Plan tab', async () => {
+    it('opens on list mode names, which are buttons there, tabbed to on the Deck tab', async () => {
       const { page, fixture } = await openPicked({
         plan: {
           mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
@@ -196,7 +196,7 @@ describe('card previews', () => {
           preferredPrintings: {},
         },
       });
-      tabButton(page, 'Plan').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
 
       tabTo(button(panel(page), 'Lightning Bolt')!);
@@ -204,9 +204,9 @@ describe('card previews', () => {
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
-    it('opens on names tabbed to on the Plan tab, but not while a drag is under way', async () => {
+    it('opens on names tabbed to on the Deck tab, but not while a drag is under way', async () => {
       const { page, fixture } = await openPicked({ plan: planOf({ mainboard: [planned(bolt)] }) });
-      tabButton(page, 'Plan').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
       const name = button(panel(page), 'Lightning Bolt')!;
 
@@ -229,7 +229,7 @@ describe('card previews', () => {
             preferredPrintings: {},
           },
         });
-        tabButton(page, 'Plan').click();
+        tabButton(page, 'Deck').click();
         await fixture.whenStable();
 
         expect(panel(page).querySelector('img[alt="Lightning Bolt"]')).not.toBeNull();

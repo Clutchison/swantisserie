@@ -32,7 +32,7 @@ import { QueueApi } from './queue-api';
 /**
  * Which actions a Card detail offers, as its host decides. Each is offered
  * only where the draft's state allows it as well: Pick on the player's
- * turn, Remove from Plan for an unpicked copy in the plan, and so on.
+ * turn, Remove from Deck for an unpicked copy in the plan, and so on.
  */
 export interface CardDetailActions {
   pick: boolean;
@@ -74,7 +74,7 @@ export interface CardDetailOptions {
     result: CardDetailResult | undefined,
     opener: HTMLElement | null,
   ) => HTMLElement | null | undefined;
-  /** Called once Remove from Plan has succeeded. */
+  /** Called once Remove from Deck has succeeded. */
   removedFromPlan?: () => void;
   /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
   move?: () => MoveToPlanBoard | null;
@@ -186,7 +186,7 @@ export class CardDetail {
    */
   // Stryker disable next-line BooleanLiteral: `openCardDetail` always binds it, as `options.moveWaits ?? (() => false)`.
   readonly moveWaits = input(false);
-  /** Remove from Plan has succeeded. */
+  /** Remove from Deck has succeeded. */
   readonly removedFromPlan = output<void>();
 
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
@@ -309,8 +309,8 @@ export class CardDetail {
   protected addToPlan() {
     return this.changePlan(
       this.planApi.add(this.store.id(), this.card().id),
-      'Added to your plan.',
-      "Couldn't add the card to your plan. Try again in a moment.",
+      'Added to your deck.',
+      "Couldn't add the card to your deck. Try again in a moment.",
     );
   }
 
@@ -318,8 +318,8 @@ export class CardDetail {
     if (
       (await this.changePlan(
         this.planApi.remove(this.store.id(), this.card().id),
-        'Removed from your plan.',
-        "Couldn't remove the card from your plan. Try again in a moment.",
+        'Removed from your deck.',
+        "Couldn't remove the card from your deck. Try again in a moment.",
       )) &&
       // It may have closed while the removal was on its way.
       !this.destroyRef.destroyed

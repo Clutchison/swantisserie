@@ -24,10 +24,9 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
-import { changeFailure } from './drafts';
+import { changeFailure, PLAN_CHANGE_FAILED } from './drafts';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
-import { planChangeFailed } from './plan-change-failed';
 import { PreferredPrintingsApi } from './preferred-printings-api';
 import { SetCombobox } from './set-combobox';
 
@@ -194,7 +193,7 @@ export class PrintingPicker implements OnInit {
         // Closes once the plan shows the copy gone, so focus goes back to what is still there.
         await new Promise<void>((shown) => afterNextRender(shown, { injector: this.injector }));
       },
-      (err) => changeFailure(err, planChangeFailed(this.store.planName())),
+      (err) => changeFailure(err, PLAN_CHANGE_FAILED),
     );
   }
 

@@ -297,7 +297,7 @@ describe('export tab', () => {
       });
     });
 
-    describe('from your plan', () => {
+    describe('from your deck', () => {
       const yourPicks: PickedCard[] = [
         imaPick(1, alice.id, 'shock-card', 'Shock'),
         imaPick(2, bob.id, 'spike-card', 'Lava Spike'),
@@ -409,7 +409,7 @@ describe('export tab', () => {
         expect(await copyFor(opened)).toBe('Deck\n2 Shock\n1 Lightning Bolt\n1 Opt');
       });
 
-      it('offers nothing to copy while your plan is still on its way', async () => {
+      it('offers nothing to copy while your deck is still on its way', async () => {
         const { fixture, page } = await openUrl('/drafts/draft-1');
         http.expectOne('/api/drafts/draft-1').flush(
           draft({
@@ -435,7 +435,7 @@ describe('export tab', () => {
         expect(copyButton(page)).toBeDefined();
       });
 
-      it('says when your plan couldn’t be loaded, and offers nothing to copy', async () => {
+      it('says when your deck couldn’t be loaded, and offers nothing to copy', async () => {
         const { fixture, page } = await openUrl('/drafts/draft-1');
         http.expectOne('/api/drafts/draft-1').flush(
           draft({
@@ -458,7 +458,7 @@ describe('export tab', () => {
         await fixture.whenStable();
 
         expect(panel(page).querySelector('.error')?.textContent).toContain(
-          "Couldn't load your plan",
+          "Couldn't load your deck",
         );
         expect(copyButton(page)).toBeUndefined();
       });

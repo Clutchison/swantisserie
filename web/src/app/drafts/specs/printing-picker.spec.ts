@@ -115,7 +115,7 @@ describe('the Printing picker', () => {
     localStorage.clear();
   });
 
-  /** Opens the Plan tab of a drafting draft, Alice's plan `plan`. */
+  /** Opens the Deck tab of a drafting draft, Alice's plan `plan`. */
   async function openWith(plan = withIslands()) {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
