@@ -16,8 +16,8 @@ export interface CompleteTournament {
     poolSource: PoolSourceView;
     /**
      * A cube draft's CubeCobra cube id, which its pool source view gives
-     * only as a URL; null for other pool sources. The Trophy Hall (#633)
-     * groups cube drafts by it, so a cube whose list changed stays one group.
+     * only as a URL; null for other pool sources. The Trophy Hall groups
+     * cube drafts by it, so a cube whose list changed stays one group.
      */
     cubeId: string | null;
   };
@@ -30,7 +30,7 @@ export interface CompleteTournament {
  * Every complete tournament, in the order they started, as the tournament
  * read sees it, with its draft's name and pool source. Its trophy holders
  * are computed on each read from its standings, the one place the trophy is
- * decided, so the Play tab, My stats, the draft list and the ended
+ * decided, so the Play tab, the Trophy Hall, My stats, the draft list and the ended
  * announcement can't disagree.
  */
 export async function readCompleteTournaments(
@@ -58,6 +58,21 @@ export async function readCompleteTournaments(
     view: toTournamentView(row),
     botsPlayed: row._count.entries > 0,
   }));
+}
+
+/**
+ * `tournaments`, given in the order they started, newest first: by when
+ * they completed, then those completed before completion times were kept,
+ * the latest started first.
+ */
+export function newestFirst(
+  tournaments: readonly CompleteTournament[],
+): CompleteTournament[] {
+  return [...tournaments]
+    .reverse()
+    .sort((a, b) =>
+      (b.view.completedAt ?? '').localeCompare(a.view.completedAt ?? ''),
+    );
 }
 
 /** A complete tournament as the engine's functions over complete tournaments read it. */

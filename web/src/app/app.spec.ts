@@ -69,9 +69,9 @@ describe('App', () => {
   it('asks once who is signed in, not on each page a signed-out viewer tries', async () => {
     await openSettled('/', (req) => req.flush(null, { status: 401, statusText: 'Unauthorized' }));
 
-    void router.navigateByUrl('/leaderboard');
+    void router.navigateByUrl('/trophy-hall');
 
-    await vi.waitFor(() => expect(router.url).toBe('/sign-in?returnTo=%2Fleaderboard'));
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in?returnTo=%2Ftrophy-hall'));
     http.expectNone('/api/auth/me');
   });
 
@@ -130,12 +130,12 @@ describe('App', () => {
       expect(link?.getAttribute('aria-label')).toBe('Swantisserie');
     });
 
-    it('shows an app admin the home link, Leaderboard, App admin and Send feedback on the left, in order', async () => {
+    it('shows an app admin the home link, Trophy Hall, App admin and Send feedback on the left, in order', async () => {
       const page = await openSettled('/', { ...alice, isAppAdmin: true });
 
       expect(leftControls(page)).toEqual([
         'Swantisserie',
-        'Leaderboard',
+        'Trophy Hall',
         'App admin',
         'Send feedback',
       ]);
@@ -144,7 +144,7 @@ describe('App', () => {
     it('shows guild members who aren’t app admins no App admin, Webhooks or Feedback', async () => {
       const page = await openSettled('/', alice, 'unanswered');
 
-      expect(leftControls(page)).toEqual(['Swantisserie', 'Leaderboard', 'Send feedback']);
+      expect(leftControls(page)).toEqual(['Swantisserie', 'Trophy Hall', 'Send feedback']);
       expect(page.querySelector('header a[href="/admin/webhooks"]')).toBeNull();
       expect(page.querySelector('header a[href="/admin/feedback"]')).toBeNull();
       expect(page.querySelector('header')!.textContent).not.toContain('App version');
@@ -314,17 +314,17 @@ describe('App', () => {
       expect(left.children[1].getAttribute('href')).toBe('/');
     });
 
-    it('shows guild members who aren’t app admins only Leaderboard and Send feedback', async () => {
+    it('shows guild members who aren’t app admins only Trophy Hall and Send feedback', async () => {
       const page = await openMenu(alice);
 
-      expect(panelText(page)).toEqual(['Leaderboard', 'Send feedback']);
+      expect(panelText(page)).toEqual(['Trophy Hall', 'Send feedback']);
     });
 
     it('also shows an app admin Webhooks, Feedback and the app version under an App admin heading', async () => {
       const page = await openMenu({ ...alice, isAppAdmin: true });
 
       expect(panelText(page)).toEqual([
-        'Leaderboard',
+        'Trophy Hall',
         'Send feedback',
         'App admin',
         'Webhooks',

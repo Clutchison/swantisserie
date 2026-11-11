@@ -1,0 +1,231 @@
+import { TestBed } from '@angular/core/testing';
+import type { DecklistView, TrophyHallRowView, TrophyHallView } from 'contract';
+import { alice, button, http, openApp, router, useApp } from '../specs-harness';
+import {
+  banner,
+  expectLoadingAnimation,
+  heading,
+  items,
+  link,
+  loadingAnimation,
+  namedList,
+  poolCardOf,
+  previewInList,
+  text,
+} from '../drafts/specs/harness';
+import { zenMountain } from '../drafts/specs/plan-tab-harness';
+
+const bolt = poolCardOf('bolt', 'Lightning Bolt');
+const shock = poolCardOf('shock', 'Shock');
+
+/** A deck of `card` and 39 Mountains, the way `playerId` locked it at Start. */
+const deckOf = (playerId: string, card = bolt): DecklistView => ({
+  playerId,
+  mainboard: [{ poolCardId: card.id, name: card.name, picked: true }],
+  sideboard: [],
+  basics: [{ land: 'Mountain', count: 39 }],
+  preferredPrintings: {},
+});
+
+/** A row: the trophy `name` holds from the draft `draftId`, one of their `trophies`. */
+const row = (
+  draftId: string,
+  playerId: string,
+  name: string,
+  trophies: number,
+  card = bolt,
+): TrophyHallRowView => ({
+  playerId,
+  name,
+  trophies,
+  draftId,
+  completedAt: '2026-11-10T20:00:00.000Z',
+  decklist: deckOf(playerId, card),
+  cards: [card],
+});
+
+const HALL: TrophyHallView = {
+  groups: [
+    {
+      poolSource: {
+        kind: 'cube',
+        cube: {
+          id: 'vintage',
+          name: 'Vintage Cube',
+          url: 'https://cubecobra.com/cube/overview/vintage',
+        },
+      },
+      rows: [
+        {
+          ...row('d3', 'alice', 'Alice', 2),
+          decklist: { ...deckOf('alice'), preferredPrintings: { Mountain: zenMountain } },
+        },
+        row('d1', 'bob', 'Bob', 1, shock),
+      ],
+    },
+    {
+      poolSource: { kind: 'pool-query', poolQuery: 'c:r t:instant' },
+      rows: [row('d2', 'alice', 'Alice', 2), row('d2', 'carol', 'Carol', 1)],
+    },
+    {
+      poolSource: {
+        kind: 'set-list',
+        setList: [
+          {
+            code: 'otj',
+            name: 'Outlaws of Thunder Junction',
+            sublists: [{ code: 'big', name: 'The Big Score' }],
+          },
+          { code: 'mkm', name: 'Murders at Karlov Manor', sublists: [] },
+        ],
+      },
+      rows: [row('d0', 'dave', 'Dave', 1)],
+    },
+  ],
+};
+
+const CUBE = 'Trophies won with Vintage Cube';
+const QUERY = 'Trophies won with c:r t:instant';
+const SETS =
+  'Trophies won with Outlaws of Thunder Junction (+ The Big Score), Murders at Karlov Manor';
+
+describe('the Trophy Hall page', () => {
+  useApp();
+
+  /** Opens the Trophy Hall as Alice, its read answered by `hall`. */
+  async function openTrophyHall(hall: TrophyHallView | 'fails' = HALL) {
+    const opened = await openApp('/trophy-hall', alice);
+    const req = http.expectOne('/api/trophy-hall');
+    if (hall === 'fails') req.flush(null, { status: 500, statusText: 'Server Error' });
+    else req.flush(hall);
+    await opened.fixture.whenStable();
+    return opened.page;
+  }
+
+  /** The page's main landmark: the top bar's user menu button is also named Alice. */
+  const main = (page: HTMLElement) => page.querySelector<HTMLElement>('main')!;
+
+  /** The row of the list named `list` at `index`. */
+  const rowIn = (page: HTMLElement, list: string, index: number) =>
+    namedList(main(page), list).querySelectorAll<HTMLElement>(':scope > li')[index];
+
+  /** The text of each row of the list named `list`, its expanded decklists left out. */
+  const rowsOf = (page: HTMLElement, list: string) =>
+    [...namedList(main(page), list).querySelectorAll<HTMLElement>(':scope > li')].map((li) =>
+      text(li.firstElementChild as HTMLElement),
+    );
+
+  it('says so with the loading animation while the Trophy Hall loads', async () => {
+    const { fixture, page } = await openApp('/trophy-hall', alice);
+    const req = http.expectOne('/api/trophy-hall');
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
+
+    req.flush(HALL);
+    await fixture.whenStable();
+    expect(loadingAnimation(page)).toBeNull();
+  });
+
+  it('is linked from the top bar as the Trophy Hall', async () => {
+    const { fixture, page } = await openApp('/', alice);
+    for (const req of http.match('/api/drafts')) req.flush([]);
+    await fixture.whenStable();
+
+    link(banner(page)!, 'Trophy Hall')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/trophy-hall'))).flush(HALL);
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(router.url).toBe('/trophy-hall'));
+    TestBed.tick();
+    expect(heading(page, 'Trophy Hall')).toBeDefined();
+  });
+
+  it('is where the old leaderboard link goes', async () => {
+    const { fixture, page } = await openApp('/leaderboard', alice);
+    http.expectOne('/api/trophy-hall').flush(HALL);
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/trophy-hall');
+    expect(heading(page, 'Trophy Hall')).toBeDefined();
+  });
+
+  it('heads each group by its pool source, a cube linked to CubeCobra and a pool query to Scryfall', async () => {
+    const page = await openTrophyHall();
+
+    expect([...main(page).querySelectorAll('h2')].map((h2) => text(h2))).toEqual([
+      'Vintage Cube',
+      'c:r t:instant',
+      'Outlaws of Thunder Junction (+ The Big Score), Murders at Karlov Manor',
+    ]);
+    expect(link(main(page), 'Vintage Cube')?.href).toBe(
+      'https://cubecobra.com/cube/overview/vintage',
+    );
+    expect(link(main(page), 'c:r t:instant')?.href).toBe(
+      'https://scryfall.com/search?q=c%3Ar%20t%3Ainstant',
+    );
+  });
+
+  it('shows each trophy as its holder’s trophy count and name', async () => {
+    const page = await openTrophyHall();
+
+    expect(rowsOf(page, CUBE)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Bob View Deck']);
+    expect(rowsOf(page, QUERY)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Carol View Deck']);
+    expect(rowsOf(page, SETS)).toEqual(['1 🏆 Dave View Deck']);
+  });
+
+  it('expands a holder’s decklist under their row with View Deck, and collapses it again', async () => {
+    const page = await openTrophyHall();
+    const viewDeck = button(rowIn(page, CUBE, 0), 'View Deck');
+    expect(viewDeck.getAttribute('aria-expanded')).toBe('false');
+    expect(heading(main(page), 'Mainboard 40')).toBeUndefined();
+
+    viewDeck.click();
+    TestBed.tick();
+
+    expect(viewDeck.getAttribute('aria-expanded')).toBe('true');
+    const expanded = rowIn(page, CUBE, 0);
+    expect(heading(expanded, 'Mainboard 40')).toBeDefined();
+    expect(items(expanded, 'Alice’s mainboard')).toEqual(['1 Lightning Bolt', '39 Mountain']);
+    expect(previewInList(expanded, 'Alice’s mainboard', 'Lightning Bolt')).toBe(
+      bolt.images[0]!.normal,
+    );
+    expect(previewInList(expanded, 'Alice’s mainboard', 'Mountain')).toBe(
+      zenMountain.images.normal,
+    );
+    expect(heading(rowIn(page, CUBE, 1), 'Mainboard 40')).toBeUndefined();
+
+    viewDeck.click();
+    TestBed.tick();
+
+    expect(viewDeck.getAttribute('aria-expanded')).toBe('false');
+    expect(heading(main(page), 'Mainboard 40')).toBeUndefined();
+  });
+
+  it('expands two decks of the same holder apart', async () => {
+    const page = await openTrophyHall();
+
+    button(rowIn(page, CUBE, 0), 'View Deck').click();
+    button(rowIn(page, QUERY, 0), 'View Deck').click();
+    TestBed.tick();
+
+    for (const list of [CUBE, QUERY]) {
+      expect(items(rowIn(page, list, 0), 'Alice’s mainboard')).toEqual([
+        '1 Lightning Bolt',
+        '39 Mountain',
+      ]);
+    }
+    const ids = [...main(page).querySelectorAll('[id]')].map((element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('says so before anyone holds a trophy', async () => {
+    const page = await openTrophyHall({ groups: [] });
+
+    expect(text(main(page))).toContain('Nobody has won a trophy yet.');
+  });
+
+  it('says so when the Trophy Hall can’t be loaded', async () => {
+    const page = await openTrophyHall('fails');
+
+    expect(text(page)).toContain("Couldn't load the Trophy Hall. Try reloading the page.");
+  });
+});

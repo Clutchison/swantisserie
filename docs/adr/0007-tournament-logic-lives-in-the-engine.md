@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-A tournament's scheduling, pairing, seeding, standings, tiebreakers and trophy holders are pure functions in the engine: no database, no HTTP. The api stores tournaments, entries, matches and results, calls the engine to work out everything else, and enforces every rule. The web never works any of it out itself. It shows what the api's tournament view tells it, including what the viewer may do and what the organizer's next action would do, in the manner of ADR 0003 (#416). Nothing derived is stored: standings and the trophy are worked out from the stored results on each read, so the Play tab, the leaderboard, the draft list and the announcements can't disagree.
+A tournament's scheduling, pairing, seeding, standings, tiebreakers and trophy holders are pure functions in the engine: no database, no HTTP. The api stores tournaments, entries, matches and results, calls the engine to work out everything else, and enforces every rule. The web never works any of it out itself. It shows what the api's tournament view tells it, including what the viewer may do and what the organizer's next action would do, in the manner of ADR 0003 (#416). Nothing derived is stored: standings and the trophy are worked out from the stored results on each read, so the Play tab, the Trophy Hall, My stats, the draft list and the announcements can't disagree.
 
 The one exception is the Complete round dialog, which forecasts what completing the round will do with the same engine function the api uses (ADR 0006).
 

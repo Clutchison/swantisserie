@@ -3,6 +3,7 @@ import type { MyStatsView } from 'contract';
 import { myStats, type StatsTournament } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  newestFirst,
   readCompleteTournaments,
   toEngineTournament,
   type CompleteTournament,
@@ -41,21 +42,6 @@ export class MyStatsService {
       })),
     };
   }
-}
-
-/**
- * `tournaments`, given in the order they started, newest first: by when
- * they completed, then those completed before completion times were kept,
- * the latest started first.
- */
-function newestFirst(
-  tournaments: readonly CompleteTournament[],
-): CompleteTournament[] {
-  return [...tournaments]
-    .reverse()
-    .sort((a, b) =>
-      (b.view.completedAt ?? '').localeCompare(a.view.completedAt ?? ''),
-    );
 }
 
 /** The complete tournament as My stats reads it, carrying it along for its result. */
