@@ -45,6 +45,7 @@ const row = (
   name,
   trophies,
   draftId,
+  draftName: `Draft ${draftId}`,
   completedAt: '2026-11-10T20:00:00.000Z',
   decklist: deckOf(playerId, card),
   cards: [card],
@@ -207,15 +208,23 @@ describe('the Trophy Hall page', () => {
       'Murders at Karlov Manor, Outlaws of Thunder Junction (+ The Big Score, Breaking News)';
     expect(headingsAt(main(page), 2)).toEqual([title]);
     expect(link(main(page), title)).toBeUndefined();
-    expect(items(main(page), `Trophies won with ${title}`)).toEqual(['1 🏆 Dave View Deck']);
+    expect(items(main(page), `Trophies won with ${title}`)).toEqual([
+      '1 🏆 Dave View Deck View Tournament',
+    ]);
   });
 
   it('shows each trophy as its holder’s trophy count and name', async () => {
     const page = await openTrophyHall();
 
-    expect(items(main(page), CUBE)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Bob View Deck']);
-    expect(items(main(page), QUERY)).toEqual(['2 🏆 Alice View Deck', '1 🏆 Carol View Deck']);
-    expect(items(main(page), SETS)).toEqual(['1 🏆 Dave View Deck']);
+    expect(items(main(page), CUBE)).toEqual([
+      '2 🏆 Alice View Deck View Tournament',
+      '1 🏆 Bob View Deck View Tournament',
+    ]);
+    expect(items(main(page), QUERY)).toEqual([
+      '2 🏆 Alice View Deck View Tournament',
+      '1 🏆 Carol View Deck View Tournament',
+    ]);
+    expect(items(main(page), SETS)).toEqual(['1 🏆 Dave View Deck View Tournament']);
   });
 
   it('expands a holder’s decklist under their row with View Deck, and collapses it again', async () => {

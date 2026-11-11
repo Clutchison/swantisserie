@@ -33,6 +33,8 @@ export interface TrophyHallRowView {
   trophies: number;
   /** The tournament's draft. */
   draftId: string;
+  /** Its draft's name. */
+  draftName: string;
   /** When the tournament completed, ISO; null for one completed before completion times were kept. */
   completedAt: string | null;
   /** Their deck as it was locked at Start, as the Lists tab reads it. */

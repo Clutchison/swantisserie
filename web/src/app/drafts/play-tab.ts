@@ -22,14 +22,12 @@ import {
   type SwissRoundOption,
   type TournamentFormat,
   type TournamentSetupRequest,
-  type TournamentView,
 } from 'contract';
-import { SWISS_ROUND_CAP } from 'engine';
 import type { Observable } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
+import { formatName, summaryOf, SWISS_ROUND_OPTION_NAMES } from './tournament-format-names';
 import { Questions, type Question } from '../question-dialog';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { capitalised } from '../record';
 import { ChangeStatus, Changes, SendsChange } from './changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DeckLockReminder } from './deck-lock-reminder';
@@ -50,46 +48,17 @@ import {
   type OwnReport,
 } from './your-matches';
 
-/** The format's name as the tab starts a line with it, such as "Round robin". */
-function formatName(format: TournamentFormat): string {
-  return capitalised(TOURNAMENT_FORMAT_NAMES[format]);
-}
-
 /** The formats tournament setup offers, in order, as it names them. */
 const FORMATS = (Object.keys(TOURNAMENT_FORMAT_NAMES) as TournamentFormat[]).map((format) => ({
   format,
   name: formatName(format),
 }));
 
-/** How tournament setup names each Swiss round option, and how the tab sums it up. */
-const SWISS_ROUND_OPTION_NAMES: Record<SwissRoundOption, { name: string; summary: string }> = {
-  UntilWinner: { name: 'Until there’s a winner', summary: 'until there’s a winner' },
-  CappedAt3: {
-    name: `Capped at ${SWISS_ROUND_CAP} tournament rounds`,
-    summary: `capped at ${SWISS_ROUND_CAP}`,
-  },
-};
-
 /** The Swiss round options tournament setup offers, in order, as it names them. */
 const SWISS_ROUND_CHOICES = SWISS_ROUND_OPTIONS.map((option) => ({
   option,
   ...SWISS_ROUND_OPTION_NAMES[option],
 }));
-
-/**
- * The tournament's format, and for Swiss its round option, with how many
- * tournament rounds it has, or will have, if any, such as "Swiss, capped
- * at 3: 3 tournament rounds".
- */
-function summaryOf({ format, swissRoundOption, roundCount }: TournamentView): string {
-  const name =
-    // Only Swiss has a round option.
-    swissRoundOption
-      ? `Swiss, ${SWISS_ROUND_OPTION_NAMES[swissRoundOption].summary}`
-      : formatName(format);
-  if (roundCount === 0) return name;
-  return `${name}: ${roundCount} tournament ${roundCount === 1 ? 'round' : 'rounds'}`;
-}
 
 /** What starting the tournament does, by format, as Start's question says it. */
 const START_DETAILS: Record<TournamentFormat, string> = {

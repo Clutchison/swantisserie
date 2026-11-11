@@ -1,29 +1,29 @@
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import type {
-  PoolCardView,
-  TrophyHallPoolSourceView,
-  TrophyHallRowView,
-  TrophyHallView,
-} from 'contract';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  Injector,
+  inputBinding,
+  signal,
+} from '@angular/core';
+import type { PoolCardView, TrophyHallRowView, TrophyHallView } from 'contract';
 import { CardImageSource } from '../drafts/card-image-source';
 import { CardPreviews } from '../drafts/card-preview';
 import { Decklist } from '../drafts/decklist';
-import { setsText } from '../drafts/drafts';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { place } from '../record';
-
-/** What heads a Trophy Hall group: its pool source's title, and where it links, if anywhere. */
-interface GroupHeader {
-  title: string;
-  href: string | null;
-}
+import { poolSourceHeader, type PoolSourceHeader } from './pool-source-header';
+import { TOURNAMENT_SUMMARY_HEADING, TournamentSummary } from './tournament-summary';
 
 /**
  * The Trophy Hall: every trophy and the deck that won it, grouped by pool
  * source, the group of the newest trophy first, with the trophy ranking
- * beside them. Each row's View Deck expands its holder's decklist under it.
- * Fetched afresh on each visit.
+ * beside them. Each row's View Deck expands its holder's decklist under it,
+ * and its View Tournament opens its Tournament summary. Fetched afresh on
+ * each visit.
  */
 @Component({
   selector: 'app-trophy-hall-page',
@@ -35,6 +35,9 @@ interface GroupHeader {
   styleUrls: ['../page.scss', './trophy-hall-page.scss'],
 })
 export class TrophyHallPage {
+  private readonly dialogs = inject(DialogShell);
+  private readonly injector = inject(Injector);
+
   protected readonly hall = httpResource<TrophyHallView>(() => '/api/trophy-hall');
   protected readonly place = place;
   /** The rows whose decklists are expanded, by `rowKey`. */
@@ -42,7 +45,9 @@ export class TrophyHallPage {
 
   /** Each group with its header, once the Trophy Hall has loaded. */
   protected readonly groups = computed(() =>
-    this.hall.value()!.groups.map((group) => ({ ...group, header: headerOf(group.poolSource) })),
+    this.hall
+      .value()!
+      .groups.map((group) => ({ ...group, header: poolSourceHeader(group.poolSource) })),
   );
 
   /** Each row's cards by id, as its decklist reads them. */
@@ -63,6 +68,15 @@ export class TrophyHallPage {
     return `${row.draftId}-${row.playerId}`;
   }
 
+  /** Opens the row's Tournament summary, its pool source as its group is headed by it. */
+  protected viewTournament(row: TrophyHallRowView, poolSource: PoolSourceHeader) {
+    this.dialogs.open(TournamentSummary, {
+      labelledBy: TOURNAMENT_SUMMARY_HEADING,
+      injector: this.injector,
+      bindings: [inputBinding('row', () => row), inputBinding('poolSource', () => poolSource)],
+    });
+  }
+
   /** Expands the row's decklist, or collapses it when it is expanded. */
   protected toggle(row: TrophyHallRowView) {
     const key = this.rowKey(row);
@@ -71,28 +85,5 @@ export class TrophyHallPage {
       if (!next.delete(key)) next.add(key);
       return next;
     });
-  }
-}
-
-/** A group's header: its cube's name, linked to CubeCobra; its pool query, linked to Scryfall; or its sets' names. */
-function headerOf(source: TrophyHallPoolSourceView): GroupHeader {
-  switch (source.kind) {
-    case 'cube':
-      return { title: source.cube.name, href: source.cube.url };
-    case 'pool-query':
-      return {
-        title: source.poolQuery,
-        href: `https://scryfall.com/search?q=${encodeURIComponent(source.poolQuery)}`,
-      };
-    case 'set-list':
-      return {
-        title: setsText(
-          source.setList.map(({ name, sublists }) => ({
-            name,
-            sublists: sublists.map((sublist) => sublist.name),
-          })),
-        ),
-        href: null,
-      };
   }
 }

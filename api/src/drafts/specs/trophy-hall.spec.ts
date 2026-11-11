@@ -362,6 +362,17 @@ describe('the Trophy Hall', () => {
     });
   });
 
+  it('gives each row its draft’s name', async () => {
+    const id = await wonBy([A(), B()]);
+    await app
+      .get(PrismaService)
+      .draft.update({ where: { id }, data: { name: 'Friday cube' } });
+
+    expect((await trophyHall()).groups[0].rows[0].draftName).toBe(
+      'Friday cube',
+    );
+  });
+
   it('names each holder by their current name', async () => {
     await wonBy([A(), B()]);
     await app
