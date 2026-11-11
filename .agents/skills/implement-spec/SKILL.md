@@ -34,9 +34,9 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
    Pass `effort: medium` to the implementer of a ticket that touches one workspace and adds no schema change; other implementers run at their usual effort.
 
-5. Once an **implementer subagent** completes, review its branch against the integration branch by calling the Skill tool with `code-review`, while other implementers keep working. Send every finding back to that same implementer (SendMessage), which fixes it on its branch. Then merge its work to the integration branch with a **merger subagent**, passing it `effort: low`.
+5. Once an **implementer subagent** completes, review its branch against the integration branch by calling the Skill tool with `code-review`, while other implementers keep working. Send every finding back to that same implementer (SendMessage), which fixes it on its branch. Then merge its work to the integration branch with a **merger subagent**, passing it `effort: low`. Merging to the integration branch doesn't resolve the ticket in the issue tracker; leave it open.
 
-6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
+6. A ticket counts as done for the **frontier** once it merges to the integration branch. Track that yourself; don't read it from the tracker's open-blocker count, which stays above zero until the tickets close at the end. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
 
 7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch, for what spans tickets: the spec as a whole, and duplication or naming that differs between tickets. Fix all issues raised by the code review in a single **implementer subagent**.
 
