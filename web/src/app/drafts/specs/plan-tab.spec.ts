@@ -636,6 +636,20 @@ describe('plan tab as the deck', () => {
       expect(text(tab)).not.toContain(SHORT);
     });
 
+    it('counts only the mainboard’s basic lands toward the 40, not the sideboard’s', async () => {
+      const { tab } = await openDeck(
+        registration(bob.id, alice.id),
+        planOf({
+          basics: [
+            { land: 'Mountain', board: 'Mainboard', count: 35 },
+            { land: 'Mountain', board: 'Sideboard', count: 5 },
+          ],
+        }),
+      );
+
+      expect(text(tab)).toContain('Your mainboard holds 39 cards.');
+    });
+
     it.each([
       ['playing', playing()],
       ['dropped', withDrops([alice.id])],

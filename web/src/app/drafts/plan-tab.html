@@ -212,7 +212,6 @@
                       [class.unpicked]="!card.picked"
                       cdkDrag
                       [cdkDragData]="card.poolCardId"
-                      [cdkDragDisabled]="!!card.basic"
                       [cdkDragStartDelay]="dragStartDelay"
                       cdkDragPreviewContainer="parent"
                       (pointerdown)="pressed()"
@@ -247,8 +246,7 @@
                         </div>
                       }
                       <div class="actions">
-                        <!-- A basic land stays on the mainboard. -->
-                        @if (!card.basic && !deckLocked()) {
+                        @if (!deckLocked()) {
                           @let moveName = 'Move ' + card.name + ' to the ' + planBoard.otherName;
                           <button
                             class="icon"
@@ -286,7 +284,6 @@
                 [class.unpicked]="!line.picked"
                 cdkDrag
                 [cdkDragData]="line.poolCardId"
-                [cdkDragDisabled]="!!line.basic"
                 cdkDragPreviewContainer="parent"
                 (pointerdown)="pressed()"
                 (cdkDragStarted)="dragStarted()"
@@ -303,8 +300,7 @@
                   @if (!line.picked) {
                     <span class="mark">Unpicked</span>
                   }
-                  <!-- A basic land stays on the mainboard. -->
-                  @if (!line.basic && !deckLocked()) {
+                  @if (!deckLocked()) {
                     @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
                     <button
                       class="button compact quiet line-action move"

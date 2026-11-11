@@ -407,10 +407,15 @@ export class DraftStore implements TournamentViewer {
   readonly deckLocksAtStart = computed(
     () => this.joinedTournament() && this.tournamentState() === 'Registration',
   );
-  /** How many cards the signed-in player's mainboard holds, picks plus basic lands. */
+  /** How many cards the signed-in player's mainboard holds, its basic lands included. */
   readonly mainboardCards = computed(() => {
     const { mainboard, basics } = this.plan.value();
-    return mainboard.length + basics.reduce((total, basic) => total + basic.count, 0);
+    return (
+      mainboard.length +
+      basics
+        .filter((basic) => basic.board === 'Mainboard')
+        .reduce((total, basic) => total + basic.count, 0)
+    );
   });
   /**
    * Whether the signed-in player's deck locks at Start but its mainboard

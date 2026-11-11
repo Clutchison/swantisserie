@@ -83,9 +83,8 @@ const MODES: PlanMode[] = ['stacks', 'list'];
 
 /**
  * A card on a plan board as the tab shows it: a planned pool card, or a
- * copy of a basic land, which counts as picked and stays on the mainboard.
- * A basic's `poolCardId` is no pool card's, but keys its card data in the
- * tab's `cardsById`.
+ * copy of a basic land, which counts as picked. A basic's `poolCardId` is
+ * no pool card's, but keys its card data in the tab's `cardsById`.
  */
 interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
@@ -272,12 +271,8 @@ export class PlanTab {
    */
   protected readonly planBoards = computed(() =>
     PLAN_BOARDS.map((planBoard) => {
-      const { cards, stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
-      // Reads every basic land as a mainboard one for now: moving one between the plan boards (#644) places each on its own.
-      const held: PlanBoardCard[] = [
-        ...cards(this.plan()),
-        ...(planBoard === 'Mainboard' ? this.plan().basics.flatMap(basicCopies) : []),
-      ];
+      const { cards: _, stack, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
+      const held = heldOn(this.plan(), planBoard);
       return {
         name: planBoard,
         ...rest,
@@ -438,9 +433,9 @@ export class PlanTab {
     container,
   }: CdkDragDrop<PlanBoard, PlanBoard, string>) {
     if (previousContainer.data === container.data) return;
-    const card = PLAN_BOARD_DISPLAY[previousContainer.data]
-      .cards(this.plan())
-      .find((planned) => planned.poolCardId === item.data);
+    const card = heldOn(this.plan(), previousContainer.data).find(
+      (held) => held.poolCardId === item.data,
+    );
     if (!card) return;
     return this.move(card, container.data);
   }
@@ -457,16 +452,35 @@ export class PlanTab {
 
   /**
    * Moves one copy of a card, a line's first, one in stacks mode or one in
-   * its Card detail, to `planBoard`, and shows the plan as it then is. A
-   * basic land never moves.
-   * If the card's line is gone from the plan board it left, focus follows
-   * the card to `planBoard`.
+   * its Card detail, to `planBoard`, and shows the plan as it then is; for
+   * a basic land, one of its copies. If the card's line is gone from the
+   * plan board it left, focus follows the card to `planBoard`.
    */
   protected move(card: MovedCard, planBoard: PlanBoard) {
-    return this.tryChange(() => this.planApi.move(this.draftId(), card.poolCardId, planBoard), {
-      keep: [this.moveKey(planBoard, card)],
-      status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
-    });
+    const basic = 'basic' in card ? card.basic : undefined;
+    return this.tryChange(
+      () =>
+        basic
+          ? this.planApi.moveBasic(this.draftId(), basic, planBoard)
+          : this.planApi.move(this.draftId(), card.poolCardId, planBoard),
+      {
+        keep: [
+          this.moveKey(
+            planBoard,
+            basic && !('key' in card) ? this.movedCopy(basic, planBoard) : card,
+          ),
+        ],
+        status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
+      },
+    );
+  }
+
+  /** The copy of `land` a move puts on `planBoard`: after those it holds already. */
+  private movedCopy(land: BasicLand, planBoard: PlanBoard): PlanBoardCard {
+    const held = this.plan().basics.find(
+      (basic) => basic.land === land && basic.board === planBoard,
+    );
+    return { poolCardId: basicCopyId(planBoard, land, held?.count ?? 0), name: land, picked: true };
   }
 
   /** A card on a plan board has been pressed, which may start a drag. */
@@ -675,13 +689,24 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
   return [...byName.values()];
 }
 
-/** One card per copy of a basic land, each with an id of its own to track it by. */
-function basicCopies({ land, count }: PlannedBasicView): PlanBoardCard[] {
+/** The cards `planBoard` holds: its planned pool cards, then a card per copy of each of its basic lands. */
+function heldOn(plan: PlanView, planBoard: PlanBoard): PlanBoardCard[] {
+  return [
+    ...PLAN_BOARD_DISPLAY[planBoard].cards(plan),
+    ...plan.basics.filter((basic) => basic.board === planBoard).flatMap(basicCopies),
+  ];
+}
+
+/** One card per copy of a basic land on its plan board, each with an id of its own to track and drag it by. */
+function basicCopies({ land, board, count }: PlannedBasicView): PlanBoardCard[] {
   return Array.from({ length: count }, (_, copy) => ({
-    // Stryker disable next-line StringLiteral: track keys only decide which views are reused, so equal keys render the same cards; the id is otherwise only drag data, and basics never move.
-    poolCardId: `basic-${land}-${copy}`,
+    poolCardId: basicCopyId(board, land, copy),
     name: land,
     picked: true,
     basic: land,
   }));
 }
+
+/** The id of a basic land's copy: which plan board holds it, and which copy there it is. */
+const basicCopyId = (planBoard: PlanBoard, land: BasicLand, copy: number) =>
+  `basic-${planBoard}-${land}-${copy}`;
