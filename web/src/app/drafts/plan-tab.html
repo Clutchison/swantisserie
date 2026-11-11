@@ -227,7 +227,7 @@
                           [attr.aria-label]="cardLabel"
                           [appCardPreview]="poolCard"
                           [appCardPreviewOnTap]="false"
-                          (click)="openStacked(card, $event)"
+                          (click)="openStacked(card, $event, planBoard.name)"
                         >
                           <ng-container
                             *ngTemplateOutlet="stackedCard; context: { $implicit: card }"
@@ -273,7 +273,7 @@
         } @else {
           <ul
             class="lines card-rows"
-            [class.with-remove]="planBoard.picked < planBoard.count"
+            [class.with-remove]="planBoard.picked < planBoard.count || withBasics(planBoard.lines)"
             [class.capped]="!showingStacks()"
             cdkDropList
             [cdkDropListData]="planBoard.name"
@@ -297,7 +297,7 @@
                   [card]="cardsById().get(line.poolCardId)"
                   [name]="line.name"
                   [opensDetail]="true"
-                  (opened)="openLine(line, $event)"
+                  (opened)="openLine(line, $event, planBoard.name)"
                 />
                 <span class="line-actions">
                   @if (!line.picked) {
@@ -319,14 +319,19 @@
                       />
                     </button>
                   }
-                  @if (!line.picked && offerRemoveFromPlan() && !deckLocked()) {
+                  <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
+                  @if ((line.basic || (!line.picked && offerRemoveFromPlan())) && !deckLocked()) {
                     @let removeName = 'Remove ' + line.name + ' from your plan';
                     <button
                       class="button compact quiet line-action"
                       type="button"
                       [attr.aria-label]="removeName"
                       [title]="removeName"
-                      (click)="remove(line.poolCardId)"
+                      (click)="
+                        line.basic
+                          ? removeBasic(line.basic, planBoard.name)
+                          : remove(line.poolCardId)
+                      "
                       [appSendsChange]="removeKey(planBoard.name, line)"
                     >
                       <svg lucideTrash size="16"></svg>

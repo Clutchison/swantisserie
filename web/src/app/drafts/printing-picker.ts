@@ -14,6 +14,7 @@ import type {
   BasicLand,
   BasicLandPrintingSetView,
   BasicLandPrintingView,
+  PlanBoard,
   PreferredPrintingProblem,
   PreferredPrintings,
 } from 'contract';
@@ -21,7 +22,9 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
+import { changeFailure } from './drafts';
 import { DraftStore } from './draft-store';
+import { PlanApi } from './plan-api';
 import { PreferredPrintingsApi } from './preferred-printings-api';
 import { SetCombobox } from './set-combobox';
 
@@ -35,7 +38,9 @@ export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
  * finding a set by typing part of its code or name, and make their
  * preferred printing, or go back to the default printing. It
  * opens on the printing the land shows now. Browsing changes only the
- * picker; Cancel, Escape and the backdrop close it with no change.
+ * picker; Cancel, Escape and the backdrop close it with no change. Opened
+ * from a copy in an unlocked plan, it also offers Remove, which takes that
+ * copy off its plan board and closes.
  */
 @Component({
   selector: 'app-printing-picker',
@@ -48,11 +53,17 @@ export class PrintingPicker implements OnInit {
   private readonly store = inject(DraftStore);
   private readonly printings = inject(BasicLandPrintings);
   private readonly api = inject(PreferredPrintingsApi);
+  private readonly planApi = inject(PlanApi);
   private readonly dialogRef = inject(DialogRef);
   private readonly pendingTasks = inject(PendingTasks);
 
   /** The basic land whose printings it shows. */
   readonly land = input.required<BasicLand>();
+  /** The plan board of the copy it opened from, which Remove takes it off. */
+  readonly planBoard = input.required<PlanBoard>();
+
+  /** Whether Remove is offered: never on a locked deck. */
+  protected readonly offerRemove = computed(() => !this.store.deckLocked());
 
   protected readonly headingId = PRINTING_PICKER_HEADING;
   protected readonly largeImage = LARGE_IMAGE;
@@ -164,6 +175,24 @@ export class PrintingPicker implements OnInit {
 
   protected cancel() {
     this.dialogRef.close();
+  }
+
+  /** Takes the copy it opened from off its plan board, then closes; a refusal is said here. */
+  protected async remove() {
+    this.saving.set(true);
+    this.saveError.set(null);
+    try {
+      await this.store.changePlan(
+        this.planApi.removeBasic(this.store.id(), this.land(), this.planBoard()),
+      );
+      this.dialogRef.close();
+    } catch (err) {
+      this.saveError.set(
+        changeFailure(err, `Couldn't change your ${this.store.planName()}. Try again in a moment.`),
+      );
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   /** Sends the change, then shows it everywhere and closes; a failure is said here, changing nothing. */

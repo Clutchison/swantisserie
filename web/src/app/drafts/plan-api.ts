@@ -39,6 +39,11 @@ export class PlanApi {
     } satisfies PlannedBasicCountRequest);
   }
 
+  /** Takes one copy of a basic land off a plan board. */
+  removeBasic(draftId: string, land: BasicLand, planBoard: PlanBoard): Observable<PlanView> {
+    return this.http.delete<PlanView>(`${url(draftId)}/basics/${land}/${planBoard}`);
+  }
+
   /** Takes every basic land out of the plan. */
   clearBasics(draftId: string): Observable<PlanView> {
     return this.http.delete<PlanView>(`${url(draftId)}/basics`);

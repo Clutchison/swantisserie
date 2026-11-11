@@ -30,6 +30,7 @@ import {
   text,
 } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
+import { playing, withTournament } from './play-tab-harness';
 import {
   bobsTurn,
   bolt,
@@ -236,7 +237,7 @@ describe('basic lands on the plan tab', () => {
     await vi.waitFor(() => expect(countOf('Plains').value).toBe('1'));
   });
 
-  it('keeps basics on the mainboard, with nothing to move or remove them by but their count', async () => {
+  it('keeps basics on the mainboard, with no move button', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 3 }]),
@@ -253,7 +254,6 @@ describe('basic lands on the plan tab', () => {
     ]);
     expect(countOf('Forest').value).toBe('3');
     expect(button(plan, 'Move Forest to the sideboard')).toBeUndefined();
-    expect(button(plan, 'Remove Forest from your plan')).toBeUndefined();
     expect(button(plan, 'Move Shivan Dragon to the sideboard')).toBeDefined();
   });
 
@@ -674,6 +674,39 @@ describe('basic lands on the plan tab', () => {
 
     expect(openDialog()).toBeNull();
     expect(document.activeElement).toBe(basicsButton(plan));
+  });
+
+  it('takes one copy of a basic land out of the plan with the trash button on its line in list mode', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 3 }]),
+    });
+    const plan = await openPlan(fixture, page);
+
+    button(plan, 'Remove Forest from your plan')!.click();
+    const removed = http.expectOne('/api/drafts/draft-1/plan/basics/Forest/Mainboard');
+    expect(removed.request.method).toBe('DELETE');
+    removed.flush(boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 2 }]));
+    await fixture.whenStable();
+
+    expect(planBoards(plan)[0]).toEqual({
+      heading: 'Mainboard 4 (4 picked)',
+      lines: ['1 Lightning Bolt', '1 Shivan Dragon', '2 Forest'],
+    });
+  });
+
+  it('offers no trash button for a basic land on a locked deck', async () => {
+    const tournament = playing();
+    const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
+      cards,
+      plan: boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 3 }]),
+      tournament,
+    });
+    const deck = await openPlan(fixture, page);
+    expect(text(deck)).toContain('Your deck is locked');
+
+    expect(planBoards(deck)[0].lines).toContain('3 Forest');
+    expect(button(deck, 'Remove Forest from your plan')).toBeUndefined();
   });
 
   it('closes with the page it was opened from', async () => {
