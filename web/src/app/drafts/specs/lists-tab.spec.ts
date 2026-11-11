@@ -113,7 +113,7 @@ const openAsViewer = (tournament: ViewerTournamentView) =>
   });
 
 /** The tabs of the complete draft once the Lists tab has taken the Board tab's place. */
-const LISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Lists', 'Play', 'Export'];
+const LISTS_IN_BOARDS_PLACE = ['Pool', 'Deck', 'Lists', 'Play'];
 
 describe('lists tab', () => {
   it('is absent without public decklists, while the tournament is played', async () => {
@@ -278,7 +278,7 @@ describe('lists tab', () => {
     ])('leaves the Board tab in its place %s', async (_, tournament) => {
       const { page } = await openAsViewer(tournament);
 
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play']);
     });
 
     it('leaves the Board tab in its place when the tournament can’t be read', async () => {
@@ -296,7 +296,7 @@ describe('lists tab', () => {
       );
       await fixture.whenStable();
 
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play', 'Export']);
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play']);
     });
 
     it('brings the Board tab back once the tournament is cancelled', async () => {
@@ -309,7 +309,7 @@ describe('lists tab', () => {
       await flushPicks([]);
       await fixture.whenStable();
 
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     });
 
     it('moves a viewer on the Lists tab to the Pool tab once the tournament is cancelled', async () => {
@@ -320,7 +320,7 @@ describe('lists tab', () => {
       await pushTournament(fixture, null, 1);
 
       expect(panelName(page)).toBe('Pool');
-      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Export']);
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     });
 
     it('moves a viewer on the Board tab to the Lists tab as the tournament starts', async () => {

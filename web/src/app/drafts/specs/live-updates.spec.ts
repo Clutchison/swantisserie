@@ -74,7 +74,7 @@ describe('live updates', () => {
     expect(updates.watch).toHaveBeenCalledWith('draft-1');
   });
 
-  it('shows another player’s pick on the Pool, Board and Export tabs, and the turn passing', async () => {
+  it('shows another player’s pick on the Pool and Board tabs, and the turn passing', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       draft(drafting({ turn: alicesTurn })),
@@ -94,9 +94,6 @@ describe('live updates', () => {
     tabButton(page, 'Board').click();
     await fixture.whenStable();
     expect(panel(page).querySelector('.log')?.textContent).toContain('Shivan Dragon');
-    tabButton(page, 'Export').click();
-    await fixture.whenStable();
-    expect(panel(page).textContent).toContain('Shivan Dragon');
   });
 
   it('follows the draft out of the lobby when the organizer starts it', async () => {

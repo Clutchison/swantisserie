@@ -57,6 +57,14 @@
     </button>
   </div>
 }
+@if (sideboardCountOverArenaCap(); as count) {
+  <div class="notice" role="status">
+    <p>
+      Your sideboard has {{ count }} cards. Arena's import may keep only {{ arenaSideboardCap }} of
+      them, though your export has them all.
+    </p>
+  </div>
+}
 <p class="detail">
   @if (deckLocked()) {
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.
@@ -80,7 +88,7 @@
     </button>
   </div>
 }
-<!-- Stacks or list, and how the stacks group; then the Add basics button. -->
+<!-- Stacks or list, and how the stacks group; then the Add basics button and the copy buttons. -->
 <div class="mode-controls">
   <div class="segmented" role="group" aria-label="Mode">
     <button
@@ -119,6 +127,7 @@
       Add basics
     </button>
   }
+  <app-export-buttons />
 </div>
 <!-- A card dragged from one plan board's drop list onto the other's moves there: in the wide stacks layout, or the list on desktop. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div

@@ -9,6 +9,9 @@ import { basicsOn, cardsOn, type PlanBoardsOf } from './plan-boards';
  */
 export type ExportPlan<Card> = PlanBoardsOf<Card>;
 
+/** The most sideboard cards Arena's import may keep. */
+export const ARENA_SIDEBOARD_CAP = 15;
+
 /**
  * A plan board's `<count> <line>` lines: its cards', named by `name`, with
  * copies sharing a line in the order each first appears, then its basics', in

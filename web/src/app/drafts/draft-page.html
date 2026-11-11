@@ -134,17 +134,6 @@
           Play
         </button>
       }
-      <!-- Only players have picks to export. -->
-      <button
-        id="export-tab"
-        type="button"
-        [appTab]="selectedTab() === 'Export'"
-        aria-controls="export-panel"
-        (click)="selectedTab.select('Export')"
-        [disabled]="!joined()"
-      >
-        Export
-      </button>
     </div>
 
     <section
@@ -292,17 +281,5 @@
         <app-play-tab />
       </section>
     }
-
-    <!-- Only players have picks to export. -->
-    <section
-      id="export-panel"
-      class="export"
-      role="tabpanel"
-      aria-labelledby="export-tab"
-      [hidden]="selectedTab() !== 'Export'"
-    >
-      <h2>Export</h2>
-      <app-export-tab />
-    </section>
   }
 </main>
