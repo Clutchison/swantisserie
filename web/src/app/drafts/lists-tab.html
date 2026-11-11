@@ -5,30 +5,6 @@
   <app-loading-animation size="tab">Loading the decklists…</app-loading-animation>
 } @else {
   @for (decklist of decklists(); track decklist.playerId) {
-    <section class="decklist" [attr.aria-labelledby]="'decklist-' + decklist.playerId">
-      <h3 [id]="'decklist-' + decklist.playerId">{{ decklist.name }}</h3>
-      <div class="boards">
-        @for (board of decklist.boards; track board.name) {
-          <div class="board">
-            <h4>{{ board.name }} {{ board.count }}</h4>
-            <ul
-              class="lines card-rows"
-              [attr.aria-label]="decklist.name + '’s ' + board.name.toLowerCase()"
-            >
-              @for (line of board.lines; track line.key) {
-                <!-- The space reads the count apart from the name; the grid leaves it out. -->
-                <li>
-                  <span class="count">{{ line.count }}</span
-                  >{{ ' ' }}
-                  <app-card-name [card]="line.card" [name]="line.name" />
-                </li>
-              } @empty {
-                <li class="empty">No cards.</li>
-              }
-            </ul>
-          </div>
-        }
-      </div>
-    </section>
+    <app-decklist [decklist]="decklist" [playerName]="name(decklist)" [cards]="cards()" />
   }
 }
