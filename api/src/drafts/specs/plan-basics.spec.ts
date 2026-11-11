@@ -33,7 +33,7 @@ describe('basic lands in a plan', () => {
     await start(id).expect(200);
 
     await setBasic(id, 'Mountain', 7, carolCookie).expect(200);
-    await setBasic(id, 'Wastes', 1, carolCookie).expect(200);
+    await setBasic(id, 'Forest', 1, carolCookie).expect(200);
     const set = await setBasic(id, 'Plains', 2, carolCookie).expect(200);
 
     expect(set.body).toEqual({
@@ -42,14 +42,14 @@ describe('basic lands in a plan', () => {
       basics: [
         { land: 'Plains', count: 2 },
         { land: 'Mountain', count: 7 },
-        { land: 'Wastes', count: 1 },
+        { land: 'Forest', count: 1 },
       ],
       lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
     await setBasic(id, 'Mountain', 6, carolCookie).expect(200);
-    await setBasic(id, 'Wastes', 0, carolCookie).expect(200);
+    await setBasic(id, 'Forest', 0, carolCookie).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body.basics).toEqual([
       { land: 'Plains', count: 2 },
       { land: 'Mountain', count: 6 },
@@ -103,7 +103,7 @@ describe('basic lands in a plan', () => {
     ]);
   });
 
-  it('refuses a land that isn’t basic, or a count that isn’t a whole number from 0 to 99', async () => {
+  it('refuses a land that isn’t basic, Wastes among them, or a count that isn’t a whole number from 0 to 99', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
 
     const notBasic = await setBasic(id, 'Shock', 1, carolCookie).expect(400);
@@ -112,6 +112,11 @@ describe('basic lands in a plan', () => {
       message: 'Choose a basic land.',
     });
     await setBasic(id, 'plains', 1, carolCookie).expect(400);
+    const wastes = await setBasic(id, 'Wastes', 1, carolCookie).expect(400);
+    expect(wastes.body).toEqual({
+      error: 'invalid',
+      message: 'Choose a basic land.',
+    });
     for (const count of [-1, 1.5, 100, '2', null]) {
       const refused = await setBasic(id, 'Plains', count, carolCookie);
       expect(refused.status).toBe(400);

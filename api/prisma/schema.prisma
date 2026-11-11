@@ -263,7 +263,6 @@ enum BasicLand {
   Swamp
   Mountain
   Forest
-  Wastes
 }
 
 /// The copies of one basic land in a player's plan, always on the mainboard. Never a pool card: no one picks it, it is never queued, and no pick or undo changes it.

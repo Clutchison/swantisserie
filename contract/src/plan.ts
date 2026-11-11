@@ -18,7 +18,6 @@ export const BASIC_LANDS = [
   'Swamp',
   'Mountain',
   'Forest',
-  'Wastes',
 ] as const;
 
 /** A basic land, which a plan holds by count on its mainboard, and a pool never holds. */

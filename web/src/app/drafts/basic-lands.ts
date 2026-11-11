@@ -13,14 +13,10 @@ const COLORS: Record<BasicLand, string[]> = {
   Swamp: ['B'],
   Mountain: ['R'],
   Forest: ['G'],
-  Wastes: [],
 };
 // Stryker restore ObjectLiteral,ArrayDeclaration,StringLiteral
 
-/**
- * Each basic land's default printing: Onslaught's first of each, and Oath of
- * the Gatewatch's plain Wastes, which Onslaught lacks.
- */
+/** Each basic land's default printing: Onslaught's first of each. */
 const DEFAULT_PRINTINGS: Record<BasicLand, Omit<BasicLandPrintingView, 'images'>> = {
   Plains: {
     scryfallId: '7bf7d68a-dbd0-45f3-acbb-59ee38e6057e',
@@ -46,11 +42,6 @@ const DEFAULT_PRINTINGS: Record<BasicLand, Omit<BasicLandPrintingView, 'images'>
     scryfallId: 'b361b42d-401f-440a-bae9-35338b5dde0e',
     set: 'ons',
     collectorNumber: '347',
-  },
-  Wastes: {
-    scryfallId: '9cc070d3-4b83-4684-9caf-063e5c473a77',
-    set: 'ogw',
-    collectorNumber: '183a',
   },
 };
 
@@ -82,12 +73,8 @@ export function basicCard(land: BasicLand, preferred?: BasicLandPrintingView): P
     set,
     collectorNumber,
     name: land,
-    typeLine:
-      // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: the type line is read only for its card types, before any dash, and for Battle, which read the same either way.
-      land === 'Wastes'
-        ? // Wastes has no basic land type.
-          'Basic Land'
-        : `Basic Land — ${land}`,
+    // Stryker disable next-line StringLiteral: the type line is read only for its card types, before any dash, and for Battle, which read the same either way.
+    typeLine: `Basic Land — ${land}`,
     // Stryker disable ArrayDeclaration,StringLiteral: for a basic land these are read only by stacks for nonland cards, `manaCostOf` (a text with no `{…}` gives no symbols) and `isHorizontal` (only `split`, and only `faces[0]?.typeLine`); exports go by land name.
     colors: [],
     manaValue: 0,
