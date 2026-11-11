@@ -1,4 +1,7 @@
+import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
+import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
 import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
@@ -293,3 +296,34 @@ export async function useOnsPrinting(land: string) {
     [land]: onsPrinting,
   });
 }
+
+/**
+ * The Plan tab's drop lists, the mainboard's then the sideboard's, which a
+ * dragged card lands in. The Queue tab has one of its own.
+ */
+export const planDropLists = (fixture: AppFixture) =>
+  fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
+
+/** The drag of the first card named `name` on the plan board `from`, by its card image or its line. */
+export const dragOf = (from: DebugElement, name: string) =>
+  from
+    .queryAll(By.directive(CdkDrag))
+    .find((drag) =>
+      [drag.nativeElement.querySelector('img')?.alt, drag.nativeElement.textContent].some((text) =>
+        text?.includes(name),
+      ),
+    )!
+    .injector.get(CdkDrag);
+
+/** Ends the drag `item` on the plan board `onto`, as the CDK does, from the plan board it began on. */
+export function drop(item: CdkDrag, onto: DebugElement) {
+  onto.triggerEventHandler('cdkDropListDropped', {
+    item,
+    previousContainer: item.dropContainer,
+    container: onto.injector.get(CdkDropList),
+  });
+}
+
+/** Drags the first card named `name` on the plan board `from` onto the plan board `onto`. */
+export const dropped = (name: string, from: DebugElement, onto: DebugElement) =>
+  drop(dragOf(from, name), onto);

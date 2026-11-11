@@ -104,6 +104,24 @@ export class PlansController {
     return this.change(user, id, () => this.plans.addBasic(id, user.id, basic));
   }
 
+  /**
+   * Moves one copy of a basic land to the plan board the body names, taking
+   * it from the other. Declared before `:poolCardId`, which would match it.
+   */
+  @Put('basics/:land')
+  async moveBasic(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('land') land: string,
+    @Body() body: unknown,
+  ): Promise<PlanView> {
+    const basic = parseLand(land);
+    const board = parseBoard(body);
+    return this.change(user, id, () =>
+      this.plans.moveBasic(id, user.id, basic, board),
+    );
+  }
+
   /** Takes every basic land out of the plan. Declared before `:poolCardId`, which would match it. */
   @Delete('basics')
   async clearBasics(

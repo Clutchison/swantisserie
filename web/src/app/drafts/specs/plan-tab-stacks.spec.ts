@@ -1,7 +1,4 @@
-import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
-import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
 import {
   useDraftsApp,
   http,
@@ -46,6 +43,10 @@ import {
   stackHeaderContents,
   stackHeaders,
   stubScrolling,
+  planDropLists,
+  dragOf,
+  drop,
+  dropped,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -194,27 +195,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      /** Each plan board's drop list, which a dragged card lands in. The Queue tab has one of its own. */
-      const dropLists = () =>
-        fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
-      const listOf = (element: DebugElement) => element.injector.get(CdkDropList);
-      expect(dropLists().map((list) => listOf(list).data)).toEqual(['Mainboard', 'Sideboard']);
-      const [mainboard, sideboard] = dropLists();
-      /** Drops the first card named `name` on `from` onto `onto`, as the drag ends. */
-      const dropped = (name: string, from: DebugElement, onto: DebugElement) => {
-        const item = from
-          .queryAll(By.directive(CdkDrag))
-          .find((drag) =>
-            [drag.nativeElement.querySelector('img')?.alt, drag.nativeElement.textContent].some(
-              (text) => text?.includes(name),
-            ),
-          )!;
-        onto.triggerEventHandler('cdkDropListDropped', {
-          item: item.injector.get(CdkDrag),
-          previousContainer: listOf(from),
-          container: listOf(onto),
-        });
-      };
+      const [mainboard, sideboard] = planDropLists(fixture);
 
       dropped('Lightning Bolt', mainboard, sideboard);
       await fixture.whenStable();
@@ -237,7 +218,7 @@ describe('plan tab', () => {
       // The list is a drop target too.
       button(plan, 'List')!.click();
       await fixture.whenStable();
-      const [listMainboard, listSideboard] = dropLists();
+      const [listMainboard, listSideboard] = planDropLists(fixture);
       dropped('Lightning Bolt', listSideboard, listMainboard);
       expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card').request.body).toEqual({
         board: 'Mainboard',
@@ -250,14 +231,8 @@ describe('plan tab', () => {
         plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
-      const dropLists = () =>
-        fixture.debugElement.query(By.css('app-plan-tab')).queryAll(By.directive(CdkDropList));
-      const [mainboard] = dropLists();
-      const from = mainboard.injector.get(CdkDropList);
-      const boltDrag = mainboard
-        .queryAll(By.directive(CdkDrag))
-        .find((drag) => drag.nativeElement.querySelector('img')?.alt === 'Lightning Bolt')!
-        .injector.get(CdkDrag);
+      const [mainboard] = planDropLists(fixture);
+      const boltDrag = dragOf(mainboard, 'Lightning Bolt');
 
       // Bolt is lost while it is being dragged.
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
@@ -265,12 +240,7 @@ describe('plan tab', () => {
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(planOf({ mainboard: [], sideboard: [planned(shivan)] }));
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
-      const sideboard = dropLists()[1];
-      sideboard.triggerEventHandler('cdkDropListDropped', {
-        item: boltDrag,
-        previousContainer: from,
-        container: sideboard.injector.get(CdkDropList),
-      });
+      drop(boltDrag, planDropLists(fixture)[1]);
       await fixture.whenStable();
 
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');

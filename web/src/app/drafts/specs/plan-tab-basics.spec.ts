@@ -1,5 +1,3 @@
-import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
-import { By } from '@angular/platform-browser';
 import type { PlannedBasicView, PlanView } from 'contract';
 import {
   useDraftsApp,
@@ -38,7 +36,12 @@ import {
   planBoards,
   planned,
   stack,
+  stacksOf,
+  zenMountain,
+  planDropLists,
+  dropped,
 } from './plan-tab-harness';
+import { playing, withTournament } from './play-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -207,27 +210,6 @@ describe('basic lands on the plan tab', () => {
     expect(text(alertIn(openDialog()!))).toBe('Your plan already holds 99 copies of Island.');
   });
 
-  it('keeps basics on the mainboard, with nothing to move or remove them by', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: boltAndShivanWith([{ land: 'Forest', board: 'Mainboard', count: 3 }]),
-    });
-    const plan = await openPlan(fixture, page);
-    await openBasics(fixture, plan);
-
-    expect(planBoards(plan)).toEqual([
-      {
-        heading: 'Mainboard 5 (5 picked)',
-        lines: ['1 Lightning Bolt', '1 Shivan Dragon', '3 Forest'],
-      },
-      { heading: 'Sideboard 0 (0 picked)', lines: [] },
-    ]);
-    expect(mainboardCount('Forest')).toBe(3);
-    expect(button(plan, 'Move Forest to the sideboard')).toBeUndefined();
-    expect(button(plan, 'Remove Forest from your plan')).toBeUndefined();
-    expect(button(plan, 'Move Shivan Dragon to the sideboard')).toBeDefined();
-  });
-
   it('clears every basic from both plan boards', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
@@ -274,7 +256,7 @@ describe('basic lands on the plan tab', () => {
     http.expectOne('/api/drafts/draft-1/plan/basics/Forest');
   });
 
-  it('shows basics in the Lands stack on desktop, with their card images, and can’t be dragged off the mainboard', async () => {
+  it('shows basics in the Lands stack on desktop, with their card images', async () => {
     viewOn('desktop');
     onTestFinished(() => {
       vi.unstubAllGlobals();
@@ -289,19 +271,6 @@ describe('basic lands on the plan tab', () => {
     expect(namedImages(namedList(plan, 'Lands'))[0].getAttribute('src')).toBe(
       'https://cards.scryfall.io/normal/front/3/6/36e062ec-df51-40c0-ad8a-2ee1cb8f8f17.jpg',
     );
-
-    // The Queue tab has a drop list of its own.
-    const [mainboard] = fixture.debugElement
-      .query(By.css('app-plan-tab'))
-      .queryAll(By.directive(CdkDropList));
-    const drags = mainboard.queryAll(By.directive(CdkDrag));
-    const disabled = (alt: string) =>
-      drags
-        .filter((drag) => drag.nativeElement.querySelector('img')?.alt === alt)
-        .map((drag) => drag.injector.get(CdkDrag).disabled);
-    expect(disabled('Island')).toEqual([true, true]);
-    expect(disabled('Shivan Dragon')).toEqual([false]);
-    expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
   });
 
   it('falls back to Scryfall’s API image of a basic land’s default printing when its image fails in the stacks', async () => {
@@ -594,5 +563,175 @@ describe('basic lands on the plan tab', () => {
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
+  });
+
+  describe('moving a basic land between plan boards', () => {
+    /** The API request that moves one copy of `land` to a plan board. */
+    const moveUrl = (land: string) => `/api/drafts/draft-1/plan/basics/${land}`;
+
+    it('moves one copy from its line to the sideboard and back in list mode, each plan board listing its own basics', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 3 }]),
+      });
+      const plan = await openPlan(fixture, page);
+
+      button(plan, 'Move Island to the sideboard')!.click();
+      const moved = http.expectOne(moveUrl('Island'));
+      expect(moved.request.method).toBe('PUT');
+      expect(moved.request.body).toEqual({ board: 'Sideboard' });
+      moved.flush(
+        boltAndShivanWith([
+          { land: 'Island', board: 'Mainboard', count: 2 },
+          { land: 'Island', board: 'Sideboard', count: 1 },
+        ]),
+      );
+      await vi.waitFor(() =>
+        expect(planBoards(plan)).toEqual([
+          {
+            heading: 'Mainboard 4 (4 picked)',
+            lines: ['1 Lightning Bolt', '1 Shivan Dragon', '2 Island'],
+          },
+          { heading: 'Sideboard 1 (1 picked)', lines: ['1 Island'] },
+        ]),
+      );
+
+      button(plan, 'Move Island to the mainboard')!.click();
+      const back = http.expectOne(moveUrl('Island'));
+      expect(back.request.method).toBe('PUT');
+      expect(back.request.body).toEqual({ board: 'Mainboard' });
+      back.flush(boltAndShivanWith([{ land: 'Island', board: 'Mainboard', count: 3 }]));
+      await vi.waitFor(() =>
+        expect(planBoards(plan)[1]).toEqual({ heading: 'Sideboard 0 (0 picked)', lines: [] }),
+      );
+    });
+
+    it('drags a basic land’s copy from its line onto the other plan board on desktop', async () => {
+      viewOn('desktop');
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: boltAndShivanWith([{ land: 'Forest', board: 'Sideboard', count: 2 }]),
+      });
+      const plan = await openPlan(fixture, page);
+      button(plan, 'List')!.click();
+      await fixture.whenStable();
+      const [mainboard, sideboard] = planDropLists(fixture);
+
+      dropped('Forest', sideboard, mainboard);
+      await fixture.whenStable();
+
+      const moved = http.expectOne(moveUrl('Forest'));
+      expect(moved.request.body).toEqual({ board: 'Mainboard' });
+    });
+
+    it('moves a stacked copy by its move button, focus following it, and by a drag, the sideboard’s basics in its one stack after its other cards', async () => {
+      viewOn('desktop');
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: boltAndShivanWith(
+          [
+            { land: 'Island', board: 'Mainboard', count: 1 },
+            { land: 'Forest', board: 'Sideboard', count: 1 },
+          ],
+          { mainboard: [planned(shivan)], sideboard: [planned(bolt)] },
+        ),
+      });
+      const plan = await openPlan(fixture, page);
+
+      button(plan, 'Move Island to the sideboard')!.focus();
+      button(plan, 'Move Island to the sideboard')!.click();
+      const moved = http.expectOne(moveUrl('Island'));
+      expect(moved.request.body).toEqual({ board: 'Sideboard' });
+      moved.flush(
+        boltAndShivanWith(
+          [
+            { land: 'Forest', board: 'Sideboard', count: 1 },
+            { land: 'Island', board: 'Sideboard', count: 1 },
+          ],
+          { mainboard: [planned(shivan)], sideboard: [planned(bolt)] },
+        ),
+      );
+      await vi.waitFor(() =>
+        expect(stack(plan, 'Sideboard')).toEqual(['Lightning Bolt', 'Forest', 'Island']),
+      );
+      expect(stacksOf(plan)[0]).toEqual(['6: Shivan Dragon']);
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(plan, 'Move Island to the mainboard')),
+      );
+
+      const [mainboard, sideboard] = planDropLists(fixture);
+      dropped('Forest', sideboard, mainboard);
+      await fixture.whenStable();
+
+      const dragged = http.expectOne(moveUrl('Forest'));
+      expect(dragged.request.method).toBe('PUT');
+      expect(dragged.request.body).toEqual({ board: 'Mainboard' });
+    });
+
+    it('shows every copy of a basic land in the same printing on both plan boards', async () => {
+      viewOn('desktop');
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: boltAndShivanWith(
+          [
+            { land: 'Mountain', board: 'Mainboard', count: 1 },
+            { land: 'Mountain', board: 'Sideboard', count: 2 },
+          ],
+          { preferredPrintings: { Mountain: zenMountain } },
+        ),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(
+        [namedList(plan, 'Lands'), namedList(plan, 'Sideboard')].flatMap((list) =>
+          namedImages(list).map((img) => img.getAttribute('src')),
+        ),
+      ).toEqual(Array(3).fill(zenMountain.images.normal));
+    });
+
+    it('offers no move button for a basic land on a locked deck, and moves none dropped on the other plan board, in either mode', async () => {
+      viewOn('desktop');
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, withTournament(playing()), {
+        cards,
+        plan: boltAndShivanWith([
+          { land: 'Island', board: 'Mainboard', count: 1 },
+          { land: 'Island', board: 'Sideboard', count: 1 },
+        ]),
+        tournament: playing(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      for (const mode of ['Stacks', 'List']) {
+        button(plan, mode)!.click();
+        await fixture.whenStable();
+        expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
+        expect(button(plan, 'Move Island to the mainboard')).toBeUndefined();
+
+        const [mainboard, sideboard] = planDropLists(fixture);
+        dropped('Island', mainboard, sideboard);
+        dropped('Island', sideboard, mainboard);
+        await fixture.whenStable();
+        http.expectNone(moveUrl('Island'));
+      }
+      expect(planBoards(plan)).toEqual([
+        {
+          heading: 'Mainboard 3 (3 picked)',
+          lines: ['1 Lightning Bolt', '1 Shivan Dragon', '1 Island'],
+        },
+        { heading: 'Sideboard 1 (1 picked)', lines: ['1 Island'] },
+      ]);
+    });
   });
 });

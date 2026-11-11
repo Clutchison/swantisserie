@@ -31,7 +31,7 @@ import {
   addBasic,
   shrinkDeck,
   setUpTournament,
-  putBasicsOnSideboard,
+  moveBasics,
   signIn,
   startTournament,
   tournament,
@@ -171,7 +171,8 @@ describe('ready refusals', () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await setUpTournament(id).expect(201);
     await addBasicsUpTo(id, 'Mountain', 38, bobCookie);
-    await putBasicsOnSideboard(id, bob.id, 'Island', 5);
+    await addBasicsUpTo(id, 'Island', 5, bobCookie);
+    await moveBasics(id, 'Island', 'Sideboard', 5, bobCookie);
 
     expect((await markReady(id, bobCookie).expect(409)).body).toEqual({
       error: 'deck-too-small-for-ready',

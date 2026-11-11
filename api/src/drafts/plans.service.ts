@@ -3,6 +3,7 @@ import {
   BASIC_LANDS,
   MOST_BASICS,
   PLAN_BOARDS,
+  otherPlanBoard,
   type BasicLand,
   type PlanBoard,
   type PlanBoards,
@@ -222,6 +223,46 @@ export class PlansService {
         throw new PlanRefusedError({
           error: 'most-basics',
           message: `Your plan already holds ${MOST_BASICS} copies of ${land}.`,
+        });
+      }
+      await tx.plannedBasic.upsert({
+        where: { playerId_land_board: { playerId, land, board } },
+        create: { playerId, land, board, count: 1 },
+        update: { count: { increment: 1 } },
+      });
+    });
+  }
+
+  /**
+   * Moves one copy of the basic land `land` in the user's plan to `board`,
+   * taking it from the other plan board. Throws PlanRefusedError
+   * (`not-in-plan`) if the other plan board holds none, and NotAPlayerError
+   * if the user isn't in the draft.
+   */
+  async moveBasic(
+    draftId: string,
+    userId: string,
+    land: BasicLand,
+    board: PlanBoard,
+  ): Promise<PlanChange> {
+    const from = otherPlanBoard(board);
+    return this.change(draftId, userId, async (tx, playerId) => {
+      const source = await tx.plannedBasic.findUnique({
+        where: { playerId_land_board: { playerId, land, board: from } },
+        select: { id: true, count: true },
+      });
+      if (!source) {
+        throw new PlanRefusedError({
+          error: 'not-in-plan',
+          message: `Your ${from.toLowerCase()} holds no ${land}.`,
+        });
+      }
+      if (source.count === 1) {
+        await tx.plannedBasic.delete({ where: { id: source.id } });
+      } else {
+        await tx.plannedBasic.update({
+          where: { id: source.id },
+          data: { count: { decrement: 1 } },
         });
       }
       await tx.plannedBasic.upsert({
