@@ -9,6 +9,7 @@ import {
   postCompleteRound,
   completeTournament,
   dropPlayer,
+  expectCompletedSince,
   getDraft,
   playingTournament,
   reinstate,
@@ -322,13 +323,16 @@ describe('completing a tournament round', () => {
     );
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
+    expect((await tournamentView(id)).completedAt).toBeNull();
     await reportCurrentRound(id, cookieOf);
+    const before = Date.now();
 
     const answer = await completeRound(id).expect(200);
 
     expect(answer.body.tournament).toEqual({ state: 'Complete' });
     const view = await tournamentView(id);
     expect(view.state).toBe('Complete');
+    expectCompletedSince(view, before);
     expect(view.lastCompletedRound).toBe(2);
     expect(view.rounds).toHaveLength(2);
     const [best] = view.standings;

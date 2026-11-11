@@ -49,7 +49,7 @@ export class TournamentProgressionService {
       });
       await tx.tournament.update({
         where: { id: tournament.id },
-        data: { state: 'Complete' },
+        data: { state: 'Complete', completedAt: new Date() },
       });
       return [
         await roundCompletedOrTournamentCompleted(tx, draftId, tournament.id),
@@ -109,7 +109,7 @@ export class TournamentProgressionService {
         data: {
           lastCompletedRound: round,
           reopenedRound: null,
-          ...(completes && { state: 'Complete' }),
+          ...(completes && { state: 'Complete', completedAt: new Date() }),
         },
       });
       if (!completes) await steps.pairNext(tx, tournament.id, round + 1);

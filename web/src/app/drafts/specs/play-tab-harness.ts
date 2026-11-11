@@ -105,6 +105,7 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   state: 'Registration',
   roundCount: 0,
   lastCompletedRound: 0,
+  completedAt: null,
   entries: playerIds.map((playerId) => entry(playerId)),
   rounds: [],
   bracket: null,
@@ -203,6 +204,7 @@ export function playing(
     state: 'Playing',
     roundCount: 0,
     lastCompletedRound: 0,
+    completedAt: null,
     entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
@@ -245,6 +247,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 1,
+    completedAt: null,
     entries: [alice.id, bob.id, carol.id].map((playerId) => entry(playerId)),
     rounds: [
       {
@@ -280,12 +283,15 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
 
 /**
  * The tournament `view` once it is complete: none of its rounds
- * correctable any more, as the api reads it.
+ * correctable any more, as the api reads it. Its `showsDecklists` is left
+ * as `view` has it, so a Play tab spec needn't answer a decklists read;
+ * the api shows every complete tournament's decklists.
  */
 export function completed(view: ViewerTournamentView): ViewerTournamentView {
   return {
     ...view,
     state: 'Complete',
+    completedAt: '2026-11-10T20:00:00.000Z',
     rounds: view.rounds.map((round) => ({ ...round, correctable: false })),
   };
 }
@@ -339,6 +345,7 @@ export function singleEliminationPlaying(
     state: 'Playing',
     roundCount: 2,
     lastCompletedRound: 0,
+    completedAt: null,
     entries: [alice.id, bob.id, carol.id].map((playerId, i) => entry(playerId, { seed: i + 1 })),
     rounds: [
       {

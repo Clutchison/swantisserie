@@ -234,6 +234,11 @@ export interface TournamentView {
   showsDecklists: boolean;
   state: TournamentState;
   /**
+   * When it completed, as an ISO 8601 timestamp; null until then, and for
+   * a tournament that completed before completion times were recorded.
+   */
+  completedAt: string | null;
+  /**
    * How many tournament rounds it will have, for the players joined so far
    * during registration. Always 0 in round robin, which has none.
    */

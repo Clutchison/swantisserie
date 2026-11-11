@@ -58,7 +58,8 @@
       </button>
     </div>
     <p id="public-decklists-description" class="detail">
-      Once the tournament starts, everyone who sees this draft sees each joined player’s deck.
+      Once the tournament is complete, everyone who sees this draft sees each joined player’s deck.
+      Public decklists show them while it is played, too.
     </p>
     <button class="button" type="submit" appSendsChange="set-up">Set up tournament</button>
   </form>
@@ -72,7 +73,8 @@
       @if (tournament.publicDecklists) {
         Public decklists: everyone who sees this draft sees your deck once the tournament starts.
       } @else {
-        Only you see your deck.
+        Only you see your deck until the tournament is complete; then everyone who sees this draft
+        does.
       }
     </p>
     <app-deck-lock-reminder />
@@ -109,7 +111,11 @@
     <div class="controls">
       @if (offerJoin()) {
         <button class="button" type="button" (click)="join()" appSendsChange="join">
-          {{ tournament.publicDecklists ? 'Join (public decklist)' : 'Join (deck stays private)' }}
+          {{
+            tournament.publicDecklists
+              ? 'Join (public decklist)'
+              : 'Join (deck private until complete)'
+          }}
         </button>
       }
       @if (offerLeave()) {

@@ -34,6 +34,7 @@ export const TOURNAMENT_VIEW = {
   swissRoundOption: true,
   publicDecklists: true,
   state: true,
+  completedAt: true,
   lastCompletedRound: true,
   reopenedRound: true,
   entries: {
@@ -198,6 +199,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     publicDecklists: row.publicDecklists,
     showsDecklists: showsDecklists(row),
     state: row.state,
+    completedAt: row.completedAt?.toISOString() ?? null,
     roundCount: count,
     lastCompletedRound: row.lastCompletedRound,
     entries,

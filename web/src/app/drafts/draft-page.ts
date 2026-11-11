@@ -103,7 +103,8 @@ export class DraftPage {
   protected readonly showPlayTab = computed(() => !!this.store.showPlayTab());
   /**
    * Whether the Lists tab is there, in the Board tab's place: under
-   * public decklists, once the tournament has started.
+   * public decklists, once the tournament has started, and for every
+   * tournament once it is complete.
    */
   protected readonly showListsTab = computed(() => !!this.store.showDecklists());
   /**

@@ -10,5 +10,5 @@ Amends 0005. The first tournament spec (#416) had each player join by hand, with
 
 ## Consequences
 
-- Being in a tournament no longer means a player chose to be. Under public decklists this matters, so the choice is shown throughout registration, and the registration announcement tells players they're in and can leave on the Play tab.
+- Being in a tournament no longer means a player chose to be. This matters because a joined player's deck is shown to everyone once the tournament is complete (ADR 0017), and under public decklists from Start, so the choice is shown throughout registration, and the registration announcement tells players they're in and can leave on the Play tab.
 - The lock follows the tournament's state: cancelling a tournament unlocks its decks, and a new setup joins everyone again, including players who left.

@@ -282,6 +282,14 @@ export async function tournamentView(id: string): Promise<TournamentView> {
   return (await tournament(id).expect(200)).body as TournamentView;
 }
 
+/** Expects `view` to have completed at `since` (a `Date.now()`) or later, and no later than now. */
+export function expectCompletedSince(view: TournamentView, since: number) {
+  expect(view.completedAt).not.toBeNull();
+  const completedAt = new Date(view.completedAt!).getTime();
+  expect(completedAt).toBeGreaterThanOrEqual(since);
+  expect(completedAt).toBeLessThanOrEqual(Date.now());
+}
+
 /**
  * Reports every unreported match of the tournament's current tournament
  * round, the latest paired, as won 2–0 by its first player, as that

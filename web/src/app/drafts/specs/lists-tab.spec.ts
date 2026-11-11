@@ -271,6 +271,16 @@ describe('lists tab', () => {
       expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
     });
 
+    it('takes the Board tab’s place once a tournament without public decklists is complete', async () => {
+      const { fixture, page } = await openAsViewer(
+        completed(playing([], { showsDecklists: true, trophyHolders: [alice.id] })),
+      );
+
+      expect(tabLabels(page)).toEqual(LISTS_IN_BOARDS_PLACE);
+      const tab = await openTab(fixture, page, 'Lists');
+      expect(items(tab, 'Bob’s mainboard')).toEqual(['1 Lava Spike', '39 Mountain']);
+    });
+
     it.each([
       ['without public decklists', playing()],
       [
