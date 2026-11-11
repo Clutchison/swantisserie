@@ -40,6 +40,7 @@ import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { PlanApi } from './plan-api';
+import { basicsOn } from './plan-basics';
 import { OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -693,7 +694,7 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
 function heldOn(plan: PlanView, planBoard: PlanBoard): PlanBoardCard[] {
   return [
     ...PLAN_BOARD_DISPLAY[planBoard].cards(plan),
-    ...plan.basics.filter((basic) => basic.board === planBoard).flatMap(basicCopies),
+    ...basicsOn(plan.basics, planBoard).flatMap(basicCopies),
   ];
 }
 

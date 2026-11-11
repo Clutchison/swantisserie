@@ -31,6 +31,7 @@ import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
 import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import { basicsOn } from './plan-basics';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
@@ -412,9 +413,7 @@ export class DraftStore implements TournamentViewer {
     const { mainboard, basics } = this.plan.value();
     return (
       mainboard.length +
-      basics
-        .filter((basic) => basic.board === 'Mainboard')
-        .reduce((total, basic) => total + basic.count, 0)
+      basicsOn(basics, 'Mainboard').reduce((total, basic) => total + basic.count, 0)
     );
   });
   /**
