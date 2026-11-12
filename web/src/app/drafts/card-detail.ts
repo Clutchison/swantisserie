@@ -1,4 +1,4 @@
-import { DialogRef } from '@angular/cdk/dialog';
+import { Dialog, DialogRef } from '@angular/cdk/dialog';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,7 +16,7 @@ import {
   untracked,
 } from '@angular/core';
 import type { PlanBoard, PlannedCardView, PlanView, PoolCardView, QueueView } from 'contract';
-import type { Observable } from 'rxjs';
+import { forkJoin, type Observable, take } from 'rxjs';
 import { DialogShell } from '../dialog-shell';
 import { CardImage } from './card-image';
 import { CardImageSource, type ImageVersion } from './card-image-source';
@@ -106,6 +106,21 @@ export class CardDetails {
     });
     return detail;
   }
+}
+
+/**
+ * Calls `then` once the Card details open on the page, whichever host
+ * opened them, have closed: at once, if none is open. Returns what stops
+ * it waiting.
+ */
+export function afterCardDetailsClose(dialog: Dialog, then: () => void): () => void {
+  const open = dialog.openDialogs.filter((ref) => ref.componentInstance instanceof CardDetail);
+  if (open.length === 0) {
+    then();
+    return () => undefined;
+  }
+  const waiting = forkJoin(open.map((ref) => ref.closed.pipe(take(1)))).subscribe(() => then());
+  return () => waiting.unsubscribe();
 }
 
 /**
@@ -269,23 +284,18 @@ export class CardDetail {
     }
   }
 
-  /**
-   * Adds the card to the queue. Once it's added, the store notes the add,
-   * and when this Card detail closes, if it hasn't already, so an open
-   * Queue pane can mark the card.
-   */
-  protected addToQueue() {
+  /** Adds the card to the queue; once it's added, the store notes the add, for the queue's size to be said. */
+  protected async addToQueue() {
     const poolCardId = this.card().id;
-    return this.changeQueue(
-      this.queueApi.add(this.store.id(), poolCardId),
-      ADDED_TO_QUEUE,
-      "Couldn't add the card to your queue. Try again in a moment.",
-      () => {
-        const detailClosed = this.destroyRef.destroyed;
-        const add = this.store.addedToQueue(poolCardId, { detailClosed });
-        if (!detailClosed) this.destroyRef.onDestroy(() => this.store.queueAddDetailClosed(add));
-      },
-    );
+    if (
+      await this.changeQueue(
+        this.queueApi.add(this.store.id(), poolCardId),
+        ADDED_TO_QUEUE,
+        "Couldn't add the card to your queue. Try again in a moment.",
+      )
+    ) {
+      this.store.addedToQueue(poolCardId);
+    }
   }
 
   protected removeFromQueue() {
@@ -300,24 +310,24 @@ export class CardDetail {
    * Sends a change to the queue, noting `done` once it's made, unless the turn
    * has moved on meanwhile. If it fails, notes why (`failure`, unless the API
    * says); the store re-reads the queue, and the draft too if it was refused:
-   * a stale page may not know whose turn it is. `made` runs once it's made.
+   * a stale page may not know whose turn it is. Settles on whether it was made.
    */
   private async changeQueue(
     request: Observable<QueueView>,
     done: string,
     failure: string,
-    made?: () => void,
-  ) {
+  ): Promise<boolean> {
     this.queueing.set(true);
     this.queueNote.set(null);
     const turnPick = this.turnPick();
     try {
       await this.store.changeQueue(request);
-      made?.();
       if (this.turnPick() === turnPick) this.queueNote.set(done);
+      return true;
     } catch (err) {
       this.queueNote.set(changeFailure(err, failure));
       if (isRefusal(err)) this.store.catchUp();
+      return false;
     } finally {
       this.queueing.set(false);
     }

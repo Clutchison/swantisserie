@@ -187,6 +187,8 @@ export const button = (root: HTMLElement, label: string) => buttons(root, label)
 
 /** The dialog open over the page, if any: it shows outside the page, so this looks in the whole document. */
 export const openDialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
+/** Every dialog open over the page, in the order they opened. */
+export const openDialogs = () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')];
 
 /**
  * The open dialog that asks `question`, once it shows: one named by the

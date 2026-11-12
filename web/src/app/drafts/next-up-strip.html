@@ -9,10 +9,7 @@
   <span class="title" aria-hidden="true">
     Queue
     @if (size(); as size) {
-      <!-- Made again for each add, so its bump plays again. -->
-      @for (add of [added()]; track add?.id) {
-        <span class="count" [class.bump]="add">· {{ size.count }}</span>
-      }
+      <span class="count" appQueueAddBump>· {{ size.count }}</span>
     }
     @if (unseenNotice()) {
       <span class="dot"></span>

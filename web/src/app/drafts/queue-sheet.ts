@@ -16,8 +16,8 @@ import { QueuePane } from './queue-pane';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<div class="dialog">
     <!-- The scroller drag and drop scrolls as a drag nears its edges. -->
-    <div class="dialog-body" cdkScrollable>
-      <app-queue-pane />
+    <div #body class="dialog-body" cdkScrollable>
+      <app-queue-pane [scroller]="body" />
     </div>
     <div class="dialog-actions">
       <!-- Focus starts here, not on the pane's first control, which a stray tap would change. -->

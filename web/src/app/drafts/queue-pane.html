@@ -21,10 +21,7 @@
       @if (collapsed()) {
         <svg lucidePanelRightOpen size="16"></svg>
         @if (size(); as size) {
-          <!-- Made again for each add, so its bump plays again. -->
-          @for (add of [added()]; track add?.id) {
-            <span class="rail-count" [class.bump]="add" aria-hidden="true">{{ size.count }}</span>
-          }
+          <span class="rail-count" appQueueAddBump aria-hidden="true">{{ size.count }}</span>
         }
         @if (unseenNotice()) {
           <span class="dot" aria-hidden="true"></span>
@@ -41,12 +38,10 @@
       <div class="title">
         <h2 [id]="headingId">Queue</h2>
         @if (size(); as size) {
-          @for (add of [added()]; track add?.id) {
-            <span class="count" [class.bump]="add"
-              ><span aria-hidden="true">· </span>{{ size.count
-              }}<span class="visually-hidden"> {{ size.noun }}</span></span
-            >
-          }
+          <span class="count" appQueueAddBump
+            ><span aria-hidden="true">· </span>{{ size.count
+            }}<span class="visually-hidden"> {{ size.noun }}</span></span
+          >
         }
         <app-picks-left />
       </div>
@@ -144,6 +139,7 @@
           <li
             [class.past-cutoff]="pastCutoff(i)"
             [class.just-added]="card.poolCardId === justAdded()"
+            (animationend)="highlightPlayed($event)"
             cdkDrag
             [cdkDragData]="card.poolCardId"
             cdkDragLockAxis="y"

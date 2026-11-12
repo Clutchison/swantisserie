@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  Directive,
+  effect,
+  ElementRef,
   inject,
   type Signal,
   untracked,
@@ -45,4 +48,24 @@ export class QueueAddStatus {
     const add = this.latest();
     return add ? [add] : [];
   });
+}
+
+/**
+ * Bumps the queue's count it is put on each time a card is added from a
+ * Card detail: it gives the element the `bump` class afresh, which
+ * `_queue-add-bump.scss` animates unless the viewer prefers reduced motion.
+ */
+@Directive({ selector: '[appQueueAddBump]' })
+export class QueueAddBump {
+  constructor() {
+    const element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    const added = queueAddsFromNow();
+    effect(() => {
+      if (!added()) return;
+      element.classList.remove('bump');
+      // Reading its layout ends the last bump, so taking the class again starts another.
+      void element.offsetWidth;
+      element.classList.add('bump');
+    });
+  }
 }

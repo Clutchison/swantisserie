@@ -29,12 +29,13 @@ import {
   accessibleName,
   queuePane,
   queuePaneToggle,
-  queueList,
+  justAddedCards,
+  endJustAddedHighlight,
   nextUpStrip,
   queueSheet,
 } from './harness';
 import { viewOn } from './screen-harness';
-import { carol, openDialog } from '../../specs-harness';
+import { carol, openDialog, openDialogs, text } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
 
 useDraftsApp();
@@ -720,12 +721,6 @@ describe('pool tab', () => {
         return detail;
       }
 
-      /** The rows of the queue in `root` marked as just added, by the card's name. */
-      const justAdded = (root: HTMLElement) =>
-        [...queueList(root).querySelectorAll('li')]
-          .filter((row) => row.textContent?.includes('just added'))
-          .map((row) => row.querySelector('.name')?.textContent?.trim());
-
       it('says the queue’s new size beside the tabs, and opens nothing else', async () => {
         viewOn('desktop');
         const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
@@ -737,8 +732,10 @@ describe('pool tab', () => {
         await addShivan(fixture, page, [queued(brightclimb), queued(shivan)]);
 
         expect(statusTexts(page)).toContain('Queue, 2 cards');
-        expect(queuePane(page).querySelector('.header')?.textContent).toContain('· 2');
-        expect(document.querySelectorAll('[role="dialog"]').length).toBe(1);
+        expect(text(queuePane(page))).toContain('· 2 cards');
+        expect(openDialogs().map((dialog) => dialog.getAttribute('aria-label'))).toEqual([
+          shivan.name,
+        ]);
       });
 
       it('says it on the collapsed rail, too, which shows the new count', async () => {
@@ -787,11 +784,11 @@ describe('pool tab', () => {
         });
 
         const detail = await addShivan(fixture, page, [queued(brightclimb), queued(shivan)]);
-        expect(justAdded(queuePane(page))).toEqual([]);
+        expect(justAddedCards(queuePane(page))).toEqual([]);
 
         button(detail, 'Close')!.click();
         await fixture.whenStable();
-        expect(justAdded(queuePane(page))).toEqual(['Shivan Dragon']);
+        expect(justAddedCards(queuePane(page))).toEqual(['Shivan Dragon']);
       });
 
       it('marks a card whose add is answered after its Card detail has closed', async () => {
@@ -806,8 +803,39 @@ describe('pool tab', () => {
         http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
         await vi.waitFor(() => {
           TestBed.tick();
-          expect(justAdded(queuePane(page))).toEqual(['Shivan Dragon']);
+          expect(justAddedCards(queuePane(page))).toEqual(['Shivan Dragon']);
         });
+      });
+
+      it('marks the card only until its highlight has played', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        button(await addShivan(fixture, page), 'Close')!.click();
+        await fixture.whenStable();
+        expect(justAddedCards(queuePane(page))).toEqual(['Shivan Dragon']);
+
+        endJustAddedHighlight(queuePane(page));
+        await fixture.whenStable();
+
+        expect(justAddedCards(queuePane(page))).toEqual([]);
+      });
+
+      it('marks the card no more once the pane is collapsed, nor again as it is expanded', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        button(await addShivan(fixture, page), 'Close')!.click();
+        await fixture.whenStable();
+
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+
+        expect(justAddedCards(queuePane(page))).toEqual([]);
       });
 
       it('marks nothing in a collapsed pane, nor once it is expanded', async () => {
@@ -823,7 +851,7 @@ describe('pool tab', () => {
         queuePaneToggle(page).click();
         await fixture.whenStable();
 
-        expect(justAdded(queuePane(page))).toEqual([]);
+        expect(justAddedCards(queuePane(page))).toEqual([]);
       });
     });
   });

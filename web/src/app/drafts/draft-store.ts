@@ -78,8 +78,6 @@ export interface QueueAdd {
   poolCardId: string;
   /** The queue's size as the add left it: its count, and the noun a viewer reads after it. */
   size: { count: number; noun: string };
-  /** Whether the Card detail it was made from has closed. */
-  detailClosed: boolean;
 }
 
 /**
@@ -309,21 +307,15 @@ export class DraftStore implements TournamentViewer {
 
   /**
    * Notes a card the player has added to their queue from a Card detail,
-   * as the queue now stands, returning the add's id. `detailClosed` says
-   * whether that Card detail had closed by the time the add was answered.
+   * with the queue's size as it now stands. The add's answer has just been
+   * shown, so the size is known; should it not be, there is no size to say,
+   * and the add before stays the latest.
    */
-  addedToQueue(poolCardId: string, { detailClosed }: { detailClosed: boolean }): number {
+  addedToQueue(poolCardId: string) {
     const size = this.queueSize();
-    const id = ++this.queueAdds;
-    this.latestQueueAddShown.set(size && { id, poolCardId, size, detailClosed });
-    return id;
-  }
-
-  /** Notes that the Card detail add `id` was made from has closed. */
-  queueAddDetailClosed(id: number) {
-    this.latestQueueAddShown.update((add) =>
-      add?.id === id ? { ...add, detailClosed: true } : add,
-    );
+    // Stryker disable next-line ConditionalExpression: a changed queue just shown is always loaded.
+    if (!size) return;
+    this.latestQueueAddShown.set({ id: ++this.queueAdds, poolCardId, size });
   }
 
   /** The pool card ids of the cards in the signed-in player's queue. */

@@ -5,6 +5,7 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
+import { Dialog } from '@angular/cdk/dialog';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import {
   afterNextRender,
@@ -33,12 +34,12 @@ import {
   LucidePanelRightOpen,
   LucideTrash,
 } from '@lucide/angular';
-import { CardDetailRequests, CardDetails } from './card-detail';
+import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
 import { changeFailure, COARSE_POINTER_QUERY, DRAG_START_DELAY, matching } from './drafts';
 import { PicksLeft } from './picks-left';
-import { QueueAddStatus, queueAddsFromNow } from './queue-add-status';
+import { QueueAddBump, QueueAddStatus, queueAddsFromNow } from './queue-add-status';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
@@ -101,6 +102,7 @@ let panes = 0;
     LucideTrash,
     NgTemplateOutlet,
     PicksLeft,
+    QueueAddBump,
     QueueAddStatus,
     SendsChange,
   ],
@@ -121,9 +123,12 @@ export class QueuePane {
   private readonly cardDetails = inject(CardDetails);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly dialog = inject(Dialog);
 
   /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
   readonly collapsible = input(false);
+  /** The element the pane scrolls in, where that isn't the pane itself: the Queue sheet's body. */
+  readonly scroller = input<HTMLElement>();
 
   private readonly id = ++panes;
   protected readonly headingId = `queue-pane-heading-${this.id}`;
@@ -209,7 +214,7 @@ export class QueuePane {
     ].join(', ');
   });
 
-  /** The latest card added from a Card detail since the pane was made, if any: its count bumps. */
+  /** The latest card added from a Card detail since the pane was made, if any. */
   protected readonly added = queueAddsFromNow();
   /** The id of the add whose card is marked as just added. */
   private readonly marked = signal<number | null>(null);
@@ -229,18 +234,29 @@ export class QueuePane {
     });
     // Once the Card detail a card was added from closes, an open pane marks
     // the card and scrolls it into view; a collapsed one, then or once expanded, doesn't.
-    effect(() => {
+    effect((onCleanup) => {
       const add = this.added();
-      if (!add?.detailClosed || untracked(this.collapsed)) return;
-      this.marked.set(add.id);
-      afterNextRender(
-        () => {
-          const row = this.host.querySelector<HTMLElement>('li.just-added');
-          if (row) scrollIntoScroller(row);
-        },
-        { injector: this.injector },
-      );
+      if (!add) return;
+      onCleanup(afterCardDetailsClose(this.dialog, () => this.markAdded(add.id)));
     });
+  }
+
+  /** Marks add `id`'s card as just added, in view in the pane's scroller, unless the pane is collapsed. */
+  private markAdded(id: number) {
+    if (this.collapsed()) return;
+    this.marked.set(id);
+    afterNextRender(
+      () => {
+        const row = this.host.querySelector<HTMLElement>('li.just-added');
+        if (row) scrollIntoView(row, this.scroller() ?? this.host);
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** The just-added highlight has played on a row: it is no longer marked. */
+  protected highlightPlayed(event: AnimationEvent | Event) {
+    if (event.target === event.currentTarget) this.marked.set(null);
   }
 
   /**
@@ -251,6 +267,8 @@ export class QueuePane {
   protected toggleCollapsed() {
     const collapsing = !this.collapsedChoice();
     this.collapsedChoice.set(collapsing);
+    // A card marked as just added isn't marked again on expanding.
+    if (collapsing) this.marked.set(null);
     try {
       localStorage.setItem(COLLAPSED_KEY, collapsing ? COLLAPSED : 'open');
     } catch {
@@ -425,22 +443,14 @@ export class QueuePane {
 }
 
 /**
- * Scrolls the scroller `row` is in just far enough to show it: the pane
- * beside the tabs, or the Queue sheet's body. The page itself never scrolls.
+ * Scrolls `scroller`, the pane's own (itself beside the tabs, or the Queue
+ * sheet's body), just far enough to show `row`. The page never scrolls.
  */
-function scrollIntoScroller(row: HTMLElement) {
-  const page = row.ownerDocument.scrollingElement;
-  for (let scroller = row.parentElement; scroller && scroller !== page;) {
-    const { overflowY } = getComputedStyle(scroller);
-    if (overflowY === 'auto' || overflowY === 'scroll') {
-      const shown = scroller.getBoundingClientRect();
-      const { top, bottom } = row.getBoundingClientRect();
-      if (top < shown.top) scroller.scrollTop -= shown.top - top;
-      else if (bottom > shown.bottom) scroller.scrollTop += bottom - shown.bottom;
-      return;
-    }
-    scroller = scroller.parentElement;
-  }
+function scrollIntoView(row: HTMLElement, scroller: HTMLElement) {
+  const shown = scroller.getBoundingClientRect();
+  const { top, bottom } = row.getBoundingClientRect();
+  if (top < shown.top) scroller.scrollTop -= shown.top - top;
+  else if (bottom > shown.bottom) scroller.scrollTop += bottom - shown.bottom;
 }
 
 /** Whether the viewer left the Queue pane collapsed; open, as for a new viewer, if storage can't say. */
