@@ -119,8 +119,8 @@ The pool filter that leaves picked cards out of the Pool tab, which otherwise sh
 _Avoid_: Show available, taken filter, hide taken
 
 **Pool tab**:
-The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them and, until the draft is complete, sees and rearranges their queue in the Queue pane.
-_Avoid_: Card grid, pool page, Queue tab
+The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them.
+_Avoid_: Card grid, pool page
 
 **Platform**:
 The game a draft is played on: MTG Arena or Magic Online (MTGO). The organizer chooses it when creating the draft, and it never changes.
@@ -211,7 +211,7 @@ A player's setting, for one draft, for what a lost card does to the rest of thei
 _Avoid_: Loss setting, fallback, keep queue
 
 **Queue pane**:
-The part of the Pool tab where a player sees and rearranges their queue beside the pool cards, or over them where there isn't room, until the draft is complete.
+The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or over them where there isn't room. It is there until the draft is complete.
 _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's)
 
 **Queued badge**:
