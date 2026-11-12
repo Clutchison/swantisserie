@@ -94,7 +94,7 @@ li {
   }
 
   .detail {
-    max-inline-size: var(--measure, 66ch);
+    max-inline-size: var(--width-measure);
     margin-block: var(--space-xs) 0;
   }
 }
