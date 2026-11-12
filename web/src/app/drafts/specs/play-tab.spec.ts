@@ -32,6 +32,12 @@ import {
   serverError,
 } from './harness';
 import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
+import {
   answerChange,
   answerChangeFailingReread,
   complete,
@@ -100,6 +106,20 @@ describe('Play tab', () => {
       expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: false });
       expect(button(panel(page), 'Set up tournament')).toBeUndefined();
       expect(panel(page).textContent).toContain('Nobody has joined yet.');
+    });
+
+    it('hides the setup help in a closed "How this works" section until opened', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+      const tab = await openPlayTab(fixture, page);
+
+      const help = () => elementContaining(tab, 'Setup can’t be changed afterwards');
+
+      expect(disclosure(tab, 'How this works')!.open).toBe(false);
+      expect(hiddenInClosedSection(help())).toBe(true);
+      toggleDisclosure(tab, 'How this works');
+      await fixture.whenStable();
+
+      expect(hiddenInClosedSection(help())).toBe(false);
     });
 
     it('offers public decklists as a toggle, private unless the organizer switches it, and sets the tournament up with them', async () => {

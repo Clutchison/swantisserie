@@ -27,6 +27,12 @@ import {
   statusMessage,
   alertIn,
 } from './harness';
+import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -360,6 +366,38 @@ describe('plan tab', () => {
     await vi.waitFor(() => expect(plan.querySelector('.notice')).toBeNull());
   });
 
+  it('hides its help in a closed "How this works" section until opened', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({ mainboard: [planned(brightclimb)] }),
+    });
+    const plan = await openPlan(fixture, page);
+    const help = () => elementContaining(plan, 'Every pick lands on your mainboard.');
+
+    expect(disclosure(plan, 'How this works')!.open).toBe(false);
+    expect(hiddenInClosedSection(help())).toBe(true);
+    toggleDisclosure(plan, 'How this works');
+    await fixture.whenStable();
+
+    expect(hiddenInClosedSection(help())).toBe(false);
+  });
+
+  it('shows the Deck notice and the Ready notice while "How this works" is closed', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({
+        mainboard: [planned(brightclimb)],
+        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+        readyNotice: true,
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    expect(disclosure(plan, 'How this works')!.open).toBe(false);
+    expect(hiddenInClosedSection(elementContaining(plan, 'Lost to other players'))).toBe(false);
+    expect(hiddenInClosedSection(elementContaining(plan, 'You’re no longer ready'))).toBe(false);
+  });
+
   it('still notes a lost card whose picker is no longer among the players', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
@@ -667,6 +705,19 @@ describe('the Deck tab’s name', () => {
         expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
       },
     );
+
+    it('shows that the deck is locked and its exports still work, without opening "How this works"', async () => {
+      const { tab } = await openPlanIn(playing());
+
+      expect(
+        hiddenInClosedSection(
+          elementContaining(
+            tab,
+            'Your deck is locked until the tournament is complete or cancelled. Your exports still work.',
+          ),
+        ),
+      ).toBe(false);
+    });
 
     it('shows no reminder, and offers edits, to a player who has left', async () => {
       const { tab } = await openPlanIn(registration(bob.id));

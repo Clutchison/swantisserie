@@ -40,3 +40,23 @@ li {
   color: var(--color-muted);
   font-size: var(--font-size-sm);
 }
+
+/*
+ * "How this works": a tab's help, closed until a viewer opens it, so the tab's
+ * content comes first. Notices never go inside it.
+ */
+.how-this-works {
+  margin-block: var(--space-sm);
+
+  summary {
+    inline-size: fit-content;
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+  }
+
+  .detail {
+    max-inline-size: var(--measure, 66ch);
+    margin-block: var(--space-xs) 0;
+  }
+}

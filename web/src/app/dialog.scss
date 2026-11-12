@@ -1,21 +1,60 @@
 /*
- * The box a dialog draws, and its row of actions, shared by the dialogs
- * that use them. A dialog narrower or wider than the usual sets
- * --dialog-width on its host.
+ * The box a dialog draws: its heading, its body, then its row of actions,
+ * shared by every dialog with a heading. The box is capped at the screen's
+ * height, which the dialog shell's pane sets; the heading and the action row
+ * keep their place while only the body scrolls, so Close and a dialog's
+ * confirm stay in view however long the body grows. A dialog narrower or
+ * wider than the usual sets --dialog-width on its host, and never its own
+ * height or overflow.
+ *
+ *   <div class="dialog">
+ *     <h3 [id]="headingId">…</h3>
+ *     <div class="dialog-body">…</div>
+ *     <div class="dialog-actions">…</div>
+ *   </div>
  */
 .dialog {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  width: min(var(--dialog-width, 26rem), 100%);
+  box-sizing: border-box;
+  /* --dialog-width is the box's content; its padding comes on top, as long as the screen has room. */
+  width: min(var(--dialog-width, 26rem) + 2 * var(--space-lg), 100%);
+  max-height: 100%;
   padding: var(--space-lg);
   border-radius: 0.5rem;
   background: var(--color-bg);
   color: var(--color-text);
+
+  > h2,
+  > h3 {
+    flex-shrink: 0;
+    margin: 0;
+  }
+}
+
+/*
+ * The part that scrolls. Its padding, taken back by its margin, leaves room
+ * for a focused control's outline at its edges, which it would otherwise clip.
+ */
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+  margin: calc(-1 * var(--space-xs));
+  padding: var(--space-xs);
+  overflow-y: auto;
+
+  /* The body scrolls as a whole: a part that scrolls sideways, as a results grid does, keeps its full height. */
+  > * {
+    flex-shrink: 0;
+  }
 }
 
 .dialog-actions {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-sm);

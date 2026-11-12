@@ -1,37 +1,39 @@
 <div class="dialog">
   <h2 [id]="headingId">{{ row().draftName }}</h2>
-  @if (failed()) {
-    <p class="error">Couldn't load the tournament. Try again in a moment.</p>
-  } @else if (loaded()) {
-    @let shown = tournament.value()!;
-    <dl class="header" aria-label="About the tournament">
-      <dt>Pool source</dt>
-      <dd>
-        @if (poolSource().href; as href) {
-          <a [href]="href" target="_blank" rel="noopener">{{ poolSource().title }}</a>
-        } @else {
-          {{ poolSource().title }}
-        }
-      </dd>
-      <dt>Completed</dt>
-      <dd>{{ row().completedAt | completionDate }}</dd>
-      <dt>Format</dt>
-      <dd>{{ format() }}</dd>
-      <dt>Players</dt>
-      <dd>{{ shown.entries.length }}</dd>
-    </dl>
-    @if (shown.format === 'RoundRobin') {
-      <app-results-grid [tournament]="shown" [summary]="true" />
+  <div class="dialog-body">
+    @if (failed()) {
+      <p class="error">Couldn't load the tournament. Try again in a moment.</p>
+    } @else if (loaded()) {
+      @let shown = tournament.value()!;
+      <dl class="header" aria-label="About the tournament">
+        <dt>Pool source</dt>
+        <dd>
+          @if (poolSource().href; as href) {
+            <a [href]="href" target="_blank" rel="noopener">{{ poolSource().title }}</a>
+          } @else {
+            {{ poolSource().title }}
+          }
+        </dd>
+        <dt>Completed</dt>
+        <dd>{{ row().completedAt | completionDate }}</dd>
+        <dt>Format</dt>
+        <dd>{{ format() }}</dd>
+        <dt>Players</dt>
+        <dd>{{ shown.entries.length }}</dd>
+      </dl>
+      @if (shown.format === 'RoundRobin') {
+        <app-results-grid [tournament]="shown" [summary]="true" />
+      } @else {
+        <app-tournament-results [tournament]="shown" [summary]="true" />
+      }
+      <p class="links">
+        <a [routerLink]="['/drafts', row().draftId]" [queryParams]="{ tab: 'play' }">Play tab</a>
+        <a [routerLink]="['/drafts', row().draftId]" [queryParams]="{ tab: 'lists' }">Lists tab</a>
+      </p>
     } @else {
-      <app-tournament-results [tournament]="shown" [summary]="true" />
+      <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>
     }
-    <p class="links">
-      <a [routerLink]="['/drafts', row().draftId]" [queryParams]="{ tab: 'play' }">Play tab</a>
-      <a [routerLink]="['/drafts', row().draftId]" [queryParams]="{ tab: 'lists' }">Lists tab</a>
-    </p>
-  } @else {
-    <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>
-  }
+  </div>
   <div class="dialog-actions">
     <button class="button secondary" type="button" (click)="close()">Close</button>
   </div>

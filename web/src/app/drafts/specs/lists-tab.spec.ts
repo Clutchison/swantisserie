@@ -30,6 +30,12 @@ import {
   serverError,
 } from './harness';
 import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
+import {
   carol,
   dave,
   openComplete,
@@ -130,6 +136,24 @@ describe('lists tab', () => {
     });
 
     expect(tabButton(page, 'Lists')).toBeUndefined();
+  });
+
+  it('hides its help in a closed "How this works" section until opened', async () => {
+    const { fixture, page } = await openAsViewer(publicPlaying());
+    const tab = await openTab(fixture, page, 'Lists');
+
+    const help = () =>
+      elementContaining(
+        tab,
+        'Each joined player’s deck as it was locked when the tournament started.',
+      );
+
+    expect(disclosure(tab, 'How this works')!.open).toBe(false);
+    expect(hiddenInClosedSection(help())).toBe(true);
+    toggleDisclosure(tab, 'How this works');
+    await fixture.whenStable();
+
+    expect(hiddenInClosedSection(help())).toBe(false);
   });
 
   it('shows everyone who sees the draft each joined player’s mainboard and sideboard, each with its basic lands', async () => {
