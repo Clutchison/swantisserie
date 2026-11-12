@@ -147,15 +147,15 @@ The part of a draft's page that shows its players in seat order, and where the o
 _Avoid_: Sidebar, side pane, Players section
 
 **Seat strip**:
-A row of the players' avatars in seat order, shown while a draft is drafting or paused, marking whose turn it is and, with arrows between the seats, which way the picks are moving. It names each player on hover or focus, stands in for the Players panel, and opens the full panel on request.
+A row of the players' avatars in seat order, shown while a draft is drafting or frozen, marking whose turn it is and, with arrows between the seats, which way the picks are moving. It names each player on hover or focus, stands in for the Players panel, and opens the full panel on request.
 _Avoid_: Avatar bar, player strip, sidebar, turn strip, Players panel (that is the full panel)
 
 **Players sheet**:
-The full Players panel on a narrow screen while a draft is drafting or paused, raised over the page from the foot of the screen when the viewer opens it from the Seat strip, and closed to go back to where they were.
+The full Players panel on a narrow screen while a draft is drafting or frozen, raised over the page from the foot of the screen when the viewer opens it from the Seat strip, and closed to go back to where they were.
 _Avoid_: Players drawer, players modal, players popup
 
 **Players popover**:
-The full Players panel on a wide screen while a draft is drafting or paused, opened under the Seat strip when the viewer asks for it, over the tab content without blocking the rest of the page.
+The full Players panel on a wide screen while a draft is drafting or frozen, opened under the Seat strip when the viewer asks for it, over the tab content without blocking the rest of the page.
 _Avoid_: Players dropdown, players menu, Players sheet (that is the narrow-screen form)
 
 **Snake order**:
@@ -194,6 +194,14 @@ _Avoid_: Picks page, draft board
 A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue.
 _Avoid_: Wishlist, preload list, autopick list
 
+**Queue paused**:
+A player's queue when it makes no queued picks: on their turn, they pick by hand, and a cascade stops at them. Everything else about the queue carries on, so they can still change it, pick from it by hand, and lose cards from it. The player pauses it or sets it picking whenever the draft is drafting or frozen, and a lost card pauses it under the pause queue steal behavior; an undo of that pick sets it picking again. Always written as "queue paused", never "paused" alone.
+_Avoid_: Held, on hold, autopick off
+
+**Queue picking**:
+A player's queue when it picks for them on their turn: the opposite of queue paused, and how every queue starts. Setting a queue picking on the player's own turn picks its next available cards straight away, after the player confirms the cards it will pick before the turn passes. Always written as "queue picking", never "picking" alone.
+_Avoid_: Queue active (an active draft is the draft's), running, armed, unpaused, resumed
+
 **Cascade**:
 A run of queued picks that fire one after another because each next player also has an available queued card.
 _Avoid_: Chain, auto-run
@@ -206,12 +214,8 @@ _Avoid_: Sniped, taken, removed (that is the player taking a card out by hand)
 What happens when another player picks a queued card, or an unpicked card in a deck: the queue or deck holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none.
 _Avoid_: Swap rule, substitution
 
-**Cleared**:
-Describes a queued card taken out of a player's queue because another player picked a different card in that queue, when the player's steal behavior is clear queue. A cleared card is still available, and the player can queue it again.
-_Avoid_: Wiped, reset, lost (that is the card that was picked)
-
 **Taken out**:
-Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or, after another player's pick, the lost card and any cards it cleared. An undo of that pick puts every taken-out card back.
+Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or, after another player's pick, the lost card. An undo of that pick puts every taken-out card back.
 _Avoid_: Unqueued, removed (that is the player taking a card out by hand), taken (that is a lost card alone)
 
 **Departure**:
@@ -219,11 +223,11 @@ Cards leaving a player's queue together: the cards one pick took out of it, a ca
 _Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 
 **Steal behavior**:
-A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it while the draft is drafting or paused.
-_Avoid_: Loss setting, fallback, keep queue
+A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where the queue is paused, or **pick next**, where it keeps picking and their next available queued card is picked on their turn. Players start on pause queue and can change it while the draft is drafting or frozen.
+_Avoid_: Loss setting, fallback, keep queue, clear queue (no longer one)
 
 **Queue pane**:
-The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there while the draft is drafting or paused; once the draft is closed it is shown only where there isn't room beside the tabs, in the Queue sheet.
+The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there while the draft is drafting or frozen; once the draft is closed it is shown only where there isn't room beside the tabs, in the Queue sheet.
 _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
 
 **"Next up" strip**:
@@ -243,11 +247,11 @@ The line in the Queue pane after the last queued card that a player's picks left
 _Avoid_: Divider, pick line
 
 **Queue notice**:
-The note in the Queue pane naming a player's lost and cleared cards, and saying when the rest of the queue was kept under pick next. It builds up until the player dismisses it, and an undo takes off what that pick added.
+The note in the Queue pane naming a player's lost cards, and saying whether each loss paused their queue or, under pick next, left it picking. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Alert, warning, notification
 
 **Undo**:
-The organizer taking back a draft's latest pick, while it is drafting or paused. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue, a lost card, and a cleared queue, any unpicked card it took out of a deck goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
+The organizer taking back a draft's latest pick, while it is drafting or frozen. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue and a lost card, a queue that pick paused is set picking again, any unpicked card it took out of a deck goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
@@ -362,9 +366,9 @@ _Avoid_: Pending, open, created
 A started draft whose players are taking picks.
 _Avoid_: Running, in progress, live
 
-**Paused**:
-A started draft in which the organizer has temporarily stopped picks.
-_Avoid_: Suspended, on hold
+**Frozen**:
+A started draft in which the organizer has temporarily stopped picks, until they unfreeze it.
+_Avoid_: Paused (that is a queue's), suspended, on hold
 
 **Complete**:
 A draft in which every player has all their picks. It stays viewable forever.
@@ -375,11 +379,11 @@ A started draft the organizer has ended early, with every pick as made. It is re
 _Avoid_: Ended, archived, abandoned
 
 **Reopen**:
-The organizer returning a closed draft to drafting, at any time. Its turn comes back and queued picks fire straight away, even if it was paused when closed.
-_Avoid_: Restore, unclose, resume (that is from paused)
+The organizer returning a closed draft to drafting, at any time. Its turn comes back and queued picks fire straight away, even if it was frozen when closed.
+_Avoid_: Restore, unclose, unfreeze (that is from frozen)
 
 **Pick import**:
-The organizer loading picks made outside the app into a draft in the lobby, which starts it paused. A file's columns map to seats by position, and its picks are taken in snake order.
+The organizer loading picks made outside the app into a draft in the lobby, which starts it frozen. A file's columns map to seats by position, and its picks are taken in snake order.
 _Avoid_: Upload, sheet sync, import (alone)
 
 **Cancel**:
@@ -731,7 +735,7 @@ Describes a draft channel moved to its guild's archive category because its draf
 _Avoid_: Muted, hidden, closed (that is the draft)
 
 **Announcement**:
-A text post on a draft's webhook saying the draft has started, paused, resumed, closed or reopened, a pick was made or undone, or the draft is complete; or that its tournament is in registration, has started, has completed a tournament round, or is complete. A pick and the cascade after it are one announcement, and so are a start, a resume or a reopen and the cascade after it. An announcement too long for one Discord post goes out as several posts in a row, and only the last names who is up. A draft announcement links to the draft exactly when it names someone as up. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them. A tournament announcement pings the draft's players when it is in registration, and each player with a match in a new tournament round.
+A text post on a draft's webhook saying the draft has started, frozen, unfrozen, closed or reopened, a pick was made or undone, or the draft is complete; or that its tournament is in registration, has started, has completed a tournament round, or is complete. A pick and the cascade after it are one announcement, and so are a start, an unfreeze or a reopen and the cascade after it. An announcement too long for one Discord post goes out as several posts in a row, and only the last names who is up. A draft announcement links to the draft exactly when it names someone as up. Only the player whose turn it now is gets pinged, and not after a pick they made by hand that leaves the turn with them. A tournament announcement pings the draft's players when it is in registration, and each player with a match in a new tournament round.
 _Avoid_: Notification (in user-facing copy), alert, message (alone)
 
 ## Feedback
