@@ -22,15 +22,18 @@
       (input)="search.set(searchBox.value)"
     />
   </div>
-  <label class="hide-picked">
-    <input
-      #hidePickedBox
-      type="checkbox"
-      [checked]="hidePicked()"
-      (change)="hidePicked.set(hidePickedBox.checked)"
-    />
+  <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+  <button
+    type="button"
+    class="hide-picked"
+    [attr.aria-pressed]="hidePicked()"
+    (click)="hidePicked.set(!hidePicked())"
+  >
+    @if (hidePicked()) {
+      <svg lucideCheck size="16" aria-hidden="true"></svg>
+    }
     Hide picked
-  </label>
+  </button>
   <div class="color-filter" role="group" aria-label="Color filter">
     @for (button of colorButtons; track button.color) {
       <button

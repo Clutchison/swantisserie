@@ -20,7 +20,6 @@ import {
   flushPool,
   panel,
   statusMessage,
-  controlByLabel,
   type AppFixture,
   text,
   alertIn,
@@ -29,6 +28,7 @@ import {
 import { openDialog } from '../../specs-harness';
 import {
   useTallScreen,
+  hidePicked,
   card,
   shivan,
   brightclimb,
@@ -98,7 +98,7 @@ describe('pool tab', () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
         cards: [brightclimb, shivan],
       });
-      controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+      hidePicked(page).click();
       await fixture.whenStable();
 
       await pickFromTile(fixture, page);

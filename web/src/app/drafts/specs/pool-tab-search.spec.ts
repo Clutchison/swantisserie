@@ -13,10 +13,9 @@ import {
   expectLoadingAnimation,
   pickOf,
   accessibleName,
-  controlByLabel,
   serverError,
 } from './harness';
-import { useTallScreen, card, shivan, brightclimb, tiles } from './pool-tab-harness';
+import { useTallScreen, card, shivan, brightclimb, tiles, hidePicked } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -116,7 +115,7 @@ describe('pool tab', () => {
         expect(names(page)).toEqual(['White Bear']);
         expect(page.querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('bear');
 
-        controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+        hidePicked(page).click();
         await fixture.whenStable();
         expect(page.textContent).toContain('Every card here has been picked.');
       });
@@ -222,7 +221,7 @@ describe('pool tab', () => {
         },
       );
 
-      controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+      hidePicked(page).click();
       await fixture.whenStable();
 
       expect(page.textContent).toContain('Every card here has been picked.');
@@ -296,15 +295,18 @@ describe('pool tab', () => {
           ],
         },
       );
-      const hidePicked = page.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-      expect(hidePicked.closest('label')?.textContent).toContain('Hide picked');
+      const toggle = hidePicked(page);
+      expect(accessibleName(toggle)).toBe('Hide picked');
+      expect(toggle.getAttribute('aria-pressed')).toBe('false');
 
       await search(fixture, page, 't:dragon');
       expect(names(page)).toEqual(['Shivan Dragon', 'Thundermaw Hellkite']);
       expect(tiles(page)[0].textContent).toContain('Picked');
 
-      hidePicked.click();
+      toggle.click();
       await fixture.whenStable();
+      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(accessibleName(toggle)).toBe('Hide picked');
       expect(names(page)).toEqual(['Thundermaw Hellkite']);
 
       await search(fixture, page, '');
@@ -313,8 +315,9 @@ describe('pool tab', () => {
         'Thundermaw Hellkite',
       ]);
 
-      hidePicked.click();
+      toggle.click();
       await fixture.whenStable();
+      expect(toggle.getAttribute('aria-pressed')).toBe('false');
       expect(names(page)).toHaveLength(3);
     });
   });

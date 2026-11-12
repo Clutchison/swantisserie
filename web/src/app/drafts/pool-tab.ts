@@ -19,6 +19,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { LucideCheck } from '@lucide/angular';
 import type { PoolCardView } from 'contract';
 import { CardDetailRequests, CardDetails, loadedPlaceholder } from './card-detail';
 import { CardImageSource, type ImageVersion } from './card-image-source';
@@ -51,6 +52,7 @@ import { LoadingAnimation } from '../loading/loading-animation';
     CdkVirtualForOf,
     TileImage,
     PlayerAvatar,
+    LucideCheck,
   ],
   providers: [TileImageLoader, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,

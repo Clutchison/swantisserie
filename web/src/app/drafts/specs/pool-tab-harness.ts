@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PoolCardView } from 'contract';
-import { openDialog } from '../../specs-harness';
+import { button, openDialog } from '../../specs-harness';
 import { type AppFixture, faceImages, poolCardOf } from './harness';
 
 export { image } from './harness';
@@ -67,6 +67,9 @@ export async function openDetail(fixture: AppFixture, page: HTMLElement, index: 
 }
 
 /** The pool search box. */
+/** The Hide picked toggle button, by its role and name. */
+export const hidePicked = (page: HTMLElement) => button(page, 'Hide picked');
+
 export const searchBox = (page: HTMLElement) =>
   page.querySelector<HTMLInputElement>('input[type="search"]')!;
 
