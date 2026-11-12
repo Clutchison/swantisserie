@@ -63,6 +63,7 @@ export {
   justAddedCards,
   nextUpStrip,
   openQueueSheet,
+  pickChangesQueue,
   queueList,
   queueNotice,
   queuePane,
