@@ -211,10 +211,13 @@ $dimmed-card: brightness(0.35);
   transform: translate(-50%, -50%);
 }
 
-/* A queued card's place in the viewer's queue: in a corner and in the accent, apart from the Picked badge. */
+/*
+ * A queued card's place in the viewer's queue: in the bottom corner, clear of
+ * the name and mana cost, and in the accent, apart from the centred Picked badge.
+ */
 .queued-badge {
   position: absolute;
-  top: var(--space-xs);
+  bottom: var(--space-xs);
   right: var(--space-xs);
   min-width: 1.75rem;
   padding: 0.125rem var(--space-xs);

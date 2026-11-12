@@ -85,18 +85,19 @@ export class PoolTab {
   protected readonly picked = this.store.picked;
   /**
    * Each queued card's Queued badge, by its pool card id: its 1-based place in
-   * the viewer's queue, and whether it is past the Queue cutoff. Only a player
-   * has a queue, so a spectator's is empty.
+   * the viewer's queue, and whether it is past the Queue cutoff. None for a
+   * viewer who isn't a player, or once the draft is complete and the queue
+   * can't fire.
    */
   protected readonly queuedBadges = computed(() => {
-    const picksLeft = this.store.picksLeft();
+    if (!this.store.joined() || this.store.draftComplete()) return new Map();
     return new Map(
       this.store.queue.value().cards.map((card, index) => [
         card.poolCardId,
         {
           place: index + 1,
           placeWords: ordinalWords(index + 1),
-          pastCutoff: picksLeft !== null && index >= picksLeft,
+          pastCutoff: this.store.pastQueueCutoff(index),
         },
       ]),
     );

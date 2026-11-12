@@ -248,7 +248,7 @@ describe('pool tab', () => {
         ]);
       });
 
-      it('follows a reorder on the Queue tab', async () => {
+      it('follows a reorder of your queue', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
           cards: [brightclimb, shivan],
           queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
@@ -314,6 +314,64 @@ describe('pool tab', () => {
         expect(tileNames(page)).toEqual([
           'Brightclimb Pathway // Grimclimb Pathway',
           'Shivan Dragon',
+        ]);
+      });
+
+      it('shows a viewer who hasn’t joined none', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          { state: 'Lobby', turn: null },
+          { cards: [brightclimb, shivan], user: carol },
+        );
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('shows none once the draft is complete', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ state: 'Complete', turn: null }),
+          {
+            cards: [brightclimb, shivan],
+            queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+          },
+        );
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('comes back when an undo puts the card back in your queue', async () => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+          {
+            cards: [brightclimb, shivan],
+            picks: [pickOf({ playerId: bob.id, poolCardId: 'shivan-card' })],
+            queue: queueOf({ cards: [queued(brightclimb)] }),
+          },
+        );
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon Picked by Bob',
+        ]);
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft(drafting({ version: 1 })),
+        });
+        await flushPicks([]);
+        await flushQueueAndPlan(queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued second',
+          'Shivan Dragon Queued first',
         ]);
       });
     });
