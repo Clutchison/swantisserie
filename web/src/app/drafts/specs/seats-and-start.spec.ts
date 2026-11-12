@@ -58,7 +58,7 @@ describe('seats and start', () => {
     expect(current?.querySelector('.name')?.textContent).toBe('Bob');
   });
 
-  for (const screen of ['mobile', 'desktop'] as const) {
+  for (const screen of ['mobile', 'tablet'] as const) {
     it(`keeps the seat order in the Players panel once started on ${screen}, closed`, async () => {
       viewOn(screen);
       onTestFinished(() => {

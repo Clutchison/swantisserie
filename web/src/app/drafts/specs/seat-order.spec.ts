@@ -54,7 +54,7 @@ describe('the Players panel', () => {
   });
 
   it('is still there in a complete draft, with the seat order', async () => {
-    viewOn('wide');
+    viewOn('desktop');
     const { page } = await openDraft(completeSnapshot, {
       ...drafting({ players: [bob] }),
       state: 'Complete',
@@ -65,8 +65,8 @@ describe('the Players panel', () => {
     expect(panel(page).textContent).toContain('Bob');
   });
 
-  describe('on a wide desktop', () => {
-    beforeEach(() => viewOn('wide'));
+  describe('on a desktop', () => {
+    beforeEach(() => viewOn('desktop'));
 
     it('is open in the lobby, where seats are arranged', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
@@ -120,16 +120,16 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(false);
     });
 
-    it('shows, collapsed, in place of the Seat strip as the window narrows past the wide desktop, once the draft has started', async () => {
+    it('shows, collapsed, in place of the Seat strip as the window narrows past the desktop, once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-      resizeTo('desktop');
+      resizeTo('mobile');
 
       expect(panel(page).open).toBe(false);
     });
   });
 
-  for (const screen of ['desktop', 'mobile'] as const) {
+  for (const screen of ['tablet', 'mobile'] as const) {
     describe(`on ${screen}`, () => {
       beforeEach(() => viewOn(screen));
 
@@ -162,10 +162,10 @@ describe('the Players panel', () => {
         expect(panel(page).open).toBe(false);
       });
 
-      it('gives way to the Seat strip as the window widens past the wide desktop, once the draft has started', async () => {
+      it('gives way to the Seat strip as the window widens to the desktop, once the draft has started', async () => {
         const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-        resizeTo('wide');
+        resizeTo('desktop');
 
         expect(disclosure(page, 'Players · 1')).toBeNull();
         expect(findSeatStrip(page)).not.toBeNull();
@@ -174,7 +174,7 @@ describe('the Players panel', () => {
       it('stays open in the lobby as the window widens and narrows again', async () => {
         const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-        resizeTo('wide');
+        resizeTo('desktop');
         resizeTo(screen);
 
         expect(panel(page).open).toBe(true);
@@ -189,8 +189,8 @@ describe('the Players panel', () => {
       ['in a complete draft', drafting({ players: [bob], state: 'Complete', turn: null })],
     ];
 
-    describe.each(['wide', 'desktop'] as const)('on a %s screen', (screen) => {
-      beforeEach(() => viewOn(screen));
+    describe('on a desktop screen', () => {
+      beforeEach(() => viewOn('desktop'));
 
       it.each(states)('is beside the tabs %s, open, with no Seat strip', async (_, fields) => {
         const { page } = await openDraft(completeSnapshot, fields);
@@ -243,7 +243,6 @@ describe('the Players panel', () => {
       it.each([
         ['a closed draft', 'desktop', 'Closed'],
         ['a complete draft', 'desktop', 'Complete'],
-        ['a complete draft', 'wide', 'Complete'],
       ] as const)(
         'moves beside the tabs in %s as the window widens to a %s screen',
         async (_, screen, state) => {

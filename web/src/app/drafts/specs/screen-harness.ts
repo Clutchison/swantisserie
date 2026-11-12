@@ -1,20 +1,18 @@
 import { TestBed } from '@angular/core/testing';
-import { COARSE_POINTER_QUERY, DESKTOP_QUERY, WIDE_DESKTOP_QUERY } from '../drafts';
+import { COARSE_POINTER_QUERY, DESKTOP_QUERY } from '../drafts';
 
 /** A screen the page can be shown on, by the media queries it answers. */
-type Screen = 'wide' | 'desktop' | 'tablet' | 'mobile';
+type Screen = 'desktop' | 'tablet' | 'mobile';
 
 /**
- * The draft page's breakpoints each screen is past: a wide desktop has the
- * Seat strip beside the tabs while the draft is drafting or paused, and a
- * desktop's tabs sit at the top, with the Queue pane or the Players panel
- * beside them. A
- * tablet, like a phone, is past neither. The Deck tab's wide stacks layout
+ * The draft page's breakpoints each screen is past: a desktop's tabs sit at
+ * the top, with the Seat strip in their bar while the draft is drafting or
+ * paused, and the Queue pane or the Players panel beside them. A tablet,
+ * like a phone, isn't past it. The Deck tab's wide stacks layout
  * goes by its stacks area's width, not the screen's: see `measuredAs` in
  * `measure-harness.ts`.
  */
 const SCREEN_QUERIES: Record<Screen, readonly string[]> = {
-  wide: [WIDE_DESKTOP_QUERY, DESKTOP_QUERY],
   desktop: [DESKTOP_QUERY],
   tablet: [],
   mobile: [],
@@ -31,7 +29,7 @@ let breakpointListeners: { query: string; listener: (event: { matches: boolean }
 type Pointer = 'fine' | 'coarse';
 
 /**
- * Puts the page on a wide desktop, desktop, tablet or mobile screen, by the draft page's
+ * Puts the page on a desktop, tablet or mobile screen, by the draft page's
  * breakpoints, for the test to come, used with a mouse unless `pointer` says
  * otherwise. Undo it with `vi.unstubAllGlobals()`.
  */

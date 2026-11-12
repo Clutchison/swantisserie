@@ -16,8 +16,8 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal, output } from 
         role="presentation"
         [src]="src()"
         alt=""
-        width="32"
-        height="32"
+        [width]="size()"
+        [height]="size()"
         (error)="failed.set(true); failedToLoad.emit()"
       />
     }
@@ -36,6 +36,8 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal, output } from 
 })
 export class PlayerAvatar {
   readonly src = input.required<string>();
+  /** Its width and height, in CSS pixels. */
+  readonly size = input(32);
   /** Says this avatar failed to load, for a host that shows something else in its place. */
   readonly failedToLoad = output();
   /** Whether this avatar failed to load; another player's gets its own try. */

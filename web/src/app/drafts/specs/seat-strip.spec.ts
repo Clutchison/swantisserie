@@ -51,12 +51,12 @@ const playersDisclosure = (root: HTMLElement) => disclosure(root, /^Players · \
 const draftName = (page: HTMLElement) => heading(page, 'Red dragons')!;
 
 describe('the Seat strip', () => {
-  describe('on a wide screen', () => {
-    beforeEach(() => viewOn('wide'));
+  describe('on a desktop screen', () => {
+    beforeEach(() => viewOn('desktop'));
 
     it.each([
-      ['drafting', drafting(), ['Alice, you', 'Bob, their turn']],
-      ['paused', drafting({ state: 'Paused' }), ['Alice, you', 'Bob, their turn']],
+      ['drafting', drafting(), ['Alice, you', 'Bob, picking']],
+      ['paused', drafting({ state: 'Paused' }), ['Alice, you', 'Bob, picking']],
     ])(
       'shows the seats in seat order while %s, naming the viewer’s own and whose turn it is, in place of the Players panel',
       async (_, fields, names) => {
@@ -67,13 +67,13 @@ describe('the Seat strip', () => {
       },
     );
 
-    it('names the viewer’s own turn', async () => {
+    it('names the viewer’s own seat as picking on their turn', async () => {
       const { page } = await openDraft(
         completeSnapshot,
         drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
       );
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you, your turn', 'Bob']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you, picking', 'Bob']);
     });
 
     it('marks whose turn it is as current', async () => {
@@ -91,7 +91,7 @@ describe('the Seat strip', () => {
         drafting({ players: [alicePlayer, bot], turn: { pick: 1, round: 1, playerId: bot.id } }),
       );
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bot 1, bot, their turn']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bot 1, bot, picking']);
     });
 
     it('lets each seat take focus, to show its player’s name', async () => {
@@ -103,7 +103,7 @@ describe('the Seat strip', () => {
     it('shows a spectator the Seat strip and no Queue pane', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-      expect(stripSeatNames(page)).toEqual(['Bob, their turn']);
+      expect(stripSeatNames(page)).toEqual(['Bob, picking']);
       expect(findQueuePane(page)).toBeNull();
     });
 
@@ -137,7 +137,7 @@ describe('the Seat strip', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, their turn']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
       expect(playersDisclosure(page)).toBeNull();
     });
 
@@ -230,6 +230,20 @@ describe('the Seat strip', () => {
         expect(document.activeElement).toBe(tabButton(page, 'Pool'));
       });
 
+      it('shows an organizer the Players panel, and leaves their draft controls in the header working with it open', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), { powers: ORGANIZE_ONLY });
+        clickOn(playersButton(page));
+        expect(playersDisclosure(playersPopover(page)!)!.open).toBe(true);
+
+        const pause = button(page, 'Pause draft')!;
+        pressPointerOn(pause);
+        clickOn(pause);
+
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'));
+        expect(req.request.method).toBe('POST');
+        expect(playersPopover(page)).toBeNull();
+      });
+
       it('keeps it open as focus moves between the strip and the popover', async () => {
         const { page } = await openDraft(completeSnapshot, drafting());
         clickOn(playersButton(page));
@@ -246,21 +260,31 @@ describe('the Seat strip', () => {
 
       for (const tab of ['Deck', 'Board', 'Pool']) {
         await openTab(fixture, page, tab);
-        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, their turn']);
+        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
       }
     });
 
-    it('gives way to the Players panel as the window narrows past the wide desktop', async () => {
+    it('keeps its popover open as the tabs switch without a press outside it', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting());
+      clickOn(playersButton(page));
+
+      for (const tab of ['Deck', 'Pool']) {
+        await openTab(fixture, page, tab);
+        expect(playersPopover(page)).not.toBeNull();
+      }
+    });
+
+    it('gives way to the Players panel as the window narrows past the desktop', async () => {
       const { page } = await openDraft(completeSnapshot, drafting());
 
-      resizeTo('desktop');
+      resizeTo('mobile');
 
       expect(findSeatStrip(page)).toBeNull();
       expect(playersDisclosure(page)).not.toBeNull();
     });
   });
 
-  describe.each(['desktop', 'tablet', 'mobile'] as const)('on a %s screen', (screen) => {
+  describe.each(['tablet', 'mobile'] as const)('on a %s screen', (screen) => {
     beforeEach(() => viewOn(screen));
 
     it('isn’t there: the Players panel is, while drafting', async () => {
@@ -270,12 +294,12 @@ describe('the Seat strip', () => {
       expect(playersDisclosure(page)).not.toBeNull();
     });
 
-    it('takes the Players panel’s place as the window widens to the wide desktop', async () => {
+    it('takes the Players panel’s place as the window widens to the desktop', async () => {
       const { page } = await openDraft(completeSnapshot, drafting());
 
-      resizeTo('wide');
+      resizeTo('desktop');
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, their turn']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
       expect(playersDisclosure(page)).toBeNull();
     });
   });

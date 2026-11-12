@@ -1,34 +1,47 @@
 import {
   afterNextRender,
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   ElementRef,
   inject,
   Injector,
   input,
   signal,
   type TemplateRef,
+  untracked,
   viewChild,
+  viewChildren,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
 import { LucideUsers } from '@lucide/angular';
 import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
-
-/** A seat's player's name, shown beside the seat hovered or focused, this far from the strip's top. */
-interface Hint {
-  name: string;
-  top: number;
-}
+import { onResize } from './resizes';
 
 /**
- * The Seat strip: a started draft's players as avatars in seat order, beside
- * the tabs on a wide desktop, marking whose turn it is and the viewer's own
- * seat. Its Players button opens `playersPanel`, the full Players panel, as
- * a non-modal popover beside it, which Escape, a pointer pressed outside or
- * focus leaving closes.
+ * A seat's player's name, shown below the seat hovered or focused: lined up
+ * with the seat's start, this far from the strip's, or with its end, this
+ * far from the strip's end, whichever keeps it inside the strip.
+ */
+type Hint = { name: string } & ({ start: number } | { end: number });
+
+/**
+ * How far in from a clipped edge the seats fade out, in CSS pixels; a seat
+ * kept in view is kept clear of it. `$fade` in `seat-strip.scss`.
+ */
+const FADE = 24;
+
+/**
+ * The Seat strip: a drafting or paused draft's players as avatars in seat
+ * order, in a row in the tab bar, marking whose turn it is and the viewer's
+ * own seat. The turn's seat pulses briefly when the turn moves, and is
+ * scrolled into view when the row is too long to show whole. Its Players
+ * button opens `playersPanel`, the full Players panel, as a non-modal popover
+ * under it, which Escape, a pointer pressed outside or focus leaving closes.
  */
 @Component({
   selector: 'app-seat-strip',
@@ -56,21 +69,62 @@ export class SeatStrip {
 
   protected readonly popoverOpen = signal(false);
   protected readonly hint = signal<Hint | null>(null);
+  /**
+   * Which of the two copies of the pulse the turn's seat plays, alternating
+   * so that each turn change starts it afresh, even on the same seat; null
+   * once it has played.
+   */
+  protected readonly pulse = signal<0 | 1 | null>(null);
+  /** Whether the seats run past the list's start or end, which then fades. */
+  protected readonly clipsStart = signal(false);
+  protected readonly clipsEnd = signal(false);
 
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
   private readonly popover = viewChild<ElementRef<HTMLElement>>('popover');
+  private readonly seatList = viewChild.required<ElementRef<HTMLOListElement>>('seatList');
+  private readonly seatElements = viewChildren<ElementRef<HTMLElement>>('seat');
+
+  constructor() {
+    // A turn change pulses the turn's seat; the turn the strip first shows doesn't.
+    let shownPick: number | undefined;
+    effect(() => {
+      const pick = this.store.turn()?.pick;
+      if (shownPick !== undefined && pick !== undefined && pick !== shownPick) {
+        untracked(() => this.pulse.update((copy) => (copy === 0 ? 1 : 0)));
+      }
+      shownPick = pick;
+    });
+    // Once the seats are laid out, and as the turn moves, the turn's seat scrolls into view.
+    afterRenderEffect(() => {
+      const turnSeat = this.seatElements()[this.seats().findIndex((p) => this.hasTheTurn(p))];
+      untracked(() => {
+        if (turnSeat) keepInView(this.seatList().nativeElement, [turnSeat.nativeElement]);
+        this.checkClipping();
+      });
+    });
+    onResize(
+      () => this.seatList().nativeElement,
+      () => this.checkClipping(),
+    );
+  }
+
+  /** Notes whether the seats run past either end of the list, for the fades. */
+  protected checkClipping() {
+    const list = this.seatList().nativeElement;
+    this.clipsStart.set(list.scrollLeft > 0);
+    this.clipsEnd.set(list.scrollLeft + list.clientWidth < list.scrollWidth - 1);
+  }
 
   /**
    * What a screen reader names a seat: its player, whether they are a bot or
-   * the viewer, and whether it is their turn.
+   * the viewer, and whether they are picking: it is their turn.
    */
   protected seatName(player: PlayerView) {
-    const own = this.isOwn(player);
     return [
       player.name,
       ...(player.isBot ? ['bot'] : []),
-      ...(own ? ['you'] : []),
-      ...(this.hasTheTurn(player) ? [own ? 'your turn' : 'their turn'] : []),
+      ...(this.isOwn(player) ? ['you'] : []),
+      ...(this.hasTheTurn(player) ? ['picking'] : []),
     ].join(', ');
   }
 
@@ -89,11 +143,30 @@ export class SeatStrip {
     return first?.segment.toUpperCase() ?? '';
   }
 
-  /** Shows `player`'s name beside their seat, hovered or focused. */
+  /**
+   * Shows `player`'s name below their seat, hovered or focused: from the
+   * seat's start in the strip's first half, back from its end in the second,
+   * so the name stays on the page.
+   */
   protected showHint(player: PlayerView, seat: HTMLElement) {
-    const top =
-      seat.getBoundingClientRect().top - this.host.nativeElement.getBoundingClientRect().top;
-    this.hint.set({ name: player.name, top });
+    const strip = this.host.nativeElement.getBoundingClientRect();
+    const box = seat.getBoundingClientRect();
+    const firstHalf = box.left + box.width / 2 <= strip.left + strip.width / 2;
+    this.hint.set(
+      firstHalf
+        ? { name: player.name, start: box.left - strip.left }
+        : { name: player.name, end: strip.right - box.right },
+    );
+  }
+
+  /** How far the hint sits in from the strip's start, if it lines up with its seat's start. */
+  protected hintStart(hint: Hint) {
+    return 'start' in hint ? hint.start : null;
+  }
+
+  /** How far the hint sits in from the strip's end, if it lines up with its seat's end. */
+  protected hintEnd(hint: Hint) {
+    return 'end' in hint ? hint.end : null;
   }
 
   protected hideHint() {
@@ -145,6 +218,25 @@ export class SeatStrip {
     const to = event.relatedTarget;
     if (to instanceof Node && !this.host.nativeElement.contains(to)) this.popoverOpen.set(false);
   }
+}
+
+/**
+ * Scrolls `list` sideways just enough to show each of `seats` clear of its
+ * fades, the first of them if they can't all show at once.
+ */
+function keepInView(list: HTMLElement, seats: readonly HTMLElement[]) {
+  const [first] = seats;
+  if (!first) return;
+  const listStart = list.getBoundingClientRect().left - list.scrollLeft;
+  const span = (boxes: readonly DOMRect[]) => ({
+    start: Math.min(...boxes.map((box) => box.left)) - listStart - FADE,
+    end: Math.max(...boxes.map((box) => box.right)) - listStart + FADE,
+  });
+  const all = span(seats.map((seat) => seat.getBoundingClientRect()));
+  const { start, end } =
+    all.end - all.start <= list.clientWidth ? all : span([first.getBoundingClientRect()]);
+  if (start < list.scrollLeft) list.scrollLeft = start;
+  else if (end > list.scrollLeft + list.clientWidth) list.scrollLeft = end - list.clientWidth;
 }
 
 /** Whether focus is on nothing: the page's body, or an element no longer there. */

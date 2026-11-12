@@ -22,7 +22,7 @@ import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
 import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
-import { DESKTOP_QUERY, hasTurn, matching, setListText, WIDE_DESKTOP_QUERY } from './drafts';
+import { DESKTOP_QUERY, hasTurn, matching, setListText } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { Changes } from './changes';
@@ -145,15 +145,14 @@ export class DraftPage {
    */
   protected readonly showNextUpStrip = computed(() => !this.desktop() && this.hasQueuePane());
 
-  /** Whether the page is at the wide desktop layout, as it is resized. */
-  private readonly wide = matching(WIDE_DESKTOP_QUERY);
   /**
-   * Whether the Seat strip stands in for the Players panel: on a wide desktop,
-   * while the draft is drafting or paused. The panel opens from it.
+   * Whether the Seat strip stands in for the Players panel, in the tab bar:
+   * from the desktop layout, while the draft is drafting or paused. The panel
+   * opens from it.
    */
   protected readonly showSeatStrip = computed(() => {
     const draft = this.draft();
-    return this.wide() && !!draft && hasTurn(draft);
+    return this.desktop() && !!draft && hasTurn(draft);
   });
   /**
    * Whether the Players panel is beside the tabs, in the Queue pane's column:

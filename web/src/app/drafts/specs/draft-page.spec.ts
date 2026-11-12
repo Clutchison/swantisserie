@@ -36,7 +36,7 @@ import {
   serverError,
   RETRY_FAILED,
 } from './harness';
-import { followBack, pressKey } from '../../specs-harness';
+import { comesBefore, followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -487,7 +487,8 @@ describe('draft page', () => {
 
     const tabBar = page.querySelector('[role="tablist"]')!;
     const panels = page.querySelectorAll('[role="tabpanel"]');
-    expect(tabBar.nextElementSibling).toBe(panels[0]);
+    // The Seat strip can come between them, at the end of the tab bar.
+    expect(comesBefore(tabBar, panels[0])).toBe(true);
     expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
   });
 
