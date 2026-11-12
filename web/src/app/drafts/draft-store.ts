@@ -30,7 +30,7 @@ import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
-import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import { cardsNoun, EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
 import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
 
@@ -281,6 +281,15 @@ export class DraftStore implements TournamentViewer {
   });
   /** The signed-in player's queue. */
   readonly queue = keptRead(this.queueResource, EMPTY_QUEUE);
+  /**
+   * The signed-in player's queue's size: its count, and the noun a viewer
+   * reads after it. Null until it is known: while it loads, or if it couldn't.
+   */
+  readonly queueSize = computed(() => {
+    if (this.queue.loading() || this.queue.missing()) return null;
+    const count = this.queue.value().cards.length;
+    return { count, noun: cardsNoun(count) };
+  });
   /** The pool card ids of the cards in the signed-in player's queue. */
   readonly queued = computed(
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
@@ -411,8 +420,8 @@ export class DraftStore implements TournamentViewer {
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
-   * Whether a player's queue is shown, in the Queue pane or, below the
-   * desktop layout, the Queue tab: until the draft is complete, as the queue
+   * Whether a player's queue is shown, in the Queue pane beside the tabs or,
+   * below the desktop layout, the Queue sheet: until the draft is complete, as the queue
    * can't change after. A closed draft keeps it, as it can reopen. Undefined
    * while the draft is loading.
    */

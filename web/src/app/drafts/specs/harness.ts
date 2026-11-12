@@ -54,7 +54,7 @@ import {
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
 export { resizeTo, viewOn } from './screen-harness';
-export { draggable, dragHandle, startDrag, touchDrag } from './drag-harness';
+export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
 export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
@@ -856,9 +856,24 @@ export async function openTab(fixture: AppFixture, page: HTMLElement, name: stri
   return panel(page);
 }
 
-/** Opens the Queue tab, below the desktop layout, and returns its panel. */
-export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
-  openTab(fixture, page, 'Queue');
+/**
+ * The "next up" strip, below the desktop layout: the button named for the
+ * queue that opens the Queue sheet. Undefined if there is none.
+ */
+export const findNextUpStrip = (page: HTMLElement) =>
+  [...page.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')].find((strip) =>
+    /^Queue\b/.test(accessibleName(strip)),
+  );
+/** The "next up" strip, which is there. */
+export const nextUpStrip = (page: HTMLElement) => findNextUpStrip(page)!;
+/** The Queue sheet: the dialog named "Queue" over the page, holding the Queue pane. Null if it is closed. */
+export const queueSheet = () => byAriaLabel(document.body, '[role="dialog"]', 'Queue');
+/** Opens the Queue sheet from the "next up" strip, below the desktop layout, and returns it. */
+export async function openQueueSheet(fixture: AppFixture, page: HTMLElement) {
+  nextUpStrip(page).click();
+  await fixture.whenStable();
+  return queueSheet()!;
+}
 
 /**
  * The Queue pane: the region named "Queue", beside the tabs from the desktop

@@ -121,9 +121,6 @@ export class QueuePane {
 
   /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
   readonly collapsible = input(false);
-  /** Whether the pane is in view: not on a hidden tab. */
-  // Stryker disable next-line BooleanLiteral: the draft page binds [visible] wherever the pane can be hidden.
-  readonly visible = input(true);
 
   private readonly id = ++panes;
   protected readonly headingId = `queue-pane-heading-${this.id}`;
@@ -144,11 +141,7 @@ export class QueuePane {
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
   /** The queue's size: its count, and the noun a viewer reads after it; null until it is known. */
-  protected readonly size = computed(() => {
-    if (this.loading() || this.failed()) return null;
-    const count = this.queue().cards.length;
-    return { count, noun: count === 1 ? 'card' : 'cards' };
-  });
+  protected readonly size = this.store.queueSize;
 
   /** Where the Queue cutoff is drawn: before the queued card at this index, if there is one. */
   protected readonly cutoffIndex = this.store.queueCutoff;
@@ -214,9 +207,10 @@ export class QueuePane {
   });
 
   constructor() {
-    // The Queue notice shown in an open pane in view has been seen.
+    // The Queue notice shown in an open pane has been seen: the pane is on the
+    // page only where it is in view, beside the tabs or in the Queue sheet.
     effect(() => {
-      if (this.visible() && !this.collapsed() && this.unseenNotice()) {
+      if (!this.collapsed() && this.unseenNotice()) {
         untracked(() => this.store.noticeSeen());
       }
     });

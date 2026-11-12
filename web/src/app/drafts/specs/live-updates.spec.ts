@@ -24,7 +24,7 @@ import {
   flushPool,
   flushPlan,
   flushQueueAndPlan,
-  openQueue,
+  openQueueSheet,
   queued,
   queueList,
   queueOf,
@@ -286,7 +286,7 @@ describe('live updates', () => {
         expect.stringContaining('Picked by Alice'),
         expect.stringContaining('Picked by Bob'),
       ]);
-      const queue = await openQueue(fixture, page);
+      const queue = await openQueueSheet(fixture, page);
       expect(queueList(queue).textContent).toContain('Your queue is empty');
       expect(statusTexts(queue)).toContainEqual(
         expect.stringContaining('Lost to other players: Shivan Dragon'),
@@ -322,7 +322,7 @@ describe('live updates', () => {
       cards: [brightclimb, shivan],
       queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
     });
-    const queue = await openQueue(fixture, page);
+    const queue = await openQueueSheet(fixture, page);
 
     queue
       .querySelector<HTMLButtonElement>(

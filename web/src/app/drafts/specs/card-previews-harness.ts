@@ -11,6 +11,7 @@ import {
   poolCardOf,
   queued,
   queueOf,
+  openQueueSheet,
   tabButton,
 } from './harness';
 
@@ -55,9 +56,9 @@ export async function openBoard(options: Parameters<typeof openPicked>[0] = {}) 
 }
 
 /**
- * Opens the Queue tab of a draft whose pool has only Shock, with Bolt then
- * Shock queued, then takes over the clock. A queue names its cards, so Bolt
- * shows a name with no pool card.
+ * Opens the Queue sheet of a draft whose pool has only Shock, with Bolt then
+ * Shock queued, then takes over the clock; returns the sheet too. A queue
+ * names its cards, so Bolt shows a name with no pool card.
  */
 export async function openQueueWithoutBolt() {
   const opened = await openPicked({
@@ -65,10 +66,9 @@ export async function openQueueWithoutBolt() {
     picks: [],
     queue: queueOf({ cards: [queued(bolt), queued(shock)] }),
   });
-  tabButton(opened.page, 'Queue').click();
-  await opened.fixture.whenStable();
+  const sheet = await openQueueSheet(opened.fixture, opened.page);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-  return opened;
+  return { ...opened, sheet };
 }
 
 /** The mouse comes to rest on `name`. */

@@ -20,6 +20,7 @@ import {
   powersAnswer,
   ALL_POWERS,
   buttonOrder,
+  openQueueSheet,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore, openMore } from './draft-header-harness';
 
@@ -231,19 +232,19 @@ describe('close and reopen', () => {
   });
 
   it('makes the queue read-only while closed, keeping it on show', async () => {
-    const { page } = await openDraft(completeSnapshot, closed, {
+    const { fixture, page } = await openDraft(completeSnapshot, closed, {
       queue: queueOf({
         cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
         lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
       }),
     });
 
-    const queue = page.querySelector('#queue-panel')!;
+    const queue = await openQueueSheet(fixture, page);
     expect(queue.textContent).toContain('Shivan Dragon');
     expect(queue.textContent).toContain('Lightning Bolt');
-    expect(button(queue as HTMLElement, 'Remove Shivan Dragon')).toBeUndefined();
-    expect(button(queue as HTMLElement, 'Move Shivan Dragon down')).toBeUndefined();
-    expect(button(queue as HTMLElement, 'Dismiss')).toBeUndefined();
+    expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
+    expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
+    expect(button(queue, 'Dismiss')).toBeUndefined();
     expect(queue.textContent).not.toContain('Drag to reorder');
   });
 
@@ -252,7 +253,7 @@ describe('close and reopen', () => {
     { state: 'Drafting', turn: underway.turn },
     { state: 'Paused', turn: underway.turn },
   ] as const)('keeps the queue controls in $state', async ({ state, turn }) => {
-    const { page } = await openDraft(
+    const { fixture, page } = await openDraft(
       completeSnapshot,
       { ...underway, state, turn },
       {
@@ -260,7 +261,7 @@ describe('close and reopen', () => {
       },
     );
 
-    const queue = page.querySelector('#queue-panel')!;
+    const queue = await openQueueSheet(fixture, page);
     expect(queue.querySelector('button[aria-label="Remove Shivan Dragon"]')).not.toBeNull();
     expect(queue.textContent).toContain('Drag to reorder');
   });

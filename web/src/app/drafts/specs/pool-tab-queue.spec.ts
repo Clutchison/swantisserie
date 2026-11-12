@@ -23,7 +23,7 @@ import {
   queueOf,
   drafting,
   queued,
-  openQueue,
+  openQueueSheet,
   statusTexts,
   serverError,
   accessibleName,
@@ -36,7 +36,7 @@ useTallScreen();
 
 describe('pool tab', () => {
   describe('queue', () => {
-    it('adds a card to your queue from its detail, and lists it on the Queue tab', async () => {
+    it('adds a card to your queue from its detail, and lists it in the Queue pane', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
       });
@@ -52,7 +52,7 @@ describe('pool tab', () => {
       expect(button(detail, 'Add to queue')).toBeUndefined();
       expect(button(detail, 'Remove from queue')).toBeDefined();
 
-      const queue = await openQueue(fixture, page);
+      const queue = await openQueueSheet(fixture, page);
       expect(queue.querySelector('h2')?.textContent).toContain('Queue');
       expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent?.trim())).toEqual([
         'Shivan Dragon',
@@ -73,7 +73,7 @@ describe('pool tab', () => {
       expect(button(detail, 'Remove from queue')).toBeUndefined();
     });
 
-    /** The names in the Queue tab's list, in order. */
+    /** The names in the Queue pane's list, in order. */
     const names = (queue: HTMLElement) =>
       [...queue.querySelectorAll('li .name')].map((name) => name.textContent?.trim());
 
@@ -93,7 +93,7 @@ describe('pool tab', () => {
       expect(statusTexts(detail).join(' ')).toContain('Removed from your queue.');
       expect(button(detail, 'Remove from queue')).toBeUndefined();
       expect(button(detail, 'Add to queue')).toBeDefined();
-      expect(names(await openQueue(fixture, page))).toEqual([
+      expect(names(await openQueueSheet(fixture, page))).toEqual([
         'Brightclimb Pathway // Grimclimb Pathway',
       ]);
     });
@@ -254,7 +254,7 @@ describe('pool tab', () => {
           queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
         });
 
-        const queue = await openQueue(fixture, page);
+        const queue = await openQueueSheet(fixture, page);
         button(queue, `Move ${brightclimb.name} up`)!.click();
         http
           .expectOne('/api/drafts/draft-1/queue')

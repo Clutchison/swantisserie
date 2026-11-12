@@ -77,19 +77,6 @@
         >
           Pool
         </button>
-        <!-- Only players have a queue, and a complete draft has no Queue tab; from the desktop layout, the Queue pane takes its place. -->
-        @if (queueTabShown()) {
-          <button
-            id="queue-tab"
-            type="button"
-            [appTab]="selectedTab() === 'Queue'"
-            aria-controls="queue-panel"
-            (click)="selectedTab.select('Queue')"
-            [disabled]="!joined()"
-          >
-            Queue
-          </button>
-        }
         <button
           id="plan-tab"
           type="button"
@@ -214,24 +201,6 @@
         </ng-template>
       </section>
 
-      <!-- Only players have a queue, and a complete draft has no Queue tab; from the desktop layout, the Queue pane takes its place. -->
-      @if (queueTabShown()) {
-        <section
-          id="queue-panel"
-          class="queue"
-          role="tabpanel"
-          aria-labelledby="queue-tab"
-          [hidden]="selectedTab() !== 'Queue'"
-        >
-          @if (joined()) {
-            <app-queue-pane [visible]="selectedTab() === 'Queue'" />
-          } @else {
-            <h2>Queue</h2>
-            <p class="empty">Only players have a queue.</p>
-          }
-        </section>
-      }
-
       <section
         id="plan-panel"
         class="plan"
@@ -292,9 +261,11 @@
       }
     </div>
 
-    <!-- Beside the tabs from the desktop layout, whichever is open. -->
+    <!-- Beside the tabs from the desktop layout, whichever is open; below it, the "next up" strip opens it in a sheet. -->
     @if (showQueuePane()) {
       <app-queue-pane class="queue-pane" [collapsible]="true" />
+    } @else if (showNextUpStrip()) {
+      <app-next-up-strip />
     }
 
     <!-- After the Queue pane, on a wide desktop while the draft runs, whichever tab is open. -->

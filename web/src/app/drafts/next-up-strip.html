@@ -1,0 +1,27 @@
+<!-- One button, named for all it shows: what it shows is for the eye alone. -->
+<button
+  class="strip"
+  type="button"
+  aria-haspopup="dialog"
+  [attr.aria-label]="name()"
+  (click)="open()"
+>
+  <span class="title" aria-hidden="true">
+    Queue
+    @if (size(); as size) {
+      · {{ size.count }}
+    }
+    @if (unseenNotice()) {
+      <span class="dot"></span>
+    }
+  </span>
+  <span class="next" aria-hidden="true">
+    @if (next(); as next) {
+      Next up: {{ next }}
+    }
+  </span>
+  @if (picksLeft(); as left) {
+    <span class="picks-left" aria-hidden="true">{{ left }}</span>
+  }
+  <svg lucideChevronUp size="16" aria-hidden="true"></svg>
+</button>

@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
+  openQueueSheet,
   tabButton,
   panel,
   wait,
@@ -85,10 +86,10 @@ describe('card previews', () => {
     });
 
     it('skips a name with no pool card', async () => {
-      const { page } = await openQueueWithoutBolt();
+      const { sheet } = await openQueueWithoutBolt();
 
-      expect(cardName(panel(page), 'Lightning Bolt').tabIndex).toBe(-1);
-      expect(cardName(panel(page), 'Shock').tabIndex).toBe(0);
+      expect(cardName(sheet, 'Lightning Bolt').tabIndex).toBe(-1);
+      expect(cardName(sheet, 'Shock').tabIndex).toBe(0);
     });
 
     it('opens nothing through focus when a name is clicked with a mouse', async () => {
@@ -157,15 +158,12 @@ describe('card previews', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens on names tabbed to on the Queue tab, but not while a drag is under way', async () => {
-      const opened = await openPicked({
+    it('opens on names tabbed to in the Queue pane, but not while a drag is under way', async () => {
+      const { page, fixture } = await openPicked({
         queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
       });
-      const { page, fixture } = opened;
-      tabButton(page, 'Queue').click();
-      await fixture.whenStable();
       // A button, as it opens its Card detail.
-      const name = button(panel(page), 'Shock')!;
+      const name = button(await openQueueSheet(fixture, page), 'Shock')!;
 
       tabTo(name);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
