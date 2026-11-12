@@ -29,9 +29,15 @@ export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)';
 
 /**
  * The media query of a screen whose primary pointer is touch, where a queue
- * row is dragged by its handle rather than as a whole.
+ * row is dragged by its handle, and moved or removed from its row menu.
  */
 export const COARSE_POINTER_QUERY = '(pointer: coarse)';
+
+/**
+ * How long, in ms, a card is held before a drag of it starts, as the CDK's
+ * `cdkDragStartDelay` takes it: on touch, long enough that a swipe scrolls.
+ */
+export const DRAG_START_DELAY = { touch: 200, mouse: 0 };
 
 /** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
 export const HIGHLIGHT_PICKS_LEFT_AT = 10;

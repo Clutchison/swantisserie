@@ -5,6 +5,7 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
+import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -25,6 +26,7 @@ import {
   LucideArrowDown,
   LucideArrowLeftRight,
   LucideArrowUp,
+  LucideEllipsisVertical,
   LucideInfo,
   LucidePanelRightClose,
   LucidePanelRightOpen,
@@ -33,10 +35,10 @@ import {
 import { CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
-import { changeFailure, COARSE_POINTER_QUERY, matching } from './drafts';
+import { changeFailure, COARSE_POINTER_QUERY, DRAG_START_DELAY, matching } from './drafts';
 import { PicksLeft } from './picks-left';
 import { DraftStore } from './draft-store';
-import { Changes, ChangeStatus, SendsChange } from './changes';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -83,10 +85,15 @@ let panes = 0;
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
+    CdkMenu,
+    CdkMenuItem,
+    CdkMenuTrigger,
+    FocusKey,
     LoadingAnimation,
     LucideArrowDown,
     LucideArrowLeftRight,
     LucideArrowUp,
+    LucideEllipsisVertical,
     LucideInfo,
     LucidePanelRightClose,
     LucidePanelRightOpen,
@@ -162,6 +169,8 @@ export class QueuePane {
    * and a swipe elsewhere on a row must scroll; with a mouse, the whole row drags.
    */
   protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
+  /** How long a row is held before it drags. */
+  protected readonly dragStartDelay = DRAG_START_DELAY;
   /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
   private dragged = false;
 
@@ -285,7 +294,8 @@ export class QueuePane {
    * Moves the card at `from` to `to`, showing the new order at once, and
    * the old one again if that fails, until the queue is re-read. Focus
    * stays on the button pressed, or on the card's other move button if it
-   * has reached the end, and a status message says where the card went, from where.
+   * has reached the end; from the row menu, on its button. A status message
+   * says where the card went, from where.
    */
   protected move(from: number, to: number) {
     if (from === to) return;
@@ -317,7 +327,10 @@ export class QueuePane {
     );
   }
 
-  /** Removes a card from the queue; focus goes to the card after it, or else the one before. */
+  /**
+   * Removes a card from the queue; focus goes to the card after it, or else
+   * the one before: to its Remove, or its row menu from the row menu.
+   */
   protected remove(poolCardId: string) {
     const cards = this.queue().cards;
     const at = cards.findIndex((card) => card.poolCardId === poolCardId);
@@ -326,7 +339,7 @@ export class QueuePane {
     const before = cards[at - 1];
     const neighbours = [after, before].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
-      keep: neighbours.map((card) => `remove ${card.poolCardId}`),
+      keep: neighbours.flatMap((card) => [`remove ${card.poolCardId}`, `menu ${card.poolCardId}`]),
     });
   }
 

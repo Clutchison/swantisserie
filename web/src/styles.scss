@@ -348,6 +348,12 @@ textarea {
   &:focus-visible {
     background: var(--color-raised);
   }
+
+  /* Such as a queue row menu's Move up for the first card: still focusable, but it does nothing. */
+  &[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: default;
+  }
 }
 
 .visually-hidden {

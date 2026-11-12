@@ -141,6 +141,7 @@
             cdkDrag
             [cdkDragData]="card.poolCardId"
             cdkDragLockAxis="y"
+            [cdkDragStartDelay]="dragStartDelay"
             cdkDragPreviewContainer="parent"
             (pointerdown)="pressed()"
             (cdkDragStarted)="dragStarted()"
@@ -156,11 +157,62 @@
               [opensDetail]="true"
               (opened)="openDetail(card.poolCardId, $event)"
             />
-            @if (!readOnly()) {
+            @if (coarsePointer() && !readOnly()) {
+              <!-- On a touchscreen, a menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
+              @let menuName = 'Move or remove ' + card.name;
+              <span class="move">
+                <button
+                  #rowMenu
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="menuName"
+                  [title]="menuName"
+                  [cdkMenuTriggerFor]="moves"
+                  [appFocusKey]="'menu ' + card.poolCardId"
+                >
+                  <svg lucideEllipsisVertical size="16"></svg>
+                </button>
+              </span>
+              <ng-template #moves>
+                <div cdkMenu [attr.aria-label]="menuName">
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="first"
+                    (cdkMenuItemTriggered)="rowMenu.focus(); move(i, 0)"
+                  >
+                    Move to top
+                  </button>
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="first"
+                    (cdkMenuItemTriggered)="rowMenu.focus(); move(i, i - 1)"
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="last"
+                    (cdkMenuItemTriggered)="rowMenu.focus(); move(i, i + 1)"
+                  >
+                    Move down
+                  </button>
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    (cdkMenuItemTriggered)="rowMenu.focus(); remove(card.poolCardId)"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </ng-template>
+            } @else if (!readOnly()) {
               <span class="move">
                 @let upName = 'Move ' + card.name + ' up';
                 <button
-                  class="icon reorder"
+                  class="icon"
                   type="button"
                   [attr.aria-label]="upName"
                   [title]="upName"
@@ -172,7 +224,7 @@
                 </button>
                 @let downName = 'Move ' + card.name + ' down';
                 <button
-                  class="icon reorder"
+                  class="icon"
                   type="button"
                   [attr.aria-label]="downName"
                   [title]="downName"
