@@ -75,7 +75,7 @@ code {
 
 /* Room for the tab bar, so it never covers the end of the page. */
 main {
-  padding-bottom: 4rem;
+  padding-bottom: var(--tab-bar-clearance);
 }
 
 .tabs {
@@ -122,9 +122,8 @@ main {
 
 /* From here the tabs sit at the top of the page. */
 @media (min-width: 1024px) {
+  /* The tab bar's height, --tab-bar-height, is set in styles.scss, which keeps a focused control clear of the bar. */
   main {
-    /* The Pool's search bar sticks just below the tabs. */
-    --tab-bar-height: 2.75rem;
     /* The width of the capped tabs below; the Deck tab's List mode lines share it. */
     --capped-tab-width: 48rem;
 
