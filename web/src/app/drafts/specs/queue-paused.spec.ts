@@ -17,6 +17,9 @@ import {
   queueOf,
   queuePane,
   queuePausedSwitch,
+  queueStatuses,
+  findQueuePane,
+  alertIn,
   viewOn,
   openQueueSheet,
   accessibleName,
@@ -29,12 +32,6 @@ useTallScreen();
 describe('queue paused switch', () => {
   beforeEach(() => viewOn('desktop'));
   afterEach(() => vi.unstubAllGlobals());
-
-  /** What the Queue pane's status says to screen readers. */
-  const statuses = (queue: HTMLElement) =>
-    [...queue.querySelectorAll<HTMLElement>('[role="status"]')].map((status) =>
-      status.textContent?.trim(),
-    );
 
   it('names a picking queue in the Queue pane’s header, switched on', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), {
@@ -51,7 +48,7 @@ describe('queue paused switch', () => {
   it('names a paused queue, switched off', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
-      queue: queueOf({ cards: [queued(shivan)], paused: true }),
+      queue: queueOf({ cards: [queued(shivan)], queuePaused: true }),
     });
     const toggle = queuePausedSwitch(queuePane(page));
 
@@ -71,21 +68,21 @@ describe('queue paused switch', () => {
     expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
     const req = http.expectOne('/api/drafts/draft-1/queue/paused');
     expect(req.request.method).toBe('PUT');
-    expect(req.request.body).toEqual({ paused: true });
-    req.flush(queueOf({ cards: [queued(shivan)], paused: true }));
+    expect(req.request.body).toEqual({ queuePaused: true });
+    req.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
     await fixture.whenStable();
     expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
-    await vi.waitFor(() => expect(statuses(queue)).toContain('Queue paused'));
+    await vi.waitFor(() => expect(queueStatuses(queue)).toContain('Queue paused'));
 
     queuePausedSwitch(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/paused');
-    expect(back.request.body).toEqual({ paused: false });
+    expect(back.request.body).toEqual({ queuePaused: false });
     back.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
 
     expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
     expect(queuePausedSwitch(queue).getAttribute('aria-checked')).toBe('true');
-    await vi.waitFor(() => expect(statuses(queue)).toContain('Queue picking'));
+    await vi.waitFor(() => expect(queueStatuses(queue)).toContain('Queue picking'));
   });
 
   it.each([
@@ -98,7 +95,7 @@ describe('queue paused switch', () => {
     const { page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer, bob], ...fields },
-      { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], paused: true }) },
+      { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], queuePaused: true }) },
     );
 
     expect(queuePausedSwitch(queuePane(page)).disabled).toBe(false);
@@ -112,7 +109,7 @@ describe('queue paused switch', () => {
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
     await vi.waitFor(() => expect(queuePausedSwitch(queuePane(page)).disabled).toBe(true));
 
-    req.flush(queueOf({ cards: [queued(shivan)], paused: true }));
+    req.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
     expect(queuePausedSwitch(queuePane(page)).disabled).toBe(false);
@@ -124,12 +121,23 @@ describe('queue paused switch', () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Closed', turn: null }),
-      { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], paused: true }) },
+      { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], queuePaused: true }) },
     );
     const toggle = queuePausedSwitch(queuePane(await openQueueSheet(fixture, page)));
 
     expect(accessibleName(toggle)).toBe('Queue paused');
     expect(toggle.disabled).toBe(true);
+  });
+
+  it('isn’t offered once the draft is complete, as the queue can’t change after', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Complete', turn: null }),
+      { cards: [shivan], queue: queueOf({ queuePaused: true }) },
+    );
+
+    expect(findQueuePane(page)).toBeNull();
+    expect(page.querySelector('[role="switch"]')).toBeNull();
   });
 
   it('says when it couldn’t be switched, shows the state as it was, and re-reads the queue', async () => {
@@ -148,7 +156,7 @@ describe('queue paused switch', () => {
       );
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
     await vi.waitFor(() => {
-      expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
+      expect(alertIn(queue)?.textContent).toContain('This draft is closed.');
       expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
     });
 

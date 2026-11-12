@@ -13,6 +13,7 @@ import {
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  DraftGoneError,
   NotAPlayerError,
   PickRefusedError,
   UndoRefusedError,
@@ -22,10 +23,11 @@ import {
   EVENT_PLAYER,
   toEventPlayer,
 } from './draft-events.js';
-import { DraftLock, type LockedDraft } from './draft-lock.js';
+import { DraftLock, type LockedDraft, lockPlayer } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
+import { checkQueueChangeable, checkStarted } from './queue-refusals.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
@@ -164,12 +166,58 @@ export class TurnsService {
   }
 
   /**
+   * Sets the user's queue in the draft queue paused or, if `queuePaused` is
+   * false, queue picking, with the draft row and their player row locked.
+   * Set picking on their own turn while the draft is Drafting, the queue
+   * picks straight away: the cascade from that turn, whose events are
+   * returned. Otherwise nothing is picked and no events are returned, and
+   * the draft's version stays as it is, as the state is private to the
+   * player. Throws QueueRefusedError in the lobby and once the draft is
+   * closed or complete, NotAPlayerError if the user isn't in the draft, and
+   * DraftGoneError if there is no draft.
+   */
+  async setQueuePaused(
+    draftId: string,
+    userId: string,
+    queuePaused: boolean,
+  ): Promise<DraftEvent[]> {
+    return this.lock.runSeenIf(
+      draftId,
+      async (draft) => {
+        if (!draft) throw new DraftGoneError();
+        const { tx } = draft;
+        const locked = await lockPlayer(tx, draftId, userId);
+        if (!locked) throw new NotAPlayerError('queues');
+        checkStarted(draft.state);
+        checkQueueChangeable(draft.state);
+        await tx.player.update({
+          where: { id: locked.playerId },
+          data: { queuePaused },
+        });
+        if (queuePaused || draft.state !== 'Drafting') return [];
+        const state = await readTurnState(tx, draftId);
+        const seat = state.players.findIndex(
+          (player) => player.userId === userId,
+        );
+        const turn = currentTurn(
+          draftSize(draft, state.players.length),
+          state.picked.length,
+        );
+        // Stryker disable next-line OptionalChaining: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete.
+        if (turn?.seat !== seat) return [];
+        return this.cascadeFrom(draft, state);
+      },
+      (events) => events.length > 0,
+    );
+  }
+
+  /**
    * Picks each card the cascade from the draft's current turn makes, and
    * persists what the engine says each does to queues and plans. The caller
    * holds the draft row lock, and has moved the draft to Drafting; a draft
    * its last pick has just completed makes no picks. A cascade stops at a
    * bot's turn, as the bot picks on its own timer, and at a player whose
-   * queue is paused.
+   * queue is queue paused.
    */
   async cascade(draft: LockedDraft): Promise<DraftEvent[]> {
     return this.cascadeFrom(draft, await readTurnState(draft.tx, draft.id));
@@ -187,12 +235,14 @@ export class TurnsService {
     const { queues, context } = engineView(state);
     const picks = cascade(
       { ...draftSize(draft, players.length), picked: context.picked },
-      // A bot picks on its own timer, so the cascade sees its queue as empty.
-      queues.map((queue, seat) => (players[seat].user.isBot ? [] : queue)),
+      players.map((player, seat) => ({
+        // A bot picks on its own timer, so the cascade sees its queue as empty.
+        queue: player.user.isBot ? [] : queues[seat],
+        stealBehavior: player.stealBehavior,
+        plan: state.plans[seat],
+        queuePaused: player.queuePaused,
+      })),
       context.pool,
-      context.stealBehaviors,
-      state.plans,
-      players.map((player) => player.queuePaused),
     );
     const events: DraftEvent[] = [];
     for (const { pick, queues, plans } of picks) {

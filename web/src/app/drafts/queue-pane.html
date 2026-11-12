@@ -51,13 +51,13 @@
           class="queue-switch"
           type="button"
           role="switch"
-          [attr.aria-checked]="!queue().paused"
+          [attr.aria-checked]="!queue().queuePaused"
           [disabled]="readOnly() || loading()"
           appSendsChange="queue paused"
-          (click)="togglePaused()"
+          (click)="toggleQueuePaused()"
         >
           <span class="track" aria-hidden="true"><span class="thumb"></span></span>
-          {{ pausedName() }}
+          {{ queueStateName() }}
         </button>
         <div class="steal-behavior">
           <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
@@ -102,7 +102,7 @@
       </p>
     }
     @if (error(); as failure) {
-      @if (failure.place === 'paused' || failure.place === 'stealBehavior') {
+      @if (failure.place === 'queuePaused' || failure.place === 'stealBehavior') {
         <p class="error" role="alert">{{ failure.message }}</p>
       }
     }

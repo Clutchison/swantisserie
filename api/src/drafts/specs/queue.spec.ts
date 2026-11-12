@@ -69,7 +69,7 @@ describe('queue', () => {
       cleared: [],
       restKept: false,
       stealBehavior: 'ClearQueue',
-      paused: false,
+      queuePaused: false,
     });
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [spike, shock],
@@ -77,7 +77,7 @@ describe('queue', () => {
       cleared: [],
       restKept: false,
       stealBehavior: 'ClearQueue',
-      paused: false,
+      queuePaused: false,
     });
   });
 
@@ -264,7 +264,7 @@ describe('queue', () => {
         cleared: [spike, bolt],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
       // The cards are still available, and it's for Bob to pick by hand.
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -284,7 +284,7 @@ describe('queue', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
 
@@ -312,7 +312,7 @@ describe('queue', () => {
         cleared: [shock, skewer],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
       expect((await queue(id).expect(200)).body).toEqual({
         cards: [],
@@ -320,7 +320,7 @@ describe('queue', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
       const draft = JSON.stringify((await getDraft(id).expect(200)).body);
       expect(draft).not.toContain(ids['Skewer the Critics']);
@@ -349,7 +349,7 @@ describe('queue', () => {
         cleared: [spike],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
       const removed = await removeFromQueue(id, ids.Shock, carolCookie).expect(
         200,
@@ -394,7 +394,7 @@ describe('queue', () => {
         cleared: [shock],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
 
@@ -412,7 +412,7 @@ describe('queue', () => {
         cleared: [spike],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
 
       const dismissed = await dismissNotice(id, bobCookie).expect(200);
@@ -423,7 +423,7 @@ describe('queue', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
 
@@ -464,7 +464,7 @@ describe('queue', () => {
           cleared: [spike],
           restKept: false,
           stealBehavior: 'ClearQueue',
-          paused: false,
+          queuePaused: false,
         });
       });
     });
@@ -511,7 +511,7 @@ describe('queue', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
 
@@ -540,7 +540,7 @@ describe('queue', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
 
@@ -584,7 +584,7 @@ describe('queue', () => {
         ],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
 
@@ -609,7 +609,7 @@ describe('queue', () => {
         cleared: [{ poolCardId: ids.Shock, name: 'Shock' }],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     });
   });

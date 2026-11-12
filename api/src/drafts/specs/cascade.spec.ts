@@ -64,7 +64,7 @@ describe('cascade', () => {
       cleared: [],
       restKept: false,
       stealBehavior: 'ClearQueue',
-      paused: false,
+      queuePaused: false,
     });
   });
 
@@ -85,7 +85,7 @@ describe('cascade', () => {
       cleared: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
       restKept: false,
       stealBehavior: 'ClearQueue',
-      paused: false,
+      queuePaused: false,
     });
   });
 
@@ -163,7 +163,7 @@ describe('cascade', () => {
       cleared: [],
       restKept: false,
       stealBehavior: 'ClearQueue',
-      paused: false,
+      queuePaused: false,
     });
   });
 
@@ -205,7 +205,7 @@ describe('cascade', () => {
         ],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: false,
+        queuePaused: false,
       });
     },
   );
@@ -302,7 +302,7 @@ describe('cascade', () => {
       cleared: [],
       restKept: false,
       stealBehavior: 'ClearQueue',
-      paused: false,
+      queuePaused: false,
     });
   });
 

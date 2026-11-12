@@ -17,7 +17,7 @@ const TURN_PLAYER = {
   ...EVENT_PLAYER,
 } satisfies Prisma.PlayerSelect;
 
-/** A player as a turn reads them: who they are, their steal behavior, and whether their queue is paused. */
+/** A player as a turn reads them: who they are, their steal behavior, and whether their queue is queue paused. */
 export type TurnPlayer = Prisma.PlayerGetPayload<{
   select: typeof TURN_PLAYER;
 }>;

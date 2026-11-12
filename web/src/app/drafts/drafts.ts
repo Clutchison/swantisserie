@@ -202,7 +202,7 @@ export const EMPTY_QUEUE: QueueView = {
   cleared: [],
   restKept: false,
   stealBehavior: 'ClearQueue',
-  paused: false,
+  queuePaused: false,
 };
 
 /** A plan with nothing on either plan board, nothing lost from it, and no preferred printings. */

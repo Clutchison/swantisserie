@@ -1,31 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  QueuedCardView,
-  QueueRefusal,
-  QueueView,
-  StealBehavior,
-} from 'contract';
+import type { QueuedCardView, QueueView, StealBehavior } from 'contract';
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
-import type { DraftEvent } from './draft-events.js';
-import { DraftLock, lockPlayer } from './draft-lock.js';
+import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
-import { TurnsService } from './turns.service.js';
+import {
+  checkQueueChangeable,
+  checkStarted,
+  QueueRefusedError,
+} from './queue-refusals.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
   constructor() {
     super('Your queue has changed. Reload and try again.');
-  }
-}
-
-export class QueueRefusedError extends Error {
-  constructor(readonly refusal: QueueRefusal) {
-    super(refusal.message);
   }
 }
 
@@ -35,11 +27,7 @@ export class QueueRefusedError extends Error {
  */
 @Injectable()
 export class QueuesService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly lock: DraftLock,
-    private readonly turns: TurnsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** The user's queue in the draft. Throws NotAPlayerError if they're not in it. */
   async queue(draftId: string, userId: string): Promise<QueueView> {
@@ -68,46 +56,6 @@ export class QueuesService {
         where: { id: playerId },
         data: { stealBehavior },
       });
-    });
-  }
-
-  /**
-   * Pauses the user's queue in the draft, so it makes no queued picks, or
-   * sets it picking. Setting it picking on the player's own turn, while the
-   * draft is Drafting, picks the cascade from that turn under the draft row
-   * lock, starting with their next available queued cards; the events say
-   * what it picked, and are empty otherwise. Refused, and allowed, as
-   * `setStealBehavior` is.
-   */
-  async setPaused(
-    draftId: string,
-    userId: string,
-    paused: boolean,
-  ): Promise<{ queue: QueueView; events: DraftEvent[] }> {
-    if (paused) {
-      const queue = await this.change(draftId, userId, (tx, playerId, state) =>
-        setQueuePaused(tx, playerId, state, true),
-      );
-      return { queue, events: [] };
-    }
-    return this.lock.run(draftId, async (draft) => {
-      if (!draft) throw new NotAPlayerError('queues');
-      let events: DraftEvent[] = [];
-      const queue = await this.changeIn(
-        draft.tx,
-        draftId,
-        userId,
-        async (tx, playerId, state) => {
-          await setQueuePaused(tx, playerId, state, false);
-          if (
-            state === 'Drafting' &&
-            (await this.isPlayersTurn(tx, draftId, playerId))
-          ) {
-            events = await this.turns.cascade(draft);
-          }
-        },
-      );
-      return { queue, events };
     });
   }
 
@@ -317,39 +265,14 @@ export class QueuesService {
       state: DraftState,
     ) => Promise<void>,
   ): Promise<QueueView> {
-    return this.prisma.$transaction((tx) =>
-      this.changeIn(tx, draftId, userId, apply),
-    );
-  }
-
-  /** `change`, in the transaction `tx`. */
-  private async changeIn(
-    tx: Transaction,
-    draftId: string,
-    userId: string,
-    apply: (
-      tx: Transaction,
-      playerId: string,
-      state: DraftState,
-    ) => Promise<void>,
-  ): Promise<QueueView> {
-    const locked = await lockPlayer(tx, draftId, userId);
-    if (!locked) throw new NotAPlayerError('queues');
-    const { playerId, state } = locked;
-    if (state === 'Closed') {
-      throw new QueueRefusedError({
-        error: 'draft-closed',
-        message: 'This draft is closed.',
-      });
-    }
-    if (state === 'Complete') {
-      throw new QueueRefusedError({
-        error: 'draft-complete',
-        message: 'This draft is complete.',
-      });
-    }
-    await apply(tx, playerId, state);
-    return this.read(tx, playerId);
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await lockPlayer(tx, draftId, userId);
+      if (!locked) throw new NotAPlayerError('queues');
+      const { playerId, state } = locked;
+      checkQueueChangeable(state);
+      await apply(tx, playerId, state);
+      return this.read(tx, playerId);
+    });
   }
 
   /** Whether it's the player's turn, in a draft that has started. */
@@ -426,34 +349,9 @@ export class QueuesService {
         : { lost: [first, ...more], restKept: lost[lost.length - 1].restKept }),
       cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
       stealBehavior,
-      paused: queuePaused,
+      queuePaused,
     };
   }
-}
-
-/**
- * Throws QueueRefusedError in the lobby, where adding to a queue and setting
- * steal behavior wait for the draft to start. A queue already filled in the
- * lobby is kept, and cascades at the start.
- */
-function checkStarted(state: DraftState): void {
-  if (state === 'Lobby') {
-    throw new QueueRefusedError({
-      error: 'not-started',
-      message: 'You can queue once the draft starts.',
-    });
-  }
-}
-
-/** Sets the player's queue paused or picking, once the draft has started. */
-async function setQueuePaused(
-  tx: Transaction,
-  playerId: string,
-  state: DraftState,
-  queuePaused: boolean,
-): Promise<void> {
-  checkStarted(state);
-  await tx.player.update({ where: { id: playerId }, data: { queuePaused } });
 }
 
 function toQueuedCardView(card: {

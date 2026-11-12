@@ -35,7 +35,8 @@ import {
 } from './draft-errors.js';
 import { PlanRefusedError } from './plans.service.js';
 import { PoolFrozenError } from './pool-snapshot.service.js';
-import { QueueChangedError, QueueRefusedError } from './queues.service.js';
+import { QueueRefusedError } from './queue-refusals.js';
+import { QueueChangedError } from './queues.service.js';
 
 /**
  * Answers the drafts module's domain errors over HTTP, for the drafts,

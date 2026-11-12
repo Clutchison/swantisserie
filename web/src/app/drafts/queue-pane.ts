@@ -69,7 +69,7 @@ const STEAL_BEHAVIORS: Record<
 };
 
 /** Where a failed change is explained: by the queue paused switch, by the steal behavior pill, or under the queue. */
-type ErrorPlace = 'paused' | 'stealBehavior' | 'queue';
+type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
 let panes = 0;
@@ -167,7 +167,7 @@ export class QueuePane {
   private dragged = false;
 
   /** The queue's state, as its switch names it. */
-  protected readonly pausedName = computed(() => pausedName(this.queue().paused));
+  protected readonly queueStateName = computed(() => queueStateName(this.queue().queuePaused));
 
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
@@ -397,21 +397,21 @@ export class QueuePane {
   }
 
   /**
-   * Pauses the queue, or sets it picking, showing it at once. If that
+   * Sets the queue to queue paused, or queue picking, showing it at once. If that
    * fails, the previous state shows again until the queue is re-read.
    */
-  protected togglePaused() {
-    const previous = this.queue().paused;
-    const paused = !previous;
+  protected toggleQueuePaused() {
+    const previous = this.queue().queuePaused;
+    const queuePaused = !previous;
     return this.change(
       () => {
-        this.store.showQueue({ ...this.queue(), paused });
-        return this.queueApi.setPaused(this.draftId(), paused);
+        this.store.showQueue({ ...this.queue(), queuePaused });
+        return this.queueApi.setQueuePaused(this.draftId(), queuePaused);
       },
       {
-        place: 'paused',
-        rollBack: () => this.store.showQueue({ ...this.queue(), paused: previous }),
-        status: pausedName(paused),
+        place: 'queuePaused',
+        rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: previous }),
+        status: queueStateName(queuePaused),
       },
     );
   }
@@ -450,8 +450,8 @@ export class QueuePane {
 }
 
 /** A queue's state, as its switch names it. */
-function pausedName(paused: boolean): string {
-  return paused ? 'Queue paused' : 'Queue picking';
+function queueStateName(queuePaused: boolean): string {
+  return queuePaused ? 'Queue paused' : 'Queue picking';
 }
 
 /**

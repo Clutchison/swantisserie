@@ -81,12 +81,12 @@ describe('queue paused', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
-        paused: true,
+        queuePaused: true,
       });
       expect(await queuePaused(id)).toBe(true);
-      expect((await setQueuePaused(id, false).expect(200)).body.paused).toBe(
-        false,
-      );
+      expect(
+        (await setQueuePaused(id, false).expect(200)).body.queuePaused,
+      ).toBe(false);
       expect(await queuePaused(id)).toBe(false);
     });
 
@@ -186,7 +186,7 @@ describe('queue paused', () => {
 
       const answer = await setQueuePaused(id, false, bobCookie).expect(200);
 
-      expect(answer.body).toMatchObject({ cards: [], paused: false });
+      expect(answer.body).toMatchObject({ cards: [], queuePaused: false });
       expect(await pickLogLines(id)).toEqual([
         'Alice: Shock',
         'Bob: Lava Spike',
@@ -227,7 +227,7 @@ describe('queue paused', () => {
       expect(await pickLogLines(id)).toEqual([]);
       expect((await queue(id, bobCookie).expect(200)).body).toMatchObject({
         cards: [spike],
-        paused: false,
+        queuePaused: false,
       });
       await announcementsSettled(id);
       // Only the start was announced.
@@ -275,6 +275,24 @@ describe('queue paused', () => {
       await announcementsSettled(id);
       expect(webhookClient.post).toHaveBeenCalledTimes(1);
     });
+
+    it('changes nothing other viewers see unless it picks', async () => {
+      const { id, ids } = await startedDraft();
+      const version = async () =>
+        (await getDraft(id).expect(200)).body.version as number;
+      const before = await version();
+
+      // It's Alice's turn, not Bob's.
+      await bobQueuesPaused(id, ids, 'Lava Spike');
+      await setQueuePaused(id, false, bobCookie).expect(200);
+      await setQueuePaused(id, true, bobCookie).expect(200);
+      expect(await version()).toBe(before);
+
+      await pick(id, ids.Shock).expect(200);
+      const onBobsTurn = await version();
+      await setQueuePaused(id, false, bobCookie).expect(200);
+      expect(await version()).toBeGreaterThan(onBobsTurn);
+    });
   });
 
   describe('while paused', () => {
@@ -310,7 +328,7 @@ describe('queue paused', () => {
 
       expect((await queue(id, bobCookie).expect(200)).body).toMatchObject({
         cards: [skewer, bolt],
-        paused: true,
+        queuePaused: true,
       });
     });
 
@@ -323,7 +341,7 @@ describe('queue paused', () => {
 
       expect((await queue(id, bobCookie).expect(200)).body).toMatchObject({
         cards: [spike],
-        paused: true,
+        queuePaused: true,
       });
       expect(await pickLogLines(id)).toEqual([
         'Alice: Shock',
@@ -354,7 +372,7 @@ describe('queue paused', () => {
       await pick(id, ids.Shock, bobCookie).expect(200);
       expect((await queue(id, carolCookie).expect(200)).body).toMatchObject({
         lost: [shock],
-        paused: true,
+        queuePaused: true,
       });
     });
   });
@@ -413,11 +431,11 @@ describe('queue paused', () => {
 
       expect((await queue(id).expect(200)).body).toMatchObject({
         cards: [],
-        paused: false,
+        queuePaused: false,
       });
       expect((await queue(id, bobCookie).expect(200)).body).toMatchObject({
         cards: [],
-        paused: true,
+        queuePaused: true,
       });
     });
   });

@@ -26,12 +26,12 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
-import { BotPlayers } from './bot-players.js';
 import { DraftAccess } from './draft-access.js';
+import { DraftChanges } from './draft-changes.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
-import { DraftPublisher } from './draft-publisher.js';
 import { parseCard } from './parse-card.js';
 import { QueuesService } from './queues.service.js';
+import { TurnsService } from './turns.service.js';
 
 /**
  * The signed-in player's queue in a draft, and their steal behavior. There
@@ -44,8 +44,8 @@ export class QueuesController {
   constructor(
     private readonly access: DraftAccess,
     private readonly queues: QueuesService,
-    private readonly publisher: DraftPublisher,
-    private readonly bots: BotPlayers,
+    private readonly turns: TurnsService,
+    private readonly changes: DraftChanges,
   ) {}
 
   @Get()
@@ -114,23 +114,22 @@ export class QueuesController {
   }
 
   /**
-   * Pauses the queue, or sets it picking. Any picks setting it picking makes
-   * are published, as a cascade's are; nothing else is announced.
+   * Sets the queue to queue paused or queue picking. Picks that setting it
+   * picking makes are published, as a cascade's are; otherwise nothing is
+   * published, as the state is private to the player.
    */
   @Put('paused')
-  async setPaused(
+  async setQueuePaused(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const paused = parsePaused(body);
-    await this.access.canSee(user, id);
-    const { queue, events } = await this.queues.setPaused(id, user.id, paused);
-    if (events.length > 0) {
-      await this.publisher.publish(id, events);
-      this.bots.scheduleNextPick(id, events);
-    }
-    return queue;
+    const queuePaused = parseQueuePaused(body);
+    return this.answer(user, id, async () => {
+      const events = await this.turns.setQueuePaused(id, user.id, queuePaused);
+      if (events.length > 0) await this.changes.committed(id, events);
+      return this.queues.queue(id, user.id);
+    });
   }
 
   /** Stops the Queue notice listing the lost and cleared cards. */
@@ -193,16 +192,16 @@ function parseIncludeSideboard(body: unknown): boolean {
   return includeSideboard;
 }
 
-/** Whether to pause the queue, or a 400 if it isn't said. */
-function parsePaused(body: unknown): boolean {
-  const { paused } = bodyFields<QueuePausedRequest>(body);
-  if (typeof paused !== 'boolean') {
+/** Whether to set the queue to queue paused, or a 400 if it isn't said. */
+function parseQueuePaused(body: unknown): boolean {
+  const { queuePaused } = bodyFields<QueuePausedRequest>(body);
+  if (typeof queuePaused !== 'boolean') {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say whether to pause the queue.',
     } satisfies RequestProblem);
   }
-  return paused;
+  return queuePaused;
 }
 
 /** The steal behavior to set, or a 400 if it isn't one. */

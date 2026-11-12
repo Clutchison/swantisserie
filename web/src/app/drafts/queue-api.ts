@@ -44,12 +44,12 @@ export class QueueApi {
   }
 
   /**
-   * Pauses the queue, or sets it picking; set picking on the player's own
-   * turn, it picks straight away.
+   * Sets the queue to queue paused, or queue picking; set picking on the
+   * player's own turn, it picks straight away.
    */
-  setPaused(draftId: string, paused: boolean): Observable<QueueView> {
+  setQueuePaused(draftId: string, queuePaused: boolean): Observable<QueueView> {
     return this.http.put<QueueView>(`${url(draftId)}/paused`, {
-      paused,
+      queuePaused,
     } satisfies QueuePausedRequest);
   }
 

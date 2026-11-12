@@ -68,6 +68,7 @@ export {
   queuePaneToggle,
   queuePausedSwitch,
   queueSheet,
+  queueStatuses,
 } from './queue-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
@@ -355,7 +356,7 @@ export const queued = (card: NamedPoolCard): QueuedCardView => ({
  * lost a card can say whether the rest was kept.
  */
 export const queueOf = (
-  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior' | 'paused'>> &
+  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior' | 'queuePaused'>> &
     (
       | { lost?: []; restKept?: false }
       | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept?: boolean }
@@ -366,7 +367,7 @@ export const queueOf = (
   cleared: [],
   restKept: false,
   stealBehavior: 'ClearQueue',
-  paused: false,
+  queuePaused: false,
   ...fields,
 });
 
