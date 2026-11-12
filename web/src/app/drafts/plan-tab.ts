@@ -40,6 +40,7 @@ import { NORMAL_IMAGE } from './card-sizes';
 import {
   changeFailure,
   DESKTOP_QUERY,
+  DRAG_START_DELAY,
   matching,
   PLAN_CHANGE_FAILED,
   WIDE_STACKS_WIDTH,
@@ -265,8 +266,8 @@ export class PlanTab {
   private modeSettled = this.remembered.mode !== undefined;
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
-  /** How long a stacked card is held before a drag starts: on touch, long enough that a swipe scrolls. */
-  protected readonly dragStartDelay = { touch: 200, mouse: 0 };
+  /** How long a stacked card is held before a drag starts. */
+  protected readonly dragStartDelay = DRAG_START_DELAY;
   /** Whether the plan boards show as stacks: the chosen mode. */
   protected readonly showingStacks = computed(() => this.mode() === 'stacks');
   /** The mainboard's cards, a basic land's copies included. */

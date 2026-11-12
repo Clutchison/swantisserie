@@ -173,21 +173,6 @@ app-card-name {
   gap: var(--space-xs);
 }
 
-/*
- * Where the primary pointer is touch, dragging the handle reorders, so only
- * Remove stays. Not displayed, Move up and Move down take no keyboard or
- * screen-reader focus. A touchscreen laptop used mainly with its trackpad
- * keeps the buttons, which show at any width of the pane.
- *
- * Scoped to .move so this rule outranks .icon's display wherever .icon sits
- * in this file: media queries add no specificity.
- */
-@media (pointer: coarse) {
-  .move .reorder {
-    display: none;
-  }
-}
-
 .icon {
   display: inline-flex;
   justify-content: center;
