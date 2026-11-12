@@ -15,6 +15,10 @@ When the element has no role or name to find it by, give it one in the template:
 
 Assert what a viewer sees or can do: text shown, a control present, enabled or gone, a dialog open, a request sent. Leave layout and presentation (classes such as `stacks-mode` or `capped`, icon class names, the order or tag names of children, which wrapper an element sits in, a fade's transition classes) to the styles, unasserted. The one exception is the order of the buttons in an action row, found by accessible name with `buttonOrder` in the drafts spec harness: the button-order standard in `CODING_STANDARDS.md` makes that order behaviour.
 
+## Breakpoints a spec can see
+
+When a breakpoint changes what a template shows, not just how it looks (a section open or closed, a control present or gone), give it a media-query constant beside the draft page's others and a screen in the drafts harness's `viewOn` and `resizeTo`, so specs can put the page on each side of it. A breakpoint that only restyles stays in the SCSS breakpoint partial.
+
 ## Flush requests by URL
 
 Answer each pending request by its URL with `http.expectOne(url)` or a URL-matching `http.match`, so a spec sends the shape each endpoint really returns and fails when an unexpected request appears.
