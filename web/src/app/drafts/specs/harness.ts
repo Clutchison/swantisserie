@@ -1,8 +1,6 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
 import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
 import {
   GuardsCheckEnd,
   NavigationEnd,
@@ -56,6 +54,7 @@ import {
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
 export { resizeTo, viewOn } from './screen-harness';
+export { draggable, dragHandle, startDrag, touchDrag } from './drag-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
 export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
@@ -818,28 +817,6 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
   if (snapshot.state === 'Complete') await flushPool();
   await fixture.whenStable();
 }
-
-/**
- * Starts dragging the card that holds `element`, as the CDK says a drag has
- * started (jsdom can't drag), and renders what came of it.
- */
-export function startDrag(fixture: AppFixture, element: HTMLElement) {
-  dragHolding(fixture, element).triggerEventHandler('cdkDragStarted', {});
-  TestBed.tick();
-}
-
-/**
- * Whether the card that holds `element` can be dragged, as the CDK says
- * (jsdom can't drag): false where a swipe on it must always scroll.
- */
-export const draggable = (fixture: AppFixture, element: HTMLElement) =>
-  !dragHolding(fixture, element).injector.get(CdkDrag).disabled;
-
-/** The draggable card that holds `element`. */
-const dragHolding = (fixture: AppFixture, element: HTMLElement) =>
-  fixture.debugElement
-    .queryAll(By.directive(CdkDrag))
-    .find((drag) => drag.nativeElement.contains(element))!;
 
 /**
  * What `read` finds midway through each navigation from now on, once its
