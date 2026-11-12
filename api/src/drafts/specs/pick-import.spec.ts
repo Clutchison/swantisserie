@@ -144,7 +144,7 @@ describe('pick import', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     const ids = await poolCardIds(id);
-    // Queues filled in the lobby, before queueing waited for the start.
+    // Queues already filled in the lobby.
     for (const user of [alice, bob]) {
       await queueInLobby(id, user, ids['Dusk Heron']);
     }
@@ -287,7 +287,7 @@ describe('pick import', () => {
     const bot = (withBot as DraftView).players[1];
     // Unless the import empties them, these are Alice's picks 4 and 5, then the bot picks 6.
     const ids = await poolCardIds(id);
-    // Queued in the lobby, before queueing waited for the start.
+    // Already queued in the lobby.
     await queueInLobby(id, alice, ids['Dusk Heron'], ids['Ember Lynx']);
 
     await importPicks(id, csv, [alice.id, bot.id]).expect(200);

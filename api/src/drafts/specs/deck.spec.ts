@@ -129,7 +129,7 @@ describe('a plan becomes a deck when its draft completes', () => {
   it('keeps a closed draft’s unpicked cards, and takes them out once it reopens and completes', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
     const ids = await poolCardIds(id);
-    // A queue filled in the lobby, before queueing waited for the start.
+    // A queue already filled in the lobby.
     await queueInLobby(id, alice, ids.Shock);
     await start(id).expect(200);
     // Shock was picked for Alice; undoing it brings back her turn, with

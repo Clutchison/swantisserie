@@ -33,6 +33,7 @@ import {
   endJustAddedHighlight,
   nextUpStrip,
   queueSheet,
+  startDraft,
 } from './harness';
 import { viewOn } from './screen-harness';
 import { carol, openDialog, openDialogs, text } from '../../specs-harness';
@@ -234,19 +235,7 @@ describe('pool tab', () => {
         { cards: [shivan] },
       );
 
-      updates.events.next({
-        type: 'changed',
-        draft: draft(
-          drafting({
-            state: 'Drafting',
-            turn: { pick: 1, round: 1, playerId: bob.id },
-            version: 1,
-          }),
-        ),
-      });
-      await flushPicks([]);
-      await flushQueueAndPlan();
-      await fixture.whenStable();
+      await startDraft(fixture, { turn: { pick: 1, round: 1, playerId: bob.id } });
 
       expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
     });
@@ -371,7 +360,7 @@ describe('pool tab', () => {
         ]);
       });
 
-      it('shows none in the lobby, on a card queued there before queueing waited for the start', async () => {
+      it('shows none in the lobby, even on a card already queued there', async () => {
         const { page } = await openDraft(
           completeSnapshot,
           drafting({ state: 'Lobby', turn: null }),

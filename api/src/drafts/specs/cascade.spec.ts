@@ -260,7 +260,7 @@ describe('cascade', () => {
     expect(await pickedIds(id)).toEqual([first, ids['Lava Spike'], second]);
   });
 
-  it('picks the first player’s queue, filled in the lobby before queueing waited for the start, when the draft starts', async () => {
+  it('picks the first player’s queue already filled in the lobby when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     await queueInLobby(id, alice, ids['Lightning Bolt']);

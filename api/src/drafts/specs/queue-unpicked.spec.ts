@@ -376,8 +376,8 @@ describe('queueing a plan’s unpicked cards', () => {
         'Shock',
         'Skewer the Critics',
       );
-      // A pick import can only follow a queue filled in the lobby before
-      // queueing waited for the start.
+      // A pick import is made in the lobby, so this is a queue already
+      // filled there.
       await queueInLobby(id, carol, ids['Skewer the Critics'], ids.Shock);
       const csv = [
         ',Cal,Ann,Ben,',

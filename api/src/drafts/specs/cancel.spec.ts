@@ -46,7 +46,7 @@ describe('cancel', () => {
   it('leaves nothing belonging to the draft, including its bots', async () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
-    // A queue filled in the lobby, before queueing waited for the start.
+    // A queue already filled in the lobby.
     await queueInLobby(id, alice, ids.Shock);
     await addToPlan(id, ids['Lightning Bolt'], aliceCookie).expect(200);
     await addBot(id, await signIn(carol)).expect(201);

@@ -31,12 +31,10 @@ import {
   setStealBehavior,
   queued,
   queueInLobby,
+  dave,
 } from './harness.js';
 
 useDraftsApp();
-
-/** Not in any draft here: an outsider to the queues. */
-const dave = { id: '80351110224678915', name: 'Dave' };
 
 /**
  * Alice, Bob and Carol in a started draft of `fourCards`, one pick each,
@@ -206,7 +204,7 @@ describe('queue', () => {
       expect(added.body.cards).toEqual([shock]);
     });
 
-    it('still lets a player reorder and remove a queue filled there before queueing waited for the start', async () => {
+    it('still lets a player reorder and remove a queue already filled there', async () => {
       const id = await readyDraft([aliceCookie, await signIn(bob)]);
       const ids = await poolCardIds(id);
       await queueInLobby(

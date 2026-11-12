@@ -158,7 +158,7 @@ describe('close and reopen', () => {
   it('returns to Drafting even if it was paused, and cascades queued picks', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
-    // A queue filled in the lobby, before queueing waited for the start.
+    // A queue already filled in the lobby.
     await queueInLobby(id, alice, ids['Lava Spike'], ids.Shock);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn, with
@@ -184,7 +184,7 @@ describe('close and reopen', () => {
       await registerWebhook(),
     );
     const ids = await poolCardIds(id);
-    // A queue filled in the lobby, before queueing waited for the start.
+    // A queue already filled in the lobby.
     await queueInLobby(id, alice, ids['Lava Spike'], ids.Shock);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn, with

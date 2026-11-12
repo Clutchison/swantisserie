@@ -140,7 +140,7 @@ describe('announcements', () => {
     it('pings them after a queued pick in a start’s cascade', async () => {
       const id = await snakeDraft();
       const ids = await poolCardIds(id);
-      // Queues filled in the lobby, before queueing waited for the start.
+      // Queues already filled in the lobby.
       await queueInLobby(id, alice, ids.Shock);
       await queueInLobby(id, bob, ids['Lightning Bolt']);
 
@@ -252,8 +252,8 @@ describe('announcements', () => {
 
   /**
    * A draft whose start cascades through every pick but the last, Bob's,
-   * making an announcement too long for one post: its queues were filled in
-   * the lobby, before queueing waited for the start.
+   * making an announcement too long for one post: its queues are already
+   * filled in the lobby.
    */
   async function longCascadeDraft() {
     const cards = Array.from(

@@ -372,8 +372,8 @@ export class QueuesService {
 
 /**
  * Throws QueueRefusedError in the lobby, where adding to a queue and setting
- * steal behavior wait for the draft to start. Queues filled in the lobby
- * before that rule are kept, and cascade at the start.
+ * steal behavior wait for the draft to start. A queue already filled in the
+ * lobby is kept, and cascades at the start.
  */
 function checkStarted(state: DraftState): void {
   if (state === 'Lobby') {

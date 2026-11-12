@@ -45,6 +45,9 @@ export {
   webhookUrl,
 } from '../../testing/app.js';
 
+/** A fourth user, beside Alice, Bob and Carol. */
+export const dave = { id: '80351110224678915', name: 'Dave' };
+
 /** `session=<token>` for Alice, ready for a Cookie header. */
 export let aliceCookie: string;
 
@@ -384,16 +387,15 @@ export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
 
 /**
  * Queues `poolCardIds` for `user`, in order after anything already queued,
- * in a draft still in the lobby: a queue filled there before the lobby
- * stopped allowing it (#683), which the api keeps and cascades at the
- * start. The api now refuses this, so it is written straight to the
- * database, as a bot's queue is.
+ * in a draft still in the lobby: a queue already filled there, which the api
+ * keeps, cascades at the start and a pick import clears.
  */
 export async function queueInLobby(
   id: string,
   user: { id: string },
   ...poolCardIds: string[]
 ) {
+  // Written to the database: the api refuses adding to a queue in the lobby.
   const prisma = app.get(PrismaService);
   const player = await prisma.player.findUniqueOrThrow({
     where: { draftId_userId: { draftId: id, userId: user.id } },

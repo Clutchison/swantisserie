@@ -36,7 +36,7 @@ import {
   updates,
   draft,
   viewOn,
-  type AppFixture,
+  startDraft,
 } from './harness';
 import { measuredAs } from './measure-harness';
 import {
@@ -69,17 +69,6 @@ const shownHelp = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('p')].find(
     (p) => p.textContent?.includes('Cards are picked for you') && !p.closest('[hidden]'),
   );
-
-/** Starts the open draft, as its start is pushed to the page. */
-async function startDraft(fixture: AppFixture) {
-  updates.events.next({
-    type: 'changed',
-    draft: draft(drafting({ state: 'Drafting', version: 1 })),
-  });
-  await flushPicks([]);
-  await flushQueueAndPlan();
-  await fixture.whenStable();
-}
 
 describe('Queue pane layout', () => {
   describe.each(['desktop', 'wide'] as const)('on a %s screen', (screen) => {
