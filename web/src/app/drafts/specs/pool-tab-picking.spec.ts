@@ -36,7 +36,7 @@ import {
   openDetail,
   searchBox,
 } from './pool-tab-harness';
-import { openPlan } from './plan-tab-harness';
+import { copyButton, openPlan } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -519,7 +519,6 @@ describe('pool tab', () => {
     await fixture.whenStable();
 
     await openPlan(fixture, page);
-    expect(button(page, 'Copy for Arena')).toBeDefined();
-    expect(button(page, 'Copy for Moxfield')).toBeDefined();
+    expect(copyButton(page)).toBeDefined();
   });
 });
