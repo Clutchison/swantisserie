@@ -2,10 +2,13 @@
 @if (!setUp()) {
   <!-- Only organizers see the tab before setup. -->
   <form class="setup" (submit)="$event.preventDefault(); setUpTournament()">
-    <p class="detail">
-      Set up a tournament for this draft’s players to play their decks in. Setup can’t be changed
-      afterwards: cancel the tournament and set it up again instead.
-    </p>
+    <details class="how-this-works">
+      <summary>How this works</summary>
+      <p class="detail">
+        Set up a tournament for this draft’s players to play their decks in. Setup can’t be changed
+        afterwards: cancel the tournament and set it up again instead.
+      </p>
+    </details>
     <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
     <fieldset>
       <legend>Format</legend>

@@ -50,10 +50,17 @@
     }
   </div>
 }
-@if (draftState() === 'Closed') {
-  <p class="detail">Cards are picked for you in this order if the draft reopens.</p>
-} @else if (!readOnly()) {
-  <p class="detail">Cards are picked for you in this order. Drag to reorder.</p>
+@if (draftState() === 'Closed' || !readOnly()) {
+  <details class="how-this-works">
+    <summary>How this works</summary>
+    <p class="detail">
+      @if (draftState() === 'Closed') {
+        Cards are picked for you in this order if the draft reopens.
+      } @else {
+        Cards are picked for you in this order. Drag to reorder.
+      }
+    </p>
+  </details>
 }
 @let cutoffAt = cutoffIndex();
 <ol
