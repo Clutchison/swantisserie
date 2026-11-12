@@ -264,14 +264,16 @@ describe('the Seat strip', () => {
       }
     });
 
-    it('keeps its popover open as the tabs switch without a press outside it', async () => {
+    it('closes its popover as a tab is pressed, the seats as they were', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting());
       clickOn(playersButton(page));
 
-      for (const tab of ['Deck', 'Pool']) {
-        await openTab(fixture, page, tab);
-        expect(playersPopover(page)).not.toBeNull();
-      }
+      pressPointerOn(tabButton(page, 'Deck'));
+      await openTab(fixture, page, 'Deck');
+
+      expect(playersPopover(page)).toBeNull();
+      expect(tabButton(page, 'Deck').getAttribute('aria-selected')).toBe('true');
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
     });
 
     it('gives way to the Players panel as the window narrows past the desktop', async () => {
@@ -284,8 +286,8 @@ describe('the Seat strip', () => {
     });
   });
 
-  describe.each(['tablet', 'mobile'] as const)('on a %s screen', (screen) => {
-    beforeEach(() => viewOn(screen));
+  describe('on a mobile screen', () => {
+    beforeEach(() => viewOn('mobile'));
 
     it('isn’t there: the Players panel is, while drafting', async () => {
       const { page } = await openDraft(completeSnapshot, drafting());

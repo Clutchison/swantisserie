@@ -20,7 +20,6 @@ import type { PlayerView } from 'contract';
 import { LucideUsers } from '@lucide/angular';
 import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
-import { onResize } from './resizes';
 
 /**
  * A seat's player's name, shown below the seat hovered or focused: lined up
@@ -29,11 +28,11 @@ import { onResize } from './resizes';
  */
 type Hint = { name: string } & ({ start: number } | { end: number });
 
-/**
- * How far in from a clipped edge the seats fade out, in CSS pixels; a seat
- * kept in view is kept clear of it. `$fade` in `seat-strip.scss`.
- */
-const FADE = 24;
+/** Which copy of the pulse the turn's seat plays: a class of its own, so each restarts it. */
+type Pulse = 'pulse' | 'pulse-again';
+
+/** A seat's avatar's width and height, in CSS pixels; the strip's styles read it as `--avatar-size`. */
+const AVATAR_SIZE = 24;
 
 /**
  * The Seat strip: a drafting or paused draft's players as avatars in seat
@@ -41,7 +40,7 @@ const FADE = 24;
  * own seat. The turn's seat pulses briefly when the turn moves, and is
  * scrolled into view when the row is too long to show whole. Its Players
  * button opens `playersPanel`, the full Players panel, as a non-modal popover
- * under it, which Escape, a pointer pressed outside or focus leaving closes.
+ * under it, over the tab content, which Escape, a pointer pressed outside or focus leaving closes.
  */
 @Component({
   selector: 'app-seat-strip',
@@ -53,6 +52,7 @@ const FADE = 24;
     '(document:pointerdown)': 'closeOnPointerOutside($event)',
     '(document:keydown.escape)': 'closeOnEscape()',
     '(focusout)': 'closeOnFocusLeaving($event)',
+    '[style.--avatar-size.px]': 'avatarSize',
   },
 })
 export class SeatStrip {
@@ -63,6 +63,7 @@ export class SeatStrip {
   /** The full Players panel, which the popover shows. */
   readonly playersPanel = input.required<TemplateRef<unknown>>();
 
+  protected readonly avatarSize = AVATAR_SIZE;
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
@@ -74,10 +75,7 @@ export class SeatStrip {
    * so that each turn change starts it afresh, even on the same seat; null
    * once it has played.
    */
-  protected readonly pulse = signal<0 | 1 | null>(null);
-  /** Whether the seats run past the list's start or end, which then fades. */
-  protected readonly clipsStart = signal(false);
-  protected readonly clipsEnd = signal(false);
+  protected readonly pulse = signal<Pulse | null>(null);
 
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
   private readonly popover = viewChild<ElementRef<HTMLElement>>('popover');
@@ -90,29 +88,17 @@ export class SeatStrip {
     effect(() => {
       const pick = this.store.turn()?.pick;
       if (shownPick !== undefined && pick !== undefined && pick !== shownPick) {
-        untracked(() => this.pulse.update((copy) => (copy === 0 ? 1 : 0)));
+        untracked(() => this.pulse.update((copy) => (copy === 'pulse' ? 'pulse-again' : 'pulse')));
       }
       shownPick = pick;
     });
     // Once the seats are laid out, and as the turn moves, the turn's seat scrolls into view.
     afterRenderEffect(() => {
       const turnSeat = this.seatElements()[this.seats().findIndex((p) => this.hasTheTurn(p))];
-      untracked(() => {
-        if (turnSeat) keepInView(this.seatList().nativeElement, [turnSeat.nativeElement]);
-        this.checkClipping();
-      });
+      if (turnSeat) {
+        untracked(() => keepInView(this.seatList().nativeElement, [turnSeat.nativeElement]));
+      }
     });
-    onResize(
-      () => this.seatList().nativeElement,
-      () => this.checkClipping(),
-    );
-  }
-
-  /** Notes whether the seats run past either end of the list, for the fades. */
-  protected checkClipping() {
-    const list = this.seatList().nativeElement;
-    this.clipsStart.set(list.scrollLeft > 0);
-    this.clipsEnd.set(list.scrollLeft + list.clientWidth < list.scrollWidth - 1);
   }
 
   /**
@@ -222,15 +208,19 @@ export class SeatStrip {
 
 /**
  * Scrolls `list` sideways just enough to show each of `seats` clear of its
- * fades, the first of them if they can't all show at once.
+ * fades, which its scroll padding keeps seats clear of, the first of them if
+ * they can't all show at once.
  */
 function keepInView(list: HTMLElement, seats: readonly HTMLElement[]) {
   const [first] = seats;
   if (!first) return;
+  const style = getComputedStyle(list);
+  const padStart = parseFloat(style.scrollPaddingInlineStart) || 0;
+  const padEnd = parseFloat(style.scrollPaddingInlineEnd) || 0;
   const listStart = list.getBoundingClientRect().left - list.scrollLeft;
   const span = (boxes: readonly DOMRect[]) => ({
-    start: Math.min(...boxes.map((box) => box.left)) - listStart - FADE,
-    end: Math.max(...boxes.map((box) => box.right)) - listStart + FADE,
+    start: Math.min(...boxes.map((box) => box.left)) - listStart - padStart,
+    end: Math.max(...boxes.map((box) => box.right)) - listStart + padEnd,
   });
   const all = span(seats.map((seat) => seat.getBoundingClientRect()));
   const { start, end } =

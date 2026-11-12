@@ -164,7 +164,7 @@ main {
   .tab-bar {
     position: sticky;
     top: 0;
-    /* Above the panels, which come after it, the Pool's search bar and the Queue pane: the Seat strip's popover drops over them. */
+    /* Above the panels, which come after it, and the Pool's search bar: the Seat strip's popover drops over them. */
     z-index: 2;
     display: flex;
     column-gap: var(--space-lg);

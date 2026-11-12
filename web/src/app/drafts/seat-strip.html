@@ -13,13 +13,7 @@
     <svg lucideUsers size="20"></svg>
   </button>
   <!-- Scrolls sideways on its own if the seats outgrow the strip, fading where it clips them. -->
-  <ol
-    #seatList
-    aria-label="Seat order"
-    [class.clips-start]="clipsStart()"
-    [class.clips-end]="clipsEnd()"
-    (scroll)="checkClipping()"
-  >
+  <ol #seatList aria-label="Seat order">
     @for (player of seats(); track player.id) {
       <li>
         <!-- Focusable, so a keyboard user can bring up the player's name as a mouse user does. -->
@@ -30,8 +24,8 @@
           tabindex="0"
           [class.own]="isOwn(player)"
           [class.turn]="hasTheTurn(player)"
-          [class.pulse]="hasTheTurn(player) && pulse() === 0"
-          [class.pulse-again]="hasTheTurn(player) && pulse() === 1"
+          [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"
+          [class.pulse-again]="hasTheTurn(player) && pulse() === 'pulse-again'"
           [attr.aria-label]="seatName(player)"
           [attr.aria-current]="hasTheTurn(player) ? 'true' : null"
           (mouseenter)="showHint(player, seat)"
@@ -41,7 +35,7 @@
           (animationend)="pulse.set(null)"
         >
           <span class="initial">{{ initial(player) }}</span>
-          <app-player-avatar [src]="player.avatarUrl" [size]="24" />
+          <app-player-avatar [src]="player.avatarUrl" [size]="avatarSize" />
         </span>
       </li>
     }

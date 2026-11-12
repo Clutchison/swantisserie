@@ -11,8 +11,8 @@ $focus-reach: $ring-width + $focus-width;
 $bar-height: 3px;
 $bar-gap: $focus-reach + 1px;
 $bar-reach: $bar-gap + $bar-height;
-/* How far in from a clipped edge the seats fade out: `FADE` in `seat-strip.ts`. */
-$fade: 24px;
+/* How far in from a clipped edge the seats fade out. */
+$fade: 1.5rem;
 
 /*
  * A row at the end of the tab bar, which keeps it in view as a tab scrolls.
@@ -49,9 +49,6 @@ section {
 }
 
 ol {
-  --fade-start: 0px;
-  --fade-end: 0px;
-
   display: flex;
   /* Wide enough that a focused seat's outline clears its neighbour's ring. */
   gap: $focus-reach + $ring-width;
@@ -64,41 +61,77 @@ ol {
   padding: $bar-reach $focus-reach $focus-reach;
   overflow-x: auto;
   list-style: none;
+  /* A seat focused or kept in view scrolls clear of the fades. */
+  scroll-padding-inline: $fade;
   /* It scrolls by wheel, swipe or a seat's focus, with no bar to fill the tab bar. */
   scrollbar-width: none;
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    #000 var(--fade-start),
-    #000 calc(100% - var(--fade-end)),
-    transparent
-  );
 
   &::-webkit-scrollbar {
     display: none;
   }
 
-  &.clips-start {
-    --fade-start: #{$fade};
-  }
-
-  &.clips-end {
-    --fade-end: #{$fade};
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     scroll-behavior: smooth;
   }
+
+  /*
+   * Fades where it clips seats, driven by its own scroll, as the Deck tab's
+   * stacks strip does. A browser without scroll-driven animations shows no
+   * fades, only the cut-off seat at the edge.
+   */
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--seats-fade-start),
+      #000 calc(100% - var(--seats-fade-end)),
+      transparent
+    );
+    animation: seats-fades linear both;
+    animation-timeline: scroll(self inline);
+  }
 }
 
-/* A 24px avatar, with the player's initial behind it should the image be missing. */
+/* How far into the seat list each edge fades: none while it can't scroll. */
+@property --seats-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --seats-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* No fade at the start until the list is scrolled from it, and none at the end once it's scrolled there. */
+@keyframes seats-fades {
+  0% {
+    --seats-fade-start: 0px;
+    --seats-fade-end: #{$fade};
+  }
+
+  2%,
+  98% {
+    --seats-fade-start: #{$fade};
+    --seats-fade-end: #{$fade};
+  }
+
+  100% {
+    --seats-fade-start: #{$fade};
+    --seats-fade-end: 0px;
+  }
+}
+
+/* The avatar, `AVATAR_SIZE` in `seat-strip.ts`, with the player's initial behind it should the image be missing. */
 .seat {
   position: relative;
   display: grid;
   flex: none;
   place-items: center;
-  inline-size: 24px;
-  block-size: 24px;
+  inline-size: var(--avatar-size);
+  block-size: var(--avatar-size);
   border-radius: 50%;
   background: var(--color-raised);
 
@@ -137,7 +170,7 @@ ol {
   position: absolute;
   bottom: calc(100% + #{$bar-gap});
   left: 50%;
-  inline-size: 12px;
+  inline-size: 0.75rem;
   block-size: $bar-height;
   border-radius: $bar-height;
   background: var(--color-accent);
@@ -185,7 +218,7 @@ ol {
   pointer-events: none;
 }
 
-/* The full Players panel, under the strip at its end, over the tab content and the Queue pane. */
+/* The full Players panel, under the strip at its end, over the tab content. */
 .popover {
   position: absolute;
   top: calc(100% + var(--space-xs));

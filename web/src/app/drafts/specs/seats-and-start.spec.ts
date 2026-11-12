@@ -58,18 +58,16 @@ describe('seats and start', () => {
     expect(current?.querySelector('.name')?.textContent).toBe('Bob');
   });
 
-  for (const screen of ['mobile', 'tablet'] as const) {
-    it(`keeps the seat order in the Players panel once started on ${screen}, closed`, async () => {
-      viewOn(screen);
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
-      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob, alicePlayer] }));
-
-      expect(disclosure(page, 'Players · 2')!.open).toBe(false);
-      expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+  it('keeps the seat order in the Players panel once started on mobile, closed', async () => {
+    viewOn('mobile');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
     });
-  }
+    const { page } = await openDraft(completeSnapshot, drafting({ players: [bob, alicePlayer] }));
+
+    expect(disclosure(page, 'Players · 2')!.open).toBe(false);
+    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+  });
 
   it('tells the signed-in player when it is their turn', async () => {
     const { page } = await openDraft(completeSnapshot, {

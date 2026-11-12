@@ -129,58 +129,56 @@ describe('the Players panel', () => {
     });
   });
 
-  for (const screen of ['tablet', 'mobile'] as const) {
-    describe(`on ${screen}`, () => {
-      beforeEach(() => viewOn(screen));
+  describe('on mobile', () => {
+    beforeEach(() => viewOn('mobile'));
 
-      it('is open in the lobby, where seats are arranged', async () => {
-        const { page } = await openDraft(completeSnapshot, { players: [bob] });
+    it('is open in the lobby, where seats are arranged', async () => {
+      const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-        expect(panel(page).open).toBe(true);
-      });
-
-      it('collapses once the draft has started, out of the way of the tabs', async () => {
-        const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
-
-        expect(panel(page).open).toBe(false);
-      });
-
-      it('collapses when the draft starts while the page is open', async () => {
-        const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
-
-        await startLive(fixture);
-
-        expect(panel(page).open).toBe(false);
-      });
-
-      it('can be expanded and collapsed by hand', async () => {
-        const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
-
-        toggleDisclosure(page, 'Players · 1');
-        expect(panel(page).open).toBe(true);
-        toggleDisclosure(page, 'Players · 1');
-        expect(panel(page).open).toBe(false);
-      });
-
-      it('gives way to the Seat strip as the window widens to the desktop, once the draft has started', async () => {
-        const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
-
-        resizeTo('desktop');
-
-        expect(disclosure(page, 'Players · 1')).toBeNull();
-        expect(findSeatStrip(page)).not.toBeNull();
-      });
-
-      it('stays open in the lobby as the window widens and narrows again', async () => {
-        const { page } = await openDraft(completeSnapshot, { players: [bob] });
-
-        resizeTo('desktop');
-        resizeTo(screen);
-
-        expect(panel(page).open).toBe(true);
-      });
+      expect(panel(page).open).toBe(true);
     });
-  }
+
+    it('collapses once the draft has started, out of the way of the tabs', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+
+      expect(panel(page).open).toBe(false);
+    });
+
+    it('collapses when the draft starts while the page is open', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      await startLive(fixture);
+
+      expect(panel(page).open).toBe(false);
+    });
+
+    it('can be expanded and collapsed by hand', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+
+      toggleDisclosure(page, 'Players · 1');
+      expect(panel(page).open).toBe(true);
+      toggleDisclosure(page, 'Players · 1');
+      expect(panel(page).open).toBe(false);
+    });
+
+    it('gives way to the Seat strip as the window widens to the desktop, once the draft has started', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+
+      resizeTo('desktop');
+
+      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(findSeatStrip(page)).not.toBeNull();
+    });
+
+    it('stays open in the lobby as the window widens and narrows again', async () => {
+      const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      resizeTo('desktop');
+      resizeTo('mobile');
+
+      expect(panel(page).open).toBe(true);
+    });
+  });
 
   describe('where it sits', () => {
     const states: [string, ReturnType<typeof drafting>][] = [
