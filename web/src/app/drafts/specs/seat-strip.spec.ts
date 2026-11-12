@@ -23,12 +23,13 @@ import {
   updates,
   viewOn,
 } from './harness';
-import { clickOn, pressEscape, pressPointerOn } from '../../specs-harness';
+import { clickBackdrop, clickOn, pressEscape, pressPointerOn } from '../../specs-harness';
 import { disclosure } from './disclosure-harness';
 import {
   findSeatStrip,
   playersButton,
   playersPopover,
+  playersSheet,
   stripSeatNames,
   stripSeats,
 } from './seat-strip-harness';
@@ -275,34 +276,164 @@ describe('the Seat strip', () => {
       expect(tabButton(page, 'Deck').getAttribute('aria-selected')).toBe('true');
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
     });
-
-    it('gives way to the Players panel as the window narrows past the desktop', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
-
-      resizeTo('mobile');
-
-      expect(findSeatStrip(page)).toBeNull();
-      expect(playersDisclosure(page)).not.toBeNull();
-    });
   });
 
-  describe('on a mobile screen', () => {
+  describe('below the desktop layout', () => {
     beforeEach(() => viewOn('mobile'));
 
-    it('isn’t there: the Players panel is, while drafting', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
-
-      expect(findSeatStrip(page)).toBeNull();
-      expect(playersDisclosure(page)).not.toBeNull();
-    });
-
-    it('takes the Players panel’s place as the window widens to the desktop', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
-
-      resizeTo('desktop');
+    it.each([
+      ['drafting', drafting()],
+      ['paused', drafting({ state: 'Paused' })],
+    ])('is under the draft header while %s, in place of the Players panel', async (_, fields) => {
+      const { page } = await openDraft(completeSnapshot, fields);
 
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
       expect(playersDisclosure(page)).toBeNull();
+    });
+
+    it.each([
+      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
+      ['in a closed draft', drafting({ state: 'Closed', turn: null })],
+      ['in a complete draft', drafting({ state: 'Complete', turn: null })],
+    ])('isn’t there %s: the Players panel is, above the tabs', async (_, fields) => {
+      const { page } = await openDraft(completeSnapshot, fields);
+
+      expect(findSeatStrip(page)).toBeNull();
+      expect(playersDisclosure(page)).not.toBeNull();
+      expect(findPlayersBesideTabs(page)).toBeNull();
+    });
+
+    it('takes the Players panel’s place when the draft starts while the page is open', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+      updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
+      expect(playersDisclosure(page)).toBeNull();
+    });
+
+    describe('its Players button', () => {
+      it('opens the full Players panel in the Players sheet, not a popover', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ players: [alicePlayer, bot] }),
+        );
+
+        clickOn(playersButton(page));
+
+        const sheet = playersSheet()!;
+        expect(playersButton(page).getAttribute('aria-expanded')).toBe('true');
+        expect(playersDisclosure(sheet)!.open).toBe(true);
+        expect(sheet.textContent).toContain('Bot 1');
+        expect(sheet.contains(document.activeElement)).toBe(true);
+        expect(playersPopover(page)).toBeNull();
+      });
+
+      it.each([
+        ['its Close button', () => clickOn(button(playersSheet()!, 'Close')!)],
+        ['Escape', pressEscape],
+        ['a tap outside it', clickBackdrop],
+      ])('closes it on %s, with focus back on the button', async (_, close) => {
+        const { page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+
+        close();
+
+        expect(playersSheet()).toBeNull();
+        expect(playersButton(page).getAttribute('aria-expanded')).toBe('false');
+        expect(document.activeElement).toBe(playersButton(page));
+      });
+
+      it('shows an organizer the Players panel, and leaves their draft controls in the header working once it closes', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), { powers: ORGANIZE_ONLY });
+        clickOn(playersButton(page));
+        expect(playersDisclosure(playersSheet()!)!.open).toBe(true);
+
+        clickOn(button(playersSheet()!, 'Close')!);
+        clickOn(button(page, 'Pause draft')!);
+
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'));
+        expect(req.request.method).toBe('POST');
+      });
+
+      it('closes it as the draft closes, and leaves it closed as the draft reopens', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft({ ...drafting({ state: 'Closed', turn: null }), version: 1 }),
+        });
+        await flushPicks([]);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+        expect(playersSheet()).toBeNull();
+        expect(findSeatStrip(page)).toBeNull();
+
+        updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 2 }) });
+        await flushPicks([]);
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+
+        expect(playersSheet()).toBeNull();
+        expect(playersButton(page).getAttribute('aria-expanded')).toBe('false');
+      });
+    });
+
+    describe('as the window crosses the desktop layout', () => {
+      it('moves into the tab bar as the window widens, in place of the Players panel', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting());
+
+        resizeTo('desktop');
+
+        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
+        expect(playersDisclosure(page)).toBeNull();
+      });
+
+      it('carries the Players sheet over to the popover, with focus in it', async () => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          drafting({ players: [alicePlayer, bot] }),
+        );
+        clickOn(playersButton(page));
+
+        resizeTo('desktop');
+        await fixture.whenStable();
+
+        const popover = playersPopover(page)!;
+        expect(playersSheet()).toBeNull();
+        expect(playersDisclosure(popover)!.open).toBe(true);
+        expect(popover.textContent).toContain('Bot 1');
+        expect(playersButton(page).getAttribute('aria-expanded')).toBe('true');
+        expect(popover.contains(document.activeElement)).toBe(true);
+      });
+
+      it('carries the popover over to the Players sheet as the window narrows', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+
+        resizeTo('mobile');
+        await fixture.whenStable();
+
+        expect(playersPopover(page)).toBeNull();
+        expect(playersDisclosure(playersSheet()!)!.open).toBe(true);
+      });
+
+      it('leaves the panel closed as the window widens with the sheet closed', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+        pressEscape();
+
+        resizeTo('desktop');
+        await fixture.whenStable();
+
+        expect(playersPopover(page)).toBeNull();
+        expect(playersButton(page).getAttribute('aria-expanded')).toBe('false');
+      });
     });
   });
 });

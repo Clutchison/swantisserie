@@ -15,7 +15,7 @@ import {
   text,
 } from './harness';
 import { disclosure, toggleDisclosure } from './disclosure-harness';
-import { findSeatStrip, playersButton, playersPopover } from './seat-strip-harness';
+import { findSeatStrip, playersButton, playersPopover, playersSheet } from './seat-strip-harness';
 import { clickOn } from '../../specs-harness';
 
 useDraftsApp();
@@ -120,12 +120,13 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(false);
     });
 
-    it('shows, collapsed, in place of the Seat strip as the window narrows past the desktop, once the draft has started', async () => {
+    it('stays in the Seat strip as the window narrows past the desktop, once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       resizeTo('mobile');
 
-      expect(panel(page).open).toBe(false);
+      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(findSeatStrip(page)).not.toBeNull();
     });
   });
 
@@ -138,22 +139,44 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(true);
     });
 
-    it('collapses once the draft has started, out of the way of the tabs', async () => {
+    it('gives way to the Seat strip once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-      expect(panel(page).open).toBe(false);
+      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(findSeatStrip(page)).not.toBeNull();
     });
 
-    it('collapses when the draft starts while the page is open', async () => {
+    it('gives way to the Seat strip when the draft starts while the page is open', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
 
       await startLive(fixture);
 
-      expect(panel(page).open).toBe(false);
+      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(findSeatStrip(page)).not.toBeNull();
     });
 
-    it('can be expanded and collapsed by hand', async () => {
+    it('is open, showing every seat, in the Players sheet once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+
+      clickOn(playersButton(page));
+
+      expect(panel(playersSheet()!).open).toBe(true);
+    });
+
+    it('stays open in the Players sheet when its summary is clicked, keeping every seat in view', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+      clickOn(playersButton(page));
+
+      toggleDisclosure(playersSheet()!, 'Players · 1');
+
+      expect(panel(playersSheet()!).open).toBe(true);
+    });
+
+    it('can be expanded and collapsed by hand once the draft is closed', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({ players: [bob], state: 'Closed', turn: null }),
+      );
 
       toggleDisclosure(page, 'Players · 1');
       expect(panel(page).open).toBe(true);

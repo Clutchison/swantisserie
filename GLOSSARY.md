@@ -150,6 +150,10 @@ _Avoid_: Sidebar, side pane, Players section
 A row of the players' avatars in seat order, shown while a draft is drafting or paused, marking whose turn it is and, with arrows between the seats, which way the picks are moving. It names each player on hover or focus, stands in for the Players panel, and opens the full panel on request.
 _Avoid_: Avatar bar, player strip, sidebar, turn strip, Players panel (that is the full panel)
 
+**Players sheet**:
+The full Players panel on a narrow screen while a draft is drafting or paused, raised over the page from the foot of the screen when the viewer opens it from the Seat strip, and closed to go back to where they were.
+_Avoid_: Players drawer, players modal, players popup
+
 **Snake order**:
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
 _Avoid_: Serpentine, wheel

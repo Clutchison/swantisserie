@@ -4,11 +4,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
   Injector,
   input,
+  inputBinding,
+  model,
   signal,
   type TemplateRef,
   untracked,
@@ -18,8 +21,10 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
 import { LucideUsers } from '@lucide/angular';
+import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
+import { PlayersSheet } from './players-sheet';
 
 /**
  * A seat's player's name, shown below the seat hovered or focused: lined up
@@ -39,8 +44,12 @@ const AVATAR_SIZE = 24;
  * order, in a row in the tab bar, marking whose turn it is and the viewer's
  * own seat. The turn's seat pulses briefly when the turn moves, and is
  * scrolled into view when the row is too long to show whole. Its Players
- * button opens `playersPanel`, the full Players panel, as a non-modal popover
- * under it, over the tab content, which Escape, a pointer pressed outside or focus leaving closes.
+ * button opens `playersPanel`, the full Players panel, where `panelIn` says:
+ * a non-modal popover under it, over the tab content, which Escape, a
+ * pointer pressed outside or focus leaving closes; or the Players sheet.
+ * `panelOpen` is whether the panel is open, in either: the page keeps it as
+ * the strip moves between the tab bar and the row under the draft header,
+ * so the panel opens in the other.
  */
 @Component({
   selector: 'app-seat-strip',
@@ -59,16 +68,22 @@ export class SeatStrip {
   private readonly store = inject(DraftStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly dialogs = inject(DialogShell);
+  private readonly destroyRef = inject(DestroyRef);
 
-  /** The full Players panel, which the popover shows. */
+  /** The full Players panel, which the popover or the sheet shows. */
   readonly playersPanel = input.required<TemplateRef<unknown>>();
+  /** Where the Players button opens the panel: a popover under the strip, or the Players sheet. */
+  readonly panelIn = input<'popover' | 'sheet'>('popover');
+  /** Whether the Players panel is open, in the popover or the sheet. */
+  readonly panelOpen = model(false);
 
   protected readonly avatarSize = AVATAR_SIZE;
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
 
-  protected readonly popoverOpen = signal(false);
+  protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
   protected readonly hint = signal<Hint | null>(null);
   /**
    * Which of the two copies of the pulse the turn's seat plays, alternating
@@ -83,6 +98,12 @@ export class SeatStrip {
   private readonly seatElements = viewChildren<ElementRef<HTMLElement>>('seat');
 
   constructor() {
+    // The panel open as the strip came, from its other place, opens here.
+    afterNextRender(() => {
+      if (!this.panelOpen()) return;
+      if (this.panelIn() === 'sheet') this.openSheet();
+      else this.popover()?.nativeElement.focus();
+    });
     // A turn change pulses the turn's seat; the turn the strip first shows doesn't.
     let shownPick: number | undefined;
     effect(() => {
@@ -159,14 +180,37 @@ export class SeatStrip {
     this.hint.set(null);
   }
 
-  /** Opens the popover, with focus moved into it, or closes it. */
-  protected togglePopover() {
-    if (this.popoverOpen()) {
-      this.popoverOpen.set(false);
+  /** Opens the Players sheet, or the popover with focus moved into it; or closes the popover. */
+  protected togglePanel() {
+    if (this.panelIn() === 'sheet') {
+      this.openSheet();
       return;
     }
-    this.popoverOpen.set(true);
+    if (this.popoverOpen()) {
+      this.panelOpen.set(false);
+      return;
+    }
+    this.panelOpen.set(true);
     afterNextRender(() => this.popover()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /**
+   * Opens the panel in the Players sheet, which focus leaves for the Players
+   * button as it closes. The sheet closes with the strip, as when the page
+   * widens to the desktop layout, leaving the panel open for the strip there.
+   */
+  private openSheet() {
+    this.panelOpen.set(true);
+    const sheet = this.dialogs.open(PlayersSheet, {
+      label: 'Players',
+      injector: this.injector,
+      bindings: [inputBinding('panel', this.playersPanel)],
+      returnFocus: () => this.toggle().nativeElement,
+    });
+    // Closed as the strip goes, it leaves the page's `panelOpen` as it was: a destroyed strip's output can't emit.
+    sheet.closed.subscribe(() => {
+      if (!this.destroyRef.destroyed) this.panelOpen.set(false);
+    });
   }
 
   /** Closes the popover; focus goes back to the Players button if it would otherwise be lost. */
@@ -174,7 +218,7 @@ export class SeatStrip {
     if (!this.popoverOpen()) return;
     const focused = document.activeElement;
     const focusInside = this.host.nativeElement.contains(focused);
-    this.popoverOpen.set(false);
+    this.panelOpen.set(false);
     if (focusInside || nowhere(focused)) this.toggle().nativeElement.focus();
   }
 
@@ -188,7 +232,7 @@ export class SeatStrip {
    */
   protected closeOnPointerOutside(event: PointerEvent) {
     if (!this.popoverOpen() || event.composedPath().includes(this.host.nativeElement)) return;
-    this.popoverOpen.set(false);
+    this.panelOpen.set(false);
     // After the press has moved focus, if it did.
     setTimeout(() => {
       if (nowhere(document.activeElement)) this.toggle().nativeElement.focus();
@@ -202,7 +246,9 @@ export class SeatStrip {
    */
   protected closeOnFocusLeaving(event: FocusEvent) {
     const to = event.relatedTarget;
-    if (to instanceof Node && !this.host.nativeElement.contains(to)) this.popoverOpen.set(false);
+    if (this.popoverOpen() && to instanceof Node && !this.host.nativeElement.contains(to)) {
+      this.panelOpen.set(false);
+    }
   }
 }
 
