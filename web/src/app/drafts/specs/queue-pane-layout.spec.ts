@@ -36,6 +36,7 @@ import {
   updates,
   draft,
   viewOn,
+  type AppFixture,
 } from './harness';
 import { measuredAs } from './measure-harness';
 import {
@@ -69,6 +70,17 @@ const shownHelp = (root: HTMLElement) =>
     (p) => p.textContent?.includes('Cards are picked for you') && !p.closest('[hidden]'),
   );
 
+/** Starts the open draft, as its start is pushed to the page. */
+async function startDraft(fixture: AppFixture) {
+  updates.events.next({
+    type: 'changed',
+    draft: draft(drafting({ state: 'Drafting', version: 1 })),
+  });
+  await flushPicks([]);
+  await flushQueueAndPlan();
+  await fixture.whenStable();
+}
+
 describe('Queue pane layout', () => {
   describe.each(['desktop', 'wide'] as const)('on a %s screen', (screen) => {
     beforeEach(() => viewOn(screen));
@@ -88,7 +100,6 @@ describe('Queue pane layout', () => {
     });
 
     it.each([
-      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['while paused', drafting({ state: 'Paused' })],
       ['while closed', drafting({ state: 'Closed', turn: null })],
     ])('shows it %s', async (_, fields) => {
@@ -103,11 +114,23 @@ describe('Queue pane layout', () => {
         'a viewer in the lobby who hasn’t joined',
         drafting({ state: 'Lobby', turn: null, players: [bob] }),
       ],
+      ['a player in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
     ])('shows none to %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findQueuePane(page)).toBeNull();
+    });
+
+    it('shows it once the draft starts, without a reload', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+      );
+
+      await startDraft(fixture);
+
+      expect(findQueuePane(page)).not.toBeNull();
     });
   });
 
@@ -313,7 +336,6 @@ describe('Queue pane layout', () => {
     });
 
     it.each([
-      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['while paused', drafting({ state: 'Paused' })],
       ['while closed', drafting({ state: 'Closed', turn: null })],
     ])('shows the strip %s', async (_, fields) => {
@@ -328,11 +350,23 @@ describe('Queue pane layout', () => {
         'a viewer in the lobby who hasn’t joined',
         drafting({ state: 'Lobby', turn: null, players: [bob] }),
       ],
+      ['a player in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
     ])('shows no strip to %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findNextUpStrip(page)).toBeUndefined();
+    });
+
+    it('shows the strip once the draft starts, without a reload', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+      );
+
+      await startDraft(fixture);
+
+      expect(findNextUpStrip(page)).toBeDefined();
     });
   });
 

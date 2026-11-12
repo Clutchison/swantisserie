@@ -217,6 +217,40 @@ describe('pool tab', () => {
       expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
     });
 
+    it('offers no Add to queue in the lobby', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+        { cards: [shivan] },
+      );
+
+      expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
+    });
+
+    it('offers Add to queue once the draft starts, without a reload', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+        { cards: [shivan] },
+      );
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft(
+          drafting({
+            state: 'Drafting',
+            turn: { pick: 1, round: 1, playerId: bob.id },
+            version: 1,
+          }),
+        ),
+      });
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+
+      expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
+    });
+
     describe('Queued badge', () => {
       const ancestral = card({
         id: 'ancestral-card',
@@ -329,6 +363,22 @@ describe('pool tab', () => {
           completeSnapshot,
           { state: 'Lobby', turn: null },
           { cards: [brightclimb, shivan], user: carol },
+        );
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('shows none in the lobby, on a card queued there before queueing waited for the start', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ state: 'Lobby', turn: null }),
+          {
+            cards: [brightclimb, shivan],
+            queue: queueOf({ cards: [queued(shivan)] }),
+          },
         );
 
         expect(tileNames(page)).toEqual([
@@ -515,16 +565,6 @@ describe('pool tab', () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }), {
           cards: [shivan],
         });
-
-        expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
-      });
-
-      it('offers Add to queue in the lobby, where there are no turns', async () => {
-        const { fixture, page } = await openDraft(
-          completeSnapshot,
-          drafting({ state: 'Lobby', turn: null }),
-          { cards: [shivan] },
-        );
 
         expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
       });

@@ -169,7 +169,6 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   });
 
   it.each([
-    ['in the lobby', drafting({ state: 'Lobby', turn: null })],
     ['while paused', drafting({ state: 'Paused' })],
     ['while drafting', drafting()],
   ])('can be changed %s, as the api allows', async (_, fields) => {
@@ -266,7 +265,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       expect(rows(queue)).toEqual(['Shivan Dragon']);
     });
 
-    it.each(['Lobby', 'Paused', 'Closed'] as const)(
+    it.each(['Paused', 'Closed'] as const)(
       'draws the queue cutoff while the draft is %s',
       async (state) => {
         const { page } = await openDraft(

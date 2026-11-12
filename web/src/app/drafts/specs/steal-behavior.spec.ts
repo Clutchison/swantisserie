@@ -125,7 +125,10 @@ describe('steal behavior', () => {
   });
 
   it.each([
-    ['in the lobby', { state: 'Lobby', turn: null }],
+    [
+      'on the player’s own turn while drafting',
+      drafting({ turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
+    ],
     [
       'on the player’s own turn while paused',
       drafting({ state: 'Paused', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
