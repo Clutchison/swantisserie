@@ -36,7 +36,7 @@ import {
   startDraft,
 } from './harness';
 import { viewOn } from './screen-harness';
-import { carol, openDialog, openDialogs, text } from '../../specs-harness';
+import { carol, openDialog, openDialogs, text, visibleText } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
 
 useDraftsApp();
@@ -263,6 +263,16 @@ describe('pool tab', () => {
         ]);
         expect(tiles(page)[1].textContent).toContain('#2');
         expect(tiles(page)[0].textContent).not.toContain('#');
+      });
+
+      it('labels a queued card’s place with the word Queued, as the Picked badge labels its picker', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        expect(visibleText(tiles(page)[0])).toContain('#2');
+        expect(visibleText(tiles(page)[0])).toContain('Queued');
       });
 
       it('says a queued card past the Queue cutoff is past your picks left', async () => {
