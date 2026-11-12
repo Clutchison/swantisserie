@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { answer, question } from '../../specs-harness';
+import { answer, comesBefore, question } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   ALL_POWERS,
@@ -310,9 +310,7 @@ describe('Play tab', () => {
 
       const list = namedList(tab, 'Joined players');
       for (const label of ['Leave', 'I’m ready', 'Cancel tournament', 'Start tournament']) {
-        expect(
-          button(tab, label)!.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
-        ).toBeTruthy();
+        expect(comesBefore(button(tab, label)!, list)).toBe(true);
       }
     });
 
