@@ -344,9 +344,15 @@ textarea {
   white-space: nowrap;
   cursor: pointer;
 
-  &:hover,
+  &:not([aria-disabled='true']):hover,
   &:focus-visible {
     background: var(--color-raised);
+  }
+
+  /* An unavailable item: still focusable, so it can be read, but it does nothing. */
+  &[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: default;
   }
 }
 

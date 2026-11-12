@@ -251,6 +251,12 @@ const menuItemElements = (name: string) => [
 /** The open menu `name`'s items, by name, in order; none while it's closed. */
 export const menuItems = (name: string) => menuItemElements(name).map(accessibleName);
 
+/** The open menu `name`'s unavailable items, by name, in order: marked `aria-disabled`. */
+export const disabledMenuItems = (name: string) =>
+  menuItemElements(name)
+    .filter((element) => element.getAttribute('aria-disabled') === 'true')
+    .map(accessibleName);
+
 /** The open menu `name`'s item named `item`. */
 export const menuItem = (name: string, item: string) =>
   menuItemElements(name).find((element) => accessibleName(element) === item);
