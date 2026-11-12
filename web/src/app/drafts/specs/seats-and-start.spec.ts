@@ -8,7 +8,7 @@ import {
   http,
   updates,
   openUrl,
-  section,
+  playersPanel,
   bob,
   alicePlayer,
   openDraft,
@@ -27,8 +27,12 @@ import {
   type AppFixture,
   ORGANIZE_ONLY,
   powersAnswer,
+  buttonOrder,
   ALL_POWERS,
+  drafting,
+  viewOn,
 } from './harness';
+import { disclosure } from './disclosure-harness';
 
 useDraftsApp();
 
@@ -38,7 +42,7 @@ describe('seats and start', () => {
   beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
   const seatNames = (page: HTMLElement) =>
-    [...section(page, 'Players').querySelectorAll('li .name')].map((n) => n.textContent);
+    [...playersPanel(page).querySelectorAll('li .name')].map((n) => n.textContent);
 
   it('shows the seat order and whose turn it is', async () => {
     const { page } = await openDraft(completeSnapshot, {
@@ -49,9 +53,26 @@ describe('seats and start', () => {
 
     expect(seatNames(page)).toEqual(['Bob', 'Alice']);
     expect(page.textContent).toContain('Bob’s turn: pick 1, round 1');
-    const current = section(page, 'Players').querySelector('li[aria-current="true"]');
+    const current = playersPanel(page).querySelector('li[aria-current="true"]');
     expect(current?.querySelector('.name')?.textContent).toBe('Bob');
   });
+
+  for (const [screen, open] of [
+    ['mobile', false],
+    ['desktop', false],
+    ['wide', true],
+  ] as const) {
+    it(`keeps the seat order in the Players panel once started on ${screen}, ${open ? 'open' : 'closed'}`, async () => {
+      viewOn(screen);
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob, alicePlayer] }));
+
+      expect(disclosure(page, 'Players · 2')!.open).toBe(open);
+      expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    });
+  }
 
   it('tells the signed-in player when it is their turn', async () => {
     const { page } = await openDraft(completeSnapshot, {
@@ -70,9 +91,19 @@ describe('seats and start', () => {
       turn: { pick: 1, round: 1, playerId: 'gone' },
     });
 
-    expect(section(page, 'Players').textContent?.replace(/\s+/g, ' ')).toContain(
+    expect(page.textContent?.replace(/\s+/g, ' ')).toContain(
       'Another player’s turn: pick 1, round 1',
     );
+  });
+
+  it('offers a joined organizer Leave, More, then Start draft in the header, and Randomize seats then Import picks beside the seats', async () => {
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual(['Leave', 'More', 'Start draft']);
+    expect(buttonOrder(playersPanel(page), 'Randomize seats')).toEqual([
+      'Randomize seats',
+      'Import picks',
+    ]);
   });
 
   it('lets the organizer randomize the seats', async () => {
@@ -524,7 +555,7 @@ describe('seats and start', () => {
     TestBed.tick();
 
     expect(button(page, 'Start draft')?.disabled).toBe(true);
-    expect(section(page, 'Players').textContent).toContain(
+    expect(page.textContent).toContain(
       'You can start the draft once the pool snapshot is complete.',
     );
 
@@ -534,7 +565,7 @@ describe('seats and start', () => {
     await flushPool();
     await fixture.whenStable();
     expect(button(page, 'Start draft')?.disabled).toBe(false);
-    expect(section(page, 'Players').textContent).not.toContain('You can start the draft once');
+    expect(page.textContent).not.toContain('You can start the draft once');
   });
 
   it('offers seat changes and the start only to a viewer who may organize', async () => {

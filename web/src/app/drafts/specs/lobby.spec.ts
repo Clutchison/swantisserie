@@ -7,7 +7,7 @@ import {
   alice,
   draft,
   http,
-  section,
+  playersPanel,
   bob,
   alicePlayer,
   openDraft,
@@ -22,7 +22,11 @@ import {
   ALL_POWERS,
   powersAnswer,
   RETRY_FAILED,
+  viewOn,
 } from './harness';
+import { moreButton, openMore } from './draft-header-harness';
+import { disclosure } from './disclosure-harness';
+import { comesBefore } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -32,7 +36,7 @@ describe('lobby', () => {
   it('lists the players with their avatars', async () => {
     const { page } = await openDraft(completeSnapshot, { players: [bob, alicePlayer] });
 
-    const players = section(page, 'Players');
+    const players = playersPanel(page);
     const items = [...players.querySelectorAll('li')];
     expect(items.map((li) => li.querySelector('.name')?.textContent)).toEqual(['Bob', 'Alice']);
     expect(playerAvatar(page, 'Bob')?.getAttribute('src')).toBe(bob.avatarUrl);
@@ -46,13 +50,13 @@ describe('lobby', () => {
 
     expect(playerAvatar(page, 'Bob')).toBeFalsy();
     expect(playerAvatar(page, 'Alice')?.getAttribute('src')).toBe(alicePlayer.avatarUrl);
-    expect(section(page, 'Players').textContent).toContain('Bob');
+    expect(playersPanel(page).textContent).toContain('Bob');
   });
 
   it('says when nobody has joined yet', async () => {
     const { page } = await openDraft(completeSnapshot, { players: [] });
 
-    expect(section(page, 'Players').textContent).toContain('Nobody has joined yet');
+    expect(playersPanel(page).textContent).toContain('Nobody has joined yet');
   });
 
   it('joins the draft, then offers to leave it', async () => {
@@ -66,7 +70,7 @@ describe('lobby', () => {
     await flushQueueAndPlan();
     await fixture.whenStable();
 
-    expect(section(page, 'Players').textContent).toContain('Alice');
+    expect(playersPanel(page).textContent).toContain('Alice');
     expect(button(page, 'Join')).toBeUndefined();
     button(page, 'Leave')!.click();
     const left = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players/me'));
@@ -74,22 +78,63 @@ describe('lobby', () => {
     left.flush(draft({ players: [bob] }));
     await fixture.whenStable();
 
-    expect(section(page, 'Players').textContent).not.toContain('Alice');
+    expect(playersPanel(page).textContent).not.toContain('Alice');
     expect(button(page, 'Join')).toBeDefined();
   });
 
-  it('offers Leave, Cancel draft, Randomize seats, Add bot, Import picks, then Start draft, to a joined organizer', async () => {
+  it('offers Leave, More, Announcements, then Start draft in the header to a joined organizer, with Cancel draft in More', async () => {
     powersAnswer(ALL_POWERS);
     const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
 
     expect(buttonOrder(page, 'Start draft')).toEqual([
       'Leave',
-      'Cancel draft',
-      'Randomize seats',
-      'Add bot',
-      'Import picks',
+      'More',
+      'Announcements',
       'Start draft',
     ]);
+    expect(openMore(page)).toEqual(['Cancel draft']);
+  });
+
+  it('offers Join, More, Announcements, then Start draft in the header to an organizer who hasn’t joined', async () => {
+    powersAnswer(ALL_POWERS);
+    const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual([
+      'Join',
+      'More',
+      'Announcements',
+      'Start draft',
+    ]);
+  });
+
+  for (const screen of ['mobile', 'desktop', 'wide'] as const) {
+    it(`opens the Players panel in the lobby on ${screen}, with the seating tools`, async () => {
+      viewOn(screen);
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      powersAnswer(ALL_POWERS);
+      const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+      expect(disclosure(page, 'Players · 1')!.open).toBe(true);
+      expect(buttonOrder(playersPanel(page), 'Randomize seats')).toEqual([
+        'Randomize seats',
+        'Add bot',
+        'Import picks',
+      ]);
+      // Before the seat order, which grows to a full draft's seats.
+      expect(
+        comesBefore(button(page, 'Import picks')!, playersPanel(page).querySelector('ol')!),
+      ).toBe(true);
+    });
+  }
+
+  it('offers a viewer who may not organize Join alone in the header, and no More', async () => {
+    const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+    expect(button(page, 'Join')).toBeDefined();
+    expect(button(page, 'Start draft')).toBeUndefined();
+    expect(moreButton(page)).toBeUndefined();
   });
 
   it('shows the draft as full at the most players a draft can have, offering no Join', async () => {
@@ -224,7 +269,7 @@ describe('lobby', () => {
       const { fixture, page } = await openDraft(completeSnapshot, {
         players: [alicePlayer, bob, carol],
       });
-      const players = section(page, 'Players');
+      const players = playersPanel(page);
 
       button(players, 'Move Bob later')!.focus();
       button(players, 'Move Bob later')!.click();
@@ -247,7 +292,7 @@ describe('lobby', () => {
       const { fixture, page } = await openDraft(completeSnapshot, {
         players: [alicePlayer, bob, carol],
       });
-      const players = section(page, 'Players');
+      const players = playersPanel(page);
 
       button(players, 'Move Alice later')!.focus();
       button(players, 'Move Alice later')!.click();
@@ -264,7 +309,7 @@ describe('lobby', () => {
       const { fixture, page } = await openDraft(completeSnapshot, {
         players: [alicePlayer, bob, carol],
       });
-      const players = section(page, 'Players');
+      const players = playersPanel(page);
 
       button(players, 'Move Bob earlier')!.focus();
       button(players, 'Move Bob earlier')!.click();
@@ -281,7 +326,7 @@ describe('lobby', () => {
       const { fixture, page } = await openDraft(completeSnapshot, {
         players: [alicePlayer, bob, carol],
       });
-      const players = section(page, 'Players');
+      const players = playersPanel(page);
 
       button(players, 'Move Bob later')!.focus();
       button(players, 'Move Bob later')!.click();

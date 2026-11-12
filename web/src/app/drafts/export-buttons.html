@@ -1,24 +1,32 @@
 @if (ready()) {
-  @for (target of exportTargets(); track target) {
-    <button
-      class="button compact secondary copy"
-      [class.copied]="copied() === target"
-      type="button"
-      (click)="copyFor(target)"
-    >
-      <!-- Stays when hidden, so the button keeps its width. -->
-      <span class="label" [attr.aria-hidden]="copied() === target ? 'true' : null"
-        >Copy for {{ target }}</span
-      >
-      @if (copied() === target) {
-        <span class="confirmation">
-          <svg lucideCheck size="16"></svg>
-          Copied
-        </span>
-      }
-    </button>
-  }
+  <button
+    class="button compact secondary menu-trigger copy"
+    [class.copied]="copied()"
+    type="button"
+    [cdkMenuTriggerFor]="copyMenu"
+  >
+    <!-- Stays when hidden, so the button keeps its width. -->
+    <span class="label menu-trigger-label" [attr.aria-hidden]="copied() ? 'true' : null"
+      >Export <svg lucideChevronDown size="16" aria-hidden="true"></svg
+    ></span>
+    @if (copied()) {
+      <span class="confirmation">
+        <svg lucideCheck size="16" aria-hidden="true"></svg>
+        Copied
+      </span>
+    }
+  </button>
 }
+<!-- One item per export the draft's platform offers. -->
+<ng-template #copyMenu>
+  <div cdkMenu aria-label="Export">
+    @for (target of exportTargets(); track target) {
+      <button type="button" cdkMenuItem (cdkMenuItemTriggered)="copyFor(target)">
+        Copy for {{ target }}
+      </button>
+    }
+  </div>
+</ng-template>
 <!-- Always here, as a status region only announces changes once it's on the page. -->
 <p class="visually-hidden" role="status">
   @if (copied(); as target) {

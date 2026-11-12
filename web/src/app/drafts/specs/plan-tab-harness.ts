@@ -3,7 +3,6 @@ import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import type { ExportTarget } from '../export-buttons';
 import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
   accessibleName,
@@ -64,10 +63,10 @@ export const sideboardNotice = (page: HTMLElement) =>
     text(status).startsWith('Your sideboard has'),
   );
 
-/** A copy button on the Deck tab, by the export it copies, whether it shows its label or its confirmation. */
-export const copyButton = (page: HTMLElement, target: ExportTarget = 'Arena') =>
+/** The Deck tab's Export button, whether it shows its label or its confirmation. */
+export const exportButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
-    candidate.textContent?.includes(`Copy for ${target}`),
+    ['Export', 'Copied'].includes(accessibleName(candidate)),
   );
 
 /** Opens the Deck tab and returns its panel. */

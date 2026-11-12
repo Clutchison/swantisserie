@@ -22,7 +22,7 @@ import type { AppVersionView, UnreviewedFeedbackCount } from 'contract';
 import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
 import { DialogShell } from './dialog-shell';
-import { FeedbackDialog } from './feedback/feedback-dialog';
+import { FEEDBACK_HEADING, FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 import { TopBarMenu } from './top-bar/top-bar-menu';
 
@@ -96,7 +96,7 @@ export class App {
    */
   protected openFeedback() {
     this.dialogs.open(FeedbackDialog, {
-      label: 'Send feedback',
+      labelledBy: FEEDBACK_HEADING,
       injector: this.injector,
       returnFocus: (opener) => {
         if (opener?.isConnected) return opener;

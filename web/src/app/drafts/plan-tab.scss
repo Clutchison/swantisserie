@@ -1,12 +1,8 @@
 @use '../../visually-hidden';
+@use '../../breakpoints' as bp;
 
 /* The width of each button on a list line. */
 $line-action-width: 2.5rem;
-
-/* Sits inside the draft page, which has the padding. */
-:host {
-  padding: 0;
-}
 
 h3 {
   margin: var(--space-lg) 0 var(--space-xs);
@@ -30,7 +26,7 @@ h3 {
   }
 }
 
-/* Stacks or list, and how the stacks group, each a row of toggles with the chosen one pressed; then the Add basics button. */
+/* The Deck tab's tools: Queue unpicked, then Stacks or list and how the stacks group, each a row of toggles with the chosen one pressed, then Add basics and Copy. It wraps on a narrow screen. */
 .mode-controls {
   display: flex;
   flex-wrap: wrap;
@@ -97,7 +93,7 @@ ul {
  * dimmed line already marks it on screen. A class in the template can't follow the container
  * query, so this includes the mixin behind the global .visually-hidden.
  */
-@container (width < 26rem) {
+@container (width < #{bp.$tab-narrow}) {
   .line-actions .mark {
     @include visually-hidden.visually-hidden;
   }

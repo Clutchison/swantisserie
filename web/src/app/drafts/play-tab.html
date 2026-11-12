@@ -2,10 +2,13 @@
 @if (!setUp()) {
   <!-- Only organizers see the tab before setup. -->
   <form class="setup" (submit)="$event.preventDefault(); setUpTournament()">
-    <p class="detail">
-      Set up a tournament for this draft’s players to play their decks in. Setup can’t be changed
-      afterwards: cancel the tournament and set it up again instead.
-    </p>
+    <details class="disclosure">
+      <summary>How this works</summary>
+      <p class="detail">
+        Set up a tournament for this draft’s players to play their decks in. Setup can’t be changed
+        afterwards: cancel the tournament and set it up again instead.
+      </p>
+    </details>
     <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
     <fieldset>
       <legend>Format</legend>
@@ -68,7 +71,7 @@
 } @else if (tournament(); as tournament) {
   <app-tournament-progress [tournament]="tournament" [ownId]="playsOn() ? ownId() : undefined" />
   @if (tournament.state === 'Registration') {
-    <p class="detail">
+    <p class="detail registration-note">
       {{ summary() }}.
       @if (tournament.publicDecklists) {
         Public decklists: everyone who sees this draft sees your deck once the tournament starts.
@@ -84,30 +87,7 @@
         >{{ tournament.readyCount.ready }} of {{ tournament.readyCount.of }} ready</span
       >
     </div>
-    <ul class="entries" aria-label="Joined players">
-      @for (player of entries(); track player.id) {
-        <li>
-          <app-player-avatar [src]="player.avatarUrl" />
-          {{ player.name }}
-          @if (player.ready) {
-            <span class="badge success">Ready</span>
-          }
-          @if (offerOrganize() && player.id !== ownId() && player.droppable) {
-            <button
-              class="button compact secondary"
-              type="button"
-              [attr.aria-label]="'Remove ' + player.name"
-              (click)="remove(player.id)"
-              [appSendsChange]="'remove ' + player.id"
-            >
-              Remove
-            </button>
-          }
-        </li>
-      } @empty {
-        <li class="empty">Nobody has joined yet.</li>
-      }
-    </ul>
+    <!-- The row comes before the list, so a full list doesn’t push it out of view. -->
     <div class="controls">
       @if (offerJoin()) {
         <button class="button" type="button" (click)="join()" appSendsChange="join">
@@ -153,6 +133,30 @@
         </button>
       }
     </div>
+    <ul class="entries" aria-label="Joined players">
+      @for (player of entries(); track player.id) {
+        <li>
+          <app-player-avatar [src]="player.avatarUrl" />
+          {{ player.name }}
+          @if (player.ready) {
+            <span class="badge success">Ready</span>
+          }
+          @if (offerOrganize() && player.id !== ownId() && player.droppable) {
+            <button
+              class="button compact secondary"
+              type="button"
+              [attr.aria-label]="'Remove ' + player.name"
+              (click)="remove(player.id)"
+              [appSendsChange]="'remove ' + player.id"
+            >
+              Remove
+            </button>
+          }
+        </li>
+      } @empty {
+        <li class="empty">Nobody has joined yet.</li>
+      }
+    </ul>
   } @else {
     <p class="detail">{{ summary() }}</p>
     @if (trophyHolders().length) {

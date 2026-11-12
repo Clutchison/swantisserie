@@ -1,96 +1,98 @@
 <div class="dialog">
   <h3 [id]="headingId">Complete tournament round {{ round() }}</h3>
-  @let completion = this.completion();
-  <p>
-    @if (completion.completes && completion.reason === 'FinalRound' && !completion.trophyHolder) {
-      It is the final tournament round, so completing it will complete the tournament. Nobody will
-      advance from the final, so nobody will hold the trophy.
-    } @else if (completion.completes && completion.reason === 'FinalRound') {
-      It is the final tournament round, so completing it will complete the tournament and award the
-      trophy.
-    } @else if (completion.completes && !completion.trophyHolder) {
-      Nobody will be left in the bracket, so completing the round will complete the tournament, and
-      nobody will hold the trophy.
-    } @else if (completion.completes && grantsWins()) {
-      Fewer than {{ minPlayersLeft }} players will be left in the bracket, so completing the round
-      will complete the tournament and award the trophy.
-    } @else if (completion.completes) {
-      Fewer than {{ minPlayersLeft }} undropped players will remain, so completing the round will
-      complete the tournament and award the trophy.
-    } @else {
-      Completing the round will pair tournament round {{ round() + 1 }} and open its matches.
-    }
-  </p>
-  @if (unreported().length > 0 && grantsWins()) {
+  <div class="dialog-body">
+    @let completion = this.completion();
     <p>
-      Pick the winner of each unreported match: they advance. Or drop a player who won’t play on,
-      and their opponent advances on the forfeit; drop both, and whoever would have met its winner
-      has a bye.
+      @if (completion.completes && completion.reason === 'FinalRound' && !completion.trophyHolder) {
+        It is the final tournament round, so completing it will complete the tournament. Nobody will
+        advance from the final, so nobody will hold the trophy.
+      } @else if (completion.completes && completion.reason === 'FinalRound') {
+        It is the final tournament round, so completing it will complete the tournament and award
+        the trophy.
+      } @else if (completion.completes && !completion.trophyHolder) {
+        Nobody will be left in the bracket, so completing the round will complete the tournament,
+        and nobody will hold the trophy.
+      } @else if (completion.completes && grantsWins()) {
+        Fewer than {{ minPlayersLeft }} players will be left in the bracket, so completing the round
+        will complete the tournament and award the trophy.
+      } @else if (completion.completes) {
+        Fewer than {{ minPlayersLeft }} undropped players will remain, so completing the round will
+        complete the tournament and award the trophy.
+      } @else {
+        Completing the round will pair tournament round {{ round() + 1 }} and open its matches.
+      }
     </p>
-    <ul aria-label="Unreported matches">
-      @for (match of unreported(); track match.id) {
-        <li>
-          <span>{{ match.label }}</span>
-          <div class="winners" role="group" [attr.aria-label]="'Winner of ' + match.label">
-            @for (player of match.players; track player.id) {
-              <label>
-                <input
-                  type="radio"
-                  [name]="'winner-' + match.id"
-                  [checked]="isWinner(match.id, player.id)"
-                  [disabled]="drops(match.id)"
-                  (change)="pickWinner(match.id, player.id)"
-                />
-                {{ player.name }}
-              </label>
+    @if (unreported().length > 0 && grantsWins()) {
+      <p>
+        Pick the winner of each unreported match: they advance. Or drop a player who won’t play on,
+        and their opponent advances on the forfeit; drop both, and whoever would have met its winner
+        has a bye.
+      </p>
+      <ul aria-label="Unreported matches">
+        @for (match of unreported(); track match.id) {
+          <li>
+            <span>{{ match.label }}</span>
+            <div class="winners" role="group" [attr.aria-label]="'Winner of ' + match.label">
+              @for (player of match.players; track player.id) {
+                <label>
+                  <input
+                    type="radio"
+                    [name]="'winner-' + match.id"
+                    [checked]="isWinner(match.id, player.id)"
+                    [disabled]="drops(match.id)"
+                    (change)="pickWinner(match.id, player.id)"
+                  />
+                  {{ player.name }}
+                </label>
+              }
+            </div>
+            @if (match.droppable.length > 0) {
+              <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+                @for (player of match.droppable; track player.id) {
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="isDropping(match.id, player.id)"
+                      (change)="setDropping(match.id, player.id, $any($event.target).checked)"
+                    />
+                    Drop {{ player.name }}
+                  </label>
+                }
+              </div>
             }
-          </div>
-          @if (match.droppable.length > 0) {
-            <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-              @for (player of match.droppable; track player.id) {
-                <label>
-                  <input
-                    type="checkbox"
-                    [checked]="isDropping(match.id, player.id)"
-                    (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                  />
-                  Drop {{ player.name }}
-                </label>
-              }
-            </div>
-          }
-        </li>
-      }
-    </ul>
-  } @else if (unreported().length > 0) {
-    <p>
-      Its unreported matches will become granted draws.
-      @if (!finalRound()) {
-        Drop any player who won’t play on.
-      }
-    </p>
-    <ul aria-label="Unreported matches">
-      @for (match of unreported(); track match.id) {
-        <li>
-          <span>{{ match.label }}</span>
-          @if (!finalRound() && match.droppable.length > 0) {
-            <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-              @for (player of match.droppable; track player.id) {
-                <label>
-                  <input
-                    type="checkbox"
-                    [checked]="isDropping(match.id, player.id)"
-                    (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                  />
-                  Drop {{ player.name }}
-                </label>
-              }
-            </div>
-          }
-        </li>
-      }
-    </ul>
-  }
+          </li>
+        }
+      </ul>
+    } @else if (unreported().length > 0) {
+      <p>
+        Its unreported matches will become granted draws.
+        @if (!finalRound()) {
+          Drop any player who won’t play on.
+        }
+      </p>
+      <ul aria-label="Unreported matches">
+        @for (match of unreported(); track match.id) {
+          <li>
+            <span>{{ match.label }}</span>
+            @if (!finalRound() && match.droppable.length > 0) {
+              <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+                @for (player of match.droppable; track player.id) {
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="isDropping(match.id, player.id)"
+                      (change)="setDropping(match.id, player.id, $any($event.target).checked)"
+                    />
+                    Drop {{ player.name }}
+                  </label>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
     <button class="button" type="button" [disabled]="!ready()" (click)="completeRound()">

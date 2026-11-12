@@ -1,11 +1,16 @@
-<main>
+<!-- Before the draft's name in its header, or on its own line until the draft shows. -->
+<ng-template #backLink>
   <a class="back-link" routerLink="/">
     <svg lucideChevronLeft size="16"></svg>
     Drafts
   </a>
+</ng-template>
+<main class="page-wide">
   @if (loading()) {
+    <ng-container *ngTemplateOutlet="backLink" />
     <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
+    <ng-container *ngTemplateOutlet="backLink" />
     <p class="error">Couldn't load this draft. Try reloading the page.</p>
   } @else if (draft(); as draft) {
     <!-- A panel's heading, with the viewer's picks left beside it: outside the
@@ -24,28 +29,17 @@
         }
       </div>
     </ng-template>
-    <h1>{{ draft.name }}</h1>
-    <p>
-      <span class="state">{{ draft.state }}</span>
-      <span class="detail">Organized by {{ draft.organizer.name }}</span>
-    </p>
-    @if (reconnecting()) {
-      <p role="status">Reconnecting…</p>
-    }
-    @if (refreshFailed()) {
-      <p class="detail" role="status">
-        Couldn't refresh this draft. What's shown may be out of date.
-      </p>
-    }
-
-    <section class="players">
-      <h2>Players</h2>
-      @if (turn(); as turn) {
-        <p class="turn">
-          {{ turn.text }}
-          @if (turn.isBot) {
-            <span class="badge">Bot</span>
-          }
+    <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()">
+      <ng-container *ngTemplateOutlet="backLink" />
+    </app-draft-header>
+    <!-- The notes a player needs whichever tab is open. -->
+    <div class="status-strip">
+      @if (reconnecting()) {
+        <p role="status">Reconnecting…</p>
+      }
+      @if (refreshFailed()) {
+        <p class="detail" role="status">
+          Couldn't refresh this draft. What's shown may be out of date.
         </p>
       }
       @if (draft.state === 'Paused') {
@@ -60,226 +54,239 @@
           {{ draft.webhook?.name }}. An app admin can replace its URL.
         </p>
       }
-      <app-organizer-controls />
-      @if (powers().switchAnnouncements) {
-        <app-webhook-control />
-      }
-      <app-lobby-controls (changeStarted)="retryFailed.set(false)" (cancelled)="leaveCancelled()" />
-    </section>
-
-    <div class="tabs" appTabList aria-label="Draft">
-      <button
-        id="pool-tab"
-        type="button"
-        [appTab]="selectedTab() === 'Pool'"
-        aria-controls="pool-panel"
-        (click)="selectedTab.select('Pool')"
-      >
-        Pool
-      </button>
-      <!-- Only players have a queue, and a complete draft has no Queue tab. -->
-      @if (showQueueTab()) {
-        <button
-          id="queue-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Queue'"
-          aria-controls="queue-panel"
-          (click)="selectedTab.select('Queue')"
-          [disabled]="!joined()"
-        >
-          Queue
-        </button>
-      }
-      <button
-        id="plan-tab"
-        type="button"
-        [appTab]="selectedTab() === 'Deck'"
-        aria-controls="plan-panel"
-        (click)="selectedTab.select('Deck')"
-        [disabled]="!joined()"
-      >
-        Deck
-      </button>
-      <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
-      @if (showBoardTab()) {
-        <button
-          id="board-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Board'"
-          aria-controls="board-panel"
-          (click)="selectedTab.select('Board')"
-        >
-          Board
-        </button>
-      }
-      @if (showListsTab()) {
-        <button
-          id="lists-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Lists'"
-          aria-controls="lists-panel"
-          (click)="selectedTab.select('Lists')"
-        >
-          Lists
-        </button>
-      }
-      @if (showPlayTab()) {
-        <button
-          id="play-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Play'"
-          aria-controls="play-panel"
-          (click)="selectedTab.select('Play')"
-        >
-          Play
-        </button>
-      }
     </div>
 
-    <section
-      id="pool-panel"
-      class="pool"
-      role="tabpanel"
-      aria-labelledby="pool-tab"
-      [hidden]="selectedTab() !== 'Pool'"
-    >
-      <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Pool' }" />
-      @switch (draft.snapshot.state) {
-        @case ('Running') {
-          <p>
-            Snapshotting the pool from Scryfall…
+    <!-- Above the tabs; from the wide desktop breakpoint, a pane beside them. -->
+    <app-players-panel class="players-panel" (changeStarted)="clearErrors()" />
+
+    <!-- The tabs and their panels: the main column, beside the Players panel's pane. -->
+    <div class="tab-column">
+      <div class="tabs" appTabList aria-label="Draft">
+        <button
+          id="pool-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Pool'"
+          aria-controls="pool-panel"
+          (click)="selectedTab.select('Pool')"
+        >
+          Pool
+        </button>
+        <!-- Only players have a queue, and a complete draft has no Queue tab. -->
+        @if (showQueueTab()) {
+          <button
+            id="queue-tab"
+            type="button"
+            [appTab]="selectedTab() === 'Queue'"
+            aria-controls="queue-panel"
+            (click)="selectedTab.select('Queue')"
+            [disabled]="!joined()"
+          >
+            Queue
+          </button>
+        }
+        <button
+          id="plan-tab"
+          type="button"
+          [appTab]="selectedTab() === 'Deck'"
+          aria-controls="plan-panel"
+          (click)="selectedTab.select('Deck')"
+          [disabled]="!joined()"
+        >
+          Deck
+        </button>
+        <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
+        @if (showBoardTab()) {
+          <button
+            id="board-tab"
+            type="button"
+            [appTab]="selectedTab() === 'Board'"
+            aria-controls="board-panel"
+            (click)="selectedTab.select('Board')"
+          >
+            Board
+          </button>
+        }
+        @if (showListsTab()) {
+          <button
+            id="lists-tab"
+            type="button"
+            [appTab]="selectedTab() === 'Lists'"
+            aria-controls="lists-panel"
+            (click)="selectedTab.select('Lists')"
+          >
+            Lists
+          </button>
+        }
+        @if (showPlayTab()) {
+          <button
+            id="play-tab"
+            type="button"
+            [appTab]="selectedTab() === 'Play'"
+            aria-controls="play-panel"
+            (click)="selectedTab.select('Play')"
+          >
+            Play
+          </button>
+        }
+      </div>
+
+      <section
+        id="pool-panel"
+        class="pool"
+        role="tabpanel"
+        aria-labelledby="pool-tab"
+        [hidden]="selectedTab() !== 'Pool'"
+      >
+        <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Pool' }" />
+        @switch (draft.snapshot.state) {
+          @case ('Running') {
+            <p>
+              Snapshotting the pool from Scryfall…
+              @if (draft.snapshot.total !== null) {
+                {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
+              }
+            </p>
             @if (draft.snapshot.total !== null) {
-              {{ draft.snapshot.cards }} of {{ draft.snapshot.total }} cards
+              <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
+            } @else {
+              <progress></progress>
             }
-          </p>
-          @if (draft.snapshot.total !== null) {
-            <progress [value]="draft.snapshot.cards" [max]="draft.snapshot.total"></progress>
-          } @else {
-            <progress></progress>
+          }
+          @case ('Complete') {
+            <div class="pool-summary">
+              <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+              <ng-container *ngTemplateOutlet="aboutThisPool" />
+            </div>
+            @if (queueFailed()) {
+              <p class="error">Couldn't load your queue. Try reloading the page.</p>
+            }
+            <app-pool-tab [visible]="selectedTab() === 'Pool'" />
+          }
+          @case ('Failed') {
+            <div class="error" role="alert">
+              <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
+              @if (powers().organize) {
+                <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
+                  {{ retrying() ? 'Retrying…' : 'Retry' }}
+                </button>
+                @if (retryFailed()) {
+                  <p>Couldn't restart the snapshot. Try again in a moment.</p>
+                }
+              }
+            </div>
           }
         }
-        @case ('Complete') {
-          <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+        <!-- Beside the card count once the pool is complete, so nothing sits below the grid. -->
+        @if (draft.snapshot.state !== 'Complete') {
+          <ng-container *ngTemplateOutlet="aboutThisPool" />
+        }
+        <ng-template #aboutThisPool>
+          <details class="disclosure">
+            <summary>About this pool</summary>
+            <p class="detail">Platform: {{ draft.platform }}</p>
+            @switch (draft.poolSource.kind) {
+              @case ('cube') {
+                <p class="detail">
+                  Cube:
+                  <a [href]="draft.poolSource.cube.url" target="_blank" rel="noopener">{{
+                    draft.poolSource.cube.name
+                  }}</a>
+                </p>
+              }
+              @case ('pool-query') {
+                <p class="detail">
+                  Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
+                </p>
+              }
+              @case ('set-list') {
+                <p class="detail">Sets: {{ setListText(draft.poolSource.setList) }}</p>
+              }
+              <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
+              @default never(draft.poolSource);
+            }
+          </details>
+        </ng-template>
+      </section>
+
+      <!-- Only players have a queue, and a complete draft has no Queue tab. -->
+      @if (showQueueTab()) {
+        <section
+          id="queue-panel"
+          class="queue"
+          role="tabpanel"
+          aria-labelledby="queue-tab"
+          [hidden]="selectedTab() !== 'Queue'"
+        >
+          <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Queue' }" />
           @if (queueFailed()) {
             <p class="error">Couldn't load your queue. Try reloading the page.</p>
           }
-          <app-pool-tab [visible]="selectedTab() === 'Pool'" />
-        }
-        @case ('Failed') {
-          <div class="error" role="alert">
-            <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
-            @if (powers().organize) {
-              <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
-                {{ retrying() ? 'Retrying…' : 'Retry' }}
-              </button>
-              @if (retryFailed()) {
-                <p>Couldn't restart the snapshot. Try again in a moment.</p>
-              }
-            }
-          </div>
-        }
+          @if (joined() && !queueFailed()) {
+            <app-queue-tab />
+          } @else if (!joined()) {
+            <p class="empty">Only players have a queue.</p>
+          }
+        </section>
       }
-      <p class="detail">Platform: {{ draft.platform }}</p>
-      @switch (draft.poolSource.kind) {
-        @case ('cube') {
-          <p class="detail">
-            Cube:
-            <a [href]="draft.poolSource.cube.url" target="_blank" rel="noopener">{{
-              draft.poolSource.cube.name
-            }}</a>
-          </p>
-        }
-        @case ('pool-query') {
-          <p class="detail">
-            Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
-          </p>
-        }
-        @case ('set-list') {
-          <p class="detail">Sets: {{ setListText(draft.poolSource.setList) }}</p>
-        }
-        <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
-        @default never(draft.poolSource);
-      }
-    </section>
 
-    <!-- Only players have a queue, and a complete draft has no Queue tab. -->
-    @if (showQueueTab()) {
       <section
-        id="queue-panel"
-        class="queue"
+        id="plan-panel"
+        class="plan"
         role="tabpanel"
-        aria-labelledby="queue-tab"
-        [hidden]="selectedTab() !== 'Queue'"
+        aria-labelledby="plan-tab"
+        [hidden]="selectedTab() !== 'Deck'"
       >
-        <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Queue' }" />
-        @if (queueFailed()) {
-          <p class="error">Couldn't load your queue. Try reloading the page.</p>
+        <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Deck' }" />
+        @if (planFailed()) {
+          <p class="error" role="alert">Couldn't load your deck. Try reloading the page.</p>
         }
-        @if (joined() && !queueFailed()) {
-          <app-queue-tab />
+        @if (joined() && !planFailed()) {
+          <app-plan-tab />
         } @else if (!joined()) {
-          <p class="empty">Only players have a queue.</p>
+          <p class="empty">Only players have a deck.</p>
         }
       </section>
-    }
 
-    <section
-      id="plan-panel"
-      class="plan"
-      role="tabpanel"
-      aria-labelledby="plan-tab"
-      [hidden]="selectedTab() !== 'Deck'"
-    >
-      <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Deck' }" />
-      @if (planFailed()) {
-        <p class="error" role="alert">Couldn't load your deck. Try reloading the page.</p>
+      @if (showBoardTab()) {
+        <section
+          id="board-panel"
+          class="board"
+          role="tabpanel"
+          aria-labelledby="board-tab"
+          [hidden]="selectedTab() !== 'Board'"
+        >
+          <h2>Board</h2>
+          <app-board-tab />
+        </section>
       }
-      @if (joined() && !planFailed()) {
-        <app-plan-tab />
-      } @else if (!joined()) {
-        <p class="empty">Only players have a deck.</p>
+
+      <!-- A tournament has a Lists tab under public decklists once it has started, and always once it is complete. -->
+      @if (showListsTab()) {
+        <section
+          id="lists-panel"
+          class="lists"
+          role="tabpanel"
+          aria-labelledby="lists-tab"
+          [hidden]="selectedTab() !== 'Lists'"
+        >
+          <h2>Lists</h2>
+          <app-lists-tab />
+        </section>
       }
-    </section>
 
-    @if (showBoardTab()) {
-      <section
-        id="board-panel"
-        class="board"
-        role="tabpanel"
-        aria-labelledby="board-tab"
-        [hidden]="selectedTab() !== 'Board'"
-      >
-        <h2>Board</h2>
-        <app-board-tab />
-      </section>
-    }
-
-    <!-- A tournament has a Lists tab under public decklists once it has started, and always once it is complete. -->
-    @if (showListsTab()) {
-      <section
-        id="lists-panel"
-        class="lists"
-        role="tabpanel"
-        aria-labelledby="lists-tab"
-        [hidden]="selectedTab() !== 'Lists'"
-      >
-        <h2>Lists</h2>
-        <app-lists-tab />
-      </section>
-    }
-
-    <!-- Only a complete draft has a Play tab, and before setup only organizers do. -->
-    @if (showPlayTab()) {
-      <section
-        id="play-panel"
-        class="play"
-        role="tabpanel"
-        aria-labelledby="play-tab"
-        [hidden]="selectedTab() !== 'Play'"
-      >
-        <h2>Play</h2>
-        <app-play-tab />
-      </section>
-    }
+      <!-- Only a complete draft has a Play tab, and before setup only organizers do. -->
+      @if (showPlayTab()) {
+        <section
+          id="play-panel"
+          class="play"
+          role="tabpanel"
+          aria-labelledby="play-tab"
+          [hidden]="selectedTab() !== 'Play'"
+        >
+          <h2>Play</h2>
+          <app-play-tab />
+        </section>
+      }
+    </div>
   }
 </main>

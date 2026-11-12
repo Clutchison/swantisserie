@@ -27,11 +27,13 @@
  * up right-aligned in one column, as wide as the widest, and the names start
  * at one edge after it. A list sets its row's columns in --card-row-columns,
  * naming the cost and name columns: a row's cells before its CardName fill the
- * columns before them, and those after it the columns after.
+ * columns before them, and those after it the columns after. A decklist or
+ * the Pick log runs to dozens of rows, so they keep a tight line height.
  */
 .card-rows {
   --card-row-columns: [cost] max-content [name] minmax(0, 1fr);
   display: grid;
+  line-height: 1.25;
   grid-template-columns: var(--card-row-columns);
   align-items: center;
 

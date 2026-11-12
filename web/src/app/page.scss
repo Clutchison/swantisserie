@@ -5,9 +5,59 @@
  */
 :host {
   display: block;
-  padding: var(--space-lg);
   /* A long name or pool query wraps, rather than widening a phone's page. */
   overflow-wrap: anywhere;
+}
+
+/*
+ * The page frame: a page's <main> is centred at one of the shared page widths,
+ * the default unless it has `page-narrow` or `page-wide`. Its contents stay
+ * left-aligned inside it. Only pages have a <main>, so only pages get the
+ * frame's padding: a component that loads this stylesheet inside a page sits
+ * in the page's.
+ */
+:host:has(> main) {
+  padding: var(--space-lg) var(--page-gutter);
+}
+
+main {
+  max-inline-size: var(--width-default);
+  margin-inline: auto;
+
+  &.page-narrow {
+    max-inline-size: var(--width-narrow);
+  }
+
+  &.page-wide {
+    max-inline-size: var(--width-wide);
+  }
+}
+
+/* A page's title, with its actions beside it at the end of the row; they wrap under it when there isn't room. */
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-lg);
+  /* An h1's own margins, which it gives up to this. */
+  margin-block: calc(0.67 * var(--font-size-xl));
+
+  h1 {
+    margin: 0;
+  }
+
+  /* The row of actions, which wraps on a phone. */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+
+    &:empty {
+      display: none;
+    }
+  }
 }
 
 .error {
@@ -39,4 +89,25 @@ li {
   flex-basis: 100%;
   color: var(--color-muted);
   font-size: var(--font-size-sm);
+}
+
+/*
+ * A section closed until a viewer opens it, so the tab's content comes first:
+ * a tab's help ("How this works", never with notices inside) or the Pool tab's
+ * "About this pool".
+ */
+.disclosure {
+  margin-block: var(--space-sm);
+
+  summary {
+    inline-size: fit-content;
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+  }
+
+  .detail {
+    max-inline-size: var(--width-measure);
+    margin-block: var(--space-xs) 0;
+  }
 }

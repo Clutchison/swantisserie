@@ -1,14 +1,8 @@
-:host {
-  display: block;
-  padding: var(--space-lg);
-}
-
-ul {
-  list-style: none;
-  padding: 0;
-}
-
+/* A line each, coloured by health, without the shared list's rows. */
 li {
+  display: list-item;
+  padding: 0;
+  border-bottom: 0;
   color: var(--color-error);
 
   &.ok {

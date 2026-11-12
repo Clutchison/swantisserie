@@ -1,7 +1,5 @@
-/* Sits inside the draft page, which has the padding. */
 :host {
   display: block;
-  padding: 0;
 }
 
 app-decklist + app-decklist {

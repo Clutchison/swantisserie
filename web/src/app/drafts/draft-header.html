@@ -1,0 +1,112 @@
+@let shown = draft();
+<div class="page-header">
+  <div class="title">
+    <!-- The page's back link, then the draft's name. -->
+    <div class="name-row">
+      <ng-content />
+      <h1>{{ shown.name }}</h1>
+    </div>
+    <p class="facts">
+      <span class="state">{{ shown.state }}</span>
+      <span class="detail">Organized by {{ shown.organizer.name }}</span>
+      @if (turn(); as turn) {
+        <span class="turn">
+          {{ turn.text }}
+          @if (turn.isBot) {
+            <span class="badge">Bot</span>
+          }
+        </span>
+      }
+    </p>
+  </div>
+  <!-- The viewer's own buttons, then the organizer's, by the button-order standard. -->
+  <div class="actions">
+    @if (inLobby()) {
+      @if (joined()) {
+        <button class="button secondary" type="button" (click)="leave()" appSendsChange="leave">
+          Leave
+        </button>
+      } @else if (draftFull()) {
+        <span class="detail">This draft is full.</span>
+      } @else {
+        <!-- Secondary beside an organizer's Start draft, which moves the draft on. -->
+        <button
+          class="button"
+          [class.secondary]="canOrganize()"
+          type="button"
+          (click)="join()"
+          appSendsChange="join"
+        >
+          Join
+        </button>
+      }
+    }
+    @if (offerClose() || offerCancel()) {
+      <button
+        #more
+        class="button secondary menu-trigger"
+        type="button"
+        [cdkMenuTriggerFor]="moreMenu"
+        appFocusKey="more"
+      >
+        More <svg lucideChevronDown size="16" aria-hidden="true"></svg>
+      </button>
+      <ng-template #moreMenu>
+        <div cdkMenu aria-label="More">
+          @if (offerClose()) {
+            <button type="button" cdkMenuItem (cdkMenuItemTriggered)="close(more)">
+              Close draft
+            </button>
+          }
+          @if (offerCancel()) {
+            <button type="button" cdkMenuItem (cdkMenuItemTriggered)="cancel(more)">
+              Cancel draft
+            </button>
+          }
+        </div>
+      </ng-template>
+    }
+    @if (canSwitchAnnouncements()) {
+      <button class="button secondary" type="button" (click)="openAnnouncements()">
+        Announcements
+      </button>
+    }
+    @if (undoable(); as pick) {
+      <button class="button secondary" type="button" (click)="undo(pick)" appSendsChange="undo">
+        {{ undoLabel() }}
+      </button>
+    }
+    @if (offerPause()) {
+      <button class="button" type="button" (click)="pause()" appSendsChange="pause">
+        Pause draft
+      </button>
+    }
+    @if (offerResume()) {
+      <button class="button" type="button" (click)="resume()" appSendsChange="resume">
+        Resume draft
+      </button>
+    }
+    @if (offerReopen()) {
+      <button class="button" type="button" (click)="reopen()" appSendsChange="reopen">
+        Reopen draft
+      </button>
+    }
+    @if (inLobby() && canOrganize()) {
+      <button
+        class="button"
+        type="button"
+        (click)="start()"
+        [disabled]="!poolReady()"
+        appSendsChange="start"
+      >
+        Start draft
+      </button>
+    }
+  </div>
+</div>
+@if (inLobby() && canOrganize() && !poolReady()) {
+  <p class="detail">You can start the draft once the pool snapshot is complete.</p>
+}
+@if (error(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}

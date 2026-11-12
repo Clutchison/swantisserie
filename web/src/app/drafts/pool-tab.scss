@@ -1,12 +1,8 @@
 @use './card-shape';
+@use '../../breakpoints' as bp;
 
 /* How far a card is darkened to set it apart: a picked card here, an unpicked one in the Deck tab's stacks. */
 $dimmed-card: brightness(0.35);
-
-/* Sits inside the draft page, which has the padding. */
-:host {
-  padding: 0;
-}
 
 /* Stays in reach while the grid scrolls under it, below any tabs at the top of the page. */
 .search-bar {
@@ -92,7 +88,7 @@ $dimmed-card: brightness(0.35);
 }
 
 /* Their own row on phones. */
-@media (max-width: 40rem) {
+@media (max-width: bp.$color-filter-row) {
   .color-filter {
     flex-basis: 100%;
   }
@@ -122,6 +118,8 @@ $dimmed-card: brightness(0.35);
 
 /* A card-sized frame: the name shows until the image loads over it. */
 .tile {
+  /* Focused from the keyboard, it scrolls into view below the search bar, not under it; the page clears any tabs above. */
+  scroll-margin-top: var(--search-bar-height, 0);
   position: relative;
   display: block;
   width: 100%;

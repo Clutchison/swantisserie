@@ -39,6 +39,7 @@ time.detail {
 /* Sent as plain text: keep its line breaks, and don't let a long word widen the page. */
 .message {
   flex-basis: 100%;
+  max-inline-size: var(--width-measure);
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;

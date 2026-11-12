@@ -9,12 +9,41 @@
     <p class="error" role="alert">{{ problem }}</p>
   }
 
+  <h2>Add a webhook</h2>
+  <form class="add" [formGroup]="form" (ngSubmit)="add()">
+    <label>
+      Name
+      <input
+        name="name"
+        formControlName="name"
+        [maxlength]="maxNameLength"
+        placeholder="e.g. #roto-main"
+      />
+    </label>
+    <label>
+      URL
+      <input
+        name="url"
+        formControlName="url"
+        type="url"
+        placeholder="https://discord.com/api/webhooks/…"
+      />
+      <span class="hint">
+        In Discord: channel settings → Integrations → Webhooks → Copy Webhook URL.
+      </span>
+    </label>
+    <div>
+      <button class="button" type="submit" [disabled]="saving()">Add</button>
+    </div>
+  </form>
+
+  <h2 id="registered-webhooks">Registered webhooks</h2>
   @if (webhooks.isLoading() && !webhooks.hasValue()) {
     <p>Loading…</p>
   } @else if (webhooks.error()) {
     <p class="error">Couldn't load the webhooks. Try reloading the page.</p>
   } @else if (webhooks.hasValue()) {
-    <ul>
+    <ul aria-labelledby="registered-webhooks">
       @for (webhook of webhooks.value(); track webhook.id) {
         <li>
           <input #name [value]="webhook.name" [maxLength]="maxNameLength" aria-label="Name" />
@@ -65,32 +94,4 @@
       }
     </ul>
   }
-
-  <h2>Add a webhook</h2>
-  <form class="add" [formGroup]="form" (ngSubmit)="add()">
-    <label>
-      Name
-      <input
-        name="name"
-        formControlName="name"
-        [maxlength]="maxNameLength"
-        placeholder="e.g. #roto-main"
-      />
-    </label>
-    <label>
-      URL
-      <input
-        name="url"
-        formControlName="url"
-        type="url"
-        placeholder="https://discord.com/api/webhooks/…"
-      />
-      <span class="hint">
-        In Discord: channel settings → Integrations → Webhooks → Copy Webhook URL.
-      </span>
-    </label>
-    <div>
-      <button class="button" type="submit" [disabled]="saving()">Add</button>
-    </div>
-  </form>
 </main>

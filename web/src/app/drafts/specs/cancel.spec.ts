@@ -23,6 +23,7 @@ import {
   ALL_POWERS,
   openUrl,
 } from './harness';
+import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
 
 useDraftsApp();
 
@@ -44,7 +45,7 @@ describe('cancel', () => {
     async (snapshot) => {
       const { fixture, page } = await openDraft(snapshot);
 
-      button(page, 'Cancel draft')!.click();
+      chooseFromMore(page, 'Cancel draft');
 
       const dialog = await question('Cancel Red dragons?');
       expect(dialog.textContent).toContain(
@@ -64,12 +65,12 @@ describe('cancel', () => {
     },
   );
 
-  it('leaves the lobby’s controls ignoring presses once the draft is cancelled, while the page leaves', async () => {
+  it('leaves the header’s and lobby’s controls ignoring presses once the draft is cancelled, while the page leaves', async () => {
     const { fixture, page } = await openDraft(completeSnapshot);
     // The draft list never arrives, so the page stays as it leaves.
     const leave = vi.spyOn(router, 'navigateByUrl').mockReturnValue(new Promise(() => {}));
 
-    button(page, 'Cancel draft')!.click();
+    chooseFromMore(page, 'Cancel draft');
     await answer(await question('Cancel Red dragons?'), 'Cancel draft');
     (
       await vi.waitFor(() => http.expectOne({ url: '/api/drafts/draft-1', method: 'DELETE' }))
@@ -77,19 +78,18 @@ describe('cancel', () => {
     await vi.waitFor(() => expect(leave).toHaveBeenCalled());
     await fixture.whenStable();
 
-    expect(button(page, 'Cancel draft')!.getAttribute('aria-disabled')).toBe('true');
+    expect(button(page, 'Start draft')!.getAttribute('aria-disabled')).toBe('true');
+    expect(button(page, 'Randomize seats')!.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('keeps a draft the organizer thinks better of cancelling', async () => {
     const { fixture, page } = await openDraft(completeSnapshot);
-    const opener = button(page, 'Cancel draft')!;
-    opener.focus();
-    opener.click();
+    chooseFromMore(page, 'Cancel draft');
 
     await answer(await question('Cancel Red dragons?'), 'Keep draft');
     await fixture.whenStable();
 
-    expect(document.activeElement).toBe(opener);
+    expect(document.activeElement).toBe(moreButton(page));
 
     http.expectNone('/api/drafts/draft-1');
     expect(router.url).toBe('/drafts/draft-1');
@@ -101,7 +101,7 @@ describe('cancel', () => {
       {},
       { powers: { ...ALL_POWERS, organize: false } },
     );
-    expect(button(page, 'Cancel draft')).toBeUndefined();
+    expect(moreButton(page)).toBeUndefined();
   });
 
   it('does not offer it once the draft has left the lobby', async () => {
@@ -110,13 +110,13 @@ describe('cancel', () => {
       players: [alicePlayer, bob],
       turn: { pick: 1, round: 1, playerId: alice.id },
     });
-    expect(button(page, 'Cancel draft')).toBeUndefined();
+    expect(offeredInMore(page)).not.toContain('Cancel draft');
   });
 
   it('says why when the draft has started meanwhile', async () => {
     const { fixture, page } = await openDraft(completeSnapshot);
 
-    button(page, 'Cancel draft')!.click();
+    chooseFromMore(page, 'Cancel draft');
     await answer(await question('Cancel Red dragons?'), 'Cancel draft');
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
       { error: 'draft-started', message: 'This draft has started.' } satisfies DraftChangeRefusal,
@@ -149,7 +149,7 @@ describe('cancel', () => {
       expect(alertIn(page)?.textContent).toContain("Couldn't update the players."),
     );
 
-    button(page, 'Cancel draft')!.click();
+    chooseFromMore(page, 'Cancel draft');
     await answer(await question('Cancel Red dragons?'), 'Cancel draft');
     const req = await vi.waitFor(() =>
       http.expectOne({ url: '/api/drafts/draft-1', method: 'DELETE' }),
@@ -164,7 +164,7 @@ describe('cancel', () => {
     );
     // A failure that isn't a refusal says nothing of the draft, so it isn't read again.
     expect(http.match({ url: '/api/drafts/draft-1', method: 'GET' })).toEqual([]);
-    expect(button(page, 'Cancel draft')!.getAttribute('aria-disabled')).toBeNull();
+    expect(button(page, 'Start draft')!.getAttribute('aria-disabled')).toBeNull();
     expect(router.url).toBe('/drafts/draft-1');
   });
 

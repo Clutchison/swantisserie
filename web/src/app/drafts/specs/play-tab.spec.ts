@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { answer, question } from '../../specs-harness';
+import { answer, comesBefore, question } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   ALL_POWERS,
@@ -18,6 +18,7 @@ import {
   flushPool,
   flushQueue,
   heading,
+  namedList,
   http,
   openDraft,
   openUrl,
@@ -30,6 +31,12 @@ import {
   useDraftsApp,
   serverError,
 } from './harness';
+import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
 import {
   answerChange,
   answerChangeFailingReread,
@@ -99,6 +106,20 @@ describe('Play tab', () => {
       expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: false });
       expect(button(panel(page), 'Set up tournament')).toBeUndefined();
       expect(panel(page).textContent).toContain('Nobody has joined yet.');
+    });
+
+    it('hides the setup help in a closed "How this works" section until opened', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+      const tab = await openPlayTab(fixture, page);
+
+      const help = () => elementContaining(tab, 'Setup can’t be changed afterwards');
+
+      expect(disclosure(tab, 'How this works')!.open).toBe(false);
+      expect(hiddenInClosedSection(help())).toBe(true);
+      toggleDisclosure(tab, 'How this works');
+      await fixture.whenStable();
+
+      expect(hiddenInClosedSection(help())).toBe(false);
     });
 
     it('offers public decklists as a toggle, private unless the organizer switches it, and sets the tournament up with them', async () => {
@@ -298,6 +319,19 @@ describe('Play tab', () => {
         'Cancel tournament',
         'Start tournament',
       ]);
+    });
+
+    it('reads the registration buttons before Joined players, so a full list doesn’t push them out of view', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      const tab = await openPlayTab(fixture, page);
+
+      const list = namedList(tab, 'Joined players');
+      for (const label of ['Leave', 'I’m ready', 'Cancel tournament', 'Start tournament']) {
+        expect(comesBefore(button(tab, label)!, list)).toBe(true);
+      }
     });
 
     it('offers Leave, then I’m ready, to a joined player who isn’t an organizer', async () => {

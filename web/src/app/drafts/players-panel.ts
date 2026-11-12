@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  Injector,
   output,
   signal,
   untracked,
@@ -21,19 +20,25 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import { changeFailure, DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import {
+  hasTurn,
+  isRefusal,
+  matching,
+  PLAYERS_CHANGE_FAILED,
+  sendDraftChange,
+  WIDE_DESKTOP_QUERY,
+} from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
-import { Questions } from '../question-dialog';
 
 /**
- * The seat order, which stays on show once the draft starts, and all the
- * changes to a draft in Lobby: joining, seats, bots, starting, pick import
- * and cancelling.
+ * The Players panel: the players in seat order, at every state, and the
+ * seating tools of a draft in Lobby: seats, bots and pick import. Joining,
+ * starting and cancelling are in the draft header.
  */
 @Component({
-  selector: 'app-lobby-controls',
+  selector: 'app-players-panel',
   imports: [
     ChangeStatus,
     LucideArrowDown,
@@ -43,17 +48,14 @@ import { Questions } from '../question-dialog';
     PlayerAvatar,
     SendsChange,
   ],
-  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './lobby-controls.html',
-  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
+  templateUrl: './players-panel.html',
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './players-panel.scss'],
 })
-export class LobbyControls {
+export class PlayersPanel {
   private readonly http = inject(HttpClient);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
-  private readonly questions = inject(Questions);
-  private readonly injector = inject(Injector);
 
   private readonly draft = this.store.shown;
   /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
@@ -62,12 +64,8 @@ export class LobbyControls {
     return hasTurn(draft) ? draft.turn.playerId : null;
   });
   protected readonly canOrganize = this.store.canOrganize;
-  /** Whether the signed-in user has joined this draft. */
-  protected readonly joined = this.store.joined;
-  /** A change to the players, seats or state is being sent. */
+  /** A change to the players or seats, or a pick import, is being sent: the page forgets earlier failures. */
   readonly changeStarted = output<void>();
-  /** The organizer cancelled the draft. */
-  readonly cancelled = output<void>();
 
   protected readonly canAddBots = this.store.canAddBots;
   /** A full draft takes no more players: no one joins, and no bot is added. */
@@ -75,15 +73,24 @@ export class LobbyControls {
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
   /**
-   * Read once: resizing after load doesn't move the seat order. No `matchMedia` counts as mobile.
-   * The breakpoint matches the desktop layout in `lobby-controls.scss` and `draft-page.scss`.
+   * Whether the panel is a pane beside the tabs, as the window is resized:
+   * the layout in `draft-page.scss`. No `matchMedia` counts as a phone.
    */
-  private readonly onDesktop = !!globalThis.matchMedia?.(DESKTOP_QUERY).matches;
-  /** The seat order stays open on desktop; on mobile it collapses once the draft starts. */
-  protected readonly seatOrderOpen = computed(() => this.onDesktop || this.inLobby());
+  private readonly wide = matching(WIDE_DESKTOP_QUERY);
+  /**
+   * The panel stays open in its pane on a wide desktop; narrower, it is open
+   * in the lobby and collapses once the draft starts, out of the tabs' way.
+   */
+  protected readonly open = computed(() => this.wide() || this.inLobby());
+  protected readonly playerCount = computed(() => this.draft().players.length);
+
+  /** On a wide desktop the panel stays open: a click on its summary doesn't close it. */
+  protected keepOpen(click: Event) {
+    if (this.wide()) click.preventDefault();
+  }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
-  protected readonly lobbyError = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
 
   /**
    * What the latest file chosen for a pick import would do, with its text to
@@ -107,34 +114,20 @@ export class LobbyControls {
 
   /** Forgets the latest change's failure, as another change to the draft is being sent. */
   clearError() {
-    this.lobbyError.set(null);
-  }
-
-  /** Joins the draft; focus goes to Leave, which takes Join's place. */
-  protected join() {
-    return this.changeLobby(
-      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/players`, null),
-      { keep: ['leave'] },
-    );
-  }
-
-  /** Leaves the draft; focus goes to Join, which takes Leave's place. */
-  protected leave() {
-    return this.changeLobby(
-      this.http.delete<DraftView>(`/api/drafts/${this.draft().id}/players/me`),
-      { keep: ['join'] },
-    );
+    this.error.set(null);
   }
 
   protected randomizeSeats() {
-    return this.changeLobby(
+    return this.changePlayers(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/seats/randomize`, null),
     );
   }
 
   /** Adds a bot; should that fill the draft, focus goes to the control after Add bot. */
   protected addBot() {
-    return this.changeLobby(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/bots`, null));
+    return this.changePlayers(
+      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/bots`, null),
+    );
   }
 
   /** Removes a bot; focus goes to the next bot's Remove, or else the one before. */
@@ -142,7 +135,7 @@ export class LobbyControls {
     const bots = this.draft().players.filter((player) => player.isBot);
     const at = bots.findIndex((bot) => bot.id === userId);
     const neighbours = [bots[at + 1], bots[at - 1]].filter((bot) => bot !== undefined);
-    return this.changeLobby(
+    return this.changePlayers(
       this.http.delete<DraftView>(
         `/api/drafts/${this.draft().id}/bots/${encodeURIComponent(userId)}`,
       ),
@@ -160,7 +153,7 @@ export class LobbyControls {
     const playerIds = players.map((player) => player.id);
     [playerIds[index], playerIds[index + by]] = [playerIds[index + by], playerIds[index]];
     const { id, name } = players[index];
-    return this.changeLobby(
+    return this.changePlayers(
       this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
         playerIds,
       } satisfies SeatOrderRequest),
@@ -171,13 +164,6 @@ export class LobbyControls {
         keep: [`earlier ${id}`],
         status: `${name} moved to seat ${index + by + 1}`,
       },
-    );
-  }
-
-  protected start() {
-    return this.changeLobby(
-      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/start`, null),
-      { failure: "Couldn't start the draft. Try again in a moment." },
     );
   }
 
@@ -193,7 +179,8 @@ export class LobbyControls {
     // Stryker disable next-line ConditionalExpression: the input is emptied after every preview, so `change` never fires with no file chosen.
     if (!file) return;
     return this.changes.send(async () => {
-      this.lobbyError.set(null);
+      this.error.set(null);
+      this.changeStarted.emit();
       this.clearPickImport();
       const failure = "Couldn't read the file. Try again in a moment.";
       try {
@@ -209,9 +196,9 @@ export class LobbyControls {
           this.pickImportProblems.set(pickImportProblems(err));
         } else if (err instanceof HttpErrorResponse && err.status === 413) {
           // The API's own limit, or the body parser's, which doesn't say so as plainly.
-          this.lobbyError.set('That file is too large to be a sheet of picks.');
+          this.error.set('That file is too large to be a sheet of picks.');
         } else {
-          this.lobbyFailed(err, failure);
+          this.showFailure(err, failure);
         }
       } finally {
         // So choosing the same file again, perhaps fixed, is a change.
@@ -223,7 +210,8 @@ export class LobbyControls {
   /** Imports the previewed file, which the API checks again; the draft starts paused. */
   protected confirmPickImport({ csv, seats }: PickImportPreview & { csv: string }) {
     return this.changes.send(async () => {
-      this.lobbyError.set(null);
+      this.error.set(null);
+      this.changeStarted.emit();
       try {
         this.store.apply(
           await firstValueFrom(
@@ -238,7 +226,7 @@ export class LobbyControls {
           this.clearPickImport();
           this.pickImportProblems.set(pickImportProblems(err));
         } else {
-          this.lobbyFailed(err, "Couldn't import the picks. Try again in a moment.");
+          this.showFailure(err, "Couldn't import the picks. Try again in a moment.");
         }
       }
     });
@@ -249,71 +237,36 @@ export class LobbyControls {
     this.pickImportProblems.set([]);
   }
 
-  /** Cancels the draft, once the organizer goes ahead: it can't be undone. */
-  protected cancel() {
-    return this.changes.send(
-      async () => {
-        const { id, name } = this.draft();
-        const goAhead = await this.questions.ask(
-          {
-            question: `Cancel ${name}?`,
-            detail: "This removes the draft for everyone and can't be undone.",
-            action: 'Cancel draft',
-            dismiss: 'Keep draft',
-          },
-          this.injector,
-        );
-        if (!goAhead) return;
-        this.lobbyError.set(null);
-        try {
-          await firstValueFrom(this.http.delete<void>(`/api/drafts/${id}`));
-          this.cancelled.emit();
-          return true;
-        } catch (err) {
-          this.lobbyFailed(err, "Couldn't cancel the draft. Try again in a moment.");
-          return false;
-        }
-      },
-      // Stays busy once cancelled: the page is leaving.
-      { busyOnceMade: true },
-    );
-  }
-
-  private lobbyFailed(err: unknown, failure: string) {
+  private showFailure(err: unknown, failure: string) {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
-      this.lobbyError.set(err.error?.message ?? failure);
+      this.error.set(err.error?.message ?? failure);
       this.store.catchUp();
     } else {
-      this.lobbyError.set(failure);
+      this.error.set(failure);
     }
   }
 
   /**
    * Sends a change to the draft and shows the draft it answers with, unless
-   * another change is in flight; `failure` is shown if it fails, and a
-   * refusal has the store catch up with the draft.
+   * another change is in flight; a failure is shown, or the API's reason
+   * if it refused, and the store catches up with the draft.
    * Focus is kept as `Changes.send` keeps it, and a change made says `status`.
    */
-  private changeLobby(
+  private changePlayers(
     request: Observable<DraftView>,
-    {
-      failure = "Couldn't update the players. Try again in a moment.",
-      ...kept
-    }: { keep?: string[]; status?: string; failure?: string } = {},
+    options: { keep?: string[]; status?: string } = {},
   ) {
-    return this.changes.send(async () => {
-      this.lobbyError.set(null);
-      this.changeStarted.emit();
-      try {
-        await this.store.changeDraft(request);
-        return true;
-      } catch (err) {
-        this.lobbyError.set(changeFailure(err, failure));
-        return false;
-      }
-    }, kept);
+    return sendDraftChange(this.changes, () => () => this.store.changeDraft(request), {
+      failure: PLAYERS_CHANGE_FAILED,
+      started: () => {
+        this.error.set(null);
+        this.changeStarted.emit();
+      },
+      failed: (message) => this.error.set(message),
+      ...options,
+    });
   }
 }
 

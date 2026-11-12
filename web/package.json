@@ -7,7 +7,7 @@
     "build": "ng build",
     "typecheck": "ngc -p tsconfig.app.json --noEmit && tsc -p tsconfig.spec.json --noEmit",
     "test": "ng test --watch=false",
-    "lint": "oxlint --type-aware src/",
+    "lint": "oxlint --type-aware src/ && node --test scripts/check-stylesheets.test.mts && node scripts/check-stylesheets.mts",
     "format": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --write",
     "format:check": "prettier . --ignore-path ../.gitignore --ignore-path .prettierignore --check",
     "test:mutation": "stryker run"

@@ -1,6 +1,8 @@
 <div class="dialog">
   <h3 [id]="headingId">{{ question().question }}</h3>
-  <p>{{ question().detail }}</p>
+  <div class="dialog-body">
+    <p>{{ question().detail }}</p>
+  </div>
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close(false)">
       {{ question().dismiss ?? 'Cancel' }}

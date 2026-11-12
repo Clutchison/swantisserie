@@ -4,6 +4,7 @@ import {
   alice,
   answer,
   carol,
+  comesBefore,
   http,
   openApp,
   question,
@@ -11,7 +12,7 @@ import {
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
-import { buttonOrder } from '../drafts/specs/harness';
+import { buttonOrder, namedList } from '../drafts/specs/harness';
 
 const main: WebhookWithUrlView = {
   id: 'webhook-main',
@@ -111,6 +112,12 @@ describe('webhooks page', () => {
     ]);
     expect(form.querySelector<HTMLInputElement>('[name="name"]')?.value).toBe('');
     expect(form.querySelector<HTMLInputElement>('[name="url"]')?.value).toBe('');
+  });
+
+  it('offers Add before the webhooks, so a long list doesn’t push it out of view', async () => {
+    const { page } = await openPage([main, side]);
+
+    expect(comesBefore(button(page, 'Add'), namedList(page, 'Registered webhooks'))).toBe(true);
   });
 
   it('says why a webhook could not be added, keeping what was typed', async () => {

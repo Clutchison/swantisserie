@@ -1,6 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PlanView, PoolCardView } from 'contract';
-import { byAriaLabel, collapseWhitespace } from '../../specs-harness';
+import {
+  collapseWhitespace,
+  menu,
+  menuItem,
+  menuItems,
+  openMenu,
+  pressEscape,
+  pressKey,
+} from '../../specs-harness';
 import type { PickedCard } from '../draft-store';
 import type { ExportTarget } from '../export-buttons';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
@@ -28,7 +36,7 @@ import {
   buttonOrder,
   accessibleName,
 } from './harness';
-import { copyButton, openPlan, planPanel, sideboardNotice } from './plan-tab-harness';
+import { exportButton, openPlan, planPanel, sideboardNotice } from './plan-tab-harness';
 import { playing, threePlayers, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -54,15 +62,16 @@ const cardsOf = (picked: PickedCard[]) => picked.map(({ card }) => card);
 const picksOf = (picked: PickedCard[]): PickView[] =>
   picked.map(({ pick, playerId, poolCardId }) => ({ pick, playerId, poolCardId }));
 
-/** The Deck tab's copy buttons, with their live region and clipboard error. */
-const exportsGroup = (root: HTMLElement) =>
-  byAriaLabel(planPanel(root), '[role="group"]', 'Exports');
-
-/** What a copy button reads as: its confirmation, once it has one, or else its label. */
+/** What the Export button reads as: its confirmation, once it has one, or else its label. */
 const shownLabel = (copy: HTMLElement) => collapseWhitespace(accessibleName(copy));
-/** What the copy buttons' hidden status region announces. */
+/** What the Export button's hidden status region announces: "Copied for …", or nothing. */
 const announced = (root: HTMLElement) =>
-  exportsGroup(root)?.querySelector('[role="status"]')?.textContent?.trim();
+  [...planPanel(root).querySelectorAll<HTMLElement>('[role="status"]')]
+    .map(text)
+    .find((said) => said.startsWith('Copied for')) ?? '';
+
+/** An open draft page, for the helpers that act on it. */
+type Opened = { fixture: { whenStable(): Promise<unknown> }; page: HTMLElement };
 
 describe('Deck tab exports', () => {
   const picks: PickedCard[] = [
@@ -115,12 +124,12 @@ describe('Deck tab exports', () => {
 
   it('offers nothing to copy until the pool arrives', async () => {
     const { fixture, page, poolReq } = await openPlanPoolUnanswered();
-    expect(copyButton(page)).toBeUndefined();
+    expect(exportButton(page)).toBeUndefined();
 
     poolReq.flush(cardsOf(picks));
     await fixture.whenStable();
 
-    expect(copyButton(page)).toBeDefined();
+    expect(exportButton(page)).toBeDefined();
   });
 
   it('offers nothing to copy when the pool failed', async () => {
@@ -129,13 +138,13 @@ describe('Deck tab exports', () => {
     poolReq.flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    expect(copyButton(page)).toBeUndefined();
+    expect(exportButton(page)).toBeUndefined();
   });
 
   it('offers nothing to copy when you have no picks', async () => {
     const { page } = await openPlanWith([picks[0]!]);
 
-    expect(copyButton(page)).toBeUndefined();
+    expect(exportButton(page)).toBeUndefined();
   });
 
   it('has no Export tab', async () => {
@@ -162,31 +171,88 @@ describe('Deck tab exports', () => {
     });
 
     /** Copies for `target`, and answers with what was copied. */
-    async function copyFor(
-      opened: { fixture: { whenStable(): Promise<unknown> }; page: HTMLElement },
-      target: ExportTarget = 'Arena',
-    ) {
-      copyButton(opened.page, target)!.click();
+    async function copyFor(opened: Opened, target: ExportTarget = 'Arena') {
+      if (!menu('Export')) openMenu(exportButton(opened.page)!, 'Export');
+      menuItem('Export', `Copy for ${target}`)!.click();
       await opened.fixture.whenStable();
       return writeText.mock.lastCall?.[0];
     }
 
-    /** The Deck tab's controls row from Add basics on. */
-    const fromAddBasics = (root: HTMLElement) => {
-      const row = buttonOrder(planPanel(root), 'Add basics');
-      return row.slice(row.indexOf('Add basics'));
-    };
+    it('offers Export last in the tools row, after Queue unpicked and Add basics', async () => {
+      const unpicked = { poolCardId: 'brainstorm-card', name: 'Brainstorm', picked: false };
+      const opened = await openPlanWith(
+        picks,
+        {},
+        { plan: { ...EMPTY_PLAN, mainboard: [unpicked] } },
+      );
+      button(planPanel(opened.page), 'Stacks')!.click();
+      await opened.fixture.whenStable();
 
-    it('offers copies for Arena and Moxfield on an Arena draft, after Add basics', async () => {
-      const { page } = await openPlanWith(picks, { platform: 'Arena' });
-
-      expect(fromAddBasics(page)).toEqual(['Add basics', 'Copy for Arena', 'Copy for Moxfield']);
+      // Only the row's action buttons: the mode and Group by toggles have no order to keep.
+      const actions = ['Queue unpicked', 'Add basics', 'Export'];
+      expect(
+        buttonOrder(planPanel(opened.page), 'Export').filter((name) => actions.includes(name)),
+      ).toEqual(actions);
     });
 
-    it('offers copies for MTGO and Moxfield on an MTGO draft, after Add basics', async () => {
-      const { page } = await openPlanWith(picks, { platform: 'MTGO' });
+    it('opens an Export menu of Arena and Moxfield on an Arena draft', async () => {
+      const opened = await openPlanWith(picks, { platform: 'Arena' });
 
-      expect(fromAddBasics(page)).toEqual(['Add basics', 'Copy for MTGO', 'Copy for Moxfield']);
+      expect(menu('Export')).toBeNull();
+      expect(openMenu(exportButton(opened.page)!, 'Export')).toEqual([
+        'Copy for Arena',
+        'Copy for Moxfield',
+      ]);
+    });
+
+    it('opens an Export menu of MTGO and Moxfield on an MTGO draft', async () => {
+      const opened = await openPlanWith(picks, { platform: 'MTGO' });
+
+      expect(openMenu(exportButton(opened.page)!, 'Export')).toEqual([
+        'Copy for MTGO',
+        'Copy for Moxfield',
+      ]);
+    });
+
+    it('opens the Export menu from the keyboard, focusing its first item', async () => {
+      const opened = await openPlanWith(picks);
+
+      pressKey(exportButton(opened.page)!, 'ArrowDown');
+      await opened.fixture.whenStable();
+
+      expect(menuItems('Export')).toEqual(['Copy for Arena', 'Copy for Moxfield']);
+      expect(document.activeElement).toBe(menuItem('Export', 'Copy for Arena'));
+    });
+
+    it('closes the Export menu on Escape, returning focus to Export, without copying', async () => {
+      const opened = await openPlanWith(picks);
+      pressKey(exportButton(opened.page)!, 'ArrowDown');
+      await opened.fixture.whenStable();
+
+      pressEscape();
+      await opened.fixture.whenStable();
+
+      expect(menu('Export')).toBeNull();
+      expect(document.activeElement).toBe(exportButton(opened.page));
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('copies the item chosen from the keyboard, returning focus to Export', async () => {
+      const opened = await openPlanWith(picks);
+      pressKey(exportButton(opened.page)!, 'ArrowDown');
+      await opened.fixture.whenStable();
+
+      pressKey(menuItem('Export', 'Copy for Arena')!, 'ArrowDown');
+      pressKey(menuItem('Export', 'Copy for Moxfield')!, 'Enter');
+      await opened.fixture.whenStable();
+
+      expect(writeText.mock.lastCall?.[0]).toBe('1 Lightning Bolt (IMA) 1\n1 Lava Spike (IMA) 1');
+      expect(menu('Export')).toBeNull();
+      expect(document.activeElement).toBe(exportButton(opened.page));
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(announced(opened.page)).toBe('Copied for Moxfield');
+      });
     });
 
     describe('with every pick on the mainboard', () => {
@@ -331,7 +397,7 @@ describe('Deck tab exports', () => {
         });
         expect(text(planPanel(opened.page))).toContain('Your deck is locked');
         expect(button(planPanel(opened.page), 'Add basics')).toBeUndefined();
-        expect(buttonOrder(planPanel(opened.page), 'Copy for Arena')).toEqual([
+        expect(openMenu(exportButton(opened.page)!, 'Export')).toEqual([
           'Copy for Arena',
           'Copy for Moxfield',
         ]);
@@ -371,10 +437,10 @@ describe('Deck tab exports', () => {
         tabButton(page, 'Deck').click();
         TestBed.tick();
 
-        expect(copyButton(page)).toBeUndefined();
+        expect(exportButton(page)).toBeUndefined();
         planRequest.flush(plan);
         await fixture.whenStable();
-        expect(copyButton(page)).toBeDefined();
+        expect(exportButton(page)).toBeDefined();
       });
 
       it('offers nothing to copy when your deck couldn’t be loaded', async () => {
@@ -399,7 +465,7 @@ describe('Deck tab exports', () => {
         await openPlan(fixture, page);
 
         expect(alertIn(planPanel(page))?.textContent).toContain("Couldn't load your deck");
-        expect(copyButton(page)).toBeUndefined();
+        expect(exportButton(page)).toBeUndefined();
       });
 
       describe('a sideboard over Arena’s 15', () => {
@@ -475,7 +541,7 @@ describe('Deck tab exports', () => {
 
       expect(alertIn(planPanel(opened.page))?.textContent).toContain("Couldn't copy");
       expect(announced(opened.page)).toBe('');
-      expect(shownLabel(copyButton(opened.page, 'Moxfield')!)).toBe('Copy for Moxfield');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Export');
     });
 
     it('reports a failed copy for Arena when the clipboard refuses', async () => {
@@ -486,19 +552,18 @@ describe('Deck tab exports', () => {
 
       expect(alertIn(planPanel(opened.page))?.textContent).toContain("Couldn't copy");
       expect(announced(opened.page)).toBe('');
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Export');
     });
 
-    it('confirms a copy on the clicked button, with a checkmark', async () => {
+    it('closes the menu and confirms a copy on the Export button', async () => {
       const opened = await openPlanWith(picks);
       const { page } = opened;
+      expect(shownLabel(exportButton(page)!)).toBe('Export');
 
       await copyFor(opened);
 
-      expect(shownLabel(copyButton(page)!)).toBe('Copied');
-      expect(copyButton(page)!.querySelector('svg')).not.toBeNull();
-      expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copy for Moxfield');
-      expect(copyButton(page, 'Moxfield')!.querySelector('svg')).toBeNull();
+      expect(menu('Export')).toBeNull();
+      expect(shownLabel(exportButton(page)!)).toBe('Copied');
     });
 
     describe('over time', () => {
@@ -519,73 +584,67 @@ describe('Deck tab exports', () => {
 
       it('returns the button to its label after 2 seconds', async () => {
         const { fixture, page } = await openPlanWithClock();
-        copyButton(page)!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page });
 
         await pass(fixture, 1999);
-        expect(shownLabel(copyButton(page)!)).toBe('Copied');
+        expect(shownLabel(exportButton(page)!)).toBe('Copied');
 
         await pass(fixture, 1);
-        expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+        expect(shownLabel(exportButton(page)!)).toBe('Export');
         expect(announced(page)).toBe('');
       });
 
-      it('copies again and restarts the 2 seconds when clicked while confirmed', async () => {
+      it('copies again and restarts the 2 seconds when copied again while confirmed', async () => {
         const { fixture, page } = await openPlanWithClock();
-        copyButton(page)!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page });
         await pass(fixture, 1500);
 
-        copyButton(page)!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page });
         expect(writeText).toHaveBeenCalledTimes(2);
 
         await pass(fixture, 1999);
-        expect(shownLabel(copyButton(page)!)).toBe('Copied');
+        expect(shownLabel(exportButton(page)!)).toBe('Copied');
         await pass(fixture, 1);
-        expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+        expect(shownLabel(exportButton(page)!)).toBe('Export');
       });
 
       it('confirms only the latest copy, for its own 2 seconds', async () => {
         const { fixture, page } = await openPlanWithClock();
-        copyButton(page)!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page });
         await pass(fixture, 1500);
 
-        copyButton(page, 'Moxfield')!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page }, 'Moxfield');
 
-        expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
-        expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copied');
+        expect(shownLabel(exportButton(page)!)).toBe('Copied');
         expect(announced(page)).toBe('Copied for Moxfield');
 
         await pass(fixture, 1999);
-        expect(shownLabel(copyButton(page, 'Moxfield')!)).toBe('Copied');
+        expect(shownLabel(exportButton(page)!)).toBe('Copied');
+        await pass(fixture, 1);
+        expect(shownLabel(exportButton(page)!)).toBe('Export');
       });
 
-      it('returns the first button to its label while the other button is still copying', async () => {
+      it('takes the confirmation off while a copy for another export is still copying', async () => {
         const { fixture, page } = await openPlanWithClock();
-        copyButton(page)!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page });
 
         writeText.mockReturnValue(new Promise(() => {}));
-        copyButton(page, 'Moxfield')!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page }, 'Moxfield');
 
-        expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+        expect(shownLabel(exportButton(page)!)).toBe('Export');
+        expect(announced(page)).toBe('');
       });
 
       it.each(['Pool', 'Queue', 'Board'] as const)(
         'clears the confirmation when the %s tab closes the panel',
         async (tab) => {
           const { fixture, page } = await openPlanWithClock();
-          copyButton(page)!.click();
-          await fixture.whenStable();
+          await copyFor({ fixture, page });
 
           tabButton(page, tab).click();
           await fixture.whenStable();
 
-          expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+          expect(shownLabel(exportButton(page)!)).toBe('Export');
           expect(announced(page)).toBe('');
         },
       );
@@ -594,8 +653,7 @@ describe('Deck tab exports', () => {
         let finishCopy = () => {};
         writeText.mockReturnValue(new Promise((resolve) => (finishCopy = resolve)));
         const { fixture, page } = await openPlanWithClock();
-        copyButton(page)!.click();
-        await fixture.whenStable();
+        await copyFor({ fixture, page });
 
         tabButton(page, 'Pool').click();
         await fixture.whenStable();
@@ -603,7 +661,7 @@ describe('Deck tab exports', () => {
         await writeText.mock.results[0]?.value;
         await fixture.whenStable();
 
-        expect(shownLabel(copyButton(page)!)).toBe('Copy for Arena');
+        expect(shownLabel(exportButton(page)!)).toBe('Export');
       });
     });
 
@@ -634,31 +692,31 @@ describe('Deck tab exports', () => {
       );
 
       expect(panelName(page)).toBe('Deck');
-      expect(copyButton(page)).toBeDefined();
+      expect(exportButton(page)).toBeDefined();
       expect(alertIn(planPanel(page))).toBeNull();
     });
 
     it('keeps the button confirmed, without a flicker, while it copies again', async () => {
       const opened = await openPlanWith(picks);
       await copyFor(opened);
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Copied');
 
       holdCopies();
       await copyFor(opened);
 
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Copied');
     });
 
     it('takes the confirmation off a confirmed button whose next copy fails', async () => {
       const opened = await openPlanWith(picks);
       await copyFor(opened);
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Copied');
 
       writeText.mockRejectedValue(new Error('denied'));
       await copyFor(opened);
 
       expect(alertIn(planPanel(opened.page))).not.toBeNull();
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Export');
     });
 
     it('ignores an earlier copy failing once a later one has started', async () => {
@@ -673,7 +731,7 @@ describe('Deck tab exports', () => {
       await settled(opened, 0);
 
       expect(alertIn(planPanel(opened.page))).toBeNull();
-      expect(shownLabel(copyButton(opened.page, 'Moxfield')!)).toBe('Copied');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Copied');
     });
 
     it('ignores a copy failing after the panel has closed', async () => {
@@ -702,7 +760,7 @@ describe('Deck tab exports', () => {
       held[0].resolve();
       await settled(opened, 0);
 
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copy for Arena');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Export');
     });
 
     it('clears the failure alert on the next copy attempt', async () => {
@@ -713,7 +771,7 @@ describe('Deck tab exports', () => {
       await copyFor(opened);
 
       expect(alertIn(planPanel(opened.page))).toBeNull();
-      expect(shownLabel(copyButton(opened.page)!)).toBe('Copied');
+      expect(shownLabel(exportButton(opened.page)!)).toBe('Copied');
     });
 
     it('clears the failure alert when a tab closes the panel', async () => {

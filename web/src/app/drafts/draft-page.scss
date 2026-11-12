@@ -1,6 +1,4 @@
-h1 {
-  margin-bottom: var(--space-xs);
-}
+@use '../../breakpoints' as bp;
 
 /* A minor action, so it doesn't compete with the page's real controls. */
 .back-link {
@@ -16,7 +14,7 @@ h1 {
   }
 }
 
-.players,
+.players-panel,
 .pool,
 .queue,
 .plan,
@@ -53,7 +51,21 @@ h1 {
   }
 }
 
-.turn,
+/* The notes under the header, on every tab; nothing while there are none. */
+.status-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+
+  &:empty {
+    display: none;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
 .paused,
 .closed {
   font-weight: 600;
@@ -63,19 +75,46 @@ h1 {
   color: var(--color-error);
 }
 
+/*
+ * The pool's card count with "About this pool" beside it; on a phone the
+ * section wraps under the count, and opens there.
+ */
+.pool-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-lg);
+  margin-block: 1em;
+
+  > p,
+  > .disclosure {
+    margin-block: 0;
+  }
+
+  > .disclosure {
+    flex: 1 1 16rem;
+  }
+}
+
 progress {
   display: block;
   width: 100%;
-  max-width: 40rem;
+  max-inline-size: var(--width-narrow);
 }
 
 code {
   font-size: var(--font-size-sm);
 }
 
+/*
+ * --tab-bar-clearance and, from the desktop breakpoint, --tab-bar-height are set on `html` in
+ * styles.scss: the page's scroll padding reads them there, to scroll a focused control clear of
+ * the tab bar, and this stylesheet's encapsulation can't reach `html`.
+ */
+
 /* Room for the tab bar, so it never covers the end of the page. */
 main {
-  padding-bottom: 4rem;
+  padding-bottom: var(--tab-bar-clearance);
 }
 
 .tabs {
@@ -121,12 +160,10 @@ main {
 }
 
 /* From here the tabs sit at the top of the page. */
-@media (min-width: 1024px) {
+@media (min-width: bp.$desktop) {
   main {
-    /* The Pool's search bar sticks just below the tabs. */
-    --tab-bar-height: 2.75rem;
     /* The width of the capped tabs below; the Deck tab's List mode lines share it. */
-    --capped-tab-width: 48rem;
+    --capped-tab-width: var(--width-default);
 
     padding-bottom: var(--space-lg);
   }
@@ -157,5 +194,40 @@ main {
   /* Pool and Board use the full width; the Queue tab reads better capped. */
   .queue {
     max-width: var(--capped-tab-width);
+  }
+}
+
+/*
+ * From here the page is two columns: the tabs and their panels, with the
+ * Players panel's own pane beside them. It stays in view as a tab scrolls,
+ * and scrolls on its own when it's long.
+ */
+@media (min-width: bp.$wide-desktop) {
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    column-gap: var(--space-xl);
+    align-items: start;
+
+    /* The header and the status strip span both columns. */
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .tab-column {
+      grid-column: 1;
+    }
+
+    /* Placed after the tab column, so it shares its row; the reading order stays as written. */
+    > .players-panel {
+      position: sticky;
+      top: 0;
+      order: 1;
+      grid-column: 2;
+      box-sizing: border-box;
+      max-block-size: 100dvh;
+      overflow-y: auto;
+      padding-bottom: var(--space-md);
+    }
   }
 }
