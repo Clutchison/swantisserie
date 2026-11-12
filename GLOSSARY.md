@@ -231,7 +231,7 @@ The part of a draft's page where a player sees and rearranges their queue, which
 _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
 
 **"Next up" strip**:
-The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
+The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next, or "Queue paused" in its place while the queue is paused, and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
 _Avoid_: Queue bar, mini queue, Seat strip (that is the players' avatars)
 
 **Queue sheet**:

@@ -1,5 +1,39 @@
 import { accessibleName, byAriaLabel, byName, text } from '../../specs-harness';
-import { type AppFixture, cardNames, namedList } from './harness';
+import type { QueueView } from 'contract';
+import { EMPTY_PLAN } from '../drafts';
+import {
+  type AppFixture,
+  type DraftFixture,
+  bob,
+  cardNames,
+  draft,
+  drafting,
+  flushPicks,
+  flushQueueAndPlan,
+  namedList,
+  updates,
+} from './harness';
+
+/**
+ * Another player's pick, pick 2 of round 1 by Bob, reaches the page and
+ * leaves the signed-in player's queue as `queue`, such as one it paused:
+ * the draft, with `fields`, its picks and the queue are re-read.
+ */
+export async function pickChangesQueue(
+  fixture: AppFixture,
+  queue: QueueView,
+  fields: DraftFixture = {},
+) {
+  updates.events.next({
+    type: 'changed',
+    draft: draft(
+      drafting({ ...fields, turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 }),
+    ),
+  });
+  await flushPicks([]);
+  await flushQueueAndPlan(queue, EMPTY_PLAN);
+  await fixture.whenStable();
+}
 
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
