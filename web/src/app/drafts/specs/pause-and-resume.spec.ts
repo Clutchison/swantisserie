@@ -21,6 +21,7 @@ import {
   pickOf,
   poolCardOf,
 } from './harness';
+import { openMore } from './draft-header-harness';
 
 useDraftsApp();
 
@@ -67,14 +68,15 @@ describe('pause and resume', () => {
     { state: 'drafting', fixture: aliceUp, last: 'Pause draft' },
     { state: 'paused', fixture: paused, last: 'Resume draft' },
   ])(
-    'offers Close draft, Undo, then $last, to the organizer while $state',
+    'offers More, Undo, then $last in the header, with Close draft in More, to the organizer while $state',
     async ({ fixture, last }) => {
-      const { page } = await openDraft(completeSnapshot, fixture, {
+      const opened = await openDraft(completeSnapshot, fixture, {
         cards: [poolCardOf('shock', 'Shock')],
         picks: [pickOf({ poolCardId: 'shock-card' })],
       });
 
-      expect(buttonOrder(page, last)).toEqual(['Close draft', 'Undo pick 1 (Shock)', last]);
+      expect(buttonOrder(opened.page, last)).toEqual(['More', 'Undo pick 1 (Shock)', last]);
+      expect(openMore(opened.page)).toEqual(['Close draft']);
     },
   );
 

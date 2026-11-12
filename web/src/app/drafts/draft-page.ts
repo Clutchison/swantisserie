@@ -25,8 +25,9 @@ import { DraftStore } from './draft-store';
 import { setListText } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
+import { Changes } from './changes';
+import { DraftHeader } from './draft-header';
 import { LobbyControls } from './lobby-controls';
-import { OrganizerControls } from './organizer-controls';
 import { PlanTab } from './plan-tab';
 import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
@@ -45,12 +46,12 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
   selector: 'app-draft-page',
   imports: [
     BoardTab,
+    DraftHeader,
     ListsTab,
     LoadingAnimation,
     LobbyControls,
     LucideChevronLeft,
     NgTemplateOutlet,
-    OrganizerControls,
     PlanTab,
     PlayTab,
     PoolTab,
@@ -62,6 +63,8 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
   ],
   providers: [
     CardImageSource,
+    // One for the header and the lobby controls: one change to the draft at a time.
+    Changes,
     CardPreviews,
     DraftStore,
     // The Play tab's standings, results grid and bracket read its players from the draft.
@@ -80,6 +83,7 @@ export class DraftPage {
   protected readonly store = inject(DraftStore);
   protected readonly setListText = setListText;
 
+  private readonly header = viewChild(DraftHeader);
   private readonly lobbyControls = viewChild(LobbyControls);
   private readonly planTab = viewChild(PlanTab);
 
@@ -168,20 +172,6 @@ export class DraftPage {
     },
   });
 
-  /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
-  protected readonly turn = computed(() => {
-    const turn = this.store.turn();
-    if (!turn) return null;
-    // A player no longer in the draft is the fallback, capitalized to start the sentence.
-    const player = this.store.findPlayer(turn.playerId);
-    const whose = this.store.yourTurn() ? 'Your' : `${player?.name ?? 'Another player'}’s`;
-    return {
-      ...turn,
-      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}`,
-      isBot: !!player?.isBot,
-    };
-  });
-
   constructor() {
     // The page title is the draft's name, so a viewer can find it among their browser tabs,
     // and the app's again once they leave.
@@ -234,12 +224,19 @@ export class DraftPage {
     return this.router.navigateByUrl('/', { state: { notice } });
   }
 
+  /** Forgets the failures of earlier changes to the draft, as another is being sent. */
+  protected clearErrors() {
+    // Stryker disable next-line OptionalChaining: changes are sent only once the draft has loaded, when the header and lobby controls are always rendered.
+    this.header()?.clearError();
+    // Stryker disable next-line OptionalChaining: as above.
+    this.lobbyControls()?.clearError();
+    this.retryFailed.set(false);
+  }
+
   /** Asks for a failed pool snapshot to start again. */
   protected async retry() {
     this.retrying.set(true);
-    // Stryker disable next-line OptionalChaining: Retry is only in the lobby, where the lobby controls are always rendered.
-    this.lobbyControls()?.clearError();
-    this.retryFailed.set(false);
+    this.clearErrors();
     try {
       await this.store.retrySnapshot();
     } catch {

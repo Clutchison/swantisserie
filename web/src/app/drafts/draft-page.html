@@ -24,28 +24,15 @@
         }
       </div>
     </ng-template>
-    <h1>{{ draft.name }}</h1>
-    <p>
-      <span class="state">{{ draft.state }}</span>
-      <span class="detail">Organized by {{ draft.organizer.name }}</span>
-    </p>
-    @if (reconnecting()) {
-      <p role="status">Reconnecting…</p>
-    }
-    @if (refreshFailed()) {
-      <p class="detail" role="status">
-        Couldn't refresh this draft. What's shown may be out of date.
-      </p>
-    }
-
-    <section class="players">
-      <h2>Players</h2>
-      @if (turn(); as turn) {
-        <p class="turn">
-          {{ turn.text }}
-          @if (turn.isBot) {
-            <span class="badge">Bot</span>
-          }
+    <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()" />
+    <!-- The notes a player needs whichever tab is open. -->
+    <div class="status-strip">
+      @if (reconnecting()) {
+        <p role="status">Reconnecting…</p>
+      }
+      @if (refreshFailed()) {
+        <p class="detail" role="status">
+          Couldn't refresh this draft. What's shown may be out of date.
         </p>
       }
       @if (draft.state === 'Paused') {
@@ -60,11 +47,14 @@
           {{ draft.webhook?.name }}. An app admin can replace its URL.
         </p>
       }
-      <app-organizer-controls />
+    </div>
+
+    <section class="players">
+      <h2>Players</h2>
       @if (powers().switchAnnouncements) {
         <app-webhook-control />
       }
-      <app-lobby-controls (changeStarted)="retryFailed.set(false)" (cancelled)="leaveCancelled()" />
+      <app-lobby-controls (changeStarted)="clearErrors()" />
     </section>
 
     <div class="tabs" appTabList aria-label="Draft">

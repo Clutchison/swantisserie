@@ -37,6 +37,9 @@ import {
   midNavigation,
   serverError,
   RETRY_FAILED,
+  drafting,
+  openTab,
+  viewOn,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -229,6 +232,44 @@ describe('draft page', () => {
     );
   });
 
+  describe('the header', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it.each(['mobile', 'tablet', 'desktop'] as const)(
+      'shows the draft’s name, state, organizer and turn on a %s screen',
+      async (screen) => {
+        viewOn(screen);
+        const { page } = await openDraft(completeSnapshot, drafting());
+
+        expect(heading(page, 'Red dragons')).toBeDefined();
+        const shown = text(page);
+        expect(shown).toContain('Drafting');
+        expect(shown).toContain('Organized by Alice');
+        expect(shown).toContain('Bob’s turn: pick 1, round 1');
+      },
+    );
+  });
+
+  describe('the status strip', () => {
+    it('keeps the paused and webhook notes in view on every tab', async () => {
+      const webhook = { id: 'main', name: '#roto-main', gone: true };
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Paused', webhook }),
+      );
+      const notes = () =>
+        [...page.querySelectorAll<HTMLElement>('[role="status"]')]
+          .filter((note) => !note.closest('[hidden]'))
+          .map((note) => text(note));
+
+      for (const tab of tabLabels(page)) {
+        await openTab(fixture, page, tab!);
+        expect(notes()).toContain('The draft is paused. No picks until it resumes.');
+        expect(notes()).toContainEqual(expect.stringContaining('aren’t posting'));
+      }
+    });
+  });
+
   describe('when its webhook is gone', () => {
     const webhook = { id: 'main', name: '#roto-main', gone: true };
     const goneNotice =
@@ -324,7 +365,7 @@ describe('draft page', () => {
 
     const powersUrl = '/api/drafts/draft-1/powers';
     const organizerButtons = (page: HTMLElement) =>
-      ['Randomize seats', 'Start draft', 'Cancel draft'].filter((name) => button(page, name));
+      ['Randomize seats', 'Start draft', 'More'].filter((name) => button(page, name));
 
     it('are read once when the page opens, not again as the draft changes or catches up', async () => {
       const { fixture } = await openUrl('/drafts/draft-1');
@@ -353,7 +394,7 @@ describe('draft page', () => {
       http.expectOne(powersUrl).flush(ORGANIZE_ONLY);
       await flushPool();
       await fixture.whenStable();
-      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
 
       await router.navigateByUrl('/drafts/draft-2');
       TestBed.tick();
@@ -381,7 +422,7 @@ describe('draft page', () => {
         { powers: ORGANIZE_ONLY },
       );
 
-      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
       expect(button(page, 'Move Bot 1 earlier')).toBeDefined();
       expect(button(page, 'Add bot')).toBeUndefined();
       expect(button(page, 'Remove Bot 1')).toBeUndefined();
@@ -401,7 +442,7 @@ describe('draft page', () => {
 
       powers.flush(ORGANIZE_ONLY);
       await fixture.whenStable();
-      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
     });
 
     it('show no controls they gate when they can’t be read, and the draft itself', async () => {
