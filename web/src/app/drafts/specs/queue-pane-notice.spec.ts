@@ -18,7 +18,6 @@ import {
   queued,
   queueOf,
   queuePane,
-  statusTexts,
   pickOf,
   queueList,
   accessibleName,
@@ -100,35 +99,42 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     expect(queueNotice(queue)).toBeNull();
   });
 
-  it('names lost and cleared cards apart, and dismiss hides them alike', async () => {
+  it('says of each lost card what its loss did to the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-      cards: [brightclimb, shivan],
-      queue: queueOf({ lost: [queued(shivan)], cleared: [queued(brightclimb)] }),
+      cards: [brightclimb, shivan, bolt],
+      queue: queueOf({
+        lost: [
+          { ...queued(brightclimb), queueLoss: 'LeftQueuePicking' },
+          { ...queued(shivan), queueLoss: 'PausedQueue' },
+          { ...queued(bolt), queueLoss: 'LeftQueuePaused' },
+        ],
+        queuePaused: true,
+      }),
     });
     const queue = queuePane(page);
 
     const note = queueNotice(queue)!;
     expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
-      'Lost to other players: Shivan Dragon. ' +
-        'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
+      'Lost to other players: ' +
+        'Brightclimb Pathway // Grimclimb Pathway: your queue stayed queue picking. ' +
+        'Shivan Dragon: your queue was set to queue paused. ' +
+        'Lightning Bolt: your queue stayed queue paused.',
     );
-
     button(note, 'Dismiss')!.click();
-    http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf());
+    http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf({ queuePaused: true }));
     await fixture.whenStable();
-
     expect(queueNotice(queue)).toBeNull();
   });
 
-  it('notes cleared cards when none were lost', async () => {
+  it('names only a card lost before pause queue, saying nothing of its queue', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [brightclimb, shivan],
-      queue: queueOf({ cards: [queued(shivan)], cleared: [queued(brightclimb)] }),
+      queue: queueOf({ cards: [queued(shivan)], lost: [queued(brightclimb)] }),
     });
     const queue = queuePane(page);
 
-    expect(statusTexts(queue).join(' ')).toContain(
-      'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
+    expect(queueNotice(queue)!.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Lost to other players: Brightclimb Pathway // Grimclimb Pathway. Dismiss',
     );
   });
 

@@ -61,7 +61,7 @@ export class QueuesService {
 
   /**
    * Adds the pool card `poolCardId` to the end of the user's queue, and
-   * off its cleared list; a no-op if it is already queued. Throws QueueRefusedError if it can't be
+   * off its Queue notice; a no-op if it is already queued. Throws QueueRefusedError if it can't be
    * queued: in the lobby, or on the player's own turn, drafting or frozen, when
    * they make that pick by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
@@ -189,7 +189,7 @@ export class QueuesService {
   }
 
   /**
-   * Stops listing the user's lost and cleared cards. An undo still restores
+   * Stops listing the user's lost cards. An undo still restores
    * them. Throws NotAPlayerError if the user isn't in the draft.
    */
   async dismissNotice(draftId: string, userId: string): Promise<QueueView> {
@@ -327,7 +327,7 @@ export class QueuesService {
       ],
       select: {
         poolCardId: true,
-        restKept: true,
+        queueLoss: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the notice reads only `poolCardId`.
         pick: {
           select: { poolCardId: true },
@@ -338,16 +338,16 @@ export class QueuesService {
         },
       },
     });
-    const isLost = (card: (typeof listed)[number]) =>
-      card.poolCardId === card.pick.poolCardId;
-    const lost = listed.filter(isLost);
-    const [first, ...more] = lost.map(toQueuedCardView);
     return {
       cards: cards.map(toQueuedCardView),
-      ...(first === undefined
-        ? { lost: [], restKept: false }
-        : { lost: [first, ...more], restKept: lost[lost.length - 1].restKept }),
-      cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
+      // A card cleared before pause queue replaced clear queue is no longer
+      // listed; only the lost card is the pick's own.
+      lost: listed
+        .filter((card) => card.poolCardId === card.pick.poolCardId)
+        .map((card) => ({
+          ...toQueuedCardView(card),
+          queueLoss: card.queueLoss,
+        })),
       stealBehavior,
       queuePaused,
     };

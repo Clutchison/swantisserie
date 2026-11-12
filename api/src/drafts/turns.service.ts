@@ -27,7 +27,7 @@ import {
 import { DraftLock, type LockedDraft, lockPlayer } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
-import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
+import { recordQueueEffects, restoreQueues } from './queue-effects.js';
 import {
   checkQueueChangeable,
   checkStarted,
@@ -290,7 +290,7 @@ export class TurnsService {
         queue: player.user.isBot ? [] : queues[seat],
         stealBehavior: player.stealBehavior,
         plan: state.plans[seat],
-        queuePaused: player.queuePaused,
+        queuePaused: context.queuesPaused[seat],
       })),
       context.pool,
     );
@@ -405,8 +405,8 @@ export class TurnsService {
 
   /**
    * Undoes pick `number`, the draft's latest: its card returns to the pool,
-   * the queues it cleared and the plans it lost from are restored, and the
-   * turn returns to its player.
+   * the cards it took out of queues and plans are restored, a queue it
+   * paused is set picking again, and the turn returns to its player.
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {

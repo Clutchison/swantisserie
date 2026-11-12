@@ -1,10 +1,3 @@
-<ng-template #names let-cards>
-  @for (card of cards; track card.poolCardId; let last = $last) {
-    <strong
-      ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name" /></strong
-    >{{ last ? '.' : ', ' }}
-  }
-</ng-template>
 <section class="pane" [attr.aria-labelledby]="headingId">
   @if (collapsible()) {
     <!-- The same button collapses the pane and, as its rail, expands it, so focus on it stays. -->
@@ -102,6 +95,9 @@
         } @else {
           Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.
         }
+        If another player picks a queued card first and no copy is left, it is lost. Under Pause
+        queue, your queue is set to queue paused, for you to pick by hand; under Pick next, it stays
+        queue picking.
       </p>
     }
     @if (error(); as failure) {
@@ -115,16 +111,13 @@
       @if (hasNotice()) {
         <div class="notice" role="status" aria-label="Queue notice">
           <p>
-            @if (queue().lost.length > 0) {
-              Lost to other players:
-              <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().lost }" />
-            }
-            @if (queue().cleared.length > 0) {
-              Your queue was cleared:
-              <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().cleared }" />
-            }
-            @if (showRestKept()) {
-              The rest of your queue is still queued.
+            Lost to other players:
+            @for (card of queue().lost; track card.poolCardId) {
+              <strong
+                ><app-card-name
+                  [card]="poolCardsById().get(card.poolCardId)"
+                  [name]="card.name" /></strong
+              >{{ lossNote(card) }}
             }
           </p>
           @if (!readOnly()) {

@@ -113,8 +113,6 @@ describe('undo', () => {
       const id = await pickedFromOwnQueue();
       const notice = {
         lost: [],
-        cleared: [],
-        restKept: false,
       };
       expect((await queue(id).expect(200)).body).toMatchObject(notice);
 
@@ -139,9 +137,7 @@ describe('undo', () => {
         { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
       ],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
       queuePaused: false,
     });
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
@@ -173,7 +169,7 @@ describe('undo', () => {
     await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
     await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
-    // Bolt leaves Alice's queue, and Carol loses it, clearing Lava Spike.
+    // Bolt leaves Alice's queue, and Carol loses it, keeping Lava Spike.
     await pick(id, ids['Lightning Bolt']).expect(200);
 
     await undo(id, 1).expect(200);
@@ -188,11 +184,11 @@ describe('undo', () => {
     ]);
   });
 
-  describe('of a pick that cleared a queue', () => {
+  describe('of a pick that paused a queue', () => {
     let carolCookie: string;
 
     /** Carol, picking last, has Shock, Bolt and Lava Spike queued, and Alice picks Bolt. */
-    async function clearedByPickOne() {
+    async function pausedByPickOne() {
       carolCookie = await signIn(carol);
       const id = await readyDraft(
         [aliceCookie, bobCookie, carolCookie],
@@ -208,8 +204,8 @@ describe('undo', () => {
       return id;
     }
 
-    it('restores the whole queue in its original order, and makes no queued picks', async () => {
-      const id = await clearedByPickOne();
+    it('puts the lost card back in its place, sets the queue picking again, and makes no queued picks', async () => {
+      const id = await pausedByPickOne();
       const ids = await poolCardIds(id);
       // Alice's turn comes back with a card queued, which must wait for her.
       await enqueue(id, ids['Skewer the Critics']).expect(200);
@@ -219,17 +215,15 @@ describe('undo', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, bolt, spike],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
         queuePaused: false,
       });
       expect(undone.body.turn.playerId).toBe(alice.id);
       expect(await pickLogLines(id)).toEqual([]);
     });
 
-    it('puts cards queued since after the restored ones, with no duplicates', async () => {
-      const id = await clearedByPickOne();
+    it('puts the lost card back ahead of cards queued since, with no duplicates', async () => {
+      const id = await pausedByPickOne();
       const ids = await poolCardIds(id);
       await enqueue(id, ids['Skewer the Critics'], carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
@@ -245,7 +239,7 @@ describe('undo', () => {
     });
 
     it('restores the queue even if the notice was dismissed', async () => {
-      const id = await clearedByPickOne();
+      const id = await pausedByPickOne();
       await dismissNotice(id, carolCookie).expect(200);
 
       await undo(id, 1).expect(200);
@@ -257,40 +251,7 @@ describe('undo', () => {
       ]);
     });
 
-    it('restores a long queue in its original order after one of its cards was queued again and the notice dismissed', async () => {
-      carolCookie = await signIn(carol);
-      // Guards the taken-out cards' `orderBy: { position: 'asc' }` in
-      // queue-clearing.ts. Without it they come back in storage order, which
-      // only changes once their rows fill a storage page, so that queuing one
-      // again moves its row after the others: hence 60 cards. A schema or
-      // PGlite change could quietly stop this killing that mutant; a later
-      // Stryker run would show it.
-      const cards = Array.from(
-        { length: 60 },
-        (_, i) => `Card ${String(i).padStart(2, '0')}`,
-      );
-      const id = await readyDraft(
-        [aliceCookie, bobCookie, carolCookie],
-        1,
-        cards,
-      );
-      const ids = await poolCardIds(id);
-      await start(id).expect(200);
-      for (const name of cards) {
-        await enqueue(id, ids[name], carolCookie).expect(200);
-      }
-      await pick(id, ids['Card 59']).expect(200);
-      await enqueue(id, ids['Card 00'], carolCookie).expect(200);
-      await dismissNotice(id, carolCookie).expect(200);
-
-      await undo(id, 1).expect(200);
-
-      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual(
-        cards.map((name) => ({ poolCardId: ids[name], name })),
-      );
-    });
-
-    it('restores only what that pick cleared, and drops only that from the notice', async () => {
+    it('puts back only what that pick took out, drops only that from the notice, and leaves the queue paused by an earlier pick', async () => {
       carolCookie = await signIn(carol);
       const id = await readyDraft(
         [aliceCookie, bobCookie, carolCookie],
@@ -309,12 +270,10 @@ describe('undo', () => {
       await undo(id, 2).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [spike, skewer],
-        lost: [bolt],
-        cleared: [shock],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-        queuePaused: false,
+        cards: [shock, spike, skewer],
+        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
 
       await undo(id, 1).expect(200);
@@ -322,9 +281,7 @@ describe('undo', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, bolt, spike, skewer],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
         queuePaused: false,
       });
     });
@@ -351,9 +308,7 @@ describe('undo', () => {
           { poolCardId: ids.Shock, name: 'Shock' },
         ],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
         queuePaused: false,
       });
       // The picked copy is back in the pool.
@@ -384,8 +339,6 @@ describe('undo', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [{ poolCardId: second, name: 'Lightning Bolt' }, shock, spike],
         lost: [],
-        cleared: [],
-        restKept: false,
         stealBehavior: 'PickNext',
         queuePaused: false,
       });
@@ -413,9 +366,7 @@ describe('undo', () => {
           { poolCardId: second, name: 'Lightning Bolt' },
         ],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
         queuePaused: false,
       });
     });

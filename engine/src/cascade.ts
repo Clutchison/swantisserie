@@ -21,7 +21,7 @@ export interface CascadePick {
   plans: PlanAfterPick[];
 }
 
-/** What a cascade takes of one seat, as it is when the cascade starts. */
+/** What a cascade takes of one seat, as it is when the cascade starts; a loss may pause its queue as the cascade goes. */
 export interface CascadeSeat {
   /** The seat's queued cards, in order; empty for a bot, which picks on its own timer. */
   queue: readonly string[];
@@ -40,9 +40,9 @@ export interface CascadeSeat {
  * with an empty queue, such as a bot's, stops the cascade, and so does a
  * seat whose queue is queue paused. After each pick, queues change as
  * `queuesAfterPick` says: a queued copy of the picked card may be swapped
- * for another copy, or lost. Under clear queue, a lost card clears that
- * queue and stops the cascade at that seat's next turn; under pick next, the
- * rest of its queue carries on. Plans change with each pick, as
+ * for another copy, or lost. Under pause queue, a lost card pauses that
+ * queue, so the cascade stops at that seat's next turn; under pick next, the
+ * queue stays queue picking and its rest carries on. Plans change with each pick, as
  * `plansAfterPick` says, but never stop or steer the cascade. Cards are pool
  * card ids, as in `pool` and `picked`.
  */
@@ -54,6 +54,8 @@ export function cascade(
   const picked = [...draft.picked];
   const pickedBefore = new Set(picked);
   const stealBehaviors = seats.map((seat) => seat.stealBehavior);
+  // Each seat's queue paused state, as `queuesAfterPick` carries it forward.
+  let queuesPaused: readonly boolean[] = seats.map((seat) => seat.queuePaused);
   let remaining: readonly (readonly string[])[] = seats.map(
     (seat) => seat.queue,
   );
@@ -61,8 +63,7 @@ export function cascade(
   const picks: CascadePick[] = [];
   for (;;) {
     const turn = currentTurn(draft, picked.length);
-    // Stryker disable next-line OptionalChaining: there is one entry per seat, so `seats[turn.seat]` always exists.
-    if (!turn || seats[turn.seat]?.queuePaused) return picks;
+    if (!turn || queuesPaused[turn.seat]) return picks;
     // Stryker disable next-line OptionalChaining: there is one queue per seat, so `remaining[turn.seat]` always exists.
     const card = remaining[turn.seat]?.find(
       (queued) => !pickedBefore.has(queued),
@@ -73,10 +74,12 @@ export function cascade(
       pool,
       picked,
       stealBehaviors,
+      queuesPaused,
     });
     const plansAfter = plansAfterPick(pick, planned, { pool, picked });
     picks.push({ pick, queues: queuesAfter, plans: plansAfter });
     remaining = queuesAfter.map((after) => after.queue);
+    queuesPaused = queuesAfter.map((after) => after.queuePaused);
     planned = plansAfter.map((after) => after.plan);
     picked.push(card);
   }
