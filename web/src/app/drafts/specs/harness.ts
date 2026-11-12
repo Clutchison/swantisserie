@@ -889,6 +889,9 @@ export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
  */
 export const findQueuePane = (page: HTMLElement) =>
   byName(page, 'section:not([role="tabpanel"])', 'Queue');
+/** The Queue notice inside `root`, naming lost and cleared cards: a status by its name. Null if there is none. */
+export const queueNotice = (root: HTMLElement) =>
+  byAriaLabel(root, '[role="status"]', 'Queue notice');
 /** The Queue pane, which is there. */
 export const queuePane = (page: HTMLElement) => findQueuePane(page)!;
 /**

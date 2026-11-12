@@ -9,11 +9,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   ElementRef,
   inject,
   Injector,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
@@ -31,7 +33,8 @@ import {
 import { CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
-import { changeFailure, COARSE_POINTER_QUERY, HIGHLIGHT_PICKS_LEFT_AT, matching } from './drafts';
+import { changeFailure, COARSE_POINTER_QUERY, matching } from './drafts';
+import { PicksLeft } from './picks-left';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
@@ -89,6 +92,7 @@ let panes = 0;
     LucidePanelRightOpen,
     LucideTrash,
     NgTemplateOutlet,
+    PicksLeft,
     SendsChange,
   ],
   providers: [Changes, CardDetailRequests, CardDetails],
@@ -111,6 +115,9 @@ export class QueuePane {
 
   /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
   readonly collapsible = input(false);
+  /** Whether the pane is in view: not on a hidden tab. */
+  // Stryker disable next-line BooleanLiteral: the draft page binds [visible] wherever the pane can be hidden.
+  readonly visible = input(true);
 
   private readonly id = ++panes;
   protected readonly headingId = `queue-pane-heading-${this.id}`;
@@ -130,15 +137,11 @@ export class QueuePane {
   protected readonly failed = this.store.queue.missing;
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
-  /** The viewer's picks left, shown in the header while not null. */
-  protected readonly picksLeft = this.store.picksLeft;
-  protected readonly highlightPicksLeftAt = HIGHLIGHT_PICKS_LEFT_AT;
-
-  /** The queue's size as a viewer reads it, such as "3 cards"; null until it is known. */
+  /** The queue's size: its count, and the noun a viewer reads after it; null until it is known. */
   protected readonly size = computed(() => {
     if (this.loading() || this.failed()) return null;
     const count = this.queue().cards.length;
-    return { count, text: `${count} ${count === 1 ? 'card' : 'cards'}` };
+    return { count, noun: count === 1 ? 'card' : 'cards' };
   });
 
   /** Where the Queue cutoff is drawn: before the queued card at this index, if there is one. */
@@ -178,6 +181,8 @@ export class QueuePane {
   protected readonly hasNotice = computed(
     () => this.queue().lost.length > 0 || this.queue().cleared.length > 0,
   );
+  /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
+  protected readonly unseenNotice = this.store.unseenNotice;
 
   /** Whether "How this works" is offered: while the queue can change, or could once a closed draft reopens. */
   protected readonly offerHelp = computed(() => this.draftState() === 'Closed' || !this.readOnly());
@@ -195,10 +200,19 @@ export class QueuePane {
     const size = this.size();
     return [
       'Expand queue',
-      ...(size ? [size.text] : []),
-      ...(this.hasNotice() ? ['new notice'] : []),
+      ...(size ? [`${size.count} ${size.noun}`] : []),
+      ...(this.unseenNotice() ? ['new notice'] : []),
     ].join(', ');
   });
+
+  constructor() {
+    // The Queue notice shown in an open pane in view has been seen.
+    effect(() => {
+      if (this.visible() && !this.collapsed() && this.unseenNotice()) {
+        untracked(() => this.store.noticeSeen());
+      }
+    });
+  }
 
   /**
    * Collapses the pane to its rail, or expands it again, remembering which

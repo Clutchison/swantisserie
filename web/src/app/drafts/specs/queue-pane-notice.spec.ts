@@ -25,6 +25,8 @@ import {
   text,
   serverError,
   viewOn,
+  queueNotice,
+  cardNames,
 } from './harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt } from './plan-tab-harness';
@@ -39,8 +41,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
 
   const shivanUp = 'Move Shivan Dragon up';
   /** The names in the Queue pane's list, in order. */
-  const names = (queue: HTMLElement) =>
-    [...queue.querySelectorAll('li .name')].map((name) => name.textContent?.trim());
+  const names = (queue: HTMLElement) => cardNames(queueList(queue)).map((name) => text(name));
 
   it('says the queue is loading, not empty, until it arrives', async () => {
     const { fixture, page } = await openUrl('/drafts/draft-1');
@@ -79,7 +80,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     });
     const queue = queuePane(page);
 
-    const note = queue.querySelector<HTMLElement>('.notice')!;
+    const note = queueNotice(queue)!;
     expect(note.textContent).toContain('Lost to other players');
     expect(note.textContent).toContain('Shivan Dragon');
     expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
@@ -90,7 +91,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     req.flush(queueOf({ cards: [queued(brightclimb)] }));
     await fixture.whenStable();
 
-    expect(queue.querySelector('.notice')).toBeNull();
+    expect(queueNotice(queue)).toBeNull();
   });
 
   it('names lost and cleared cards apart, and dismiss hides them alike', async () => {
@@ -100,7 +101,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     });
     const queue = queuePane(page);
 
-    const note = queue.querySelector<HTMLElement>('.notice')!;
+    const note = queueNotice(queue)!;
     expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
       'Lost to other players: Shivan Dragon. ' +
         'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
@@ -110,7 +111,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf());
     await fixture.whenStable();
 
-    expect(queue.querySelector('.notice')).toBeNull();
+    expect(queueNotice(queue)).toBeNull();
   });
 
   it('notes cleared cards when none were lost', async () => {
@@ -143,7 +144,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
 
-    expect(queue.querySelector('.notice')?.textContent).toContain('Shivan Dragon');
+    expect(queueNotice(queue)?.textContent).toContain('Shivan Dragon');
   });
 
   it('is read-only once the draft is closed, as the api refuses every queue change with `draft-closed`', async () => {

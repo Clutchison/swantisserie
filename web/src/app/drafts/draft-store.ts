@@ -286,6 +286,35 @@ export class DraftStore implements TournamentViewer {
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
   );
 
+  /** The Queue notice's entries, each its lost or cleared card, by a key of its own. */
+  private readonly noticeEntries = computed(() => {
+    const { lost, cleared } = this.queue.value();
+    return [
+      ...lost.map((card) => `lost ${card.poolCardId}`),
+      ...cleared.map((card) => `cleared ${card.poolCardId}`),
+    ];
+  });
+  /**
+   * The Queue notice's entries the player has seen, in an open Queue pane,
+   * on this page: those still in the notice, so an entry dismissed and
+   * then noted again is new again.
+   */
+  private readonly seenNoticeEntries = linkedSignal<string[], ReadonlySet<string>>({
+    source: this.noticeEntries,
+    computation: (entries, previous) =>
+      new Set(entries.filter((entry) => previous?.value.has(entry))),
+  });
+  /** Whether the Queue notice notes a card the player hasn't yet seen it note. */
+  readonly unseenNotice = computed(() => {
+    const seen = this.seenNoticeEntries();
+    return this.noticeEntries().some((entry) => !seen.has(entry));
+  });
+
+  /** The player has seen the Queue notice as it stands, in an open Queue pane. */
+  noticeSeen() {
+    this.seenNoticeEntries.set(new Set(this.noticeEntries()));
+  }
+
   /**
    * Only players have a plan, read for the draft's version as the queue is:
    * a pick may have landed on the mainboard, lost a card, or been undone.

@@ -22,12 +22,13 @@ import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
 import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
-import { DESKTOP_QUERY, HIGHLIGHT_PICKS_LEFT_AT, matching, setListText } from './drafts';
+import { DESKTOP_QUERY, matching, setListText } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { Changes } from './changes';
 import { DraftHeader } from './draft-header';
 import { PlayersPanel } from './players-panel';
+import { PicksLeft } from './picks-left';
 import { PlanTab } from './plan-tab';
 import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
@@ -50,6 +51,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
     LoadingAnimation,
     LucideChevronLeft,
     NgTemplateOutlet,
+    PicksLeft,
     PlanTab,
     PlayersPanel,
     PlayTab,
@@ -122,12 +124,11 @@ export class DraftPage {
   private readonly desktop = matching(DESKTOP_QUERY);
   /**
    * Whether the Queue tab is there: below the desktop layout, until the
-   * draft is complete. Undefined while the draft is loading.
+   * draft is complete. Undefined, so not shown yet, while the draft is loading.
    */
-  private readonly queueTabShown = computed(() =>
+  protected readonly queueTabShown = computed(() =>
     this.desktop() ? false : this.store.queueShown(),
   );
-  protected readonly showQueueTab = computed(() => !!this.queueTabShown());
   /**
    * Whether the Queue pane is beside the tabs: from the desktop layout, for a
    * player, until the draft is complete.
@@ -135,10 +136,6 @@ export class DraftPage {
   protected readonly showQueuePane = computed(
     () => this.desktop() && this.joined() && !!this.store.queueShown(),
   );
-
-  /** The viewer's picks left, shown beside the Pool and Deck headings while not null. */
-  protected readonly picksLeft = this.store.picksLeft;
-  protected readonly highlightPicksLeftAt = HIGHLIGHT_PICKS_LEFT_AT;
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:

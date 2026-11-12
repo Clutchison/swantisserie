@@ -19,6 +19,9 @@ import {
   queueOf,
   queuePane,
   viewOn,
+  queueNotice,
+  queueList,
+  elementWithText,
   accessibleDescription,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -36,7 +39,9 @@ describe('steal behavior', () => {
 
   /** The steal behavior pill. */
   function pill(queue: HTMLElement) {
-    return queue.querySelector<HTMLButtonElement>('.steal-behavior button')!;
+    return [...queue.querySelectorAll('button')].find((b) =>
+      b.getAttribute('aria-label')?.startsWith('Steal behavior: '),
+    )!;
   }
 
   it('shows the player’s steal behavior in the Queue pane’s header, above the notice and the queue', async () => {
@@ -50,11 +55,11 @@ describe('steal behavior', () => {
     });
     const queue = queuePane(page);
 
-    const control = queue.querySelector<HTMLElement>('.steal-behavior')!;
-    expect(control.textContent).toContain('Steal behavior');
+    const control = elementWithText(queue, 'Steal behavior')!;
+    expect(control).not.toBeNull();
     expect(pill(queue).textContent).toContain('Clear queue');
     expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Clear queue');
-    const notice = queue.querySelector('.notice')!;
+    const notice = queueNotice(queue)!;
     expect(control.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(queue.querySelector('input[type="radio"]')).toBeNull();
     expect(queue.querySelector('legend')).toBeNull();
@@ -67,8 +72,7 @@ describe('steal behavior', () => {
     });
     const queue = queuePane(page);
 
-    const label = [...queue.querySelectorAll<HTMLElement>('.steal-behavior [title]')];
-    expect(label.map((l) => l.title)).toEqual([EXPLANATION]);
+    expect(elementWithText(queue, 'Steal behavior')!.title).toBe(EXPLANATION);
     expect(accessibleDescription(pill(queue))).toBe(EXPLANATION);
     const shown = [...queue.querySelectorAll<HTMLElement>('*')].filter(
       (el) =>
@@ -154,14 +158,10 @@ describe('steal behavior', () => {
   });
 
   it('is shown but can’t be changed once the draft is closed', async () => {
-    const { page } = await openDraft(
-      completeSnapshot,
-      drafting({ state: 'Closed', turn: null }),
-      {
-        cards: [shivan],
-        queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
-      },
-    );
+    const { page } = await openDraft(completeSnapshot, drafting({ state: 'Closed', turn: null }), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
+    });
     const queue = queuePane(page);
 
     expect(pill(queue).textContent).toContain('Pick next');
@@ -190,7 +190,7 @@ describe('steal behavior', () => {
     });
     // By the pill, not under a queue that may run off the screen.
     const alert = queue.querySelector('[role="alert"]')!;
-    const list = queue.querySelector('.queue')!;
+    const list = queueList(queue);
     expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     reread.flush(queueOf({ cards: [queued(shivan)] }));
@@ -211,7 +211,7 @@ describe('steal behavior', () => {
       });
       const queue = queuePane(page);
 
-      const note = queue.querySelector<HTMLElement>('.notice')!;
+      const note = queueNotice(queue)!;
       expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
         'Lost to other players: Brightclimb Pathway // Grimclimb Pathway. ' +
           'The rest of your queue is still queued.',
@@ -235,7 +235,7 @@ describe('steal behavior', () => {
       });
       const queue = queuePane(page);
 
-      const note = queue.querySelector<HTMLElement>('.notice')!;
+      const note = queueNotice(queue)!;
       expect(note.textContent).toContain('Lost to other players');
       expect(note.textContent).not.toContain('still queued');
     });

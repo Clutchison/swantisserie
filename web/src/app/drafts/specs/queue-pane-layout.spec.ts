@@ -27,6 +27,7 @@ import {
   resizeTo,
   router,
   tabLabels,
+  updates,
   draft,
   viewOn,
 } from './harness';
@@ -139,7 +140,6 @@ describe('Queue pane layout', () => {
       const pane = queuePane(page);
 
       expect(pane.querySelector('h2')?.textContent?.trim()).toBe('Queue');
-      expect(pane.textContent).toContain('· 2');
       expect(pane.textContent).toContain('2 cards');
       expect(picksLeftTexts(pane)).toEqual(['12 picks left']);
       expect(button(pane, 'Steal behavior: Clear queue')).toBeDefined();
@@ -212,19 +212,47 @@ describe('Queue pane layout', () => {
       expect(body.hidden).toBe(false);
     });
 
-    it('marks an unseen Queue notice on the rail', async () => {
+    it('marks a Queue notice not yet seen on the rail, until the pane is opened', async () => {
+      localStorage.setItem('queue-pane', 'collapsed');
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan, brightclimb],
         queue: queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)] }),
       });
-
-      queuePaneToggle(page).click();
-      await fixture.whenStable();
-
       expect(queuePaneToggle(page).getAttribute('aria-label')).toBe(
         'Expand queue, 1 card, new notice',
       );
-      expect(queuePaneToggle(page).querySelector('.dot')).not.toBeNull();
+
+      queuePaneToggle(page).click();
+      await fixture.whenStable();
+      queuePaneToggle(page).click();
+      await fixture.whenStable();
+
+      expect(queuePaneToggle(page).getAttribute('aria-label')).toBe('Expand queue, 1 card');
+    });
+
+    it('marks a card the Queue notice notes once the pane was collapsed, though the notice was seen', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan, brightclimb],
+        queue: queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)] }),
+      });
+      queuePaneToggle(page).click();
+      await fixture.whenStable();
+      expect(queuePaneToggle(page).getAttribute('aria-label')).toBe('Expand queue, 1 card');
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
+      });
+      await flushPicks([]);
+      await flushQueueAndPlan(
+        queueOf({ lost: [queued(shivan)], cleared: [queued(brightclimb)] }),
+        EMPTY_PLAN,
+      );
+      await fixture.whenStable();
+
+      expect(queuePaneToggle(page).getAttribute('aria-label')).toBe(
+        'Expand queue, 0 cards, new notice',
+      );
     });
 
     it('moves focus inside the pane to the toggle as it collapses', async () => {

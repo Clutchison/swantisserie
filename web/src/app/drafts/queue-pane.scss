@@ -1,3 +1,5 @@
+@use 'side-pane';
+
 /* Beside the tabs: a column of its own, which a collapsed pane narrows to a rail. */
 :host {
   display: block;
@@ -5,7 +7,7 @@
 
 :host(.collapsible) {
   position: relative;
-  inline-size: 19rem;
+  inline-size: side-pane.$width;
 }
 
 :host(.collapsed) {
@@ -75,18 +77,6 @@
 
 .count {
   font-weight: 600;
-}
-
-/* Secondary to the heading, until the viewer is near the end of their picks. */
-.picks-left {
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
-
-  /* The count alone, not the dash before it. On bg, where accent text meets AA. */
-  [data-highlighted='true'] {
-    color: var(--color-accent);
-    font-weight: 600;
-  }
 }
 
 .help {

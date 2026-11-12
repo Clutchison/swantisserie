@@ -23,7 +23,7 @@
         @if (size(); as size) {
           <span class="rail-count" aria-hidden="true">{{ size.count }}</span>
         }
-        @if (hasNotice()) {
+        @if (unseenNotice()) {
           <span class="dot" aria-hidden="true"></span>
         }
       } @else {
@@ -40,18 +40,10 @@
         @if (size(); as size) {
           <span class="count"
             ><span aria-hidden="true">· </span>{{ size.count
-            }}<span class="visually-hidden"> {{ size.count === 1 ? 'card' : 'cards' }}</span></span
+            }}<span class="visually-hidden"> {{ size.noun }}</span></span
           >
         }
-        @let left = picksLeft();
-        @if (left !== null) {
-          <span class="picks-left"
-            ><span aria-hidden="true">– </span
-            ><span [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
-              >{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</span
-            ></span
-          >
-        }
+        <app-picks-left />
       </div>
       @if (!failed()) {
         <div class="steal-behavior">
@@ -102,7 +94,7 @@
       <p class="error">Couldn't load your queue. Try reloading the page.</p>
     } @else {
       @if (hasNotice()) {
-        <div class="notice" role="status">
+        <div class="notice" role="status" aria-label="Queue notice">
           <p>
             @if (queue().lost.length > 0) {
               Lost to other players:

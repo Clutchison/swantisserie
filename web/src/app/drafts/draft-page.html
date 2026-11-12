@@ -18,15 +18,7 @@
     <ng-template #headingWithPicksLeft let-name>
       <div class="panel-heading">
         <h2>{{ name }}</h2>
-        @let left = picksLeft();
-        @if (left !== null) {
-          <span class="picks-left"
-            ><span aria-hidden="true">– </span
-            ><span [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
-              >{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</span
-            ></span
-          >
-        }
+        <app-picks-left />
       </div>
     </ng-template>
     <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()">
@@ -72,7 +64,7 @@
           Pool
         </button>
         <!-- Only players have a queue, and a complete draft has no Queue tab; from the desktop layout, the Queue pane takes its place. -->
-        @if (showQueueTab()) {
+        @if (queueTabShown()) {
           <button
             id="queue-tab"
             type="button"
@@ -209,7 +201,7 @@
       </section>
 
       <!-- Only players have a queue, and a complete draft has no Queue tab; from the desktop layout, the Queue pane takes its place. -->
-      @if (showQueueTab()) {
+      @if (queueTabShown()) {
         <section
           id="queue-panel"
           class="queue"
@@ -218,7 +210,7 @@
           [hidden]="selectedTab() !== 'Queue'"
         >
           @if (joined()) {
-            <app-queue-pane />
+            <app-queue-pane [visible]="selectedTab() === 'Queue'" />
           } @else {
             <h2>Queue</h2>
             <p class="empty">Only players have a queue.</p>

@@ -1,4 +1,5 @@
 @use '../../breakpoints' as bp;
+@use 'side-pane';
 
 /* A minor action, so it doesn't compete with the page's real controls. */
 .back-link {
@@ -36,18 +37,6 @@
 
   h2 {
     margin: 0;
-  }
-}
-
-/* Secondary to the heading, until the viewer is near the end of their picks. */
-.picks-left {
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
-
-  /* The count alone, not the dash before it. On bg, where accent text meets AA. */
-  [data-highlighted='true'] {
-    color: var(--color-accent);
-    font-weight: 600;
   }
 }
 
@@ -212,14 +201,10 @@ main {
     }
 
     > .queue-pane {
-      position: sticky;
-      top: 0;
+      @include side-pane.sticky;
+
       grid-column: 2;
-      box-sizing: border-box;
-      max-block-size: 100dvh;
-      overflow-y: auto;
       margin-top: var(--space-xl);
-      padding-bottom: var(--space-md);
     }
   }
 }
@@ -232,7 +217,7 @@ main {
 @media (min-width: bp.$wide-desktop) {
   main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 19rem;
+    grid-template-columns: minmax(0, 1fr) side-pane.$width;
     column-gap: var(--space-xl);
     align-items: start;
 
@@ -247,19 +232,15 @@ main {
 
     /* Placed after the tab column, so it shares its row; the reading order stays as written. */
     > .players-panel {
-      position: sticky;
-      top: 0;
+      @include side-pane.sticky;
+
       order: 1;
       /* The last column, after any Queue pane. */
       grid-column: -2;
-      box-sizing: border-box;
-      max-block-size: 100dvh;
-      overflow-y: auto;
-      padding-bottom: var(--space-md);
     }
   }
 
   main.with-queue-pane {
-    grid-template-columns: minmax(0, 1fr) auto 19rem;
+    grid-template-columns: minmax(0, 1fr) auto side-pane.$width;
   }
 }

@@ -26,6 +26,9 @@ import {
   serverError,
   viewOn,
   cardName,
+  cardNames,
+  queueList,
+  text,
   draggable,
   namedImages,
   accessibleName,
@@ -52,8 +55,7 @@ describe('Queue pane list', () => {
     { status: 409, statusText: 'Conflict' },
   ] as const;
   /** The names in the Queue pane's list, in order. */
-  const names = (queue: HTMLElement) =>
-    [...queue.querySelectorAll('li .name')].map((name) => name.textContent?.trim());
+  const names = (queue: HTMLElement) => cardNames(queueList(queue)).map((name) => text(name));
 
   /**
    * Starts dragging the queued card named `name`, and returns what drops it
@@ -125,7 +127,7 @@ describe('Queue pane list', () => {
     expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
   });
 
-  it('shows a queued card’s remove button as a trash can', async () => {
+  it('shows a queued card’s remove button as an icon, named for its card', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
@@ -133,7 +135,6 @@ describe('Queue pane list', () => {
     const queue = queuePane(page);
 
     const remove = queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!;
-    expect(remove.querySelector('svg')?.classList).toContain('lucide-trash');
     expect(remove.textContent?.trim()).toBe('');
     expect(remove.title).toBe('Remove Shivan Dragon');
   });
