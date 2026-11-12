@@ -146,6 +146,10 @@ _Avoid_: Slot, position
 The part of a draft's page that shows its players in seat order, and where the organizer sets the seat order and bots are added.
 _Avoid_: Sidebar, side pane, Players section
 
+**Seat strip**:
+A narrow column of the players' avatars in seat order beside a started draft's tabs, marking whose turn it is and naming each player on hover or focus. It stands in for the Players panel on wide screens until the draft is complete, and opens the full panel on request.
+_Avoid_: Avatar bar, sidebar, turn strip, Players panel (that is the full panel)
+
 **Snake order**:
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
 _Avoid_: Serpentine, wheel
