@@ -4,6 +4,7 @@ import type { Observable } from 'rxjs';
 import type {
   PoolCardRequest,
   QueueOrderRequest,
+  QueuePausedRequest,
   QueueUnpickedRequest,
   QueueView,
   StealBehavior,
@@ -42,7 +43,26 @@ export class QueueApi {
     } satisfies StealBehaviorRequest);
   }
 
-  /** Stops the notice listing the lost and cleared cards. */
+  /** Sets the queue to queue paused. */
+  pauseQueue(draftId: string): Observable<QueueView> {
+    return this.http.put<QueueView>(`${url(draftId)}/paused`, {
+      queuePaused: true,
+    } satisfies QueuePausedRequest);
+  }
+
+  /**
+   * Sets the queue to queue picking. On the player's own turn it picks
+   * straight away: `poolCardIds` are the cards the player confirmed it picks
+   * before the turn passes, which the api refuses if it would pick others.
+   */
+  setQueuePicking(draftId: string, poolCardIds: string[]): Observable<QueueView> {
+    return this.http.put<QueueView>(`${url(draftId)}/paused`, {
+      queuePaused: false,
+      poolCardIds,
+    } satisfies QueuePausedRequest);
+  }
+
+  /** Stops the notice listing the lost cards. */
   dismissNotice(draftId: string): Observable<QueueView> {
     return this.http.delete<QueueView>(`${url(draftId)}/notice`);
   }

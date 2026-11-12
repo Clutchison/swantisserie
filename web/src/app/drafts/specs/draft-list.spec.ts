@@ -48,7 +48,7 @@ describe('draft list', () => {
 
   it('lists a closed draft only under Closed drafts, after active and complete', async () => {
     const page = await openList([
-      draft({ id: 'a', name: 'Red dragons', state: 'Paused' }),
+      draft({ id: 'a', name: 'Red dragons', state: 'Frozen' }),
       draft({ id: 'b', name: 'Shut early', state: 'Closed' }),
       draft({ id: 'c', name: 'Last month', state: 'Complete' }),
     ]);
@@ -208,7 +208,7 @@ describe('draft list', () => {
       const page = await openList([
         draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
         draft({ id: 'd', name: 'Picking', state: 'Drafting' }),
-        draft({ id: 'p', name: 'Taking a break', state: 'Paused' }),
+        draft({ id: 'p', name: 'Taking a break', state: 'Frozen' }),
         draft({ id: 's', name: 'Shut early', state: 'Closed' }),
         withBadge(null, { id: 'n', name: 'No tournament' }),
         withBadge(registration, { id: 'r', name: 'Registering' }),

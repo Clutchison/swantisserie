@@ -1,45 +1,47 @@
-/** A card in a queue, or lost or cleared from one. */
+/** A card in a queue, or lost from one. */
 export interface QueuedCardView {
   poolCardId: string;
   name: string;
 }
 
-/** What every queue view shows, whether or not a card was lost. */
-interface QueueBase {
+/**
+ * What losing a card did to its queue: set it queue paused, under pause
+ * queue; or left it as it was, so it stayed queue picking, under pick next,
+ * or stayed queue paused.
+ */
+export type QueueLoss =
+  'QueuePaused' | 'StayedQueuePicking' | 'StayedQueuePaused';
+
+/** A card lost from the queue, as the Queue notice names it. */
+export interface LostQueuedCardView extends QueuedCardView {
+  /**
+   * What its loss did to the queue; null for a card lost before pause
+   * queue replaced clear queue.
+   */
+  queueLoss: QueueLoss | null;
+}
+
+/** The signed-in player's queue and steal behavior, which only they may see. */
+export interface QueueView {
   /** In the order they are to be picked. */
   cards: QueuedCardView[];
-  /**
-   * Cards taken out because a card in the queue was lost, in the order they
-   * went.
-   */
-  cleared: QueuedCardView[];
-  /** What a card lost from now on does to the rest of the queue. */
+  /** Cards other players picked first, in the order they were lost. */
+  lost: LostQueuedCardView[];
+  /** What a card lost from now on does to the queue. */
   stealBehavior: StealBehavior;
+  /**
+   * Whether the queue is queue paused, making no queued picks, rather than
+   * queue picking, as every queue starts.
+   */
+  queuePaused: boolean;
 }
 
 /**
- * The signed-in player's queue and steal behavior, which only they may see.
- * Only a lost card can have left the rest of the queue kept.
+ * What a lost card does to a player's queue, whose rest stays in order
+ * either way: under pause queue the queue is set to queue paused; under
+ * pick next it stays queue picking.
  */
-export type QueueView = QueueBase &
-  (
-    | { lost: []; restKept: false }
-    | {
-        /** Cards other players picked first, in the order they were lost. */
-        lost: [QueuedCardView, ...QueuedCardView[]];
-        /**
-         * Whether the latest lost card left the rest of the queue in place,
-         * as it does under pick next.
-         */
-        restKept: boolean;
-      }
-  );
-
-/**
- * What a lost card does to the rest of a player's queue: under clear queue
- * the rest is cleared; under pick next it stays, in order.
- */
-export type StealBehavior = 'ClearQueue' | 'PickNext';
+export type StealBehavior = 'PauseQueue' | 'PickNext';
 
 /** The queue's order, as every queued card's pool card id. */
 export interface QueueOrderRequest {
@@ -55,3 +57,19 @@ export interface QueueUnpickedRequest {
 export interface StealBehaviorRequest {
   stealBehavior: StealBehavior;
 }
+
+/**
+ * Whether a player sets their queue to queue paused or queue picking. Only
+ * setting it queue picking lists cards.
+ */
+export type QueuePausedRequest =
+  | { queuePaused: true }
+  | {
+      queuePaused: false;
+      /**
+       * The pool card ids, in order, that the player confirmed their queue
+       * picks before the turn passes, as `queuePicksBeforeTurnPasses` names
+       * them. Left out, none.
+       */
+      poolCardIds?: string[];
+    };

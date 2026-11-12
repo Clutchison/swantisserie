@@ -26,6 +26,7 @@ import {
   fourCards,
   registerWebhook,
   queueInLobby,
+  setQueuePaused,
 } from './harness.js';
 
 useDraftsApp();
@@ -60,13 +61,12 @@ describe('cascade', () => {
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
+      queuePaused: false,
     });
   });
 
-  it('stops at a player whose queue another player’s pick has just cleared', async () => {
+  it('stops at a player whose queue another player’s pick has just paused', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
@@ -78,15 +78,77 @@ describe('cascade', () => {
     expect(picked.body.turn).toEqual({ pick: 2, round: 1, playerId: bob.id });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
-      cards: [],
-      lost: [{ poolCardId: ids.Shock, name: 'Shock' }],
-      cleared: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      cards: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+      lost: [
+        {
+          poolCardId: ids.Shock,
+          name: 'Shock',
+          queueLoss: 'QueuePaused',
+        },
+      ],
+      stealBehavior: 'PauseQueue',
+      queuePaused: true,
     });
   });
 
-  it('clears a queue mid-cascade: a queued pick from a start stops at the player it cleared', async () => {
+  describe('at a player whose queue is paused', () => {
+    /**
+     * Alice, Bob and Carol, one pick each: Bob's queue picks Lightning Bolt,
+     * and Carol's, paused, holds Lava Spike. It's Alice's turn.
+     */
+    async function draftWithCarolPaused() {
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        fourCards,
+      );
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
+      await setQueuePaused(id, true, carolCookie).expect(200);
+      return { id, ids, carolCookie };
+    }
+
+    it('stops there, as at an empty queue', async () => {
+      const { id, ids, carolCookie } = await draftWithCarolPaused();
+
+      const picked = await pick(id, ids.Shock).expect(200);
+
+      expect(picked.body.turn).toMatchObject({ pick: 3, playerId: carol.id });
+      expect(await pickLogLines(id)).toEqual([
+        'Alice: Shock',
+        'Bob: Lightning Bolt',
+      ]);
+      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
+      ]);
+    });
+
+    it.each([
+      ['an unfreeze', 'freeze', 'unfreeze'],
+      ['a reopen', 'close', 'reopen'],
+    ])(
+      'skips it after %s, leaving the player to pick by hand',
+      async (_, stop, carryOn) => {
+        const { id, ids, carolCookie } = await draftWithCarolPaused();
+        await pick(id, ids.Shock).expect(200);
+        await post(id, stop).expect(200);
+
+        const carriedOn = await post(id, carryOn).expect(200);
+
+        expect(carriedOn.body.turn).toMatchObject({ playerId: carol.id });
+        expect(await pickLogLines(id)).toEqual([
+          'Alice: Shock',
+          'Bob: Lightning Bolt',
+        ]);
+        await pick(id, ids['Lava Spike'], carolCookie).expect(200);
+      },
+    );
+  });
+
+  it('pauses a queue mid-cascade: a queued pick from a start stops at the player whose queue it paused', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await queueInLobby(id, alice, ids.Shock, ids['Lightning Bolt']);
@@ -100,17 +162,16 @@ describe('cascade', () => {
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
+      queuePaused: false,
     });
   });
 
   it.each([
-    ['resume', 'pause', 'resume'],
+    ['unfreeze', 'freeze', 'unfreeze'],
     ['reopen', 'close', 'reopen'],
   ])(
-    'clears a queue in the cascade after a %s',
+    'pauses a queue in the cascade after a %s, stopping at that player',
     async (_name, stop, restart) => {
       const carolCookie = await signIn(carol);
       const id = await readyDraft(
@@ -137,13 +198,18 @@ describe('cascade', () => {
         'Bob: Lightning Bolt',
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
-        cleared: [
+        cards: [
           { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
         ],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        lost: [
+          {
+            poolCardId: ids['Lightning Bolt'],
+            name: 'Lightning Bolt',
+            queueLoss: 'QueuePaused',
+          },
+        ],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
     },
   );
@@ -237,9 +303,8 @@ describe('cascade', () => {
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
+      queuePaused: false,
     });
   });
 
@@ -363,7 +428,7 @@ describe('cascade', () => {
     });
   });
 
-  it('adds nothing about a cleared queue to the announcement, only the usual ping', async () => {
+  it('adds nothing about a paused queue to the announcement, only the usual ping', async () => {
     const id = await readyDraft(
       [aliceCookie, bobCookie],
       2,

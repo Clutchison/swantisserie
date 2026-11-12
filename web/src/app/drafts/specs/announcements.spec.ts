@@ -83,7 +83,7 @@ describe('switching a draft’s announcements', () => {
     expect(openDialog()).toBeNull();
   });
 
-  it.each<DraftState>(['Lobby', 'Drafting', 'Paused', 'Closed', 'Complete'])(
+  it.each<DraftState>(['Lobby', 'Drafting', 'Frozen', 'Closed', 'Complete'])(
     'offers every webhook and none on a draft in %s, showing the current one',
     async (state) => {
       await openWith({ state, webhook: other });
@@ -126,12 +126,12 @@ describe('switching a draft’s announcements', () => {
   });
 
   it('follows a change another view made, even to a webhook registered since it loaded', async () => {
-    const { fixture } = await openWith({ state: 'Paused', webhook: main, version: 3 });
+    const { fixture } = await openWith({ state: 'Frozen', webhook: main, version: 3 });
     const newer = { id: 'newer', name: '#roto-newer', gone: false };
 
     updates.events.next({
       type: 'changed',
-      draft: draft({ state: 'Paused', webhook: newer, version: 4 }),
+      draft: draft({ state: 'Frozen', webhook: newer, version: 4 }),
     });
     await flushPicks([]);
     await fixture.whenStable();

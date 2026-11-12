@@ -45,14 +45,14 @@ describe('pick import', () => {
   ].join('\n');
   const cards = ['Ash Golem', 'Brine Wisp', 'Cinder Hound', 'Dusk Heron'];
 
-  it('starts the draft paused, with fixed seats, the picks logged and the turn on the next player', async () => {
+  it('starts the draft frozen, with fixed seats, the picks logged and the turn on the next player', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     const before = await getDraft(id).expect(200);
 
     const answer = await importPicks(id, csv, previewed).expect(200);
 
-    expect(answer.body.state).toBe('Paused');
+    expect(answer.body.state).toBe('Frozen');
     expect(answer.body.version).toBe(before.body.version + 1);
     expect(answer.body.players.map((p: { id: string }) => p.id)).toEqual([
       alice.id,
@@ -274,7 +274,7 @@ describe('pick import', () => {
     });
   });
 
-  it('posts no announcement and makes no queued or bot picks; the resume announces and pings', async () => {
+  it('posts no announcement and makes no queued or bot picks; the unfreeze announces and pings', async () => {
     const webhookId = await registerWebhook();
     // Seats: Alice, the bot; three picks each.
     const id = await readyDraft(
@@ -296,7 +296,7 @@ describe('pick import', () => {
     expect(webhookClient.post).not.toHaveBeenCalled();
     expect((await pickLog(id)).body).toHaveLength(3);
 
-    await post(id, 'resume').expect(200);
+    await post(id, 'unfreeze').expect(200);
 
     await announcementsSettled(id);
     expect((await pickLog(id)).body).toHaveLength(3);

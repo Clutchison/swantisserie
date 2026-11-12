@@ -1,0 +1,9 @@
+/* The dialog's box, from dialog.scss: its heading, the cards the queue picks, then its actions. */
+:host {
+  --dialog-width: 24rem;
+}
+
+p,
+ol {
+  margin: 0;
+}

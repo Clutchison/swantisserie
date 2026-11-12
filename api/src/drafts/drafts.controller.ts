@@ -67,7 +67,7 @@ import {
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
 import { toDraftView, toPickView, toPoolCardView } from './draft-view.js';
-import { BotPlayers } from './bot-players.js';
+import { DraftChanges } from './draft-changes.js';
 import { isPlatform, PLATFORMS } from './platform.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { isPoolSourceKind } from './pool-source.js';
@@ -92,7 +92,7 @@ export class DraftsController {
     private readonly turns: TurnsService,
     private readonly lifecycle: DraftLifecycleService,
     private readonly publisher: DraftPublisher,
-    private readonly bots: BotPlayers,
+    private readonly changes: DraftChanges,
     private readonly badges: TournamentBadges,
   ) {}
 
@@ -192,26 +192,26 @@ export class DraftsController {
     return this.change(id, () => this.lifecycle.changeWebhook(id, webhookId));
   }
 
-  /** Pauses the draft, so no picks can be made; for the organizer. */
-  @Post(':id/pause')
+  /** Freezes the draft, so no picks can be made; for the organizer. */
+  @Post(':id/freeze')
   @HttpCode(200)
-  async pause(
+  async freeze(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.lifecycle.pause(id));
+    return this.change(id, () => this.lifecycle.freeze(id));
   }
 
-  /** Resumes a paused draft, making any queued picks due; for the organizer. */
-  @Post(':id/resume')
+  /** Unfreezes a frozen draft, making any queued picks due; for the organizer. */
+  @Post(':id/unfreeze')
   @HttpCode(200)
-  async resume(
+  async unfreeze(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.lifecycle.resume(id));
+    return this.change(id, () => this.lifecycle.unfreeze(id));
   }
 
   /** Closes a started draft early, so it is read-only; for the organizer. */
@@ -310,7 +310,7 @@ export class DraftsController {
   }
 
   /**
-   * Loads a file of picks and starts the draft paused, for good; the file is
+   * Loads a file of picks and starts the draft frozen, for good; the file is
    * checked again, as the draft may have changed since its preview. `playerIds`
    * is the seat order the preview showed. For the organizer.
    */
@@ -380,10 +380,8 @@ export class DraftsController {
     id: string,
     change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
-    const events = await change();
-    const draft = await this.publisher.publish(id, events ?? []);
+    const draft = await this.changes.committed(id, (await change()) ?? []);
     if (!draft) throw new NotFoundException();
-    if (events) this.bots.scheduleNextPick(id, events);
     return draft;
   }
 

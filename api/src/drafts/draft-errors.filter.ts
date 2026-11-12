@@ -24,7 +24,7 @@ import {
   GoneWebhookChosenError,
   NoDraftPowerError,
   NotAPlayerError,
-  PauseRefusedError,
+  FreezeRefusedError,
   PickImportRefusedError,
   PickRefusedError,
   PlayersChangedError,
@@ -35,7 +35,8 @@ import {
 } from './draft-errors.js';
 import { PlanRefusedError } from './plans.service.js';
 import { PoolFrozenError } from './pool-snapshot.service.js';
-import { QueueChangedError, QueueRefusedError } from './queues.service.js';
+import { QueueRefusedError } from './queue-refusals.js';
+import { QueueChangedError } from './queues.service.js';
 
 /**
  * Answers the drafts module's domain errors over HTTP, for the drafts,
@@ -82,7 +83,7 @@ export function toHttpError(err: unknown): HttpException | undefined {
   if (
     err instanceof StartRefusedError ||
     err instanceof UndoRefusedError ||
-    err instanceof PauseRefusedError ||
+    err instanceof FreezeRefusedError ||
     err instanceof CloseRefusedError
   ) {
     return new ConflictException(err.refusal);

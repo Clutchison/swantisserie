@@ -11,6 +11,7 @@ import type {
   SetListEntryView,
   TurnState,
 } from 'contract';
+import { isTurnState } from 'contract';
 import type { Changes } from './changes';
 
 /**
@@ -109,9 +110,9 @@ export function isActive(state: DraftState): boolean {
   return state !== 'Complete' && state !== 'Closed';
 }
 
-/** Whether it is someone's turn in the draft: whether it is Drafting or Paused. */
+/** Whether it is someone's turn in the draft: whether it is Drafting or Frozen. */
 export function hasTurn(draft: DraftView): draft is Extract<DraftView, { state: TurnState }> {
-  return draft.state === 'Drafting' || draft.state === 'Paused';
+  return isTurnState(draft.state);
 }
 
 /**
@@ -185,6 +186,9 @@ export function sendDraftChange(
   }, options);
 }
 
+/** What a failed change to the queue says when the api gives no reason. */
+export const QUEUE_CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
+
 /** What a failed change to the plan says when the api gives no reason. */
 export const PLAN_CHANGE_FAILED = "Couldn't change your deck. Try again in a moment.";
 
@@ -194,14 +198,21 @@ export type DraftProblem =
   /** Set by the web app when the API gave no explanation, e.g. offline. */
   | { error: 'request-failed'; message: string };
 
-/** A queue with no cards in it, and none lost or cleared. */
+/** A queue with no cards in it, and none lost. */
 export const EMPTY_QUEUE: QueueView = {
   cards: [],
   lost: [],
-  cleared: [],
-  restKept: false,
-  stealBehavior: 'ClearQueue',
+  stealBehavior: 'PauseQueue',
+  queuePaused: false,
 };
+
+/**
+ * A queue's state, as the viewer reads it: on the queue paused switch, and
+ * in place of the next card on the "next up" strip.
+ */
+export function queueStateName(queuePaused: boolean): string {
+  return queuePaused ? 'Queue paused' : 'Queue picking';
+}
 
 /** A plan with nothing on either plan board, nothing lost from it, and no preferred printings. */
 export const EMPTY_PLAN: PlanView = {

@@ -1,18 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  QueuedCardView,
-  QueueRefusal,
-  QueueView,
-  StealBehavior,
-} from 'contract';
+import type { QueuedCardView, QueueView, StealBehavior } from 'contract';
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
+import {
+  checkStarted,
+  lockQueue,
+  QueueRefusedError,
+} from './queue-refusals.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
@@ -21,15 +20,10 @@ export class QueueChangedError extends Error {
   }
 }
 
-export class QueueRefusedError extends Error {
-  constructor(readonly refusal: QueueRefusal) {
-    super(refusal.message);
-  }
-}
-
 /**
- * Players' queues: the cards each wants picked for them, in order, and their
- * steal behavior.
+ * Players' queues: the cards each wants picked for them, in order, their
+ * steal behavior, and pausing them. Setting a queue picking, which may
+ * pick, is the turns' (`TurnsService.setQueuePicking`).
  */
 @Injectable()
 export class QueuesService {
@@ -66,9 +60,25 @@ export class QueuesService {
   }
 
   /**
+   * Sets the user's queue in the draft queue paused, with their row locked,
+   * so no pick lands meanwhile. Nothing is picked, and the draft's version
+   * stays as it is, as the state is private to the player. Throws as
+   * `setStealBehavior`.
+   */
+  async pauseQueue(draftId: string, userId: string): Promise<QueueView> {
+    return this.change(draftId, userId, async (tx, playerId, state) => {
+      checkStarted(state);
+      await tx.player.update({
+        where: { id: playerId },
+        data: { queuePaused: true },
+      });
+    });
+  }
+
+  /**
    * Adds the pool card `poolCardId` to the end of the user's queue, and
-   * off its cleared list; a no-op if it is already queued. Throws QueueRefusedError if it can't be
-   * queued: in the lobby, or on the player's own turn, drafting or paused, when
+   * off its Queue notice; a no-op if it is already queued. Throws QueueRefusedError if it can't be
+   * queued: in the lobby, or on the player's own turn, drafting or frozen, when
    * they make that pick by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
   async add(
@@ -195,7 +205,7 @@ export class QueuesService {
   }
 
   /**
-   * Stops listing the user's lost and cleared cards. An undo still restores
+   * Stops listing the user's lost cards. An undo still restores
    * them. Throws NotAPlayerError if the user isn't in the draft.
    */
   async dismissNotice(draftId: string, userId: string): Promise<QueueView> {
@@ -209,7 +219,7 @@ export class QueuesService {
 
   /**
    * Throws QueueRefusedError if the player can't add to their queue now: in
-   * the lobby, or on their own turn, drafting or paused, when they make that
+   * the lobby, or on their own turn, drafting or frozen, when they make that
    * pick by hand. `change` refuses a closed or complete draft.
    */
   private async checkCanAdd(
@@ -272,21 +282,7 @@ export class QueuesService {
     ) => Promise<void>,
   ): Promise<QueueView> {
     return this.prisma.$transaction(async (tx) => {
-      const locked = await lockPlayer(tx, draftId, userId);
-      if (!locked) throw new NotAPlayerError('queues');
-      const { playerId, state } = locked;
-      if (state === 'Closed') {
-        throw new QueueRefusedError({
-          error: 'draft-closed',
-          message: 'This draft is closed.',
-        });
-      }
-      if (state === 'Complete') {
-        throw new QueueRefusedError({
-          error: 'draft-complete',
-          message: 'This draft is complete.',
-        });
-      }
+      const { playerId, state } = await lockQueue(tx, draftId, userId);
       await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });
@@ -319,9 +315,9 @@ export class QueuesService {
   }
 
   private async read(tx: Transaction, playerId: string): Promise<QueueView> {
-    const { stealBehavior } = await tx.player.findUniqueOrThrow({
+    const { stealBehavior, queuePaused } = await tx.player.findUniqueOrThrow({
       where: { id: playerId },
-      select: { stealBehavior: true },
+      select: { stealBehavior: true, queuePaused: true },
     });
     const cards = await tx.queuedCard.findMany({
       where: { playerId },
@@ -344,7 +340,7 @@ export class QueuesService {
       ],
       select: {
         poolCardId: true,
-        restKept: true,
+        queueLoss: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the notice reads only `poolCardId`.
         pick: {
           select: { poolCardId: true },
@@ -355,32 +351,19 @@ export class QueuesService {
         },
       },
     });
-    const isLost = (card: (typeof listed)[number]) =>
-      card.poolCardId === card.pick.poolCardId;
-    const lost = listed.filter(isLost);
-    const [first, ...more] = lost.map(toQueuedCardView);
     return {
       cards: cards.map(toQueuedCardView),
-      ...(first === undefined
-        ? { lost: [], restKept: false }
-        : { lost: [first, ...more], restKept: lost[lost.length - 1].restKept }),
-      cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
+      // A card cleared before pause queue replaced clear queue is no longer
+      // listed; only the lost card is the pick's own.
+      lost: listed
+        .filter((card) => card.poolCardId === card.pick.poolCardId)
+        .map((card) => ({
+          ...toQueuedCardView(card),
+          queueLoss: card.queueLoss,
+        })),
       stealBehavior,
+      queuePaused,
     };
-  }
-}
-
-/**
- * Throws QueueRefusedError in the lobby, where adding to a queue and setting
- * steal behavior wait for the draft to start. A queue already filled in the
- * lobby is kept, and cascades at the start.
- */
-function checkStarted(state: DraftState): void {
-  if (state === 'Lobby') {
-    throw new QueueRefusedError({
-      error: 'not-started',
-      message: 'You can queue once the draft starts.',
-    });
   }
 }
 

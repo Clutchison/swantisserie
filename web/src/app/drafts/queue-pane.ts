@@ -21,8 +21,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
-import type { QueueView, StealBehavior } from 'contract';
+import type { LostQueuedCardView, QueueView, StealBehavior } from 'contract';
 import type { Observable } from 'rxjs';
 import {
   LucideArrowDown,
@@ -32,44 +31,64 @@ import {
   LucideInfo,
   LucidePanelRightClose,
   LucidePanelRightOpen,
+  LucidePause,
   LucideTrash,
 } from '@lucide/angular';
 import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
-import { changeFailure, COARSE_POINTER_QUERY, DRAG_START_DELAY, matching } from './drafts';
+import {
+  changeFailure,
+  COARSE_POINTER_QUERY,
+  DRAG_START_DELAY,
+  matching,
+  QUEUE_CHANGE_FAILED,
+  queueStateName,
+} from './drafts';
 import { PicksLeft } from './picks-left';
 import { QueueAddBump, QueueAddStatus, queueAddsFromNow } from './queue-add-status';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
+import {
+  QUEUE_PICKING_HEADING,
+  QueuePickingDialog,
+  type QueuePickingResult,
+} from './queue-picking-dialog';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
-
-const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
 /** Where whether the viewer left the Queue pane collapsed is kept, in browser storage. */
 const COLLAPSED_KEY = 'queue-pane';
 const COLLAPSED = 'collapsed';
 
-/** Each steal behavior: what it's called, what it does, and the one the pill switches to. */
+/**
+ * Each steal behavior: what it's called, what it does once the rest of the
+ * queue has stayed, and the one the pill switches to.
+ */
 const STEAL_BEHAVIORS: Record<
   StealBehavior,
   { name: string; effect: string; other: StealBehavior }
 > = {
-  ClearQueue: {
-    name: 'Clear queue',
-    effect: 'the rest of your queue is cleared',
+  PauseQueue: {
+    name: 'Pause queue',
+    effect: 'your queue is set to queue paused, for you to pick by hand',
     other: 'PickNext',
   },
   PickNext: {
     name: 'Pick next',
-    effect: 'the rest of your queue stays, and your next available card is picked on your turn',
-    other: 'ClearQueue',
+    effect: 'your next available card is picked on your turn',
+    other: 'PauseQueue',
   },
 };
 
-/** Where a failed change is explained: by the steal behavior pill, or under the queue. */
-type ErrorPlace = 'stealBehavior' | 'queue';
+/** What "How this works" says each steal behavior does to a queue that loses a card. */
+const STEAL_BEHAVIOR_HELP =
+  `Under ${STEAL_BEHAVIORS.PauseQueue.name}, ${STEAL_BEHAVIORS.PauseQueue.effect}; ` +
+  `under ${STEAL_BEHAVIORS.PickNext.name}, it stays queue picking.`;
+
+/** Where a failed change is explained: by the queue paused switch, by the steal behavior pill, or under the queue. */
+type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
 let panes = 0;
@@ -99,8 +118,8 @@ let panes = 0;
     LucideInfo,
     LucidePanelRightClose,
     LucidePanelRightOpen,
+    LucidePause,
     LucideTrash,
-    NgTemplateOutlet,
     PicksLeft,
     QueueAddBump,
     QueueAddStatus,
@@ -123,7 +142,8 @@ export class QueuePane {
   private readonly cardDetails = inject(CardDetails);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-  private readonly dialog = inject(Dialog);
+  private readonly cdkDialog = inject(Dialog);
+  private readonly dialogShell = inject(DialogShell);
 
   /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
   readonly collapsible = input(false);
@@ -166,19 +186,20 @@ export class QueuePane {
   /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
   private dragged = false;
 
+  /** The queue's state, as its switch names it. */
+  protected readonly queueStateName = computed(() => queueStateName(this.queue().queuePaused));
+
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
   );
   protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIORS)
-    .map(({ name, effect }) => `${name}: ${effect}.`)
+    .map(({ name, effect }) => `${name}: the rest of your queue stays, and ${effect}.`)
     .join(' ');
+  protected readonly stealBehaviorHelp = STEAL_BEHAVIOR_HELP;
 
-  /** Whether the notice should say the rest of the queue was kept after its latest loss. */
-  protected readonly showRestKept = computed(
-    () => this.queue().restKept && this.queue().cards.length > 0,
-  );
+  protected readonly lossNote = lossNote;
 
-  /** Whether there are lost or cleared cards to note. */
+  /** Whether there are lost cards to note. */
   protected readonly hasNotice = this.store.hasNotice;
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;
@@ -193,7 +214,9 @@ export class QueuePane {
   protected readonly collapsed = computed(() => this.collapsible() && this.collapsedChoice());
   private readonly toggleButton = viewChild<ElementRef<HTMLButtonElement>>('toggle');
 
-  /** The collapse toggle's name: on the rail, with the queue's size and any unseen Queue notice. */
+  /** Whether the queue is queue paused, which the rail marks. */
+  protected readonly queuePaused = this.store.queuePaused;
+  /** The collapse toggle's name: on the rail, with the queue's size, whether it is queue paused and any unseen Queue notice. */
   protected readonly toggleName = computed(() =>
     this.collapsed() ? this.store.queueSummary('Expand queue') : 'Collapse queue',
   );
@@ -221,7 +244,7 @@ export class QueuePane {
     effect((onCleanup) => {
       const add = this.added();
       if (!add) return;
-      onCleanup(afterCardDetailsClose(this.dialog, () => this.markAdded(add.id)));
+      onCleanup(afterCardDetailsClose(this.cdkDialog, () => this.markAdded(add.id)));
     });
   }
 
@@ -393,7 +416,66 @@ export class QueuePane {
     );
   }
 
-  /** Stops the notice listing the lost and cleared cards. */
+  /**
+   * Sets the queue to queue paused, or queue picking. Setting it queue
+   * picking when it would pick cards straight away, on the player's own
+   * turn, first opens the Set queue picking dialog to confirm them.
+   */
+  protected toggleQueuePaused() {
+    if (!this.queue().queuePaused) return this.sendQueuePaused(true);
+    if (this.store.queuePicks().length > 0) return this.confirmQueuePicking();
+    return this.sendQueuePaused(false);
+  }
+
+  /**
+   * Sets the queue to queue paused, or queue picking with no cards to pick,
+   * showing it at once. If that fails, the previous state shows again until
+   * the queue is re-read. A refusal of queue picking with none, as the queue
+   * would pick cards after all, opens the Set queue picking dialog to
+   * confirm them.
+   */
+  private sendQueuePaused(queuePaused: boolean) {
+    return this.change(
+      () => {
+        this.store.showQueue({ ...this.queue(), queuePaused });
+        return queuePaused
+          ? this.queueApi.pauseQueue(this.draftId())
+          : this.queueApi.setQueuePicking(this.draftId(), []);
+      },
+      {
+        place: 'queuePaused',
+        rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: !queuePaused }),
+        status: queueStateName(queuePaused),
+        refused: (err) => {
+          if (!this.store.caughtUpOnQueuePicks(err)) return false;
+          this.confirmQueuePicking();
+          return true;
+        },
+      },
+    );
+  }
+
+  /**
+   * Opens the Set queue picking dialog. A failure it closes with is said by
+   * the switch, where focus returns; should the queue, read again, pick
+   * nothing after all, it is set queue picking with none.
+   */
+  private confirmQueuePicking() {
+    this.dialogShell
+      .open<QueuePickingDialog, QueuePickingResult>(QueuePickingDialog, {
+        labelledBy: QUEUE_PICKING_HEADING,
+        injector: this.injector,
+      })
+      .closed.subscribe((result) => {
+        if (result?.outcome === 'failed') {
+          this.error.set({ message: result.message, place: 'queuePaused' });
+        } else if (result?.outcome === 'none-to-pick') {
+          void this.sendQueuePaused(false);
+        }
+      });
+  }
+
+  /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(() => this.queueApi.dismissNotice(this.draftId()));
   }
@@ -403,15 +485,23 @@ export class QueuePane {
    * shows the queue it answers with, unless another change is in flight. A
    * refused change means the queue has moved on, e.g. a card was lost: say
    * why, at `place`, and roll back what it showed early; the store re-reads it. Focus
-   * is kept as `Changes.send` keeps it, and a change made says `status`.
+   * is kept as `Changes.send` keeps it, and a change made says `status`. A
+   * failure `refused` answers true for is left to it, unsaid.
    */
   private change(
     send: () => Observable<QueueView>,
     {
       place = 'queue',
       rollBack,
+      refused,
       ...kept
-    }: { place?: ErrorPlace; rollBack?: () => void; keep?: string[]; status?: string } = {},
+    }: {
+      place?: ErrorPlace;
+      rollBack?: () => void;
+      refused?: (err: unknown) => boolean;
+      keep?: string[];
+      status?: string;
+    } = {},
   ) {
     return this.changes.send(async () => {
       this.error.set(null);
@@ -419,10 +509,25 @@ export class QueuePane {
         await this.store.changeQueue(send(), { rollBack });
         return true;
       } catch (err) {
-        this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
+        if (refused?.(err)) return false;
+        this.error.set({ message: changeFailure(err, QUEUE_CHANGE_FAILED), place });
         return false;
       }
     }, kept);
+  }
+}
+
+/** What the Queue notice says after a lost card's name: what its loss did to the queue, if anything. */
+function lossNote({ queueLoss }: LostQueuedCardView): string {
+  switch (queueLoss) {
+    case 'QueuePaused':
+      return ': your queue was set to queue paused.';
+    case 'StayedQueuePicking':
+      return ': your queue stayed queue picking.';
+    case 'StayedQueuePaused':
+      return ': your queue stayed queue paused.';
+    case null:
+      return '.';
   }
 }
 

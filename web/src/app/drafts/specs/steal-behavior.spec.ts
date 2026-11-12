@@ -35,7 +35,7 @@ describe('steal behavior', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   const EXPLANATION =
-    'Clear queue: the rest of your queue is cleared. ' +
+    'Pause queue: the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand. ' +
     'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
 
   /** The steal behavior pill. */
@@ -50,16 +50,15 @@ describe('steal behavior', () => {
       cards: [brightclimb, shivan],
       queue: queueOf({
         cards: [queued(shivan)],
-        lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
-        restKept: false,
+        lost: [queued(brightclimb)],
       }),
     });
     const queue = queuePane(page);
 
     const control = elementWithText(queue, 'Steal behavior')!;
     expect(control).not.toBeNull();
-    expect(pill(queue).textContent).toContain('Clear queue');
-    expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Clear queue');
+    expect(pill(queue).textContent).toContain('Pause queue');
+    expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Pause queue');
     const notice = queueNotice(queue)!;
     expect(control.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(queue.querySelector('input[type="radio"]')).toBeNull();
@@ -77,9 +76,11 @@ describe('steal behavior', () => {
     expect(accessibleDescription(pill(queue))).toBe(EXPLANATION);
     const shown = [...queue.querySelectorAll<HTMLElement>('*')].filter(
       (el) =>
-        !el.closest('.visually-hidden') &&
+        !el.closest('.visually-hidden, [hidden]') &&
         [...el.childNodes].some(
-          (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.includes('is cleared'),
+          (node) =>
+            node.nodeType === Node.TEXT_NODE &&
+            node.textContent?.includes('for you to pick by hand'),
         ),
     );
     expect(shown).toEqual([]);
@@ -118,11 +119,11 @@ describe('steal behavior', () => {
 
     pill(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
-    expect(back.request.body).toEqual({ stealBehavior: 'ClearQueue' });
+    expect(back.request.body).toEqual({ stealBehavior: 'PauseQueue' });
     back.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
 
-    expect(pill(queue).textContent).toContain('Clear queue');
+    expect(pill(queue).textContent).toContain('Pause queue');
   });
 
   it.each([
@@ -131,8 +132,8 @@ describe('steal behavior', () => {
       drafting({ turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
     [
-      'on the player’s own turn while paused',
-      drafting({ state: 'Paused', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
+      'on the player’s own turn while frozen',
+      drafting({ state: 'Frozen', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
   ] as [string, DraftFixture][])('can be changed %s', async (_when, fields) => {
     const { page } = await openDraft(
@@ -195,7 +196,7 @@ describe('steal behavior', () => {
     // Before the queue is re-read.
     await vi.waitFor(() => {
       expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
-      expect(pill(queue).textContent).toContain('Clear queue');
+      expect(pill(queue).textContent).toContain('Pause queue');
     });
     // By the pill, not under a queue that may run off the screen.
     const alert = queue.querySelector('[role="alert"]')!;
@@ -204,49 +205,26 @@ describe('steal behavior', () => {
 
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
-    expect(pill(queue).textContent).toContain('Clear queue');
+    expect(pill(queue).textContent).toContain('Pause queue');
   });
 
-  describe('the queue notice', () => {
-    it('says the rest of the queue is still queued after a card is lost under pick next', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: queueOf({
-          cards: [queued(shivan)],
-          lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
-          restKept: true,
-          stealBehavior: 'PickNext',
-        }),
-      });
-      const queue = queuePane(page);
-
-      const note = queueNotice(queue)!;
-      expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Lost to other players: Brightclimb Pathway // Grimclimb Pathway. ' +
-          'The rest of your queue is still queued.',
-      );
-      button(note, 'Dismiss')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/notice')
-        .flush(queueOf({ cards: [queued(shivan)] }));
-      await fixture.whenStable();
+  it('describes pause queue and pick next in the Queue pane’s help', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
     });
+    const queue = queuePane(page);
 
-    it('names only the lost card when nothing is left queued', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: queueOf({
-          cards: [],
-          lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
-          restKept: true,
-          stealBehavior: 'PickNext',
-        }),
-      });
-      const queue = queuePane(page);
+    button(queue, 'How this works')!.click();
+    await fixture.whenStable();
 
-      const note = queueNotice(queue)!;
-      expect(note.textContent).toContain('Lost to other players');
-      expect(note.textContent).not.toContain('still queued');
-    });
+    const help = document.getElementById(
+      button(queue, 'How this works')!.getAttribute('aria-controls')!,
+    )!;
+    expect(help.textContent?.replace(/\s+/g, ' ')).toContain(
+      'If another player picks a queued card first and no copy is left, it is lost. ' +
+        'Under Pause queue, your queue is set to queue paused, for you to pick by hand; ' +
+        'under Pick next, it stays queue picking.',
+    );
   });
 });

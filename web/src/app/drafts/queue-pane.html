@@ -1,10 +1,3 @@
-<ng-template #names let-cards>
-  @for (card of cards; track card.poolCardId; let last = $last) {
-    <strong
-      ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name" /></strong
-    >{{ last ? '.' : ', ' }}
-  }
-</ng-template>
 <section class="pane" [attr.aria-labelledby]="headingId">
   @if (collapsible()) {
     <!-- The same button collapses the pane and, as its rail, expands it, so focus on it stays. -->
@@ -22,6 +15,9 @@
         <svg lucidePanelRightOpen size="16"></svg>
         @if (size(); as size) {
           <span class="rail-count" appQueueAddBump aria-hidden="true">{{ size.count }}</span>
+        }
+        @if (queuePaused()) {
+          <svg lucidePause size="14" aria-hidden="true"></svg>
         }
         @if (unseenNotice()) {
           <span class="dot" aria-hidden="true"></span>
@@ -46,6 +42,19 @@
         <app-picks-left />
       </div>
       @if (!failed()) {
+        <!-- Named for the state it is in, so a screen reader hears "Queue paused", not "Queue picking, off". -->
+        <button
+          class="queue-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="!queue().queuePaused"
+          [disabled]="readOnly() || loading()"
+          appSendsChange="queue paused"
+          (click)="toggleQueuePaused()"
+        >
+          <span class="track" aria-hidden="true"><span class="thumb"></span></span>
+          {{ queueStateName() }}
+        </button>
         <div class="steal-behavior">
           <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
           <span [id]="descriptionId" class="visually-hidden">{{ stealBehaviorExplanation }}</span>
@@ -86,10 +95,12 @@
         } @else {
           Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.
         }
+        If another player picks a queued card first and no copy is left, it is lost.
+        {{ stealBehaviorHelp }}
       </p>
     }
     @if (error(); as failure) {
-      @if (failure.place === 'stealBehavior') {
+      @if (failure.place === 'queuePaused' || failure.place === 'stealBehavior') {
         <p class="error" role="alert">{{ failure.message }}</p>
       }
     }
@@ -99,16 +110,13 @@
       @if (hasNotice()) {
         <div class="notice" role="status" aria-label="Queue notice">
           <p>
-            @if (queue().lost.length > 0) {
-              Lost to other players:
-              <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().lost }" />
-            }
-            @if (queue().cleared.length > 0) {
-              Your queue was cleared:
-              <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().cleared }" />
-            }
-            @if (showRestKept()) {
-              The rest of your queue is still queued.
+            Lost to other players:
+            @for (card of queue().lost; track card.poolCardId) {
+              <strong
+                ><app-card-name
+                  [card]="poolCardsById().get(card.poolCardId)"
+                  [name]="card.name" /></strong
+              >{{ lossNote(card) }}
             }
           </p>
           @if (!readOnly()) {

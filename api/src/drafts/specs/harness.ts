@@ -388,7 +388,7 @@ export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
 /**
  * Queues `poolCardIds` for `user`, in order after anything already queued,
  * in a draft still in the lobby: a queue already filled there, which the api
- * keeps, cascades at the start and a pick import clears.
+ * keeps, cascades at the start and a pick import empties.
  */
 export async function queueInLobby(
   id: string,
@@ -664,6 +664,35 @@ export function setStealBehavior(
   return draftsRequest('put', `/${id}/queue/steal-behavior`, cookie, {
     stealBehavior: behavior,
   });
+}
+
+/** Sets the player's queue to queue paused, or queue picking if `queuePaused` is false, listing no cards. */
+export function setQueuePaused(
+  id: string,
+  queuePaused: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/queue/paused`, cookie, { queuePaused });
+}
+
+/**
+ * Sets the player's queue to queue picking, sending `poolCardIds`: the cards
+ * they confirmed it picks before the turn passes, on their own turn.
+ */
+export function setQueuePicking(
+  id: string,
+  poolCardIds: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/queue/paused`, cookie, {
+    queuePaused: false,
+    poolCardIds,
+  });
+}
+
+/** Whether the player's queue is queue paused, as their queue gives it. */
+export async function queuePaused(id: string, cookie = aliceCookie) {
+  return (await queue(id, cookie).expect(200)).body.queuePaused as boolean;
 }
 
 /** The player's plan in the draft. */

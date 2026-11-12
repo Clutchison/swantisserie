@@ -484,7 +484,7 @@ describe('pool snapshot', () => {
     });
   });
 
-  it('keeps the pool frozen once the snapshot is complete', async () => {
+  it('keeps the pool fixed once the snapshot is complete', async () => {
     allOnArena('t:dragon c:r');
     const created = await createDraft({
       name: 'Red dragons',
@@ -623,6 +623,7 @@ describe('pool snapshot', () => {
     expect(res.body).toEqual([
       {
         id: expect.any(String),
+        oracleId: '9f0a1c6e-oracle',
         scryfallId: '9f0a1c6e-id',
         name: 'Balefire Dragon',
         set: 'ima',

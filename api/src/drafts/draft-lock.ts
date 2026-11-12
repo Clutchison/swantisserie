@@ -140,6 +140,19 @@ export class DraftLock {
     draftId: string,
     change: (draft: LockedDraft | undefined) => Promise<T>,
   ): Promise<T> {
+    return this.runSeenIf(draftId, change, () => true);
+  }
+
+  /**
+   * As `run`, but bumps the draft's version only if `seen` says the result
+   * of `change` is something its viewers see, so a change private to one
+   * player leaves no trace for the others.
+   */
+  async runSeenIf<T>(
+    draftId: string,
+    change: (draft: LockedDraft | undefined) => Promise<T>,
+    seen: (result: T) => boolean,
+  ): Promise<T> {
     return this.prisma.$transaction(
       async (tx) => {
         // FOR UPDATE, not a conditional update: Prisma writes a draft's
@@ -151,8 +164,10 @@ export class DraftLock {
         const result = await change(
           row ? new LockedDraft(tx, draftId, row) : undefined,
         );
-        await tx.$executeRaw`
-          UPDATE "Draft" SET "version" = "version" + 1 WHERE "id" = ${draftId}`;
+        if (seen(result)) {
+          await tx.$executeRaw`
+            UPDATE "Draft" SET "version" = "version" + 1 WHERE "id" = ${draftId}`;
+        }
         return result;
       },
       { timeout: LOCKED_CHANGE_TIMEOUT_MS },

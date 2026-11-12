@@ -306,7 +306,7 @@ describe('queueing a plan’s unpicked cards', () => {
       return queued.body.cards.map((c: { name: string }) => c.name);
     }
 
-    it('puts back cards a pick cleared in the order they were queued, ahead of the cards never queued', async () => {
+    it('keeps the cards still queued after a loss in their order, ahead of the cards never queued', async () => {
       const { id, ids } = await startedDraft(
         'Burst Lightning',
         'Fireblast',
@@ -315,7 +315,7 @@ describe('queueing a plan’s unpicked cards', () => {
         'Skewer the Critics',
       );
       await carolQueues(id, ids, 'Skewer the Critics', 'Shock', 'Lava Axe');
-      // Alice picks Shock: lost from Carol's queue and plan, clearing the rest.
+      // Alice picks Shock: lost from Carol's queue and plan, keeping the rest.
       await pick(id, ids.Shock).expect(200);
 
       expect(await queuedUnpicked(id)).toEqual([
@@ -326,26 +326,24 @@ describe('queueing a plan’s unpicked cards', () => {
       ]);
     });
 
-    it('puts the cards that left the queue most recently first, each departure in the order its cards sat', async () => {
+    it('puts the cards that left the queue most recently first', async () => {
       const { id, ids } = await startedDraft(
         'Fireblast',
         'Lava Axe',
-        'Lava Spike',
         'Lightning Bolt',
-        'Shock',
         'Skewer the Critics',
       );
-      await carolQueues(id, ids, 'Skewer the Critics', 'Lava Spike');
-      // Alice's pick clears Skewer the Critics.
-      await pick(id, ids['Lava Spike']).expect(200);
-      await carolQueues(id, ids, 'Lava Axe', 'Fireblast', 'Shock');
-      // Bob's pick clears Lava Axe and Fireblast, after.
-      await pick(id, ids.Shock, bobCookie).expect(200);
+      await carolQueues(id, ids, 'Skewer the Critics', 'Lava Axe');
+      await removeFromQueue(id, ids['Skewer the Critics'], carolCookie).expect(
+        200,
+      );
+      // Lava Axe leaves after Skewer the Critics.
+      await removeFromQueue(id, ids['Lava Axe'], carolCookie).expect(200);
 
       expect(await queuedUnpicked(id)).toEqual([
         'Lava Axe',
-        'Fireblast',
         'Skewer the Critics',
+        'Fireblast',
         'Lightning Bolt',
       ]);
     });
@@ -430,7 +428,7 @@ describe('queueing a plan’s unpicked cards', () => {
       ]);
     });
 
-    it('takes the order from the clear after an undo, not the undone one', async () => {
+    it('takes the order from the queue as it is after an undo, not as the undone pick left it', async () => {
       const { id, ids } = await startedDraft(
         'Burst Lightning',
         'Fireblast',

@@ -1,6 +1,8 @@
 import { HttpClient, httpResource, type HttpResourceRef } from '@angular/common/http';
 import {
   computed,
+  DestroyRef,
+  DOCUMENT,
   effect,
   inject,
   Injectable,
@@ -23,10 +25,12 @@ import type {
   PlayerView,
   PoolCardRequest,
   PoolCardView,
+  QueuedCardView,
   QueueView,
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
+import { queuePicksBeforeTurnPasses } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
@@ -38,6 +42,7 @@ import {
   isActive,
   isRefusal,
   NO_POWERS,
+  queueStateName,
 } from './drafts';
 import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
@@ -297,6 +302,54 @@ export class DraftStore implements TournamentViewer {
   /** The signed-in player's queue. */
   readonly queue = keptRead(this.queueResource, EMPTY_QUEUE);
   /**
+   * The cards, in order, that the signed-in player's queue picks before the
+   * turn passes, were it set queue picking now, worked out by the engine as
+   * the api works them out (ADR 0019): none unless the draft is Drafting,
+   * as a frozen draft's picks wait for the unfreeze. Each is a queued card,
+   * with its name. The draft must say it is their turn too: the pick log is
+   * read after the draft, so until it catches up it may still say so after
+   * their turn has passed.
+   */
+  readonly queuePicks = computed<QueuedCardView[]>(() => {
+    const draft = this.draft.value();
+    if (draft?.state !== 'Drafting' || !this.yourTurn()) return [];
+    const seat = this.players().findIndex((player) => player.id === this.user()?.id);
+    const cards = this.queue.value().cards;
+    const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
+    const picks = queuePicksBeforeTurnPasses(
+      {
+        players: this.players().length,
+        picksPerPlayer: draft.picksPerPlayer,
+        picked: this.picks.value().map((pick) => pick.poolCardId),
+      },
+      seat,
+      cards.map((card) => card.poolCardId),
+      pool,
+    );
+    return picks.map((id) => cards.find((card) => card.poolCardId === id)!);
+  });
+  /**
+   * Whether `err` is the api's refusal of the cards a queue was set queue
+   * picking with, as no longer those it picks; if so, catches up, so
+   * `queuePicks` names them as they now are. A refused queue change has
+   * started the queue's re-read already.
+   */
+  caughtUpOnQueuePicks(err: unknown): boolean {
+    if (!isRefusal(err) || err.error?.error !== 'queue-picks-changed') return false;
+    this.catchUp();
+    return true;
+  }
+  /**
+   * Whether the draft, its picks or the queue is being read again, so
+   * `queuePicks` may be about to change.
+   */
+  readonly rereadingQueuePicks = computed(
+    () =>
+      this.draftResource.isLoading() ||
+      this.picksResource.isLoading() ||
+      this.queueResource.isLoading(),
+  );
+  /**
    * The signed-in player's queue's size: its count, and the noun a viewer
    * reads after it. Null until it is known: while it loads, or if it couldn't.
    */
@@ -305,11 +358,16 @@ export class DraftStore implements TournamentViewer {
     const count = this.queue.value().cards.length;
     return { count, noun: cardsNoun(count) };
   });
+  /** Whether the signed-in player's queue is queue paused, once it is known; false until then. */
+  readonly queuePaused = computed(
+    () => this.queueSize() !== null && this.queue.value().queuePaused,
+  );
 
   /**
    * A name summing up the queue, as a screen reader reads it: `lead`, then
    * the queue's size once it is known, then `details`, then whether the
-   * Queue notice notes a card the player hasn't seen.
+   * queue is queue paused, then whether the Queue notice notes a card the
+   * player hasn't seen.
    */
   queueSummary(lead: string, details: string[] = []): string {
     const size = this.queueSize();
@@ -317,6 +375,7 @@ export class DraftStore implements TournamentViewer {
       lead,
       ...(size ? [`${size.count} ${size.noun}`] : []),
       ...details,
+      ...(this.queuePaused() ? [queueStateName(true).toLowerCase()] : []),
       ...(this.unseenNotice() ? ['new notice'] : []),
     ].join(', ');
   }
@@ -344,14 +403,10 @@ export class DraftStore implements TournamentViewer {
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
   );
 
-  /** The Queue notice's entries, each its lost or cleared card, by a key of its own. */
-  private readonly noticeEntries = computed(() => {
-    const { lost, cleared } = this.queue.value();
-    return [
-      ...lost.map((card) => `lost ${card.poolCardId}`),
-      ...cleared.map((card) => `cleared ${card.poolCardId}`),
-    ];
-  });
+  /** The Queue notice's entries, each its lost card, by its pool card id. */
+  private readonly noticeEntries = computed(() =>
+    this.queue.value().lost.map((card) => card.poolCardId),
+  );
   /**
    * The Queue notice's entries the player has seen, in an open Queue pane,
    * on this page: those still in the notice, so an entry dismissed and
@@ -362,7 +417,7 @@ export class DraftStore implements TournamentViewer {
     computation: (entries, previous) =>
       new Set(entries.filter((entry) => previous?.value.has(entry))),
   });
-  /** Whether the Queue notice notes any lost or cleared card. */
+  /** Whether the Queue notice notes any lost card. */
   readonly hasNotice = computed(() => this.noticeEntries().length > 0);
   /** Whether the Queue notice notes a card the player hasn't yet seen it note. */
   readonly unseenNotice = computed(() => {
@@ -568,7 +623,7 @@ export class DraftStore implements TournamentViewer {
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is drafting or
-   * paused; adding to the queue is still not offered on the player's own
+   * frozen; adding to the queue is still not offered on the player's own
    * turn. The Queue pane is read-only when this is false. The api refuses
    * anyone else with `not-a-player`, adding or setting steal behavior in the
    * lobby with `not-started`, a Complete or Closed draft with
@@ -614,6 +669,28 @@ export class DraftStore implements TournamentViewer {
       const timer = setTimeout(() => this.rereadDraft(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
+    this.rereadQueueOnReturn();
+  }
+
+  /**
+   * Re-reads the queue each time the viewer comes back to this window: it
+   * gains focus, or is shown again. A change to the player's queue that no
+   * one else sees, such as pausing it, makes no new draft version, so a
+   * second window of theirs learns of it only this way.
+   */
+  private rereadQueueOnReturn() {
+    const document = inject(DOCUMENT);
+    const stopped = new AbortController();
+    inject(DestroyRef).onDestroy(() => stopped.abort());
+    const reread = () => this.queueResource.reload();
+    document.defaultView?.addEventListener('focus', reread, { signal: stopped.signal });
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        if (document.visibilityState === 'visible') reread();
+      },
+      { signal: stopped.signal },
+    );
   }
 
   /**

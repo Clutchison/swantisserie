@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TURN_STATES } from 'contract';
 import {
   cascade,
   currentTurn,
@@ -7,11 +8,13 @@ import {
   pickProblem,
   plansAfterPick,
   type QueueAfterPick,
+  queuePicksBeforeTurnPasses,
   queuesAfterPick,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  DraftGoneError,
   NotAPlayerError,
   PickRefusedError,
   UndoRefusedError,
@@ -24,7 +27,12 @@ import {
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
-import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
+import { recordQueueEffects, restoreQueues } from './queue-effects.js';
+import {
+  checkStarted,
+  lockQueue,
+  QueueRefusedError,
+} from './queue-refusals.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
@@ -129,7 +137,7 @@ export class TurnsService {
   /** Every Drafting draft whose turn is a bot's. */
   async botTurns(): Promise<BotTurn[]> {
     const drafts = await this.prisma.draft.findMany({
-      // Stryker disable next-line ObjectLiteral: the read also returns drafts in the lobby, paused, closed or complete. A complete draft has no current turn. Any other one on a bot's turn yields a bot turn, but `botPick` sees the draft isn't Drafting and picks, persists and announces nothing. Starting, resuming or reopening the draft schedules the bot afresh, and the latest schedule wins.
+      // Stryker disable next-line ObjectLiteral: the read also returns drafts in the lobby, frozen, closed or complete. A complete draft has no current turn. Any other one on a bot's turn yields a bot turn, but `botPick` sees the draft isn't Drafting and picks, persists and announces nothing. Starting, unfreezing or reopening the draft schedules the bot afresh, and the latest schedule wins.
       where: { state: 'Drafting' },
       select: {
         id: true,
@@ -163,11 +171,75 @@ export class TurnsService {
   }
 
   /**
+   * Sets the user's queue in the draft queue picking, with the draft row and
+   * their player row locked. On their own turn while the draft is Drafting,
+   * the queue picks straight away: the cascade from that turn, whose events
+   * are returned. Its picks before the turn passes must be `poolCardIds`,
+   * the cards the player confirmed, in order; if they aren't, it throws
+   * QueueRefusedError and the queue stays queue paused. Otherwise nothing
+   * is picked, whatever `poolCardIds` says, no events are returned, and the
+   * draft's version stays as it is, as the state is private to the player.
+   * Pausing a queue, which never picks, is `QueuesService.pauseQueue`.
+   * Throws QueueRefusedError in the lobby and once the draft is closed or
+   * complete, NotAPlayerError if the user isn't in the draft, and
+   * DraftGoneError if there is no draft.
+   */
+  async setQueuePicking(
+    draftId: string,
+    userId: string,
+    poolCardIds: readonly string[],
+  ): Promise<DraftEvent[]> {
+    return this.lock.runSeenIf(
+      draftId,
+      async (draft) => {
+        if (!draft) throw new DraftGoneError();
+        const { playerId } = await lockQueue(draft.tx, draftId, userId);
+        checkStarted(draft.state);
+        await draft.tx.player.update({
+          where: { id: playerId },
+          data: { queuePaused: false },
+        });
+        if (draft.state !== 'Drafting') return [];
+        const state = await readTurnState(draft.tx, draftId);
+        const seat = state.players.findIndex(
+          (player) => player.userId === userId,
+        );
+        const size = draftSize(draft, state.players.length);
+        // Another seat's turn picks nothing, whatever `poolCardIds` says:
+        // the turn the player confirmed has passed.
+        // Stryker disable next-line OptionalChaining: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete.
+        if (currentTurn(size, state.picked.length)?.seat !== seat) return [];
+        const { queues, context } = engineView(state);
+        const picks = queuePicksBeforeTurnPasses(
+          { ...size, picked: context.picked },
+          seat,
+          queues[seat].queue,
+          context.pool,
+        );
+        if (
+          picks.length !== poolCardIds.length ||
+          picks.some((card, at) => card !== poolCardIds[at])
+        ) {
+          // Thrown under the lock, so the transaction leaves the queue paused.
+          throw new QueueRefusedError({
+            error: 'queue-picks-changed',
+            message:
+              'Your queue would now pick different cards. Check them and try again.',
+          });
+        }
+        return this.cascadeFrom(draft, state);
+      },
+      (events) => events.length > 0,
+    );
+  }
+
+  /**
    * Picks each card the cascade from the draft's current turn makes, and
    * persists what the engine says each does to queues and plans. The caller
    * holds the draft row lock, and has moved the draft to Drafting; a draft
    * its last pick has just completed makes no picks. A cascade stops at a
-   * bot's turn: the bot picks on its own timer.
+   * bot's turn, as the bot picks on its own timer, and at a player whose
+   * queue is queue paused.
    */
   async cascade(draft: LockedDraft): Promise<DraftEvent[]> {
     return this.cascadeFrom(draft, await readTurnState(draft.tx, draft.id));
@@ -185,11 +257,13 @@ export class TurnsService {
     const { queues, context } = engineView(state);
     const picks = cascade(
       { ...draftSize(draft, players.length), picked: context.picked },
-      // A bot picks on its own timer, so the cascade sees its queue as empty.
-      queues.map((queue, seat) => (players[seat].user.isBot ? [] : queue)),
+      queues.map((queue, seat) => ({
+        ...queue,
+        // A bot picks on its own timer, so the cascade sees its queue as empty.
+        ...(players[seat].user.isBot && { queue: [] }),
+        plan: state.plans[seat],
+      })),
       context.pool,
-      context.stealBehaviors,
-      state.plans,
     );
     const events: DraftEvent[] = [];
     for (const { pick, queues, plans } of picks) {
@@ -302,19 +376,19 @@ export class TurnsService {
 
   /**
    * Undoes pick `number`, the draft's latest: its card returns to the pool,
-   * the queues it cleared and the plans it lost from are restored, and the
-   * turn returns to its player.
+   * the cards it took out of queues and plans are restored, a queue it
+   * paused is set picking again, and the turn returns to its player.
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {
     return this.lock.whileIn(
       draftId,
-      ['Drafting', 'Paused'],
+      TURN_STATES,
       () =>
         new UndoRefusedError({
           error: 'not-drafting',
           message:
-            'Picks can only be undone while the draft is drafting or paused.',
+            'Picks can only be undone while the draft is drafting or frozen.',
         }),
       async ({ tx }) => {
         const latest = await tx.pick.findFirst({

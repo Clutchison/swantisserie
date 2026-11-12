@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type {
   QueueOrderRequest,
+  QueuePausedRequest,
   QueueUnpickedRequest,
   QueueView,
   RequestProblem,
@@ -26,9 +27,11 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { DraftAccess } from './draft-access.js';
+import { DraftChanges } from './draft-changes.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
 import { QueuesService } from './queues.service.js';
+import { TurnsService } from './turns.service.js';
 
 /**
  * The signed-in player's queue in a draft, and their steal behavior. There
@@ -41,6 +44,8 @@ export class QueuesController {
   constructor(
     private readonly access: DraftAccess,
     private readonly queues: QueuesService,
+    private readonly turns: TurnsService,
+    private readonly changes: DraftChanges,
   ) {}
 
   @Get()
@@ -108,7 +113,33 @@ export class QueuesController {
     );
   }
 
-  /** Stops the Queue notice listing the lost and cleared cards. */
+  /**
+   * Sets the queue to queue paused or queue picking. Setting it queue
+   * picking on the player's own turn sends the cards they confirmed it picks
+   * before the turn passes. Picks that setting it queue picking makes are
+   * published, as a cascade's are; otherwise nothing is published, as the
+   * state is private to the player.
+   */
+  @Put('paused')
+  async setQueuePaused(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<QueueView> {
+    const request = parseQueuePaused(body);
+    return this.answer(user, id, async () => {
+      if (request.queuePaused) return this.queues.pauseQueue(id, user.id);
+      const events = await this.turns.setQueuePicking(
+        id,
+        user.id,
+        request.poolCardIds ?? [],
+      );
+      if (events.length > 0) await this.changes.committed(id, events);
+      return this.queues.queue(id, user.id);
+    });
+  }
+
+  /** Stops the Queue notice listing the lost cards. */
   @Delete('notice')
   async dismissNotice(
     @CurrentUser() user: SessionUser,
@@ -168,13 +199,49 @@ function parseIncludeSideboard(body: unknown): boolean {
   return includeSideboard;
 }
 
+/**
+ * Whether to set the queue to queue paused or queue picking, with the cards
+ * listed for queue picking; or a 400 if it isn't said right, or pausing
+ * lists cards.
+ */
+function parseQueuePaused(body: unknown): QueuePausedRequest {
+  const { queuePaused, poolCardIds } = bodyFields<
+    QueuePausedRequest & { poolCardIds?: string[] }
+  >(body);
+  if (typeof queuePaused !== 'boolean') {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Say whether to pause the queue.',
+    } satisfies RequestProblem);
+  }
+  if (poolCardIds === undefined) {
+    return queuePaused ? { queuePaused } : { queuePaused, poolCardIds: [] };
+  }
+  if (queuePaused) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'List cards only when setting your queue to queue picking.',
+    } satisfies RequestProblem);
+  }
+  if (
+    !Array.isArray(poolCardIds) ||
+    !poolCardIds.every((id) => typeof id === 'string')
+  ) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'List the cards your queue picks, in order.',
+    } satisfies RequestProblem);
+  }
+  return { queuePaused, poolCardIds };
+}
+
 /** The steal behavior to set, or a 400 if it isn't one. */
 function parseStealBehavior(body: unknown): StealBehavior {
   const { stealBehavior } = bodyFields<StealBehaviorRequest>(body);
-  if (stealBehavior !== 'ClearQueue' && stealBehavior !== 'PickNext') {
+  if (stealBehavior !== 'PauseQueue' && stealBehavior !== 'PickNext') {
     throw new BadRequestException({
       error: 'invalid',
-      message: 'Choose clear queue or pick next.',
+      message: 'Choose pause queue or pick next.',
     } satisfies RequestProblem);
   }
   return stealBehavior;

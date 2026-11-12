@@ -1,5 +1,39 @@
 import { accessibleName, byAriaLabel, byName, text } from '../../specs-harness';
-import { type AppFixture, cardNames, namedList } from './harness';
+import type { QueueView } from 'contract';
+import { EMPTY_PLAN } from '../drafts';
+import {
+  type AppFixture,
+  type DraftFixture,
+  bob,
+  cardNames,
+  draft,
+  drafting,
+  flushPicks,
+  flushQueueAndPlan,
+  namedList,
+  updates,
+} from './harness';
+
+/**
+ * Another player's pick, pick 2 of round 1 by Bob, reaches the page and
+ * leaves the signed-in player's queue as `queue`, such as one it paused:
+ * the draft, with `fields`, its picks and the queue are re-read.
+ */
+export async function pickChangesQueue(
+  fixture: AppFixture,
+  queue: QueueView,
+  fields: DraftFixture = {},
+) {
+  updates.events.next({
+    type: 'changed',
+    draft: draft(
+      drafting({ ...fields, turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 }),
+    ),
+  });
+  await flushPicks([]);
+  await flushQueueAndPlan(queue, EMPTY_PLAN);
+  await fixture.whenStable();
+}
 
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
@@ -41,9 +75,24 @@ export async function openQueueSheet(fixture: AppFixture, page: HTMLElement) {
  */
 export const findQueuePane = (page: HTMLElement) =>
   byName(page, 'section:not([role="tabpanel"])', 'Queue');
-/** The Queue notice inside `root`, naming lost and cleared cards: a status by its name. Null if there is none. */
+/** The Queue notice inside `root`, naming lost cards: a status by its name. Null if there is none. */
 export const queueNotice = (root: HTMLElement) =>
   byAriaLabel(root, '[role="status"]', 'Queue notice');
+/**
+ * The switch inside `root` that pauses the queue or sets it picking: by its
+ * role and its name, which is the state it is in. Null if there is none.
+ */
+export const findQueuePausedSwitch = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find((toggle) =>
+    /^Queue (paused|picking)$/.test(accessibleName(toggle)),
+  ) ?? null;
+/** The queue paused switch inside `root`, which is there. */
+export const queuePausedSwitch = (root: HTMLElement) => findQueuePausedSwitch(root)!;
+/** What the statuses inside `root` say to screen readers, such as what a change just made did. */
+export const queueStatuses = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[role="status"]')].map((status) =>
+    status.textContent?.trim(),
+  );
 /** The Queue pane, which is there. */
 export const queuePane = (page: HTMLElement) => findQueuePane(page)!;
 /**

@@ -210,10 +210,10 @@ describe('plan', () => {
     // The import emptied every queue, so queue this after it.
     await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
 
-    // Resuming has the bot pick 4, the first available card by name; Alice's
+    // Unfreezing has the bot pick 4, the first available card by name; Alice's
     // pick 5 then cascades Carol's queue into pick 6.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await post(id, 'resume').expect(200);
+    await post(id, 'unfreeze').expect(200);
     await waitForBotPicks(1, async () => {
       const draft = (await getDraft(id).expect(200)).body as DraftView;
       expect(draft.turn?.pick).toBe(5);
@@ -293,7 +293,7 @@ describe('plan', () => {
     ]);
   });
 
-  it('can be read in the lobby and changed while paused, closed and complete', async () => {
+  it('can be read in the lobby and changed while frozen, closed and complete', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
@@ -312,14 +312,14 @@ describe('plan', () => {
       picked: true,
     };
 
-    await post(id, 'pause').expect(200);
-    const paused = await movePlanned(
+    await post(id, 'freeze').expect(200);
+    const frozen = await movePlanned(
       id,
       ids['Lava Spike'],
       'Sideboard',
       carolCookie,
     ).expect(200);
-    expect(paused.body).toEqual({
+    expect(frozen.body).toEqual({
       mainboard: [],
       sideboard: [spike],
       basics: [],

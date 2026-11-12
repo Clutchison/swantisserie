@@ -93,9 +93,9 @@ export interface UndoRefusal {
   message: string;
 }
 
-/** Why the organizer can't pause or resume the draft; sent to them as is. */
-export interface PauseRefusal {
-  error: 'not-drafting' | 'not-paused';
+/** Why the organizer can't freeze or unfreeze the draft; sent to them as is. */
+export interface FreezeRefusal {
+  error: 'not-drafting' | 'not-frozen';
   message: string;
 }
 
@@ -139,7 +139,12 @@ export interface QueueRefusal {
     | 'draft-complete'
     | 'draft-closed'
     | 'your-turn'
-    | 'queue-changed';
+    | 'queue-changed'
+    /**
+     * Setting a queue picking on the player's own turn: the cards it would
+     * pick before the turn passes aren't those they confirmed.
+     */
+    | 'queue-picks-changed';
   message: string;
 }
 
@@ -309,7 +314,7 @@ export type DraftRefusal =
   | StartRefusal
   | PickRefusal
   | UndoRefusal
-  | PauseRefusal
+  | FreezeRefusal
   | CloseRefusal
   | DraftChangeRefusal
   | QueueRefusal

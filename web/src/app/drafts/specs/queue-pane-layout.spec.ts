@@ -89,8 +89,8 @@ describe('Queue pane layout', () => {
       }
     });
 
-    it('shows it while paused', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }));
+    it('shows it while frozen', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Frozen' }));
 
       expect(findQueuePane(page)).not.toBeNull();
     });
@@ -220,7 +220,7 @@ describe('Queue pane layout', () => {
       });
       const sheet = await openQueueSheet(fixture, page);
       expect(sheet.textContent).toContain('Queue cutoff');
-      expect(button(sheet, 'Steal behavior: Clear queue')).toBeDefined();
+      expect(button(sheet, 'Steal behavior: Pause queue')).toBeDefined();
 
       button(sheet, 'Move Shivan Dragon down').click();
       const req = http.expectOne('/api/drafts/draft-1/queue');
@@ -331,7 +331,7 @@ describe('Queue pane layout', () => {
     });
 
     it.each([
-      ['while paused', drafting({ state: 'Paused' })],
+      ['while frozen', drafting({ state: 'Frozen' })],
       ['while closed', drafting({ state: 'Closed', turn: null })],
     ])('shows the strip %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
@@ -378,7 +378,7 @@ describe('Queue pane layout', () => {
       expect(pane.querySelector('h2')?.textContent?.trim()).toBe('Queue');
       expect(pane.textContent).toContain('2 cards');
       expect(picksLeftTexts(pane)).toEqual(['12 picks left']);
-      expect(button(pane, 'Steal behavior: Clear queue')).toBeDefined();
+      expect(button(pane, 'Steal behavior: Pause queue')).toBeDefined();
     });
 
     it('opens its help from an info button', async () => {
@@ -496,10 +496,7 @@ describe('Queue pane layout', () => {
         draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
       });
       await flushPicks([]);
-      await flushQueueAndPlan(
-        queueOf({ lost: [queued(shivan)], cleared: [queued(brightclimb)] }),
-        EMPTY_PLAN,
-      );
+      await flushQueueAndPlan(queueOf({ lost: [queued(shivan), queued(brightclimb)] }), EMPTY_PLAN);
       await fixture.whenStable();
 
       expect(queuePaneToggle(page).getAttribute('aria-label')).toBe(

@@ -6,6 +6,7 @@ import { CubeCobraModule } from '../cubecobra/cubecobra.module.js';
 import { ScryfallModule } from '../scryfall/scryfall.module.js';
 import { SetsModule } from '../sets/sets.module.js';
 import { BotPickDelay, BotPickRetries, BotPlayers } from './bot-players.js';
+import { DraftChanges } from './draft-changes.js';
 import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService } from './draft-lobby.service.js';
 import { DraftLock } from './draft-lock.js';
@@ -50,6 +51,7 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
     DraftsGateway,
     PoolSnapshotService,
     DraftPublisher,
+    DraftChanges,
     QueuesService,
     PlansService,
     { provide: BotPickDelay, useValue: new BotPickDelay(1500) },

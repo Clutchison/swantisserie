@@ -76,14 +76,14 @@
         {{ undoLabel() }}
       </button>
     }
-    @if (offerPause()) {
-      <button class="button" type="button" (click)="pause()" appSendsChange="pause">
-        Pause draft
+    @if (offerFreeze()) {
+      <button class="button" type="button" (click)="freeze()" appSendsChange="freeze">
+        Freeze draft
       </button>
     }
-    @if (offerResume()) {
-      <button class="button" type="button" (click)="resume()" appSendsChange="resume">
-        Resume draft
+    @if (offerUnfreeze()) {
+      <button class="button" type="button" (click)="unfreeze()" appSendsChange="unfreeze">
+        Unfreeze draft
       </button>
     }
     @if (offerReopen()) {

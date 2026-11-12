@@ -369,7 +369,7 @@ describe('unpicked cards in a plan', () => {
       2,
     );
     await start(id).expect(200);
-    // Both copies in both; the queue is cleared on a loss, the plan only loses the card.
+    // Both copies in both; a loss pauses the queue, the plan only loses the card.
     await enqueue(id, first, carolCookie).expect(200);
     await enqueue(id, second, carolCookie).expect(200);
     await enqueue(id, ids.Shock, carolCookie).expect(200);
@@ -380,14 +380,18 @@ describe('unpicked cards in a plan', () => {
     await pick(id, first).expect(200);
 
     const queued = (await queue(id, carolCookie).expect(200)).body;
-    expect(queued.cards).toEqual([]);
-    expect(queued.lost).toEqual([
-      { poolCardId: first, name: 'Lightning Bolt' },
-    ]);
-    expect(queued.cleared).toEqual([
+    expect(queued.cards).toEqual([
       { poolCardId: second, name: 'Lightning Bolt' },
       { poolCardId: ids.Shock, name: 'Shock' },
     ]);
+    expect(queued.lost).toEqual([
+      {
+        poolCardId: first,
+        name: 'Lightning Bolt',
+        queueLoss: 'QueuePaused',
+      },
+    ]);
+    expect(queued.queuePaused).toBe(true);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
         { poolCardId: second, name: 'Lightning Bolt', picked: false },
@@ -416,7 +420,7 @@ describe('unpicked cards in a plan', () => {
     await start(id).expect(200);
     // Carol's turn.
     await addToPlan(id, second, carolCookie).expect(200);
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
     await addToPlan(id, ids.Shock, carolCookie).expect(200);
     await post(id, 'close').expect(200);
 

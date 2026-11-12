@@ -49,7 +49,7 @@ model Session {
 enum DraftState {
   Lobby
   Drafting
-  Paused
+  Frozen
   Complete
   Closed
 }
@@ -73,7 +73,7 @@ model Draft {
   state          DraftState        @default(Lobby)
   organizerId    String
   organizer      User              @relation(fields: [organizerId], references: [id])
-  /// Progress of copying the pool from Scryfall. The pool is frozen once Complete.
+  /// Progress of copying the pool from Scryfall. The pool is fixed once Complete.
   snapshotState  PoolSnapshotState @default(Running)
   /// How many cards the pool will hold, as Scryfall or the cube says; null until it is known.
   poolTotal      Int?
@@ -120,10 +120,17 @@ enum Platform {
   MTGO
 }
 
-/// What a lost card does to the rest of a player's queue: ClearQueue clears it; PickNext keeps it, in order.
+/// What a lost card does to a player's queue, whose rest stays in order either way: PauseQueue sets it queue paused; PickNext leaves it queue picking.
 enum StealBehavior {
-  ClearQueue
+  PauseQueue
   PickNext
+}
+
+/// What losing a card did to its queue: set it queue paused, under pause queue; or left it as it was, so it stayed queue picking, under pick next, or stayed queue paused.
+enum QueueLoss {
+  QueuePaused
+  StayedQueuePicking
+  StayedQueuePaused
 }
 
 /// Progress of the pool snapshot: copying the pool's cards from Scryfall. A cube link's is Complete from creation.
@@ -197,7 +204,9 @@ model Player {
   /// The player's entry in the draft's tournament, if they have joined it.
   tournamentEntry    TournamentEntry?
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
-  stealBehavior      StealBehavior        @default(ClearQueue)
+  stealBehavior      StealBehavior        @default(PauseQueue)
+  /// Whether the player's queue is paused, making no queued picks; every queue starts picking. Private to the player, like their queue.
+  queuePaused        Boolean              @default(false)
   /// The key of the player's latest departure from their queue, 0 before the first. Only ever goes up, so departures order by it, never by time.
   lastQueueDeparture Int                  @default(0)
 
@@ -351,7 +360,7 @@ model QueuedCard {
   @@index([poolCardId])
 }
 
-/// A taken-out queued card: one a pick took out of a player's queue, the card the player picked from their own queue, or, after another player's pick, the lost card or a card it cleared. Kept until that pick is undone, which puts it back.
+/// A taken-out queued card: one a pick took out of a player's queue, the card the player picked from their own queue, or, after another player's pick, the lost card, or a card it cleared under clear queue before pause queue replaced it. Kept until that pick is undone, which puts it back.
 model TakenOutQueuedCard {
   id           String   @id @default(uuid())
   pickId       String
@@ -364,8 +373,10 @@ model TakenOutQueuedCard {
   position     Int
   /// Whether the Queue notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, which the notice never lists: it was picked, not lost.
   noticeHidden Boolean  @default(false)
-  /// Whether anything else stayed queued when this card was lost, as under pick next; false under clear queue, for a cleared card, and for the last card left in a queue. Always true for a player's own picked card, so that an undo puts it back in its old place.
+  /// Whether the rest of the queue stayed when this card was taken out, so an undo puts it back in its old place rather than at the front: for a lost card, whether anything else stayed queued, so false for the last card left in a queue; always true for a player's own picked card; and false for a lost or cleared card under clear queue, before pause queue replaced it.
   restKept     Boolean  @default(false)
+  /// For a lost card, what losing it did to the queue; an undo of a pick that paused the queue sets it queue picking again. Null for any other card, and for a card lost before pause queue replaced clear queue.
+  queueLoss    QueueLoss?
 
   @@unique([pickId, playerId, poolCardId])
   @@index([playerId])

@@ -47,7 +47,7 @@ One rotisserie event in a guild: a pool, its players, and the picks they make in
 _Avoid_: Game, league, room
 
 **Pool**:
-The fixed set of cards on the platform that a draft picks from, frozen once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
+The fixed set of cards on the platform that a draft picks from, which no longer changes once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
 _Avoid_: Card list, cube
 
 **Pool source**:
@@ -79,7 +79,7 @@ A smaller set that comes with a main set, such as a bonus sheet, its Alchemy car
 _Avoid_: Bonus sheet (for sublists in general), child set, subset
 
 **Pool snapshot**:
-The cards a pool source names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
+The cards a pool source names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool no longer changes once it is complete.
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:
@@ -231,7 +231,7 @@ The part of a draft's page where a player sees and rearranges their queue, which
 _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
 
 **"Next up" strip**:
-The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
+The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next, or "Queue paused" in its place while the queue is paused, and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
 _Avoid_: Queue bar, mini queue, Seat strip (that is the players' avatars)
 
 **Queue sheet**:
@@ -247,7 +247,7 @@ The line in the Queue pane after the last queued card that a player's picks left
 _Avoid_: Divider, pick line
 
 **Queue notice**:
-The note in the Queue pane naming a player's lost cards, and saying whether each loss paused their queue or, under pick next, left it picking. It builds up until the player dismisses it, and an undo takes off what that pick added.
+The note in the Queue pane naming a player's lost cards, and saying what each loss did to their queue: set it queue paused, under pause queue; or left it as it was, so it stayed queue picking, under pick next, or stayed queue paused, if it already was. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Alert, warning, notification
 
 **Undo**:

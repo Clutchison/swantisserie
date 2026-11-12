@@ -122,7 +122,7 @@ describe('webhook', () => {
     }
 
     const started = expect.stringMatching(/^\*\*Red\*\* has started/);
-    const paused = expect.stringMatching(/^\*\*Red\*\* is paused/);
+    const frozen = expect.stringMatching(/^\*\*Red\*\* is frozen/);
 
     /** A draft Alice and Bob have joined, posting to the first webhook. */
     const joinedDraft = () =>
@@ -132,7 +132,7 @@ describe('webhook', () => {
     async function moveTo(id: string, state: string) {
       if (state === 'Lobby') return;
       await start(id).expect(200);
-      if (state === 'Paused') await post(id, 'pause').expect(200);
+      if (state === 'Frozen') await post(id, 'freeze').expect(200);
       if (state === 'Closed') await post(id, 'close').expect(200);
       if (state === 'Complete') {
         const ids = await poolCardIds(id);
@@ -141,7 +141,7 @@ describe('webhook', () => {
       }
     }
 
-    it.each(['Lobby', 'Drafting', 'Paused', 'Closed', 'Complete'])(
+    it.each(['Lobby', 'Drafting', 'Frozen', 'Closed', 'Complete'])(
       'lets the organizer change it on a draft in %s, shown by name only',
       async (state) => {
         const id = await joinedDraft();
@@ -187,11 +187,11 @@ describe('webhook', () => {
       expect(await posts(id)).toEqual([[webhookUrl, started]]);
 
       await changeWebhook(id, otherId).expect(200);
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
 
       expect(await posts(id)).toEqual([
         [webhookUrl, started],
-        [otherUrl, paused],
+        [otherUrl, frozen],
       ]);
     });
 
@@ -214,9 +214,9 @@ describe('webhook', () => {
       await start(id).expect(200);
 
       await changeWebhook(id, webhookId).expect(200);
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
 
-      expect(await posts(id)).toEqual([[webhookUrl, paused]]);
+      expect(await posts(id)).toEqual([[webhookUrl, frozen]]);
     });
 
     it('refuses a webhook just removed, leaving the draft’s unchanged', async () => {
@@ -255,13 +255,13 @@ describe('webhook', () => {
       // The start's post is sending, held until released.
       await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalledOnce());
 
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
       await changeWebhook(id, otherId).expect(200);
       release();
 
       expect(await posts(id)).toEqual([
         [webhookUrl, started],
-        [otherUrl, paused],
+        [otherUrl, frozen],
       ]);
     });
   });
@@ -313,7 +313,7 @@ describe('webhook', () => {
         name: '#roto-main',
         gone: false,
       });
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
       await announcementsSettled(id);
       expect(webhookClient.post.mock.calls.map(([url]) => url)).toEqual([
         newUrl,

@@ -193,7 +193,7 @@ describe('pool tab', () => {
     it.each([
       ['on your own turn', drafting({ turn: yourTurn })],
       ['in the lobby', drafting({ state: 'Lobby', turn: null })],
-      ['while paused', drafting({ state: 'Paused' })],
+      ['while frozen', drafting({ state: 'Frozen' })],
     ])('is offered %s', async (_, fields) => {
       const { fixture, page } = await openDraft(completeSnapshot, fields, {
         cards: [shivan],
@@ -424,7 +424,7 @@ describe('pool tab', () => {
     // The api removes an unpicked card from a plan in every draft state, as the Deck tab does.
     it.each([
       ['Lobby', drafting({ state: 'Lobby', turn: null })],
-      ['Paused', drafting({ state: 'Paused' })],
+      ['Frozen', drafting({ state: 'Frozen' })],
       ['Closed', drafting({ state: 'Closed', turn: null })],
       ['Complete', drafting({ state: 'Complete', turn: null })],
     ])(

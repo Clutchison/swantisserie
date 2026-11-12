@@ -2,9 +2,9 @@ import {
   draftClosedMessage,
   draftCompleteMessage,
   draftMessages,
-  draftPausedMessage,
+  draftFrozenMessage,
   draftReopenedMessage,
-  draftResumedMessage,
+  draftUnfrozenMessage,
   draftStartedMessage,
   picksMessage,
   undoneMessage,
@@ -376,17 +376,17 @@ describe('undoneMessage', () => {
   });
 });
 
-describe('draftPausedMessage', () => {
-  it('says the draft is paused, pinging no one', () => {
-    expect(draftPausedMessage(draft)).toEqual({
-      content: '**Red** is paused',
+describe('draftFrozenMessage', () => {
+  it('says the draft is frozen, pinging no one', () => {
+    expect(draftFrozenMessage(draft)).toEqual({
+      content: '**Red** is frozen',
       allowed_mentions: { parse: [], users: [] },
     });
   });
 
-  it('is the one message for a pause', () => {
-    expect(draftMessages(draft, [{ type: 'paused' }])).toEqual([
-      draftPausedMessage(draft),
+  it('is the one message for a freeze', () => {
+    expect(draftMessages(draft, [{ type: 'frozen' }])).toEqual([
+      draftFrozenMessage(draft),
     ]);
   });
 });
@@ -430,20 +430,20 @@ describe('draftReopenedMessage', () => {
   });
 });
 
-describe('draftResumedMessage', () => {
-  it('says the draft has resumed and pings whoever is up', () => {
-    expect(draftResumedMessage(draft, alice)).toEqual({
+describe('draftUnfrozenMessage', () => {
+  it('says the draft has been unfrozen and pings whoever is up', () => {
+    expect(draftUnfrozenMessage(draft, alice)).toEqual({
       content:
-        '**Red** has resumed\n' +
+        '**Red** has been unfrozen\n' +
         '<@80351110224678912> you’re up. [Open draft](<https://roto.example/drafts/d1>)',
       allowed_mentions: { parse: [], users: ['80351110224678912'] },
     });
   });
 
-  it('lists the cascade after the resume, pinging whoever is up after it', () => {
+  it('lists the cascade after the unfreeze, pinging whoever is up after it', () => {
     expect(
       draftMessages(draft, [
-        { type: 'resumed', number: 5, player: alice },
+        { type: 'unfrozen', number: 5, player: alice },
         {
           type: 'picked',
           number: 5,
@@ -456,7 +456,7 @@ describe('draftResumedMessage', () => {
     ).toEqual([
       {
         content:
-          '**Red** has resumed\n' +
+          '**Red** has been unfrozen\n' +
           '5- **Alice** picked **Shock**\n' +
           '<@80351110224678913> you’re up. [Open draft](<https://roto.example/drafts/d1>)',
         allowed_mentions: { parse: [], users: ['80351110224678913'] },
@@ -466,11 +466,11 @@ describe('draftResumedMessage', () => {
 
   it('names a bot that is up without pinging it', () => {
     expect(
-      draftMessages(draft, [{ type: 'resumed', number: 2, player: bot }]),
+      draftMessages(draft, [{ type: 'unfrozen', number: 2, player: bot }]),
     ).toEqual([
       {
         content:
-          '**Red** has resumed\n' +
+          '**Red** has been unfrozen\n' +
           '**Bot 1** is up. [Open draft](<https://roto.example/drafts/d1>)',
         allowed_mentions: { parse: [], users: [] },
       },
@@ -562,13 +562,13 @@ describe('draftMessages for an announcement too long for one post', () => {
     );
   });
 
-  it('splits a resume and its long cascade', () => {
+  it('splits an unfreeze and its long cascade', () => {
     expectSplit(
       draftMessages(draft, [
-        { type: 'resumed', number: 9, player: alice },
+        { type: 'unfrozen', number: 9, player: alice },
         ...cascade(9, 61),
       ]),
-      ['**Red** has resumed', ...cascadeLines(9, 61), upLine],
+      ['**Red** has been unfrozen', ...cascadeLines(9, 61), upLine],
     );
   });
 

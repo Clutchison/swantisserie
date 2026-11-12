@@ -2,16 +2,17 @@ import { ChangeDetectionStrategy, Component, computed, inject, Injector } from '
 import { LucideChevronUp } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
-import { picksLeftText } from './drafts';
+import { picksLeftText, queueStateName } from './drafts';
 import { QueueAddBump, QueueAddStatus } from './queue-add-status';
 import { QueueSheet } from './queue-sheet';
 
 /**
  * The "next up" strip: below the desktop layout, a bar above the tab bar on
  * every tab with the player's queue's size, their picks left, the card it
- * picks next and a dot for an unseen Queue notice. It opens the Queue pane
- * in the Queue sheet, which closes with the strip, as when the page widens
- * to the desktop layout and the pane shows beside the tabs.
+ * picks next, or "Queue paused" in its place, and a dot for an unseen Queue
+ * notice. It opens the Queue pane in the Queue sheet, which closes with the
+ * strip, as when the page widens to the desktop layout and the pane shows
+ * beside the tabs.
  */
 @Component({
   selector: 'app-next-up-strip',
@@ -32,9 +33,13 @@ export class NextUpStrip {
     const left = this.store.picksLeft();
     return left === null ? null : picksLeftText(left);
   });
-  /** The name of the card the queue picks next, its first; null while it is empty or unknown. */
+  /** Whether the queue is queue paused, said in place of the next card. */
+  protected readonly queuePaused = this.store.queuePaused;
+  /** What the strip says in place of the next card while the queue is queue paused. */
+  protected readonly queuePausedName = queueStateName(true);
+  /** The name of the card the queue picks next, its first; null while it is queue paused, empty or unknown. */
   protected readonly next = computed(() =>
-    this.size() ? (this.store.queue.value().cards[0]?.name ?? null) : null,
+    this.size() && !this.queuePaused() ? (this.store.queue.value().cards[0]?.name ?? null) : null,
   );
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;

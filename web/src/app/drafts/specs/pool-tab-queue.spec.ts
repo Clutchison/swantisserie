@@ -550,18 +550,18 @@ describe('pool tab', () => {
         expect(button(detail, 'Add to queue')).toBeUndefined();
       });
 
-      it('offers no Add to queue while paused', async () => {
+      it('offers no Add to queue while frozen', async () => {
         const { fixture, page } = await openDraft(
           completeSnapshot,
-          drafting({ state: 'Paused', turn: yourTurn }),
+          drafting({ state: 'Frozen', turn: yourTurn }),
           { cards: [shivan] },
         );
 
         expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
       });
 
-      it('offers Add to queue off your turn while paused', async () => {
-        const { fixture, page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }), {
+      it('offers Add to queue off your turn while frozen', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting({ state: 'Frozen' }), {
           cards: [shivan],
         });
 

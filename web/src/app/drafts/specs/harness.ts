@@ -22,11 +22,13 @@ import type {
   PoolSnapshotView,
   ViewerTournamentView,
   QueuedCardView,
+  LostQueuedCardView,
   QueueView,
   TurnView,
   UserView,
   WebhookView,
 } from 'contract';
+import { isTurnState } from 'contract';
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
@@ -59,14 +61,18 @@ export {
   endJustAddedHighlight,
   findNextUpStrip,
   findQueuePane,
+  findQueuePausedSwitch,
   justAddedCards,
   nextUpStrip,
   openQueueSheet,
+  pickChangesQueue,
   queueList,
   queueNotice,
   queuePane,
   queuePaneToggle,
+  queuePausedSwitch,
   queueSheet,
+  queueStatuses,
 } from './queue-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
@@ -82,7 +88,7 @@ export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 54
 export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: TurnView | null };
 
 /**
- * The default draft with `fields` changed. A Drafting or Paused draft given no
+ * The default draft with `fields` changed. A Drafting or Frozen draft given no
  * turn gets the first pick's, its first player's or Alice's; a turn that
  * doesn't match the state throws.
  */
@@ -102,7 +108,7 @@ export function draft(fields: DraftFixture): DraftView {
     version: 0,
     ...rest,
   };
-  if (state === 'Drafting' || state === 'Paused') {
+  if (isTurnState(state)) {
     if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
     const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
     return { ...made, state, turn: turn ?? first };
@@ -350,22 +356,20 @@ export const queued = (card: NamedPoolCard): QueuedCardView => ({
 });
 
 /**
- * An empty queue, under Clear queue, with `fields` changed. Only a queue that
- * lost a card can say whether the rest was kept.
+ * An empty queue, queue picking, under pause queue, with `fields` changed. A
+ * lost card says nothing of what its loss did to the queue, as one lost
+ * before pause queue, unless it says so.
  */
 export const queueOf = (
-  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior'>> &
-    (
-      | { lost?: []; restKept?: false }
-      | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept?: boolean }
-    ) = {},
+  fields: Partial<Omit<QueueView, 'lost'>> & {
+    lost?: (QueuedCardView & Partial<LostQueuedCardView>)[];
+  } = {},
 ): QueueView => ({
   cards: [],
-  lost: [],
-  cleared: [],
-  restKept: false,
-  stealBehavior: 'ClearQueue',
+  stealBehavior: 'PauseQueue',
+  queuePaused: false,
   ...fields,
+  lost: (fields.lost ?? []).map((card) => ({ queueLoss: null, ...card })),
 });
 
 /** A pick, Alice's and the draft's first, with `fields` changed. */
@@ -414,6 +418,7 @@ export const poolCardOf = (
   fields: Partial<PoolCardView> = {},
 ): PoolCardView => ({
   id: `${id}-card`,
+  oracleId: `${id}-oracle`,
   scryfallId: `${id}-id`,
   name,
   set: 'ima',

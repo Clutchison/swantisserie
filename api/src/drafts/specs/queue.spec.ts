@@ -66,16 +66,14 @@ describe('queue', () => {
         { poolCardId: ids.Shock, name: 'Shock' },
       ],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
+      queuePaused: false,
     });
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [spike, shock],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
+      queuePaused: false,
     });
   });
 
@@ -245,7 +243,7 @@ describe('queue', () => {
   });
 
   describe('when cards are picked', () => {
-    it('marks a card another player picks as lost and clears the rest of the queue', async () => {
+    it('marks a card another player picks as lost, keeping the rest of the queue and pausing it', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
       const ids = await poolCardIds(id);
@@ -257,11 +255,10 @@ describe('queue', () => {
       await pick(id, ids.Shock).expect(200);
 
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [shock],
-        cleared: [spike, bolt],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        cards: [spike, bolt],
+        lost: [{ ...shock, queueLoss: 'QueuePaused' }],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
       // The cards are still available, and it's for Bob to pick by hand.
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -278,13 +275,12 @@ describe('queue', () => {
       expect((await queue(id).expect(200)).body).toEqual({
         cards: [spike],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
+        queuePaused: false,
       });
     });
 
-    it('builds up the lost and cleared cards across clearings, for that player alone', async () => {
+    it('builds up the lost cards across picks, saying only of the one that paused the queue that it did, for that player alone', async () => {
       const bobCookie = await signIn(bob);
       const carolCookie = await signIn(carol);
       const id = await readyDraft(
@@ -303,54 +299,25 @@ describe('queue', () => {
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [bolt, spike],
-        cleared: [shock, skewer],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        cards: [shock, skewer],
+        lost: [
+          { ...bolt, queueLoss: 'QueuePaused' },
+          { ...spike, queueLoss: 'StayedQueuePaused' },
+        ],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
       expect((await queue(id).expect(200)).body).toEqual({
         cards: [],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
+        queuePaused: false,
       });
       const draft = JSON.stringify((await getDraft(id).expect(200)).body);
       expect(draft).not.toContain(ids['Skewer the Critics']);
     });
 
-    it('takes a cleared card off the list once it is queued again, and for good', async () => {
-      const bobCookie = await signIn(bob);
-      const carolCookie = await signIn(carol);
-      const id = await readyDraft(
-        [aliceCookie, bobCookie, carolCookie],
-        1,
-        fourCards,
-      );
-      const ids = await poolCardIds(id);
-      await start(id).expect(200);
-      await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
-      await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
-      await pick(id, ids['Lightning Bolt']).expect(200);
-
-      const queuedAgain = await enqueue(id, ids.Shock, carolCookie);
-
-      expect(queuedAgain.body).toEqual({
-        cards: [shock],
-        lost: [bolt],
-        cleared: [spike],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-      const removed = await removeFromQueue(id, ids.Shock, carolCookie).expect(
-        200,
-      );
-      expect(removed.body.cleared).toEqual([spike]);
-    });
-
-    it('refuses to queue a cleared card on the player’s own turn', async () => {
+    it('refuses to queue a card on the player’s own turn after a loss', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
@@ -365,32 +332,7 @@ describe('queue', () => {
       expect(refused.body.error).toBe('your-turn');
     });
 
-    it('keeps listing a cleared card someone later picks as cleared, not lost', async () => {
-      const bobCookie = await signIn(bob);
-      const carolCookie = await signIn(carol);
-      const id = await readyDraft(
-        [aliceCookie, bobCookie, carolCookie],
-        1,
-        fourCards,
-      );
-      const ids = await poolCardIds(id);
-      await start(id).expect(200);
-      await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
-      await pick(id, ids['Lightning Bolt']).expect(200);
-
-      await pick(id, ids.Shock, bobCookie).expect(200);
-
-      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [bolt],
-        cleared: [shock],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-    });
-
-    it('lets a player dismiss their lost and cleared cards', async () => {
+    it('lets a player dismiss their lost cards, leaving their queue as it is', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
@@ -399,21 +341,19 @@ describe('queue', () => {
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await pick(id, ids.Shock).expect(200);
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [shock],
-        cleared: [spike],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        cards: [spike],
+        lost: [{ ...shock, queueLoss: 'QueuePaused' }],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
 
       const dismissed = await dismissNotice(id, bobCookie).expect(200);
 
       expect(dismissed.body).toEqual({
-        cards: [],
+        cards: [spike],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
     });
 
@@ -431,11 +371,11 @@ describe('queue', () => {
       await dismissNotice(id, bobCookie).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body.lost).toEqual([
-        shock,
+        { ...shock, queueLoss: 'QueuePaused' },
       ]);
     });
 
-    it('clears a queue for a bot’s pick, too', async () => {
+    it('pauses a queue for a bot’s pick, too', async () => {
       const id = await readyDraft([aliceCookie], 1, ['Shock', 'Lava Spike']);
       const ids = await poolCardIds(id);
       await addBot(id, await signIn(carol)).expect(201);
@@ -449,11 +389,10 @@ describe('queue', () => {
 
       await waitForBotPicks(1, async () => {
         expect((await queue(id).expect(200)).body).toEqual({
-          cards: [],
-          lost: [shock],
-          cleared: [spike],
-          restKept: false,
-          stealBehavior: 'ClearQueue',
+          cards: [spike],
+          lost: [{ ...shock, queueLoss: 'QueuePaused' }],
+          stealBehavior: 'PauseQueue',
+          queuePaused: true,
         });
       });
     });
@@ -497,37 +436,8 @@ describe('queue', () => {
           { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
         ],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-      });
-    });
-
-    it('takes a copy a queued card moves to off the cleared list', async () => {
-      const bobCookie = await signIn(bob);
-      const carolCookie = await signIn(carol);
-      const { id, ids, first, second } = await readyDraftWithCopies(
-        [aliceCookie, bobCookie, carolCookie],
-        2,
-        ['Skewer the Critics', 'Fireblast'],
-      );
-      await start(id).expect(200);
-      await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await enqueue(id, second, carolCookie).expect(200);
-      await pick(id, ids.Shock).expect(200);
-      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
-      await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
-      await pick(id, ids.Fireblast, carolCookie).expect(200);
-      await enqueue(id, first, carolCookie).expect(200);
-
-      await pick(id, first, bobCookie).expect(200);
-
-      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [{ poolCardId: second, name: 'Lightning Bolt' }],
-        lost: [shock],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
+        queuePaused: false,
       });
     });
 
@@ -563,14 +473,19 @@ describe('queue', () => {
       await pick(id, first).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [{ poolCardId: first, name: 'Lightning Bolt' }],
-        cleared: [
+        cards: [
           { poolCardId: second, name: 'Lightning Bolt' },
           { poolCardId: ids.Shock, name: 'Shock' },
         ],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        lost: [
+          {
+            poolCardId: first,
+            name: 'Lightning Bolt',
+            queueLoss: 'QueuePaused',
+          },
+        ],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
     });
 
@@ -590,11 +505,16 @@ describe('queue', () => {
       await pick(id, first, bobCookie).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [{ poolCardId: first, name: 'Lightning Bolt' }],
-        cleared: [{ poolCardId: ids.Shock, name: 'Shock' }],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        cards: [{ poolCardId: ids.Shock, name: 'Shock' }],
+        lost: [
+          {
+            poolCardId: first,
+            name: 'Lightning Bolt',
+            queueLoss: 'QueuePaused',
+          },
+        ],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
     });
   });
@@ -622,12 +542,12 @@ describe('queue', () => {
       ]);
     });
 
-    it('refuses an add from the player whose turn it is while paused, but not from the others', async () => {
+    it('refuses an add from the player whose turn it is while frozen, but not from the others', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
 
       expect((await enqueue(id, ids.Shock).expect(409)).body).toEqual(
         refusedOnTurn,

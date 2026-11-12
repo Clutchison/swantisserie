@@ -1,7 +1,7 @@
 import type {
   CloseRefusal,
   CubeLinkProblem,
-  PauseRefusal,
+  FreezeRefusal,
   PickRefusal,
   PoolQueryProblem,
   StartRefusal,
@@ -170,8 +170,8 @@ export class UndoRefusedError extends Error {
   }
 }
 
-export class PauseRefusedError extends Error {
-  constructor(readonly refusal: PauseRefusal) {
+export class FreezeRefusedError extends Error {
+  constructor(readonly refusal: FreezeRefusal) {
     super(refusal.message);
   }
 }
