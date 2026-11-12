@@ -317,7 +317,7 @@ How stacks mode divides the mainboard into stacks: by mana value, by color or by
 _Avoid_: Sort, filter, view
 
 **Stack move**:
-A player putting a mainboard card into another of its stacks, or into a new stack of their own between two, to plan their curve as they count it, such as a 7-drop they mean to play as a 2-drop. It changes nothing in the deck, nothing anyone else sees and no export, and lasts only until they change the grouping or leave the page: switching tabs, switching to list mode or narrowing the window keeps it. A card that leaves the mainboard loses it.
+A player putting a mainboard card into another of its stacks, or into a new stack of their own between two, to plan their curve as they count it, such as a 7-drop they mean to play as a 2-drop. It changes nothing in the deck, nothing anyone else sees and no export, and lasts only until they change the grouping or leave the page: switching tabs, switching to list mode or the room for the stacks narrowing, as the window narrows or a pane opens beside the tabs, keeps it. A card that leaves the mainboard loses it.
 _Avoid_: Reorder, column move, override
 
 **Player-made stack**:

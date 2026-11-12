@@ -5,7 +5,6 @@ import {
   CdkVirtualScrollViewport,
 } from '@angular/cdk/scrolling';
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -35,6 +34,7 @@ import {
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { PlayerAvatar } from './player-avatar';
+import { onResize } from './resizes';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ordinalWords } from '../record';
@@ -205,24 +205,13 @@ export class PoolTab {
   private resting?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    // Not in every test environment; the grid then lays out one column.
-    if (typeof ResizeObserver !== 'undefined') {
-      const destroyRef = inject(DestroyRef);
-      const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
-      observer.observe(this.host);
-      // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's width.
-      destroyRef.onDestroy(() => observer.disconnect());
-      // The search bar's height changes as it wraps, onto two or three lines on a phone.
-      afterNextRender(() => {
-        const searchBar = this.searchBar().nativeElement;
-        const barObserver = new ResizeObserver(() =>
-          this.searchBarHeight.set(searchBar.offsetHeight),
-        );
-        barObserver.observe(searchBar);
-        // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's height.
-        destroyRef.onDestroy(() => barObserver.disconnect());
-      });
-    }
+    // Without a ResizeObserver, as in some test environments, the grid lays out one column.
+    onResize(this.host, ({ width }) => this.width.set(width));
+    // The search bar's height changes as it wraps, onto two or three lines on a phone.
+    onResize(
+      () => this.searchBar().nativeElement,
+      () => this.searchBarHeight.set(this.searchBar().nativeElement.offsetHeight),
+    );
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
     effect((onCleanup) => {
       this.search();

@@ -1,11 +1,10 @@
 import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   computed,
-  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -50,6 +49,7 @@ import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { ExportButtons } from './export-buttons';
 import { PlanApi } from './plan-api';
+import { onResize } from './resizes';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -222,6 +222,7 @@ export class PlanTab {
   private readonly injector = inject(Injector);
   private readonly cardDetails = inject(CardDetails);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly changeDetector = inject(ChangeDetectorRef);
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
@@ -434,13 +435,11 @@ export class PlanTab {
   }
 
   constructor() {
-    // Not in every test environment; stacks mode then lays out as the strip.
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(([entry]) => this.measured(entry.contentRect.width));
-      afterNextRender(() => observer.observe(this.stacksArea().nativeElement));
-      // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's layout.
-      inject(DestroyRef).onDestroy(() => observer.disconnect());
-    }
+    // Without a ResizeObserver, as in some test environments, stacks mode lays out as the strip.
+    onResize(
+      () => this.stacksArea().nativeElement,
+      ({ width }) => this.measured(width),
+    );
     // Queue unpicked stops being offered as the player's turn comes: close its
     // dialog then, so it can't come back by itself once the turn passes.
     effect(() => {
@@ -456,10 +455,15 @@ export class PlanTab {
   private measured(width: number) {
     if (width === 0) return;
     const wide = width >= WIDE_STACKS_WIDTH;
+    const unchanged = wide === this.wideStacks() && this.modeSettled;
     this.wideStacks.set(wide);
-    if (this.modeSettled) return;
-    this.modeSettled = true;
-    this.mode.set(wide ? 'stacks' : 'list');
+    if (!this.modeSettled) {
+      this.modeSettled = true;
+      this.mode.set(wide ? 'stacks' : 'list');
+    }
+    // Rendered now, before the browser paints the container query's layout, not a frame later.
+    // Stryker disable next-line ConditionalExpression,BlockStatement: rendering an unchanged layout again changes nothing a viewer sees.
+    if (!unchanged) this.changeDetector.detectChanges();
   }
 
   /** Shows the plan in `mode`, starting the strip at its first stack, as from the list there's no place in it to keep. */
@@ -821,7 +825,7 @@ export class PlanTab {
  * The mode and grouping the viewer last chose, one choice for every screen;
  * if none is kept or storage is refused, no mode, grouped by mana value.
  */
-function rememberedChoice(): { mode?: PlanMode; grouping: Grouping } {
+function rememberedChoice(): Partial<PlanChoice> & Pick<PlanChoice, 'grouping'> {
   const defaults = { mode: undefined, grouping: DEFAULT_GROUPING };
   try {
     // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.

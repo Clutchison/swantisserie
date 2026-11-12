@@ -745,7 +745,6 @@ describe('basic lands on the plan tab', () => {
     it('drags a basic land’s copy from its line onto the other plan board on desktop', async () => {
       viewOn('desktop');
       measuredAs(WIDE_STACKS_AREA);
-      measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });
@@ -767,7 +766,6 @@ describe('basic lands on the plan tab', () => {
 
     it('moves a stacked copy by its move button, focus following it, and by a drag, the sideboard’s basics in its one stack after its other cards', async () => {
       viewOn('desktop');
-      measuredAs(WIDE_STACKS_AREA);
       measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
@@ -816,7 +814,6 @@ describe('basic lands on the plan tab', () => {
     it('shows every copy of a basic land in the same printing on both plan boards', async () => {
       viewOn('desktop');
       measuredAs(WIDE_STACKS_AREA);
-      measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });
@@ -841,7 +838,6 @@ describe('basic lands on the plan tab', () => {
 
     it('offers no move button for a basic land on a locked deck, and moves none dropped on the other plan board, in either mode', async () => {
       viewOn('desktop');
-      measuredAs(WIDE_STACKS_AREA);
       measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
