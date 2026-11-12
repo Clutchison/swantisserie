@@ -301,17 +301,18 @@ export class DraftStore implements TournamentViewer {
   /**
    * The cards, in order, that the signed-in player's queue picks before the
    * turn passes, were it set queue picking now, worked out by the engine as
-   * the api works them out (ADR 0006): none unless the draft is Drafting
-   * and it is their turn, as both the draft and its picks say. Each is a
-   * queued card, with its name.
+   * the api works them out (ADR 0019): none unless the draft is Drafting,
+   * as a frozen draft's picks wait for the unfreeze. Each is a queued card,
+   * with its name. The draft must say it is their turn too: the pick log is
+   * read after the draft, so until it catches up it may still say so after
+   * their turn has passed.
    */
   readonly queuePicks = computed<QueuedCardView[]>(() => {
     const draft = this.draft.value();
-    const seat = this.players().findIndex((player) => player.id === this.user()?.id);
     if (draft?.state !== 'Drafting' || !this.yourTurn()) return [];
+    const seat = this.players().findIndex((player) => player.id === this.user()?.id);
     const cards = this.queue.value().cards;
-    // Pool cards carry no oracle id; copies share a name, as they share one.
-    const pool = new Map(this.pool.value().map((card) => [card.id, card.name]));
+    const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
     const picks = queuePicksBeforeTurnPasses(
       {
         players: this.players().length,
@@ -324,6 +325,17 @@ export class DraftStore implements TournamentViewer {
     );
     return picks.map((id) => cards.find((card) => card.poolCardId === id)!);
   });
+  /**
+   * Whether `err` is the api's refusal of the cards a queue was set queue
+   * picking with, as no longer those it picks; if so, catches up, so
+   * `queuePicks` names them as they now are. A refused queue change has
+   * started the queue's re-read already.
+   */
+  caughtUpOnQueuePicks(err: unknown): boolean {
+    if (!isRefusal(err) || err.error?.error !== 'queue-picks-changed') return false;
+    this.catchUp();
+    return true;
+  }
   /**
    * Whether the draft, its picks or the queue is being read again, so
    * `queuePicks` may be about to change.

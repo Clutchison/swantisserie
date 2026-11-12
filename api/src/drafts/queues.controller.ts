@@ -114,11 +114,11 @@ export class QueuesController {
   }
 
   /**
-   * Sets the queue to queue paused or queue picking. Setting it picking on
-   * the player's own turn sends the cards they confirmed it picks before
-   * the turn passes. Picks that setting it picking makes are published, as a
-   * cascade's are; otherwise nothing is published, as the state is private
-   * to the player.
+   * Sets the queue to queue paused or queue picking. Setting it queue
+   * picking on the player's own turn sends the cards they confirmed it picks
+   * before the turn passes. Picks that setting it queue picking makes are
+   * published, as a cascade's are; otherwise nothing is published, as the
+   * state is private to the player.
    */
   @Put('paused')
   async setQueuePaused(
@@ -126,15 +126,18 @@ export class QueuesController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const { queuePaused, poolCardIds } = parseQueuePaused(body);
+    const request = parseQueuePaused(body);
     return this.answer(user, id, async () => {
-      const events = await this.turns.setQueuePaused(
-        id,
-        user.id,
-        queuePaused,
-        poolCardIds,
-      );
-      if (events.length > 0) await this.changes.committed(id, events);
+      if (request.queuePaused) {
+        await this.turns.pauseQueue(id, user.id);
+      } else {
+        const events = await this.turns.setQueuePicking(
+          id,
+          user.id,
+          request.poolCardIds ?? [],
+        );
+        if (events.length > 0) await this.changes.committed(id, events);
+      }
       return this.queues.queue(id, user.id);
     });
   }
@@ -200,16 +203,27 @@ function parseIncludeSideboard(body: unknown): boolean {
 }
 
 /**
- * Whether to set the queue to queue paused, and the cards confirmed for
- * setting it picking, none if left out; or a 400 if either isn't said right.
+ * Whether to set the queue to queue paused or queue picking, with the cards
+ * listed for queue picking; or a 400 if it isn't said right, or pausing
+ * lists cards.
  */
-function parseQueuePaused(body: unknown): Required<QueuePausedRequest> {
-  const { queuePaused, poolCardIds = [] } =
-    bodyFields<QueuePausedRequest>(body);
+function parseQueuePaused(body: unknown): QueuePausedRequest {
+  const { queuePaused, poolCardIds } = bodyFields<
+    QueuePausedRequest & { poolCardIds?: string[] }
+  >(body);
   if (typeof queuePaused !== 'boolean') {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say whether to pause the queue.',
+    } satisfies RequestProblem);
+  }
+  if (poolCardIds === undefined) {
+    return queuePaused ? { queuePaused } : { queuePaused, poolCardIds: [] };
+  }
+  if (queuePaused) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'List cards only when setting your queue to queue picking.',
     } satisfies RequestProblem);
   }
   if (

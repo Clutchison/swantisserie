@@ -1,32 +1,37 @@
 import { DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { DraftStore } from './draft-store';
-import { cardsNoun, changeFailure, isRefusal } from './drafts';
+import { cardsNoun, changeFailure, QUEUE_CHANGE_FAILED } from './drafts';
 import { QueueApi } from './queue-api';
-
-const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
 /** The Set queue picking dialog's heading's id, which names the dialog. */
 export const QUEUE_PICKING_HEADING = 'queue-picking-heading';
 
-/** How setting the queue picking ended, once sent: why it failed, or null if it was made. */
-export interface QueuePickingResult {
-  error: string | null;
-}
-
-/** Whether `err` is the api's refusal of cards confirmed that the queue would no longer pick. */
-export function queuePicksChanged(err: unknown): boolean {
-  return isRefusal(err) && err.error?.error === 'queue-picks-changed';
-}
+/**
+ * How the Set queue picking dialog ended, once it did more than cancel: the
+ * queue set queue picking, a failure to say, or, after a refusal, nothing
+ * left to confirm, as the queue read again picks no cards.
+ */
+export type QueuePickingResult =
+  { outcome: 'made' } | { outcome: 'failed'; message: string } | { outcome: 'none-to-pick' };
 
 /**
  * The Set queue picking dialog, opened on the dialog shell when a player
- * sets their queue picking on their own turn: it names the cards the queue
- * picks before the turn passes, and sets it picking, picking them, once the
- * player confirms. Should the api refuse them, as the queue would now pick
- * others, it says so, catches up, and names the cards as they now are to
- * confirm. It opens on Cancel, which leaves the queue paused, and closes
- * once the change is made, or fails for any other reason, with how it went.
+ * sets their queue to queue picking on their own turn: it names the cards
+ * the queue picks before the turn passes, and sets it queue picking,
+ * picking them, once the player confirms. Should the api refuse them, as the
+ * queue would now pick others, it says so, catches up, and names the cards
+ * as they now are to confirm; if there are none, it closes, as there is
+ * nothing to ask. It opens on Cancel, which leaves the queue paused, and
+ * closes once the change is made, or fails for any other reason.
  */
 @Component({
   selector: 'app-queue-picking-dialog',
@@ -46,18 +51,27 @@ export class QueuePickingDialog {
   protected readonly picksText = computed(
     () => `${this.picks().length} ${cardsNoun(this.picks().length)}`,
   );
-  /** Whether setting it picking is on its way. */
+  /** Whether setting it queue picking is on its way. */
   protected readonly sending = signal(false);
   /** Why the cards last confirmed were refused, if they were. */
   protected readonly refused = signal<string | null>(null);
   /** Whether the cards may change before they can be confirmed: they are being read again. */
   protected readonly rereading = this.store.rereadingQueuePicks;
 
+  constructor() {
+    // Once a refusal's re-reads settle on no cards to pick, there is nothing to confirm.
+    effect(() => {
+      if (this.refused() && !this.rereading() && this.picks().length === 0) {
+        untracked(() => this.dialogRef.close({ outcome: 'none-to-pick' }));
+      }
+    });
+  }
+
   protected close() {
     this.dialogRef.close();
   }
 
-  /** Sets the queue picking with the cards named, and closes, unless they were refused. */
+  /** Sets the queue queue picking with the cards named, and closes, unless they were refused. */
   protected async confirm() {
     this.sending.set(true);
     this.refused.set(null);
@@ -68,15 +82,16 @@ export class QueuePickingDialog {
           this.picks().map((card) => card.poolCardId),
         ),
       );
-      this.dialogRef.close({ error: null });
+      this.dialogRef.close({ outcome: 'made' });
     } catch (err) {
-      if (!queuePicksChanged(err)) {
-        this.dialogRef.close({ error: changeFailure(err, CHANGE_FAILED) });
+      if (!this.store.caughtUpOnQueuePicks(err)) {
+        this.dialogRef.close({
+          outcome: 'failed',
+          message: changeFailure(err, QUEUE_CHANGE_FAILED),
+        });
         return;
       }
-      // The queue is being read again already; the turn may have moved on too.
-      this.store.catchUp();
-      this.refused.set(changeFailure(err, CHANGE_FAILED));
+      this.refused.set(changeFailure(err, QUEUE_CHANGE_FAILED));
       this.sending.set(false);
     }
   }

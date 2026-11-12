@@ -11,6 +11,7 @@ import {
   getDraft,
   readyDraft,
   readyDraftWithCopies,
+  pool,
   start,
   enqueue,
   pick,
@@ -24,6 +25,8 @@ import {
   reorderQueue,
   removeFromQueue,
   setQueuePaused,
+  setQueuePicking,
+  draftsRequest,
   queuePaused,
   registerWebhook,
   announcementsSettled,
@@ -184,10 +187,11 @@ describe('queue paused', () => {
       await enqueue(id, ids['Lightning Bolt']).expect(200);
       expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
 
-      const answer = await setQueuePaused(id, false, bobCookie, [
-        ids['Lava Spike'],
-        ids['Skewer the Critics'],
-      ]).expect(200);
+      const answer = await setQueuePicking(
+        id,
+        [ids['Lava Spike'], ids['Skewer the Critics']],
+        bobCookie,
+      ).expect(200);
 
       expect(answer.body).toMatchObject({ cards: [], queuePaused: false });
       expect(await pickLogLines(id)).toEqual([
@@ -207,9 +211,7 @@ describe('queue paused', () => {
         expect(webhookClient.post).toHaveBeenCalledTimes(2),
       );
 
-      await setQueuePaused(id, false, bobCookie, [ids['Lava Spike']]).expect(
-        200,
-      );
+      await setQueuePicking(id, [ids['Lava Spike']], bobCookie).expect(200);
 
       const messages = await vi.waitFor(() => {
         expect(webhookClient.post).toHaveBeenCalledTimes(3);
@@ -244,9 +246,7 @@ describe('queue paused', () => {
       await bobQueuesPaused(id, ids, 'Lava Spike');
 
       // It's Alice's turn, so the turn Bob confirmed Lava Spike for has passed.
-      await setQueuePaused(id, false, bobCookie, [ids['Lava Spike']]).expect(
-        200,
-      );
+      await setQueuePicking(id, [ids['Lava Spike']], bobCookie).expect(200);
 
       expect(await pickLogLines(id)).toEqual([]);
       expect(await queuePaused(id, bobCookie)).toBe(false);
@@ -268,8 +268,7 @@ describe('queue paused', () => {
         [ids['Lava Spike'], ids['Skewer the Critics'], ids['Lightning Bolt']],
       ]) {
         expect(
-          (await setQueuePaused(id, false, bobCookie, confirmed).expect(409))
-            .body,
+          (await setQueuePicking(id, confirmed, bobCookie).expect(409)).body,
         ).toEqual({
           error: 'queue-picks-changed',
           message:
@@ -290,11 +289,8 @@ describe('queue paused', () => {
       await removeFromQueue(id, ids['Lava Spike'], bobCookie).expect(200);
 
       expect(
-        (
-          await setQueuePaused(id, false, bobCookie, [
-            ids['Lava Spike'],
-          ]).expect(409)
-        ).body.error,
+        (await setQueuePicking(id, [ids['Lava Spike']], bobCookie).expect(409))
+          .body.error,
       ).toBe('queue-picks-changed');
       expect(await queuePaused(id, bobCookie)).toBe(true);
     });
@@ -303,12 +299,48 @@ describe('queue paused', () => {
       const { id } = await startedDraft();
 
       expect(
-        (await setQueuePaused(id, false, bobCookie, 'Lava Spike').expect(400))
-          .body,
+        (await setQueuePicking(id, 'Lava Spike', bobCookie).expect(400)).body,
       ).toEqual({
         error: 'invalid',
         message: 'List the cards your queue picks, in order.',
       });
+    });
+
+    it('refuses cards listed with pausing, which picks none', async () => {
+      const { id, ids } = await startedDraft();
+
+      expect(
+        (
+          await draftsRequest('put', `/${id}/queue/paused`, bobCookie, {
+            queuePaused: true,
+            poolCardIds: [ids['Lava Spike']],
+          }).expect(400)
+        ).body,
+      ).toEqual({
+        error: 'invalid',
+        message: 'List cards only when setting your queue to queue picking.',
+      });
+      expect(await queuePaused(id, bobCookie)).toBe(false);
+    });
+
+    it('gives the browser each pool card’s oracle id, which copies share, to forecast its picks as the api does', async () => {
+      const { id, first, second, ids } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+      ]);
+
+      const oracleIds = new Map(
+        (
+          (await pool(id).expect(200)).body as {
+            id: string;
+            oracleId: string;
+          }[]
+        ).map((card) => [card.id, card.oracleId]),
+      );
+
+      expect(oracleIds.get(first)).toBe('lightning-bolt-oracle');
+      expect(oracleIds.get(second)).toBe('lightning-bolt-oracle');
+      expect(oracleIds.get(ids.Shock)).toBe('shock-oracle');
     });
 
     it('picks nothing on the player’s turn while the draft is frozen, and the unfreeze then picks', async () => {
@@ -367,9 +399,7 @@ describe('queue paused', () => {
 
       await pick(id, ids.Shock).expect(200);
       const onBobsTurn = await version();
-      await setQueuePaused(id, false, bobCookie, [ids['Lava Spike']]).expect(
-        200,
-      );
+      await setQueuePicking(id, [ids['Lava Spike']], bobCookie).expect(200);
       expect(await version()).toBeGreaterThan(onBobsTurn);
     });
   });

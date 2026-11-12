@@ -29,6 +29,8 @@ export interface CardFace {
  */
 export interface PoolCardView {
   id: string;
+  /** The card's Scryfall oracle id, which its copies share: the copy rule's identity. */
+  oracleId: string;
   scryfallId: string;
   name: string;
   set: string;

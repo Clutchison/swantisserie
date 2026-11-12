@@ -15,6 +15,7 @@ import {
   queuePaused,
   reorderQueue,
   setQueuePaused,
+  setQueuePicking,
   undo,
 } from './harness.js';
 
@@ -135,10 +136,11 @@ describeRaces('setting a queue picking on the player’s turn', () => {
 
     const [picking, picked] = await race(
       () =>
-        setQueuePaused(id, false, bobCookie, [
-          ids['Lava Spike'],
-          ids['Skewer the Critics'],
-        ]),
+        setQueuePicking(
+          id,
+          [ids['Lava Spike'], ids['Skewer the Critics']],
+          bobCookie,
+        ),
       () => pick(id, ids['Lightning Bolt'], bobCookie),
     );
 
@@ -168,10 +170,11 @@ describeRaces('setting a queue picking on the player’s turn', () => {
 
     const [picking, undone] = await race(
       () =>
-        setQueuePaused(id, false, bobCookie, [
-          ids['Lava Spike'],
-          ids['Skewer the Critics'],
-        ]),
+        setQueuePicking(
+          id,
+          [ids['Lava Spike'], ids['Skewer the Critics']],
+          bobCookie,
+        ),
       () => undo(id, 1),
     );
 

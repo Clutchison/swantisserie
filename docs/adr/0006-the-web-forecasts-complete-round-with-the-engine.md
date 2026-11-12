@@ -1,6 +1,6 @@
 # The web forecasts Complete round with the engine
 
-Status: Accepted
+Status: Amended by 0019
 
 ADR 0007 (from PRD #416) says the web never works out scheduling, pairing, seeding or standings itself. The Complete round dialog is the one exception. Before the organizer completes a Swiss or single elimination tournament round, it tells them what completing it will do: pair the next round, or complete the tournament, and whether anybody will hold the trophy. That depends on the winners they pick and the players they drop, which exist only in the dialog until it sends them. So the decision is one pure engine function. The api's Complete round calls it to decide whether the tournament completes, and the dialog calls it to forecast with the organizer's picks (#472). The api alone decides what is stored. The dialog only uses the same rule to say what the api will do.
 
@@ -13,4 +13,3 @@ ADR 0007 (from PRD #416) says the web never works out scheduling, pairing, seedi
 
 - Each side builds the decision's inputs from its own data: the api from what Complete round stored, the dialog from the tournament read plus the organizer's picks. Those inputs are plain data, and the rule itself lives only in the engine.
 - This follows ADR 0007: tournament rules live in the engine, and the web depends on `engine` to read one.
-- Setting a queue picking on the player's own turn forecasts the same way (#697): one engine function names the cards it picks before the turn passes, which the web shows to confirm and the api checks under the lock, refusing cards that no longer match.

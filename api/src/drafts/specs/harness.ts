@@ -666,21 +666,27 @@ export function setStealBehavior(
   });
 }
 
-/**
- * Sets the player's queue to queue paused, or queue picking if `queuePaused`
- * is false. Setting it picking on their own
- * turn sends `poolCardIds`, the cards they confirmed it picks before the turn
- * passes; left out, the body has none.
- */
+/** Sets the player's queue to queue paused, or queue picking if `queuePaused` is false, listing no cards. */
 export function setQueuePaused(
   id: string,
   queuePaused: unknown,
   cookie = aliceCookie,
-  poolCardIds?: unknown,
+) {
+  return draftsRequest('put', `/${id}/queue/paused`, cookie, { queuePaused });
+}
+
+/**
+ * Sets the player's queue to queue picking, sending `poolCardIds`: the cards
+ * they confirmed it picks before the turn passes, on their own turn.
+ */
+export function setQueuePicking(
+  id: string,
+  poolCardIds: unknown,
+  cookie = aliceCookie,
 ) {
   return draftsRequest('put', `/${id}/queue/paused`, cookie, {
-    queuePaused,
-    ...(poolCardIds === undefined ? {} : { poolCardIds }),
+    queuePaused: false,
+    poolCardIds,
   });
 }
 
