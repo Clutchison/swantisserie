@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PlanView, PoolCardView } from 'contract';
-import { byAriaLabel, collapseWhitespace, pressKey } from '../../specs-harness';
+import { collapseWhitespace, pressEscape, pressKey } from '../../specs-harness';
 import type { PickedCard } from '../draft-store';
 import type { ExportTarget } from '../export-buttons';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
@@ -62,15 +62,16 @@ const cardsOf = (picked: PickedCard[]) => picked.map(({ card }) => card);
 const picksOf = (picked: PickedCard[]): PickView[] =>
   picked.map(({ pick, playerId, poolCardId }) => ({ pick, playerId, poolCardId }));
 
-/** The Deck tab's Copy button, with its live region and clipboard error. */
-const exportsGroup = (root: HTMLElement) =>
-  byAriaLabel(planPanel(root), '[role="group"]', 'Exports');
-
 /** What the Copy button reads as: its confirmation, once it has one, or else its label. */
 const shownLabel = (copy: HTMLElement) => collapseWhitespace(accessibleName(copy));
-/** What the Copy button's hidden status region announces. */
+/** What the Copy button's hidden status region announces: "Copied for …", or nothing. */
 const announced = (root: HTMLElement) =>
-  exportsGroup(root)?.querySelector('[role="status"]')?.textContent?.trim();
+  [...planPanel(root).querySelectorAll<HTMLElement>('[role="status"]')]
+    .map(text)
+    .find((said) => said.startsWith('Copied for')) ?? '';
+
+/** An open draft page, for the helpers that act on it. */
+type Opened = { fixture: { whenStable(): Promise<unknown> }; page: HTMLElement };
 
 describe('Deck tab exports', () => {
   const picks: PickedCard[] = [
@@ -170,10 +171,7 @@ describe('Deck tab exports', () => {
     });
 
     /** Copies for `target`, and answers with what was copied. */
-    async function copyFor(
-      opened: { fixture: { whenStable(): Promise<unknown> }; page: HTMLElement },
-      target: ExportTarget = 'Arena',
-    ) {
+    async function copyFor(opened: Opened, target: ExportTarget = 'Arena') {
       if (!copyMenu()) await openCopyMenu(opened);
       copyMenuItem(target)!.click();
       await opened.fixture.whenStable();
@@ -181,16 +179,13 @@ describe('Deck tab exports', () => {
     }
 
     /** Opens the Copy menu and answers its items' names. */
-    async function openCopyMenu(opened: {
-      fixture: { whenStable(): Promise<unknown> };
-      page: HTMLElement;
-    }) {
+    async function openCopyMenu(opened: Opened) {
       copyButton(opened.page)!.click();
       await opened.fixture.whenStable();
       return copyMenuItems();
     }
 
-    it('offers Copy last in the tools row, after Queue unpicked, the modes, Group by and Add basics', async () => {
+    it('offers Copy last in the tools row, after Queue unpicked and Add basics', async () => {
       const unpicked = { poolCardId: 'brainstorm-card', name: 'Brainstorm', picked: false };
       const opened = await openPlanWith(
         picks,
@@ -200,16 +195,11 @@ describe('Deck tab exports', () => {
       button(planPanel(opened.page), 'Stacks')!.click();
       await opened.fixture.whenStable();
 
-      expect(buttonOrder(planPanel(opened.page), 'Copy')).toEqual([
-        'Queue unpicked',
-        'Stacks',
-        'List',
-        'Mana value',
-        'Color',
-        'Type',
-        'Add basics',
-        'Copy',
-      ]);
+      // Only the row's action buttons: the mode and Group by toggles have no order to keep.
+      const actions = ['Queue unpicked', 'Add basics', 'Copy'];
+      expect(
+        buttonOrder(planPanel(opened.page), 'Copy').filter((name) => actions.includes(name)),
+      ).toEqual(actions);
     });
 
     it('opens a Copy menu of Arena and Moxfield on an Arena draft', async () => {
@@ -233,6 +223,37 @@ describe('Deck tab exports', () => {
 
       expect(copyMenuItems()).toEqual(['Arena', 'Moxfield']);
       expect(document.activeElement).toBe(copyMenuItem('Arena'));
+    });
+
+    it('closes the Copy menu on Escape, returning focus to Copy, without copying', async () => {
+      const opened = await openPlanWith(picks);
+      pressKey(copyButton(opened.page)!, 'ArrowDown');
+      await opened.fixture.whenStable();
+
+      pressEscape();
+      await opened.fixture.whenStable();
+
+      expect(copyMenu()).toBeNull();
+      expect(document.activeElement).toBe(copyButton(opened.page));
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('copies the item chosen from the keyboard, returning focus to Copy', async () => {
+      const opened = await openPlanWith(picks);
+      pressKey(copyButton(opened.page)!, 'ArrowDown');
+      await opened.fixture.whenStable();
+
+      pressKey(copyMenuItem('Arena')!, 'ArrowDown');
+      pressKey(copyMenuItem('Moxfield')!, 'Enter');
+      await opened.fixture.whenStable();
+
+      expect(writeText.mock.lastCall?.[0]).toBe('1 Lightning Bolt (IMA) 1\n1 Lava Spike (IMA) 1');
+      expect(copyMenu()).toBeNull();
+      expect(document.activeElement).toBe(copyButton(opened.page));
+      await vi.waitFor(() => {
+        TestBed.tick();
+        expect(announced(opened.page)).toBe('Copied for Moxfield');
+      });
     });
 
     describe('with every pick on the mainboard', () => {

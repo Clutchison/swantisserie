@@ -44,7 +44,6 @@ const CONFIRMATION_MS = 2000;
   selector: 'app-export-buttons',
   imports: [CdkMenu, CdkMenuItem, CdkMenuTrigger, LucideCheck, LucideChevronDown],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { role: 'group', 'aria-label': 'Exports' },
   templateUrl: './export-buttons.html',
   styleUrls: ['../page.scss', './drafts.scss', './export-buttons.scss'],
 })
