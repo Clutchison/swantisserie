@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  Injector,
   output,
   signal,
   untracked,
@@ -21,16 +20,21 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import { changeFailure, DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import {
+  DESKTOP_QUERY,
+  hasTurn,
+  isRefusal,
+  PLAYERS_CHANGE_FAILED,
+  sendDraftChange,
+} from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
-import { Questions } from '../question-dialog';
 
 /**
- * The seat order, which stays on show once the draft starts, and all the
- * changes to a draft in Lobby: joining, seats, bots, starting, pick import
- * and cancelling.
+ * The seat order, which stays on show once the draft starts, and the
+ * seating tools of a draft in Lobby: seats, bots and pick import. Joining,
+ * starting and cancelling are in the draft header.
  */
 @Component({
   selector: 'app-lobby-controls',
@@ -43,7 +47,6 @@ import { Questions } from '../question-dialog';
     PlayerAvatar,
     SendsChange,
   ],
-  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lobby-controls.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
@@ -52,8 +55,6 @@ export class LobbyControls {
   private readonly http = inject(HttpClient);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
-  private readonly questions = inject(Questions);
-  private readonly injector = inject(Injector);
 
   private readonly draft = this.store.shown;
   /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
@@ -62,12 +63,8 @@ export class LobbyControls {
     return hasTurn(draft) ? draft.turn.playerId : null;
   });
   protected readonly canOrganize = this.store.canOrganize;
-  /** Whether the signed-in user has joined this draft. */
-  protected readonly joined = this.store.joined;
-  /** A change to the players, seats or state is being sent. */
+  /** A change to the players or seats, or a pick import, is being sent: the page forgets earlier failures. */
   readonly changeStarted = output<void>();
-  /** The organizer cancelled the draft. */
-  readonly cancelled = output<void>();
 
   protected readonly canAddBots = this.store.canAddBots;
   /** A full draft takes no more players: no one joins, and no bot is added. */
@@ -108,22 +105,6 @@ export class LobbyControls {
   /** Forgets the latest change's failure, as another change to the draft is being sent. */
   clearError() {
     this.lobbyError.set(null);
-  }
-
-  /** Joins the draft; focus goes to Leave, which takes Join's place. */
-  protected join() {
-    return this.changeLobby(
-      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/players`, null),
-      { keep: ['leave'] },
-    );
-  }
-
-  /** Leaves the draft; focus goes to Join, which takes Leave's place. */
-  protected leave() {
-    return this.changeLobby(
-      this.http.delete<DraftView>(`/api/drafts/${this.draft().id}/players/me`),
-      { keep: ['join'] },
-    );
   }
 
   protected randomizeSeats() {
@@ -174,13 +155,6 @@ export class LobbyControls {
     );
   }
 
-  protected start() {
-    return this.changeLobby(
-      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/start`, null),
-      { failure: "Couldn't start the draft. Try again in a moment." },
-    );
-  }
-
   /** Opens the file picker for a pick import, unless a change is in flight. */
   protected choosePickImport(input: HTMLInputElement) {
     if (!this.changes.changing()) input.click();
@@ -194,6 +168,7 @@ export class LobbyControls {
     if (!file) return;
     return this.changes.send(async () => {
       this.lobbyError.set(null);
+      this.changeStarted.emit();
       this.clearPickImport();
       const failure = "Couldn't read the file. Try again in a moment.";
       try {
@@ -224,6 +199,7 @@ export class LobbyControls {
   protected confirmPickImport({ csv, seats }: PickImportPreview & { csv: string }) {
     return this.changes.send(async () => {
       this.lobbyError.set(null);
+      this.changeStarted.emit();
       try {
         this.store.apply(
           await firstValueFrom(
@@ -249,36 +225,6 @@ export class LobbyControls {
     this.pickImportProblems.set([]);
   }
 
-  /** Cancels the draft, once the organizer goes ahead: it can't be undone. */
-  protected cancel() {
-    return this.changes.send(
-      async () => {
-        const { id, name } = this.draft();
-        const goAhead = await this.questions.ask(
-          {
-            question: `Cancel ${name}?`,
-            detail: "This removes the draft for everyone and can't be undone.",
-            action: 'Cancel draft',
-            dismiss: 'Keep draft',
-          },
-          this.injector,
-        );
-        if (!goAhead) return;
-        this.lobbyError.set(null);
-        try {
-          await firstValueFrom(this.http.delete<void>(`/api/drafts/${id}`));
-          this.cancelled.emit();
-          return true;
-        } catch (err) {
-          this.lobbyFailed(err, "Couldn't cancel the draft. Try again in a moment.");
-          return false;
-        }
-      },
-      // Stays busy once cancelled: the page is leaving.
-      { busyOnceMade: true },
-    );
-  }
-
   private lobbyFailed(err: unknown, failure: string) {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
@@ -292,28 +238,23 @@ export class LobbyControls {
 
   /**
    * Sends a change to the draft and shows the draft it answers with, unless
-   * another change is in flight; `failure` is shown if it fails, and a
-   * refusal has the store catch up with the draft.
+   * another change is in flight; a failure is shown, or the API's reason
+   * if it refused, and the store catches up with the draft.
    * Focus is kept as `Changes.send` keeps it, and a change made says `status`.
    */
   private changeLobby(
     request: Observable<DraftView>,
-    {
-      failure = "Couldn't update the players. Try again in a moment.",
-      ...kept
-    }: { keep?: string[]; status?: string; failure?: string } = {},
+    options: { keep?: string[]; status?: string } = {},
   ) {
-    return this.changes.send(async () => {
-      this.lobbyError.set(null);
-      this.changeStarted.emit();
-      try {
-        await this.store.changeDraft(request);
-        return true;
-      } catch (err) {
-        this.lobbyError.set(changeFailure(err, failure));
-        return false;
-      }
-    }, kept);
+    return sendDraftChange(this.changes, () => () => this.store.changeDraft(request), {
+      failure: PLAYERS_CHANGE_FAILED,
+      started: () => {
+        this.lobbyError.set(null);
+        this.changeStarted.emit();
+      },
+      failed: (message) => this.lobbyError.set(message),
+      ...options,
+    });
   }
 }
 

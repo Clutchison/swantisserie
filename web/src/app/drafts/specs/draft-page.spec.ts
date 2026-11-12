@@ -324,7 +324,7 @@ describe('draft page', () => {
 
     const powersUrl = '/api/drafts/draft-1/powers';
     const organizerButtons = (page: HTMLElement) =>
-      ['Randomize seats', 'Start draft', 'Cancel draft'].filter((name) => button(page, name));
+      ['Randomize seats', 'Start draft', 'More'].filter((name) => button(page, name));
 
     it('are read once when the page opens, not again as the draft changes or catches up', async () => {
       const { fixture } = await openUrl('/drafts/draft-1');
@@ -353,7 +353,7 @@ describe('draft page', () => {
       http.expectOne(powersUrl).flush(ORGANIZE_ONLY);
       await flushPool();
       await fixture.whenStable();
-      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
 
       await router.navigateByUrl('/drafts/draft-2');
       TestBed.tick();
@@ -381,7 +381,7 @@ describe('draft page', () => {
         { powers: ORGANIZE_ONLY },
       );
 
-      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
       expect(button(page, 'Move Bot 1 earlier')).toBeDefined();
       expect(button(page, 'Add bot')).toBeUndefined();
       expect(button(page, 'Remove Bot 1')).toBeUndefined();
@@ -401,7 +401,7 @@ describe('draft page', () => {
 
       powers.flush(ORGANIZE_ONLY);
       await fixture.whenStable();
-      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'Cancel draft']);
+      expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
     });
 
     it('show no controls they gate when they can’t be read, and the draft itself', async () => {

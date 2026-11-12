@@ -23,6 +23,7 @@ import {
   powersAnswer,
   RETRY_FAILED,
 } from './harness';
+import { moreButton, openMore } from './draft-header-harness';
 
 useDraftsApp();
 
@@ -78,18 +79,38 @@ describe('lobby', () => {
     expect(button(page, 'Join')).toBeDefined();
   });
 
-  it('offers Leave, Cancel draft, Randomize seats, Add bot, Import picks, then Start draft, to a joined organizer', async () => {
+  it('offers Leave, More, then Start draft in the header to a joined organizer, with Cancel draft in More', async () => {
     powersAnswer(ALL_POWERS);
     const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
 
-    expect(buttonOrder(page, 'Start draft')).toEqual([
-      'Leave',
-      'Cancel draft',
+    expect(buttonOrder(page, 'Start draft')).toEqual(['Leave', 'More', 'Start draft']);
+    expect(openMore(page)).toEqual(['Cancel draft']);
+  });
+
+  it('offers Join, More, then Start draft in the header to an organizer who hasn’t joined', async () => {
+    powersAnswer(ALL_POWERS);
+    const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual(['Join', 'More', 'Start draft']);
+  });
+
+  it('offers the organizer Randomize seats, Add bot, then Import picks beside the seat order', async () => {
+    powersAnswer(ALL_POWERS);
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+    expect(buttonOrder(section(page, 'Players'), 'Add bot')).toEqual([
       'Randomize seats',
       'Add bot',
       'Import picks',
-      'Start draft',
     ]);
+  });
+
+  it('offers a viewer who may not organize Join alone in the header, and no More', async () => {
+    const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+    expect(button(page, 'Join')).toBeDefined();
+    expect(button(page, 'Start draft')).toBeUndefined();
+    expect(moreButton(page)).toBeUndefined();
   });
 
   it('shows the draft as full at the most players a draft can have, offering no Join', async () => {

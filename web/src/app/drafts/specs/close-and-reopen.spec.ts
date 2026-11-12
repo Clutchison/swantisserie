@@ -1,4 +1,4 @@
-import { answer, question } from '../../specs-harness';
+import { answer, pressKey, question } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -19,7 +19,16 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
+  buttonOrder,
 } from './harness';
+import {
+  chooseFromMore,
+  moreButton,
+  moreMenu,
+  moreMenuItem,
+  offeredInMore,
+  openMore,
+} from './draft-header-harness';
 
 useDraftsApp();
 
@@ -40,7 +49,7 @@ describe('close and reopen', () => {
   it('closes a drafting draft once the organizer goes ahead, showing the progress', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, underway);
 
-    button(page, 'Close draft')!.click();
+    chooseFromMore(page, 'Close draft');
 
     const dialog = await question('Close Red dragons?');
     expect(dialog.textContent).toContain(
@@ -55,30 +64,61 @@ describe('close and reopen', () => {
     await fixture.whenStable();
 
     expect(page.textContent).toContain(banner);
-    expect(button(page, 'Close draft')).toBeUndefined();
+    expect(moreButton(page)).toBeUndefined();
     expect(button(page, 'Pause draft')).toBeUndefined();
     expect(button(page, 'Reopen draft')).toBeDefined();
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Reopen draft')));
+  });
+
+  it('offers More, then Pause draft, in the header before the first pick, with Close draft in More', async () => {
+    const { page } = await openDraft(completeSnapshot, underway);
+
+    expect(buttonOrder(page, 'Pause draft')).toEqual(['More', 'Pause draft']);
+    expect(openMore(page)).toEqual(['Close draft']);
   });
 
   it('offers closing a paused draft', async () => {
-    const { page } = await openDraft(completeSnapshot, { ...underway, state: 'Paused' });
-    expect(button(page, 'Close draft')).toBeDefined();
+    const opened = await openDraft(completeSnapshot, { ...underway, state: 'Paused' });
+    expect(offeredInMore(opened.page)).toContain('Close draft');
+  });
+
+  it('offers Reopen draft alone in the header of a closed draft, with no More', async () => {
+    const { page } = await openDraft(completeSnapshot, closed);
+
+    expect(button(page, 'Reopen draft')).toBeDefined();
+    expect(moreButton(page)).toBeUndefined();
+  });
+
+  it('reaches Close draft from the keyboard, through More', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, underway);
+
+    pressKey(moreButton(page)!, 'ArrowDown');
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(moreMenuItem('Close draft'));
+    pressKey(moreMenuItem('Close draft')!, 'Enter');
+    await fixture.whenStable();
+
+    expect(moreMenu()).toBeNull();
+    await answer(await question('Close Red dragons?'), 'Cancel');
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(document.activeElement).toBe(moreButton(page)));
   });
 
   it.each(['Lobby', 'Complete'] as const)('offers neither in %s', async (state) => {
-    const { page } = await openDraft(completeSnapshot, { ...underway, state, turn: null });
+    const opened = await openDraft(completeSnapshot, { ...underway, state, turn: null });
 
-    expect(button(page, 'Close draft')).toBeUndefined();
-    expect(button(page, 'Reopen draft')).toBeUndefined();
+    expect(offeredInMore(opened.page)).not.toContain('Close draft');
+    expect(button(opened.page, 'Reopen draft')).toBeUndefined();
   });
 
   it('keeps a draft the organizer thinks better of closing', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, underway);
 
-    button(page, 'Close draft')!.click();
+    chooseFromMore(page, 'Close draft');
     await answer(await question('Close Red dragons?'), 'Cancel');
     await fixture.whenStable();
-    await vi.waitFor(() => expect(readyAgain(page, 'Close draft')).toBe(true));
+    await vi.waitFor(() => expect(readyAgain(page, 'Pause draft')).toBe(true));
+    expect(document.activeElement).toBe(moreButton(page));
 
     http.expectNone('/api/drafts/draft-1/close');
     expect(page.textContent).not.toContain(banner);
@@ -121,7 +161,7 @@ describe('close and reopen', () => {
   it('says why a close was refused, and catches up with the draft', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, underway);
 
-    button(page, 'Close draft')!.click();
+    chooseFromMore(page, 'Close draft');
     await answer(await question('Close Red dragons?'), 'Close draft');
     const message = 'Only a drafting or paused draft can be closed.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'))).flush(
@@ -147,7 +187,8 @@ describe('close and reopen', () => {
     async ({ change, from, button: label, question: asked }) => {
       const { fixture, page } = await openDraft(completeSnapshot, from);
 
-      button(page, label)!.click();
+      if (change === 'close') chooseFromMore(page, label);
+      else button(page, label)!.click();
       await answer(await question(asked), label);
       (await vi.waitFor(() => http.expectOne(`/api/drafts/draft-1/${change}`))).flush(
         null,
@@ -177,7 +218,7 @@ describe('close and reopen', () => {
     await flushQueueAndPlan();
     await opened.fixture.whenStable();
 
-    expect(button(opened.page, 'Close draft')).toBeUndefined();
+    expect(moreButton(opened.page)).toBeUndefined();
     expect(opened.page.textContent).not.toContain(banner);
   });
 

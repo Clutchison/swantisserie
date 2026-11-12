@@ -27,6 +27,7 @@ import {
   type AppFixture,
   ORGANIZE_ONLY,
   powersAnswer,
+  buttonOrder,
   ALL_POWERS,
 } from './harness';
 
@@ -70,9 +71,19 @@ describe('seats and start', () => {
       turn: { pick: 1, round: 1, playerId: 'gone' },
     });
 
-    expect(section(page, 'Players').textContent?.replace(/\s+/g, ' ')).toContain(
+    expect(page.textContent?.replace(/\s+/g, ' ')).toContain(
       'Another player’s turn: pick 1, round 1',
     );
+  });
+
+  it('offers a joined organizer Leave, More, then Start draft in the header, and Randomize seats then Import picks beside the seats', async () => {
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual(['Leave', 'More', 'Start draft']);
+    expect(buttonOrder(section(page, 'Players'), 'Randomize seats')).toEqual([
+      'Randomize seats',
+      'Import picks',
+    ]);
   });
 
   it('lets the organizer randomize the seats', async () => {
@@ -524,7 +535,7 @@ describe('seats and start', () => {
     TestBed.tick();
 
     expect(button(page, 'Start draft')?.disabled).toBe(true);
-    expect(section(page, 'Players').textContent).toContain(
+    expect(page.textContent).toContain(
       'You can start the draft once the pool snapshot is complete.',
     );
 
@@ -534,7 +545,7 @@ describe('seats and start', () => {
     await flushPool();
     await fixture.whenStable();
     expect(button(page, 'Start draft')?.disabled).toBe(false);
-    expect(section(page, 'Players').textContent).not.toContain('You can start the draft once');
+    expect(page.textContent).not.toContain('You can start the draft once');
   });
 
   it('offers seat changes and the start only to a viewer who may organize', async () => {
