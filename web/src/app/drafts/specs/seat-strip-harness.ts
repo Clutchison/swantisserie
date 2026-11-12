@@ -1,4 +1,3 @@
-import { TestBed } from '@angular/core/testing';
 import { accessibleName, button, byAriaLabel } from '../../specs-harness';
 
 /** The Seat strip: the region "Seats"; null if there is none. */
@@ -21,15 +20,3 @@ export const playersButton = (page: HTMLElement) => button(seatStrip(page), 'Pla
 /** The Players popover open from the Seat strip: the dialog "Players"; null while it's closed. */
 export const playersPopover = (page: HTMLElement) =>
   byAriaLabel(page, '[role="dialog"]', 'Players');
-
-/** Clicks `element`, as a viewer does, and renders what came of it. */
-export function clickOn(element: HTMLElement) {
-  element.click();
-  TestBed.tick();
-}
-
-/** Clicks `element` with a pointer, not the keyboard, and renders what came of it. */
-export function pointerClick(element: HTMLElement) {
-  element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
-  TestBed.tick();
-}

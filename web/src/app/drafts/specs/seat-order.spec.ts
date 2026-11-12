@@ -13,7 +13,8 @@ import {
   text,
 } from './harness';
 import { disclosure, toggleDisclosure } from './disclosure-harness';
-import { clickOn, findSeatStrip, playersButton, playersPopover } from './seat-strip-harness';
+import { findSeatStrip, playersButton, playersPopover } from './seat-strip-harness';
+import { clickOn } from '../../specs-harness';
 
 useDraftsApp();
 

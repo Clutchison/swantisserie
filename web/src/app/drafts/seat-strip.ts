@@ -26,8 +26,9 @@ interface Hint {
 /**
  * The Seat strip: a started draft's players as avatars in seat order, beside
  * the tabs on a wide desktop, marking whose turn it is and the viewer's own
- * seat. Its Players button opens `players`, the full Players panel, as a
- * popover beside it, which Escape or a click outside closes.
+ * seat. Its Players button opens `playersPanel`, the full Players panel, as
+ * a non-modal popover beside it, which Escape, a pointer pressed outside or
+ * focus leaving closes.
  */
 @Component({
   selector: 'app-seat-strip',
@@ -36,8 +37,9 @@ interface Hint {
   templateUrl: './seat-strip.html',
   styleUrl: './seat-strip.scss',
   host: {
-    '(document:click)': 'clicked($event)',
-    '(keydown.escape)': 'close()',
+    '(document:pointerdown)': 'closeOnPointerOutside($event)',
+    '(document:keydown.escape)': 'closeOnEscape()',
+    '(focusout)': 'closeOnFocusLeaving($event)',
   },
 })
 export class SeatStrip {
@@ -46,7 +48,7 @@ export class SeatStrip {
   private readonly injector = inject(Injector);
 
   /** The full Players panel, which the popover shows. */
-  readonly players = input.required<TemplateRef<unknown>>();
+  readonly playersPanel = input.required<TemplateRef<unknown>>();
 
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
@@ -58,12 +60,17 @@ export class SeatStrip {
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
   private readonly popover = viewChild<ElementRef<HTMLElement>>('popover');
 
-  /** What a screen reader names a seat: its player, and whether they are a bot or the viewer. */
+  /**
+   * What a screen reader names a seat: its player, whether they are a bot or
+   * the viewer, and whether it is their turn.
+   */
   protected seatName(player: PlayerView) {
+    const own = this.isOwn(player);
     return [
       player.name,
       ...(player.isBot ? ['bot'] : []),
-      ...(player.id === this.ownId() ? ['you'] : []),
+      ...(own ? ['you'] : []),
+      ...(this.hasTurn(player) ? [own ? 'your turn' : 'their turn'] : []),
     ].join(', ');
   }
 
@@ -102,25 +109,44 @@ export class SeatStrip {
     afterNextRender(() => this.popover()?.nativeElement.focus(), { injector: this.injector });
   }
 
-  /** Closes the popover, with focus back on the Players button. */
-  protected close() {
+  /** Closes the popover; focus goes back to the Players button if it would otherwise be lost. */
+  private close() {
     if (!this.popoverOpen()) return;
+    const focused = document.activeElement;
+    const focusInside = this.host.nativeElement.contains(focused);
     this.popoverOpen.set(false);
-    this.toggle().nativeElement.focus();
+    if (focusInside || nowhere(focused)) this.toggle().nativeElement.focus();
+  }
+
+  protected closeOnEscape() {
+    this.close();
   }
 
   /**
-   * A pointer's click outside the strip closes the popover. Focus goes back to
-   * the Players button unless the click focused something else. A click from
-   * the keyboard, such as the tabs' arrow keys make, leaves it open.
+   * A pointer pressed outside the strip and its popover closes the popover.
+   * Focus goes back to the Players button unless the press focused something.
    */
-  protected clicked(event: MouseEvent) {
-    if (!this.popoverOpen() || event.detail === 0) return;
-    if (event.composedPath().includes(this.host.nativeElement)) return;
-    const focused = document.activeElement;
-    const focusElsewhere =
-      focused && focused !== document.body && !this.host.nativeElement.contains(focused);
-    if (focusElsewhere) this.popoverOpen.set(false);
-    else this.close();
+  protected closeOnPointerOutside(event: PointerEvent) {
+    if (!this.popoverOpen() || event.composedPath().includes(this.host.nativeElement)) return;
+    this.popoverOpen.set(false);
+    // After the press has moved focus, if it did.
+    setTimeout(() => {
+      if (nowhere(document.activeElement)) this.toggle().nativeElement.focus();
+    });
   }
+
+  /**
+   * Focus moving out of the strip and its popover closes the popover, so it
+   * never covers the control focus went to. Focus lost to nowhere, as when a
+   * control inside is re-rendered, leaves it open.
+   */
+  protected closeOnFocusLeaving(event: FocusEvent) {
+    const to = event.relatedTarget;
+    if (to instanceof Node && !this.host.nativeElement.contains(to)) this.popoverOpen.set(false);
+  }
+}
+
+/** Whether focus is on nothing: the page's body, or an element no longer there. */
+function nowhere(focused: Element | null) {
+  return !focused || focused === document.body || !focused.isConnected;
 }

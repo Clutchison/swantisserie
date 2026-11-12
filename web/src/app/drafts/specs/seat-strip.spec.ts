@@ -1,28 +1,33 @@
+import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
+  alice,
   alicePlayer,
   bob,
+  button,
   completeSnapshot,
   draft,
   drafting,
   findQueuePane,
   flushPicks,
   flushQueueAndPlan,
+  heading,
+  http,
   openDraft,
-  panelName,
+  openTab,
+  ORGANIZE_ONLY,
   playersPanel,
   resizeTo,
+  tabButton,
   updates,
   viewOn,
 } from './harness';
-import { pressEscape, pressKey } from '../../specs-harness';
+import { clickOn, pressEscape, pressPointerOn } from '../../specs-harness';
 import { disclosure } from './disclosure-harness';
 import {
-  clickOn,
   findSeatStrip,
   playersButton,
   playersPopover,
-  pointerClick,
   seatStrip,
   stripSeatNames,
   stripSeats,
@@ -42,25 +47,37 @@ const bot = {
 /** The Players panel's disclosure inside `root`, summarised by its player count. */
 const playersDisclosure = (root: HTMLElement) => disclosure(root, /^Players · \d+$/);
 
+/** The draft's name, heading the page: somewhere to press that takes no focus. */
+const draftName = (page: HTMLElement) => heading(page, 'Red dragons')!;
+
 describe('the Seat strip', () => {
   describe('on a wide screen', () => {
     beforeEach(() => viewOn('wide'));
 
     it.each([
-      ['drafting', drafting()],
-      ['paused', drafting({ state: 'Paused' })],
-      ['closed', drafting({ state: 'Closed', turn: null })],
+      ['drafting', drafting(), ['Alice, you', 'Bob, their turn']],
+      ['paused', drafting({ state: 'Paused' }), ['Alice, you', 'Bob, their turn']],
+      ['closed', drafting({ state: 'Closed', turn: null }), ['Alice, you', 'Bob']],
     ])(
-      'shows the seats in seat order while %s, the viewer’s own named, in place of the Players panel',
-      async (_, fields) => {
+      'shows the seats in seat order while %s, naming the viewer’s own and whose turn it is, in place of the Players panel',
+      async (_, fields, names) => {
         const { page } = await openDraft(completeSnapshot, fields);
 
-        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob']);
+        expect(stripSeatNames(page)).toEqual(names);
         expect(playersDisclosure(page)).toBeNull();
       },
     );
 
-    it('marks whose turn it is', async () => {
+    it('names the viewer’s own turn', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
+      );
+
+      expect(stripSeatNames(page)).toEqual(['Alice, you, your turn', 'Bob']);
+    });
+
+    it('marks whose turn it is as current', async () => {
       const { page } = await openDraft(completeSnapshot, drafting());
 
       expect(stripSeats(page).map((seat) => seat.getAttribute('aria-current'))).toEqual([
@@ -81,7 +98,7 @@ describe('the Seat strip', () => {
         drafting({ players: [alicePlayer, bot], turn: { pick: 1, round: 1, playerId: bot.id } }),
       );
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bot 1, bot']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bot 1, bot, their turn']);
     });
 
     it('lets each seat take focus, to show its player’s name', async () => {
@@ -93,7 +110,7 @@ describe('the Seat strip', () => {
     it('shows a spectator the Seat strip and no Queue pane', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-      expect(stripSeatNames(page)).toEqual(['Bob']);
+      expect(stripSeatNames(page)).toEqual(['Bob, their turn']);
       expect(findQueuePane(page)).toBeNull();
     });
 
@@ -130,8 +147,18 @@ describe('the Seat strip', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, their turn']);
       expect(playersDisclosure(page)).toBeNull();
+    });
+
+    it('leaves the organizer’s draft controls in the header working beside it', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting(), { powers: ORGANIZE_ONLY });
+
+      button(page, 'Pause draft')!.click();
+
+      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'));
+      expect(req.request.method).toBe('POST');
+      expect(findSeatStrip(page)).not.toBeNull();
     });
 
     describe('its Players button', () => {
@@ -171,49 +198,66 @@ describe('the Seat strip', () => {
         expect(document.activeElement).toBe(playersButton(page));
       });
 
-      it('closes it on a click outside, with focus back on the button', async () => {
+      it('closes it on a press outside that focuses nothing, with focus back on the button', async () => {
         const { page } = await openDraft(completeSnapshot, drafting());
         clickOn(playersButton(page));
 
-        pointerClick(page.querySelector('h1')!);
+        pressPointerOn(draftName(page));
 
         expect(playersPopover(page)).toBeNull();
-        expect(document.activeElement).toBe(playersButton(page));
+        await vi.waitFor(() => expect(document.activeElement).toBe(playersButton(page)));
       });
 
-      it('keeps it open on a click inside it', async () => {
+      it('closes it on a press outside that focuses a control, leaving focus there', async () => {
         const { page } = await openDraft(completeSnapshot, drafting());
         clickOn(playersButton(page));
 
-        pointerClick(playersPopover(page)!.querySelector('ol')!);
+        pressPointerOn(tabButton(page, 'Deck'));
+        tabButton(page, 'Deck').focus();
+
+        expect(playersPopover(page)).toBeNull();
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(document.activeElement).toBe(tabButton(page, 'Deck'));
+      });
+
+      it('keeps it open on a press inside it', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+
+        pressPointerOn(playersPopover(page)!);
+
+        expect(playersPopover(page)).not.toBeNull();
+      });
+
+      it('closes it as focus moves out of it, leaving focus where it went', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+
+        tabButton(page, 'Pool').focus();
+        TestBed.tick();
+
+        expect(playersPopover(page)).toBeNull();
+        expect(document.activeElement).toBe(tabButton(page, 'Pool'));
+      });
+
+      it('keeps it open as focus moves between the strip and the popover', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting());
+        clickOn(playersButton(page));
+
+        stripSeats(page)[0].focus();
+        TestBed.tick();
 
         expect(playersPopover(page)).not.toBeNull();
       });
     });
 
-    it('stays as it was, popover and all, as the tabs switch from the keyboard', async () => {
+    it('stays as it was as the tabs switch', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting());
-      clickOn(playersButton(page));
 
-      for (const tab of ['Deck', 'Board']) {
-        pressKey(
-          page.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')!,
-          'ArrowRight',
-        );
-        await fixture.whenStable();
-        expect(panelName(page)).toBe(tab);
-        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob']);
-        expect(playersPopover(page)).not.toBeNull();
+      for (const tab of ['Deck', 'Board', 'Pool']) {
+        await openTab(fixture, page, tab);
+        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, their turn']);
       }
-    });
-
-    it('keeps the popover open on a click from the keyboard outside it', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting());
-      clickOn(playersButton(page));
-
-      clickOn(page.querySelector('h1')!);
-
-      expect(playersPopover(page)).not.toBeNull();
     });
 
     it('gives way to the Players panel as the window narrows past the wide desktop', async () => {
@@ -241,7 +285,7 @@ describe('the Seat strip', () => {
 
       resizeTo('wide');
 
-      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob']);
+      expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, their turn']);
       expect(playersDisclosure(page)).toBeNull();
     });
   });

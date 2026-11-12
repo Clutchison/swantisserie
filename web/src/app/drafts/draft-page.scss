@@ -15,7 +15,8 @@
   }
 }
 
-.players-panel,
+/* Above the tabs, or beside them; not in the Seat strip's popover. */
+main > .players-panel,
 .pool,
 .queue,
 .plan,

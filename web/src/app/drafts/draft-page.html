@@ -53,13 +53,16 @@
       }
     </div>
 
-    <!-- Above the tabs; on a wide desktop, a pane beside them once the draft is complete, and in the Seat strip's popover until then. -->
-    @if (!showSeatStrip()) {
+    <!-- The Players panel: above the tabs, or on a wide desktop in a pane beside them once the draft is complete, and in the Seat strip's popover until then. -->
+    <ng-template #playersPanel>
       <app-players-panel
         class="players-panel"
-        [class.in-pane]="playersPane()"
+        [inPane]="playersInPane()"
         (changeStarted)="clearErrors()"
       />
+    </ng-template>
+    @if (!showSeatStrip()) {
+      <ng-container *ngTemplateOutlet="playersPanel" />
     }
 
     <!-- The tabs and their panels: the main column, beside the Queue pane, and the Seat strip or the Players panel's pane. -->
@@ -296,10 +299,7 @@
 
     <!-- After the Queue pane, on a wide desktop while the draft runs, whichever tab is open. -->
     @if (showSeatStrip()) {
-      <ng-template #playersInPopover>
-        <app-players-panel class="in-pane" (changeStarted)="clearErrors()" />
-      </ng-template>
-      <app-seat-strip class="seat-strip" [players]="playersInPopover" />
+      <app-seat-strip class="seat-strip" [playersPanel]="playersPanel" />
     }
   }
 </main>

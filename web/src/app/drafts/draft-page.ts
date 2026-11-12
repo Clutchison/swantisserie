@@ -154,6 +154,8 @@ export class DraftPage {
   protected readonly playersPane = computed(
     () => this.wide() && this.draft()?.state === 'Complete',
   );
+  /** Whether the Players panel is narrow and stays open: in its pane, or the Seat strip's popover. */
+  protected readonly playersInPane = computed(() => this.playersPane() || this.showSeatStrip());
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:
