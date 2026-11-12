@@ -221,6 +221,52 @@ export const text = (element: Element | null | undefined) =>
   collapseWhitespace(element?.textContent ?? '');
 
 /**
+ * What a screen reader names `element`: its aria-label, or else its text and
+ * images' alt text, leaving out what's hidden from assistive tech. A rough
+ * take on the accessible name computation, enough for buttons and tiles.
+ */
+export function accessibleName(element: Element): string {
+  const nameOf = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+    if (!(node instanceof Element)) return '';
+    if (node.getAttribute('aria-hidden') === 'true' || node.hasAttribute('hidden')) return '';
+    const label = node.getAttribute('aria-label');
+    if (label) return label;
+    if (node instanceof HTMLImageElement) return node.alt;
+    return [...node.childNodes].map(nameOf).join(' ');
+  };
+  return collapseWhitespace(nameOf(element));
+}
+
+/**
+ * The open menu named `name`, such as Copy or More; null while it's closed.
+ * The CDK puts a menu outside the page, so this looks in the whole document.
+ */
+export const menu = (name: string) => byAriaLabel(document.body, '[role="menu"]', name);
+
+const menuItemElements = (name: string) => [
+  ...(menu(name)?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []),
+];
+
+/** The open menu `name`'s items, by name, in order; none while it's closed. */
+export const menuItems = (name: string) => menuItemElements(name).map(accessibleName);
+
+/** The open menu `name`'s item named `item`. */
+export const menuItem = (name: string, item: string) =>
+  menuItemElements(name).find((element) => accessibleName(element) === item);
+
+/**
+ * Opens the menu `name` by clicking its button `trigger`, as a viewer would,
+ * and returns its items' names. Renders without waiting for the page to
+ * settle, which a running pool snapshot's polling never lets it do.
+ */
+export function openMenu(trigger: HTMLElement, name: string) {
+  trigger.click();
+  TestBed.tick();
+  return menuItems(name);
+}
+
+/**
  * The element inside `root` that `selector` finds and whose accessible name,
  * its aria-label, is `name`; null if there is none.
  */

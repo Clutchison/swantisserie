@@ -1,6 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PlanView, PoolCardView } from 'contract';
-import { collapseWhitespace, pressEscape, pressKey } from '../../specs-harness';
+import {
+  collapseWhitespace,
+  menu,
+  menuItem,
+  menuItems,
+  openMenu,
+  pressEscape,
+  pressKey,
+} from '../../specs-harness';
 import type { PickedCard } from '../draft-store';
 import type { ExportTarget } from '../export-buttons';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
@@ -30,9 +38,6 @@ import {
 } from './harness';
 import {
   copyButton,
-  copyMenu,
-  copyMenuItem,
-  copyMenuItems,
   openPlan,
   planPanel,
   sideboardNotice,
@@ -172,17 +177,10 @@ describe('Deck tab exports', () => {
 
     /** Copies for `target`, and answers with what was copied. */
     async function copyFor(opened: Opened, target: ExportTarget = 'Arena') {
-      if (!copyMenu()) await openCopyMenu(opened);
-      copyMenuItem(target)!.click();
+      if (!menu('Copy')) openMenu(copyButton(opened.page)!, 'Copy');
+      menuItem('Copy', target)!.click();
       await opened.fixture.whenStable();
       return writeText.mock.lastCall?.[0];
-    }
-
-    /** Opens the Copy menu and answers its items' names. */
-    async function openCopyMenu(opened: Opened) {
-      copyButton(opened.page)!.click();
-      await opened.fixture.whenStable();
-      return copyMenuItems();
     }
 
     it('offers Copy last in the tools row, after Queue unpicked and Add basics', async () => {
@@ -205,14 +203,14 @@ describe('Deck tab exports', () => {
     it('opens a Copy menu of Arena and Moxfield on an Arena draft', async () => {
       const opened = await openPlanWith(picks, { platform: 'Arena' });
 
-      expect(copyMenu()).toBeNull();
-      expect(await openCopyMenu(opened)).toEqual(['Arena', 'Moxfield']);
+      expect(menu('Copy')).toBeNull();
+      expect(openMenu(copyButton(opened.page)!, 'Copy')).toEqual(['Arena', 'Moxfield']);
     });
 
     it('opens a Copy menu of MTGO and Moxfield on an MTGO draft', async () => {
       const opened = await openPlanWith(picks, { platform: 'MTGO' });
 
-      expect(await openCopyMenu(opened)).toEqual(['MTGO', 'Moxfield']);
+      expect(openMenu(copyButton(opened.page)!, 'Copy')).toEqual(['MTGO', 'Moxfield']);
     });
 
     it('opens the Copy menu from the keyboard, focusing its first item', async () => {
@@ -221,8 +219,8 @@ describe('Deck tab exports', () => {
       pressKey(copyButton(opened.page)!, 'ArrowDown');
       await opened.fixture.whenStable();
 
-      expect(copyMenuItems()).toEqual(['Arena', 'Moxfield']);
-      expect(document.activeElement).toBe(copyMenuItem('Arena'));
+      expect(menuItems('Copy')).toEqual(['Arena', 'Moxfield']);
+      expect(document.activeElement).toBe(menuItem('Copy', 'Arena'));
     });
 
     it('closes the Copy menu on Escape, returning focus to Copy, without copying', async () => {
@@ -233,7 +231,7 @@ describe('Deck tab exports', () => {
       pressEscape();
       await opened.fixture.whenStable();
 
-      expect(copyMenu()).toBeNull();
+      expect(menu('Copy')).toBeNull();
       expect(document.activeElement).toBe(copyButton(opened.page));
       expect(writeText).not.toHaveBeenCalled();
     });
@@ -243,12 +241,12 @@ describe('Deck tab exports', () => {
       pressKey(copyButton(opened.page)!, 'ArrowDown');
       await opened.fixture.whenStable();
 
-      pressKey(copyMenuItem('Arena')!, 'ArrowDown');
-      pressKey(copyMenuItem('Moxfield')!, 'Enter');
+      pressKey(menuItem('Copy', 'Arena')!, 'ArrowDown');
+      pressKey(menuItem('Copy', 'Moxfield')!, 'Enter');
       await opened.fixture.whenStable();
 
       expect(writeText.mock.lastCall?.[0]).toBe('1 Lightning Bolt (IMA) 1\n1 Lava Spike (IMA) 1');
-      expect(copyMenu()).toBeNull();
+      expect(menu('Copy')).toBeNull();
       expect(document.activeElement).toBe(copyButton(opened.page));
       await vi.waitFor(() => {
         TestBed.tick();
@@ -398,7 +396,7 @@ describe('Deck tab exports', () => {
         });
         expect(text(planPanel(opened.page))).toContain('Your deck is locked');
         expect(button(planPanel(opened.page), 'Add basics')).toBeUndefined();
-        expect(await openCopyMenu(opened)).toEqual(['Arena', 'Moxfield']);
+        expect(openMenu(copyButton(opened.page)!, 'Copy')).toEqual(['Arena', 'Moxfield']);
 
         expect(await copyFor(opened)).toBe(
           'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock\n2 Plains',
@@ -560,7 +558,7 @@ describe('Deck tab exports', () => {
 
       await copyFor(opened);
 
-      expect(copyMenu()).toBeNull();
+      expect(menu('Copy')).toBeNull();
       expect(shownLabel(copyButton(page)!)).toBe('Copied');
     });
 

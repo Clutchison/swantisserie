@@ -38,9 +38,9 @@ import { SET_CATALOG_POLL_MS } from '../set-list-picker';
 import { EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
-export { resizeTo, viewOn } from './screen-harness';
 import { disclosure } from './disclosure-harness';
 import {
+  accessibleName,
   alertIn,
   alice,
   button,
@@ -54,7 +54,8 @@ import {
   text,
 } from '../../specs-harness';
 
-export { alertIn, alice, button, buttons, serverError, table, tableRows, text };
+export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
+export { resizeTo, viewOn } from './screen-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
 export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
@@ -436,24 +437,6 @@ export const playerAvatar = (page: HTMLElement, name: string) =>
   [...playersPanel(page).querySelectorAll('li')]
     .find((li) => li.textContent?.includes(name))
     ?.querySelector<HTMLImageElement>('[role="presentation"]');
-
-/**
- * What a screen reader names `element`: its aria-label, or else its text and
- * images' alt text, leaving out what's hidden from assistive tech. A rough
- * take on the accessible name computation, enough for buttons and tiles.
- */
-export function accessibleName(element: Element): string {
-  const nameOf = (node: Node): string => {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
-    if (!(node instanceof Element)) return '';
-    if (node.getAttribute('aria-hidden') === 'true' || node.hasAttribute('hidden')) return '';
-    const label = node.getAttribute('aria-label');
-    if (label) return label;
-    if (node instanceof HTMLImageElement) return node.alt;
-    return [...node.childNodes].map(nameOf).join(' ');
-  };
-  return collapseWhitespace(nameOf(element));
-}
 
 /**
  * The accessible names, in page order, of the buttons and links in the

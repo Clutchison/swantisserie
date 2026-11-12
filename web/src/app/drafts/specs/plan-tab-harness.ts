@@ -3,7 +3,6 @@ import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import type { ExportTarget } from '../export-buttons';
 import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
 import {
   accessibleName,
@@ -69,21 +68,6 @@ export const copyButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
     ['Copy', 'Copied'].includes(accessibleName(candidate)),
   );
-
-/** The Copy button's menu, open over the page; it shows outside the page, so this looks in the whole document. */
-export const copyMenu = () => byAriaLabel(document.body, '[role="menu"]', 'Copy');
-
-/** The open Copy menu's items, in order; none while it's closed. */
-const copyMenuItemElements = () => [
-  ...(copyMenu()?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []),
-];
-
-/** The open Copy menu's items, by name, in order. */
-export const copyMenuItems = () => copyMenuItemElements().map(accessibleName);
-
-/** The open Copy menu's item for `target`. */
-export const copyMenuItem = (target: ExportTarget) =>
-  copyMenuItemElements().find((item) => accessibleName(item) === target);
 
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');

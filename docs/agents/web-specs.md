@@ -17,7 +17,7 @@ Assert what a viewer sees or can do: text shown, a control present, enabled or g
 
 ## Breakpoints a spec can see
 
-When a breakpoint changes what a template shows, not just how it looks (a section open or closed, a control present or gone), give it a media-query constant beside the draft page's others and a screen in the drafts harness's `viewOn` and `resizeTo`, so specs can put the page on each side of it. A breakpoint that only restyles stays in the SCSS breakpoint partial.
+When a breakpoint changes what a template shows, not just how it looks (a section open or closed, a control present or gone), give it a media-query constant beside the draft page's others and a screen in `viewOn` and `resizeTo` in `web/src/app/drafts/specs/screen-harness.ts`, so specs can put the page on each side of it. A breakpoint that only restyles stays in the SCSS breakpoint partial.
 
 ## Flush requests by URL
 
