@@ -32,15 +32,16 @@ import { PicksLeft } from './picks-left';
 import { PlanTab } from './plan-tab';
 import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
+import { NextUpStrip } from './next-up-strip';
 import { QueuePane } from './queue-pane';
 import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
 /** The draft view's panels, in tab order. */
-const PANELS = ['Pool', 'Queue', 'Deck', 'Board', 'Lists', 'Play'] as const;
+const PANELS = ['Pool', 'Deck', 'Board', 'Lists', 'Play'] as const;
 type Panel = (typeof PANELS)[number];
 /** The panels only players have. */
-const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
+const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Deck']);
 
 @Component({
   selector: 'app-draft-page',
@@ -50,6 +51,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
     ListsTab,
     LoadingAnimation,
     LucideChevronLeft,
+    NextUpStrip,
     NgTemplateOutlet,
     PicksLeft,
     PlanTab,
@@ -122,43 +124,34 @@ export class DraftPage {
   protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
   /** Whether the page is at the desktop layout, as it is resized: the Queue pane's, beside the tabs. */
   private readonly desktop = matching(DESKTOP_QUERY);
+  /** Whether the viewer has a Queue pane: a player, until the draft is complete. */
+  private readonly hasQueuePane = computed(() => this.joined() && !!this.store.queueShown());
+  /** Whether the Queue pane is beside the tabs: from the desktop layout. */
+  protected readonly showQueuePane = computed(() => this.desktop() && this.hasQueuePane());
   /**
-   * Whether the Queue tab is there: below the desktop layout, until the
-   * draft is complete. Undefined, so not shown yet, while the draft is loading.
+   * Whether the "next up" strip is above the tab bar, opening the Queue pane
+   * in a sheet: below the desktop layout. The sheet closes with it.
    */
-  protected readonly queueTabShown = computed(() =>
-    this.desktop() ? false : this.store.queueShown(),
-  );
-  /**
-   * Whether the Queue pane is beside the tabs: from the desktop layout, for a
-   * player, until the draft is complete.
-   */
-  protected readonly showQueuePane = computed(
-    () => this.desktop() && this.joined() && !!this.store.queueShown(),
-  );
+  protected readonly showNextUpStrip = computed(() => !this.desktop() && this.hasQueuePane());
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:
    * undefined while what decides it is still loading.
    */
   private readonly shownBy: Partial<Record<Panel, Signal<boolean | undefined>>> = {
-    Queue: this.queueTabShown,
     Board: this.store.showBoardTab,
     Play: this.store.showPlayTab,
     Lists: this.store.showDecklists,
   };
 
   /**
-   * The tab selected, kept in the URL. Only players have the Queue and Deck
-   * tabs: one of them selected goes back to Pool as the viewer stops
-   * being a player, so the selected tab is always one they can open, and Tab
+   * The tab selected, kept in the URL. Only players have the Deck tab: it
+   * goes back to Pool as the viewer stops being a player, so the selected tab is always one they can open, and Tab
    * to. Who is a player isn't known until the draft loads, so until then a
    * players-only tab in the URL stands; a draft that fails to load has no
-   * tabs, so its page settles on Pool. The Queue, Board, Play and Lists
-   * tabs can be opened while they are there, so each goes back to Pool as it
-   * goes, except Board, which goes to the Lists tab that takes its place: the
-   * Queue tab goes as the page widens to the desktop layout, where the Queue
-   * pane is beside every tab.
+   * tabs, so its page settles on Pool. The Board, Play and Lists tabs can
+   * be opened while they are there, so each goes back to Pool as it goes,
+   * except Board, which goes to the Lists tab that takes its place.
    */
   protected readonly selectedTab = tabInUrl<Panel>({
     tabs: PANELS,

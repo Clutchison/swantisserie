@@ -4,8 +4,9 @@ import {
   alice,
   bob,
   http,
+  openQueueSheet,
+  queueList,
   tabButton,
-  panel,
   openDraft,
   queueOf,
   queued,
@@ -133,9 +134,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await fixture.whenStable();
     expect(text(dialog())).toContain('Nothing on your mainboard to queue.');
     expect(button(dialog()!, 'Queue 0 cards')!.disabled).toBe(true);
-    tabButton(page, 'Queue').click();
-    await fixture.whenStable();
-    expect(panel(page).textContent).toContain('Lightning Bolt');
+    expect(queueList(await openQueueSheet(fixture, page)).textContent).toContain('Lightning Bolt');
   });
 
   it('closes on a click on the backdrop, but not on a drag out of the dialog', async () => {

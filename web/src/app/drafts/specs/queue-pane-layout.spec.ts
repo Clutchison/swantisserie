@@ -15,9 +15,14 @@ import {
   flushQueueAndPlan,
   http,
   openDraft,
-  openQueue,
+  findNextUpStrip,
+  nextUpStrip,
+  openQueueSheet,
+  queueNotice,
+  queueSheet,
+  accessibleName,
+  cardName,
   openTab,
-  panelName,
   picksLeftTexts,
   queued,
   queueList,
@@ -32,6 +37,12 @@ import {
   viewOn,
 } from './harness';
 import { measuredAs } from './measure-harness';
+import {
+  byAriaLabel,
+  clickBackdrop,
+  hiddenFromAssistiveTech,
+  pressEscape,
+} from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   NARROW_STACKS_AREA,
@@ -99,33 +110,148 @@ describe('Queue pane layout', () => {
   describe.each(['mobile', 'tablet'] as const)('on a %s screen', (screen) => {
     beforeEach(() => viewOn(screen));
 
-    it('keeps the Queue tab, holding the queue, and no Queue pane beside it', async () => {
+    it('shows a player no Queue tab and no Queue pane, but the "next up" strip on every tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
         queue: queueOf({ cards: [queued(shivan)] }),
       });
 
-      expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
-      const tab = await openQueue(fixture, page);
-      expect(queueList(tab).textContent).toContain('Shivan Dragon');
-      expect(button(tab, 'Remove Shivan Dragon')).toBeDefined();
-      expect(queuePane(page).closest('[role="tabpanel"]')).toBe(tab);
-      expect(button(tab, 'Collapse queue')).toBeUndefined();
+      expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
+      for (const tab of ['Pool', 'Deck', 'Board']) {
+        await openTab(fixture, page, tab);
+        expect(findQueuePane(page)).toBeNull();
+        expect(nextUpStrip(page).closest('[role="tabpanel"]')).toBeNull();
+      }
     });
 
-    it('selects the Pool tab once the window widens past the desktop breakpoint from the Queue tab', async () => {
+    it('names the strip with the queue’s size, the picks left and the next card', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }), {
+        cards: [shivan, brightclimb],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+
+      expect(accessibleName(nextUpStrip(page))).toBe(
+        'Queue, 2 cards, 12 picks left, next up Shivan Dragon',
+      );
+    });
+
+    it('names an empty queue’s strip with no next card', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }));
+
+      expect(accessibleName(nextUpStrip(page))).toBe('Queue, 0 cards, 1 pick left');
+    });
+
+    it('marks a Queue notice not yet seen on the strip, until the sheet opens', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ picksPerPlayer: 12 }),
+        {
+          cards: [shivan, brightclimb],
+          queue: queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)] }),
+        },
+      );
+      expect(accessibleName(nextUpStrip(page))).toBe(
+        'Queue, 1 card, 12 picks left, next up Brightclimb Pathway // Grimclimb Pathway, new notice',
+      );
+
+      const sheet = await openQueueSheet(fixture, page);
+      expect(queueNotice(sheet)?.textContent).toContain('Shivan Dragon');
+      pressEscape();
+      await fixture.whenStable();
+
+      expect(accessibleName(nextUpStrip(page))).not.toContain('new notice');
+    });
+
+    it('opens the Queue pane from the strip in a modal sheet, which Close, Escape and the backdrop close, putting focus back on the strip', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
         queue: queueOf({ cards: [queued(shivan)] }),
       });
-      await openQueue(fixture, page);
+      const strip = nextUpStrip(page);
+      expect(strip.getAttribute('aria-haspopup')).toBe('dialog');
+
+      const closings: [string, () => void][] = [
+        ['Close', () => button(queueSheet()!, 'Close').click()],
+        ['Escape', pressEscape],
+        ['the backdrop', clickBackdrop],
+      ];
+      for (const [, close] of closings) {
+        strip.focus();
+        const sheet = await openQueueSheet(fixture, page);
+        expect(sheet.getAttribute('aria-modal')).toBe('true');
+        expect(queueList(sheet).textContent).toContain('Shivan Dragon');
+        expect(sheet.contains(document.activeElement)).toBe(true);
+        expect(hiddenFromAssistiveTech(page)).toBe(true);
+
+        close();
+        await fixture.whenStable();
+        expect(queueSheet()).toBeNull();
+        expect(document.activeElement).toBe(strip);
+      }
+    });
+
+    it('does in the sheet what the Queue pane does: reorders, holds the cutoff and the Steal behavior pill, and opens a row’s Card detail', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }), {
+        cards: [shivan, brightclimb],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const sheet = await openQueueSheet(fixture, page);
+      expect(sheet.textContent).toContain('Queue cutoff');
+      expect(button(sheet, 'Steal behavior: Clear queue')).toBeDefined();
+
+      button(sheet, 'Move Shivan Dragon down').click();
+      const req = http.expectOne('/api/drafts/draft-1/queue');
+      expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
+      req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
+      await fixture.whenStable();
+      expect(accessibleName(nextUpStrip(page))).toContain(
+        'next up Brightclimb Pathway // Grimclimb Pathway',
+      );
+
+      cardName(sheet, 'Shivan Dragon').click();
+      await fixture.whenStable();
+      const detail = byAriaLabel(document.body, '[role="dialog"]', 'Shivan Dragon')!;
+      expect(button(detail, 'Remove from queue')).toBeDefined();
+      pressEscape();
+      await fixture.whenStable();
+      expect(queueSheet()).not.toBeNull();
+    });
+
+    it('closes the sheet as the window widens to the desktop layout, and shows the Queue pane', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+      await openQueueSheet(fixture, page);
 
       resizeTo('desktop');
       await fixture.whenStable();
 
-      expect(panelName(page)).toBe('Pool');
-      expect(router.url).toBe('/drafts/draft-1');
+      expect(queueSheet()).toBeNull();
+      expect(findNextUpStrip(page)).toBeUndefined();
       expect(queueList(queuePane(page)).textContent).toContain('Shivan Dragon');
+    });
+
+    it.each([
+      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
+      ['while closed', drafting({ state: 'Closed', turn: null })],
+    ])('shows the strip %s', async (_, fields) => {
+      const { page } = await openDraft(completeSnapshot, fields);
+
+      expect(findNextUpStrip(page)).toBeDefined();
+    });
+
+    it.each([
+      ['a spectator', drafting({ players: [bob] })],
+      [
+        'a viewer in the lobby who hasn’t joined',
+        drafting({ state: 'Lobby', turn: null, players: [bob] }),
+      ],
+      ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
+    ])('shows no strip to %s', async (_, fields) => {
+      const { page } = await openDraft(completeSnapshot, fields);
+
+      expect(findNextUpStrip(page)).toBeUndefined();
     });
   });
 

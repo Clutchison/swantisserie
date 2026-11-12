@@ -12,7 +12,6 @@ import {
   flushPool,
   http,
   ORGANIZE_ONLY,
-  flushPicks,
   flushQueueAndPlan,
   powersAnswer,
   openUrl,
@@ -463,18 +462,17 @@ describe('draft page', () => {
     });
   });
 
-  it('has a tab bar of Pool, Queue, Deck and Board, where only Pool and Board work for a non-player', async () => {
+  it('has a tab bar of Pool, Deck and Board, where only Pool and Board work for a non-player', async () => {
     const { page } = await openDraft(completeSnapshot);
 
     const tabs = [...page.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(['Pool', 'Deck', 'Board']);
     expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual([
       'true',
       'false',
       'false',
-      'false',
     ]);
-    expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, true, false]);
+    expect(tabs.map((tab) => tab.disabled)).toEqual([false, true, false]);
     expect(page.querySelector('[role="tabpanel"]')?.textContent).toContain('540 cards in the pool');
   });
 
@@ -519,8 +517,8 @@ describe('draft page', () => {
     });
 
     it.each([
-      ['Pool', 'ArrowRight', 'Queue'],
-      ['Queue', 'ArrowLeft', 'Pool'],
+      ['Pool', 'ArrowRight', 'Deck'],
+      ['Deck', 'ArrowLeft', 'Pool'],
       ['Board', 'ArrowRight', 'Pool'],
       ['Pool', 'ArrowLeft', 'Board'],
       ['Pool', 'End', 'Board'],
@@ -558,25 +556,22 @@ describe('draft page', () => {
       },
     );
 
-    it.each(['Queue', 'Deck'])(
-      'goes back to the Pool tab, a Tab stop, when the %s tab closes as the player leaves',
-      async (from) => {
-        const { fixture, page } = await openAsPlayer();
-        tabButton(page, from).click();
-        await fixture.whenStable();
+    it('goes back to the Pool tab, a Tab stop, when the Deck tab closes as the player leaves', async () => {
+      const { fixture, page } = await openAsPlayer();
+      tabButton(page, 'Deck').click();
+      await fixture.whenStable();
 
-        button(page, 'Leave')!.click();
-        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players/me'))).flush(
-          draft({ players: [] }),
-        );
-        await fixture.whenStable();
+      button(page, 'Leave')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players/me'))).flush(
+        draft({ players: [] }),
+      );
+      await fixture.whenStable();
 
-        await vi.waitFor(() => expect(tabButton(page, from).disabled).toBe(true));
-        expect(tabButton(page, 'Pool').getAttribute('aria-selected')).toBe('true');
-        expect(tabStops(page)).toEqual(['Pool']);
-        expect(panelName(page)).toBe('Pool');
-      },
-    );
+      await vi.waitFor(() => expect(tabButton(page, 'Deck').disabled).toBe(true));
+      expect(tabButton(page, 'Pool').getAttribute('aria-selected')).toBe('true');
+      expect(tabStops(page)).toEqual(['Pool']);
+      expect(panelName(page)).toBe('Pool');
+    });
 
     it.each([
       ['Pool', 'ArrowRight', 'Board'],
@@ -595,46 +590,23 @@ describe('draft page', () => {
     });
   });
 
-  describe('the Queue tab', () => {
-    it.each(['Lobby', 'Drafting', 'Paused', 'Closed'] as const)(
-      'stays for a player while the draft is %s',
-      async (state) => {
-        const { page } = await openDraft(completeSnapshot, { state, players: [alicePlayer] });
-
-        expect(tabButton(page, 'Queue').disabled).toBe(false);
-      },
-    );
-
-    it.each(['Lobby', 'Drafting', 'Paused', 'Closed'] as const)(
-      'stays disabled for a non-player while the draft is %s',
-      async (state) => {
-        const { page } = await openDraft(completeSnapshot, { state });
-
-        expect(tabButton(page, 'Queue').disabled).toBe(true);
-      },
-    );
-  });
-
   describe('the tab in the URL', () => {
     const asPlayer = { players: [alicePlayer] };
 
-    it.each(['Pool', 'Queue', 'Deck', 'Board'])(
-      'reopens the %s tab on a reload of its URL',
-      async (tab) => {
-        const { page } = await openDraft(completeSnapshot, asPlayer, {
-          url: `/drafts/draft-1?tab=${tab.toLowerCase()}`,
-        });
+    it.each(['Pool', 'Deck', 'Board'])('reopens the %s tab on a reload of its URL', async (tab) => {
+      const { page } = await openDraft(completeSnapshot, asPlayer, {
+        url: `/drafts/draft-1?tab=${tab.toLowerCase()}`,
+      });
 
-        expect(tabButton(page, tab).getAttribute('aria-selected')).toBe('true');
-        expect(panelName(page)).toBe(tab);
-      },
-    );
+      expect(tabButton(page, tab).getAttribute('aria-selected')).toBe('true');
+      expect(panelName(page)).toBe(tab);
+    });
 
     it('keeps showing the last tab selected while an earlier selection is still being written', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
       const shownMidway = midNavigation(() => panelName(page));
 
-      tabButton(page, 'Queue').click();
+      tabButton(page, 'Board').click();
       TestBed.tick();
       await openPlan(fixture, page);
 
@@ -658,25 +630,21 @@ describe('draft page', () => {
       expect(panelName(page)).toBe('Pool');
     });
 
-    it.each(['Queue', 'Deck', 'Board'])(
-      'writes the %s tab to the URL when it is clicked',
-      async (tab) => {
-        const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
+    it.each(['Deck', 'Board'])('writes the %s tab to the URL when it is clicked', async (tab) => {
+      const { fixture, page } = await openDraft(completeSnapshot, asPlayer);
 
-        tabButton(page, tab).click();
-        await fixture.whenStable();
+      tabButton(page, tab).click();
+      await fixture.whenStable();
 
-        expect(router.url).toBe(`/drafts/draft-1?tab=${tab.toLowerCase()}`);
-        expect(panelName(page)).toBe(tab);
-      },
-    );
+      expect(router.url).toBe(`/drafts/draft-1?tab=${tab.toLowerCase()}`);
+      expect(panelName(page)).toBe(tab);
+    });
 
     it.each([
-      ['Pool', 'ArrowRight', 'Queue'],
-      ['Queue', 'ArrowRight', 'Deck'],
+      ['Pool', 'ArrowRight', 'Deck'],
       ['Deck', 'ArrowRight', 'Board'],
       ['Board', 'ArrowLeft', 'Deck'],
-      ['Queue', 'ArrowLeft', 'Pool'],
+      ['Deck', 'ArrowLeft', 'Pool'],
     ])('writes the tab an arrow key moves to: from %s, %s to %s', async (from, key, to) => {
       const { fixture, page } = await openDraft(completeSnapshot, asPlayer, {
         url: `/drafts/draft-1?tab=${from.toLowerCase()}`,
@@ -723,9 +691,9 @@ describe('draft page', () => {
         url: '/drafts/draft-1?tab=board&ref=discord#picks',
       });
 
-      tabButton(page, 'Queue').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
-      expect(router.url).toBe('/drafts/draft-1?tab=queue&ref=discord#picks');
+      expect(router.url).toBe('/drafts/draft-1?tab=deck&ref=discord#picks');
 
       tabButton(page, 'Pool').click();
       await fixture.whenStable();
@@ -746,7 +714,7 @@ describe('draft page', () => {
 
       tabButton(page, 'Board').click();
       await fixture.whenStable();
-      tabButton(page, 'Queue').click();
+      tabButton(page, 'Deck').click();
       await fixture.whenStable();
       back();
 
@@ -768,22 +736,22 @@ describe('draft page', () => {
       expect(tabButton(page, 'Pool').getAttribute('aria-selected')).toBe('true');
     });
 
-    it('keeps a player’s requested Queue tab while the draft loads, then opens it', async () => {
-      const { fixture, page } = await openUrl('/drafts/draft-1?tab=queue');
+    it('keeps a player’s requested Deck tab while the draft loads, then opens it', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1?tab=deck');
       const loading = http.expectOne('/api/drafts/draft-1');
       TestBed.tick();
       // A correction to the URL would be a navigation, started as the page settles.
       expect(router.currentNavigation()).toBeNull();
-      expect(router.url).toBe('/drafts/draft-1?tab=queue');
+      expect(router.url).toBe('/drafts/draft-1?tab=deck');
 
       loading.flush(draft(asPlayer));
       await flushPool();
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(panelName(page)).toBe('Queue');
-      expect(tabButton(page, 'Queue').getAttribute('aria-selected')).toBe('true');
-      expect(router.url).toBe('/drafts/draft-1?tab=queue');
+      expect(panelName(page)).toBe('Deck');
+      expect(tabButton(page, 'Deck').getAttribute('aria-selected')).toBe('true');
+      expect(router.url).toBe('/drafts/draft-1?tab=deck');
     });
 
     describe('corrects the URL to the Pool tab', () => {
@@ -820,9 +788,9 @@ describe('draft page', () => {
         await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1?ref=discord#picks'));
       });
 
-      it.each(['Queue', 'Deck'])('when a player on the %s tab leaves the draft', async (tab) => {
+      it('when a player on the Deck tab leaves the draft', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, asPlayer, {
-          url: `/drafts/draft-1?tab=${tab.toLowerCase()}`,
+          url: '/drafts/draft-1?tab=deck',
         });
 
         button(page, 'Leave')!.click();
@@ -835,37 +803,15 @@ describe('draft page', () => {
         expect(panelName(page)).toBe('Pool');
       });
 
-      it('for a player opening ?tab=queue on a complete draft', async () => {
+      it('for a player opening the Queue tab’s old URL, as there is no Queue tab', async () => {
         const { page } = await openDraft(
-          completeSnapshot,
-          { ...asPlayer, state: 'Complete' },
-          { url: '/drafts/draft-1?tab=queue' },
-        );
-
-        expect(panelName(page)).toBe('Pool');
-        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
-      });
-
-      it('when the draft completes while a player is on the Queue tab', async () => {
-        const { fixture, page } = await openDraft(
           completeSnapshot,
           { ...asPlayer, state: 'Drafting' },
           { url: '/drafts/draft-1?tab=queue' },
         );
-        expect(panelName(page)).toBe('Queue');
 
-        // As when the player's own queued pick is the draft's last.
-        updates.events.next({
-          type: 'changed',
-          draft: draft({ ...asPlayer, state: 'Complete', version: 1 }),
-        });
-        await flushPicks([]);
-        await flushQueueAndPlan();
-        await fixture.whenStable();
-
-        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
         expect(panelName(page)).toBe('Pool');
-        expect(tabLabels(page)).not.toContain('Queue');
+        await vi.waitFor(() => expect(router.url).toBe('/drafts/draft-1'));
       });
 
       it('when the draft fails to load, going straight there rather than by the Lists tab', async () => {

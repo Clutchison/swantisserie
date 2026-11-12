@@ -318,7 +318,7 @@ export async function useOnsPrinting(land: string) {
 /**
  * The Deck tab's drop lists, which a dragged card lands in: in list mode, or
  * for an empty plan board, the mainboard's then the sideboard's; in stacks
- * mode, one per stack, as `dropListNamed` finds them. The Queue tab has one
+ * mode, one per stack, as `dropListNamed` finds them. The Queue pane has one
  * of its own.
  */
 export const planDropLists = (fixture: AppFixture) =>

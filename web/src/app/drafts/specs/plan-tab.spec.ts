@@ -97,10 +97,10 @@ describe('plan tab', () => {
     ]);
   });
 
-  it('sits between Queue and Board for every player', async () => {
+  it('sits between Pool and Board for every player', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }));
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
+    expect(tabs(page)).toEqual(['Pool', 'Deck', 'Board']);
     expect(tabButton(page, 'Deck').disabled).toBe(false);
   });
 
@@ -110,7 +110,7 @@ describe('plan tab', () => {
       drafting({ turn: bobsTurn, players: [bob] }),
     );
 
-    expect(tabs(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
+    expect(tabs(page)).toEqual(['Pool', 'Deck', 'Board']);
     expect(tabButton(page, 'Deck').disabled).toBe(true);
     expect(planPanel(page).textContent).toContain('Only players have a deck.');
     http.expectNone('/api/drafts/draft-1/plan');
@@ -603,7 +603,7 @@ describe('the Deck tab’s name', () => {
       plan: planOf(),
     });
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     const deck = await openPlan(fixture, page);
     expect(heading(deck, 'Deck')).toBeDefined();
     expect(deck.textContent).toContain('Only you can see your deck.');

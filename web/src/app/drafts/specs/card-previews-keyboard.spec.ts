@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
+  queuePane,
+  queueSheet,
   tabButton,
   panel,
   wait,
@@ -85,10 +87,10 @@ describe('card previews', () => {
     });
 
     it('skips a name with no pool card', async () => {
-      const { page } = await openQueueWithoutBolt();
+      await openQueueWithoutBolt();
 
-      expect(cardName(panel(page), 'Lightning Bolt').tabIndex).toBe(-1);
-      expect(cardName(panel(page), 'Shock').tabIndex).toBe(0);
+      expect(cardName(queueSheet()!, 'Lightning Bolt').tabIndex).toBe(-1);
+      expect(cardName(queueSheet()!, 'Shock').tabIndex).toBe(0);
     });
 
     it('opens nothing through focus when a name is clicked with a mouse', async () => {
@@ -157,23 +159,26 @@ describe('card previews', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens on names tabbed to on the Queue tab, but not while a drag is under way', async () => {
-      const opened = await openPicked({
-        queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
-      });
-      const { page, fixture } = opened;
-      tabButton(page, 'Queue').click();
-      await fixture.whenStable();
-      // A button, as it opens its Card detail.
-      const name = button(panel(page), 'Shock')!;
+    it('opens on names tabbed to in the Queue pane, but not while a drag is under way', async () => {
+      // The pane beside the tabs, in the page's own tree, where `startDrag` finds a row's drag.
+      viewOn('desktop');
+      try {
+        const { page, fixture } = await openPicked({
+          queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
+        });
+        // A button, as it opens its Card detail.
+        const name = button(queuePane(page), 'Shock')!;
 
-      tabTo(name);
-      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
-      tabAway(name);
+        tabTo(name);
+        expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+        tabAway(name);
 
-      startDrag(fixture, name);
-      tabTo(name);
-      expect(previewImage()).toBeNull();
+        startDrag(fixture, name);
+        tabTo(name);
+        expect(previewImage()).toBeNull();
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it('opens on list mode names, which are buttons there, tabbed to on the Deck tab', async () => {

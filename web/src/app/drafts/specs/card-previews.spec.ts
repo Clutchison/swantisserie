@@ -7,6 +7,9 @@ import {
   openUrl,
   bob,
   alicePlayer,
+  nextUpStrip,
+  openQueueSheet,
+  queueSheet,
   tabButton,
   panel,
   flushPicks,
@@ -62,7 +65,7 @@ useDraftsApp();
 
 describe('card previews', () => {
   /**
-   * Opens the Queue tab with Bolt queued, the pool's GET left for the test to
+   * Opens the Queue sheet with Bolt queued, the pool's GET left for the test to
    * answer.
    */
   async function openQueueUnanswered() {
@@ -78,10 +81,10 @@ describe('card previews', () => {
     await flushPicks([]);
     await flushQueueAndPlan(queueOf({ cards: [queued(bolt)] }));
     const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
-    tabButton(page, 'Queue').click();
+    nextUpStrip(page).click();
     await vi.waitFor(() => {
       TestBed.tick();
-      expect(cardName(panel(page), 'Lightning Bolt')).toBeDefined();
+      expect(cardName(queueSheet()!, 'Lightning Bolt')).toBeDefined();
     });
     return { fixture, page, request };
   }
@@ -360,25 +363,25 @@ describe('card previews', () => {
   });
 
   it('leaves a name out of the pool as plain text', async () => {
-    const { page } = await openQueueWithoutBolt();
+    await openQueueWithoutBolt();
 
-    tap(cardName(panel(page), 'Lightning Bolt'));
-    hover(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(queueSheet()!, 'Lightning Bolt'));
+    hover(cardName(queueSheet()!, 'Lightning Bolt'));
     wait(150);
 
     expect(previewImage()).toBeNull();
   });
 
   it('leaves names as plain text while the pool is loading or failed to load', async () => {
-    const { fixture, page, request } = await openQueueUnanswered();
+    const { fixture, request } = await openQueueUnanswered();
 
-    tap(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(queueSheet()!, 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
 
     request.flush('', { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    tap(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(queueSheet()!, 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
   });
 
@@ -469,13 +472,13 @@ describe('card previews', () => {
     });
 
     it('show once the pool card has loaded, the name alone until then', async () => {
-      const { fixture, page, request } = await openQueueUnanswered();
+      const { fixture, request } = await openQueueUnanswered();
 
-      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual([]);
+      expect(costBefore(cardName(queueSheet()!, 'Lightning Bolt'))).toEqual([]);
 
       request.flush([bolt]);
       await fixture.whenStable();
-      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual(['one red mana']);
+      expect(costBefore(cardName(queueSheet()!, 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
     it('show before names in the pick log', async () => {
@@ -697,49 +700,48 @@ describe('card previews', () => {
 
     async function openQueue() {
       const opened = await openPicked({ queue });
-      tabButton(opened.page, 'Queue').click();
-      await opened.fixture.whenStable();
+      await openQueueSheet(opened.fixture, opened.page);
       return opened;
     }
 
     it('shows on queue rows and the queue lost notice', async () => {
-      const { page } = await openQueue();
+      await openQueue();
 
-      restOn(cardName(queueList(panel(page)), 'Shock'));
+      restOn(cardName(queueList(queueSheet()!), 'Shock'));
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
-      unhover(cardName(queueList(panel(page)), 'Shock'));
+      unhover(cardName(queueList(queueSheet()!), 'Shock'));
 
-      tap(cardName(queueNotice(panel(page))!, 'Lightning Bolt'));
+      tap(cardName(queueNotice(queueSheet()!)!, 'Lightning Bolt'));
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
     it('shows mana costs before queue rows’ names, and inline in the Queue notice', async () => {
-      const { page } = await openQueue();
+      await openQueue();
 
-      expect(costBefore(cardName(queueList(panel(page)), 'Shock'))).toEqual(['one red mana']);
-      const notice = queueNotice(panel(page))!;
+      expect(costBefore(cardName(queueList(queueSheet()!), 'Shock'))).toEqual(['one red mana']);
+      const notice = queueNotice(queueSheet()!)!;
       expect(costBefore(cardName(notice, 'Lightning Bolt'))).toEqual(['one red mana']);
       expect(notice.querySelector('ul, ol, [role="list"]')).toBeNull();
     });
 
     it('closes when its name goes, as a queue row removed', async () => {
-      const { fixture, page } = await openQueue();
-      restOn(cardName(queueList(panel(page)), 'Shock'));
+      const { fixture } = await openQueue();
+      restOn(cardName(queueList(queueSheet()!), 'Shock'));
       expect(previewImage()).not.toBeNull();
 
-      button(panel(page), 'Remove Shock')!.click();
+      button(queueSheet()!, 'Remove Shock')!.click();
       http
         .expectOne('/api/drafts/draft-1/queue/shock-card')
         .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
       await fixture.whenStable();
 
-      expect(cardNames(queueList(panel(page)))).toEqual([]);
+      expect(cardNames(queueList(queueSheet()!))).toEqual([]);
       expect(previewImage()).toBeNull();
     });
 
     it('opens again once a drag is cancelled', async () => {
-      const { page } = await openQueue();
-      const name = cardName(queueList(panel(page)), 'Shock');
+      await openQueue();
+      const name = cardName(queueList(queueSheet()!), 'Shock');
       // With a mouse, the whole row drags.
       pressHandle(name.closest('li')!);
 
@@ -752,8 +754,8 @@ describe('card previews', () => {
     });
 
     it('closes when a drag starts, and opens none until it is released', async () => {
-      const { page } = await openQueue();
-      const name = cardName(queueList(panel(page)), 'Shock');
+      await openQueue();
+      const name = cardName(queueList(queueSheet()!), 'Shock');
       restOn(name);
       expect(previewImage()).not.toBeNull();
 

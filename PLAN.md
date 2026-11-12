@@ -65,8 +65,8 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
 - When someone else picks a card in your queue, by hand, from their queue or as a bot, and no other copy is available for it, that card is **lost**. What happens to the rest of your queue is your **steal behavior** for that draft:
   - **Clear queue** (the default): the rest of your queue is **cleared**, even mid-cascade, so a stale plan never fires. Cleared cards are still available and can be queued again.
   - **Pick next**: only the lost card leaves; the rest keeps its order, and on your turn your next available queued card is picked as usual, even in the same cascade.
-- You set your steal behavior with a toggle on the Queue tab, in the lobby or while the draft is drafting or paused, including on your own turn; it's locked once the draft is closed or complete. Like the queue, it's private. Changing it affects only cards lost afterwards.
-- Your own pick just leaves your queue. The Queue tab notice names the lost and cleared cards, building up until dismissed; under pick next it also says the rest of your queue is still queued. Losing and clearing are private: they add no announcement or ping.
+- You set your steal behavior with a toggle in the Queue pane, in the lobby or while the draft is drafting or paused, including on your own turn; it's locked once the draft is closed or complete. Like the queue, it's private. Changing it affects only cards lost afterwards.
+- Your own pick just leaves your queue. The Queue notice, in the Queue pane, names the lost and cleared cards, building up until dismissed; under pick next it also says the rest of your queue is still queued. Losing and clearing are private: they add no announcement or ping.
 - You **can't add to your queue on your own turn**, drafting or paused: that pick is made by hand, including the second of two turns in a row at a snake round boundary. You can add in the lobby and whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
 ### Plan
@@ -185,8 +185,8 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, guild setup and guild settings (guild admins), webhooks (app admins and guild admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
+  - **Queue pane:** a player's queue, on every tab until the draft is complete: drag or the move buttons to reorder, the Queue cutoff, lost and cleared cards named in the Queue notice, and the steal behavior toggle. On desktop it is a column beside the tabs that collapses to a rail. Below 1024px a "next up" strip above the bottom tabs shows the queue's size, picks left, the next card and a dot for an unseen Queue notice, and opens the pane as a sheet.
   - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, **Add to Plan**, and **Add to queue** off your turn or **Remove from queue** for a queued card
-  - **Queue:** drag to reorder, lost and cleared cards named in a notice, and the steal behavior toggle
   - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type, then the sideboard's one stack; a strip that scrolls sideways on a phone, and the default from tablet width) or list mode (the default on a phone), the basic lands control, the Plan notice and Queue unpicked
   - **Board:** every player's picks and the pick log
   - **Export:** your picks and export buttons

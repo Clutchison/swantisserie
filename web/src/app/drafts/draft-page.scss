@@ -17,7 +17,6 @@
 
 .players-panel,
 .pool,
-.queue,
 .plan,
 .board {
   margin-top: var(--space-xl);
@@ -114,6 +113,9 @@ main {
   /* Above the panels, which come after it, and the Pool's search bar. */
   z-index: 2;
   display: flex;
+  box-sizing: border-box;
+  /* Set, so the "next up" strip sits just above it. */
+  height: var(--bottom-tab-bar-height);
   border-top: 1px solid var(--color-divider);
   background: var(--color-surface);
 

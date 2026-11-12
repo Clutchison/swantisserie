@@ -411,8 +411,8 @@ export class DraftStore implements TournamentViewer {
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
-   * Whether a player's queue is shown, in the Queue pane or, below the
-   * desktop layout, the Queue tab: until the draft is complete, as the queue
+   * Whether a player's queue is shown, in the Queue pane beside the tabs or,
+   * below the desktop layout, the Queue sheet: until the draft is complete, as the queue
    * can't change after. A closed draft keeps it, as it can reopen. Undefined
    * while the draft is loading.
    */
