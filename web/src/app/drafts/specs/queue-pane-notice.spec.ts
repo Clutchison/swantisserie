@@ -104,9 +104,9 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       cards: [brightclimb, shivan, bolt],
       queue: queueOf({
         lost: [
-          { ...queued(brightclimb), queueLoss: 'LeftQueuePicking' },
-          { ...queued(shivan), queueLoss: 'PausedQueue' },
-          { ...queued(bolt), queueLoss: 'LeftQueuePaused' },
+          { ...queued(brightclimb), queueLoss: 'StayedQueuePicking' },
+          { ...queued(shivan), queueLoss: 'QueuePaused' },
+          { ...queued(bolt), queueLoss: 'StayedQueuePaused' },
         ],
         queuePaused: true,
       }),

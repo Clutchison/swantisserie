@@ -249,22 +249,27 @@ describe('cascade', () => {
         {
           pick: { seat: 0, card: 'bolt-1' },
           queues: [
-            { queue: [], queuePaused: false },
+            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
             {
               queue: ['bolt-2', 'shock'],
               swapped: { out: 'bolt-1', in: 'bolt-2' },
+              stealBehavior: 'PauseQueue',
               queuePaused: false,
             },
-            { queue: [], queuePaused: false },
+            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
           queues: [
-            { queue: [], queuePaused: false },
-            { queue: ['shock'], queuePaused: false },
-            { queue: [], queuePaused: false },
+            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
+            {
+              queue: ['shock'],
+              stealBehavior: 'PauseQueue',
+              queuePaused: false,
+            },
+            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
@@ -309,7 +314,8 @@ describe('cascade', () => {
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],
-        lost: { card: 'shock', queueLoss: 'PausedQueue' },
+        lost: { card: 'shock', queueLoss: 'QueuePaused' },
+        stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
     });
@@ -324,7 +330,8 @@ describe('cascade', () => {
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],
-        lost: { card: 'shock', queueLoss: 'LeftQueuePicking' },
+        lost: { card: 'shock', queueLoss: 'StayedQueuePicking' },
+        stealBehavior: 'PickNext',
         queuePaused: false,
       });
     });

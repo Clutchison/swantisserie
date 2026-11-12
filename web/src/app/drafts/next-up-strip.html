@@ -17,7 +17,7 @@
   </span>
   <span class="next" aria-hidden="true">
     @if (queuePaused()) {
-      Queue paused
+      {{ queuePausedName }}
     } @else if (next(); as next) {
       Next up: {{ next }}
     }

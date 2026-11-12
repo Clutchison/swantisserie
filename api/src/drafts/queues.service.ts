@@ -4,13 +4,12 @@ import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {
-  checkQueueChangeable,
   checkStarted,
+  lockQueue,
   QueueRefusedError,
 } from './queue-refusals.js';
 
@@ -22,8 +21,9 @@ export class QueueChangedError extends Error {
 }
 
 /**
- * Players' queues: the cards each wants picked for them, in order, and their
- * steal behavior.
+ * Players' queues: the cards each wants picked for them, in order, their
+ * steal behavior, and pausing them. Setting a queue picking, which may
+ * pick, is the turns' (`TurnsService.setQueuePicking`).
  */
 @Injectable()
 export class QueuesService {
@@ -55,6 +55,22 @@ export class QueuesService {
       await tx.player.update({
         where: { id: playerId },
         data: { stealBehavior },
+      });
+    });
+  }
+
+  /**
+   * Sets the user's queue in the draft queue paused, with their row locked,
+   * so no pick lands meanwhile. Nothing is picked, and the draft's version
+   * stays as it is, as the state is private to the player. Throws as
+   * `setStealBehavior`.
+   */
+  async pauseQueue(draftId: string, userId: string): Promise<QueueView> {
+    return this.change(draftId, userId, async (tx, playerId, state) => {
+      checkStarted(state);
+      await tx.player.update({
+        where: { id: playerId },
+        data: { queuePaused: true },
       });
     });
   }
@@ -266,10 +282,7 @@ export class QueuesService {
     ) => Promise<void>,
   ): Promise<QueueView> {
     return this.prisma.$transaction(async (tx) => {
-      const locked = await lockPlayer(tx, draftId, userId);
-      if (!locked) throw new NotAPlayerError('queues');
-      const { playerId, state } = locked;
-      checkQueueChangeable(state);
+      const { playerId, state } = await lockQueue(tx, draftId, userId);
       await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });

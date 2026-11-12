@@ -128,16 +128,13 @@ export class QueuesController {
   ): Promise<QueueView> {
     const request = parseQueuePaused(body);
     return this.answer(user, id, async () => {
-      if (request.queuePaused) {
-        await this.turns.pauseQueue(id, user.id);
-      } else {
-        const events = await this.turns.setQueuePicking(
-          id,
-          user.id,
-          request.poolCardIds ?? [],
-        );
-        if (events.length > 0) await this.changes.committed(id, events);
-      }
+      if (request.queuePaused) return this.queues.pauseQueue(id, user.id);
+      const events = await this.turns.setQueuePicking(
+        id,
+        user.id,
+        request.poolCardIds ?? [],
+      );
+      if (events.length > 0) await this.changes.committed(id, events);
       return this.queues.queue(id, user.id);
     });
   }

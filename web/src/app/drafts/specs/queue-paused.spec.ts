@@ -19,6 +19,7 @@ import {
   queuePausedSwitch,
   queueStatuses,
   findQueuePane,
+  findQueuePausedSwitch,
   alertIn,
   viewOn,
   openQueueSheet,
@@ -146,7 +147,7 @@ describe('queue paused switch', () => {
     );
 
     expect(findQueuePane(page)).toBeNull();
-    expect(page.querySelector('[role="switch"]')).toBeNull();
+    expect(findQueuePausedSwitch(page)).toBeNull();
   });
 
   it('says when it couldn’t be switched, shows the state as it was, and re-reads the queue', async () => {
@@ -483,5 +484,57 @@ describe('collapsed Queue pane rail while the queue is paused', () => {
     expect(accessibleName(queuePaneToggle(page))).toBe(
       'Expand queue, 1 card, queue paused, new notice',
     );
+  });
+});
+
+describe('another window of the same player', () => {
+  beforeEach(() => viewOn('desktop'));
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * The page open on a picking queue: the window the player didn't change
+   * it from. Pausing a queue makes no new draft version, as no one else
+   * sees it, so only coming back to this window shows it.
+   */
+  const openPicking = () =>
+    openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+
+  it('shows the queue as the player left it in another window once they come back to this one', async () => {
+    const { fixture, page } = await openPicking();
+
+    window.dispatchEvent(new Event('focus'));
+    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+    reread.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
+    await fixture.whenStable();
+
+    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
+  });
+
+  it('shows it once the window is shown again, as on switching back to its tab', async () => {
+    const { fixture, page } = await openPicking();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+
+    document.dispatchEvent(new Event('visibilitychange'));
+    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+    reread.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
+    await fixture.whenStable();
+
+    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
+  });
+
+  it('doesn’t read the queue again as the window is hidden', async () => {
+    const { fixture } = await openPicking();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+
+    document.dispatchEvent(new Event('visibilitychange'));
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/queue');
   });
 });

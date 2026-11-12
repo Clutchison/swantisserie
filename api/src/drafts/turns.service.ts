@@ -24,13 +24,13 @@ import {
   EVENT_PLAYER,
   toEventPlayer,
 } from './draft-events.js';
-import { DraftLock, type LockedDraft, lockPlayer } from './draft-lock.js';
+import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-effects.js';
 import {
-  checkQueueChangeable,
   checkStarted,
+  lockQueue,
   QueueRefusedError,
 } from './queue-refusals.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
@@ -171,20 +171,6 @@ export class TurnsService {
   }
 
   /**
-   * Sets the user's queue in the draft queue paused, with the draft row and
-   * their player row locked. Nothing is picked, and the draft's version stays
-   * as it is, as the state is private to the player. Throws as
-   * `lockQueuePaused`.
-   */
-  async pauseQueue(draftId: string, userId: string): Promise<void> {
-    await this.lock.runSeenIf(
-      draftId,
-      (draft) => this.lockQueuePaused(draft, userId, true),
-      () => false,
-    );
-  }
-
-  /**
    * Sets the user's queue in the draft queue picking, with the draft row and
    * their player row locked. On their own turn while the draft is Drafting,
    * the queue picks straight away: the cascade from that turn, whose events
@@ -193,7 +179,10 @@ export class TurnsService {
    * QueueRefusedError and the queue stays queue paused. Otherwise nothing
    * is picked, whatever `poolCardIds` says, no events are returned, and the
    * draft's version stays as it is, as the state is private to the player.
-   * Throws as `lockQueuePaused` too.
+   * Pausing a queue, which never picks, is `QueuesService.pauseQueue`.
+   * Throws QueueRefusedError in the lobby and once the draft is closed or
+   * complete, NotAPlayerError if the user isn't in the draft, and
+   * DraftGoneError if there is no draft.
    */
   async setQueuePicking(
     draftId: string,
@@ -202,8 +191,14 @@ export class TurnsService {
   ): Promise<DraftEvent[]> {
     return this.lock.runSeenIf(
       draftId,
-      async (found) => {
-        const draft = await this.lockQueuePaused(found, userId, false);
+      async (draft) => {
+        if (!draft) throw new DraftGoneError();
+        const { playerId } = await lockQueue(draft.tx, draftId, userId);
+        checkStarted(draft.state);
+        await draft.tx.player.update({
+          where: { id: playerId },
+          data: { queuePaused: false },
+        });
         if (draft.state !== 'Drafting') return [];
         const state = await readTurnState(draft.tx, draftId);
         const seat = state.players.findIndex(
@@ -218,7 +213,7 @@ export class TurnsService {
         const picks = queuePicksBeforeTurnPasses(
           { ...size, picked: context.picked },
           seat,
-          queues[seat],
+          queues[seat].queue,
           context.pool,
         );
         if (
@@ -236,29 +231,6 @@ export class TurnsService {
       },
       (events) => events.length > 0,
     );
-  }
-
-  /**
-   * Locks the user's player row in `draft`, whose row the caller has locked,
-   * and sets their queue queue paused or not. Throws QueueRefusedError in
-   * the lobby and once the draft is closed or complete, NotAPlayerError if
-   * the user isn't in the draft, and DraftGoneError if there is no draft.
-   */
-  private async lockQueuePaused(
-    draft: LockedDraft | undefined,
-    userId: string,
-    queuePaused: boolean,
-  ): Promise<LockedDraft> {
-    if (!draft) throw new DraftGoneError();
-    const locked = await lockPlayer(draft.tx, draft.id, userId);
-    if (!locked) throw new NotAPlayerError('queues');
-    checkStarted(draft.state);
-    checkQueueChangeable(draft.state);
-    await draft.tx.player.update({
-      where: { id: locked.playerId },
-      data: { queuePaused },
-    });
-    return draft;
   }
 
   /**
@@ -285,12 +257,11 @@ export class TurnsService {
     const { queues, context } = engineView(state);
     const picks = cascade(
       { ...draftSize(draft, players.length), picked: context.picked },
-      players.map((player, seat) => ({
+      queues.map((queue, seat) => ({
+        ...queue,
         // A bot picks on its own timer, so the cascade sees its queue as empty.
-        queue: player.user.isBot ? [] : queues[seat],
-        stealBehavior: player.stealBehavior,
+        ...(players[seat].user.isBot && { queue: [] }),
         plan: state.plans[seat],
-        queuePaused: context.queuesPaused[seat],
       })),
       context.pool,
     );

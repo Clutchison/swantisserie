@@ -1,6 +1,8 @@
 import { HttpClient, httpResource, type HttpResourceRef } from '@angular/common/http';
 import {
   computed,
+  DestroyRef,
+  DOCUMENT,
   effect,
   inject,
   Injectable,
@@ -40,6 +42,7 @@ import {
   isActive,
   isRefusal,
   NO_POWERS,
+  queueStateName,
 } from './drafts';
 import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
@@ -372,7 +375,7 @@ export class DraftStore implements TournamentViewer {
       lead,
       ...(size ? [`${size.count} ${size.noun}`] : []),
       ...details,
-      ...(this.queuePaused() ? ['queue paused'] : []),
+      ...(this.queuePaused() ? [queueStateName(true).toLowerCase()] : []),
       ...(this.unseenNotice() ? ['new notice'] : []),
     ].join(', ');
   }
@@ -666,6 +669,28 @@ export class DraftStore implements TournamentViewer {
       const timer = setTimeout(() => this.rereadDraft(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
+    this.rereadQueueOnReturn();
+  }
+
+  /**
+   * Re-reads the queue each time the viewer comes back to this window: it
+   * gains focus, or is shown again. A change to the player's queue that no
+   * one else sees, such as pausing it, makes no new draft version, so a
+   * second window of theirs learns of it only this way.
+   */
+  private rereadQueueOnReturn() {
+    const document = inject(DOCUMENT);
+    const stopped = new AbortController();
+    inject(DestroyRef).onDestroy(() => stopped.abort());
+    const reread = () => this.queueResource.reload();
+    document.defaultView?.addEventListener('focus', reread, { signal: stopped.signal });
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        if (document.visibilityState === 'visible') reread();
+      },
+      { signal: stopped.signal },
+    );
   }
 
   /**

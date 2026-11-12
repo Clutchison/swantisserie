@@ -1,4 +1,4 @@
-import type { Pool, StealBehavior } from 'engine';
+import type { Pool, SeatQueue } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { EVENT_PLAYER } from './draft-events.js';
 import { SEAT_ORDER, type Transaction } from './draft-shapes.js';
@@ -9,22 +9,13 @@ export interface QueuedRow {
   position: number;
 }
 
-/** A player's queue as a turn holds it. */
-export interface SeatQueue {
-  /** The queued cards, in order. */
-  cards: QueuedRow[];
-  /** Whether the queue is queue paused. */
-  queuePaused: boolean;
-}
-
 const TURN_PLAYER = {
   id: true,
   userId: true,
-  stealBehavior: true,
   ...EVENT_PLAYER,
 } satisfies Prisma.PlayerSelect;
 
-/** A player as a turn reads them: who they are, and their steal behavior. */
+/** A player as a turn reads them: who they are. */
 export type TurnPlayer = Prisma.PlayerGetPayload<{
   select: typeof TURN_PLAYER;
 }>;
@@ -40,8 +31,12 @@ export type TurnPlayer = Prisma.PlayerGetPayload<{
 export interface TurnState {
   /** The players by seat; seats are 0..n-1 once started, so indexes are the engine's seats. */
   readonly players: readonly TurnPlayer[];
-  /** Each player's queue, by seat: its cards and whether a loss has paused it; replaced after each pick. */
-  queues: SeatQueue[];
+  /**
+   * Each player's queue state, by seat: its queued cards' rows, its steal
+   * behavior, and whether it is queue paused, by the player or by a loss;
+   * replaced after each pick.
+   */
+  queues: SeatQueue<QueuedRow>[];
   /** Each player's planned cards, picked or not, by seat; replaced after each pick. */
   plans: string[][];
   /** The pool as the engine sees it, offering copies in id order. */
@@ -57,25 +52,19 @@ export interface PickContext {
   pool: Pool;
   /** The pool cards picked so far, in pick order. */
   picked: readonly string[];
-  /** Each player's steal behavior, by seat. */
-  stealBehaviors: StealBehavior[];
-  /** Whether each player's queue is queue paused, by seat. */
-  queuesPaused: boolean[];
 }
 
-/** The engine's view of the turn: each seat's queued pool cards, in order, and what it needs besides. */
-export function engineView({ players, queues, pool, picked }: TurnState): {
-  queues: string[][];
+/** The engine's view of the turn: each seat's queue state, with its queued pool card ids, and what it needs besides. */
+export function engineView({ queues, pool, picked }: TurnState): {
+  queues: SeatQueue[];
   context: PickContext;
 } {
   return {
-    queues: queues.map(({ cards }) => cards.map((queued) => queued.poolCardId)),
-    context: {
-      pool,
-      picked,
-      stealBehaviors: players.map((player) => player.stealBehavior),
-      queuesPaused: queues.map((queue) => queue.queuePaused),
-    },
+    queues: queues.map(({ queue, ...state }) => ({
+      ...state,
+      queue: queue.map((queued) => queued.poolCardId),
+    })),
+    context: { pool, picked },
   };
 }
 
@@ -89,6 +78,7 @@ export async function readTurnState(
     orderBy: SEAT_ORDER,
     select: {
       ...TURN_PLAYER,
+      stealBehavior: true,
       queuePaused: true,
       queue: {
         orderBy: { position: 'asc' },
@@ -114,14 +104,10 @@ export async function readTurnState(
     },
   });
   return {
-    players: players.map(({ id, userId, stealBehavior, user }) => ({
-      id,
-      userId,
+    players: players.map(({ id, userId, user }) => ({ id, userId, user })),
+    queues: players.map(({ queue, stealBehavior, queuePaused }) => ({
+      queue,
       stealBehavior,
-      user,
-    })),
-    queues: players.map(({ queue, queuePaused }) => ({
-      cards: queue,
       queuePaused,
     })),
     plans: players.map((player) =>

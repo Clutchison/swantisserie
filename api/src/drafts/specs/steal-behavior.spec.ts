@@ -215,7 +215,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike],
-        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
+        lost: [{ ...bolt, queueLoss: 'QueuePaused' }],
         stealBehavior: 'PickNext',
         queuePaused: true,
       });
@@ -233,7 +233,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike],
-        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
+        lost: [{ ...bolt, queueLoss: 'QueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -269,7 +269,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock],
-        lost: [{ ...bolt, queueLoss: 'LeftQueuePaused' }],
+        lost: [{ ...bolt, queueLoss: 'StayedQueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -315,8 +315,8 @@ describe('steal behavior', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [spike],
         lost: [
-          { ...bolt, queueLoss: 'LeftQueuePicking' },
-          { ...shock, queueLoss: 'PausedQueue' },
+          { ...bolt, queueLoss: 'StayedQueuePicking' },
+          { ...shock, queueLoss: 'QueuePaused' },
         ],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
@@ -349,7 +349,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike],
-        lost: [{ ...bolt, queueLoss: 'LeftQueuePicking' }],
+        lost: [{ ...bolt, queueLoss: 'StayedQueuePicking' }],
         stealBehavior: 'PickNext',
         queuePaused: false,
       });
@@ -367,7 +367,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock],
-        lost: [{ ...bolt, queueLoss: 'LeftQueuePaused' }],
+        lost: [{ ...bolt, queueLoss: 'StayedQueuePaused' }],
         stealBehavior: 'PickNext',
         queuePaused: true,
       });
@@ -407,7 +407,7 @@ describe('steal behavior', () => {
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [],
-        lost: [{ ...bolt, queueLoss: 'LeftQueuePicking' }],
+        lost: [{ ...bolt, queueLoss: 'StayedQueuePicking' }],
         stealBehavior: 'PickNext',
         queuePaused: false,
       });
@@ -432,7 +432,7 @@ describe('steal behavior', () => {
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock],
-        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
+        lost: [{ ...bolt, queueLoss: 'QueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });

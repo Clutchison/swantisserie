@@ -43,6 +43,7 @@ import {
   DRAG_START_DELAY,
   matching,
   QUEUE_CHANGE_FAILED,
+  queueStateName,
 } from './drafts';
 import { PicksLeft } from './picks-left';
 import { QueueAddBump, QueueAddStatus, queueAddsFromNow } from './queue-add-status';
@@ -61,23 +62,30 @@ import { LoadingAnimation } from '../loading/loading-animation';
 const COLLAPSED_KEY = 'queue-pane';
 const COLLAPSED = 'collapsed';
 
-/** Each steal behavior: what it's called, what it does, and the one the pill switches to. */
+/**
+ * Each steal behavior: what it's called, what it does once the rest of the
+ * queue has stayed, and the one the pill switches to.
+ */
 const STEAL_BEHAVIORS: Record<
   StealBehavior,
   { name: string; effect: string; other: StealBehavior }
 > = {
   PauseQueue: {
     name: 'Pause queue',
-    effect:
-      'the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand',
+    effect: 'your queue is set to queue paused, for you to pick by hand',
     other: 'PickNext',
   },
   PickNext: {
     name: 'Pick next',
-    effect: 'the rest of your queue stays, and your next available card is picked on your turn',
+    effect: 'your next available card is picked on your turn',
     other: 'PauseQueue',
   },
 };
+
+/** What "How this works" says each steal behavior does to a queue that loses a card. */
+const STEAL_BEHAVIOR_HELP =
+  `Under ${STEAL_BEHAVIORS.PauseQueue.name}, ${STEAL_BEHAVIORS.PauseQueue.effect}; ` +
+  `under ${STEAL_BEHAVIORS.PickNext.name}, it stays queue picking.`;
 
 /** Where a failed change is explained: by the queue paused switch, by the steal behavior pill, or under the queue. */
 type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
@@ -185,8 +193,9 @@ export class QueuePane {
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
   );
   protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIORS)
-    .map(({ name, effect }) => `${name}: ${effect}.`)
+    .map(({ name, effect }) => `${name}: the rest of your queue stays, and ${effect}.`)
     .join(' ');
+  protected readonly stealBehaviorHelp = STEAL_BEHAVIOR_HELP;
 
   protected readonly lossNote = lossNote;
 
@@ -511,20 +520,15 @@ export class QueuePane {
 /** What the Queue notice says after a lost card's name: what its loss did to the queue, if anything. */
 function lossNote({ queueLoss }: LostQueuedCardView): string {
   switch (queueLoss) {
-    case 'PausedQueue':
+    case 'QueuePaused':
       return ': your queue was set to queue paused.';
-    case 'LeftQueuePicking':
+    case 'StayedQueuePicking':
       return ': your queue stayed queue picking.';
-    case 'LeftQueuePaused':
+    case 'StayedQueuePaused':
       return ': your queue stayed queue paused.';
     case null:
       return '.';
   }
-}
-
-/** A queue's state, as its switch names it. */
-function queueStateName(queuePaused: boolean): string {
-  return queuePaused ? 'Queue paused' : 'Queue picking';
 }
 
 /**

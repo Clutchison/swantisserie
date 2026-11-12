@@ -388,7 +388,7 @@ describe('unpicked cards in a plan', () => {
       {
         poolCardId: first,
         name: 'Lightning Bolt',
-        queueLoss: 'PausedQueue',
+        queueLoss: 'QueuePaused',
       },
     ]);
     expect(queued.queuePaused).toBe(true);

@@ -83,7 +83,7 @@ describe('cascade', () => {
         {
           poolCardId: ids.Shock,
           name: 'Shock',
-          queueLoss: 'PausedQueue',
+          queueLoss: 'QueuePaused',
         },
       ],
       stealBehavior: 'PauseQueue',
@@ -205,7 +205,7 @@ describe('cascade', () => {
           {
             poolCardId: ids['Lightning Bolt'],
             name: 'Lightning Bolt',
-            queueLoss: 'PausedQueue',
+            queueLoss: 'QueuePaused',
           },
         ],
         stealBehavior: 'PauseQueue',

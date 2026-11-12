@@ -271,7 +271,7 @@ describe('undo', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike, skewer],
-        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
+        lost: [{ ...bolt, queueLoss: 'QueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });

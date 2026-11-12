@@ -247,7 +247,7 @@ The line in the Queue pane after the last queued card that a player's picks left
 _Avoid_: Divider, pick line
 
 **Queue notice**:
-The note in the Queue pane naming a player's lost cards, and saying whether each loss paused their queue or, under pick next, left it picking. It builds up until the player dismisses it, and an undo takes off what that pick added.
+The note in the Queue pane naming a player's lost cards, and saying what each loss did to their queue: set it queue paused, under pause queue; or left it as it was, so it stayed queue picking, under pick next, or stayed queue paused, if it already was. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Alert, warning, notification
 
 **Undo**:

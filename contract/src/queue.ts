@@ -5,10 +5,12 @@ export interface QueuedCardView {
 }
 
 /**
- * What losing a card did to its queue: paused it, under pause queue; left
- * it queue picking, under pick next; or left it queue paused, as it was.
+ * What losing a card did to its queue: set it queue paused, under pause
+ * queue; or left it as it was, so it stayed queue picking, under pick next,
+ * or stayed queue paused.
  */
-export type QueueLoss = 'PausedQueue' | 'LeftQueuePicking' | 'LeftQueuePaused';
+export type QueueLoss =
+  'QueuePaused' | 'StayedQueuePicking' | 'StayedQueuePaused';
 
 /** A card lost from the queue, as the Queue notice names it. */
 export interface LostQueuedCardView extends QueuedCardView {

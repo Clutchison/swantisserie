@@ -126,11 +126,11 @@ enum StealBehavior {
   PickNext
 }
 
-/// What losing a card did to its queue: paused it, under pause queue; left it queue picking, under pick next; or left it queue paused, as it was.
+/// What losing a card did to its queue: set it queue paused, under pause queue; or left it as it was, so it stayed queue picking, under pick next, or stayed queue paused.
 enum QueueLoss {
-  PausedQueue
-  LeftQueuePicking
-  LeftQueuePaused
+  QueuePaused
+  StayedQueuePicking
+  StayedQueuePaused
 }
 
 /// Progress of the pool snapshot: copying the pool's cards from Scryfall. A cube link's is Complete from creation.
@@ -373,7 +373,7 @@ model TakenOutQueuedCard {
   position     Int
   /// Whether the Queue notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, which the notice never lists: it was picked, not lost.
   noticeHidden Boolean  @default(false)
-  /// Whether anything else stayed queued when this card was lost; false for the last card left in a queue, and under clear queue, before pause queue replaced it, for a lost or cleared card. Always true for a player's own picked card, so that an undo puts it back in its old place.
+  /// Whether the rest of the queue stayed when this card was taken out, so an undo puts it back in its old place rather than at the front: for a lost card, whether anything else stayed queued, so false for the last card left in a queue; always true for a player's own picked card; and false for a lost or cleared card under clear queue, before pause queue replaced it.
   restKept     Boolean  @default(false)
   /// For a lost card, what losing it did to the queue; an undo of a pick that paused the queue sets it queue picking again. Null for any other card, and for a card lost before pause queue replaced clear queue.
   queueLoss    QueueLoss?

@@ -28,6 +28,7 @@ import type {
   UserView,
   WebhookView,
 } from 'contract';
+import { isTurnState } from 'contract';
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
@@ -60,6 +61,7 @@ export {
   endJustAddedHighlight,
   findNextUpStrip,
   findQueuePane,
+  findQueuePausedSwitch,
   justAddedCards,
   nextUpStrip,
   openQueueSheet,
@@ -106,7 +108,7 @@ export function draft(fields: DraftFixture): DraftView {
     version: 0,
     ...rest,
   };
-  if (state === 'Drafting' || state === 'Frozen') {
+  if (isTurnState(state)) {
     if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
     const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
     return { ...made, state, turn: turn ?? first };

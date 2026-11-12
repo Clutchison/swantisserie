@@ -206,6 +206,14 @@ export const EMPTY_QUEUE: QueueView = {
   queuePaused: false,
 };
 
+/**
+ * A queue's state, as the viewer reads it: on the queue paused switch, and
+ * in place of the next card on the "next up" strip.
+ */
+export function queueStateName(queuePaused: boolean): string {
+  return queuePaused ? 'Queue paused' : 'Queue picking';
+}
+
 /** A plan with nothing on either plan board, nothing lost from it, and no preferred printings. */
 export const EMPTY_PLAN: PlanView = {
   mainboard: [],

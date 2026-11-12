@@ -1,5 +1,8 @@
 import type { QueueRefusal } from 'contract';
 import type { DraftState } from '../generated/prisma/client.js';
+import { NotAPlayerError } from './draft-errors.js';
+import { lockPlayer } from './draft-lock.js';
+import type { Transaction } from './draft-shapes.js';
 
 export class QueueRefusedError extends Error {
   constructor(readonly refusal: QueueRefusal) {
@@ -8,10 +11,28 @@ export class QueueRefusedError extends Error {
 }
 
 /**
+ * Locks the user's player row in the draft for a change to their queue, as
+ * `lockPlayer` does, and returns it with the draft's state. Throws
+ * NotAPlayerError if there is no such draft or player, and
+ * QueueRefusedError once the draft is closed or complete, when no queue may
+ * change.
+ */
+export async function lockQueue(
+  tx: Transaction,
+  draftId: string,
+  userId: string,
+): Promise<{ playerId: string; state: DraftState }> {
+  const locked = await lockPlayer(tx, draftId, userId);
+  if (!locked) throw new NotAPlayerError('queues');
+  checkQueueChangeable(locked.state);
+  return locked;
+}
+
+/**
  * Throws QueueRefusedError once the draft is closed or complete, when no
  * queue may change.
  */
-export function checkQueueChangeable(state: DraftState): void {
+function checkQueueChangeable(state: DraftState): void {
   if (state === 'Closed') {
     throw new QueueRefusedError({
       error: 'draft-closed',

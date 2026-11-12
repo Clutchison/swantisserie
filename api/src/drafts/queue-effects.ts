@@ -3,10 +3,11 @@ import {
   type QueuedCardAt,
   type QueueLoss,
   queueAfterUndo,
+  type SeatQueue,
 } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
 import { leaveQueue } from './queue-order.js';
-import type { QueuedRow, SeatQueue } from './turn-state.js';
+import type { QueuedRow } from './turn-state.js';
 
 /**
  * Persists `after`, what a new pick, already made, does to each queue, as
@@ -25,10 +26,10 @@ export async function recordQueueEffects(
   tx: Transaction,
   pick: MadePick,
   playerIds: readonly string[],
-  before: readonly SeatQueue[],
+  before: readonly SeatQueue<QueuedRow>[],
   after: readonly QueueAfterPick[],
-): Promise<SeatQueue[]> {
-  const now = before.map(({ cards }) => [...cards]);
+): Promise<SeatQueue<QueuedRow>[]> {
+  const now = before.map(({ queue }) => [...queue]);
   /** Takes `out` out of the seat's queue, keeping it against the pick. */
   async function takeOut(
     seat: number,
@@ -54,7 +55,7 @@ export async function recordQueueEffects(
     if (lost !== undefined) {
       const { card, queueLoss } = lost;
       await takeOut(seat, [card], { restKept: queue.length > 0, queueLoss });
-      if (queueLoss === 'PausedQueue') {
+      if (queueLoss === 'QueuePaused') {
         await tx.player.update({
           where: { id: playerId },
           data: { queuePaused: true },
@@ -92,8 +93,9 @@ export async function recordQueueEffects(
       );
     }
   }
-  return now.map((cards, seat) => ({
-    cards,
+  return now.map((queue, seat) => ({
+    queue,
+    stealBehavior: after[seat].stealBehavior,
     queuePaused: after[seat].queuePaused,
   }));
 }
@@ -123,7 +125,7 @@ export async function restoreQueues(
   });
   for (const playerId of new Set(takenOut.map((card) => card.playerId))) {
     const restored = takenOut.filter((card) => card.playerId === playerId);
-    if (restored.some((card) => card.queueLoss === 'PausedQueue')) {
+    if (restored.some((card) => card.queueLoss === 'QueuePaused')) {
       await tx.player.update({
         where: { id: playerId },
         data: { queuePaused: false },

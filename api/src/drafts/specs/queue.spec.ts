@@ -256,7 +256,7 @@ describe('queue', () => {
 
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
         cards: [spike, bolt],
-        lost: [{ ...shock, queueLoss: 'PausedQueue' }],
+        lost: [{ ...shock, queueLoss: 'QueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -301,8 +301,8 @@ describe('queue', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, skewer],
         lost: [
-          { ...bolt, queueLoss: 'PausedQueue' },
-          { ...spike, queueLoss: 'LeftQueuePaused' },
+          { ...bolt, queueLoss: 'QueuePaused' },
+          { ...spike, queueLoss: 'StayedQueuePaused' },
         ],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
@@ -342,7 +342,7 @@ describe('queue', () => {
       await pick(id, ids.Shock).expect(200);
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
         cards: [spike],
-        lost: [{ ...shock, queueLoss: 'PausedQueue' }],
+        lost: [{ ...shock, queueLoss: 'QueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -371,7 +371,7 @@ describe('queue', () => {
       await dismissNotice(id, bobCookie).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body.lost).toEqual([
-        { ...shock, queueLoss: 'PausedQueue' },
+        { ...shock, queueLoss: 'QueuePaused' },
       ]);
     });
 
@@ -390,7 +390,7 @@ describe('queue', () => {
       await waitForBotPicks(1, async () => {
         expect((await queue(id).expect(200)).body).toEqual({
           cards: [spike],
-          lost: [{ ...shock, queueLoss: 'PausedQueue' }],
+          lost: [{ ...shock, queueLoss: 'QueuePaused' }],
           stealBehavior: 'PauseQueue',
           queuePaused: true,
         });
@@ -481,7 +481,7 @@ describe('queue', () => {
           {
             poolCardId: first,
             name: 'Lightning Bolt',
-            queueLoss: 'PausedQueue',
+            queueLoss: 'QueuePaused',
           },
         ],
         stealBehavior: 'PauseQueue',
@@ -510,7 +510,7 @@ describe('queue', () => {
           {
             poolCardId: first,
             name: 'Lightning Bolt',
-            queueLoss: 'PausedQueue',
+            queueLoss: 'QueuePaused',
           },
         ],
         stealBehavior: 'PauseQueue',
