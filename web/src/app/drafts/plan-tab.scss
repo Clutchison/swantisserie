@@ -4,11 +4,6 @@
 /* The width of each button on a list line. */
 $line-action-width: 2.5rem;
 
-/* Sits inside the draft page, which has the padding. */
-:host {
-  padding: 0;
-}
-
 h3 {
   margin: var(--space-lg) 0 var(--space-xs);
 }

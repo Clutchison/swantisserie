@@ -30,8 +30,8 @@ import {
   NO_POWERS,
   router,
   webhooksAnswer,
-  text,
   wait,
+  link,
   landedUrls,
   midNavigation,
   serverError,
@@ -47,8 +47,7 @@ describe('draft page', () => {
   it('links back to the draft list, named "Drafts" with its chevron hidden from screen readers', async () => {
     const { page } = await openDraft({ state: 'Complete', cards: 540, total: 540 });
 
-    const backLink = page.querySelector<HTMLAnchorElement>('a.back-link')!;
-    expect(backLink.textContent?.trim()).toBe('Drafts');
+    const backLink = link(page, 'Drafts')!;
     expect(backLink.getAttribute('href')).toBe('/');
     expect(backLink.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
@@ -378,6 +377,7 @@ describe('draft page', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('.error')?.textContent).toContain("Couldn't load this draft");
+    expect(link(page, 'Drafts')?.getAttribute('href')).toBe('/');
   });
 
   it('signs the viewer out, to return to this draft, when its request finds the session ended', async () => {

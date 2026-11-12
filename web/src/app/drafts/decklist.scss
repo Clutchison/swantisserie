@@ -1,5 +1,7 @@
+/* Set in from the tab or page around it. */
 :host {
   display: block;
+  padding: var(--space-lg);
 }
 
 /* Mainboard and sideboard side by side where there's room, stacked below that. */

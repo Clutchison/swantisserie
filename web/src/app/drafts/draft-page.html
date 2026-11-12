@@ -1,11 +1,16 @@
-<main class="page-wide">
+<!-- Before the draft's name in its header, or on its own line until the draft shows. -->
+<ng-template #backLink>
   <a class="back-link" routerLink="/">
     <svg lucideChevronLeft size="16"></svg>
     Drafts
   </a>
+</ng-template>
+<main class="page-wide">
   @if (loading()) {
+    <ng-container *ngTemplateOutlet="backLink" />
     <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
+    <ng-container *ngTemplateOutlet="backLink" />
     <p class="error">Couldn't load this draft. Try reloading the page.</p>
   } @else if (draft(); as draft) {
     <!-- A panel's heading, with the viewer's picks left beside it: outside the
@@ -24,7 +29,9 @@
         }
       </div>
     </ng-template>
-    <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()" />
+    <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()">
+      <ng-container *ngTemplateOutlet="backLink" />
+    </app-draft-header>
     <!-- The notes a player needs whichever tab is open. -->
     <div class="status-strip">
       @if (reconnecting()) {

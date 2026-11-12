@@ -21,8 +21,9 @@ import { DialogShell } from '../dialog-shell';
 import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dialog';
 
 /**
- * The draft page's header: the draft's name, state, organizer and turn, and
- * the actions that move the draft on. Joining and leaving, starting, undo,
+ * The draft page's header: the draft's name, after whatever the page puts
+ * before it (its back link), its state, organizer and turn, and the actions
+ * that move the draft on. Joining and leaving, starting, undo,
  * pause and resume, and reopening are buttons; closing and cancelling, which
  * are rarer, are in its More menu.
  */

@@ -1,4 +1,4 @@
-import { answer, pressKey, question } from '../../specs-harness';
+import { answer, menu, menuItem, pressKey, question } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -24,8 +24,6 @@ import {
 import {
   chooseFromMore,
   moreButton,
-  moreMenu,
-  moreMenuItem,
   offeredInMore,
   openMore,
 } from './draft-header-harness';
@@ -94,11 +92,11 @@ describe('close and reopen', () => {
 
     pressKey(moreButton(page)!, 'ArrowDown');
     await fixture.whenStable();
-    expect(document.activeElement).toBe(moreMenuItem('Close draft'));
-    pressKey(moreMenuItem('Close draft')!, 'Enter');
+    expect(document.activeElement).toBe(menuItem('More', 'Close draft'));
+    pressKey(menuItem('More', 'Close draft')!, 'Enter');
     await fixture.whenStable();
 
-    expect(moreMenu()).toBeNull();
+    expect(menu('More')).toBeNull();
     await answer(await question('Close Red dragons?'), 'Cancel');
     await fixture.whenStable();
     await vi.waitFor(() => expect(document.activeElement).toBe(moreButton(page)));
