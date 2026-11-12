@@ -28,7 +28,8 @@ $wide-stacks-container: 760px;
 // in `app/drafts/drafts.ts`. Change them together.
 $desktop: 1024px;
 
-// The Players panel's own pane beside the tabs (#654).
+// The draft page's wide desktop layout, with the Players panel a pane beside
+// the tabs: `WIDE_DESKTOP_QUERY` in `app/drafts/drafts.ts`. Change them together.
 $wide-desktop: 1200px;
 
 // Narrower than this, the Deck and Queue tabs' lines drop their reorder buttons and Unpicked mark.

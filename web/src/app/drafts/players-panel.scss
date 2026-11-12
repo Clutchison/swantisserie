@@ -1,7 +1,8 @@
 @use '../../breakpoints' as bp;
 
-/* Sits inside the draft page, which has the padding. */
+/* Sits inside the draft page, which has the padding, and places it as a block. */
 :host {
+  display: block;
   padding: 0;
 }
 
@@ -22,6 +23,13 @@ li {
 summary {
   padding: var(--space-sm) 0;
   cursor: pointer;
+
+  /* The panel's heading, in line with the summary's marker. */
+  h2 {
+    display: inline;
+    margin: 0;
+    font-size: var(--font-size-lg);
+  }
 }
 
 .name {
@@ -97,13 +105,32 @@ summary {
   .remove {
     margin-left: auto;
   }
+}
 
+/* Where the seats run across: on a desktop, until the panel becomes a pane. */
+@media (#{bp.$desktop} <= width < #{bp.$wide-desktop}) {
   .across {
     display: inline-block;
   }
 
   .stacked {
     display: none;
+  }
+}
+
+/* In the Players panel's narrow pane the seats stack again, and the panel stays open. */
+@media (min-width: bp.$wide-desktop) {
+  ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  summary {
+    list-style: none;
+    cursor: default;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
   }
 }
 

@@ -3,7 +3,7 @@ import {
   alice,
   draft,
   http,
-  section,
+  playersPanel,
   alicePlayer,
   bob,
   tabButton,
@@ -16,7 +16,9 @@ import {
   ADD_BOTS_ONLY,
   ALL_POWERS,
   ORGANIZE_ONLY,
+  viewOn,
 } from './harness';
+import { disclosure } from './disclosure-harness';
 
 useDraftsApp();
 
@@ -55,7 +57,7 @@ describe('bots', () => {
       },
     );
 
-    const seats = section(page, 'Players').querySelectorAll('li');
+    const seats = playersPanel(page).querySelectorAll('li');
     expect(badges(seats[0])).toEqual(['Bot']);
     expect(badges(seats[1])).toEqual([]);
     expect(page.querySelector('.turn')?.textContent).toContain('Bot 1’s turn');
@@ -84,7 +86,7 @@ describe('bots', () => {
     expect(added.request.method).toBe('POST');
     added.flush(draft({ players: [alicePlayer, bot] }), { status: 201, statusText: 'Created' });
     await fixture.whenStable();
-    expect(section(page, 'Players').textContent).toContain('Bot 1');
+    expect(playersPanel(page).textContent).toContain('Bot 1');
     expect(button(page, 'Remove Alice')).toBeUndefined();
 
     button(page, 'Remove Bot 1')!.click();
@@ -92,7 +94,30 @@ describe('bots', () => {
     expect(removed.request.method).toBe('DELETE');
     removed.flush(draft({ players: [alicePlayer] }));
     await fixture.whenStable();
-    expect(section(page, 'Players').textContent).not.toContain('Bot 1');
+    expect(playersPanel(page).textContent).not.toContain('Bot 1');
+  });
+
+  it('adds a bot from the Players panel in its pane on a wide desktop', async () => {
+    viewOn('wide');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      { players: [alicePlayer] },
+      { powers: ADD_BOTS_ONLY },
+    );
+    expect(disclosure(page, 'Players · 1')!.open).toBe(true);
+
+    button(playersPanel(page), 'Add bot')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'))).flush(
+      draft({ players: [alicePlayer, bot] }),
+      { status: 201, statusText: 'Created' },
+    );
+    await fixture.whenStable();
+
+    expect(disclosure(page, 'Players · 2')!.open).toBe(true);
+    expect(playersPanel(page).textContent).toContain('Bot 1');
   });
 
   describe('focus after a change', () => {

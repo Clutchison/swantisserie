@@ -27,7 +27,7 @@ import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { Changes } from './changes';
 import { DraftHeader } from './draft-header';
-import { LobbyControls } from './lobby-controls';
+import { PlayersPanel } from './players-panel';
 import { PlanTab } from './plan-tab';
 import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
@@ -48,10 +48,10 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
     DraftHeader,
     ListsTab,
     LoadingAnimation,
-    LobbyControls,
     LucideChevronLeft,
     NgTemplateOutlet,
     PlanTab,
+    PlayersPanel,
     PlayTab,
     PoolTab,
     QueueTab,
@@ -61,7 +61,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
   ],
   providers: [
     CardImageSource,
-    // One for the header and the lobby controls: one change to the draft at a time.
+    // One for the header and the Players panel: one change to the draft at a time.
     Changes,
     CardPreviews,
     DraftStore,
@@ -82,7 +82,7 @@ export class DraftPage {
   protected readonly setListText = setListText;
 
   private readonly header = viewChild(DraftHeader);
-  private readonly lobbyControls = viewChild(LobbyControls);
+  private readonly playersPanel = viewChild(PlayersPanel);
   private readonly planTab = viewChild(PlanTab);
 
   protected readonly draft = this.store.draft.value;
@@ -224,10 +224,10 @@ export class DraftPage {
 
   /** Forgets the failures of earlier changes to the draft, as another is being sent. */
   protected clearErrors() {
-    // Stryker disable next-line OptionalChaining: changes are sent only once the draft has loaded, when the header and lobby controls are always rendered.
+    // Stryker disable next-line OptionalChaining: changes are sent only once the draft has loaded, when the header and the Players panel are always rendered.
     this.header()?.clearError();
     // Stryker disable next-line OptionalChaining: as above.
-    this.lobbyControls()?.clearError();
+    this.playersPanel()?.clearError();
     this.retryFailed.set(false);
   }
 

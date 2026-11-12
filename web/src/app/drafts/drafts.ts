@@ -21,6 +21,13 @@ import type { Changes } from './changes';
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /**
+ * The media query of the draft page's wide desktop layout, where the Players
+ * panel is a pane beside the tabs with its seat order always open:
+ * `$wide-desktop` in `src/_breakpoints.scss`. Change them together.
+ */
+export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)';
+
+/**
  * The media query of the screens whose Deck tab has room for the wide stacks
  * layout, with the sideboard's stack beside the mainboard's; narrower, the
  * mainboard's stacks become a strip that scrolls sideways. Kept in step with
