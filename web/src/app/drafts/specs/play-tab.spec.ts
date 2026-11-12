@@ -30,7 +30,12 @@ import {
   useDraftsApp,
   serverError,
 } from './harness';
-import { disclosure, toggleDisclosure } from './disclosure-harness';
+import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
 import {
   answerChange,
   answerChangeFailingReread,
@@ -102,17 +107,18 @@ describe('Play tab', () => {
       expect(panel(page).textContent).toContain('Nobody has joined yet.');
     });
 
-    it('keeps the setup help in a closed "How this works" section that opens to show it', async () => {
+    it('hides the setup help in a closed "How this works" section until opened', async () => {
       const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
       const tab = await openPlayTab(fixture, page);
 
-      const help = disclosure(tab, 'How this works')!;
-      expect(help.open).toBe(false);
+      const help = () => elementContaining(tab, 'Setup can’t be changed afterwards');
+
+      expect(disclosure(tab, 'How this works')!.open).toBe(false);
+      expect(hiddenInClosedSection(help())).toBe(true);
       toggleDisclosure(tab, 'How this works');
       await fixture.whenStable();
 
-      expect(help.open).toBe(true);
-      expect(text(help)).toContain('Setup can’t be changed afterwards');
+      expect(hiddenInClosedSection(help())).toBe(false);
     });
 
     it('offers public decklists as a toggle, private unless the organizer switches it, and sets the tournament up with them', async () => {

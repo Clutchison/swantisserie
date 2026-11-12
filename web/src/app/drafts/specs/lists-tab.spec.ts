@@ -28,9 +28,13 @@ import {
   updates,
   useDraftsApp,
   serverError,
-  text,
 } from './harness';
-import { disclosure, toggleDisclosure } from './disclosure-harness';
+import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
 import {
   carol,
   dave,
@@ -134,19 +138,22 @@ describe('lists tab', () => {
     expect(tabButton(page, 'Lists')).toBeUndefined();
   });
 
-  it('keeps its help in a closed "How this works" section that opens to show it', async () => {
+  it('hides its help in a closed "How this works" section until opened', async () => {
     const { fixture, page } = await openAsViewer(publicPlaying());
     const tab = await openTab(fixture, page, 'Lists');
 
-    const help = disclosure(tab, 'How this works')!;
-    expect(help.open).toBe(false);
+    const help = () =>
+      elementContaining(
+        tab,
+        'Each joined player’s deck as it was locked when the tournament started.',
+      );
+
+    expect(disclosure(tab, 'How this works')!.open).toBe(false);
+    expect(hiddenInClosedSection(help())).toBe(true);
     toggleDisclosure(tab, 'How this works');
     await fixture.whenStable();
 
-    expect(help.open).toBe(true);
-    expect(text(help)).toContain(
-      'Each joined player’s deck as it was locked when the tournament started.',
-    );
+    expect(hiddenInClosedSection(help())).toBe(false);
   });
 
   it('shows everyone who sees the draft each joined player’s mainboard and sideboard, each with its basic lands', async () => {

@@ -31,9 +31,13 @@ import {
   type AppFixture,
   alertIn,
   serverError,
-  text,
 } from './harness';
-import { disclosure, toggleDisclosure } from './disclosure-harness';
+import {
+  disclosure,
+  elementContaining,
+  hiddenInClosedSection,
+  toggleDisclosure,
+} from './disclosure-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
 
@@ -210,24 +214,31 @@ describe('queue tab', () => {
     expect(queue.querySelector('.notice')).toBeNull();
   });
 
-  it('keeps its help in a closed "How this works" section that opens to show it, the Queue notice outside it', async () => {
+  it('hides its help in a closed "How this works" section until opened', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [brightclimb, shivan],
+      queue: queueOf({ cards: [queued(brightclimb)] }),
+    });
+    const queue = await openQueue(fixture, page);
+    const help = () => elementContaining(queue, 'Cards are picked for you in this order.');
+
+    expect(disclosure(queue, 'How this works')!.open).toBe(false);
+    expect(hiddenInClosedSection(help())).toBe(true);
+    toggleDisclosure(queue, 'How this works');
+    await fixture.whenStable();
+
+    expect(hiddenInClosedSection(help())).toBe(false);
+  });
+
+  it('shows the Queue notice while "How this works" is closed', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [brightclimb, shivan],
       queue: queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)] }),
     });
     const queue = await openQueue(fixture, page);
 
-    const help = disclosure(queue, 'How this works')!;
-    expect(help.open).toBe(false);
-    const notice = [...queue.querySelectorAll('[role="status"]')].find((status) =>
-      text(status).startsWith('Lost to other players'),
-    )!;
-    expect(help.contains(notice)).toBe(false);
-    toggleDisclosure(queue, 'How this works');
-    await fixture.whenStable();
-
-    expect(help.open).toBe(true);
-    expect(text(help)).toContain('Cards are picked for you in this order. Drag to reorder.');
+    expect(disclosure(queue, 'How this works')!.open).toBe(false);
+    expect(hiddenInClosedSection(elementContaining(queue, 'Lost to other players'))).toBe(false);
   });
 
   it('names lost and cleared cards apart, and dismiss hides them alike', async () => {
