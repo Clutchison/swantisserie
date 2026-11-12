@@ -31,7 +31,7 @@ h3 {
   }
 }
 
-/* Stacks or list, and how the stacks group, each a row of toggles with the chosen one pressed; then the Add basics button. */
+/* The Deck tab's tools: Queue unpicked, then Stacks or list and how the stacks group, each a row of toggles with the chosen one pressed, then Add basics and Copy. It wraps on a narrow screen. */
 .mode-controls {
   display: flex;
   flex-wrap: wrap;
