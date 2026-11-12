@@ -15,7 +15,15 @@ import {
   accessibleName,
   serverError,
 } from './harness';
-import { useTallScreen, card, shivan, brightclimb, tiles, hidePicked } from './pool-tab-harness';
+import {
+  useTallScreen,
+  card,
+  shivan,
+  brightclimb,
+  tiles,
+  hidePicked,
+  searchBox,
+} from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -28,7 +36,7 @@ describe('pool tab', () => {
 
     /** Types `text` into the Pool tab's search box, as a keystroke would. */
     async function search(fixture: AppFixture, page: HTMLElement, text: string) {
-      const box = page.querySelector<HTMLInputElement>('input[type="search"]')!;
+      const box = searchBox(page);
       box.value = text;
       box.dispatchEvent(new Event('input'));
       await fixture.whenStable();
@@ -113,7 +121,7 @@ describe('pool tab', () => {
         await search(fixture, page, 'bear');
         await press(fixture, page, 'White', 'Colorless');
         expect(names(page)).toEqual(['White Bear']);
-        expect(page.querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('bear');
+        expect(searchBox(page).value).toBe('bear');
 
         hidePicked(page).click();
         await fixture.whenStable();
@@ -167,7 +175,7 @@ describe('pool tab', () => {
 
     it('labels the search box "Scryfall Search", keeping its example placeholder', async () => {
       const { page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
-      const box = page.querySelector<HTMLInputElement>('input[type="search"]')!;
+      const box = searchBox(page);
 
       expect(box.labels?.[0]?.textContent?.trim()).toBe('Scryfall Search');
       expect(box.hasAttribute('aria-label')).toBe(false);

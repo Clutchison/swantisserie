@@ -66,10 +66,10 @@ export async function openDetail(fixture: AppFixture, page: HTMLElement, index: 
   return openDialog()!;
 }
 
-/** The pool search box. */
 /** The Hide picked toggle button, by its role and name. */
 export const hidePicked = (page: HTMLElement) => button(page, 'Hide picked');
 
+/** The pool search box. */
 export const searchBox = (page: HTMLElement) =>
   page.querySelector<HTMLInputElement>('input[type="search"]')!;
 
