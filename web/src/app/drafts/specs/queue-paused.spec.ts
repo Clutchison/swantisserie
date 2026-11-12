@@ -23,12 +23,16 @@ import {
   viewOn,
   openQueueSheet,
   accessibleName,
+  button,
+  items,
+  pickOf,
+  flushQueue,
   nextUpStrip,
   queuePaneToggle,
   pickChangesQueue,
 } from './harness';
-import { pressEscape } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
+import { openDialog, pressEscape, question } from '../../specs-harness';
+import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -60,7 +64,7 @@ describe('queue paused switch', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
 
-  it('pauses the queue when clicked, and sets it picking again, showing and saying each at once', async () => {
+  it('pauses the queue when clicked, and sets it queue picking again, showing and saying each at once', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
@@ -80,7 +84,8 @@ describe('queue paused switch', () => {
 
     queuePausedSwitch(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/paused');
-    expect(back.request.body).toEqual({ queuePaused: false });
+    // It's Bob's turn, not Alice's: nothing to confirm, and no cards to pick.
+    expect(back.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
     back.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
 
@@ -167,6 +172,172 @@ describe('queue paused switch', () => {
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
     expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
+  });
+});
+
+describe('setting a queue picking on the player’s own turn', () => {
+  beforeEach(() => viewOn('desktop'));
+  afterEach(() => vi.unstubAllGlobals());
+
+  const bolt = card({ id: 'bolt', oracleId: 'bolt-oracle', name: 'Lightning Bolt' });
+  const spike = card({ id: 'spike', oracleId: 'spike-oracle', name: 'Lava Spike' });
+  const skewer = card({ id: 'skewer', oracleId: 'skewer-oracle', name: 'Skewer the Critics' });
+  const cards = [shivan, bolt, spike, skewer];
+  const asked = 'Set your queue to queue picking?';
+  const picksList = 'Cards your queue picks';
+  /** The api's refusal of cards confirmed that its queue would no longer pick: its body, then its status. */
+  const picksChanged = [
+    {
+      error: 'queue-picks-changed',
+      message: 'Your queue would now pick different cards. Check them and try again.',
+    },
+    { status: 409, statusText: 'Conflict' },
+  ] as const;
+
+  /**
+   * Bob then Alice: Bob picked Shivan Dragon, so Alice picks twice in a
+   * row, at the snake turn. Her queue, paused, holds `queue`'s cards.
+   */
+  const aliceAtSnakeTurn = (queue: (typeof cards)[number][]) =>
+    openDraft(
+      completeSnapshot,
+      drafting({
+        players: [bob, alicePlayer],
+        turn: { pick: 2, round: 1, playerId: alicePlayer.id },
+      }),
+      {
+        cards,
+        picks: [pickOf({ playerId: bob.id, poolCardId: shivan.id })],
+        queue: queueOf({ cards: queue.map(queued), queuePaused: true }),
+      },
+    );
+
+  /** Answers the re-reads after a refusal: the draft, as it was, then its picks and the queue. */
+  const flushRereads = async (fixture: { whenStable(): Promise<unknown> }, queue: string[]) => {
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+      draft(
+        drafting({
+          players: [bob, alicePlayer],
+          turn: { pick: 2, round: 1, playerId: alicePlayer.id },
+        }),
+      ),
+    );
+    await flushPicks([pickOf({ playerId: bob.id, poolCardId: shivan.id })]);
+    await flushQueue(
+      queueOf({
+        cards: queue.map((id) => queued(cards.find((each) => each.id === id)!)),
+        queuePaused: true,
+      }),
+    );
+    await fixture.whenStable();
+  };
+
+  it('first names the cards the queue picks before the turn passes, and sets it queue picking once confirmed', async () => {
+    const { fixture, page } = await aliceAtSnakeTurn([shivan, bolt, spike, skewer]);
+    const queue = queuePane(page);
+
+    queuePausedSwitch(queue).click();
+    const dialog = await question(asked);
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+    // Shivan Dragon is picked already; Skewer the Critics waits for her next turn.
+    expect(items(dialog, picksList)).toEqual(['Lightning Bolt', 'Lava Spike']);
+    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
+
+    button(dialog, 'Set queue picking').click();
+    const req = http.expectOne('/api/drafts/draft-1/queue/paused');
+    expect(req.request.body).toEqual({ queuePaused: false, poolCardIds: ['bolt', 'spike'] });
+    req.flush(queueOf({ cards: [queued(skewer)] }));
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
+  });
+
+  it('names the one card picked where the turn passes after it', async () => {
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
+      { cards, queue: queueOf({ cards: [queued(bolt), queued(spike)], queuePaused: true }) },
+    );
+
+    queuePausedSwitch(queuePane(page)).click();
+
+    expect(items(await question(asked), picksList)).toEqual(['Lightning Bolt']);
+  });
+
+  it('leaves the queue paused when cancelled', async () => {
+    const { fixture, page } = await aliceAtSnakeTurn([bolt]);
+    const queue = queuePane(page);
+
+    queuePausedSwitch(queue).click();
+    button(await question(asked), 'Cancel').click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
+  });
+
+  it('sets it queue picking with no dialog when the queue has no available card', async () => {
+    const { fixture, page } = await aliceAtSnakeTurn([shivan]);
+    const queue = queuePane(page);
+
+    queuePausedSwitch(queue).click();
+    await fixture.whenStable();
+
+    expect(openDialog()).toBeNull();
+    const req = http.expectOne('/api/drafts/draft-1/queue/paused');
+    expect(req.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
+  });
+
+  it('says why confirmed cards were refused, and names the cards the queue picks now to confirm', async () => {
+    const { fixture, page } = await aliceAtSnakeTurn([bolt, spike]);
+
+    queuePausedSwitch(queuePane(page)).click();
+    const dialog = await question(asked);
+    button(dialog, 'Set queue picking').click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // Her queue was reordered elsewhere.
+    await flushRereads(fixture, ['skewer', 'bolt']);
+
+    expect(openDialog()).toBe(dialog);
+    expect(alertIn(dialog)?.textContent).toContain(picksChanged[0].message);
+    expect(items(dialog, picksList)).toEqual(['Skewer the Critics', 'Lightning Bolt']);
+
+    button(dialog, 'Set queue picking').click();
+    expect(http.expectOne('/api/drafts/draft-1/queue/paused').request.body).toEqual({
+      queuePaused: false,
+      poolCardIds: ['skewer', 'bolt'],
+    });
+  });
+
+  it('sets it queue picking with none, asking nothing, once confirmed cards are refused and the queue picks none', async () => {
+    const { fixture, page } = await aliceAtSnakeTurn([bolt]);
+
+    queuePausedSwitch(queuePane(page)).click();
+    button(await question(asked), 'Set queue picking').click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // Lightning Bolt was taken out of her queue elsewhere.
+    await flushRereads(fixture, []);
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    const req = http.expectOne('/api/drafts/draft-1/queue/paused');
+    expect(req.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
+    req.flush(queueOf());
+    await fixture.whenStable();
+    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue picking');
+  });
+
+  it('names the cards to confirm once setting it queue picking with none is refused', async () => {
+    const { fixture, page } = await aliceAtSnakeTurn([]);
+
+    queuePausedSwitch(queuePane(page)).click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // A card was queued elsewhere.
+    await flushRereads(fixture, ['bolt']);
+
+    expect(items(await question(asked), picksList)).toEqual(['Lightning Bolt']);
+    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
   });
 });
 

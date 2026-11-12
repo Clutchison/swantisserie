@@ -623,6 +623,7 @@ describe('pool snapshot', () => {
     expect(res.body).toEqual([
       {
         id: expect.any(String),
+        oracleId: '9f0a1c6e-oracle',
         scryfallId: '9f0a1c6e-id',
         name: 'Balefire Dragon',
         set: 'ima',

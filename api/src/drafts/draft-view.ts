@@ -103,6 +103,7 @@ export function toPickView(pick: LoggedPick): PickView {
 export function toPoolCardView(card: PoolCard): PoolCardView {
   return {
     id: card.id,
+    oracleId: card.oracleId,
     scryfallId: card.scryfallId,
     name: card.name,
     set: card.set,

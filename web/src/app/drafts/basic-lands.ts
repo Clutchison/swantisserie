@@ -69,6 +69,8 @@ export function basicCard(land: BasicLand, preferred?: BasicLandPrintingView): P
   return {
     // Stryker disable next-line StringLiteral: nothing reads a basic land's `id`: Plan rows go by `poolCardId`, Lists lines by `key`.
     id: `basic-${land}`,
+    // Stryker disable next-line StringLiteral: nothing reads a basic land's `oracleId`: only pool cards meet the copy rule.
+    oracleId: `basic-${land}`,
     scryfallId,
     set,
     collectorNumber,

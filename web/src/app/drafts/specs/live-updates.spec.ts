@@ -45,6 +45,7 @@ describe('live updates', () => {
   const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
   const shivan: PoolCardView = {
     id: 'shivan-card',
+    oracleId: 'shivan-oracle',
     scryfallId: 'shivan-id',
     name: 'Shivan Dragon',
     set: 'm10',

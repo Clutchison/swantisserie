@@ -2,7 +2,7 @@ import type { PoolCardView, Rarity } from 'contract';
 import { FACE_SEPARATOR } from 'engine';
 
 /** The pool card fields a pool search looks at. */
-export type PoolSearchCard = Omit<PoolCardView, 'images'>;
+export type PoolSearchCard = Omit<PoolCardView, 'images' | 'oracleId'>;
 
 /** Why a pool search found nothing to run, with a message fit for the UI. */
 export interface PoolSearchError {

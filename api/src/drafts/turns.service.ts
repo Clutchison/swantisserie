@@ -8,6 +8,7 @@ import {
   pickProblem,
   plansAfterPick,
   type QueueAfterPick,
+  queuePicksBeforeTurnPasses,
   queuesAfterPick,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -27,7 +28,11 @@ import { DraftLock, type LockedDraft, lockPlayer } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
-import { checkQueueChangeable, checkStarted } from './queue-refusals.js';
+import {
+  checkQueueChangeable,
+  checkStarted,
+  QueueRefusedError,
+} from './queue-refusals.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
 const PICK_LOG = {
@@ -166,49 +171,94 @@ export class TurnsService {
   }
 
   /**
-   * Sets the user's queue in the draft queue paused or, if `queuePaused` is
-   * false, queue picking, with the draft row and their player row locked.
-   * Set picking on their own turn while the draft is Drafting, the queue
-   * picks straight away: the cascade from that turn, whose events are
-   * returned. Otherwise nothing is picked and no events are returned, and
-   * the draft's version stays as it is, as the state is private to the
-   * player. Throws QueueRefusedError in the lobby and once the draft is
-   * closed or complete, NotAPlayerError if the user isn't in the draft, and
-   * DraftGoneError if there is no draft.
+   * Sets the user's queue in the draft queue paused, with the draft row and
+   * their player row locked. Nothing is picked, and the draft's version stays
+   * as it is, as the state is private to the player. Throws as
+   * `lockQueuePaused`.
    */
-  async setQueuePaused(
+  async pauseQueue(draftId: string, userId: string): Promise<void> {
+    await this.lock.runSeenIf(
+      draftId,
+      (draft) => this.lockQueuePaused(draft, userId, true),
+      () => false,
+    );
+  }
+
+  /**
+   * Sets the user's queue in the draft queue picking, with the draft row and
+   * their player row locked. On their own turn while the draft is Drafting,
+   * the queue picks straight away: the cascade from that turn, whose events
+   * are returned. Its picks before the turn passes must be `poolCardIds`,
+   * the cards the player confirmed, in order; if they aren't, it throws
+   * QueueRefusedError and the queue stays queue paused. Otherwise nothing
+   * is picked, whatever `poolCardIds` says, no events are returned, and the
+   * draft's version stays as it is, as the state is private to the player.
+   * Throws as `lockQueuePaused` too.
+   */
+  async setQueuePicking(
     draftId: string,
     userId: string,
-    queuePaused: boolean,
+    poolCardIds: readonly string[],
   ): Promise<DraftEvent[]> {
     return this.lock.runSeenIf(
       draftId,
-      async (draft) => {
-        if (!draft) throw new DraftGoneError();
-        const { tx } = draft;
-        const locked = await lockPlayer(tx, draftId, userId);
-        if (!locked) throw new NotAPlayerError('queues');
-        checkStarted(draft.state);
-        checkQueueChangeable(draft.state);
-        await tx.player.update({
-          where: { id: locked.playerId },
-          data: { queuePaused },
-        });
-        if (queuePaused || draft.state !== 'Drafting') return [];
-        const state = await readTurnState(tx, draftId);
+      async (found) => {
+        const draft = await this.lockQueuePaused(found, userId, false);
+        if (draft.state !== 'Drafting') return [];
+        const state = await readTurnState(draft.tx, draftId);
         const seat = state.players.findIndex(
           (player) => player.userId === userId,
         );
-        const turn = currentTurn(
-          draftSize(draft, state.players.length),
-          state.picked.length,
-        );
+        const size = draftSize(draft, state.players.length);
+        // Another seat's turn picks nothing, whatever `poolCardIds` says:
+        // the turn the player confirmed has passed.
         // Stryker disable next-line OptionalChaining: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete.
-        if (turn?.seat !== seat) return [];
+        if (currentTurn(size, state.picked.length)?.seat !== seat) return [];
+        const { queues, context } = engineView(state);
+        const picks = queuePicksBeforeTurnPasses(
+          { ...size, picked: context.picked },
+          seat,
+          queues[seat],
+          context.pool,
+        );
+        if (
+          picks.length !== poolCardIds.length ||
+          picks.some((card, at) => card !== poolCardIds[at])
+        ) {
+          // Thrown under the lock, so the transaction leaves the queue paused.
+          throw new QueueRefusedError({
+            error: 'queue-picks-changed',
+            message:
+              'Your queue would now pick different cards. Check them and try again.',
+          });
+        }
         return this.cascadeFrom(draft, state);
       },
       (events) => events.length > 0,
     );
+  }
+
+  /**
+   * Locks the user's player row in `draft`, whose row the caller has locked,
+   * and sets their queue queue paused or not. Throws QueueRefusedError in
+   * the lobby and once the draft is closed or complete, NotAPlayerError if
+   * the user isn't in the draft, and DraftGoneError if there is no draft.
+   */
+  private async lockQueuePaused(
+    draft: LockedDraft | undefined,
+    userId: string,
+    queuePaused: boolean,
+  ): Promise<LockedDraft> {
+    if (!draft) throw new DraftGoneError();
+    const locked = await lockPlayer(draft.tx, draft.id, userId);
+    if (!locked) throw new NotAPlayerError('queues');
+    checkStarted(draft.state);
+    checkQueueChangeable(draft.state);
+    await draft.tx.player.update({
+      where: { id: locked.playerId },
+      data: { queuePaused },
+    });
+    return draft;
   }
 
   /**

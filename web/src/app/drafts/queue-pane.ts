@@ -38,15 +38,25 @@ import {
 import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
-import { changeFailure, COARSE_POINTER_QUERY, DRAG_START_DELAY, matching } from './drafts';
+import {
+  changeFailure,
+  COARSE_POINTER_QUERY,
+  DRAG_START_DELAY,
+  matching,
+  QUEUE_CHANGE_FAILED,
+} from './drafts';
 import { PicksLeft } from './picks-left';
 import { QueueAddBump, QueueAddStatus, queueAddsFromNow } from './queue-add-status';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
+import {
+  QUEUE_PICKING_HEADING,
+  QueuePickingDialog,
+  type QueuePickingResult,
+} from './queue-picking-dialog';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
-
-const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
 
 /** Where whether the viewer left the Queue pane collapsed is kept, in browser storage. */
 const COLLAPSED_KEY = 'queue-pane';
@@ -125,7 +135,8 @@ export class QueuePane {
   private readonly cardDetails = inject(CardDetails);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-  private readonly dialog = inject(Dialog);
+  private readonly cdkDialog = inject(Dialog);
+  private readonly dialogShell = inject(DialogShell);
 
   /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
   readonly collapsible = input(false);
@@ -228,7 +239,7 @@ export class QueuePane {
     effect((onCleanup) => {
       const add = this.added();
       if (!add) return;
-      onCleanup(afterCardDetailsClose(this.dialog, () => this.markAdded(add.id)));
+      onCleanup(afterCardDetailsClose(this.cdkDialog, () => this.markAdded(add.id)));
     });
   }
 
@@ -401,23 +412,62 @@ export class QueuePane {
   }
 
   /**
-   * Sets the queue to queue paused, or queue picking, showing it at once. If that
-   * fails, the previous state shows again until the queue is re-read.
+   * Sets the queue to queue paused, or queue picking. Setting it queue
+   * picking when it would pick cards straight away, on the player's own
+   * turn, first opens the Set queue picking dialog to confirm them.
    */
   protected toggleQueuePaused() {
-    const previous = this.queue().queuePaused;
-    const queuePaused = !previous;
+    if (!this.queue().queuePaused) return this.sendQueuePaused(true);
+    if (this.store.queuePicks().length > 0) return this.confirmQueuePicking();
+    return this.sendQueuePaused(false);
+  }
+
+  /**
+   * Sets the queue to queue paused, or queue picking with no cards to pick,
+   * showing it at once. If that fails, the previous state shows again until
+   * the queue is re-read. A refusal of queue picking with none, as the queue
+   * would pick cards after all, opens the Set queue picking dialog to
+   * confirm them.
+   */
+  private sendQueuePaused(queuePaused: boolean) {
     return this.change(
       () => {
         this.store.showQueue({ ...this.queue(), queuePaused });
-        return this.queueApi.setQueuePaused(this.draftId(), queuePaused);
+        return queuePaused
+          ? this.queueApi.pauseQueue(this.draftId())
+          : this.queueApi.setQueuePicking(this.draftId(), []);
       },
       {
         place: 'queuePaused',
-        rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: previous }),
+        rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: !queuePaused }),
         status: queueStateName(queuePaused),
+        refused: (err) => {
+          if (!this.store.caughtUpOnQueuePicks(err)) return false;
+          this.confirmQueuePicking();
+          return true;
+        },
       },
     );
+  }
+
+  /**
+   * Opens the Set queue picking dialog. A failure it closes with is said by
+   * the switch, where focus returns; should the queue, read again, pick
+   * nothing after all, it is set queue picking with none.
+   */
+  private confirmQueuePicking() {
+    this.dialogShell
+      .open<QueuePickingDialog, QueuePickingResult>(QueuePickingDialog, {
+        labelledBy: QUEUE_PICKING_HEADING,
+        injector: this.injector,
+      })
+      .closed.subscribe((result) => {
+        if (result?.outcome === 'failed') {
+          this.error.set({ message: result.message, place: 'queuePaused' });
+        } else if (result?.outcome === 'none-to-pick') {
+          void this.sendQueuePaused(false);
+        }
+      });
   }
 
   /** Stops the notice listing the lost and cleared cards. */
@@ -430,15 +480,23 @@ export class QueuePane {
    * shows the queue it answers with, unless another change is in flight. A
    * refused change means the queue has moved on, e.g. a card was lost: say
    * why, at `place`, and roll back what it showed early; the store re-reads it. Focus
-   * is kept as `Changes.send` keeps it, and a change made says `status`.
+   * is kept as `Changes.send` keeps it, and a change made says `status`. A
+   * failure `refused` answers true for is left to it, unsaid.
    */
   private change(
     send: () => Observable<QueueView>,
     {
       place = 'queue',
       rollBack,
+      refused,
       ...kept
-    }: { place?: ErrorPlace; rollBack?: () => void; keep?: string[]; status?: string } = {},
+    }: {
+      place?: ErrorPlace;
+      rollBack?: () => void;
+      refused?: (err: unknown) => boolean;
+      keep?: string[];
+      status?: string;
+    } = {},
   ) {
     return this.changes.send(async () => {
       this.error.set(null);
@@ -446,7 +504,8 @@ export class QueuePane {
         await this.store.changeQueue(send(), { rollBack });
         return true;
       } catch (err) {
-        this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
+        if (refused?.(err)) return false;
+        this.error.set({ message: changeFailure(err, QUEUE_CHANGE_FAILED), place });
         return false;
       }
     }, kept);
