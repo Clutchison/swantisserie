@@ -147,8 +147,8 @@ The part of a draft's page that shows its players in seat order, and where the o
 _Avoid_: Sidebar, side pane, Players section
 
 **Seat strip**:
-A narrow column of the players' avatars in seat order beside a started draft's tabs, marking whose turn it is and naming each player on hover or focus. It stands in for the Players panel on wide screens until the draft is complete, and opens the full panel on request.
-_Avoid_: Avatar bar, sidebar, turn strip, Players panel (that is the full panel)
+A row of the players' avatars in seat order, shown while a draft is drafting or paused, marking whose turn it is and, with arrows between the seats, which way the picks are moving. It names each player on hover or focus, stands in for the Players panel, and opens the full panel on request.
+_Avoid_: Avatar bar, player strip, sidebar, turn strip, Players panel (that is the full panel)
 
 **Snake order**:
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
@@ -211,11 +211,11 @@ Cards leaving a player's queue together: the cards one pick took out of it, a ca
 _Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 
 **Steal behavior**:
-A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it whenever the draft is in the lobby or active.
+A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it while the draft is drafting or paused.
 _Avoid_: Loss setting, fallback, keep queue
 
 **Queue pane**:
-The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there until the draft is complete.
+The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there from when the draft starts until it is complete.
 _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
 
 **"Next up" strip**:
