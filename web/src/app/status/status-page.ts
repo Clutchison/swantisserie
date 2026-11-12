@@ -6,7 +6,7 @@ import type { HealthView } from 'contract';
   selector: 'app-status-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './status-page.html',
-  styleUrl: './status-page.scss',
+  styleUrls: ['../page.scss', './status-page.scss'],
 })
 export class StatusPage {
   private readonly health = httpResource<HealthView>(() => '/api/health');

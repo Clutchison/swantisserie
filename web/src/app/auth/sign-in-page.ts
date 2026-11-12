@@ -5,7 +5,7 @@ import type { SignInError } from 'contract';
   selector: 'app-sign-in-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main>
+    <main class="page-narrow">
       <img class="logo" src="logo.svg" alt="" width="160" height="160" />
       <h1>Swantisserie</h1>
       @if (error() === 'not-allowed') {
@@ -20,7 +20,7 @@ import type { SignInError } from 'contract';
       <a class="sign-in" [href]="signInUrl()">Sign in with Discord</a>
     </main>
   `,
-  styleUrl: './sign-in-page.scss',
+  styleUrls: ['../page.scss', './sign-in-page.scss'],
 })
 export class SignInPage {
   /** Set by the API's callback when sign-in fails. */

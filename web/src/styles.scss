@@ -43,6 +43,18 @@
   --space-md: 0.75rem;
   --space-lg: 1rem;
   --space-xl: 1.5rem;
+
+  /* The page frame's widths (see app/page.scss): forms and Sign in; most pages; a draft's page and the Trophy Hall. */
+  --width-narrow: 40rem;
+  --width-default: 48rem;
+  --width-wide: 80rem;
+  /* A comfortable line of body text: about 66 characters of Inter at body size, measured in the browser. Inter's ch, its zero, is wider than its average letter, hence 52. */
+  --width-measure: 52ch;
+  /*
+   * The page frame's inline padding: 1rem on a phone and up to 792px, which the
+   * wide stacks breakpoint counts on (see _breakpoints.scss), growing to 3rem.
+   */
+  --page-gutter: clamp(var(--space-lg), 5vw - 1.5rem, 3rem);
 }
 
 /* Every page has its own padding, and a phone has no width to spare. */

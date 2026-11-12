@@ -1,0 +1,35 @@
+// Every width the app's media and container queries break at. Custom properties
+// can't be used in a query, so these are Sass variables:
+//
+//   @use '../../breakpoints' as bp;
+//   @media (min-width: bp.$desktop) { … }
+//   @container (width < #{bp.$tab-narrow}) { … }
+//
+// A container query needs the #{…}: Sass passes it through as written.
+// `scripts/check-stylesheets.mts` (in `npm run lint`) fails on a query width
+// written anywhere else. Silent comments throughout, so nothing here reaches
+// the CSS of each stylesheet that uses it.
+
+// The top bar's narrow menu; the Trophy Hall stacks its ranking and row buttons below it too.
+$narrow-menu: 36rem;
+
+// The Pool tab's Color filter takes its own row below it.
+$color-filter-row: 40rem;
+
+// The Deck tab's wide stacks layout, with the sideboard's stack beside the
+// mainboard's. `$wide-stacks` is the screen width, `WIDE_STACKS_QUERY` in
+// `app/drafts/drafts.ts`: the container query's 760px of stacks area plus the
+// draft page's 1rem inline padding either side, which the page frame's gutter
+// still is at that width. Change them together.
+$wide-stacks: 792px;
+$wide-stacks-container: 760px;
+
+// The draft page's desktop layout, with the tabs at the top: `DESKTOP_QUERY`
+// in `app/drafts/drafts.ts`. Change them together.
+$desktop: 1024px;
+
+// The Players panel's own pane beside the tabs (#654).
+$wide-desktop: 1200px;
+
+// Narrower than this, the Deck and Queue tabs' lines drop their reorder buttons and Unpicked mark.
+$tab-narrow: 26rem;

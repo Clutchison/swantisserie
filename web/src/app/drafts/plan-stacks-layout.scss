@@ -1,3 +1,5 @@
+@use '../../breakpoints' as bp;
+
 /* Stacks mode's layout, after the Deck tab's own styles: the wide layout, and the strip with its stack headers. */
 
 /* How far the current stack header's underline sits in from its sides, and up from its bottom, and how thick it is. */
@@ -69,7 +71,7 @@ $fade: 2rem;
    * The width they share is the whole less the gaps around and between the mainboard's stacks,
    * the gap and padding either side of the divider, and the divider's 1px.
    */
-  @container plan-boards (width >= 760px) {
+  @container plan-boards (width >= #{bp.$wide-stacks-container}) {
     .plan-board {
       --stack-width: clamp(
         5.5rem,
@@ -100,7 +102,7 @@ $fade: 2rem;
    * place of a scrollbar. Only while the mainboard shows as stacks: an empty mainboard shows as
    * the list, with the sideboard below it.
    */
-  @container plan-boards (width < 760px) {
+  @container plan-boards (width < #{bp.$wide-stacks-container}) {
     $strip: '.plan-boards.mainboard-stacked';
 
     .plan-board {
