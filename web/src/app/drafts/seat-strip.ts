@@ -49,7 +49,7 @@ const AVATAR_SIZE = 24;
 const ARROW_SIZE = 14;
 
 /**
- * The Seat strip: a drafting or paused draft's players as avatars in seat
+ * The Seat strip: a drafting or frozen draft's players as avatars in seat
  * order, in a row in the tab bar from the desktop layout and under the draft
  * header below it, marking whose turn it is and the viewer's
  * own seat, with arrows between the seats pointing toward the next player

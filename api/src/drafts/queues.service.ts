@@ -68,7 +68,7 @@ export class QueuesService {
   /**
    * Adds the pool card `poolCardId` to the end of the user's queue, and
    * off its cleared list; a no-op if it is already queued. Throws QueueRefusedError if it can't be
-   * queued: in the lobby, or on the player's own turn, drafting or paused, when
+   * queued: in the lobby, or on the player's own turn, drafting or frozen, when
    * they make that pick by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
   async add(
@@ -209,7 +209,7 @@ export class QueuesService {
 
   /**
    * Throws QueueRefusedError if the player can't add to their queue now: in
-   * the lobby, or on their own turn, drafting or paused, when they make that
+   * the lobby, or on their own turn, drafting or frozen, when they make that
    * pick by hand. `change` refuses a closed or complete draft.
    */
   private async checkCanAdd(

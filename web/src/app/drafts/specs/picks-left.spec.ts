@@ -91,10 +91,10 @@ describe('picks left beside the panel headings', () => {
     expect(picksLeftTexts(panel(page))).toEqual(['10 picks left']);
   });
 
-  it('shows the count on all three panels while the draft is paused', async () => {
+  it('shows the count on all three panels while the draft is frozen', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
-      drafting({ state: 'Paused', picksPerPlayer: 12 }),
+      drafting({ state: 'Frozen', picksPerPlayer: 12 }),
     );
 
     for (const name of PANELS) {

@@ -465,7 +465,7 @@ describe('plan tab', () => {
     expect(planBoards(plan)[0].heading).toBe('Mainboard 4 (4 picked)');
   });
 
-  it.each(['Lobby', 'Paused', 'Closed', 'Complete'] as const)(
+  it.each(['Lobby', 'Frozen', 'Closed', 'Complete'] as const)(
     'can be changed while the draft is %s, unpicked cards included, as the api never refuses removing one for the draft’s state',
     async (state) => {
       const { fixture, page } = await openDraft(
@@ -595,7 +595,7 @@ describe('plan tab', () => {
 describe('the Deck tab’s name', () => {
   it.each([
     ['drafting', drafting({ turn: { pick: 3, round: 2, playerId: bob.id } })],
-    ['paused', drafting({ state: 'Paused', turn: { pick: 3, round: 2, playerId: bob.id } })],
+    ['frozen', drafting({ state: 'Frozen', turn: { pick: 3, round: 2, playerId: bob.id } })],
     ['closed', drafting({ state: 'Closed', turn: null })],
   ])('is the Deck tab while the draft is %s, its copy saying deck', async (_, fields) => {
     const { fixture, page } = await openDraft(completeSnapshot, fields, {

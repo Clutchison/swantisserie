@@ -474,7 +474,7 @@ describe('undo', () => {
     expect((await undo(id, 1).expect(409)).body).toEqual({
       error: 'not-drafting',
       message:
-        'Picks can only be undone while the draft is drafting or paused.',
+        'Picks can only be undone while the draft is drafting or frozen.',
     });
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -489,17 +489,17 @@ describe('undo', () => {
     ]);
   });
 
-  it('undoes a pick while the draft is paused, leaving it paused', async () => {
+  it('undoes a pick while the draft is frozen, leaving it frozen', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
 
     const undone = await undo(id, 1).expect(200);
 
     expect(undone.body).toMatchObject({
-      state: 'Paused',
+      state: 'Frozen',
       turn: { pick: 1, playerId: alice.id },
     });
     expect(await pickLogLines(id)).toEqual([]);

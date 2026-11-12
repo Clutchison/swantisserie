@@ -222,7 +222,7 @@ describe('the Players panel', () => {
         expect(findQueuePane(page)).toBeNull();
       });
 
-      it('isn’t beside the tabs while the draft is drafting or paused', async () => {
+      it('isn’t beside the tabs while the draft is drafting or frozen', async () => {
         const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
         expect(findPlayersBesideTabs(page)).toBeNull();

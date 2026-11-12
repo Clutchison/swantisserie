@@ -59,20 +59,20 @@ describe('close and reopen', () => {
 
     expect(page.textContent).toContain(banner);
     expect(moreButton(page)).toBeUndefined();
-    expect(button(page, 'Pause draft')).toBeUndefined();
+    expect(button(page, 'Freeze draft')).toBeUndefined();
     expect(button(page, 'Reopen draft')).toBeDefined();
     await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Reopen draft')));
   });
 
-  it('offers More, then Pause draft, in the header before the first pick, with Close draft in More', async () => {
+  it('offers More, then Freeze draft, in the header before the first pick, with Close draft in More', async () => {
     const { page } = await openDraft(completeSnapshot, underway);
 
-    expect(buttonOrder(page, 'Pause draft')).toEqual(['More', 'Pause draft']);
+    expect(buttonOrder(page, 'Freeze draft')).toEqual(['More', 'Freeze draft']);
     expect(openMore(page)).toEqual(['Close draft']);
   });
 
-  it('offers closing a paused draft', async () => {
-    const opened = await openDraft(completeSnapshot, { ...underway, state: 'Paused' });
+  it('offers closing a frozen draft', async () => {
+    const opened = await openDraft(completeSnapshot, { ...underway, state: 'Frozen' });
     expect(offeredInMore(opened.page)).toContain('Close draft');
   });
 
@@ -111,7 +111,7 @@ describe('close and reopen', () => {
     chooseFromMore(page, 'Close draft');
     await answer(await question('Close Red dragons?'), 'Cancel');
     await fixture.whenStable();
-    await vi.waitFor(() => expect(readyAgain(page, 'Pause draft')).toBe(true));
+    await vi.waitFor(() => expect(readyAgain(page, 'Freeze draft')).toBe(true));
     expect(document.activeElement).toBe(moreButton(page));
 
     http.expectNone('/api/drafts/draft-1/close');
@@ -137,7 +137,7 @@ describe('close and reopen', () => {
     await fixture.whenStable();
 
     expect(page.textContent).not.toContain(banner);
-    expect(button(page, 'Pause draft')).toBeDefined();
+    expect(button(page, 'Freeze draft')).toBeDefined();
   });
 
   it('keeps a draft the organizer thinks better of reopening', async () => {
@@ -157,7 +157,7 @@ describe('close and reopen', () => {
 
     chooseFromMore(page, 'Close draft');
     await answer(await question('Close Red dragons?'), 'Close draft');
-    const message = 'Only a drafting or paused draft can be closed.';
+    const message = 'Only a drafting or frozen draft can be closed.';
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/close'))).flush(
       { error: 'not-closable', message } satisfies CloseRefusal,
       { status: 409, statusText: 'Conflict' },
@@ -250,7 +250,7 @@ describe('close and reopen', () => {
 
   it.each([
     { state: 'Drafting', turn: underway.turn },
-    { state: 'Paused', turn: underway.turn },
+    { state: 'Frozen', turn: underway.turn },
   ] as const)('keeps the queue controls in $state', async ({ state, turn }) => {
     const { fixture, page } = await openDraft(
       completeSnapshot,

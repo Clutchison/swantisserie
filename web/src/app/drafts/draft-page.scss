@@ -56,7 +56,7 @@ main > .seat-strip,
   }
 }
 
-.paused,
+.frozen,
 .closed {
   font-weight: 600;
 }
@@ -161,7 +161,7 @@ main {
     padding-bottom: var(--space-lg);
   }
 
-  /* The tabs, then the Seat strip at its end while the draft is drafting or paused. */
+  /* The tabs, then the Seat strip at its end while the draft is drafting or frozen. */
   .tab-bar {
     position: sticky;
     top: 0;

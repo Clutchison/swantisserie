@@ -108,7 +108,7 @@ describe('live updates', () => {
     expect(ghostHeard).not.toHaveBeenCalled();
   });
 
-  it('pushes the paused draft to its viewers after a pick import', async () => {
+  it('pushes the frozen draft to its viewers after a pick import', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 1, [
       'Ash Golem',
@@ -123,7 +123,7 @@ describe('live updates', () => {
 
     await vi.waitFor(() =>
       expect(bobSees.at(-1)).toMatchObject({
-        state: 'Paused',
+        state: 'Frozen',
         turn: { pick: 2, playerId: bob.id },
       }),
     );
@@ -170,19 +170,19 @@ describe('live updates', () => {
     );
   });
 
-  it('pushes the draft to its viewers when it is paused and resumed', async () => {
+  it('pushes the draft to its viewers when it is frozen and unfrozen', async () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie]);
     await start(id).expect(200);
     const bobSees = await watch(id, bobCookie);
 
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
     await vi.waitFor(() => expect(bobSees).toHaveLength(1));
-    await post(id, 'resume').expect(200);
+    await post(id, 'unfreeze').expect(200);
 
     await vi.waitFor(() =>
       expect(bobSees.map((draft) => draft.state)).toEqual([
-        'Paused',
+        'Frozen',
         'Drafting',
       ]),
     );

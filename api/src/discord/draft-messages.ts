@@ -34,7 +34,7 @@ const MAX_CONTENT_LENGTH = 2000;
 /**
  * The messages to post, in order, for the announcements `events` make: a run
  * of picks, such as a pick and the cascade after it, is one announcement, and
- * so is a start, a resume or a reopen and the cascade after it. Each
+ * so is a start, an unfreeze or a reopen and the cascade after it. Each
  * announcement is one post, or several if it is too long for one.
  */
 export function draftMessages(
@@ -63,11 +63,11 @@ export function draftMessages(
       case 'undone':
         messages.push(undoneMessage(draft, event));
         break;
-      case 'paused':
-        messages.push(draftPausedMessage(draft));
+      case 'frozen':
+        messages.push(draftFrozenMessage(draft));
         break;
-      case 'resumed':
-        messages.push(draftResumedMessage(draft, event.player, picks));
+      case 'unfrozen':
+        messages.push(draftUnfrozenMessage(draft, event.player, picks));
         break;
       case 'closed':
         messages.push(draftClosedMessage(draft));
@@ -144,20 +144,20 @@ export function draftCompleteMessage(draft: AnnouncedDraft): WebhookMessage {
   return announcement(draft, [`${bold(draft.name)} is complete`], null);
 }
 
-export function draftPausedMessage(draft: AnnouncedDraft): WebhookMessage {
-  return announcement(draft, [`${bold(draft.name)} is paused`], null);
+export function draftFrozenMessage(draft: AnnouncedDraft): WebhookMessage {
+  return announcement(draft, [`${bold(draft.name)} is frozen`], null);
 }
 
 /**
- * `up` is whose turn it is on resuming, unless `picks` were made from
- * queues straight after the resume.
+ * `up` is whose turn it is on unfreezing, unless `picks` were made from
+ * queues straight after the unfreeze.
  */
-export function draftResumedMessage(
+export function draftUnfrozenMessage(
   draft: AnnouncedDraft,
   up: AnnouncedPlayer,
   picks: AnnouncedPick[] = [],
 ): WebhookMessage {
-  return backToDraftingMessage(draft, 'has resumed', up, picks);
+  return backToDraftingMessage(draft, 'has been unfrozen', up, picks);
 }
 
 export function draftClosedMessage(draft: AnnouncedDraft): WebhookMessage {

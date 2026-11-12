@@ -115,10 +115,10 @@ describe('shutting down', () => {
         hookStarted();
         return hook();
       });
-      // The start's post queues a pause once shutdown is waiting on it.
+      // The start's post queues a freeze once shutdown is waiting on it.
       webhookClient.post.mockImplementationOnce(async () => {
         await waiting;
-        void notifier.notify(id, [{ type: 'paused' }]);
+        void notifier.notify(id, [{ type: 'frozen' }]);
       });
       await start(id).expect(200);
       await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());

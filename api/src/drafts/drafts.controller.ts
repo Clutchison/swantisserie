@@ -192,26 +192,26 @@ export class DraftsController {
     return this.change(id, () => this.lifecycle.changeWebhook(id, webhookId));
   }
 
-  /** Pauses the draft, so no picks can be made; for the organizer. */
-  @Post(':id/pause')
+  /** Freezes the draft, so no picks can be made; for the organizer. */
+  @Post(':id/freeze')
   @HttpCode(200)
-  async pause(
+  async freeze(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.lifecycle.pause(id));
+    return this.change(id, () => this.lifecycle.freeze(id));
   }
 
-  /** Resumes a paused draft, making any queued picks due; for the organizer. */
-  @Post(':id/resume')
+  /** Unfreezes a frozen draft, making any queued picks due; for the organizer. */
+  @Post(':id/unfreeze')
   @HttpCode(200)
-  async resume(
+  async unfreeze(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.lifecycle.resume(id));
+    return this.change(id, () => this.lifecycle.unfreeze(id));
   }
 
   /** Closes a started draft early, so it is read-only; for the organizer. */
@@ -310,7 +310,7 @@ export class DraftsController {
   }
 
   /**
-   * Loads a file of picks and starts the draft paused, for good; the file is
+   * Loads a file of picks and starts the draft frozen, for good; the file is
    * checked again, as the draft may have changed since its preview. `playerIds`
    * is the seat order the preview showed. For the organizer.
    */

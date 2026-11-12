@@ -131,8 +131,8 @@ describe('steal behavior', () => {
       drafting({ turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
     [
-      'on the player’s own turn while paused',
-      drafting({ state: 'Paused', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
+      'on the player’s own turn while frozen',
+      drafting({ state: 'Frozen', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
   ] as [string, DraftFixture][])('can be changed %s', async (_when, fields) => {
     const { page } = await openDraft(

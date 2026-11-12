@@ -117,13 +117,13 @@ describe('steal behavior', () => {
       expect(await stealBehavior(id)).toBe('PickNext');
     });
 
-    it('can be changed while drafting, on the player’s own turn, and while paused', async () => {
+    it('can be changed while drafting, on the player’s own turn, and while frozen', async () => {
       const id = await threePlayerDraft();
       await start(id).expect(200);
 
       // It's Alice's turn.
       await setStealBehavior(id, 'PickNext').expect(200);
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
       await setStealBehavior(id, 'ClearQueue').expect(200);
 
       expect(await stealBehavior(id)).toBe('ClearQueue');

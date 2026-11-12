@@ -240,7 +240,7 @@ describe('pool tab', () => {
 
     it.each([
       ['in the lobby', { players: [alicePlayer, bob] }],
-      ['while paused', drafting({ state: 'Paused', turn: alicesTurn })],
+      ['while frozen', drafting({ state: 'Frozen', turn: alicesTurn })],
       ['once the draft is Complete', drafting({ state: 'Complete', turn: null })],
       ['once the draft is Closed', drafting({ state: 'Closed', turn: null })],
     ])('offers no Pick %s, as the api refuses with `not-drafting`', async (_, fields) => {

@@ -11,6 +11,7 @@ import type {
   SetListEntryView,
   TurnState,
 } from 'contract';
+import { isTurnState } from 'contract';
 import type { Changes } from './changes';
 
 /**
@@ -109,9 +110,9 @@ export function isActive(state: DraftState): boolean {
   return state !== 'Complete' && state !== 'Closed';
 }
 
-/** Whether it is someone's turn in the draft: whether it is Drafting or Paused. */
+/** Whether it is someone's turn in the draft: whether it is Drafting or Frozen. */
 export function hasTurn(draft: DraftView): draft is Extract<DraftView, { state: TurnState }> {
-  return draft.state === 'Drafting' || draft.state === 'Paused';
+  return isTurnState(draft.state);
 }
 
 /**

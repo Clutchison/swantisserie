@@ -176,7 +176,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   });
 
   it.each([
-    ['while paused', drafting({ state: 'Paused' })],
+    ['while frozen', drafting({ state: 'Frozen' })],
     ['while drafting', drafting()],
   ])('can be changed %s, as the api allows', async (_, fields) => {
     const { page } = await openDraft(completeSnapshot, fields, {
@@ -272,10 +272,10 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       expect(rows(queue)).toEqual(['Shivan Dragon']);
     });
 
-    it('draws the queue cutoff while the draft is paused', async () => {
+    it('draws the queue cutoff while the draft is frozen', async () => {
       const { page } = await openDraft(
         completeSnapshot,
-        drafting({ state: 'Paused', picksPerPlayer: 1 }),
+        drafting({ state: 'Frozen', picksPerPlayer: 1 }),
         boltThenShivan,
       );
 

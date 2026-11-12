@@ -43,10 +43,10 @@ describe('close and reopen', () => {
     expect(closed.body).toMatchObject({ state: 'Closed', turn: null });
   });
 
-  it('closes a paused draft', async () => {
+  it('closes a frozen draft', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     await start(id).expect(200);
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
 
     expect((await post(id, 'close').expect(200)).body.state).toBe('Closed');
   });
@@ -124,11 +124,11 @@ describe('close and reopen', () => {
       (await pick(id, ids['Lightning Bolt'], bobCookie).expect(409)).body.error,
     ).toBe('not-drafting');
     await undo(id, 1).expect(409);
-    expect((await post(id, 'pause').expect(409)).body.error).toBe(
+    expect((await post(id, 'freeze').expect(409)).body.error).toBe(
       'not-drafting',
     );
-    expect((await post(id, 'resume').expect(409)).body.error).toBe(
-      'not-paused',
+    expect((await post(id, 'unfreeze').expect(409)).body.error).toBe(
+      'not-frozen',
     );
 
     expect((await pickLog(id)).body).toHaveLength(1);
@@ -155,7 +155,7 @@ describe('close and reopen', () => {
     expect((await queue(id, bobCookie).expect(200)).body).toEqual(saved);
   });
 
-  it('returns to Drafting even if it was paused, and cascades queued picks', async () => {
+  it('returns to Drafting even if it was frozen, and cascades queued picks', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     // A queue already filled in the lobby.
@@ -164,7 +164,7 @@ describe('close and reopen', () => {
     // Lava Spike was picked for Alice; undoing it brings back her turn, with
     // Lava Spike back in her queue.
     await undo(id, 1).expect(200);
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
     await post(id, 'close').expect(200);
 
     const reopened = await post(id, 'reopen').expect(200);

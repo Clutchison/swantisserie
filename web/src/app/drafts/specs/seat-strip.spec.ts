@@ -59,7 +59,7 @@ describe('the Seat strip', () => {
 
     it.each([
       ['drafting', drafting(), ['Alice, you', 'Bob, picking']],
-      ['paused', drafting({ state: 'Paused' }), ['Alice, you', 'Bob, picking']],
+      ['frozen', drafting({ state: 'Frozen' }), ['Alice, you', 'Bob, picking']],
     ])(
       'shows the seats in seat order while %s, naming the viewer’s own and whose turn it is, in place of the Players panel',
       async (_, fields, names) => {
@@ -144,9 +144,9 @@ describe('the Seat strip', () => {
     it('leaves the organizer’s draft controls in the header working beside it', async () => {
       const { page } = await openDraft(completeSnapshot, drafting(), { powers: ORGANIZE_ONLY });
 
-      button(page, 'Pause draft')!.click();
+      button(page, 'Freeze draft')!.click();
 
-      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'));
+      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/freeze'));
       expect(req.request.method).toBe('POST');
       expect(findSeatStrip(page)).not.toBeNull();
     });
@@ -235,11 +235,11 @@ describe('the Seat strip', () => {
         clickOn(playersButton(page));
         expect(playersDisclosure(playersPopover(page)!)!.open).toBe(true);
 
-        const pause = button(page, 'Pause draft')!;
-        pressPointerOn(pause);
-        clickOn(pause);
+        const freeze = button(page, 'Freeze draft')!;
+        pressPointerOn(freeze);
+        clickOn(freeze);
 
-        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'));
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/freeze'));
         expect(req.request.method).toBe('POST');
         expect(playersPopover(page)).toBeNull();
       });
@@ -312,10 +312,10 @@ describe('the Seat strip', () => {
       expect(seatListName(page)).toBe(`Seat order, ${next}`);
     });
 
-    it('names who picks next while paused', async () => {
+    it('names who picks next while frozen', async () => {
       const { page } = await openDraft(completeSnapshot, {
         ...atPick(4, 2, bot.id),
-        state: 'Paused',
+        state: 'Frozen',
       });
 
       expect(seatListName(page)).toBe('Seat order, Bob picks next');
@@ -354,7 +354,7 @@ describe('the Seat strip', () => {
 
     it.each([
       ['drafting', drafting()],
-      ['paused', drafting({ state: 'Paused' })],
+      ['frozen', drafting({ state: 'Frozen' })],
     ])('is under the draft header while %s, in place of the Players panel', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
@@ -433,9 +433,9 @@ describe('the Seat strip', () => {
         expect(playersDisclosure(playersSheet()!)!.open).toBe(true);
 
         clickOn(button(playersSheet()!, 'Close')!);
-        clickOn(button(page, 'Pause draft')!);
+        clickOn(button(page, 'Freeze draft')!);
 
-        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pause'));
+        const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/freeze'));
         expect(req.request.method).toBe('POST');
       });
 

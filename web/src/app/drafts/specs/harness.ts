@@ -82,7 +82,7 @@ export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 54
 export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: TurnView | null };
 
 /**
- * The default draft with `fields` changed. A Drafting or Paused draft given no
+ * The default draft with `fields` changed. A Drafting or Frozen draft given no
  * turn gets the first pick's, its first player's or Alice's; a turn that
  * doesn't match the state throws.
  */
@@ -102,7 +102,7 @@ export function draft(fields: DraftFixture): DraftView {
     version: 0,
     ...rest,
   };
-  if (state === 'Drafting' || state === 'Paused') {
+  if (state === 'Drafting' || state === 'Frozen') {
     if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
     const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
     return { ...made, state, turn: turn ?? first };

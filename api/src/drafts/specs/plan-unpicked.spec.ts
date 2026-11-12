@@ -416,7 +416,7 @@ describe('unpicked cards in a plan', () => {
     await start(id).expect(200);
     // Carol's turn.
     await addToPlan(id, second, carolCookie).expect(200);
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
     await addToPlan(id, ids.Shock, carolCookie).expect(200);
     await post(id, 'close').expect(200);
 

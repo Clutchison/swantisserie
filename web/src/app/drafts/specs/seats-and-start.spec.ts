@@ -334,7 +334,7 @@ describe('seats and start', () => {
 
       /** Confirms the import and answers it with `answer`. */
       async function confirmImport(page: HTMLElement, answer: object, status = 200) {
-        button(page, 'Import and start paused')!.click();
+        button(page, 'Import and start frozen')!.click();
         const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pick-import'));
         expect(req.request.method).toBe('POST');
         expect(req.request.body).toEqual({ csv: text, playerIds: [alice.id, bob.id] });
@@ -348,13 +348,13 @@ describe('seats and start', () => {
         expect(shown).toContain('Importing is final and clears all queues');
       });
 
-      it('sends the same file text again and moves to the paused draft', async () => {
+      it('sends the same file text again and moves to the frozen draft', async () => {
         const { fixture, page } = await previewed();
 
         await confirmImport(
           page,
           draft({
-            state: 'Paused',
+            state: 'Frozen',
             players: [alicePlayer, bob],
             turn: { pick: 2, round: 1, playerId: bob.id },
             version: 1,
@@ -371,7 +371,7 @@ describe('seats and start', () => {
         await fixture.whenStable();
       });
 
-      it('moves a viewer in the lobby to the paused draft and its picks without a reload', async () => {
+      it('moves a viewer in the lobby to the frozen draft and its picks without a reload', async () => {
         const { fixture, page } = await openDraft(
           completeSnapshot,
           { players: [alicePlayer, bob] },
@@ -381,7 +381,7 @@ describe('seats and start', () => {
         updates.events.next({
           type: 'changed',
           draft: draft({
-            state: 'Paused',
+            state: 'Frozen',
             players: [alicePlayer, bob],
             turn: { pick: 2, round: 1, playerId: bob.id },
             version: 1,
@@ -434,7 +434,7 @@ describe('seats and start', () => {
         await confirmImport(
           page,
           draft({
-            state: 'Paused',
+            state: 'Frozen',
             players: [alicePlayer, bob],
             turn: { pick: 2, round: 1, playerId: bob.id },
             version: 1,
