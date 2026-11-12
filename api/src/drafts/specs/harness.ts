@@ -45,6 +45,9 @@ export {
   webhookUrl,
 } from '../../testing/app.js';
 
+/** A fourth user, beside Alice, Bob and Carol. */
+export const dave = { id: '80351110224678915', name: 'Dave' };
+
 /** `session=<token>` for Alice, ready for a Cookie header. */
 export let aliceCookie: string;
 
@@ -380,6 +383,34 @@ export function previewPickImport(
 
 export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/picks`, cookie, { poolCardId });
+}
+
+/**
+ * Queues `poolCardIds` for `user`, in order after anything already queued,
+ * in a draft still in the lobby: a queue already filled there, which the api
+ * keeps, cascades at the start and a pick import clears.
+ */
+export async function queueInLobby(
+  id: string,
+  user: { id: string },
+  ...poolCardIds: string[]
+) {
+  // Written to the database: the api refuses adding to a queue in the lobby.
+  const prisma = app.get(PrismaService);
+  const player = await prisma.player.findUniqueOrThrow({
+    where: { draftId_userId: { draftId: id, userId: user.id } },
+    select: { id: true },
+  });
+  const queuedSoFar = await prisma.queuedCard.count({
+    where: { playerId: player.id },
+  });
+  await prisma.queuedCard.createMany({
+    data: poolCardIds.map((poolCardId, offset) => ({
+      playerId: player.id,
+      poolCardId,
+      position: queuedSoFar + offset,
+    })),
+  });
 }
 
 /** Undoes the draft's pick `number`, by default as the organizer, Alice. */

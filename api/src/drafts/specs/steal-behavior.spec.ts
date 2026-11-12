@@ -61,6 +61,7 @@ describe('steal behavior', () => {
   describe('the setting', () => {
     it('starts on clear queue, and the player can switch to pick next and back, getting their queue back', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
 
       expect(await stealBehavior(id)).toBe('ClearQueue');
       expect((await setStealBehavior(id, 'PickNext').expect(200)).body).toEqual(
@@ -80,6 +81,8 @@ describe('steal behavior', () => {
     it('is the player’s own, for that draft alone', async () => {
       const id = await threePlayerDraft();
       const other = await threePlayerDraft();
+      await start(id).expect(200);
+      await start(other).expect(200);
 
       await setStealBehavior(id, 'PickNext').expect(200);
 
@@ -96,6 +99,22 @@ describe('steal behavior', () => {
           message: 'Only the draft’s players have queues.',
         },
       );
+    });
+
+    it('can’t be set in the lobby, only once the draft starts', async () => {
+      const id = await threePlayerDraft();
+
+      expect((await setStealBehavior(id, 'PickNext').expect(409)).body).toEqual(
+        {
+          error: 'not-started',
+          message: 'You can queue once the draft starts.',
+        },
+      );
+      expect(await stealBehavior(id)).toBe('ClearQueue');
+
+      await start(id).expect(200);
+      await setStealBehavior(id, 'PickNext').expect(200);
+      expect(await stealBehavior(id)).toBe('PickNext');
     });
 
     it('can be changed while drafting, on the player’s own turn, and while paused', async () => {
@@ -147,9 +166,9 @@ describe('steal behavior', () => {
 
     it('leaves the queue and its notice as they are when changed', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
 
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
@@ -167,10 +186,10 @@ describe('steal behavior', () => {
   describe('under pick next', () => {
     it('loses only the picked card, keeping the rest of the queue in order', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
-      await start(id).expect(200);
 
       await pick(id, ids['Lightning Bolt']).expect(200);
 
@@ -185,10 +204,10 @@ describe('steal behavior', () => {
 
     it('picks the next available queued card on the player’s turn', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
 
       await pick(id, ids.Shock, bobCookie).expect(200);
@@ -203,12 +222,12 @@ describe('steal behavior', () => {
     it('carries on picking for the player in the cascade that lost their card', async () => {
       const id = await threePlayerDraft();
       const ids = await poolCardIds(id);
-      await enqueue(id, ids['Lightning Bolt']).expect(200);
+      await start(id).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Lightning Bolt', 'Shock');
 
-      await start(id).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
 
       expect(await pickLogLines(id)).toEqual([
         'Alice: Lightning Bolt',
@@ -227,14 +246,14 @@ describe('steal behavior', () => {
     it('still clears the queue of a player on clear queue', async () => {
       const id = await threePlayerDraft();
       const ids = await poolCardIds(id);
-      await enqueue(id, ids['Lightning Bolt']).expect(200);
+      await start(id).expect(200);
       // Bob, on pick next, loses Lightning Bolt too, and still picks Lava Spike.
       await setStealBehavior(id, 'PickNext', bobCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await carolQueues(id, 'Lightning Bolt', 'Shock');
 
-      await start(id).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
 
       expect(await pickLogLines(id)).toEqual([
         'Alice: Lightning Bolt',
@@ -253,10 +272,10 @@ describe('steal behavior', () => {
   describe('undo', () => {
     it('puts a card lost under pick next back in its place, among cards queued since', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
       await carolQueues(id, 'Skewer the Critics');
 
@@ -274,6 +293,7 @@ describe('steal behavior', () => {
     it('puts a card lost under pick next back in its place, behind a card queued since into an emptied queue', async () => {
       const id = await threePlayerDraft();
       await setSeats(id, [bob.id, carol.id, alice.id]).expect(200);
+      await start(id).expect(200);
       await setStealBehavior(id, 'PickNext').expect(200);
       const ids = await poolCardIds(id);
       await enqueue(id, ids.Shock).expect(200);
@@ -282,7 +302,6 @@ describe('steal behavior', () => {
       // the add into the emptied queue below decides whether Lightning Bolt
       // goes before Lava Spike's old place.
       await reorderQueue(id, [ids.Shock, ids['Lava Spike']]).expect(200);
-      await start(id).expect(200);
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
       await removeFromQueue(id, ids.Shock).expect(200);
       await enqueue(id, ids['Lightning Bolt']).expect(200);
@@ -294,9 +313,9 @@ describe('steal behavior', () => {
 
     it('restores what a pick took out under clear queue, though the player has since switched to pick next', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Skewer the Critics');
@@ -313,10 +332,10 @@ describe('steal behavior', () => {
 
     it('takes back only a card lost under pick next, though the player has since switched to clear queue', async () => {
       const id = await threePlayerDraft();
+      await start(id).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
       await setStealBehavior(id, 'ClearQueue', carolCookie).expect(200);
 

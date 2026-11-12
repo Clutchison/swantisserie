@@ -33,6 +33,7 @@ import {
   endJustAddedHighlight,
   nextUpStrip,
   queueSheet,
+  startDraft,
 } from './harness';
 import { viewOn } from './screen-harness';
 import { carol, openDialog, openDialogs, text } from '../../specs-harness';
@@ -217,6 +218,28 @@ describe('pool tab', () => {
       expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
     });
 
+    it('offers no Add to queue in the lobby', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+        { cards: [shivan] },
+      );
+
+      expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
+    });
+
+    it('offers Add to queue once the draft starts, without a reload', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+        { cards: [shivan] },
+      );
+
+      await startDraft(fixture, { turn: { pick: 1, round: 1, playerId: bob.id } });
+
+      expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
+    });
+
     describe('Queued badge', () => {
       const ancestral = card({
         id: 'ancestral-card',
@@ -329,6 +352,22 @@ describe('pool tab', () => {
           completeSnapshot,
           { state: 'Lobby', turn: null },
           { cards: [brightclimb, shivan], user: carol },
+        );
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('shows none in the lobby, even on a card already queued there', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ state: 'Lobby', turn: null }),
+          {
+            cards: [brightclimb, shivan],
+            queue: queueOf({ cards: [queued(shivan)] }),
+          },
         );
 
         expect(tileNames(page)).toEqual([
@@ -515,16 +554,6 @@ describe('pool tab', () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }), {
           cards: [shivan],
         });
-
-        expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
-      });
-
-      it('offers Add to queue in the lobby, where there are no turns', async () => {
-        const { fixture, page } = await openDraft(
-          completeSnapshot,
-          drafting({ state: 'Lobby', turn: null }),
-          { cards: [shivan] },
-        );
 
         expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeDefined();
       });

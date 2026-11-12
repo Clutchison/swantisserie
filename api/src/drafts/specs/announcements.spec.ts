@@ -25,6 +25,7 @@ import {
   addBot,
   fourCards,
   announcementsSettled,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -122,8 +123,8 @@ describe('announcements', () => {
     it('pings them after a queued pick in a pick’s cascade', async () => {
       const id = await snakeDraft();
       const ids = await poolCardIds(id);
-      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
       await start(id).expect(200);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
       await pick(id, ids.Shock).expect(200);
 
@@ -139,8 +140,9 @@ describe('announcements', () => {
     it('pings them after a queued pick in a start’s cascade', async () => {
       const id = await snakeDraft();
       const ids = await poolCardIds(id);
-      await enqueue(id, ids.Shock).expect(200);
-      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      // Queues already filled in the lobby.
+      await queueInLobby(id, alice, ids.Shock);
+      await queueInLobby(id, bob, ids['Lightning Bolt']);
 
       await start(id).expect(200);
 
@@ -164,8 +166,8 @@ describe('announcements', () => {
       async (stop, carryOn, happened) => {
         const id = await snakeDraft();
         const ids = await poolCardIds(id);
-        await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
         await start(id).expect(200);
+        await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
         await pick(id, ids.Shock).expect(200);
         // Undoing Bob's queued pick puts its card back in his queue, waiting,
         // which fires as pick 2 and leaves him up for pick 3.
@@ -228,8 +230,8 @@ describe('announcements', () => {
     );
     const ids = await poolCardIds(id);
     await addBot(id, await signIn(carol)).expect(201);
-    await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await start(id).expect(200);
+    await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
 
     await pick(id, ids.Shock).expect(200);
 
@@ -250,7 +252,8 @@ describe('announcements', () => {
 
   /**
    * A draft whose start cascades through every pick but the last, Bob's,
-   * making an announcement too long for one post.
+   * making an announcement too long for one post: its queues are already
+   * filled in the lobby.
    */
   async function longCascadeDraft() {
     const cards = Array.from(
@@ -259,12 +262,16 @@ describe('announcements', () => {
     );
     const id = await readyDraft([aliceCookie, bobCookie], 25, cards, webhookId);
     const ids = await poolCardIds(id);
-    for (const card of cards.slice(0, 25)) {
-      await enqueue(id, ids[card]).expect(200);
-    }
-    for (const card of cards.slice(25, 49)) {
-      await enqueue(id, ids[card], bobCookie).expect(200);
-    }
+    await queueInLobby(
+      id,
+      alice,
+      ...cards.slice(0, 25).map((card) => ids[card]),
+    );
+    await queueInLobby(
+      id,
+      bob,
+      ...cards.slice(25, 49).map((card) => ids[card]),
+    );
     return id;
   }
 

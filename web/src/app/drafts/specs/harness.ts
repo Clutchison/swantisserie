@@ -814,6 +814,21 @@ export async function flushPicks(picks: PickView[]) {
 }
 
 /**
+ * Starts the open draft-1, a player's lobby, as its start is pushed to the
+ * page, with `fields` changed (by default the first pick is Alice's), and
+ * answers the reads the start brings: an empty pick log, queue and plan.
+ */
+export async function startDraft(fixture: AppFixture, fields: DraftFixture = {}) {
+  updates.events.next({
+    type: 'changed',
+    draft: draft(drafting({ state: 'Drafting', version: 1, ...fields })),
+  });
+  await flushPicks([]);
+  await flushQueueAndPlan();
+  await fixture.whenStable();
+}
+
+/**
  * Answers the page's GET of draft-1's pool cards with `cards`. The page
  * isn't stable until it's answered.
  */

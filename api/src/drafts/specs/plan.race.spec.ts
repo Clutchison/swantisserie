@@ -26,8 +26,8 @@ describeRaces('plan changes against a cascade', () => {
     const carolCookie = await signIn(carol);
     const id = await readyDraft([aliceCookie, bobCookie, carolCookie]);
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await start(id).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
 
     const [picked, added] = await race(
       () => pick(id, ids.Shock),

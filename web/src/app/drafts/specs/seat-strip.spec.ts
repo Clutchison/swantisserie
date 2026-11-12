@@ -121,12 +121,12 @@ describe('the Seat strip', () => {
       expect(findQueuePane(page)).not.toBeNull();
     });
 
-    it('shows the full Players panel above the tabs in the lobby, and no Seat strip', async () => {
+    it('shows the full Players panel above the tabs in the lobby, and no Seat strip or Queue pane', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
       expect(findSeatStrip(page)).toBeNull();
       expect(playersDisclosure(page)!.open).toBe(true);
-      expect(findQueuePane(page)).not.toBeNull();
+      expect(findQueuePane(page)).toBeNull();
     });
 
     it('shows the Players panel, open, in a complete draft, and no Seat strip', async () => {
