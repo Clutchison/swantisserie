@@ -53,11 +53,9 @@ describe('draft header', () => {
     });
 
     it('is offered to a viewer who may only switch announcements', async () => {
-      const { page } = await openDraft(
-        completeSnapshot,
-        drafting(),
-        { powers: SWITCH_ANNOUNCEMENTS_ONLY },
-      );
+      const { page } = await openDraft(completeSnapshot, drafting(), {
+        powers: SWITCH_ANNOUNCEMENTS_ONLY,
+      });
 
       expect(button(page, 'Announcements')).toBeDefined();
     });

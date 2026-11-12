@@ -51,7 +51,10 @@ describe('switching a draft’s announcements', () => {
   /** Opens the draft with `fields` and its Announcements dialog, the draft unchanged since. */
   async function openWith(fields: DraftFixture) {
     const { fixture, page } = await openDraft(completeSnapshot, fields);
-    const dialog = await openAnnouncements(fixture, page, { snapshot: completeSnapshot, ...fields });
+    const dialog = await openAnnouncements(fixture, page, {
+      snapshot: completeSnapshot,
+      ...fields,
+    });
     return { fixture, page, dialog };
   }
 
