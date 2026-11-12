@@ -2,6 +2,7 @@ import type { DialogRef } from '@angular/cdk/dialog';
 import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   computed,
   effect,
@@ -41,13 +42,14 @@ import {
   DESKTOP_QUERY,
   matching,
   PLAN_CHANGE_FAILED,
-  WIDE_STACKS_QUERY,
+  WIDE_STACKS_WIDTH,
 } from './drafts';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { ExportButtons } from './export-buttons';
 import { PlanApi } from './plan-api';
+import { onResize } from './resizes';
 import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { TypeLetter } from './type-letter';
@@ -89,7 +91,7 @@ interface PlanChoice {
   grouping: Grouping;
 }
 const CHOICE_KEY = 'plan-view';
-/** The grouping when none is kept. The mode's default depends on the screen: see `rememberedChoice`. */
+/** The grouping when none is kept. A new viewer's mode follows the stacks area's width: see `measured`. */
 const DEFAULT_GROUPING: Grouping = 'manaValue';
 const MODES: PlanMode[] = ['stacks', 'list'];
 
@@ -220,6 +222,7 @@ export class PlanTab {
   private readonly injector = inject(Injector);
   private readonly cardDetails = inject(CardDetails);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly changeDetector = inject(ChangeDetectorRef);
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
@@ -247,14 +250,19 @@ export class PlanTab {
 
   /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
   protected readonly onDesktop = matching(DESKTOP_QUERY);
+  /** The stacks area, the deck boards' row and stack headers, whose width stacks mode lays out by. */
+  private readonly stacksArea = viewChild.required<ElementRef<HTMLElement>>('stacksArea');
   /**
-   * Whether stacks mode has room for the wide layout, as the page is resized:
-   * else the mainboard's stacks are a strip that scrolls sideways, which
-   * offers no drag. No `matchMedia` counts as a phone, so the strip.
+   * Whether stacks mode has room for the wide layout, by the stacks area's
+   * width as it is measured: else the mainboard's stacks are a strip that
+   * scrolls sideways, which offers no drag. Until measured, the strip.
    */
-  protected readonly wideStacks = matching(WIDE_STACKS_QUERY);
-  private readonly remembered = rememberedChoice(this.wideStacks() ? 'stacks' : 'list');
-  protected readonly mode = signal(this.remembered.mode);
+  protected readonly wideStacks = signal(false);
+  private readonly remembered = rememberedChoice();
+  /** The mode: for a new viewer, stacks mode where the wide layout fits, once measured, else list mode. */
+  protected readonly mode = signal(this.remembered.mode ?? 'list');
+  /** Whether the mode is settled: kept from last time, chosen, or set by the stacks area's first measure. */
+  private modeSettled = this.remembered.mode !== undefined;
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
   /** How long a stacked card is held before a drag starts: on touch, long enough that a swipe scrolls. */
@@ -427,6 +435,11 @@ export class PlanTab {
   }
 
   constructor() {
+    // Without a ResizeObserver, as in some test environments, stacks mode lays out as the strip.
+    onResize(
+      () => this.stacksArea().nativeElement,
+      ({ width }) => this.measured(width),
+    );
     // Queue unpicked stops being offered as the player's turn comes: close its
     // dialog then, so it can't come back by itself once the turn passes.
     effect(() => {
@@ -434,8 +447,28 @@ export class PlanTab {
     });
   }
 
+  /**
+   * Lays stacks mode out by the stacks area's `width`, and settles a new
+   * viewer's mode by the first. A hidden Deck tab measures no width, and
+   * keeps the layout it had.
+   */
+  private measured(width: number) {
+    if (width === 0) return;
+    const wide = width >= WIDE_STACKS_WIDTH;
+    const unchanged = wide === this.wideStacks() && this.modeSettled;
+    this.wideStacks.set(wide);
+    if (!this.modeSettled) {
+      this.modeSettled = true;
+      this.mode.set(wide ? 'stacks' : 'list');
+    }
+    // Rendered now, before the browser paints the container query's layout, not a frame later.
+    // Stryker disable next-line ConditionalExpression,BlockStatement: rendering an unchanged layout again changes nothing a viewer sees.
+    if (!unchanged) this.changeDetector.detectChanges();
+  }
+
   /** Shows the plan in `mode`, starting the strip at its first stack, as from the list there's no place in it to keep. */
   protected setMode(mode: PlanMode) {
+    this.modeSettled = true;
     this.mode.set(mode);
     this.scrollToFirstStack();
     this.rememberChoice();
@@ -790,10 +823,10 @@ export class PlanTab {
 
 /**
  * The mode and grouping the viewer last chose, one choice for every screen;
- * if none is kept or storage is refused, `defaultMode` grouped by mana value.
+ * if none is kept or storage is refused, no mode, grouped by mana value.
  */
-function rememberedChoice(defaultMode: PlanMode): PlanChoice {
-  const defaults: PlanChoice = { mode: defaultMode, grouping: DEFAULT_GROUPING };
+function rememberedChoice(): Partial<PlanChoice> & Pick<PlanChoice, 'grouping'> {
+  const defaults = { mode: undefined, grouping: DEFAULT_GROUPING };
   try {
     // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.
     const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');

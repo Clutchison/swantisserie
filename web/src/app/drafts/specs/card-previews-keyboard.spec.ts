@@ -15,7 +15,8 @@ import {
   cardName,
   startDrag,
 } from './harness';
-import { planOf, planned, openPlan } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
+import { planOf, planned, openPlan, WIDE_STACKS_AREA } from './plan-tab-harness';
 import { image, openDetail } from './pool-tab-harness';
 import { openDialog, pressEscape, pressKey } from '../../specs-harness';
 import {
@@ -205,6 +206,7 @@ describe('card previews', () => {
 
     it('adds no Tab stop for a card shown in stacks mode', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
       try {
         const { page, fixture } = await openPicked({
           plan: {
