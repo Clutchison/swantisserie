@@ -78,28 +78,6 @@ describe('pool tab', () => {
     );
   });
 
-  it('tells the browser how wide a tile is, once the grid is measured', async () => {
-    onTestFinished(() => void vi.unstubAllGlobals());
-    let measured!: ResizeObserverCallback;
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        constructor(callback: ResizeObserverCallback) {
-          measured = callback;
-        }
-        observe() {}
-        disconnect() {}
-      },
-    );
-    const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
-
-    // Nine columns of 149px, with eight 8px gaps.
-    measured([{ contentRect: { width: 1405 } } as ResizeObserverEntry], {} as ResizeObserver);
-    await fixture.whenStable();
-
-    expect(tiles(page)[0].querySelector('img')!.getAttribute('sizes')).toBe('149px');
-  });
-
   describe('once the grid is measured', () => {
     afterEach(() => vi.unstubAllGlobals());
 
@@ -133,6 +111,17 @@ describe('pool tab', () => {
         }
       };
     }
+
+    it('tells the browser how wide a tile is', async () => {
+      const measure = measuredAs();
+      const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: [shivan] });
+
+      // Nine columns of 149px, with eight 8px gaps.
+      measure(1405);
+      await fixture.whenStable();
+
+      expect(tiles(page)[0].querySelector('img')!.getAttribute('sizes')).toBe('149px');
+    });
 
     it('fits as many of its narrowest tiles across as its width holds exactly', async () => {
       const measure = measuredAs();

@@ -1,3 +1,4 @@
+@use 'breakpoints' as bp;
 @use 'visually-hidden';
 
 /* You can add global styles to this file, and also import other style files */
@@ -323,5 +324,26 @@ textarea {
 @keyframes backdrop-fade-in {
   from {
     opacity: 0;
+  }
+}
+
+/*
+ * The draft page's tab bar, fixed to the bottom of the screen below 1024px and stuck to the top
+ * from there: a control focused from the keyboard scrolls clear of it, never under it (WCAG
+ * 2.4.11). The Pool tab's search bar and the Deck tab's stack headers stick too; the controls
+ * they could cover keep clear of them with their own scroll margin.
+ */
+html:has(app-draft-page) {
+  /* Room for the fixed tab bar, a little taller than it; the draft page leaves it under its content too. */
+  --tab-bar-clearance: 4rem;
+
+  scroll-padding-bottom: var(--tab-bar-clearance);
+
+  @media (min-width: bp.$desktop) {
+    /* The sticky tab bar's height, which the Pool's search bar sticks just below. */
+    --tab-bar-height: 2.75rem;
+
+    scroll-padding-top: var(--tab-bar-height);
+    scroll-padding-bottom: 0;
   }
 }
