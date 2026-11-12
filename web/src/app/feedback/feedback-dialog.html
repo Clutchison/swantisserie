@@ -1,15 +1,24 @@
 <div class="dialog">
-  <!-- Always present: screen readers announce only changes to a status already there. -->
-  <p class="thanks" role="status">
-    {{ status() === 'Sent' ? 'Thanks, your feedback was sent' : '' }}
-  </p>
+  <h3 [id]="headingId">Send feedback</h3>
   @if (status() === 'Sent') {
-    <div class="actions">
-      <button #closeButton class="button" type="button" (click)="close()">Close</button>
+    <div class="dialog-body">
+      <p [id]="thanksId">Thanks, your feedback was sent</p>
+    </div>
+    <div class="dialog-actions">
+      <!-- Focused on success, it carries the thanks for a screen reader to read with it. -->
+      <button
+        #closeButton
+        class="button"
+        type="button"
+        [attr.aria-describedby]="thanksId"
+        (click)="close()"
+      >
+        Close
+      </button>
     </div>
   } @else {
-    <h2>Send feedback</h2>
-    <form (submit)="$event.preventDefault(); submit()">
+    <!-- The form is the dialog's body; Submit, in the action row after it, submits it by its id. -->
+    <form [id]="formId" class="dialog-body" (submit)="$event.preventDefault(); submit()">
       <textarea
         #field
         name="message"
@@ -23,10 +32,12 @@
       @if (status() === 'Failed') {
         <p class="error" role="alert">Couldn't send your feedback. Try again.</p>
       }
-      <div class="actions">
-        <button class="button secondary" type="button" (click)="close()">Cancel</button>
-        <button class="button" type="submit" [disabled]="!canSubmit()">Submit</button>
-      </div>
     </form>
+    <div class="dialog-actions">
+      <button class="button secondary" type="button" (click)="close()">Cancel</button>
+      <button class="button" type="submit" [attr.form]="formId" [disabled]="!canSubmit()">
+        Submit
+      </button>
+    </div>
   }
 </div>

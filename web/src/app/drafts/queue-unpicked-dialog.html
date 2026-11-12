@@ -1,24 +1,26 @@
 <div class="dialog">
   <h3 [id]="headingId">Queue unpicked cards</h3>
-  @if (queueCount() === 0) {
-    <p>
-      {{
-        includeSideboard()
-          ? 'Nothing in your deck to queue.'
-          : 'Nothing on your mainboard to queue.'
-      }}
-    </p>
-  } @else {
-    <p>Adds {{ queueCountText() }} to the end of your queue.</p>
-  }
-  <label>
-    <input
-      type="checkbox"
-      [checked]="includeSideboard()"
-      (change)="includeSideboard.set($any($event.target).checked)"
-    />
-    Include sideboard
-  </label>
+  <div class="dialog-body">
+    @if (queueCount() === 0) {
+      <p>
+        {{
+          includeSideboard()
+            ? 'Nothing in your deck to queue.'
+            : 'Nothing on your mainboard to queue.'
+        }}
+      </p>
+    } @else {
+      <p>Adds {{ queueCountText() }} to the end of your queue.</p>
+    }
+    <label>
+      <input
+        type="checkbox"
+        [checked]="includeSideboard()"
+        (change)="includeSideboard.set($any($event.target).checked)"
+      />
+      Include sideboard
+    </label>
+  </div>
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
     <button
