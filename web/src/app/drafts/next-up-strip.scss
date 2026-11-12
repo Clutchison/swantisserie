@@ -1,3 +1,5 @@
+@use 'queue-add-bump';
+
 /*
  * Fixed above the tab bar at the foot of the screen, on every tab. Its
  * height and the tab bar's are set on `html` in styles.scss, which adds the
@@ -63,3 +65,5 @@
   flex-shrink: 0;
   color: var(--color-muted);
 }
+
+@include queue-add-bump.bump;

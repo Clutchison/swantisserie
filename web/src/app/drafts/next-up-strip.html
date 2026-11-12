@@ -9,7 +9,7 @@
   <span class="title" aria-hidden="true">
     Queue
     @if (size(); as size) {
-      · {{ size.count }}
+      <span class="count" appQueueAddBump>· {{ size.count }}</span>
     }
     @if (unseenNotice()) {
       <span class="dot"></span>
@@ -25,3 +25,4 @@
   }
   <svg lucideChevronUp size="16" aria-hidden="true"></svg>
 </button>
+<app-queue-add-status />

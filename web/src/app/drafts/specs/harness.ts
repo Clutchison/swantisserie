@@ -581,6 +581,18 @@ export const cardName = (root: HTMLElement, name: string) =>
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
 
+/** The rows of the queue inside `root` that a screen reader hears as just added. */
+const justAddedRows = (root: HTMLElement) =>
+  [...queueList(root).querySelectorAll<HTMLElement>('li')].filter((row) =>
+    accessibleName(row).includes('just added'),
+  );
+/** The names of the cards in the queue inside `root` marked as just added. */
+export const justAddedCards = (root: HTMLElement) =>
+  justAddedRows(root).flatMap((row) => cardNames(row).map((name) => text(name)));
+/** Plays out the just-added highlight on the queue's rows inside `root`, as a browser ends its animation. */
+export const endJustAddedHighlight = (root: HTMLElement) =>
+  justAddedRows(root).forEach((row) => row.dispatchEvent(new Event('animationend')));
+
 /** The picks left count inside `root`, such as beside a panel's heading, found by its text. */
 export const picksLeftCount = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('*')].find((element) =>

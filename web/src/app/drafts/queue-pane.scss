@@ -1,3 +1,4 @@
+@use 'queue-add-bump';
 @use 'side-pane';
 
 /* Beside the tabs: a column of its own, which a collapsed pane narrows to a rail. */
@@ -214,3 +215,20 @@ app-card-name {
     cursor: help;
   }
 }
+
+/*
+ * A card just added from its Card detail: a background that fades out, and
+ * once it has, the row is no longer marked. A colour, not motion, so it
+ * plays under reduced motion too.
+ */
+.queue li.just-added {
+  animation: just-added 2s ease-out;
+}
+
+@keyframes just-added {
+  from {
+    background: var(--color-raised);
+  }
+}
+
+@include queue-add-bump.bump;

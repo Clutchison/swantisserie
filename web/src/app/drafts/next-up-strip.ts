@@ -3,6 +3,7 @@ import { LucideChevronUp } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
 import { picksLeftText } from './drafts';
+import { QueueAddBump, QueueAddStatus } from './queue-add-status';
 import { QueueSheet } from './queue-sheet';
 
 /**
@@ -14,7 +15,7 @@ import { QueueSheet } from './queue-sheet';
  */
 @Component({
   selector: 'app-next-up-strip',
-  imports: [LucideChevronUp],
+  imports: [LucideChevronUp, QueueAddBump, QueueAddStatus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './next-up-strip.html',
   styleUrl: './next-up-strip.scss',

@@ -71,6 +71,15 @@ export interface PickedCard extends PickView {
   card: PoolCardView;
 }
 
+/** A card the player added to their queue from a Card detail. */
+export interface QueueAdd {
+  /** Tells each add apart, later ones higher, so the same card added again is a new add. */
+  id: number;
+  poolCardId: string;
+  /** The queue's size as the add left it: its count, and the noun a viewer reads after it. */
+  size: { count: number; noun: string };
+}
+
 /**
  * The draft-scoped service: one per open draft page, which provides it, for
  * the draft its route names. It owns the page's reads of the api (the draft,
@@ -290,6 +299,25 @@ export class DraftStore implements TournamentViewer {
     const count = this.queue.value().cards.length;
     return { count, noun: cardsNoun(count) };
   });
+  /** How many cards the player has added to their queue from a Card detail, on this page. */
+  private queueAdds = 0;
+  private readonly latestQueueAddShown = signal<QueueAdd | null>(null);
+  /** The latest card the player added to their queue from a Card detail, on this page; null before one. */
+  readonly latestQueueAdd = this.latestQueueAddShown.asReadonly();
+
+  /**
+   * Notes a card the player has added to their queue from a Card detail,
+   * with the queue's size as it now stands. The add's answer has just been
+   * shown, so the size is known; should it not be, there is no size to say,
+   * and the add before stays the latest.
+   */
+  addedToQueue(poolCardId: string) {
+    const size = this.queueSize();
+    // Stryker disable next-line ConditionalExpression: a changed queue just shown is always loaded.
+    if (!size) return;
+    this.latestQueueAddShown.set({ id: ++this.queueAdds, poolCardId, size });
+  }
+
   /** The pool card ids of the cards in the signed-in player's queue. */
   readonly queued = computed(
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
