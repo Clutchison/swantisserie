@@ -215,8 +215,12 @@ A player's setting, for one draft, for what a lost card does to the rest of thei
 _Avoid_: Loss setting, fallback, keep queue
 
 **Queue pane**:
-The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or over them where there isn't room. It is there until the draft is complete.
-_Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's)
+The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there until the draft is complete.
+_Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
+
+**"Next up" strip**:
+The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
+_Avoid_: Queue bar, mini queue, Seat strip (that is the players' avatars)
 
 **Queued badge**:
 The mark on a card in the Pool tab that the viewer has queued, showing its place in their queue.

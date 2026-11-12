@@ -1,8 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   useDraftsApp,
-  queuePane,
-  queueSheet,
+  openQueueSheet,
   tabButton,
   panel,
   wait,
@@ -87,10 +86,10 @@ describe('card previews', () => {
     });
 
     it('skips a name with no pool card', async () => {
-      await openQueueWithoutBolt();
+      const { sheet } = await openQueueWithoutBolt();
 
-      expect(cardName(queueSheet()!, 'Lightning Bolt').tabIndex).toBe(-1);
-      expect(cardName(queueSheet()!, 'Shock').tabIndex).toBe(0);
+      expect(cardName(sheet, 'Lightning Bolt').tabIndex).toBe(-1);
+      expect(cardName(sheet, 'Shock').tabIndex).toBe(0);
     });
 
     it('opens nothing through focus when a name is clicked with a mouse', async () => {
@@ -160,25 +159,19 @@ describe('card previews', () => {
     });
 
     it('opens on names tabbed to in the Queue pane, but not while a drag is under way', async () => {
-      // The pane beside the tabs, in the page's own tree, where `startDrag` finds a row's drag.
-      viewOn('desktop');
-      try {
-        const { page, fixture } = await openPicked({
-          queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
-        });
-        // A button, as it opens its Card detail.
-        const name = button(queuePane(page), 'Shock')!;
+      const { page, fixture } = await openPicked({
+        queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
+      });
+      // A button, as it opens its Card detail.
+      const name = button(await openQueueSheet(fixture, page), 'Shock')!;
 
-        tabTo(name);
-        expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
-        tabAway(name);
+      tabTo(name);
+      expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+      tabAway(name);
 
-        startDrag(fixture, name);
-        tabTo(name);
-        expect(previewImage()).toBeNull();
-      } finally {
-        vi.unstubAllGlobals();
-      }
+      startDrag(fixture, name);
+      tabTo(name);
+      expect(previewImage()).toBeNull();
     });
 
     it('opens on list mode names, which are buttons there, tabbed to on the Deck tab', async () => {

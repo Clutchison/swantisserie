@@ -42,6 +42,12 @@ export const DRAG_START_DELAY = { touch: 200, mouse: 0 };
 /** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
 export const HIGHLIGHT_PICKS_LEFT_AT = 10;
 
+/** A player's picks left as a viewer reads them: "12 picks left", or "1 pick left". */
+export const picksLeftText = (left: number) => `${left} ${left === 1 ? 'pick' : 'picks'} left`;
+
+/** The noun a viewer reads after a count of cards: "card" for one, else "cards". */
+export const cardsNoun = (count: number) => (count === 1 ? 'card' : 'cards');
+
 /**
  * The width in px of the Deck tab's stacks area from which it has room for
  * the wide stacks layout, with the sideboard's stack beside the mainboard's;

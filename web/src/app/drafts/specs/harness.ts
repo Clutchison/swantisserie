@@ -54,7 +54,7 @@ import {
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
 export { resizeTo, viewOn } from './screen-harness';
-export { draggable, dragHandle, startDrag, touchDrag } from './drag-harness';
+export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
 export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";

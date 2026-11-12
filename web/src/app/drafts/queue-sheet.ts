@@ -5,48 +5,42 @@ import { QueuePane } from './queue-pane';
 
 /**
  * The Queue sheet: the Queue pane over the page below the desktop layout,
- * opened on the dialog shell from the "next up" strip and anchored to the
- * foot of the screen (styles.scss places it). It is as tall as the pane, up
- * to the screen less a margin, and scrolls on its own. Only Close, Escape
- * and the backdrop close it, so a drag to reorder never does.
+ * opened on the dialog shell from the "next up" strip. It is the shared
+ * dialog box, its body the pane, which brings its own heading; styles.scss
+ * anchors it to the foot of the screen at the screen's width. Only Close,
+ * Escape and the backdrop close it, so a drag to reorder never does.
  */
 @Component({
   selector: 'app-queue-sheet',
   imports: [CdkScrollable, QueuePane],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<div class="sheet">
-    <div class="actions">
-      <button class="button secondary compact" type="button" (click)="close()">Close</button>
-    </div>
+  template: `<div class="dialog">
     <!-- The scroller drag and drop scrolls as a drag nears its edges. -->
-    <div class="body" cdkScrollable>
+    <div class="dialog-body" cdkScrollable>
       <app-queue-pane />
     </div>
+    <div class="dialog-actions">
+      <!-- Focus starts here, not on the pane's first control, which a stray tap would change. -->
+      <button class="button secondary" type="button" cdkFocusInitial (click)="close()">
+        Close
+      </button>
+    </div>
   </div>`,
+  styleUrl: '../dialog.scss',
   styles: `
-    /* The screen's width with its top corners rounded, up to the screen's height less the room above it. */
-    .sheet {
-      display: flex;
-      flex-direction: column;
-      box-sizing: border-box;
-      width: 100%;
-      max-height: calc(100dvh - 4rem);
-      padding: var(--space-sm) var(--page-gutter) var(--space-lg);
-      border-radius: 0.75rem 0.75rem 0 0;
-      background: var(--color-bg);
-      color: var(--color-text);
+    /* The screen's width. */
+    :host {
+      --dialog-width: 100vw;
     }
 
-    .actions {
-      display: flex;
-      flex-shrink: 0;
-      justify-content: flex-end;
+    /* Its top corners rounded, as it rises from the foot of the screen. */
+    .dialog {
+      border-end-start-radius: 0;
+      border-end-end-radius: 0;
     }
 
     /* Scrolling to the end of the queue never scrolls the page behind it. */
-    .body {
-      min-height: 0;
-      overflow-y: auto;
+    .dialog-body {
       overscroll-behavior: contain;
     }
   `,

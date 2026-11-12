@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { DraftStore } from './draft-store';
-import { HIGHLIGHT_PICKS_LEFT_AT } from './drafts';
+import { HIGHLIGHT_PICKS_LEFT_AT, picksLeftText } from './drafts';
 
 /**
  * The viewer's picks left, such as "– 12 picks left", beside a heading:
@@ -14,9 +14,9 @@ import { HIGHLIGHT_PICKS_LEFT_AT } from './drafts';
   template: `@let left = picksLeft();
     @if (left !== null) {
       <span aria-hidden="true">– </span
-      ><span [attr.data-highlighted]="left <= highlightAt ? 'true' : null"
-        >{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</span
-      >
+      ><span [attr.data-highlighted]="left <= highlightAt ? 'true' : null">{{
+        picksLeftText(left)
+      }}</span>
     }`,
   styles: `
     /* Secondary to the heading, until the viewer is near the end of their picks. */
@@ -39,4 +39,5 @@ import { HIGHLIGHT_PICKS_LEFT_AT } from './drafts';
 export class PicksLeft {
   protected readonly picksLeft = inject(DraftStore).picksLeft;
   protected readonly highlightAt = HIGHLIGHT_PICKS_LEFT_AT;
+  protected readonly picksLeftText = picksLeftText;
 }

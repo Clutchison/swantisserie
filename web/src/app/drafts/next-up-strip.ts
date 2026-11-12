@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, Injector } from '
 import { LucideChevronUp } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
+import { picksLeftText } from './drafts';
 import { QueueSheet } from './queue-sheet';
 
 /**
@@ -24,15 +25,11 @@ export class NextUpStrip {
   private readonly injector = inject(Injector);
 
   /** The queue's size: its count and the noun after it; null until it is known. */
-  protected readonly size = computed(() => {
-    if (this.store.queue.loading() || this.store.queue.missing()) return null;
-    const count = this.store.queue.value().cards.length;
-    return { count, noun: count === 1 ? 'card' : 'cards' };
-  });
+  protected readonly size = this.store.queueSize;
   /** The viewer's picks left, as a viewer reads them; null while there is no count. */
   protected readonly picksLeft = computed(() => {
     const left = this.store.picksLeft();
-    return left === null ? null : `${left} ${left === 1 ? 'pick' : 'picks'} left`;
+    return left === null ? null : picksLeftText(left);
   });
   /** The name of the card the queue picks next, its first; null while it is empty or unknown. */
   protected readonly next = computed(() =>

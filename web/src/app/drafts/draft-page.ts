@@ -122,7 +122,10 @@ export class DraftPage {
    * and while that is still loading.
    */
   protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
-  /** Whether the page is at the desktop layout, as it is resized: the Queue pane's, beside the tabs. */
+  /**
+   * Whether the page is at the desktop layout, as it is resized: the one
+   * with the Queue pane beside the tabs.
+   */
   private readonly desktop = matching(DESKTOP_QUERY);
   /** Whether the viewer has a Queue pane: a player, until the draft is complete. */
   private readonly hasQueuePane = computed(() => this.joined() && !!this.store.queueShown());

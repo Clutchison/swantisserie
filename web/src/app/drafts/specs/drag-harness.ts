@@ -1,4 +1,5 @@
-import { CdkDrag, CdkDragHandle } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDragHandle, CdkDropList } from '@angular/cdk/drag-drop';
+import { DebugElement, getDebugNode, type Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { AppFixture } from './harness';
@@ -62,8 +63,43 @@ export function touchDrag(fixture: AppFixture, element: HTMLElement, heldFor: nu
   return started;
 }
 
+/**
+ * Drops the card that holds `element` at `currentIndex` in its list, as the
+ * CDK says a drop ended (jsdom can't drag), and renders what came of it. Like
+ * the CDK, the drop says the card's index from when the drag started.
+ */
+export function dropAt(fixture: AppFixture, element: HTMLElement, currentIndex: number) {
+  const list = holding(fixture, CdkDropList, element);
+  const drags = list.queryAll(By.directive(CdkDrag));
+  const previousIndex = drags.findIndex((drag) => drag.nativeElement.contains(element));
+  const container = list.injector.get(CdkDropList);
+  list.triggerEventHandler('cdkDropListDropped', {
+    item: drags[previousIndex].injector.get(CdkDrag),
+    previousIndex,
+    currentIndex,
+    container,
+    previousContainer: container,
+  });
+  TestBed.tick();
+}
+
+/**
+ * Where drag and drop can be: the page, and each dialog open over it, such
+ * as the Queue sheet, which the CDK puts outside the page.
+ */
+const dragRoots = (fixture: AppFixture) => [
+  fixture.debugElement,
+  ...[...document.querySelectorAll('[role="dialog"]')]
+    .map((dialog) => getDebugNode(dialog))
+    .filter((node) => node instanceof DebugElement),
+];
+
+/** The element with the drag-and-drop directive `directive` that holds `element`. */
+const holding = (fixture: AppFixture, directive: Type<unknown>, element: HTMLElement) =>
+  dragRoots(fixture)
+    .flatMap((root) => root.queryAll(By.directive(directive)))
+    .find((found) => found.nativeElement.contains(element))!;
+
 /** The draggable card that holds `element`. */
 const dragHolding = (fixture: AppFixture, element: HTMLElement) =>
-  fixture.debugElement
-    .queryAll(By.directive(CdkDrag))
-    .find((drag) => drag.nativeElement.contains(element))!;
+  holding(fixture, CdkDrag, element);

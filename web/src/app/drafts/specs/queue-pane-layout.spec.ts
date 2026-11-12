@@ -22,6 +22,7 @@ import {
   queueSheet,
   accessibleName,
   cardName,
+  dropAt,
   openTab,
   picksLeftTexts,
   queued,
@@ -40,7 +41,10 @@ import { measuredAs } from './measure-harness';
 import {
   byAriaLabel,
   clickBackdrop,
+  dialogBackdrop,
   hiddenFromAssistiveTech,
+  menuItem,
+  openMenu,
   pressEscape,
 } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -117,10 +121,11 @@ describe('Queue pane layout', () => {
       });
 
       expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
-      for (const tab of ['Pool', 'Deck', 'Board']) {
+      const strip = nextUpStrip(page);
+      for (const tab of ['Deck', 'Board', 'Pool']) {
         await openTab(fixture, page, tab);
         expect(findQueuePane(page)).toBeNull();
-        expect(nextUpStrip(page).closest('[role="tabpanel"]')).toBeNull();
+        expect(nextUpStrip(page)).toBe(strip);
       }
     });
 
@@ -232,8 +237,84 @@ describe('Queue pane layout', () => {
       expect(queueList(queuePane(page)).textContent).toContain('Shivan Dragon');
     });
 
+    it('reorders by a drop in the sheet', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan, brightclimb],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const sheet = await openQueueSheet(fixture, page);
+
+      dropAt(fixture, cardName(sheet, 'Shivan Dragon'), 1);
+      const req = http.expectOne('/api/drafts/draft-1/queue');
+      expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
+      req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
+      await fixture.whenStable();
+
+      expect(queueSheet()).toBe(sheet);
+    });
+
+    it('stays open when a drag begun in the sheet is released over the backdrop', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+      const sheet = await openQueueSheet(fixture, page);
+
+      cardName(sheet, 'Shivan Dragon')
+        .closest('li')!
+        .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      for (const type of ['mouseup', 'click']) {
+        dialogBackdrop().dispatchEvent(new MouseEvent(type, { bubbles: true }));
+      }
+      await fixture.whenStable();
+
+      expect(queueSheet()).toBe(sheet);
+    });
+
+    it('moves a card to the top from its row menu on a touchscreen, keeping the sheet open and focus on the menu', async () => {
+      viewOn(screen, { pointer: 'coarse' });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan, brightclimb],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const sheet = await openQueueSheet(fixture, page);
+      const card = 'Brightclimb Pathway // Grimclimb Pathway';
+      const rowMenu = `Move or remove ${card}`;
+
+      openMenu(button(sheet, rowMenu)!, rowMenu);
+      menuItem(rowMenu, 'Move to top')!.click();
+      const req = http.expectOne('/api/drafts/draft-1/queue');
+      expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
+      req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
+      await fixture.whenStable();
+
+      expect(queueSheet()).toBe(sheet);
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(sheet, rowMenu)));
+    });
+
+    it('closes the sheet, and takes the strip away, when the draft completes with it open', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+      await openQueueSheet(fixture, page);
+
+      // As when the player's own queued pick is the draft's last.
+      updates.events.next({
+        type: 'changed',
+        draft: draft(drafting({ state: 'Complete', turn: null, version: 1 })),
+      });
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+
+      expect(queueSheet()).toBeNull();
+      expect(findNextUpStrip(page)).toBeUndefined();
+    });
+
     it.each([
       ['in the lobby', drafting({ state: 'Lobby', turn: null })],
+      ['while paused', drafting({ state: 'Paused' })],
       ['while closed', drafting({ state: 'Closed', turn: null })],
     ])('shows the strip %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
