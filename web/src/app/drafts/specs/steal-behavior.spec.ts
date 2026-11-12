@@ -4,8 +4,6 @@ import {
   alicePlayer,
   bob,
   http,
-  tabButton,
-  panel,
   openDraft,
   completeSnapshot,
   button,
@@ -19,7 +17,8 @@ import {
   drafting,
   queued,
   queueOf,
-  openQueue,
+  queuePane,
+  viewOn,
   accessibleDescription,
 } from './harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -28,6 +27,9 @@ useDraftsApp();
 useTallScreen();
 
 describe('steal behavior', () => {
+  beforeEach(() => viewOn('desktop'));
+  afterEach(() => vi.unstubAllGlobals());
+
   const EXPLANATION =
     'Clear queue: the rest of your queue is cleared. ' +
     'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
@@ -37,8 +39,8 @@ describe('steal behavior', () => {
     return queue.querySelector<HTMLButtonElement>('.steal-behavior button')!;
   }
 
-  it('shows the player’s steal behavior above the notice and the queue', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+  it('shows the player’s steal behavior in the Queue pane’s header, above the notice and the queue', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [brightclimb, shivan],
       queue: queueOf({
         cards: [queued(shivan)],
@@ -46,7 +48,7 @@ describe('steal behavior', () => {
         restKept: false,
       }),
     });
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     const control = queue.querySelector<HTMLElement>('.steal-behavior')!;
     expect(control.textContent).toContain('Steal behavior');
@@ -59,11 +61,11 @@ describe('steal behavior', () => {
   });
 
   it('explains itself in a tooltip and as the pill’s description', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     const label = [...queue.querySelectorAll<HTMLElement>('.steal-behavior [title]')];
     expect(label.map((l) => l.title)).toEqual([EXPLANATION]);
@@ -79,11 +81,11 @@ describe('steal behavior', () => {
   });
 
   it('shows when the queue is empty', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [], stealBehavior: 'PickNext' }),
     });
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     expect(pill(queue).textContent).toContain('Pick next');
   });
@@ -93,7 +95,7 @@ describe('steal behavior', () => {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     pill(queue).click();
     await fixture.whenStable();
@@ -125,12 +127,12 @@ describe('steal behavior', () => {
       drafting({ state: 'Paused', turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
   ] as [string, DraftFixture][])('can be changed %s', async (_when, fields) => {
-    const { fixture, page } = await openDraft(
+    const { page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer, bob], ...fields },
       { cards: [shivan], queue: queueOf({ cards: [queued(shivan)] }) },
     );
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     expect(pill(queue).disabled).toBe(false);
   });
@@ -141,19 +143,18 @@ describe('steal behavior', () => {
     await flushPool([shivan]);
     await flushPicks([]);
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
-    tabButton(page, 'Queue').click();
-    await expectLoadingAnimation(() => panel(page), 'Loading your queue…', 64);
-    expect(pill(panel(page)).disabled).toBe(true);
+    await expectLoadingAnimation(() => queuePane(page), 'Loading your queue…', 64);
+    expect(pill(queuePane(page)).disabled).toBe(true);
 
     req.flush(queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }));
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
-    expect(pill(panel(page)).disabled).toBe(false);
-    expect(pill(panel(page)).textContent).toContain('Pick next');
+    expect(pill(queuePane(page)).disabled).toBe(false);
+    expect(pill(queuePane(page)).textContent).toContain('Pick next');
   });
 
   it('is shown but can’t be changed once the draft is closed', async () => {
-    const { fixture, page } = await openDraft(
+    const { page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Closed', turn: null }),
       {
@@ -161,7 +162,7 @@ describe('steal behavior', () => {
         queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
       },
     );
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     expect(pill(queue).textContent).toContain('Pick next');
     expect(pill(queue).disabled).toBe(true);
@@ -172,7 +173,7 @@ describe('steal behavior', () => {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
-    const queue = await openQueue(fixture, page);
+    const queue = queuePane(page);
 
     pill(queue).click();
     http
@@ -208,7 +209,7 @@ describe('steal behavior', () => {
           stealBehavior: 'PickNext',
         }),
       });
-      const queue = await openQueue(fixture, page);
+      const queue = queuePane(page);
 
       const note = queue.querySelector<HTMLElement>('.notice')!;
       expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
@@ -223,7 +224,7 @@ describe('steal behavior', () => {
     });
 
     it('names only the lost card when nothing is left queued', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      const { page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({
           cards: [],
@@ -232,7 +233,7 @@ describe('steal behavior', () => {
           stealBehavior: 'PickNext',
         }),
       });
-      const queue = await openQueue(fixture, page);
+      const queue = queuePane(page);
 
       const note = queue.querySelector<HTMLElement>('.notice')!;
       expect(note.textContent).toContain('Lost to other players');

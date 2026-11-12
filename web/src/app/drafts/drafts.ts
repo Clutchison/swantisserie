@@ -28,6 +28,15 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
 export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)';
 
 /**
+ * The media query of a screen whose primary pointer is touch, where a queue
+ * row is dragged by its handle rather than as a whole.
+ */
+export const COARSE_POINTER_QUERY = '(pointer: coarse)';
+
+/** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
+export const HIGHLIGHT_PICKS_LEFT_AT = 10;
+
+/**
  * The width in px of the Deck tab's stacks area from which it has room for
  * the wide stacks layout, with the sideboard's stack beside the mainboard's;
  * narrower, the mainboard's stacks become a strip that scrolls sideways. The

@@ -241,7 +241,9 @@ describe('close and reopen', () => {
     const queue = page.querySelector('#queue-panel')!;
     expect(queue.textContent).toContain('Shivan Dragon');
     expect(queue.textContent).toContain('Lightning Bolt');
-    expect(queue.querySelector('button:not(.pill)')).toBeNull();
+    expect(button(queue as HTMLElement, 'Remove Shivan Dragon')).toBeUndefined();
+    expect(button(queue as HTMLElement, 'Move Shivan Dragon down')).toBeUndefined();
+    expect(button(queue as HTMLElement, 'Dismiss')).toBeUndefined();
     expect(queue.textContent).not.toContain('Drag to reorder');
   });
 

@@ -23,7 +23,7 @@
 }
 
 /*
- * The Pool, Queue and Deck headings, with the viewer's picks left beside
+ * The Pool and Deck headings, with the viewer's picks left beside
  * them: on a phone the count wraps onto its own line under the heading.
  */
 .panel-heading {
@@ -191,16 +191,43 @@ main {
     }
   }
 
-  /* Pool and Board use the full width; the Queue tab reads better capped. */
-  .queue {
-    max-width: var(--capped-tab-width);
+  /*
+   * With the Queue pane, the page is two columns: the tabs and their panels,
+   * with the pane beside them. Like the tab bar, it stays in view as a tab
+   * scrolls, and scrolls on its own when it's long.
+   */
+  main.with-queue-pane {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-xl);
+    align-items: start;
+
+    /* The header, the status strip and the Players panel span both columns. */
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .tab-column {
+      grid-column: 1;
+    }
+
+    > .queue-pane {
+      position: sticky;
+      top: 0;
+      grid-column: 2;
+      box-sizing: border-box;
+      max-block-size: 100dvh;
+      overflow-y: auto;
+      margin-top: var(--space-xl);
+      padding-bottom: var(--space-md);
+    }
   }
 }
 
 /*
  * From here the page is two columns: the tabs and their panels, with the
- * Players panel's own pane beside them. It stays in view as a tab scrolls,
- * and scrolls on its own when it's long.
+ * Players panel's own pane beside them, after any Queue pane. It stays in
+ * view as a tab scrolls, and scrolls on its own when it's long.
  */
 @media (min-width: bp.$wide-desktop) {
   main {
@@ -209,7 +236,7 @@ main {
     column-gap: var(--space-xl);
     align-items: start;
 
-    /* The header and the status strip span both columns. */
+    /* The header and the status strip span every column. */
     > * {
       grid-column: 1 / -1;
     }
@@ -223,11 +250,16 @@ main {
       position: sticky;
       top: 0;
       order: 1;
-      grid-column: 2;
+      /* The last column, after any Queue pane. */
+      grid-column: -2;
       box-sizing: border-box;
       max-block-size: 100dvh;
       overflow-y: auto;
       padding-bottom: var(--space-md);
     }
+  }
+
+  main.with-queue-pane {
+    grid-template-columns: minmax(0, 1fr) auto 19rem;
   }
 }
