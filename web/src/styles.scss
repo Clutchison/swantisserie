@@ -205,6 +205,20 @@ button {
 }
 
 /*
+ * A button that opens a menu, such as Copy or More: its label, then a chevron
+ * saying so, centred on one line. A button that swaps its label for a
+ * confirmation, as Copy does, wraps the label and chevron in
+ * `.menu-trigger-label` to line them up the same way.
+ */
+.menu-trigger,
+.menu-trigger-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+/*
  * A row of choices, the chosen one marked: aria-pressed buttons, or labels
  * styled as buttons each holding a visually hidden native radio.
  */

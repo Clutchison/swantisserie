@@ -1,12 +1,12 @@
 @if (ready()) {
   <button
-    class="button compact secondary copy"
+    class="button compact secondary menu-trigger copy"
     [class.copied]="copied()"
     type="button"
     [cdkMenuTriggerFor]="copyMenu"
   >
     <!-- Stays when hidden, so the button keeps its width. -->
-    <span class="label" [attr.aria-hidden]="copied() ? 'true' : null"
+    <span class="label menu-trigger-label" [attr.aria-hidden]="copied() ? 'true' : null"
       >Copy <svg lucideChevronDown size="16" aria-hidden="true"></svg
     ></span>
     @if (copied()) {
