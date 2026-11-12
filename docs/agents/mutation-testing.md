@@ -16,7 +16,7 @@ Each workspace's Stryker config (`<workspace>/stryker.config.mjs`) sizes its own
 
 Runs are incremental: Stryker keeps the results in `<workspace>/reports/stryker-incremental.json` and on the next run only retests mutants whose code or tests have changed. Delete that file, or pass `-- --force`, to retest everything. Stopping a run with Ctrl+C or SIGTERM still writes the incremental file, so the next run picks up where it stopped, and a run narrowed with `--mutate` keeps the other files' results.
 
-To mutate only some files, pass a glob: `npm run test:mutation -w web -- --mutate src/app/drafts/webhook-control.ts`. For several files, give one comma-separated list: a second `--mutate` replaces the first.
+To mutate only some files, pass a glob: `npm run test:mutation -w web -- --mutate src/app/drafts/announcements-dialog.ts`. For several files, give one comma-separated list: a second `--mutate` replaces the first.
 
 Web's `mutate` leaves out `main.ts` and `app.config.ts`. They bootstrap the app in the browser, and no spec loads them: specs set up their own `TestBed` with the providers they need. Every mutant there could only show as no coverage, so they are excluded rather than marked (#553).
 

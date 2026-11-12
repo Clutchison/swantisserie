@@ -50,12 +50,7 @@
     </div>
 
     <!-- Above the tabs; from the wide desktop breakpoint, a pane beside them. -->
-    <div class="players-panel">
-      @if (powers().switchAnnouncements) {
-        <app-webhook-control />
-      }
-      <app-players-panel (changeStarted)="clearErrors()" />
-    </div>
+    <app-players-panel class="players-panel" (changeStarted)="clearErrors()" />
 
     <!-- The tabs and their panels: the main column, beside the Players panel's pane. -->
     <div class="tab-column">
@@ -151,7 +146,10 @@
             }
           }
           @case ('Complete') {
-            <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+            <div class="pool-summary">
+              <p>{{ draft.snapshot.cards }} cards in the pool.</p>
+              <ng-container *ngTemplateOutlet="aboutThisPool" />
+            </div>
             @if (queueFailed()) {
               <p class="error">Couldn't load your queue. Try reloading the page.</p>
             }
@@ -171,27 +169,36 @@
             </div>
           }
         }
-        <p class="detail">Platform: {{ draft.platform }}</p>
-        @switch (draft.poolSource.kind) {
-          @case ('cube') {
-            <p class="detail">
-              Cube:
-              <a [href]="draft.poolSource.cube.url" target="_blank" rel="noopener">{{
-                draft.poolSource.cube.name
-              }}</a>
-            </p>
-          }
-          @case ('pool-query') {
-            <p class="detail">
-              Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
-            </p>
-          }
-          @case ('set-list') {
-            <p class="detail">Sets: {{ setListText(draft.poolSource.setList) }}</p>
-          }
-          <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
-          @default never(draft.poolSource);
+        <!-- Beside the card count once the pool is complete, so nothing sits below the grid. -->
+        @if (draft.snapshot.state !== 'Complete') {
+          <ng-container *ngTemplateOutlet="aboutThisPool" />
         }
+        <ng-template #aboutThisPool>
+          <details class="disclosure">
+            <summary>About this pool</summary>
+            <p class="detail">Platform: {{ draft.platform }}</p>
+            @switch (draft.poolSource.kind) {
+              @case ('cube') {
+                <p class="detail">
+                  Cube:
+                  <a [href]="draft.poolSource.cube.url" target="_blank" rel="noopener">{{
+                    draft.poolSource.cube.name
+                  }}</a>
+                </p>
+              }
+              @case ('pool-query') {
+                <p class="detail">
+                  Pool query: <code>{{ draft.poolSource.poolQuery }}</code>
+                </p>
+              }
+              @case ('set-list') {
+                <p class="detail">Sets: {{ setListText(draft.poolSource.setList) }}</p>
+              }
+              <!-- Checks the pool source itself, as each case has already narrowed it by its kind. -->
+              @default never(draft.poolSource);
+            }
+          </details>
+        </ng-template>
       </section>
 
       <!-- Only players have a queue, and a complete draft has no Queue tab. -->

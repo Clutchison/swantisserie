@@ -1,4 +1,7 @@
 import {
+  ALL_POWERS,
+  button,
+  buttonOrder,
   completeSnapshot,
   drafting,
   heading,
@@ -8,8 +11,11 @@ import {
   tabLabels,
   text,
   updates,
+  ORGANIZE_ONLY,
+  SWITCH_ANNOUNCEMENTS_ONLY,
   useDraftsApp,
   viewOn,
+  webhooksAnswer,
 } from './harness';
 
 useDraftsApp();
@@ -32,6 +38,35 @@ describe('draft header', () => {
         expect(shown).toContain('Bob’s turn: pick 1, round 1');
       },
     );
+  });
+
+  describe('the Announcements button', () => {
+    it('is offered to an organizer who may switch announcements, among their buttons', async () => {
+      const { page } = await openDraft(completeSnapshot, {}, { powers: ALL_POWERS });
+
+      expect(buttonOrder(page, 'Start draft')).toEqual([
+        'Join',
+        'More',
+        'Announcements',
+        'Start draft',
+      ]);
+    });
+
+    it('is offered to a viewer who may only switch announcements', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting(), {
+        powers: SWITCH_ANNOUNCEMENTS_ONLY,
+      });
+
+      expect(button(page, 'Announcements')).toBeDefined();
+    });
+
+    it('isn’t offered to a viewer who may organize but not switch announcements, who loads no webhooks', async () => {
+      webhooksAnswer(null);
+      const { page } = await openDraft(completeSnapshot, {}, { powers: ORGANIZE_ONLY });
+
+      expect(button(page, 'Announcements')).toBeUndefined();
+      http.expectNone('/api/webhooks');
+    });
   });
 
   describe('the status strip', () => {

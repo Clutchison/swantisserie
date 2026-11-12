@@ -17,6 +17,8 @@ import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './dr
 import { Changes, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { Questions } from '../question-dialog';
+import { DialogShell } from '../dialog-shell';
+import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dialog';
 
 /**
  * The draft page's header: the draft's name, state, organizer and turn, and
@@ -37,8 +39,13 @@ export class DraftHeader {
   private readonly questions = inject(Questions);
   private readonly injector = inject(Injector);
   private readonly store = inject(DraftStore);
+  private readonly dialogs = inject(DialogShell);
 
   protected readonly draft = this.store.shown;
+  /** Whether the viewer may switch the draft's announcements, in the Announcements dialog. */
+  protected readonly canSwitchAnnouncements = computed(
+    () => this.store.powers().switchAnnouncements,
+  );
   /** The pick log, in pick order. */
   private readonly picks = this.store.picks.value;
   protected readonly canOrganize = this.store.canOrganize;
@@ -130,6 +137,14 @@ export class DraftHeader {
   protected start() {
     return this.send(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/start`, null), {
       failure: "Couldn't start the draft. Try again in a moment.",
+    });
+  }
+
+  /** Opens the Announcements dialog, where the viewer switches the draft's announcements. */
+  protected openAnnouncements() {
+    this.dialogs.open(AnnouncementsDialog, {
+      labelledBy: ANNOUNCEMENTS_HEADING,
+      injector: this.injector,
     });
   }
 

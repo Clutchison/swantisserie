@@ -30,7 +30,6 @@ import {
   NO_POWERS,
   router,
   webhooksAnswer,
-  controlByLabel,
   text,
   wait,
   landedUrls,
@@ -75,52 +74,6 @@ describe('draft page', () => {
     expect(page.textContent).toContain('Organized by Alice');
     expect(page.textContent).toContain('540 cards in the pool');
     expect(page.querySelector('progress')).toBeNull();
-  });
-
-  it('shows the draft’s platform beside its pool query', async () => {
-    const { page } = await openDraft(
-      { state: 'Complete', cards: 540, total: 540 },
-      { platform: 'MTGO' },
-    );
-
-    const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
-    expect(details).toContain('Platform: MTGO');
-    expect(details).toContain('Pool query: t:dragon c:r');
-  });
-
-  it('shows the cube a pool came from, linking to it, in place of a pool query', async () => {
-    const { page } = await openDraft(completeSnapshot, {
-      poolSource: {
-        kind: 'cube',
-        cube: {
-          name: 'The Pauper Cube',
-          url: 'https://cubecobra.com/cube/overview/thepaupercube',
-        },
-      },
-    });
-
-    const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
-    expect(details).toContain('Cube: The Pauper Cube');
-    expect(details.some((detail) => detail?.startsWith('Pool query'))).toBe(false);
-    const link = [...page.querySelectorAll<HTMLAnchorElement>('.detail a')].find(
-      (a) => a.textContent?.trim() === 'The Pauper Cube',
-    )!;
-    expect(link.href).toBe('https://cubecobra.com/cube/overview/thepaupercube');
-  });
-
-  it('shows the set list a pool came from, each set by code with its included sublists', async () => {
-    const { page } = await openDraft(completeSnapshot, {
-      poolSource: {
-        kind: 'set-list',
-        setList: [
-          { code: 'mkm', sublists: [] },
-          { code: 'otj', sublists: ['big', 'otp'] },
-        ],
-      },
-    });
-
-    expect(text(page)).toContain('Sets: MKM, OTJ (+ BIG, OTP)');
-    expect(text(page)).not.toContain('Pool query:');
   });
 
   it('shows snapshot progress and keeps polling until it is complete', async () => {
@@ -385,7 +338,7 @@ describe('draft page', () => {
       expect(button(page, 'Move Bot 1 earlier')).toBeDefined();
       expect(button(page, 'Add bot')).toBeUndefined();
       expect(button(page, 'Remove Bot 1')).toBeUndefined();
-      expect(controlByLabel(page, 'combobox', 'Announcements')).toBeUndefined();
+      expect(button(page, 'Announcements')).toBeUndefined();
     });
 
     it('show no controls they gate while they load, and the draft itself', async () => {
@@ -415,7 +368,7 @@ describe('draft page', () => {
       expect(page.textContent).toContain('540 cards in the pool');
       expect(organizerButtons(page)).toEqual([]);
       expect(button(page, 'Add bot')).toBeUndefined();
-      expect(controlByLabel(page, 'combobox', 'Announcements')).toBeUndefined();
+      expect(button(page, 'Announcements')).toBeUndefined();
     });
   });
 

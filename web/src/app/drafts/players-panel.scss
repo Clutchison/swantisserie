@@ -1,7 +1,8 @@
 @use '../../breakpoints' as bp;
 
-/* Sits inside the draft page, which has the padding. */
+/* Sits inside the draft page, which has the padding, and places it as a block. */
 :host {
+  display: block;
   padding: 0;
 }
 
