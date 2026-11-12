@@ -1,5 +1,12 @@
 @use 'side-pane';
 
+/* The own seat's ring: a bg gap, then the accent, reaching $ring-width out from the avatar. */
+$ring-gap: 2px;
+$ring-width: $ring-gap + 2px;
+$focus-width: 2px;
+/* A focused seat's outline sits outside the ring, so reaches this far. */
+$focus-reach: $ring-width + $focus-width;
+
 /*
  * A narrow column beside the Queue pane that stays in view as a tab scrolls.
  * It is the hint's and the popover's anchor, so it doesn't scroll itself:
@@ -45,11 +52,12 @@ section {
 ol {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  /* Wide enough that a focused seat's outline clears its neighbour's ring. */
+  gap: $focus-reach + $ring-width;
   min-block-size: 0;
   margin: 0;
-  /* Room for each seat's ring and turn mark, which the scroller would clip. */
-  padding: var(--space-xs);
+  /* Room for each seat's focus outline, ring and turn mark, which the scroller would clip. */
+  padding: $focus-reach;
   overflow-y: auto;
   list-style: none;
 }
@@ -67,6 +75,15 @@ ol {
   > * {
     grid-area: 1 / 1;
   }
+
+  /*
+   * Focus: an outline in the text colour, not an accent one, which would
+   * look like the own seat's ring. Outside that ring, so it still shows.
+   */
+  &:focus-visible {
+    outline: $focus-width solid var(--color-text);
+    outline-offset: $ring-width;
+  }
 }
 
 .initial {
@@ -78,8 +95,8 @@ ol {
 /* The viewer's own seat: a ring. */
 .own {
   box-shadow:
-    0 0 0 2px var(--color-bg),
-    0 0 0 4px var(--color-accent);
+    0 0 0 $ring-gap var(--color-bg),
+    0 0 0 $ring-width var(--color-accent);
 }
 
 /* Whose turn it is: a mark to the seat's left, apart from the ring. */
