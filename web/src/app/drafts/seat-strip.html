@@ -6,9 +6,9 @@
     aria-label="Players"
     title="Players"
     aria-haspopup="dialog"
-    aria-controls="players-popover"
-    [attr.aria-expanded]="popoverOpen()"
-    (click)="togglePopover()"
+    [attr.aria-controls]="panelIn() === 'popover' ? 'players-popover' : null"
+    [attr.aria-expanded]="panelOpen()"
+    (click)="togglePanel()"
   >
     <svg lucideUsers size="20"></svg>
   </button>

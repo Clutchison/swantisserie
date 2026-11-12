@@ -34,6 +34,8 @@ import {
   viewOn,
 } from './harness';
 import { disclosure } from './disclosure-harness';
+import { playersButton, playersSheet } from './seat-strip-harness';
+import { clickOn } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -52,18 +54,24 @@ describe('seats and start', () => {
       turn: { pick: 1, round: 1, playerId: bob.id },
     });
 
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    clickOn(playersButton(page));
+    const sheet = playersSheet()!;
+
+    expect(seatNames(sheet)).toEqual(['Bob', 'Alice']);
     expect(page.textContent).toContain('Bob’s turn: pick 1, round 1');
-    const current = playersPanel(page).querySelector('li[aria-current="true"]');
+    const current = playersPanel(sheet).querySelector('li[aria-current="true"]');
     expect(current?.querySelector('.name')?.textContent).toBe('Bob');
   });
 
-  it('keeps the seat order in the Players panel once started on mobile, closed', async () => {
+  it('keeps the seat order in the Players panel once the draft is closed, on mobile, closed', async () => {
     viewOn('mobile');
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    const { page } = await openDraft(completeSnapshot, drafting({ players: [bob, alicePlayer] }));
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ players: [bob, alicePlayer], state: 'Closed', turn: null }),
+    );
 
     expect(disclosure(page, 'Players · 2')!.open).toBe(false);
     expect(seatNames(page)).toEqual(['Bob', 'Alice']);

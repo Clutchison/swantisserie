@@ -24,3 +24,10 @@ export const playersButton = (page: HTMLElement) => button(seatStrip(page), 'Pla
 /** The Players popover open from the Seat strip: the dialog "Players"; null while it's closed. */
 export const playersPopover = (page: HTMLElement) =>
   byAriaLabel(page, '[role="dialog"]', 'Players');
+
+/**
+ * The Players sheet open from the Seat strip below the desktop layout: the
+ * modal dialog "Players" over the page; null while it's closed.
+ */
+export const playersSheet = () =>
+  byAriaLabel(document.body, '[role="dialog"][aria-modal="true"]', 'Players');

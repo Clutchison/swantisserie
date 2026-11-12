@@ -1,0 +1,22 @@
+/*
+ * A sheet: the shared dialog box raised from the foot of the screen at the
+ * screen's width, as the Queue sheet and the Players sheet are. styles.scss
+ * anchors its pane to the foot of the screen; this styles the box, after
+ * `../dialog.scss`.
+ */
+
+/* The screen's width. */
+:host {
+  --dialog-width: 100vw;
+}
+
+/* Its top corners rounded, as it rises from the foot of the screen. */
+.dialog {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+/* Scrolling to the end of the body never scrolls the page behind it. */
+.dialog-body {
+  overscroll-behavior: contain;
+}

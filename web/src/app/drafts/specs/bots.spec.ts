@@ -20,6 +20,8 @@ import {
   findPlayersBesideTabs,
 } from './harness';
 import { disclosure } from './disclosure-harness';
+import { playersButton, playersSheet } from './seat-strip-harness';
+import { clickOn, pressEscape } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -58,9 +60,11 @@ describe('bots', () => {
       },
     );
 
-    const seats = playersPanel(page).querySelectorAll('li');
+    clickOn(playersButton(page));
+    const seats = playersPanel(playersSheet()!).querySelectorAll('li');
     expect(badges(seats[0])).toEqual(['Bot']);
     expect(badges(seats[1])).toEqual([]);
+    pressEscape();
     expect(page.querySelector('.turn')?.textContent).toContain('Bot 1’s turn');
     expect(badges(page.querySelector('.turn'))).toEqual(['Bot']);
 
