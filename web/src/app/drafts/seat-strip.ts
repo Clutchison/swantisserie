@@ -17,7 +17,8 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
-import { LucideUsers } from '@lucide/angular';
+import { currentTurn, roundRunsForward } from 'engine';
+import { LucideChevronLeft, LucideChevronRight, LucideUsers } from '@lucide/angular';
 import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
 
@@ -37,14 +38,15 @@ const AVATAR_SIZE = 24;
 /**
  * The Seat strip: a drafting or paused draft's players as avatars in seat
  * order, in a row in the tab bar, marking whose turn it is and the viewer's
- * own seat. The turn's seat pulses briefly when the turn moves, and is
- * scrolled into view when the row is too long to show whole. Its Players
- * button opens `playersPanel`, the full Players panel, as a non-modal popover
+ * own seat, with chevrons between the seats pointing toward the next player
+ * to pick. The turn's seat pulses briefly when the turn changes, and it and
+ * the next seat are scrolled into view when the row is too long to show
+ * whole. Its Players button opens `playersPanel`, the full Players panel, as a non-modal popover
  * under it, over the tab content, which Escape, a pointer pressed outside or focus leaving closes.
  */
 @Component({
   selector: 'app-seat-strip',
-  imports: [LucideUsers, NgTemplateOutlet, PlayerAvatar],
+  imports: [LucideChevronLeft, LucideChevronRight, LucideUsers, NgTemplateOutlet, PlayerAvatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './seat-strip.html',
   styleUrl: './seat-strip.scss',
@@ -67,6 +69,36 @@ export class SeatStrip {
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
+
+  /**
+   * The player who picks after the turn's player, by the snake order: the
+   * turn's player again at the end of a round. Null on the draft's last pick.
+   */
+  private readonly nextPlayer = computed(() => {
+    const turn = this.store.turn();
+    if (!turn) return null;
+    const seats = this.seats();
+    const size = { players: seats.length, picksPerPlayer: this.store.shown().picksPerPlayer };
+    const next = currentTurn(size, turn.pick);
+    return next ? (seats[next.seat] ?? null) : null;
+  });
+
+  /**
+   * Which way the chevrons between the seats point: toward the next player,
+   * the way the round of the current pick runs. Null when no one picks next.
+   */
+  protected readonly direction = computed(() => {
+    const turn = this.store.turn();
+    if (!turn || !this.nextPlayer()) return null;
+    return roundRunsForward(turn.round) ? 'forward' : 'back';
+  });
+
+  /** What a screen reader names the list of seats: who picks next, in place of the chevrons. */
+  protected readonly seatListName = computed(() => {
+    const next = this.nextPlayer();
+    if (!next) return 'Seat order';
+    return this.isOwn(next) ? 'Seat order, you pick next' : `Seat order, ${next.name} picks next`;
+  });
 
   protected readonly popoverOpen = signal(false);
   protected readonly hint = signal<Hint | null>(null);
@@ -92,11 +124,16 @@ export class SeatStrip {
       }
       shownPick = pick;
     });
-    // Once the seats are laid out, and as the turn moves, the turn's seat scrolls into view.
+    // Once the seats are laid out, and as the turn changes, the turn's seat and the next one scroll into view.
     afterRenderEffect(() => {
-      const turnSeat = this.seatElements()[this.seats().findIndex((p) => this.hasTheTurn(p))];
+      const seatOf = (id: string | undefined) =>
+        this.seatElements()[this.seats().findIndex((p) => p.id === id)]?.nativeElement;
+      const turnSeat = seatOf(this.turnPlayerId() ?? undefined);
+      const nextSeat = seatOf(this.nextPlayer()?.id);
       if (turnSeat) {
-        untracked(() => keepInView(this.seatList().nativeElement, [turnSeat.nativeElement]));
+        untracked(() =>
+          keepInView(this.seatList().nativeElement, nextSeat ? [turnSeat, nextSeat] : [turnSeat]),
+        );
       }
     });
   }

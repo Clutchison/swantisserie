@@ -29,6 +29,7 @@ import {
   findSeatStrip,
   playersButton,
   playersPopover,
+  seatListName,
   stripSeatNames,
   stripSeats,
 } from './seat-strip-harness';
@@ -283,6 +284,69 @@ describe('the Seat strip', () => {
 
       expect(findSeatStrip(page)).toBeNull();
       expect(playersDisclosure(page)).not.toBeNull();
+    });
+  });
+
+  describe('naming who picks next', () => {
+    beforeEach(() => viewOn('desktop'));
+
+    /** A drafting draft seating Alice (the viewer), Bob and Bot 1, at `pick`, with `playerId` picking. */
+    const atPick = (pick: number, round: number, playerId: string) =>
+      drafting({ players: [alicePlayer, bob, bot], turn: { pick, round, playerId } });
+
+    it.each([
+      ['the next seat on, forward through a round', atPick(1, 1, alice.id), 'Bob picks next'],
+      [
+        'the end seat itself on its first pick of the pair',
+        atPick(3, 1, bot.id),
+        'Bot 1 picks next',
+      ],
+      [
+        'the end seat’s neighbour, back the other way, on its second',
+        atPick(4, 2, bot.id),
+        'Bob picks next',
+      ],
+      [
+        'the viewer, as the first seat on its first pick of the pair',
+        atPick(6, 2, alice.id),
+        'you pick next',
+      ],
+      [
+        'the first seat’s neighbour, forward again, on its second',
+        atPick(7, 3, alice.id),
+        'Bob picks next',
+      ],
+    ])('names %s in its list of seats', async (_, fields, next) => {
+      const { page } = await openDraft(completeSnapshot, fields);
+
+      expect(seatListName(page)).toBe(`Seat order, ${next}`);
+    });
+
+    it('names no one on the draft’s last pick', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({
+          players: [alicePlayer, bob],
+          picksPerPlayer: 1,
+          turn: { pick: 2, round: 1, playerId: bob.id },
+        }),
+      );
+
+      expect(seatListName(page)).toBe('Seat order');
+    });
+
+    it('names the new next player as the turn passes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(3, 1, bot.id));
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ ...atPick(4, 2, bot.id), version: 1 }),
+      });
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+
+      expect(seatListName(page)).toBe('Seat order, Bob picks next');
     });
   });
 

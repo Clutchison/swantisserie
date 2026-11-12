@@ -13,9 +13,17 @@
     <svg lucideUsers size="20"></svg>
   </button>
   <!-- Scrolls sideways on its own if the seats outgrow the strip, fading where it clips them. -->
-  <ol #seatList aria-label="Seat order">
-    @for (player of seats(); track player.id) {
+  <ol #seatList [attr.aria-label]="seatListName()">
+    @for (player of seats(); track player.id; let first = $first) {
       <li>
+        <!-- Between each pair of seats, toward the next player to pick; the list's name says who that is. -->
+        @if (!first && direction(); as direction) {
+          @if (direction === 'forward') {
+            <svg lucideChevronRight class="chevron" size="14" aria-hidden="true"></svg>
+          } @else {
+            <svg lucideChevronLeft class="chevron" size="14" aria-hidden="true"></svg>
+          }
+        }
         <!-- Focusable, so a keyboard user can bring up the player's name as a mouse user does. -->
         <span
           #seat

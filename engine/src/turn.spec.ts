@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentTurn, draftComplete } from './turn.js';
+import { currentTurn, draftComplete, roundRunsForward } from './turn.js';
 
 describe('currentTurn', () => {
   it('starts with the first seat taking pick 1 of round 1', () => {
@@ -29,6 +29,17 @@ describe('currentTurn', () => {
 
   it('is null once every player has all their picks', () => {
     expect(currentTurn({ players: 3, picksPerPlayer: 2 }, 6)).toBeNull();
+  });
+});
+
+describe('roundRunsForward', () => {
+  it('runs odd rounds from the first seat to the last, and even ones back', () => {
+    expect([1, 2, 3, 4].map(roundRunsForward)).toEqual([
+      true,
+      false,
+      true,
+      false,
+    ]);
   });
 });
 

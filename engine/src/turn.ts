@@ -16,11 +16,18 @@ export function currentTurn(
   picksMade: number,
 ): Turn | null {
   if (picksMade >= players * picksPerPlayer) return null;
-  const round = Math.floor(picksMade / players);
+  const round = Math.floor(picksMade / players) + 1;
   const place = picksMade % players;
-  // Even rounds (counting from 0) run forward, odd ones back.
-  const seat = round % 2 === 0 ? place : players - 1 - place;
-  return { pick: picksMade + 1, round: round + 1, seat };
+  const seat = roundRunsForward(round) ? place : players - 1 - place;
+  return { pick: picksMade + 1, round, seat };
+}
+
+/**
+ * Whether the 1-based `round` runs forward, from the first seat to the last,
+ * as odd rounds do in snake order; even ones run back.
+ */
+export function roundRunsForward(round: number): boolean {
+  return round % 2 === 1;
 }
 
 /**

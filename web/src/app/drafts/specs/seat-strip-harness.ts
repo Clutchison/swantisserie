@@ -14,6 +14,10 @@ export const stripSeats = (page: HTMLElement) => [
 /** What a screen reader names each seat in the Seat strip, in seat order. */
 export const stripSeatNames = (page: HTMLElement) => stripSeats(page).map(accessibleName);
 
+/** What a screen reader names the Seat strip's list of seats, which says who picks next. */
+export const seatListName = (page: HTMLElement) =>
+  accessibleName(seatStrip(page).querySelector('ol')!);
+
 /** The Seat strip's button that opens the Players popover. */
 export const playersButton = (page: HTMLElement) => button(seatStrip(page), 'Players')!;
 
