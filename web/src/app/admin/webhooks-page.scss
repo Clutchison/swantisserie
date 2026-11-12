@@ -48,7 +48,7 @@ form {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  max-width: 40rem;
+  max-width: var(--width-narrow);
 }
 
 label {

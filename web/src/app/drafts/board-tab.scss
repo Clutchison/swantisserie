@@ -61,7 +61,10 @@ ol {
   }
 }
 
+/* Capped, so a card's name sits near its pick number on a wide screen. */
 .log {
+  max-inline-size: var(--width-default);
+
   /* The player's column fits the longest name, up to a cap that keeps the card readable. */
   ol {
     --card-row-columns: auto fit-content(min(12rem, 35%)) [cost] max-content [name] minmax(0, 1fr);
