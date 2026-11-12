@@ -1,10 +1,5 @@
 @use '../../breakpoints' as bp;
 
-/* Sits inside the draft page, which has the padding. */
-:host {
-  padding: 0;
-}
-
 /* Cards another player picked first. */
 .notice {
   display: flex;

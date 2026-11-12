@@ -5,7 +5,6 @@
  */
 :host {
   display: block;
-  padding: var(--space-lg);
   /* A long name or pool query wraps, rather than widening a phone's page. */
   overflow-wrap: anywhere;
 }
@@ -13,11 +12,12 @@
 /*
  * The page frame: a page's <main> is centred at one of the shared page widths,
  * the default unless it has `page-narrow` or `page-wide`. Its contents stay
- * left-aligned inside it. Only pages have a <main>, so a component that loads
- * this stylesheet inside a page keeps its own padding.
+ * left-aligned inside it. Only pages have a <main>, so only pages get the
+ * frame's padding: a component that loads this stylesheet inside a page sits
+ * in the page's.
  */
 :host:has(> main) {
-  padding-inline: var(--page-gutter);
+  padding: var(--space-lg) var(--page-gutter);
 }
 
 main {
@@ -45,6 +45,18 @@ main {
 
   h1 {
     margin: 0;
+  }
+
+  /* The row of actions, which wraps on a phone. */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+
+    &:empty {
+      display: none;
+    }
   }
 }
 
