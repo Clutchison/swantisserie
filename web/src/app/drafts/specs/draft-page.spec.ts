@@ -30,7 +30,6 @@ import {
   NO_POWERS,
   router,
   webhooksAnswer,
-  controlByLabel,
   text,
   wait,
   landedUrls,
@@ -339,7 +338,7 @@ describe('draft page', () => {
       expect(button(page, 'Move Bot 1 earlier')).toBeDefined();
       expect(button(page, 'Add bot')).toBeUndefined();
       expect(button(page, 'Remove Bot 1')).toBeUndefined();
-      expect(controlByLabel(page, 'combobox', 'Announcements')).toBeUndefined();
+      expect(button(page, 'Announcements')).toBeUndefined();
     });
 
     it('show no controls they gate while they load, and the draft itself', async () => {
@@ -369,7 +368,7 @@ describe('draft page', () => {
       expect(page.textContent).toContain('540 cards in the pool');
       expect(organizerButtons(page)).toEqual([]);
       expect(button(page, 'Add bot')).toBeUndefined();
-      expect(controlByLabel(page, 'combobox', 'Announcements')).toBeUndefined();
+      expect(button(page, 'Announcements')).toBeUndefined();
     });
   });
 

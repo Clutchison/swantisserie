@@ -62,6 +62,11 @@
         </div>
       </ng-template>
     }
+    @if (canSwitchAnnouncements()) {
+      <button class="button secondary" type="button" (click)="openAnnouncements()">
+        Announcements
+      </button>
+    }
     @if (undoable(); as pick) {
       <button class="button secondary" type="button" (click)="undo(pick)" appSendsChange="undo">
         {{ undoLabel() }}

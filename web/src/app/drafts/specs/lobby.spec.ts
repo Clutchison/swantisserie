@@ -79,19 +79,29 @@ describe('lobby', () => {
     expect(button(page, 'Join')).toBeDefined();
   });
 
-  it('offers Leave, More, then Start draft in the header to a joined organizer, with Cancel draft in More', async () => {
+  it('offers Leave, More, Announcements, then Start draft in the header to a joined organizer, with Cancel draft in More', async () => {
     powersAnswer(ALL_POWERS);
     const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
 
-    expect(buttonOrder(page, 'Start draft')).toEqual(['Leave', 'More', 'Start draft']);
+    expect(buttonOrder(page, 'Start draft')).toEqual([
+      'Leave',
+      'More',
+      'Announcements',
+      'Start draft',
+    ]);
     expect(openMore(page)).toEqual(['Cancel draft']);
   });
 
-  it('offers Join, More, then Start draft in the header to an organizer who hasn’t joined', async () => {
+  it('offers Join, More, Announcements, then Start draft in the header to an organizer who hasn’t joined', async () => {
     powersAnswer(ALL_POWERS);
     const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-    expect(buttonOrder(page, 'Start draft')).toEqual(['Join', 'More', 'Start draft']);
+    expect(buttonOrder(page, 'Start draft')).toEqual([
+      'Join',
+      'More',
+      'Announcements',
+      'Start draft',
+    ]);
   });
 
   it('offers the organizer Randomize seats, Add bot, then Import picks beside the seat order', async () => {

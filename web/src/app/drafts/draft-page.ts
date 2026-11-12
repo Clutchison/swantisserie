@@ -32,7 +32,6 @@ import { PlanTab } from './plan-tab';
 import { PlayTab } from './play-tab';
 import { PoolTab } from './pool-tab';
 import { QueueTab } from './queue-tab';
-import { WebhookControl } from './webhook-control';
 import { Tab, TabList } from '../tab-list';
 import { tabInUrl } from '../tab-in-url';
 
@@ -59,7 +58,6 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Queue', 'Deck']);
     RouterLink,
     Tab,
     TabList,
-    WebhookControl,
   ],
   providers: [
     CardImageSource,
@@ -98,7 +96,7 @@ export class DraftPage {
   /** Whether a re-read failed, so what the page shows may be out of date. */
   protected readonly refreshFailed = this.store.refreshFailed;
 
-  /** The viewer's draft powers, which gate retrying a failed snapshot and the webhook control. */
+  /** The viewer's draft powers, which gate retrying a failed snapshot. */
   protected readonly powers = this.store.powers;
   protected readonly joined = this.store.joined;
   /** Whether the queue or plan couldn't be loaded. A failed re-read keeps the last one loaded. */

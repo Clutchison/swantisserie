@@ -51,9 +51,6 @@
 
     <section class="players">
       <h2>Players</h2>
-      @if (powers().switchAnnouncements) {
-        <app-webhook-control />
-      }
       <app-lobby-controls (changeStarted)="clearErrors()" />
     </section>
 
