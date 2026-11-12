@@ -28,7 +28,7 @@ import {
   queued,
   queueList,
   queueOf,
-  section,
+  playersPanel,
   statusTexts,
   ORGANIZE_ONLY,
   heading,
@@ -314,7 +314,7 @@ describe('live updates', () => {
     });
     await settle();
 
-    expect(section(page, 'Players').textContent).toContain('Carol');
+    expect(playersPanel(page).textContent).toContain('Carol');
   });
 
   it('keeps the queue re-read when a queue change’s answer arrives after a newer push', async () => {

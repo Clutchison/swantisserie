@@ -35,9 +35,10 @@ import { routes } from '../../app.routes';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
-import { DESKTOP_QUERY, EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS, WIDE_STACKS_QUERY } from '../drafts';
+import { EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
+export { resizeTo, viewOn } from './screen-harness';
 import {
   alertIn,
   alice,
@@ -268,6 +269,12 @@ export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | nu
   return root.querySelector<HTMLAnchorElement>(`a[href="/drafts/${id}"]`);
 }
 
+/** The Players panel: the section that opens on click, summarised "Players · N". */
+export const playersPanel = (page: HTMLElement) =>
+  [...page.querySelectorAll<HTMLDetailsElement>('details')].find((details) =>
+    /^Players · \d+$/.test(text(details.querySelector(':scope > summary'))),
+  )!;
+
 export function section(page: HTMLElement, heading: string): HTMLElement {
   const found = [...page.querySelectorAll('section')].find((s) =>
     s.querySelector('h2')?.textContent?.includes(heading),
@@ -419,12 +426,12 @@ export const flipCard = poolCardOf('budoka', 'Budoka Gardener // Dokai, Weaver o
 });
 
 /**
- * The avatar beside a player's name in the Players section. An avatar is
+ * The avatar beside a player's name in the Players panel. An avatar is
  * decorative, so it has no name of its own: it is found by its role within
  * the list item that names the player.
  */
 export const playerAvatar = (page: HTMLElement, name: string) =>
-  [...section(page, 'Players').querySelectorAll('li')]
+  [...playersPanel(page).querySelectorAll('li')]
     .find((li) => li.textContent?.includes(name))
     ?.querySelector<HTMLImageElement>('[role="presentation"]');
 
@@ -825,54 +832,6 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft({ snapshot }));
   if (snapshot.state === 'Complete') await flushPool();
   await fixture.whenStable();
-}
-
-/** A screen the page can be shown on, by the media queries it answers. */
-type Screen = 'desktop' | 'tablet' | 'mobile';
-
-/**
- * The draft page's breakpoints each screen is past: a desktop's tabs sit at
- * the top, and a tablet, like a desktop, has room for the wide stacks layout.
- */
-const SCREEN_QUERIES: Record<Screen, readonly string[]> = {
-  desktop: [DESKTOP_QUERY, WIDE_STACKS_QUERY],
-  tablet: [WIDE_STACKS_QUERY],
-  mobile: [],
-};
-
-/** The screen the page is on, and what it has asked to hear of each breakpoint's changes. */
-let screenNow: Screen = 'mobile';
-let breakpointListeners: { query: string; listener: (event: { matches: boolean }) => void }[] = [];
-
-/**
- * Puts the page on a desktop, tablet or mobile screen, by the draft page's
- * breakpoints, for the test to come. Undo it with `vi.unstubAllGlobals()`.
- */
-export function viewOn(screen: Screen) {
-  screenNow = screen;
-  breakpointListeners = [];
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: SCREEN_QUERIES[screen].includes(query),
-    // Only a 'change' listener hears a breakpoint crossed, as in a browser.
-    addEventListener: (type: string, listener: (event: { matches: boolean }) => void) => {
-      if (type === 'change') breakpointListeners.push({ query, listener });
-    },
-  }));
-}
-
-/**
- * Resizes the window onto `screen`, telling each listener of a breakpoint
- * it crossed, as a browser does, and renders what came of it.
- */
-export function resizeTo(screen: Screen) {
-  const matchesOn = (on: Screen, query: string) => SCREEN_QUERIES[on].includes(query);
-  const was = screenNow;
-  screenNow = screen;
-  for (const { query, listener } of breakpointListeners) {
-    const matches = matchesOn(screen, query);
-    if (matches !== matchesOn(was, query)) listener({ matches });
-  }
-  TestBed.tick();
 }
 
 /**

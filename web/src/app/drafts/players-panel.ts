@@ -21,23 +21,24 @@ import type {
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import {
-  DESKTOP_QUERY,
   hasTurn,
   isRefusal,
+  matching,
   PLAYERS_CHANGE_FAILED,
   sendDraftChange,
+  WIDE_DESKTOP_QUERY,
 } from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
 
 /**
- * The seat order, which stays on show once the draft starts, and the
+ * The Players panel: the players in seat order, at every state, and the
  * seating tools of a draft in Lobby: seats, bots and pick import. Joining,
  * starting and cancelling are in the draft header.
  */
 @Component({
-  selector: 'app-lobby-controls',
+  selector: 'app-players-panel',
   imports: [
     ChangeStatus,
     LucideArrowDown,
@@ -48,10 +49,10 @@ import { PlayerAvatar } from './player-avatar';
     SendsChange,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './lobby-controls.html',
-  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './lobby-controls.scss'],
+  templateUrl: './players-panel.html',
+  styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './players-panel.scss'],
 })
-export class LobbyControls {
+export class PlayersPanel {
   private readonly http = inject(HttpClient);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
@@ -72,12 +73,16 @@ export class LobbyControls {
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
   /**
-   * Read once: resizing after load doesn't move the seat order. No `matchMedia` counts as mobile.
-   * The breakpoint matches the desktop layout in `lobby-controls.scss` and `draft-page.scss`.
+   * Whether the panel is a pane beside the tabs, as the window is resized:
+   * the layout in `draft-page.scss`. No `matchMedia` counts as a phone.
    */
-  private readonly onDesktop = !!globalThis.matchMedia?.(DESKTOP_QUERY).matches;
-  /** The seat order stays open on desktop; on mobile it collapses once the draft starts. */
-  protected readonly seatOrderOpen = computed(() => this.onDesktop || this.inLobby());
+  private readonly wide = matching(WIDE_DESKTOP_QUERY);
+  /**
+   * The panel stays open in its pane on a wide desktop; narrower, it is open
+   * in the lobby and collapses once the draft starts, out of the tabs' way.
+   */
+  protected readonly open = computed(() => this.wide() || this.inLobby());
+  protected readonly playerCount = computed(() => this.draft().players.length);
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
   protected readonly lobbyError = signal<string | null>(null);

@@ -19,8 +19,11 @@ li {
   }
 }
 
+/* The panel's name, as a heading would be. */
 summary {
   padding: var(--space-sm) 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -104,6 +107,21 @@ summary {
 
   .stacked {
     display: none;
+  }
+}
+
+/* In the Players panel's narrow pane, the seats stack again. */
+@media (min-width: bp.$wide-desktop) {
+  ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .across {
+    display: none;
+  }
+
+  .stacked {
+    display: inline-block;
   }
 }
 

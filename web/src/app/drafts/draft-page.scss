@@ -14,7 +14,7 @@
   }
 }
 
-.players,
+.players-panel,
 .pool,
 .queue,
 .plan,
@@ -173,5 +173,40 @@ main {
   /* Pool and Board use the full width; the Queue tab reads better capped. */
   .queue {
     max-width: var(--capped-tab-width);
+  }
+}
+
+/*
+ * From here the page is two columns: the tabs and their panels, with the
+ * Players panel's own pane beside them. It stays in view as a tab scrolls,
+ * and scrolls on its own when it's long.
+ */
+@media (min-width: bp.$wide-desktop) {
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    column-gap: var(--space-xl);
+    align-items: start;
+
+    /* The back link, the header and the status strip span both columns. */
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .tab-column {
+      grid-column: 1;
+    }
+
+    /* Placed after the tab column, so it shares its row; the reading order stays as written. */
+    > .players-panel {
+      position: sticky;
+      top: 0;
+      order: 1;
+      grid-column: 2;
+      box-sizing: border-box;
+      max-block-size: 100dvh;
+      overflow-y: auto;
+      padding-bottom: var(--space-md);
+    }
   }
 }
