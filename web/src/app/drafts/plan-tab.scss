@@ -1,4 +1,5 @@
 @use '../../visually-hidden';
+@use '../../breakpoints' as bp;
 
 /* The width of each button on a list line. */
 $line-action-width: 2.5rem;
@@ -97,7 +98,7 @@ ul {
  * dimmed line already marks it on screen. A class in the template can't follow the container
  * query, so this includes the mixin behind the global .visually-hidden.
  */
-@container (width < 26rem) {
+@container (width < #{bp.$tab-narrow}) {
   .line-actions .mark {
     @include visually-hidden.visually-hidden;
   }

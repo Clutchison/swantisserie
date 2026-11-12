@@ -14,7 +14,8 @@ import type {
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at
- * the top: the breakpoint in `draft-page.scss` and `lobby-controls.scss`.
+ * the top: `$desktop` in `src/_breakpoints.scss`, which the draft page's
+ * stylesheets use. Change them together.
  */
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 
@@ -22,8 +23,9 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
  * The media query of the screens whose Deck tab has room for the wide stacks
  * layout, with the sideboard's stack beside the mainboard's; narrower, the
  * mainboard's stacks become a strip that scrolls sideways. Kept in step with
- * the container query in `plan-tab.scss`, 760px of stacks area, plus the
- * draft page's padding either side.
+ * the container query in `plan-stacks-layout.scss`, 760px of stacks area, plus
+ * the draft page's padding either side: `$wide-stacks` and
+ * `$wide-stacks-container` in `src/_breakpoints.scss`. Change them together.
  */
 export const WIDE_STACKS_QUERY = '(min-width: 792px)';
 

@@ -1,3 +1,5 @@
+@use '../../breakpoints' as bp;
+
 /* Sits inside the draft page, which has the padding. */
 :host {
   padding: 0;
@@ -93,7 +95,7 @@ app-card-name {
  * Scoped to .move so these rules outrank .icon's display wherever .icon sits
  * in this file: container and media queries add no specificity.
  */
-@container (width < 26rem) {
+@container (width < #{bp.$tab-narrow}) {
   .move .reorder {
     display: none;
   }
