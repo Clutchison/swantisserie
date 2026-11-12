@@ -36,6 +36,7 @@ type Press = string[];
 export class Changes {
   private readonly host: HTMLElement = inject(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly targets = new Set<FocusTarget>();
   private readonly inFlight = signal(false);
   private readonly said = signal('');
@@ -132,9 +133,12 @@ export class Changes {
   /**
    * After the next render, puts focus on the first control of `press`'s
    * keys that is still here and enabled, unless the viewer has moved focus
-   * elsewhere meanwhile. With no press, it leaves focus alone.
+   * elsewhere meanwhile. With no press, it leaves focus alone. Once the
+   * component is gone, as when the Queue sheet closes before a change
+   * settles, there is no focus here to put back.
    */
   private restore(press: Press | null) {
+    if (this.destroyRef.destroyed) return;
     afterNextRender(
       () => {
         const focused = this.host.ownerDocument.activeElement;
