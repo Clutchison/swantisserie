@@ -154,6 +154,10 @@ _Avoid_: Avatar bar, player strip, sidebar, turn strip, Players panel (that is t
 The full Players panel on a narrow screen while a draft is drafting or paused, raised over the page from the foot of the screen when the viewer opens it from the Seat strip, and closed to go back to where they were.
 _Avoid_: Players drawer, players modal, players popup
 
+**Players popover**:
+The full Players panel on a wide screen while a draft is drafting or paused, opened under the Seat strip when the viewer asks for it, over the tab content without blocking the rest of the page.
+_Avoid_: Players dropdown, players menu, Players sheet (that is the narrow-screen form)
+
 **Snake order**:
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
 _Avoid_: Serpentine, wheel

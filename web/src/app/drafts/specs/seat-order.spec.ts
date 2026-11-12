@@ -2,15 +2,13 @@ import {
   useDraftsApp,
   alicePlayer,
   bob,
-  draft,
   openDraft,
   completeSnapshot,
-  flushPicks,
-  updates,
   viewOn,
   resizeTo,
   drafting,
   findPlayersBesideTabs,
+  startDraft,
   findQueuePane,
   text,
 } from './harness';
@@ -23,16 +21,6 @@ useDraftsApp();
 describe('the Players panel', () => {
   /** The Players panel, by its summary's name, with one player. */
   const panel = (page: HTMLElement) => disclosure(page, 'Players · 1')!;
-
-  /** Starts the draft while the page is open, as a pushed update. */
-  async function startLive(fixture: { whenStable(): Promise<unknown> }) {
-    updates.events.next({
-      type: 'changed',
-      draft: draft({ ...drafting({ players: [bob] }), version: 1 }),
-    });
-    await flushPicks([]);
-    await fixture.whenStable();
-  }
 
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -149,7 +137,7 @@ describe('the Players panel', () => {
     it('gives way to the Seat strip when the draft starts while the page is open', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
 
-      await startLive(fixture);
+      await startDraft(fixture, { players: [bob] });
 
       expect(disclosure(page, 'Players · 1')).toBeNull();
       expect(findSeatStrip(page)).not.toBeNull();

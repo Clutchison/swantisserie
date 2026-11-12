@@ -315,13 +315,14 @@ textarea {
 }
 
 /*
- * The Queue sheet's and the Players sheet's pane: the dialog shell's, with
- * the sheet anchored to the foot of the screen at its full width. The pane
+ * A sheet's pane, such as the Queue sheet's and the Players sheet's, which
+ * the dialog shell opens with `sheet: true`: the dialog shell's, with the
+ * sheet anchored to the foot of the screen at its full width. The pane
  * is the screen's dynamic height, as a phone's browser bars come and go,
  * less the strip of page left in view above, which caps the sheet's height
  * as it caps any dialog's.
  */
-.cdk-overlay-pane.dialog-pane:has(app-queue-sheet, app-players-sheet) {
+.cdk-overlay-pane.dialog-pane.sheet-pane {
   --sheet-gap: 4rem;
 
   inset: auto 0 0;

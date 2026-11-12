@@ -22,8 +22,9 @@ $arrow-clearance: 2px;
 $fade: 1.5rem;
 
 /*
- * A row at the end of the tab bar, which keeps it in view as a tab scrolls.
- * It is the hint's and the popover's anchor, so it doesn't scroll itself:
+ * A row at the end of the tab bar from the desktop layout, which keeps it in
+ * view as a tab scrolls, and under the draft header below it. It is the
+ * hint's and the popover's anchor, so it doesn't scroll itself:
  * its list of seats does.
  */
 :host {

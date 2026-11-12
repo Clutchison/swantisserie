@@ -1,5 +1,5 @@
 <details [open]="open()">
-  <!-- In a pane or popover the panel stays open: its summary is only a heading there. -->
+  <!-- Where it always stays open, its summary is only a heading. -->
   <summary (click)="keepOpen($event)">
     <h2>Players · {{ playerCount() }}</h2>
   </summary>
@@ -76,7 +76,7 @@
     </div>
   }
   <!-- After the seating tools: a full draft's seats run long. -->
-  <ol>
+  <ol aria-label="Seat order">
     @for (
       player of draft().players;
       track player.id;

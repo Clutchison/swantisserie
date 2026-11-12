@@ -3,6 +3,7 @@ import {
   alice,
   draft,
   http,
+  panelSeats,
   playersPanel,
   alicePlayer,
   bob,
@@ -61,7 +62,7 @@ describe('bots', () => {
     );
 
     clickOn(playersButton(page));
-    const seats = playersPanel(playersSheet()!).querySelectorAll('li');
+    const seats = panelSeats(playersSheet()!);
     expect(badges(seats[0])).toEqual(['Bot']);
     expect(badges(seats[1])).toEqual([]);
     pressEscape();

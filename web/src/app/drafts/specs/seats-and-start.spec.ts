@@ -8,6 +8,8 @@ import {
   http,
   updates,
   openUrl,
+  panelSeatNames,
+  panelTurnSeat,
   playersPanel,
   bob,
   alicePlayer,
@@ -44,9 +46,6 @@ const START_FAILED = "Couldn't start the draft.";
 describe('seats and start', () => {
   beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
-  const seatNames = (page: HTMLElement) =>
-    [...playersPanel(page).querySelectorAll('li .name')].map((n) => n.textContent);
-
   it('shows the seat order and whose turn it is', async () => {
     const { page } = await openDraft(completeSnapshot, {
       state: 'Drafting',
@@ -57,10 +56,9 @@ describe('seats and start', () => {
     clickOn(playersButton(page));
     const sheet = playersSheet()!;
 
-    expect(seatNames(sheet)).toEqual(['Bob', 'Alice']);
+    expect(panelSeatNames(sheet)).toEqual(['Bob', 'Alice']);
     expect(page.textContent).toContain('Bob’s turn: pick 1, round 1');
-    const current = playersPanel(sheet).querySelector('li[aria-current="true"]');
-    expect(current?.querySelector('.name')?.textContent).toBe('Bob');
+    expect(panelTurnSeat(sheet)?.textContent).toContain('Bob');
   });
 
   it('keeps the seat order in the Players panel once the draft is closed, on mobile, closed', async () => {
@@ -74,7 +72,7 @@ describe('seats and start', () => {
     );
 
     expect(disclosure(page, 'Players · 2')!.open).toBe(false);
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
   });
 
   it('tells the signed-in player when it is their turn', async () => {
@@ -118,7 +116,7 @@ describe('seats and start', () => {
     req.flush(draft({ players: [bob, alicePlayer] }));
     await fixture.whenStable();
 
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
   });
 
   describe('with the Players panel beside the tabs, on a desktop', () => {
@@ -134,7 +132,7 @@ describe('seats and start', () => {
       req.flush(draft({ players: [bob, alicePlayer] }));
       await fixture.whenStable();
 
-      expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+      expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
     });
 
     it('keeps the seat order there, open, once the draft is closed', async () => {
@@ -144,7 +142,7 @@ describe('seats and start', () => {
       );
 
       expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
-      expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+      expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
     });
   });
 
@@ -160,7 +158,7 @@ describe('seats and start', () => {
     req.flush(draft({ players: [bob, alicePlayer] }));
     await fixture.whenStable();
 
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
   });
 
   it('starts the draft for the organizer', async () => {

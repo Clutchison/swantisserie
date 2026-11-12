@@ -28,6 +28,11 @@ export interface DialogShellConfig<R = unknown> {
   /** The component's inputs and outputs, as `inputBinding` and `outputBinding` make them. */
   bindings?: Binding[];
   /**
+   * Whether the dialog is a sheet: anchored to the foot of the screen at its
+   * full width, as the global styles lay out a pane with the `sheet-pane` class.
+   */
+  sheet?: boolean;
+  /**
    * Where focus goes once the dialog has closed, however it closed. It's
    * given the element focused when the dialog opened, its opener, which is
    * where focus goes without this, and what the dialog closed with, if
@@ -76,7 +81,8 @@ export class DialogShell {
       // The shell closes it, as below, and puts focus back itself.
       disableClose: true,
       restoreFocus: false,
-      panelClass: 'dialog-pane',
+      // Stryker disable next-line ConditionalExpression,ArrayDeclaration,StringLiteral: presentation only, which specs leave to the styles (web-specs.md): a sheet's anchoring at the foot.
+      panelClass: config.sheet ? ['dialog-pane', 'sheet-pane'] : 'dialog-pane',
       // Stryker disable next-line StringLiteral: presentation only, which specs leave to the styles (web-specs.md): the backdrop's dimming and fade-in.
       backdropClass: 'dialog-backdrop',
       positionStrategy: PLACED_BY_CSS,

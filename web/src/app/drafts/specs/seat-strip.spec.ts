@@ -20,6 +20,7 @@ import {
   playersPanel,
   resizeTo,
   tabButton,
+  startDraft,
   updates,
   viewOn,
 } from './harness';
@@ -134,10 +135,7 @@ describe('the Seat strip', () => {
     it('takes the Players panel’s place when the draft starts while the page is open', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
-      updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
-      await flushPicks([]);
-      await flushQueueAndPlan();
-      await fixture.whenStable();
+      await startDraft(fixture);
 
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
       expect(playersDisclosure(page)).toBeNull();
@@ -391,10 +389,7 @@ describe('the Seat strip', () => {
     it('takes the Players panel’s place when the draft starts while the page is open', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
 
-      updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
-      await flushPicks([]);
-      await flushQueueAndPlan();
-      await fixture.whenStable();
+      await startDraft(fixture);
 
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
       expect(playersDisclosure(page)).toBeNull();

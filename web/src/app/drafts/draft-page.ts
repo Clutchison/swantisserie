@@ -128,10 +128,11 @@ export class DraftPage {
   protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
   /**
    * Whether the page is at the desktop layout, as it is resized: the one
-   * with the Queue pane beside the tabs.
+   * with the Queue pane or the Players panel beside the tabs, and the Seat
+   * strip in the tab bar.
    */
   protected readonly desktop = matching(DESKTOP_QUERY);
-  /** Whether the viewer has a Queue pane: a player, until the draft is complete. */
+  /** Whether the viewer has a Queue pane: a player, once the draft has started and until it is complete. */
   private readonly hasQueuePane = computed(() => this.joined() && !!this.store.queueShown());
   /**
    * Whether the Queue pane is beside the tabs: from the desktop layout, unless
@@ -174,8 +175,8 @@ export class DraftPage {
     const draft = this.draft();
     return this.desktop() && !!draft && !hasTurn(draft);
   });
-  /** Whether the Players panel is narrow and stays open: beside the tabs, or in the Seat strip's popover or sheet. */
-  protected readonly playersInPane = computed(
+  /** Whether the Players panel always stays open, its seats stacked: beside the tabs, or in the Seat strip's popover or the Players sheet. */
+  protected readonly playersAlwaysOpen = computed(
     () => this.showPlayersBesideTabs() || this.showSeatStrip(),
   );
 

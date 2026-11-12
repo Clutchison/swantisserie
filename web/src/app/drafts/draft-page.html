@@ -56,7 +56,7 @@
     <ng-template #playersPanel>
       <app-players-panel
         class="players-panel"
-        [inPane]="playersInPane()"
+        [alwaysOpen]="playersAlwaysOpen()"
         (changeStarted)="clearErrors()"
       />
     </ng-template>
