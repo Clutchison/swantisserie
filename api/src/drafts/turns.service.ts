@@ -327,13 +327,21 @@ export class TurnsService {
     const { queues, plans } = effects ?? effectsOf(state, seat, poolCardId);
     const playerIds = players.map((player) => player.id);
     state.plans = await recordPlanEffects(tx, made, playerIds, plans);
-    state.queues = await recordQueueEffects(
+    const now = await recordQueueEffects(
       tx,
       made,
       playerIds,
-      state.queues,
+      {
+        queues: state.queues,
+        queuesPaused: players.map((player) => player.queuePaused),
+      },
       queues,
     );
+    state.queues = now.queues;
+    state.players = players.map((player, at) => ({
+      ...player,
+      queuePaused: now.queuesPaused[at],
+    }));
     picked.push(poolCardId);
     const next = currentTurn(size, picked.length);
     const events: DraftEvent[] = [
@@ -355,8 +363,8 @@ export class TurnsService {
 
   /**
    * Undoes pick `number`, the draft's latest: its card returns to the pool,
-   * the queues it cleared and the plans it lost from are restored, and the
-   * turn returns to its player.
+   * the cards it took out of queues and plans are restored, a queue it
+   * paused is set picking again, and the turn returns to its player.
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {

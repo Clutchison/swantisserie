@@ -61,14 +61,12 @@ describe('cascade', () => {
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
       queuePaused: false,
     });
   });
 
-  it('stops at a player whose queue another player’s pick has just cleared', async () => {
+  it('stops at a player whose queue another player’s pick has just paused', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
@@ -80,12 +78,17 @@ describe('cascade', () => {
     expect(picked.body.turn).toEqual({ pick: 2, round: 1, playerId: bob.id });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
-      cards: [],
-      lost: [{ poolCardId: ids.Shock, name: 'Shock' }],
-      cleared: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
-      queuePaused: false,
+      cards: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+      lost: [
+        {
+          poolCardId: ids.Shock,
+          name: 'Shock',
+          pausedQueue: true,
+          leftPicking: false,
+        },
+      ],
+      stealBehavior: 'PauseQueue',
+      queuePaused: true,
     });
   });
 
@@ -146,7 +149,7 @@ describe('cascade', () => {
     );
   });
 
-  it('clears a queue mid-cascade: a queued pick from a start stops at the player it cleared', async () => {
+  it('pauses a queue mid-cascade: a queued pick from a start stops at the player whose queue it paused', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await queueInLobby(id, alice, ids.Shock, ids['Lightning Bolt']);
@@ -160,9 +163,7 @@ describe('cascade', () => {
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
       queuePaused: false,
     });
   });
@@ -171,7 +172,7 @@ describe('cascade', () => {
     ['unfreeze', 'freeze', 'unfreeze'],
     ['reopen', 'close', 'reopen'],
   ])(
-    'clears a queue in the cascade after a %s',
+    'pauses a queue in the cascade after a %s, stopping at that player',
     async (_name, stop, restart) => {
       const carolCookie = await signIn(carol);
       const id = await readyDraft(
@@ -198,14 +199,19 @@ describe('cascade', () => {
         'Bob: Lightning Bolt',
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [],
-        lost: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
-        cleared: [
+        cards: [
           { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
         ],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
-        queuePaused: false,
+        lost: [
+          {
+            poolCardId: ids['Lightning Bolt'],
+            name: 'Lightning Bolt',
+            pausedQueue: true,
+            leftPicking: false,
+          },
+        ],
+        stealBehavior: 'PauseQueue',
+        queuePaused: true,
       });
     },
   );
@@ -299,9 +305,7 @@ describe('cascade', () => {
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [],
       lost: [],
-      cleared: [],
-      restKept: false,
-      stealBehavior: 'ClearQueue',
+      stealBehavior: 'PauseQueue',
       queuePaused: false,
     });
   });
@@ -426,7 +430,7 @@ describe('cascade', () => {
     });
   });
 
-  it('adds nothing about a cleared queue to the announcement, only the usual ping', async () => {
+  it('adds nothing about a paused queue to the announcement, only the usual ping', async () => {
     const id = await readyDraft(
       [aliceCookie, bobCookie],
       2,

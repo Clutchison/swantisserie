@@ -35,7 +35,7 @@ describe('steal behavior', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   const EXPLANATION =
-    'Clear queue: the rest of your queue is cleared. ' +
+    'Pause queue: the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand. ' +
     'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
 
   /** The steal behavior pill. */
@@ -50,16 +50,15 @@ describe('steal behavior', () => {
       cards: [brightclimb, shivan],
       queue: queueOf({
         cards: [queued(shivan)],
-        lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
-        restKept: false,
+        lost: [queued(brightclimb)],
       }),
     });
     const queue = queuePane(page);
 
     const control = elementWithText(queue, 'Steal behavior')!;
     expect(control).not.toBeNull();
-    expect(pill(queue).textContent).toContain('Clear queue');
-    expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Clear queue');
+    expect(pill(queue).textContent).toContain('Pause queue');
+    expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Pause queue');
     const notice = queueNotice(queue)!;
     expect(control.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(queue.querySelector('input[type="radio"]')).toBeNull();
@@ -79,7 +78,9 @@ describe('steal behavior', () => {
       (el) =>
         !el.closest('.visually-hidden') &&
         [...el.childNodes].some(
-          (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.includes('is cleared'),
+          (node) =>
+            node.nodeType === Node.TEXT_NODE &&
+            node.textContent?.includes('for you to pick by hand'),
         ),
     );
     expect(shown).toEqual([]);
@@ -118,11 +119,11 @@ describe('steal behavior', () => {
 
     pill(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/steal-behavior');
-    expect(back.request.body).toEqual({ stealBehavior: 'ClearQueue' });
+    expect(back.request.body).toEqual({ stealBehavior: 'PauseQueue' });
     back.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
 
-    expect(pill(queue).textContent).toContain('Clear queue');
+    expect(pill(queue).textContent).toContain('Pause queue');
   });
 
   it.each([
@@ -195,7 +196,7 @@ describe('steal behavior', () => {
     // Before the queue is re-read.
     await vi.waitFor(() => {
       expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
-      expect(pill(queue).textContent).toContain('Clear queue');
+      expect(pill(queue).textContent).toContain('Pause queue');
     });
     // By the pill, not under a queue that may run off the screen.
     const alert = queue.querySelector('[role="alert"]')!;
@@ -204,49 +205,50 @@ describe('steal behavior', () => {
 
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
-    expect(pill(queue).textContent).toContain('Clear queue');
+    expect(pill(queue).textContent).toContain('Pause queue');
   });
 
   describe('the queue notice', () => {
-    it('says the rest of the queue is still queued after a card is lost under pick next', async () => {
+    it('says of each lost card whether its loss set the queue to queue paused or left it queue picking', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({
-          cards: [queued(shivan)],
-          lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
-          restKept: true,
-          stealBehavior: 'PickNext',
+          lost: [
+            { ...queued(brightclimb), leftPicking: true },
+            { ...queued(shivan), pausedQueue: true },
+          ],
+          queuePaused: true,
         }),
       });
       const queue = queuePane(page);
 
       const note = queueNotice(queue)!;
       expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Lost to other players: Brightclimb Pathway // Grimclimb Pathway. ' +
-          'The rest of your queue is still queued.',
+        'Lost to other players: ' +
+          'Brightclimb Pathway // Grimclimb Pathway: your queue stayed queue picking. ' +
+          'Shivan Dragon: your queue was set to queue paused.',
       );
       button(note, 'Dismiss')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/notice')
-        .flush(queueOf({ cards: [queued(shivan)] }));
+      http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf({ queuePaused: true }));
       await fixture.whenStable();
+      expect(queueNotice(queue)).toBeNull();
     });
 
-    it('names only the lost card when nothing is left queued', async () => {
+    it('names only the lost card when its loss left the queue as it was, queue paused', async () => {
       const { page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({
-          cards: [],
-          lost: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
-          restKept: true,
-          stealBehavior: 'PickNext',
+          cards: [queued(shivan)],
+          lost: [queued(brightclimb)],
+          queuePaused: true,
         }),
       });
       const queue = queuePane(page);
 
       const note = queueNotice(queue)!;
-      expect(note.textContent).toContain('Lost to other players');
-      expect(note.textContent).not.toContain('still queued');
+      expect(note.textContent?.replace(/\s+/g, ' ').trim()).toMatch(
+        /^Lost to other players: Brightclimb Pathway \/\/ Grimclimb Pathway\. Dismiss$/,
+      );
     });
   });
 });

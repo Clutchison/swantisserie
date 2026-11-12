@@ -344,14 +344,10 @@ export class DraftStore implements TournamentViewer {
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
   );
 
-  /** The Queue notice's entries, each its lost or cleared card, by a key of its own. */
-  private readonly noticeEntries = computed(() => {
-    const { lost, cleared } = this.queue.value();
-    return [
-      ...lost.map((card) => `lost ${card.poolCardId}`),
-      ...cleared.map((card) => `cleared ${card.poolCardId}`),
-    ];
-  });
+  /** The Queue notice's entries, each its lost card, by its pool card id. */
+  private readonly noticeEntries = computed(() =>
+    this.queue.value().lost.map((card) => card.poolCardId),
+  );
   /**
    * The Queue notice's entries the player has seen, in an open Queue pane,
    * on this page: those still in the notice, so an entry dismissed and
@@ -362,7 +358,7 @@ export class DraftStore implements TournamentViewer {
     computation: (entries, previous) =>
       new Set(entries.filter((entry) => previous?.value.has(entry))),
   });
-  /** Whether the Queue notice notes any lost or cleared card. */
+  /** Whether the Queue notice notes any lost card. */
   readonly hasNotice = computed(() => this.noticeEntries().length > 0);
   /** Whether the Queue notice notes a card the player hasn't yet seen it note. */
   readonly unseenNotice = computed(() => {

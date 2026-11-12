@@ -21,8 +21,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
-import type { QueueView, StealBehavior } from 'contract';
+import type { LostQueuedCardView, QueueView, StealBehavior } from 'contract';
 import type { Observable } from 'rxjs';
 import {
   LucideArrowDown,
@@ -56,15 +55,16 @@ const STEAL_BEHAVIORS: Record<
   StealBehavior,
   { name: string; effect: string; other: StealBehavior }
 > = {
-  ClearQueue: {
-    name: 'Clear queue',
-    effect: 'the rest of your queue is cleared',
+  PauseQueue: {
+    name: 'Pause queue',
+    effect:
+      'the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand',
     other: 'PickNext',
   },
   PickNext: {
     name: 'Pick next',
     effect: 'the rest of your queue stays, and your next available card is picked on your turn',
-    other: 'ClearQueue',
+    other: 'PauseQueue',
   },
 };
 
@@ -100,7 +100,6 @@ let panes = 0;
     LucidePanelRightClose,
     LucidePanelRightOpen,
     LucideTrash,
-    NgTemplateOutlet,
     PicksLeft,
     QueueAddBump,
     QueueAddStatus,
@@ -176,12 +175,9 @@ export class QueuePane {
     .map(({ name, effect }) => `${name}: ${effect}.`)
     .join(' ');
 
-  /** Whether the notice should say the rest of the queue was kept after its latest loss. */
-  protected readonly showRestKept = computed(
-    () => this.queue().restKept && this.queue().cards.length > 0,
-  );
+  protected readonly lossNote = lossNote;
 
-  /** Whether there are lost or cleared cards to note. */
+  /** Whether there are lost cards to note. */
   protected readonly hasNotice = this.store.hasNotice;
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;
@@ -416,7 +412,7 @@ export class QueuePane {
     );
   }
 
-  /** Stops the notice listing the lost and cleared cards. */
+  /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(() => this.queueApi.dismissNotice(this.draftId()));
   }
@@ -447,6 +443,13 @@ export class QueuePane {
       }
     }, kept);
   }
+}
+
+/** What the Queue notice says after a lost card's name: what its loss did to the queue, if anything. */
+function lossNote({ pausedQueue, leftPicking }: LostQueuedCardView): string {
+  if (pausedQueue) return ': your queue was set to queue paused.';
+  if (leftPicking) return ': your queue stayed queue picking.';
+  return '.';
 }
 
 /** A queue's state, as its switch names it. */

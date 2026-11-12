@@ -388,7 +388,7 @@ export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
 /**
  * Queues `poolCardIds` for `user`, in order after anything already queued,
  * in a draft still in the lobby: a queue already filled there, which the api
- * keeps, cascades at the start and a pick import clears.
+ * keeps, cascades at the start and a pick import empties.
  */
 export async function queueInLobby(
   id: string,

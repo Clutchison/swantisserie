@@ -132,7 +132,7 @@ export class QueuesController {
     });
   }
 
-  /** Stops the Queue notice listing the lost and cleared cards. */
+  /** Stops the Queue notice listing the lost cards. */
   @Delete('notice')
   async dismissNotice(
     @CurrentUser() user: SessionUser,
@@ -207,10 +207,10 @@ function parseQueuePaused(body: unknown): boolean {
 /** The steal behavior to set, or a 400 if it isn't one. */
 function parseStealBehavior(body: unknown): StealBehavior {
   const { stealBehavior } = bodyFields<StealBehaviorRequest>(body);
-  if (stealBehavior !== 'ClearQueue' && stealBehavior !== 'PickNext') {
+  if (stealBehavior !== 'PauseQueue' && stealBehavior !== 'PickNext') {
     throw new BadRequestException({
       error: 'invalid',
-      message: 'Choose clear queue or pick next.',
+      message: 'Choose pause queue or pick next.',
     } satisfies RequestProblem);
   }
   return stealBehavior;

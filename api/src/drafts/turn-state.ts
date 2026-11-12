@@ -26,13 +26,13 @@ export type TurnPlayer = Prisma.PlayerGetPayload<{
  * What a turn reads of a draft, once, under the draft row lock: everything
  * the engine needs to check its picks and work out what they do. Each pick
  * the turn makes updates it as it updates the database, so a turn never
- * reads the draft again, however many picks its cascade makes. The players,
- * pool and names stay as read; the queues, plans and picked cards change
- * with each pick.
+ * reads the draft again, however many picks its cascade makes. The pool
+ * and names stay as read; the queues, plans and picked cards change with
+ * each pick, and so do the players, whose queue a loss may pause.
  */
 export interface TurnState {
-  /** The players by seat; seats are 0..n-1 once started, so indexes are the engine's seats. */
-  readonly players: readonly TurnPlayer[];
+  /** The players by seat; seats are 0..n-1 once started, so indexes are the engine's seats. Replaced after a pick that pauses a queue. */
+  players: readonly TurnPlayer[];
   /** Each player's queued cards in order, by seat; replaced after each pick. */
   queues: QueuedRow[][];
   /** Each player's planned cards, picked or not, by seat; replaced after each pick. */
@@ -52,6 +52,8 @@ export interface PickContext {
   picked: readonly string[];
   /** Each player's steal behavior, by seat. */
   stealBehaviors: StealBehavior[];
+  /** Whether each player's queue is queue paused, by seat. */
+  queuesPaused: boolean[];
 }
 
 /** The engine's view of the turn: each seat's queued pool cards, in order, and what it needs besides. */
@@ -65,6 +67,7 @@ export function engineView({ players, queues, pool, picked }: TurnState): {
       pool,
       picked,
       stealBehaviors: players.map((player) => player.stealBehavior),
+      queuesPaused: players.map((player) => player.queuePaused),
     },
   };
 }

@@ -195,13 +195,11 @@ export type DraftProblem =
   /** Set by the web app when the API gave no explanation, e.g. offline. */
   | { error: 'request-failed'; message: string };
 
-/** A queue with no cards in it, and none lost or cleared. */
+/** A queue with no cards in it, and none lost. */
 export const EMPTY_QUEUE: QueueView = {
   cards: [],
   lost: [],
-  cleared: [],
-  restKept: false,
-  stealBehavior: 'ClearQueue',
+  stealBehavior: 'PauseQueue',
   queuePaused: false,
 };
 

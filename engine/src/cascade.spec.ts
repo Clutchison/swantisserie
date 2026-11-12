@@ -3,7 +3,7 @@ import { cascade, type CascadeSeat } from './cascade.js';
 import type { StealBehavior } from './queue.js';
 
 /**
- * A cascade's seats, one per queue in `queues`: on clear queue, with an
+ * A cascade's seats, one per queue in `queues`: on pause queue, with an
  * empty plan and the queue picking, unless `stealBehaviors`, `plans` or
  * `queuesPaused` say otherwise for that seat.
  */
@@ -21,7 +21,7 @@ function seatsOf(
 ): CascadeSeat[] {
   return queues.map((queue, seat) => ({
     queue,
-    stealBehavior: stealBehaviors[seat] ?? 'ClearQueue',
+    stealBehavior: stealBehaviors[seat] ?? 'PauseQueue',
     plan: plans[seat] ?? [],
     queuePaused: queuesPaused[seat] ?? false,
   }));
@@ -88,7 +88,8 @@ describe('cascade', () => {
     ).toEqual([{ seat: 1, card: 'bolt' }]);
   });
 
-  it('stops at a seat whose queue another seat cleared earlier in the cascade', () => {
+  it('stops at the next turn of a seat whose queue a loss earlier in the cascade paused', () => {
+    // Seat 1 loses Shock under pause queue, so its turn stops the cascade.
     expect(
       picks(
         { players: 3, picksPerPlayer: 2, picked: [] },
@@ -98,13 +99,27 @@ describe('cascade', () => {
     ).toEqual([{ seat: 0, card: 'shock' }]);
   });
 
+  it('stops at a seat whose queue a loss paused, even after other seats pick first', () => {
+    // Seat 2 loses Shock to seat 0; seat 1 picks; seat 2's turn stops it.
+    expect(
+      picks(
+        { players: 3, picksPerPlayer: 2, picked: [] },
+        [['shock', 'spike'], ['bolt'], ['shock', 'skewer']],
+        singles,
+      ),
+    ).toEqual([
+      { seat: 0, card: 'shock' },
+      { seat: 1, card: 'bolt' },
+    ]);
+  });
+
   it('carries on to a seat under pick next, picking its next queued card after one is lost', () => {
     expect(
       picks(
         { players: 3, picksPerPlayer: 2, picked: [] },
         [['shock', 'spike'], ['shock', 'bolt'], ['skewer']],
         singles,
-        ['ClearQueue', 'PickNext', 'ClearQueue'],
+        ['PauseQueue', 'PickNext', 'PauseQueue'],
       ),
     ).toEqual([
       { seat: 0, card: 'shock' },
@@ -234,22 +249,22 @@ describe('cascade', () => {
         {
           pick: { seat: 0, card: 'bolt-1' },
           queues: [
-            { queue: [], cleared: [] },
+            { queue: [], paused: false },
             {
               queue: ['bolt-2', 'shock'],
               swapped: { out: 'bolt-1', in: 'bolt-2' },
-              cleared: [],
+              paused: false,
             },
-            { queue: [], cleared: [] },
+            { queue: [], paused: false },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
           queues: [
-            { queue: [], cleared: [] },
-            { queue: ['shock'], cleared: [] },
-            { queue: [], cleared: [] },
+            { queue: [], paused: false },
+            { queue: ['shock'], paused: false },
+            { queue: [], paused: false },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
@@ -286,16 +301,16 @@ describe('cascade', () => {
       ]);
     });
 
-    it('gives a queue that loses a card under clear queue its cleared cards', () => {
+    it('gives a queue that loses a card under pause queue the rest it keeps, and says it paused it', () => {
       const [first] = cascade(
         { players: 2, picksPerPlayer: 2, picked: [] },
         seatsOf([['shock'], ['shock', 'bolt-1']]),
         bolts,
       );
       expect(first.queues[1]).toEqual({
-        queue: [],
+        queue: ['bolt-1'],
         lost: 'shock',
-        cleared: ['bolt-1'],
+        paused: true,
       });
     });
 
@@ -303,14 +318,14 @@ describe('cascade', () => {
       const [first] = cascade(
         { players: 2, picksPerPlayer: 2, picked: [] },
         seatsOf([['shock'], ['shock', 'bolt-1']], {
-          stealBehaviors: ['ClearQueue', 'PickNext'],
+          stealBehaviors: ['PauseQueue', 'PickNext'],
         }),
         bolts,
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],
         lost: 'shock',
-        cleared: [],
+        paused: false,
       });
     });
   });

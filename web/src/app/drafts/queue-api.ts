@@ -53,7 +53,7 @@ export class QueueApi {
     } satisfies QueuePausedRequest);
   }
 
-  /** Stops the notice listing the lost and cleared cards. */
+  /** Stops the notice listing the lost cards. */
   dismissNotice(draftId: string): Observable<QueueView> {
     return this.http.delete<QueueView>(`${url(draftId)}/notice`);
   }

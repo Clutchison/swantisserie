@@ -78,9 +78,7 @@ describe('queue paused', () => {
       expect((await setQueuePaused(id, true).expect(200)).body).toEqual({
         cards: [],
         lost: [],
-        cleared: [],
-        restKept: false,
-        stealBehavior: 'ClearQueue',
+        stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
       expect(await queuePaused(id)).toBe(true);

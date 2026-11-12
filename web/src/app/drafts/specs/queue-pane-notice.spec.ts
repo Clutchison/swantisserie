@@ -18,7 +18,6 @@ import {
   queued,
   queueOf,
   queuePane,
-  statusTexts,
   pickOf,
   queueList,
   accessibleName,
@@ -98,38 +97,6 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     await fixture.whenStable();
 
     expect(queueNotice(queue)).toBeNull();
-  });
-
-  it('names lost and cleared cards apart, and dismiss hides them alike', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-      cards: [brightclimb, shivan],
-      queue: queueOf({ lost: [queued(shivan)], cleared: [queued(brightclimb)] }),
-    });
-    const queue = queuePane(page);
-
-    const note = queueNotice(queue)!;
-    expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
-      'Lost to other players: Shivan Dragon. ' +
-        'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
-    );
-
-    button(note, 'Dismiss')!.click();
-    http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf());
-    await fixture.whenStable();
-
-    expect(queueNotice(queue)).toBeNull();
-  });
-
-  it('notes cleared cards when none were lost', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting(), {
-      cards: [brightclimb, shivan],
-      queue: queueOf({ cards: [queued(shivan)], cleared: [queued(brightclimb)] }),
-    });
-    const queue = queuePane(page);
-
-    expect(statusTexts(queue).join(' ')).toContain(
-      'Your queue was cleared: Brightclimb Pathway // Grimclimb Pathway.',
-    );
   });
 
   it('re-reads the queue when the draft changes, so a lost card shows', async () => {

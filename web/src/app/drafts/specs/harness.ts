@@ -22,6 +22,7 @@ import type {
   PoolSnapshotView,
   ViewerTournamentView,
   QueuedCardView,
+  LostQueuedCardView,
   QueueView,
   TurnView,
   UserView,
@@ -352,23 +353,19 @@ export const queued = (card: NamedPoolCard): QueuedCardView => ({
 });
 
 /**
- * An empty queue, picking, under Clear queue, with `fields` changed. Only a queue that
- * lost a card can say whether the rest was kept.
+ * An empty queue, picking, under pause queue, with `fields` changed. A lost
+ * card's loss neither paused the queue nor left it picking unless it says so.
  */
 export const queueOf = (
-  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior' | 'queuePaused'>> &
-    (
-      | { lost?: []; restKept?: false }
-      | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept?: boolean }
-    ) = {},
+  fields: Partial<Omit<QueueView, 'lost'>> & {
+    lost?: (QueuedCardView & Partial<LostQueuedCardView>)[];
+  } = {},
 ): QueueView => ({
   cards: [],
-  lost: [],
-  cleared: [],
-  restKept: false,
-  stealBehavior: 'ClearQueue',
+  stealBehavior: 'PauseQueue',
   queuePaused: false,
   ...fields,
+  lost: (fields.lost ?? []).map((card) => ({ pausedQueue: false, leftPicking: false, ...card })),
 });
 
 /** A pick, Alice's and the draft's first, with `fields` changed. */
