@@ -119,8 +119,8 @@ The pool filter that leaves picked cards out of the Pool tab, which otherwise sh
 _Avoid_: Show available, taken filter, hide taken
 
 **Pool tab**:
-The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them.
-_Avoid_: Card grid, pool page
+The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them and, until the draft is complete, sees and rearranges their queue in the Queue pane.
+_Avoid_: Card grid, pool page, Queue tab
 
 **Platform**:
 The game a draft is played on: MTG Arena or Magic Online (MTGO). The organizer chooses it when creating the draft, and it never changes.
@@ -210,16 +210,20 @@ _Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 A player's setting, for one draft, for what a lost card does to the rest of their queue: **clear queue**, where the rest is cleared, or **pick next**, where it stays in order and their next available queued card is picked on their turn. Players start on clear queue and can change it whenever the draft is in the lobby or active.
 _Avoid_: Loss setting, fallback, keep queue
 
-**Queue tab**:
-The part of a draft’s page where a player sees and rearranges their queue, until the draft is complete.
-_Avoid_: Queue page
+**Queue pane**:
+The part of the Pool tab where a player sees and rearranges their queue beside the pool cards, or over them where there isn't room, until the draft is complete.
+_Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's)
+
+**Queued badge**:
+The mark on a card in the Pool tab that the viewer has queued, showing its place in their queue.
+_Avoid_: Queue badge, queued label, Picked badge (that is a picked card's)
 
 **Queue cutoff**:
-The line on the Queue tab after the last queued card that a player's picks left can reach, as their queue stands. It shows only when the queue holds more cards than the player has picks left.
+The line in the Queue pane after the last queued card that a player's picks left can reach, as their queue stands. It shows only when the queue holds more cards than the player has picks left.
 _Avoid_: Divider, pick line
 
 **Queue notice**:
-The note on the Queue tab naming a player's lost and cleared cards, and saying when the rest of the queue was kept under pick next. It builds up until the player dismisses it, and an undo takes off what that pick added.
+The note in the Queue pane naming a player's lost and cleared cards, and saying when the rest of the queue was kept under pick next. It builds up until the player dismisses it, and an undo takes off what that pick added.
 _Avoid_: Alert, warning, notification
 
 **Undo**:
