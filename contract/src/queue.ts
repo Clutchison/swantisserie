@@ -5,16 +5,18 @@ export interface QueuedCardView {
 }
 
 /**
- * A card lost from the queue, as the Queue notice names it, and what its
- * loss did to the queue. Neither flag is set when the queue was queue
- * paused already, or for a card lost before pause queue replaced clear
- * queue.
+ * What losing a card did to its queue: paused it, under pause queue; left
+ * it queue picking, under pick next; or left it queue paused, as it was.
  */
+export type QueueLoss = 'PausedQueue' | 'LeftQueuePicking' | 'LeftQueuePaused';
+
+/** A card lost from the queue, as the Queue notice names it. */
 export interface LostQueuedCardView extends QueuedCardView {
-  /** Whether its loss paused the queue, under pause queue. */
-  pausedQueue: boolean;
-  /** Whether its loss left the queue picking, under pick next. */
-  leftPicking: boolean;
+  /**
+   * What its loss did to the queue; null for a card lost before pause
+   * queue replaced clear queue.
+   */
+  queueLoss: QueueLoss | null;
 }
 
 /** The signed-in player's queue and steal behavior, which only they may see. */
@@ -34,8 +36,8 @@ export interface QueueView {
 
 /**
  * What a lost card does to a player's queue, whose rest stays in order
- * either way: under pause queue the queue is queue paused; under pick next
- * it keeps picking.
+ * either way: under pause queue the queue is set to queue paused; under
+ * pick next it stays queue picking.
  */
 export type StealBehavior = 'PauseQueue' | 'PickNext';
 

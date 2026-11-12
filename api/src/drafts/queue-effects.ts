@@ -1,15 +1,12 @@
-import { type QueueAfterPick, type QueuedCardAt, queueAfterUndo } from 'engine';
+import {
+  type QueueAfterPick,
+  type QueuedCardAt,
+  type QueueLoss,
+  queueAfterUndo,
+} from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
 import { leaveQueue } from './queue-order.js';
-import type { QueuedRow } from './turn-state.js';
-
-/** Each player's queue as a pick leaves it, by seat. */
-export interface QueuesNow {
-  /** Each player's queued cards. */
-  queues: QueuedRow[][];
-  /** Whether each player's queue is queue paused. */
-  queuesPaused: boolean[];
-}
+import type { QueuedRow, SeatQueue } from './turn-state.js';
 
 /**
  * Persists `after`, what a new pick, already made, does to each queue, as
@@ -20,29 +17,23 @@ export interface QueuesNow {
  * pause the queue. Lost cards, and the card the picker had queued, are
  * kept against the pick, in queue order, so that undoing it can put them
  * back, and each records its queue order in the player's plan. A lost card
- * also records whether it paused the queue or left it picking, for the
- * Queue notice and the undo. A swapped copy stays swapped: it is as good as
- * the one picked. Returns each player's queue as it now is.
+ * also records what its loss did to the queue, for the Queue notice and the
+ * undo. A swapped copy stays swapped: it is as good as the one picked.
+ * Returns each player's queue as it now is.
  */
 export async function recordQueueEffects(
   tx: Transaction,
   pick: MadePick,
   playerIds: readonly string[],
-  before: QueuesNow,
+  before: readonly SeatQueue[],
   after: readonly QueueAfterPick[],
-): Promise<QueuesNow> {
-  const now = before.queues.map((queue) => [...queue]);
-  const queuesPaused = [...before.queuesPaused];
+): Promise<SeatQueue[]> {
+  const now = before.map(({ cards }) => [...cards]);
   /** Takes `out` out of the seat's queue, keeping it against the pick. */
   async function takeOut(
     seat: number,
     out: readonly string[],
-    kept: {
-      restKept: boolean;
-      noticeHidden?: boolean;
-      pausedQueue?: boolean;
-      leftPicking?: boolean;
-    },
+    kept: { restKept: boolean; noticeHidden?: boolean; queueLoss?: QueueLoss },
   ): Promise<void> {
     const playerId = playerIds[seat];
     const isOut = (queued: QueuedRow) => out.includes(queued.poolCardId);
@@ -58,21 +49,16 @@ export async function recordQueueEffects(
     await leaveQueue(tx, playerId, leaving);
     now[seat] = now[seat].filter((queued) => !isOut(queued));
   }
-  for (const [seat, { queue, swapped, lost, paused }] of after.entries()) {
+  for (const [seat, { queue, swapped, lost }] of after.entries()) {
     const playerId = playerIds[seat];
     if (lost !== undefined) {
-      await takeOut(seat, [lost], {
-        restKept: queue.length > 0,
-        pausedQueue: paused,
-        // Not paused by the loss, nor before it: under pick next.
-        leftPicking: !paused && !queuesPaused[seat],
-      });
-      if (paused) {
+      const { card, queueLoss } = lost;
+      await takeOut(seat, [card], { restKept: queue.length > 0, queueLoss });
+      if (queueLoss === 'PausedQueue') {
         await tx.player.update({
           where: { id: playerId },
           data: { queuePaused: true },
         });
-        queuesPaused[seat] = true;
       }
     } else if (swapped !== undefined) {
       await tx.queuedCard.update({
@@ -106,13 +92,16 @@ export async function recordQueueEffects(
       );
     }
   }
-  return { queues: now, queuesPaused };
+  return now.map((cards, seat) => ({
+    cards,
+    queuePaused: after[seat].queuePaused,
+  }));
 }
 
 /**
  * Puts back what the pick took out of queues, in the order the engine's
- * `queueAfterUndo` gives, and sets picking again each queue the pick
- * paused, leaving every other queue's state alone. That includes the
+ * `queueAfterUndo` gives, and sets queue picking again each queue the
+ * pick paused, leaving every other queue's state alone. That includes the
  * cards a pick made before pause queue replaced clear queue cleared.
  * Deleting the pick then forgets them. Rewriting a queue this way is not a
  * departure: no queue order is recorded.
@@ -129,12 +118,12 @@ export async function restoreQueues(
       poolCardId: true,
       position: true,
       restKept: true,
-      pausedQueue: true,
+      queueLoss: true,
     },
   });
   for (const playerId of new Set(takenOut.map((card) => card.playerId))) {
     const restored = takenOut.filter((card) => card.playerId === playerId);
-    if (restored.some((card) => card.pausedQueue)) {
+    if (restored.some((card) => card.queueLoss === 'PausedQueue')) {
       await tx.player.update({
         where: { id: playerId },
         data: { queuePaused: false },

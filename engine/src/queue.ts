@@ -2,8 +2,8 @@ import { availableCopies, type Pool, type Swap, swapOrLose } from './copies.js';
 
 /**
  * What a lost card does to a player's queue, whose rest stays in order
- * either way: under pause queue the queue is queue paused; under pick next
- * it keeps picking.
+ * either way: under pause queue the queue is set to queue paused; under
+ * pick next it stays queue picking.
  */
 export type StealBehavior = 'PauseQueue' | 'PickNext';
 
@@ -14,6 +14,18 @@ export interface SeatPick {
   card: string;
 }
 
+/**
+ * What losing a card did to its queue: paused it, under pause queue; left
+ * it queue picking, under pick next; or left it queue paused, as it was.
+ */
+export type QueueLoss = 'PausedQueue' | 'LeftQueuePicking' | 'LeftQueuePaused';
+
+/** A card a queue lost, and what losing it did to the queue. */
+export interface LostQueuedCard {
+  card: string;
+  queueLoss: QueueLoss;
+}
+
 /** One seat's queue after a pick. */
 export interface QueueAfterPick {
   /** The queued cards, in order. */
@@ -21,12 +33,9 @@ export interface QueueAfterPick {
   /** The picked card and the copy swapped in for it, if one was. */
   swapped?: Swap;
   /** The picked card, if this queue lost it: no copy was available for the queue. */
-  lost?: string;
-  /**
-   * Whether this pick paused the queue: it lost a card while queue picking,
-   * under pause queue.
-   */
-  paused: boolean;
+  lost?: LostQueuedCard;
+  /** Whether the queue is queue paused after the pick. */
+  queuePaused: boolean;
 }
 
 /**
@@ -37,7 +46,7 @@ export interface QueueAfterPick {
  * the queue stays in order. A loss pauses a queue that `queuesPaused` says
  * is queue picking, unless the seat's entry in `stealBehaviors` is pick
  * next: pause queue for a seat it omits, and queue picking for a seat
- * `queuesPaused` omits.
+ * `queuesPaused` omits. Nothing else changes whether a queue is paused.
  * `picked` is the cards picked already, with or without this one. Cards are
  * pool card ids.
  */
@@ -60,20 +69,26 @@ export function queuesAfterPick(
 ): QueueAfterPick[] {
   const copies = availableCopies(pick.card, pool, picked);
   return queues.map((queue, seat) => {
+    const queuePaused = queuesPaused[seat] === true;
     if (seat === pick.seat) {
       return {
         queue: queue.filter((queued) => queued !== pick.card),
-        paused: false,
+        queuePaused,
       };
     }
-    const { cards, ...swappedOrLost } = swapOrLose(queue, pick.card, copies);
+    const { cards, swapped, lost } = swapOrLose(queue, pick.card, copies);
+    if (lost === undefined) {
+      return { queue: cards, ...(swapped && { swapped }), queuePaused };
+    }
+    const queueLoss: QueueLoss = queuePaused
+      ? 'LeftQueuePaused'
+      : stealBehaviors[seat] === 'PickNext'
+        ? 'LeftQueuePicking'
+        : 'PausedQueue';
     return {
       queue: cards,
-      ...swappedOrLost,
-      paused:
-        swappedOrLost.lost !== undefined &&
-        stealBehaviors[seat] !== 'PickNext' &&
-        queuesPaused[seat] !== true,
+      lost: { card: lost, queueLoss },
+      queuePaused: queueLoss !== 'LeftQueuePicking',
     };
   });
 }
@@ -90,8 +105,9 @@ export interface QueuedCardAt {
  * pick took out, each where it was then, both lowest position first;
  * `restKept` is whether the rest of the queue stayed when the card was lost:
  * false only for a queue cleared under clear queue, which picks no longer
- * do, but an undo of a pick made before then still puts back. A card lost while the rest was kept goes back in its
- * old place among the cards queued now: after those whose positions come
+ * do, but an undo of a pick made before then still puts back. A card lost
+ * while the rest was kept goes back in its old place among the cards queued
+ * now: after those whose positions come
  * before it, so after as many as were ahead of it, unless since reordered. A
  * cleared queue comes back at the front in its original order, ahead of
  * anything queued since. A card both put back and queued again since is

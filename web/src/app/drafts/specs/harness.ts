@@ -354,8 +354,9 @@ export const queued = (card: NamedPoolCard): QueuedCardView => ({
 });
 
 /**
- * An empty queue, picking, under pause queue, with `fields` changed. A lost
- * card's loss neither paused the queue nor left it picking unless it says so.
+ * An empty queue, queue picking, under pause queue, with `fields` changed. A
+ * lost card says nothing of what its loss did to the queue, as one lost
+ * before pause queue, unless it says so.
  */
 export const queueOf = (
   fields: Partial<Omit<QueueView, 'lost'>> & {
@@ -366,7 +367,7 @@ export const queueOf = (
   stealBehavior: 'PauseQueue',
   queuePaused: false,
   ...fields,
-  lost: (fields.lost ?? []).map((card) => ({ pausedQueue: false, leftPicking: false, ...card })),
+  lost: (fields.lost ?? []).map((card) => ({ queueLoss: null, ...card })),
 });
 
 /** A pick, Alice's and the draft's first, with `fields` changed. */

@@ -28,10 +28,8 @@ describe('the pause queue migration', () => {
       { id: 'b', stealBehavior: 'PickNext' },
       { id: 'c', stealBehavior: 'PauseQueue' },
     ]);
-    const takenOut = await db.query(
-      `SELECT "pausedQueue", "leftPicking" FROM "UnqueuedCard"`,
-    );
-    expect(takenOut.rows).toEqual([{ pausedQueue: false, leftPicking: false }]);
+    const takenOut = await db.query(`SELECT "queueLoss" FROM "UnqueuedCard"`);
+    expect(takenOut.rows).toEqual([{ queueLoss: null }]);
     await db.close();
     // Starting Postgres and applying every migration can pass 5s on CI.
   }, 30_000);

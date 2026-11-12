@@ -450,10 +450,17 @@ export class QueuePane {
 }
 
 /** What the Queue notice says after a lost card's name: what its loss did to the queue, if anything. */
-function lossNote({ pausedQueue, leftPicking }: LostQueuedCardView): string {
-  if (pausedQueue) return ': your queue was set to queue paused.';
-  if (leftPicking) return ': your queue stayed queue picking.';
-  return '.';
+function lossNote({ queueLoss }: LostQueuedCardView): string {
+  switch (queueLoss) {
+    case 'PausedQueue':
+      return ': your queue was set to queue paused.';
+    case 'LeftQueuePicking':
+      return ': your queue stayed queue picking.';
+    case 'LeftQueuePaused':
+      return ': your queue stayed queue paused.';
+    case null:
+      return '.';
+  }
 }
 
 /** A queue's state, as its switch names it. */

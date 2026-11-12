@@ -208,47 +208,23 @@ describe('steal behavior', () => {
     expect(pill(queue).textContent).toContain('Pause queue');
   });
 
-  describe('the queue notice', () => {
-    it('says of each lost card whether its loss set the queue to queue paused or left it queue picking', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: queueOf({
-          lost: [
-            { ...queued(brightclimb), leftPicking: true },
-            { ...queued(shivan), pausedQueue: true },
-          ],
-          queuePaused: true,
-        }),
-      });
-      const queue = queuePane(page);
-
-      const note = queueNotice(queue)!;
-      expect(note.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Lost to other players: ' +
-          'Brightclimb Pathway // Grimclimb Pathway: your queue stayed queue picking. ' +
-          'Shivan Dragon: your queue was set to queue paused.',
-      );
-      button(note, 'Dismiss')!.click();
-      http.expectOne('/api/drafts/draft-1/queue/notice').flush(queueOf({ queuePaused: true }));
-      await fixture.whenStable();
-      expect(queueNotice(queue)).toBeNull();
+  it('describes pause queue and pick next in the Queue pane’s help', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
     });
+    const queue = queuePane(page);
 
-    it('names only the lost card when its loss left the queue as it was, queue paused', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: queueOf({
-          cards: [queued(shivan)],
-          lost: [queued(brightclimb)],
-          queuePaused: true,
-        }),
-      });
-      const queue = queuePane(page);
+    button(queue, 'How this works')!.click();
+    await fixture.whenStable();
 
-      const note = queueNotice(queue)!;
-      expect(note.textContent?.replace(/\s+/g, ' ').trim()).toMatch(
-        /^Lost to other players: Brightclimb Pathway \/\/ Grimclimb Pathway\. Dismiss$/,
-      );
-    });
+    const help = document.getElementById(
+      button(queue, 'How this works')!.getAttribute('aria-controls')!,
+    )!;
+    expect(help.textContent?.replace(/\s+/g, ' ')).toContain(
+      'If another player picks a queued card first and no copy is left, it is lost. ' +
+        'Under Pause queue, your queue is set to queue paused, for you to pick by hand; ' +
+        'under Pick next, it stays queue picking.',
+    );
   });
 });

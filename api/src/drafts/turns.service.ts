@@ -26,7 +26,7 @@ import {
 import { DraftLock, type LockedDraft, lockPlayer } from './draft-lock.js';
 import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
-import { recordQueueEffects, restoreQueues } from './queue-clearing.js';
+import { recordQueueEffects, restoreQueues } from './queue-effects.js';
 import { checkQueueChangeable, checkStarted } from './queue-refusals.js';
 import { engineView, readTurnState, type TurnState } from './turn-state.js';
 
@@ -240,7 +240,7 @@ export class TurnsService {
         queue: player.user.isBot ? [] : queues[seat],
         stealBehavior: player.stealBehavior,
         plan: state.plans[seat],
-        queuePaused: player.queuePaused,
+        queuePaused: context.queuesPaused[seat],
       })),
       context.pool,
     );
@@ -327,21 +327,13 @@ export class TurnsService {
     const { queues, plans } = effects ?? effectsOf(state, seat, poolCardId);
     const playerIds = players.map((player) => player.id);
     state.plans = await recordPlanEffects(tx, made, playerIds, plans);
-    const now = await recordQueueEffects(
+    state.queues = await recordQueueEffects(
       tx,
       made,
       playerIds,
-      {
-        queues: state.queues,
-        queuesPaused: players.map((player) => player.queuePaused),
-      },
+      state.queues,
       queues,
     );
-    state.queues = now.queues;
-    state.players = players.map((player, at) => ({
-      ...player,
-      queuePaused: now.queuesPaused[at],
-    }));
     picked.push(poolCardId);
     const next = currentTurn(size, picked.length);
     const events: DraftEvent[] = [

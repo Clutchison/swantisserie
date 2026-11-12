@@ -327,8 +327,7 @@ export class QueuesService {
       ],
       select: {
         poolCardId: true,
-        pausedQueue: true,
-        leftPicking: true,
+        queueLoss: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the notice reads only `poolCardId`.
         pick: {
           select: { poolCardId: true },
@@ -347,8 +346,7 @@ export class QueuesService {
         .filter((card) => card.poolCardId === card.pick.poolCardId)
         .map((card) => ({
           ...toQueuedCardView(card),
-          pausedQueue: card.pausedQueue,
-          leftPicking: card.leftPicking,
+          queueLoss: card.queueLoss,
         })),
       stealBehavior,
       queuePaused,

@@ -17,8 +17,8 @@ describe('queuesAfterPick', () => {
         picked: [],
       }),
     ).toEqual([
-      { queue: ['spike'], paused: false },
-      { queue: [], paused: false },
+      { queue: ['spike'], queuePaused: false },
+      { queue: [], queuePaused: false },
     ]);
   });
 
@@ -30,11 +30,11 @@ describe('queuesAfterPick', () => {
         { pool, picked: [] },
       ),
     ).toEqual([
-      { queue: [], paused: false },
+      { queue: [], queuePaused: false },
       {
         queue: ['spike', 'bolt-2', 'shock'],
         swapped: { out: 'bolt-1', in: 'bolt-2' },
-        paused: false,
+        queuePaused: false,
       },
     ]);
   });
@@ -48,13 +48,17 @@ describe('queuesAfterPick', () => {
         { pool, picked: ['bolt-2'] },
       ),
     ).toEqual([
-      { queue: [], paused: false },
-      { queue: ['spike', 'shock'], lost: 'bolt-1', paused: true },
-      { queue: ['shock'], paused: false },
+      { queue: [], queuePaused: false },
+      {
+        queue: ['spike', 'shock'],
+        lost: { card: 'bolt-1', queueLoss: 'PausedQueue' },
+        queuePaused: true,
+      },
+      { queue: ['shock'], queuePaused: false },
     ]);
   });
 
-  it('under pick next, loses only the card from another queue, keeping the rest in order and the queue picking', () => {
+  it('under pick next, loses only the card from another queue, keeping the rest in order and leaving the queue queue picking', () => {
     expect(
       queuesAfterPick(
         { seat: 0, card: 'bolt-1' },
@@ -66,13 +70,21 @@ describe('queuesAfterPick', () => {
         },
       ),
     ).toEqual([
-      { queue: [], paused: false },
-      { queue: ['spike', 'shock'], lost: 'bolt-1', paused: false },
-      { queue: ['spike'], lost: 'bolt-1', paused: true },
+      { queue: [], queuePaused: false },
+      {
+        queue: ['spike', 'shock'],
+        lost: { card: 'bolt-1', queueLoss: 'LeftQueuePicking' },
+        queuePaused: false,
+      },
+      {
+        queue: ['spike'],
+        lost: { card: 'bolt-1', queueLoss: 'PausedQueue' },
+        queuePaused: true,
+      },
     ]);
   });
 
-  it('doesn’t say a pick paused a queue that was queue paused already, under either steal behavior', () => {
+  it('leaves a queue paused already queue paused, under either steal behavior, and says so', () => {
     expect(
       queuesAfterPick(
         { seat: 0, card: 'bolt-1' },
@@ -81,13 +93,21 @@ describe('queuesAfterPick', () => {
           pool,
           picked: ['bolt-2'],
           stealBehaviors: ['PauseQueue', 'PauseQueue', 'PickNext'],
-          queuesPaused: [false, true, true],
+          queuesPaused: [true, true, true],
         },
       ),
     ).toEqual([
-      { queue: [], paused: false },
-      { queue: ['spike'], lost: 'bolt-1', paused: false },
-      { queue: ['spike'], lost: 'bolt-1', paused: false },
+      { queue: [], queuePaused: true },
+      {
+        queue: ['spike'],
+        lost: { card: 'bolt-1', queueLoss: 'LeftQueuePaused' },
+        queuePaused: true,
+      },
+      {
+        queue: ['spike'],
+        lost: { card: 'bolt-1', queueLoss: 'LeftQueuePaused' },
+        queuePaused: true,
+      },
     ]);
   });
 });

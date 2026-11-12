@@ -120,10 +120,17 @@ enum Platform {
   MTGO
 }
 
-/// What a lost card does to the rest of a player's queue: ClearQueue clears it; PickNext keeps it, in order.
+/// What a lost card does to a player's queue, whose rest stays in order either way: PauseQueue sets it queue paused; PickNext leaves it queue picking.
 enum StealBehavior {
   PauseQueue
   PickNext
+}
+
+/// What losing a card did to its queue: paused it, under pause queue; left it queue picking, under pick next; or left it queue paused, as it was.
+enum QueueLoss {
+  PausedQueue
+  LeftQueuePicking
+  LeftQueuePaused
 }
 
 /// Progress of the pool snapshot: copying the pool's cards from Scryfall. A cube link's is Complete from creation.
@@ -368,10 +375,8 @@ model TakenOutQueuedCard {
   noticeHidden Boolean  @default(false)
   /// Whether anything else stayed queued when this card was lost; false for the last card left in a queue, and under clear queue, before pause queue replaced it, for a lost or cleared card. Always true for a player's own picked card, so that an undo puts it back in its old place.
   restKept     Boolean  @default(false)
-  /// Whether losing this card paused the queue, under pause queue; an undo of its pick sets the queue picking again.
-  pausedQueue  Boolean  @default(false)
-  /// Whether losing this card left the queue picking, under pick next.
-  leftPicking  Boolean  @default(false)
+  /// For a lost card, what losing it did to the queue; an undo of a pick that paused the queue sets it queue picking again. Null for any other card, and for a card lost before pause queue replaced clear queue.
+  queueLoss    QueueLoss?
 
   @@unique([pickId, playerId, poolCardId])
   @@index([playerId])

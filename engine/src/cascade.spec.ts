@@ -249,22 +249,22 @@ describe('cascade', () => {
         {
           pick: { seat: 0, card: 'bolt-1' },
           queues: [
-            { queue: [], paused: false },
+            { queue: [], queuePaused: false },
             {
               queue: ['bolt-2', 'shock'],
               swapped: { out: 'bolt-1', in: 'bolt-2' },
-              paused: false,
+              queuePaused: false,
             },
-            { queue: [], paused: false },
+            { queue: [], queuePaused: false },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
           queues: [
-            { queue: [], paused: false },
-            { queue: ['shock'], paused: false },
-            { queue: [], paused: false },
+            { queue: [], queuePaused: false },
+            { queue: ['shock'], queuePaused: false },
+            { queue: [], queuePaused: false },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
@@ -309,8 +309,8 @@ describe('cascade', () => {
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],
-        lost: 'shock',
-        paused: true,
+        lost: { card: 'shock', queueLoss: 'PausedQueue' },
+        queuePaused: true,
       });
     });
 
@@ -324,8 +324,8 @@ describe('cascade', () => {
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],
-        lost: 'shock',
-        paused: false,
+        lost: { card: 'shock', queueLoss: 'LeftQueuePicking' },
+        queuePaused: false,
       });
     });
   });

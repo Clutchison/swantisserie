@@ -8,6 +8,7 @@ import {
   useDraftsApp,
   signIn,
   readyDraft,
+  readyDraftWithCopies,
   start,
   enqueue,
   pick,
@@ -61,6 +62,41 @@ describe('steal behavior', () => {
     for (const name of names) {
       await enqueue(id, ids[name], carolCookie).expect(200);
     }
+  }
+
+  /**
+   * Makes Carol's queue as clear queue left it, before pause queue replaced
+   * it, after the draft's only pick lost her a card: the rest taken out
+   * against the pick, the queue empty and queue picking, and the cleared
+   * lines hidden.
+   */
+  async function asClearQueueLeftIt(id: string) {
+    const db = app.get(PrismaService);
+    const { id: playerId } = await db.player.findFirstOrThrow({
+      where: { draftId: id, userId: carol.id },
+    });
+    const { id: pickId } = await db.pick.findFirstOrThrow({
+      where: { draftId: id },
+    });
+    const rest = await db.queuedCard.findMany({ where: { playerId } });
+    await db.queuedCard.deleteMany({ where: { playerId } });
+    await db.takenOutQueuedCard.updateMany({
+      where: { playerId },
+      data: { restKept: false, queueLoss: null },
+    });
+    await db.takenOutQueuedCard.createMany({
+      data: rest.map(({ poolCardId, position }) => ({
+        pickId,
+        playerId,
+        poolCardId,
+        position,
+        noticeHidden: true,
+      })),
+    });
+    await db.player.update({
+      where: { id: playerId },
+      data: { queuePaused: false },
+    });
   }
 
   describe('the setting', () => {
@@ -179,7 +215,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike],
-        lost: [{ ...bolt, pausedQueue: true, leftPicking: false }],
+        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
         stealBehavior: 'PickNext',
         queuePaused: true,
       });
@@ -197,7 +233,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike],
-        lost: [{ ...bolt, pausedQueue: true, leftPicking: false }],
+        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -217,9 +253,9 @@ describe('steal behavior', () => {
         'Bob: Lava Spike',
       ]);
       expect(picked.body.turn.playerId).toBe(carol.id);
-      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
-        shock,
-      ]);
+      const carols = (await queue(id, carolCookie).expect(200)).body;
+      expect(carols.cards).toEqual([shock]);
+      expect(carols.queuePaused).toBe(true);
     });
 
     it('leaves a queue paused already paused, and says the loss didn’t pause it', async () => {
@@ -233,26 +269,34 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock],
-        lost: [{ ...bolt, pausedQueue: false, leftPicking: false }],
+        lost: [{ ...bolt, queueLoss: 'LeftQueuePaused' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
     });
 
-    it('leaves a queue picking when a copy is swapped in, not lost', async () => {
-      const id = await threePlayerDraft();
+    it('leaves a queue queue picking when a copy is swapped in, not lost', async () => {
+      const { id, first, second } = await readyDraftWithCopies([
+        aliceCookie,
+        bobCookie,
+        carolCookie,
+      ]);
       await start(id).expect(200);
-      await carolQueues(id, 'Shock');
-      const ids = await poolCardIds(id);
+      await enqueue(id, first, carolCookie).expect(200);
 
-      await pick(id, ids['Lightning Bolt']).expect(200);
+      await pick(id, first).expect(200);
 
-      expect(await queuePaused(id, carolCookie)).toBe(false);
+      expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+        cards: [{ poolCardId: second, name: 'Lightning Bolt' }],
+        lost: [],
+        stealBehavior: 'PauseQueue',
+        queuePaused: false,
+      });
     });
   });
 
   describe('the Queue notice', () => {
-    it('says of each lost card whether its loss paused the queue or left it picking, in the order they were lost', async () => {
+    it('says of each lost card whether its loss paused the queue or left it queue picking, in the order they were lost', async () => {
       const id = await readyDraft([aliceCookie, bobCookie, carolCookie], 2, [
         ...fourCards,
         'Fireblast',
@@ -262,7 +306,7 @@ describe('steal behavior', () => {
       await start(id).expect(200);
       await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await carolQueues(id, 'Lightning Bolt', 'Shock', 'Lava Spike');
-      // Alice takes Bolt under pick next: Carol's queue keeps picking.
+      // Alice takes Bolt under pick next: Carol's queue stays queue picking.
       await pick(id, ids['Lightning Bolt']).expect(200);
       await setStealBehavior(id, 'PauseQueue', carolCookie).expect(200);
       // Bob takes Shock under pause queue: Carol's queue is paused.
@@ -271,8 +315,8 @@ describe('steal behavior', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [spike],
         lost: [
-          { ...bolt, pausedQueue: false, leftPicking: true },
-          { ...shock, pausedQueue: true, leftPicking: false },
+          { ...bolt, queueLoss: 'LeftQueuePicking' },
+          { ...shock, queueLoss: 'PausedQueue' },
         ],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
@@ -305,7 +349,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, spike],
-        lost: [{ ...bolt, pausedQueue: false, leftPicking: true }],
+        lost: [{ ...bolt, queueLoss: 'LeftQueuePicking' }],
         stealBehavior: 'PickNext',
         queuePaused: false,
       });
@@ -323,7 +367,7 @@ describe('steal behavior', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock],
-        lost: [{ ...bolt, pausedQueue: false, leftPicking: false }],
+        lost: [{ ...bolt, queueLoss: 'LeftQueuePaused' }],
         stealBehavior: 'PickNext',
         queuePaused: true,
       });
@@ -346,7 +390,7 @@ describe('steal behavior', () => {
       ]);
     });
 
-    it('carries on picking for the player in the cascade that lost their card', async () => {
+    it('carries on picking for the player, queue picking, in the cascade that lost their card', async () => {
       const id = await threePlayerDraft();
       const ids = await poolCardIds(id);
       await start(id).expect(200);
@@ -363,7 +407,7 @@ describe('steal behavior', () => {
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [],
-        lost: [{ ...bolt, pausedQueue: false, leftPicking: true }],
+        lost: [{ ...bolt, queueLoss: 'LeftQueuePicking' }],
         stealBehavior: 'PickNext',
         queuePaused: false,
       });
@@ -388,7 +432,7 @@ describe('steal behavior', () => {
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock],
-        lost: [{ ...bolt, pausedQueue: true, leftPicking: false }],
+        lost: [{ ...bolt, queueLoss: 'PausedQueue' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -436,7 +480,7 @@ describe('steal behavior', () => {
       expect((await queue(id).expect(200)).body.cards).toEqual([bolt, spike]);
     });
 
-    it('sets a queue its pick paused picking again, with the card back in its place, and makes no queued picks', async () => {
+    it('sets a queue its pick paused queue picking again, with the card back in its place, and makes no queued picks', async () => {
       const id = await threePlayerDraft();
       await start(id).expect(200);
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
@@ -489,34 +533,7 @@ describe('steal behavior', () => {
       await carolQueues(id, 'Shock', 'Lightning Bolt', 'Lava Spike');
       const ids = await poolCardIds(id);
       await pick(id, ids['Lightning Bolt']).expect(200);
-      // Make it as clear queue left it: the rest taken out against the pick,
-      // the queue empty and picking, and the cleared lines hidden.
-      const db = app.get(PrismaService);
-      const { id: playerId } = await db.player.findFirstOrThrow({
-        where: { draftId: id, userId: carol.id },
-      });
-      const { id: pickId } = await db.pick.findFirstOrThrow({
-        where: { draftId: id },
-      });
-      const rest = await db.queuedCard.findMany({ where: { playerId } });
-      await db.queuedCard.deleteMany({ where: { playerId } });
-      await db.takenOutQueuedCard.updateMany({
-        where: { playerId },
-        data: { restKept: false, pausedQueue: false },
-      });
-      await db.takenOutQueuedCard.createMany({
-        data: rest.map(({ poolCardId, position }) => ({
-          pickId,
-          playerId,
-          poolCardId,
-          position,
-          noticeHidden: true,
-        })),
-      });
-      await db.player.update({
-        where: { id: playerId },
-        data: { queuePaused: false },
-      });
+      await asClearQueueLeftIt(id);
 
       await undo(id, 1).expect(200);
 
@@ -526,6 +543,39 @@ describe('steal behavior', () => {
         stealBehavior: 'PauseQueue',
         queuePaused: false,
       });
+    });
+
+    it('still puts back a long queue that a pick made before pause queue cleared in its original order, after one of its cards was queued again and the notice dismissed', async () => {
+      // Guards the taken-out cards' `orderBy: { position: 'asc' }` in
+      // queue-effects.ts. Without it they come back in storage order, which
+      // only changes once their rows fill a storage page, so that queuing one
+      // again moves its row after the others: hence 60 cards. A schema or
+      // PGlite change could quietly stop this killing that mutant; a later
+      // Stryker run would show it.
+      const cards = Array.from(
+        { length: 60 },
+        (_, i) => `Card ${String(i).padStart(2, '0')}`,
+      );
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        1,
+        cards,
+      );
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      for (const name of cards) {
+        await enqueue(id, ids[name], carolCookie).expect(200);
+      }
+      await pick(id, ids['Card 59']).expect(200);
+      await asClearQueueLeftIt(id);
+      await enqueue(id, ids['Card 00'], carolCookie).expect(200);
+      await dismissNotice(id, carolCookie).expect(200);
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual(
+        cards.map((name) => ({ poolCardId: ids[name], name })),
+      );
     });
 
     it('takes back only a card lost under pick next, though the player has since switched to pause queue', async () => {

@@ -256,7 +256,7 @@ describe('queue', () => {
 
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
         cards: [spike, bolt],
-        lost: [{ ...shock, pausedQueue: true, leftPicking: false }],
+        lost: [{ ...shock, queueLoss: 'PausedQueue' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -301,8 +301,8 @@ describe('queue', () => {
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [shock, skewer],
         lost: [
-          { ...bolt, pausedQueue: true, leftPicking: false },
-          { ...spike, pausedQueue: false, leftPicking: false },
+          { ...bolt, queueLoss: 'PausedQueue' },
+          { ...spike, queueLoss: 'LeftQueuePaused' },
         ],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
@@ -342,7 +342,7 @@ describe('queue', () => {
       await pick(id, ids.Shock).expect(200);
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
         cards: [spike],
-        lost: [{ ...shock, pausedQueue: true, leftPicking: false }],
+        lost: [{ ...shock, queueLoss: 'PausedQueue' }],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
       });
@@ -371,7 +371,7 @@ describe('queue', () => {
       await dismissNotice(id, bobCookie).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body.lost).toEqual([
-        { ...shock, pausedQueue: true, leftPicking: false },
+        { ...shock, queueLoss: 'PausedQueue' },
       ]);
     });
 
@@ -390,7 +390,7 @@ describe('queue', () => {
       await waitForBotPicks(1, async () => {
         expect((await queue(id).expect(200)).body).toEqual({
           cards: [spike],
-          lost: [{ ...shock, pausedQueue: true, leftPicking: false }],
+          lost: [{ ...shock, queueLoss: 'PausedQueue' }],
           stealBehavior: 'PauseQueue',
           queuePaused: true,
         });
@@ -481,8 +481,7 @@ describe('queue', () => {
           {
             poolCardId: first,
             name: 'Lightning Bolt',
-            pausedQueue: true,
-            leftPicking: false,
+            queueLoss: 'PausedQueue',
           },
         ],
         stealBehavior: 'PauseQueue',
@@ -511,8 +510,7 @@ describe('queue', () => {
           {
             poolCardId: first,
             name: 'Lightning Bolt',
-            pausedQueue: true,
-            leftPicking: false,
+            queueLoss: 'PausedQueue',
           },
         ],
         stealBehavior: 'PauseQueue',

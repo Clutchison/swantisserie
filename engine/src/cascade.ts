@@ -42,7 +42,7 @@ export interface CascadeSeat {
  * `queuesAfterPick` says: a queued copy of the picked card may be swapped
  * for another copy, or lost. Under pause queue, a lost card pauses that
  * queue, so the cascade stops at that seat's next turn; under pick next, the
- * rest of its queue carries on. Plans change with each pick, as
+ * queue stays queue picking and its rest carries on. Plans change with each pick, as
  * `plansAfterPick` says, but never stop or steer the cascade. Cards are pool
  * card ids, as in `pool` and `picked`.
  */
@@ -54,7 +54,8 @@ export function cascade(
   const picked = [...draft.picked];
   const pickedBefore = new Set(picked);
   const stealBehaviors = seats.map((seat) => seat.stealBehavior);
-  let queuesPaused = seats.map((seat) => seat.queuePaused);
+  // Each seat's queue paused state, as `queuesAfterPick` carries it forward.
+  let queuesPaused: readonly boolean[] = seats.map((seat) => seat.queuePaused);
   let remaining: readonly (readonly string[])[] = seats.map(
     (seat) => seat.queue,
   );
@@ -78,9 +79,7 @@ export function cascade(
     const plansAfter = plansAfterPick(pick, planned, { pool, picked });
     picks.push({ pick, queues: queuesAfter, plans: plansAfter });
     remaining = queuesAfter.map((after) => after.queue);
-    queuesPaused = queuesAfter.map(
-      (after, seat) => after.paused || queuesPaused[seat],
-    );
+    queuesPaused = queuesAfter.map((after) => after.queuePaused);
     planned = plansAfter.map((after) => after.plan);
     picked.push(card);
   }
