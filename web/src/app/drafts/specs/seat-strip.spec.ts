@@ -8,6 +8,7 @@ import {
   completeSnapshot,
   draft,
   drafting,
+  findPlayersPane,
   findQueuePane,
   flushPicks,
   flushQueueAndPlan,
@@ -28,7 +29,6 @@ import {
   findSeatStrip,
   playersButton,
   playersPopover,
-  seatStrip,
   stripSeatNames,
   stripSeats,
 } from './seat-strip-harness';
@@ -57,7 +57,6 @@ describe('the Seat strip', () => {
     it.each([
       ['drafting', drafting(), ['Alice, you', 'Bob, their turn']],
       ['paused', drafting({ state: 'Paused' }), ['Alice, you', 'Bob, their turn']],
-      ['closed', drafting({ state: 'Closed', turn: null }), ['Alice, you', 'Bob']],
     ])(
       'shows the seats in seat order while %s, naming the viewer’s own and whose turn it is, in place of the Players panel',
       async (_, fields, names) => {
@@ -84,12 +83,6 @@ describe('the Seat strip', () => {
         null,
         'true',
       ]);
-    });
-
-    it('marks no turn in a closed draft', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Closed', turn: null }));
-
-      expect(seatStrip(page).querySelector('[aria-current]')).toBeNull();
     });
 
     it('names bots as bots', async () => {
@@ -121,23 +114,20 @@ describe('the Seat strip', () => {
       expect(findQueuePane(page)).not.toBeNull();
     });
 
-    it('shows the full Players panel above the tabs in the lobby, and no Seat strip or Queue pane', async () => {
-      const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+    it.each([
+      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
+      ['in a closed draft', drafting({ state: 'Closed', turn: null })],
+      ['in a complete draft', drafting({ state: 'Complete', turn: null })],
+    ])(
+      'isn’t there %s: the Players panel is, open, in its pane, with no Queue pane',
+      async (_, fields) => {
+        const { page } = await openDraft(completeSnapshot, fields);
 
-      expect(findSeatStrip(page)).toBeNull();
-      expect(playersDisclosure(page)!.open).toBe(true);
-      expect(findQueuePane(page)).toBeNull();
-    });
-
-    it('shows the Players panel, open, in a complete draft, and no Seat strip', async () => {
-      const { page } = await openDraft(
-        completeSnapshot,
-        drafting({ state: 'Complete', turn: null }),
-      );
-
-      expect(findSeatStrip(page)).toBeNull();
-      expect(playersDisclosure(page)!.open).toBe(true);
-    });
+        expect(findSeatStrip(page)).toBeNull();
+        expect(playersDisclosure(findPlayersPane(page)!)!.open).toBe(true);
+        expect(findQueuePane(page)).toBeNull();
+      },
+    );
 
     it('takes the Players panel’s place when the draft starts while the page is open', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });

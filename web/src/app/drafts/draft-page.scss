@@ -15,7 +15,7 @@
   }
 }
 
-/* Above the tabs, or beside them; not in the Seat strip's popover. */
+/* Above the tabs; in its pane, the pane has the margin. */
 main > .players-panel,
 .pool,
 .plan,
@@ -184,11 +184,13 @@ main {
   }
 
   /*
-   * With the Queue pane, the page is two columns: the tabs and their panels,
-   * with the pane beside them. Like the tab bar, it stays in view as a tab
-   * scrolls, and scrolls on its own when it's long.
+   * With the Queue pane, or the Players panel's pane while the draft isn't
+   * running, the page is two columns: the tabs and their panels, with the pane
+   * beside them. Like the tab bar, it stays in view as a tab scrolls, and
+   * scrolls on its own when it's long.
    */
-  main.with-queue-pane {
+  main.with-queue-pane,
+  main.with-players-pane {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-xl);
@@ -203,30 +205,32 @@ main {
       grid-column: 1;
     }
 
-    > .queue-pane {
+    > .queue-pane,
+    > .players-pane {
       @include side-pane.sticky;
 
       grid-column: 2;
       margin-top: var(--space-xl);
     }
+
+    > .players-pane {
+      inline-size: side-pane.$width;
+    }
   }
 }
 
 /*
- * From here a started draft has the Seat strip after the tabs and any Queue
- * pane, until it is complete, when the Players panel is a pane there instead.
- * Each stays in view as a tab scrolls. In the lobby the Players panel stays
- * above the tabs.
+ * From here a drafting or paused draft has the Seat strip after the tabs and
+ * any Queue pane, staying in view as a tab scrolls.
  */
 @media (min-width: bp.$wide-desktop) {
-  main.with-seat-strip,
-  main.with-players-pane {
+  main.with-seat-strip {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-xl);
     align-items: start;
 
-    /* The header and the status strip span every column. */
+    /* The header, the status strip and the Players panel span every column. */
     > * {
       grid-column: 1 / -1;
     }
@@ -244,14 +248,5 @@ main {
   main > .seat-strip {
     grid-column: -2;
     margin-top: var(--space-xl);
-  }
-
-  /* Placed after the tab column, so it shares its row; the reading order stays as written. */
-  main > .players-panel.in-pane {
-    @include side-pane.sticky;
-
-    order: 1;
-    grid-column: -2;
-    inline-size: side-pane.$width;
   }
 }

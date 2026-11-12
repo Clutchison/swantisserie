@@ -30,6 +30,7 @@ import {
   buttonOrder,
   ALL_POWERS,
   drafting,
+  findPlayersPane,
   viewOn,
 } from './harness';
 import { disclosure } from './disclosure-harness';
@@ -111,6 +112,36 @@ describe('seats and start', () => {
     req.flush(draft({ players: [bob, alicePlayer] }));
     await fixture.whenStable();
 
+    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+  });
+
+  it('lets the organizer randomize the seats from the Players panel’s pane on a desktop', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    button(findPlayersPane(page)!, 'Randomize seats')!.click();
+    const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'));
+    expect(req.request.method).toBe('POST');
+    req.flush(draft({ players: [bob, alicePlayer] }));
+    await fixture.whenStable();
+
+    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+  });
+
+  it('keeps the seat order, open, in the Players panel’s pane once the draft is closed, on a desktop', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ players: [bob, alicePlayer], state: 'Closed', turn: null }),
+    );
+
+    expect(disclosure(findPlayersPane(page)!, 'Players · 2')!.open).toBe(true);
     expect(seatNames(page)).toEqual(['Bob', 'Alice']);
   });
 
@@ -236,6 +267,20 @@ describe('seats and start', () => {
       picks: 70,
       next: { pick: 71, player: 'Bob' },
     };
+
+    it('previews a file chosen from the Players panel’s pane on a desktop', async () => {
+      viewOn('desktop');
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+      const pane = findPlayersPane(page)!;
+
+      await chooseFile(fixture, pane, preview);
+
+      expect(pane.contains(await shownPreview(page))).toBe(true);
+      expect((await shownPreview(page)).textContent).toContain('Ann → Alice');
+    });
 
     it('previews a valid file: the pairings, pick count and next turn', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });

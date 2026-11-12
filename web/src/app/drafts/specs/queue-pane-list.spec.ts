@@ -26,6 +26,7 @@ import {
   alertIn,
   serverError,
   viewOn,
+  openQueueSheet,
   cardName,
   cardNames,
   queueList,
@@ -749,6 +750,8 @@ describe('Queue pane list', () => {
     });
 
     it('offers no handle or menu once the queue is read-only', async () => {
+      // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
+      viewOn('mobile', { pointer: 'coarse' });
       const { fixture, page } = await openDraft(
         completeSnapshot,
         drafting({ state: 'Closed', turn: null }),
@@ -757,7 +760,7 @@ describe('Queue pane list', () => {
           queue: queueOf({ cards: [queued(shivan)] }),
         },
       );
-      const queue = queuePane(page);
+      const queue = queuePane(await openQueueSheet(fixture, page));
 
       expect(dragHandle(fixture, cardName(queue, 'Shivan Dragon'))).toBeUndefined();
       expect(button(queue, rowMenuName('Shivan Dragon'))).toBeUndefined();

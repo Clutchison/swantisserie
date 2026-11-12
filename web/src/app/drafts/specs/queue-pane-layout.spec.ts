@@ -88,11 +88,8 @@ describe('Queue pane layout', () => {
       }
     });
 
-    it.each([
-      ['while paused', drafting({ state: 'Paused' })],
-      ['while closed', drafting({ state: 'Closed', turn: null })],
-    ])('shows it %s', async (_, fields) => {
-      const { page } = await openDraft(completeSnapshot, fields);
+    it('shows it while paused', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }));
 
       expect(findQueuePane(page)).not.toBeNull();
     });
@@ -104,6 +101,8 @@ describe('Queue pane layout', () => {
         drafting({ state: 'Lobby', turn: null, players: [bob] }),
       ],
       ['a player in the lobby', drafting({ state: 'Lobby', turn: null })],
+      // The Players panel has its column until the draft reopens.
+      ['a player once the draft is closed', drafting({ state: 'Closed', turn: null })],
       ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
     ])('shows none to %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);

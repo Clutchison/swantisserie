@@ -25,6 +25,7 @@ import {
   text,
   serverError,
   viewOn,
+  openQueueSheet,
   queueNotice,
   cardNames,
 } from './harness';
@@ -148,6 +149,8 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   });
 
   it('is read-only once the draft is closed, as the api refuses every queue change with `draft-closed`', async () => {
+    // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
+    viewOn('mobile');
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Closed', turn: null }),
@@ -156,7 +159,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
       },
     );
-    const queue = queuePane(page);
+    const queue = queuePane(await openQueueSheet(fixture, page));
 
     expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
     button(queue, 'How this works').click();
@@ -268,13 +271,16 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     it.each(['Paused', 'Closed'] as const)(
       'draws the queue cutoff while the draft is %s',
       async (state) => {
-        const { page } = await openDraft(
+        // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
+        if (state === 'Closed') viewOn('mobile');
+        const { fixture, page } = await openDraft(
           completeSnapshot,
           drafting({ state, picksPerPlayer: 1, turn: state === 'Paused' ? undefined : null }),
           boltThenShivan,
         );
 
-        const queue = queuePane(page);
+        const queue =
+          state === 'Closed' ? queuePane(await openQueueSheet(fixture, page)) : queuePane(page);
         expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
       },
     );

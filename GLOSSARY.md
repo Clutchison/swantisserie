@@ -215,7 +215,7 @@ A player's setting, for one draft, for what a lost card does to the rest of thei
 _Avoid_: Loss setting, fallback, keep queue
 
 **Queue pane**:
-The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there from when the draft starts until it is complete.
+The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there while the draft is drafting or paused, and in the Queue sheet alone once the draft is closed, when the Players panel has its place beside the tabs.
 _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
 
 **"Next up" strip**:

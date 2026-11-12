@@ -10,6 +10,8 @@ import {
   viewOn,
   resizeTo,
   drafting,
+  findPlayersPane,
+  findQueuePane,
   text,
 } from './harness';
 import { disclosure, toggleDisclosure } from './disclosure-harness';
@@ -72,12 +74,12 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(true);
     });
 
-    it('can be collapsed by hand in the lobby, where it sits above the tabs', async () => {
+    it('stays open in its pane in the lobby when its summary is clicked', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
       toggleDisclosure(page, 'Players · 1');
 
-      expect(panel(page).open).toBe(false);
+      expect(panel(page).open).toBe(true);
     });
 
     it('is open, showing every seat, in the Seat strip’s popover once the draft has started', async () => {
@@ -109,10 +111,10 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(true);
     });
 
-    it('can be collapsed by hand once the window narrows', async () => {
+    it('can be collapsed by hand once the window narrows past the desktop', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-      resizeTo('desktop');
+      resizeTo('mobile');
       toggleDisclosure(page, 'Players · 1');
 
       expect(panel(page).open).toBe(false);
@@ -179,4 +181,77 @@ describe('the Players panel', () => {
       });
     });
   }
+  describe('where it sits', () => {
+    const states: [string, ReturnType<typeof drafting>][] = [
+      ['in the lobby', drafting({ players: [bob], state: 'Lobby', turn: null })],
+      ['in a closed draft', drafting({ players: [bob], state: 'Closed', turn: null })],
+      ['in a complete draft', drafting({ players: [bob], state: 'Complete', turn: null })],
+    ];
+
+    describe.each(['wide', 'desktop'] as const)('on a %s screen', (screen) => {
+      beforeEach(() => viewOn(screen));
+
+      it.each(states)(
+        'is the pane beside the tabs %s, open, with no Seat strip',
+        async (_, fields) => {
+          const { page } = await openDraft(completeSnapshot, fields);
+
+          const pane = findPlayersPane(page)!;
+          expect(panel(pane).open).toBe(true);
+          expect(panel(pane).textContent).toContain('Bob');
+          // The one Players panel on the page: none above the tabs as well.
+          expect(panel(page)).toBe(panel(pane));
+          expect(findSeatStrip(page)).toBeNull();
+        },
+      );
+
+      it('takes the Queue pane’s place in a closed draft', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ state: 'Closed', turn: null }),
+        );
+
+        expect(findPlayersPane(page)).not.toBeNull();
+        expect(findQueuePane(page)).toBeNull();
+      });
+
+      it('isn’t a pane while the draft runs', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+
+        expect(findPlayersPane(page)).toBeNull();
+      });
+
+      it('leaves the pane for the section above the tabs as the window narrows past the desktop', async () => {
+        const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+        resizeTo('mobile');
+
+        expect(findPlayersPane(page)).toBeNull();
+        expect(panel(page).open).toBe(true);
+      });
+    });
+
+    describe('on a mobile screen', () => {
+      beforeEach(() => viewOn('mobile'));
+
+      it.each(states)('is the "Players · N" section, not a pane, %s', async (where, fields) => {
+        const { page } = await openDraft(completeSnapshot, fields);
+
+        expect(findPlayersPane(page)).toBeNull();
+        // Open in the lobby, where seats are arranged; collapsed after it.
+        expect(panel(page).open).toBe(where === 'in the lobby');
+      });
+
+      it('moves into the pane as the window widens past the desktop', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ players: [bob], state: 'Closed', turn: null }),
+        );
+
+        resizeTo('desktop');
+
+        expect(panel(findPlayersPane(page)!).open).toBe(true);
+      });
+    });
+  });
 });
