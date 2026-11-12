@@ -401,7 +401,7 @@ describe('the Seat strip', () => {
     });
 
     describe('its Players button', () => {
-      it('opens the full Players panel in the Players sheet, not a popover', async () => {
+      it('opens the full Players panel in the Players sheet, not a popover, with focus on its Close button', async () => {
         const { page } = await openDraft(
           completeSnapshot,
           drafting({ players: [alicePlayer, bot] }),
@@ -413,7 +413,7 @@ describe('the Seat strip', () => {
         expect(playersButton(page).getAttribute('aria-expanded')).toBe('true');
         expect(playersDisclosure(sheet)!.open).toBe(true);
         expect(sheet.textContent).toContain('Bot 1');
-        expect(sheet.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).toBe(button(sheet, 'Close'));
         expect(playersPopover(page)).toBeNull();
       });
 

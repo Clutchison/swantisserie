@@ -322,13 +322,13 @@ textarea {
  * as it caps any dialog's.
  */
 .cdk-overlay-pane.dialog-pane:has(app-queue-sheet, app-players-sheet) {
-  --queue-sheet-gap: 4rem;
+  --sheet-gap: 4rem;
 
   inset: auto 0 0;
   box-sizing: border-box;
   height: 100dvh;
   align-items: flex-end;
-  padding: var(--queue-sheet-gap) 0 0;
+  padding: var(--sheet-gap) 0 0;
 }
 
 /*
