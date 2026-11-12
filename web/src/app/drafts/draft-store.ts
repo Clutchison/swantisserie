@@ -313,7 +313,8 @@ export class DraftStore implements TournamentViewer {
   /**
    * A name summing up the queue, as a screen reader reads it: `lead`, then
    * the queue's size once it is known, then `details`, then whether the
-   * Queue notice notes a card the player hasn't seen.
+   * queue is queue paused, then whether the Queue notice notes a card the
+   * player hasn't seen.
    */
   queueSummary(lead: string, details: string[] = []): string {
     const size = this.queueSize();
@@ -321,6 +322,7 @@ export class DraftStore implements TournamentViewer {
       lead,
       ...(size ? [`${size.count} ${size.noun}`] : []),
       ...details,
+      ...(this.queuePaused() ? ['queue paused'] : []),
       ...(this.unseenNotice() ? ['new notice'] : []),
     ].join(', ');
   }

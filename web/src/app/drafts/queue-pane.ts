@@ -202,9 +202,7 @@ export class QueuePane {
   protected readonly queuePaused = this.store.queuePaused;
   /** The collapse toggle's name: on the rail, with the queue's size, whether it is queue paused and any unseen Queue notice. */
   protected readonly toggleName = computed(() =>
-    this.collapsed()
-      ? this.store.queueSummary('Expand queue', this.queuePaused() ? ['queue paused'] : [])
-      : 'Collapse queue',
+    this.collapsed() ? this.store.queueSummary('Expand queue') : 'Collapse queue',
   );
 
   /** The latest card added from a Card detail since the pane was made, if any. */

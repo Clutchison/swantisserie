@@ -33,12 +33,12 @@ export class NextUpStrip {
     const left = this.store.picksLeft();
     return left === null ? null : picksLeftText(left);
   });
-  /** The name of the card the queue picks next, its first; null while it is empty or unknown. */
-  protected readonly next = computed(() =>
-    this.size() ? (this.store.queue.value().cards[0]?.name ?? null) : null,
-  );
   /** Whether the queue is queue paused, said in place of the next card. */
   protected readonly queuePaused = this.store.queuePaused;
+  /** The name of the card the queue picks next, its first; null while it is queue paused, empty or unknown. */
+  protected readonly next = computed(() =>
+    this.size() && !this.queuePaused() ? (this.store.queue.value().cards[0]?.name ?? null) : null,
+  );
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;
 
@@ -48,7 +48,7 @@ export class NextUpStrip {
     const next = this.next();
     return this.store.queueSummary('Queue', [
       ...(left ? [left] : []),
-      ...(this.queuePaused() ? ['queue paused'] : next ? [`next up ${next}`] : []),
+      ...(next ? [`next up ${next}`] : []),
     ]);
   });
 

@@ -25,8 +25,7 @@ import {
   accessibleName,
   nextUpStrip,
   queuePaneToggle,
-  updates,
-  flushQueueAndPlan,
+  pickChangesQueue,
 } from './harness';
 import { pressEscape } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -175,6 +174,18 @@ describe('"next up" strip while the queue is paused', () => {
   beforeEach(() => viewOn('mobile'));
   afterEach(() => vi.unstubAllGlobals());
 
+  it('names the next card while the queue is picking', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const strip = nextUpStrip(page);
+
+    expect(accessibleName(strip)).toBe('Queue, 1 card, 12 picks left, next up Shivan Dragon');
+    expect(strip.textContent).toContain('Next up: Shivan Dragon');
+    expect(strip.textContent).not.toContain('Queue paused');
+  });
+
   it('says "Queue paused" in place of the next card, keeping the size, picks left and unseen notice', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }), {
       cards: [shivan, brightclimb],
@@ -220,18 +231,11 @@ describe('"next up" strip while the queue is paused', () => {
     });
     expect(accessibleName(nextUpStrip(page))).toContain('next up Shivan Dragon');
 
-    updates.events.next({
-      type: 'changed',
-      draft: draft(
-        drafting({ picksPerPlayer: 12, turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 }),
-      ),
-    });
-    await flushPicks([]);
-    await flushQueueAndPlan(
+    await pickChangesQueue(
+      fixture,
       queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)], queuePaused: true }),
-      EMPTY_PLAN,
+      { picksPerPlayer: 12 },
     );
-    await fixture.whenStable();
 
     expect(accessibleName(nextUpStrip(page))).toBe(
       'Queue, 1 card, 12 picks left, queue paused, new notice',
@@ -300,16 +304,10 @@ describe('collapsed Queue pane rail while the queue is paused', () => {
       queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
     });
 
-    updates.events.next({
-      type: 'changed',
-      draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
-    });
-    await flushPicks([]);
-    await flushQueueAndPlan(
+    await pickChangesQueue(
+      fixture,
       queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)], queuePaused: true }),
-      EMPTY_PLAN,
     );
-    await fixture.whenStable();
 
     expect(accessibleName(queuePaneToggle(page))).toBe(
       'Expand queue, 1 card, queue paused, new notice',

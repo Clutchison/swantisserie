@@ -37,7 +37,7 @@
   cursor: pointer;
 }
 
-/* The rail: the toggle alone, with the queue's size, a pause icon while it is paused and a dot for an unseen Queue notice. */
+/* The rail: the toggle alone, with the queue's size, a pause icon while it is queue paused and a dot for an unseen Queue notice. */
 :host(.collapsed) .toggle {
   position: relative;
   flex-direction: column;
