@@ -1,10 +1,12 @@
 <div class="dialog">
   <h3 [id]="headingId">{{ choices().label }}</h3>
   @if (asking(); as score) {
-    <p [id]="questionId">{{ score.question }}</p>
-    @if (choices().detail; as detail) {
-      <p>{{ detail }}</p>
-    }
+    <div class="dialog-body">
+      <p [id]="questionId">{{ score.question }}</p>
+      @if (choices().detail; as detail) {
+        <p>{{ detail }}</p>
+      }
+    </div>
     <div class="dialog-actions">
       <button class="button secondary" type="button" (click)="choose()">Cancel</button>
       <button class="button secondary" type="button" (click)="back()">Back</button>
@@ -19,16 +21,18 @@
       </button>
     </div>
   } @else {
-    <div
-      class="game-scores"
-      role="group"
-      [attr.aria-label]="choices().gameScoresLabel ?? 'Game score of ' + choices().label"
-    >
-      @for (score of choices().gameScores; track score.label; let i = $index) {
-        <button #score class="button compact secondary" type="button" (click)="pick(i)">
-          {{ score.label }}
-        </button>
-      }
+    <div class="dialog-body">
+      <div
+        class="game-scores"
+        role="group"
+        [attr.aria-label]="choices().gameScoresLabel ?? 'Game score of ' + choices().label"
+      >
+        @for (score of choices().gameScores; track score.label; let i = $index) {
+          <button #score class="button compact secondary" type="button" (click)="pick(i)">
+            {{ score.label }}
+          </button>
+        }
+      </div>
     </div>
     <div class="dialog-actions">
       <button class="button secondary" type="button" cdkFocusInitial (click)="choose()">

@@ -24,7 +24,7 @@ import { firstValueFrom } from 'rxjs';
   selector: 'app-feedback-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feedback-dialog.html',
-  styleUrl: './feedback-dialog.scss',
+  styleUrls: ['../dialog.scss', './feedback-dialog.scss'],
 })
 export class FeedbackDialog {
   private readonly http = inject(HttpClient);
@@ -34,6 +34,8 @@ export class FeedbackDialog {
   private readonly dialogRef = inject(DialogRef);
 
   protected readonly maxFeedbackLength = MAX_FEEDBACK_LENGTH;
+  /** Its form's id, which Submit, outside the form in the action row, submits it by. */
+  protected readonly formId = 'feedback-form';
   protected readonly message = signal('');
   // Stryker disable next-line StringLiteral: the status is only compared with 'Sending', 'Sent' and 'Failed'.
   protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
