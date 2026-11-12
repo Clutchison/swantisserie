@@ -13,16 +13,13 @@
     <svg lucideUsers size="20"></svg>
   </button>
   <!-- Scrolls sideways on its own if the seats outgrow the strip, fading where it clips them. -->
-  <ol #seatList [attr.aria-label]="seatListName()">
+  <!-- role="list" keeps its list semantics in Safari, which drops them with the list style. -->
+  <ol #seatList role="list" [attr.aria-label]="seatListName()">
     @for (player of seats(); track player.id; let first = $first) {
       <li>
         <!-- Between each pair of seats, toward the next player to pick; the list's name says who that is. -->
-        @if (!first && direction(); as direction) {
-          @if (direction === 'forward') {
-            <svg lucideChevronRight class="chevron" size="14" aria-hidden="true"></svg>
-          } @else {
-            <svg lucideChevronLeft class="chevron" size="14" aria-hidden="true"></svg>
-          }
+        @if (!first && arrow(); as icon) {
+          <svg class="arrow" aria-hidden="true" [lucideIcon]="icon" [size]="arrowSize"></svg>
         }
         <!-- Focusable, so a keyboard user can bring up the player's name as a mouse user does. -->
         <span

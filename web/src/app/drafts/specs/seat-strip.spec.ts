@@ -322,6 +322,15 @@ describe('the Seat strip', () => {
       expect(seatListName(page)).toBe(`Seat order, ${next}`);
     });
 
+    it('names who picks next while paused', async () => {
+      const { page } = await openDraft(completeSnapshot, {
+        ...atPick(4, 2, bot.id),
+        state: 'Paused',
+      });
+
+      expect(seatListName(page)).toBe('Seat order, Bob picks next');
+    });
+
     it('names no one on the draft’s last pick', async () => {
       const { page } = await openDraft(
         completeSnapshot,

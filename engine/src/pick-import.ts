@@ -1,6 +1,6 @@
 import { frontFace } from './card-faces.js';
 import type { DraftSize } from './draft-size.js';
-import { currentTurn, type Turn } from './turn.js';
+import { currentTurn, roundRunsForward, type Turn } from './turn.js';
 
 /** What a pick import needs of a pool card. */
 export interface PickImportCard {
@@ -148,7 +148,7 @@ export function readPickImport(
   }
 
   rows.forEach((row, round) => {
-    const direction = round % 2 === 0 ? '->' : '<-';
+    const direction = roundRunsForward(round + 1) ? '->' : '<-';
     row.forEach((cell, index) => {
       const marker = index === 0 || index === seats + 1;
       const outside = marker
@@ -170,7 +170,7 @@ export function readPickImport(
   // Every player cell in snake order, with the filled ones' names.
   const cells = rows.flatMap((row, round) =>
     columns.map((_, place) => {
-      const seat = round % 2 === 0 ? place : seats - 1 - place;
+      const seat = roundRunsForward(round + 1) ? place : seats - 1 - place;
       return { round, seat, name: row[seat + 1] ?? '' };
     }),
   );

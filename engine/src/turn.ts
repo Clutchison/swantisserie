@@ -23,6 +23,15 @@ export function currentTurn(
 }
 
 /**
+ * Who picks next: the turn after the one making the 1-based `pick`, or null
+ * if that is the draft's last.
+ */
+export function nextTurn(size: DraftSize, pick: number): Turn | null {
+  // Once `pick` is made, `pick` picks have been made.
+  return currentTurn(size, pick);
+}
+
+/**
  * Whether the 1-based `round` runs forward, from the first seat to the last,
  * as odd rounds do in snake order; even ones run back.
  */

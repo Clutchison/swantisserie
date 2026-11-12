@@ -17,8 +17,13 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
-import { currentTurn, roundRunsForward } from 'engine';
-import { LucideChevronLeft, LucideChevronRight, LucideUsers } from '@lucide/angular';
+import { nextTurn, roundRunsForward } from 'engine';
+import {
+  LucideChevronLeft,
+  LucideChevronRight,
+  LucideDynamicIcon,
+  LucideUsers,
+} from '@lucide/angular';
 import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
 
@@ -35,18 +40,22 @@ type Pulse = 'pulse' | 'pulse-again';
 /** A seat's avatar's width and height, in CSS pixels; the strip's styles read it as `--avatar-size`. */
 const AVATAR_SIZE = 24;
 
+/** The arrow between two seats' width and height, in CSS pixels; the strip's styles read it as `--arrow-size`. */
+const ARROW_SIZE = 14;
+
 /**
  * The Seat strip: a drafting or paused draft's players as avatars in seat
  * order, in a row in the tab bar, marking whose turn it is and the viewer's
- * own seat, with chevrons between the seats pointing toward the next player
+ * own seat, with arrows between the seats pointing toward the next player
  * to pick. The turn's seat pulses briefly when the turn changes, and it and
  * the next seat are scrolled into view when the row is too long to show
- * whole. Its Players button opens `playersPanel`, the full Players panel, as a non-modal popover
- * under it, over the tab content, which Escape, a pointer pressed outside or focus leaving closes.
+ * whole. Its Players button opens `playersPanel`, the full Players panel, as
+ * a non-modal popover under it, over the tab content, which Escape, a
+ * pointer pressed outside or focus leaving closes.
  */
 @Component({
   selector: 'app-seat-strip',
-  imports: [LucideChevronLeft, LucideChevronRight, LucideUsers, NgTemplateOutlet, PlayerAvatar],
+  imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, PlayerAvatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './seat-strip.html',
   styleUrl: './seat-strip.scss',
@@ -55,6 +64,7 @@ const AVATAR_SIZE = 24;
     '(document:keydown.escape)': 'closeOnEscape()',
     '(focusout)': 'closeOnFocusLeaving($event)',
     '[style.--avatar-size.px]': 'avatarSize',
+    '[style.--arrow-size.px]': 'arrowSize',
   },
 })
 export class SeatStrip {
@@ -66,6 +76,7 @@ export class SeatStrip {
   readonly playersPanel = input.required<TemplateRef<unknown>>();
 
   protected readonly avatarSize = AVATAR_SIZE;
+  protected readonly arrowSize = ARROW_SIZE;
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
@@ -79,21 +90,21 @@ export class SeatStrip {
     if (!turn) return null;
     const seats = this.seats();
     const size = { players: seats.length, picksPerPlayer: this.store.shown().picksPerPlayer };
-    const next = currentTurn(size, turn.pick);
+    const next = nextTurn(size, turn.pick);
     return next ? (seats[next.seat] ?? null) : null;
   });
 
   /**
-   * Which way the chevrons between the seats point: toward the next player,
-   * the way the round of the current pick runs. Null when no one picks next.
+   * The arrow between each pair of seats, toward the next player: the way
+   * the round of the current pick runs. Null when no one picks next.
    */
-  protected readonly direction = computed(() => {
+  protected readonly arrow = computed(() => {
     const turn = this.store.turn();
     if (!turn || !this.nextPlayer()) return null;
-    return roundRunsForward(turn.round) ? 'forward' : 'back';
+    return roundRunsForward(turn.round) ? LucideChevronRight : LucideChevronLeft;
   });
 
-  /** What a screen reader names the list of seats: who picks next, in place of the chevrons. */
+  /** What a screen reader names the list of seats: who picks next, in place of the arrows. */
   protected readonly seatListName = computed(() => {
     const next = this.nextPlayer();
     if (!next) return 'Seat order';
@@ -126,10 +137,10 @@ export class SeatStrip {
     });
     // Once the seats are laid out, and as the turn changes, the turn's seat and the next one scroll into view.
     afterRenderEffect(() => {
-      const seatOf = (id: string | undefined) =>
+      const seatOf = (id: string | null) =>
         this.seatElements()[this.seats().findIndex((p) => p.id === id)]?.nativeElement;
-      const turnSeat = seatOf(this.turnPlayerId() ?? undefined);
-      const nextSeat = seatOf(this.nextPlayer()?.id);
+      const turnSeat = seatOf(this.turnPlayerId());
+      const nextSeat = seatOf(this.nextPlayer()?.id ?? null);
       if (turnSeat) {
         untracked(() =>
           keepInView(this.seatList().nativeElement, nextSeat ? [turnSeat, nextSeat] : [turnSeat]),
