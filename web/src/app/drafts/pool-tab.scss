@@ -210,3 +210,28 @@ $dimmed-card: brightness(0.35);
   white-space: nowrap;
   transform: translate(-50%, -50%);
 }
+
+/*
+ * A queued card's place in the viewer's queue: in the bottom corner, clear of
+ * the name and mana cost, and in the accent, apart from the centred Picked badge.
+ */
+.queued-badge {
+  position: absolute;
+  bottom: var(--space-xs);
+  right: var(--space-xs);
+  min-width: 1.75rem;
+  padding: 0.125rem var(--space-xs);
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-align: center;
+
+  /* Past the Queue cutoff: the viewer's picks left won't reach it. */
+  &.past-cutoff {
+    background: var(--color-overlay);
+    color: var(--color-muted);
+    outline: 1px dashed var(--color-divider);
+  }
+}
