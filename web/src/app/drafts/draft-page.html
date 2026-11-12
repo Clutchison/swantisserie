@@ -38,8 +38,8 @@
           Couldn't refresh this draft. What's shown may be out of date.
         </p>
       }
-      @if (draft.state === 'Paused') {
-        <p class="paused" role="status">The draft is paused. No picks until it resumes.</p>
+      @if (draft.state === 'Frozen') {
+        <p class="frozen" role="status">The draft is frozen. No picks until it is unfrozen.</p>
       }
       @if (draft.state === 'Closed') {
         <p class="closed" role="status">This draft is closed. No picks until it reopens.</p>
@@ -52,7 +52,7 @@
       }
     </div>
 
-    <!-- The Players panel: from the desktop layout, beside the tabs in the lobby and once the draft is closed or complete, and in the Seat strip's popover while it is drafting or paused; below it, above the tabs, or in the Players sheet from the Seat strip. -->
+    <!-- The Players panel: from the desktop layout, beside the tabs in the lobby and once the draft is closed or complete, and in the Seat strip's popover while it is drafting or frozen; below it, above the tabs, or in the Players sheet from the Seat strip. -->
     <ng-template #playersPanel>
       <app-players-panel
         class="players-panel"
@@ -61,7 +61,7 @@
       />
     </ng-template>
     @if (showSeatStrip() && !desktop()) {
-      <!-- Below the desktop layout while the draft is drafting or paused: a row under the header, in the panel's place. -->
+      <!-- Below the desktop layout while the draft is drafting or frozen: a row under the header, in the panel's place. -->
       <app-seat-strip
         class="seat-strip"
         [playersPanel]="playersPanel"
@@ -131,7 +131,7 @@
             </button>
           }
         </div>
-        <!-- In the tab bar from the desktop layout while the draft is drafting or paused, whichever tab is open. -->
+        <!-- In the tab bar from the desktop layout while the draft is drafting or frozen, whichever tab is open. -->
         @if (showSeatStrip() && desktop()) {
           <app-seat-strip
             class="seat-strip"

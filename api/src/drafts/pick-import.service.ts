@@ -67,10 +67,10 @@ export class PickImportService {
   }
 
   /**
-   * Loads the picks in `csv` and moves the draft to Paused, with its seats
+   * Loads the picks in `csv` and moves the draft to Frozen, with its seats
    * fixed and every queue emptied, each card in it recording its queue
    * order. Nothing is announced and no queued picks are made: the
-   * organizer's resume does that. `previewedSeats` is the user
+   * organizer's unfreeze does that. `previewedSeats` is the user
    * ids the preview paired with the file's columns; the file's validation
    * can't see a change to who sits where, so a difference refuses the file.
    * Throws as previewPickImport does, with nothing changed.
@@ -126,7 +126,7 @@ export class PickImportService {
           queued.filter((card) => card.playerId === playerId),
         );
       }
-      await draft.moveTo('Paused');
+      await draft.moveTo('Frozen');
     });
   }
 

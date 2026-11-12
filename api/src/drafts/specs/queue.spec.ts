@@ -622,12 +622,12 @@ describe('queue', () => {
       ]);
     });
 
-    it('refuses an add from the player whose turn it is while paused, but not from the others', async () => {
+    it('refuses an add from the player whose turn it is while frozen, but not from the others', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
 
       expect((await enqueue(id, ids.Shock).expect(409)).body).toEqual(
         refusedOnTurn,

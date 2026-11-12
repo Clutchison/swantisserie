@@ -24,7 +24,7 @@ import {
   GoneWebhookChosenError,
   NoDraftPowerError,
   NotAPlayerError,
-  PauseRefusedError,
+  FreezeRefusedError,
   PickImportRefusedError,
   PickRefusedError,
   PlayersChangedError,
@@ -82,7 +82,7 @@ export function toHttpError(err: unknown): HttpException | undefined {
   if (
     err instanceof StartRefusedError ||
     err instanceof UndoRefusedError ||
-    err instanceof PauseRefusedError ||
+    err instanceof FreezeRefusedError ||
     err instanceof CloseRefusedError
   ) {
     return new ConflictException(err.refusal);

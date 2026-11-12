@@ -53,7 +53,7 @@ export class PlayersPanel {
   private readonly store = inject(DraftStore);
 
   private readonly draft = this.store.shown;
-  /** The player whose turn it is, marked in the seat order; null unless Drafting or Paused. */
+  /** The player whose turn it is, marked in the seat order; null unless Drafting or Frozen. */
   protected readonly turnPlayerId = computed(() => {
     const draft = this.draft();
     return hasTurn(draft) ? draft.turn.playerId : null;
@@ -76,7 +76,7 @@ export class PlayersPanel {
   /**
    * The panel is open in the lobby, wherever it is, and always open where
    * `alwaysOpen` says. Above the tabs it collapses once the draft is closed
-   * or complete, out of their way; while drafting or paused the Seat strip
+   * or complete, out of their way; while drafting or frozen the Seat strip
    * takes its place.
    */
   protected readonly open = computed(() => this.alwaysOpen() || this.inLobby());
@@ -205,7 +205,7 @@ export class PlayersPanel {
     });
   }
 
-  /** Imports the previewed file, which the API checks again; the draft starts paused. */
+  /** Imports the previewed file, which the API checks again; the draft starts frozen. */
   protected confirmPickImport({ csv, seats }: PickImportPreview & { csv: string }) {
     return this.changes.send(async () => {
       this.error.set(null);

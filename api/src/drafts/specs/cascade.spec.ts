@@ -107,7 +107,7 @@ describe('cascade', () => {
   });
 
   it.each([
-    ['resume', 'pause', 'resume'],
+    ['unfreeze', 'freeze', 'unfreeze'],
     ['reopen', 'close', 'reopen'],
   ])(
     'clears a queue in the cascade after a %s',

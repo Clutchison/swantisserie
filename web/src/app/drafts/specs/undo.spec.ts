@@ -187,10 +187,10 @@ describe('undo', () => {
     expect(undoButton(page)).toBeUndefined();
   });
 
-  it('offers undo on a paused draft', async () => {
+  it('offers undo on a frozen draft', async () => {
     const { page } = await openDraft(
       completeSnapshot,
-      { ...aliceUp, state: 'Paused' },
+      { ...aliceUp, state: 'Frozen' },
       { cards, picks },
     );
 

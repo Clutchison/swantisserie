@@ -211,7 +211,7 @@ describe('bot players', () => {
     expect(await pickedNames(id)).toEqual(['Shock', 'Firebolt']);
   });
 
-  it('does nothing when its timer fires while the draft is paused, and picks once it resumes', async () => {
+  it('does nothing when its timer fires while the draft is frozen, and picks once it is unfrozen', async () => {
     await app.close();
     await startApp({ botDelayMs: 100 });
     await signInAlice();
@@ -220,12 +220,12 @@ describe('bot players', () => {
     const botPick = watchBotPick();
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
 
     expect(await botPick.made()).toEqual([]);
     expect((await pickLog(id)).body).toHaveLength(1);
 
-    await post(id, 'resume').expect(200);
+    await post(id, 'unfreeze').expect(200);
 
     await waitForBotPicks(1, async () => {
       expect(

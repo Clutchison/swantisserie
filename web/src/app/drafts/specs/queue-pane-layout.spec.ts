@@ -89,8 +89,8 @@ describe('Queue pane layout', () => {
       }
     });
 
-    it('shows it while paused', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }));
+    it('shows it while frozen', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Frozen' }));
 
       expect(findQueuePane(page)).not.toBeNull();
     });
@@ -331,7 +331,7 @@ describe('Queue pane layout', () => {
     });
 
     it.each([
-      ['while paused', drafting({ state: 'Paused' })],
+      ['while frozen', drafting({ state: 'Frozen' })],
       ['while closed', drafting({ state: 'Closed', turn: null })],
     ])('shows the strip %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);

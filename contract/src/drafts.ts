@@ -4,14 +4,14 @@ import type {
 } from './tournaments.js';
 
 /**
- * Lobby → Drafting, or → Paused by a pick import; Drafting ⇄ Paused; Drafting → Complete;
- * Drafting or Paused → Closed → Drafting. The glossary has the long form.
+ * Lobby → Drafting, or → Frozen by a pick import; Drafting ⇄ Frozen; Drafting → Complete;
+ * Drafting or Frozen → Closed → Drafting. The glossary has the long form.
  */
 export type DraftState =
-  'Lobby' | 'Drafting' | 'Paused' | 'Complete' | 'Closed';
+  'Lobby' | 'Drafting' | 'Frozen' | 'Complete' | 'Closed';
 
 /** The states a draft has a turn in: a Closed one keeps none until reopened. */
-export type TurnState = 'Drafting' | 'Paused';
+export type TurnState = 'Drafting' | 'Frozen';
 
 /** The game a draft is played on, by its short name. */
 export type Platform = 'Arena' | 'MTGO';
@@ -43,7 +43,7 @@ export interface PlayerView {
   isBot: boolean;
 }
 
-/** Whose turn it is in a Drafting or Paused draft. */
+/** Whose turn it is in a Drafting or Frozen draft. */
 export interface TurnView {
   /** 1-based, counting every pick in the draft. */
   pick: number;
@@ -147,7 +147,7 @@ export interface DraftBase {
   version: number;
 }
 
-/** A draft, as every viewer is sent it: with a turn only while Drafting or Paused. */
+/** A draft, as every viewer is sent it: with a turn only while Drafting or Frozen. */
 export type DraftView = DraftBase &
   (
     | { state: TurnState; turn: TurnView }

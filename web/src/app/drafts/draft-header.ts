@@ -24,7 +24,7 @@ import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dial
  * The draft page's header: the draft's name, after whatever the page puts
  * before it (its back link), its state, organizer and turn, and the actions
  * that move the draft on. Joining and leaving, starting, undo,
- * pause and resume, and reopening are buttons; closing and cancelling, which
+ * freeze and unfreeze, and reopening are buttons; closing and cancelling, which
  * are rarer, are in its More menu.
  */
 @Component({
@@ -78,10 +78,10 @@ export class DraftHeader {
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
 
-  /** The pick the organizer may undo: the latest, while the draft is drafting or paused. */
+  /** The pick the organizer may undo: the latest, while the draft is drafting or frozen. */
   protected readonly undoable = computed(() => {
     const state = this.draft().state;
-    if (!this.canOrganize() || (state !== 'Drafting' && state !== 'Paused')) return null;
+    if (!this.canOrganize() || (state !== 'Drafting' && state !== 'Frozen')) return null;
     return this.picks().at(-1) ?? null;
   });
   /**
@@ -94,17 +94,17 @@ export class DraftHeader {
     const name = this.store.poolCardsById().get(pick.poolCardId)?.name;
     return name ? `Undo pick ${pick.pick} (${name})` : `Undo pick ${pick.pick}`;
   });
-  /** The organizer may pause a drafting draft and resume a paused one. */
-  protected readonly offerPause = computed(
+  /** The organizer may freeze a drafting draft and unfreeze a frozen one. */
+  protected readonly offerFreeze = computed(
     () => this.canOrganize() && this.draft().state === 'Drafting',
   );
-  protected readonly offerResume = computed(
-    () => this.canOrganize() && this.draft().state === 'Paused',
+  protected readonly offerUnfreeze = computed(
+    () => this.canOrganize() && this.draft().state === 'Frozen',
   );
-  /** The organizer may close a drafting or paused draft and reopen a closed one. */
+  /** The organizer may close a drafting or frozen draft and reopen a closed one. */
   protected readonly offerClose = computed(() => {
     const state = this.draft().state;
-    return this.canOrganize() && (state === 'Drafting' || state === 'Paused');
+    return this.canOrganize() && (state === 'Drafting' || state === 'Frozen');
   });
   protected readonly offerReopen = computed(
     () => this.canOrganize() && this.draft().state === 'Closed',
@@ -157,19 +157,19 @@ export class DraftHeader {
     );
   }
 
-  /** Pauses the draft; focus goes to Resume draft, which takes Pause draft's place. */
-  protected pause() {
-    return this.send(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/pause`, null), {
-      failure: "Couldn't pause the draft. Try again in a moment.",
-      keep: ['resume'],
+  /** Freezes the draft; focus goes to Unfreeze draft, which takes Freeze draft's place. */
+  protected freeze() {
+    return this.send(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/freeze`, null), {
+      failure: "Couldn't freeze the draft. Try again in a moment.",
+      keep: ['unfreeze'],
     });
   }
 
-  /** Resumes the draft; focus goes to Pause draft, which takes Resume draft's place. */
-  protected resume() {
-    return this.send(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/resume`, null), {
-      failure: "Couldn't resume the draft. Try again in a moment.",
-      keep: ['pause'],
+  /** Unfreezes the draft; focus goes to Freeze draft, which takes Unfreeze draft's place. */
+  protected unfreeze() {
+    return this.send(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/unfreeze`, null), {
+      failure: "Couldn't unfreeze the draft. Try again in a moment.",
+      keep: ['freeze'],
     });
   }
 
@@ -182,9 +182,9 @@ export class DraftHeader {
     return this.send(
       async () => {
         const draft = this.draft();
-        // Only a drafting or paused draft is offered this, and both have a turn:
+        // Only a drafting or frozen draft is offered this, and both have a turn:
         // the guard never returns early, it only narrows the type to read `turn`.
-        // Stryker disable next-line ConditionalExpression: only a drafting or paused draft is offered Close, and both have a turn, so the guard never returns early.
+        // Stryker disable next-line ConditionalExpression: only a drafting or frozen draft is offered Close, and both have a turn, so the guard never returns early.
         if (!hasTurn(draft)) return;
         const { id, name, players, picksPerPlayer, turn } = draft;
         const made = turn.pick - 1;

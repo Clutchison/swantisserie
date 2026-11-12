@@ -187,13 +187,13 @@ describe('basic lands in a plan', () => {
     ]);
   });
 
-  it('changes basics in the lobby and while active, paused, closed and complete, leaving the draft alone', async () => {
+  it('changes basics in the lobby and while active, frozen, closed and complete, leaving the draft alone', async () => {
     const id = await readyDraft([carolCookie, aliceCookie], 1, fourCards);
     const ids = await poolCardIds(id);
     await addBasicsUpTo(id, 'Plains', 1, carolCookie);
     await start(id).expect(200);
     await addBasicsUpTo(id, 'Plains', 2, carolCookie);
-    await post(id, 'pause').expect(200);
+    await post(id, 'freeze').expect(200);
     await addBasicsUpTo(id, 'Plains', 3, carolCookie);
     await post(id, 'close').expect(200);
     await addBasicsUpTo(id, 'Plains', 4, carolCookie);

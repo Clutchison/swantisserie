@@ -49,7 +49,7 @@ model Session {
 enum DraftState {
   Lobby
   Drafting
-  Paused
+  Frozen
   Complete
   Closed
 }

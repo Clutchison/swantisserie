@@ -34,7 +34,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
       avatarUrl: avatarUrl(user),
       isBot: user.isBot,
     })),
-    ...(state === 'Drafting' || state === 'Paused'
+    ...(state === 'Drafting' || state === 'Frozen'
       ? { state, turn: toTurnView(draft) }
       : { state, turn: null }),
     // Built field by field, so nothing else about the webhook (its URL above
@@ -69,7 +69,7 @@ function toSnapshotView(draft: DraftWithOrganizer): PoolSnapshotView {
   }
 }
 
-/** Whose turn it is in a Drafting or Paused draft, which always has one. */
+/** Whose turn it is in a Drafting or Frozen draft, which always has one. */
 function toTurnView(draft: DraftWithOrganizer): TurnView {
   const turn = currentTurn(
     draftSize(draft, draft.players.length),

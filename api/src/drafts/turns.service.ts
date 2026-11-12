@@ -129,7 +129,7 @@ export class TurnsService {
   /** Every Drafting draft whose turn is a bot's. */
   async botTurns(): Promise<BotTurn[]> {
     const drafts = await this.prisma.draft.findMany({
-      // Stryker disable next-line ObjectLiteral: the read also returns drafts in the lobby, paused, closed or complete. A complete draft has no current turn. Any other one on a bot's turn yields a bot turn, but `botPick` sees the draft isn't Drafting and picks, persists and announces nothing. Starting, resuming or reopening the draft schedules the bot afresh, and the latest schedule wins.
+      // Stryker disable next-line ObjectLiteral: the read also returns drafts in the lobby, frozen, closed or complete. A complete draft has no current turn. Any other one on a bot's turn yields a bot turn, but `botPick` sees the draft isn't Drafting and picks, persists and announces nothing. Starting, unfreezing or reopening the draft schedules the bot afresh, and the latest schedule wins.
       where: { state: 'Drafting' },
       select: {
         id: true,
@@ -309,12 +309,12 @@ export class TurnsService {
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {
     return this.lock.whileIn(
       draftId,
-      ['Drafting', 'Paused'],
+      ['Drafting', 'Frozen'],
       () =>
         new UndoRefusedError({
           error: 'not-drafting',
           message:
-            'Picks can only be undone while the draft is drafting or paused.',
+            'Picks can only be undone while the draft is drafting or frozen.',
         }),
       async ({ tx }) => {
         const latest = await tx.pick.findFirst({

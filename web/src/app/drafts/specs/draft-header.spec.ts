@@ -78,7 +78,11 @@ describe('draft header', () => {
     const webhook = { id: 'main', name: '#roto-main', gone: true };
 
     it.each([
-      ['paused', { state: 'Paused' as const }, 'The draft is paused. No picks until it resumes.'],
+      [
+        'frozen',
+        { state: 'Frozen' as const },
+        'The draft is frozen. No picks until it is unfrozen.',
+      ],
       [
         'closed',
         { state: 'Closed' as const, turn: null },

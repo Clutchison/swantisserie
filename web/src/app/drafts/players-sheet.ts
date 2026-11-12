@@ -5,7 +5,7 @@ import { SheetClose } from './sheet-close';
 /**
  * The Players sheet: the full Players panel over the page below the desktop
  * layout, opened on the dialog shell from the Seat strip's Players button
- * while the draft is drafting or paused. It is a sheet, as the Queue sheet
+ * while the draft is drafting or frozen. It is a sheet, as the Queue sheet
  * is, its body `panel`, which brings its own heading. Close, Escape and the
  * backdrop close it.
  */

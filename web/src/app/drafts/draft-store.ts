@@ -568,7 +568,7 @@ export class DraftStore implements TournamentViewer {
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is drafting or
-   * paused; adding to the queue is still not offered on the player's own
+   * frozen; adding to the queue is still not offered on the player's own
    * turn. The Queue pane is read-only when this is false. The api refuses
    * anyone else with `not-a-player`, adding or setting steal behavior in the
    * lobby with `not-started`, a Complete or Closed draft with

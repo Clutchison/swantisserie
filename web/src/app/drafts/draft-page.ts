@@ -149,7 +149,7 @@ export class DraftPage {
 
   /**
    * Whether the Seat strip stands in for the Players panel, while the draft
-   * is drafting or paused: in the tab bar from the desktop layout, and in a
+   * is drafting or frozen: in the tab bar from the desktop layout, and in a
    * row under the draft header below it. The panel opens from it.
    */
   protected readonly showSeatStrip = computed(() => {

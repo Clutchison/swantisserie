@@ -150,7 +150,7 @@ function botTurn(draftId: string, events: DraftEvent[]): BotTurn | null {
   }
   if (
     (last?.type === 'undone' ||
-      last?.type === 'resumed' ||
+      last?.type === 'unfrozen' ||
       last?.type === 'reopened') &&
     last.player.isBot
   ) {

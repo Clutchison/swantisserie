@@ -367,8 +367,8 @@ describe('queueing the unpicked cards on the plan tab', () => {
   it.each([
     ['on the player’s own turn', drafting({ turn: { pick: 1, round: 1, playerId: alice.id } })],
     [
-      'on the player’s own turn while paused',
-      drafting({ state: 'Paused', turn: { pick: 1, round: 1, playerId: alice.id } }),
+      'on the player’s own turn while frozen',
+      drafting({ state: 'Frozen', turn: { pick: 1, round: 1, playerId: alice.id } }),
     ],
     ['once the draft is closed', drafting({ state: 'Closed', turn: null })],
     ['once the draft is complete', drafting({ state: 'Complete', turn: null })],

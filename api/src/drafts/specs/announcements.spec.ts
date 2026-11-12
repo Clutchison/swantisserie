@@ -159,7 +159,7 @@ describe('announcements', () => {
     });
 
     it.each([
-      ['pause', 'resume', 'has resumed'],
+      ['freeze', 'unfreeze', 'has been unfrozen'],
       ['close', 'reopen', 'has reopened'],
     ])(
       'pings them after a queued pick when a %s ends in a %s’s cascade',
@@ -204,18 +204,18 @@ describe('announcements', () => {
       });
     });
 
-    it('pings them on a resume after their by-hand pick', async () => {
+    it('pings them on an unfreeze after their by-hand pick', async () => {
       const id = await snakeDraft();
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
       await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
-      await post(id, 'pause').expect(200);
+      await post(id, 'freeze').expect(200);
 
-      await post(id, 'resume').expect(200);
+      await post(id, 'unfreeze').expect(200);
 
       expect(await lastPost(id, 5)).toEqual({
-        content: `**Red** has resumed\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
+        content: `**Red** has been unfrozen\n<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
       });
     });
