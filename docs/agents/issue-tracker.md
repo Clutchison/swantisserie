@@ -11,6 +11,7 @@ Issues and specs live as GitHub issues in `Clutchison/swantisserie`, worked with
 - **Blocking**: GitHub's native issue dependencies. Add an edge with `gh issue create --blocked-by <n>,<n> ...` or `gh issue edit <child> --add-blocked-by <blocker>`. A ticket is unblocked when every blocker is closed, except inside an `/implement-spec` run, where a blocker is done once it merges to the integration branch.
 - **Count open blockers**: `gh api repos/Clutchison/swantisserie/issues/<n> --jq .issue_dependencies_summary.blocked_by` (0 means startable). `gh issue view <n> --json blockedBy` also lists closed blockers.
 - **Database ids**, which some `gh api` endpoints take in place of the `#number`: `gh api repos/Clutchison/swantisserie/issues/<n> --jq .id`.
+- **Branches**: name a branch `ST-<n>` after the issue it resolves, with nothing after the number. In an `/implement-spec` run, the spec's integration branch is `ST-<spec>`, such as `ST-654`, and each ticket's branch is `ST-<ticket>`.
 - **Work closes through PRs**: a PR into `main` whose body has a `Closes #<n>` line for each issue it resolves, spec included. GitHub closes them when it merges. Close an issue by hand only when no code resolves it, such as a duplicate or a `decided` question; never on merging to a branch other than `main`.
 - **Close**: post the explanation with `gh issue comment`, then `gh issue close <number>`. On an already-closed issue, `gh issue close --comment` drops the comment and still exits 0.
 
