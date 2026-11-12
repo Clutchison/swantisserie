@@ -16,6 +16,9 @@ import {
 import { MAX_FEEDBACK_LENGTH, type FeedbackRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
+/** The id of the feedback dialog's heading, which names it. */
+export const FEEDBACK_HEADING = 'feedback-heading';
+
 /**
  * The dialog a signed-in guild member sends feedback to the app admins from,
  * opened on the dialog shell. It opens on its field.
@@ -33,6 +36,9 @@ export class FeedbackDialog {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialogRef = inject(DialogRef);
 
+  protected readonly headingId = FEEDBACK_HEADING;
+  /** The thanks' id, which Close, focused on success, is described by. */
+  protected readonly thanksId = 'feedback-thanks';
   protected readonly maxFeedbackLength = MAX_FEEDBACK_LENGTH;
   /** Its form's id, which Submit, outside the form in the action row, submits it by. */
   protected readonly formId = 'feedback-form';

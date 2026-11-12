@@ -1,14 +1,22 @@
 <div class="dialog">
-  <!-- Always present: screen readers announce only changes to a status already there. -->
-  <p class="thanks" role="status">
-    {{ status() === 'Sent' ? 'Thanks, your feedback was sent' : '' }}
-  </p>
+  <h3 [id]="headingId">Send feedback</h3>
   @if (status() === 'Sent') {
+    <div class="dialog-body">
+      <p [id]="thanksId">Thanks, your feedback was sent</p>
+    </div>
     <div class="dialog-actions">
-      <button #closeButton class="button" type="button" (click)="close()">Close</button>
+      <!-- Focused on success, it carries the thanks for a screen reader to read with it. -->
+      <button
+        #closeButton
+        class="button"
+        type="button"
+        [attr.aria-describedby]="thanksId"
+        (click)="close()"
+      >
+        Close
+      </button>
     </div>
   } @else {
-    <h2>Send feedback</h2>
     <!-- The form is the dialog's body; Submit, in the action row after it, submits it by its id. -->
     <form [id]="formId" class="dialog-body" (submit)="$event.preventDefault(); submit()">
       <textarea

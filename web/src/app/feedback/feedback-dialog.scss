@@ -3,17 +3,8 @@
   --dialog-width: 30rem;
 }
 
-.dialog {
-  background: var(--color-surface);
-}
-
-.thanks {
+p {
   margin: 0;
-
-  /* Empty until sent, it takes no room in the box, but stays in the page so the thanks is announced. */
-  &:empty {
-    position: absolute;
-  }
 }
 
 textarea {
@@ -27,6 +18,5 @@ textarea {
 }
 
 .error {
-  margin: 0;
   color: var(--color-error);
 }
