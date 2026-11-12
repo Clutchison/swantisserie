@@ -80,10 +80,11 @@ li {
 }
 
 /*
- * "How this works": a tab's help, closed until a viewer opens it, so the tab's
- * content comes first. Notices never go inside it.
+ * A section closed until a viewer opens it, so the tab's content comes first:
+ * a tab's help ("How this works", never with notices inside) or the Pool tab's
+ * "About this pool".
  */
-.how-this-works {
+.disclosure {
   margin-block: var(--space-sm);
 
   summary {

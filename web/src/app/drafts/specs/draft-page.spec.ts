@@ -77,52 +77,6 @@ describe('draft page', () => {
     expect(page.querySelector('progress')).toBeNull();
   });
 
-  it('shows the draft’s platform beside its pool query', async () => {
-    const { page } = await openDraft(
-      { state: 'Complete', cards: 540, total: 540 },
-      { platform: 'MTGO' },
-    );
-
-    const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
-    expect(details).toContain('Platform: MTGO');
-    expect(details).toContain('Pool query: t:dragon c:r');
-  });
-
-  it('shows the cube a pool came from, linking to it, in place of a pool query', async () => {
-    const { page } = await openDraft(completeSnapshot, {
-      poolSource: {
-        kind: 'cube',
-        cube: {
-          name: 'The Pauper Cube',
-          url: 'https://cubecobra.com/cube/overview/thepaupercube',
-        },
-      },
-    });
-
-    const details = [...page.querySelectorAll('.detail')].map((p) => p.textContent?.trim());
-    expect(details).toContain('Cube: The Pauper Cube');
-    expect(details.some((detail) => detail?.startsWith('Pool query'))).toBe(false);
-    const link = [...page.querySelectorAll<HTMLAnchorElement>('.detail a')].find(
-      (a) => a.textContent?.trim() === 'The Pauper Cube',
-    )!;
-    expect(link.href).toBe('https://cubecobra.com/cube/overview/thepaupercube');
-  });
-
-  it('shows the set list a pool came from, each set by code with its included sublists', async () => {
-    const { page } = await openDraft(completeSnapshot, {
-      poolSource: {
-        kind: 'set-list',
-        setList: [
-          { code: 'mkm', sublists: [] },
-          { code: 'otj', sublists: ['big', 'otp'] },
-        ],
-      },
-    });
-
-    expect(text(page)).toContain('Sets: MKM, OTJ (+ BIG, OTP)');
-    expect(text(page)).not.toContain('Pool query:');
-  });
-
   it('shows snapshot progress and keeps polling until it is complete', async () => {
     const { fixture, page } = await openDraft({ state: 'Running', cards: 0, total: null });
     expect(page.textContent).toContain('Snapshotting the pool');
