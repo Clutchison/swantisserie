@@ -62,7 +62,7 @@
   display: block;
 }
 
-/* The count and its 🏆 sit together; the name stands further off. */
+/* The count and its 🏆 sit together; the name stands further off, and the buttons follow it. */
 .trophy {
   display: flex;
   flex-wrap: wrap;
@@ -78,14 +78,12 @@
 .actions {
   display: flex;
   gap: var(--space-xs);
-  margin-left: auto;
 }
 
 /* On a phone the buttons take their own line under the count and name. */
 @media (max-width: bp.$narrow-menu) {
   .actions {
     flex-basis: 100%;
-    margin-left: 0;
   }
 }
 
