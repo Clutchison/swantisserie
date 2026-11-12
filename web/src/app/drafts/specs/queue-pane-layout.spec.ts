@@ -16,6 +16,7 @@ import {
   http,
   openDraft,
   findNextUpStrip,
+  findPlayersBesideTabs,
   nextUpStrip,
   openQueueSheet,
   queueNotice,
@@ -88,11 +89,8 @@ describe('Queue pane layout', () => {
       }
     });
 
-    it.each([
-      ['while paused', drafting({ state: 'Paused' })],
-      ['while closed', drafting({ state: 'Closed', turn: null })],
-    ])('shows it %s', async (_, fields) => {
-      const { page } = await openDraft(completeSnapshot, fields);
+    it('shows it while paused', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }));
 
       expect(findQueuePane(page)).not.toBeNull();
     });
@@ -109,6 +107,14 @@ describe('Queue pane layout', () => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findQueuePane(page)).toBeNull();
+    });
+
+    it('shows a player no queue at all once the draft is closed: no Queue pane and no "next up" strip, as the Players panel has the column', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Closed', turn: null }));
+
+      expect(findQueuePane(page)).toBeNull();
+      expect(findNextUpStrip(page)).toBeUndefined();
+      expect(findPlayersBesideTabs(page)).not.toBeNull();
     });
 
     it('shows it once the draft starts, without a reload', async () => {

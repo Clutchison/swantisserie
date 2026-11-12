@@ -9,7 +9,7 @@
   class="page-wide"
   [class.with-queue-pane]="showQueuePane()"
   [class.with-seat-strip]="showSeatStrip()"
-  [class.with-players-pane]="playersPane()"
+  [class.with-players-beside-tabs]="showPlayersBesideTabs()"
 >
   @if (loading()) {
     <ng-container *ngTemplateOutlet="backLink" />
@@ -53,7 +53,7 @@
       }
     </div>
 
-    <!-- The Players panel: above the tabs, or on a wide desktop in a pane beside them once the draft is complete, and in the Seat strip's popover until then. -->
+    <!-- The Players panel: beside the tabs from the desktop layout in the lobby and once the draft is closed or complete, in the Seat strip's popover on a wide desktop while it is drafting or paused, and above the tabs otherwise. -->
     <ng-template #playersPanel>
       <app-players-panel
         class="players-panel"
@@ -61,11 +61,11 @@
         (changeStarted)="clearErrors()"
       />
     </ng-template>
-    @if (!showSeatStrip()) {
+    @if (!showSeatStrip() && !showPlayersBesideTabs()) {
       <ng-container *ngTemplateOutlet="playersPanel" />
     }
 
-    <!-- The tabs and their panels: the main column, beside the Queue pane, and the Seat strip or the Players panel's pane. -->
+    <!-- The tabs and their panels: the main column, beside the Queue pane or the Players panel, and the Seat strip. -->
     <div class="tab-column">
       <div class="tabs" appTabList aria-label="Draft">
         <button
@@ -268,7 +268,14 @@
       <app-next-up-strip />
     }
 
-    <!-- After the Queue pane, on a wide desktop while the draft runs, whichever tab is open. -->
+    <!-- In the Queue pane's column from the desktop layout, whichever tab is open, in the lobby and once the draft is closed or complete. -->
+    @if (showPlayersBesideTabs()) {
+      <aside class="players-beside-tabs" aria-label="Players">
+        <ng-container *ngTemplateOutlet="playersPanel" />
+      </aside>
+    }
+
+    <!-- After the Queue pane, on a wide desktop while the draft is drafting or paused, whichever tab is open. -->
     @if (showSeatStrip()) {
       <app-seat-strip class="seat-strip" [playersPanel]="playersPanel" />
     }

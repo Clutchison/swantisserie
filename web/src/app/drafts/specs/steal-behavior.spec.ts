@@ -19,6 +19,7 @@ import {
   queueOf,
   queuePane,
   viewOn,
+  openQueueSheet,
   queueNotice,
   queueList,
   elementWithText,
@@ -161,11 +162,16 @@ describe('steal behavior', () => {
   });
 
   it('is shown but can’t be changed once the draft is closed', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting({ state: 'Closed', turn: null }), {
-      cards: [shivan],
-      queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
-    });
-    const queue = queuePane(page);
+    viewOn('mobile');
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Closed', turn: null }),
+      {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)], stealBehavior: 'PickNext' }),
+      },
+    );
+    const queue = queuePane(await openQueueSheet(fixture, page));
 
     expect(pill(queue).textContent).toContain('Pick next');
     expect(pill(queue).disabled).toBe(true);

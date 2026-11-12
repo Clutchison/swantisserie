@@ -15,14 +15,15 @@ import type { Changes } from './changes';
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at
- * the top: `$desktop` in `src/_breakpoints.scss`, which the draft page's
- * stylesheets use. Change them together.
+ * the top, with the Queue pane or the Players panel beside them: `$desktop`
+ * in `src/_breakpoints.scss`, which the draft page's stylesheets use. Change
+ * them together.
  */
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /**
- * The media query of the draft page's wide desktop layout, where the Players
- * panel is a pane beside the tabs with its seat order always open:
+ * The media query of the draft page's wide desktop layout, where a drafting
+ * or paused draft has the Seat strip beside the tabs:
  * `$wide-desktop` in `src/_breakpoints.scss`. Change them together.
  */
 export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)';

@@ -290,6 +290,14 @@ export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | nu
 export const playersPanel = (page: HTMLElement) =>
   disclosure(page, /^Players · \d+$/)!.parentElement!;
 
+/**
+ * Where the Players panel sits beside the tabs, from the desktop layout in the
+ * lobby and once the draft is closed or complete: the complementary region
+ * "Players". Null if there is none.
+ */
+export const findPlayersBesideTabs = (page: HTMLElement) =>
+  byAriaLabel(page, 'aside, [role="complementary"]', 'Players');
+
 export function section(page: HTMLElement, heading: string): HTMLElement {
   const found = [...page.querySelectorAll('section')].find((s) =>
     s.querySelector('h2')?.textContent?.includes(heading),
