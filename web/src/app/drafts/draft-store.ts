@@ -343,11 +343,16 @@ export class DraftStore implements TournamentViewer {
     const count = this.queue.value().cards.length;
     return { count, noun: cardsNoun(count) };
   });
+  /** Whether the signed-in player's queue is queue paused, once it is known; false until then. */
+  readonly queuePaused = computed(
+    () => this.queueSize() !== null && this.queue.value().queuePaused,
+  );
 
   /**
    * A name summing up the queue, as a screen reader reads it: `lead`, then
    * the queue's size once it is known, then `details`, then whether the
-   * Queue notice notes a card the player hasn't seen.
+   * queue is queue paused, then whether the Queue notice notes a card the
+   * player hasn't seen.
    */
   queueSummary(lead: string, details: string[] = []): string {
     const size = this.queueSize();
@@ -355,6 +360,7 @@ export class DraftStore implements TournamentViewer {
       lead,
       ...(size ? [`${size.count} ${size.noun}`] : []),
       ...details,
+      ...(this.queuePaused() ? ['queue paused'] : []),
       ...(this.unseenNotice() ? ['new notice'] : []),
     ].join(', ');
   }

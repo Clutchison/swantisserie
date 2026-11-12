@@ -23,6 +23,9 @@
         @if (size(); as size) {
           <span class="rail-count" appQueueAddBump aria-hidden="true">{{ size.count }}</span>
         }
+        @if (queuePaused()) {
+          <svg lucidePause size="14" aria-hidden="true"></svg>
+        }
         @if (unseenNotice()) {
           <span class="dot" aria-hidden="true"></span>
         }
