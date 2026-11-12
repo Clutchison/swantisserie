@@ -8,8 +8,7 @@
 <main
   class="page-wide"
   [class.with-queue-pane]="showQueuePane()"
-  [class.with-seat-strip]="showSeatStrip()"
-  [class.with-players-pane]="playersPane()"
+  [class.with-players-beside-tabs]="showPlayersBesideTabs()"
 >
   @if (loading()) {
     <ng-container *ngTemplateOutlet="backLink" />
@@ -53,73 +52,92 @@
       }
     </div>
 
-    <!-- The Players panel: above the tabs, or on a wide desktop in a pane beside them once the draft is complete, and in the Seat strip's popover until then. -->
+    <!-- The Players panel: from the desktop layout, beside the tabs in the lobby and once the draft is closed or complete, and in the Seat strip's popover while it is drafting or paused; below it, above the tabs, or in the Players sheet from the Seat strip. -->
     <ng-template #playersPanel>
       <app-players-panel
         class="players-panel"
-        [inPane]="playersInPane()"
+        [alwaysOpen]="playersAlwaysOpen()"
         (changeStarted)="clearErrors()"
       />
     </ng-template>
-    @if (!showSeatStrip()) {
+    @if (showSeatStrip() && !desktop()) {
+      <!-- Below the desktop layout while the draft is drafting or paused: a row under the header, in the panel's place. -->
+      <app-seat-strip
+        class="seat-strip"
+        [playersPanel]="playersPanel"
+        panelIn="sheet"
+        [(panelOpen)]="playersOpen"
+      />
+    } @else if (!showSeatStrip() && !showPlayersBesideTabs()) {
       <ng-container *ngTemplateOutlet="playersPanel" />
     }
 
-    <!-- The tabs and their panels: the main column, beside the Queue pane, and the Seat strip or the Players panel's pane. -->
+    <!-- The tabs and their panels: the main column, beside the Queue pane or the Players panel. -->
     <div class="tab-column">
-      <div class="tabs" appTabList aria-label="Draft">
-        <button
-          id="pool-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Pool'"
-          aria-controls="pool-panel"
-          (click)="selectedTab.select('Pool')"
-        >
-          Pool
-        </button>
-        <button
-          id="plan-tab"
-          type="button"
-          [appTab]="selectedTab() === 'Deck'"
-          aria-controls="plan-panel"
-          (click)="selectedTab.select('Deck')"
-          [disabled]="!joined()"
-        >
-          Deck
-        </button>
-        <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
-        @if (showBoardTab()) {
+      <!-- The tabs, with the Seat strip after them from the desktop layout: beside the tab list, not in it, which holds only tabs. -->
+      <div class="tab-bar">
+        <div class="tabs" appTabList aria-label="Draft">
           <button
-            id="board-tab"
+            id="pool-tab"
             type="button"
-            [appTab]="selectedTab() === 'Board'"
-            aria-controls="board-panel"
-            (click)="selectedTab.select('Board')"
+            [appTab]="selectedTab() === 'Pool'"
+            aria-controls="pool-panel"
+            (click)="selectedTab.select('Pool')"
           >
-            Board
+            Pool
           </button>
-        }
-        @if (showListsTab()) {
           <button
-            id="lists-tab"
+            id="plan-tab"
             type="button"
-            [appTab]="selectedTab() === 'Lists'"
-            aria-controls="lists-panel"
-            (click)="selectedTab.select('Lists')"
+            [appTab]="selectedTab() === 'Deck'"
+            aria-controls="plan-panel"
+            (click)="selectedTab.select('Deck')"
+            [disabled]="!joined()"
           >
-            Lists
+            Deck
           </button>
-        }
-        @if (showPlayTab()) {
-          <button
-            id="play-tab"
-            type="button"
-            [appTab]="selectedTab() === 'Play'"
-            aria-controls="play-panel"
-            (click)="selectedTab.select('Play')"
-          >
-            Play
-          </button>
+          <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
+          @if (showBoardTab()) {
+            <button
+              id="board-tab"
+              type="button"
+              [appTab]="selectedTab() === 'Board'"
+              aria-controls="board-panel"
+              (click)="selectedTab.select('Board')"
+            >
+              Board
+            </button>
+          }
+          @if (showListsTab()) {
+            <button
+              id="lists-tab"
+              type="button"
+              [appTab]="selectedTab() === 'Lists'"
+              aria-controls="lists-panel"
+              (click)="selectedTab.select('Lists')"
+            >
+              Lists
+            </button>
+          }
+          @if (showPlayTab()) {
+            <button
+              id="play-tab"
+              type="button"
+              [appTab]="selectedTab() === 'Play'"
+              aria-controls="play-panel"
+              (click)="selectedTab.select('Play')"
+            >
+              Play
+            </button>
+          }
+        </div>
+        <!-- In the tab bar from the desktop layout while the draft is drafting or paused, whichever tab is open. -->
+        @if (showSeatStrip() && desktop()) {
+          <app-seat-strip
+            class="seat-strip"
+            [playersPanel]="playersPanel"
+            [(panelOpen)]="playersOpen"
+          />
         }
       </div>
 
@@ -268,9 +286,11 @@
       <app-next-up-strip />
     }
 
-    <!-- After the Queue pane, on a wide desktop while the draft runs, whichever tab is open. -->
-    @if (showSeatStrip()) {
-      <app-seat-strip class="seat-strip" [playersPanel]="playersPanel" />
+    <!-- In the Queue pane's column from the desktop layout, whichever tab is open, in the lobby and once the draft is closed or complete. -->
+    @if (showPlayersBesideTabs()) {
+      <aside class="players-beside-tabs" aria-label="Players">
+        <ng-container *ngTemplateOutlet="playersPanel" />
+      </aside>
     }
   }
 </main>

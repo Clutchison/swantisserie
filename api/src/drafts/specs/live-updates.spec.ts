@@ -210,8 +210,8 @@ describe('live updates', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await start(id).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     const carolSees = await watch(id, await signIn(carol));
 
     await pick(id, ids.Shock).expect(200);

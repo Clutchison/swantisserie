@@ -5,6 +5,7 @@ import {
   DestroyRef,
   effect,
   inject,
+  linkedSignal,
   type Signal,
   signal,
   untracked,
@@ -22,7 +23,7 @@ import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
 import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
-import { DESKTOP_QUERY, matching, setListText, WIDE_DESKTOP_QUERY } from './drafts';
+import { DESKTOP_QUERY, hasTurn, matching, setListText } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { Changes } from './changes';
@@ -127,35 +128,57 @@ export class DraftPage {
   protected readonly showBoardTab = computed(() => this.store.showBoardTab() !== false);
   /**
    * Whether the page is at the desktop layout, as it is resized: the one
-   * with the Queue pane beside the tabs.
+   * with the Queue pane or the Players panel beside the tabs, and the Seat
+   * strip in the tab bar.
    */
-  private readonly desktop = matching(DESKTOP_QUERY);
-  /** Whether the viewer has a Queue pane: a player, until the draft is complete. */
+  protected readonly desktop = matching(DESKTOP_QUERY);
+  /** Whether the viewer has a Queue pane: a player, once the draft has started and until it is complete. */
   private readonly hasQueuePane = computed(() => this.joined() && !!this.store.queueShown());
-  /** Whether the Queue pane is beside the tabs: from the desktop layout. */
-  protected readonly showQueuePane = computed(() => this.desktop() && this.hasQueuePane());
+  /**
+   * Whether the Queue pane is beside the tabs: from the desktop layout, unless
+   * the Players panel has that column, as it does once the draft is closed.
+   */
+  protected readonly showQueuePane = computed(
+    () => this.desktop() && this.hasQueuePane() && !this.showPlayersBesideTabs(),
+  );
   /**
    * Whether the "next up" strip is above the tab bar, opening the Queue pane
    * in a sheet: below the desktop layout. The sheet closes with it.
    */
   protected readonly showNextUpStrip = computed(() => !this.desktop() && this.hasQueuePane());
 
-  /** Whether the page is at the wide desktop layout, as it is resized. */
-  private readonly wide = matching(WIDE_DESKTOP_QUERY);
   /**
-   * Whether the Seat strip stands in for the Players panel: on a wide desktop,
-   * once the draft has started and until it is complete. The panel opens from it.
+   * Whether the Seat strip stands in for the Players panel, while the draft
+   * is drafting or paused: in the tab bar from the desktop layout, and in a
+   * row under the draft header below it. The panel opens from it.
    */
   protected readonly showSeatStrip = computed(() => {
-    const state = this.draft()?.state;
-    return this.wide() && !!state && state !== 'Lobby' && state !== 'Complete';
+    const draft = this.draft();
+    return !!draft && hasTurn(draft);
   });
-  /** Whether the Players panel is a pane beside the tabs: on a wide desktop, once the draft is complete. */
-  protected readonly playersPane = computed(
-    () => this.wide() && this.draft()?.state === 'Complete',
+  /**
+   * Whether the Players panel is open from the Seat strip, in its popover or
+   * the Players sheet: kept here, so it stays open as the strip moves
+   * between the tab bar and the row under the header. It is closed while
+   * there is no strip.
+   */
+  protected readonly playersOpen = linkedSignal({
+    source: this.showSeatStrip,
+    computation: () => false,
+  });
+  /**
+   * Whether the Players panel is beside the tabs, in the Queue pane's column:
+   * from the desktop layout, in the lobby and once the draft is closed or
+   * complete.
+   */
+  protected readonly showPlayersBesideTabs = computed(() => {
+    const draft = this.draft();
+    return this.desktop() && !!draft && !hasTurn(draft);
+  });
+  /** Whether the Players panel always stays open, its seats stacked: beside the tabs, or in the Seat strip's popover or the Players sheet. */
+  protected readonly playersAlwaysOpen = computed(
+    () => this.showPlayersBesideTabs() || this.showSeatStrip(),
   );
-  /** Whether the Players panel is narrow and stays open: in its pane, or the Seat strip's popover. */
-  protected readonly playersInPane = computed(() => this.playersPane() || this.showSeatStrip());
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:

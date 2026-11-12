@@ -8,6 +8,8 @@ import {
   http,
   updates,
   openUrl,
+  panelSeatNames,
+  panelTurnSeat,
   playersPanel,
   bob,
   alicePlayer,
@@ -30,9 +32,12 @@ import {
   buttonOrder,
   ALL_POWERS,
   drafting,
+  findPlayersBesideTabs,
   viewOn,
 } from './harness';
 import { disclosure } from './disclosure-harness';
+import { playersButton, playersSheet } from './seat-strip-harness';
+import { clickOn } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -41,9 +46,6 @@ const START_FAILED = "Couldn't start the draft.";
 describe('seats and start', () => {
   beforeEach(() => powersAnswer(ORGANIZE_ONLY));
 
-  const seatNames = (page: HTMLElement) =>
-    [...playersPanel(page).querySelectorAll('li .name')].map((n) => n.textContent);
-
   it('shows the seat order and whose turn it is', async () => {
     const { page } = await openDraft(completeSnapshot, {
       state: 'Drafting',
@@ -51,24 +53,27 @@ describe('seats and start', () => {
       turn: { pick: 1, round: 1, playerId: bob.id },
     });
 
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    clickOn(playersButton(page));
+    const sheet = playersSheet()!;
+
+    expect(panelSeatNames(sheet)).toEqual(['Bob', 'Alice']);
     expect(page.textContent).toContain('Bob’s turn: pick 1, round 1');
-    const current = playersPanel(page).querySelector('li[aria-current="true"]');
-    expect(current?.querySelector('.name')?.textContent).toBe('Bob');
+    expect(panelTurnSeat(sheet)?.textContent).toContain('Bob');
   });
 
-  for (const screen of ['mobile', 'desktop'] as const) {
-    it(`keeps the seat order in the Players panel once started on ${screen}, closed`, async () => {
-      viewOn(screen);
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
-      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob, alicePlayer] }));
-
-      expect(disclosure(page, 'Players · 2')!.open).toBe(false);
-      expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+  it('keeps the seat order in the Players panel once the draft is closed, on mobile, closed', async () => {
+    viewOn('mobile');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
     });
-  }
+    const { page } = await openDraft(
+      completeSnapshot,
+      drafting({ players: [bob, alicePlayer], state: 'Closed', turn: null }),
+    );
+
+    expect(disclosure(page, 'Players · 2')!.open).toBe(false);
+    expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
+  });
 
   it('tells the signed-in player when it is their turn', async () => {
     const { page } = await openDraft(completeSnapshot, {
@@ -111,7 +116,34 @@ describe('seats and start', () => {
     req.flush(draft({ players: [bob, alicePlayer] }));
     await fixture.whenStable();
 
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
+  });
+
+  describe('with the Players panel beside the tabs, on a desktop', () => {
+    beforeEach(() => viewOn('desktop'));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('lets the organizer randomize the seats from it', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+      button(findPlayersBesideTabs(page)!, 'Randomize seats')!.click();
+      const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'));
+      expect(req.request.method).toBe('POST');
+      req.flush(draft({ players: [bob, alicePlayer] }));
+      await fixture.whenStable();
+
+      expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
+    });
+
+    it('keeps the seat order there, open, once the draft is closed', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({ players: [bob, alicePlayer], state: 'Closed', turn: null }),
+      );
+
+      expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
+      expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
+    });
   });
 
   it('lets the organizer move a seat earlier or later', async () => {
@@ -126,7 +158,7 @@ describe('seats and start', () => {
     req.flush(draft({ players: [bob, alicePlayer] }));
     await fixture.whenStable();
 
-    expect(seatNames(page)).toEqual(['Bob', 'Alice']);
+    expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
   });
 
   it('starts the draft for the organizer', async () => {
@@ -236,6 +268,48 @@ describe('seats and start', () => {
       picks: 70,
       next: { pick: 71, player: 'Bob' },
     };
+
+    describe('from the Players panel beside the tabs, on a desktop', () => {
+      beforeEach(() => viewOn('desktop'));
+      afterEach(() => vi.unstubAllGlobals());
+
+      it('previews a file chosen there, showing the preview there', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {
+          players: [alicePlayer, bob],
+        });
+        const besideTabs = findPlayersBesideTabs(page)!;
+
+        await chooseFile(fixture, besideTabs, preview);
+
+        const shown = await shownPreview(page);
+        expect(besideTabs.contains(shown)).toBe(true);
+        expect(shown.textContent).toContain('Ann → Alice');
+      });
+
+      it('lists every problem with an invalid file there', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, {
+          players: [alicePlayer, bob],
+        });
+        const besideTabs = findPlayersBesideTabs(page)!;
+
+        await chooseFile(
+          fixture,
+          besideTabs,
+          {
+            error: 'invalid-pick-import',
+            message: 'This file can’t be imported.',
+            problems: ['Unknown Card isn’t in this draft’s pool.'],
+          } satisfies PickImportRefusal,
+          422,
+        );
+
+        await vi.waitFor(() =>
+          expect(pickImportProblems(besideTabs)).toEqual([
+            'Unknown Card isn’t in this draft’s pool.',
+          ]),
+        );
+      });
+    });
 
     it('previews a valid file: the pairings, pick count and next turn', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });

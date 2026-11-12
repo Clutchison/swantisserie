@@ -825,7 +825,7 @@ describe('plan tab', () => {
     });
 
     it('opens a new viewer in list mode where the stacks area is narrower', async () => {
-      viewOn('wide');
+      viewOn('desktop');
       measuredAs(WIDE_STACKS_WIDTH - 1);
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -838,7 +838,7 @@ describe('plan tab', () => {
     });
 
     it('opens a new viewer by the width the stacks area has once shown, not the none it has while hidden on another tab', async () => {
-      viewOn('wide');
+      viewOn('desktop');
       const resizeStacksArea = measuredAs(0);
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -852,7 +852,7 @@ describe('plan tab', () => {
     });
 
     it('keeps the mode a new viewer chose before the stacks area was first measured', async () => {
-      viewOn('wide');
+      viewOn('desktop');
       const resizeStacksArea = measuredAs();
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -868,7 +868,7 @@ describe('plan tab', () => {
     });
 
     it('shows the strip, offering no drag, as the stacks area narrows past the wide layout, and the wide layout as it widens again', async () => {
-      viewOn('wide');
+      viewOn('desktop');
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
       const resizeStacksArea = measuredAs(WIDE_STACKS_AREA);
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {

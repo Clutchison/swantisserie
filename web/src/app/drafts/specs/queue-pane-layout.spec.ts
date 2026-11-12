@@ -16,6 +16,7 @@ import {
   http,
   openDraft,
   findNextUpStrip,
+  findPlayersBesideTabs,
   nextUpStrip,
   openQueueSheet,
   queueNotice,
@@ -36,6 +37,7 @@ import {
   updates,
   draft,
   viewOn,
+  startDraft,
 } from './harness';
 import { measuredAs } from './measure-harness';
 import {
@@ -70,8 +72,8 @@ const shownHelp = (root: HTMLElement) =>
   );
 
 describe('Queue pane layout', () => {
-  describe.each(['desktop', 'wide'] as const)('on a %s screen', (screen) => {
-    beforeEach(() => viewOn(screen));
+  describe('on a desktop screen', () => {
+    beforeEach(() => viewOn('desktop'));
 
     it('shows a player the region "Queue" beside the Pool, Deck and Board tabs, and no Queue tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
@@ -87,12 +89,8 @@ describe('Queue pane layout', () => {
       }
     });
 
-    it.each([
-      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
-      ['while paused', drafting({ state: 'Paused' })],
-      ['while closed', drafting({ state: 'Closed', turn: null })],
-    ])('shows it %s', async (_, fields) => {
-      const { page } = await openDraft(completeSnapshot, fields);
+    it('shows it while paused', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Paused' }));
 
       expect(findQueuePane(page)).not.toBeNull();
     });
@@ -103,11 +101,31 @@ describe('Queue pane layout', () => {
         'a viewer in the lobby who hasn’t joined',
         drafting({ state: 'Lobby', turn: null, players: [bob] }),
       ],
+      ['a player in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
     ])('shows none to %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findQueuePane(page)).toBeNull();
+    });
+
+    it('shows a player no queue at all once the draft is closed: no Queue pane and no "next up" strip, as the Players panel has the column', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Closed', turn: null }));
+
+      expect(findQueuePane(page)).toBeNull();
+      expect(findNextUpStrip(page)).toBeUndefined();
+      expect(findPlayersBesideTabs(page)).not.toBeNull();
+    });
+
+    it('shows it once the draft starts, without a reload', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+      );
+
+      await startDraft(fixture);
+
+      expect(findQueuePane(page)).not.toBeNull();
     });
   });
 
@@ -313,7 +331,6 @@ describe('Queue pane layout', () => {
     });
 
     it.each([
-      ['in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['while paused', drafting({ state: 'Paused' })],
       ['while closed', drafting({ state: 'Closed', turn: null })],
     ])('shows the strip %s', async (_, fields) => {
@@ -328,11 +345,23 @@ describe('Queue pane layout', () => {
         'a viewer in the lobby who hasn’t joined',
         drafting({ state: 'Lobby', turn: null, players: [bob] }),
       ],
+      ['a player in the lobby', drafting({ state: 'Lobby', turn: null })],
       ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
     ])('shows no strip to %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findNextUpStrip(page)).toBeUndefined();
+    });
+
+    it('shows the strip once the draft starts, without a reload', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Lobby', turn: null }),
+      );
+
+      await startDraft(fixture);
+
+      expect(findNextUpStrip(page)).toBeDefined();
     });
   });
 

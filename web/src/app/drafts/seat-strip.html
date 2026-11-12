@@ -6,16 +6,21 @@
     aria-label="Players"
     title="Players"
     aria-haspopup="dialog"
-    aria-controls="players-popover"
-    [attr.aria-expanded]="popoverOpen()"
-    (click)="togglePopover()"
+    [attr.aria-controls]="panelIn() === 'popover' ? 'players-popover' : null"
+    [attr.aria-expanded]="panelOpen()"
+    (click)="togglePanel()"
   >
     <svg lucideUsers size="20"></svg>
   </button>
-  <!-- Scrolls on its own if the seats outgrow the strip. -->
-  <ol aria-label="Seat order">
-    @for (player of seats(); track player.id) {
+  <!-- Scrolls sideways on its own if the seats outgrow the strip, fading where it clips them. -->
+  <!-- role="list" keeps its list semantics in Safari, which drops them with the list style. -->
+  <ol #seatList role="list" [attr.aria-label]="seatListName()">
+    @for (player of seats(); track player.id; let first = $first) {
       <li>
+        <!-- Between each pair of seats, toward the next player to pick; the list's name says who that is. -->
+        @if (!first && arrow(); as icon) {
+          <svg class="arrow" aria-hidden="true" [lucideIcon]="icon" [size]="arrowSize"></svg>
+        }
         <!-- Focusable, so a keyboard user can bring up the player's name as a mouse user does. -->
         <span
           #seat
@@ -24,15 +29,18 @@
           tabindex="0"
           [class.own]="isOwn(player)"
           [class.turn]="hasTheTurn(player)"
+          [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"
+          [class.pulse-again]="hasTheTurn(player) && pulse() === 'pulse-again'"
           [attr.aria-label]="seatName(player)"
           [attr.aria-current]="hasTheTurn(player) ? 'true' : null"
           (mouseenter)="showHint(player, seat)"
           (mouseleave)="hideHint()"
           (focus)="showHint(player, seat)"
           (blur)="hideHint()"
+          (animationend)="pulse.set(null)"
         >
           <span class="initial">{{ initial(player) }}</span>
-          <app-player-avatar [src]="player.avatarUrl" />
+          <app-player-avatar [src]="player.avatarUrl" [size]="avatarSize" />
         </span>
       </li>
     }
@@ -40,7 +48,13 @@
 </section>
 <!-- Outside the seats' scroller, so it isn't clipped; the seat's name is its accessible name already. -->
 @if (hint(); as hint) {
-  <span class="hint" aria-hidden="true" [style.top.px]="hint.top">{{ hint.name }}</span>
+  <span
+    class="hint"
+    aria-hidden="true"
+    [style.left.px]="hintStart(hint)"
+    [style.right.px]="hintEnd(hint)"
+    >{{ hint.name }}</span
+  >
 }
 @if (popoverOpen()) {
   <div

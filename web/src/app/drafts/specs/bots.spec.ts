@@ -3,6 +3,7 @@ import {
   alice,
   draft,
   http,
+  panelSeats,
   playersPanel,
   alicePlayer,
   bob,
@@ -17,8 +18,11 @@ import {
   ALL_POWERS,
   ORGANIZE_ONLY,
   viewOn,
+  findPlayersBesideTabs,
 } from './harness';
 import { disclosure } from './disclosure-harness';
+import { playersButton, playersSheet } from './seat-strip-harness';
+import { clickOn, pressEscape } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -57,9 +61,11 @@ describe('bots', () => {
       },
     );
 
-    const seats = playersPanel(page).querySelectorAll('li');
+    clickOn(playersButton(page));
+    const seats = panelSeats(playersSheet()!);
     expect(badges(seats[0])).toEqual(['Bot']);
     expect(badges(seats[1])).toEqual([]);
+    pressEscape();
     expect(page.querySelector('.turn')?.textContent).toContain('Bot 1’s turn');
     expect(badges(page.querySelector('.turn'))).toEqual(['Bot']);
 
@@ -97,8 +103,8 @@ describe('bots', () => {
     expect(playersPanel(page).textContent).not.toContain('Bot 1');
   });
 
-  it('adds a bot from the Players panel in its pane on a wide desktop', async () => {
-    viewOn('wide');
+  it('adds a bot from the Players panel beside the tabs on a desktop screen', async () => {
+    viewOn('desktop');
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
@@ -109,14 +115,14 @@ describe('bots', () => {
     );
     expect(disclosure(page, 'Players · 1')!.open).toBe(true);
 
-    button(playersPanel(page), 'Add bot')!.click();
+    button(findPlayersBesideTabs(page)!, 'Add bot')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'))).flush(
       draft({ players: [alicePlayer, bot] }),
       { status: 201, statusText: 'Created' },
     );
     await fixture.whenStable();
 
-    expect(disclosure(page, 'Players · 2')!.open).toBe(true);
+    expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
     expect(playersPanel(page).textContent).toContain('Bot 1');
   });
 

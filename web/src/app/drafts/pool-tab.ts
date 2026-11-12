@@ -86,11 +86,12 @@ export class PoolTab {
   /**
    * Each queued card's Queued badge, by its pool card id: its 1-based place in
    * the viewer's queue, and whether it is past the Queue cutoff. None for a
-   * viewer who isn't a player, or once the draft is complete and the queue
-   * can't fire.
+   * viewer who isn't a player, nor while their queue isn't shown: in the
+   * lobby, where there is no queueing, and once the draft is complete and the
+   * queue can't fire.
    */
   protected readonly queuedBadges = computed(() => {
-    if (!this.store.joined() || this.store.draftComplete()) return new Map();
+    if (!this.store.joined() || !this.store.queueShown()) return new Map();
     return new Map(
       this.store.queue.value().cards.map((card, index) => [
         card.poolCardId,

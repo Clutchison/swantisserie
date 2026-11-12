@@ -19,7 +19,6 @@ import {
   poolCardIds,
   copyIds,
   importPicks,
-  enqueue,
   queue,
   join,
   leave,
@@ -29,6 +28,7 @@ import {
   announcementsSettled,
   addBot,
   draftsRequest,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -144,8 +144,9 @@ describe('pick import', () => {
     const bobCookie = await signIn(bob);
     const id = await readyDraft([aliceCookie, bobCookie], 2, cards);
     const ids = await poolCardIds(id);
-    for (const cookie of [aliceCookie, bobCookie]) {
-      await enqueue(id, ids['Dusk Heron'], cookie).expect(200);
+    // Queues already filled in the lobby.
+    for (const user of [alice, bob]) {
+      await queueInLobby(id, user, ids['Dusk Heron']);
     }
 
     await importPicks(id, csv, previewed).expect(200);
@@ -286,8 +287,8 @@ describe('pick import', () => {
     const bot = (withBot as DraftView).players[1];
     // Unless the import empties them, these are Alice's picks 4 and 5, then the bot picks 6.
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Dusk Heron']).expect(200);
-    await enqueue(id, ids['Ember Lynx']).expect(200);
+    // Already queued in the lobby.
+    await queueInLobby(id, alice, ids['Dusk Heron'], ids['Ember Lynx']);
 
     await importPicks(id, csv, [alice.id, bot.id]).expect(200);
 

@@ -22,6 +22,7 @@ import {
   ALL_POWERS,
   powersAnswer,
   RETRY_FAILED,
+  findPlayersBesideTabs,
   viewOn,
 } from './harness';
 import { moreButton, openMore } from './draft-header-harness';
@@ -107,7 +108,7 @@ describe('lobby', () => {
     ]);
   });
 
-  for (const screen of ['mobile', 'desktop', 'wide'] as const) {
+  for (const screen of ['mobile', 'desktop'] as const) {
     it(`opens the Players panel in the lobby on ${screen}, with the seating tools`, async () => {
       viewOn(screen);
       onTestFinished(() => {
@@ -117,6 +118,10 @@ describe('lobby', () => {
       const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
 
       expect(disclosure(page, 'Players · 1')!.open).toBe(true);
+      // In its pane beside the tabs from the desktop layout; above them on a phone.
+      expect(findPlayersBesideTabs(page)?.contains(playersPanel(page)) ?? false).toBe(
+        screen !== 'mobile',
+      );
       expect(buttonOrder(playersPanel(page), 'Randomize seats')).toEqual([
         'Randomize seats',
         'Add bot',

@@ -249,7 +249,6 @@ describe('close and reopen', () => {
   });
 
   it.each([
-    { state: 'Lobby', turn: null },
     { state: 'Drafting', turn: underway.turn },
     { state: 'Paused', turn: underway.turn },
   ] as const)('keeps the queue controls in $state', async ({ state, turn }) => {

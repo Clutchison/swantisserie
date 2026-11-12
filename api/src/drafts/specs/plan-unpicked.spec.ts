@@ -314,12 +314,12 @@ describe('unpicked cards in a plan', () => {
     const bot = (withBot as DraftView).players[2];
     const ids = await poolCardIds(id);
     const [first, second] = (await copyIds(id))['Lightning Bolt'];
-    await enqueue(id, ids.Shock, aliceCookie).expect(200);
     await addToPlan(id, ids.Shock, carolCookie).expect(200);
     await addToPlan(id, first, carolCookie).expect(200);
     await addToPlan(id, second, carolCookie).expect(200);
     await movePlanned(id, second, 'Sideboard', carolCookie).expect(200);
     await start(id).expect(200);
+    await enqueue(id, ids.Shock, aliceCookie).expect(200);
 
     // Carol's pick 1 cascades Alice's queued pick 2; the bot then picks 3 and 4, the first available by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);

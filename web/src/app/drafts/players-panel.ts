@@ -43,7 +43,7 @@ import { PlayerAvatar } from './player-avatar';
     SendsChange,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.in-pane]': 'inPane()' },
+  host: { '[class.always-open]': 'alwaysOpen()' },
   templateUrl: './players-panel.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './players-panel.scss'],
 })
@@ -68,21 +68,23 @@ export class PlayersPanel {
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
   /**
-   * Whether the panel is in a narrow pane beside the tabs, or the Seat strip's
-   * popover, where its seats stack and it stays open; the draft page says.
+   * Whether the panel always stays open, its seats stacked: where it has a
+   * place of its own, beside the tabs or in the Seat strip's popover or the
+   * Players sheet; the draft page says.
    */
-  readonly inPane = input(false);
+  readonly alwaysOpen = input(false);
   /**
-   * The panel is open in the lobby, wherever it is, and stays open in a pane
-   * or popover. Above the tabs it collapses once the draft starts, out of
-   * their way.
+   * The panel is open in the lobby, wherever it is, and always open where
+   * `alwaysOpen` says. Above the tabs it collapses once the draft is closed
+   * or complete, out of their way; while drafting or paused the Seat strip
+   * takes its place.
    */
-  protected readonly open = computed(() => this.inPane() || this.inLobby());
+  protected readonly open = computed(() => this.alwaysOpen() || this.inLobby());
   protected readonly playerCount = computed(() => this.draft().players.length);
 
-  /** In a pane or popover the panel stays open: a click on its summary doesn't close it. */
+  /** Where it always stays open, a click on its summary doesn't close it. */
   protected keepOpen(click: Event) {
-    if (this.inPane()) click.preventDefault();
+    if (this.alwaysOpen()) click.preventDefault();
   }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');

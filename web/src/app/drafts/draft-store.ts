@@ -30,7 +30,15 @@ import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
-import { cardsNoun, EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import {
+  cardsNoun,
+  EMPTY_PLAN,
+  EMPTY_QUEUE,
+  hasTurn,
+  isActive,
+  isRefusal,
+  NO_POWERS,
+} from './drafts';
 import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
 
@@ -464,13 +472,14 @@ export class DraftStore implements TournamentViewer {
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
    * Whether a player's queue is shown, in the Queue pane beside the tabs or,
-   * below the desktop layout, the Queue sheet: until the draft is complete, as the queue
+   * below the desktop layout, the Queue sheet: from when the draft starts, as
+   * there is no queueing in the lobby, until it is complete, as the queue
    * can't change after. A closed draft keeps it, as it can reopen. Undefined
    * while the draft is loading.
    */
   readonly queueShown = computed(() => {
     const draft = this.draft.value();
-    return draft ? !this.draftComplete() : undefined;
+    return draft ? draft.state !== 'Lobby' && !this.draftComplete() : undefined;
   });
   /**
    * Whether the Play tab is shown: only for a complete draft, and
@@ -558,15 +567,17 @@ export class DraftStore implements TournamentViewer {
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
-   * Offering queue changes: to players, while the draft is active; adding to
-   * the queue is still not offered on the player's own turn. The Queue pane is
-   * read-only when this is false. The api refuses anyone else with
-   * `not-a-player`, a Complete or Closed draft with `draft-complete` or
-   * `draft-closed`, and adding on the player's own turn with `your-turn`.
+   * Offering queue changes: to players, while the draft is drafting or
+   * paused; adding to the queue is still not offered on the player's own
+   * turn. The Queue pane is read-only when this is false. The api refuses
+   * anyone else with `not-a-player`, adding or setting steal behavior in the
+   * lobby with `not-started`, a Complete or Closed draft with
+   * `draft-complete` or `draft-closed`, and adding on the player's own turn
+   * with `your-turn`.
    */
   readonly offerQueue = computed(() => {
     const draft = this.draft.value();
-    return this.joined() && !!draft && isActive(draft.state);
+    return this.joined() && !!draft && hasTurn(draft);
   });
   /**
    * Offering adding to the plan: to players, while the draft is active. The

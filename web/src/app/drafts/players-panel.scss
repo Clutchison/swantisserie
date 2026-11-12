@@ -105,9 +105,9 @@ summary {
   }
 }
 
-/* Where the seats run across: on a desktop, unless the panel is in a pane or the Seat strip's popover. */
+/* Where the seats run across: on a desktop, unless the panel always stays open, as it does beside the tabs, in the Seat strip's popover or in the Players sheet. */
 @media (min-width: bp.$desktop) {
-  :host(:not(.in-pane)) {
+  :host(:not(.always-open)) {
     .across {
       display: inline-block;
     }
@@ -118,8 +118,8 @@ summary {
   }
 }
 
-/* In a narrow pane, or the Seat strip's popover, the seats stack again, and the panel stays open. */
-:host(.in-pane) {
+/* Beside the tabs, in the Seat strip's popover or in the Players sheet, the seats stack again, and the panel stays open. */
+:host(.always-open) {
   ol {
     grid-template-columns: minmax(0, 1fr);
   }

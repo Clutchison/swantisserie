@@ -126,9 +126,14 @@ export interface DraftChangeRefusal {
   message: string;
 }
 
-/** Why a card can't be queued, or the queue reordered; sent to the player as is. */
+/**
+ * Why a card can't be queued, the queue reordered or steal behavior set;
+ * sent to the player as is.
+ */
 export interface QueueRefusal {
   error:
+    /** The draft is in the lobby: adding to a queue and setting steal behavior wait for the start. */
+    | 'not-started'
     | 'not-in-pool'
     | 'already-picked'
     | 'draft-complete'

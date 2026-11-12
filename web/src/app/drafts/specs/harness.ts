@@ -290,6 +290,27 @@ export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | nu
 export const playersPanel = (page: HTMLElement) =>
   disclosure(page, /^Players · \d+$/)!.parentElement!;
 
+/** The seats in the Players panel inside `root`, in seat order: the items of its list "Seat order". */
+export const panelSeats = (root: HTMLElement) => [
+  ...namedList(playersPanel(root), 'Seat order').querySelectorAll<HTMLElement>(':scope > li'),
+];
+
+/** The names of the players in the Players panel inside `root`, in seat order. */
+export const panelSeatNames = (root: HTMLElement) =>
+  panelSeats(root).map((seat) => text(seat.querySelector('.name')));
+
+/** The seat the Players panel inside `root` marks current, whose turn it is; undefined if none. */
+export const panelTurnSeat = (root: HTMLElement) =>
+  panelSeats(root).find((seat) => seat.getAttribute('aria-current') === 'true');
+
+/**
+ * Where the Players panel sits beside the tabs, from the desktop layout in the
+ * lobby and once the draft is closed or complete: the complementary region
+ * "Players". Null if there is none.
+ */
+export const findPlayersBesideTabs = (page: HTMLElement) =>
+  byAriaLabel(page, 'aside, [role="complementary"]', 'Players');
+
 export function section(page: HTMLElement, heading: string): HTMLElement {
   const found = [...page.querySelectorAll('section')].find((s) =>
     s.querySelector('h2')?.textContent?.includes(heading),
@@ -446,8 +467,8 @@ export const flipCard = poolCardOf('budoka', 'Budoka Gardener // Dokai, Weaver o
  * the list item that names the player.
  */
 export const playerAvatar = (page: HTMLElement, name: string) =>
-  [...playersPanel(page).querySelectorAll('li')]
-    .find((li) => li.textContent?.includes(name))
+  panelSeats(page)
+    .find((seat) => seat.textContent?.includes(name))
     ?.querySelector<HTMLImageElement>('[role="presentation"]');
 
 /**
@@ -811,6 +832,20 @@ export async function flushQueue(queue: QueueView) {
 /** Answers the page's GET of draft-1's pick log with `picks`. */
 export async function flushPicks(picks: PickView[]) {
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(picks);
+}
+
+/**
+ * Starts the open draft-1, opened by Alice, as its start is pushed to the
+ * page, as `drafting` makes it with `fields` changed, and answers the reads
+ * the start brings: an empty pick log, and an empty queue and plan if Alice
+ * is one of its players.
+ */
+export async function startDraft(fixture: AppFixture, fields: DraftFixture = {}) {
+  const started = draft(drafting({ state: 'Drafting', version: 1, ...fields }));
+  updates.events.next({ type: 'changed', draft: started });
+  await flushPicks([]);
+  if (started.players.some((player) => player.id === alice.id)) await flushQueueAndPlan();
+  await fixture.whenStable();
 }
 
 /**

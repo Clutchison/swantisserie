@@ -1,4 +1,5 @@
 import {
+  alice,
   bob,
   carol,
   aliceCookie,
@@ -21,6 +22,7 @@ import {
   registerWebhook,
   reorderQueue,
   removeFromQueue,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -156,8 +158,8 @@ describe('close and reopen', () => {
   it('returns to Drafting even if it was paused, and cascades queued picks', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Lava Spike']).expect(200);
-    await enqueue(id, ids.Shock).expect(200);
+    // A queue already filled in the lobby.
+    await queueInLobby(id, alice, ids['Lava Spike'], ids.Shock);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn, with
     // Lava Spike back in her queue.
@@ -182,8 +184,8 @@ describe('close and reopen', () => {
       await registerWebhook(),
     );
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Lava Spike']).expect(200);
-    await enqueue(id, ids.Shock).expect(200);
+    // A queue already filled in the lobby.
+    await queueInLobby(id, alice, ids['Lava Spike'], ids.Shock);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn, with
     // Lava Spike back in her queue.

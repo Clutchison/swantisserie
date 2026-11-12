@@ -25,6 +25,7 @@ import {
   text,
   serverError,
   viewOn,
+  openQueueSheet,
   queueNotice,
   cardNames,
 } from './harness';
@@ -34,7 +35,12 @@ import { bolt } from './plan-tab-harness';
 useDraftsApp();
 useTallScreen();
 
-/** The Queue pane's Queue notice, Queue cutoff and read-only state, on a desktop screen. */
+/**
+ * The Queue pane's Queue notice, Queue cutoff and read-only state, on a desktop
+ * screen. A closed draft's queue is read in the Queue sheet on a phone: from the
+ * desktop layout the Players panel has the Queue pane's column, and there is no
+ * queue to read (see the Queue pane layout spec).
+ */
 describe('Queue pane notice, cutoff and read-only state', () => {
   beforeEach(() => viewOn('desktop'));
   afterEach(() => vi.unstubAllGlobals());
@@ -148,6 +154,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   });
 
   it('is read-only once the draft is closed, as the api refuses every queue change with `draft-closed`', async () => {
+    viewOn('mobile');
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Closed', turn: null }),
@@ -156,7 +163,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
       },
     );
-    const queue = queuePane(page);
+    const queue = queuePane(await openQueueSheet(fixture, page));
 
     expect(names(queue)).toEqual(['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']);
     button(queue, 'How this works').click();
@@ -169,7 +176,6 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   });
 
   it.each([
-    ['in the lobby', drafting({ state: 'Lobby', turn: null })],
     ['while paused', drafting({ state: 'Paused' })],
     ['while drafting', drafting()],
   ])('can be changed %s, as the api allows', async (_, fields) => {
@@ -266,18 +272,26 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       expect(rows(queue)).toEqual(['Shivan Dragon']);
     });
 
-    it.each(['Lobby', 'Paused', 'Closed'] as const)(
-      'draws the queue cutoff while the draft is %s',
-      async (state) => {
-        const { page } = await openDraft(
-          completeSnapshot,
-          drafting({ state, picksPerPlayer: 1, turn: state === 'Paused' ? undefined : null }),
-          boltThenShivan,
-        );
+    it('draws the queue cutoff while the draft is paused', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Paused', picksPerPlayer: 1 }),
+        boltThenShivan,
+      );
 
-        const queue = queuePane(page);
-        expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
-      },
-    );
+      expect(rows(queuePane(page))).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+    });
+
+    it('draws the queue cutoff in the Queue sheet once the draft is closed', async () => {
+      viewOn('mobile');
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Closed', picksPerPlayer: 1, turn: null }),
+        boltThenShivan,
+      );
+
+      const queue = queuePane(await openQueueSheet(fixture, page));
+      expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+    });
   });
 });

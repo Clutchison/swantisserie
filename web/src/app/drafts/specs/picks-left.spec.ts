@@ -91,19 +91,38 @@ describe('picks left beside the panel headings', () => {
     expect(picksLeftTexts(panel(page))).toEqual(['10 picks left']);
   });
 
-  it.each(['Lobby', 'Paused', 'Closed'] as const)(
-    'shows the count on all three panels while the draft is %s',
-    async (state) => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        drafting({ state, picksPerPlayer: 12, turn: state === 'Paused' ? undefined : null }),
-      );
+  it('shows the count on all three panels while the draft is paused', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Paused', picksPerPlayer: 12 }),
+    );
 
-      for (const name of PANELS) {
-        expect(picksLeftTexts(await open(fixture, page, name))).toEqual(['12 picks left']);
-      }
-    },
-  );
+    for (const name of PANELS) {
+      expect(picksLeftTexts(await open(fixture, page, name))).toEqual(['12 picks left']);
+    }
+  });
+
+  it('shows the count on the Pool and Deck tabs once the draft is closed, where the Players panel has the Queue pane’s column', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Closed', picksPerPlayer: 12, turn: null }),
+    );
+
+    for (const name of ['Pool', 'Deck']) {
+      expect(picksLeftTexts(await open(fixture, page, name))).toEqual(['12 picks left']);
+    }
+  });
+
+  it('shows the count on the Pool and Deck tabs in the lobby, which has no Queue pane', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Lobby', picksPerPlayer: 12, turn: null }),
+    );
+
+    for (const name of ['Pool', 'Deck']) {
+      expect(picksLeftTexts(await open(fixture, page, name))).toEqual(['12 picks left']);
+    }
+  });
 
   it('shows the bare heading in a complete draft', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, {

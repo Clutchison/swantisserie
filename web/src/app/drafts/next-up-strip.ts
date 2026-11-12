@@ -51,6 +51,6 @@ export class NextUpStrip {
 
   /** Opens the Queue pane over the page, in the Queue sheet; focus comes back here as it closes. */
   protected open() {
-    this.dialogs.open(QueueSheet, { label: 'Queue', injector: this.injector });
+    this.dialogs.open(QueueSheet, { label: 'Queue', sheet: true, injector: this.injector });
   }
 }

@@ -25,6 +25,7 @@ import {
   addBot,
   fourCards,
   registerWebhook,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -39,9 +40,9 @@ describe('cascade', () => {
   it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
+    await start(id).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
-    await start(id).expect(200);
 
     const picked = await pick(id, ids.Shock).expect(200);
 
@@ -68,9 +69,9 @@ describe('cascade', () => {
   it('stops at a player whose queue another player’s pick has just cleared', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
+    await start(id).expect(200);
     await enqueue(id, ids.Shock, bobCookie).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-    await start(id).expect(200);
 
     const picked = await pick(id, ids.Shock).expect(200);
 
@@ -88,10 +89,8 @@ describe('cascade', () => {
   it('clears a queue mid-cascade: a queued pick from a start stops at the player it cleared', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
-    await enqueue(id, ids.Shock).expect(200);
-    await enqueue(id, ids['Lightning Bolt']).expect(200);
-    await enqueue(id, ids.Shock, bobCookie).expect(200);
-    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+    await queueInLobby(id, alice, ids.Shock, ids['Lightning Bolt']);
+    await queueInLobby(id, bob, ids.Shock, ids['Lava Spike']);
 
     const started = await start(id).expect(200);
 
@@ -120,9 +119,9 @@ describe('cascade', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
       // Bob's turn is back, with his queue put back, and waits for him.
       await undo(id, 2).expect(200);
@@ -154,9 +153,9 @@ describe('cascade', () => {
       [aliceCookie, bobCookie],
       2,
     );
+    await start(id).expect(200);
     await enqueue(id, second, bobCookie).expect(200);
     await enqueue(id, first, bobCookie).expect(200);
-    await start(id).expect(200);
 
     await pick(id, ids.Shock).expect(200);
 
@@ -174,8 +173,8 @@ describe('cascade', () => {
       bobCookie,
       carolCookie,
     ]);
-    await enqueue(id, first, carolCookie).expect(200);
     await start(id).expect(200);
+    await enqueue(id, first, carolCookie).expect(200);
     await pick(id, first).expect(200);
 
     await pick(id, ids.Shock, bobCookie).expect(200);
@@ -194,8 +193,8 @@ describe('cascade', () => {
       bobCookie,
       carolCookie,
     ]);
-    await enqueue(id, queuedCopy, carolCookie).expect(200);
     await start(id).expect(200);
+    await enqueue(id, queuedCopy, carolCookie).expect(200);
     await pick(id, queuedCopy).expect(200);
 
     expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
@@ -213,8 +212,8 @@ describe('cascade', () => {
       bobCookie,
       carolCookie,
     ]);
-    await enqueue(id, first).expect(200);
-    await enqueue(id, first, bobCookie).expect(200);
+    await queueInLobby(id, alice, first);
+    await queueInLobby(id, bob, first);
 
     await start(id).expect(200);
 
@@ -226,9 +225,9 @@ describe('cascade', () => {
       [aliceCookie, bobCookie],
       2,
     );
+    await start(id).expect(200);
     await enqueue(id, first, bobCookie).expect(200);
     await enqueue(id, ids.Shock, bobCookie).expect(200);
-    await start(id).expect(200);
 
     // Bob's queue holds the second copy in the first's place, and his two
     // picks follow in the same turn.
@@ -251,9 +250,9 @@ describe('cascade', () => {
       bobCookie,
       carolCookie,
     ]);
+    await start(id).expect(200);
     await enqueue(id, first, carolCookie).expect(200);
     await enqueue(id, ids.Shock, carolCookie).expect(200);
-    await start(id).expect(200);
     await pick(id, first).expect(200);
 
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -261,10 +260,10 @@ describe('cascade', () => {
     expect(await pickedIds(id)).toEqual([first, ids['Lava Spike'], second]);
   });
 
-  it('picks the first player’s queued card when the draft starts', async () => {
+  it('picks the first player’s queue already filled in the lobby when the draft starts', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Lightning Bolt']).expect(200);
+    await queueInLobby(id, alice, ids['Lightning Bolt']);
 
     const started = await start(id).expect(200);
 
@@ -282,8 +281,7 @@ describe('cascade', () => {
     await addBot(id, await signIn(carol)).expect(201);
     // The bot picks the first available card by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await enqueue(id, ids.Shock).expect(200);
-    await enqueue(id, ids['Skewer the Critics']).expect(200);
+    await queueInLobby(id, alice, ids.Shock, ids['Skewer the Critics']);
 
     const started = await start(id).expect(200);
 
@@ -317,7 +315,7 @@ describe('cascade', () => {
     });
     // The bot picks the first available card by name.
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    await enqueue(id, ids.Shock).expect(200);
+    await queueInLobby(id, alice, ids.Shock);
 
     await start(id).expect(200);
 
@@ -345,9 +343,9 @@ describe('cascade', () => {
       await registerWebhook(),
     );
     const ids = await poolCardIds(id);
+    await start(id).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
-    await start(id).expect(200);
 
     await pick(id, ids.Shock).expect(200);
 
@@ -373,9 +371,9 @@ describe('cascade', () => {
       await registerWebhook(),
     );
     const ids = await poolCardIds(id);
+    await start(id).expect(200);
     await enqueue(id, ids.Shock, bobCookie).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-    await start(id).expect(200);
 
     await pick(id, ids.Shock).expect(200);
 

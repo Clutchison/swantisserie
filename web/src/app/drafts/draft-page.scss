@@ -15,8 +15,9 @@
   }
 }
 
-/* Above the tabs, or beside them; not in the Seat strip's popover. */
+/* Above the tabs; beside them, its wrapper has the margin. */
 main > .players-panel,
+main > .seat-strip,
 .pool,
 .plan,
 .board {
@@ -160,16 +161,27 @@ main {
     padding-bottom: var(--space-lg);
   }
 
-  .tabs {
+  /* The tabs, then the Seat strip at its end while the draft is drafting or paused. */
+  .tab-bar {
     position: sticky;
     top: 0;
-    bottom: auto;
+    /* Above the panels, which come after it, and the Pool's search bar: the Seat strip's popover drops over them. */
+    z-index: 2;
+    display: flex;
+    column-gap: var(--space-lg);
     box-sizing: border-box;
     height: var(--tab-bar-height);
     margin-top: var(--space-xl);
-    border-top: 0;
     border-bottom: 1px solid var(--color-divider);
     background: var(--color-bg);
+  }
+
+  .tabs {
+    position: static;
+    flex: none;
+    height: auto;
+    border-top: 0;
+    background: none;
 
     [role='tab'] {
       flex: none;
@@ -183,12 +195,21 @@ main {
     }
   }
 
+  /* Right-aligned after the tabs, giving up width to them: its seats scroll. */
+  .seat-strip {
+    align-self: center;
+    min-inline-size: 0;
+    margin-inline-start: auto;
+  }
+
   /*
-   * With the Queue pane, the page is two columns: the tabs and their panels,
-   * with the pane beside them. Like the tab bar, it stays in view as a tab
-   * scrolls, and scrolls on its own when it's long.
+   * With the Queue pane, or the Players panel in the lobby and once the draft
+   * is closed or complete, the page is two columns: the tabs and their panels,
+   * with the pane or the panel beside them. Like the tab bar, it stays in view
+   * as a tab scrolls, and scrolls on its own when it's long.
    */
-  main.with-queue-pane {
+  main.with-queue-pane,
+  main.with-players-beside-tabs {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-xl);
@@ -203,55 +224,16 @@ main {
       grid-column: 1;
     }
 
-    > .queue-pane {
+    > .queue-pane,
+    > .players-beside-tabs {
       @include side-pane.sticky;
 
       grid-column: 2;
       margin-top: var(--space-xl);
     }
-  }
-}
 
-/*
- * From here a started draft has the Seat strip after the tabs and any Queue
- * pane, until it is complete, when the Players panel is a pane there instead.
- * Each stays in view as a tab scrolls. In the lobby the Players panel stays
- * above the tabs.
- */
-@media (min-width: bp.$wide-desktop) {
-  main.with-seat-strip,
-  main.with-players-pane {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: var(--space-xl);
-    align-items: start;
-
-    /* The header and the status strip span every column. */
-    > * {
-      grid-column: 1 / -1;
+    > .players-beside-tabs {
+      inline-size: side-pane.$width;
     }
-
-    > .tab-column {
-      grid-column: 1;
-    }
-  }
-
-  main.with-seat-strip.with-queue-pane {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  /* The last column, after any Queue pane. */
-  main > .seat-strip {
-    grid-column: -2;
-    margin-top: var(--space-xl);
-  }
-
-  /* Placed after the tab column, so it shares its row; the reading order stays as written. */
-  main > .players-panel.in-pane {
-    @include side-pane.sticky;
-
-    order: 1;
-    grid-column: -2;
-    inline-size: side-pane.$width;
   }
 }

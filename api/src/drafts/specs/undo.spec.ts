@@ -62,10 +62,10 @@ describe('undo', () => {
   it('undoes only the last pick of a cascade, and makes no queued picks', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
+    await start(id).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
     await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
-    await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
 
     const undone = await undo(id, 3).expect(200);
@@ -199,10 +199,10 @@ describe('undo', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
       return id;
     }
@@ -273,10 +273,10 @@ describe('undo', () => {
         cards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       for (const name of cards) {
         await enqueue(id, ids[name], carolCookie).expect(200);
       }
-      await start(id).expect(200);
       await pick(id, ids['Card 59']).expect(200);
       await enqueue(id, ids['Card 00'], carolCookie).expect(200);
       await dismissNotice(id, carolCookie).expect(200);
@@ -296,9 +296,9 @@ describe('undo', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
       await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
       await enqueue(id, ids['Skewer the Critics'], carolCookie).expect(200);
@@ -334,9 +334,9 @@ describe('undo', () => {
         bobCookie,
         carolCookie,
       ]);
+      await start(id).expect(200);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, first).expect(200);
 
       await undo(id, 1).expect(200);
@@ -364,8 +364,8 @@ describe('undo', () => {
       );
       // Carol picks first, so Bob picks twice in a row after Alice.
       await setSeats(id, [carol.id, alice.id, bob.id]).expect(200);
-      await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await start(id).expect(200);
+      await setStealBehavior(id, 'PickNext', carolCookie).expect(200);
       await pick(id, ids.Fireblast, carolCookie).expect(200);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
@@ -392,10 +392,10 @@ describe('undo', () => {
         bobCookie,
         carolCookie,
       ]);
+      await start(id).expect(200);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, second, carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, first).expect(200);
 
       await undo(id, 1).expect(200);
