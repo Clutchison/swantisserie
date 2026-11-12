@@ -114,6 +114,10 @@ _Avoid_: Filter (alone), facet, search
 The pool filter that narrows by card color: a viewer presses colors, or colorless, and sees only cards whose colors are all among those pressed.
 _Avoid_: Color search, color identity filter, mana filter
 
+**Hide picked**:
+The pool filter that leaves picked cards out of the Pool tab, which otherwise shows them dimmed with their Picked badge.
+_Avoid_: Show available, taken filter, hide taken
+
 **Pool tab**:
 The part of a draft's page where a viewer browses and searches the pool cards, and where a player picks and queues them.
 _Avoid_: Card grid, pool page
