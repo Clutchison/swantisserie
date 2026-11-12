@@ -76,7 +76,7 @@ describe('steal behavior', () => {
     expect(accessibleDescription(pill(queue))).toBe(EXPLANATION);
     const shown = [...queue.querySelectorAll<HTMLElement>('*')].filter(
       (el) =>
-        !el.closest('.visually-hidden') &&
+        !el.closest('.visually-hidden, [hidden]') &&
         [...el.childNodes].some(
           (node) =>
             node.nodeType === Node.TEXT_NODE &&
