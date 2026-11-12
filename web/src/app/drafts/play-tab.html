@@ -87,30 +87,7 @@
         >{{ tournament.readyCount.ready }} of {{ tournament.readyCount.of }} ready</span
       >
     </div>
-    <ul class="entries" aria-label="Joined players">
-      @for (player of entries(); track player.id) {
-        <li>
-          <app-player-avatar [src]="player.avatarUrl" />
-          {{ player.name }}
-          @if (player.ready) {
-            <span class="badge success">Ready</span>
-          }
-          @if (offerOrganize() && player.id !== ownId() && player.droppable) {
-            <button
-              class="button compact secondary"
-              type="button"
-              [attr.aria-label]="'Remove ' + player.name"
-              (click)="remove(player.id)"
-              [appSendsChange]="'remove ' + player.id"
-            >
-              Remove
-            </button>
-          }
-        </li>
-      } @empty {
-        <li class="empty">Nobody has joined yet.</li>
-      }
-    </ul>
+    <!-- The row comes before the list, so a full list doesn’t push it out of view. -->
     <div class="controls">
       @if (offerJoin()) {
         <button class="button" type="button" (click)="join()" appSendsChange="join">
@@ -156,6 +133,30 @@
         </button>
       }
     </div>
+    <ul class="entries" aria-label="Joined players">
+      @for (player of entries(); track player.id) {
+        <li>
+          <app-player-avatar [src]="player.avatarUrl" />
+          {{ player.name }}
+          @if (player.ready) {
+            <span class="badge success">Ready</span>
+          }
+          @if (offerOrganize() && player.id !== ownId() && player.droppable) {
+            <button
+              class="button compact secondary"
+              type="button"
+              [attr.aria-label]="'Remove ' + player.name"
+              (click)="remove(player.id)"
+              [appSendsChange]="'remove ' + player.id"
+            >
+              Remove
+            </button>
+          }
+        </li>
+      } @empty {
+        <li class="empty">Nobody has joined yet.</li>
+      }
+    </ul>
   } @else {
     <p class="detail">{{ summary() }}</p>
     @if (trophyHolders().length) {

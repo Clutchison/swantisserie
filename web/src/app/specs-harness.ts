@@ -264,3 +264,11 @@ export const tableColumns = (table: HTMLElement) =>
   [...table.querySelectorAll('th[scope="col"], [role="columnheader"]')].map(
     (header) => header.querySelector('abbr')?.title ?? text(header),
   );
+
+/**
+ * Whether `first` comes before `second` in reading order: the order a
+ * keyboard or screen-reader user reaches them. Specs use it only to check
+ * that an action row comes before a list that grows.
+ */
+export const comesBefore = (first: Node, second: Node) =>
+  Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);

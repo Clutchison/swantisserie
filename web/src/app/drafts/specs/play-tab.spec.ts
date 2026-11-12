@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { answer, question } from '../../specs-harness';
+import { answer, comesBefore, question } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   ALL_POWERS,
@@ -18,6 +18,7 @@ import {
   flushPool,
   flushQueue,
   heading,
+  namedList,
   http,
   openDraft,
   openUrl,
@@ -318,6 +319,19 @@ describe('Play tab', () => {
         'Cancel tournament',
         'Start tournament',
       ]);
+    });
+
+    it('reads the registration buttons before Joined players, so a full list doesn’t push them out of view', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      const tab = await openPlayTab(fixture, page);
+
+      const list = namedList(tab, 'Joined players');
+      for (const label of ['Leave', 'I’m ready', 'Cancel tournament', 'Start tournament']) {
+        expect(comesBefore(button(tab, label)!, list)).toBe(true);
+      }
     });
 
     it('offers Leave, then I’m ready, to a joined player who isn’t an organizer', async () => {
