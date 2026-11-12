@@ -1,6 +1,6 @@
 /* The dialog's box, from dialog.scss: the draft's name, its header, its standings or bracket, its links, then Close. */
 :host {
-  --dialog-width: 48rem;
+  --dialog-width: var(--width-default);
 }
 
 /* Each term beside its value. */

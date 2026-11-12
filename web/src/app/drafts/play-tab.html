@@ -71,7 +71,7 @@
 } @else if (tournament(); as tournament) {
   <app-tournament-progress [tournament]="tournament" [ownId]="playsOn() ? ownId() : undefined" />
   @if (tournament.state === 'Registration') {
-    <p class="detail">
+    <p class="detail registration-note">
       {{ summary() }}.
       @if (tournament.publicDecklists) {
         Public decklists: everyone who sees this draft sees your deck once the tournament starts.

@@ -99,7 +99,7 @@
 progress {
   display: block;
   width: 100%;
-  max-width: var(--width-narrow);
+  max-inline-size: var(--width-narrow);
 }
 
 code {
@@ -209,7 +209,7 @@ main {
     column-gap: var(--space-xl);
     align-items: start;
 
-    /* The back link, the header and the status strip span both columns. */
+    /* The header and the status strip span both columns. */
     > * {
       grid-column: 1 / -1;
     }
