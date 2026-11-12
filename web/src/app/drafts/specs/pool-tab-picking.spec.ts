@@ -36,7 +36,7 @@ import {
   openDetail,
   searchBox,
 } from './pool-tab-harness';
-import { copyButton, openPlan } from './plan-tab-harness';
+import { exportButton, openPlan } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -519,6 +519,6 @@ describe('pool tab', () => {
     await fixture.whenStable();
 
     await openPlan(fixture, page);
-    expect(copyButton(page)).toBeDefined();
+    expect(exportButton(page)).toBeDefined();
   });
 });

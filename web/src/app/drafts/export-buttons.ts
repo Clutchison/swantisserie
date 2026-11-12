@@ -31,11 +31,11 @@ const PLATFORM_EXPORTS: Record<Platform, ExportTarget[]> = {
   MTGO: ['MTGO', 'Moxfield'],
 };
 
-/** How long the Copy button shows its confirmation. */
+/** How long the Export button shows its confirmation. */
 const CONFIRMATION_MS = 2000;
 
 /**
- * The Deck tab's Copy button, whose menu offers one item per export the
+ * The Deck tab's Export button, whose menu offers one item per export the
  * draft's platform offers, each copying the signed-in player's deck as that
  * export. It shows once the player has a pick and their deck has loaded,
  * locked or not.
@@ -59,7 +59,7 @@ export class ExportButtons implements OnDestroy {
     return mainboard.length + sideboard.length > 0 && this.store.exportPlanLoaded();
   });
 
-  /** In the order the Copy menu offers them. */
+  /** In the order the Export menu offers them. */
   protected readonly exportTargets = computed(() => PLATFORM_EXPORTS[this.store.shown().platform]);
 
   /** What the latest copy of the deck was copied for, while it's confirmed. */
@@ -88,7 +88,7 @@ export class ExportButtons implements OnDestroy {
   protected async copyFor(target: ExportTarget) {
     const copy = ++this.latestCopy;
     this.copyFailed.set(false);
-    // The Copy button stays confirmed while it copies the same export again, rather than flickering.
+    // The Export button stays confirmed while it copies the same export again, rather than flickering.
     if (this.copied() !== target) {
       this.clearConfirmation();
     }

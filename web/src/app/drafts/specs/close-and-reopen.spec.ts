@@ -21,12 +21,7 @@ import {
   ALL_POWERS,
   buttonOrder,
 } from './harness';
-import {
-  chooseFromMore,
-  moreButton,
-  offeredInMore,
-  openMore,
-} from './draft-header-harness';
+import { chooseFromMore, moreButton, offeredInMore, openMore } from './draft-header-harness';
 
 useDraftsApp();
 

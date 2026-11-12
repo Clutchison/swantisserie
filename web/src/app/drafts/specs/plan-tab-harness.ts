@@ -63,10 +63,10 @@ export const sideboardNotice = (page: HTMLElement) =>
     text(status).startsWith('Your sideboard has'),
   );
 
-/** The Deck tab's Copy button, whether it shows its label or its confirmation. */
-export const copyButton = (page: HTMLElement) =>
+/** The Deck tab's Export button, whether it shows its label or its confirmation. */
+export const exportButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
-    ['Copy', 'Copied'].includes(accessibleName(candidate)),
+    ['Export', 'Copied'].includes(accessibleName(candidate)),
   );
 
 /** Opens the Deck tab and returns its panel. */

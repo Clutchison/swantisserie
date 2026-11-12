@@ -7,7 +7,7 @@
   >
     <!-- Stays when hidden, so the button keeps its width. -->
     <span class="label menu-trigger-label" [attr.aria-hidden]="copied() ? 'true' : null"
-      >Copy <svg lucideChevronDown size="16" aria-hidden="true"></svg
+      >Export <svg lucideChevronDown size="16" aria-hidden="true"></svg
     ></span>
     @if (copied()) {
       <span class="confirmation">
@@ -19,10 +19,10 @@
 }
 <!-- One item per export the draft's platform offers. -->
 <ng-template #copyMenu>
-  <div cdkMenu aria-label="Copy">
+  <div cdkMenu aria-label="Export">
     @for (target of exportTargets(); track target) {
       <button type="button" cdkMenuItem (cdkMenuItemTriggered)="copyFor(target)">
-        {{ target }}
+        Copy for {{ target }}
       </button>
     }
   </div>
