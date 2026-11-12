@@ -43,6 +43,13 @@ import { QueueAddBump, QueueAddStatus, queueAddsFromNow } from './queue-add-stat
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
+import {
+  QUEUE_PICKING_HEADING,
+  QueuePickingDialog,
+  type QueuePickingResult,
+  queuePicksChanged,
+} from './queue-picking-dialog';
+import { DialogShell } from '../dialog-shell';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
@@ -124,6 +131,7 @@ export class QueuePane {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly dialog = inject(Dialog);
+  private readonly dialogs = inject(DialogShell);
 
   /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
   readonly collapsible = input(false);
@@ -399,21 +407,52 @@ export class QueuePane {
   /**
    * Sets the queue to queue paused, or queue picking, showing it at once. If that
    * fails, the previous state shows again until the queue is re-read.
+   * Setting it picking when it would pick cards straight away, on the
+   * player's own turn, first opens the Set queue picking dialog to confirm
+   * them; so does a refusal of setting it picking with none, as the queue
+   * would pick some after all.
    */
   protected toggleQueuePaused() {
     const previous = this.queue().queuePaused;
     const queuePaused = !previous;
+    if (!queuePaused && this.store.queuePicks().length > 0) {
+      this.confirmQueuePicking();
+      return;
+    }
     return this.change(
       () => {
         this.store.showQueue({ ...this.queue(), queuePaused });
-        return this.queueApi.setQueuePaused(this.draftId(), queuePaused);
+        return queuePaused
+          ? this.queueApi.pauseQueue(this.draftId())
+          : this.queueApi.setQueuePicking(this.draftId(), []);
       },
       {
         place: 'queuePaused',
         rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: previous }),
         status: queueStateName(queuePaused),
+        refused: (err) => {
+          if (!queuePicksChanged(err)) return false;
+          this.store.catchUp();
+          this.confirmQueuePicking();
+          return true;
+        },
       },
     );
+  }
+
+  /**
+   * Opens the Set queue picking dialog. A failure it closes with is said by
+   * the switch, where focus returns.
+   */
+  private confirmQueuePicking() {
+    this.dialogs
+      .open<QueuePickingDialog, QueuePickingResult>(QueuePickingDialog, {
+        labelledBy: QUEUE_PICKING_HEADING,
+        injector: this.injector,
+      })
+      .closed.subscribe((result) => {
+        if (result?.error) this.error.set({ message: result.error, place: 'queuePaused' });
+      });
   }
 
   /** Stops the notice listing the lost and cleared cards. */
@@ -426,15 +465,23 @@ export class QueuePane {
    * shows the queue it answers with, unless another change is in flight. A
    * refused change means the queue has moved on, e.g. a card was lost: say
    * why, at `place`, and roll back what it showed early; the store re-reads it. Focus
-   * is kept as `Changes.send` keeps it, and a change made says `status`.
+   * is kept as `Changes.send` keeps it, and a change made says `status`. A
+   * failure `refused` answers true for is left to it, unsaid.
    */
   private change(
     send: () => Observable<QueueView>,
     {
       place = 'queue',
       rollBack,
+      refused,
       ...kept
-    }: { place?: ErrorPlace; rollBack?: () => void; keep?: string[]; status?: string } = {},
+    }: {
+      place?: ErrorPlace;
+      rollBack?: () => void;
+      refused?: (err: unknown) => boolean;
+      keep?: string[];
+      status?: string;
+    } = {},
   ) {
     return this.changes.send(async () => {
       this.error.set(null);
@@ -442,6 +489,7 @@ export class QueuePane {
         await this.store.changeQueue(send(), { rollBack });
         return true;
       } catch (err) {
+        if (refused?.(err)) return false;
         this.error.set({ message: changeFailure(err, CHANGE_FAILED), place });
         return false;
       }

@@ -64,4 +64,10 @@ export interface StealBehaviorRequest {
 /** Whether a player sets their queue to queue paused or queue picking. */
 export interface QueuePausedRequest {
   queuePaused: boolean;
+  /**
+   * Setting it picking: the pool card ids, in order, that the player
+   * confirmed it picks before the turn passes, as
+   * `queuePicksBeforeTurnPasses` names them. Left out, none.
+   */
+  poolCardIds?: string[];
 }

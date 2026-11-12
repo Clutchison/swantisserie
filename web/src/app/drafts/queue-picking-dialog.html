@@ -1,0 +1,24 @@
+<div class="dialog">
+  <h3 [id]="headingId">Set your queue picking?</h3>
+  <div class="dialog-body">
+    @if (refused(); as reason) {
+      <p class="error" role="alert">{{ reason }}</p>
+    }
+    @if (picks().length === 0) {
+      <p>Your queue picks nothing before your turn passes.</p>
+    } @else {
+      <p>Your queue picks {{ picksText() }} now, before your turn passes:</p>
+      <ol aria-label="Cards your queue picks">
+        @for (card of picks(); track card.poolCardId) {
+          <li>{{ card.name }}</li>
+        }
+      </ol>
+    }
+  </div>
+  <div class="dialog-actions">
+    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
+    <button class="button" type="button" (click)="confirm()" [disabled]="sending() || rereading()">
+      Set queue picking
+    </button>
+  </div>
+</div>

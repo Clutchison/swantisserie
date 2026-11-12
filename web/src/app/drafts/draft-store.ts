@@ -23,10 +23,12 @@ import type {
   PlayerView,
   PoolCardRequest,
   PoolCardView,
+  QueuedCardView,
   QueueView,
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
+import { queuePicksBeforeTurnPasses } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
@@ -296,6 +298,42 @@ export class DraftStore implements TournamentViewer {
   });
   /** The signed-in player's queue. */
   readonly queue = keptRead(this.queueResource, EMPTY_QUEUE);
+  /**
+   * The cards, in order, that the signed-in player's queue picks before the
+   * turn passes, were it set queue picking now, worked out by the engine as
+   * the api works them out (ADR 0006): none unless the draft is Drafting
+   * and it is their turn, as both the draft and its picks say. Each is a
+   * queued card, with its name.
+   */
+  readonly queuePicks = computed<QueuedCardView[]>(() => {
+    const draft = this.draft.value();
+    const seat = this.players().findIndex((player) => player.id === this.user()?.id);
+    if (draft?.state !== 'Drafting' || !this.yourTurn()) return [];
+    const cards = this.queue.value().cards;
+    // Pool cards carry no oracle id; copies share a name, as they share one.
+    const pool = new Map(this.pool.value().map((card) => [card.id, card.name]));
+    const picks = queuePicksBeforeTurnPasses(
+      {
+        players: this.players().length,
+        picksPerPlayer: draft.picksPerPlayer,
+        picked: this.picks.value().map((pick) => pick.poolCardId),
+      },
+      seat,
+      cards.map((card) => card.poolCardId),
+      pool,
+    );
+    return picks.map((id) => cards.find((card) => card.poolCardId === id)!);
+  });
+  /**
+   * Whether the draft, its picks or the queue is being read again, so
+   * `queuePicks` may be about to change.
+   */
+  readonly rereadingQueuePicks = computed(
+    () =>
+      this.draftResource.isLoading() ||
+      this.picksResource.isLoading() ||
+      this.queueResource.isLoading(),
+  );
   /**
    * The signed-in player's queue's size: its count, and the noun a viewer
    * reads after it. Null until it is known: while it loads, or if it couldn't.

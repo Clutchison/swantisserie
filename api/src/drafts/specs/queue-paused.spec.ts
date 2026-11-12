@@ -184,7 +184,10 @@ describe('queue paused', () => {
       await enqueue(id, ids['Lightning Bolt']).expect(200);
       expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
 
-      const answer = await setQueuePaused(id, false, bobCookie).expect(200);
+      const answer = await setQueuePaused(id, false, bobCookie, [
+        ids['Lava Spike'],
+        ids['Skewer the Critics'],
+      ]).expect(200);
 
       expect(answer.body).toMatchObject({ cards: [], queuePaused: false });
       expect(await pickLogLines(id)).toEqual([
@@ -204,7 +207,9 @@ describe('queue paused', () => {
         expect(webhookClient.post).toHaveBeenCalledTimes(2),
       );
 
-      await setQueuePaused(id, false, bobCookie).expect(200);
+      await setQueuePaused(id, false, bobCookie, [ids['Lava Spike']]).expect(
+        200,
+      );
 
       const messages = await vi.waitFor(() => {
         expect(webhookClient.post).toHaveBeenCalledTimes(3);
@@ -232,6 +237,78 @@ describe('queue paused', () => {
       await announcementsSettled(id);
       // Only the start was announced.
       expect(webhookClient.post).toHaveBeenCalledTimes(1);
+    });
+
+    it('picks nothing once the turn has passed from the player, whatever cards they confirmed', async () => {
+      const { id, ids } = await startedDraft();
+      await bobQueuesPaused(id, ids, 'Lava Spike');
+
+      // It's Alice's turn, so the turn Bob confirmed Lava Spike for has passed.
+      await setQueuePaused(id, false, bobCookie, [ids['Lava Spike']]).expect(
+        200,
+      );
+
+      expect(await pickLogLines(id)).toEqual([]);
+      expect(await queuePaused(id, bobCookie)).toBe(false);
+    });
+
+    it('refuses, leaving the queue paused and picking nothing, when the cards confirmed aren’t those it would pick', async () => {
+      const { id, ids } = await startedDraft(await registerWebhook());
+      await bobQueuesPaused(id, ids, 'Lava Spike', 'Skewer the Critics');
+      await pick(id, ids.Shock).expect(200);
+      await vi.waitFor(() =>
+        expect(webhookClient.post).toHaveBeenCalledTimes(2),
+      );
+
+      for (const confirmed of [
+        undefined,
+        [],
+        [ids['Lava Spike']],
+        [ids['Skewer the Critics'], ids['Lava Spike']],
+        [ids['Lava Spike'], ids['Skewer the Critics'], ids['Lightning Bolt']],
+      ]) {
+        expect(
+          (await setQueuePaused(id, false, bobCookie, confirmed).expect(409))
+            .body,
+        ).toEqual({
+          error: 'queue-picks-changed',
+          message:
+            'Your queue would now pick different cards. Check them and try again.',
+        });
+      }
+
+      expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
+      expect(await queuePaused(id, bobCookie)).toBe(true);
+      await announcementsSettled(id);
+      expect(webhookClient.post).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses confirmed cards on the player’s turn when their queue would pick none', async () => {
+      const { id, ids } = await startedDraft();
+      await bobQueuesPaused(id, ids, 'Lava Spike');
+      await pick(id, ids.Shock).expect(200);
+      await removeFromQueue(id, ids['Lava Spike'], bobCookie).expect(200);
+
+      expect(
+        (
+          await setQueuePaused(id, false, bobCookie, [
+            ids['Lava Spike'],
+          ]).expect(409)
+        ).body.error,
+      ).toBe('queue-picks-changed');
+      expect(await queuePaused(id, bobCookie)).toBe(true);
+    });
+
+    it('refuses confirmed cards that aren’t a list of pool card ids', async () => {
+      const { id } = await startedDraft();
+
+      expect(
+        (await setQueuePaused(id, false, bobCookie, 'Lava Spike').expect(400))
+          .body,
+      ).toEqual({
+        error: 'invalid',
+        message: 'List the cards your queue picks, in order.',
+      });
     });
 
     it('picks nothing on the player’s turn while the draft is frozen, and the unfreeze then picks', async () => {
@@ -290,7 +367,9 @@ describe('queue paused', () => {
 
       await pick(id, ids.Shock).expect(200);
       const onBobsTurn = await version();
-      await setQueuePaused(id, false, bobCookie).expect(200);
+      await setQueuePaused(id, false, bobCookie, [ids['Lava Spike']]).expect(
+        200,
+      );
       expect(await version()).toBeGreaterThan(onBobsTurn);
     });
   });

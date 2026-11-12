@@ -139,7 +139,12 @@ export interface QueueRefusal {
     | 'draft-complete'
     | 'draft-closed'
     | 'your-turn'
-    | 'queue-changed';
+    | 'queue-changed'
+    /**
+     * Setting a queue picking on the player's own turn: the cards it would
+     * pick before the turn passes aren't those they confirmed.
+     */
+    | 'queue-picks-changed';
   message: string;
 }
 

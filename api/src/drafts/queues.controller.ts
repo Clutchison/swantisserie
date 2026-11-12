@@ -114,9 +114,11 @@ export class QueuesController {
   }
 
   /**
-   * Sets the queue to queue paused or queue picking. Picks that setting it
-   * picking makes are published, as a cascade's are; otherwise nothing is
-   * published, as the state is private to the player.
+   * Sets the queue to queue paused or queue picking. Setting it picking on
+   * the player's own turn sends the cards they confirmed it picks before
+   * the turn passes. Picks that setting it picking makes are published, as a
+   * cascade's are; otherwise nothing is published, as the state is private
+   * to the player.
    */
   @Put('paused')
   async setQueuePaused(
@@ -124,9 +126,14 @@ export class QueuesController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const queuePaused = parseQueuePaused(body);
+    const { queuePaused, poolCardIds } = parseQueuePaused(body);
     return this.answer(user, id, async () => {
-      const events = await this.turns.setQueuePaused(id, user.id, queuePaused);
+      const events = await this.turns.setQueuePaused(
+        id,
+        user.id,
+        queuePaused,
+        poolCardIds,
+      );
       if (events.length > 0) await this.changes.committed(id, events);
       return this.queues.queue(id, user.id);
     });
@@ -192,16 +199,29 @@ function parseIncludeSideboard(body: unknown): boolean {
   return includeSideboard;
 }
 
-/** Whether to set the queue to queue paused, or a 400 if it isn't said. */
-function parseQueuePaused(body: unknown): boolean {
-  const { queuePaused } = bodyFields<QueuePausedRequest>(body);
+/**
+ * Whether to set the queue to queue paused, and the cards confirmed for
+ * setting it picking, none if left out; or a 400 if either isn't said right.
+ */
+function parseQueuePaused(body: unknown): Required<QueuePausedRequest> {
+  const { queuePaused, poolCardIds = [] } =
+    bodyFields<QueuePausedRequest>(body);
   if (typeof queuePaused !== 'boolean') {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Say whether to pause the queue.',
     } satisfies RequestProblem);
   }
-  return queuePaused;
+  if (
+    !Array.isArray(poolCardIds) ||
+    !poolCardIds.every((id) => typeof id === 'string')
+  ) {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'List the cards your queue picks, in order.',
+    } satisfies RequestProblem);
+  }
+  return { queuePaused, poolCardIds };
 }
 
 /** The steal behavior to set, or a 400 if it isn't one. */
